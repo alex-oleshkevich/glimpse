@@ -1,0 +1,22 @@
+using Gtk 4.0;
+
+template $GlimpseSearchRow: Box {
+    orientation: horizontal;
+
+    Image icon {
+        pixel-size: 32;
+    }
+
+    Box {
+        orientation: vertical;
+        spacing: 4;
+
+        Label title {
+            ellipsize: end;
+        }
+
+        Label subtitle {
+            ellipsize: end;
+        }
+    }
+}

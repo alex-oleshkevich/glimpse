@@ -1,0 +1,38 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $MainWindow: Adw.ApplicationWindow {
+    default-width: 700;
+    default-height: 500;
+    resizable: false;
+    title: "Glimpse";
+    hide-on-close: true;
+    modal: true;
+
+    content: Box main_box {
+        orientation: vertical;
+
+        Box search_header {
+            orientation: horizontal;
+
+            Entry search_entry {
+                placeholder-text: "Start typing to search...";
+                hexpand: true;
+            }
+        }
+
+        ScrolledWindow {
+            hscrollbar-policy: never;
+            vscrollbar-policy: automatic;
+            vexpand: true;
+            hexpand: true;
+            valign: fill;
+
+            ListView result_view {
+                valign: fill;
+                vexpand: true;
+                hexpand: true;
+            }
+        }
+    };
+}
