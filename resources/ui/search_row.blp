@@ -2,6 +2,7 @@ using Gtk 4.0;
 
 template $GlimpseSearchRow: Box {
     orientation: horizontal;
+    css-classes: ["search-row"];
 
     Image icon {
         pixel-size: 32;
@@ -10,13 +11,16 @@ template $GlimpseSearchRow: Box {
     Box {
         orientation: vertical;
         spacing: 4;
+        halign: start;
 
         Label title {
             ellipsize: end;
+            halign: start;
         }
 
         Label subtitle {
             ellipsize: end;
+            halign: start;
         }
     }
 }

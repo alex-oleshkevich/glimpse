@@ -2,20 +2,24 @@ using Gtk 4.0;
 using Adw 1;
 
 template $MainWindow: Adw.ApplicationWindow {
-    default-width: 700;
-    default-height: 500;
+    default-width: 900;
+    default-height: 600;
     resizable: false;
     title: "Glimpse";
     hide-on-close: true;
     modal: true;
+    decorated: false;
+    name: "main-window";
 
     content: Box main_box {
         orientation: vertical;
 
         Box search_header {
+            name: "search-header";
             orientation: horizontal;
 
             Entry search_entry {
+                name: "search-entry";
                 placeholder-text: "Start typing to search...";
                 hexpand: true;
             }

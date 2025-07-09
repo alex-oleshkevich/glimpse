@@ -1,3 +1,4 @@
+use adw::prelude::*;
 use adw::subclass::prelude::*;
 use glib::subclass::InitializingObject;
 use gtk::glib;

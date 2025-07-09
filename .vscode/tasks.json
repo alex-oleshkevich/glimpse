@@ -6,7 +6,15 @@
         {
             "label": "run",
             "type": "shell",
-            "command": "just run"
+            "command": "just run",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            }
         },
         {
             "label": "run-debug",
@@ -21,7 +29,7 @@
                 "echo": true,
                 "reveal": "silent",
                 "focus": false,
-                "panel": "shared",
+                "panel": "dedicated",
                 "showReuseMessage": false,
                 "clear": false
             }

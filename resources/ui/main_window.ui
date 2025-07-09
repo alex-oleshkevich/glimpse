@@ -7,20 +7,24 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
 <interface>
   <requires lib="gtk" version="4.0"/>
   <template class="MainWindow" parent="AdwApplicationWindow">
-    <property name="default-width">700</property>
-    <property name="default-height">500</property>
+    <property name="default-width">900</property>
+    <property name="default-height">600</property>
     <property name="resizable">false</property>
     <property name="title">Glimpse</property>
     <property name="hide-on-close">true</property>
     <property name="modal">true</property>
+    <property name="decorated">false</property>
+    <property name="name">main-window</property>
     <property name="content">
       <object class="GtkBox" id="main_box">
         <property name="orientation">1</property>
         <child>
           <object class="GtkBox" id="search_header">
+            <property name="name">search-header</property>
             <property name="orientation">0</property>
             <child>
               <object class="GtkEntry" id="search_entry">
+                <property name="name">search-entry</property>
                 <property name="placeholder-text">Start typing to search...</property>
                 <property name="hexpand">true</property>
               </object>

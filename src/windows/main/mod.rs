@@ -26,11 +26,13 @@ impl MainWindow {
 
     fn setup_results(&self) {
         let model = gio::ListStore::new::<SearchRowObject>();
-        model.append(&SearchRowObject::new(
-            "Example Item 1".to_string(),
-            "Subtitle 1".to_string(),
-            "application-x-executable".to_string(),
-        ));
+        for i in 2..=100 {
+            model.append(&SearchRowObject::new(
+                format!("Example Item {}", i),
+                format!("Subtitle {}", i),
+                "application-x-executable".to_string(),
+            ));
+        }
         self.imp().results.replace(Some(model));
 
         let selection_model = gtk::SingleSelection::new(Some(self.results()));

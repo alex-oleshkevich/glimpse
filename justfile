@@ -8,8 +8,9 @@ build-ui:
         fi
     done
 
+
 run:
-    cargo run
+    GLIMPSE_DEBUG_CLOSE_ON_CLOSE=1 cargo run
 
 run-debug:
-    GTK_DEBUG=interactive cargo run
+    GLIMPSE_DEBUG_CLOSE_ON_CLOSE=1 GTK_DEBUG=interactive cargo run
