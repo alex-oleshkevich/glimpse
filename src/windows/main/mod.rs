@@ -12,6 +12,7 @@ glib::wrapper! {
         @extends adw::ApplicationWindow, gtk::Window, gtk::Widget,
         @implements gio::ActionGroup, gio::ActionMap, gtk::Accessible, gtk::Buildable,
                     gtk::ConstraintTarget, gtk::Native, gtk::Root, gtk::ShortcutManager;
+
 }
 
 impl MainWindow {
@@ -23,6 +24,10 @@ impl MainWindow {
         self.imp().search_entry.clone()
     }
 
+    pub fn result_view(&self) -> gtk::ListView {
+        self.imp().result_view.clone()
+    }
+
     fn results(&self) -> gio::ListStore {
         self.imp()
             .results
@@ -31,7 +36,7 @@ impl MainWindow {
             .expect("Results should be initialized")
     }
 
-    fn selection_model(&self) -> gtk::SingleSelection {
+    pub fn selection_model(&self) -> gtk::SingleSelection {
         self.imp()
             .result_view
             .model()
@@ -44,17 +49,28 @@ impl MainWindow {
     fn setup(&self) {
         self.setup_results();
         self.setup_factory();
-        // self.setup_focus_detection();
         self.setup_window_keyhandler();
-        self.setup_result_keyhandler();
-        self.setup_query();
     }
 
     fn setup_results(&self) {
         let model = gio::ListStore::new::<SearchRowObject>();
         self.imp().results.replace(Some(model));
 
-        let selection_model = gtk::SingleSelection::new(Some(self.results()));
+        let sorter = gtk::CustomSorter::new(move |obj1, obj2| {
+            let left_object = obj1
+                .downcast_ref::<SearchRowObject>()
+                .expect("The object needs to be of type `SearchRowObject`.");
+            let right_object = obj2
+                .downcast_ref::<SearchRowObject>()
+                .expect("The object needs to be of type `SearchRowObject`.");
+
+            let title_1 = left_object.title();
+            let title_2 = right_object.title();
+            title_2.cmp(&title_1).into()
+        });
+
+        let sort_model = gtk::SortListModel::new(Some(self.results()), Some(sorter.clone()));
+        let selection_model = gtk::SingleSelection::new(Some(sort_model));
         self.imp().result_view.set_model(Some(&selection_model));
     }
 
@@ -76,7 +92,6 @@ impl MainWindow {
                 .and_downcast::<SearchRowObject>()
                 .expect("The item has to be an `SearchRowObject`.");
 
-            // Get `SearchRow` from `ListItem`
             let search_row = list_item
                 .downcast_ref::<gtk::ListItem>()
                 .expect("Needs to be ListItem")
@@ -100,42 +115,6 @@ impl MainWindow {
 
         self.imp().result_view.set_factory(Some(&factory));
     }
-
-    fn setup_query(&self) {
-        let search_entry = self.search_entry();
-        let window = self.clone();
-        search_entry.connect_changed(glib::clone!(
-            #[weak]
-            window,
-            move |entry| {
-                window.emit_by_name::<()>("glimpse-query", &[&entry.text().to_string()]);
-            }
-        ));
-    }
-
-    // fn setup_focus_detection(&self) {
-    //     let interacted = Rc::new(Cell::new(false));
-    //     self.search_entry().connect_has_focus_notify(glib::clone!(
-    //         #[weak]
-    //         interacted,
-    //         move |entry| {
-    //             if !interacted.get() {
-    //                 interacted.set(true);
-    //                 println!("Search entry gained focus: {}", entry.text());
-    //             }
-    //         }
-    //     ));
-
-    //     let window = self.clone();
-    //     let controller = gtk::EventControllerFocus::new();
-    //     controller.connect_leave(glib::clone!(move |_| {
-    //         if interacted.get() {
-    //             window.close();
-    //             println!("Search entry lost focus");
-    //         }
-    //     }));
-    //     self.add_controller(controller);
-    // }
 
     fn setup_window_keyhandler(&self) {
         let main_window = self;
@@ -219,33 +198,6 @@ impl MainWindow {
         self.add_controller(controller);
     }
 
-    fn setup_result_keyhandler(&self) {
-        let controller = gtk::EventControllerKey::new();
-        let selection_model = self.selection_model();
-        let window = self.clone();
-        self.imp().result_view.connect_activate(glib::clone!(
-            #[weak]
-            selection_model,
-            #[weak]
-            window,
-            move |_, _| {
-                let item = selection_model.selected_item();
-                if item.is_none() {
-                    return;
-                }
-                let item = item.unwrap();
-                let command_id = item
-                    .downcast_ref::<SearchRowObject>()
-                    .expect("Item should be SearchRowObject")
-                    .id()
-                    .to_string();
-                let command = window.imp().command_map.borrow_mut();
-                println!("Item activated {:?}", command.get(&command_id));
-            }
-        ));
-        self.imp().result_view.add_controller(controller);
-    }
-
     pub fn dispatch(&self, message: messages::UIMessage) {
         match message {
             messages::UIMessage::AddCommand(command) => {
@@ -261,6 +213,8 @@ impl MainWindow {
                     .borrow_mut()
                     .insert(command_clone.id(), command_clone);
                 self.results().append(&row);
+                self.selection_model()
+                    .set_selected(0);
             }
             messages::UIMessage::ClearResults => {
                 self.results().remove_all();
@@ -270,14 +224,5 @@ impl MainWindow {
                 eprintln!("Unhandled UIMessage: {:?}", message);
             }
         }
-    }
-
-    pub fn subscribe(&self, receiver: async_channel::Receiver<messages::UIMessage>) {
-        let clone = self.clone();
-        glib::MainContext::default().spawn_local(async move {
-            while let Ok(msg) = receiver.recv().await {
-                clone.dispatch(msg);
-            }
-        });
     }
 }

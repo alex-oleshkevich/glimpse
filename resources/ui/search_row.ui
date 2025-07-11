@@ -11,7 +11,8 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
     <property name="css-classes">search-row</property>
     <child>
       <object class="GtkImage" id="icon">
-        <property name="pixel-size">32</property>
+        <property name="pixel-size">40</property>
+        <property name="css-classes">search-icon</property>
       </object>
     </child>
     <child>
@@ -23,12 +24,14 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
           <object class="GtkLabel" id="title">
             <property name="ellipsize">3</property>
             <property name="halign">1</property>
+            <property name="css-classes">search-title</property>
           </object>
         </child>
         <child>
           <object class="GtkLabel" id="subtitle">
             <property name="ellipsize">3</property>
             <property name="halign">1</property>
+            <property name="css-classes">search-subtitle</property>
           </object>
         </child>
       </object>

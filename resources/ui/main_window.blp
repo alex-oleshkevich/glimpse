@@ -8,7 +8,6 @@ template $MainWindow: Adw.ApplicationWindow  {
     title: "Glimpse";
     hide-on-close: true;
     modal: true;
-    decorated: false;
     name: "main-window";
 
     content: Box main_box {
@@ -20,9 +19,9 @@ template $MainWindow: Adw.ApplicationWindow  {
             orientation: horizontal;
 
             Entry search_entry {
-                name: "search-entry";
                 placeholder-text: "Start typing to search...";
                 hexpand: true;
+                css-classes: ["search-entry"];
             }
         }
 

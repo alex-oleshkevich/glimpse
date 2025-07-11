@@ -1,11 +1,12 @@
 #[derive(Debug, Clone)]
 pub enum Action {
     LaunchApp { app_id: String },
-    ShellExec(),
-    CopyToClipboard(),
+    ShellExec(String, Vec<String>),
+    CopyToClipboard(String),
     OpenUrl(),
     OpenFile(),
     OpenFolder(),
+    Noop,
 }
 
 #[derive(Debug, Clone)]
@@ -18,13 +19,18 @@ pub struct Command {
 }
 
 impl Command {
-    pub fn new(title: String, subtitle: String, icon: String, actions: Vec<Action>) -> Self {
+    pub fn new(
+        title: String,
+        subtitle: String,
+        icon: String,
+        actions: Vec<Action>,
+    ) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
-            title,
-            subtitle,
-            icon,
-            actions,
+            title: title,
+            subtitle: subtitle,
+            icon: icon,
+            actions: actions,
         }
     }
 
@@ -41,6 +47,18 @@ impl Command {
             Some(&self.actions[1])
         } else {
             None
+        }
+    }
+}
+
+pub struct Error {
+    pub message: String,
+}
+
+impl Error {
+    pub fn new(message: &str) -> Self {
+        Self {
+            message: message.to_string(),
         }
     }
 }

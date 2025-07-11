@@ -5,7 +5,8 @@ template $GlimpseSearchRow: Box {
     css-classes: ["search-row"];
 
     Image icon {
-        pixel-size: 32;
+        pixel-size: 40;
+        css-classes: ["search-icon"];
     }
 
     Box {
@@ -16,11 +17,13 @@ template $GlimpseSearchRow: Box {
         Label title {
             ellipsize: end;
             halign: start;
+            css-classes: ["search-title"];
         }
 
         Label subtitle {
             ellipsize: end;
             halign: start;
+            css-classes: ["search-subtitle"];
         }
     }
 }

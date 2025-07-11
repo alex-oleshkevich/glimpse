@@ -5,6 +5,8 @@ use gio::prelude::*;
 
 pub struct Apps {}
 
+const EXTENSION_ID: &str = "me.aresa.glimpse.apps";
+
 impl Apps {
     pub fn new() -> Self {
         Self {}
@@ -60,6 +62,10 @@ impl Apps {
 }
 
 impl extensions::Extension for Apps {
+    fn id(&self) -> String {
+        EXTENSION_ID.to_string()
+    }
+
     fn metadata(&self) -> extensions::ExtensionMetadata {
         extensions::ExtensionMetadata {
             name: "Apps".to_string(),
@@ -73,16 +79,6 @@ impl extensions::Extension for Apps {
         match query {
             messages::Message::Query(query_str) => self.query_apps(query_str),
             _ => vec![],
-        }
-    }
-
-    fn execute(&self, action: &commands::Action) -> Result<Vec<commands::Command>, String> {
-        match action {
-            commands::Action::LaunchApp { app_id } => {
-                println!("Launching app with ID: {}", app_id);
-                Ok(vec![])
-            }
-            _ => Err("Unknown action".to_string()),
         }
     }
 }

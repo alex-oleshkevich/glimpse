@@ -1,11 +1,11 @@
 use adw::subclass::prelude::*;
 use glib::subclass::{InitializingObject, Signal};
 use gtk::glib;
-use std::{cell::RefCell, collections::HashMap, hash::Hash, sync::OnceLock};
+use std::{cell::RefCell, collections::HashMap, sync::OnceLock};
 
 use gtk::prelude::*;
 
-use crate::{commands, messages};
+use crate::commands;
 
 #[derive(gtk::CompositeTemplate, Default)]
 #[template(resource = "/me/aresa/glimpse/ui/main_window.ui")]
