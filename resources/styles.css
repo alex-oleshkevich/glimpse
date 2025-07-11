@@ -1,24 +1,29 @@
-/* #main-window {
+#main-window {
     background-color: #f9f9f9;
     border-radius: 0;
     box-shadow: 0;
-}
-
-#search-header {
-    margin-top: 4px;
-    margin-bottom: 4px;
-    margin-left: 4px;
-    margin-right: 4px;
-    border-bottom: 1px solid #ccc;
+    border: 1px solid #e0e0e0;
 }
 
 #search-entry {
     border: 0;
     border-radius: 0;
     background-color: transparent;
-    padding-left: 8px;
-    padding-right: 8px;
+    font-size: 18px;
     padding-top: 4px;
     padding-bottom: 4px;
-    font-size: 18px;
-} */
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+#search_header {
+    border-bottom: 1px solid #e0e0e0;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
+#result_view {
+    background-color: transparent;
+    border-radius: 0;
+    border: 0;
+}

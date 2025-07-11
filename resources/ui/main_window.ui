@@ -18,6 +18,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
     <property name="content">
       <object class="GtkBox" id="main_box">
         <property name="orientation">1</property>
+        <property name="name">main-box</property>
         <child>
           <object class="GtkBox" id="search_header">
             <property name="name">search-header</property>

@@ -1,8 +1,11 @@
-use adw::prelude::*;
 use adw::subclass::prelude::*;
-use glib::subclass::InitializingObject;
+use glib::subclass::{InitializingObject, Signal};
 use gtk::glib;
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::HashMap, hash::Hash, sync::OnceLock};
+
+use gtk::prelude::*;
+
+use crate::{commands, messages};
 
 #[derive(gtk::CompositeTemplate, Default)]
 #[template(resource = "/me/aresa/glimpse/ui/main_window.ui")]
@@ -13,7 +16,11 @@ pub struct MainWindow {
     #[template_child]
     pub result_view: TemplateChild<gtk::ListView>,
 
+    #[template_child]
+    pub main_box: TemplateChild<gtk::Box>,
+
     pub results: RefCell<Option<gio::ListStore>>,
+    pub command_map: RefCell<HashMap<String, commands::Command>>,
 }
 
 #[glib::object_subclass]
@@ -36,8 +43,18 @@ impl ObjectImpl for MainWindow {
         self.parent_constructed();
 
         let obj = self.obj();
-        obj.setup_results();
-        obj.setup_factory();
+        obj.setup();
+    }
+
+    fn signals() -> &'static [Signal] {
+        static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
+        SIGNALS.get_or_init(|| {
+            vec![
+                Signal::builder("glimpse-query")
+                    .param_types([String::static_type()])
+                    .build(),
+            ]
+        })
     }
 }
 

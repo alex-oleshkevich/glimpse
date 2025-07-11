@@ -10,6 +10,7 @@ use super::SearchRowObjectData;
 #[derive(Properties, Default)]
 #[properties(wrapper_type = super::SearchRowObject)]
 pub struct SearchRowObject {
+    #[property(name = "id", get, set, type = String, member = id)]
     #[property(name = "title", get, set, type = String, member = title)]
     #[property(name = "subtitle", get, set, type = String, member = subtitle)]
     #[property(name = "icon", get, set, type = String, member = icon)]

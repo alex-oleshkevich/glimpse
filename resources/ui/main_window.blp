@@ -1,7 +1,7 @@
 using Gtk 4.0;
 using Adw 1;
 
-template $MainWindow: Adw.ApplicationWindow {
+template $MainWindow: Adw.ApplicationWindow  {
     default-width: 900;
     default-height: 600;
     resizable: false;
@@ -13,6 +13,7 @@ template $MainWindow: Adw.ApplicationWindow {
 
     content: Box main_box {
         orientation: vertical;
+        name: "main-box";
 
         Box search_header {
             name: "search-header";
