@@ -1,4 +1,7 @@
+use iced::futures::channel::mpsc;
+
 use crate::{
+    app::AppMessage,
     gui::app::Screen,
     search::{Action, SearchItem},
 };
@@ -11,12 +14,13 @@ pub enum WindowMessage {
 #[derive(Debug, Clone)]
 pub enum SearchMessage {
     StartSearch(String),
-    Clear,
+    ClearResults,
     SetResults(Vec<SearchItem>),
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    AppBootstrapped(mpsc::Sender<AppMessage>),
     Navigate(Screen),
     Window(WindowMessage),
     Search(SearchMessage),

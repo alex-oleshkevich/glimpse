@@ -29,10 +29,6 @@ impl Search {
     }
 
     pub async fn search(&self, query: String) -> Vec<SearchItem> {
-        // Simulate an asynchronous search operation
-        // In a real application, this would likely involve querying a database or an API
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
         vec![
             SearchItem {
                 title: "Example Item".to_string(),
@@ -125,5 +121,8 @@ impl Search {
                 actions: vec![Action {}],
             },
         ]
+        .into_iter()
+        .filter(|item| item.title.to_lowercase().contains(&query.to_lowercase()))
+        .collect()
     }
 }
