@@ -1,6 +1,7 @@
 use std::path;
 
-use crate::gui::app::{Message, Screen, SearchMessage};
+use crate::gui::app::{Screen};
+use crate::gui::messages::{Message, SearchMessage};
 use crate::search::{Icon, SearchItem};
 use iced::widget::{
     Button, Space, button, column, container, row, scrollable, svg, text, text_input,

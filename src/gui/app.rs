@@ -1,8 +1,10 @@
 use iced::*;
 
 use crate::{
-    app::AppChannel,
-    gui::widgets::{main_view, plugin_view},
+    gui::{
+        messages::{Message, SearchMessage, WindowMessage},
+        widgets::{main_view, plugin_view},
+    },
     search::{Action, Icon, SearchItem},
 };
 
@@ -17,14 +19,11 @@ pub struct State {
     pub query: String,
     pub screen: Screen,
     pub search_results: Vec<SearchItem>,
-    pub app_channel: AppChannel,
 }
 
 impl State {
-    pub fn new(app_channel: AppChannel) -> Self {
-        let mut state = State::default();
-        state.app_channel = app_channel;
-        return state;
+    pub fn new() -> Self {
+        State::default()
     }
 }
 
@@ -33,7 +32,6 @@ impl Default for State {
         Self {
             query: String::new(),
             screen: Screen::Search,
-            app_channel: AppChannel::new(),
             search_results: vec![
                 SearchItem {
                     title: "Example Item".to_string(),
@@ -130,59 +128,49 @@ impl Default for State {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum WindowMessage {
-    Close,
+pub struct GuiApp {
+    state: State,
 }
 
-#[derive(Debug, Clone)]
-pub enum SearchMessage {
-    StartSearch(String),
-    Clear,
-    SetResults(Vec<SearchItem>),
-}
-
-#[derive(Debug, Clone)]
-pub enum Message {
-    Navigate(Screen),
-    Window(WindowMessage),
-    Search(SearchMessage),
-    DispatchAction(Action),
-    Noop,
-}
-
-pub fn update(state: &mut State, message: Message) -> Task<Message> {
-    match message {
-        Message::Navigate(screen) => state.screen = screen,
-        Message::DispatchAction(action) => {
-            println!("Executing action: {:?}", action);
-        }
-        Message::Search(message) => match message {
-            SearchMessage::StartSearch(title) => state.query = title,
-            SearchMessage::Clear => state.query.clear(),
-            SearchMessage::SetResults(results) => state.search_results = results,
-        },
-        Message::Window(WindowMessage::Close) => {
-            return iced::window::get_latest()
-                .and_then(|id| iced::window::change_mode(id, iced::window::Mode::Hidden));
-        }
-        Message::Noop => {}
-    };
-    Task::none()
-}
-
-pub fn view(state: &State) -> Element<Message> {
-    match &state.screen {
-        Screen::Search => main_view(&state.query, &state.search_results),
-        Screen::PluginView => plugin_view(&state.search_results),
+impl GuiApp {
+    pub fn new() -> (Self, Task<Message>) {
+        let state = State::new();
+        (Self { state }, Task::none())
     }
-}
 
-pub fn subscription(_state: &State) -> Subscription<Message> {
-    Subscription::batch(vec![iced::event::listen().map(|event| match event {
-        iced::event::Event::Window(iced::window::Event::CloseRequested) => {
-            Message::Window(WindowMessage::Close)
+    pub fn update(&mut self, message: Message) -> Task<Message> {
+        match message {
+            Message::Navigate(screen) => self.state.screen = screen,
+            Message::DispatchAction(action) => {
+                println!("Executing action: {:?}", action);
+            }
+            Message::Search(message) => match message {
+                SearchMessage::StartSearch(title) => self.state.query = title,
+                SearchMessage::Clear => self.state.query.clear(),
+                SearchMessage::SetResults(results) => self.state.search_results = results,
+            },
+            Message::Window(WindowMessage::Close) => {
+                return iced::window::get_latest()
+                    .and_then(|id| iced::window::change_mode(id, iced::window::Mode::Hidden));
+            }
+            Message::Noop => {}
+        };
+        Task::none()
+    }
+
+    pub fn view(&self) -> Element<Message> {
+        match &self.state.screen {
+            Screen::Search => main_view(&self.state.query, &self.state.search_results),
+            Screen::PluginView => plugin_view(&self.state.search_results),
         }
-        _ => Message::Noop,
-    })])
+    }
+
+    pub fn subscription(&self) -> Subscription<Message> {
+        Subscription::batch(vec![iced::event::listen().map(|event| match event {
+            iced::event::Event::Window(iced::window::Event::CloseRequested) => {
+                Message::Window(WindowMessage::Close)
+            }
+            _ => Message::Noop,
+        })])
+    }
 }

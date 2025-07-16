@@ -1,7 +1,5 @@
 use tracing_subscriber::FmtSubscriber;
 
-use crate::app::App;
-
 mod app;
 mod extensions;
 mod gui;
@@ -10,10 +8,7 @@ mod search;
 fn main() -> iced::Result {
     init_logging();
 
-    let mut app = App::new();
-    app.initialize();
-
-    gui::run(app)
+    gui::run()
 }
 
 fn init_logging() {
