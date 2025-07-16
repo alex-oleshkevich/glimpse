@@ -4,26 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-glib = "0.20.12"
-gtk = { version = "0.9.7", package = "gtk4" }
-adw = { version = "0.7", package = "libadwaita", features = ["v1_7"] }
-gio = "0.20.12"
-meval = "0.2.0"
-dbus = "0.9.7"
-log = "0.4.27"
-gtk4-layer-shell = "0.5.0"
-async-channel = "2.5.0"
-uuid = { version = "1.17.0", features = ["v4"] }
 serde = { version = "1.0.219", features = ["derive"] }
 numbat = "1.16.0"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+iced = { version = "0.13.1", features = ["tokio", "image", "svg"] }
+tokio = { version = "1.46.1", features = ["fs", "process"] }
 
-[build-dependencies]
-glib-build-tools = "0.19"
-glob = "0.3.2"
 
 [[bin]]
 name = "glimpse"
 path = "src/main.rs"
-
-[dev-dependencies]
-glib-build-tools = "0.19"

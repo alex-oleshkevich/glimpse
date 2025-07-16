@@ -1,52 +1,129 @@
-use std::sync::Arc;
-
-use crate::{commands, extensions, messages};
-
-pub struct Search {
-    extensions: Arc<extensions::ExtensionManager>,
+#[derive(Debug, Clone)]
+pub enum Icon {
+    Path(String),
 }
 
+#[derive(Debug, Clone)]
+pub struct Action {}
+
+#[derive(Debug, Clone)]
+pub struct SearchItem {
+    pub title: String,
+    pub subtitle: String,
+    pub category: String,
+    pub icon: Icon,
+    pub actions: Vec<Action>,
+}
+
+impl SearchItem {
+    pub fn primary_action(&self) -> Option<&Action> {
+        self.actions.first()
+    }
+}
+
+pub struct Search {}
+
 impl Search {
-    pub fn new(extensions: Arc<extensions::ExtensionManager>) -> Self {
-        Self { extensions }
+    pub fn new() -> Self {
+        Self {}
     }
 
-    pub fn search(&self, query: &str) -> Vec<commands::Command> {
-        let mut results = Vec::new();
-        for extension in self.extensions.all() {
-            let commands = extension.query(&messages::Message::Query(query.to_string()));
-            for command in commands {
-                results.push(command);
-            }
-        }
-        results
+    pub async fn search(&self, query: String) -> Vec<SearchItem> {
+        // Simulate an asynchronous search operation
+        // In a real application, this would likely involve querying a database or an API
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+        vec![
+            SearchItem {
+                title: "Example Item".to_string(),
+                subtitle: "This is an example subtitle".to_string(),
+                icon: Icon::Path(
+                    "/usr/share/icons/Adwaita/scalable/devices/computer.svg".to_string(),
+                ),
+                category: "Apps".to_string(),
+                actions: vec![Action {}],
+            },
+            SearchItem {
+                title: "Another Item".to_string(),
+                subtitle: "This is another example subtitle".to_string(),
+                icon: Icon::Path(
+                    "/usr/share/icons/Adwaita/scalable/devices/computer.svg".to_string(),
+                ),
+                category: "Apps".to_string(),
+                actions: vec![Action {}],
+            },
+            SearchItem {
+                title: "Third Item".to_string(),
+                subtitle: "This is a third example subtitle".to_string(),
+                icon: Icon::Path(
+                    "/usr/share/icons/Adwaita/scalable/devices/computer.svg".to_string(),
+                ),
+                category: "Apps".to_string(),
+                actions: vec![Action {}],
+            },
+            SearchItem {
+                title: "Fourth Item".to_string(),
+                subtitle: "This is a fourth example subtitle".to_string(),
+                icon: Icon::Path(
+                    "/usr/share/icons/Adwaita/scalable/devices/computer.svg".to_string(),
+                ),
+                category: "Apps".to_string(),
+                actions: vec![Action {}],
+            },
+            SearchItem {
+                title: "Fifth Item".to_string(),
+                subtitle: "This is a fifth example subtitle".to_string(),
+                icon: Icon::Path(
+                    "/usr/share/icons/Adwaita/scalable/devices/computer.svg".to_string(),
+                ),
+                category: "Apps".to_string(),
+                actions: vec![Action {}],
+            },
+            SearchItem {
+                title: "Sixth Item".to_string(),
+                subtitle: "This is a sixth example subtitle".to_string(),
+                icon: Icon::Path(
+                    "/usr/share/icons/Adwaita/scalable/devices/computer.svg".to_string(),
+                ),
+                category: "Apps".to_string(),
+                actions: vec![Action {}],
+            },
+            SearchItem {
+                title: "Seventh Item".to_string(),
+                subtitle: "This is a seventh example subtitle".to_string(),
+                icon: Icon::Path(
+                    "/usr/share/icons/Adwaita/scalable/devices/computer.svg".to_string(),
+                ),
+                category: "Apps".to_string(),
+                actions: vec![Action {}],
+            },
+            SearchItem {
+                title: "Eighth Item".to_string(),
+                subtitle: "This is an eighth example subtitle".to_string(),
+                icon: Icon::Path(
+                    "/usr/share/icons/Adwaita/scalable/devices/computer.svg".to_string(),
+                ),
+                category: "Apps".to_string(),
+                actions: vec![Action {}],
+            },
+            SearchItem {
+                title: "Ninth Item".to_string(),
+                subtitle: "This is a ninth example subtitle".to_string(),
+                icon: Icon::Path(
+                    "/usr/share/icons/Adwaita/scalable/devices/computer.svg".to_string(),
+                ),
+                category: "Apps".to_string(),
+                actions: vec![Action {}],
+            },
+            SearchItem {
+                title: "Tenth Item".to_string(),
+                subtitle: "This is a tenth example subtitle".to_string(),
+                icon: Icon::Path(
+                    "/usr/share/icons/Adwaita/scalable/devices/computer.svg".to_string(),
+                ),
+                category: "Apps".to_string(),
+                actions: vec![Action {}],
+            },
+        ]
     }
-
-    // pub fn run(&self, result_sender: async_channel::Sender<messages::UIMessage>) {
-    //     for message in self.command_receiver.iter() {
-    //         match message {
-    //             messages::Message::Query(query) => {
-    //                 let mut cleared = false;
-    //                 for extension in self.extensions.all() {
-    //                     let commands = extension.query(&messages::Message::Query(query.clone()));
-    //                     for command in commands {
-    //                         if !cleared {
-    //                             result_sender
-    //                                 .send_blocking(messages::UIMessage::ClearResults)
-    //                                 .expect("Failed to clear results in UI thread");
-    //                             cleared = true;
-    //                         }
-
-    //                         result_sender
-    //                             .send_blocking(messages::UIMessage::AddCommand(command))
-    //                             .expect("Failed to send command to UI thread");
-    //                     }
-    //                 }
-    //             }
-    //             messages::Message::Shutdown => {
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
 }

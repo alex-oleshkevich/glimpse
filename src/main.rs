@@ -1,21 +1,24 @@
-use gtk::{gio, glib};
+use tracing_subscriber::FmtSubscriber;
+
+use crate::app::App;
 
 mod app;
-mod commands;
-mod contrib;
 mod extensions;
-mod messages;
-mod widgets;
-mod windows;
+mod gui;
 mod search;
-mod worker;
 
-fn main() -> glib::ExitCode {
-    adw::init().expect("Failed to initialize Adwaita");
-    gio::resources_register_include!("resources.gresource").expect("Failed to register resources.");
+fn main() -> iced::Result {
+    init_logging();
 
-    let app = app::App::new();
-    app.run();
+    let mut app = App::new();
+    app.initialize();
 
-    glib::ExitCode::SUCCESS
+    gui::run(app)
+}
+
+fn init_logging() {
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(tracing::Level::DEBUG)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 }
