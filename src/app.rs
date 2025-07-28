@@ -1,37 +1,94 @@
-use iced::futures::SinkExt;
-use iced::futures::{Stream, StreamExt, channel::mpsc};
-use iced::stream;
+use serde::Deserialize;
+use tokio::sync::mpsc;
 
-use crate::search::SearchItem;
-use crate::{extensions::ExtensionManager, search::Search};
+use crate::extensions::Extension;
+use crate::extensions::Request;
+use crate::extensions::Response;
+use crate::extensions::load_extensions;
+use crate::icons::Icon;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Action {}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SearchItem {
+    pub title: String,
+    pub subtitle: String,
+    pub category: String,
+    pub icon: Icon,
+    pub actions: Vec<Action>,
+}
+
+impl SearchItem {
+    pub fn primary_action(&self) -> Option<&Action> {
+        self.actions.first()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum AppMessage {
     Bootstrap(mpsc::Sender<AppMessage>),
-    Search(String),
-    SearchCompleted(Vec<SearchItem>),
+    Request(Request),
+    Response(Response),
 }
 
-pub fn connect() -> impl Stream<Item = AppMessage> {
-    stream::channel(100, |mut output| async move {
-        let (sender, mut receiver) = mpsc::channel(100);
-        let _ = output.send(AppMessage::Bootstrap(sender)).await;
+pub struct App {
+    pending: usize,
+    start_time: std::time::Instant,
+}
 
-        let mut extensions = ExtensionManager::new();
-        extensions.load_extensions();
-        let search = Search::new();
+impl App {
+    pub fn new() -> Self {
+        App {
+            pending: 0,
+            start_time: std::time::Instant::now(),
+        }
+    }
 
-        loop {
-            let input = receiver.select_next_some().await;
+    pub async fn run(self, to_ui: mpsc::Sender<AppMessage>, from_ui: mpsc::Receiver<AppMessage>) {
+        let (app_tx, app_rx) = mpsc::channel(16);
+
+        let extensions = load_extensions(app_tx);
+        tokio::select! {
+            _ = self.start_request_handler(extensions, from_ui) => {
+                tracing::debug!("request handler finished");
+            },
+            _ = App::start_response_handler(to_ui, app_rx) => {
+                tracing::debug!("response handler finished");
+            },
+        }
+        tracing::debug!("app run completed");
+    }
+
+    async fn start_request_handler(
+        mut self,
+        extensions: Vec<Extension>,
+        mut from_ui: mpsc::Receiver<AppMessage>,
+    ) {
+        tracing::debug!("starting request handler");
+        while let Some(input) = from_ui.recv().await {
             match input {
-                AppMessage::Search(query) => {
-                    tracing::info!("searching for: {}", query);
-                    let results = search.search(query).await;
-                    tracing::debug!("found {} results", results.len());
-                    let _ = output.send(AppMessage::SearchCompleted(results)).await;
+                AppMessage::Request(Request::Search(_)) => {
+                    self.pending = extensions.len();
                 }
                 _ => {}
             }
+
+            for extension in extensions.iter() {
+                if let Err(err) = extension.dispatch(input.clone()).await {
+                    tracing::error!("failed to dispatch request to extension: {:?}", err);
+                }
+            }
         }
-    })
+    }
+
+    async fn start_response_handler(
+        to_ui: mpsc::Sender<AppMessage>,
+        mut from_app: mpsc::Receiver<AppMessage>,
+    ) {
+        tracing::debug!("starting response handler");
+        while let Some(input) = from_app.recv().await {
+            to_ui.send(input).await.ok();
+        }
+    }
 }

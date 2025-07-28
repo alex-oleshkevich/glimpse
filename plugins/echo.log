@@ -1,0 +1,1036 @@
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"id": 2, "method": "search_item", "params": {"title": "Reply 1", "subtitle": "This is a reply to your search", "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":2}
+{"id": 3, "method": "search_item", "params": {"title": "Reply 2", "subtitle": "This is a reply to your search", "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sds"},"id":3}
+{"id": 4, "method": "search_item", "params": {"title": "Reply 3", "subtitle": "This is a reply to your search", "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsd"},"id":4}
+{"id": 5, "method": "search_item", "params": {"title": "Reply 4", "subtitle": "This is a reply to your search", "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdd"},"id":5}
+{"id": 6, "method": "search_item", "params": {"title": "Reply 5", "subtitle": "This is a reply to your search", "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsddd"},"id":6}
+{"id": 7, "method": "search_item", "params": {"title": "Reply 6", "subtitle": "This is a reply to your search", "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"id": 2, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 1", "subtitle": "This is a reply to your search", "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":2}
+{"id": 3, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 2", "subtitle": "This is a reply to your search", "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sds"},"id":3}
+{"id": 4, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 3", "subtitle": "This is a reply to your search", "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsa"},"id":4}
+{"id": 5, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 4", "subtitle": "This is a reply to your search", "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsas"},"id":5}
+{"id": 6, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 5", "subtitle": "This is a reply to your search", "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsasd"},"id":6}
+{"id": 7, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 6", "subtitle": "This is a reply to your search", "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"id": 2, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":2}
+{"id": 3, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sds"},"id":3}
+{"id": 4, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdss"},"id":4}
+{"id": 5, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdssd"},"id":5}
+{"id": 6, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"id": 2, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ss"},"id":2}
+{"id": 3, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sss"},"id":3}
+{"id": 4, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssss"},"id":4}
+{"id": 5, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssss"},"id":5}
+{"id": 6, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssss"},"id":6}
+{"id": 7, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 6", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssss"},"id":7}
+{"id": 8, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 7", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssss"},"id":8}
+{"id": 9, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 8", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssss"},"id":9}
+{"id": 10, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 9", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssss"},"id":10}
+{"id": 11, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 10", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssss"},"id":11}
+{"id": 12, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 11", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"id": 2, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ss"},"id":2}
+{"id": 3, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sss"},"id":3}
+{"id": 4, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssss"},"id":4}
+{"id": 5, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"d"},"id":1}
+{"id": 2, "jsonrpc": "2.0", "method": "search_item", "params": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":2}
+{"jsonrpc": "2.0", "id": 3, "error": null, "result": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sds"},"id":3}
+{"jsonrpc": "2.0", "id": 4, "error": null, "result": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsd"},"id":4}
+{"jsonrpc": "2.0", "id": 5, "error": null, "result": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": {}}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":2}
+{"jsonrpc": "2.0", "id": 3, "error": null, "result": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sda"},"id":3}
+{"jsonrpc": "2.0", "id": 4, "error": null, "result": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdas"},"id":4}
+{"jsonrpc": "2.0", "id": 5, "error": null, "result": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasd"},"id":5}
+{"jsonrpc": "2.0", "id": 6, "error": null, "result": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasda"},"id":6}
+{"jsonrpc": "2.0", "id": 7, "error": null, "result": {"title": "Reply 6", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdas"},"id":7}
+{"jsonrpc": "2.0", "id": 8, "error": null, "result": {"title": "Reply 7", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdasd"},"id":8}
+{"jsonrpc": "2.0", "id": 9, "error": null, "result": {"title": "Reply 8", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdasds"},"id":9}
+{"jsonrpc": "2.0", "id": 10, "error": null, "result": {"title": "Reply 9", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdasdss"},"id":10}
+{"jsonrpc": "2.0", "id": 11, "error": null, "result": {"title": "Reply 10", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdasdssd"},"id":11}
+{"jsonrpc": "2.0", "id": 12, "error": null, "result": {"title": "Reply 11", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdasdssda"},"id":12}
+{"jsonrpc": "2.0", "id": 13, "error": null, "result": {"title": "Reply 12", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdasdssdas"},"id":13}
+{"jsonrpc": "2.0", "id": 14, "error": null, "result": {"title": "Reply 13", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdasdssdasd"},"id":14}
+{"jsonrpc": "2.0", "id": 15, "error": null, "result": {"title": "Reply 14", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":2}
+{"jsonrpc": "2.0", "id": 3, "error": null, "result": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sda"},"id":3}
+{"jsonrpc": "2.0", "id": 4, "error": null, "result": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdas"},"id":4}
+{"jsonrpc": "2.0", "id": 5, "error": null, "result": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasd"},"id":5}
+{"jsonrpc": "2.0", "id": 6, "error": null, "result": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdas"},"id":6}
+{"jsonrpc": "2.0", "id": 7, "error": null, "result": {"title": "Reply 6", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sda"},"id":7}
+{"jsonrpc": "2.0", "id": 8, "error": null, "result": {"title": "Reply 7", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":8}
+{"jsonrpc": "2.0", "id": 9, "error": null, "result": {"title": "Reply 8", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":9}
+{"jsonrpc": "2.0", "id": 10, "error": null, "result": {"title": "Reply 9", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":10}
+{"jsonrpc": "2.0", "id": 11, "error": null, "result": {"title": "Reply 10", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"d"},"id":11}
+{"jsonrpc": "2.0", "id": 12, "error": null, "result": {"title": "Reply 11", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"dd"},"id":12}
+{"jsonrpc": "2.0", "id": 13, "error": null, "result": {"title": "Reply 12", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"dda"},"id":13}
+{"jsonrpc": "2.0", "id": 14, "error": null, "result": {"title": "Reply 13", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ddasd"},"id":14}
+{"jsonrpc": "2.0", "id": 15, "error": null, "result": {"title": "Reply 14", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ddasdad"},"id":15}
+{"jsonrpc": "2.0", "id": 16, "error": null, "result": {"title": "Reply 15", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ddasd"},"id":16}
+{"jsonrpc": "2.0", "id": 17, "error": null, "result": {"title": "Reply 16", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ss"},"id":2}
+{"jsonrpc": "2.0", "id": 3, "error": null, "result": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sss"},"id":3}
+{"jsonrpc": "2.0", "id": 4, "error": null, "result": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssss"},"id":4}
+{"jsonrpc": "2.0", "id": 5, "error": null, "result": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssss"},"id":5}
+{"jsonrpc": "2.0", "id": 6, "error": null, "result": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssss"},"id":6}
+{"jsonrpc": "2.0", "id": 7, "error": null, "result": {"title": "Reply 6", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssss"},"id":7}
+{"jsonrpc": "2.0", "id": 8, "error": null, "result": {"title": "Reply 7", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssss"},"id":8}
+{"jsonrpc": "2.0", "id": 9, "error": null, "result": {"title": "Reply 8", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssss"},"id":9}
+{"jsonrpc": "2.0", "id": 10, "error": null, "result": {"title": "Reply 9", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ss"},"id":2}
+{"jsonrpc": "2.0", "id": 3, "error": null, "result": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssd"},"id":3}
+{"jsonrpc": "2.0", "id": 4, "error": null, "result": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssds"},"id":4}
+{"jsonrpc": "2.0", "id": 5, "error": null, "result": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsd"},"id":5}
+{"jsonrpc": "2.0", "id": 6, "error": null, "result": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsda"},"id":6}
+{"jsonrpc": "2.0", "id": 7, "error": null, "result": {"title": "Reply 6", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdad"},"id":7}
+{"jsonrpc": "2.0", "id": 8, "error": null, "result": {"title": "Reply 7", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdads"},"id":8}
+{"jsonrpc": "2.0", "id": 9, "error": null, "result": {"title": "Reply 8", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsd"},"id":9}
+{"jsonrpc": "2.0", "id": 10, "error": null, "result": {"title": "Reply 9", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsda"},"id":10}
+{"jsonrpc": "2.0", "id": 11, "error": null, "result": {"title": "Reply 10", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdas"},"id":11}
+{"jsonrpc": "2.0", "id": 12, "error": null, "result": {"title": "Reply 11", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasd"},"id":12}
+{"jsonrpc": "2.0", "id": 13, "error": null, "result": {"title": "Reply 12", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasda"},"id":13}
+{"jsonrpc": "2.0", "id": 14, "error": null, "result": {"title": "Reply 13", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdad"},"id":14}
+{"jsonrpc": "2.0", "id": 15, "error": null, "result": {"title": "Reply 14", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdada"},"id":15}
+{"jsonrpc": "2.0", "id": 16, "error": null, "result": {"title": "Reply 15", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdadas"},"id":16}
+{"jsonrpc": "2.0", "id": 17, "error": null, "result": {"title": "Reply 16", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdadasd"},"id":17}
+{"jsonrpc": "2.0", "id": 18, "error": null, "result": {"title": "Reply 17", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdadasds"},"id":18}
+{"jsonrpc": "2.0", "id": 19, "error": null, "result": {"title": "Reply 18", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdadasdsa"},"id":19}
+{"jsonrpc": "2.0", "id": 20, "error": null, "result": {"title": "Reply 19", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdadasdsas"},"id":20}
+{"jsonrpc": "2.0", "id": 21, "error": null, "result": {"title": "Reply 20", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdadasdsasd"},"id":21}
+{"jsonrpc": "2.0", "id": 22, "error": null, "result": {"title": "Reply 21", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdadasdsas"},"id":22}
+{"jsonrpc": "2.0", "id": 23, "error": null, "result": {"title": "Reply 22", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdadasdsa"},"id":23}
+{"jsonrpc": "2.0", "id": 24, "error": null, "result": {"title": "Reply 23", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdadasds"},"id":24}
+{"jsonrpc": "2.0", "id": 25, "error": null, "result": {"title": "Reply 24", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdadasd"},"id":25}
+{"jsonrpc": "2.0", "id": 26, "error": null, "result": {"title": "Reply 25", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdadas"},"id":26}
+{"jsonrpc": "2.0", "id": 27, "error": null, "result": {"title": "Reply 26", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdada"},"id":27}
+{"jsonrpc": "2.0", "id": 28, "error": null, "result": {"title": "Reply 27", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasdad"},"id":28}
+{"jsonrpc": "2.0", "id": 29, "error": null, "result": {"title": "Reply 28", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasda"},"id":29}
+{"jsonrpc": "2.0", "id": 30, "error": null, "result": {"title": "Reply 29", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdasd"},"id":30}
+{"jsonrpc": "2.0", "id": 31, "error": null, "result": {"title": "Reply 30", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsdas"},"id":31}
+{"jsonrpc": "2.0", "id": 32, "error": null, "result": {"title": "Reply 31", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsda"},"id":32}
+{"jsonrpc": "2.0", "id": 33, "error": null, "result": {"title": "Reply 32", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdadsd"},"id":33}
+{"jsonrpc": "2.0", "id": 34, "error": null, "result": {"title": "Reply 33", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdads"},"id":34}
+{"jsonrpc": "2.0", "id": 35, "error": null, "result": {"title": "Reply 34", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsdad"},"id":35}
+{"jsonrpc": "2.0", "id": 36, "error": null, "result": {"title": "Reply 35", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsda"},"id":36}
+{"jsonrpc": "2.0", "id": 37, "error": null, "result": {"title": "Reply 36", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsd"},"id":37}
+{"jsonrpc": "2.0", "id": 38, "error": null, "result": {"title": "Reply 37", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssds"},"id":38}
+{"jsonrpc": "2.0", "id": 39, "error": null, "result": {"title": "Reply 38", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssd"},"id":39}
+{"jsonrpc": "2.0", "id": 40, "error": null, "result": {"title": "Reply 39", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ss"},"id":40}
+{"jsonrpc": "2.0", "id": 41, "error": null, "result": {"title": "Reply 40", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":41}
+{"jsonrpc": "2.0", "id": 42, "error": null, "result": {"title": "Reply 41", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":42}
+{"jsonrpc": "2.0", "id": 43, "error": null, "result": {"title": "Reply 42", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":43}
+{"jsonrpc": "2.0", "id": 44, "error": null, "result": {"title": "Reply 43", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":44}
+{"jsonrpc": "2.0", "id": 45, "error": null, "result": {"title": "Reply 44", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":45}
+{"jsonrpc": "2.0", "id": 46, "error": null, "result": {"title": "Reply 45", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":46}
+{"jsonrpc": "2.0", "id": 47, "error": null, "result": {"title": "Reply 46", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":47}
+{"jsonrpc": "2.0", "id": 48, "error": null, "result": {"title": "Reply 47", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sds"},"id":48}
+{"jsonrpc": "2.0", "id": 49, "error": null, "result": {"title": "Reply 48", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsd"},"id":49}
+{"jsonrpc": "2.0", "id": 50, "error": null, "result": {"title": "Reply 49", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsda"},"id":50}
+{"jsonrpc": "2.0", "id": 51, "error": null, "result": {"title": "Reply 50", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdas"},"id":51}
+{"jsonrpc": "2.0", "id": 52, "error": null, "result": {"title": "Reply 51", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdasd"},"id":52}
+{"jsonrpc": "2.0", "id": 53, "error": null, "result": {"title": "Reply 52", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdasda"},"id":53}
+{"jsonrpc": "2.0", "id": 54, "error": null, "result": {"title": "Reply 53", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdasdas"},"id":54}
+{"jsonrpc": "2.0", "id": 55, "error": null, "result": {"title": "Reply 54", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdasdasd"},"id":55}
+{"jsonrpc": "2.0", "id": 56, "error": null, "result": {"title": "Reply 55", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdasdasda"},"id":56}
+{"jsonrpc": "2.0", "id": 57, "error": null, "result": {"title": "Reply 56", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdasdasdad"},"id":57}
+{"jsonrpc": "2.0", "id": 58, "error": null, "result": {"title": "Reply 57", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdasdasda"},"id":58}
+{"jsonrpc": "2.0", "id": 59, "error": null, "result": {"title": "Reply 58", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdasdasd"},"id":59}
+{"jsonrpc": "2.0", "id": 60, "error": null, "result": {"title": "Reply 59", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdasdas"},"id":60}
+{"jsonrpc": "2.0", "id": 61, "error": null, "result": {"title": "Reply 60", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdasda"},"id":61}
+{"jsonrpc": "2.0", "id": 62, "error": null, "result": {"title": "Reply 61", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdasd"},"id":62}
+{"jsonrpc": "2.0", "id": 63, "error": null, "result": {"title": "Reply 62", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdas"},"id":63}
+{"jsonrpc": "2.0", "id": 64, "error": null, "result": {"title": "Reply 63", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsda"},"id":64}
+{"jsonrpc": "2.0", "id": 65, "error": null, "result": {"title": "Reply 64", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsd"},"id":65}
+{"jsonrpc": "2.0", "id": 66, "error": null, "result": {"title": "Reply 65", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sds"},"id":66}
+{"jsonrpc": "2.0", "id": 67, "error": null, "result": {"title": "Reply 66", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":67}
+{"jsonrpc": "2.0", "id": 68, "error": null, "result": {"title": "Reply 67", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":68}
+{"jsonrpc": "2.0", "id": 69, "error": null, "result": {"title": "Reply 68", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":69}
+{"jsonrpc": "2.0", "id": 70, "error": null, "result": {"title": "Reply 69", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":70}
+{"jsonrpc": "2.0", "id": 71, "error": null, "result": {"title": "Reply 70", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":71}
+{"jsonrpc": "2.0", "id": 72, "error": null, "result": {"title": "Reply 71", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":72}
+{"jsonrpc": "2.0", "id": 73, "error": null, "result": {"title": "Reply 72", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ss"},"id":73}
+{"jsonrpc": "2.0", "id": 74, "error": null, "result": {"title": "Reply 73", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sss"},"id":74}
+{"jsonrpc": "2.0", "id": 75, "error": null, "result": {"title": "Reply 74", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssss"},"id":75}
+{"jsonrpc": "2.0", "id": 76, "error": null, "result": {"title": "Reply 75", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssss"},"id":76}
+{"jsonrpc": "2.0", "id": 77, "error": null, "result": {"title": "Reply 76", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssss"},"id":77}
+{"jsonrpc": "2.0", "id": 78, "error": null, "result": {"title": "Reply 77", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssss"},"id":78}
+{"jsonrpc": "2.0", "id": 79, "error": null, "result": {"title": "Reply 78", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssss"},"id":79}
+{"jsonrpc": "2.0", "id": 80, "error": null, "result": {"title": "Reply 79", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssss"},"id":80}
+{"jsonrpc": "2.0", "id": 81, "error": null, "result": {"title": "Reply 80", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssss"},"id":81}
+{"jsonrpc": "2.0", "id": 82, "error": null, "result": {"title": "Reply 81", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssss"},"id":82}
+{"jsonrpc": "2.0", "id": 83, "error": null, "result": {"title": "Reply 82", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssss"},"id":83}
+{"jsonrpc": "2.0", "id": 84, "error": null, "result": {"title": "Reply 83", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssss"},"id":84}
+{"jsonrpc": "2.0", "id": 85, "error": null, "result": {"title": "Reply 84", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssss"},"id":85}
+{"jsonrpc": "2.0", "id": 86, "error": null, "result": {"title": "Reply 85", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssss"},"id":86}
+{"jsonrpc": "2.0", "id": 87, "error": null, "result": {"title": "Reply 86", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssss"},"id":87}
+{"jsonrpc": "2.0", "id": 88, "error": null, "result": {"title": "Reply 87", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssss"},"id":88}
+{"jsonrpc": "2.0", "id": 89, "error": null, "result": {"title": "Reply 88", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssss"},"id":89}
+{"jsonrpc": "2.0", "id": 90, "error": null, "result": {"title": "Reply 89", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssss"},"id":90}
+{"jsonrpc": "2.0", "id": 91, "error": null, "result": {"title": "Reply 90", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssss"},"id":91}
+{"jsonrpc": "2.0", "id": 92, "error": null, "result": {"title": "Reply 91", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssss"},"id":92}
+{"jsonrpc": "2.0", "id": 93, "error": null, "result": {"title": "Reply 92", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssss"},"id":93}
+{"jsonrpc": "2.0", "id": 94, "error": null, "result": {"title": "Reply 93", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssss"},"id":94}
+{"jsonrpc": "2.0", "id": 95, "error": null, "result": {"title": "Reply 94", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssss"},"id":95}
+{"jsonrpc": "2.0", "id": 96, "error": null, "result": {"title": "Reply 95", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssss"},"id":96}
+{"jsonrpc": "2.0", "id": 97, "error": null, "result": {"title": "Reply 96", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssss"},"id":97}
+{"jsonrpc": "2.0", "id": 98, "error": null, "result": {"title": "Reply 97", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssss"},"id":98}
+{"jsonrpc": "2.0", "id": 99, "error": null, "result": {"title": "Reply 98", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssss"},"id":99}
+{"jsonrpc": "2.0", "id": 100, "error": null, "result": {"title": "Reply 99", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssss"},"id":100}
+{"jsonrpc": "2.0", "id": 101, "error": null, "result": {"title": "Reply 100", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssss"},"id":101}
+{"jsonrpc": "2.0", "id": 102, "error": null, "result": {"title": "Reply 101", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssss"},"id":102}
+{"jsonrpc": "2.0", "id": 103, "error": null, "result": {"title": "Reply 102", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssss"},"id":103}
+{"jsonrpc": "2.0", "id": 104, "error": null, "result": {"title": "Reply 103", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssss"},"id":104}
+{"jsonrpc": "2.0", "id": 105, "error": null, "result": {"title": "Reply 104", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssss"},"id":105}
+{"jsonrpc": "2.0", "id": 106, "error": null, "result": {"title": "Reply 105", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssss"},"id":106}
+{"jsonrpc": "2.0", "id": 107, "error": null, "result": {"title": "Reply 106", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssss"},"id":107}
+{"jsonrpc": "2.0", "id": 108, "error": null, "result": {"title": "Reply 107", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssss"},"id":108}
+{"jsonrpc": "2.0", "id": 109, "error": null, "result": {"title": "Reply 108", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssss"},"id":109}
+{"jsonrpc": "2.0", "id": 110, "error": null, "result": {"title": "Reply 109", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssss"},"id":110}
+{"jsonrpc": "2.0", "id": 111, "error": null, "result": {"title": "Reply 110", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssss"},"id":111}
+{"jsonrpc": "2.0", "id": 112, "error": null, "result": {"title": "Reply 111", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssss"},"id":112}
+{"jsonrpc": "2.0", "id": 113, "error": null, "result": {"title": "Reply 112", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssss"},"id":113}
+{"jsonrpc": "2.0", "id": 114, "error": null, "result": {"title": "Reply 113", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssss"},"id":114}
+{"jsonrpc": "2.0", "id": 115, "error": null, "result": {"title": "Reply 114", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssss"},"id":115}
+{"jsonrpc": "2.0", "id": 116, "error": null, "result": {"title": "Reply 115", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssss"},"id":116}
+{"jsonrpc": "2.0", "id": 117, "error": null, "result": {"title": "Reply 116", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssss"},"id":117}
+{"jsonrpc": "2.0", "id": 118, "error": null, "result": {"title": "Reply 117", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssssss"},"id":118}
+{"jsonrpc": "2.0", "id": 119, "error": null, "result": {"title": "Reply 118", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssssss"},"id":119}
+{"jsonrpc": "2.0", "id": 120, "error": null, "result": {"title": "Reply 119", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":120}
+{"jsonrpc": "2.0", "id": 121, "error": null, "result": {"title": "Reply 120", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":121}
+{"jsonrpc": "2.0", "id": 122, "error": null, "result": {"title": "Reply 121", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":122}
+{"jsonrpc": "2.0", "id": 123, "error": null, "result": {"title": "Reply 122", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":123}
+{"jsonrpc": "2.0", "id": 124, "error": null, "result": {"title": "Reply 123", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":124}
+{"jsonrpc": "2.0", "id": 125, "error": null, "result": {"title": "Reply 124", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":125}
+{"jsonrpc": "2.0", "id": 126, "error": null, "result": {"title": "Reply 125", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":126}
+{"jsonrpc": "2.0", "id": 127, "error": null, "result": {"title": "Reply 126", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":127}
+{"jsonrpc": "2.0", "id": 128, "error": null, "result": {"title": "Reply 127", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":128}
+{"jsonrpc": "2.0", "id": 129, "error": null, "result": {"title": "Reply 128", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":129}
+{"jsonrpc": "2.0", "id": 130, "error": null, "result": {"title": "Reply 129", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":130}
+{"jsonrpc": "2.0", "id": 131, "error": null, "result": {"title": "Reply 130", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":131}
+{"jsonrpc": "2.0", "id": 132, "error": null, "result": {"title": "Reply 131", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":132}
+{"jsonrpc": "2.0", "id": 133, "error": null, "result": {"title": "Reply 132", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":133}
+{"jsonrpc": "2.0", "id": 134, "error": null, "result": {"title": "Reply 133", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":134}
+{"jsonrpc": "2.0", "id": 135, "error": null, "result": {"title": "Reply 134", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":135}
+{"jsonrpc": "2.0", "id": 136, "error": null, "result": {"title": "Reply 135", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":136}
+{"jsonrpc": "2.0", "id": 137, "error": null, "result": {"title": "Reply 136", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":137}
+{"jsonrpc": "2.0", "id": 138, "error": null, "result": {"title": "Reply 137", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssssssss"},"id":138}
+{"jsonrpc": "2.0", "id": 139, "error": null, "result": {"title": "Reply 138", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssssss"},"id":139}
+{"jsonrpc": "2.0", "id": 140, "error": null, "result": {"title": "Reply 139", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssssss"},"id":140}
+{"jsonrpc": "2.0", "id": 141, "error": null, "result": {"title": "Reply 140", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssssss"},"id":141}
+{"jsonrpc": "2.0", "id": 142, "error": null, "result": {"title": "Reply 141", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssssss"},"id":142}
+{"jsonrpc": "2.0", "id": 143, "error": null, "result": {"title": "Reply 142", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssssss"},"id":143}
+{"jsonrpc": "2.0", "id": 144, "error": null, "result": {"title": "Reply 143", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssssss"},"id":144}
+{"jsonrpc": "2.0", "id": 145, "error": null, "result": {"title": "Reply 144", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssssss"},"id":145}
+{"jsonrpc": "2.0", "id": 146, "error": null, "result": {"title": "Reply 145", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssssss"},"id":146}
+{"jsonrpc": "2.0", "id": 147, "error": null, "result": {"title": "Reply 146", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssssss"},"id":147}
+{"jsonrpc": "2.0", "id": 148, "error": null, "result": {"title": "Reply 147", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssssss"},"id":148}
+{"jsonrpc": "2.0", "id": 149, "error": null, "result": {"title": "Reply 148", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssssss"},"id":149}
+{"jsonrpc": "2.0", "id": 150, "error": null, "result": {"title": "Reply 149", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssssss"},"id":150}
+{"jsonrpc": "2.0", "id": 151, "error": null, "result": {"title": "Reply 150", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssssss"},"id":151}
+{"jsonrpc": "2.0", "id": 152, "error": null, "result": {"title": "Reply 151", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssssss"},"id":152}
+{"jsonrpc": "2.0", "id": 153, "error": null, "result": {"title": "Reply 152", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssssss"},"id":153}
+{"jsonrpc": "2.0", "id": 154, "error": null, "result": {"title": "Reply 153", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssssss"},"id":154}
+{"jsonrpc": "2.0", "id": 155, "error": null, "result": {"title": "Reply 154", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssssss"},"id":155}
+{"jsonrpc": "2.0", "id": 156, "error": null, "result": {"title": "Reply 155", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssssss"},"id":156}
+{"jsonrpc": "2.0", "id": 157, "error": null, "result": {"title": "Reply 156", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssssss"},"id":157}
+{"jsonrpc": "2.0", "id": 158, "error": null, "result": {"title": "Reply 157", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssssss"},"id":158}
+{"jsonrpc": "2.0", "id": 159, "error": null, "result": {"title": "Reply 158", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssssss"},"id":159}
+{"jsonrpc": "2.0", "id": 160, "error": null, "result": {"title": "Reply 159", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssssss"},"id":160}
+{"jsonrpc": "2.0", "id": 161, "error": null, "result": {"title": "Reply 160", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssssss"},"id":161}
+{"jsonrpc": "2.0", "id": 162, "error": null, "result": {"title": "Reply 161", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssssss"},"id":162}
+{"jsonrpc": "2.0", "id": 163, "error": null, "result": {"title": "Reply 162", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssssss"},"id":163}
+{"jsonrpc": "2.0", "id": 164, "error": null, "result": {"title": "Reply 163", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssssss"},"id":164}
+{"jsonrpc": "2.0", "id": 165, "error": null, "result": {"title": "Reply 164", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssssss"},"id":165}
+{"jsonrpc": "2.0", "id": 166, "error": null, "result": {"title": "Reply 165", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssssss"},"id":166}
+{"jsonrpc": "2.0", "id": 167, "error": null, "result": {"title": "Reply 166", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssssss"},"id":167}
+{"jsonrpc": "2.0", "id": 168, "error": null, "result": {"title": "Reply 167", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssssss"},"id":168}
+{"jsonrpc": "2.0", "id": 169, "error": null, "result": {"title": "Reply 168", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssssss"},"id":169}
+{"jsonrpc": "2.0", "id": 170, "error": null, "result": {"title": "Reply 169", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssssss"},"id":170}
+{"jsonrpc": "2.0", "id": 171, "error": null, "result": {"title": "Reply 170", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssssss"},"id":171}
+{"jsonrpc": "2.0", "id": 172, "error": null, "result": {"title": "Reply 171", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssssss"},"id":172}
+{"jsonrpc": "2.0", "id": 173, "error": null, "result": {"title": "Reply 172", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssssss"},"id":173}
+{"jsonrpc": "2.0", "id": 174, "error": null, "result": {"title": "Reply 173", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssssss"},"id":174}
+{"jsonrpc": "2.0", "id": 175, "error": null, "result": {"title": "Reply 174", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssssss"},"id":175}
+{"jsonrpc": "2.0", "id": 176, "error": null, "result": {"title": "Reply 175", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssssss"},"id":176}
+{"jsonrpc": "2.0", "id": 177, "error": null, "result": {"title": "Reply 176", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssssss"},"id":177}
+{"jsonrpc": "2.0", "id": 178, "error": null, "result": {"title": "Reply 177", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssssss"},"id":178}
+{"jsonrpc": "2.0", "id": 179, "error": null, "result": {"title": "Reply 178", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssssss"},"id":179}
+{"jsonrpc": "2.0", "id": 180, "error": null, "result": {"title": "Reply 179", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssssss"},"id":180}
+{"jsonrpc": "2.0", "id": 181, "error": null, "result": {"title": "Reply 180", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssss"},"id":181}
+{"jsonrpc": "2.0", "id": 182, "error": null, "result": {"title": "Reply 181", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssssss"},"id":182}
+{"jsonrpc": "2.0", "id": 183, "error": null, "result": {"title": "Reply 182", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssss"},"id":183}
+{"jsonrpc": "2.0", "id": 184, "error": null, "result": {"title": "Reply 183", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssa"},"id":184}
+{"jsonrpc": "2.0", "id": 185, "error": null, "result": {"title": "Reply 184", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssas"},"id":185}
+{"jsonrpc": "2.0", "id": 186, "error": null, "result": {"title": "Reply 185", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssasd"},"id":186}
+{"jsonrpc": "2.0", "id": 187, "error": null, "result": {"title": "Reply 186", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sssssas"},"id":187}
+{"jsonrpc": "2.0", "id": 188, "error": null, "result": {"title": "Reply 187", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":188}
+{"jsonrpc": "2.0", "id": 189, "error": null, "result": {"title": "Reply 188", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"c"},"id":189}
+{"jsonrpc": "2.0", "id": 190, "error": null, "result": {"title": "Reply 189", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca"},"id":190}
+{"jsonrpc": "2.0", "id": 191, "error": null, "result": {"title": "Reply 190", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cal"},"id":191}
+{"jsonrpc": "2.0", "id": 192, "error": null, "result": {"title": "Reply 191", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cale"},"id":192}
+{"jsonrpc": "2.0", "id": 193, "error": null, "result": {"title": "Reply 192", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calen"},"id":193}
+{"jsonrpc": "2.0", "id": 194, "error": null, "result": {"title": "Reply 193", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calend"},"id":194}
+{"jsonrpc": "2.0", "id": 195, "error": null, "result": {"title": "Reply 194", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calenda"},"id":195}
+{"jsonrpc": "2.0", "id": 196, "error": null, "result": {"title": "Reply 195", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendar"},"id":196}
+{"jsonrpc": "2.0", "id": 197, "error": null, "result": {"title": "Reply 196", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":197}
+{"jsonrpc": "2.0", "id": 198, "error": null, "result": {"title": "Reply 197", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"c"},"id":198}
+{"jsonrpc": "2.0", "id": 199, "error": null, "result": {"title": "Reply 198", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca"},"id":199}
+{"jsonrpc": "2.0", "id": 200, "error": null, "result": {"title": "Reply 199", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cal"},"id":200}
+{"jsonrpc": "2.0", "id": 201, "error": null, "result": {"title": "Reply 200", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cale"},"id":201}
+{"jsonrpc": "2.0", "id": 202, "error": null, "result": {"title": "Reply 201", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calen"},"id":202}
+{"jsonrpc": "2.0", "id": 203, "error": null, "result": {"title": "Reply 202", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calend"},"id":203}
+{"jsonrpc": "2.0", "id": 204, "error": null, "result": {"title": "Reply 203", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calenda"},"id":204}
+{"jsonrpc": "2.0", "id": 205, "error": null, "result": {"title": "Reply 204", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"c"},"id":205}
+{"jsonrpc": "2.0", "id": 206, "error": null, "result": {"title": "Reply 205", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca"},"id":206}
+{"jsonrpc": "2.0", "id": 207, "error": null, "result": {"title": "Reply 206", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cal"},"id":207}
+{"jsonrpc": "2.0", "id": 208, "error": null, "result": {"title": "Reply 207", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cale"},"id":208}
+{"jsonrpc": "2.0", "id": 209, "error": null, "result": {"title": "Reply 208", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calen"},"id":209}
+{"jsonrpc": "2.0", "id": 210, "error": null, "result": {"title": "Reply 209", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cale"},"id":210}
+{"jsonrpc": "2.0", "id": 211, "error": null, "result": {"title": "Reply 210", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ss"},"id":2}
+{"jsonrpc": "2.0", "id": 3, "error": null, "result": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssd"},"id":3}
+{"jsonrpc": "2.0", "id": 4, "error": null, "result": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssds"},"id":4}
+{"jsonrpc": "2.0", "id": 5, "error": null, "result": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsa"},"id":5}
+{"jsonrpc": "2.0", "id": 6, "error": null, "result": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsas"},"id":6}
+{"jsonrpc": "2.0", "id": 7, "error": null, "result": {"title": "Reply 6", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsasd"},"id":7}
+{"jsonrpc": "2.0", "id": 8, "error": null, "result": {"title": "Reply 7", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsasda"},"id":8}
+{"jsonrpc": "2.0", "id": 9, "error": null, "result": {"title": "Reply 8", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsasdas"},"id":9}
+{"jsonrpc": "2.0", "id": 10, "error": null, "result": {"title": "Reply 9", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsasdasda"},"id":10}
+{"jsonrpc": "2.0", "id": 11, "error": null, "result": {"title": "Reply 10", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ssdsasdasdasd"},"id":11}
+{"jsonrpc": "2.0", "id": 12, "error": null, "result": {"title": "Reply 11", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":12}
+{"jsonrpc": "2.0", "id": 13, "error": null, "result": {"title": "Reply 12", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"c"},"id":13}
+{"jsonrpc": "2.0", "id": 14, "error": null, "result": {"title": "Reply 13", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cale"},"id":14}
+{"jsonrpc": "2.0", "id": 15, "error": null, "result": {"title": "Reply 14", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calend"},"id":15}
+{"jsonrpc": "2.0", "id": 16, "error": null, "result": {"title": "Reply 15", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calenda"},"id":16}
+{"jsonrpc": "2.0", "id": 17, "error": null, "result": {"title": "Reply 16", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendar"},"id":17}
+{"jsonrpc": "2.0", "id": 18, "error": null, "result": {"title": "Reply 17", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendars"},"id":18}
+{"jsonrpc": "2.0", "id": 19, "error": null, "result": {"title": "Reply 18", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":2}
+{"jsonrpc": "2.0", "id": 3, "error": null, "result": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sda"},"id":3}
+{"jsonrpc": "2.0", "id": 4, "error": null, "result": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdas"},"id":4}
+{"jsonrpc": "2.0", "id": 5, "error": null, "result": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasd"},"id":5}
+{"jsonrpc": "2.0", "id": 6, "error": null, "result": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasda"},"id":6}
+{"jsonrpc": "2.0", "id": 7, "error": null, "result": {"title": "Reply 6", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdad"},"id":7}
+{"jsonrpc": "2.0", "id": 8, "error": null, "result": {"title": "Reply 7", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdada"},"id":8}
+{"jsonrpc": "2.0", "id": 9, "error": null, "result": {"title": "Reply 8", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdadas"},"id":9}
+{"jsonrpc": "2.0", "id": 10, "error": null, "result": {"title": "Reply 9", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdadasd"},"id":10}
+{"jsonrpc": "2.0", "id": 11, "error": null, "result": {"title": "Reply 10", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdadasda"},"id":11}
+{"jsonrpc": "2.0", "id": 12, "error": null, "result": {"title": "Reply 11", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasdadasdas"},"id":12}
+{"jsonrpc": "2.0", "id": 13, "error": null, "result": {"title": "Reply 12", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":13}
+{"jsonrpc": "2.0", "id": 14, "error": null, "result": {"title": "Reply 13", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"a"},"id":14}
+{"jsonrpc": "2.0", "id": 15, "error": null, "result": {"title": "Reply 14", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"as"},"id":15}
+{"jsonrpc": "2.0", "id": 16, "error": null, "result": {"title": "Reply 15", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asd"},"id":16}
+{"jsonrpc": "2.0", "id": 17, "error": null, "result": {"title": "Reply 16", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asda"},"id":17}
+{"jsonrpc": "2.0", "id": 18, "error": null, "result": {"title": "Reply 17", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asdas"},"id":18}
+{"jsonrpc": "2.0", "id": 19, "error": null, "result": {"title": "Reply 18", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asdasd"},"id":19}
+{"jsonrpc": "2.0", "id": 20, "error": null, "result": {"title": "Reply 19", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asdasda"},"id":20}
+{"jsonrpc": "2.0", "id": 21, "error": null, "result": {"title": "Reply 20", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asdasdas"},"id":21}
+{"jsonrpc": "2.0", "id": 22, "error": null, "result": {"title": "Reply 21", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asdasdasd"},"id":22}
+{"jsonrpc": "2.0", "id": 23, "error": null, "result": {"title": "Reply 22", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":23}
+{"jsonrpc": "2.0", "id": 24, "error": null, "result": {"title": "Reply 23", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":2}
+{"jsonrpc": "2.0", "id": 3, "error": null, "result": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sds"},"id":3}
+{"jsonrpc": "2.0", "id": 4, "error": null, "result": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsa"},"id":4}
+{"jsonrpc": "2.0", "id": 5, "error": null, "result": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsad"},"id":5}
+{"jsonrpc": "2.0", "id": 6, "error": null, "result": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsada"},"id":6}
+{"jsonrpc": "2.0", "id": 7, "error": null, "result": {"title": "Reply 6", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadas"},"id":7}
+{"jsonrpc": "2.0", "id": 8, "error": null, "result": {"title": "Reply 7", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadasd"},"id":8}
+{"jsonrpc": "2.0", "id": 9, "error": null, "result": {"title": "Reply 8", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadasds"},"id":9}
+{"jsonrpc": "2.0", "id": 10, "error": null, "result": {"title": "Reply 9", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadasdss"},"id":10}
+{"jsonrpc": "2.0", "id": 11, "error": null, "result": {"title": "Reply 10", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadasdssd"},"id":11}
+{"jsonrpc": "2.0", "id": 12, "error": null, "result": {"title": "Reply 11", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadasdss"},"id":12}
+{"jsonrpc": "2.0", "id": 13, "error": null, "result": {"title": "Reply 12", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadasds"},"id":13}
+{"jsonrpc": "2.0", "id": 14, "error": null, "result": {"title": "Reply 13", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadasd"},"id":14}
+{"jsonrpc": "2.0", "id": 15, "error": null, "result": {"title": "Reply 14", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadas"},"id":15}
+{"jsonrpc": "2.0", "id": 16, "error": null, "result": {"title": "Reply 15", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":16}
+{"jsonrpc": "2.0", "id": 17, "error": null, "result": {"title": "Reply 16", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"a"},"id":17}
+{"jsonrpc": "2.0", "id": 18, "error": null, "result": {"title": "Reply 17", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"as"},"id":18}
+{"jsonrpc": "2.0", "id": 19, "error": null, "result": {"title": "Reply 18", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asd"},"id":19}
+{"jsonrpc": "2.0", "id": 20, "error": null, "result": {"title": "Reply 19", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asda"},"id":20}
+{"jsonrpc": "2.0", "id": 21, "error": null, "result": {"title": "Reply 20", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asdas"},"id":21}
+{"jsonrpc": "2.0", "id": 22, "error": null, "result": {"title": "Reply 21", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asdasd"},"id":22}
+{"jsonrpc": "2.0", "id": 23, "error": null, "result": {"title": "Reply 22", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asdas"},"id":23}
+{"jsonrpc": "2.0", "id": 24, "error": null, "result": {"title": "Reply 23", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asda"},"id":24}
+{"jsonrpc": "2.0", "id": 25, "error": null, "result": {"title": "Reply 24", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":25}
+{"jsonrpc": "2.0", "id": 26, "error": null, "result": {"title": "Reply 25", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"a"},"id":26}
+{"jsonrpc": "2.0", "id": 27, "error": null, "result": {"title": "Reply 26", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"as"},"id":27}
+{"jsonrpc": "2.0", "id": 28, "error": null, "result": {"title": "Reply 27", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asd"},"id":28}
+{"jsonrpc": "2.0", "id": 29, "error": null, "result": {"title": "Reply 28", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":2}
+{"jsonrpc": "2.0", "id": 3, "error": null, "result": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sds"},"id":3}
+{"jsonrpc": "2.0", "id": 4, "error": null, "result": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsa"},"id":4}
+{"jsonrpc": "2.0", "id": 5, "error": null, "result": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsad"},"id":5}
+{"jsonrpc": "2.0", "id": 6, "error": null, "result": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsads"},"id":6}
+{"jsonrpc": "2.0", "id": 7, "error": null, "result": {"title": "Reply 6", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadsa"},"id":7}
+{"jsonrpc": "2.0", "id": 8, "error": null, "result": {"title": "Reply 7", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadsad"},"id":8}
+{"jsonrpc": "2.0", "id": 9, "error": null, "result": {"title": "Reply 8", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":9}
+{"jsonrpc": "2.0", "id": 10, "error": null, "result": {"title": "Reply 9", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":10}
+{"jsonrpc": "2.0", "id": 11, "error": null, "result": {"title": "Reply 10", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":11}
+{"jsonrpc": "2.0", "id": 12, "error": null, "result": {"title": "Reply 11", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sda"},"id":12}
+{"jsonrpc": "2.0", "id": 13, "error": null, "result": {"title": "Reply 12", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdas"},"id":13}
+{"jsonrpc": "2.0", "id": 14, "error": null, "result": {"title": "Reply 13", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdasd"},"id":14}
+{"jsonrpc": "2.0", "id": 15, "error": null, "result": {"title": "Reply 14", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdas"},"id":15}
+{"jsonrpc": "2.0", "id": 16, "error": null, "result": {"title": "Reply 15", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"c"},"id":16}
+{"jsonrpc": "2.0", "id": 17, "error": null, "result": {"title": "Reply 16", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca"},"id":17}
+{"jsonrpc": "2.0", "id": 18, "error": null, "result": {"title": "Reply 17", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca;"},"id":18}
+{"jsonrpc": "2.0", "id": 19, "error": null, "result": {"title": "Reply 18", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca;e"},"id":19}
+{"jsonrpc": "2.0", "id": 20, "error": null, "result": {"title": "Reply 19", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca;en"},"id":20}
+{"jsonrpc": "2.0", "id": 21, "error": null, "result": {"title": "Reply 20", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca;end"},"id":21}
+{"jsonrpc": "2.0", "id": 22, "error": null, "result": {"title": "Reply 21", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca;enda"},"id":22}
+{"jsonrpc": "2.0", "id": 23, "error": null, "result": {"title": "Reply 22", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca;endar"},"id":23}
+{"jsonrpc": "2.0", "id": 24, "error": null, "result": {"title": "Reply 23", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"c"},"id":24}
+{"jsonrpc": "2.0", "id": 25, "error": null, "result": {"title": "Reply 24", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca"},"id":25}
+{"jsonrpc": "2.0", "id": 26, "error": null, "result": {"title": "Reply 25", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cal"},"id":26}
+{"jsonrpc": "2.0", "id": 27, "error": null, "result": {"title": "Reply 26", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cale"},"id":27}
+{"jsonrpc": "2.0", "id": 28, "error": null, "result": {"title": "Reply 27", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calen"},"id":28}
+{"jsonrpc": "2.0", "id": 29, "error": null, "result": {"title": "Reply 28", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calend"},"id":29}
+{"jsonrpc": "2.0", "id": 30, "error": null, "result": {"title": "Reply 29", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calenda"},"id":30}
+{"jsonrpc": "2.0", "id": 31, "error": null, "result": {"title": "Reply 30", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendar"},"id":31}
+{"jsonrpc": "2.0", "id": 32, "error": null, "result": {"title": "Reply 31", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendars"},"id":32}
+{"jsonrpc": "2.0", "id": 33, "error": null, "result": {"title": "Reply 32", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendarsa"},"id":33}
+{"jsonrpc": "2.0", "id": 34, "error": null, "result": {"title": "Reply 33", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendarsad"},"id":34}
+{"jsonrpc": "2.0", "id": 35, "error": null, "result": {"title": "Reply 34", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendarsads"},"id":35}
+{"jsonrpc": "2.0", "id": 36, "error": null, "result": {"title": "Reply 35", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendarsadsd"},"id":36}
+{"jsonrpc": "2.0", "id": 37, "error": null, "result": {"title": "Reply 36", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendarsadsds"},"id":37}
+{"jsonrpc": "2.0", "id": 38, "error": null, "result": {"title": "Reply 37", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendarsadsdsa"},"id":38}
+{"jsonrpc": "2.0", "id": 39, "error": null, "result": {"title": "Reply 38", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendarsadsdsad"},"id":39}
+{"jsonrpc": "2.0", "id": 40, "error": null, "result": {"title": "Reply 39", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":40}
+{"jsonrpc": "2.0", "id": 41, "error": null, "result": {"title": "Reply 40", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"c"},"id":41}
+{"jsonrpc": "2.0", "id": 42, "error": null, "result": {"title": "Reply 41", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca"},"id":42}
+{"jsonrpc": "2.0", "id": 43, "error": null, "result": {"title": "Reply 42", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cas"},"id":43}
+{"jsonrpc": "2.0", "id": 44, "error": null, "result": {"title": "Reply 43", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"casd"},"id":44}
+{"jsonrpc": "2.0", "id": 45, "error": null, "result": {"title": "Reply 44", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cas"},"id":45}
+{"jsonrpc": "2.0", "id": 46, "error": null, "result": {"title": "Reply 45", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"casa"},"id":46}
+{"jsonrpc": "2.0", "id": 47, "error": null, "result": {"title": "Reply 46", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":47}
+{"jsonrpc": "2.0", "id": 48, "error": null, "result": {"title": "Reply 47", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"c"},"id":48}
+{"jsonrpc": "2.0", "id": 49, "error": null, "result": {"title": "Reply 48", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"ca"},"id":49}
+{"jsonrpc": "2.0", "id": 50, "error": null, "result": {"title": "Reply 49", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cal"},"id":50}
+{"jsonrpc": "2.0", "id": 51, "error": null, "result": {"title": "Reply 50", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"cale"},"id":51}
+{"jsonrpc": "2.0", "id": 52, "error": null, "result": {"title": "Reply 51", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calen"},"id":52}
+{"jsonrpc": "2.0", "id": 53, "error": null, "result": {"title": "Reply 52", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calend"},"id":53}
+{"jsonrpc": "2.0", "id": 54, "error": null, "result": {"title": "Reply 53", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calenda"},"id":54}
+{"jsonrpc": "2.0", "id": 55, "error": null, "result": {"title": "Reply 54", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"calendar"},"id":55}
+{"jsonrpc": "2.0", "id": 56, "error": null, "result": {"title": "Reply 55", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":56}
+{"jsonrpc": "2.0", "id": 57, "error": null, "result": {"title": "Reply 56", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":2}
+{"jsonrpc": "2.0", "id": 3, "error": null, "result": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sds"},"id":3}
+{"jsonrpc": "2.0", "id": 4, "error": null, "result": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsd"},"id":4}
+{"jsonrpc": "2.0", "id": 5, "error": null, "result": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsa"},"id":5}
+{"jsonrpc": "2.0", "id": 6, "error": null, "result": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsad"},"id":6}
+{"jsonrpc": "2.0", "id": 7, "error": null, "result": {"title": "Reply 6", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsada"},"id":7}
+{"jsonrpc": "2.0", "id": 8, "error": null, "result": {"title": "Reply 7", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsadad"},"id":8}
+{"jsonrpc": "2.0", "id": 9, "error": null, "result": {"title": "Reply 8", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsadada"},"id":9}
+{"jsonrpc": "2.0", "id": 10, "error": null, "result": {"title": "Reply 9", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsadadas"},"id":10}
+{"jsonrpc": "2.0", "id": 11, "error": null, "result": {"title": "Reply 10", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsadadasd"},"id":11}
+{"jsonrpc": "2.0", "id": 12, "error": null, "result": {"title": "Reply 11", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsadadasds"},"id":12}
+{"jsonrpc": "2.0", "id": 13, "error": null, "result": {"title": "Reply 12", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsadadasdsa"},"id":13}
+{"jsonrpc": "2.0", "id": 14, "error": null, "result": {"title": "Reply 13", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsadadasdsad"},"id":14}
+{"jsonrpc": "2.0", "id": 15, "error": null, "result": {"title": "Reply 14", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":15}
+{"jsonrpc": "2.0", "id": 16, "error": null, "result": {"title": "Reply 15", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"a"},"id":16}
+{"jsonrpc": "2.0", "id": 17, "error": null, "result": {"title": "Reply 16", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"as"},"id":17}
+{"jsonrpc": "2.0", "id": 18, "error": null, "result": {"title": "Reply 17", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asd"},"id":18}
+{"jsonrpc": "2.0", "id": 19, "error": null, "result": {"title": "Reply 18", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"as"},"id":19}
+{"jsonrpc": "2.0", "id": 20, "error": null, "result": {"title": "Reply 19", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":20}
+{"jsonrpc": "2.0", "id": 21, "error": null, "result": {"title": "Reply 20", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"a"},"id":21}
+{"jsonrpc": "2.0", "id": 22, "error": null, "result": {"title": "Reply 21", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"as"},"id":22}
+{"jsonrpc": "2.0", "id": 23, "error": null, "result": {"title": "Reply 22", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asd"},"id":23}
+{"jsonrpc": "2.0", "id": 24, "error": null, "result": {"title": "Reply 23", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asda"},"id":24}
+{"jsonrpc": "2.0", "id": 25, "error": null, "result": {"title": "Reply 24", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asdas"},"id":25}
+{"jsonrpc": "2.0", "id": 26, "error": null, "result": {"title": "Reply 25", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asdasd"},"id":26}
+{"jsonrpc": "2.0", "id": 27, "error": null, "result": {"title": "Reply 26", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"asdas"},"id":27}
+{"jsonrpc": "2.0", "id": 28, "error": null, "result": {"title": "Reply 27", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":28}
+{"jsonrpc": "2.0", "id": 29, "error": null, "result": {"title": "Reply 28", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":29}
+{"jsonrpc": "2.0", "id": 30, "error": null, "result": {"title": "Reply 29", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":30}
+{"jsonrpc": "2.0", "id": 31, "error": null, "result": {"title": "Reply 30", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sds"},"id":31}
+{"jsonrpc": "2.0", "id": 32, "error": null, "result": {"title": "Reply 31", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsa"},"id":32}
+{"jsonrpc": "2.0", "id": 33, "error": null, "result": {"title": "Reply 32", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsad"},"id":33}
+{"jsonrpc": "2.0", "id": 34, "error": null, "result": {"title": "Reply 33", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsada"},"id":34}
+{"jsonrpc": "2.0", "id": 35, "error": null, "result": {"title": "Reply 34", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadas"},"id":35}
+{"jsonrpc": "2.0", "id": 36, "error": null, "result": {"title": "Reply 35", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsadasd"},"id":36}
+{"jsonrpc": "2.0", "id": 37, "error": null, "result": {"title": "Reply 36", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":37}
+{"jsonrpc": "2.0", "id": 38, "error": null, "result": {"title": "Reply 37", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":2}
+{"jsonrpc": "2.0", "id": 3, "error": null, "result": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sds"},"id":3}
+{"jsonrpc": "2.0", "id": 4, "error": null, "result": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsd"},"id":4}
+{"jsonrpc": "2.0", "id": 5, "error": null, "result": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsds"},"id":5}
+{"jsonrpc": "2.0", "id": 6, "error": null, "result": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsd"},"id":6}
+{"jsonrpc": "2.0", "id": 7, "error": null, "result": {"title": "Reply 6", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsda"},"id":7}
+{"jsonrpc": "2.0", "id": 8, "error": null, "result": {"title": "Reply 7", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdas"},"id":8}
+{"jsonrpc": "2.0", "id": 9, "error": null, "result": {"title": "Reply 8", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasd"},"id":9}
+{"jsonrpc": "2.0", "id": 10, "error": null, "result": {"title": "Reply 9", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasds"},"id":10}
+{"jsonrpc": "2.0", "id": 11, "error": null, "result": {"title": "Reply 10", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsd"},"id":11}
+{"jsonrpc": "2.0", "id": 12, "error": null, "result": {"title": "Reply 11", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsda"},"id":12}
+{"jsonrpc": "2.0", "id": 13, "error": null, "result": {"title": "Reply 12", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdas"},"id":13}
+{"jsonrpc": "2.0", "id": 14, "error": null, "result": {"title": "Reply 13", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasd"},"id":14}
+{"jsonrpc": "2.0", "id": 15, "error": null, "result": {"title": "Reply 14", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasds"},"id":15}
+{"jsonrpc": "2.0", "id": 16, "error": null, "result": {"title": "Reply 15", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsa"},"id":16}
+{"jsonrpc": "2.0", "id": 17, "error": null, "result": {"title": "Reply 16", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsad"},"id":17}
+{"jsonrpc": "2.0", "id": 18, "error": null, "result": {"title": "Reply 17", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsada"},"id":18}
+{"jsonrpc": "2.0", "id": 19, "error": null, "result": {"title": "Reply 18", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsadas"},"id":19}
+{"jsonrpc": "2.0", "id": 20, "error": null, "result": {"title": "Reply 19", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsadasd"},"id":20}
+{"jsonrpc": "2.0", "id": 21, "error": null, "result": {"title": "Reply 20", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsadasda"},"id":21}
+{"jsonrpc": "2.0", "id": 22, "error": null, "result": {"title": "Reply 21", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsadasdas"},"id":22}
+{"jsonrpc": "2.0", "id": 23, "error": null, "result": {"title": "Reply 22", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsadasdasd"},"id":23}
+{"jsonrpc": "2.0", "id": 24, "error": null, "result": {"title": "Reply 23", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsadasdas"},"id":24}
+{"jsonrpc": "2.0", "id": 25, "error": null, "result": {"title": "Reply 24", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsadasda"},"id":25}
+{"jsonrpc": "2.0", "id": 26, "error": null, "result": {"title": "Reply 25", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsadasd"},"id":26}
+{"jsonrpc": "2.0", "id": 27, "error": null, "result": {"title": "Reply 26", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsadas"},"id":27}
+{"jsonrpc": "2.0", "id": 28, "error": null, "result": {"title": "Reply 27", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsada"},"id":28}
+{"jsonrpc": "2.0", "id": 29, "error": null, "result": {"title": "Reply 28", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsad"},"id":29}
+{"jsonrpc": "2.0", "id": 30, "error": null, "result": {"title": "Reply 29", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasdsa"},"id":30}
+{"jsonrpc": "2.0", "id": 31, "error": null, "result": {"title": "Reply 30", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdasdsdasds"},"id":31}
+{"jsonrpc": "2.0", "id": 32, "error": null, "result": {"title": "Reply 31", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":32}
+{"jsonrpc": "2.0", "id": 33, "error": null, "result": {"title": "Reply 32", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":33}
+{"jsonrpc": "2.0", "id": 34, "error": null, "result": {"title": "Reply 33", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":34}
+{"jsonrpc": "2.0", "id": 35, "error": null, "result": {"title": "Reply 34", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":35}
+{"jsonrpc": "2.0", "id": 36, "error": null, "result": {"title": "Reply 35", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":36}
+{"jsonrpc": "2.0", "id": 37, "error": null, "result": {"title": "Reply 36", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":37}
+{"jsonrpc": "2.0", "id": 38, "error": null, "result": {"title": "Reply 37", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":38}
+{"jsonrpc": "2.0", "id": 39, "error": null, "result": {"title": "Reply 38", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":39}
+{"jsonrpc": "2.0", "id": 40, "error": null, "result": {"title": "Reply 39", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"s"},"id":1}
+{"jsonrpc": "2.0", "id": 2, "error": null, "result": {"title": "Reply 1", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sd"},"id":2}
+{"jsonrpc": "2.0", "id": 3, "error": null, "result": {"title": "Reply 2", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sds"},"id":3}
+{"jsonrpc": "2.0", "id": 4, "error": null, "result": {"title": "Reply 3", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsd"},"id":4}
+{"jsonrpc": "2.0", "id": 5, "error": null, "result": {"title": "Reply 4", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsds"},"id":5}
+{"jsonrpc": "2.0", "id": 6, "error": null, "result": {"title": "Reply 5", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsd"},"id":6}
+{"jsonrpc": "2.0", "id": 7, "error": null, "result": {"title": "Reply 6", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsds"},"id":7}
+{"jsonrpc": "2.0", "id": 8, "error": null, "result": {"title": "Reply 7", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsa"},"id":8}
+{"jsonrpc": "2.0", "id": 9, "error": null, "result": {"title": "Reply 8", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsad"},"id":9}
+{"jsonrpc": "2.0", "id": 10, "error": null, "result": {"title": "Reply 9", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsada"},"id":10}
+{"jsonrpc": "2.0", "id": 11, "error": null, "result": {"title": "Reply 10", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadas"},"id":11}
+{"jsonrpc": "2.0", "id": 12, "error": null, "result": {"title": "Reply 11", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadasd"},"id":12}
+{"jsonrpc": "2.0", "id": 13, "error": null, "result": {"title": "Reply 12", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadasda"},"id":13}
+{"jsonrpc": "2.0", "id": 14, "error": null, "result": {"title": "Reply 13", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadasdas"},"id":14}
+{"jsonrpc": "2.0", "id": 15, "error": null, "result": {"title": "Reply 14", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadasdasd"},"id":15}
+{"jsonrpc": "2.0", "id": 16, "error": null, "result": {"title": "Reply 15", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadasdasds"},"id":16}
+{"jsonrpc": "2.0", "id": 17, "error": null, "result": {"title": "Reply 16", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadasdasdsd"},"id":17}
+{"jsonrpc": "2.0", "id": 18, "error": null, "result": {"title": "Reply 17", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadasdasds"},"id":18}
+{"jsonrpc": "2.0", "id": 19, "error": null, "result": {"title": "Reply 18", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadasdasd"},"id":19}
+{"jsonrpc": "2.0", "id": 20, "error": null, "result": {"title": "Reply 19", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadasdas"},"id":20}
+{"jsonrpc": "2.0", "id": 21, "error": null, "result": {"title": "Reply 20", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadasda"},"id":21}
+{"jsonrpc": "2.0", "id": 22, "error": null, "result": {"title": "Reply 21", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadasd"},"id":22}
+{"jsonrpc": "2.0", "id": 23, "error": null, "result": {"title": "Reply 22", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsadas"},"id":23}
+{"jsonrpc": "2.0", "id": 24, "error": null, "result": {"title": "Reply 23", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsada"},"id":24}
+{"jsonrpc": "2.0", "id": 25, "error": null, "result": {"title": "Reply 24", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsad"},"id":25}
+{"jsonrpc": "2.0", "id": 26, "error": null, "result": {"title": "Reply 25", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsdsa"},"id":26}
+{"jsonrpc": "2.0", "id": 27, "error": null, "result": {"title": "Reply 26", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsds"},"id":27}
+{"jsonrpc": "2.0", "id": 28, "error": null, "result": {"title": "Reply 27", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsdsd"},"id":28}
+{"jsonrpc": "2.0", "id": 29, "error": null, "result": {"title": "Reply 28", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":"sdsds"},"id":29}
+{"jsonrpc": "2.0", "id": 30, "error": null, "result": {"title": "Reply 29", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}
+{"jsonrpc":"2.0","method":"search","params":{"query":""},"id":30}
+{"jsonrpc": "2.0", "id": 31, "error": null, "result": {"title": "Reply 30", "subtitle": "This is a reply to your search", "category": "Apps", "icon": {"name": "computer"}, "actions": []}}

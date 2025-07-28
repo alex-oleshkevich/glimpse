@@ -1,9 +1,8 @@
-use iced::futures::channel::mpsc;
+use tokio::sync::mpsc;
 
 use crate::{
-    app::AppMessage,
+    app::{Action, AppMessage, SearchItem},
     gui::app::Screen,
-    search::{Action, SearchItem},
 };
 
 #[derive(Debug, Clone)]
@@ -14,8 +13,7 @@ pub enum WindowMessage {
 #[derive(Debug, Clone)]
 pub enum SearchMessage {
     StartSearch(String),
-    ClearResults,
-    SetResults(Vec<SearchItem>),
+    AddResult(SearchItem),
 }
 
 #[derive(Debug, Clone)]

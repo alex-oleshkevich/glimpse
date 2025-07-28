@@ -1,8 +1,10 @@
 use std::path;
 
-use crate::gui::app::{Screen};
+use crate::app::SearchItem;
+use crate::gui::app::Screen;
 use crate::gui::messages::{Message, SearchMessage};
-use crate::search::{Icon, SearchItem};
+use crate::icons::Icon;
+use freedesktop_icons::lookup;
 use iced::widget::{
     Button, Space, button, column, container, row, scrollable, svg, text, text_input,
 };
@@ -36,12 +38,26 @@ pub fn plugin_view(items: &Vec<SearchItem>) -> Element<Message> {
 pub fn search_icon(icon: &Icon) -> Element<Message> {
     match &icon {
         Icon::Path(path) => search_icon_from_path(path),
+        Icon::Name(name) => search_icon_from_name(name),
     }
 }
 
 pub fn search_icon_from_path(path: &str) -> Element<Message> {
     let handle = svg::Handle::from_path(path::PathBuf::from(path));
     container(svg(handle)).width(40).height(40).into()
+}
+
+pub fn search_icon_from_name(name: &str) -> Element<Message> {
+    let icon = lookup(name).find();
+
+    match icon {
+        Some(icon) => {
+            return container(svg(icon)).width(40).height(40).into();
+        }
+        None => {
+            return container(text(name)).width(40).height(40).into();
+        }
+    }
 }
 
 pub fn row_actions() -> Element<'static, Message> {
@@ -55,7 +71,7 @@ pub fn row_actions() -> Element<'static, Message> {
 pub fn search_item(item: &SearchItem) -> Element<Message> {
     let mut row = Button::new(
         row![
-            container(search_icon(&item.icon)).padding(4),
+            // container(search_icon(&item.icon)).padding(4),
             container(column![
                 text(&item.title).size(20),
                 text(&item.subtitle).size(16)

@@ -1,8 +1,11 @@
 use tracing_subscriber::FmtSubscriber;
 
 mod app;
+mod bridge;
 mod extensions;
 mod gui;
+mod icons;
+mod jsonrpc;
 mod search;
 
 fn main() -> iced::Result {
