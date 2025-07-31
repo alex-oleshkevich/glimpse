@@ -16,13 +16,23 @@ tokio = { version = "1.46.1", features = [
     "io-util",
     "macros",
     "net",
+    "time"
 ] }
 dirs = "6.0.0"
 serde_json = "1.0.140"
 tokio-stream = { version = "0.1.17", features = ["io-util"] }
 freedesktop-icons = "0.4.0"
+clap = { version = "4.5.42", features = ["derive"] }
 
 
 [[bin]]
-name = "glimpse"
-path = "src/main.rs"
+name = "glimpsed"
+path = "glimpsed/src/main.rs"
+
+[[bin]]
+name = "glimpsed-ui"
+path = "glimpsed-gui/src/main.rs"
+
+[workspace]
+resolver = "3"
+members = [ "glimpse-gui", "glimpse-sdk","glimpsed"]
