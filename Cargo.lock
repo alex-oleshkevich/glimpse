@@ -1615,6 +1615,7 @@ dependencies = [
  "clap",
  "dirs 6.0.0",
  "freedesktop-icons",
+ "glimpse-sdk",
  "iced",
  "numbat",
  "serde",
@@ -1632,12 +1633,16 @@ version = "0.1.0"
 [[package]]
 name = "glimpse-sdk"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "glimpsed"
 version = "0.1.0"
 dependencies = [
  "dirs 6.0.0",
+ "glimpse-sdk",
  "tokio",
  "tracing",
  "tracing-subscriber",

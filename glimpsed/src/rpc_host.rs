@@ -9,14 +9,19 @@ use tokio::{
         UnixListener,
         unix::{OwnedReadHalf, OwnedWriteHalf},
     },
-    sync::{Mutex, mpsc},
+    sync::{Mutex, broadcast},
+};
+
+use crate::{
+    jsonrpc::JSONRPCRequest,
+    messages::{Message, MessageBus, Request},
 };
 
 static PLUGIN_ID: AtomicI16 = AtomicI16::new(0);
 
 pub struct RPCHost {
-    input: mpsc::Receiver<String>,
-    output: mpsc::Sender<String>,
+    receiver: broadcast::Receiver<Message>,
+    publisher: broadcast::Sender<Message>,
     clients: Arc<Mutex<Vec<RPCClient>>>,
 }
 
@@ -31,15 +36,17 @@ impl RPCClient {
     }
 
     async fn write(&mut self, msg: &str) -> Result<(), std::io::Error> {
-        self.writer.write_all(msg.as_bytes()).await
+        self.writer.write_all(msg.as_bytes()).await?;
+        self.writer.write_all(b"\n").await?;
+        Ok(())
     }
 }
 
 impl RPCHost {
-    pub fn new(input: mpsc::Receiver<String>, output: mpsc::Sender<String>) -> Self {
+    pub fn new(message_bus: &MessageBus) -> Self {
         RPCHost {
-            input,
-            output,
+            receiver: message_bus.subscribe(),
+            publisher: message_bus.publisher(),
             clients: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -56,17 +63,25 @@ impl RPCHost {
         let listener = UnixListener::bind(&socket_path)?;
         tracing::info!("listening on {}", socket_path.display());
 
-        // deliver plugin messages to the RPC output
-        let input = self.input;
+        // plugins -> clients
         let clients_for_dispatch = Arc::clone(&self.clients);
+        let mut receiver = self.receiver;
         tokio::spawn(async move {
-            let mut rx = input;
-            while let Some(msg) = rx.recv().await {
-                let mut connections = clients_for_dispatch.lock().await;
-                for client in connections.iter_mut() {
-                    if let Err(e) = client.write(&msg).await {
-                        tracing::error!("failed to send message to client: {}", e)
+            while let Ok(msg) = receiver.recv().await {
+                match msg {
+                    Message::PluginResponse(response) => {
+                        let mut connections = clients_for_dispatch.lock().await;
+                        for client in connections.iter_mut() {
+                            let json = response.to_json().unwrap_or_else(|e| {
+                                tracing::error!("failed to serialize response: {}", e);
+                                "{}".to_string()
+                            });
+                            if let Err(e) = client.write(&json).await {
+                                tracing::error!("failed to send message to client: {}", e)
+                            }
+                        }
                     }
+                    _ => {}
                 }
             }
         });
@@ -74,18 +89,20 @@ impl RPCHost {
         while let Ok((stream, _)) = listener.accept().await {
             tracing::info!("accepted connection from {:?}", stream.peer_addr());
             let (reader, writer) = stream.into_split();
-            let tx = self.output.clone();
             let clients = Arc::clone(&self.clients);
+            let publisher = self.publisher.clone();
             tokio::spawn(async move {
                 let next_id = PLUGIN_ID.fetch_add(1, Ordering::SeqCst);
                 let handle = RPCClient::new(next_id, writer);
                 clients.lock().await.push(handle);
 
-                if let Err(e) = handle_ui_client(reader, tx).await {
-                    tracing::error!("error handling client: {}", e);
+                let results = parse_client_input(reader, publisher).await;
+                if let Err(e) = results {
+                    tracing::error!("client handler crashed: {}", e);
                 } else {
                     tracing::info!("client disconnected");
                 }
+
                 let mut clients = clients.lock().await;
                 clients.retain(|c| c.id != next_id);
             });
@@ -94,10 +111,10 @@ impl RPCHost {
     }
 }
 
-async fn handle_ui_client(
+async fn parse_client_input(
     reader: OwnedReadHalf,
-    tx: mpsc::Sender<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+    publisher: broadcast::Sender<Message>,
+) -> Result<(), serde_json::Error> {
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
 
@@ -105,9 +122,18 @@ async fn handle_ui_client(
         match reader.read_line(&mut line).await {
             Ok(0) => break,
             Ok(_) => {
-                if let Err(e) = tx.send(line.clone()).await {
-                    tracing::error!("failed to send message: {}", e);
-                    break;
+                tracing::debug!("received message from client: {}", &line);
+                match JSONRPCRequest::<Request>::from_json(&line) {
+                    Ok(request) => {
+                        tracing::debug!("received client request: {}", request.method);
+                        let message = Message::ClientRequest(request);
+                        if let Err(e) = publisher.send(message) {
+                            tracing::error!("failed to forward client message to plugins: {}", e);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("failed to parse JSON-RPC request: {}", e);
+                    }
                 }
                 line.clear();
             }

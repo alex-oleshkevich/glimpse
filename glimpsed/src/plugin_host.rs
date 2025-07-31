@@ -13,7 +13,12 @@ use tokio::{
         UnixListener,
         unix::{OwnedReadHalf, OwnedWriteHalf},
     },
-    sync::{Mutex, mpsc},
+    sync::{Mutex, broadcast},
+};
+
+use crate::{
+    jsonrpc::JSONRPCResponse,
+    messages::{Message, MessageBus, Response},
 };
 
 static PLUGIN_ID: AtomicI16 = AtomicI16::new(0);
@@ -23,16 +28,16 @@ struct ProcessPlugin {
 }
 
 pub struct PluginHost {
-    input: mpsc::Receiver<String>,
-    output: mpsc::Sender<String>,
+    receiver: broadcast::Receiver<Message>,
+    publisher: broadcast::Sender<Message>,
     connections: Arc<Mutex<Vec<PluginConnHandle>>>,
 }
 
 impl PluginHost {
-    pub fn new(input: mpsc::Receiver<String>, output: mpsc::Sender<String>) -> Self {
+    pub fn new(message_bus: &MessageBus) -> Self {
         PluginHost {
-            input,
-            output,
+            receiver: message_bus.subscribe(),
+            publisher: message_bus.publisher(),
             connections: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -62,20 +67,26 @@ impl PluginHost {
         }
 
         // deliver messages to plugins
-        let input = self.input;
         let connections_for_dispatch = Arc::clone(&self.connections);
+        let mut receiver = self.receiver;
         tokio::spawn(async move {
-            let mut rx = input;
-            while let Some(msg) = rx.recv().await {
+            while let Ok(msg) = receiver.recv().await {
                 let mut connections = connections_for_dispatch.lock().await;
-                for conn in connections.iter_mut() {
-                    if let Err(e) = conn.write(&msg).await {
-                        tracing::error!("failed to send message to plugin: {}", e);
+                match msg {
+                    Message::ClientRequest(request) => {
+                        tracing::info!(
+                            "dispatched client message to {} plugins",
+                            connections.len()
+                        );
+                        for conn in connections.iter_mut() {
+                            if let Err(e) = conn.write(&request.to_json().unwrap()).await {
+                                tracing::error!("failed to send message to plugin: {}", e);
+                            }
+                        }
                     }
+                    _ => {}
                 }
-                tracing::info!("dispatched message to {} plugins", connections.len());
-                drop(connections); // Explicitly drop the lock before returning
-                tracing::info!("message sent: {}", msg);
+                drop(connections);
             }
         });
 
@@ -87,23 +98,20 @@ impl PluginHost {
                 stream.peer_addr().unwrap()
             );
             let connections = Arc::clone(&self.connections);
-            let tx = self.output.clone();
+            let publisher = self.publisher.clone();
             tokio::spawn(async move {
                 let (reader, writer) = stream.into_split();
-                let next_id = PLUGIN_ID.fetch_add(1, Ordering::SeqCst);
-                let handle = PluginConnHandle {
-                    id: next_id,
-                    writer,
-                };
+                let id = PLUGIN_ID.fetch_add(1, Ordering::SeqCst);
+                let handle = PluginConnHandle { id, writer };
                 connections.lock().await.push(handle);
-                if let Err(e) = handle_client(reader, tx).await {
-                    tracing::error!("error handling plugin connection: {}", e);
+                if let Err(e) = handle_client(reader, publisher).await {
+                    tracing::error!("plugin crashed: {}", e);
                 } else {
                     tracing::info!("plugin disconnected")
                 }
                 // Remove the connection from the list
                 let mut connections = connections.lock().await;
-                connections.retain(|c| c.id != next_id); // Retain only those not equal to the disconnected one
+                connections.retain(|c| c.id != id); // Retain only those not equal to the disconnected one
             });
         }
         Ok(())
@@ -129,13 +137,15 @@ struct PluginConnHandle {
 
 impl PluginConnHandle {
     async fn write(&mut self, msg: &str) -> Result<(), std::io::Error> {
-        self.writer.write_all(msg.as_bytes()).await
+        self.writer.write_all(msg.as_bytes()).await?;
+        self.writer.write_all(b"\n").await?;
+        Ok(())
     }
 }
 
 async fn handle_client(
     reader: OwnedReadHalf,
-    tx: mpsc::Sender<String>,
+    publisher: broadcast::Sender<Message>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut reader = BufReader::new(reader);
     let mut line = String::new();
@@ -144,11 +154,18 @@ async fn handle_client(
         match reader.read_line(&mut line).await {
             Ok(0) => break,
             Ok(_) => {
-                if let Err(e) = tx.send(line.clone()).await {
-                    tracing::error!("failed to send message: {}", e);
-                    break;
+                tracing::debug!("received message from plugin: {}", line.trim());
+                match JSONRPCResponse::<Response>::from_json(&line) {
+                    Ok(response) => {
+                        let message = Message::PluginResponse(response);
+                        if let Err(e) = publisher.send(message) {
+                            tracing::error!("failed to forward plugin message: {}", e);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::error!("failed to parse JSON-RPC request: {}", e);
+                    }
                 }
-                tracing::info!("received: {}", line.trim());
                 line.clear();
             }
             Err(e) => {
@@ -179,7 +196,6 @@ fn extension_paths() -> Vec<PathBuf> {
 
 fn load_extensions(path: &PathBuf) -> Vec<ProcessPlugin> {
     let mut extensions = Vec::new();
-    tracing::info!("looking for extensions in: {:?}", path);
     if let Ok(entries) = std::fs::read_dir(path) {
         for entry in entries.flatten() {
             if entry.path().is_file() {

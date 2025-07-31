@@ -1,14 +1,17 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Icon {
+    None,
+    Path { path: String },
+    Freedesktop { name: String },
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Command {
+    pub title: String,
+    pub subtitle: String,
+    pub icon: Icon,
+    pub category: String,
 }
