@@ -16,7 +16,8 @@ tokio = { version = "1.46.1", features = [
     "io-util",
     "macros",
     "net",
-    "time"
+    "time",
+    "signal"
 ] }
 dirs = "6.0.0"
 serde_json = "1.0.140"

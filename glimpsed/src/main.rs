@@ -1,4 +1,5 @@
 use crate::{plugin_host::PluginHost, rpc_host::RPCHost};
+use tokio::signal;
 
 mod plugin_host;
 mod rpc_host;
@@ -48,7 +49,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate())?;
+    let mut sigint = signal::unix::signal(signal::unix::SignalKind::interrupt())?;
+
     tokio::select! {
+        _ = sigterm.recv() => {
+            tracing::info!("received SIGTERM, shutting down gracefully");
+        },
+        _ = sigint.recv() => {
+            tracing::info!("received SIGINT, shutting down gracefully");
+        },
         _ = client_handle => {
             tracing::info!("rpc server finished");
         },
