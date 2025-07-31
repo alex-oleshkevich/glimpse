@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Stdio};
+use std::{env::args, path::PathBuf, process::Stdio};
 use tokio::{io::AsyncBufReadExt, process::Command, sync::mpsc};
 
 use crate::{
@@ -38,6 +38,7 @@ impl ProcessHandle {
         plugin_rx: mpsc::Receiver<AppMessage>,
     ) {
         let mut child = match Command::new(&path)
+            .arg("--stdio")
             .stdout(Stdio::piped())
             .stdin(Stdio::piped())
             .stderr(Stdio::inherit())
