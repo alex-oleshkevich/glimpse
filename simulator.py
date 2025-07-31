@@ -68,6 +68,10 @@ async def request_handler(reader, writer):
                             "subtitle": f"A simple calculator app: {query}",
                             "icon": {"name": "calculator"},
                             "category": "Utility",
+                            "actions": [
+                                {"type": "Open", "path": "/usr/bin/calculator"},
+                                {"type": "LaunchApp", "app_id": "calculator", "new_instance": True}
+                            ]
                         },
                     ],
                 )

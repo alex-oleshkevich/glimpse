@@ -9,9 +9,21 @@ pub enum Icon {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum Action {
+    Open { path: String },
+    OpenUrl { url: String },
+    CopyToClipboard { text: String },
+    RunCommand { command: String },
+    LaunchApp { app_id: String, new_instance: bool },
+    Callback { payload: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Command {
     pub title: String,
     pub subtitle: String,
     pub icon: Icon,
     pub category: String,
+    pub actions: Vec<Action>,
 }
