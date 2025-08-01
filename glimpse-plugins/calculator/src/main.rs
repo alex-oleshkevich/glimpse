@@ -2,7 +2,7 @@ use std::env;
 use std::path::Path;
 use std::process;
 
-use glimpse_sdk::{Action, Command, Icon, Plugin, ReplyWriter, Response};
+use glimpse_sdk::{Action, Command, Icon, SearchPlugin, ReplyWriter, Response};
 use numbat::markup::{Formatter, PlainTextFormatter};
 use numbat::module_importer::BuiltinModuleImporter;
 use numbat::pretty_print::PrettyPrint;
@@ -23,7 +23,7 @@ impl CalculatorPlugin {
     }
 }
 
-impl Plugin for CalculatorPlugin {
+impl SearchPlugin for CalculatorPlugin {
     async fn search(&self, query: String, output: &mut ReplyWriter<'_>) {
         if !query.starts_with("=") {
             return;

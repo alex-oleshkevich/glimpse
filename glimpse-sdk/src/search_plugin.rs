@@ -22,7 +22,7 @@ impl Display for Error {
     }
 }
 
-pub trait Plugin {
+pub trait SearchPlugin {
     async fn search(&self, query: String, output: &mut ReplyWriter<'_>);
 
     async fn run(&self, socket_path: PathBuf) -> Result<(), Error> {
