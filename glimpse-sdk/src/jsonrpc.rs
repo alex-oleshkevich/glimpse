@@ -1,8 +1,6 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use serde::{Deserialize, Serialize};
 
-static COUNTER: AtomicU64 = AtomicU64::new(1);
+use crate::Request;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JSONRPCRequest<T = serde_json::Value> {
@@ -16,22 +14,27 @@ impl<T> JSONRPCRequest<T>
 where
     T: Serialize + for<'de> Deserialize<'de>,
 {
-    pub fn new(method: String, params: Option<T>) -> Self {
-        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        JSONRPCRequest {
-            id: serde_json::Value::Number(id.into()),
-            method,
-            params,
-            jsonrpc: "2.0".to_string(),
-        }
-    }
-
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string(self)
     }
 
     pub fn from_json(s: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(s)
+    }
+
+    pub fn unwrap(&self) -> &T {
+        self.params
+            .as_ref()
+            .expect("JSON-RPC request must have params")
+    }
+
+    pub fn notification(method: String, params: Option<T>) -> Self {
+        JSONRPCRequest {
+            jsonrpc: "2.0".to_string(),
+            method,
+            params,
+            id: serde_json::Value::Null,
+        }
     }
 }
 
@@ -47,6 +50,14 @@ impl<T> JSONRPCResponse<T>
 where
     T: Serialize + for<'de> Deserialize<'de>,
 {
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+
+    pub fn from_json(s: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(s)
+    }
+
     pub fn success(id: serde_json::Value, result: T) -> Self {
         JSONRPCResponse {
             jsonrpc: "2.0".to_string(),
@@ -56,21 +67,11 @@ where
         }
     }
 
-    pub fn error(id: serde_json::Value, error: JSONRPCError) -> Self {
-        JSONRPCResponse {
-            jsonrpc: "2.0".to_string(),
-            result: None,
-            error: Some(error),
-            id,
-        }
-    }
-
-    pub fn to_json(&self) -> Result<String, serde_json::Error> {
-        serde_json::to_string(self)
-    }
-
-    pub fn from_json(s: &str) -> Result<Self, serde_json::Error> {
-        serde_json::from_str(s)
+    pub fn success_for(request: &JSONRPCRequest<Request>, result: T) -> String {
+        let response = JSONRPCResponse::success(request.id.clone(), result);
+        response
+            .to_json()
+            .expect("Failed to serialize JSON-RPC response")
     }
 }
 

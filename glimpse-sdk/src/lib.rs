@@ -1,3 +1,9 @@
+pub mod jsonrpc;
+pub mod messages;
+pub mod traits;
+pub use jsonrpc::{JSONRPCError, JSONRPCRequest, JSONRPCResponse};
+pub use messages::{Request, Response};
+pub use traits::{Plugin, Error, ReplyWriter};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

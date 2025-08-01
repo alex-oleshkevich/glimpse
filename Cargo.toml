@@ -32,9 +32,13 @@ name = "glimpsed"
 path = "glimpsed/src/main.rs"
 
 [[bin]]
-name = "glimpsed-ui"
-path = "glimpsed-gui/src/main.rs"
+name = "glimpse-ui"
+path = "glimpse-gui/src/main.rs"
+
+[[bin]]
+name = "calculator"
+path = "glimpse-plugins/calculator/src/main.rs"
 
 [workspace]
 resolver = "3"
-members = ["glimpse-gui", "glimpse-sdk", "glimpsed"]
+members = ["glimpse-gui", "glimpse-plugins/calculator", "glimpse-sdk", "glimpsed"]

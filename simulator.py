@@ -14,9 +14,6 @@ async def message_receiver(reader):
         print(f"<- {data.decode().strip()}\n")
 
 
-actions = {"exit", "ping", "apps"}
-
-
 async def jsonrpc_request(writer, method, params=None):
     global message_seq
     message_seq += 1
@@ -34,17 +31,18 @@ async def jsonrpc_response(writer, message, result):
 
 
 async def user_input_handler(writer):
-    action_keys = ", ".join(actions)
     while True:
-        print(f"select action: {action_keys}")
         match await asyncio.to_thread(input):
             case "ping":
                 await jsonrpc_request(writer, "ping")
-            case "apps":
-                query = input("enter app query: ")
-                await jsonrpc_request(writer, "search", {"query": query})
             case "exit":
                 break
+            case "call:":
+                plugin_id = int(input("enter plugin id: "))
+                action = input("enter action: ")
+                await jsonrpc_request(writer, "call_action", {"plugin_id": plugin_id, "action": json.loads(action)})
+            case query:
+                await jsonrpc_request(writer, "search", {"query": query})
 
 
 async def request_handler(reader, writer):
@@ -70,22 +68,27 @@ async def request_handler(reader, writer):
                             "category": "Utility",
                             "actions": [
                                 {"type": "Open", "path": "/usr/bin/calculator"},
-                                {"type": "LaunchApp", "app_id": "calculator", "new_instance": True}
-                            ]
+                                {"type": "LaunchApp", "app_id": "calculator", "new_instance": True},
+                            ],
                         },
                     ],
                 )
+            case {"method": "call_action"}:
+                await jsonrpc_response(writer, message, None)
 
 
 async def main():
     try:
         reader, writer = await asyncio.open_unix_connection("/run/user/1000/glimpsed.sock")
-        plugin_reader, plugin_writer = await asyncio.open_unix_connection("/run/user/1000/glimpse-rpc.sock")
+        plugin_reader, plugin_writer = await asyncio.open_unix_connection("/run/user/1000/glimpsed-plugins.sock")
 
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(message_receiver(reader))
-            tg.create_task(user_input_handler(writer))
-            tg.create_task(request_handler(plugin_reader, plugin_writer))
+        try:
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(message_receiver(reader))
+                tg.create_task(user_input_handler(writer))
+                tg.create_task(request_handler(plugin_reader, plugin_writer))
+        except* ExceptionGroup as e:
+            print(f"Error in task: {e}")
 
         writer.close()
         await writer.wait_closed()

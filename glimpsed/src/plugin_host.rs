@@ -3,7 +3,7 @@ use std::{
     path::PathBuf,
     sync::{
         Arc,
-        atomic::{AtomicI16, Ordering},
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
@@ -16,12 +16,10 @@ use tokio::{
     sync::{Mutex, broadcast},
 };
 
-use crate::{
-    jsonrpc::JSONRPCResponse,
-    messages::{Message, MessageBus, Response},
-};
+use crate::messages::{Message, MessageBus};
+use glimpse_sdk::{JSONRPCResponse, Request, Response};
 
-static PLUGIN_ID: AtomicI16 = AtomicI16::new(0);
+static PLUGIN_ID: AtomicUsize = AtomicUsize::new(0);
 
 struct ProcessPlugin {
     command: PathBuf,
@@ -45,7 +43,7 @@ impl PluginHost {
     pub async fn run(self) -> Result<(), Box<dyn std::error::Error>> {
         let socket_path = dirs::runtime_dir()
             .expect("failed to get runtime directory")
-            .join("glimpse-rpc.sock");
+            .join("glimpsed-plugins.sock");
         if socket_path.exists() {
             std::fs::remove_file(&socket_path)?;
         }
@@ -74,15 +72,36 @@ impl PluginHost {
                 let mut connections = connections_for_dispatch.lock().await;
                 match msg {
                     Message::ClientRequest(request) => {
+                        match request.params {
+                            Some(Request::CallAction {
+                                plugin_id,
+                                action: _,
+                            }) => {
+                                for conn in connections.iter_mut() {
+                                    if conn.id == plugin_id {
+                                        if let Err(e) =
+                                            conn.write(&request.to_json().unwrap()).await
+                                        {
+                                            tracing::error!(
+                                                "failed to send message to plugin: {}",
+                                                e
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {
+                                for conn in connections.iter_mut() {
+                                    if let Err(e) = conn.write(&request.to_json().unwrap()).await {
+                                        tracing::error!("failed to send message to plugin: {}", e);
+                                    }
+                                }
+                            }
+                        }
                         tracing::info!(
                             "dispatched client message to {} plugins",
                             connections.len()
                         );
-                        for conn in connections.iter_mut() {
-                            if let Err(e) = conn.write(&request.to_json().unwrap()).await {
-                                tracing::error!("failed to send message to plugin: {}", e);
-                            }
-                        }
                     }
                     _ => {}
                 }
@@ -104,7 +123,7 @@ impl PluginHost {
                 let id = PLUGIN_ID.fetch_add(1, Ordering::SeqCst);
                 let handle = PluginConnHandle { id, writer };
                 connections.lock().await.push(handle);
-                if let Err(e) = handle_client(reader, publisher).await {
+                if let Err(e) = handle_client(id, reader, publisher).await {
                     tracing::error!("plugin crashed: {}", e);
                 } else {
                     tracing::info!("plugin disconnected")
@@ -131,7 +150,7 @@ impl PluginHost {
 }
 
 struct PluginConnHandle {
-    id: i16,
+    id: usize,
     writer: OwnedWriteHalf,
 }
 
@@ -144,6 +163,7 @@ impl PluginConnHandle {
 }
 
 async fn handle_client(
+    id: usize,
     reader: OwnedReadHalf,
     publisher: broadcast::Sender<Message>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -157,7 +177,7 @@ async fn handle_client(
                 tracing::debug!("received message from plugin: {}", line.trim());
                 match JSONRPCResponse::<Response>::from_json(&line) {
                     Ok(response) => {
-                        let message = Message::PluginResponse(response);
+                        let message = Message::PluginResponse(id, response);
                         if let Err(e) = publisher.send(message) {
                             tracing::error!("failed to forward plugin message: {}", e);
                         }

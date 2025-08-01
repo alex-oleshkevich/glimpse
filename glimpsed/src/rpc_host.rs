@@ -3,6 +3,7 @@ use std::sync::{
     atomic::{AtomicI16, Ordering},
 };
 
+use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{
@@ -12,10 +13,8 @@ use tokio::{
     sync::{Mutex, broadcast},
 };
 
-use crate::{
-    jsonrpc::JSONRPCRequest,
-    messages::{Message, MessageBus, Request},
-};
+use crate::messages::{Message, MessageBus};
+use glimpse_sdk::{JSONRPCRequest, JSONRPCResponse, Request, Response};
 
 static PLUGIN_ID: AtomicI16 = AtomicI16::new(0);
 
@@ -69,10 +68,11 @@ impl RPCHost {
         tokio::spawn(async move {
             while let Ok(msg) = receiver.recv().await {
                 match msg {
-                    Message::PluginResponse(response) => {
+                    Message::PluginResponse(plugin_id, response) => {
                         let mut connections = clients_for_dispatch.lock().await;
                         for client in connections.iter_mut() {
-                            let json = response.to_json().unwrap_or_else(|e| {
+                            let enveloped = repack_with_plugin_id(&response, plugin_id);
+                            let json = enveloped.to_json().unwrap_or_else(|e| {
                                 tracing::error!("failed to serialize response: {}", e);
                                 "{}".to_string()
                             });
@@ -144,4 +144,25 @@ async fn parse_client_input(
         }
     }
     Ok(())
+}
+
+fn repack_with_plugin_id(
+    response: &JSONRPCResponse<Response>,
+    plugin_id: usize,
+) -> JSONRPCResponse<ResponseEnvelope> {
+    JSONRPCResponse {
+        jsonrpc: response.jsonrpc.clone(),
+        result: response.result.as_ref().map(|r| ResponseEnvelope {
+            plugin_id,
+            response: r.clone(),
+        }),
+        error: response.error.clone(),
+        id: response.id.clone(),
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResponseEnvelope {
+    pub plugin_id: usize,
+    pub response: Response,
 }

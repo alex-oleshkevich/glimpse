@@ -1,10 +1,14 @@
-use crate::{plugin_host::PluginHost, rpc_host::RPCHost};
+use crate::{
+    messages::{Message, MessageBus},
+    plugin_host::PluginHost,
+    rpc_host::RPCHost,
+};
+use glimpse_sdk::{JSONRPCRequest, Request};
 use tokio::signal;
 
 mod messages;
 mod plugin_host;
 mod rpc_host;
-mod jsonrpc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -12,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let message_bus = messages::MessageBus::new();
+    let message_bus = MessageBus::new();
     let rpc_host = RPCHost::new(&message_bus);
     let host = PluginHost::new(&message_bus);
 
@@ -27,48 +31,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // let plugin_host_tx_clone = plugin_host_tx.clone();
-    // let client_message_handler = tokio::spawn(async move {
-    //     let mut rx = rpc_msg_rx;
-    //     while let Some(msg) = rx.recv().await {
-    //         tracing::info!("relay client message to plugins: {}", msg);
-    //         plugin_host_tx_clone.send(msg).await.unwrap();
-    //     }
-    // });
-
-
-    // let plugin_message_handler = tokio::spawn(async move {
-    //     let mut rx = plugin_msg_rx;
-    //     while let Some(msg) = rx.recv().await {
-    //         tracing::info!("received message from plugin: {}", msg);
-    //         if let Err(e) = rpc_host_tx.send(msg).await {
-    //             tracing::error!("failed to send message to RPC host: {}", e);
-    //         }
-    //     }
-    // });
-
     let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate())?;
     let mut sigint = signal::unix::signal(signal::unix::SignalKind::interrupt())?;
 
     tokio::select! {
-        _ = sigterm.recv() => {
-            tracing::info!("received SIGTERM, shutting down gracefully");
-        },
-        _ = sigint.recv() => {
-            tracing::info!("received SIGINT, shutting down gracefully");
-        },
-        _ = client_handle => {
-            tracing::info!("rpc server finished");
-        },
-        _ = plugin_handle => {
-            tracing::info!("plugin host finished");
-        },
-        // _ = plugin_message_handler => {
-        //     tracing::info!("plugin message handler finished");
-        // },
-        // _ = client_message_handler => {
-        //     tracing::info!("client message handler finished");
-        // },
+    _ = sigterm.recv() => {
+        let message = Message::ClientRequest(
+            JSONRPCRequest::<Request> { jsonrpc: "2.0".to_string(), method: "quit".to_string(), params: Some(Request::Quit), id: serde_json::Value::Null }
+        );
+        if let Err(e)= message_bus.publisher().send(message) {
+            tracing::error!("error sending quit message: {}", e);
+        }
+        tracing::info!("received SIGTERM, shutting down gracefully");
+    },
+    _ = sigint.recv() => {
+        let message = Message::ClientRequest(
+            JSONRPCRequest::<Request> { jsonrpc: "2.0".to_string(), method: "quit".to_string(), params: Some(Request::Quit), id: serde_json::Value::Null }
+        );
+        if let Err(e)= message_bus.publisher().send(message) {
+            tracing::error!("error sending quit message: {}", e);
+        }
+        tracing::info!("received SIGINT, shutting down gracefully");
+    },
+    _ = client_handle => {
+        tracing::info!("rpc server finished");
+    },
+    _ = plugin_handle => {
+        tracing::info!("plugin host finished");
+    }
     }
 
     Ok(())
