@@ -1,35 +1,20 @@
-use std::{fmt::Display, path::PathBuf, process};
+use std::{path::PathBuf, process};
 
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, WriteHalf},
     net::UnixStream,
 };
 
-use crate::{JSONRPCRequest, JSONRPCResponse, Request, Response};
-
-#[derive(Debug, Clone)]
-pub enum Error {
-    SocketError(String),
-    Custom(String),
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::SocketError(msg) => write!(f, "Socket error: {}", msg),
-            Error::Custom(msg) => write!(f, "Custom error: {}", msg),
-        }
-    }
-}
+use crate::{GlimpseError, JSONRPCRequest, JSONRPCResponse, Request, Response};
 
 pub trait SearchPlugin {
     async fn search(&self, query: String, output: &mut ReplyWriter<'_>);
 
-    async fn run(&self, socket_path: PathBuf) -> Result<(), Error> {
+    async fn run(&self, socket_path: PathBuf) -> Result<(), GlimpseError> {
         setup_logging();
         let stream = tokio::net::UnixStream::connect(&socket_path).await;
         if stream.is_err() {
-            return Err(Error::SocketError(
+            return Err(GlimpseError::SocketError(
                 "failed to connect to socket".to_string(),
             ));
         }
@@ -38,27 +23,26 @@ pub trait SearchPlugin {
         let (reader, writer) = tokio::io::split(stream);
         let mut writer = writer;
         let mut reader = tokio::io::BufReader::new(reader);
-        let mut line = String::new();
 
+        let mut line = String::new();
         while let Ok(_) = reader.read_line(&mut line).await {
             if line.is_empty() {
                 continue;
             }
 
             tracing::debug!("received line: {}", line.trim());
-            let rpc_request = JSONRPCRequest::<Request>::from_json(&line);
+            let rpc_request = JSONRPCRequest::from_string(&line);
             if let Err(e) = rpc_request {
                 tracing::error!("invalid JSON-RPC payload: {}", e);
                 continue;
             }
 
             let rpc_request = rpc_request.unwrap();
-            let request = rpc_request.unwrap();
             let mut output = ReplyWriter {
                 writer: &mut writer,
                 rpc_request: rpc_request.clone(),
             };
-            match request {
+            match rpc_request.request {
                 Request::Search { query } => self.search(query.clone(), &mut output).await,
                 Request::Quit => process::exit(0),
                 _ => {}
@@ -72,13 +56,25 @@ pub trait SearchPlugin {
 }
 
 pub struct ReplyWriter<'a> {
-    rpc_request: JSONRPCRequest<Request>,
+    rpc_request: JSONRPCRequest,
     writer: &'a mut WriteHalf<UnixStream>,
 }
 
 impl<'a> ReplyWriter<'a> {
     pub async fn reply(&mut self, resp: Response) {
-        let rpc_message = JSONRPCResponse::success_for(&self.rpc_request, resp);
+        if self.rpc_request.id.is_none() {
+            tracing::warn!("cannot reply to notification request");
+            return;
+        }
+
+        let rpc_message = JSONRPCResponse::success(self.rpc_request.id.unwrap(), resp);
+        let serialized = rpc_message.to_json();
+        if let Err(e) = serialized {
+            eprintln!("Error serializing response: {}", e);
+            return;
+        }
+        let rpc_message = serialized.unwrap();
+
         if let Ok(_) = self.writer.write_all(rpc_message.as_bytes()).await {
             if let Err(e) = self.writer.write_all(b"\n").await {
                 eprintln!("Error sending reply: {}", e);

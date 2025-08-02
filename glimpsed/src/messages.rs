@@ -1,4 +1,4 @@
-use glimpse_sdk::{JSONRPCRequest, JSONRPCResponse, Request, Response};
+use glimpse_sdk::{JSONRPCRequest, JSONRPCResponse};
 use tokio::sync::broadcast;
 
 pub struct MessageBus {
@@ -26,6 +26,6 @@ impl MessageBus {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    ClientRequest(JSONRPCRequest<Request>),
-    PluginResponse(usize, JSONRPCResponse<Response>),
+    ClientRequest(JSONRPCRequest),
+    PluginResponse(usize, JSONRPCResponse),
 }

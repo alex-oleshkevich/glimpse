@@ -123,7 +123,7 @@ async fn parse_client_input(
             Ok(0) => break,
             Ok(_) => {
                 tracing::debug!("received message from client: {}", &line);
-                match JSONRPCRequest::<Request>::from_json(&line) {
+                match JSONRPCRequest::<Request>::from_string(&line) {
                     Ok(request) => {
                         tracing::debug!("received client request: {}", request.method);
                         let message = Message::ClientRequest(request);

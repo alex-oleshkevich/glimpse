@@ -25,6 +25,7 @@ tokio-stream = { version = "0.1.17", features = ["io-util"] }
 freedesktop-icons = "0.4.0"
 clap = { version = "4.5.42", features = ["derive"] }
 glimpse-sdk = { path = "./glimpse-sdk" }
+anyhow = "1.0.98"
 
 
 [[bin]]

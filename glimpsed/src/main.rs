@@ -1,14 +1,8 @@
-use crate::{
-    messages::{Message, MessageBus},
-    plugin_host::PluginHost,
-    rpc_host::RPCHost,
-};
-use glimpse_sdk::{JSONRPCRequest, Request};
+use crate::daemon::Daemon;
 use tokio::signal;
 
+mod daemon;
 mod messages;
-mod plugin_host;
-mod rpc_host;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,18 +10,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let message_bus = MessageBus::new();
-    let rpc_host = RPCHost::new(&message_bus);
-    let host = PluginHost::new(&message_bus);
+    let client_socket_path = dirs::runtime_dir()
+        .map(|d| d.join("glimpsed.sock"))
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp/glimpsed.sock"));
+    let plugin_socket_path = dirs::runtime_dir()
+        .map(|d| d.join("glimpsed-plugins.sock"))
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp/glimpsed-plugins.sock"));
 
-    let client_handle = tokio::spawn(async move {
-        if let Err(e) = rpc_host.run().await {
-            tracing::error!("error in RPC host: {}", e);
-        }
-    });
-    let plugin_handle = tokio::spawn(async move {
-        if let Err(e) = host.run().await {
-            tracing::error!("error in plugin host: {}", e)
+    let daemon = Daemon::new(client_socket_path, plugin_socket_path);
+    let daemon_handle = tokio::spawn(async move {
+        if let Err(e) = daemon.run().await {
+            tracing::error!("error in daemon: {}", e);
         }
     });
 
@@ -35,30 +28,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut sigint = signal::unix::signal(signal::unix::SignalKind::interrupt())?;
 
     tokio::select! {
-    _ = sigterm.recv() => {
-        let message = Message::ClientRequest(
-            JSONRPCRequest::<Request> { jsonrpc: "2.0".to_string(), method: "quit".to_string(), params: Some(Request::Quit), id: serde_json::Value::Null }
-        );
-        if let Err(e)= message_bus.publisher().send(message) {
-            tracing::error!("error sending quit message: {}", e);
+        _ = sigterm.recv() => {
+            tracing::debug!("received SIGTERM, shutting down gracefully");
+        },
+        _ = sigint.recv() => {
+            tracing::debug!("received SIGINT, shutting down gracefully");
+        },
+        _ = daemon_handle => {
+            tracing::debug!("daemon finished");
         }
-        tracing::info!("received SIGTERM, shutting down gracefully");
-    },
-    _ = sigint.recv() => {
-        let message = Message::ClientRequest(
-            JSONRPCRequest::<Request> { jsonrpc: "2.0".to_string(), method: "quit".to_string(), params: Some(Request::Quit), id: serde_json::Value::Null }
-        );
-        if let Err(e)= message_bus.publisher().send(message) {
-            tracing::error!("error sending quit message: {}", e);
-        }
-        tracing::info!("received SIGINT, shutting down gracefully");
-    },
-    _ = client_handle => {
-        tracing::info!("rpc server finished");
-    },
-    _ = plugin_handle => {
-        tracing::info!("plugin host finished");
-    }
     }
 
     Ok(())

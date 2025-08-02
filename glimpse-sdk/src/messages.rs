@@ -4,7 +4,7 @@ use crate::{Action, Command};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(tag = "method", content = "params", rename_all = "snake_case")]
 pub enum Request {
     Ping,
     Search { query: String },
@@ -19,7 +19,7 @@ impl Display for Request {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum Response {
     Pong,
     SearchResults(Vec<Command>),

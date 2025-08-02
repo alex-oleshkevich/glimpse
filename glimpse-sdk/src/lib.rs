@@ -1,9 +1,11 @@
+pub mod errors;
 pub mod jsonrpc;
 pub mod messages;
 pub mod search_plugin;
+pub use errors::GlimpseError;
 pub use jsonrpc::{JSONRPCError, JSONRPCRequest, JSONRPCResponse};
 pub use messages::{Request, Response};
-pub use search_plugin::{SearchPlugin, Error, ReplyWriter};
+pub use search_plugin::{ReplyWriter, SearchPlugin};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -12,6 +12,7 @@ async def message_receiver(reader):
         if not data:
             break
         print(f"<- {data.decode().strip()}\n")
+    print("message_receiver: connection closed")
 
 
 async def jsonrpc_request(writer, method, params=None):
@@ -32,7 +33,7 @@ async def jsonrpc_response(writer, message, result):
 
 async def user_input_handler(writer):
     while True:
-        match await asyncio.to_thread(input):
+        match await asyncio.to_thread(input, 'search: '):
             case "ping":
                 await jsonrpc_request(writer, "ping")
             case "exit":
@@ -75,7 +76,7 @@ async def request_handler(reader, writer):
                 )
             case {"method": "call_action"}:
                 await jsonrpc_response(writer, message, None)
-
+    print("request_handler: connection closed")
 
 async def main():
     try:
@@ -87,7 +88,7 @@ async def main():
                 tg.create_task(message_receiver(reader))
                 tg.create_task(user_input_handler(writer))
                 tg.create_task(request_handler(plugin_reader, plugin_writer))
-        except* ExceptionGroup as e:
+        except* Exception as e:
             print(f"Error in task: {e}")
 
         writer.close()

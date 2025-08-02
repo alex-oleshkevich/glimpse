@@ -80,7 +80,7 @@ impl PluginHost {
                                 for conn in connections.iter_mut() {
                                     if conn.id == plugin_id {
                                         if let Err(e) =
-                                            conn.write(&request.to_json().unwrap()).await
+                                            conn.write(&request.to_string().unwrap()).await
                                         {
                                             tracing::error!(
                                                 "failed to send message to plugin: {}",
@@ -92,7 +92,7 @@ impl PluginHost {
                             }
                             _ => {
                                 for conn in connections.iter_mut() {
-                                    if let Err(e) = conn.write(&request.to_json().unwrap()).await {
+                                    if let Err(e) = conn.write(&request.to_string().unwrap()).await {
                                         tracing::error!("failed to send message to plugin: {}", e);
                                     }
                                 }
