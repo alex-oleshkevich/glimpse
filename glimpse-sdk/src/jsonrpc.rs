@@ -6,7 +6,6 @@ use crate::{Request, Response};
 pub struct JSONRPCRequest {
     pub jsonrpc: String,
     pub id: Option<usize>,
-    pub method: String,
     #[serde(flatten)]
     pub request: Request,
 }
@@ -20,10 +19,9 @@ impl JSONRPCRequest {
         serde_json::from_str(s)
     }
 
-    pub fn notification(method: String, request: Request) -> Self {
+    pub fn notification(request: Request) -> Self {
         JSONRPCRequest {
             jsonrpc: "2.0".to_string(),
-            method,
             request,
             id: None,
         }
@@ -42,11 +40,11 @@ pub struct JSONRPCResponse {
 }
 
 impl JSONRPCResponse {
-    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+    pub fn to_string(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string(self)
     }
 
-    pub fn from_json(s: &str) -> Result<Self, serde_json::Error> {
+    pub fn from_string(s: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(s)
     }
 

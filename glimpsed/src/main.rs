@@ -2,7 +2,6 @@ use crate::daemon::Daemon;
 use tokio::signal;
 
 mod daemon;
-mod messages;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

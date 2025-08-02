@@ -1,17 +1,29 @@
 use anyhow;
 use glimpse_sdk::{JSONRPCRequest, JSONRPCResponse};
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::{UnixListener, UnixStream},
     sync::{Mutex, mpsc::UnboundedSender},
 };
 
-use crate::messages::Message;
-
 struct ClientConnection {
     client_id: usize,
     writer: UnboundedSender<JSONRPCResponse>,
+}
+
+impl ClientConnection {
+    async fn send_message(&self, message: JSONRPCResponse) -> anyhow::Result<()> {
+        self.writer.send(message).map_err(|e| {
+            anyhow::anyhow!("failed to send message to client {}: {}", self.client_id, e)
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -20,10 +32,18 @@ struct PluginConnection {
     writer: UnboundedSender<JSONRPCRequest>,
 }
 
+impl PluginConnection {
+    async fn send_message(&self, message: JSONRPCRequest) -> anyhow::Result<()> {
+        self.writer.send(message).map_err(|e| {
+            anyhow::anyhow!("failed to send message to plugin {}: {}", self.plugin_id, e)
+        })
+    }
+}
+
 #[derive(Clone)]
 pub struct Daemon {
-    client_counter: usize,
-    plugin_counter: usize,
+    client_counter: Arc<AtomicUsize>,
+    plugin_counter: Arc<AtomicUsize>,
     client_socket_path: std::path::PathBuf,
     plugin_socket_path: std::path::PathBuf,
     client_connections: Arc<Mutex<HashMap<usize, ClientConnection>>>,
@@ -36,8 +56,8 @@ impl Daemon {
         plugin_socket_path: std::path::PathBuf,
     ) -> Self {
         Daemon {
-            client_counter: 0,
-            plugin_counter: 0,
+            client_counter: Arc::new(AtomicUsize::new(0)),
+            plugin_counter: Arc::new(AtomicUsize::new(0)),
             client_socket_path,
             plugin_socket_path,
             client_connections: Arc::new(Mutex::new(HashMap::new())),
@@ -103,12 +123,22 @@ impl Daemon {
         let mut reader = BufReader::new(read_half);
         let write_half = Arc::new(Mutex::new(write_half));
 
-        // plugin -> daemon -> client
+        let client_id = self.client_counter.fetch_add(1, Ordering::SeqCst);
+
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<JSONRPCResponse>();
-        tokio::spawn(async move {
+        self.client_connections.lock().await.insert(
+            client_id,
+            ClientConnection {
+                client_id,
+                writer: tx,
+            },
+        );
+
+        // plugin -> daemon -> client
+        let reader_handle = tokio::spawn(async move {
             while let Some(message) = rx.recv().await {
                 let mut writer = write_half.lock().await;
-                let serialized = message.to_json();
+                let serialized = message.to_string();
                 if let Err(e) = serialized {
                     tracing::error!(
                         "failed to serialize daemon response: {:?} -> {}",
@@ -127,77 +157,61 @@ impl Daemon {
             }
         });
 
-        self.client_counter += 1;
-        let client_id = self.client_counter;
-        let mut connections = self.client_connections.lock().await;
-        connections.insert(
-            client_id,
-            ClientConnection {
-                client_id,
-                writer: tx,
-            },
-        );
-        drop(connections);
-
         // client -> daemon -> plugins
-        let mut line = String::new();
-        loop {
-            match reader.read_line(&mut line).await {
-                Ok(0) => {
-                    tracing::debug!("client disconnected");
-                    break;
-                }
-                Ok(_) => {
-                    if line.is_empty() {
-                        continue;
+        let daemon_clone = self.clone();
+        let writer_handle = tokio::spawn(async move {
+            let mut line = String::new();
+            loop {
+                match reader.read_line(&mut line).await {
+                    Ok(0) => {
+                        tracing::debug!("client disconnected");
+                        break;
                     }
-                    tracing::debug!("received client message: {}", line);
-                    let message = JSONRPCRequest::from_string(&line);
-                    if let Err(e) = message {
-                        tracing::error!("failed to parse client message: {} -> {}", &line, e);
-                        continue;
-                    }
-                    let message = message.unwrap();
-                    for plugin in self.plugin_connections.lock().await.values() {
-                        if let Err(e) = plugin.writer.send(message.clone()) {
-                            tracing::error!(
-                                "failed to send message to plugin {}: {}",
-                                plugin.plugin_id,
-                                e
-                            );
+                    Ok(_) => {
+                        if line.is_empty() {
+                            continue;
                         }
+                        tracing::debug!("received client request: {}", line);
+
+                        let message = JSONRPCRequest::from_string(&line);
+                        if let Err(e) = message {
+                            tracing::error!("failed to parse client request: {} -> {}", &line, e);
+                            continue;
+                        }
+
+                        let message = message.unwrap();
+                        if let Err(e) = daemon_clone.send_to_plugin(message).await {
+                            tracing::error!("failed to forward request to plugin: {}", e);
+                            continue;
+                        }
+                        line.clear();
                     }
-                    line.clear();
-                }
-                Err(e) => {
-                    tracing::error!("failed to read from client: {}", e);
-                    break;
+                    Err(e) => {
+                        tracing::error!("failed to read from client: {}", e);
+                        break;
+                    }
                 }
             }
+        });
+
+        tokio::select! {
+            _ = reader_handle => {
+                tracing::debug!("client reader task finished for client_id: {}", &client_id);
+            },
+            _ = writer_handle => {
+                tracing::debug!("client writer task finished for client_id: {}", &client_id);
+            },
         }
 
+        self.client_connections.lock().await.remove(&client_id);
         tracing::debug!("client connection closed, client_id: {}", &client_id);
-        let mut connections = self.client_connections.lock().await;
-        connections.remove(&client_id);
-        tracing::info!(
-            "client removed, client_id: {}, remaining connections: {}",
-            &client_id,
-            connections.len()
-        );
-
-        tracing::info!(
-            "client disconnected, remaining connections: {}",
-            connections.len()
-        );
-        drop(connections);
     }
 
-    pub async fn handle_plugin_connection(&mut self, stream: UnixStream) {
+    async fn handle_plugin_connection(&mut self, stream: UnixStream) {
         let (read_half, write_half) = stream.into_split();
         let mut reader = BufReader::new(read_half);
         let write_half = Arc::new(Mutex::new(write_half));
-        self.plugin_counter += 1;
-        let plugin_id = self.plugin_counter;
+        let plugin_id = self.plugin_counter.fetch_add(1, Ordering::SeqCst);
 
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<JSONRPCRequest>();
         let connection = PluginConnection {
@@ -209,7 +223,6 @@ impl Daemon {
             .lock()
             .await
             .insert(plugin_id, connection.clone());
-        tracing::info!("plugin inserted, plugin_id: {}", &plugin_id);
 
         // client -> daemon -> plugin
         let writer_handle = tokio::spawn(async move {
@@ -221,24 +234,23 @@ impl Daemon {
                     tracing::error!("failed to serialize client message: {:?}, {}", &message, e);
                     continue;
                 }
+
                 let serialized = serialized.unwrap();
                 let json_str = format!("{}\n", serialized);
-                match writer.write_all(json_str.as_bytes()).await {
-                    Ok(_) => tracing::debug!("sent message to plugin: {:?}", &message),
-                    Err(e) => {
-                        tracing::error!(
-                            "failed to write client message to plugin: {:?} {}",
-                            &message,
-                            e
-                        );
-                        continue;
-                    }
+                if let Err(e) = writer.write_all(json_str.as_bytes()).await {
+                    tracing::error!(
+                        "failed to write client message to plugin: {:?} {}",
+                        &message,
+                        e
+                    );
+                    continue;
                 }
             }
             tracing::debug!("plugin writer task for {} finished", &plugin_id);
         });
 
         // plugin -> daemon -> clients
+        let daemon_clone = self.clone();
         let reader_handle = tokio::spawn(async move {
             tracing::debug!("plugin reader task for {} started", &plugin_id);
             let mut line = String::new();
@@ -251,7 +263,20 @@ impl Daemon {
                         if line.is_empty() {
                             continue;
                         }
-                        tracing::debug!("received plugin message: {}", line);
+
+                        let response = JSONRPCResponse::from_string(&line);
+                        if let Err(e) = response {
+                            tracing::error!("failed to parse plugin response: {} -> {}", &line, e);
+                            continue;
+                        }
+                        let response = response.unwrap().with_plugin_id(plugin_id);
+                        tracing::debug!("received plugin response: {}", &line);
+                        daemon_clone
+                            .send_to_clients(response)
+                            .await
+                            .unwrap_or_else(|e| {
+                                tracing::error!("failed to send response to clients: {}", e);
+                            });
                     }
                     Err(e) => {
                         tracing::error!("failed to read from plugin: {}", e);
@@ -280,6 +305,32 @@ impl Daemon {
             .remove(&connection.plugin_id);
 
         tracing::info!("plugin disconnected");
+    }
+
+    async fn send_to_clients(&self, response: JSONRPCResponse) -> anyhow::Result<()> {
+        for client in self.client_connections.lock().await.values() {
+            if let Err(e) = client.send_message(response.clone()).await {
+                tracing::error!(
+                    "failed to forward response to client {}: {}",
+                    client.client_id,
+                    e
+                );
+            }
+        }
+        Ok(())
+    }
+
+    async fn send_to_plugin(&self, request: JSONRPCRequest) -> anyhow::Result<()> {
+        for plugin in self.plugin_connections.lock().await.values() {
+            if let Err(e) = plugin.send_message(request.clone()).await {
+                tracing::error!(
+                    "failed to forward request to plugin {}:  {}",
+                    plugin.plugin_id,
+                    e
+                );
+            }
+        }
+        Ok(())
     }
 }
 

@@ -68,7 +68,7 @@ impl<'a> ReplyWriter<'a> {
         }
 
         let rpc_message = JSONRPCResponse::success(self.rpc_request.id.unwrap(), resp);
-        let serialized = rpc_message.to_json();
+        let serialized = rpc_message.to_string();
         if let Err(e) = serialized {
             eprintln!("Error serializing response: {}", e);
             return;

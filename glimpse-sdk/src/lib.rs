@@ -9,7 +9,7 @@ pub use search_plugin::{ReplyWriter, SearchPlugin};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum Icon {
     None,
     Path { path: String },
@@ -17,7 +17,7 @@ pub enum Icon {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "action", rename_all = "snake_case")]
 pub enum Action {
     Open { path: String },
     OpenUrl { url: String },

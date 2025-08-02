@@ -11,7 +11,7 @@ async def message_receiver(reader):
         data = await reader.readline()
         if not data:
             break
-        print(f"<- {data.decode().strip()}\n")
+        print(f"\n<- {data.decode().strip()}\n")
     print("message_receiver: connection closed")
 
 
@@ -21,6 +21,8 @@ async def jsonrpc_request(writer, method, params=None):
     data = {"jsonrpc": "2.0", "method": method, "params": params, "id": message_seq}
     message = json.dumps(data)
     writer.write((message + "\n").encode())
+
+    print(f"-> {message}\n")
     await writer.drain()
 
 
@@ -28,12 +30,14 @@ async def jsonrpc_response(writer, message, result):
     data = {"jsonrpc": "2.0", "result": result, "id": message["id"]}
     message = json.dumps(data)
     writer.write((message + "\n").encode())
+
+    print(f"-> {message}\n")
     await writer.drain()
 
 
 async def user_input_handler(writer):
     while True:
-        match await asyncio.to_thread(input, 'search: '):
+        match await asyncio.to_thread(input, "search: "):
             case "ping":
                 await jsonrpc_request(writer, "ping")
             case "exit":
@@ -52,7 +56,6 @@ async def request_handler(reader, writer):
         if not data:
             break
 
-        print(f"-> {data.decode().strip()}")
         message = json.loads(data.decode().strip())
         match message:
             case {"method": "ping"}:
@@ -61,22 +64,26 @@ async def request_handler(reader, writer):
                 await jsonrpc_response(
                     writer,
                     message,
-                    [
-                        {
-                            "title": "Calculator",
-                            "subtitle": f"A simple calculator app: {query}",
-                            "icon": {"name": "calculator"},
-                            "category": "Utility",
-                            "actions": [
-                                {"type": "Open", "path": "/usr/bin/calculator"},
-                                {"type": "LaunchApp", "app_id": "calculator", "new_instance": True},
-                            ],
-                        },
-                    ],
+                    {
+                        "type": "search_results",
+                        "data": [
+                            {
+                                "title": "Calculator",
+                                "subtitle": f"A simple calculator app: {query}",
+                                "icon": {"type": "freedesktop", "name": "calculator"},
+                                "category": "Utility",
+                                "actions": [
+                                    {"action": "open", "path": "/usr/bin/calculator"},
+                                    {"action": "launch_app", "app_id": "calculator", "new_instance": True},
+                                ],
+                            }
+                        ],
+                    },
                 )
             case {"method": "call_action"}:
                 await jsonrpc_response(writer, message, None)
     print("request_handler: connection closed")
+
 
 async def main():
     try:
