@@ -1,5 +1,5 @@
 use anyhow;
-use glimpse_sdk::{JSONRPCRequest, JSONRPCResponse};
+use glimpse_sdk::{safe_bind, JSONRPCRequest, JSONRPCResponse};
 use std::{
     collections::HashMap,
     sync::{
@@ -9,7 +9,7 @@ use std::{
 };
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
-    net::{UnixListener, UnixStream},
+    net::UnixStream,
     sync::{Mutex, mpsc::UnboundedSender},
 };
 
@@ -331,27 +331,5 @@ impl Daemon {
             }
         }
         Ok(())
-    }
-}
-
-async fn safe_bind(path: &std::path::PathBuf) -> anyhow::Result<UnixListener> {
-    match UnixListener::bind(path) {
-        Ok(listener) => Ok(listener),
-        Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
-            match UnixStream::connect(path).await {
-                Ok(_) => Err(anyhow::anyhow!(
-                    "application is already running, socket in use"
-                )),
-                Err(_) => {
-                    std::fs::remove_file(path)?;
-                    Ok(UnixListener::bind(path)?)
-                }
-            }
-        }
-        Err(e) => Err(anyhow::anyhow!(
-            "failed to bind to socket at {}: {}",
-            path.display(),
-            e
-        )),
     }
 }

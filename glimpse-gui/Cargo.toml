@@ -4,3 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.98"
+glimpse-sdk = { version = "0.1.0", path = "../glimpse-sdk" }
+iced = { version = "0.13.1", features = ["image", "markdown", "multi-window", "qr_code", "svg", "tokio"] }
+serde = "1.0.219"
+serde_json = "1.0.142"
+tokio = { version = "1.47.1", features = ["process", "sync", "net"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "std"] }

@@ -1,6 +1,10 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{Request, Response};
+
+static ID_GENERATOR: AtomicUsize = AtomicUsize::new(1);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JSONRPCRequest {
@@ -17,6 +21,14 @@ impl JSONRPCRequest {
 
     pub fn from_string(s: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(s)
+    }
+
+    pub fn new(request: Request) -> Self {
+        JSONRPCRequest {
+            jsonrpc: "2.0".to_string(),
+            id: Some(ID_GENERATOR.fetch_add(1, Ordering::SeqCst)),
+            request,
+        }
     }
 
     pub fn notification(request: Request) -> Self {

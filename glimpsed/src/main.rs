@@ -1,4 +1,5 @@
 use crate::daemon::Daemon;
+use glimpse_sdk::{get_client_socket_path, get_plugin_socket_path};
 use tokio::signal;
 
 mod daemon;
@@ -9,12 +10,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let client_socket_path = dirs::runtime_dir()
-        .map(|d| d.join("glimpsed.sock"))
-        .unwrap_or_else(|| std::path::PathBuf::from("/tmp/glimpsed.sock"));
-    let plugin_socket_path = dirs::runtime_dir()
-        .map(|d| d.join("glimpsed-plugins.sock"))
-        .unwrap_or_else(|| std::path::PathBuf::from("/tmp/glimpsed-plugins.sock"));
+    let client_socket_path = get_client_socket_path();
+    let plugin_socket_path = get_plugin_socket_path();
 
     let daemon = Daemon::new(client_socket_path, plugin_socket_path);
     let daemon_handle = tokio::spawn(async move {

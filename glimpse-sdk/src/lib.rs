@@ -2,11 +2,13 @@ pub mod errors;
 pub mod jsonrpc;
 pub mod messages;
 pub mod search_plugin;
+pub mod socket;
 pub use errors::GlimpseError;
 pub use jsonrpc::{JSONRPCError, JSONRPCRequest, JSONRPCResponse};
 pub use messages::{Request, Response};
 pub use search_plugin::{ReplyWriter, SearchPlugin};
 use serde::{Deserialize, Serialize};
+pub use socket::{get_client_socket_path, get_plugin_socket_path, safe_bind};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
