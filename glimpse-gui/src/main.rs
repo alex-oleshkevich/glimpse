@@ -1,8 +1,10 @@
 mod app;
 mod components;
+mod dbus;
+// mod gnome;
 mod messages;
 
-use tracing_subscriber::{EnvFilter, prelude::*};
+use tracing_subscriber::EnvFilter;
 
 use anyhow;
 use glimpse_sdk::{JSONRPCRequest, JSONRPCResponse, get_client_socket_path};

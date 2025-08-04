@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use glimpse_sdk::{Command, Request, Response};
-use iced::futures::Stream;
+use iced::futures::{SinkExt, Stream};
 use iced::{Element, widget};
 use iced::{Subscription, Task, stream, window};
 use tokio::sync::{Mutex, mpsc};
 
 use crate::components::{main_view, plugin_view};
+use crate::dbus::setup_dbus_service;
 use crate::messages::{Message, Screen};
 
 pub struct State {
@@ -112,7 +113,7 @@ impl App {
             }
             Message::EscapePressed => {
                 if self.state.query.is_empty() {
-                    return Task::done(Message::CloseWindow)
+                    return Task::done(Message::CloseWindow);
                 }
                 return Task::done(Message::ClearSearch);
             }
@@ -141,7 +142,7 @@ impl App {
                 }) => Message::EscapePressed,
                 _ => Message::Nothing,
             }),
-            Subscription::run_with_id("daemon_connection", connect(from_daemon_rx)).map(
+            Subscription::run_with_id("daemon_connection", connect_daemon(from_daemon_rx)).map(
                 |message| match message {
                     Message::DaemonResponse {
                         request_id,
@@ -155,18 +156,18 @@ impl App {
                     _ => Message::Nothing,
                 },
             ),
+            Subscription::run_with_id("dbus", connect_dbus()).map(|message| match message {
+                Message::OpenWindow => Message::OpenWindow,
+                Message::CloseWindow => Message::CloseWindow,
+                _ => Message::Nothing,
+            }),
         ])
-        // event::listen().map(|event| match event {
-        //     Event::Keyboard(keyboard::Event::KeyReleased {
-        //         key: Key::Named(Named::F8),
-        //         ..
-        //     }) => Message::OpenWindow,
-        //     _ => Message::Nothing,
-        // })
     }
 }
 
-fn connect(from_daemon_rx: Arc<Mutex<mpsc::Receiver<Message>>>) -> impl Stream<Item = Message> {
+fn connect_daemon(
+    from_daemon_rx: Arc<Mutex<mpsc::Receiver<Message>>>,
+) -> impl Stream<Item = Message> {
     stream::channel(100, |mut output| async move {
         use iced::futures::SinkExt;
 
@@ -176,5 +177,26 @@ fn connect(from_daemon_rx: Arc<Mutex<mpsc::Receiver<Message>>>) -> impl Stream<I
                 output.send(input).await.ok();
             }
         });
+    })
+}
+
+fn connect_dbus() -> impl Stream<Item = Message> {
+    stream::channel(100, move |mut output| async move {
+        let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
+        tokio::spawn(async move {
+            loop {
+                match rx.recv().await {
+                    Some(message) => {
+                        tracing::debug!("forwarding message dbus -> ui stream: {:?}", message);
+                        output.send(message).await.ok();
+                    }
+                    None => break,
+                }
+            }
+        });
+
+        if let Err(e) = setup_dbus_service(tx).await {
+            tracing::error!("failed to setup DBus service: {}", e);
+        }
     })
 }

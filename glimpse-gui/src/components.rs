@@ -29,7 +29,7 @@ pub fn main_view<'a>(state: &'a State) -> Element<'a, Message> {
     .into()
 }
 
-pub fn plugin_view(items: &Vec<Command>) -> Element<'static, Message> {
+pub fn plugin_view(_items: &Vec<Command>) -> Element<'static, Message> {
     column![
         text("Plugin View"),
         button("Back to Main").on_press(Message::Navigate(Screen::MainView)),
@@ -66,7 +66,7 @@ pub fn search_item(item: &Command) -> Element<Message> {
     row.into()
 }
 
-pub fn row_actions() -> Element<'static, Message> {
+pub fn _row_actions() -> Element<'static, Message> {
     row![
         button("Action 1").on_press(Message::Navigate(Screen::MainView)),
         button("Action 2").on_press(Message::Navigate(Screen::PluginView)),
@@ -74,7 +74,7 @@ pub fn row_actions() -> Element<'static, Message> {
     .into()
 }
 
-pub fn search_icon(icon: &Icon) -> Element<Message> {
+pub fn _search_icon(icon: &Icon) -> Element<Message> {
     match icon {
         Icon::None => container(text("No Icon")).width(40).height(40).into(),
         Icon::Path { path } => search_icon_from_path(path),
@@ -82,12 +82,12 @@ pub fn search_icon(icon: &Icon) -> Element<Message> {
     }
 }
 
-pub fn search_icon_from_path(path: &str) -> Element<Message> {
+fn search_icon_from_path(path: &str) -> Element<Message> {
     let handle = svg::Handle::from_path(path::PathBuf::from(path));
     container(svg(handle)).width(40).height(40).into()
 }
 
-pub fn search_icon_from_name(name: &str) -> Element<Message> {
+fn search_icon_from_name(name: &str) -> Element<Message> {
     let icon = lookup(name).find();
 
     match icon {
