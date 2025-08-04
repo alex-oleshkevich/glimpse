@@ -117,6 +117,10 @@ impl App {
                 }
                 return Task::done(Message::ClearSearch);
             }
+            Message::Quit => {
+                tracing::info!("application is quitting");
+                Task::none()
+            }
             _ => Task::none(),
         }
     }
@@ -138,25 +142,8 @@ impl App {
                 }) => Message::EscapePressed,
                 _ => Message::Nothing,
             }),
-            Subscription::run_with_id("daemon_connection", connect_daemon(from_daemon_rx)).map(
-                |message| match message {
-                    Message::DaemonResponse {
-                        request_id,
-                        plugin_id,
-                        response,
-                    } => Message::DaemonResponse {
-                        request_id,
-                        plugin_id,
-                        response,
-                    },
-                    _ => Message::Nothing,
-                },
-            ),
-            Subscription::run_with_id("dbus", connect_dbus()).map(|message| match message {
-                Message::OpenWindow => Message::OpenWindow,
-                Message::CloseWindow => Message::CloseWindow,
-                _ => Message::Nothing,
-            }),
+            Subscription::run_with_id("daemon_connection", connect_daemon(from_daemon_rx)),
+            Subscription::run_with_id("dbus", connect_dbus()),
         ])
     }
 }

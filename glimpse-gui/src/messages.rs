@@ -24,4 +24,5 @@ pub enum Message {
     Search(String),
     Navigate(Screen),
     EscapePressed,
+    Quit,
 }

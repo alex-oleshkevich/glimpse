@@ -1,7 +1,7 @@
 use std::{error::Error, future::pending};
 
 use tokio::sync::mpsc;
-use zbus::{connection, interface};
+use zbus::{connection, interface, proxy};
 
 use crate::messages::Message;
 
@@ -38,7 +38,6 @@ pub async fn setup_dbus_service(
         .build()
         .await?;
 
-    // Do other things or go to wait forever
     pending::<()>().await;
 
     tracing::debug!("DBus service registered at /me/aresa/Glimpse");
@@ -46,4 +45,28 @@ pub async fn setup_dbus_service(
     loop {
         pending::<()>().await;
     }
+}
+
+#[proxy(
+    interface = "me.aresa.Glimpse",
+    default_service = "me.aresa.Glimpse",
+    default_path = "/me/aresa/Glimpse"
+)]
+trait GlimpseClient {
+    async fn show(&self) -> zbus::Result<()>;
+    async fn hide(&self) -> zbus::Result<()>;
+    async fn ping(&self) -> zbus::Result<String>;
+}
+
+pub async fn activate_instance() -> Result<(), Box<dyn Error>> {
+    let conn = connection::Builder::session()?.build().await?;
+
+    let proxy = GlimpseClientProxy::builder(&conn)
+        .destination("me.aresa.Glimpse")?
+        .path("/me/aresa/Glimpse")?
+        .build()
+        .await?;
+
+    proxy.show().await?;
+    Ok(())
 }

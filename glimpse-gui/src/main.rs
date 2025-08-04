@@ -3,20 +3,61 @@ mod components;
 mod dbus;
 mod messages;
 
+use std::{os::unix::process, path::PathBuf, process::exit};
+
 use tracing_subscriber::EnvFilter;
 
 use anyhow;
 use glimpse_sdk::{JSONRPCRequest, JSONRPCResponse, get_client_socket_path};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt},
+    signal::unix::{self as unix_signal, SignalKind},
     sync::mpsc,
 };
 
-use crate::{app::App, messages::Message};
+use crate::{app::App, dbus::activate_instance, messages::Message};
+
+struct PidFile {
+    path: PathBuf,
+}
+
+impl PidFile {
+    fn new(path: PathBuf) -> Self {
+        Self { path }
+    }
+
+    fn exists(&self) -> bool {
+        self.path.exists()
+    }
+
+    fn create(&self) -> Result<(), anyhow::Error> {
+        std::fs::write(&self.path, std::process::id().to_string())?;
+        Ok(())
+    }
+
+    fn remove(&self) -> Result<(), anyhow::Error> {
+        std::fs::remove_file(&self.path)?;
+        Ok(())
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     setup_logging();
+    let pid_file_path = dirs::runtime_dir()
+        .ok_or_else(|| anyhow::anyhow!("failed to get runtime directory"))?
+        .join("glimpse.pid");
+
+    let pid_file = PidFile::new(pid_file_path);
+    if pid_file.exists() {
+        tracing::warn!("glimpse pid file exists, application may already be running.");
+        if activate_instance().await.is_err() {
+            tracing::warn!("glimpse is already running, activating instance.");
+            pid_file.remove().ok();
+        }
+        return Ok(());
+    }
+    pid_file.create().ok();
 
     let socket_path = get_client_socket_path();
 
@@ -101,6 +142,10 @@ async fn main() -> Result<(), anyhow::Error> {
     let daemon = iced::daemon("Glimpse", App::update, App::view)
         .subscription(App::subscription)
         .run_with(|| App::new(from_daemon_rx, to_daemon_tx));
+
+    if let Err(e) = pid_file.remove() {
+        tracing::error!("failed to remove pid file: {}", e);
+    }
 
     if daemon.is_err() {
         tracing::error!("failed to run daemon: {}", daemon.unwrap_err());
