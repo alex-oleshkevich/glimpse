@@ -70,3 +70,18 @@ pub async fn activate_instance() -> Result<(), Box<dyn Error>> {
     proxy.show().await?;
     Ok(())
 }
+
+pub async fn is_running() -> Result<bool, Box<dyn Error>> {
+    let conn = connection::Builder::session()?.build().await?;
+
+    let proxy = GlimpseClientProxy::builder(&conn)
+        .destination("me.aresa.Glimpse")?
+        .path("/me/aresa/Glimpse")?
+        .build()
+        .await?;
+
+    match proxy.ping().await {
+        Ok(_) => Ok(true),
+        Err(_) => Ok(false),
+    }
+}
