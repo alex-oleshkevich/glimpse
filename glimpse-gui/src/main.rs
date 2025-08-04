@@ -1,7 +1,6 @@
 mod app;
 mod components;
 mod dbus;
-// mod gnome;
 mod messages;
 
 use tracing_subscriber::EnvFilter;

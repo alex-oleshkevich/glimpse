@@ -117,10 +117,6 @@ impl App {
                 }
                 return Task::done(Message::ClearSearch);
             }
-            Message::Quit => {
-                tracing::debug!("received quit message, shutting down");
-                iced::exit()
-            }
             _ => Task::none(),
         }
     }
