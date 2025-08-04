@@ -1,5 +1,7 @@
 mod app;
+mod components;
 mod messages;
+
 use tracing_subscriber::{EnvFilter, prelude::*};
 
 use anyhow;
@@ -14,12 +16,14 @@ use crate::{app::App, messages::Message};
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     setup_logging();
+
     let socket_path = get_client_socket_path();
 
     let stream = tokio::net::UnixStream::connect(&socket_path).await;
     if stream.is_err() {
         return Err(anyhow::anyhow!("failed to connect to socket"));
     }
+
     let stream = stream.unwrap();
     let (reader, writer) = tokio::io::split(stream);
     let mut writer = writer;
@@ -35,6 +39,7 @@ async fn main() -> Result<(), anyhow::Error> {
             match reader.read_line(&mut line).await {
                 Ok(0) => break, // EOF
                 Ok(_) => {
+                    tracing::debug!("received line from daemon: {}", line);
                     let rpc_message = serde_json::from_str::<JSONRPCResponse>(&line);
                     if rpc_message.is_err() {
                         tracing::error!("failed to parse JSON-RPC message: {}", line);
@@ -65,6 +70,7 @@ async fn main() -> Result<(), anyhow::Error> {
             }
             line.clear();
         }
+        tracing::debug!("reader task finished, stopping");
     });
 
     // writer
@@ -72,18 +78,23 @@ async fn main() -> Result<(), anyhow::Error> {
         while let Some(message) = to_daemon_rx.recv().await {
             match message {
                 Message::DispatchRequest(request) => {
+                    tracing::debug!("sending message to daemon: {:?}", request);
                     let rpc_request = JSONRPCRequest::new(request);
-                    if let Ok(response_str) = rpc_request.to_string() {
-                        if writer.write_all(response_str.as_bytes()).await.is_err() {
-                            tracing::error!("failed to write response to socket");
-                        }
-                    } else {
-                        tracing::error!("failed to serialize response");
+                    let serialized = rpc_request.to_string();
+                    if serialized.is_err() {
+                        tracing::error!("failed to serialize request: {}", serialized.unwrap_err());
+                        continue;
+                    }
+
+                    let message = format!("{}\n", serialized.unwrap());
+                    if writer.write_all(message.as_bytes()).await.is_err() {
+                        tracing::error!("failed to write response to socket");
                     }
                 }
                 _ => {}
             }
         }
+        tracing::debug!("to_daemon_tx channel closed, stopping writer task");
     });
 
     let daemon = iced::daemon("Glimpse", App::update, App::view)
@@ -99,13 +110,9 @@ async fn main() -> Result<(), anyhow::Error> {
 }
 
 fn setup_logging() {
-    let filter = EnvFilter::new("warn")
-        .add_directive("glimpse_gui=debug".parse().unwrap())
-        .add_directive("glimpse_sdk=debug".parse().unwrap())
-        .add_directive("glimpsed=debug".parse().unwrap());
+    let filter = EnvFilter::new("off")
+        .add_directive("glimpse_ui=debug".parse().unwrap())
+        .add_directive("glimpse_sdk=debug".parse().unwrap());
 
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_max_level(tracing::Level::DEBUG)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 }

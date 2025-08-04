@@ -135,7 +135,7 @@ impl Daemon {
         );
 
         // plugin -> daemon -> client
-        let reader_handle = tokio::spawn(async move {
+        let writer_handle = tokio::spawn(async move {
             while let Some(message) = rx.recv().await {
                 let mut writer = write_half.lock().await;
                 let serialized = message.to_string();
@@ -150,6 +150,7 @@ impl Daemon {
 
                 let serialized = serialized.unwrap();
                 let json_str = format!("{}\n", serialized);
+                tracing::debug!("sending response to client: {}", json_str);
                 if let Err(e) = writer.write_all(json_str.as_bytes()).await {
                     tracing::error!("failed to write message: {}", e);
                     break;
@@ -159,7 +160,7 @@ impl Daemon {
 
         // client -> daemon -> plugins
         let daemon_clone = self.clone();
-        let writer_handle = tokio::spawn(async move {
+        let reader_handle = tokio::spawn(async move {
             let mut line = String::new();
             loop {
                 match reader.read_line(&mut line).await {
@@ -195,10 +196,10 @@ impl Daemon {
         });
 
         tokio::select! {
-            _ = reader_handle => {
+            _ = writer_handle => {
                 tracing::debug!("client reader task finished for client_id: {}", &client_id);
             },
-            _ = writer_handle => {
+            _ = reader_handle => {
                 tracing::debug!("client writer task finished for client_id: {}", &client_id);
             },
         }
