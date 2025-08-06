@@ -4,9 +4,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "run",
+            "label": "glimpse gui",
             "type": "shell",
-            "command": "just run",
+            "command": "just ui",
             "presentation": {
                 "echo": true,
                 "reveal": "silent",
@@ -17,21 +17,42 @@
             }
         },
         {
-            "label": "run-debug",
+            "label": "glimpsed",
             "type": "shell",
-            "command": "just run-debug"
-        },
-        {
-            "label": "compile blueprints",
-            "type": "shell",
-            "command": "just build-ui",
+            "command": "just daemon",
             "presentation": {
                 "echo": true,
                 "reveal": "silent",
                 "focus": false,
                 "panel": "dedicated",
                 "showReuseMessage": false,
-                "clear": false
+                "clear": true
+            }
+        },
+        {
+            "label": "calculator",
+            "type": "shell",
+            "command": "just calculator",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
+            }
+        },
+        {
+            "label": "apps",
+            "type": "shell",
+            "command": "just apps",
+            "presentation": {
+                "echo": true,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "dedicated",
+                "showReuseMessage": false,
+                "clear": true
             }
         }
     ]

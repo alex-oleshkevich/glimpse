@@ -3,6 +3,7 @@ mod components;
 mod dbus;
 mod messages;
 
+use iced::window;
 use tracing_subscriber::EnvFilter;
 
 use anyhow;
@@ -110,6 +111,8 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let daemon = iced::daemon("Glimpse", App::update, App::view)
         .subscription(App::subscription)
+        .antialiasing(true)
+        .theme(|app, window_id| app.theme(window_id))
         .run_with(|| App::new(from_daemon_rx, to_daemon_tx));
 
     if daemon.is_err() {

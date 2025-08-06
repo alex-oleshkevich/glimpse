@@ -1,16 +1,11 @@
-build-ui:
-    #!/usr/bin/env bash
-    for file in resources/ui/*.blp; do
-        if [ -f "$file" ]; then
-            output="${file%.blp}.ui"
-            echo "Compiling $file -> $output"
-            blueprint-compiler compile --output "$output" "$file"
-        fi
-    done
+ui:
+    cargo run -p glimpse-gui
 
+deaemon:
+    cargo run -p glimpsed
 
-run:
-    GLIMPSE_DEBUG_CLOSE_ON_CLOSE=1 cargo run
+calculator:
+    cargo run -p glimpse-plugins-calculator -- /run/user/1000/glimpsed-plugins.sock
 
-run-debug:
-    GLIMPSE_DEBUG_CLOSE_ON_CLOSE=1 GTK_DEBUG=interactive cargo run
+apps:
+    cargo run -p glimpse-plugins-apps -- /run/user/1000/glimpsed-plugins.sock

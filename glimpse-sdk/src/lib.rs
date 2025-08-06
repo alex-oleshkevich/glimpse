@@ -21,12 +21,26 @@ pub enum Icon {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum Action {
-    Open { path: String },
-    OpenUrl { url: String },
-    CopyToClipboard { text: String },
-    RunCommand { command: String },
-    LaunchApp { app_id: String, new_instance: bool },
-    Callback { payload: String },
+    Open {
+        path: String,
+    },
+    OpenUrl {
+        url: String,
+    },
+    CopyToClipboard {
+        text: String,
+    },
+    RunCommand {
+        command: String,
+    },
+    LaunchApp {
+        title: String,
+        app_id: String,
+        new_instance: bool,
+    },
+    Callback {
+        payload: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

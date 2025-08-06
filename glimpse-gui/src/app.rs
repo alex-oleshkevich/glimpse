@@ -49,6 +49,10 @@ impl App {
         )
     }
 
+    pub fn theme(&self, _window_id: window::Id) -> iced::Theme {
+        iced::Theme::CatppuccinLatte
+    }
+
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::OpenWindow => {

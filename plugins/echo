@@ -1,4 +1,0 @@
-#!/usr/bin/bash
-THIS_DIR=$(dirname "$0")
-cd "$THIS_DIR" || exit 1
-python ./echo.py
