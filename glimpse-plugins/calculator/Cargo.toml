@@ -8,4 +8,4 @@ tokio = { version = "1.47.0", features = ["io-util", "macros", "net"] }
 glimpse-sdk = { path = "../../glimpse-sdk" }
 numbat = "1.16.0"
 tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
+tracing-subscriber = "0.3.20"
