@@ -89,7 +89,7 @@ async fn main() -> Result<(), anyhow::Error> {
     tokio::spawn(async move {
         while let Some(message) = to_daemon_rx.recv().await {
             match message {
-                Message::DispatchRequest(request) => {
+                Message::CallDaemon(request) => {
                     tracing::debug!("sending message to daemon: {:?}", request);
                     let rpc_request = JSONRPCRequest::new(request);
                     let serialized = rpc_request.to_string();

@@ -51,3 +51,22 @@ pub struct Command {
     pub category: String,
     pub actions: Vec<Action>,
 }
+
+impl Command {
+    pub fn primary_action(&self) -> Option<&Action> {
+        self.actions.first()
+    }
+
+    pub fn secondary_action(&self) -> Option<&Action> {
+        self.actions.get(1)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PluginMetadata {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub version: String,
+    pub authors: Vec<String>,
+}

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use glimpse_sdk::{Command, Request, Response};
+use glimpse_sdk::{Action, Command, Request, Response};
 use iced::futures::{SinkExt, Stream};
 use iced::{Element, widget};
 use iced::{Subscription, Task, stream, window};
@@ -8,13 +8,24 @@ use tokio::sync::{Mutex, mpsc};
 
 use crate::components::{main_view, plugin_view};
 use crate::dbus::setup_dbus_service;
-use crate::messages::{Message, Screen};
+use crate::messages::{Key, Message, Screen};
 
 pub struct State {
     pub query: String,
     pub window_id: Option<window::Id>,
     pub search_items: Vec<Command>,
     pub screen: Screen,
+    pub selected_index: usize,
+}
+
+impl State {
+    pub fn reset(&mut self) {
+        self.search_items.clear();
+        self.query.clear();
+        self.screen = Screen::MainView;
+        self.window_id = None;
+        self.selected_index = 0;
+    }
 }
 
 impl Default for State {
@@ -24,6 +35,7 @@ impl Default for State {
             search_items: Vec::new(),
             screen: Screen::MainView,
             window_id: None,
+            selected_index: 0,
         }
     }
 }
@@ -69,6 +81,7 @@ impl App {
                 if self.state.window_id.is_none() {
                     return Task::none();
                 }
+                self.state.reset();
                 let id = self.state.window_id.unwrap();
                 window::close(id)
             }
@@ -87,7 +100,7 @@ impl App {
                 Task::perform(
                     async move {
                         sender
-                            .send(Message::DispatchRequest(Request::Search {
+                            .send(Message::CallDaemon(Request::Search {
                                 query: query.clone(),
                             }))
                             .await
@@ -97,30 +110,65 @@ impl App {
                 )
             }
             Message::ClearSearch => {
-                self.state.query.clear();
-                self.state.search_items.clear();
+                self.state.reset();
                 Task::batch([widget::focus_next()])
             }
             Message::DaemonResponse {
                 request_id: _,
-                plugin_id: _,
+                plugin_id,
                 response,
             } => {
                 match response {
                     Response::SearchResults(items) => {
                         self.state.search_items = items;
-                        tracing::debug!("search results: {:?}", self.state.search_items);
                     }
                     _ => {}
                 }
                 Task::none()
             }
-            Message::EscapePressed => {
-                if self.state.query.is_empty() {
-                    return Task::done(Message::CloseWindow);
+            Message::KeyPressed(key, modifiers) => match key {
+                Key::Escape => {
+                    if self.state.query.is_empty() {
+                        return Task::done(Message::CloseWindow);
+                    }
+                    return Task::done(Message::ClearSearch);
                 }
-                return Task::done(Message::ClearSearch);
-            }
+                Key::Down => {
+                    if self.state.selected_index < self.state.search_items.len() - 1 {
+                        self.state.selected_index += 1;
+                    }
+                    Task::none()
+                }
+                Key::Up => {
+                    if self.state.selected_index > 0 {
+                        self.state.selected_index -= 1;
+                    }
+                    Task::none()
+                }
+                Key::Enter => {
+                    // if let Some(item) = self.state.search_items.get(self.state.selected_index) {
+                    //     if let Some(action) = item.command.primary_action() {
+                    //         return Task::done(Message::CallAction {
+                    //             plugin_id: item.plugin_id,
+                    //             action: action.clone(),
+                    //         });
+                    //     }
+                    // }
+                    Task::none()
+                }
+
+                _ => Task::none(),
+            },
+            Message::CallAction { plugin_id, action } => Task::perform(
+                async move {
+                    match action {
+                        _ => {
+                            tracing::debug!("Calling action: {:?}", action);
+                        }
+                    }
+                },
+                |_| Message::Nothing,
+            ),
             Message::Quit => {
                 tracing::info!("application is quitting");
                 Task::none()
@@ -141,9 +189,47 @@ impl App {
         Subscription::batch(vec![
             iced::event::listen().map(|event| match event {
                 iced::event::Event::Keyboard(iced::keyboard::Event::KeyReleased {
-                    key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape),
+                    key:
+                        iced::keyboard::Key::Named(
+                            iced::keyboard::key::Named::Escape
+                            | iced::keyboard::key::Named::Enter
+                            | iced::keyboard::key::Named::ArrowUp
+                            | iced::keyboard::key::Named::ArrowDown,
+                        ),
+                    modifiers,
                     ..
-                }) => Message::EscapePressed,
+                }) => Message::KeyPressed(
+                    Key::Escape,
+                    vec![],
+                    // modifiers
+                    //     .into_iter()
+                    //     .map(|m| {
+                    //         let mut modifiers = vec![];
+                    //         if m.contains(iced::keyboard::Modifiers::SHIFT) {
+                    //             modifiers.push(KeyModifier::Shift);
+                    //         }
+                    //         if m.contains(iced::keyboard::Modifiers::CTRL) {
+                    //             modifiers.push(KeyModifier::Control);
+                    //         }
+                    //         if m.contains(iced::keyboard::Modifiers::ALT) {
+                    //             modifiers.push(KeyModifier::Alt);
+                    //         }
+                    //         modifiers
+                    //     })
+                    //     .collect(),
+                ),
+                // iced::event::Event::Keyboard(iced::keyboard::Event::KeyReleased {
+                //     key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Enter),
+                //     ..
+                // }) => Message::KeyPressed(Key::Enter),
+                // iced::event::Event::Keyboard(iced::keyboard::Event::KeyReleased {
+                //     key: iced::keyboard::Key::Named(iced::keyboard::key::Named::ArrowUp),
+                //     ..
+                // }) => Message::KeyPressed(Key::Up),
+                // iced::event::Event::Keyboard(iced::keyboard::Event::KeyReleased {
+                //     key: iced::keyboard::Key::Named(iced::keyboard::key::Named::ArrowDown),
+                //     ..
+                // }) => Message::KeyPressed(Key::Down),
                 _ => Message::Nothing,
             }),
             Subscription::run_with_id("daemon_connection", connect_daemon(from_daemon_rx)),

@@ -54,7 +54,7 @@ pub fn search_item(item: &Command) -> Element<Message> {
             container(text(&item.category).size(14)).padding(4),
         ]
         .width(Length::Fill),
-    );
+    ).style(button::success);
 
     // if let Some(action) = item.primary_action() {
     //     row = row.on_press(Message::DispatchAction(action.clone()));
