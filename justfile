@@ -1,11 +1,9 @@
-ui:
-    cargo run -p glimpse-gui
-
-deaemon:
+daemon:
     cargo run -p glimpsed
 
-calculator:
-    cargo run -p glimpse-plugins-calculator -- /run/user/1000/glimpsed-plugins.sock
+echo:
+    cargo run -p glimpse-plugins-echo
 
-apps:
-    cargo run -p glimpse-plugins-apps -- /run/user/1000/glimpsed-plugins.sock
+[working-directory: 'glimpse-gui']
+gui:
+    flutter run

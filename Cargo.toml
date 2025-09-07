@@ -1,9 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
-    "glimpse-gui",
-    "glimpse-plugins/apps",
-    "glimpse-plugins/calculator",
+    "glimpse-plugins/echo",
     "glimpse-sdk",
     "glimpsed",
 ]
@@ -16,7 +14,7 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = { version = "1.0.140" }
 tokio-stream = { version = "0.1.17", features = ["io-util"] }
-gio = { version = "0.21" }
-zbus = { version = "5.9.0", features = ["tokio"] }
+# gio = { version = "0.21" }
+# zbus = { version = "5.9.0", features = ["tokio"] }
 anyhow = "1.0.98"
 dirs = "6.0.0"

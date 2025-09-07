@@ -10,7 +10,11 @@
       "Bash(cargo info:*)",
       "Bash(just:*)",
       "Bash(cargo:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(cat:*)",
+      "Bash(chmod:*)",
+      "Bash(./bin/plugin-client.py cargo run -p glimpse-plugins-echo)",
+      "Bash(uv run:*)"
     ],
     "deny": []
   }

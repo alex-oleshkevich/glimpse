@@ -1,9 +1,0 @@
-[package]
-name = "glimpse-plugins-apps"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-tokio = { workspace = true }
-glimpse-sdk = { workspace = true }
-gio = { workspace = true }
