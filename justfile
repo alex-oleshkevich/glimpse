@@ -1,8 +1,8 @@
 daemon:
     cargo run -p glimpsed
 
-echo:
-    cargo run -p glimpse-plugins-echo
+debug:
+    cargo run -p glimpse-plugins-debug
 
 [working-directory: 'glimpse-gui']
 gui:

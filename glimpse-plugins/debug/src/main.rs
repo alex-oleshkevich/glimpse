@@ -12,10 +12,10 @@ struct EchoPlugin {}
 impl Plugin for EchoPlugin {
     fn metadata(&self) -> Metadata {
         Metadata {
-            id: "me.aresa.glimpse.echo".to_string(),
-            name: "Echo Plugin".to_string(),
+            id: "me.aresa.glimpse.debug".to_string(),
+            name: "Debug Plugin".to_string(),
             version: "0.1.0".to_string(),
-            description: "A simple echo plugin that returns the search query as a result."
+            description: "A simple debug plugin that returns the search query as a result."
                 .to_string(),
             author: "Your Name <you@example.com>".to_string(),
         }
@@ -49,8 +49,8 @@ impl Plugin for EchoPlugin {
                     }]))
                 }
                 _ => Ok(MethodResult::SearchResults(vec![SearchItem {
-                    title: format!("Echo: {}", query),
-                    subtitle: Some("From echo plugin".to_string()),
+                    title: format!("Debug: {}", query),
+                    subtitle: Some("From debug plugin".to_string()),
                     icon: Some("echo.png".to_string()),
                     actions: vec![Action::Clipboard { text: query }],
                     score: 1.0,
@@ -64,11 +64,9 @@ impl Plugin for EchoPlugin {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     setup_logging(tracing::Level::DEBUG);
-    tracing::info!("starting echo plugin");
-
     let plugin = EchoPlugin {};
     if let Err(err) = run_plugin(plugin).await {
-        tracing::error!("Error running plugin: {}", err);
+        tracing::error!("error running plugin: {}", err);
     }
     Ok(())
 }

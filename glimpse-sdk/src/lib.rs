@@ -55,6 +55,9 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
 
     // authenticate
     let metadata = plugin.metadata();
+
+    tracing::debug!("starting plugin: {} {} ({})", &metadata.name, &metadata.version, &metadata.id);
+
     let auth_message = Message::Response {
         id: 0,
         error: None,
