@@ -15,6 +15,7 @@ pub use protocol::*;
 
 #[derive(Debug)]
 pub enum PluginError {
+    Authenticate(String),
     Io(std::io::Error),
     Json(serde_json::Error),
     Cancelled(String),
@@ -24,8 +25,9 @@ pub enum PluginError {
 impl Display for PluginError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PluginError::Io(err) => write!(f, "IO error: {}", err),
-            PluginError::Json(err) => write!(f, "JSON error: {}", err),
+            PluginError::Authenticate(msg) => write!(f, "authentication: {}", msg),
+            PluginError::Io(err) => write!(f, "io: {}", err),
+            PluginError::Json(err) => write!(f, "json: {}", err),
             PluginError::Other(msg) => write!(f, "error: {}", msg),
             PluginError::Cancelled(msg) => write!(f, "cancelled: {}", msg),
         }
@@ -36,8 +38,6 @@ impl Error for PluginError {}
 pub fn setup_logging(log_level: tracing::Level) {
     let subscriber = tracing_subscriber::fmt()
         .with_max_level(log_level)
-        .with_thread_ids(true)
-        .with_thread_names(true)
         .with_file(true)
         .with_writer(std::io::stderr)
         .with_target(false)
@@ -52,6 +52,19 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
     let mut reader = BufReader::new(stdin);
 
     let (response_tx, mut response_rx) = tokio::sync::mpsc::channel::<Message>(10);
+
+    // authenticate
+    let metadata = plugin.metadata();
+    let auth_message = Message::Response {
+        id: 0,
+        error: None,
+        source: None,
+        result: Some(MethodResult::Authenticate(metadata)),
+    };
+    response_tx
+        .send(auth_message)
+        .await
+        .map_err(|e| PluginError::Authenticate(e.to_string()))?;
 
     // task cancellation
     let mut current_cancel_token: Option<CancellationToken> = None;
@@ -76,7 +89,7 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
                 }
             };
 
-            tracing::debug!("received message: {:?}", &message);
+            tracing::debug!("request: {:?}", &message);
             match message {
                 Message::Request { id, method, .. } => {
                     if let Some(cancel_token) = current_cancel_token.take() {
@@ -128,12 +141,12 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
                 Message::Notification { method } => match method {
                     Method::Cancel => {
                         if let Some(cancel_token) = current_cancel_token.take() {
-                            tracing::debug!("manual cancel requested");
                             cancel_token.cancel();
+                            tracing::debug!("request cancelled");
                         }
                     }
                     Method::Quit => {
-                        tracing::debug!("manual cancel requested");
+                        tracing::debug!("quitting");
                         break;
                     }
                     _ => {}
@@ -146,6 +159,7 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
     let stdout_handle = tokio::spawn(async move {
         while let Some(message) = response_rx.recv().await {
             let response = serde_json::to_string(&message).unwrap();
+            tracing::debug!("response: {:?}", &message);
             stdout.write_all(response.as_bytes()).await.unwrap();
             stdout.write_all(b"\n").await.unwrap();
             stdout.flush().await.unwrap();

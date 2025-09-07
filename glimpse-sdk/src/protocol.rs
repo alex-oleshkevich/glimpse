@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::Metadata;
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(tag = "method", content = "params", rename_all = "snake_case")]
 pub enum Method {
@@ -11,6 +13,7 @@ pub enum Method {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum MethodResult {
+    Authenticate(Metadata),
     SearchResults(Vec<SearchItem>),
 }
 
@@ -31,11 +34,13 @@ pub enum Message {
         result: Option<MethodResult>,
     },
     Notification {
+        #[serde(flatten)]
         method: Method,
     },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case", tag = "_type")]
 pub enum Action {
     ShellExec {
         command: String,
@@ -44,7 +49,7 @@ pub enum Action {
     OpenPath {
         path: String,
     },
-    CopyToClipboard {
+    Clipboard {
         text: String,
     },
     Custom {
@@ -54,6 +59,7 @@ pub enum Action {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case", tag = "_type")]
 pub struct SearchItem {
     pub title: String,
     pub subtitle: Option<String>,

@@ -43,15 +43,12 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 import anyio
-from textual import on
+from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.screen import ModalScreen
-from textual.widgets import (
-    Button, Footer, Header, Input, Label, Log, Pretty,
-    TextArea
-)
+from textual.widgets import Button, Footer, Header, Input, Label, Log, Pretty, TextArea
 from textual.reactive import reactive
 
 
@@ -70,7 +67,7 @@ class MessageHistory:
             "type": "sent",
             "message": message,
             "timestamp": timestamp,
-            "formatted_time": datetime.fromtimestamp(timestamp).strftime("%H:%M:%S")
+            "formatted_time": datetime.fromtimestamp(timestamp).strftime("%H:%M:%S"),
         }
 
         # Track pending requests
@@ -94,7 +91,7 @@ class MessageHistory:
             "message": message,
             "timestamp": timestamp,
             "formatted_time": datetime.fromtimestamp(timestamp).strftime("%H:%M:%S"),
-            "response_time": response_time
+            "response_time": response_time,
         }
 
         self.messages.append(entry)
@@ -109,9 +106,7 @@ class MessageHistory:
         """Get recent search queries"""
         searches = []
         for entry in reversed(self.messages):
-            if (entry["type"] == "sent" and
-                entry["message"].get("method") == "search" and
-                "params" in entry["message"]):
+            if entry["type"] == "sent" and entry["message"].get("method") == "search" and "params" in entry["message"]:
                 query = entry["message"]["params"]
                 if query not in searches:
                     searches.append(query)
@@ -131,9 +126,14 @@ class MessageHistory:
 class SearchDialog(ModalScreen[str]):
     """Modal dialog for entering search queries"""
 
-    def __init__(self, recent_searches: List[str]):
+    def __init__(self, recent_searches: List[str], logger):
         super().__init__()
         self.recent_searches = recent_searches
+        self.logger = logger
+
+    def on_mount(self) -> None:
+        """Focus the search input when dialog opens"""
+        self.query_one("#search-input", Input).focus()
 
     def compose(self) -> ComposeResult:
         with Container(id="search-dialog"):
@@ -152,9 +152,13 @@ class SearchDialog(ModalScreen[str]):
     @on(Button.Pressed, "#search-send")
     @on(Input.Submitted, "#search-input")
     async def send_search(self, event):
-        query = self.query_one("#search-input", Input).value.strip()
+        input_widget = self.query_one("#search-input", Input)
+        raw_value = input_widget.value
+        query = raw_value.strip()
         if query:
             self.dismiss(query)
+        else:
+            self.dismiss(None)
 
     @on(Button.Pressed, "#search-cancel")
     async def cancel_search(self, event):
@@ -184,11 +188,7 @@ class CustomJsonDialog(ModalScreen[str]):
                 yield Button("Notification", id="template-notification")
                 yield Button("Empty", id="template-empty")
 
-            yield TextArea(
-                text=self._get_request_template(),
-                language="json",
-                id="json-editor"
-            )
+            yield TextArea(text=self._get_request_template(), language="json", id="json-editor")
 
             yield Label("", id="json-validation")
 
@@ -199,17 +199,11 @@ class CustomJsonDialog(ModalScreen[str]):
 
     def _get_request_template(self) -> str:
         """Get template for request message"""
-        return json.dumps({
-            "id": self.next_request_id,
-            "method": "",
-            "params": ""
-        }, indent=2)
+        return json.dumps({"id": self.next_request_id, "method": "", "params": ""}, indent=2)
 
     def _get_notification_template(self) -> str:
         """Get template for notification message"""
-        return json.dumps({
-            "method": ""
-        }, indent=2)
+        return json.dumps({"method": ""}, indent=2)
 
     def _get_empty_template(self) -> str:
         """Get empty JSON template"""
@@ -272,14 +266,7 @@ class PluginDebuggerApp(App):
     }
 
     #left-panel {
-        width: 2fr;
-        border: solid white;
-        margin: 1;
-    }
-
-    #middle-panel {
-        width: 1fr;
-        border: solid white;
+        width: 3fr;
         margin: 1;
     }
 
@@ -297,11 +284,6 @@ class PluginDebuggerApp(App):
 
     #plugin-logs {
         height: 1fr;
-        border: solid white;
-    }
-
-    #raw-json {
-        height: 100%;
         border: solid white;
     }
 
@@ -331,11 +313,12 @@ class PluginDebuggerApp(App):
     }
 
     #search-dialog, #json-dialog {
-        align: center middle;
-        width: 60%;
-        height: 70%;
+        align: right bottom;
+        width: 40%;
+        height: 40%;
         background: black;
         border: thick white;
+        dock: right;
     }
 
     #search-input {
@@ -394,30 +377,6 @@ class PluginDebuggerApp(App):
                     yield Label("Plugin Logs", id="logs-title")
                     yield Log(id="plugin-log")
 
-            # Middle panel - Raw JSON
-            with Vertical(id="middle-panel"):
-                with Container(id="raw-json"):
-                    yield Label("Raw JSON", id="json-title")
-                    yield Pretty(None, id="last-sent")
-                    yield Pretty(None, id="last-received")
-
-            # Right panel - Actions and status
-            with Vertical(id="right-panel"):
-                with Container(id="actions-panel"):
-                    yield Label("Quick Actions", id="actions-title")
-                    yield Button("🔍 [S] Search Query", id="action-search", classes="action-button")
-                    yield Button("🚫 [C] Cancel Current", id="action-cancel", classes="action-button disabled")
-                    yield Button("🛑 [Q] Quit Plugin", id="action-quit", classes="action-button")
-                    yield Button("📝 [J] Custom JSON", id="action-json", classes="action-button")
-                    yield Button("🔄 [R] Repeat Last", id="action-repeat", classes="action-button")
-
-                with Container(id="status-panel"):
-                    yield Label("Plugin Status", id="status-title")
-                    yield Label(f"Command: {' '.join(self.plugin_command)}", id="status-command")
-                    yield Label("Status: Stopped", id="status-state")
-                    yield Label("Next Request ID: 1", id="status-request-id")
-                    yield Label("Pending Requests: 0", id="status-pending")
-
         yield Footer()
 
     async def on_mount(self) -> None:
@@ -425,17 +384,11 @@ class PluginDebuggerApp(App):
         # Start the plugin
         await self._start_plugin()
 
-        # Update UI
-        self._update_status_display()
-
     async def _start_plugin(self) -> None:
         """Start the plugin subprocess"""
         try:
             self.plugin_process = await anyio.open_process(
-                self.plugin_command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                self.plugin_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
 
             self.plugin_status = "Running"
@@ -462,7 +415,6 @@ class PluginDebuggerApp(App):
                         # Plugin has closed stdout - normal termination
                         self.plugin_status = "Disconnected"
                         self._log_message("Plugin disconnected (stdout closed)", "system")
-                        self._update_status_display()
                         break
 
                     line_str = line.decode().strip()
@@ -473,24 +425,21 @@ class PluginDebuggerApp(App):
                         except json.JSONDecodeError as e:
                             self._log_message(f"Invalid JSON from plugin: {e}", "error")
                             self._log_message(f"Raw output: {line_str}", "debug")
-                            
+
                 except anyio.EndOfStream:
                     # Normal plugin termination
                     self.plugin_status = "Disconnected"
                     self._log_message("Plugin disconnected", "system")
-                    self._update_status_display()
                     break
                 except anyio.BrokenResourceError:
                     # Plugin process was terminated
                     self.plugin_status = "Terminated"
                     self._log_message("Plugin process was terminated", "system")
-                    self._update_status_display()
                     break
-                    
+
         except Exception as e:
             self._log_message(f"Error reading plugin output: {e}", "error")
             self.plugin_status = "Crashed"
-            self._update_status_display()
 
     async def _read_plugin_errors(self) -> None:
         """Read stderr from the plugin subprocess"""
@@ -507,12 +456,12 @@ class PluginDebuggerApp(App):
                     line_str = line.decode().strip()
                     if line_str:
                         self._log_plugin_message(line_str)
-                        
+
                 except anyio.EndOfStream:
                     break
                 except anyio.BrokenResourceError:
                     break
-                    
+
         except Exception as e:
             self._log_plugin_message(f"Error reading plugin stderr: {e}")
 
@@ -534,13 +483,10 @@ class PluginDebuggerApp(App):
             self.message_history.add_sent_message(message)
             self.last_sent_message = message
             self._log_message(f"→ Sent: {json.dumps(message, separators=(',', ':'))}", "sent")
-            self._update_raw_json_display()
-            self._update_status_display()
 
         except (anyio.BrokenResourceError, anyio.EndOfStream) as e:
             self._log_message("Plugin disconnected while sending message", "error")
             self.plugin_status = "Disconnected"
-            self._update_status_display()
         except Exception as e:
             self._log_message(f"Error sending message: {e}", "error")
 
@@ -557,135 +503,49 @@ class PluginDebuggerApp(App):
                 response_time_str = f" ({last_entry['response_time']:.0f}ms)"
 
         self._log_message(f"← Received{response_time_str}: {json.dumps(message, separators=(',', ':'))}", "received")
-        self._update_raw_json_display()
-        self._update_status_display()
 
     def _log_message(self, message: str, msg_type: str = "info") -> None:
         """Add a message to the log with timestamp"""
         timestamp = datetime.now().strftime("%H:%M:%S")
         log_widget = self.query_one("#message-log", Log)
 
-        # Format long JSON messages with proper indentation
-        if msg_type in ["sent", "received"] and message.startswith(("→ Sent:", "← Received")):
-            # Extract the JSON part and format it
-            prefix = message.split(": ", 1)[0] + ":"
-            try:
-                json_part = message.split(": ", 1)[1]
-                # Remove response time info if present
-                if ")" in json_part and json_part.endswith(")"):
-                    response_time = json_part[json_part.rfind("("):]
-                    json_str = json_part[:json_part.rfind("(")].strip()
-                    prefix += response_time
-                else:
-                    json_str = json_part
-                
-                # Parse and reformat JSON
-                parsed = json.loads(json_str)
-                formatted_json = json.dumps(parsed, indent=2)
-                
-                # Split into lines and display each line separately
-                lines = formatted_json.split('\n')
-                
-                # First line with timestamp and prefix
-                if msg_type == "sent":
-                    log_widget.write(f"{timestamp} [blue]{prefix}[/blue] {lines[0]}")
-                else:
-                    log_widget.write(f"{timestamp} [green]{prefix}[/green] {lines[0]}")
-                
-                # Add remaining lines with proper indentation
-                for line in lines[1:]:
-                    if line.strip():  # Skip empty lines
-                        log_widget.write(f"    {line}")
-                return
-            except (json.JSONDecodeError, IndexError):
-                # Fall back to original message if JSON parsing fails
-                pass
+        # Add a separator line before each message for clarity
+        log_widget.write("")
 
-        # Color-code messages based on type
+        # Color-code messages based on type with clear formatting
         if msg_type == "sent":
-            log_widget.write(f"{timestamp} [blue]{message}[/blue]")
+            log_widget.write(f"{timestamp} {message}\n")
         elif msg_type == "received":
-            log_widget.write(f"{timestamp} [green]{message}[/green]")
+            log_widget.write(f"{timestamp} {message}\n")
         elif msg_type == "error":
-            log_widget.write(f"{timestamp} [red]⚠ {message}[/red]")
+            log_widget.write(f"{timestamp} {message}\n")
         elif msg_type == "system":
-            log_widget.write(f"{timestamp} [yellow]ℹ {message}[/yellow]")
+            log_widget.write(f"{timestamp} {message}\n")
         else:
-            log_widget.write(f"{timestamp} {message}")
+            log_widget.write(f"{timestamp} {message}\n")
 
     def _log_plugin_message(self, message: str) -> None:
         """Add a message to the plugin log panel"""
-        timestamp = datetime.now().strftime("%H:%M:%S")
         plugin_log_widget = self.query_one("#plugin-log", Log)
-        plugin_log_widget.write(f"{timestamp} [yellow]{message}[/yellow]")
 
-    def _update_raw_json_display(self) -> None:
-        """Update the raw JSON display panels"""
-        try:
-            sent_widget = self.query_one("#last-sent", Pretty)
-            received_widget = self.query_one("#last-received", Pretty)
+        # Add separator and clear formatting for plugin logs
+        plugin_log_widget.write(f'{message}\n')
 
-            if self.last_sent_message:
-                sent_widget.update(self.last_sent_message)
-                self._log_message(f"Updated sent widget with: {type(self.last_sent_message)}", "system")
-
-            if self.last_received_message:
-                received_widget.update(self.last_received_message)
-                self._log_message(f"Updated received widget with: {type(self.last_received_message)}", "system")
-        except Exception as e:
-            self._log_message(f"Error updating raw JSON display: {e}", "error")
-
-    def _update_status_display(self) -> None:
-        """Update the status panel"""
-        status_state = self.query_one("#status-state", Label)
-        status_request_id = self.query_one("#status-request-id", Label)
-        status_pending = self.query_one("#status-pending", Label)
-        cancel_button = self.query_one("#action-cancel", Button)
-
-        status_state.update(f"Status: {self.plugin_status}")
-        status_request_id.update(f"Next Request ID: {self.message_history.get_next_request_id()}")
-
-        pending_ids = self.message_history.get_pending_request_ids()
-        status_pending.update(f"Pending Requests: {len(pending_ids)}")
-
-        # Disable all action buttons if plugin is not running
-        plugin_inactive = self.plugin_status in ["Disconnected", "Terminated", "Crashed", "Failed", "Stopped"]
-        
-        # Update action buttons based on plugin status
-        action_buttons = ["#action-search", "#action-quit", "#action-json", "#action-repeat"]
-        for button_id in action_buttons:
-            button = self.query_one(button_id, Button)
-            if plugin_inactive:
-                button.add_class("disabled")
-            else:
-                button.remove_class("disabled")
-
-        # Enable/disable cancel button based on pending requests and plugin status
-        if self.message_history.has_pending_requests() and not plugin_inactive:
-            cancel_button.remove_class("disabled")
-            cancel_button.label = f"🚫 [C] Cancel Current ({', '.join(map(str, pending_ids))})"
-        else:
-            cancel_button.add_class("disabled")
-            cancel_button.label = "🚫 [C] Cancel Current"
-
-    # Action handlers
+    @work
     async def action_search(self) -> None:
         """Open search dialog"""
-        self._log_message("Opening search dialog", "system")
         recent_searches = self.message_history.get_recent_searches()
-        result = await self.push_screen(SearchDialog(recent_searches))
-        
-        self._log_message(f"Search dialog result: {repr(result)}", "system")
-        if result:
-            message = {
-                "id": self.message_history.get_next_request_id(),
-                "method": "search",
-                "params": result
-            }
-            self._log_message(f"Sending search message: {message}", "system")
-            await self._send_message(message)
-        else:
-            self._log_message("Search dialog returned no result", "system")
+
+        try:
+            result = await self.push_screen_wait(SearchDialog(recent_searches, self._log_message))
+
+            if result:
+                message = {"id": self.message_history.get_next_request_id(), "method": "search", "params": result}
+                await self._send_message(message)
+            else:
+                self._log_message("Search dialog returned None - no search performed", "system")
+        except Exception as e:
+            self._log_message(f"Error with search dialog: {e}", "error")
 
     async def action_cancel(self) -> None:
         """Send cancel command"""
@@ -706,7 +566,6 @@ class PluginDebuggerApp(App):
         if self.plugin_process:
             self.plugin_process.terminate()
             self.plugin_status = "Stopped"
-            self._update_status_display()
 
     async def action_custom_json(self) -> None:
         """Open custom JSON dialog"""
@@ -739,36 +598,6 @@ class PluginDebuggerApp(App):
         self.message_history.messages.clear()
         self._log_message("Message history cleared", "system")
 
-    # Button event handlers
-    @on(Button.Pressed, "#action-search")
-    async def on_search_button(self, event):
-        self._log_message("Search button pressed", "system")
-        if not event.button.has_class("disabled"):
-            self._log_message("Search button is enabled, calling action_search", "system")
-            await self.action_search()
-        else:
-            self._log_message("Search button is disabled", "system")
-
-    @on(Button.Pressed, "#action-cancel")
-    async def on_cancel_button(self, event):
-        if not event.button.has_class("disabled"):
-            await self.action_cancel()
-
-    @on(Button.Pressed, "#action-quit")
-    async def on_quit_button(self, event):
-        if not event.button.has_class("disabled"):
-            await self.action_quit_plugin()
-
-    @on(Button.Pressed, "#action-json")
-    async def on_json_button(self, event):
-        if not event.button.has_class("disabled"):
-            await self.action_custom_json()
-
-    @on(Button.Pressed, "#action-repeat")
-    async def on_repeat_button(self, event):
-        if not event.button.has_class("disabled"):
-            await self.action_repeat_last()
-
 
 async def main():
     """Main entry point"""
@@ -778,14 +607,14 @@ async def main():
         sys.exit(1)
 
     plugin_command = sys.argv[1:]
-    
+
     # Check if we're in a proper terminal
     if not sys.stdout.isatty():
         print("Error: This tool requires an interactive terminal")
         sys.exit(1)
-    
+
     app = PluginDebuggerApp(plugin_command)
-    
+
     try:
         await app.run_async()
     except Exception as e:

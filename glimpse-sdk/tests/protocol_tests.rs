@@ -105,7 +105,7 @@ mod method_result_tests {
             title: "Test Item".to_string(),
             subtitle: Some("Test Subtitle".to_string()),
             icon: None,
-            actions: vec![Action::CopyToClipboard {
+            actions: vec![Action::Clipboard {
                 text: "test".to_string(),
             }],
             score: 1.0,
@@ -164,7 +164,7 @@ mod method_result_tests {
             subtitle: Some("Testing serialization".to_string()),
             icon: Some("test.ico".to_string()),
             actions: vec![
-                Action::CopyToClipboard {
+                Action::Clipboard {
                     text: "clipboard text".to_string(),
                 },
                 Action::ShellExec {
@@ -346,6 +346,207 @@ mod message_tests {
             }
         }
     }
+
+    #[test]
+    fn test_message_request_raw_json() {
+        // Test parsing raw JSON strings for Request messages
+        let json = r#"{"id":1,"method":"search","params":"hello world"}"#;
+        let message: Message = serde_json::from_str(json).unwrap();
+
+        match message {
+            Message::Request { id, method, target, context } => {
+                assert_eq!(id, 1);
+                assert_eq!(method, Method::Search("hello world".to_string()));
+                assert_eq!(target, None);
+                assert_eq!(context, None);
+            }
+            _ => panic!("Expected Request message"),
+        }
+
+        // Test with target and context
+        let json_with_extras = r#"{"id":2,"method":"cancel","target":"plugin1","context":"ctx1"}"#;
+        let message: Message = serde_json::from_str(json_with_extras).unwrap();
+
+        match message {
+            Message::Request { id, method, target, context } => {
+                assert_eq!(id, 2);
+                assert_eq!(method, Method::Cancel);
+                assert_eq!(target, Some("plugin1".to_string()));
+                assert_eq!(context, Some("ctx1".to_string()));
+            }
+            _ => panic!("Expected Request message"),
+        }
+    }
+
+    #[test]
+    fn test_message_response_raw_json() {
+        // Test successful response
+        let success_json = r#"{"id":1,"result":[{"title":"Test","score":1.0,"actions":[]}],"source":"echo"}"#;
+        let message: Message = serde_json::from_str(success_json).unwrap();
+
+        match message {
+            Message::Response { id, result, error, source } => {
+                assert_eq!(id, 1);
+                assert_eq!(error, None);
+                assert_eq!(source, Some("echo".to_string()));
+                assert!(result.is_some());
+                if let Some(MethodResult::SearchResults(results)) = result {
+                    assert_eq!(results.len(), 1);
+                    assert_eq!(results[0].title, "Test");
+                }
+            }
+            _ => panic!("Expected Response message"),
+        }
+
+        // Test error response
+        let error_json = r#"{"id":2,"error":"Something went wrong","source":"plugin"}"#;
+        let message: Message = serde_json::from_str(error_json).unwrap();
+
+        match message {
+            Message::Response { id, result, error, source } => {
+                assert_eq!(id, 2);
+                assert_eq!(result, None);
+                assert_eq!(error, Some("Something went wrong".to_string()));
+                assert_eq!(source, Some("plugin".to_string()));
+            }
+            _ => panic!("Expected Response message"),
+        }
+    }
+
+    #[test]
+    fn test_message_notification_raw_json() {
+        // Test all notification types with correct JSON format
+        // Notifications have the format: {"method": {"method": "quit"}}
+        let quit_json = r#"{"method":{"method":"quit"}}"#;
+        let message: Message = serde_json::from_str(quit_json).unwrap();
+        match message {
+            Message::Notification { method } => assert_eq!(method, Method::Quit),
+            _ => panic!("Expected Notification message"),
+        }
+
+        let cancel_json = r#"{"method":{"method":"cancel"}}"#;
+        let message: Message = serde_json::from_str(cancel_json).unwrap();
+        match message {
+            Message::Notification { method } => assert_eq!(method, Method::Cancel),
+            _ => panic!("Expected Notification message"),
+        }
+
+        let search_json = r#"{"method":{"method":"search","params":"test"}}"#;
+        let message: Message = serde_json::from_str(search_json).unwrap();
+        match message {
+            Message::Notification { method } => assert_eq!(method, Method::Search("test".to_string())),
+            _ => panic!("Expected Notification message"),
+        }
+    }
+
+    #[test]
+    fn test_message_actual_json_formats() {
+        // Document and test the actual JSON formats each message type uses
+
+        // Request: has id and method fields flattened at top level
+        let request = Message::Request {
+            id: 1,
+            method: Method::Search("hello".to_string()),
+            target: None,
+            context: None,
+        };
+        let json = serde_json::to_string(&request).unwrap();
+        assert_eq!(json, r#"{"id":1,"method":"search","params":"hello","target":null,"context":null}"#);
+
+        // Response: has id, result/error, and source at top level
+        let response = Message::Response {
+            id: 2,
+            result: Some(MethodResult::SearchResults(vec![])),
+            error: None,
+            source: Some("plugin".to_string()),
+        };
+        let json = serde_json::to_string(&response).unwrap();
+        assert_eq!(json, r#"{"id":2,"error":null,"source":"plugin","result":[]}"#);
+
+        // Notification: has method nested inside
+        let notification = Message::Notification {
+            method: Method::Quit,
+        };
+        let json = serde_json::to_string(&notification).unwrap();
+        assert_eq!(json, r#"{"method":{"method":"quit"}}"#);
+    }
+
+    #[test]
+    fn test_message_serialization_format() {
+        // Test that serialization produces expected JSON structure
+        let request = Message::Request {
+            id: 42,
+            method: Method::Search("test".to_string()),
+            target: Some("plugin".to_string()),
+            context: Some("ctx".to_string()),
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed["id"], 42);
+        assert_eq!(parsed["method"], "search");
+        assert_eq!(parsed["params"], "test");
+        assert_eq!(parsed["target"], "plugin");
+        assert_eq!(parsed["context"], "ctx");
+
+        let response = Message::Response {
+            id: 1,
+            result: Some(MethodResult::SearchResults(vec![])),
+            error: None,
+            source: Some("test".to_string()),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed["id"], 1);
+        assert!(parsed["result"].is_array());
+        assert_eq!(parsed["source"], "test");
+        assert!(parsed.get("error").is_none() || parsed["error"].is_null());
+    }
+
+    #[test]
+    fn test_message_round_trip_all_variants() {
+        let test_messages = vec![
+            Message::Request {
+                id: 1,
+                method: Method::Search("hello".to_string()),
+                target: None,
+                context: None,
+            },
+            Message::Request {
+                id: 2,
+                method: Method::Cancel,
+                target: Some("plugin".to_string()),
+                context: Some("ctx".to_string()),
+            },
+            Message::Response {
+                id: 3,
+                result: Some(MethodResult::SearchResults(vec![])),
+                error: None,
+                source: Some("source".to_string()),
+            },
+            Message::Response {
+                id: 4,
+                result: None,
+                error: Some("error".to_string()),
+                source: None,
+            },
+            Message::Notification {
+                method: Method::Quit,
+            },
+            Message::Notification {
+                method: Method::Search("notification search".to_string()),
+            },
+        ];
+
+        for original_message in test_messages {
+            let json = serde_json::to_string(&original_message).unwrap();
+            let deserialized: Message = serde_json::from_str(&json).unwrap();
+            assert_eq!(original_message, deserialized);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -425,7 +626,7 @@ mod action_tests {
         ];
 
         for test_text in test_texts {
-            let action = Action::CopyToClipboard {
+            let action = Action::Clipboard {
                 text: test_text.to_string(),
             };
 
@@ -433,8 +634,8 @@ mod action_tests {
             let deserialized: Action = serde_json::from_str(&json).unwrap();
 
             match deserialized {
-                Action::CopyToClipboard { text } => assert_eq!(text, test_text),
-                _ => panic!("Expected CopyToClipboard action"),
+                Action::Clipboard { text } => assert_eq!(text, test_text),
+                _ => panic!("Expected Clipboard action"),
             }
         }
     }
@@ -513,7 +714,7 @@ mod action_tests {
             Action::OpenPath {
                 path: "/test/path".to_string(),
             },
-            Action::CopyToClipboard {
+            Action::Clipboard {
                 text: "test clipboard".to_string(),
             },
             Action::Custom {
@@ -565,7 +766,7 @@ mod search_item_tests {
                 Action::OpenPath {
                     path: "/test".to_string(),
                 },
-                Action::CopyToClipboard {
+                Action::Clipboard {
                     text: "copy this".to_string(),
                 },
             ],
@@ -607,7 +808,7 @@ mod search_item_tests {
             title: "Unicode Test 🚀".to_string(),
             subtitle: Some("こんにちは world ñoño".to_string()),
             icon: Some("🔍.png".to_string()),
-            actions: vec![Action::CopyToClipboard {
+            actions: vec![Action::Clipboard {
                 text: "Unicode: ñáéíóú 🎉".to_string(),
             }],
             score: 0.95,
@@ -634,7 +835,7 @@ mod search_item_tests {
             Action::OpenPath {
                 path: "/test".to_string(),
             },
-            Action::CopyToClipboard {
+            Action::Clipboard {
                 text: "clipboard".to_string(),
             },
             Action::Custom {
@@ -691,7 +892,7 @@ mod integration_tests {
             subtitle: Some("From echo plugin".to_string()),
             icon: Some("echo.png".to_string()),
             actions: vec![
-                Action::CopyToClipboard {
+                Action::Clipboard {
                     text: "test query".to_string(),
                 },
                 Action::Custom {
@@ -820,7 +1021,7 @@ mod integration_tests {
                     Action::OpenPath {
                         path: format!("/path/to/item/{}", i),
                     },
-                    Action::CopyToClipboard {
+                    Action::Clipboard {
                         text: format!("Item {} content", i),
                     },
                     Action::Custom {
