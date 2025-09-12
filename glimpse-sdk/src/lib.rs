@@ -22,6 +22,18 @@ pub enum PluginError {
     Other(String),
 }
 
+impl Clone for PluginError {
+    fn clone(&self) -> Self {
+        match self {
+            PluginError::Authenticate(msg) => PluginError::Authenticate(msg.clone()),
+            PluginError::Io(err) => PluginError::Io(std::io::Error::new(err.kind(), err.to_string())),
+            PluginError::Json(err) => PluginError::Json(serde_json::from_str::<()>(&format!("invalid: {}", err)).unwrap_err()),
+            PluginError::Cancelled(msg) => PluginError::Cancelled(msg.clone()),
+            PluginError::Other(msg) => PluginError::Other(msg.clone()),
+        }
+    }
+}
+
 impl Display for PluginError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

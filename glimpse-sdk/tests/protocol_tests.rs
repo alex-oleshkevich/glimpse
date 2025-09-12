@@ -121,6 +121,7 @@ mod method_result_tests {
                 assert_eq!(items[0].subtitle, Some("Test Subtitle".to_string()));
                 assert_eq!(items[0].score, 1.0);
             }
+            MethodResult::Authenticate(_) => panic!("Expected SearchResults, got Authenticate"),
         }
     }
 
@@ -154,6 +155,7 @@ mod method_result_tests {
                 assert_eq!(items[0].title, "Item 1");
                 assert_eq!(items[1].subtitle, Some("Subtitle 2".to_string()));
             }
+            MethodResult::Authenticate(_) => panic!("Expected SearchResults, got Authenticate"),
         }
     }
 
@@ -416,22 +418,22 @@ mod message_tests {
     #[test]
     fn test_message_notification_raw_json() {
         // Test all notification types with correct JSON format
-        // Notifications have the format: {"method": {"method": "quit"}}
-        let quit_json = r#"{"method":{"method":"quit"}}"#;
+        // Notifications have the format: {"method": "quit"} (flattened)
+        let quit_json = r#"{"method":"quit"}"#;
         let message: Message = serde_json::from_str(quit_json).unwrap();
         match message {
             Message::Notification { method } => assert_eq!(method, Method::Quit),
             _ => panic!("Expected Notification message"),
         }
 
-        let cancel_json = r#"{"method":{"method":"cancel"}}"#;
+        let cancel_json = r#"{"method":"cancel"}"#;
         let message: Message = serde_json::from_str(cancel_json).unwrap();
         match message {
             Message::Notification { method } => assert_eq!(method, Method::Cancel),
             _ => panic!("Expected Notification message"),
         }
 
-        let search_json = r#"{"method":{"method":"search","params":"test"}}"#;
+        let search_json = r#"{"method":"search","params":"test"}"#;
         let message: Message = serde_json::from_str(search_json).unwrap();
         match message {
             Message::Notification { method } => assert_eq!(method, Method::Search("test".to_string())),
@@ -463,12 +465,12 @@ mod message_tests {
         let json = serde_json::to_string(&response).unwrap();
         assert_eq!(json, r#"{"id":2,"error":null,"source":"plugin","result":[]}"#);
 
-        // Notification: has method nested inside
+        // Notification: has method flattened at top level
         let notification = Message::Notification {
             method: Method::Quit,
         };
         let json = serde_json::to_string(&notification).unwrap();
-        assert_eq!(json, r#"{"method":{"method":"quit"}}"#);
+        assert_eq!(json, r#"{"method":"quit"}"#);
     }
 
     #[test]

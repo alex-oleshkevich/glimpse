@@ -18,3 +18,12 @@ tokio-stream = { version = "0.1.17", features = ["io-util"] }
 # zbus = { version = "5.9.0", features = ["tokio"] }
 anyhow = "1.0.98"
 dirs = "6.0.0"
+# Testing dependencies
+tokio-test = "0.4"           # Latest available async testing utilities
+tempfile = "3.12"            # Latest temporary file handling
+assert_matches = "1.5"       # Pattern matching assertions
+serial_test = "3.1"          # Test serialization (latest)
+mockall = "0.13"             # Advanced mocking (latest)
+proptest = "1.5"             # Property-based testing (latest)
+criterion = "0.7"            # Benchmarking (latest available)
+tracing-test = "0.2"         # Tracing capture for testing (latest available)
