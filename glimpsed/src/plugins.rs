@@ -26,6 +26,7 @@ pub fn discover_plugins() -> Vec<String> {
         "/usr/lib/glimpsed/plugins".to_owned(),
         "/usr/local/lib/glimpsed/plugins".to_owned(),
     ];
+    tracing::debug!("plugin directories: {:?}", directories);
 
     let mut plugins = Vec::new();
     for dir in directories {

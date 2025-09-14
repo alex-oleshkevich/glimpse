@@ -19,7 +19,10 @@
       "Bash(timeout 60s cargo test --package glimpse-sdk --test run_plugin_coverage_tests -- --test-threads=1)",
       "Bash(timeout:*)",
       "Bash(RUSTFLAGS=\"-C instrument-coverage\" cargo test --package glimpse-sdk --test run_plugin_coverage_tests -- --test-threads=1)",
-      "Bash(/dev/null)"
+      "Bash(/dev/null)",
+      "Bash(mkdir:*)",
+      "Bash(awk:*)",
+      "Bash(RUST_LOG=debug cargo test test_plugin_discovery_mixed_file_types -- --nocapture)"
     ],
     "deny": []
   }

@@ -27,3 +27,5 @@ mockall = "0.13"             # Advanced mocking (latest)
 proptest = "1.5"             # Property-based testing (latest)
 criterion = "0.7"            # Benchmarking (latest available)
 tracing-test = "0.2"         # Tracing capture for testing (latest available)
+futures = "0.3"
+nix = { version = "0.29", features = ["signal", "process"] }

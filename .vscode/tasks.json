@@ -6,7 +6,7 @@
         {
             "label": "glimpse gui",
             "type": "shell",
-            "command": "just ui",
+            "command": "just gui",
             "presentation": {
                 "echo": true,
                 "reveal": "silent",

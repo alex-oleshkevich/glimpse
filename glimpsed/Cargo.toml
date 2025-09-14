@@ -12,3 +12,12 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
 dirs = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }
+tempfile = { workspace = true }
+mockall = { workspace = true }
+serial_test = { workspace = true }
+futures = { workspace = true }
+assert_matches = { workspace = true }
+nix = { workspace = true }
