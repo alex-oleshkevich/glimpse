@@ -8,6 +8,10 @@ use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio::time;
 
+pub enum PluginResponse {
+    Response(String, Message),
+}
+
 pub fn discover_plugins() -> Vec<String> {
     let directories = vec![
         env::var("GLIMPSED_PLUGIN_DIR").unwrap_or_default(),
@@ -89,12 +93,13 @@ pub fn discover_plugins() -> Vec<String> {
 
 pub async fn spawn_plugin(
     path: String,
-    response_tx: mpsc::Sender<Message>,
+    response_tx: mpsc::Sender<PluginResponse>,
     plugin_rx: mpsc::Receiver<Message>,
 ) {
     let plugin_rx = Arc::new(Mutex::new(plugin_rx));
 
     loop {
+        let path = path.clone();
         let status = tokio::process::Command::new(&path)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
@@ -135,6 +140,7 @@ pub async fn spawn_plugin(
 
         let response_tx = response_tx.clone();
 
+        let plugin_id =  path.clone();
         let stdout_handle = tokio::spawn(async move {
             let mut line = String::new();
             loop {
@@ -152,7 +158,10 @@ pub async fn spawn_plugin(
                     }
                 };
                 tracing::debug!("plugin response: {:?}", &message);
-                if let Err(e) = response_tx.send(message).await {
+                if let Err(e) = response_tx
+                    .send(PluginResponse::Response(plugin_id.clone(), message))
+                    .await
+                {
                     tracing::error!("failed to send plugin response: {}", e);
                     break;
                 }

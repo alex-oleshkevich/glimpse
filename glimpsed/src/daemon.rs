@@ -1,58 +1,123 @@
-use std::path::PathBuf;
-
-use glimpse_sdk::{Message, Metadata};
-use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, stdin, stdout},
-    sync::mpsc,
+use std::{
+    collections::HashMap,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
 
-use crate::plugins::{discover_plugins, spawn_plugin};
+use glimpse_sdk::{Message, Metadata, MethodResult};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, stdin, stdout},
+    sync::{Mutex, mpsc},
+};
 
-struct ActivePlugin {
-    path: PathBuf,
+use crate::plugins::{PluginResponse, discover_plugins, spawn_plugin};
+
+struct ConnectedPlugin {
     metadata: Option<Metadata>,
     tx: mpsc::Sender<Message>,
 }
 
-pub struct Daemon {}
+pub struct Daemon {
+    current_request: Arc<AtomicUsize>,
+    stop_channel: Option<tokio::sync::oneshot::Sender<()>>,
+}
 
 impl Daemon {
     pub fn new() -> Self {
-        Daemon {}
+        let (stop_channel, _) = tokio::sync::oneshot::channel();
+        Daemon {
+            current_request: Arc::new(AtomicUsize::new(0)),
+            stop_channel: Some(stop_channel),
+        }
     }
 
-    pub async fn stop(&self) {}
+    pub async fn stop(&mut self) {
+        if let Some(stop_channel) = self.stop_channel.take() {
+            let _ = stop_channel.send(());
+        }
+    }
 
-    pub async fn run(&self) {
+    pub async fn run(&mut self) {
         // 6. maintain current request state (for cancellations)
         let stdin = stdin();
         let mut stdout = stdout();
         let mut reader = BufReader::new(stdin);
+        let current_request = Arc::clone(&self.current_request);
+
         let (response_tx, mut response_rx) = mpsc::channel::<Message>(10);
+        let (plugin_tx, mut plugin_rx) = mpsc::channel::<PluginResponse>(10);
 
         let plugin_paths = discover_plugins();
         tracing::info!("discovered plugins: {:?}", &plugin_paths);
 
         let mut handles = vec![];
-        let plugins: Vec<ActivePlugin> = plugin_paths
+        let plugins: HashMap<String, ConnectedPlugin> = plugin_paths
             .into_iter()
             .map(|path| {
                 tracing::debug!("starting plugin {:?}", &path);
                 let (tx, rx) = mpsc::channel::<Message>(10);
-                let response_tx = response_tx.clone();
+                let plugin_tx = plugin_tx.clone();
                 let path_copy = path.clone();
                 let handle = tokio::spawn(async move {
-                    spawn_plugin(path_copy, response_tx, rx).await;
+                    spawn_plugin(path_copy, plugin_tx, rx).await;
                 });
                 handles.push(handle);
-                ActivePlugin {
-                    path: path.into(),
-                    metadata: None,
-                    tx,
-                }
+                let plugin_name = path.to_string();
+                (plugin_name, ConnectedPlugin { metadata: None, tx })
             })
             .collect();
 
+        let response_tx = response_tx.clone();
+        let current_request_clone = Arc::clone(&current_request);
+
+        let plugins_arc = Arc::new(Mutex::new(plugins));
+        let plugins_copy = plugins_arc.clone();
+        let plugin_handle = tokio::spawn(async move {
+            while let Some(ref plugin_message) = plugin_rx.recv().await {
+                match plugin_message {
+                    PluginResponse::Response(plugin_id, message) => {
+                        match message {
+                            Message::Response { id, result, .. } => {
+                                if *id != current_request_clone.load(Ordering::SeqCst) {
+                                    continue;
+                                }
+
+                                if result.is_none() {
+                                    let _ = response_tx.send(message.clone()).await;
+                                    continue;
+                                }
+
+                                let result = result.as_ref().unwrap();
+                                match result {
+                                    MethodResult::Authenticate(metadata) => {
+                                        plugins_copy.lock().await.get_mut(plugin_id).map(
+                                            |plugin| {
+                                                plugin.metadata.replace(metadata.clone());
+                                            },
+                                        );
+                                        tracing::info!(
+                                            "authenticated plugin {} v{}",
+                                            metadata.name,
+                                            metadata.version
+                                        );
+                                    }
+                                    _ => {
+                                        let _ = response_tx.send(message.clone()).await;
+                                    }
+                                }
+                            }
+                            _ => {
+                                let _ = response_tx.send(message.clone()).await;
+                            }
+                        };
+                    }
+                }
+            }
+        });
+
+        let plugins_copy = plugins_arc.clone();
         let stdin_handle = tokio::spawn(async move {
             let mut line = String::new();
             loop {
@@ -70,9 +135,12 @@ impl Daemon {
                     }
                 };
                 tracing::debug!("client request -> plugins: {:?}", &message);
+
                 match message {
                     Message::Request { id, method, .. } => {
-                        for plugin in &plugins {
+                        current_request.store(id, Ordering::SeqCst);
+
+                        for plugin in plugins_copy.lock().await.values() {
                             let tx = plugin.tx.clone();
                             let method_clone = method.clone();
                             let request = Message::Request {
@@ -109,6 +177,7 @@ impl Daemon {
         tokio::select! {
             _ = stdin_handle => {},
             _ = stdout_handle => {},
+            _ = plugin_handle => {},
         }
 
         tracing::debug!("shutting down, waiting for plugins to exit");
