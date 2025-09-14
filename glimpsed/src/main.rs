@@ -9,7 +9,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let daemon = Daemon::new().discover_plugins()?;
+    let daemon = Daemon::new();
     let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate())?;
     let mut sigint = signal::unix::signal(signal::unix::SignalKind::interrupt())?;
 
