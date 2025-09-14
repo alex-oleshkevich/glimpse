@@ -21,23 +21,23 @@ mod coverage_tests {
     #[traced_test]
     async fn test_authentication_success() {
         let plugin = BasicDummyPlugin::new();
-        
+
         // Test authentication success by verifying plugin metadata retrieval
         let metadata = plugin.metadata();
         assert_eq!(metadata.id, "test.basic");
         assert_eq!(metadata.name, "Basic Test Plugin");
-        
-        // Test successful authentication response creation 
+
+        // Test successful authentication response creation
         let auth_result = MethodResult::Authenticate(metadata);
         let serialized = serde_json::to_string(&auth_result);
         assert!(serialized.is_ok());
-        
+
         println!("✓ Covered authentication success branch");
     }
 
     /// Test authentication channel send failure
     #[tokio::test]
-    #[traced_test] 
+    #[traced_test]
     async fn test_authentication_channel_failure() {
         // This is hard to test directly since channel failure is rare
         // Instead, test that plugins handle errors gracefully
@@ -58,8 +58,10 @@ mod coverage_tests {
     async fn test_normal_input_processing() {
         // Test that plugins handle normal search requests correctly
         let plugin = BasicDummyPlugin::new();
-        let result = plugin.handle(Method::Search("normal query".to_string())).await;
-        
+        let result = plugin
+            .handle(Method::Search("normal query".to_string()))
+            .await;
+
         assert!(result.is_ok());
         match result.unwrap() {
             MethodResult::SearchResults(items) => {
@@ -77,19 +79,19 @@ mod coverage_tests {
     async fn test_stdin_eof_handling() {
         // Test that plugins handle end-of-input gracefully
         let plugin = BasicDummyPlugin::new();
-        
+
         // Test with different message types that could cause EOF scenarios
         let methods = vec![
             Method::Search("eof test".to_string()),
             Method::Cancel,
             Method::Quit,
         ];
-        
+
         for method in methods {
             let result = plugin.handle(method).await;
             assert!(result.is_ok());
         }
-        
+
         println!("✓ Covered EOF handling scenarios");
     }
 
@@ -103,12 +105,12 @@ mod coverage_tests {
             r#"{"method":"cancel","id":2}"#,
             r#"{"method":"quit","id":3}"#,
         ];
-        
+
         for msg in valid_messages {
             let parsed: Result<serde_json::Value, _> = serde_json::from_str(msg);
             assert!(parsed.is_ok(), "Should parse valid JSON: {}", msg);
         }
-        
+
         println!("✓ Covered valid JSON parsing branch");
     }
 
@@ -118,26 +120,26 @@ mod coverage_tests {
     #[traced_test]
     async fn test_invalid_json_handling() {
         // This test verifies that invalid JSON is handled gracefully
-        
+
         // Test various invalid JSON strings that should trigger parse errors
         let invalid_json_samples = vec![
-            "{ invalid json",           // Unclosed brace
-            "not json at all",          // Not JSON at all
-            "",                        // Empty string
-            "null",                    // Valid JSON but not our message format
-            "{\"incomplete\": ",       // Incomplete JSON
+            "{ invalid json",              // Unclosed brace
+            "not json at all",             // Not JSON at all
+            "",                            // Empty string
+            "null",                        // Valid JSON but not our message format
+            "{\"incomplete\": ",           // Incomplete JSON
             "{ \"test\": invalid_value }", // Invalid value
         ];
-        
+
         for invalid_json in invalid_json_samples {
             // Test that serde_json::from_str would fail on these
             let result: Result<Message, _> = serde_json::from_str(invalid_json);
             assert!(result.is_err(), "JSON should be invalid: {}", invalid_json);
         }
-        
+
         // This covers the error path in lines 99-104 where JSON parsing fails
         // and the continue statement is executed
-        
+
         println!("✓ Covered invalid JSON handling branch (lines 99-104)");
     }
 
@@ -147,19 +149,21 @@ mod coverage_tests {
     async fn test_request_message_processing() {
         // Test all types of Method requests
         let plugin = BasicDummyPlugin::new();
-        
+
         // Test Search request
-        let search_result = plugin.handle(Method::Search("request test".to_string())).await;
+        let search_result = plugin
+            .handle(Method::Search("request test".to_string()))
+            .await;
         assert!(search_result.is_ok());
-        
-        // Test Cancel request  
+
+        // Test Cancel request
         let cancel_result = plugin.handle(Method::Cancel).await;
         assert!(cancel_result.is_ok());
-        
+
         // Test Quit request
         let quit_result = plugin.handle(Method::Quit).await;
         assert!(quit_result.is_ok());
-        
+
         println!("✓ Covered request message processing");
     }
 
@@ -169,14 +173,14 @@ mod coverage_tests {
     async fn test_cancel_notification() {
         // Test cancellation with slow plugin
         let plugin = SlowDummyPlugin::new();
-        
+
         let start = std::time::Instant::now();
         let result = plugin.handle(Method::Cancel).await;
         let duration = start.elapsed();
-        
+
         assert!(result.is_ok());
         assert!(duration >= std::time::Duration::from_millis(40)); // Should have some delay
-        
+
         println!("✓ Covered cancel notification path");
     }
 
@@ -190,13 +194,13 @@ mod coverage_tests {
             Box::new(SlowDummyPlugin::new()),
             Box::new(ErrorDummyPlugin::new()),
         ];
-        
+
         for plugin in plugins {
             let result = plugin.handle(Method::Quit).await;
             // All should handle quit gracefully
             assert!(result.is_ok());
         }
-        
+
         println!("✓ Covered quit notification path");
     }
 
@@ -206,18 +210,18 @@ mod coverage_tests {
     async fn test_other_notification_methods() {
         // Test with various method combinations
         let plugin = ConfigurableDummyPlugin::new();
-        
+
         let methods = vec![
             Method::Search("notification test".to_string()),
             Method::Cancel,
             Method::Quit,
         ];
-        
+
         for method in methods {
             let result = plugin.handle(method).await;
             assert!(result.is_ok());
         }
-        
+
         println!("✓ Covered other notification methods path");
     }
 
@@ -228,13 +232,13 @@ mod coverage_tests {
         // Test plugin metadata handling
         let plugin = BasicDummyPlugin::new();
         let metadata = plugin.metadata();
-        
+
         assert_eq!(metadata.id, "test.basic");
         assert_eq!(metadata.name, "Basic Test Plugin");
         assert_eq!(metadata.version, "1.0.0");
         assert!(!metadata.description.is_empty());
         assert!(!metadata.author.is_empty());
-        
+
         println!("✓ Covered other message types path");
     }
 
@@ -244,11 +248,13 @@ mod coverage_tests {
     async fn test_first_request_no_cancel_token() {
         // Test initial request with fresh plugin
         let plugin = BasicDummyPlugin::new();
-        
+
         // First request should succeed without cancellation
-        let result = plugin.handle(Method::Search("first request".to_string())).await;
+        let result = plugin
+            .handle(Method::Search("first request".to_string()))
+            .await;
         assert!(result.is_ok());
-        
+
         match result.unwrap() {
             MethodResult::SearchResults(items) => {
                 assert!(!items.is_empty());
@@ -256,7 +262,7 @@ mod coverage_tests {
             }
             _ => panic!("Expected search results"),
         }
-        
+
         println!("✓ Covered first request (no cancel token) path");
     }
 
@@ -266,23 +272,25 @@ mod coverage_tests {
     async fn test_existing_cancel_token() {
         // Test cancellation behavior with flaky plugin
         let plugin = FlakyDummyPlugin::fail_every_n(3);
-        
+
         // Make several requests, some should succeed, some fail
         let mut success_count = 0;
         let mut error_count = 0;
-        
+
         for i in 0..5 {
-            let result = plugin.handle(Method::Search(format!("request {}", i))).await;
+            let result = plugin
+                .handle(Method::Search(format!("request {}", i)))
+                .await;
             match result {
                 Ok(_) => success_count += 1,
                 Err(_) => error_count += 1,
             }
         }
-        
+
         // Should have both successes and failures
         assert!(success_count > 0);
         assert!(error_count > 0);
-        
+
         println!("✓ Covered existing cancel token path");
     }
 
@@ -293,7 +301,9 @@ mod coverage_tests {
         // Test covers: lines 103-105 - no existing task path
         // Test first request without existing task
         let plugin = BasicDummyPlugin::new();
-        let result = plugin.handle(Method::Search("first task test".to_string())).await;
+        let result = plugin
+            .handle(Method::Search("first task test".to_string()))
+            .await;
         assert!(result.is_ok());
         println!("✓ Covered first request no task path");
     }
@@ -305,7 +315,9 @@ mod coverage_tests {
         // Test covers: lines 103-105 - existing task abort path
         // Test task abortion with configurable plugin
         let plugin = ConfigurableDummyPlugin::new();
-        let result = plugin.handle(Method::Search("abort test".to_string())).await;
+        let result = plugin
+            .handle(Method::Search("abort test".to_string()))
+            .await;
         assert!(result.is_ok());
         println!("✓ Covered existing task abort path");
     }
@@ -316,10 +328,12 @@ mod coverage_tests {
     async fn test_plugin_success_response() {
         // Test successful plugin execution paths
         let plugin = BasicDummyPlugin::new();
-        
-        let result = plugin.handle(Method::Search("success test".to_string())).await;
+
+        let result = plugin
+            .handle(Method::Search("success test".to_string()))
+            .await;
         assert!(result.is_ok());
-        
+
         match result.unwrap() {
             MethodResult::SearchResults(items) => {
                 assert_eq!(items.len(), 2);
@@ -329,7 +343,7 @@ mod coverage_tests {
             }
             _ => panic!("Expected search results"),
         }
-        
+
         println!("✓ Covered plugin success response path");
     }
 
@@ -345,12 +359,14 @@ mod coverage_tests {
             (ErrorDummyPlugin::cancelled_failure(), "cancelled"),
             (ErrorDummyPlugin::generic_failure(), "generic"),
         ];
-        
+
         for (plugin, error_type) in error_plugins {
-            let result = plugin.handle(Method::Search("error test".to_string())).await;
+            let result = plugin
+                .handle(Method::Search("error test".to_string()))
+                .await;
             assert!(result.is_err(), "Should fail for {} error", error_type);
         }
-        
+
         println!("✓ Covered plugin error response paths");
     }
 
@@ -364,14 +380,16 @@ mod coverage_tests {
             Duration::from_millis(50),
             Duration::from_millis(25),
         );
-        
+
         let start = std::time::Instant::now();
-        let result = plugin.handle(Method::Search("cancellation test".to_string())).await;
+        let result = plugin
+            .handle(Method::Search("cancellation test".to_string()))
+            .await;
         let duration = start.elapsed();
-        
+
         assert!(result.is_ok());
         assert!(duration >= Duration::from_millis(90)); // Should take the delay time
-        
+
         println!("✓ Covered request cancellation path");
     }
 
@@ -381,15 +399,17 @@ mod coverage_tests {
     async fn test_response_send_success() {
         // Test successful response generation and sending
         let plugin = BasicDummyPlugin::new();
-        
-        let result = plugin.handle(Method::Search("response test".to_string())).await;
+
+        let result = plugin
+            .handle(Method::Search("response test".to_string()))
+            .await;
         assert!(result.is_ok());
-        
+
         // Verify response can be serialized (simulates successful send)
         let response = result.unwrap();
         let serialized = serde_json::to_string(&response).unwrap();
         assert!(serialized.contains("response test"));
-        
+
         println!("✓ Covered response send success path");
     }
 
@@ -400,7 +420,9 @@ mod coverage_tests {
         // Test covers: lines 138-140 - response send failure path
         // Test response send failure simulation
         let plugin = ErrorDummyPlugin::generic_failure();
-        let result = plugin.handle(Method::Search("send failure".to_string())).await;
+        let result = plugin
+            .handle(Method::Search("send failure".to_string()))
+            .await;
         assert!(result.is_err());
         println!("✓ Covered response send failure path");
     }
@@ -453,7 +475,9 @@ mod coverage_tests {
         // Test request during cancellation
         let plugin = SlowDummyPlugin::new();
         let cancel_result = plugin.handle(Method::Cancel).await;
-        let search_result = plugin.handle(Method::Search("during cancel".to_string())).await;
+        let search_result = plugin
+            .handle(Method::Search("during cancel".to_string()))
+            .await;
         assert!(cancel_result.is_ok());
         assert!(search_result.is_ok());
         println!("✓ Covered request during cancel");
@@ -492,9 +516,9 @@ mod coverage_tests {
         // Test plugin panic handling
         let plugin = PanicDummyPlugin::panic_on_search();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                plugin.handle(Method::Search("panic".to_string())).await
-            })
+            tokio::runtime::Runtime::new()
+                .unwrap()
+                .block_on(async { plugin.handle(Method::Search("panic".to_string())).await })
         }));
         assert!(result.is_err());
         println!("✓ Covered plugin panic handling");
@@ -511,9 +535,10 @@ mod coverage_tests {
         let mut handles = vec![];
         for i in 0..10 {
             let p = plugin.clone();
-            let handle = tokio::spawn(async move {
-                p.handle(Method::Search(format!("overflow {}", i))).await
-            });
+            let handle =
+                tokio::spawn(
+                    async move { p.handle(Method::Search(format!("overflow {}", i))).await },
+                );
             handles.push(handle);
         }
         for handle in handles {
@@ -534,17 +559,19 @@ mod integration_tests {
     async fn test_full_plugin_lifecycle() {
         // Test full plugin lifecycle
         let plugin = ConfigurableDummyPlugin::new();
-        
+
         // Test complete workflow
-        let search_result = plugin.handle(Method::Search("lifecycle test".to_string())).await;
+        let search_result = plugin
+            .handle(Method::Search("lifecycle test".to_string()))
+            .await;
         assert!(search_result.is_ok());
-        
+
         let cancel_result = plugin.handle(Method::Cancel).await;
         assert!(cancel_result.is_ok());
-        
+
         let quit_result = plugin.handle(Method::Quit).await;
         assert!(quit_result.is_ok());
-        
+
         println!("✓ Covered full plugin lifecycle");
     }
 
@@ -555,12 +582,12 @@ mod integration_tests {
         // Test performance characteristics
         let plugin = BasicDummyPlugin::new();
         let start = std::time::Instant::now();
-        
+
         for i in 0..100 {
             let result = plugin.handle(Method::Search(format!("perf {}", i))).await;
             assert!(result.is_ok());
         }
-        
+
         let duration = start.elapsed();
         assert!(duration < Duration::from_secs(1)); // Should be fast
         println!("✓ Covered performance characteristics: {:?}", duration);
@@ -577,10 +604,10 @@ mod property_tests {
         #[test]
         fn property_test_arbitrary_json_input(json_input in "[\\x20-\\x7E]{0,100}") { // Reduced from .* to limited printable chars
             // Test that arbitrary JSON input is handled gracefully without panicking
-            
+
             // Try to parse as Message - should either succeed or fail gracefully
             let parse_result: Result<Message, _> = serde_json::from_str(&json_input);
-            
+
             // The key property: parsing should never panic, only return Ok or Err
             // This covers the JSON parsing branch in run_plugin
             match parse_result {
@@ -595,7 +622,7 @@ mod property_tests {
             }
         }
 
-        #[test] 
+        #[test]
         fn property_test_plugin_metadata_validity(
             id in "[a-zA-Z0-9._-]{1,20}",
             name in "[a-zA-Z0-9 ._-]{1,50}",
@@ -604,7 +631,7 @@ mod property_tests {
             author in "[a-zA-Z0-9 ._-]{1,30}",
         ) {
             // Test that plugins with various metadata configurations work correctly
-            
+
             let metadata = Metadata {
                 id: id.clone(),
                 name: name.clone(),
@@ -612,13 +639,13 @@ mod property_tests {
                 description: description.clone(),
                 author: author.clone(),
             };
-            
+
             // Key property: metadata should serialize to JSON successfully
             let serialized = serde_json::to_string(&metadata).unwrap();
-            
+
             // Should be able to deserialize back
             let deserialized: Metadata = serde_json::from_str(&serialized).unwrap();
-            
+
             // Should match original
             assert_eq!(deserialized.id, id);
             assert_eq!(deserialized.name, name);
@@ -632,14 +659,14 @@ mod property_tests {
             query in "[\\x20-\\x7E]{0,50}", // Reduced from .* to limited printable chars
         ) {
             // Test that search queries of any content are handled properly
-            
+
             let plugin = BasicDummyPlugin::new();
             let method = Method::Search(query.clone());
-            
+
             // Key property: plugin.handle should never panic regardless of query content
             tokio_test::block_on(async {
                 let result = plugin.handle(method).await;
-                
+
                 // Should always return a result (Ok or Err)
                 match result {
                     Ok(MethodResult::SearchResults(_)) => {
@@ -660,18 +687,18 @@ mod property_tests {
             delay_ms in 0u64..50, // Reduced from 1000 to 50 to prevent hangs
         ) {
             // Test that plugins with various timing behaviors work correctly
-            
+
             tokio_test::block_on(async {
                 let plugin = SlowDummyPlugin::with_delays(
                     Duration::from_millis(delay_ms),
                     Duration::from_millis(delay_ms / 2),
                     Duration::from_millis(delay_ms / 4),
                 );
-                
+
                 let start = std::time::Instant::now();
                 let result = plugin.handle(Method::Search("test".to_string())).await;
                 let elapsed = start.elapsed();
-                
+
                 // Key property: should complete and take at least the specified delay
                 assert!(result.is_ok());
                 if delay_ms > 5 { // Reduced threshold from 10 to 5
@@ -686,24 +713,27 @@ mod property_tests {
     #[tokio::test]
     async fn property_test_error_handling_robustness() {
         // Test that various error conditions are handled robustly
-        
+
         let error_types = vec![
             PluginError::Authenticate("Auth failed".to_string()),
-            PluginError::Io(std::io::Error::new(std::io::ErrorKind::BrokenPipe, "Pipe broken")),
+            PluginError::Io(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "Pipe broken",
+            )),
             PluginError::Json(serde_json::from_str::<()>("invalid").unwrap_err()),
             PluginError::Cancelled("Cancelled".to_string()),
             PluginError::Other("Generic error".to_string()),
         ];
-        
+
         for error in error_types {
             // Test that each error type can be created, cloned, and displayed
             let cloned_error = error.clone();
             let error_string = error.to_string();
             let cloned_string = cloned_error.to_string();
-            
+
             assert_eq!(error_string, cloned_string);
             assert!(!error_string.is_empty());
-            
+
             println!("✓ Error type handled: {}", error_string);
         }
     }
@@ -715,24 +745,25 @@ mod property_tests {
         let test_queries = vec![
             "normal query".to_string(),
             "test".to_string(),
-            "".to_string(), // Empty query
-            " ".to_string(), // Whitespace only
-            "unicode: 你好 🌍".to_string(), // Unicode
+            "".to_string(),                      // Empty query
+            " ".to_string(),                     // Whitespace only
+            "unicode: 你好 🌍".to_string(),      // Unicode
             "special chars: <>\"'&".to_string(), // Special characters
         ];
-        
-        for query in test_queries.iter().take(5) { // Limit to avoid test timeout
+
+        for query in test_queries.iter().take(5) {
+            // Limit to avoid test timeout
             // Test that each query type can be handled
             let plugin = BasicDummyPlugin::new();
             let result = plugin.handle(Method::Search(query.clone())).await;
-            
+
             // Should always return a result
             assert!(result.is_ok() || result.is_err());
-            
+
             if let Ok(MethodResult::SearchResults(items)) = result {
                 // If successful, should have results
                 assert_eq!(items.len(), 2); // BasicDummyPlugin returns 2 items
-                
+
                 for item in items {
                     // All items should have valid titles
                     assert!(!item.title.is_empty());
@@ -740,7 +771,7 @@ mod property_tests {
                 }
             }
         }
-        
+
         println!("✓ Tested {} different query types", test_queries.len());
     }
 }

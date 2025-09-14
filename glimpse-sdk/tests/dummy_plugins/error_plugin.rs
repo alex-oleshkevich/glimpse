@@ -60,7 +60,7 @@ impl ErrorConfig {
     pub fn json_error() -> Self {
         Self {
             search_error: Some(PluginError::Json(
-                serde_json::from_str::<()>("invalid json").unwrap_err()
+                serde_json::from_str::<()>("invalid json").unwrap_err(),
             )),
             cancel_error: None,
             quit_error: None,
@@ -71,7 +71,9 @@ impl ErrorConfig {
     /// Create a config that returns cancelled errors
     pub fn cancelled_error() -> Self {
         Self {
-            search_error: Some(PluginError::Cancelled("Operation was cancelled".to_string())),
+            search_error: Some(PluginError::Cancelled(
+                "Operation was cancelled".to_string(),
+            )),
             cancel_error: Some(PluginError::Cancelled("Cancel was cancelled".to_string())),
             quit_error: None,
             error_counter: HashMap::new(),
@@ -111,7 +113,9 @@ impl ErrorConfig {
             _ => {}
         }
         config.error_counter.insert(format!("{}_count", method), 0);
-        config.error_counter.insert(format!("{}_error_at", method), n);
+        config
+            .error_counter
+            .insert(format!("{}_error_at", method), n);
         config
     }
 }
@@ -214,7 +218,6 @@ impl Plugin for ErrorDummyPlugin {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

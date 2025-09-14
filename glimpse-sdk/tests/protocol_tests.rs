@@ -1,5 +1,4 @@
 use glimpse_sdk::{Action, Message, Method, MethodResult, SearchItem};
-use serde_json;
 
 #[cfg(test)]
 mod method_tests {
@@ -356,7 +355,12 @@ mod message_tests {
         let message: Message = serde_json::from_str(json).unwrap();
 
         match message {
-            Message::Request { id, method, target, context } => {
+            Message::Request {
+                id,
+                method,
+                target,
+                context,
+            } => {
                 assert_eq!(id, 1);
                 assert_eq!(method, Method::Search("hello world".to_string()));
                 assert_eq!(target, None);
@@ -370,7 +374,12 @@ mod message_tests {
         let message: Message = serde_json::from_str(json_with_extras).unwrap();
 
         match message {
-            Message::Request { id, method, target, context } => {
+            Message::Request {
+                id,
+                method,
+                target,
+                context,
+            } => {
                 assert_eq!(id, 2);
                 assert_eq!(method, Method::Cancel);
                 assert_eq!(target, Some("plugin1".to_string()));
@@ -383,11 +392,17 @@ mod message_tests {
     #[test]
     fn test_message_response_raw_json() {
         // Test successful response
-        let success_json = r#"{"id":1,"result":[{"title":"Test","score":1.0,"actions":[]}],"source":"echo"}"#;
+        let success_json =
+            r#"{"id":1,"result":[{"title":"Test","score":1.0,"actions":[]}],"source":"echo"}"#;
         let message: Message = serde_json::from_str(success_json).unwrap();
 
         match message {
-            Message::Response { id, result, error, source } => {
+            Message::Response {
+                id,
+                result,
+                error,
+                source,
+            } => {
                 assert_eq!(id, 1);
                 assert_eq!(error, None);
                 assert_eq!(source, Some("echo".to_string()));
@@ -405,7 +420,12 @@ mod message_tests {
         let message: Message = serde_json::from_str(error_json).unwrap();
 
         match message {
-            Message::Response { id, result, error, source } => {
+            Message::Response {
+                id,
+                result,
+                error,
+                source,
+            } => {
                 assert_eq!(id, 2);
                 assert_eq!(result, None);
                 assert_eq!(error, Some("Something went wrong".to_string()));
@@ -436,7 +456,9 @@ mod message_tests {
         let search_json = r#"{"method":"search","params":"test"}"#;
         let message: Message = serde_json::from_str(search_json).unwrap();
         match message {
-            Message::Notification { method } => assert_eq!(method, Method::Search("test".to_string())),
+            Message::Notification { method } => {
+                assert_eq!(method, Method::Search("test".to_string()))
+            }
             _ => panic!("Expected Notification message"),
         }
     }
@@ -453,7 +475,10 @@ mod message_tests {
             context: None,
         };
         let json = serde_json::to_string(&request).unwrap();
-        assert_eq!(json, r#"{"id":1,"method":"search","params":"hello","target":null,"context":null}"#);
+        assert_eq!(
+            json,
+            r#"{"id":1,"method":"search","params":"hello","target":null,"context":null}"#
+        );
 
         // Response: has id, result/error, and source at top level
         let response = Message::Response {
@@ -463,7 +488,10 @@ mod message_tests {
             source: Some("plugin".to_string()),
         };
         let json = serde_json::to_string(&response).unwrap();
-        assert_eq!(json, r#"{"id":2,"error":null,"source":"plugin","result":[]}"#);
+        assert_eq!(
+            json,
+            r#"{"id":2,"error":null,"source":"plugin","result":[]}"#
+        );
 
         // Notification: has method flattened at top level
         let notification = Message::Notification {

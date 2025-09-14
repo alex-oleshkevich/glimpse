@@ -1,9 +1,8 @@
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
 use std::time::Duration;
 
-use glimpse_sdk::{Message, Method};
+use glimpse_sdk::Message;
 use serial_test::serial;
 use tempfile::TempDir;
 use tokio::sync::mpsc;
@@ -12,7 +11,7 @@ use tokio::time::timeout;
 mod common;
 use common::*;
 
-use glimpsed::plugins::{discover_plugins, spawn_plugin, PluginResponse};
+use glimpsed::plugins::{PluginResponse, discover_plugins, spawn_plugin};
 
 #[tokio::test]
 #[serial]
@@ -31,11 +30,15 @@ async fn test_path_traversal_prevention() {
         perms.set_mode(0o755);
         fs::set_permissions(&good_plugin, perms).unwrap();
 
-        unsafe { std::env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap()); }
+        unsafe {
+            std::env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap());
+        }
 
         let plugins = discover_plugins();
 
-        unsafe { std::env::remove_var("GLIMPSED_PLUGIN_DIR"); }
+        unsafe {
+            std::env::remove_var("GLIMPSED_PLUGIN_DIR");
+        }
 
         // Should only find the legitimate plugin
         assert_eq!(plugins.len(), 1);
@@ -72,7 +75,10 @@ echo '{{"id": 1, "result": {{"SearchResults": []}}, "source": "test", "large_fie
 
     // Send request
     let request = create_search_request(1, "test");
-    plugin_tx.send(request).await.expect("Failed to send request");
+    plugin_tx
+        .send(request)
+        .await
+        .expect("Failed to send request");
 
     // Should handle large message (may timeout due to size)
     let result = timeout(Duration::from_secs(5), response_rx.recv()).await;
@@ -137,7 +143,10 @@ echo -e '\x00\x01\x02\xff{"id": 1, "result": null, "source": "test"}\x00\x01'
 
     // Send request
     let request = create_search_request(1, "test");
-    plugin_tx.send(request).await.expect("Failed to send request");
+    plugin_tx
+        .send(request)
+        .await
+        .expect("Failed to send request");
 
     // Should handle binary data gracefully (likely parse error)
     let result = timeout(Duration::from_secs(2), response_rx.recv()).await;
@@ -174,7 +183,10 @@ echo '{"id": 1, "result": null, "source": "test"}'
 
     // Send request
     let request = create_search_request(1, "test");
-    plugin_tx.send(request).await.expect("Failed to send request");
+    plugin_tx
+        .send(request)
+        .await
+        .expect("Failed to send request");
 
     // Should still receive response despite background resource usage
     let result = timeout(Duration::from_secs(3), response_rx.recv()).await;
@@ -209,11 +221,15 @@ async fn test_command_injection_prevention() {
         fs::set_permissions(&dangerous_name, perms).unwrap();
     }
 
-    unsafe { std::env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap()); }
+    unsafe {
+        std::env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap());
+    }
 
     let plugins = discover_plugins();
 
-    unsafe { std::env::remove_var("GLIMPSED_PLUGIN_DIR"); }
+    unsafe {
+        std::env::remove_var("GLIMPSED_PLUGIN_DIR");
+    }
 
     // Plugin with dangerous filename should still be discoverable since filesystem allows it
     // The security is that spawn_plugin uses exec not shell, so shell injection is prevented
@@ -250,7 +266,10 @@ echo '{"id": 1, "result": null, "source": "test"}'
 
     // Send request
     let request = create_search_request(1, "test");
-    plugin_tx.send(request).await.expect("Failed to send request");
+    plugin_tx
+        .send(request)
+        .await
+        .expect("Failed to send request");
 
     // Should receive response or timeout is acceptable since privilege escalation may be blocked
     let result = timeout(Duration::from_secs(2), response_rx.recv()).await;
@@ -299,7 +318,10 @@ echo '{"id": 1, "result": null, "source": "test"}'
 
     // Send request
     let request = create_search_request(1, "test");
-    plugin_tx.send(request).await.expect("Failed to send request");
+    plugin_tx
+        .send(request)
+        .await
+        .expect("Failed to send request");
 
     // Plugin runs with normal user privileges, sensitive files should be inaccessible
     let response = timeout(Duration::from_secs(2), response_rx.recv())
@@ -340,7 +362,10 @@ done
 
     // Send request
     let request = create_search_request(1, "test");
-    plugin_tx.send(request).await.expect("Failed to send request");
+    plugin_tx
+        .send(request)
+        .await
+        .expect("Failed to send request");
 
     // Should handle excessive output (may fill channel buffer)
     let mut received_count = 0;
@@ -383,7 +408,10 @@ echo -e '{"id": 1, "result": null\x00, "source": "test\x00"}'
 
     // Send request
     let request = create_search_request(1, "test");
-    plugin_tx.send(request).await.expect("Failed to send request");
+    plugin_tx
+        .send(request)
+        .await
+        .expect("Failed to send request");
 
     // Null bytes should cause JSON parsing issues
     let result = timeout(Duration::from_secs(1), response_rx.recv()).await;
@@ -418,7 +446,10 @@ echo '{"id": 1, "result": null, "source": "test", "unicode": "🔍 Sëärch rës
 
     // Send request
     let request = create_search_request(1, "test");
-    plugin_tx.send(request).await.expect("Failed to send request");
+    plugin_tx
+        .send(request)
+        .await
+        .expect("Failed to send request");
 
     // Should handle Unicode correctly
     let response = timeout(Duration::from_secs(2), response_rx.recv())

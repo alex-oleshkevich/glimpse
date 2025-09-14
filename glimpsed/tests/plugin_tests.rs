@@ -1,10 +1,9 @@
 use std::env;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
 use std::time::Duration;
 
-use glimpse_sdk::{Message, Method, MethodResult, Metadata};
+use glimpse_sdk::Message;
 use serial_test::serial;
 use tempfile::TempDir;
 use tokio::sync::mpsc;
@@ -13,7 +12,7 @@ use tokio::time::timeout;
 mod common;
 use common::*;
 
-use glimpsed::plugins::{discover_plugins, spawn_plugin, PluginResponse};
+use glimpsed::plugins::{PluginResponse, discover_plugins, spawn_plugin};
 
 #[tokio::test]
 #[serial]
@@ -29,11 +28,15 @@ async fn test_plugin_discovery_with_env_var() {
     fs::set_permissions(&plugin_path, perms).unwrap();
 
     // Set environment variable
-    unsafe { env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap()); }
+    unsafe {
+        env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap());
+    }
 
     let plugins = discover_plugins();
 
-    unsafe { env::remove_var("GLIMPSED_PLUGIN_DIR"); }
+    unsafe {
+        env::remove_var("GLIMPSED_PLUGIN_DIR");
+    }
 
     assert_eq!(plugins.len(), 1);
     assert!(plugins.contains(&plugin_path.to_string_lossy().to_string()));
@@ -42,11 +45,15 @@ async fn test_plugin_discovery_with_env_var() {
 #[tokio::test]
 #[serial]
 async fn test_plugin_discovery_empty_env_var() {
-    unsafe { env::set_var("GLIMPSED_PLUGIN_DIR", ""); }
+    unsafe {
+        env::set_var("GLIMPSED_PLUGIN_DIR", "");
+    }
 
     let plugins = discover_plugins();
 
-    unsafe { env::remove_var("GLIMPSED_PLUGIN_DIR"); }
+    unsafe {
+        env::remove_var("GLIMPSED_PLUGIN_DIR");
+    }
 
     // Should discover from standard directories only
     // We don't assert specific count since standard dirs may vary
@@ -56,7 +63,9 @@ async fn test_plugin_discovery_empty_env_var() {
 #[tokio::test]
 #[serial]
 async fn test_plugin_discovery_nonexistent_env_var() {
-    unsafe { env::remove_var("GLIMPSED_PLUGIN_DIR"); }
+    unsafe {
+        env::remove_var("GLIMPSED_PLUGIN_DIR");
+    }
 
     let plugins = discover_plugins();
 
@@ -70,11 +79,15 @@ async fn test_plugin_discovery_nonexistent_directory() {
     let temp_dir = TempDir::new().unwrap();
     let nonexistent_dir = temp_dir.path().join("nonexistent");
 
-    unsafe { env::set_var("GLIMPSED_PLUGIN_DIR", nonexistent_dir.to_str().unwrap()); }
+    unsafe {
+        env::set_var("GLIMPSED_PLUGIN_DIR", nonexistent_dir.to_str().unwrap());
+    }
 
     let plugins = discover_plugins();
 
-    unsafe { env::remove_var("GLIMPSED_PLUGIN_DIR"); }
+    unsafe {
+        env::remove_var("GLIMPSED_PLUGIN_DIR");
+    }
 
     // Should handle nonexistent directory gracefully
     assert!(plugins.is_empty());
@@ -93,7 +106,9 @@ async fn test_plugin_discovery_permission_denied() {
     perms.set_mode(0o000);
     fs::set_permissions(&restricted_dir, perms).unwrap();
 
-    unsafe { env::set_var("GLIMPSED_PLUGIN_DIR", restricted_dir.to_str().unwrap()); }
+    unsafe {
+        env::set_var("GLIMPSED_PLUGIN_DIR", restricted_dir.to_str().unwrap());
+    }
 
     let plugins = discover_plugins();
 
@@ -102,7 +117,9 @@ async fn test_plugin_discovery_permission_denied() {
     perms.set_mode(0o755);
     fs::set_permissions(&restricted_dir, perms).unwrap();
 
-    unsafe { env::remove_var("GLIMPSED_PLUGIN_DIR"); }
+    unsafe {
+        env::remove_var("GLIMPSED_PLUGIN_DIR");
+    }
 
     // Should handle permission denied directory gracefully by continuing to other directories
     // The function logs warnings for inaccessible directories but doesn't fail
@@ -130,11 +147,15 @@ async fn test_plugin_discovery_mixed_file_types() {
     let subdir = plugin_dir.join("subdir");
     fs::create_dir(&subdir).unwrap();
 
-    unsafe { env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap()); }
+    unsafe {
+        env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap());
+    }
 
     let plugins = discover_plugins();
 
-    unsafe { env::remove_var("GLIMPSED_PLUGIN_DIR"); }
+    unsafe {
+        env::remove_var("GLIMPSED_PLUGIN_DIR");
+    }
 
     // Should only find executable files
     assert_eq!(plugins.len(), 1);
@@ -147,11 +168,15 @@ async fn test_plugin_discovery_empty_directory() {
     let temp_dir = TempDir::new().unwrap();
     let plugin_dir = temp_dir.path();
 
-    unsafe { env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap()); }
+    unsafe {
+        env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap());
+    }
 
     let plugins = discover_plugins();
 
-    unsafe { env::remove_var("GLIMPSED_PLUGIN_DIR"); }
+    unsafe {
+        env::remove_var("GLIMPSED_PLUGIN_DIR");
+    }
 
     assert!(plugins.is_empty());
 }
@@ -179,11 +204,15 @@ async fn test_plugin_discovery_windows_extensions() {
     let no_ext = plugin_dir.join("no_extension");
     fs::write(&no_ext, "no extension").unwrap();
 
-    unsafe { env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap()); }
+    unsafe {
+        env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap());
+    }
 
     let plugins = discover_plugins();
 
-    unsafe { env::remove_var("GLIMPSED_PLUGIN_DIR"); }
+    unsafe {
+        env::remove_var("GLIMPSED_PLUGIN_DIR");
+    }
 
     assert_eq!(plugins.len(), 2);
     assert!(plugins.contains(&exe_file.to_string_lossy().to_string()));
@@ -269,7 +298,10 @@ echo "invalid json output"
 
     // Send request
     let request = create_search_request(1, "test");
-    plugin_tx.send(request).await.expect("Failed to send request");
+    plugin_tx
+        .send(request)
+        .await
+        .expect("Failed to send request");
 
     // Should not receive valid response due to JSON parsing error
     let result = timeout(Duration::from_millis(500), response_rx.recv()).await;
@@ -334,7 +366,10 @@ echo '{"id": 1, "result": null, "source": "test"}'
 
     // Send request
     let request = create_search_request(1, "test");
-    plugin_tx.send(request).await.expect("Failed to send request");
+    plugin_tx
+        .send(request)
+        .await
+        .expect("Failed to send request");
 
     // Should still receive response despite stderr output
     let response = timeout(Duration::from_secs(2), response_rx.recv())
@@ -343,14 +378,12 @@ echo '{"id": 1, "result": null, "source": "test"}'
         .expect("No response received");
 
     match response {
-        PluginResponse::Response(_, message) => {
-            match message {
-                Message::Response { result, .. } => {
-                    assert!(result.is_none());
-                }
-                _ => panic!("Expected response message"),
+        PluginResponse::Response(_, message) => match message {
+            Message::Response { result, .. } => {
+                assert!(result.is_none());
             }
-        }
+            _ => panic!("Expected response message"),
+        },
     }
 
     spawn_handle.abort();
@@ -384,7 +417,10 @@ done
 
     // Send request
     let request = create_search_request(1, "test");
-    plugin_tx.send(request).await.expect("Failed to send request");
+    plugin_tx
+        .send(request)
+        .await
+        .expect("Failed to send request");
 
     // Should receive multiple responses
     let response1 = timeout(Duration::from_secs(1), response_rx.recv())
@@ -418,11 +454,15 @@ async fn test_plugin_discovery_special_characters_in_path() {
     perms.set_mode(0o755);
     fs::set_permissions(&plugin_path, perms).unwrap();
 
-    unsafe { env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap()); }
+    unsafe {
+        env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap());
+    }
 
     let plugins = discover_plugins();
 
-    unsafe { env::remove_var("GLIMPSED_PLUGIN_DIR"); }
+    unsafe {
+        env::remove_var("GLIMPSED_PLUGIN_DIR");
+    }
 
     assert_eq!(plugins.len(), 1);
     assert!(plugins.contains(&plugin_path.to_string_lossy().to_string()));

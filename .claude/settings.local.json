@@ -22,7 +22,9 @@
       "Bash(/dev/null)",
       "Bash(mkdir:*)",
       "Bash(awk:*)",
-      "Bash(RUST_LOG=debug cargo test test_plugin_discovery_mixed_file_types -- --nocapture)"
+      "Bash(RUST_LOG=debug cargo test test_plugin_discovery_mixed_file_types -- --nocapture)",
+      "Bash(flutter:*)",
+      "Bash(dart format:*)"
     ],
     "deny": []
   }

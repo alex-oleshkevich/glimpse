@@ -24,7 +24,10 @@ void main() async {
     await windowManager.focus();
   });
 
-  const daemonBinary = String.fromEnvironment('GLIMPSED_BIN', defaultValue: '/usr/bin/glimpsed');
+  const daemonBinary = String.fromEnvironment(
+    'GLIMPSED_BIN',
+    defaultValue: '/usr/bin/glimpsed',
+  );
 
   if (!File(daemonBinary).existsSync()) {
     print('Error: Daemon binary not found at $daemonBinary');
@@ -55,7 +58,12 @@ class _AppState extends State<MainApp> {
       [],
       mode: ProcessStartMode.normal,
       includeParentEnvironment: true,
-      environment: {'GLIMPSED_PLUGIN_DIR': String.fromEnvironment('GLIMPSED_PLUGIN_DIR', defaultValue: '')},
+      environment: {
+        'GLIMPSED_PLUGIN_DIR': String.fromEnvironment(
+          'GLIMPSED_PLUGIN_DIR',
+          defaultValue: '',
+        ),
+      },
     );
 
     _stdinSubscription = _inputStreamController.stream.listen((msg) {
@@ -63,13 +71,19 @@ class _AppState extends State<MainApp> {
       _process.stdin.flush();
     });
 
-    _stdoutSubscription = _process.stdout.transform(const Utf8Decoder()).transform(const LineSplitter()).listen((data) {
-      print('Daemon output: $data');
-    });
+    _stdoutSubscription = _process.stdout
+        .transform(const Utf8Decoder())
+        .transform(const LineSplitter())
+        .listen((data) {
+          print('Daemon output: $data');
+        });
 
-    _stderrSubscription = _process.stderr.transform(const Utf8Decoder()).transform(const LineSplitter()).listen((data) {
-      print('Daemon error: $data');
-    });
+    _stderrSubscription = _process.stderr
+        .transform(const Utf8Decoder())
+        .transform(const LineSplitter())
+        .listen((data) {
+          print('Daemon error: $data');
+        });
   }
 
   @override
@@ -96,7 +110,9 @@ class _AppState extends State<MainApp> {
                   Expanded(
                     child: TextField(
                       controller: _inputController,
-                      decoration: const InputDecoration(hintText: 'Enter command'),
+                      decoration: const InputDecoration(
+                        hintText: 'Enter command',
+                      ),
                     ),
                   ),
                   IconButton(

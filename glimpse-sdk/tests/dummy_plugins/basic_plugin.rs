@@ -108,7 +108,9 @@ mod tests {
     #[tokio::test]
     async fn test_basic_plugin_search() {
         let plugin = BasicDummyPlugin::new();
-        let result = plugin.handle(Method::Search("test query".to_string())).await;
+        let result = plugin
+            .handle(Method::Search("test query".to_string()))
+            .await;
 
         assert!(result.is_ok());
         match result.unwrap() {

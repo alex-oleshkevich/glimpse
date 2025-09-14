@@ -1,4 +1,4 @@
-use glimpse_sdk::{Message, Metadata, Method, MethodResult, SearchItem, Action};
+use glimpse_sdk::{Action, Message, Metadata, Method, MethodResult, SearchItem};
 use serde_json;
 
 mod common;
@@ -15,12 +15,11 @@ fn test_message_serialization_roundtrip() {
 
     for original_message in messages {
         // Serialize to JSON
-        let json = serde_json::to_string(&original_message)
-            .expect("Failed to serialize message");
+        let json = serde_json::to_string(&original_message).expect("Failed to serialize message");
 
         // Deserialize back
-        let deserialized: Message = serde_json::from_str(&json)
-            .expect("Failed to deserialize message");
+        let deserialized: Message =
+            serde_json::from_str(&json).expect("Failed to deserialize message");
 
         // Should be equal
         assert_eq!(original_message, deserialized);
@@ -38,7 +37,12 @@ fn test_request_message_variants() {
     };
 
     match search_request {
-        Message::Request { id, method, target, context } => {
+        Message::Request {
+            id,
+            method,
+            target,
+            context,
+        } => {
             assert_eq!(id, 1);
             assert_eq!(method, Method::Search("test query".to_string()));
             assert_eq!(target, Some("specific_plugin".to_string()));
@@ -91,7 +95,12 @@ fn test_response_message_variants() {
     };
 
     match success_response {
-        Message::Response { id, error, source, result } => {
+        Message::Response {
+            id,
+            error,
+            source,
+            result,
+        } => {
             assert_eq!(id, 1);
             assert!(error.is_none());
             assert_eq!(source, Some("test_plugin".to_string()));
@@ -109,7 +118,12 @@ fn test_response_message_variants() {
     };
 
     match error_response {
-        Message::Response { id, error, source, result } => {
+        Message::Response {
+            id,
+            error,
+            source,
+            result,
+        } => {
             assert_eq!(id, 2);
             assert_eq!(error, Some("Plugin error occurred".to_string()));
             assert_eq!(source, Some("failing_plugin".to_string()));
@@ -133,7 +147,9 @@ fn test_notification_message_variants() {
         };
 
         match notification {
-            Message::Notification { method: received_method } => {
+            Message::Notification {
+                method: received_method,
+            } => {
                 assert_eq!(received_method, method);
             }
             _ => panic!("Expected notification message"),
@@ -286,7 +302,9 @@ fn test_message_id_correlation() {
             };
 
             match response {
-                Message::Response { id: response_id, .. } => {
+                Message::Response {
+                    id: response_id, ..
+                } => {
                     assert_eq!(response_id, request_id);
                 }
                 _ => panic!("Expected response"),
@@ -364,7 +382,10 @@ fn test_error_handling_in_protocol() {
     // Test various error scenarios
     let error_cases = vec![
         (None, Some("General error".to_string())),
-        (Some(MethodResult::SearchResults(vec![])), Some("Error with result".to_string())),
+        (
+            Some(MethodResult::SearchResults(vec![])),
+            Some("Error with result".to_string()),
+        ),
         (None, None), // No error, no result
     ];
 
@@ -390,7 +411,10 @@ fn test_protocol_version_compatibility() {
     let message: Result<Message, _> = serde_json::from_str(minimal_json);
     assert!(message.is_ok());
 
-    if let Ok(Message::Request { target, context, .. }) = message {
+    if let Ok(Message::Request {
+        target, context, ..
+    }) = message
+    {
         assert!(target.is_none());
         assert!(context.is_none());
     }
@@ -399,7 +423,13 @@ fn test_protocol_version_compatibility() {
     let minimal_response = r#"{"id": 1}"#;
     let response: Result<Message, _> = serde_json::from_str(minimal_response);
     // This might actually succeed due to untagged enum deserialization
-    if let Ok(Message::Response { id, error, source, result }) = response {
+    if let Ok(Message::Response {
+        id,
+        error,
+        source,
+        result,
+    }) = response
+    {
         assert_eq!(id, 1);
         assert!(error.is_none());
         assert!(source.is_none());

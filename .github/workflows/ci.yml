@@ -1,0 +1,249 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    # Weekly dependency audit every Sunday at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Rust packages linting and testing
+  rust-ci:
+    name: Rust CI
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable, beta]
+        exclude:
+          # Reduce matrix size - only test beta on Ubuntu
+          - os: macos-latest
+            rust: beta
+          - os: windows-latest
+            rust: beta
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ matrix.rust }}
+        components: rustfmt, clippy
+
+    - name: Cache Cargo dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        cache-on-failure: true
+
+    - name: Install system dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libssl-dev
+
+    - name: Check code formatting
+      run: cargo fmt --all -- --check
+
+    - name: Run Clippy lints
+      run: cargo clippy --all-targets --all-features --workspace -- -W clippy::all -W clippy::pedantic
+
+    - name: Build all packages
+      run: cargo build --workspace --all-features
+
+    - name: Run unit tests
+      run: cargo test --workspace --all-features --lib
+
+    - name: Run integration tests
+      run: cargo test --workspace --all-features --test '*'
+
+    - name: Build documentation
+      run: cargo doc --no-deps --all-features --workspace --document-private-items
+
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+
+    - name: Security audit
+      run: cargo audit
+
+  # Flutter GUI linting and testing
+  flutter-ci:
+    name: Flutter CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: glimpse-gui
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.x'
+        channel: 'stable'
+
+    - name: Get Flutter dependencies
+      run: flutter pub get
+
+    - name: Verify Flutter installation
+      run: flutter doctor -v
+
+    - name: Check code formatting
+      run: dart format --output=none --set-exit-if-changed .
+
+    - name: Analyze Flutter code
+      run: flutter analyze
+
+    - name: Run Flutter tests
+      run: flutter test
+
+    - name: Build for Linux (release)
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y ninja-build libgtk-3-dev
+        flutter config --enable-linux-desktop
+        flutter build linux --release
+
+  # Integration tests that require both Rust and Flutter components
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [rust-ci, flutter-ci]
+    if: always() && (needs.rust-ci.result == 'success' && needs.flutter-ci.result == 'success')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Cargo dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libssl-dev
+
+    - name: Build all Rust packages
+      run: cargo build --workspace --release
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.x'
+        channel: 'stable'
+
+    - name: Setup Flutter for Linux desktop
+      run: |
+        sudo apt-get install -y ninja-build libgtk-3-dev
+        flutter config --enable-linux-desktop
+
+    - name: Build Flutter app
+      working-directory: glimpse-gui
+      run: |
+        flutter pub get
+        flutter build linux --release
+
+    - name: Run integration tests with timeout
+      timeout-minutes: 10
+      run: |
+        # Set up plugin directory for tests
+        mkdir -p var/plugins
+
+        # Create a simple test plugin
+        cat > var/plugins/test-plugin << 'EOF'
+        #!/bin/bash
+        while read line; do
+          echo '{"id": 1, "result": null, "source": "test-plugin"}'
+        done
+        EOF
+        chmod +x var/plugins/test-plugin
+
+        # Export plugin directory
+        export GLIMPSED_PLUGIN_DIR="$(pwd)/var/plugins"
+
+        # Run daemon integration tests
+        cargo test --package glimpsed --test integration_tests -- --test-threads=1
+
+    - name: Test plugin discovery and spawning
+      run: |
+        export GLIMPSED_PLUGIN_DIR="$(pwd)/var/plugins"
+        cargo test --package glimpsed --test plugin_tests -- test_plugin_discovery --test-threads=1
+
+  # Security and audit checks
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Cargo dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+
+    - name: Install cargo-deny
+      run: cargo install cargo-deny
+
+    - name: Run security audit
+      run: cargo audit
+
+    - name: Check licenses and dependencies
+      run: cargo deny check
+
+    - name: Run security tests
+      run: cargo test --package glimpsed --test security_tests
+
+  # Code coverage report
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    needs: rust-ci
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Cargo dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libssl-dev
+
+    - name: Install tarpaulin
+      run: cargo install cargo-tarpaulin
+
+    - name: Run coverage
+      run: cargo tarpaulin --all-features --workspace --timeout 300 --out xml
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: cobertura.xml
+        fail_ci_if_error: false

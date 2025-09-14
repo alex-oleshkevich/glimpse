@@ -240,7 +240,9 @@ impl SignalTester {
         Ok(())
     }
 
-    pub async fn wait_for_exit(&mut self) -> Result<std::process::ExitStatus, Box<dyn std::error::Error>> {
+    pub async fn wait_for_exit(
+        &mut self,
+    ) -> Result<std::process::ExitStatus, Box<dyn std::error::Error>> {
         if let Some(mut child) = self.child.take() {
             Ok(child.wait().await?)
         } else {

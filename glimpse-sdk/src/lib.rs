@@ -26,8 +26,12 @@ impl Clone for PluginError {
     fn clone(&self) -> Self {
         match self {
             PluginError::Authenticate(msg) => PluginError::Authenticate(msg.clone()),
-            PluginError::Io(err) => PluginError::Io(std::io::Error::new(err.kind(), err.to_string())),
-            PluginError::Json(err) => PluginError::Json(serde_json::from_str::<()>(&format!("invalid: {}", err)).unwrap_err()),
+            PluginError::Io(err) => {
+                PluginError::Io(std::io::Error::new(err.kind(), err.to_string()))
+            }
+            PluginError::Json(err) => PluginError::Json(
+                serde_json::from_str::<()>(&format!("invalid: {}", err)).unwrap_err(),
+            ),
             PluginError::Cancelled(msg) => PluginError::Cancelled(msg.clone()),
             PluginError::Other(msg) => PluginError::Other(msg.clone()),
         }
@@ -68,7 +72,12 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
     // authenticate
     let metadata = plugin.metadata();
 
-    tracing::debug!("starting plugin: {} {} ({})", &metadata.name, &metadata.version, &metadata.id);
+    tracing::debug!(
+        "starting plugin: {} {} ({})",
+        &metadata.name,
+        &metadata.version,
+        &metadata.id
+    );
 
     let auth_message = Message::Response {
         id: 0,

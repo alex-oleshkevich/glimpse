@@ -1,11 +1,12 @@
 use std::collections::HashMap;
-use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
-use std::time::Duration;
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 use glimpse_sdk::{Message, Metadata, Method, MethodResult};
 use serial_test::serial;
 use tokio::sync::mpsc;
-use tokio::time::timeout;
 
 mod common;
 use common::*;
@@ -93,15 +94,13 @@ async fn test_authentication_response_processing() {
 
     // Verify the response structure
     match auth_response {
-        Message::Response { result, .. } => {
-            match result {
-                Some(MethodResult::Authenticate(meta)) => {
-                    assert_eq!(meta.name, "test_plugin");
-                    assert_eq!(meta.version, "1.0.0");
-                }
-                _ => panic!("Expected authentication result"),
+        Message::Response { result, .. } => match result {
+            Some(MethodResult::Authenticate(meta)) => {
+                assert_eq!(meta.name, "test_plugin");
+                assert_eq!(meta.version, "1.0.0");
             }
-        }
+            _ => panic!("Expected authentication result"),
+        },
         _ => panic!("Expected response message"),
     }
 }
@@ -116,14 +115,12 @@ async fn test_search_results_response_processing() {
     };
 
     match search_response {
-        Message::Response { result, .. } => {
-            match result {
-                Some(MethodResult::SearchResults(items)) => {
-                    assert!(items.is_empty());
-                }
-                _ => panic!("Expected search results"),
+        Message::Response { result, .. } => match result {
+            Some(MethodResult::SearchResults(items)) => {
+                assert!(items.is_empty());
             }
-        }
+            _ => panic!("Expected search results"),
+        },
         _ => panic!("Expected response message"),
     }
 }
@@ -167,12 +164,10 @@ async fn test_different_message_types() {
     // Test Request message
     let request = create_search_request(1, "test");
     match request {
-        Message::Request { method, .. } => {
-            match method {
-                Method::Search(query) => assert_eq!(query, "test"),
-                _ => panic!("Expected search method"),
-            }
-        }
+        Message::Request { method, .. } => match method {
+            Method::Search(query) => assert_eq!(query, "test"),
+            _ => panic!("Expected search method"),
+        },
         _ => panic!("Expected request message"),
     }
 
@@ -181,12 +176,10 @@ async fn test_different_message_types() {
         method: Method::Cancel,
     };
     match notification {
-        Message::Notification { method } => {
-            match method {
-                Method::Cancel => {},
-                _ => panic!("Expected cancel method"),
-            }
-        }
+        Message::Notification { method } => match method {
+            Method::Cancel => {}
+            _ => panic!("Expected cancel method"),
+        },
         _ => panic!("Expected notification message"),
     }
 }
@@ -294,7 +287,9 @@ async fn test_request_target_and_context() {
     };
 
     match request_with_target {
-        Message::Request { target, context, .. } => {
+        Message::Request {
+            target, context, ..
+        } => {
             assert_eq!(target, Some("specific_plugin".to_string()));
             assert_eq!(context, Some("search_context".to_string()));
         }
@@ -311,9 +306,13 @@ async fn test_notification_method_variants() {
     ];
 
     for method in methods {
-        let notification = Message::Notification { method: method.clone() };
+        let notification = Message::Notification {
+            method: method.clone(),
+        };
         match notification {
-            Message::Notification { method: received_method } => {
+            Message::Notification {
+                method: received_method,
+            } => {
                 assert_eq!(received_method, method);
             }
             _ => panic!("Expected notification"),
@@ -334,7 +333,10 @@ async fn test_response_source_tracking() {
         };
 
         match response {
-            Message::Response { source: response_source, .. } => {
+            Message::Response {
+                source: response_source,
+                ..
+            } => {
                 assert_eq!(response_source, Some(source.to_string()));
             }
             _ => panic!("Expected response message"),

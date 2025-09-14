@@ -1,8 +1,7 @@
 use std::time::Duration;
 
-use glimpse_sdk::Message;
 use serial_test::serial;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::time::timeout;
 
@@ -15,7 +14,9 @@ async fn test_daemon_startup_and_shutdown() {
     let harness = TestHarness::new();
 
     // Set environment variable for plugin discovery
-    unsafe { std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path()); }
+    unsafe {
+        std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path());
+    }
 
     let mut cmd = Command::new("cargo")
         .args(&["run", "--bin", "glimpsed"])
@@ -45,7 +46,9 @@ async fn test_daemon_startup_and_shutdown() {
 #[serial]
 async fn test_daemon_termination() {
     let harness = TestHarness::new();
-    unsafe { std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path()); }
+    unsafe {
+        std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path());
+    }
 
     let mut cmd = Command::new("cargo")
         .args(&["run", "--bin", "glimpsed"])
@@ -77,7 +80,9 @@ async fn test_daemon_with_plugins() {
     let plugin = MockPlugin::new("test_plugin");
     harness.add_plugin(plugin);
 
-    unsafe { std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path()); }
+    unsafe {
+        std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path());
+    }
 
     let mut cmd = Command::new("cargo")
         .args(&["run", "--bin", "glimpsed"])
@@ -108,7 +113,9 @@ async fn test_daemon_with_multiple_plugins() {
     harness.add_plugin(plugin1);
     harness.add_plugin(plugin2);
 
-    unsafe { std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path()); }
+    unsafe {
+        std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path());
+    }
 
     let mut cmd = Command::new("cargo")
         .args(&["run", "--bin", "glimpsed"])
@@ -133,7 +140,9 @@ async fn test_daemon_with_multiple_plugins() {
 async fn test_daemon_with_no_plugins() {
     let harness = TestHarness::new();
     // Empty plugin directory
-    unsafe { std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path()); }
+    unsafe {
+        std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path());
+    }
 
     let mut cmd = Command::new("cargo")
         .args(&["run", "--bin", "glimpsed"])
@@ -157,7 +166,11 @@ async fn test_daemon_with_no_plugins() {
         .expect("Failed to send request");
 
     // Should not receive any responses since no plugins
-    let result = timeout(Duration::from_millis(500), read_message_from_daemon(&mut reader)).await;
+    let result = timeout(
+        Duration::from_millis(500),
+        read_message_from_daemon(&mut reader),
+    )
+    .await;
     assert!(result.is_err()); // Should timeout
 
     cmd.kill().await.expect("Failed to kill daemon");
@@ -168,7 +181,9 @@ async fn test_daemon_with_no_plugins() {
 #[serial]
 async fn test_daemon_input_handling() {
     let harness = TestHarness::new();
-    unsafe { std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path()); }
+    unsafe {
+        std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path());
+    }
 
     let mut cmd = Command::new("cargo")
         .args(&["run", "--bin", "glimpsed"])
@@ -184,7 +199,10 @@ async fn test_daemon_input_handling() {
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     // Send some input to daemon
-    stdin.write_all(b"test input\n").await.expect("Failed to write");
+    stdin
+        .write_all(b"test input\n")
+        .await
+        .expect("Failed to write");
     stdin.flush().await.expect("Failed to flush");
 
     // Daemon should continue running
@@ -198,7 +216,9 @@ async fn test_daemon_input_handling() {
 #[serial]
 async fn test_daemon_stdin_closure() {
     let harness = TestHarness::new();
-    unsafe { std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path()); }
+    unsafe {
+        std::env::set_var("GLIMPSED_PLUGIN_DIR", harness.plugin_dir_path());
+    }
 
     let mut cmd = Command::new("cargo")
         .args(&["run", "--bin", "glimpsed"])

@@ -2,8 +2,8 @@
 
 use async_trait::async_trait;
 use glimpse_sdk::{Metadata, Method, MethodResult, Plugin, PluginError, SearchItem};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -209,7 +209,7 @@ impl FlakyDummyPlugin {
             let delay_multiplier = 1.0 + (hash % 100) as f64 / 100.0; // 1.0 to 2.0x base delay
 
             let delay = Duration::from_nanos(
-                (self.config.base_delay.as_nanos() as f64 * delay_multiplier) as u64
+                (self.config.base_delay.as_nanos() as f64 * delay_multiplier) as u64,
             );
             sleep(delay).await;
         } else {
@@ -260,7 +260,6 @@ impl Plugin for FlakyDummyPlugin {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

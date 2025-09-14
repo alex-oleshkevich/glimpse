@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use glimpse_sdk::{Message, Method};
+use glimpse_sdk::Message;
 use serial_test::serial;
 use tempfile::TempDir;
 use tokio::sync::mpsc;
@@ -13,7 +13,7 @@ use tokio::time::timeout;
 mod common;
 use common::*;
 
-use glimpsed::plugins::{discover_plugins, spawn_plugin, PluginResponse};
+use glimpsed::plugins::{PluginResponse, discover_plugins, spawn_plugin};
 
 #[tokio::test]
 async fn test_high_throughput_message_processing() {
@@ -67,8 +67,15 @@ done
     let throughput = responses_received as f64 / elapsed.as_secs_f64();
 
     // Should process at least 10 messages per second
-    assert!(throughput > 10.0, "Throughput too low: {} msg/sec", throughput);
-    assert!(responses_received > num_messages / 2, "Too many lost messages");
+    assert!(
+        throughput > 10.0,
+        "Throughput too low: {} msg/sec",
+        throughput
+    );
+    assert!(
+        responses_received > num_messages / 2,
+        "Too many lost messages"
+    );
 
     spawn_handle.abort();
     let _ = spawn_handle.await;
@@ -137,8 +144,16 @@ done
     let responses = response_count.load(Ordering::SeqCst);
 
     // Should spawn and get responses from most plugins within reasonable time
-    assert!(elapsed < Duration::from_secs(15), "Plugin spawning too slow");
-    assert!(responses >= num_plugins / 2, "Too few plugins responded: {}/{}", responses, num_plugins);
+    assert!(
+        elapsed < Duration::from_secs(15),
+        "Plugin spawning too slow"
+    );
+    assert!(
+        responses >= num_plugins / 2,
+        "Too few plugins responded: {}/{}",
+        responses,
+        num_plugins
+    );
 }
 
 #[tokio::test]
@@ -168,7 +183,8 @@ done
     // Send many requests in batches to test memory stability
     for batch in 0..10 {
         for i in 0..50 {
-            let request = create_search_request(batch * 50 + i, &format!("batch_{}_query_{}", batch, i));
+            let request =
+                create_search_request(batch * 50 + i, &format!("batch_{}_query_{}", batch, i));
             if plugin_tx.send(request).await.is_err() {
                 break;
             }
@@ -270,17 +286,25 @@ async fn test_plugin_discovery_performance() {
         fs::write(&non_plugin, "not executable").unwrap();
     }
 
-    unsafe { std::env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap()); }
+    unsafe {
+        std::env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap());
+    }
 
     let start_time = Instant::now();
     let plugins = discover_plugins();
     let elapsed = start_time.elapsed();
 
-    unsafe { std::env::remove_var("GLIMPSED_PLUGIN_DIR"); }
+    unsafe {
+        std::env::remove_var("GLIMPSED_PLUGIN_DIR");
+    }
 
     // Should discover all executable plugins quickly
     assert_eq!(plugins.len(), num_plugins);
-    assert!(elapsed < Duration::from_secs(5), "Plugin discovery too slow: {:?}", elapsed);
+    assert!(
+        elapsed < Duration::from_secs(5),
+        "Plugin discovery too slow: {:?}",
+        elapsed
+    );
 }
 
 #[tokio::test]
@@ -314,7 +338,10 @@ done
     // Send request that will generate large response
     let large_query = "x".repeat(1000); // 1KB query
     let request = create_search_request(1, &large_query);
-    plugin_tx.send(request).await.expect("Failed to send large request");
+    plugin_tx
+        .send(request)
+        .await
+        .expect("Failed to send large request");
 
     // Wait for large response
     let response = timeout(Duration::from_secs(5), response_rx.recv())
@@ -328,7 +355,10 @@ done
     let _ = spawn_handle.await;
 
     // Should handle large messages within reasonable time
-    assert!(elapsed < Duration::from_secs(10), "Large message processing too slow");
+    assert!(
+        elapsed < Duration::from_secs(10),
+        "Large message processing too slow"
+    );
     assert!(matches!(response, PluginResponse::Response(_, _)));
 }
 
@@ -388,8 +418,14 @@ done
     let _ = spawn_handle.await;
 
     // Should process most requests (plugin handles them sequentially)
-    assert!(responses_received >= num_requests / 2, "Too few concurrent responses");
-    assert!(elapsed < Duration::from_secs(45), "Concurrent processing too slow");
+    assert!(
+        responses_received >= num_requests / 2,
+        "Too few concurrent responses"
+    );
+    assert!(
+        elapsed < Duration::from_secs(45),
+        "Concurrent processing too slow"
+    );
 }
 
 #[tokio::test]
@@ -445,7 +481,10 @@ done
     let _ = spawn_handle.await;
 
     // Should recover from errors and process valid responses
-    assert!(valid_responses > num_requests / 3, "Not enough error recovery");
+    assert!(
+        valid_responses > num_requests / 3,
+        "Not enough error recovery"
+    );
     assert!(elapsed < Duration::from_secs(20), "Error recovery too slow");
 }
 
@@ -480,7 +519,10 @@ done
         let request_start = Instant::now();
 
         let request = create_search_request(i, "latency_test");
-        plugin_tx.send(request).await.expect("Failed to send request");
+        plugin_tx
+            .send(request)
+            .await
+            .expect("Failed to send request");
 
         if let Ok(Some(_)) = timeout(Duration::from_secs(2), response_rx.recv()).await {
             let latency = request_start.elapsed();
@@ -497,7 +539,11 @@ done
         let avg_latency = total_latency / latencies.len() as u32;
 
         // Average latency should be reasonable (under 1 second for simple plugin)
-        assert!(avg_latency < Duration::from_millis(1000), "Average latency too high: {:?}", avg_latency);
+        assert!(
+            avg_latency < Duration::from_millis(1000),
+            "Average latency too high: {:?}",
+            avg_latency
+        );
         assert!(latencies.len() >= 5, "Too few latency samples");
     }
 }

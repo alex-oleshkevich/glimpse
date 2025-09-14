@@ -141,7 +141,7 @@ pub async fn spawn_plugin(
 
         let response_tx = response_tx.clone();
 
-        let plugin_id =  path.clone();
+        let plugin_id = path.clone();
         let stdout_handle = tokio::spawn(async move {
             let mut line = String::new();
             loop {

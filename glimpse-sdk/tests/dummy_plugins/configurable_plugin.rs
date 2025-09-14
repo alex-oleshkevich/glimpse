@@ -3,8 +3,8 @@
 use async_trait::async_trait;
 use glimpse_sdk::{Action, Metadata, Method, MethodResult, Plugin, PluginError, SearchItem};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -242,8 +242,9 @@ impl ConfigurableDummyPlugin {
 
     /// Create a plugin that succeeds for search but fails for other methods
     pub fn search_only_success() -> Self {
-        let behavior = PluginBehavior::all_error(PluginError::Other("Not search method".to_string()))
-            .with_method_config("search", MethodConfig::success());
+        let behavior =
+            PluginBehavior::all_error(PluginError::Other("Not search method".to_string()))
+                .with_method_config("search", MethodConfig::success());
         Self::with_behavior(behavior)
     }
 
@@ -262,10 +263,8 @@ impl ConfigurableDummyPlugin {
 
     /// Create a plugin with custom search results
     pub fn with_custom_results(results: Vec<SearchItem>) -> Self {
-        let behavior = PluginBehavior::all_success().with_method_config(
-            "search",
-            MethodConfig::success().with_results(results),
-        );
+        let behavior = PluginBehavior::all_success()
+            .with_method_config("search", MethodConfig::success().with_results(results));
         Self::with_behavior(behavior)
     }
 
@@ -364,9 +363,10 @@ impl Plugin for ConfigurableDummyPlugin {
 
         // Check success rate
         if !self.check_success_rate(config, call_count) {
-            return Err(config.error_response.clone().unwrap_or_else(|| {
-                PluginError::Other("Probabilistic failure".to_string())
-            }));
+            return Err(config
+                .error_response
+                .clone()
+                .unwrap_or_else(|| PluginError::Other("Probabilistic failure".to_string())));
         }
 
         // Check if should panic
@@ -488,9 +488,7 @@ mod tests {
 
         // First 3 calls should succeed
         for i in 0..3 {
-            let result = plugin
-                .handle(Method::Search(format!("test{}", i)))
-                .await;
+            let result = plugin.handle(Method::Search(format!("test{}", i))).await;
             assert!(result.is_ok(), "Call {} should succeed", i);
         }
 

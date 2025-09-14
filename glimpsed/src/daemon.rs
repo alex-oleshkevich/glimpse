@@ -24,6 +24,12 @@ pub struct Daemon {
     stop_channel: Option<tokio::sync::oneshot::Sender<()>>,
 }
 
+impl Default for Daemon {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Daemon {
     pub fn new() -> Self {
         let (stop_channel, _) = tokio::sync::oneshot::channel();

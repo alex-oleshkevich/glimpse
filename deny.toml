@@ -1,0 +1,44 @@
+# cargo-deny configuration
+
+[advisories]
+# Warn about security vulnerabilities
+vulnerability = "deny"
+# Allow unmaintained crates with a warning
+unmaintained = "warn"
+# Allow unsound code with a warning
+unsound = "warn"
+# Allow crates with a notice
+notice = "warn"
+
+[licenses]
+# Allow these licenses
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "CC0-1.0",
+]
+# Disallow these licenses
+deny = [
+    "GPL-2.0",
+    "GPL-3.0",
+    "AGPL-1.0",
+    "AGPL-3.0",
+]
+
+[bans]
+# Deny specific crates
+deny = []
+# Allow certain duplicate dependencies
+skip = []
+# Skip certain duplicate version ranges
+skip-tree = []
+
+[sources]
+# Allow crates.io and git sources
+unknown-registry = "warn"
+unknown-git = "warn"

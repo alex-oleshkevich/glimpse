@@ -327,7 +327,9 @@ mod tests {
 
         // Should panic on trigger query
         let result = panic::catch_unwind(panic::AssertUnwindSafe(|| async {
-            let _ = plugin.handle(Method::Search("panic_trigger".to_string())).await;
+            let _ = plugin
+                .handle(Method::Search("panic_trigger".to_string()))
+                .await;
         }));
 
         // Note: This test is complex due to async + panic interaction
