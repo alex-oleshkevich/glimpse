@@ -1,6 +1,8 @@
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::time::Duration;
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 use glimpse_sdk::Message;
 use serial_test::serial;
@@ -26,9 +28,12 @@ async fn test_path_traversal_prevention() {
         // Create legitimate plugin
         let good_plugin = plugin_dir.join("good_plugin");
         fs::write(&good_plugin, "#!/bin/bash\necho 'safe'").unwrap();
-        let mut perms = fs::metadata(&good_plugin).unwrap().permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&good_plugin, perms).unwrap();
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&good_plugin).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&good_plugin, perms).unwrap();
+        }
 
         unsafe {
             std::env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap());
@@ -61,9 +66,12 @@ echo '{{"id": 1, "result": {{"SearchResults": []}}, "source": "test", "large_fie
         large_string
     );
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -81,7 +89,7 @@ echo '{{"id": 1, "result": {{"SearchResults": []}}, "source": "test", "large_fie
         .expect("Failed to send request");
 
     // Should handle large message (may timeout due to size)
-    let result = timeout(Duration::from_secs(5), response_rx.recv()).await;
+    let _result = timeout(Duration::from_secs(5), response_rx.recv()).await;
     // We don't assert success/failure as handling depends on system limits
 
     spawn_handle.abort();
@@ -107,7 +115,7 @@ async fn test_malformed_protocol_messages() {
         // Should either parse correctly or fail gracefully
         // The daemon should handle parsing failures without crashing
         match result {
-            Ok(message) => {
+            Ok(_message) => {
                 // Valid JSON but potentially invalid protocol
                 // Daemon should handle gracefully
             }
@@ -129,9 +137,12 @@ read line
 echo -e '\x00\x01\x02\xff{"id": 1, "result": null, "source": "test"}\x00\x01'
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -149,7 +160,7 @@ echo -e '\x00\x01\x02\xff{"id": 1, "result": null, "source": "test"}\x00\x01'
         .expect("Failed to send request");
 
     // Should handle binary data gracefully (likely parse error)
-    let result = timeout(Duration::from_secs(2), response_rx.recv()).await;
+    let _result = timeout(Duration::from_secs(2), response_rx.recv()).await;
     // Binary data should cause JSON parsing to fail, no response expected
 
     spawn_handle.abort();
@@ -169,9 +180,12 @@ read line
 echo '{"id": 1, "result": null, "source": "test"}'
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -189,7 +203,7 @@ echo '{"id": 1, "result": null, "source": "test"}'
         .expect("Failed to send request");
 
     // Should still receive response despite background resource usage
-    let result = timeout(Duration::from_secs(3), response_rx.recv()).await;
+    let _result = timeout(Duration::from_secs(3), response_rx.recv()).await;
     // Plugin should respond despite resource usage
 
     spawn_handle.abort();
@@ -212,13 +226,19 @@ async fn test_command_injection_prevention() {
         // Just create a normal plugin to test discovery works
         let safe_name = plugin_dir.join("safe_plugin");
         fs::write(&safe_name, "#!/bin/bash\necho 'safe'").unwrap();
-        let mut perms = fs::metadata(&safe_name).unwrap().permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&safe_name, perms).unwrap();
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&safe_name).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&safe_name, perms).unwrap();
+        }
     } else {
-        let mut perms = fs::metadata(&dangerous_name).unwrap().permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&dangerous_name, perms).unwrap();
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&dangerous_name).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&dangerous_name, perms).unwrap();
+        }
     }
 
     unsafe {
@@ -252,9 +272,12 @@ read line
 echo '{"id": 1, "result": null, "source": "test"}'
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -304,9 +327,12 @@ read line
 echo '{"id": 1, "result": null, "source": "test"}'
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -348,9 +374,12 @@ for i in {1..1000}; do
 done
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -394,9 +423,12 @@ read line
 echo -e '{"id": 1, "result": null\x00, "source": "test\x00"}'
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -414,7 +446,7 @@ echo -e '{"id": 1, "result": null\x00, "source": "test\x00"}'
         .expect("Failed to send request");
 
     // Null bytes should cause JSON parsing issues
-    let result = timeout(Duration::from_secs(1), response_rx.recv()).await;
+    let _result = timeout(Duration::from_secs(1), response_rx.recv()).await;
     // Should either parse successfully (if null bytes are handled) or fail to parse
 
     spawn_handle.abort();
@@ -432,9 +464,12 @@ read line
 echo '{"id": 1, "result": null, "source": "test", "unicode": "🔍 Sëärch rësült with émojis 你好"}'
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);

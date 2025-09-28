@@ -1,7 +1,7 @@
 //! Basic dummy plugin implementation for simple success scenarios
 
 use async_trait::async_trait;
-use glimpse_sdk::{Action, Metadata, Method, MethodResult, Plugin, PluginError, SearchItem};
+use glimpse_sdk::{Action, Metadata, Method, MethodResult, Plugin, PluginError, Match};
 
 /// A simple plugin that always succeeds with predictable responses
 #[derive(Debug, Clone)]
@@ -29,9 +29,9 @@ impl BasicDummyPlugin {
     }
 
     /// Create search results for testing
-    fn create_search_results(query: &str) -> Vec<SearchItem> {
+    fn create_search_results(query: &str) -> Vec<Match> {
         vec![
-            SearchItem {
+            Match {
                 title: format!("Result 1 for '{}'", query),
                 subtitle: Some("Basic search result".to_string()),
                 icon: Some("test-icon.png".to_string()),
@@ -46,7 +46,7 @@ impl BasicDummyPlugin {
                 ],
                 score: 1.0,
             },
-            SearchItem {
+            Match {
                 title: format!("Result 2 for '{}'", query),
                 subtitle: None,
                 icon: None,
@@ -75,17 +75,17 @@ impl Plugin for BasicDummyPlugin {
         match method {
             Method::Search(query) => {
                 let results = Self::create_search_results(&query);
-                Ok(MethodResult::SearchResults(results))
+                Ok(MethodResult::Matches(results))
             }
             Method::Cancel => {
                 // Cancel method typically doesn't return anything in this context
                 // but we need to return something for testing
-                Ok(MethodResult::SearchResults(vec![]))
+                Ok(MethodResult::Matches(vec![]))
             }
             Method::Quit => {
                 // Quit method typically doesn't return anything in this context
                 // but we need to return something for testing
-                Ok(MethodResult::SearchResults(vec![]))
+                Ok(MethodResult::Matches(vec![]))
             }
         }
     }
@@ -114,7 +114,7 @@ mod tests {
 
         assert!(result.is_ok());
         match result.unwrap() {
-            MethodResult::SearchResults(results) => {
+            MethodResult::Matches(results) => {
                 assert_eq!(results.len(), 2);
                 assert_eq!(results[0].title, "Result 1 for 'test query'");
                 assert_eq!(results[1].title, "Result 2 for 'test query'");
@@ -130,7 +130,7 @@ mod tests {
 
         assert!(result.is_ok());
         match result.unwrap() {
-            MethodResult::SearchResults(results) => {
+            MethodResult::Matches(results) => {
                 assert!(results.is_empty());
             }
             _ => panic!("Expected SearchResults"),
@@ -144,7 +144,7 @@ mod tests {
 
         assert!(result.is_ok());
         match result.unwrap() {
-            MethodResult::SearchResults(results) => {
+            MethodResult::Matches(results) => {
                 assert!(results.is_empty());
             }
             _ => panic!("Expected SearchResults"),

@@ -29,3 +29,4 @@ criterion = "0.7"            # Benchmarking (latest available)
 tracing-test = "0.2"         # Tracing capture for testing (latest available)
 futures = "0.3"
 nix = { version = "0.29", features = ["signal", "process"] }
+cargo-llvm-cov = "0.6"

@@ -1,5 +1,8 @@
+export GLIMPSED_BIN := "/home/alex/projects/glimpse/target/debug/glimpsed"
+export GLIMPSE_PLUGIN_DIR := "/home/alex/projects/glimpse/var/plugins"
+
 daemon:
-    GLIMPSED_PLUGIN_DIR=./var/plugins cargo run -p glimpsed
+    GLIMPSE_PLUGIN_DIR=./var/plugins cargo run -p glimpsed
 
 debug:
     cargo run -p glimpse-plugins-debug
@@ -8,5 +11,13 @@ debug:
 gui:
     flutter run \
         --dart-define=GLIMPSED_BIN=/home/alex/projects/glimpse/target/debug/glimpsed \
-        --dart-define=GLIMPSED_PLUGIN_DIR=/home/alex/projects/glimpse/glimpsed/var/plugins
+        --dart-define=GLIMPSE_PLUGIN_DIR=/home/alex/projects/glimpse/glimpsed/var/plugins
 
+
+build-glimpsed:
+    cargo build -p glimpsed
+
+build-debug-plugin:
+    cargo build -p glimpse-plugins-debug
+
+build-all: build-glimpsed build-debug-plugin

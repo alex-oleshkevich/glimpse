@@ -1,6 +1,8 @@
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::sync::Arc;
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
@@ -27,9 +29,15 @@ while read line; do
 done
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&plugin_path, perms).unwrap();
+        }
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(1000);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(1000);
@@ -101,9 +109,12 @@ done
             i
         );
         fs::write(&plugin_path, script).unwrap();
-        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&plugin_path, perms).unwrap();
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&plugin_path, perms).unwrap();
+        }
         plugin_paths.push(plugin_path.to_string_lossy().to_string());
     }
 
@@ -168,9 +179,15 @@ while read line; do
 done
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&plugin_path, perms).unwrap();
+        }
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -223,9 +240,15 @@ echo '{"id": 1, "result": null, "source": "restart_test"}'
 exit 0
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&plugin_path, perms).unwrap();
+        }
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -275,9 +298,12 @@ async fn test_plugin_discovery_performance() {
     for i in 0..num_plugins {
         let plugin_path = plugin_dir.join(format!("plugin_{:03}", i));
         fs::write(&plugin_path, "#!/bin/bash\necho 'test'").unwrap();
-        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&plugin_path, perms).unwrap();
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&plugin_path, perms).unwrap();
+        }
     }
 
     // Also create non-plugin files that should be ignored
@@ -321,9 +347,15 @@ while read line; do
 done
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&plugin_path, perms).unwrap();
+        }
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -376,9 +408,15 @@ while read line; do
 done
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&plugin_path, perms).unwrap();
+        }
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(100);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(100);
@@ -446,9 +484,15 @@ while read line; do
 done
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&plugin_path, perms).unwrap();
+        }
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(50);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(50);
@@ -500,9 +544,15 @@ while read line; do
 done
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        #[cfg(unix)]
+        {
+            let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&plugin_path, perms).unwrap();
+        }
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);

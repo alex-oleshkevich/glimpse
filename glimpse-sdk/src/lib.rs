@@ -1,7 +1,7 @@
 pub mod plugin;
 pub mod protocol;
 
-use std::{error::Error, fmt::Display, sync::Arc};
+use std::{error::Error, fmt::Display, path::PathBuf, sync::Arc};
 
 use tokio_util::sync::CancellationToken;
 
@@ -69,8 +69,14 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
 
     let (response_tx, mut response_rx) = tokio::sync::mpsc::channel::<Message>(10);
 
+    let config_dir = dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("glimpse");
+    plugin.initialize(&config_dir).await?;
+
     // authenticate
     let metadata = plugin.metadata();
+    let plugin_id = metadata.id.clone();
 
     tracing::debug!(
         "starting plugin: {} {} ({})",
@@ -82,7 +88,7 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
     let auth_message = Message::Response {
         id: 0,
         error: None,
-        source: None,
+        plugin_id: Some(plugin_id.clone()),
         result: Some(MethodResult::Authenticate(metadata)),
     };
     response_tx
@@ -132,6 +138,7 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
                     let plugin_clone = self_ref.clone();
                     let response_tx = response_tx_clone.clone();
 
+                    let plugin_id = plugin_id.clone();
                     let task = tokio::spawn(async move {
                         let result = tokio::select! {
                             result = plugin_clone.handle(method) => result,
@@ -145,13 +152,13 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
                             Ok(method_result) => Message::Response {
                                 id,
                                 error: None,
-                                source: None,
+                                plugin_id: Some(plugin_id.clone()),
                                 result: Some(method_result),
                             },
                             Err(err) => Message::Response {
                                 id,
                                 error: Some(err.to_string()),
-                                source: None,
+                                plugin_id: Some(plugin_id.clone()),
                                 result: None,
                             },
                         };
@@ -162,12 +169,18 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
                     });
                     current_task = Some(task);
                 }
-                Message::Notification { method } => match method {
+                Message::Notification { method, .. } => match method {
                     Method::Cancel => {
                         if let Some(cancel_token) = current_cancel_token.take() {
                             cancel_token.cancel();
                             tracing::debug!("request cancelled");
                         }
+                    }
+                    Method::CallAction(key, params) => {
+                        let plugin_clone = self_ref.clone();
+                        tokio::spawn(async move {
+                            let _ = plugin_clone.handle_action(key, params).await;
+                        });
                     }
                     Method::Quit => {
                         tracing::debug!("quitting");

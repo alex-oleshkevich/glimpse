@@ -243,21 +243,21 @@ impl Plugin for PanicDummyPlugin {
                 if temp_config.should_panic("search", Some(query)) {
                     panic!("{}", temp_config.panic_message());
                 }
-                Ok(MethodResult::SearchResults(vec![]))
+                Ok(MethodResult::Matches(vec![]))
             }
             Method::Cancel => {
                 let mut temp_config = self.panic_config.clone();
                 if temp_config.should_panic("cancel", None) {
                     panic!("{}", temp_config.panic_message());
                 }
-                Ok(MethodResult::SearchResults(vec![]))
+                Ok(MethodResult::Matches(vec![]))
             }
             Method::Quit => {
                 let mut temp_config = self.panic_config.clone();
                 if temp_config.should_panic("quit", None) {
                     panic!("{}", temp_config.panic_message());
                 }
-                Ok(MethodResult::SearchResults(vec![]))
+                Ok(MethodResult::Matches(vec![]))
             }
         }
     }

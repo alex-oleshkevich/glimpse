@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   screen_retriever_linux
+  wayland_layer_shell
   window_manager
 )
 

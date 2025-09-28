@@ -1,3 +1,5 @@
+use std::{collections::HashMap, path::PathBuf};
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
@@ -15,5 +17,19 @@ pub struct Metadata {
 #[async_trait]
 pub trait Plugin: Send + Sync + 'static {
     fn metadata(&self) -> Metadata;
+
+    async fn initialize(&self, _config_dir: &PathBuf) -> Result<(), PluginError> {
+        Ok(())
+    }
+
+    async fn dispatch(&self, method: Method) -> Result<MethodResult, PluginError> {
+        self.handle(method).await
+    }
+
     async fn handle(&self, method: Method) -> Result<MethodResult, PluginError>;
+
+    async fn handle_action(&self, action: String, params: HashMap<String, String>) -> MethodResult {
+        tracing::warn!("unhandled action: {} {:?}", action, params);
+        MethodResult::None
+    }
 }

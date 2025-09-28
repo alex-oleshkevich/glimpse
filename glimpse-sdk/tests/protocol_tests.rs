@@ -1,4 +1,4 @@
-use glimpse_sdk::{Action, Message, Method, MethodResult, SearchItem};
+use glimpse_sdk::{Action, Message, Method, MethodResult, Match};
 
 #[cfg(test)]
 mod method_tests {
@@ -93,14 +93,14 @@ mod method_result_tests {
 
     #[test]
     fn test_search_results_empty() {
-        let result = MethodResult::SearchResults(vec![]);
+        let result = MethodResult::Matches(vec![]);
         let json = serde_json::to_string(&result).unwrap();
         assert_eq!(json, "[]");
     }
 
     #[test]
     fn test_search_results_single_item() {
-        let item = SearchItem {
+        let item = Match {
             title: "Test Item".to_string(),
             subtitle: Some("Test Subtitle".to_string()),
             icon: None,
@@ -109,12 +109,12 @@ mod method_result_tests {
             }],
             score: 1.0,
         };
-        let result = MethodResult::SearchResults(vec![item]);
+        let result = MethodResult::Matches(vec![item]);
         let json = serde_json::to_string(&result).unwrap();
         let deserialized: MethodResult = serde_json::from_str(&json).unwrap();
 
         match deserialized {
-            MethodResult::SearchResults(items) => {
+            MethodResult::Matches(items) => {
                 assert_eq!(items.len(), 1);
                 assert_eq!(items[0].title, "Test Item");
                 assert_eq!(items[0].subtitle, Some("Test Subtitle".to_string()));
@@ -127,14 +127,14 @@ mod method_result_tests {
     #[test]
     fn test_search_results_multiple_items() {
         let items = vec![
-            SearchItem {
+            Match {
                 title: "Item 1".to_string(),
                 subtitle: None,
                 icon: None,
                 actions: vec![],
                 score: 0.8,
             },
-            SearchItem {
+            Match {
                 title: "Item 2".to_string(),
                 subtitle: Some("Subtitle 2".to_string()),
                 icon: Some("icon.png".to_string()),
@@ -144,12 +144,12 @@ mod method_result_tests {
                 score: 0.6,
             },
         ];
-        let result = MethodResult::SearchResults(items);
+        let result = MethodResult::Matches(items);
         let json = serde_json::to_string(&result).unwrap();
         let deserialized: MethodResult = serde_json::from_str(&json).unwrap();
 
         match deserialized {
-            MethodResult::SearchResults(items) => {
+            MethodResult::Matches(items) => {
                 assert_eq!(items.len(), 2);
                 assert_eq!(items[0].title, "Item 1");
                 assert_eq!(items[1].subtitle, Some("Subtitle 2".to_string()));
@@ -160,7 +160,7 @@ mod method_result_tests {
 
     #[test]
     fn test_method_result_round_trip() {
-        let items = vec![SearchItem {
+        let items = vec![Match {
             title: "Round Trip Test".to_string(),
             subtitle: Some("Testing serialization".to_string()),
             icon: Some("test.ico".to_string()),
@@ -175,7 +175,7 @@ mod method_result_tests {
             ],
             score: 0.95,
         }];
-        let result = MethodResult::SearchResults(items);
+        let result = MethodResult::Matches(items);
 
         let json1 = serde_json::to_string(&result).unwrap();
         let deserialized: MethodResult = serde_json::from_str(&json1).unwrap();
@@ -247,7 +247,7 @@ mod message_tests {
 
     #[test]
     fn test_response_message_success() {
-        let search_item = SearchItem {
+        let search_item = Match {
             title: "Response Test".to_string(),
             subtitle: None,
             icon: None,
@@ -259,7 +259,7 @@ mod message_tests {
             id: 99,
             error: None,
             source: Some("test-plugin".to_string()),
-            result: Some(MethodResult::SearchResults(vec![search_item])),
+            result: Some(MethodResult::Matches(vec![search_item])),
         };
 
         let json = serde_json::to_string(&message).unwrap();
@@ -407,7 +407,7 @@ mod message_tests {
                 assert_eq!(error, None);
                 assert_eq!(source, Some("echo".to_string()));
                 assert!(result.is_some());
-                if let Some(MethodResult::SearchResults(results)) = result {
+                if let Some(MethodResult::Matches(results)) = result {
                     assert_eq!(results.len(), 1);
                     assert_eq!(results[0].title, "Test");
                 }
@@ -483,7 +483,7 @@ mod message_tests {
         // Response: has id, result/error, and source at top level
         let response = Message::Response {
             id: 2,
-            result: Some(MethodResult::SearchResults(vec![])),
+            result: Some(MethodResult::Matches(vec![])),
             error: None,
             source: Some("plugin".to_string()),
         };
@@ -522,7 +522,7 @@ mod message_tests {
 
         let response = Message::Response {
             id: 1,
-            result: Some(MethodResult::SearchResults(vec![])),
+            result: Some(MethodResult::Matches(vec![])),
             error: None,
             source: Some("test".to_string()),
         };
@@ -553,7 +553,7 @@ mod message_tests {
             },
             Message::Response {
                 id: 3,
-                result: Some(MethodResult::SearchResults(vec![])),
+                result: Some(MethodResult::Matches(vec![])),
                 error: None,
                 source: Some("source".to_string()),
             },
@@ -768,7 +768,7 @@ mod search_item_tests {
 
     #[test]
     fn test_search_item_minimal() {
-        let item = SearchItem {
+        let item = Match {
             title: "Minimal Item".to_string(),
             subtitle: None,
             icon: None,
@@ -777,7 +777,7 @@ mod search_item_tests {
         };
 
         let json = serde_json::to_string(&item).unwrap();
-        let deserialized: SearchItem = serde_json::from_str(&json).unwrap();
+        let deserialized: Match = serde_json::from_str(&json).unwrap();
 
         assert_eq!(deserialized.title, "Minimal Item");
         assert_eq!(deserialized.subtitle, None);
@@ -788,7 +788,7 @@ mod search_item_tests {
 
     #[test]
     fn test_search_item_full() {
-        let item = SearchItem {
+        let item = Match {
             title: "Full Item".to_string(),
             subtitle: Some("With subtitle".to_string()),
             icon: Some("icon.png".to_string()),
@@ -804,7 +804,7 @@ mod search_item_tests {
         };
 
         let json = serde_json::to_string(&item).unwrap();
-        let deserialized: SearchItem = serde_json::from_str(&json).unwrap();
+        let deserialized: Match = serde_json::from_str(&json).unwrap();
 
         assert_eq!(deserialized.title, "Full Item");
         assert_eq!(deserialized.subtitle, Some("With subtitle".to_string()));
@@ -818,7 +818,7 @@ mod search_item_tests {
         let test_scores = vec![0.0, 0.5, 1.0, -1.0, 999.99, f64::MAX, f64::MIN];
 
         for score in test_scores {
-            let item = SearchItem {
+            let item = Match {
                 title: format!("Score test {}", score),
                 subtitle: None,
                 icon: None,
@@ -827,14 +827,14 @@ mod search_item_tests {
             };
 
             let json = serde_json::to_string(&item).unwrap();
-            let deserialized: SearchItem = serde_json::from_str(&json).unwrap();
+            let deserialized: Match = serde_json::from_str(&json).unwrap();
             assert_eq!(deserialized.score, score);
         }
     }
 
     #[test]
     fn test_search_item_unicode_content() {
-        let item = SearchItem {
+        let item = Match {
             title: "Unicode Test 🚀".to_string(),
             subtitle: Some("こんにちは world ñoño".to_string()),
             icon: Some("🔍.png".to_string()),
@@ -845,7 +845,7 @@ mod search_item_tests {
         };
 
         let json = serde_json::to_string(&item).unwrap();
-        let deserialized: SearchItem = serde_json::from_str(&json).unwrap();
+        let deserialized: Match = serde_json::from_str(&json).unwrap();
 
         assert_eq!(deserialized.title, "Unicode Test 🚀");
         assert_eq!(
@@ -874,7 +874,7 @@ mod search_item_tests {
             },
         ];
 
-        let item = SearchItem {
+        let item = Match {
             title: "Multi Action Item".to_string(),
             subtitle: Some("Has many actions".to_string()),
             icon: None,
@@ -883,7 +883,7 @@ mod search_item_tests {
         };
 
         let json = serde_json::to_string(&item).unwrap();
-        let deserialized: SearchItem = serde_json::from_str(&json).unwrap();
+        let deserialized: Match = serde_json::from_str(&json).unwrap();
 
         assert_eq!(deserialized.actions.len(), 4);
 
@@ -917,7 +917,7 @@ mod integration_tests {
         let deserialized_request: Message = serde_json::from_str(&request_json).unwrap();
 
         // Create corresponding response
-        let search_items = vec![SearchItem {
+        let search_items = vec![Match {
             title: "Echo: test query".to_string(),
             subtitle: Some("From echo plugin".to_string()),
             icon: Some("echo.png".to_string()),
@@ -937,7 +937,7 @@ mod integration_tests {
             id: 1,
             error: None,
             source: Some("echo-plugin".to_string()),
-            result: Some(MethodResult::SearchResults(search_items)),
+            result: Some(MethodResult::Matches(search_items)),
         };
 
         // Serialize and deserialize response
@@ -952,7 +952,7 @@ mod integration_tests {
                 },
                 Message::Response {
                     id: resp_id,
-                    result: Some(MethodResult::SearchResults(items)),
+                    result: Some(MethodResult::Matches(items)),
                     ..
                 },
             ) => {
@@ -1043,7 +1043,7 @@ mod integration_tests {
         // Create a response with many search results
         let mut items = Vec::new();
         for i in 0..1000 {
-            items.push(SearchItem {
+            items.push(Match {
                 title: format!("Item {}", i),
                 subtitle: Some(format!("Description for item {}", i)),
                 icon: Some(format!("icon_{}.png", i)),
@@ -1073,7 +1073,7 @@ mod integration_tests {
             id: 999,
             error: None,
             source: Some("large-plugin".to_string()),
-            result: Some(MethodResult::SearchResults(items)),
+            result: Some(MethodResult::Matches(items)),
         };
 
         // Test that large payloads can be serialized and deserialized
@@ -1084,7 +1084,7 @@ mod integration_tests {
 
         match deserialized {
             Message::Response {
-                result: Some(MethodResult::SearchResults(items)),
+                result: Some(MethodResult::Matches(items)),
                 ..
             } => {
                 assert_eq!(items.len(), 1000);
@@ -1110,7 +1110,7 @@ mod malformed_json_tests {
 
         // Test missing title in SearchItem
         let invalid_item = r#"{"subtitle":"test","score":1.0,"actions":[]}"#;
-        assert!(serde_json::from_str::<SearchItem>(invalid_item).is_err());
+        assert!(serde_json::from_str::<Match>(invalid_item).is_err());
     }
 
     #[test]
@@ -1133,7 +1133,7 @@ mod malformed_json_tests {
 
         // Test number where string expected
         let invalid_title = r#"{"title":123,"score":1.0,"actions":[]}"#;
-        assert!(serde_json::from_str::<SearchItem>(invalid_title).is_err());
+        assert!(serde_json::from_str::<Match>(invalid_title).is_err());
     }
 
     #[test]
@@ -1150,7 +1150,7 @@ mod malformed_json_tests {
             "future_field":"should_be_ignored",
             "another_unknown":42
         }"#;
-        let item: SearchItem = serde_json::from_str(item_with_extra).unwrap();
+        let item: Match = serde_json::from_str(item_with_extra).unwrap();
         assert_eq!(item.title, "Test");
     }
 }

@@ -2,6 +2,7 @@ use crate::daemon::Daemon;
 use tokio::signal;
 mod daemon;
 mod plugins;
+mod dispatchers;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {

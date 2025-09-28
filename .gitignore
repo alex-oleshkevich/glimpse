@@ -1,3 +1,9 @@
 /target
 /var
 *old*
+.crush
+.claude
+.vscode
+.env
+.envrc
+

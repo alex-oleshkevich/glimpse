@@ -9,6 +9,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::time::timeout;
 
+#[allow(dead_code)]
 pub struct MockPlugin {
     pub name: String,
     pub responses: Vec<Message>,
@@ -18,6 +19,7 @@ pub struct MockPlugin {
     pub process: Option<Child>,
 }
 
+#[allow(dead_code)]
 impl MockPlugin {
     pub fn new(name: &str) -> Self {
         Self {
@@ -51,12 +53,14 @@ impl MockPlugin {
     }
 }
 
+#[allow(dead_code)]
 pub struct TestHarness {
     pub temp_dir: TempDir,
     pub plugin_dir: PathBuf,
     pub plugins: HashMap<String, MockPlugin>,
 }
 
+#[allow(dead_code)]
 impl TestHarness {
     pub fn new() -> Self {
         let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
@@ -126,6 +130,7 @@ done
     }
 }
 
+#[allow(dead_code)]
 pub async fn send_message_to_daemon(
     stdin: &mut tokio::process::ChildStdin,
     message: &Message,
@@ -137,6 +142,7 @@ pub async fn send_message_to_daemon(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub async fn read_message_from_daemon(
     stdout: &mut BufReader<tokio::process::ChildStdout>,
 ) -> Result<Message, Box<dyn std::error::Error>> {
@@ -155,6 +161,7 @@ pub fn create_search_request(id: usize, query: &str) -> Message {
     }
 }
 
+#[allow(dead_code)]
 pub fn create_cancel_request(id: usize) -> Message {
     Message::Request {
         id,
@@ -164,6 +171,7 @@ pub fn create_cancel_request(id: usize) -> Message {
     }
 }
 
+#[allow(dead_code)]
 pub fn create_quit_request(id: usize) -> Message {
     Message::Request {
         id,
@@ -173,6 +181,7 @@ pub fn create_quit_request(id: usize) -> Message {
     }
 }
 
+#[allow(dead_code)]
 pub fn create_auth_response(id: usize, plugin_name: &str) -> Message {
     Message::Response {
         id,
@@ -188,6 +197,7 @@ pub fn create_auth_response(id: usize, plugin_name: &str) -> Message {
     }
 }
 
+#[allow(dead_code)]
 pub async fn with_timeout<T, F>(
     duration: Duration,
     future: F,
@@ -200,10 +210,12 @@ where
         .map_err(|_| "Operation timed out".into())
 }
 
+#[allow(dead_code)]
 pub struct SignalTester {
     child: Option<Child>,
 }
 
+#[allow(dead_code)]
 impl SignalTester {
     pub fn new() -> Self {
         Self { child: None }

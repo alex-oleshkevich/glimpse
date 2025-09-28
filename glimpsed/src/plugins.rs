@@ -1,6 +1,8 @@
 use std::env;
-use std::os::unix::fs::PermissionsExt;
 use std::sync::Arc;
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 use glimpse_sdk::Message;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, stderr as sys_stderr};
@@ -14,7 +16,7 @@ pub enum PluginResponse {
 
 pub fn discover_plugins() -> Vec<String> {
     let directories = vec![
-        env::var("GLIMPSED_PLUGIN_DIR").unwrap_or_default(),
+        env::var("GLIMPSE_PLUGIN_DIR").unwrap_or_default(),
         dirs::data_dir()
             .map(|d| {
                 d.join("glimpsed")

@@ -8,3 +8,4 @@ tokio = { workspace = true }
 glimpse-sdk = { workspace = true }
 tracing = { workspace = true }
 async-trait = "0.1.89"
+serde_json = { workspace = true }

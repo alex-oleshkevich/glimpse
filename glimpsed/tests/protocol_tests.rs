@@ -1,4 +1,4 @@
-use glimpse_sdk::{Action, Message, Metadata, Method, MethodResult, SearchItem};
+use glimpse_sdk::{Action, Message, Metadata, Method, MethodResult, Match};
 use serde_json;
 
 mod common;
@@ -91,7 +91,7 @@ fn test_response_message_variants() {
         id: 1,
         error: None,
         source: Some("test_plugin".to_string()),
-        result: Some(MethodResult::SearchResults(vec![])),
+        result: Some(MethodResult::Matches(vec![])),
     };
 
     match success_response {
@@ -182,7 +182,7 @@ fn test_method_result_variants() {
 
     // Test SearchResults result
     let search_items = vec![
-        SearchItem {
+        Match {
             title: "Test Item 1".to_string(),
             subtitle: Some("Subtitle 1".to_string()),
             icon: None,
@@ -192,7 +192,7 @@ fn test_method_result_variants() {
             }],
             score: 0.9,
         },
-        SearchItem {
+        Match {
             title: "Test Item 2".to_string(),
             subtitle: None,
             icon: Some("icon.png".to_string()),
@@ -203,9 +203,9 @@ fn test_method_result_variants() {
         },
     ];
 
-    let search_result = MethodResult::SearchResults(search_items.clone());
+    let search_result = MethodResult::Matches(search_items.clone());
     match search_result {
-        MethodResult::SearchResults(items) => {
+        MethodResult::Matches(items) => {
             assert_eq!(items.len(), 2);
             assert_eq!(items[0].title, "Test Item 1");
             assert_eq!(items[0].subtitle, Some("Subtitle 1".to_string()));
@@ -218,7 +218,7 @@ fn test_method_result_variants() {
 
 #[test]
 fn test_search_item_structure() {
-    let search_item = SearchItem {
+    let search_item = Match {
         title: "Complex Item".to_string(),
         subtitle: Some("With subtitle".to_string()),
         icon: Some("complex_icon.svg".to_string()),
@@ -298,7 +298,7 @@ fn test_message_id_correlation() {
                 id,
                 error: None,
                 source: Some("plugin".to_string()),
-                result: Some(MethodResult::SearchResults(vec![])),
+                result: Some(MethodResult::Matches(vec![])),
             };
 
             match response {
@@ -317,16 +317,16 @@ fn test_message_id_correlation() {
 #[test]
 fn test_empty_and_minimal_structures() {
     // Test empty search results
-    let empty_results = MethodResult::SearchResults(vec![]);
+    let empty_results = MethodResult::Matches(vec![]);
     match empty_results {
-        MethodResult::SearchResults(items) => {
+        MethodResult::Matches(items) => {
             assert!(items.is_empty());
         }
         _ => panic!("Expected search results"),
     }
 
     // Test minimal search item
-    let minimal_item = SearchItem {
+    let minimal_item = Match {
         title: "Minimal".to_string(),
         subtitle: None,
         icon: None,
@@ -383,7 +383,7 @@ fn test_error_handling_in_protocol() {
     let error_cases = vec![
         (None, Some("General error".to_string())),
         (
-            Some(MethodResult::SearchResults(vec![])),
+            Some(MethodResult::Matches(vec![])),
             Some("Error with result".to_string()),
         ),
         (None, None), // No error, no result
@@ -454,7 +454,7 @@ fn test_unicode_in_protocol_messages() {
     assert_eq!(unicode_search, deserialized);
 
     // Test unicode in search results
-    let unicode_item = SearchItem {
+    let unicode_item = Match {
         title: "📄 Document: résumé.pdf".to_string(),
         subtitle: Some("💼 Work → Career".to_string()),
         icon: Some("📋".to_string()),
@@ -465,7 +465,7 @@ fn test_unicode_in_protocol_messages() {
     };
 
     let json = serde_json::to_string(&unicode_item).unwrap();
-    let deserialized: SearchItem = serde_json::from_str(&json).unwrap();
+    let deserialized: Match = serde_json::from_str(&json).unwrap();
     assert_eq!(unicode_item, deserialized);
 }
 
@@ -480,7 +480,7 @@ fn test_large_data_structures() {
         });
     }
 
-    let large_item = SearchItem {
+    let large_item = Match {
         title: "Large item".to_string(),
         subtitle: Some("With many actions".to_string()),
         icon: None,
@@ -489,7 +489,7 @@ fn test_large_data_structures() {
     };
 
     let json = serde_json::to_string(&large_item).unwrap();
-    let deserialized: SearchItem = serde_json::from_str(&json).unwrap();
+    let deserialized: Match = serde_json::from_str(&json).unwrap();
     assert_eq!(large_item.actions.len(), deserialized.actions.len());
     assert_eq!(large_item.actions.len(), 1000);
 }

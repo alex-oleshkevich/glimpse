@@ -64,7 +64,7 @@ mod coverage_tests {
 
         assert!(result.is_ok());
         match result.unwrap() {
-            MethodResult::SearchResults(items) => {
+            MethodResult::Matches(items) => {
                 assert_eq!(items.len(), 2);
                 assert!(items[0].title.contains("normal query"));
                 println!("✓ Covered normal input processing");
@@ -256,7 +256,7 @@ mod coverage_tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            MethodResult::SearchResults(items) => {
+            MethodResult::Matches(items) => {
                 assert!(!items.is_empty());
                 assert!(items[0].title.contains("first request"));
             }
@@ -335,7 +335,7 @@ mod coverage_tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            MethodResult::SearchResults(items) => {
+            MethodResult::Matches(items) => {
                 assert_eq!(items.len(), 2);
                 assert!(items[0].title.contains("success test"));
                 assert!(items[0].score > 0.0);
@@ -669,7 +669,7 @@ mod property_tests {
 
                 // Should always return a result (Ok or Err)
                 match result {
-                    Ok(MethodResult::SearchResults(_)) => {
+                    Ok(MethodResult::Matches(_)) => {
                         println!("Query handled successfully: {}", query.chars().take(50).collect::<String>());
                     }
                     Ok(MethodResult::Authenticate(_)) => {
@@ -760,7 +760,7 @@ mod property_tests {
             // Should always return a result
             assert!(result.is_ok() || result.is_err());
 
-            if let Ok(MethodResult::SearchResults(items)) = result {
+            if let Ok(MethodResult::Matches(items)) = result {
                 // If successful, should have results
                 assert_eq!(items.len(), 2); // BasicDummyPlugin returns 2 items
 

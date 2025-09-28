@@ -19,7 +19,7 @@ fn create_test_daemon() -> glimpsed::daemon::Daemon {
 
 #[tokio::test]
 async fn test_daemon_new() {
-    let daemon = create_test_daemon();
+    let _daemon = create_test_daemon();
     // Verify daemon creation succeeds (fields are private)
     // We can only test through the public interface
 }
@@ -111,12 +111,12 @@ async fn test_search_results_response_processing() {
         id: 1,
         error: None,
         source: Some("test_plugin".to_string()),
-        result: Some(MethodResult::SearchResults(vec![])),
+        result: Some(MethodResult::Matches(vec![])),
     };
 
     match search_response {
         Message::Response { result, .. } => match result {
-            Some(MethodResult::SearchResults(items)) => {
+            Some(MethodResult::Matches(items)) => {
                 assert!(items.is_empty());
             }
             _ => panic!("Expected search results"),
@@ -205,7 +205,7 @@ async fn test_plugin_metadata_update() {
 
     // Simulate metadata update
     if let Some(plugin) = plugins.get_mut(&plugin_name) {
-        let metadata = Metadata {
+        let _metadata = Metadata {
             id: "updated_plugin".to_string(),
             name: "updated_plugin".to_string(),
             version: "2.0.0".to_string(),

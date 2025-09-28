@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+dirs = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -12,6 +13,7 @@ tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 async-trait = "0.1.89"
 tokio-util = "0.7.16"
+uuid = { version = "1.18.1", features = ["v4"] }
 
 [dev-dependencies]
 tokio-test = { workspace = true }

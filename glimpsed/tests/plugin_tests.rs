@@ -1,7 +1,9 @@
 use std::env;
 use std::fs;
-use std::os::unix::fs::PermissionsExt;
 use std::time::Duration;
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 use glimpse_sdk::Message;
 use serial_test::serial;
@@ -23,9 +25,12 @@ async fn test_plugin_discovery_with_env_var() {
     // Create executable plugin file
     let plugin_path = plugin_dir.join("test_plugin");
     fs::write(&plugin_path, "#!/bin/bash\necho 'test'").unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     // Set environment variable
     unsafe {
@@ -102,20 +107,26 @@ async fn test_plugin_discovery_permission_denied() {
     // Create a directory with no read permissions
     let restricted_dir = plugin_dir.join("restricted");
     fs::create_dir(&restricted_dir).unwrap();
-    let mut perms = fs::metadata(&restricted_dir).unwrap().permissions();
-    perms.set_mode(0o000);
-    fs::set_permissions(&restricted_dir, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&restricted_dir).unwrap().permissions();
+        perms.set_mode(0o000);
+        fs::set_permissions(&restricted_dir, perms).unwrap();
+    }
 
     unsafe {
         env::set_var("GLIMPSED_PLUGIN_DIR", restricted_dir.to_str().unwrap());
     }
 
-    let plugins = discover_plugins();
+    let _plugins = discover_plugins();
 
     // Restore permissions for cleanup
-    let mut perms = fs::metadata(&restricted_dir).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&restricted_dir, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&restricted_dir).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&restricted_dir, perms).unwrap();
+    }
 
     unsafe {
         env::remove_var("GLIMPSED_PLUGIN_DIR");
@@ -229,9 +240,12 @@ async fn test_spawn_plugin_success() {
 exit 0
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     let (response_tx, _response_rx) = mpsc::channel::<PluginResponse>(10);
     let (_plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -256,8 +270,8 @@ exit 0
 
 #[tokio::test]
 async fn test_spawn_plugin_command_not_found() {
-    let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
-    let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
+    let (response_tx, _response_rx) = mpsc::channel::<PluginResponse>(10);
+    let (_plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
 
     let nonexistent_path = "/nonexistent/plugin/path".to_string();
 
@@ -284,9 +298,12 @@ read line
 echo "invalid json output"
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -321,12 +338,15 @@ async fn test_spawn_plugin_immediate_exit() {
 exit 0
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
-    let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
-    let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
+    let (response_tx, _response_rx) = mpsc::channel::<PluginResponse>(10);
+    let (_plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
 
     let path_str = plugin_path.to_string_lossy().to_string();
     let spawn_handle = tokio::spawn(async move {
@@ -352,9 +372,12 @@ read line
 echo '{"id": 1, "result": null, "source": "test"}'
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -403,9 +426,12 @@ while read line; do
 done
 "#;
     fs::write(&plugin_path, script).unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     let (response_tx, mut response_rx) = mpsc::channel::<PluginResponse>(10);
     let (plugin_tx, plugin_rx) = mpsc::channel::<Message>(10);
@@ -450,9 +476,12 @@ async fn test_plugin_discovery_special_characters_in_path() {
     // Create plugin with special characters in name
     let plugin_path = plugin_dir.join("plugin-with_special.chars");
     fs::write(&plugin_path, "#!/bin/bash\necho 'test'").unwrap();
-    let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
-    perms.set_mode(0o755);
-    fs::set_permissions(&plugin_path, perms).unwrap();
+    #[cfg(unix)]
+    {
+        let mut perms = fs::metadata(&plugin_path).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&plugin_path, perms).unwrap();
+    }
 
     unsafe {
         env::set_var("GLIMPSED_PLUGIN_DIR", plugin_dir.to_str().unwrap());

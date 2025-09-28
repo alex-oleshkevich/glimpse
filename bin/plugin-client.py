@@ -502,7 +502,7 @@ class PluginDebuggerApp(App):
             if last_entry.get("response_time"):
                 response_time_str = f" ({last_entry['response_time']:.0f}ms)"
 
-        self._log_message(f"← Received{response_time_str}: {json.dumps(message, separators=(',', ':'))}", "received")
+        self._log_message(f"← Received{response_time_str}: {json.dumps(message, indent=2, separators=(',', ':'))}", "received")
 
     def _log_message(self, message: str, msg_type: str = "info") -> None:
         """Add a message to the log with timestamp"""

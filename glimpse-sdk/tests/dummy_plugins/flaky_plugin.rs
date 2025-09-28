@@ -1,7 +1,7 @@
 //! Flaky dummy plugin implementation for testing intermittent failures
 
 use async_trait::async_trait;
-use glimpse_sdk::{Metadata, Method, MethodResult, Plugin, PluginError, SearchItem};
+use glimpse_sdk::{Metadata, Method, MethodResult, Plugin, PluginError, Match};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
@@ -246,17 +246,17 @@ impl Plugin for FlakyDummyPlugin {
         // Success case
         match method {
             Method::Search(query) => {
-                let results = vec![SearchItem {
+                let results = vec![Match {
                     title: format!("Flaky result for '{}'", query),
                     subtitle: Some("This result might not always appear".to_string()),
                     icon: Some("flaky-icon.png".to_string()),
                     actions: vec![],
                     score: 0.7,
                 }];
-                Ok(MethodResult::SearchResults(results))
+                Ok(MethodResult::Matches(results))
             }
-            Method::Cancel => Ok(MethodResult::SearchResults(vec![])),
-            Method::Quit => Ok(MethodResult::SearchResults(vec![])),
+            Method::Cancel => Ok(MethodResult::Matches(vec![])),
+            Method::Quit => Ok(MethodResult::Matches(vec![])),
         }
     }
 }

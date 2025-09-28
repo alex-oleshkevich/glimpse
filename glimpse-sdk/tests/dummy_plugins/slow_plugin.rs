@@ -1,7 +1,7 @@
 //! Slow dummy plugin implementation for testing timeouts and cancellation
 
 use async_trait::async_trait;
-use glimpse_sdk::{Metadata, Method, MethodResult, Plugin, PluginError, SearchItem};
+use glimpse_sdk::{Metadata, Method, MethodResult, Plugin, PluginError, Match};
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -70,9 +70,9 @@ impl SlowDummyPlugin {
     }
 
     /// Create search results after delay
-    async fn create_delayed_search_results(&self, query: &str) -> Vec<SearchItem> {
+    async fn create_delayed_search_results(&self, query: &str) -> Vec<Match> {
         sleep(self.search_delay).await;
-        vec![SearchItem {
+        vec![Match {
             title: format!("Slow result for '{}'", query),
             subtitle: Some(format!("Delayed by {:?}", self.search_delay)),
             icon: Some("slow-icon.png".to_string()),
@@ -98,15 +98,15 @@ impl Plugin for SlowDummyPlugin {
         match method {
             Method::Search(query) => {
                 let results = self.create_delayed_search_results(&query).await;
-                Ok(MethodResult::SearchResults(results))
+                Ok(MethodResult::Matches(results))
             }
             Method::Cancel => {
                 sleep(self.cancel_delay).await;
-                Ok(MethodResult::SearchResults(vec![]))
+                Ok(MethodResult::Matches(vec![]))
             }
             Method::Quit => {
                 sleep(self.quit_delay).await;
-                Ok(MethodResult::SearchResults(vec![]))
+                Ok(MethodResult::Matches(vec![]))
             }
         }
     }

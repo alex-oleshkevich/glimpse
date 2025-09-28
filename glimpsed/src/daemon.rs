@@ -6,21 +6,30 @@ use std::{
     },
 };
 
-use glimpse_sdk::{Message, Metadata, MethodResult};
+use glimpse_sdk::{Action, Match, Message, Metadata, Method, MethodResult};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader, stdin, stdout},
     sync::{Mutex, mpsc},
 };
 
-use crate::plugins::{PluginResponse, discover_plugins, spawn_plugin};
+use crate::{
+    dispatchers,
+    plugins::{PluginResponse, discover_plugins, spawn_plugin},
+};
 
 struct ConnectedPlugin {
     metadata: Option<Metadata>,
     tx: mpsc::Sender<Message>,
 }
 
+struct MatchHolder {
+    plugin_id: String,
+    match_: Match,
+}
+
 pub struct Daemon {
     current_request: Arc<AtomicUsize>,
+    current_matches: Arc<Mutex<Vec<MatchHolder>>>,
     stop_channel: Option<tokio::sync::oneshot::Sender<()>>,
 }
 
@@ -36,6 +45,7 @@ impl Daemon {
         Daemon {
             current_request: Arc::new(AtomicUsize::new(0)),
             stop_channel: Some(stop_channel),
+            current_matches: Arc::new(Mutex::new(vec![])),
         }
     }
 
@@ -46,7 +56,6 @@ impl Daemon {
     }
 
     pub async fn run(&mut self) {
-        // 6. maintain current request state (for cancellations)
         let stdin = stdin();
         let mut stdout = stdout();
         let mut reader = BufReader::new(stdin);
@@ -80,6 +89,7 @@ impl Daemon {
 
         let plugins_arc = Arc::new(Mutex::new(plugins));
         let plugins_copy = plugins_arc.clone();
+        let current_matches = self.current_matches.clone();
         let plugin_handle = tokio::spawn(async move {
             while let Some(ref plugin_message) = plugin_rx.recv().await {
                 match plugin_message {
@@ -109,6 +119,17 @@ impl Daemon {
                                             metadata.version
                                         );
                                     }
+                                    MethodResult::Matches { items } => {
+                                        let new_items = items
+                                            .iter()
+                                            .map(|m| MatchHolder {
+                                                plugin_id: plugin_id.clone(),
+                                                match_: m.clone(),
+                                            })
+                                            .collect::<Vec<_>>();
+                                        current_matches.lock().await.extend(new_items);
+                                        let _ = response_tx.send(message.clone()).await;
+                                    }
                                     _ => {
                                         let _ = response_tx.send(message.clone()).await;
                                     }
@@ -124,6 +145,7 @@ impl Daemon {
         });
 
         let plugins_copy = plugins_arc.clone();
+        let current_matches = self.current_matches.clone();
         let stdin_handle = tokio::spawn(async move {
             let mut line = String::new();
             loop {
@@ -143,29 +165,126 @@ impl Daemon {
                 tracing::debug!("client request -> plugins: {:?}", &message);
 
                 match message {
-                    Message::Request { id, method, .. } => {
-                        current_request.store(id, Ordering::SeqCst);
+                    Message::Request {
+                        id,
+                        method,
+                        ref plugin_id,
+                    } => match method {
+                        Method::Search(query) => {
+                            current_request.store(id, Ordering::SeqCst);
+                            current_matches.lock().await.clear();
 
-                        for plugin in plugins_copy.lock().await.values() {
-                            let tx = plugin.tx.clone();
-                            let method_clone = method.clone();
-                            let request = Message::Request {
-                                id,
-                                method: method_clone,
-                                target: None,
-                                context: None,
-                            };
-                            tokio::spawn(async move {
-                                if let Err(e) = tx.send(request).await {
-                                    tracing::error!("failed to send request to plugin: {}", e);
+                            for plugin in plugins_copy.lock().await.values() {
+                                if plugin_id.is_some() {
+                                    if plugin.metadata.is_none() {
+                                        continue;
+                                    }
+
+                                    let connected_plugin_id = plugin.metadata.clone().unwrap().id;
+                                    if plugin_id.clone().unwrap() != connected_plugin_id {
+                                        continue;
+                                    }
                                 }
-                            });
+
+                                let tx = plugin.tx.clone();
+                                let request = Message::Request {
+                                    id,
+                                    method: Method::Search(query.clone()),
+                                    plugin_id: None,
+                                };
+                                tokio::spawn(async move {
+                                    if let Err(e) = tx.send(request).await {
+                                        tracing::error!("failed to send request to plugin: {}", e);
+                                    }
+                                });
+                            }
                         }
-                    }
-                    Message::Notification { method } => match method {
+                        Method::Activate(match_index, action_index) => {
+                            let matches = current_matches.lock().await;
+                            if match_index >= matches.len() {
+                                tracing::warn!("invalid match index: {}", &match_index);
+                                continue;
+                            }
+
+                            if action_index >= matches[match_index].match_.actions.len() {
+                                tracing::warn!("invalid action index: {}", &action_index);
+                                continue;
+                            }
+
+                            let action = &matches[match_index].match_.actions[action_index].action;
+                            match action {
+                                Action::Exec { command, args } => {
+                                    dispatchers::shell_exec(&command, args).await
+                                }
+                                Action::Launch {
+                                    app_id,
+                                    args,
+                                    new_instance,
+                                } => dispatchers::launch_app(&app_id, &args, *new_instance).await,
+                                Action::Clipboard { text } => {
+                                    dispatchers::copy_to_clipboard(&text).await
+                                }
+                                Action::Open { uri } => dispatchers::open_url(&uri).await,
+                                Action::Callback { key, params } => {
+                                    let source_plugin_id = matches[match_index].plugin_id.clone();
+                                    let plugin_tx = plugins_copy
+                                        .lock()
+                                        .await
+                                        .get(&source_plugin_id)
+                                        .map(|p| p.tx.clone());
+                                    if let Some(tx) = plugin_tx {
+                                        dispatchers::plugin_callback(tx, &key, &params).await;
+                                    } else {
+                                        tracing::warn!(
+                                            "failed to find plugin for callback: {}",
+                                            source_plugin_id
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        Method::Cancel => {
+                            current_request.store(0, Ordering::SeqCst);
+                            current_matches.lock().await.clear();
+                            for plugin in plugins_copy.lock().await.values() {
+                                let tx = plugin.tx.clone();
+                                let request = Message::Request {
+                                    id,
+                                    method: Method::Cancel,
+                                    plugin_id: None,
+                                };
+                                tokio::spawn(async move {
+                                    if let Err(e) = tx.send(request).await {
+                                        tracing::error!("failed to send cancel to plugin: {}", e);
+                                    }
+                                });
+                            }
+                        }
+                        Method::Quit => {
+                            tracing::info!("received quit command, shutting down");
+                            for plugin in plugins_copy.lock().await.values() {
+                                let tx = plugin.tx.clone();
+                                let request = Message::Request {
+                                    id,
+                                    method: Method::Quit,
+                                    plugin_id: None,
+                                };
+                                tokio::spawn(async move {
+                                    if let Err(e) = tx.send(request).await {
+                                        tracing::error!("failed to send cancel to plugin: {}", e);
+                                    }
+                                });
+                            }
+                            break;
+                        }
+                        Method::CallAction(key, params) => {
+                            tracing::warn!("unexpected CallAction method from client: {} {:?}", key, params);
+                        }
+                    },
+                    Message::Notification { method, .. } => match method {
                         _ => {}
                     },
-                    _ => {}
+                    Message::Response { .. } => {}
                 }
             }
         });

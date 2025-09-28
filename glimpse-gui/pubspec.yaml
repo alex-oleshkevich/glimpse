@@ -7,8 +7,10 @@ environment:
   sdk: ^3.9.0
 
 dependencies:
+  adwaita: ^1.1.0
   flutter:
     sdk: flutter
+  wayland_layer_shell: ^1.0.1
   window_manager: ^0.5.1
 
 dev_dependencies:

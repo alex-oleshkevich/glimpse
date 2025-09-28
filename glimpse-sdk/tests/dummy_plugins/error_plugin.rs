@@ -198,21 +198,21 @@ impl Plugin for ErrorDummyPlugin {
                 if let Some(error) = &self.error_config.search_error {
                     Err(error.clone())
                 } else {
-                    Ok(MethodResult::SearchResults(vec![]))
+                    Ok(MethodResult::Matches(vec![]))
                 }
             }
             Method::Cancel => {
                 if let Some(error) = &self.error_config.cancel_error {
                     Err(error.clone())
                 } else {
-                    Ok(MethodResult::SearchResults(vec![]))
+                    Ok(MethodResult::Matches(vec![]))
                 }
             }
             Method::Quit => {
                 if let Some(error) = &self.error_config.quit_error {
                     Err(error.clone())
                 } else {
-                    Ok(MethodResult::SearchResults(vec![]))
+                    Ok(MethodResult::Matches(vec![]))
                 }
             }
         }

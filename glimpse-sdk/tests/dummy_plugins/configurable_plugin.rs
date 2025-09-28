@@ -1,7 +1,7 @@
 //! Configurable dummy plugin implementation for flexible testing scenarios
 
 use async_trait::async_trait;
-use glimpse_sdk::{Action, Metadata, Method, MethodResult, Plugin, PluginError, SearchItem};
+use glimpse_sdk::{Action, Metadata, Method, MethodResult, Plugin, PluginError, Match};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -39,7 +39,7 @@ pub struct MethodConfig {
     /// Panic message if should_panic is true
     panic_message: String,
     /// Custom search results for search method
-    search_results: Vec<SearchItem>,
+    search_results: Vec<Match>,
     /// Success probability (0.0 to 1.0)
     success_rate: f64,
 }
@@ -107,7 +107,7 @@ impl MethodConfig {
     }
 
     /// Set custom search results
-    pub fn with_results(mut self, results: Vec<SearchItem>) -> Self {
+    pub fn with_results(mut self, results: Vec<Match>) -> Self {
         self.search_results = results;
         self
     }
@@ -262,7 +262,7 @@ impl ConfigurableDummyPlugin {
     }
 
     /// Create a plugin with custom search results
-    pub fn with_custom_results(results: Vec<SearchItem>) -> Self {
+    pub fn with_custom_results(results: Vec<Match>) -> Self {
         let behavior = PluginBehavior::all_success()
             .with_method_config("search", MethodConfig::success().with_results(results));
         Self::with_behavior(behavior)
@@ -383,7 +383,7 @@ impl Plugin for ConfigurableDummyPlugin {
         match method {
             Method::Search(query) => {
                 let results = if config.search_results.is_empty() {
-                    vec![SearchItem {
+                    vec![Match {
                         title: format!("Configurable result for '{}'", query),
                         subtitle: Some(format!("Call #{}", call_count)),
                         icon: Some("configurable-icon.png".to_string()),
@@ -402,10 +402,10 @@ impl Plugin for ConfigurableDummyPlugin {
                     config.search_results.clone()
                 };
 
-                Ok(MethodResult::SearchResults(results))
+                Ok(MethodResult::Matches(results))
             }
-            Method::Cancel => Ok(MethodResult::SearchResults(vec![])),
-            Method::Quit => Ok(MethodResult::SearchResults(vec![])),
+            Method::Cancel => Ok(MethodResult::Matches(vec![])),
+            Method::Quit => Ok(MethodResult::Matches(vec![])),
         }
     }
 }
@@ -421,7 +421,7 @@ mod tests {
         assert!(result.is_ok());
 
         match result.unwrap() {
-            MethodResult::SearchResults(results) => {
+            MethodResult::Matches(results) => {
                 assert_eq!(results.len(), 1);
                 assert!(results[0].title.contains("Configurable result"));
             }
@@ -452,14 +452,14 @@ mod tests {
     #[tokio::test]
     async fn test_custom_search_results() {
         let custom_results = vec![
-            SearchItem {
+            Match {
                 title: "Custom Result 1".to_string(),
                 subtitle: Some("Custom subtitle".to_string()),
                 icon: None,
                 actions: vec![],
                 score: 1.0,
             },
-            SearchItem {
+            Match {
                 title: "Custom Result 2".to_string(),
                 subtitle: None,
                 icon: Some("custom-icon.png".to_string()),
@@ -473,7 +473,7 @@ mod tests {
 
         assert!(result.is_ok());
         match result.unwrap() {
-            MethodResult::SearchResults(results) => {
+            MethodResult::Matches(results) => {
                 assert_eq!(results.len(), 2);
                 assert_eq!(results[0].title, "Custom Result 1");
                 assert_eq!(results[1].title, "Custom Result 2");
