@@ -69,10 +69,13 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
 
     let (response_tx, mut response_rx) = tokio::sync::mpsc::channel::<Message>(10);
 
-    let config_dir = dirs::config_dir()
+
+    let context = Context{
+        config_dir: dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("glimpse");
-    plugin.initialize(&config_dir).await?;
+        .join("glimpse"),
+    };
+    plugin.initialize(&context).await?;
 
     // authenticate
     let metadata = plugin.metadata();
@@ -176,10 +179,11 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
                             tracing::debug!("request cancelled");
                         }
                     }
-                    Method::CallAction(key, params) => {
+                    Method::CallAction(..) => {
                         let plugin_clone = self_ref.clone();
+                        let method_clone = method.clone();
                         tokio::spawn(async move {
-                            let _ = plugin_clone.handle_action(key, params).await;
+                            let _ = plugin_clone.handle(method_clone).await;
                         });
                     }
                     Method::Quit => {

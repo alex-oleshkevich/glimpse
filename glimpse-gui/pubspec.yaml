@@ -8,8 +8,10 @@ environment:
 
 dependencies:
   adwaita: ^1.1.0
+  dbus: ^0.7.11
   flutter:
     sdk: flutter
+  flutter_svg: ^2.2.1
   wayland_layer_shell: ^1.0.1
   window_manager: ^0.5.1
 

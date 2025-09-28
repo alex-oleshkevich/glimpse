@@ -9,3 +9,5 @@ glimpse-sdk = { workspace = true }
 tracing = { workspace = true }
 async-trait = "0.1.89"
 serde_json = { workspace = true }
+freedesktop-icons = "0.4.0"
+freedesktop-desktop-entry = "0.7.17"

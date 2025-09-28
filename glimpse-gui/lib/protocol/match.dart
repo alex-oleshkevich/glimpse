@@ -15,16 +15,11 @@ class ShellExecHandler extends ActionHandler {
 
 class LaunchHandler extends ActionHandler {
   final String appId;
-  final List<String> args;
-  final bool newInstance;
-  LaunchHandler(this.appId, this.args, this.newInstance);
+  final String? action;
+  LaunchHandler(this.appId, this.action);
 
   factory LaunchHandler.fromJson(Map<String, dynamic> json) {
-    return LaunchHandler(
-      json['app_id'] as String,
-      (json['args'] as List<dynamic>).map((e) => e as String).toList(),
-      json['new_instance'] as bool,
-    );
+    return LaunchHandler(json['app_id'] as String, json['action'] as String?);
   }
 }
 
@@ -64,20 +59,10 @@ final class MatchAction {
   MatchAction(this.title, this.action, {this.closeOnAction = true});
 }
 
-final class Icon {
-  final String type;
-  final String value;
-  Icon(this.type, this.value);
-
-  factory Icon.fromJson(Map<String, dynamic> json) {
-    return Icon(json['type'] as String, json['value'] as String);
-  }
-}
-
 final class Match {
   final String title;
   final String description;
-  final Icon? icon;
+  final String? icon;
   final double? score;
   final List<MatchAction> actions;
 
@@ -87,7 +72,7 @@ final class Match {
     return Match(
       json['title'] as String,
       json['description'] as String,
-      icon: json['icon'] != null ? Icon.fromJson(json['icon']) : null,
+      icon: json['icon'] as String?,
       score: (json['score'] as num?)?.toDouble(),
       actions: (json['actions'] as List<dynamic>? ?? []).map((actionItem) {
         final actionJson = actionItem['action'] as Map<String, dynamic>;

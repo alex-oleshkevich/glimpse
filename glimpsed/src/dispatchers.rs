@@ -16,13 +16,8 @@ pub async fn shell_exec(command: &str, args: &Vec<String>) {
     });
 }
 
-pub async fn launch_app(app: &str, args: &Vec<String>, new_instance: bool) {
-    tracing::debug!(
-        "launching app: {} {:?} (new_instance={})",
-        app,
-        args,
-        new_instance
-    );
+pub async fn launch_app(app: &str, action: &Option<&str>) {
+    tracing::debug!("launching app: {} {:?}", app, action);
     // if let Err(err) = Command::new(app).args(args).spawn() {
     //     tracing::error!("failed to launch app: {}", err);
     // } else {

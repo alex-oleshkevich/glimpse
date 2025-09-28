@@ -4,15 +4,24 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:glimpse/dbus_service.dart';
 import 'package:glimpse/protocol/request.dart';
 import 'package:glimpse/protocol/response.dart';
 import 'package:glimpse/protocol/match.dart';
+import 'package:glimpse/widgets/tile_icon.dart';
 import 'package:window_manager/window_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await windowManager.ensureInitialized();
+
+  if (await isDBusServiceRunning()) {
+    print('Another instance of Glimpse is already running, activating it and exiting...');
+    await activateRunningInstance();
+    exit(1);
+  }
+  await initializeDBusService(windowManager);
+
   WindowOptions windowOptions = WindowOptions(
     size: Size(700, 500),
     center: true,
@@ -27,6 +36,7 @@ void main() async {
     await windowManager.show();
     await windowManager.focus();
   });
+
   final daemonBinary = Platform.environment['GLIMPSED_BIN'] ?? '/usr/bin/glimpsed';
   print('Using daemon binary at $daemonBinary');
   print('Using plugin directory at ${Platform.environment['GLIMPSE_PLUGIN_DIR'] ?? ''}');
@@ -146,11 +156,11 @@ class _AppState extends State<MainApp> {
       action = item.actions[actionIndex];
     }
 
-    print('Activating action: ${action} for item: ${item.title}');
+    print('Activating action: $action for item: ${item.title}');
 
     _inputStreamController.add(Activate(itemIndex, actionIndex));
     if (action.closeOnAction) {
-      // windowManager.close();
+      windowManager.hide();
     }
     return KeyEventResult.handled;
   }
@@ -167,7 +177,6 @@ class _AppState extends State<MainApp> {
       return KeyEventResult.handled;
     }
 
-    // Show the action menu (implementation depends on your UI framework)
     print('Showing action menu for item: ${item.title}');
     _popupMenuKey.currentState?.showButtonMenu();
     return KeyEventResult.handled;
@@ -177,6 +186,11 @@ class _AppState extends State<MainApp> {
     if (value.isNotEmpty) {
       _inputStreamController.add(SearchMethod(value));
       FocusScope.of(context).requestFocus(_inputFocusNode);
+    } else {
+      setState(() {
+        _searchItems.clear();
+        selectedIndex = -1;
+      });
     }
   }
 
@@ -189,7 +203,7 @@ class _AppState extends State<MainApp> {
       });
       FocusScope.of(context).requestFocus(_inputFocusNode);
     } else {
-      windowManager.close();
+      windowManager.hide();
     }
     return KeyEventResult.handled;
   }
@@ -258,11 +272,14 @@ class _AppState extends State<MainApp> {
                   itemBuilder: (context, index) {
                     final item = _searchItems[index];
                     final isSelected = index == selectedIndex;
-                    if (isSelected) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        Scrollable.ensureVisible(context, duration: const Duration(milliseconds: 100), alignment: 0.5);
-                      });
-                    }
+  if (isSelected) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final renderObject = context.findRenderObject();
+      if (renderObject != null && renderObject.attached) {
+        Scrollable.ensureVisible(context, duration: const Duration(milliseconds: 100), alignment: 0.5);
+      }
+    });
+  }
                     return PopupMenuButton<int>(
                       key: selectedIndex == index ? _popupMenuKey : null,
                       enabled: selectedIndex == index && item.actions.isNotEmpty,
@@ -282,6 +299,7 @@ class _AppState extends State<MainApp> {
                         onTap: () => activateAction(index),
                         selectedColor: Colors.black,
                         selectedTileColor: Colors.grey[300],
+                        leading: item.icon != null ? TileIcon(path: item.icon!) : null,
                       ),
                     );
                   },

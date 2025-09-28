@@ -54,8 +54,7 @@ pub enum Action {
     },
     Launch {
         app_id: String,
-        args: Vec<String>,
-        new_instance: bool,
+        action: Option<String>,
     },
     Open {
         uri: String,
@@ -79,17 +78,10 @@ pub struct MatchAction {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum Icon {
-    Path { value: String },
-    Name { value: String },
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(tag = "type", rename_all = "snake_case")]
 pub struct Match {
     pub title: String,
     pub description: String,
-    pub icon: Option<Icon>,
+    pub icon: Option<String>,
     pub actions: Vec<MatchAction>,
     pub score: f64,
 }

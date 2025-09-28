@@ -216,11 +216,9 @@ impl Daemon {
                                 Action::Exec { command, args } => {
                                     dispatchers::shell_exec(&command, args).await
                                 }
-                                Action::Launch {
-                                    app_id,
-                                    args,
-                                    new_instance,
-                                } => dispatchers::launch_app(&app_id, &args, *new_instance).await,
+                                Action::Launch { app_id, action } => {
+                                    dispatchers::launch_app(&app_id, &action.as_deref()).await
+                                }
                                 Action::Clipboard { text } => {
                                     dispatchers::copy_to_clipboard(&text).await
                                 }
@@ -278,7 +276,11 @@ impl Daemon {
                             break;
                         }
                         Method::CallAction(key, params) => {
-                            tracing::warn!("unexpected CallAction method from client: {} {:?}", key, params);
+                            tracing::warn!(
+                                "unexpected CallAction method from client: {} {:?}",
+                                key,
+                                params
+                            );
                         }
                     },
                     Message::Notification { method, .. } => match method {

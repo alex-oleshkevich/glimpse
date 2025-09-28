@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::PathBuf};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::{Method, MethodResult, PluginError};
+use crate::{Match, Method, MethodResult, PluginError};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Metadata {
@@ -18,7 +18,7 @@ pub struct Metadata {
 pub trait Plugin: Send + Sync + 'static {
     fn metadata(&self) -> Metadata;
 
-    async fn initialize(&self, _config_dir: &PathBuf) -> Result<(), PluginError> {
+    async fn initialize(&self, _context: &Context) -> Result<(), PluginError> {
         Ok(())
     }
 
@@ -26,10 +26,31 @@ pub trait Plugin: Send + Sync + 'static {
         self.handle(method).await
     }
 
-    async fn handle(&self, method: Method) -> Result<MethodResult, PluginError>;
-
-    async fn handle_action(&self, action: String, params: HashMap<String, String>) -> MethodResult {
-        tracing::warn!("unhandled action: {} {:?}", action, params);
-        MethodResult::None
+    async fn handle(&self, method: Method) -> Result<MethodResult, PluginError> {
+        tracing::debug!("handling method: {:?}", method);
+        match method {
+            Method::Search(query) => {
+                let results = self.handle_search(query).await;
+                match results {
+                    Err(e) => Ok(MethodResult::Error(e.to_string())),
+                    Ok(results) => Ok(MethodResult::Matches { items: results }),
+                }
+            }
+            Method::CallAction(action, params) => {
+                self.handle_action(action, params).await;
+                Ok(MethodResult::None)
+            }
+            _ => Ok(MethodResult::None),
+        }
     }
+
+    async fn handle_search(&self, query: String) -> Result<Vec<Match>, PluginError>;
+
+    async fn handle_action(&self, action: String, params: HashMap<String, String>) {
+        tracing::warn!("unhandled action: {} {:?}", action, params);
+    }
+}
+
+pub struct Context {
+    pub config_dir: PathBuf,
 }
