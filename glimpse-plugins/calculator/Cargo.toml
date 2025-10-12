@@ -1,0 +1,14 @@
+[package]
+name = "glimpse-plugins-calculator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+numbat = "1.16.0"
+glimpse-sdk = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+async-trait = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+freedesktop-icons = { workspace = true }

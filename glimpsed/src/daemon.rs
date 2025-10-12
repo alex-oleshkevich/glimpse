@@ -97,11 +97,21 @@ impl Daemon {
                         match message {
                             Message::Response { id, result, .. } => {
                                 if *id != current_request_clone.load(Ordering::SeqCst) {
+                                    tracing::debug!(
+                                        "ignoring response from plugin {} for old request id {}, current request id is {}",
+                                        plugin_id,
+                                        id,
+                                        current_request_clone.load(Ordering::SeqCst)
+                                    );
                                     continue;
                                 }
 
                                 if result.is_none() {
                                     let _ = response_tx.send(message.clone()).await;
+                                    tracing::debug!(
+                                        "response from plugin {} has no result, forwarding",
+                                        plugin_id
+                                    );
                                     continue;
                                 }
 
@@ -128,7 +138,33 @@ impl Daemon {
                                             })
                                             .collect::<Vec<_>>();
                                         current_matches.lock().await.extend(new_items);
-                                        let _ = response_tx.send(message.clone()).await;
+                                        current_matches.lock().await.sort_by(|a, b| {
+                                            b.match_
+                                                .score
+                                                .partial_cmp(&a.match_.score)
+                                                .unwrap_or(std::cmp::Ordering::Equal)
+                                        });
+                                        tracing::debug!(
+                                            "plugin {} returned {} matches",
+                                            plugin_id,
+                                            items.len()
+                                        );
+
+                                        let aggregated = Message::Response {
+                                            id: *id,
+                                            error: None,
+                                            result: Some(MethodResult::Matches {
+                                                items: current_matches
+                                                    .lock()
+                                                    .await
+                                                    .iter()
+                                                    .map(|h| h.match_.clone())
+                                                    .collect::<Vec<_>>(),
+                                            }),
+                                            plugin_id: None,
+                                        };
+
+                                        let _ = response_tx.send(aggregated).await;
                                     }
                                     _ => {
                                         let _ = response_tx.send(message.clone()).await;
@@ -162,7 +198,7 @@ impl Daemon {
                         continue;
                     }
                 };
-                tracing::debug!("client request -> plugins: {:?}", &message);
+                tracing::debug!("forward client request to plugins: {:?}", &message);
 
                 match message {
                     Message::Request {
@@ -212,12 +248,15 @@ impl Daemon {
                             }
 
                             let action = &matches[match_index].match_.actions[action_index].action;
+                            tracing::debug!("dispatching action: {:?}", &action);
+
                             match action {
                                 Action::Exec { command, args } => {
                                     dispatchers::shell_exec(&command, args).await
                                 }
-                                Action::Launch { app_id, action } => {
-                                    dispatchers::launch_app(&app_id, &action.as_deref()).await
+                                Action::DesktopFile { path, action } => {
+                                    dispatchers::launch_desktop_file(&path, &action.as_deref())
+                                        .await
                                 }
                                 Action::Clipboard { text } => {
                                     dispatchers::copy_to_clipboard(&text).await

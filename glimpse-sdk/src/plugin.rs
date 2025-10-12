@@ -30,23 +30,23 @@ pub trait Plugin: Send + Sync + 'static {
         tracing::debug!("handling method: {:?}", method);
         match method {
             Method::Search(query) => {
-                let results = self.handle_search(query).await;
+                let results = self.search(query).await;
                 match results {
                     Err(e) => Ok(MethodResult::Error(e.to_string())),
                     Ok(results) => Ok(MethodResult::Matches { items: results }),
                 }
             }
             Method::CallAction(action, params) => {
-                self.handle_action(action, params).await;
+                self.activate_action(action, params).await;
                 Ok(MethodResult::None)
             }
             _ => Ok(MethodResult::None),
         }
     }
 
-    async fn handle_search(&self, query: String) -> Result<Vec<Match>, PluginError>;
+    async fn search(&self, query: String) -> Result<Vec<Match>, PluginError>;
 
-    async fn handle_action(&self, action: String, params: HashMap<String, String>) {
+    async fn activate_action(&self, action: String, params: HashMap<String, String>) {
         tracing::warn!("unhandled action: {} {:?}", action, params);
     }
 }

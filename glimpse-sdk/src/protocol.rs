@@ -52,8 +52,8 @@ pub enum Action {
         command: String,
         args: Vec<String>,
     },
-    Launch {
-        app_id: String,
+    DesktopFile {
+        path: String,
         action: Option<String>,
     },
     Open {

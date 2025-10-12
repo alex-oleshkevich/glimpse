@@ -13,13 +13,13 @@ class ShellExecHandler extends ActionHandler {
   }
 }
 
-class LaunchHandler extends ActionHandler {
-  final String appId;
+class DesktopFileHandler extends ActionHandler {
+  final String path;
   final String? action;
-  LaunchHandler(this.appId, this.action);
+  DesktopFileHandler(this.path, this.action);
 
-  factory LaunchHandler.fromJson(Map<String, dynamic> json) {
-    return LaunchHandler(json['app_id'] as String, json['action'] as String?);
+  factory DesktopFileHandler.fromJson(Map<String, dynamic> json) {
+    return DesktopFileHandler(json['path'] as String, json['action'] as String?);
   }
 }
 
@@ -81,7 +81,7 @@ final class Match {
           'open' => OpenURIHandler.fromJson(actionJson),
           'clipboard' => ClipboardHandler.fromJson(actionJson),
           'callback' => CallbackAction.fromJson(actionJson),
-          'launch' => LaunchHandler.fromJson(actionJson),
+          'desktop_file' => DesktopFileHandler.fromJson(actionJson),
           _ => throw Exception('Unknown action type: ${actionJson['type']}'),
         };
         return MatchAction(actionItem['title'], action, closeOnAction: actionItem['close_on_action'] ?? true);

@@ -1,0 +1,14 @@
+[Unit]
+Description=Glimpse Launcher
+Documentation=https://github.com/alex-oleshkevich/glimpse
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/glimpsed
+Environment=GLIMPSE_PLUGIN_DIR=/usr/share/glimpse/plugins
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

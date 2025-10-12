@@ -69,17 +69,17 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
 
     let (response_tx, mut response_rx) = tokio::sync::mpsc::channel::<Message>(10);
 
-
-    let context = Context{
+    let context = Context {
         config_dir: dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("glimpse"),
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("glimpse"),
     };
     plugin.initialize(&context).await?;
 
     // authenticate
     let metadata = plugin.metadata();
-    let plugin_id = metadata.id.clone();
+    let plugin_id_base = metadata.id.clone();
+    let plugin_id = plugin_id_base.clone();
 
     tracing::debug!(
         "starting plugin: {} {} ({})",
@@ -106,6 +106,7 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
     let self_ref = Arc::new(plugin);
     let response_tx_clone = response_tx.clone();
 
+    let plugin_id_copy = plugin_id.clone();
     let stdin_handle = tokio::spawn(async move {
         let mut line = String::new();
         loop {
@@ -122,11 +123,11 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
                 }
             };
 
-            tracing::debug!("request: {:?}", &message);
+            tracing::debug!("plugin {} received request: {:?}", &plugin_id, &message);
             match message {
                 Message::Request { id, method, .. } => {
                     if let Some(cancel_token) = current_cancel_token.take() {
-                        tracing::debug!("cancelling previous request");
+                        tracing::debug!("plugin {} cancelling previous request", &plugin_id);
                         cancel_token.cancel();
                     }
 
@@ -146,8 +147,8 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
                         let result = tokio::select! {
                             result = plugin_clone.handle(method) => result,
                             _ = cancel_token.cancelled() => {
-                                tracing::debug!("request {} was cancelled", id);
-                                Err(PluginError::Cancelled("request cancelled".into()))
+                                tracing::debug!("plugin {} cancelling previous request", &plugin_id);
+                                Err(PluginError::Cancelled(format!("plugin {} request cancelled", &plugin_id)))
                             },
                         };
 
@@ -167,7 +168,7 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
                         };
 
                         if let Err(err) = response_tx.send(response).await {
-                            tracing::warn!("error sending response: {}", err);
+                            tracing::warn!("plugin {} error sending response: {}", &plugin_id, err);
                         }
                     });
                     current_task = Some(task);
@@ -176,7 +177,7 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
                     Method::Cancel => {
                         if let Some(cancel_token) = current_cancel_token.take() {
                             cancel_token.cancel();
-                            tracing::debug!("request cancelled");
+                            tracing::debug!("plugin {} previous request cancelled", &plugin_id);
                         }
                     }
                     Method::CallAction(..) => {
@@ -187,7 +188,7 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
                         });
                     }
                     Method::Quit => {
-                        tracing::debug!("quitting");
+                        tracing::debug!("plugin {} quitting", &plugin_id);
                         break;
                     }
                     _ => {}
@@ -200,19 +201,20 @@ pub async fn run_plugin<P: Plugin>(plugin: P) -> Result<(), PluginError> {
     let stdout_handle = tokio::spawn(async move {
         while let Some(message) = response_rx.recv().await {
             let response = serde_json::to_string(&message).unwrap();
-            tracing::debug!("response: {:?}", &message);
+            tracing::debug!("plugin {} response: {:?}", &plugin_id_copy, &message);
             stdout.write_all(response.as_bytes()).await.unwrap();
             stdout.write_all(b"\n").await.unwrap();
             stdout.flush().await.unwrap();
         }
     });
 
+    let plugin_id = plugin_id_base.clone();
     tokio::select! {
         _ = stdin_handle => {
-            tracing::debug!("stdin closed, exiting");
+            tracing::debug!("plugin {} stdin closed, exiting", &plugin_id);
         },
         _ = stdout_handle => {
-            tracing::debug!("stdout write completed, exiting");
+            tracing::debug!("plugin {} stdout write completed, exiting", &plugin_id);
         },
     }
 

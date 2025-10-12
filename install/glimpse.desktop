@@ -1,0 +1,30 @@
+[Desktop Entry]
+  Type=Application
+  Name=Glimpse
+  Comment=Modern Linux application launcher
+  Icon=glimpse
+  Exec=/usr/bin/glimpse
+  Terminal=false
+  Categories=Utility;
+  Keywords=launcher;search;spotlight;
+  StartupNotify=false
+
+  [Unit]
+  Description=Glimpse Launcher Daemon
+  Documentation=https://github.com/yourusername/glimpse
+
+  [Service]
+  Type=simple
+  ExecStart=/usr/bin/glimpsed
+  Environment=GLIMPSE_PLUGIN_DIR=/usr/share/glimpse/plugins
+  Restart=on-failure
+
+  [Install]
+  WantedBy=default.target
+  EOF
+
+      # Install license if exists
+      if [ -f LICENSE ]; then
+          install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+      fi
+  }

@@ -1,0 +1,10 @@
+  <?xml version="1.0" encoding="UTF-8"?>
+  <schemalist>
+    <schema id="me.aresa.glimpse" path="/me/aresa/glimpse/">
+      <key name="global-shortcut" type="s">
+        <default>'&lt;alt&gt;f1'</default>
+        <summary>Global shortcut to open Glimpse</summary>
+        <description>Keyboard shortcut to show the Glimpse launcher</description>
+      </key>
+    </schema>
+  </schemalist>

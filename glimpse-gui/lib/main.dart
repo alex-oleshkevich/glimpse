@@ -272,14 +272,18 @@ class _AppState extends State<MainApp> {
                   itemBuilder: (context, index) {
                     final item = _searchItems[index];
                     final isSelected = index == selectedIndex;
-  if (isSelected) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final renderObject = context.findRenderObject();
-      if (renderObject != null && renderObject.attached) {
-        Scrollable.ensureVisible(context, duration: const Duration(milliseconds: 100), alignment: 0.5);
-      }
-    });
-  }
+                    if (isSelected) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        final renderObject = context.findRenderObject();
+                        if (renderObject != null && renderObject.attached) {
+                          Scrollable.ensureVisible(
+                            context,
+                            duration: const Duration(milliseconds: 100),
+                            alignment: 0.5,
+                          );
+                        }
+                      });
+                    }
                     return PopupMenuButton<int>(
                       key: selectedIndex == index ? _popupMenuKey : null,
                       enabled: selectedIndex == index && item.actions.isNotEmpty,

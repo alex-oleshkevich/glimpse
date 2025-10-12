@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, process::Stdio};
 
 use glimpse_sdk::{Message, Method};
 use tokio::{process::Command, sync::mpsc};
@@ -8,7 +8,14 @@ pub async fn shell_exec(command: &str, args: &Vec<String>) {
     let command = command.to_string();
     let args = args.clone();
     tokio::spawn(async move {
-        if let Err(err) = Command::new(&command).args(&args).spawn() {
+        if let Err(err) = Command::new(&command)
+            .args(&args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .process_group(0)
+            .spawn()
+        {
             tracing::error!("failed to execute command: {}", err);
         } else {
             tracing::debug!("executed command: {} {:?}", command, args);
@@ -16,13 +23,35 @@ pub async fn shell_exec(command: &str, args: &Vec<String>) {
     });
 }
 
-pub async fn launch_app(app: &str, action: &Option<&str>) {
-    tracing::debug!("launching app: {} {:?}", app, action);
-    // if let Err(err) = Command::new(app).args(args).spawn() {
-    //     tracing::error!("failed to launch app: {}", err);
-    // } else {
-    //     tracing::debug!("launched app: {} {:?}", app, args);
-    // }
+pub async fn launch_desktop_file(path: &str, action: &Option<&str>) {
+    tracing::debug!("launching desktop file: {} with action: {:?}", path, action);
+
+    let path = path.to_string();
+    let action = action.map(|s| s.to_string());
+
+    tokio::task::spawn_blocking(move || {
+        use gio::prelude::*;
+
+        let desktop_info = match gio::DesktopAppInfo::from_filename(&path) {
+            Some(info) => info,
+            None => {
+                tracing::error!("failed to load desktop file: {}", path);
+                return;
+            }
+        };
+
+        let result = if let Some(action_name) = action {
+            desktop_info.launch_action(&action_name, None::<&gio::AppLaunchContext>);
+            Ok(())
+        } else {
+            desktop_info.launch(&[], None::<&gio::AppLaunchContext>)
+        };
+
+        match result {
+            Ok(_) => tracing::debug!("successfully launched: {}", path),
+            Err(err) => tracing::error!("failed to launch desktop file: {}", err),
+        }
+    });
 }
 
 pub async fn copy_to_clipboard(text: &str) {
