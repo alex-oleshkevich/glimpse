@@ -216,7 +216,7 @@ pub struct State {
     pub inhibitors: Vec<IdleInhibitorRecord>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
     SetManualHold(bool),
     Release { id: u64 },
