@@ -148,7 +148,7 @@ impl SimpleComponent for Popover {
 
         let model = Popover {
             animation: AnimatedPopover::new(&widgets.root),
-            hero_icon_name: "media-playback-pause-symbolic",
+            hero_icon_name: "view-conceal-symbolic",
             hero_subtitle: "Nothing is preventing idle".into(),
             manual_hold_on: false,
             updating_toggle,
@@ -173,9 +173,9 @@ impl SimpleComponent for Popover {
                     .iter()
                     .any(|r| r.bus_name == self.own_unique_name);
                 self.hero_icon_name = if state.inhibitors.is_empty() {
-                    "media-playback-pause-symbolic"
+                    "view-conceal-symbolic"
                 } else {
-                    "media-playback-start-symbolic"
+                    "view-reveal-symbolic"
                 };
                 self.hero_subtitle = format::subtitle(&format::SubtitleInputs {
                     daemon_offline,
@@ -337,9 +337,9 @@ fn pick_icon(r: &IdleInhibitorRecord, is_self: bool) -> String {
         return "applications-system-symbolic".into();
     }
     match r.source.kind {
-        SourceKind::Portal => "application-x-flatpak-symbolic".into(),
-        SourceKind::Login1 => "security-medium-symbolic".into(),
-        SourceKind::ScreenSaver => "application-x-executable-symbolic".into(),
+        SourceKind::Portal => "package-x-generic-symbolic".into(),
+        SourceKind::Login1 => "emblem-system-symbolic".into(),
+        SourceKind::ScreenSaver => "preferences-desktop-screensaver-symbolic".into(),
     }
 }
 
@@ -431,11 +431,11 @@ mod tests {
 
         let mut r_portal = rec(2, ":1.99", "org.mozilla.firefox", true);
         r_portal.source = IdleInhibitorSource::portal("org.mozilla.firefox".into(), "/r/1".into());
-        assert_eq!(pick_icon(&r_portal, false), "application-x-flatpak-symbolic");
+        assert_eq!(pick_icon(&r_portal, false), "package-x-generic-symbolic");
 
         let mut r_logind = rec(3, "", "apt", false);
         r_logind.source = IdleInhibitorSource::login1(42, 0, Login1Mode::Block);
-        assert_eq!(pick_icon(&r_logind, false), "security-medium-symbolic");
+        assert_eq!(pick_icon(&r_logind, false), "emblem-system-symbolic");
     }
 
     #[test]

@@ -200,9 +200,9 @@ impl Drop for Applet {
 
 fn icon_name_for_state(state: &State) -> &'static str {
     if state.inhibitors.is_empty() {
-        "media-playback-pause-symbolic"
+        "view-conceal-symbolic"
     } else {
-        "media-playback-start-symbolic"
+        "view-reveal-symbolic"
     }
 }
 
@@ -226,8 +226,8 @@ mod tests {
     #[test]
     fn icon_flips_with_inhibitor_count() {
         let mut state = State::default();
-        assert_eq!(icon_name_for_state(&state), "media-playback-pause-symbolic");
+        assert_eq!(icon_name_for_state(&state), "view-conceal-symbolic");
         state.inhibitors.push(rec());
-        assert_eq!(icon_name_for_state(&state), "media-playback-start-symbolic");
+        assert_eq!(icon_name_for_state(&state), "view-reveal-symbolic");
     }
 }
