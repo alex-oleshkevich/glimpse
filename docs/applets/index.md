@@ -129,7 +129,10 @@ Placeholders: `{devices}`, `{state}`.
 
 ## Brightness
 
-Shows brightness. Scroll on the applet to change brightness.
+Shows brightness. Scroll on the applet to change brightness. On multi-monitor
+setups, scrolling adjusts the display attached to the panel first, then the
+focused monitor, then the primary brightness source. Display brightness is
+clamped to at least 1%.
 
 ```toml
 [applets.brightness]
