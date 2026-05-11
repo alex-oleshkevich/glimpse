@@ -248,7 +248,7 @@ right = ["...", "custom"]
         assert_eq!(config.panels[0].left, vec!["custom", "pager", "mpris"]);
         assert_eq!(
             config.panels[0].center,
-            vec!["clock", "weather", "notifications"]
+            vec!["clock", "weather", "notifications", "privacy"]
         );
         assert_eq!(
             config.panels[0].right,
@@ -257,7 +257,6 @@ right = ["...", "custom"]
                 "removable",
                 "clipboard",
                 "keyboard",
-                "privacy",
                 "bluetooth",
                 "network",
                 "brightness",
@@ -299,6 +298,7 @@ center = ["before", "...", "middle", "...", "after"]
                 "clock",
                 "weather",
                 "notifications",
+                "privacy",
                 "middle",
                 "after"
             ]

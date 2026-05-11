@@ -1175,6 +1175,7 @@ name = "glimpse-idle"
 version = "0.5.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "glimpse-core",
  "tokio",
  "tokio-util",
