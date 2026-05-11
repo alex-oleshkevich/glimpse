@@ -18,6 +18,7 @@ pub struct Applet {
     state: State,
     wayland_health: WaylandHealth,
     daemon_offline: bool,
+    own_unique_name: String,
     service: IdleInhibitorHandle,
     popover: Controller<Popover>,
     popover_open: bool,
@@ -74,6 +75,7 @@ impl SimpleComponent for Applet {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
+        let own_unique_name = init.own_unique_name.clone();
         let popover = Popover::builder()
             .launch(PopoverInit {
                 parent: root.clone(),
@@ -85,10 +87,11 @@ impl SimpleComponent for Applet {
         let wayland_health = init.wayland_health.borrow().clone();
 
         let model = Applet {
-            icon_name: icon_name_for_state(&state),
+            icon_name: icon_name_for_state(&state, &own_unique_name),
             state,
             wayland_health,
             daemon_offline: false,
+            own_unique_name,
             service: init.service,
             popover,
             popover_open: false,
@@ -145,7 +148,7 @@ impl SimpleComponent for Applet {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             Input::ServiceStateChanged(state) => {
-                self.icon_name = icon_name_for_state(&state);
+                self.icon_name = icon_name_for_state(&state, &self.own_unique_name);
                 self.state = state;
                 self.sync_popover();
             }
@@ -198,11 +201,20 @@ impl Drop for Applet {
     }
 }
 
-fn icon_name_for_state(state: &State) -> &'static str {
-    if state.inhibitors.is_empty() {
-        "view-conceal-symbolic"
-    } else {
+fn icon_name_for_state(state: &State, own_unique_name: &str) -> &'static str {
+    // The panel icon reflects the user's MANUAL HOLD state — flips when they
+    // toggle the popover switch. External inhibitors (niri's power-key,
+    // Firefox playing video, systemd-inhibit) live in the popover but don't
+    // affect the panel icon: otherwise on a system with any persistent
+    // external inhibitor the icon would be stuck "active" forever.
+    let manual_hold_on = state
+        .inhibitors
+        .iter()
+        .any(|r| r.bus_name == own_unique_name);
+    if manual_hold_on {
         "view-reveal-symbolic"
+    } else {
+        "view-conceal-symbolic"
     }
 }
 
@@ -224,10 +236,25 @@ mod tests {
     }
 
     #[test]
-    fn icon_flips_with_inhibitor_count() {
+    fn icon_reflects_manual_hold_not_total_inhibitors() {
         let mut state = State::default();
-        assert_eq!(icon_name_for_state(&state), "view-conceal-symbolic");
-        state.inhibitors.push(rec());
-        assert_eq!(icon_name_for_state(&state), "view-reveal-symbolic");
+        let own = ":1.7";
+        // Empty state -> conceal.
+        assert_eq!(icon_name_for_state(&state, own), "view-conceal-symbolic");
+
+        // An EXTERNAL inhibitor (different bus_name) does NOT flip the icon —
+        // this is the key behavior for systems with persistent inhibitors
+        // like niri's power-key handler.
+        let mut external = rec();
+        external.bus_name = ":1.99".into();
+        state.inhibitors.push(external);
+        assert_eq!(icon_name_for_state(&state, own), "view-conceal-symbolic");
+
+        // Our OWN record (matching bus_name) flips it.
+        let mut ours = rec();
+        ours.id = 2;
+        ours.bus_name = own.into();
+        state.inhibitors.push(ours);
+        assert_eq!(icon_name_for_state(&state, own), "view-reveal-symbolic");
     }
 }
