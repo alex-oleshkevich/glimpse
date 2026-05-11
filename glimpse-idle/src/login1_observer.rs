@@ -111,7 +111,9 @@ pub async fn run(
         };
 
         let (added, removed) = diff(&tracked, &entries, own_pid);
-        if !added.is_empty() || !removed.is_empty() {
+        let mut changed = !added.is_empty() || !removed.is_empty();
+
+        if changed {
             let mut reg = registry.lock().await;
             for entry in &added {
                 let id = reg.mint_id();
@@ -125,6 +127,16 @@ pub async fn run(
                 }
             }
             drop(reg);
+        }
+
+        // Refresh process_name on every tracked record. Pid rename
+        // (rare) or initial-read failure both resolve here.
+        let renames = refresh_process_names(&registry, &tracked).await;
+        if renames > 0 {
+            changed = true;
+        }
+
+        if changed {
             on_change();
         }
 
@@ -133,6 +145,35 @@ pub async fn run(
             _ = tokio::time::sleep(POLL_INTERVAL) => {}
         }
     }
+}
+
+/// Re-read /proc/<pid>/comm for every tracked Login1 record and update
+/// process_name in place. Returns the number of records whose
+/// process_name actually changed.
+async fn refresh_process_names(
+    registry: &tokio::sync::Mutex<Registry>,
+    tracked: &HashMap<Login1Key, u64>,
+) -> usize {
+    if tracked.is_empty() {
+        return 0;
+    }
+    let mut renames = 0usize;
+    let mut reg = registry.lock().await;
+    for (_, id) in tracked.iter() {
+        let Some(internal) = reg.records_mut().get_mut(id) else { continue };
+        if !matches!(
+            internal.record.source.kind,
+            glimpse_core::services::idle_inhibitor::SourceKind::Login1
+        ) {
+            continue;
+        }
+        let fresh = read_proc_comm(internal.record.source.pid);
+        if internal.record.process_name != fresh {
+            internal.record.process_name = fresh;
+            renames += 1;
+        }
+    }
+    renames
 }
 
 #[cfg(test)]
@@ -174,6 +215,52 @@ mod tests {
         assert!(matches!(parse_mode("delay"), Login1Mode::Delay));
         assert!(matches!(parse_mode("block-weak"), Login1Mode::BlockWeak));
         assert!(matches!(parse_mode("anything-else"), Login1Mode::Block));
+    }
+
+    #[tokio::test]
+    async fn refresh_process_names_overwrites_stale_label_for_login1_records_only() {
+        use crate::inhibitor_registry::Registry;
+        use glimpse_core::services::idle_inhibitor::{
+            IdleInhibitorRecord, IdleInhibitorSource, InhibitionTargets, Login1Mode,
+        };
+        use tokio::sync::Mutex;
+
+        let registry = Mutex::new(Registry::new());
+        let mut tracked = HashMap::new();
+        let own_pid = std::process::id();
+
+        // Login1 record with a stale label; pid is our own (so /proc/self/comm
+        // gives a known value via std::process::id()).
+        {
+            let mut reg = registry.lock().await;
+            let id = reg.mint_id();
+            reg.insert(
+                IdleInhibitorRecord {
+                    id,
+                    who: "test".into(),
+                    why: "x".into(),
+                    bus_name: String::new(),
+                    process_name: "stale".into(),
+                    source: IdleInhibitorSource::login1(own_pid, 1000, Login1Mode::Block),
+                    targets: InhibitionTargets::default(),
+                    can_release: false,
+                    added_at_unix: 0,
+                },
+                None,
+            );
+            tracked.insert(
+                Login1Key { pid: own_pid, who: "test".into(), why: "x".into() },
+                id,
+            );
+        }
+
+        let renames = refresh_process_names(&registry, &tracked).await;
+        assert_eq!(renames, 1);
+
+        let reg = registry.lock().await;
+        let record = reg.snapshot().into_iter().next().unwrap();
+        assert_ne!(record.process_name, "stale");
+        assert!(!record.process_name.is_empty());
     }
 
     #[test]
