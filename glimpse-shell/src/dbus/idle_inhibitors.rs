@@ -27,9 +27,14 @@ pub trait Inhibitors {
     fn release(&self, id: u64) -> zbus::Result<()>;
 }
 
+// Targets our daemon's well-known name directly instead of the cross-desktop
+// org.freedesktop.ScreenSaver name. On GNOME/KDE that well-known name is
+// owned by gsd-power / kscreensaver / etc., so a generic ScreenSaver call
+// would go to them and never reach our daemon. By targeting me.aresa.GlimpseIdle
+// + /ScreenSaver we hit the daemon's local ScreenSaver server unconditionally.
 #[zbus::proxy(
     interface = "org.freedesktop.ScreenSaver",
-    default_service = "org.freedesktop.ScreenSaver",
+    default_service = "me.aresa.GlimpseIdle",
     default_path = "/ScreenSaver"
 )]
 pub trait ScreenSaverClient {
