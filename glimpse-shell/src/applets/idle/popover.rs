@@ -1,17 +1,16 @@
 #![allow(unused_assignments)]
 
-use relm4::{
-    ComponentParts, ComponentSender, SimpleComponent,
-    WidgetTemplate,
-    gtk::{self, gio, glib, prelude::*},
-};
 use std::cell::Cell;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
+use relm4::{
+    ComponentParts, ComponentSender, SimpleComponent, WidgetTemplate,
+    gtk::{self, glib, prelude::*},
+};
+
 use crate::components::{
-    animated_popover::AnimatedPopover,
-    hero::HeroView,
-    popover_scroll,
+    animated_popover::AnimatedPopover, hero::HeroView, item::ItemView, popover_scroll,
     popover_shell::PopoverShell,
 };
 use crate::services::wayland_idle_inhibit::WaylandHealth;
@@ -19,7 +18,6 @@ use crate::services::wayland_idle_inhibit::WaylandHealth;
 use glimpse_core::services::idle_inhibitor::{Command, IdleInhibitorRecord, SourceKind, State};
 
 use super::format;
-use super::row::{IdleRow, IdleRowInit};
 
 pub struct Popover {
     animation: AnimatedPopover,
@@ -27,7 +25,9 @@ pub struct Popover {
     hero_subtitle: String,
     manual_hold_on: bool,
     updating_toggle: Rc<Cell<bool>>,
-    rows_container: gtk::Box,
+    list: gtk::Box,
+    empty: gtk::Box,
+    rows: HashMap<u64, IdleListRow>,
     own_unique_name: String,
 }
 
@@ -39,7 +39,6 @@ pub struct Init {
 #[derive(Debug, Clone)]
 pub enum Input {
     Toggle,
-    Close,
     UpdateState {
         state: State,
         wayland: WaylandHealth,
@@ -86,17 +85,33 @@ impl SimpleComponent for Popover {
                         set_orientation: gtk::Orientation::Horizontal,
                     },
 
+                    #[name = "empty"]
+                    gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+                        set_spacing: 4,
+                        set_halign: gtk::Align::Center,
+                        set_valign: gtk::Align::Center,
+                        set_vexpand: true,
+                        set_hexpand: true,
+                        add_css_class: "empty-state",
+
+                        gtk::Label {
+                            add_css_class: "empty-state__title",
+                            set_label: "Nothing is preventing idle",
+                        },
+                    },
+
                     #[name = "scroller"]
                     gtk::ScrolledWindow {
                         set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
-                        set_vexpand: false,
+                        set_vexpand: true,
                         set_propagate_natural_height: true,
 
-                        #[name = "rows"]
+                        #[name = "list"]
                         gtk::Box {
-                            add_css_class: "idle-popover__rows",
                             set_orientation: gtk::Orientation::Vertical,
-                            set_spacing: 0,
+                            set_spacing: 2,
+                            add_css_class: "idle-list",
                         },
                     },
                 },
@@ -110,7 +125,6 @@ impl SimpleComponent for Popover {
         widgets.root.set_parent(&init.parent);
         widgets.root.set_autohide(true);
         popover_scroll::install_half_monitor_limit(&widgets.root, &widgets.scroller, &init.parent);
-        widgets.rows.set_visible(false);
 
         let guard = updating_toggle.clone();
         let toggle_sender = sender.clone();
@@ -138,7 +152,9 @@ impl SimpleComponent for Popover {
             hero_subtitle: "Nothing is preventing idle".into(),
             manual_hold_on: false,
             updating_toggle,
-            rows_container: widgets.rows.clone(),
+            list: widgets.list.clone(),
+            empty: widgets.empty.clone(),
+            rows: HashMap::new(),
             own_unique_name: init.own_unique_name,
         };
         ComponentParts { model, widgets }
@@ -147,7 +163,6 @@ impl SimpleComponent for Popover {
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
             Input::Toggle => self.animation.toggle(),
-            Input::Close => self.animation.close(),
             Input::UpdateState {
                 state,
                 wayland,
@@ -169,14 +184,7 @@ impl SimpleComponent for Popover {
                     records: &state.inhibitors,
                     own_unique_name: &self.own_unique_name,
                 });
-                rebuild_rows(
-                    &self.rows_container,
-                    &state.inhibitors,
-                    &self.own_unique_name,
-                    &sender,
-                );
-                self.rows_container
-                    .set_visible(!state.inhibitors.is_empty());
+                self.sync_rows(&state.inhibitors, &sender);
             }
             Input::SetManualHold(on) => {
                 self.manual_hold_on = on;
@@ -201,89 +209,128 @@ impl SimpleComponent for Popover {
     }
 }
 
-fn rebuild_rows(
-    container: &gtk::Box,
-    records: &[IdleInhibitorRecord],
-    own_unique_name: &str,
-    sender: &ComponentSender<Popover>,
-) {
-    while let Some(child) = container.first_child() {
-        container.remove(&child);
-    }
-    for r in records {
-        container.append(&build_row(r, own_unique_name, sender));
-    }
-}
+impl Popover {
+    fn sync_rows(
+        &mut self,
+        records: &[IdleInhibitorRecord],
+        sender: &ComponentSender<Self>,
+    ) {
+        let mut seen: HashSet<u64> = HashSet::new();
+        let mut previous: Option<gtk::Widget> = None;
 
-fn build_row(
-    r: &IdleInhibitorRecord,
-    own_unique_name: &str,
-    sender: &ComponentSender<Popover>,
-) -> gtk::Widget {
-    let is_self = r.bus_name == own_unique_name;
-    let row = IdleRow::init(IdleRowInit {
-        icon: pick_icon(r, is_self),
-        label: format::row_label(r),
-        tooltip: build_tooltip(r),
-    });
+        for record in records {
+            seen.insert(record.id);
+            let is_self = record.bus_name == self.own_unique_name;
 
-    if r.can_release {
-        attach_row_context_menu(&row, r.id, sender);
-    }
-
-    row.as_ref().clone().upcast()
-}
-
-fn attach_row_context_menu(row: &IdleRow, id: u64, sender: &ComponentSender<Popover>) {
-    let action_group = gio::SimpleActionGroup::new();
-    let release = gio::SimpleAction::new("release", None);
-    release.connect_activate({
-        let sender = sender.clone();
-        move |_, _| {
-            sender.input(Input::EmitCommand(Command::Release { id }));
+            let entry = self.rows.entry(record.id);
+            let row = entry.or_insert_with(|| {
+                IdleListRow::new(record, is_self, sender)
+            });
+            row.update(record, is_self);
+            place_row(row, &self.list, previous.as_ref());
+            previous = Some(row.root.button.clone().upcast());
         }
-    });
-    action_group.add_action(&release);
 
-    row.as_ref()
-        .insert_action_group("idle-row", Some(&action_group));
+        // Remove rows whose records are gone.
+        self.rows.retain(|id, row| {
+            let keep = seen.contains(id);
+            if !keep {
+                let widget: &gtk::Widget = row.root.button.upcast_ref();
+                if let Some(parent) = widget.parent() {
+                    if let Ok(parent) = parent.downcast::<gtk::Box>() {
+                        parent.remove(widget);
+                    }
+                }
+            }
+            keep
+        });
 
-    let menu = gio::Menu::new();
-    menu.append(Some("Release"), Some("idle-row.release"));
-
-    let context_menu = gtk::PopoverMenu::from_model(Some(&menu));
-    context_menu.add_css_class("idle-row-menu");
-    context_menu.set_parent(row.as_ref());
-    context_menu.set_has_arrow(false);
-
-    // Right-click and long-press open the menu (clipboard pattern).
-    let click = gtk::GestureClick::new();
-    click.set_button(gtk::gdk::BUTTON_SECONDARY);
-    click.set_propagation_phase(gtk::PropagationPhase::Capture);
-    click.connect_pressed({
-        let context_menu = context_menu.clone();
-        move |gesture, _, _, _| {
-            gesture.set_state(gtk::EventSequenceState::Claimed);
-            context_menu.popup();
-        }
-    });
-    row.as_ref().add_controller(click);
-
-    // Also surface the menu via primary-click for discoverability — the
-    // popover row has no other left-click action, so this is non-ambiguous.
-    let primary_click = gtk::GestureClick::new();
-    primary_click.set_button(gtk::gdk::BUTTON_PRIMARY);
-    primary_click.connect_released({
-        let context_menu = context_menu.clone();
-        move |_, _, _, _| context_menu.popup()
-    });
-    row.as_ref().add_controller(primary_click);
-
-    row.as_ref().connect_destroy({
-        let context_menu = context_menu.clone();
-        move |_| context_menu.unparent()
-    });
+        let has_records = !records.is_empty();
+        self.list.set_visible(has_records);
+        self.empty.set_visible(!has_records);
+    }
 }
+
+// ─── Row ────────────────────────────────────────────────────────────────
+//
+// Uses the project-wide ItemView widget_template:
+//   [left slot: icon] [label (flex spacer)] [right slot: action]
+// wrapped in a gtk::Button so the whole row is clickable.
+
+struct IdleListRow {
+    root: ItemView,
+    icon: gtk::Image,
+    release_button: gtk::Button,
+    id: u64,
+}
+
+impl IdleListRow {
+    fn new(record: &IdleInhibitorRecord, is_self: bool, sender: &ComponentSender<Popover>) -> Self {
+        let root = ItemView::init(());
+        root.button.add_css_class("idle-row");
+        root.left.set_visible(true);
+
+        let icon = gtk::Image::from_icon_name(&pick_icon(record, is_self));
+        icon.add_css_class("idle-row__icon");
+        icon.set_pixel_size(16);
+        root.left.append(&icon);
+
+        let release_button = gtk::Button::with_label("Release");
+        release_button.add_css_class("flat");
+        release_button.add_css_class("idle-row__release");
+        release_button.set_valign(gtk::Align::Center);
+        root.right.append(&release_button);
+
+        let id = record.id;
+        let primary = sender.clone();
+        root.button.connect_clicked(move |_| {
+            primary.input(Input::EmitCommand(Command::Release { id }));
+        });
+        let inline = sender.clone();
+        release_button.connect_clicked(move |_| {
+            inline.input(Input::EmitCommand(Command::Release { id }));
+        });
+
+        let mut row = Self {
+            root,
+            icon,
+            release_button,
+            id,
+        };
+        row.update(record, is_self);
+        row
+    }
+
+    fn update(&mut self, record: &IdleInhibitorRecord, is_self: bool) {
+        debug_assert_eq!(self.id, record.id);
+        self.icon.set_icon_name(Some(&pick_icon(record, is_self)));
+        self.root.label.set_label(&format::row_label(record));
+        self.root.button.set_tooltip_text(Some(&build_tooltip(record)));
+
+        // Read-only Login1 rows: outer Button insensitive, inline Release hidden.
+        self.root.button.set_sensitive(record.can_release);
+        self.root.right.set_visible(record.can_release);
+        self.release_button.set_visible(record.can_release);
+    }
+}
+
+fn place_row(row: &IdleListRow, container: &gtk::Box, previous: Option<&gtk::Widget>) {
+    let row_widget: &gtk::Widget = row.root.button.upcast_ref();
+    let target = container.clone().upcast::<gtk::Widget>();
+    let already_in_container = row_widget.parent().is_some_and(|parent| parent == target);
+
+    if !already_in_container {
+        if let Some(parent) = row_widget.parent() {
+            if let Ok(parent) = parent.downcast::<gtk::Box>() {
+                parent.remove(row_widget);
+            }
+        }
+        container.append(row_widget);
+    }
+    container.reorder_child_after(row_widget, previous);
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────
 
 fn pick_icon(r: &IdleInhibitorRecord, is_self: bool) -> String {
     if is_self {
@@ -327,6 +374,11 @@ fn build_tooltip(r: &IdleInhibitorRecord) -> String {
         "Active for {}",
         format::relative_time(r.added_at_unix)
     ));
+
+    if r.can_release {
+        lines.push(String::new());
+        lines.push("Click to release".into());
+    }
 
     lines.join("\n")
 }
@@ -387,15 +439,18 @@ mod tests {
     }
 
     #[test]
-    fn tooltip_carries_why_targets_source_identity_and_relative_time() {
-        let mut r = rec(1, ":1.99", "Firefox", true);
-        r.targets.suspend = true;
+    fn tooltip_includes_click_to_release_when_can_release_is_true() {
+        let r = rec(1, ":1.99", "Firefox", true);
         let tip = build_tooltip(&r);
-        assert!(tip.contains("Playing video"));
-        assert!(tip.contains("Targets: idle, suspend"));
-        assert!(tip.contains("Source: ScreenSaver"));
-        assert!(tip.contains(":1.99"));
-        assert!(tip.contains("Active for"));
+        assert!(tip.contains("Click to release"));
+    }
+
+    #[test]
+    fn tooltip_skips_click_to_release_for_readonly_rows() {
+        let mut r = rec(1, "", "apt", false);
+        r.source = IdleInhibitorSource::login1(4242, 0, Login1Mode::Block);
+        let tip = build_tooltip(&r);
+        assert!(!tip.contains("Click to release"));
     }
 
     #[test]
