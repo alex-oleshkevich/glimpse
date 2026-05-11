@@ -48,6 +48,7 @@ An empty label means the applet shows only its icon.
 | [`clock`](#clock) | Time, date, calendar, and optional world clocks. |
 | [`command`](#command) | A button or menu that runs commands. |
 | [`exec`](#exec) | A live custom status widget from your script. |
+| [`idle`](#idle-inhibitor) | System idle inhibitors and a manual "keep awake" toggle. |
 | [`keyboard`](#keyboard) | Current keyboard layout. |
 | [`mpris`](#mpris) | Media players and playback controls. |
 | [`network`](#network) | Wi-Fi, wired network, and VPN status. |
@@ -283,23 +284,43 @@ Read [Exec Applet](../custom-applets/exec.md) for config and options, [Line Prot
 
 ## Idle Inhibitor
 
-Lists every active idle inhibitor across four sources and lets you release the ones whose owner allows it:
+Surfaces every active idle inhibitor on the session and lets you release the ones you own. The popover toggle is your manual "keep awake" — flipping it on holds both an `idle` and a `sleep` lock at the system level, so the screen won't blank *and* the machine won't auto-suspend.
 
-- **Manual hold** — toggle the hero switch in the popover to keep the system awake (blocks idle and suspend). Dies with the shell.
-- **`org.freedesktop.ScreenSaver`** — external apps like Firefox, mpv, VLC, OBS. Releasable from the popover.
-- **`org.freedesktop.impl.portal.Inhibit`** — Flatpak/sandboxed apps via xdg-desktop-portal. Releasable from the popover.
-- **`systemd-logind`** — `systemd-inhibit`, package managers during upgrade, backup tools. Read-only (we don't own the fd).
+The panel icon (an eye) flips with the toggle: closed when your manual hold is off, open when it's on. External inhibitors are listed in the popover but don't affect the panel icon — otherwise systems with persistent background inhibitors (e.g. `niri`'s power-key handler) would never see the icon change.
 
-Each row shows the source's targets as inline chips: `idle`, `suspend`, `shutdown`, `lid` (primary tier) and `power-key`, `suspend-key`, `hibernate-key` (secondary tier). The hero icon flips between a "cup empty" and "cup full" symbolic whenever any inhibitor is active.
+Four kinds of records appear in the popover:
+
+| Source | Where it comes from | Releasable from popover |
+|---|---|---|
+| Your manual hold | Toggle on `Idle Inhibitor` popover | yes |
+| `org.freedesktop.ScreenSaver` | Apps like Firefox, mpv, VLC, OBS, Steam | yes |
+| `org.freedesktop.impl.portal.Inhibit` | Flatpak / sandboxed apps via xdg-desktop-portal | yes |
+| `systemd-logind` | `systemd-inhibit`, package managers during upgrade, backup tools | no — we don't own the fd |
+
+Row UX is icon + app name. Click a releasable row (or right-click) to open a one-item menu with **Release** — releases the inhibit and removes the row. Read-only `logind` rows have no menu and clicking them does nothing. Targets (`idle`, `suspend`, `shutdown`, lid/key handlers) and the full `who`/`why` strings sit in each row's tooltip.
 
 ```toml
 [[panels]]
 right = ["...", "idle"]
 ```
 
-The applet has no per-instance configuration. It is added to the default right panel between `battery` and `session`; remove it from the panel section if you don't want it visible.
+No per-instance configuration. The applet is added to the default right panel between `battery` and `session`; remove `"idle"` from the panel section if you don't want it visible.
 
-The daemon ships an xdg-desktop-portal backend metadata file (`/usr/share/xdg-desktop-portal/portals/glimpse.portal`). On non-Glimpse desktops, route the Inhibit interface to it via your `portals.conf`:
+### Daemon-side surfaces
+
+`glimpse-idle` hosts three D-Bus services on the session bus:
+
+| Bus name | Path | Purpose |
+|---|---|---|
+| `org.freedesktop.ScreenSaver` | `/ScreenSaver`, `/org/freedesktop/ScreenSaver` | Public interface for external `Inhibit`/`UnInhibit` callers |
+| `me.aresa.GlimpseIdle.Portal` | `/org/freedesktop/portal/desktop` | xdg-desktop-portal backend for `org.freedesktop.impl.portal.Inhibit` |
+| `me.aresa.GlimpseIdle` | `/me/aresa/GlimpseIdle/Inhibitors` | Glimpse-private read + admin-release API the panel proxies through |
+
+If `org.freedesktop.ScreenSaver` is already owned by another process (`gsd-power` on GNOME, `kscreensaver` on KDE), our acquisition gracefully degrades — external screensaver-style apps will go to that other process, and only inhibitors arriving through the portal backend or logind will appear in the popover. The shell's own manual hold always reaches us via `me.aresa.GlimpseIdle` directly, regardless of who owns the public name.
+
+### Installing the portal backend
+
+The daemon ships an xdg-desktop-portal `.portal` file at `/usr/share/xdg-desktop-portal/portals/glimpse.portal` and a D-Bus session activation file. On the Glimpse desktop (`XDG_CURRENT_DESKTOP=glimpse`) the portal auto-routes to us. On other desktops, add the route in your `portals.conf`:
 
 ```ini
 [preferred]
