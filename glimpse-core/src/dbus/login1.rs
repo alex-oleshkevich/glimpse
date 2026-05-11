@@ -66,9 +66,24 @@ pub fn select_session_candidate(
     candidates: &[SessionCandidate],
     uid: u32,
 ) -> Option<&SessionCandidate> {
+    select_session_candidate_impl(candidates, uid, false)
+}
+
+pub fn select_seat_session_candidate(
+    candidates: &[SessionCandidate],
+    uid: u32,
+) -> Option<&SessionCandidate> {
+    select_session_candidate_impl(candidates, uid, true)
+}
+
+fn select_session_candidate_impl(
+    candidates: &[SessionCandidate],
+    uid: u32,
+    require_seat: bool,
+) -> Option<&SessionCandidate> {
     let candidates = candidates
         .iter()
-        .filter(|candidate| candidate.uid == uid)
+        .filter(|candidate| candidate.uid == uid && (!require_seat || !candidate.seat.is_empty()))
         .collect::<Vec<_>>();
 
     select_best_session(candidates.iter().copied().filter(|candidate| {
@@ -129,6 +144,7 @@ pub fn current_uid() -> anyhow::Result<u32> {
 
 #[cfg(test)]
 mod tests {
+    use super::select_seat_session_candidate;
     use super::{SessionCandidate, select_session_candidate};
     use zbus::zvariant::OwnedObjectPath;
 
@@ -171,6 +187,33 @@ mod tests {
         )];
 
         assert!(select_session_candidate(&candidates, 1000).is_none());
+    }
+
+    #[test]
+    fn select_seat_session_candidate_skips_no_seat_sessions() {
+        let candidates = vec![
+            candidate("1", 1000, true, Some("user"), Some("wayland"), ""),
+            candidate("2", 1000, false, Some("user"), Some("tty"), "seat0"),
+        ];
+
+        assert_eq!(
+            select_seat_session_candidate(&candidates, 1000).map(|candidate| candidate.id.as_str()),
+            Some("2")
+        );
+    }
+
+    #[test]
+    fn select_seat_session_candidate_returns_none_without_a_seat() {
+        let candidates = vec![candidate(
+            "1",
+            1000,
+            true,
+            Some("manager"),
+            Some("unspecified"),
+            "",
+        )];
+
+        assert!(select_seat_session_candidate(&candidates, 1000).is_none());
     }
 
     fn candidate(

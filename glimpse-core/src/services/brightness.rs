@@ -17,7 +17,10 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     dbus::{
-        login1::{Login1ManagerProxy, Login1SessionProxy},
+        login1::{
+            Login1ManagerProxy, Login1SessionEntry, Login1SessionProxy, SessionCandidate,
+            current_uid, select_seat_session_candidate,
+        },
         upower::UPowerKbdBacklightProxy,
     },
     services::framework::{Control, ServiceCommand, ServiceHandle},
@@ -585,13 +588,82 @@ async fn set_brightness_via_logind(
     value: u32,
 ) -> anyhow::Result<()> {
     let manager = Login1ManagerProxy::new(conn).await?;
-    let session_path = manager.get_session_by_pid(std::process::id()).await?;
+    let session_path = resolve_brightness_session_path(conn, &manager).await?;
     let session = Login1SessionProxy::builder(conn)
         .path(session_path)?
         .build()
         .await?;
     session.set_brightness(subsystem, device, value).await?;
     Ok(())
+}
+
+async fn resolve_brightness_session_path(
+    conn: &zbus::Connection,
+    manager: &Login1ManagerProxy<'_>,
+) -> anyhow::Result<zbus::zvariant::OwnedObjectPath> {
+    let uid = current_uid()?;
+    let sessions = manager.list_sessions().await?;
+    let mut candidates = Vec::new();
+
+    for entry in sessions {
+        if entry.1 != uid {
+            continue;
+        }
+        candidates.push(inspect_logind_session_candidate(conn, entry).await);
+    }
+
+    let selected = select_seat_session_candidate(&candidates, uid)
+        .ok_or_else(|| anyhow::anyhow!("no seatful logind session found for uid {uid}"))?;
+    tracing::debug!(
+        uid,
+        session_id = %selected.id,
+        session = %selected.path,
+        active = selected.active,
+        class = ?selected.class,
+        kind = ?selected.kind,
+        seat = %selected.seat,
+        "resolved logind session for brightness control"
+    );
+    Ok(selected.path.clone())
+}
+
+async fn inspect_logind_session_candidate(
+    conn: &zbus::Connection,
+    entry: Login1SessionEntry,
+) -> SessionCandidate {
+    let (id, uid, _user, seat, path) = entry;
+    let mut candidate = SessionCandidate {
+        id,
+        uid,
+        seat,
+        path,
+        active: false,
+        class: None,
+        kind: None,
+    };
+
+    let proxy = match Login1SessionProxy::builder(conn).path(candidate.path.clone()) {
+        Ok(builder) => builder.build().await,
+        Err(error) => Err(error),
+    };
+
+    match proxy {
+        Ok(session) => {
+            candidate.active = session.active().await.unwrap_or(false);
+            candidate.class = session.class().await.ok();
+            candidate.kind = session.kind().await.ok();
+        }
+        Err(error) => {
+            tracing::debug!(
+                %error,
+                session_id = %candidate.id,
+                session = %candidate.path,
+                "failed to inspect logind session candidate for brightness control"
+            );
+        }
+    }
+
+    candidate
 }
 
 fn scan_backlight_sources(root: &Path) -> Vec<BrightnessSource> {
