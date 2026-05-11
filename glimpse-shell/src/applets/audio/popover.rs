@@ -534,10 +534,13 @@ fn output_items(devices: &[AudioDevice]) -> Vec<DeviceListItem<Command>> {
             },
             busy: false,
             tooltip: Some(device_tooltip(device)),
+            chips: Vec::new(),
+            secondary_status: None,
             active: device.is_default,
             visible: true,
             command: Some(Command::SetDefaultOutput(device.name.clone())),
             actions: Vec::new(),
+            primary_action: None,
         })
         .collect()
 }
@@ -556,10 +559,13 @@ fn input_items(devices: &[AudioDevice]) -> Vec<DeviceListItem<Command>> {
             },
             busy: false,
             tooltip: Some(device_tooltip(device)),
+            chips: Vec::new(),
+            secondary_status: None,
             active: device.is_default,
             visible: true,
             command: Some(Command::SetDefaultInput(device.name.clone())),
             actions: Vec::new(),
+            primary_action: None,
         })
         .collect()
 }
@@ -578,10 +584,13 @@ fn stream_items(streams: &[AudioStream]) -> Vec<DeviceListItem<Command>> {
             },
             busy: false,
             tooltip: Some(format!("{}%", stream.volume)),
+            chips: Vec::new(),
+            secondary_status: None,
             active: false,
             visible: true,
             command: Some(Command::ToggleStreamMute(stream.index)),
             actions: Vec::new(),
+            primary_action: None,
         })
         .collect()
 }

@@ -1176,6 +1176,7 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "futures-util",
  "glimpse-core",
  "tokio",
  "tokio-util",

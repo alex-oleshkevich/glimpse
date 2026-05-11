@@ -126,10 +126,13 @@ fn build_wifi_items(
                 status: wifi_status(access_point),
                 busy: is_wifi_busy(active_action, access_point),
                 tooltip: Some(access_point_tooltip(access_point)),
+                chips: Vec::new(),
+                secondary_status: None,
                 active: access_point.connected,
                 visible: true,
                 command: Some(primary_wifi_command(access_point)),
                 actions: wifi_item_actions(access_point),
+                primary_action: None,
             }
         })
         .collect()
