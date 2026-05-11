@@ -163,10 +163,13 @@ fn build_device_items(state: &State) -> Vec<DeviceListItem<Command>> {
             status: device_status(device),
             busy: device.busy,
             tooltip: Some(device_tooltip(device)),
+            chips: Vec::new(),
+            secondary_status: None,
             active: device.mounted_at.is_some(),
             visible: true,
             command: primary_device_command(device),
             actions: device_actions(device),
+            primary_action: None,
         })
         .collect()
 }

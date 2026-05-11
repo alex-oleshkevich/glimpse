@@ -4,7 +4,13 @@ use crate::{
     agents::{bluetooth::BluetoothAgentRuntime, network::NetworkAgentRuntime},
     panels,
     prompts::{bluetooth as bluetooth_prompts, network as network_prompts},
-    services::framework::{Control, ServiceRuntime, Services},
+    services::{
+        framework::{Control, ServiceRuntime, Services},
+        wayland_idle_inhibit::{
+            self, NoopWaylandInhibitor, SHELL_EXTENSIONS, ShellExtensions, WaylandIdleInhibitor,
+            gdk_backend::GdkWaylandInhibitor,
+        },
+    },
     theme::{self, ThemeState},
 };
 use adw::gdk::{self, prelude::DisplayExt, prelude::MonitorExt};
@@ -45,6 +51,8 @@ pub struct App {
     network_agent_cancel: CancellationToken,
     bluetooth_agent_cancel: CancellationToken,
     prompt_fallback_parent: gtk4::Widget,
+    wayland_swap_tx: tokio::sync::mpsc::Sender<Box<dyn WaylandIdleInhibitor + Send>>,
+    wayland_installed: bool,
 }
 
 #[relm4::component(pub)]
@@ -139,6 +147,8 @@ impl SimpleComponent for App {
             });
         }
 
+        let wayland_swap_tx = spawn_idle_subsystem(init.dbus.session.clone());
+
         let services = ServiceRuntime::new(init.dbus);
         services.broadcast(Control::Start(init.config.clone()));
         spawn_theme_subscription(services.handles().theme, sender.input_sender().clone());
@@ -172,6 +182,8 @@ impl SimpleComponent for App {
             network_agent_cancel,
             bluetooth_agent_cancel,
             prompt_fallback_parent,
+            wayland_swap_tx,
+            wayland_installed: false,
         };
 
         ComponentParts { model, widgets }
@@ -235,6 +247,49 @@ impl Drop for App {
         self.network_agent_cancel.cancel();
         self.bluetooth_agent_cancel.cancel();
     }
+}
+
+fn spawn_idle_subsystem(
+    session: zbus::Connection,
+) -> tokio::sync::mpsc::Sender<Box<dyn WaylandIdleInhibitor + Send>> {
+    let own_unique_bus_name = session
+        .unique_name()
+        .map(|n| n.to_string())
+        .unwrap_or_default();
+    let (swap_tx, swap_rx) = tokio::sync::mpsc::channel::<Box<dyn WaylandIdleInhibitor + Send>>(1);
+    let backend: Box<dyn WaylandIdleInhibitor + Send> = Box::new(NoopWaylandInhibitor);
+    let initial_health = backend.health();
+    let (health_tx, health_rx) = tokio::sync::watch::channel(initial_health);
+    relm4::spawn(async move {
+        let cancel = CancellationToken::new();
+        match crate::dbus::idle_inhibitors::spawn(session, cancel.clone()).await {
+            Ok(handle) => {
+                let state_rx = handle.subscribe();
+                let task_cancel = cancel.clone();
+                tokio::spawn(async move {
+                    wayland_idle_inhibit::run(backend, state_rx, swap_rx, health_tx, task_cancel)
+                        .await;
+                });
+                if SHELL_EXTENSIONS
+                    .set(ShellExtensions {
+                        idle_inhibitor: handle,
+                        wayland_health: health_rx,
+                        own_unique_bus_name,
+                    })
+                    .is_err()
+                {
+                    tracing::warn!("idle SHELL_EXTENSIONS already initialized");
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    error = ?e,
+                    "idle inhibitor proxy unavailable; idle applet disabled"
+                );
+            }
+        }
+    });
+    swap_tx
 }
 
 fn spawn_theme_subscription(
@@ -321,6 +376,46 @@ impl App {
                 monitor = %key.monitor,
                 "panel removed"
             );
+        }
+
+        self.maybe_install_wayland_inhibitor();
+    }
+
+    fn maybe_install_wayland_inhibitor(&mut self) {
+        if self.wayland_installed {
+            return;
+        }
+        let Some(panel) = self.panels.first() else {
+            return;
+        };
+        let window: gtk4::Window = panel.controller.widget().clone().upcast();
+        self.wayland_installed = true;
+        let swap_tx = self.wayland_swap_tx.clone();
+        let install = move |window: &gtk4::Window| match GdkWaylandInhibitor::try_new(window) {
+            Ok(backend) => {
+                let boxed: Box<dyn WaylandIdleInhibitor + Send> = Box::new(backend);
+                if let Err(e) = swap_tx.try_send(boxed) {
+                    tracing::warn!(?e, "failed to install wayland idle inhibitor backend");
+                } else {
+                    tracing::info!("installed real wayland idle inhibitor backend");
+                }
+            }
+            Err(message) => {
+                tracing::warn!(
+                    %message,
+                    "wayland idle inhibit unavailable; staying on Noop backend"
+                );
+            }
+        };
+        if window.is_mapped() {
+            install(&window);
+        } else {
+            let install_once = std::cell::Cell::new(Some(install));
+            window.connect_map(move |w| {
+                if let Some(install) = install_once.take() {
+                    install(w);
+                }
+            });
         }
     }
 

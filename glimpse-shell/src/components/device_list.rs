@@ -25,6 +25,18 @@ pub struct DeviceListAction<Command> {
     pub command: Command,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChipTier {
+    Primary,
+    Secondary,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeviceListChip {
+    pub label: String,
+    pub tier: ChipTier,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeviceListItem<Command> {
     pub id: String,
@@ -33,10 +45,13 @@ pub struct DeviceListItem<Command> {
     pub status: String,
     pub busy: bool,
     pub tooltip: Option<String>,
+    pub chips: Vec<DeviceListChip>,
+    pub secondary_status: Option<String>,
     pub active: bool,
     pub visible: bool,
     pub command: Option<Command>,
     pub actions: Vec<DeviceListAction<Command>>,
+    pub primary_action: Option<DeviceListAction<Command>>,
 }
 
 pub struct DeviceList<Command>
@@ -71,6 +86,8 @@ struct DeviceRow<Command> {
     item: DeviceListItem<Command>,
     action_popover: gtk::Popover,
     action_list: gtk::Box,
+    chip_row: gtk::Box,
+    primary_action_slot: gtk::Box,
 }
 
 #[relm4::component]
@@ -123,21 +140,57 @@ where
                         set_icon_name: Some(&model.item.icon),
                     },
 
-                    gtk::Label {
-                        add_css_class: "device-list-row__label",
-                        add_css_class: "action-row__title",
+                    gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+                        set_spacing: 2,
                         set_hexpand: true,
-                        set_halign: gtk::Align::Start,
-                        set_xalign: 0.0,
-                        set_ellipsize: gtk::pango::EllipsizeMode::End,
-                        #[watch]
-                        set_label: &model.item.label,
+                        set_valign: gtk::Align::Center,
+
+                        gtk::Box {
+                            set_orientation: gtk::Orientation::Horizontal,
+                            set_spacing: 6,
+
+                            gtk::Label {
+                                add_css_class: "device-list-row__label",
+                                add_css_class: "action-row__title",
+                                set_halign: gtk::Align::Start,
+                                set_xalign: 0.0,
+                                set_ellipsize: gtk::pango::EllipsizeMode::End,
+                                #[watch]
+                                set_label: &model.item.label,
+                            },
+
+                            #[local_ref]
+                            chip_row_ref -> gtk::Box {
+                                add_css_class: "chip-row",
+                                set_orientation: gtk::Orientation::Horizontal,
+                                set_spacing: 4,
+                                set_valign: gtk::Align::Center,
+                            },
+                        },
+
+                        #[name = "secondary_status"]
+                        gtk::Label {
+                            add_css_class: "device-row-secondary",
+                            add_css_class: "dim-label",
+                            add_css_class: "caption",
+                            set_halign: gtk::Align::Start,
+                            set_xalign: 0.0,
+                            set_ellipsize: gtk::pango::EllipsizeMode::End,
+                        },
                     },
 
                     #[name = "status"]
                     #[template]
                     DeviceStatusView {},
                 }
+            },
+
+            #[local_ref]
+            primary_action_slot_ref -> gtk::Box {
+                add_css_class: "device-list-row__primary-action",
+                set_orientation: gtk::Orientation::Horizontal,
+                set_valign: gtk::Align::Center,
             },
         }
     }
@@ -157,14 +210,28 @@ where
         action_list.add_css_class("action-menu");
         action_popover.set_child(Some(&action_list));
 
+        let chip_row = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+        let primary_action_slot = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+
         let model = DeviceRow {
             item: init,
             action_popover,
             action_list,
+            chip_row,
+            primary_action_slot,
         };
+        let chip_row_ref = &model.chip_row;
+        let primary_action_slot_ref = &model.primary_action_slot;
         let widgets = view_output!();
         model.action_popover.set_parent(&widgets.button);
         render_action_menu(&model.action_list, &model.item.actions, &sender);
+        render_chip_row(&model.chip_row, &model.item.chips);
+        render_primary_action_slot(
+            &model.primary_action_slot,
+            model.item.primary_action.as_ref(),
+            !model.item.actions.is_empty(),
+            &sender,
+        );
         ComponentParts { model, widgets }
     }
 
@@ -173,6 +240,13 @@ where
             DeviceRowInput::Update(item) => {
                 self.item = item;
                 render_action_menu(&self.action_list, &self.item.actions, &sender);
+                render_chip_row(&self.chip_row, &self.item.chips);
+                render_primary_action_slot(
+                    &self.primary_action_slot,
+                    self.item.primary_action.as_ref(),
+                    !self.item.actions.is_empty(),
+                    &sender,
+                );
                 if !has_visible_actions(&self.item.actions) {
                     self.action_popover.popdown();
                 }
@@ -211,6 +285,16 @@ where
             .label
             .set_visible(!model.item.busy && !model.item.status.is_empty());
         status.label.set_label(&model.item.status);
+
+        match model.item.secondary_status.as_deref() {
+            Some(text) => {
+                secondary_status.set_label(text);
+                secondary_status.set_visible(true);
+            }
+            None => {
+                secondary_status.set_visible(false);
+            }
+        }
     }
 }
 
@@ -220,6 +304,91 @@ fn has_visible_actions<Command>(actions: &[DeviceListAction<Command>]) -> bool {
 
 fn row_has_activation<Command>(item: &DeviceListItem<Command>) -> bool {
     item.command.is_some() || has_visible_actions(&item.actions)
+}
+
+fn render_chip_row(list: &gtk::Box, chips: &[DeviceListChip]) {
+    while let Some(child) = list.first_child() {
+        list.remove(&child);
+    }
+
+    if chips.is_empty() {
+        list.set_visible(false);
+        return;
+    }
+
+    let has_primary = chips.iter().any(|chip| chip.tier == ChipTier::Primary);
+    let has_secondary = chips.iter().any(|chip| chip.tier == ChipTier::Secondary);
+    let mut separator_inserted = false;
+
+    for chip in chips.iter().filter(|chip| chip.tier == ChipTier::Primary) {
+        list.append(&build_chip_label(chip));
+    }
+
+    if has_primary && has_secondary {
+        let separator = gtk::Separator::new(gtk::Orientation::Vertical);
+        separator.add_css_class("chip-row__separator");
+        list.append(&separator);
+        separator_inserted = true;
+    }
+    let _ = separator_inserted;
+
+    for chip in chips.iter().filter(|chip| chip.tier == ChipTier::Secondary) {
+        list.append(&build_chip_label(chip));
+    }
+
+    list.set_visible(true);
+}
+
+fn build_chip_label(chip: &DeviceListChip) -> gtk::Label {
+    let label = gtk::Label::new(Some(&chip.label));
+    label.add_css_class("chip");
+    match chip.tier {
+        ChipTier::Primary => label.add_css_class("chip-primary"),
+        ChipTier::Secondary => label.add_css_class("chip-secondary"),
+    }
+    label
+}
+
+fn render_primary_action_slot<Command>(
+    slot: &gtk::Box,
+    primary_action: Option<&DeviceListAction<Command>>,
+    has_menu_actions: bool,
+    sender: &ComponentSender<DeviceRow<Command>>,
+) where
+    Command: Clone + Debug + Send + 'static,
+{
+    while let Some(child) = slot.first_child() {
+        slot.remove(&child);
+    }
+
+    match primary_action {
+        Some(action) => {
+            let button = gtk::Button::with_label(&action.label);
+            button.add_css_class("device-list-row__primary-action-button");
+            if action.destructive {
+                button.add_css_class("destructive-action");
+            }
+            button.set_sensitive(action.enabled);
+            button.set_visible(action.visible);
+            let command = action.command.clone();
+            let sender = sender.clone();
+            button.connect_clicked(move |_| {
+                sender.input(DeviceRowInput::RunAction(command.clone()));
+            });
+            slot.append(&button);
+            slot.set_visible(true);
+        }
+        None if !has_menu_actions => {
+            let placeholder = gtk::Label::new(Some("—"));
+            placeholder.add_css_class("device-list-row__primary-action-placeholder");
+            placeholder.add_css_class("dim-label");
+            slot.append(&placeholder);
+            slot.set_visible(true);
+        }
+        None => {
+            slot.set_visible(false);
+        }
+    }
 }
 
 fn render_action_menu<Command>(
@@ -502,6 +671,8 @@ mod tests {
             status: "75%".into(),
             busy: false,
             tooltip: Some("Connected".into()),
+            chips: Vec::new(),
+            secondary_status: None,
             active: true,
             visible: true,
             command: Some("connect"),
@@ -513,6 +684,7 @@ mod tests {
                 visible: true,
                 command: "disconnect",
             }],
+            primary_action: None,
         };
 
         assert_eq!(item.label, "Headphones");
@@ -533,5 +705,33 @@ mod tests {
         }];
 
         assert!(!has_visible_actions(&actions));
+    }
+}
+
+#[cfg(test)]
+mod chip_tests {
+    use super::*;
+    type C = ();
+
+    #[test]
+    fn item_defaults_have_empty_chips_no_secondary_no_primary_action() {
+        let item = DeviceListItem::<C> {
+            id: "1".into(),
+            icon: String::new(),
+            label: "X".into(),
+            status: String::new(),
+            busy: false,
+            tooltip: None,
+            active: false,
+            visible: true,
+            command: None,
+            actions: Vec::new(),
+            chips: Vec::new(),
+            secondary_status: None,
+            primary_action: None,
+        };
+        assert!(item.chips.is_empty());
+        assert!(item.secondary_status.is_none());
+        assert!(item.primary_action.is_none());
     }
 }

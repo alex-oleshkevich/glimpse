@@ -90,10 +90,13 @@ fn build_wired_items(devices: &[NetworkDevice]) -> Vec<DeviceListItem<()>> {
             status: wired_info(device),
             busy: false,
             tooltip: Some(wired_tooltip(device)),
+            chips: Vec::new(),
+            secondary_status: None,
             active: device.state == "connected",
             visible: true,
             command: None,
             actions: Vec::new(),
+            primary_action: None,
         })
         .collect()
 }

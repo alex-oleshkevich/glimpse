@@ -10,11 +10,11 @@ use std::collections::HashMap;
 
 use crate::{
     applets::{
-        audio, battery, bluetooth, brightness, clipboard, clock, command, exec, keyboard, mpris,
-        network, notifications, pager, privacy, removable, session, tray, weather,
+        audio, battery, bluetooth, brightness, clipboard, clock, command, exec, idle, keyboard,
+        mpris, network, notifications, pager, privacy, removable, session, tray, weather,
     },
     panels::PanelSection,
-    services::framework::Services,
+    services::{framework::Services, wayland_idle_inhibit::SHELL_EXTENSIONS},
 };
 
 use glimpse_core::ThemeMode;
@@ -48,6 +48,7 @@ pub enum AppletController {
     Clock(Controller<clock::Applet>),
     Command(Controller<command::Applet>),
     Exec(Controller<exec::Applet>),
+    Idle(Controller<idle::applet::Applet>),
     Keyboard(Controller<keyboard::Applet>),
     Mpris(Controller<mpris::Applet>),
     Network(Controller<network::Applet>),
@@ -71,6 +72,7 @@ impl AppletController {
             Self::Clock(_) => AppletType::Clock,
             Self::Command(_) => AppletType::Command,
             Self::Exec(_) => AppletType::Exec,
+            Self::Idle(_) => AppletType::Idle,
             Self::Keyboard(_) => AppletType::Keyboard,
             Self::Mpris(_) => AppletType::Mpris,
             Self::Network(_) => AppletType::Network,
@@ -94,6 +96,7 @@ impl AppletController {
             Self::Clock(controller) => controller.widget().clone().upcast(),
             Self::Command(controller) => controller.widget().clone().upcast(),
             Self::Exec(controller) => controller.widget().clone().upcast(),
+            Self::Idle(controller) => controller.widget().clone().upcast(),
             Self::Keyboard(controller) => controller.widget().clone().upcast(),
             Self::Mpris(controller) => controller.widget().clone().upcast(),
             Self::Network(controller) => controller.widget().clone().upcast(),
@@ -149,6 +152,7 @@ impl AppletController {
                     &config.cloned(),
                 )));
             }
+            Self::Idle(_) => {}
             Self::Keyboard(controller) => {
                 controller.emit(keyboard::Input::Reconfigure(keyboard::Config::from_raw(
                     &config.cloned(),
@@ -290,6 +294,24 @@ pub fn create_applet(
                     .launch(exec::Init {
                         name: blueprint.name,
                         config,
+                    })
+                    .detach(),
+            ))
+        }
+        AppletType::Idle => {
+            let Some(ext) = SHELL_EXTENSIONS.get() else {
+                tracing::warn!(
+                    name = %blueprint.name,
+                    "idle applet skipped: idle subsystem unavailable"
+                );
+                return None;
+            };
+            Some(AppletController::Idle(
+                idle::applet::Applet::builder()
+                    .launch(idle::applet::Init {
+                        service: ext.idle_inhibitor.clone(),
+                        wayland_health: ext.wayland_health.clone(),
+                        own_unique_name: ext.own_unique_bus_name.clone(),
                     })
                     .detach(),
             ))

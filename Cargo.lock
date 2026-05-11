@@ -559,6 +559,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dlib"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab8ecd87370524b461f8557c119c405552c396ed91fc0a8eec68679eab26f94a"
+dependencies = [
+ "libloading",
+]
+
+[[package]]
 name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -956,6 +965,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "gdk4-wayland"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7027433b8f19075ab22f01d0e0ba4373e303ffdb4ce4f846a2763cb020ea9bdc"
+dependencies = [
+ "gdk4",
+ "gdk4-wayland-sys",
+ "gio",
+ "glib",
+ "libc",
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols",
+]
+
+[[package]]
+name = "gdk4-wayland-sys"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "653cafb8715f2ac1c56edaf8060d9360ae3acbe3c6fb61b676a2917d42b668cf"
+dependencies = [
+ "glib-sys",
+ "libc",
+ "system-deps",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1175,6 +1211,8 @@ name = "glimpse-idle"
 version = "0.5.0"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "futures-util",
  "glimpse-core",
  "tokio",
  "tokio-util",
@@ -1218,6 +1256,8 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "futures-util",
+ "gdk4-wayland",
  "gio",
  "gio-unix",
  "glib",
@@ -1237,6 +1277,8 @@ dependencies = [
  "toml 0.8.23",
  "tracing",
  "tracing-subscriber",
+ "wayland-client",
+ "wayland-protocols",
  "zbus",
  "zeroize",
 ]
@@ -3027,6 +3069,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "scoped-tls"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e1cf6437eb19a8f4a6cc0f7dca544973b0b78843adbfeb3683d1a94a0024a294"
+
+[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3935,6 +3983,7 @@ dependencies = [
  "cc",
  "downcast-rs",
  "rustix",
+ "scoped-tls",
  "smallvec",
  "wayland-sys",
 ]
@@ -3993,6 +4042,8 @@ version = "0.31.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8eab23fefc9e41f8e841df4a9c707e8a8c4ed26e944ef69297184de2785e3be"
 dependencies = [
+ "dlib",
+ "log",
  "pkg-config",
 ]
 

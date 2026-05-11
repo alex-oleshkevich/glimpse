@@ -25,7 +25,7 @@ fn main() -> anyhow::Result<()> {
         .enable_all()
         .build()?
         .block_on(async move {
-            let _single_instance = match runtime::acquire_single_instance().await {
+            let instance = match runtime::acquire_single_instance().await {
                 Ok(guard) => {
                     tracing::info!("acquired single-instance D-Bus name");
                     guard
@@ -36,7 +36,7 @@ fn main() -> anyhow::Result<()> {
                 }
             };
 
-            app::run(config).await
+            app::run(config, instance).await
         })
 }
 

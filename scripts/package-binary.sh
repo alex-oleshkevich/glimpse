@@ -19,7 +19,13 @@ asset="glimpse-${version}-${arch}.tar.zst"
 pkgroot="dist/pkgroot"
 
 rm -rf "$pkgroot"
-mkdir -p "$pkgroot/usr/bin" "$pkgroot/usr/lib/systemd/user" "$pkgroot/etc/pam.d" dist
+mkdir -p \
+    "$pkgroot/usr/bin" \
+    "$pkgroot/usr/lib/systemd/user" \
+    "$pkgroot/etc/pam.d" \
+    "$pkgroot/usr/share/xdg-desktop-portal/portals" \
+    "$pkgroot/usr/share/dbus-1/services" \
+    dist
 
 cargo build --release --locked \
     -p glimpse-lock \
@@ -45,6 +51,8 @@ install -Dm644 data/glimpse-idle.service "$pkgroot/usr/lib/systemd/user/glimpse-
 install -Dm644 data/glimpse-sunset.service "$pkgroot/usr/lib/systemd/user/glimpse-sunset.service"
 install -Dm644 data/glimpse-wallpaper.service "$pkgroot/usr/lib/systemd/user/glimpse-wallpaper.service"
 install -Dm644 data/pam.d/glimpse-lock "$pkgroot/etc/pam.d/glimpse-lock"
+install -Dm644 data/portals/glimpse.portal "$pkgroot/usr/share/xdg-desktop-portal/portals/glimpse.portal"
+install -Dm644 data/dbus-1/me.aresa.GlimpseIdle.Portal.service "$pkgroot/usr/share/dbus-1/services/me.aresa.GlimpseIdle.Portal.service"
 
 if [[ -f LICENSE ]]; then
     install -Dm644 LICENSE "$pkgroot/LICENSE"

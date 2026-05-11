@@ -296,10 +296,13 @@ fn build_device_items(state: &State) -> Vec<DeviceListItem<Command>> {
             status: device_status(device),
             busy: busy_address == Some(device.address.as_str()),
             tooltip: Some(device_tooltip(device)),
+            chips: Vec::new(),
+            secondary_status: None,
             active: device.connected,
             visible: true,
             command: Some(primary_device_command(device)),
             actions: device_actions(device),
+            primary_action: None,
         })
         .collect()
 }
@@ -680,12 +683,15 @@ mod tests {
                 status: String::new(),
                 busy: false,
                 tooltip: None,
+                chips: Vec::new(),
+                secondary_status: None,
                 active: false,
                 visible: true,
                 command: Some(Command::Pair {
                     address: "AA:BB".into(),
                 }),
                 actions: Vec::new(),
+                primary_action: None,
             },
             DeviceListItem {
                 id: "CC:DD".into(),
@@ -694,12 +700,15 @@ mod tests {
                 status: String::new(),
                 busy: true,
                 tooltip: None,
+                chips: Vec::new(),
+                secondary_status: None,
                 active: false,
                 visible: true,
                 command: Some(Command::Pair {
                     address: "CC:DD".into(),
                 }),
                 actions: Vec::new(),
+                primary_action: None,
             },
         ];
 
