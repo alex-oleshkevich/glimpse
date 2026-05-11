@@ -3,7 +3,7 @@
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
-use zbus::zvariant::Type;
+use zbus::zvariant::{OwnedValue, Type, Value};
 
 use crate::services::framework::ServiceHandle;
 
@@ -14,7 +14,7 @@ pub const PORTAL_FLAG_USER_SWITCH: u32 = 2;
 pub const PORTAL_FLAG_SUSPEND: u32 = 4;
 pub const PORTAL_FLAG_IDLE: u32 = 8;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue)]
 pub struct InhibitionTargets {
     pub idle: bool,
     pub suspend: bool,
@@ -68,7 +68,7 @@ impl InhibitionTargets {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue)]
 pub enum Login1Mode {
     #[default]
     Block,
@@ -79,14 +79,14 @@ pub enum Login1Mode {
 /// Tagged-struct shape (was an enum with heterogeneous variants — reshaped because
 /// zvariant 5 cannot derive `Type` on that pattern). Use the constructors below
 /// rather than building this struct field-by-field.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue)]
 pub enum SourceKind {
     ScreenSaver,
     Portal,
     Login1,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue)]
 pub struct IdleInhibitorSource {
     pub kind: SourceKind,
     /// ScreenSaver only; 0 for other kinds.
@@ -159,7 +159,7 @@ impl IdleInhibitorSource {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue)]
 pub enum HealthKind {
     #[default]
     Ready,
@@ -169,7 +169,7 @@ pub enum HealthKind {
 
 /// Tagged-struct shape (was an enum with per-variant fields — reshaped for the same
 /// reason as `IdleInhibitorSource`). `message` is empty for `Ready`.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue)]
 pub struct BackendHealth {
     pub kind: HealthKind,
     pub message: String,
@@ -187,7 +187,7 @@ impl BackendHealth {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue)]
 pub struct IdleInhibitorRecord {
     pub id: u64,
     pub who: String,
@@ -203,7 +203,7 @@ pub struct IdleInhibitorRecord {
     pub added_at_unix: u64,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue)]
 pub struct InhibitorsHealth {
     pub screen_saver: BackendHealth,
     pub portal: BackendHealth,
