@@ -1,7 +1,22 @@
+use std::sync::OnceLock;
+
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
-use glimpse_core::services::idle_inhibitor::State;
+use glimpse_core::services::idle_inhibitor::{IdleInhibitorHandle, State};
+
+/// Shell-only handles produced after we connect to the daemon's idle
+/// inhibitor proxy. Populated once at shell startup; the panel applet
+/// factory reads from it to wire the idle applet. If unset, the idle
+/// applet is skipped (e.g. when the daemon is unavailable).
+#[derive(Clone)]
+pub struct ShellExtensions {
+    pub idle_inhibitor: IdleInhibitorHandle,
+    pub wayland_health: watch::Receiver<WaylandHealth>,
+    pub own_unique_bus_name: String,
+}
+
+pub static SHELL_EXTENSIONS: OnceLock<ShellExtensions> = OnceLock::new();
 
 /// Health of the shell-side Wayland idle-inhibit backend. Separate from
 /// the daemon-side InhibitorsHealth — the daemon doesn't know whether

@@ -4,7 +4,12 @@ use crate::{
     agents::{bluetooth::BluetoothAgentRuntime, network::NetworkAgentRuntime},
     panels,
     prompts::{bluetooth as bluetooth_prompts, network as network_prompts},
-    services::framework::{Control, ServiceRuntime, Services},
+    services::{
+        framework::{Control, ServiceRuntime, Services},
+        wayland_idle_inhibit::{
+            self, NoopWaylandInhibitor, SHELL_EXTENSIONS, ShellExtensions, WaylandIdleInhibitor,
+        },
+    },
     theme::{self, ThemeState},
 };
 use adw::gdk::{self, prelude::DisplayExt, prelude::MonitorExt};
@@ -139,6 +144,8 @@ impl SimpleComponent for App {
             });
         }
 
+        spawn_idle_subsystem(init.dbus.session.clone());
+
         let services = ServiceRuntime::new(init.dbus);
         services.broadcast(Control::Start(init.config.clone()));
         spawn_theme_subscription(services.handles().theme, sender.input_sender().clone());
@@ -235,6 +242,45 @@ impl Drop for App {
         self.network_agent_cancel.cancel();
         self.bluetooth_agent_cancel.cancel();
     }
+}
+
+fn spawn_idle_subsystem(session: zbus::Connection) {
+    let own_unique_bus_name = session
+        .unique_name()
+        .map(|n| n.to_string())
+        .unwrap_or_default();
+    relm4::spawn(async move {
+        let cancel = CancellationToken::new();
+        match crate::dbus::idle_inhibitors::spawn(session, cancel.clone()).await {
+            Ok(handle) => {
+                let backend = NoopWaylandInhibitor;
+                let initial_health = backend.health();
+                let (wayland_tx, wayland_rx) = tokio::sync::watch::channel(initial_health);
+                let _ = wayland_tx;
+                let state_rx = handle.subscribe();
+                let task_cancel = cancel.clone();
+                tokio::spawn(async move {
+                    wayland_idle_inhibit::run(backend, state_rx, task_cancel).await;
+                });
+                if SHELL_EXTENSIONS
+                    .set(ShellExtensions {
+                        idle_inhibitor: handle,
+                        wayland_health: wayland_rx,
+                        own_unique_bus_name,
+                    })
+                    .is_err()
+                {
+                    tracing::warn!("idle SHELL_EXTENSIONS already initialized");
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    error = ?e,
+                    "idle inhibitor proxy unavailable; idle applet disabled"
+                );
+            }
+        }
+    });
 }
 
 fn spawn_theme_subscription(
