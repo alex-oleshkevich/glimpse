@@ -2,14 +2,12 @@
 
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
-    WidgetTemplate,
     gtk::{self, glib, prelude::*},
 };
 use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::components::{
-    action_row::{ActionRow, ActionRowInit},
     animated_popover::AnimatedPopover,
     hero::HeroView,
     popover_scroll,
@@ -221,30 +219,58 @@ fn build_row(
     sender: &ComponentSender<Popover>,
 ) -> gtk::Widget {
     let is_self = r.bus_name == own_unique_name;
-    let row = ActionRow::init(ActionRowInit {
-        title: format::row_label(r),
-        subtitle: String::new(),
-        meta: String::new(),
-        icon: Some(pick_icon(r, is_self)),
-        visible: true,
-        selectable: false,
-    });
+    let tooltip = build_tooltip(r);
 
-    row.button.set_tooltip_text(Some(&build_tooltip(r)));
+    // Root row container — same CSS classes as DeviceList rows so theming
+    // (icon color/weight, row padding) matches clipboard / network / etc.
+    let root = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    root.add_css_class("idle-row");
+    root.add_css_class("action-row");
+    root.set_tooltip_text(Some(&tooltip));
 
+    // Row content: icon + label. Wrapped in a non-clickable Box (NOT a Button)
+    // so we don't add hover/focus state to information that isn't actionable.
+    let content = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    content.add_css_class("idle-row__content");
+    content.add_css_class("action-row__content-shell");
+    content.set_hexpand(true);
+    content.set_valign(gtk::Align::Center);
+
+    let icon = gtk::Image::from_icon_name(&pick_icon(r, is_self));
+    icon.add_css_class("idle-row__icon");
+    icon.add_css_class("action-row__leading");
+    icon.set_pixel_size(16);
+    content.append(&icon);
+
+    let label = gtk::Label::new(Some(&format::row_label(r)));
+    label.add_css_class("idle-row__label");
+    label.add_css_class("action-row__title");
+    label.set_halign(gtk::Align::Start);
+    label.set_xalign(0.0);
+    label.set_hexpand(true);
+    label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+    content.append(&label);
+
+    root.append(&content);
+
+    // Trailing action slot — Release button when allowed; nothing otherwise.
+    let slot = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    slot.add_css_class("idle-row__action");
+    slot.set_valign(gtk::Align::Center);
     if r.can_release {
+        let button = gtk::Button::with_label("Release");
+        button.add_css_class("flat");
+        button.add_css_class("idle-row__release");
         let cmd = Command::Release { id: r.id };
         let sender = sender.clone();
-        row.button.connect_clicked(move |_| {
+        button.connect_clicked(move |_| {
             sender.input(Input::EmitCommand(cmd.clone()));
         });
-    } else {
-        // Read-only rows (Login1 records owned by other processes): the button
-        // stays insensitive so the row is visibly inert and click has no effect.
-        row.button.set_sensitive(false);
+        slot.append(&button);
     }
+    root.append(&slot);
 
-    row.as_ref().clone().upcast()
+    root.upcast()
 }
 
 fn pick_icon(r: &IdleInhibitorRecord, is_self: bool) -> String {
