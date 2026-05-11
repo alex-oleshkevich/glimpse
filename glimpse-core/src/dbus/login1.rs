@@ -1,6 +1,10 @@
+use zbus::zvariant::OwnedFd;
 use zbus::zvariant::OwnedObjectPath;
 
 pub type Login1SessionEntry = (String, u32, String, String, OwnedObjectPath);
+
+/// Returned by Manager.ListInhibitors — (what, who, why, mode, uid, pid)
+pub type Login1InhibitorEntry = (String, String, String, String, u32, u32);
 
 #[zbus::proxy(
     interface = "org.freedesktop.login1.Manager",
@@ -11,15 +15,39 @@ pub trait Login1Manager {
     fn get_session(&self, session_id: &str) -> zbus::Result<OwnedObjectPath>;
     fn get_session_by_pid(&self, pid: u32) -> zbus::Result<OwnedObjectPath>;
     fn list_sessions(&self) -> zbus::Result<Vec<Login1SessionEntry>>;
+    // Returns one of: "yes" | "no" | "na" | "challenge"
+    //               | "inhibited" | "inhibitor-blocked" | "challenge-inhibitor-blocked".
     fn can_suspend(&self) -> zbus::Result<String>;
+    // Returns one of: "yes" | "no" | "na" | "challenge"
+    //               | "inhibited" | "inhibitor-blocked" | "challenge-inhibitor-blocked".
     fn can_hibernate(&self) -> zbus::Result<String>;
+    // Returns one of: "yes" | "no" | "na" | "challenge"
+    //               | "inhibited" | "inhibitor-blocked" | "challenge-inhibitor-blocked".
     fn can_reboot(&self) -> zbus::Result<String>;
+    // Returns one of: "yes" | "no" | "na" | "challenge"
+    //               | "inhibited" | "inhibitor-blocked" | "challenge-inhibitor-blocked".
     fn can_power_off(&self) -> zbus::Result<String>;
     fn suspend(&self, interactive: bool) -> zbus::Result<()>;
     fn hibernate(&self, interactive: bool) -> zbus::Result<()>;
     fn reboot(&self, interactive: bool) -> zbus::Result<()>;
     fn power_off(&self, interactive: bool) -> zbus::Result<()>;
     fn terminate_session(&self, session_id: &str) -> zbus::Result<()>;
+
+    fn inhibit(
+        &self,
+        what: &str,
+        who: &str,
+        why: &str,
+        mode: &str,
+    ) -> zbus::Result<OwnedFd>;
+
+    fn list_inhibitors(&self) -> zbus::Result<Vec<Login1InhibitorEntry>>;
+
+    #[zbus(property, name = "BlockInhibited")]
+    fn block_inhibited(&self) -> zbus::Result<String>;
+
+    #[zbus(property, name = "DelayInhibited")]
+    fn delay_inhibited(&self) -> zbus::Result<String>;
 
     #[zbus(signal, name = "PrepareForSleep")]
     fn prepare_for_sleep(&self, start: bool) -> zbus::Result<()>;
@@ -234,5 +262,19 @@ mod tests {
             class: class.map(str::to_owned),
             kind: kind.map(str::to_owned),
         }
+    }
+
+    #[test]
+    fn login1_inhibitor_entry_tuple_shape() {
+        let e: super::Login1InhibitorEntry = (
+            "idle".into(),
+            "test".into(),
+            "smoke".into(),
+            "block".into(),
+            1000,
+            1234,
+        );
+        assert_eq!(e.0, "idle");
+        assert_eq!(e.5, 1234);
     }
 }
