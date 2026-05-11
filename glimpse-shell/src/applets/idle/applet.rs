@@ -205,9 +205,9 @@ impl Drop for Applet {
 
 fn icon_name_for_state(state: &State) -> &'static str {
     if state.inhibitors.is_empty() {
-        "caffeine-cup-empty-symbolic"
+        "media-playback-pause-symbolic"
     } else {
-        "caffeine-cup-full-symbolic"
+        "media-playback-start-symbolic"
     }
 }
 
@@ -231,8 +231,8 @@ mod tests {
     #[test]
     fn icon_flips_with_inhibitor_count() {
         let mut state = State::default();
-        assert_eq!(icon_name_for_state(&state), "caffeine-cup-empty-symbolic");
+        assert_eq!(icon_name_for_state(&state), "media-playback-pause-symbolic");
         state.inhibitors.push(rec());
-        assert_eq!(icon_name_for_state(&state), "caffeine-cup-full-symbolic");
+        assert_eq!(icon_name_for_state(&state), "media-playback-start-symbolic");
     }
 }

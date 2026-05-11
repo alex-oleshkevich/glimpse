@@ -123,10 +123,14 @@ impl SimpleComponent for Popover {
 
         let guard = updating_toggle.clone();
         let toggle_sender = sender.clone();
-        widgets.hero.toggle.connect_state_set(move |_, active| {
+        widgets.hero.toggle.connect_state_set(move |sw, active| {
             if guard.get() {
                 return glib::Propagation::Stop;
             }
+            // Hold the visual state at the user's selection while the D-Bus
+            // round-trip to the daemon happens; otherwise GTK reverts it
+            // before the service echoes back and the toggle "bounces."
+            sw.set_state(active);
             toggle_sender.input(Input::SetManualHold(active));
             glib::Propagation::Stop
         });
@@ -142,7 +146,7 @@ impl SimpleComponent for Popover {
 
         let model = Popover {
             animation: AnimatedPopover::new(&widgets.root),
-            hero_icon_name: "caffeine-cup-empty-symbolic",
+            hero_icon_name: "media-playback-pause-symbolic",
             hero_subtitle: "Nothing is preventing idle".into(),
             manual_hold_on: false,
             updating_toggle,
@@ -167,9 +171,9 @@ impl SimpleComponent for Popover {
                     .iter()
                     .any(|r| r.bus_name == self.own_unique_name);
                 self.hero_icon_name = if state.inhibitors.is_empty() {
-                    "caffeine-cup-empty-symbolic"
+                    "media-playback-pause-symbolic"
                 } else {
-                    "caffeine-cup-full-symbolic"
+                    "media-playback-start-symbolic"
                 };
                 self.hero_subtitle = format::subtitle(&format::SubtitleInputs {
                     daemon_offline,

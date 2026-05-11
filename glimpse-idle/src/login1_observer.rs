@@ -58,22 +58,28 @@ pub fn entry_to_record(id: u64, e: &Login1InhibitorEntry) -> IdleInhibitorRecord
 /// Pure diff: compare a previous (key -> id) map against a fresh
 /// ListInhibitors response. Filters out any entry whose pid equals the
 /// daemon's own pid (logind reports our outbound fds too, and they're
-/// already tracked via their owning ScreenSaver/Portal record).
+/// already tracked via their owning ScreenSaver/Portal record), and any
+/// non-`block` mode entry (delay-mode is infrastructure noise — system
+/// services delay shutdown by a few seconds while they clean up; not
+/// meaningful inhibition from the user's perspective).
 pub fn diff(
     previous: &HashMap<Login1Key, u64>,
     current: &[Login1InhibitorEntry],
     own_pid: u32,
 ) -> (Vec<Login1InhibitorEntry>, Vec<Login1Key>) {
     use std::collections::HashSet;
+
+    let surfaced = |e: &Login1InhibitorEntry| e.5 != own_pid && is_block_mode(&e.3);
+
     let current_keys: HashSet<Login1Key> = current
         .iter()
-        .filter(|e| e.5 != own_pid)
+        .filter(|e| surfaced(e))
         .map(key_of)
         .collect();
 
     let added: Vec<_> = current
         .iter()
-        .filter(|e| e.5 != own_pid && !previous.contains_key(&key_of(e)))
+        .filter(|e| surfaced(e) && !previous.contains_key(&key_of(e)))
         .cloned()
         .collect();
 
@@ -84,6 +90,12 @@ pub fn diff(
         .collect();
 
     (added, removed)
+}
+
+fn is_block_mode(mode: &str) -> bool {
+    // logind modes: "block", "delay", "block-weak". block and block-weak both
+    // genuinely prevent the operation; delay only postpones by a few seconds.
+    mode == "block" || mode == "block-weak"
 }
 
 /// Long-running polling loop. Polls `Manager.ListInhibitors` every 5s,
@@ -195,6 +207,23 @@ mod tests {
         assert_eq!(added.len(), 1);
         assert_eq!(added[0].1, "firefox");
         assert!(removed.is_empty());
+    }
+
+    #[test]
+    fn diff_filters_delay_mode_inhibitors() {
+        let prev = HashMap::new();
+        let curr = vec![
+            e("idle", "firefox", "video", "block", 1234),
+            e("sleep", "NetworkManager", "cleanup", "delay", 555),
+            e("shutdown", "ModemManager", "cleanup", "delay", 666),
+            e("idle", "apt", "upgrade", "block-weak", 777),
+        ];
+        let (added, _) = diff(&prev, &curr, 9999);
+        let names: Vec<&str> = added.iter().map(|e| e.1.as_str()).collect();
+        assert!(names.contains(&"firefox"));
+        assert!(names.contains(&"apt"));        // block-weak still surfaces
+        assert!(!names.contains(&"NetworkManager"));
+        assert!(!names.contains(&"ModemManager"));
     }
 
     #[test]
