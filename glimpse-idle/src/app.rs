@@ -271,7 +271,10 @@ async fn wire_inhibitor_subsystem(
 async fn emit_inhibitors_changed(session: &zbus::Connection) {
     let path = match zbus::zvariant::ObjectPath::try_from("/me/aresa/GlimpseIdle/Inhibitors") {
         Ok(p) => p,
-        Err(_) => return,
+        Err(e) => {
+            tracing::warn!(error = ?e, "emit_inhibitors_changed: invalid path");
+            return;
+        }
     };
     let iface_ref = match session
         .object_server()
@@ -279,12 +282,20 @@ async fn emit_inhibitors_changed(session: &zbus::Connection) {
         .await
     {
         Ok(r) => r,
-        Err(_) => return,
+        Err(e) => {
+            tracing::warn!(error = ?e, "emit_inhibitors_changed: interface lookup failed");
+            return;
+        }
     };
     let ctxt = iface_ref.signal_emitter();
     let api = iface_ref.get().await;
-    let _ = api.inhibitors_changed(ctxt).await;
-    let _ = api.health_changed(ctxt).await;
+    if let Err(e) = api.inhibitors_changed(ctxt).await {
+        tracing::warn!(error = ?e, "emit_inhibitors_changed: inhibitors signal failed");
+    }
+    if let Err(e) = api.health_changed(ctxt).await {
+        tracing::warn!(error = ?e, "emit_inhibitors_changed: health signal failed");
+    }
+    tracing::info!("emit_inhibitors_changed: PropertiesChanged fired");
 }
 
 pub fn start_services(battery: &BatteryHandle, idle: &IdleHandle, config: Config) {

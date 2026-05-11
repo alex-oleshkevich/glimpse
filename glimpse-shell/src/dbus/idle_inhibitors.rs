@@ -53,8 +53,23 @@ pub async fn spawn(
     let inhibitors_proxy = InhibitorsProxy::new(&session).await?;
     let screen_saver_proxy = ScreenSaverClientProxy::new(&session).await?;
 
+    let unique_name = session
+        .unique_name()
+        .map(|n| n.to_string())
+        .unwrap_or_default();
+    tracing::info!(
+        own_unique_name = %unique_name,
+        "idle_inhibitors: client proxies created"
+    );
+
     let initial = match read_state(&inhibitors_proxy).await {
-        Ok(s) => s,
+        Ok(s) => {
+            tracing::info!(
+                count = s.inhibitors.len(),
+                "idle_inhibitors: initial state loaded"
+            );
+            s
+        }
         Err(e) => {
             tracing::warn!(error = ?e, "initial Inhibitors read failed; starting empty");
             State::default()
@@ -71,11 +86,18 @@ pub async fn spawn(
         use futures_util::StreamExt;
         let mut inhibitors_changed = mirror_proxy.receive_inhibitors_changed().await;
         let mut health_changed = mirror_proxy.receive_health_changed().await;
+        tracing::info!("idle_inhibitors: mirror task subscribed to PropertiesChanged");
         loop {
             tokio::select! {
                 _ = mirror_cancel.cancelled() => return,
-                Some(_) = inhibitors_changed.next() => refresh(&mirror_proxy, &mirror_state_tx).await,
-                Some(_) = health_changed.next() => refresh(&mirror_proxy, &mirror_state_tx).await,
+                Some(_) = inhibitors_changed.next() => {
+                    tracing::info!("idle_inhibitors: Inhibitors PropertiesChanged → refreshing");
+                    refresh(&mirror_proxy, &mirror_state_tx).await;
+                }
+                Some(_) = health_changed.next() => {
+                    tracing::info!("idle_inhibitors: Health PropertiesChanged → refreshing");
+                    refresh(&mirror_proxy, &mirror_state_tx).await;
+                }
             }
         }
     });
@@ -120,20 +142,28 @@ async fn handle_command(
 ) {
     match cmd {
         Command::SetManualHold(true) => {
+            tracing::info!("idle_inhibitors: sending ScreenSaver.Inhibit('Glimpse', 'Manual hold')");
             match screen_saver.inhibit("Glimpse", "Manual hold").await {
-                Ok(cookie) => manual.lock().await.cookie = Some(cookie),
+                Ok(cookie) => {
+                    tracing::info!(cookie, "idle_inhibitors: ScreenSaver.Inhibit returned cookie");
+                    manual.lock().await.cookie = Some(cookie);
+                }
                 Err(e) => tracing::warn!(error = ?e, "manual hold Inhibit failed"),
             }
         }
         Command::SetManualHold(false) => {
             let cookie = manual.lock().await.cookie.take();
             if let Some(cookie) = cookie {
+                tracing::info!(cookie, "idle_inhibitors: sending ScreenSaver.UnInhibit");
                 if let Err(e) = screen_saver.un_inhibit(cookie).await {
                     tracing::warn!(error = ?e, cookie, "manual hold UnInhibit failed");
                 }
+            } else {
+                tracing::info!("idle_inhibitors: SetManualHold(false) with no tracked cookie");
             }
         }
         Command::Release { id } => {
+            tracing::info!(id, "idle_inhibitors: sending Inhibitors.Release");
             if let Err(e) = inhibitors.release(id).await {
                 tracing::warn!(error = ?e, id, "Release failed");
             }

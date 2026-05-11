@@ -33,6 +33,12 @@ impl ScreenSaver {
         #[zbus(connection)] conn: &zbus::Connection,
     ) -> zbus::fdo::Result<u32> {
         let bus_name = header.sender().map(|s| s.to_string()).unwrap_or_default();
+        tracing::info!(
+            who = %application_name,
+            why = %reason_for_inhibit,
+            sender = %bus_name,
+            "ScreenSaver.Inhibit received"
+        );
         let cookie = inhibit_impl(
             &self.registry,
             self.login1_inhibit.as_ref(),
@@ -67,6 +73,7 @@ impl ScreenSaver {
     }
 
     async fn un_inhibit(&self, cookie: u32) -> zbus::fdo::Result<()> {
+        tracing::info!(cookie, "ScreenSaver.UnInhibit received");
         let mut reg = self.registry.lock().await;
         if let Some(id) = reg.lookup_by_cookie(cookie) {
             reg.release_record(id);
