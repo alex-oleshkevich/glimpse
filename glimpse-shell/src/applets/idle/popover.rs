@@ -9,8 +9,11 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::components::{
-    animated_popover::AnimatedPopover, hero::HeroView, item::ItemView,
-    popover_scroll, popover_shell::PopoverShell,
+    action_row::{ActionRow, ActionRowInit},
+    animated_popover::AnimatedPopover,
+    hero::HeroView,
+    popover_scroll,
+    popover_shell::PopoverShell,
 };
 use crate::services::wayland_idle_inhibit::WaylandHealth;
 
@@ -218,41 +221,31 @@ fn build_row(
     sender: &ComponentSender<Popover>,
 ) -> gtk::Widget {
     let is_self = r.bus_name == own_unique_name;
-    let item = ItemView::init(());
+    let row = ActionRow::init(ActionRowInit {
+        title: format::row_label(r),
+        subtitle: String::new(),
+        meta: String::new(),
+        icon: Some(pick_icon(r, is_self)),
+        visible: true,
+        selectable: false,
+    });
 
-    // Icon
-    item.left.set_visible(true);
-    let icon = gtk::Image::from_icon_name(&pick_icon(r, is_self));
-    icon.set_pixel_size(20);
-    item.left.append(&icon);
+    row.button.set_tooltip_text(Some(&build_tooltip(r)));
 
-    // Label
-    item.label.set_label(&format::row_label(r));
-
-    // Tooltip carries everything else.
-    item.button.set_tooltip_text(Some(&build_tooltip(r)));
-
-    // Release button
     if r.can_release {
-        item.right.set_visible(true);
-        let release = gtk::Button::with_label("Release");
-        release.add_css_class("destructive-action");
-        release.add_css_class("flat");
-        release.set_valign(gtk::Align::Center);
+        row.as_ref().add_css_class("is-danger");
         let cmd = Command::Release { id: r.id };
         let sender = sender.clone();
-        release.connect_clicked(move |_| {
+        row.button.connect_clicked(move |_| {
             sender.input(Input::EmitCommand(cmd.clone()));
         });
-        item.right.append(&release);
+    } else {
+        // Read-only rows (Login1 records owned by other processes): the button
+        // stays insensitive so the row is visibly inert and click has no effect.
+        row.button.set_sensitive(false);
     }
 
-    // The row itself doesn't act on click; the inline Release button handles
-    // the only meaningful action. Disable button-as-action by suppressing focus.
-    item.button.set_can_focus(false);
-    item.button.set_sensitive(true);
-
-    item.button.upcast()
+    row.as_ref().clone().upcast()
 }
 
 fn pick_icon(r: &IdleInhibitorRecord, is_self: bool) -> String {
