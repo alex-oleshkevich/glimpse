@@ -1,6 +1,3 @@
-// Wired into the shell's app startup in Task 17 (glimpse-37w.17).
-#![allow(dead_code)]
-
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
     gtk::{self, prelude::*},
@@ -21,7 +18,6 @@ pub struct Applet {
     state: State,
     wayland_health: WaylandHealth,
     daemon_offline: bool,
-    own_unique_name: String,
     service: IdleInhibitorHandle,
     popover: Controller<Popover>,
     popover_open: bool,
@@ -81,7 +77,7 @@ impl SimpleComponent for Applet {
         let popover = Popover::builder()
             .launch(PopoverInit {
                 parent: root.clone(),
-                own_unique_name: init.own_unique_name.clone(),
+                own_unique_name: init.own_unique_name,
             })
             .forward(sender.input_sender(), Input::PopoverOutput);
 
@@ -93,7 +89,6 @@ impl SimpleComponent for Applet {
             state,
             wayland_health,
             daemon_offline: false,
-            own_unique_name: init.own_unique_name,
             service: init.service,
             popover,
             popover_open: false,

@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use glimpse_core::services::idle_inhibitor::{
-    BackendHealth, HealthKind, IdleInhibitorRecord, InhibitorsHealth, SourceKind,
+    BackendHealth, HealthKind, IdleInhibitorRecord, InhibitorsHealth,
 };
 
 use crate::services::wayland_idle_inhibit::WaylandHealth;
@@ -75,16 +75,6 @@ pub fn row_label(record: &IdleInhibitorRecord) -> String {
         return record.who.clone();
     }
     record.bus_name.clone()
-}
-
-/// Secondary status line for a record row. Renders source-specific
-/// detail beneath the primary status. None for plain ScreenSaver rows.
-pub fn row_secondary(record: &IdleInhibitorRecord) -> Option<String> {
-    match record.source.kind {
-        SourceKind::Portal => Some("Flatpak via portal".into()),
-        SourceKind::Login1 => Some(format!("systemd-inhibit · pid {}", record.source.pid)),
-        SourceKind::ScreenSaver => None,
-    }
 }
 
 /// Coarse relative time formatter for added_at_unix.
@@ -217,17 +207,4 @@ mod tests {
         assert_eq!(row_label(&r), ":1.99");
     }
 
-    #[test]
-    fn row_secondary_per_source_kind() {
-        let mut r = rec(":1.99", "Firefox", false);
-        assert!(row_secondary(&r).is_none());
-
-        r.source = IdleInhibitorSource::portal("org.mozilla.firefox".into(), "/req/1".into());
-        assert_eq!(row_secondary(&r), Some("Flatpak via portal".into()));
-
-        r.source = IdleInhibitorSource::login1(
-            4242, 1000, glimpse_core::services::idle_inhibitor::Login1Mode::Block,
-        );
-        assert_eq!(row_secondary(&r), Some("systemd-inhibit · pid 4242".into()));
-    }
 }

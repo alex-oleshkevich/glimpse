@@ -1,6 +1,3 @@
-// Consumed by the shell app wiring in Task 17 (glimpse-37w.17).
-#![allow(dead_code)]
-
 use std::sync::Arc;
 
 use anyhow::Result;

@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
