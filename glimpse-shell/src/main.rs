@@ -5,12 +5,13 @@ mod components;
 mod dbus;
 mod panels;
 mod prompts;
+pub mod services;
 mod theme;
 
 use relm4::{RELM_THREADS, RelmApp};
 use tracing_subscriber::EnvFilter;
 
-pub use glimpse_core::{compositors, services};
+pub use glimpse_core::compositors;
 
 use crate::{
     app::{App, AppInit},
