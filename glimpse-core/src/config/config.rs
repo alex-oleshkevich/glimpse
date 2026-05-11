@@ -262,6 +262,7 @@ right = ["...", "custom"]
                 "brightness",
                 "audio",
                 "battery",
+                "idle",
                 "session",
                 "custom"
             ]
