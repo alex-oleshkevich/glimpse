@@ -172,10 +172,14 @@ impl SimpleComponent for Popover {
                     .inhibitors
                     .iter()
                     .any(|r| r.bus_name == self.own_unique_name);
-                self.hero_icon_name = if state.inhibitors.is_empty() {
-                    "view-conceal-symbolic"
-                } else {
+                // Hero icon mirrors the panel icon: tracks the user's manual
+                // hold, not the total inhibitor count. Otherwise on a system
+                // with any persistent external inhibitor (niri's power-key
+                // handler etc.) it would never flip.
+                self.hero_icon_name = if self.manual_hold_on {
                     "view-reveal-symbolic"
+                } else {
+                    "view-conceal-symbolic"
                 };
                 self.hero_subtitle = format::subtitle(&format::SubtitleInputs {
                     daemon_offline,

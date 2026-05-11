@@ -295,7 +295,6 @@ async fn emit_inhibitors_changed(session: &zbus::Connection) {
     if let Err(e) = api.health_changed(ctxt).await {
         tracing::warn!(error = ?e, "emit_inhibitors_changed: health signal failed");
     }
-    tracing::info!("emit_inhibitors_changed: PropertiesChanged fired");
 }
 
 pub fn start_services(battery: &BatteryHandle, idle: &IdleHandle, config: Config) {
