@@ -12,6 +12,7 @@ dev = []
 adw.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
+futures-util.workspace = true
 gtk4.workspace = true
 glib.workspace = true
 gio.workspace = true
