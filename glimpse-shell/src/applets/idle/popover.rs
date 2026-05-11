@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent, WidgetTemplate,
-    gtk::{self, glib, prelude::*},
+    gtk::{self, gio, glib, prelude::*},
 };
 
 use crate::components::{
@@ -260,7 +260,8 @@ impl Popover {
 struct IdleListRow {
     root: ItemView,
     icon: gtk::Image,
-    release_button: gtk::Button,
+    /// Attached only for releasable records. Kept alive so unparent on drop works.
+    _context_menu: Option<gtk::PopoverMenu>,
     id: u64,
 }
 
@@ -275,27 +276,17 @@ impl IdleListRow {
         icon.set_pixel_size(16);
         root.left.append(&icon);
 
-        let release_button = gtk::Button::with_label("Release");
-        release_button.add_css_class("flat");
-        release_button.add_css_class("idle-row__release");
-        release_button.set_valign(gtk::Align::Center);
-        root.right.append(&release_button);
-
-        let id = record.id;
-        let primary = sender.clone();
-        root.button.connect_clicked(move |_| {
-            primary.input(Input::EmitCommand(Command::Release { id }));
-        });
-        let inline = sender.clone();
-        release_button.connect_clicked(move |_| {
-            inline.input(Input::EmitCommand(Command::Release { id }));
-        });
+        let context_menu = if record.can_release {
+            Some(install_release_menu(&root, record.id, sender))
+        } else {
+            None
+        };
 
         let mut row = Self {
             root,
             icon,
-            release_button,
-            id,
+            _context_menu: context_menu,
+            id: record.id,
         };
         row.update(record, is_self);
         row
@@ -306,12 +297,64 @@ impl IdleListRow {
         self.icon.set_icon_name(Some(&pick_icon(record, is_self)));
         self.root.label.set_label(&format::row_label(record));
         self.root.button.set_tooltip_text(Some(&build_tooltip(record)));
-
-        // Read-only Login1 rows: outer Button insensitive, inline Release hidden.
+        // Read-only Login1 rows: button insensitive (menu install was skipped).
         self.root.button.set_sensitive(record.can_release);
-        self.root.right.set_visible(record.can_release);
-        self.release_button.set_visible(record.can_release);
     }
+}
+
+/// Install a PopoverMenu with a single "Release" item on the row's button.
+/// Primary-click and right-click both open it. Returns the menu so the row
+/// can keep it alive (menus get unparented on row drop).
+fn install_release_menu(
+    row: &ItemView,
+    id: u64,
+    sender: &ComponentSender<Popover>,
+) -> gtk::PopoverMenu {
+    let action_group = gio::SimpleActionGroup::new();
+    let release = gio::SimpleAction::new("release", None);
+    release.connect_activate({
+        let sender = sender.clone();
+        move |_, _| sender.input(Input::EmitCommand(Command::Release { id }))
+    });
+    action_group.add_action(&release);
+    row.button
+        .insert_action_group("idle-row", Some(&action_group));
+
+    let menu = gio::Menu::new();
+    menu.append(Some("Release"), Some("idle-row.release"));
+
+    let context_menu = gtk::PopoverMenu::from_model(Some(&menu));
+    context_menu.add_css_class("idle-row-menu");
+    context_menu.set_parent(&row.button);
+    context_menu.set_has_arrow(false);
+
+    // Primary-click on the row body: only meaningful action is Release, so
+    // surfacing the menu on left-click matches "click the row to do the
+    // thing" while still giving a confirmation step.
+    row.button.connect_clicked({
+        let context_menu = context_menu.clone();
+        move |_| context_menu.popup()
+    });
+
+    // Right-click also opens the menu (clipboard's pattern).
+    let click = gtk::GestureClick::new();
+    click.set_button(gtk::gdk::BUTTON_SECONDARY);
+    click.set_propagation_phase(gtk::PropagationPhase::Capture);
+    click.connect_pressed({
+        let context_menu = context_menu.clone();
+        move |gesture, _, _, _| {
+            gesture.set_state(gtk::EventSequenceState::Claimed);
+            context_menu.popup();
+        }
+    });
+    row.button.add_controller(click);
+
+    row.button.connect_destroy({
+        let context_menu = context_menu.clone();
+        move |_| context_menu.unparent()
+    });
+
+    context_menu
 }
 
 fn place_row(row: &IdleListRow, container: &gtk::Box, previous: Option<&gtk::Widget>) {
