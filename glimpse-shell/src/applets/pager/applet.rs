@@ -36,6 +36,8 @@ pub enum DisplayMode {
 pub struct Config {
     display: DisplayMode,
     appearance: PagerAppearance,
+    active_workspace_label: String,
+    inactive_workspace_label: String,
 }
 
 impl Config {
@@ -60,6 +62,8 @@ impl Default for Config {
         Self {
             display: DisplayMode::Windows,
             appearance: PagerAppearance::Dots,
+            active_workspace_label: "{index}".into(),
+            inactive_workspace_label: "{index}".into(),
         }
     }
 }
@@ -281,11 +285,7 @@ impl PagerState {
         let Some(name) = self.panel_monitor.as_deref() else {
             return true;
         };
-        match self
-            .monitors
-            .iter()
-            .find(|monitor| monitor.name == name)
-        {
+        match self.monitors.iter().find(|monitor| monitor.name == name) {
             Some(monitor) => monitor.focused,
             None => true,
         }
@@ -329,6 +329,8 @@ fn view_from_state(config: &Config, state: &PagerState) -> View {
                 &state.workspaces,
                 &state.windows,
                 config.appearance,
+                &config.active_workspace_label,
+                &config.inactive_workspace_label,
             ),
             current_workspace_tooltip(state),
             false,
@@ -374,6 +376,8 @@ fn workspace_items(
     workspaces: &[Workspace],
     windows: &[PagerWindow],
     appearance: PagerAppearance,
+    active_label_format: &str,
+    inactive_label_format: &str,
 ) -> Vec<PagerItem> {
     let occupied = occupied_workspaces(windows);
     let urgent = urgent_workspaces(windows);
@@ -400,12 +404,21 @@ fn workspace_items(
         .map(|slot| {
             let workspace = workspace_for_slot(compositor, slot, &scoped_workspaces);
             let target = workspace_command_target(compositor, slot, workspace);
+            let focused = current_slot == Some(slot);
             PagerItem {
                 id: target,
                 target: PagerTarget::Workspace(target),
                 appearance,
-                label: slot.to_string(),
-                focused: current_slot == Some(slot),
+                label: workspace_item_label(
+                    if focused {
+                        active_label_format
+                    } else {
+                        inactive_label_format
+                    },
+                    workspace,
+                    slot,
+                ),
+                focused,
                 monitor_focused,
                 occupied: workspace
                     .and_then(|workspace| workspace.active_window)
@@ -420,6 +433,25 @@ fn workspace_items(
             }
         })
         .collect()
+}
+
+fn workspace_item_label(format: &str, workspace: Option<&Workspace>, fallback: usize) -> String {
+    let id = workspace
+        .map(|workspace| workspace.id)
+        .unwrap_or(fallback)
+        .to_string();
+    let index = workspace
+        .and_then(|workspace| workspace.index)
+        .unwrap_or(fallback)
+        .to_string();
+    let name = workspace
+        .and_then(|workspace| workspace.name.as_deref())
+        .unwrap_or_default();
+
+    format
+        .replace("{id}", &id)
+        .replace("{index}", &index)
+        .replace("{name}", name)
 }
 
 fn window_items(
@@ -753,6 +785,8 @@ mod tests {
 
         assert_eq!(config.display, DisplayMode::Windows);
         assert_eq!(config.appearance, PagerAppearance::Dots);
+        assert_eq!(config.active_workspace_label, "{index}");
+        assert_eq!(config.inactive_workspace_label, "{index}");
     }
 
     #[test]
@@ -771,11 +805,21 @@ mod tests {
             settings: toml::Value::Table(Map::from_iter([
                 ("display".into(), toml::Value::String("workspaces".into())),
                 ("appearance".into(), toml::Value::String("numbers".into())),
+                (
+                    "active_workspace_label".into(),
+                    toml::Value::String("{name}".into()),
+                ),
+                (
+                    "inactive_workspace_label".into(),
+                    toml::Value::String("{index}".into()),
+                ),
             ])),
         }));
 
         assert_eq!(config.display, DisplayMode::Workspaces);
         assert_eq!(config.appearance, PagerAppearance::Numbers);
+        assert_eq!(config.active_workspace_label, "{name}");
+        assert_eq!(config.inactive_workspace_label, "{index}");
     }
 
     #[test]
@@ -861,6 +905,8 @@ mod tests {
             &state.workspaces,
             &windows,
             PagerAppearance::Dots,
+            "{index}",
+            "{index}",
         );
 
         assert_eq!(items.len(), 3);
@@ -1069,11 +1115,77 @@ mod tests {
             &state.workspaces,
             &windows,
             PagerAppearance::Dots,
+            "{index}",
+            "{index}",
         );
 
         assert_eq!(items[1].id, 2);
         assert!(items[1].focused);
         assert_eq!(items.len(), 2);
+    }
+
+    #[test]
+    fn workspace_number_labels_use_active_and_inactive_formats() {
+        let mut state = state_with_workspaces(vec![
+            Workspace {
+                id: 7,
+                index: Some(1),
+                name: Some("work".into()),
+                monitor: Some("eDP-1".into()),
+                active: true,
+                focused: true,
+                urgent: false,
+                active_window: None,
+            },
+            Workspace {
+                id: 8,
+                index: Some(2),
+                name: Some("chat".into()),
+                monitor: Some("eDP-1".into()),
+                active: false,
+                focused: false,
+                urgent: false,
+                active_window: None,
+            },
+        ]);
+        state.compositor = CompositorType::Niri;
+        state.current_workspace = Some(7);
+        let config = Config {
+            display: DisplayMode::Workspaces,
+            appearance: PagerAppearance::Numbers,
+            active_workspace_label: "{name}".into(),
+            inactive_workspace_label: "{index}".into(),
+        };
+
+        let view = view_from_state(&config, &PagerState::from(&state));
+
+        assert_eq!(
+            view.items
+                .iter()
+                .map(|item| item.label.as_str())
+                .collect::<Vec<_>>(),
+            vec!["work", "2"]
+        );
+    }
+
+    #[test]
+    fn workspace_label_formatter_supports_empty_names() {
+        let workspace = Workspace {
+            id: 42,
+            index: Some(3),
+            name: None,
+            monitor: None,
+            active: false,
+            focused: false,
+            urgent: false,
+            active_window: None,
+        };
+
+        assert_eq!(workspace_item_label("{name}", Some(&workspace), 1), "");
+        assert_eq!(
+            workspace_item_label("{index}:{id}", Some(&workspace), 1),
+            "3:42"
+        );
     }
 
     #[test]
@@ -1249,10 +1361,7 @@ mod tests {
         state.capabilities.monitors = true;
         state.current_workspace = Some(3);
         state.focused_window = Some(202);
-        state.windows = vec![
-            window(101, Some(1), false),
-            window(202, Some(3), false),
-        ];
+        state.windows = vec![window(101, Some(1), false), window(202, Some(3), false)];
         state.monitors = vec![
             glimpse_core::compositors::Monitor {
                 id: Some(1),

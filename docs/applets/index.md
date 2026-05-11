@@ -356,12 +356,18 @@ Shows workspaces and windows.
 [applets.pager]
 display = "workspaces"
 appearance = "numbers"
+active_workspace_label = "{name}"
+inactive_workspace_label = "{index}"
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
 | `display` | `"windows"` | Indicator and scroll target: `"workspaces"` or `"windows"`. |
 | `appearance` | `"dots"` | Indicator style: `"dots"` or `"numbers"`. |
+| `active_workspace_label` | `"{index}"` | Label format for the current workspace when `appearance = "numbers"`. |
+| `inactive_workspace_label` | `"{index}"` | Label format for other workspaces when `appearance = "numbers"`. |
+
+Workspace label placeholders: `{index}`, `{id}`, `{name}`. Unnamed workspaces render `{name}` as an empty string.
 
 ## Privacy
 

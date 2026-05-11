@@ -442,7 +442,7 @@ button.applet:active,
     min-width: 22px;
     min-height: 22px;
     margin: 0 var(--space-1);
-    padding: 0;
+    padding: 0 4px 0 4px;
     text-align: center;
     border-radius: var(--radius-pill);
     background: color-mix(in srgb, currentColor 1%, transparent);
