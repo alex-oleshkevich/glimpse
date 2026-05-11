@@ -2,7 +2,8 @@
 
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
-    gtk::{self, glib, prelude::*},
+    WidgetTemplate,
+    gtk::{self, gio, glib, prelude::*},
 };
 use std::cell::Cell;
 use std::rc::Rc;
@@ -18,6 +19,7 @@ use crate::services::wayland_idle_inhibit::WaylandHealth;
 use glimpse_core::services::idle_inhibitor::{Command, IdleInhibitorRecord, SourceKind, State};
 
 use super::format;
+use super::row::{IdleRow, IdleRowInit};
 
 pub struct Popover {
     animation: AnimatedPopover,
@@ -219,58 +221,68 @@ fn build_row(
     sender: &ComponentSender<Popover>,
 ) -> gtk::Widget {
     let is_self = r.bus_name == own_unique_name;
-    let tooltip = build_tooltip(r);
+    let row = IdleRow::init(IdleRowInit {
+        icon: pick_icon(r, is_self),
+        label: format::row_label(r),
+        tooltip: build_tooltip(r),
+    });
 
-    // Root row container — same CSS classes as DeviceList rows so theming
-    // (icon color/weight, row padding) matches clipboard / network / etc.
-    let root = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    root.add_css_class("idle-row");
-    root.add_css_class("action-row");
-    root.set_tooltip_text(Some(&tooltip));
-
-    // Row content: icon + label. Wrapped in a non-clickable Box (NOT a Button)
-    // so we don't add hover/focus state to information that isn't actionable.
-    let content = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-    content.add_css_class("idle-row__content");
-    content.add_css_class("action-row__content-shell");
-    content.set_hexpand(true);
-    content.set_valign(gtk::Align::Center);
-
-    let icon = gtk::Image::from_icon_name(&pick_icon(r, is_self));
-    icon.add_css_class("idle-row__icon");
-    icon.add_css_class("action-row__leading");
-    icon.set_pixel_size(16);
-    content.append(&icon);
-
-    let label = gtk::Label::new(Some(&format::row_label(r)));
-    label.add_css_class("idle-row__label");
-    label.add_css_class("action-row__title");
-    label.set_halign(gtk::Align::Start);
-    label.set_xalign(0.0);
-    label.set_hexpand(true);
-    label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    content.append(&label);
-
-    root.append(&content);
-
-    // Trailing action slot — Release button when allowed; nothing otherwise.
-    let slot = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    slot.add_css_class("idle-row__action");
-    slot.set_valign(gtk::Align::Center);
     if r.can_release {
-        let button = gtk::Button::with_label("Release");
-        button.add_css_class("flat");
-        button.add_css_class("idle-row__release");
-        let cmd = Command::Release { id: r.id };
-        let sender = sender.clone();
-        button.connect_clicked(move |_| {
-            sender.input(Input::EmitCommand(cmd.clone()));
-        });
-        slot.append(&button);
+        attach_row_context_menu(&row, r.id, sender);
     }
-    root.append(&slot);
 
-    root.upcast()
+    row.as_ref().clone().upcast()
+}
+
+fn attach_row_context_menu(row: &IdleRow, id: u64, sender: &ComponentSender<Popover>) {
+    let action_group = gio::SimpleActionGroup::new();
+    let release = gio::SimpleAction::new("release", None);
+    release.connect_activate({
+        let sender = sender.clone();
+        move |_, _| {
+            sender.input(Input::EmitCommand(Command::Release { id }));
+        }
+    });
+    action_group.add_action(&release);
+
+    row.as_ref()
+        .insert_action_group("idle-row", Some(&action_group));
+
+    let menu = gio::Menu::new();
+    menu.append(Some("Release"), Some("idle-row.release"));
+
+    let context_menu = gtk::PopoverMenu::from_model(Some(&menu));
+    context_menu.add_css_class("idle-row-menu");
+    context_menu.set_parent(row.as_ref());
+    context_menu.set_has_arrow(false);
+
+    // Right-click and long-press open the menu (clipboard pattern).
+    let click = gtk::GestureClick::new();
+    click.set_button(gtk::gdk::BUTTON_SECONDARY);
+    click.set_propagation_phase(gtk::PropagationPhase::Capture);
+    click.connect_pressed({
+        let context_menu = context_menu.clone();
+        move |gesture, _, _, _| {
+            gesture.set_state(gtk::EventSequenceState::Claimed);
+            context_menu.popup();
+        }
+    });
+    row.as_ref().add_controller(click);
+
+    // Also surface the menu via primary-click for discoverability — the
+    // popover row has no other left-click action, so this is non-ambiguous.
+    let primary_click = gtk::GestureClick::new();
+    primary_click.set_button(gtk::gdk::BUTTON_PRIMARY);
+    primary_click.connect_released({
+        let context_menu = context_menu.clone();
+        move |_, _, _, _| context_menu.popup()
+    });
+    row.as_ref().add_controller(primary_click);
+
+    row.as_ref().connect_destroy({
+        let context_menu = context_menu.clone();
+        move |_| context_menu.unparent()
+    });
 }
 
 fn pick_icon(r: &IdleInhibitorRecord, is_self: bool) -> String {
