@@ -47,3 +47,12 @@ This keeps simple commands simple and makes complex commands clear.
 | Show changing text or icons | `exec` |
 | React to clicks inside a custom status widget | `exec` |
 | Build a mini applet with your own script | `exec` |
+
+## Exec Reference
+
+| Page | Covers |
+|---|---|
+| [Exec Applet](./exec.md) | Applet config and options. |
+| [Exec SDK](../applets/exec-sdk.md) | SDK installation and language examples. |
+| [Line Protocol](./exec-protocol.md) | Raw protocol commands, message shapes, and events. |
+| [Components](./exec-components.md) | Popover component fields and component types. |

@@ -55,12 +55,26 @@ The special name `"..."` means "keep the default applets for this section here."
 
 ## Configure An Applet
 
-Applet settings live under `[applets.name]`.
+### Configure an applet
+
+Applet settings for a built-in applet live under `[applets.name]`.
 
 ```toml
 [applets.weather]
 city_name = "Warsaw, PL"
+```
 
+Place the applet name in a panel section:
+
+```toml
+right = ["weather", "network", "battery"]
+```
+
+### Add another instance
+
+Use `extends` when you want a second copy of an applet with its own name and settings.
+
+```toml
 [applets.terminal]
 extends = "command"
 icon = "utilities-terminal-symbolic"
@@ -68,7 +82,7 @@ tooltip = "Open terminal"
 command = ["ghostty"]
 ```
 
-Use names that make sense to you. Then place those names in a panel section:
+Then place that custom name in a panel section:
 
 ```toml
 right = ["weather", "terminal", "network", "battery"]
@@ -117,7 +131,7 @@ latitude = 52.2297
 longitude = 21.0122
 
 [applets.clock]
-format = "%H:%M"
+label_format = "%H:%M"
 
 [wallpaper]
 path = "/home/alex/Pictures/wallpapers/coast.jpg"
@@ -126,5 +140,7 @@ fit = "cover"
 [lock]
 css_path = "themes/lock.css"
 ```
+
+`theme` and `theme_mode` are independent: `theme` selects the CSS file, and `theme_mode` selects automatic, dark, or light mode classes.
 
 Read [Applets](./applets/) for per-applet options, [Wallpaper](./wallpaper.md) for background settings, and [Lock](./lock.md) for lock screen settings.
