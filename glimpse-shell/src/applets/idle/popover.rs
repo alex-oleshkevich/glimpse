@@ -1,23 +1,16 @@
 #![allow(unused_assignments)]
-// Consumed by the idle applet controller in Task 16 (glimpse-37w.16).
-#![allow(dead_code)]
 
 use relm4::{
-    Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
+    ComponentParts, ComponentSender, SimpleComponent,
+    WidgetTemplate,
     gtk::{self, glib, prelude::*},
 };
 use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::components::{
-    animated_popover::AnimatedPopover,
-    device_list::{
-        ChipTier, DeviceList, DeviceListAction, DeviceListChip, DeviceListInit, DeviceListInput,
-        DeviceListItem,
-    },
-    hero::HeroView,
-    popover_scroll,
-    popover_shell::PopoverShell,
+    animated_popover::AnimatedPopover, hero::HeroView, item::ItemView,
+    popover_scroll, popover_shell::PopoverShell,
 };
 use crate::services::wayland_idle_inhibit::WaylandHealth;
 
@@ -31,8 +24,7 @@ pub struct Popover {
     hero_subtitle: String,
     manual_hold_on: bool,
     updating_toggle: Rc<Cell<bool>>,
-    devices: Controller<DeviceList<Command>>,
-    device_items: Vec<DeviceListItem<Command>>,
+    rows_container: gtk::Box,
     own_unique_name: String,
 }
 
@@ -51,7 +43,7 @@ pub enum Input {
         daemon_offline: bool,
     },
     SetManualHold(bool),
-    DeviceCommand(Command),
+    EmitCommand(Command),
 }
 
 #[derive(Debug, Clone)]
@@ -97,8 +89,12 @@ impl SimpleComponent for Popover {
                         set_vexpand: false,
                         set_propagate_natural_height: true,
 
-                        #[local_ref]
-                        devices_widget -> gtk::Box {},
+                        #[name = "rows"]
+                        gtk::Box {
+                            add_css_class: "idle-popover__rows",
+                            set_orientation: gtk::Orientation::Vertical,
+                            set_spacing: 0,
+                        },
                     },
                 },
             },
@@ -106,20 +102,12 @@ impl SimpleComponent for Popover {
     }
 
     fn init(init: Init, _root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
-        let devices = DeviceList::builder()
-            .launch(DeviceListInit {
-                header: None,
-                items: Vec::new(),
-            })
-            .forward(sender.input_sender(), Input::DeviceCommand);
-        let devices_widget = devices.widget().clone();
-
         let updating_toggle = Rc::new(Cell::new(false));
         let widgets = view_output!();
         widgets.root.set_parent(&init.parent);
         widgets.root.set_autohide(true);
         popover_scroll::install_half_monitor_limit(&widgets.root, &widgets.scroller, &init.parent);
-        devices.widget().set_visible(false);
+        widgets.rows.set_visible(false);
 
         let guard = updating_toggle.clone();
         let toggle_sender = sender.clone();
@@ -127,9 +115,6 @@ impl SimpleComponent for Popover {
             if guard.get() {
                 return glib::Propagation::Stop;
             }
-            // Hold the visual state at the user's selection while the D-Bus
-            // round-trip to the daemon happens; otherwise GTK reverts it
-            // before the service echoes back and the toggle "bounces."
             sw.set_state(active);
             toggle_sender.input(Input::SetManualHold(active));
             glib::Propagation::Stop
@@ -150,8 +135,7 @@ impl SimpleComponent for Popover {
             hero_subtitle: "Nothing is preventing idle".into(),
             manual_hold_on: false,
             updating_toggle,
-            devices,
-            device_items: Vec::new(),
+            rows_container: widgets.rows.clone(),
             own_unique_name: init.own_unique_name,
         };
         ComponentParts { model, widgets }
@@ -182,17 +166,20 @@ impl SimpleComponent for Popover {
                     records: &state.inhibitors,
                     own_unique_name: &self.own_unique_name,
                 });
-                let items = build_items(&state.inhibitors, &self.own_unique_name);
-                if self.device_items != items {
-                    self.devices.widget().set_visible(!items.is_empty());
-                    self.devices.emit(DeviceListInput::Update(items.clone()));
-                    self.device_items = items;
-                }
+                rebuild_rows(
+                    &self.rows_container,
+                    &state.inhibitors,
+                    &self.own_unique_name,
+                    &sender,
+                );
+                self.rows_container
+                    .set_visible(!state.inhibitors.is_empty());
             }
             Input::SetManualHold(on) => {
+                self.manual_hold_on = on;
                 let _ = sender.output(Output::Command(Command::SetManualHold(on)));
             }
-            Input::DeviceCommand(cmd) => {
+            Input::EmitCommand(cmd) => {
                 let _ = sender.output(Output::Command(cmd));
             }
         }
@@ -211,44 +198,61 @@ impl SimpleComponent for Popover {
     }
 }
 
-fn build_items(
+fn rebuild_rows(
+    container: &gtk::Box,
     records: &[IdleInhibitorRecord],
     own_unique_name: &str,
-) -> Vec<DeviceListItem<Command>> {
-    records
-        .iter()
-        .map(|r| build_item(r, own_unique_name))
-        .collect()
+    sender: &ComponentSender<Popover>,
+) {
+    while let Some(child) = container.first_child() {
+        container.remove(&child);
+    }
+    for r in records {
+        container.append(&build_row(r, own_unique_name, sender));
+    }
 }
 
-fn build_item(r: &IdleInhibitorRecord, own_unique_name: &str) -> DeviceListItem<Command> {
+fn build_row(
+    r: &IdleInhibitorRecord,
+    own_unique_name: &str,
+    sender: &ComponentSender<Popover>,
+) -> gtk::Widget {
     let is_self = r.bus_name == own_unique_name;
-    DeviceListItem {
-        id: r.id.to_string(),
-        icon: pick_icon(r, is_self),
-        label: format::row_label(r),
-        status: format!("{} · {}", r.why, format::relative_time(r.added_at_unix)),
-        busy: false,
-        tooltip: Some(format!("{}\n{}", r.bus_name, r.why)),
-        active: false,
-        visible: true,
-        command: None,
-        actions: Vec::new(),
-        chips: build_chips(r),
-        secondary_status: format::row_secondary(r),
-        primary_action: if r.can_release {
-            Some(DeviceListAction {
-                id: "release".into(),
-                label: "Release".into(),
-                destructive: true,
-                enabled: true,
-                visible: true,
-                command: Command::Release { id: r.id },
-            })
-        } else {
-            None
-        },
+    let item = ItemView::init(());
+
+    // Icon
+    item.left.set_visible(true);
+    let icon = gtk::Image::from_icon_name(&pick_icon(r, is_self));
+    icon.set_pixel_size(20);
+    item.left.append(&icon);
+
+    // Label
+    item.label.set_label(&format::row_label(r));
+
+    // Tooltip carries everything else.
+    item.button.set_tooltip_text(Some(&build_tooltip(r)));
+
+    // Release button
+    if r.can_release {
+        item.right.set_visible(true);
+        let release = gtk::Button::with_label("Release");
+        release.add_css_class("destructive-action");
+        release.add_css_class("flat");
+        release.set_valign(gtk::Align::Center);
+        let cmd = Command::Release { id: r.id };
+        let sender = sender.clone();
+        release.connect_clicked(move |_| {
+            sender.input(Input::EmitCommand(cmd.clone()));
+        });
+        item.right.append(&release);
     }
+
+    // The row itself doesn't act on click; the inline Release button handles
+    // the only meaningful action. Disable button-as-action by suppressing focus.
+    item.button.set_can_focus(false);
+    item.button.set_sensitive(true);
+
+    item.button.upcast()
 }
 
 fn pick_icon(r: &IdleInhibitorRecord, is_self: bool) -> String {
@@ -262,52 +266,59 @@ fn pick_icon(r: &IdleInhibitorRecord, is_self: bool) -> String {
     }
 }
 
-fn build_chips(r: &IdleInhibitorRecord) -> Vec<DeviceListChip> {
-    let mut v = Vec::new();
-    let t = &r.targets;
-    if t.idle {
-        v.push(DeviceListChip {
-            label: "idle".into(),
-            tier: ChipTier::Primary,
-        });
+fn build_tooltip(r: &IdleInhibitorRecord) -> String {
+    let mut lines: Vec<String> = Vec::new();
+
+    if !r.why.is_empty() {
+        lines.push(r.why.clone());
     }
-    if t.suspend {
-        v.push(DeviceListChip {
-            label: "suspend".into(),
-            tier: ChipTier::Primary,
-        });
+
+    let targets = describe_targets(&r.targets);
+    if !targets.is_empty() {
+        lines.push(format!("Targets: {targets}"));
     }
-    if t.shutdown {
-        v.push(DeviceListChip {
-            label: "shutdown".into(),
-            tier: ChipTier::Primary,
-        });
+
+    if let Some(source) = describe_source(r) {
+        lines.push(source);
     }
-    if t.lid_switch {
-        v.push(DeviceListChip {
-            label: "lid".into(),
-            tier: ChipTier::Primary,
-        });
+
+    let identity = if !r.bus_name.is_empty() {
+        r.bus_name.clone()
+    } else if let SourceKind::Login1 = r.source.kind {
+        format!("pid {}", r.source.pid)
+    } else {
+        String::new()
+    };
+    if !identity.is_empty() {
+        lines.push(identity);
     }
-    if t.power_key {
-        v.push(DeviceListChip {
-            label: "power-key".into(),
-            tier: ChipTier::Secondary,
-        });
+
+    lines.push(format!(
+        "Active for {}",
+        format::relative_time(r.added_at_unix)
+    ));
+
+    lines.join("\n")
+}
+
+fn describe_targets(t: &glimpse_core::services::idle_inhibitor::InhibitionTargets) -> String {
+    let mut parts: Vec<&str> = Vec::new();
+    if t.idle { parts.push("idle"); }
+    if t.suspend { parts.push("suspend"); }
+    if t.shutdown { parts.push("shutdown"); }
+    if t.lid_switch { parts.push("lid"); }
+    if t.power_key { parts.push("power-key"); }
+    if t.suspend_key { parts.push("suspend-key"); }
+    if t.hibernate_key { parts.push("hibernate-key"); }
+    parts.join(", ")
+}
+
+fn describe_source(r: &IdleInhibitorRecord) -> Option<String> {
+    match r.source.kind {
+        SourceKind::ScreenSaver => Some("Source: ScreenSaver".into()),
+        SourceKind::Portal => Some(format!("Source: Flatpak via portal ({})", r.source.app_id)),
+        SourceKind::Login1 => Some("Source: systemd-inhibit".into()),
     }
-    if t.suspend_key {
-        v.push(DeviceListChip {
-            label: "suspend-key".into(),
-            tier: ChipTier::Secondary,
-        });
-    }
-    if t.hibernate_key {
-        v.push(DeviceListChip {
-            label: "hibernate-key".into(),
-            tier: ChipTier::Secondary,
-        });
-    }
-    v
 }
 
 #[cfg(test)]
@@ -321,7 +332,7 @@ mod tests {
         IdleInhibitorRecord {
             id,
             who: who.into(),
-            why: "y".into(),
+            why: "Playing video".into(),
             bus_name: bus_name.into(),
             process_name: String::new(),
             source: IdleInhibitorSource::screen_saver(id as u32),
@@ -332,51 +343,37 @@ mod tests {
     }
 
     #[test]
-    fn release_action_present_iff_can_release() {
-        let r = rec(1, ":1.99", "Firefox", true);
-        let item = build_item(&r, ":1.7");
-        assert!(item.primary_action.is_some());
+    fn pick_icon_distinguishes_sources_and_self() {
+        let r_self = rec(1, ":1.7", "Glimpse", true);
+        assert_eq!(pick_icon(&r_self, true), "applications-system-symbolic");
 
-        let mut r2 = rec(2, "", "apt", false);
-        r2.source = IdleInhibitorSource::login1(42, 0, Login1Mode::Block);
-        let item2 = build_item(&r2, ":1.7");
-        assert!(item2.primary_action.is_none());
+        let mut r_portal = rec(2, ":1.99", "org.mozilla.firefox", true);
+        r_portal.source = IdleInhibitorSource::portal("org.mozilla.firefox".into(), "/r/1".into());
+        assert_eq!(pick_icon(&r_portal, false), "application-x-flatpak-symbolic");
+
+        let mut r_logind = rec(3, "", "apt", false);
+        r_logind.source = IdleInhibitorSource::login1(42, 0, Login1Mode::Block);
+        assert_eq!(pick_icon(&r_logind, false), "security-medium-symbolic");
     }
 
     #[test]
-    fn own_record_uses_glimpse_icon() {
-        let r = rec(1, ":1.7", "Glimpse", true);
-        let item = build_item(&r, ":1.7");
-        assert_eq!(item.icon, "applications-system-symbolic");
-    }
-
-    #[test]
-    fn record_with_glimpse_who_but_foreign_bus_does_not_trigger_self() {
-        let r = rec(1, ":1.99", "Glimpse", true);
-        let item = build_item(&r, ":1.7");
-        assert_ne!(item.icon, "applications-system-symbolic");
-    }
-
-    #[test]
-    fn primary_chips_match_targets() {
-        let mut r = rec(1, ":1.99", "x", true);
+    fn tooltip_carries_why_targets_source_identity_and_relative_time() {
+        let mut r = rec(1, ":1.99", "Firefox", true);
         r.targets.suspend = true;
-        r.targets.power_key = true;
-        let item = build_item(&r, ":1.7");
-        let primaries: Vec<&str> = item
-            .chips
-            .iter()
-            .filter(|c| matches!(c.tier, ChipTier::Primary))
-            .map(|c| c.label.as_str())
-            .collect();
-        assert!(primaries.contains(&"idle"));
-        assert!(primaries.contains(&"suspend"));
-        let secondaries: Vec<&str> = item
-            .chips
-            .iter()
-            .filter(|c| matches!(c.tier, ChipTier::Secondary))
-            .map(|c| c.label.as_str())
-            .collect();
-        assert!(secondaries.contains(&"power-key"));
+        let tip = build_tooltip(&r);
+        assert!(tip.contains("Playing video"));
+        assert!(tip.contains("Targets: idle, suspend"));
+        assert!(tip.contains("Source: ScreenSaver"));
+        assert!(tip.contains(":1.99"));
+        assert!(tip.contains("Active for"));
+    }
+
+    #[test]
+    fn tooltip_for_login1_records_uses_pid_identity() {
+        let mut r = rec(1, "", "apt", false);
+        r.source = IdleInhibitorSource::login1(4242, 0, Login1Mode::Block);
+        let tip = build_tooltip(&r);
+        assert!(tip.contains("pid 4242"));
+        assert!(tip.contains("Source: systemd-inhibit"));
     }
 }

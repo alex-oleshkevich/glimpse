@@ -52,6 +52,15 @@ impl Registry {
 
     pub fn insert(&mut self, record: IdleInhibitorRecord, logind_fd: Option<OwnedFd>) {
         let id = record.id;
+        tracing::info!(
+            id,
+            source = ?record.source.kind,
+            who = %record.who,
+            why = %record.why,
+            bus_name = %record.bus_name,
+            has_logind_fd = logind_fd.is_some(),
+            "idle inhibitor added"
+        );
         match record.source.kind {
             SourceKind::ScreenSaver => {
                 self.cookie_to_id.insert(record.source.cookie, id);
@@ -83,6 +92,15 @@ impl Registry {
     pub fn release_record(&mut self, id: u64) -> Option<ReleaseOutcome> {
         let internal = self.records.remove(&id)?;
         let had_logind_fd = internal.logind_fd.is_some();
+        tracing::info!(
+            id,
+            source = ?internal.record.source.kind,
+            who = %internal.record.who,
+            why = %internal.record.why,
+            bus_name = %internal.record.bus_name,
+            had_logind_fd,
+            "idle inhibitor removed"
+        );
         drop(internal.logind_fd);
         match internal.record.source.kind {
             SourceKind::ScreenSaver => {
