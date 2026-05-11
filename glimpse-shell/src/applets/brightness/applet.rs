@@ -57,6 +57,7 @@ impl Default for Config {
 
 pub struct Applet {
     config: Config,
+    panel_monitor: Option<String>,
     service_state: State,
     compositor_state: CompositorState,
     state: State,
@@ -76,6 +77,7 @@ pub struct Init {
     pub service: BrightnessHandle,
     pub compositor: CompositorHandle,
     pub config: Config,
+    pub panel_monitor: Option<String>,
 }
 
 #[derive(Debug)]
@@ -157,6 +159,7 @@ impl SimpleComponent for Applet {
             label: format::label(&init.config.label_format, &state),
             tooltip: format::tooltip(&init.config.tooltip_format, &state),
             config: init.config,
+            panel_monitor: init.panel_monitor,
             service_state,
             compositor_state,
             state,
@@ -250,7 +253,11 @@ impl SimpleComponent for Applet {
                 self.apply_filtered_state();
             }
             Input::Scroll(dy) => {
-                let Some(source) = format::primary_source(&self.state) else {
+                let Some(source) = scroll_source(
+                    &self.state,
+                    self.panel_monitor.as_deref(),
+                    &self.compositor_state,
+                ) else {
                     return;
                 };
 
@@ -360,6 +367,41 @@ fn normalize_visible_primary(state: &mut State) {
     }
 }
 
+fn scroll_source<'a>(
+    state: &'a State,
+    panel_monitor: Option<&str>,
+    compositor: &CompositorState,
+) -> Option<&'a glimpse_core::services::brightness::BrightnessSource> {
+    let monitor = panel_monitor.or_else(|| {
+        compositor
+            .monitors
+            .iter()
+            .find(|monitor| monitor.focused)
+            .map(|monitor| monitor.name.as_str())
+    });
+
+    if let Some(monitor) = monitor {
+        if let Some(source) = source_for_connector(state, monitor) {
+            return Some(source);
+        }
+    }
+
+    format::primary_source(state)
+}
+
+fn source_for_connector<'a>(
+    state: &'a State,
+    connector: &str,
+) -> Option<&'a glimpse_core::services::brightness::BrightnessSource> {
+    state.sources.iter().find(|source| {
+        source.is_usable()
+            && source
+                .connector
+                .as_deref()
+                .is_some_and(|source_connector| source_connector.eq_ignore_ascii_case(connector))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -381,6 +423,7 @@ mod tests {
             sources: vec![BrightnessSource {
                 id: "backlight:intel_backlight".into(),
                 name: "Intel backlight".into(),
+                connector: None,
                 kind: BrightnessSourceKind::BuiltInDisplay,
                 icon: "display-brightness-symbolic".into(),
                 current: 50,
@@ -461,10 +504,42 @@ mod tests {
         assert_eq!(visible.sources.len(), 1);
     }
 
+    #[test]
+    fn scroll_source_prefers_panel_monitor_connector() {
+        let state = display_state();
+
+        let source = scroll_source(&state, Some("DP-2"), &CompositorState::default()).unwrap();
+
+        assert_eq!(source.id, "ddcutil:2");
+    }
+
+    #[test]
+    fn scroll_source_uses_focused_monitor_when_panel_monitor_is_unknown() {
+        let state = display_state();
+        let compositor = CompositorState {
+            monitors: vec![focused_monitor("DP-2")],
+            ..CompositorState::default()
+        };
+
+        let source = scroll_source(&state, None, &compositor).unwrap();
+
+        assert_eq!(source.id, "ddcutil:2");
+    }
+
+    #[test]
+    fn scroll_source_falls_back_to_primary_source() {
+        let state = display_state();
+
+        let source = scroll_source(&state, Some("HDMI-A-1"), &CompositorState::default()).unwrap();
+
+        assert_eq!(source.id, "backlight:intel_backlight");
+    }
+
     fn source(id: &str, kind: BrightnessSourceKind, primary: bool) -> BrightnessSource {
         BrightnessSource {
             id: id.into(),
             name: id.into(),
+            connector: None,
             kind,
             icon: "display-brightness-symbolic".into(),
             current: 50,
@@ -476,6 +551,38 @@ mod tests {
         }
     }
 
+    fn source_on_connector(
+        id: &str,
+        kind: BrightnessSourceKind,
+        primary: bool,
+        connector: &str,
+    ) -> BrightnessSource {
+        let mut source = source(id, kind, primary);
+        source.connector = Some(connector.into());
+        source
+    }
+
+    fn display_state() -> State {
+        State {
+            available: true,
+            sources: vec![
+                source_on_connector(
+                    "backlight:intel_backlight",
+                    BrightnessSourceKind::BuiltInDisplay,
+                    true,
+                    "eDP-1",
+                ),
+                source_on_connector(
+                    "ddcutil:2",
+                    BrightnessSourceKind::ExternalDisplay,
+                    false,
+                    "DP-2",
+                ),
+            ],
+            active: None,
+        }
+    }
+
     fn monitor(name: &str, active_workspace: Option<usize>) -> Monitor {
         Monitor {
             id: None,
@@ -483,6 +590,16 @@ mod tests {
             description: None,
             active_workspace,
             focused: false,
+        }
+    }
+
+    fn focused_monitor(name: &str) -> Monitor {
+        Monitor {
+            id: None,
+            name: name.into(),
+            description: None,
+            active_workspace: Some(1),
+            focused: true,
         }
     }
 }

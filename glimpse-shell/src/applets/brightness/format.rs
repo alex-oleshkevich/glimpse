@@ -69,6 +69,7 @@ mod tests {
             sources: vec![BrightnessSource {
                 id: "backlight:intel_backlight".into(),
                 name: "Intel backlight".into(),
+                connector: None,
                 kind: BrightnessSourceKind::BuiltInDisplay,
                 icon: "display-brightness-symbolic".into(),
                 current: 50,
@@ -94,6 +95,7 @@ mod tests {
             sources: vec![BrightnessSource {
                 id: "backlight:intel_backlight".into(),
                 name: "Built-in display".into(),
+                connector: None,
                 kind: BrightnessSourceKind::BuiltInDisplay,
                 icon: "input-keyboard-symbolic".into(),
                 current: 50,
@@ -117,6 +119,7 @@ mod tests {
             sources: vec![BrightnessSource {
                 id: "keyboard:upower".into(),
                 name: "Keyboard backlight".into(),
+                connector: None,
                 kind: BrightnessSourceKind::Keyboard,
                 icon: "input-keyboard-symbolic".into(),
                 current: 1,

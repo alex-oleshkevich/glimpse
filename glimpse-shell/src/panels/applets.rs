@@ -243,6 +243,7 @@ pub fn create_applet(
                     service: services.brightness.clone(),
                     compositor: services.compositor.clone(),
                     config: brightness::Config::from_raw(&blueprint.config),
+                    panel_monitor: monitor_connector.map(str::to_owned),
                 })
                 .detach(),
         )),
@@ -398,9 +399,12 @@ pub fn build_applets(
     for entry in entries {
         tracing::debug!(name = %entry.name, applet_type = ?entry.applet_type, "create applet");
 
-        if let Some(applet) =
-            create_applet(entry.clone(), services.clone(), monitor_connector, theme_mode)
-        {
+        if let Some(applet) = create_applet(
+            entry.clone(),
+            services.clone(),
+            monitor_connector,
+            theme_mode,
+        ) {
             let widget = applet.widget();
             container.append(&widget);
             applets.insert(entry.key, applet);
@@ -454,17 +458,23 @@ pub fn reconcile_applets(
                     .remove(&entry.key)
                     .expect("existing applet missing");
                 detach_widget(&existing.widget());
-                let Some(created) =
-                    create_applet(entry.clone(), services.clone(), monitor_connector, theme_mode)
-                else {
+                let Some(created) = create_applet(
+                    entry.clone(),
+                    services.clone(),
+                    monitor_connector,
+                    theme_mode,
+                ) else {
                     continue;
                 };
                 created
             }
             PlannedAction::Create => {
-                let Some(created) =
-                    create_applet(entry.clone(), services.clone(), monitor_connector, theme_mode)
-                else {
+                let Some(created) = create_applet(
+                    entry.clone(),
+                    services.clone(),
+                    monitor_connector,
+                    theme_mode,
+                ) else {
                     continue;
                 };
                 created

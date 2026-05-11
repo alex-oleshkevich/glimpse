@@ -58,6 +58,8 @@ pub enum BrightnessSourceKind {
 pub struct BrightnessSource {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub connector: Option<String>,
     pub kind: BrightnessSourceKind,
     pub icon: String,
     pub current: u32,
@@ -298,7 +300,10 @@ impl BrightnessService {
         id: String,
         percent: u8,
     ) {
-        let percent = percent.min(100);
+        let percent = self
+            .source_kind(&id)
+            .map(|kind| safe_percent_for_kind(kind, percent))
+            .unwrap_or_else(|| percent.min(100));
         self.optimistic_update(ActiveAdjustment::SetPercent {
             id: id.clone(),
             percent,
@@ -314,15 +319,17 @@ impl BrightnessService {
         id: String,
         delta: i32,
     ) {
-        let current = self
+        let source = self
             .state_tx
             .borrow()
             .sources
             .iter()
             .find(|source| source.id == id)
-            .map(|source| source.percent)
-            .unwrap_or_default();
-        let percent = adjust_percent(current, delta);
+            .cloned();
+        let percent = source
+            .as_ref()
+            .map(|source| adjust_percent_for_source(source, delta))
+            .unwrap_or_else(|| adjust_percent(0, delta));
         self.optimistic_update(ActiveAdjustment::AdjustPercent {
             id: id.clone(),
             delta,
@@ -340,7 +347,7 @@ impl BrightnessService {
                     .sources
                     .iter()
                     .find(|source| source.id == *id)
-                    .map(|source| adjust_percent(source.percent, *delta))
+                    .map(|source| adjust_percent_for_source(source, *delta))
                     .unwrap_or_default();
                 (id.as_str(), percent)
             }
@@ -403,6 +410,15 @@ impl BrightnessService {
         }
         next.active = None;
         self.change_state(next);
+    }
+
+    fn source_kind(&self, id: &str) -> Option<BrightnessSourceKind> {
+        self.state_tx
+            .borrow()
+            .sources
+            .iter()
+            .find(|source| source.id == id)
+            .map(|source| source.kind)
     }
 }
 
@@ -523,12 +539,16 @@ fn adjust_percent(current: u8, delta: i32) -> u8 {
     (current as i32 + delta).clamp(0, 100) as u8
 }
 
+fn adjust_percent_for_source(source: &BrightnessSource, delta: i32) -> u8 {
+    safe_percent_for_kind(source.kind, adjust_percent(source.percent, delta))
+}
+
 fn safe_percent_for_kind(kind: BrightnessSourceKind, percent: u8) -> u8 {
     match kind {
-        BrightnessSourceKind::BuiltInDisplay => percent.clamp(1, 100),
-        BrightnessSourceKind::ExternalDisplay
-        | BrightnessSourceKind::Keyboard
-        | BrightnessSourceKind::Other => percent.min(100),
+        BrightnessSourceKind::BuiltInDisplay | BrightnessSourceKind::ExternalDisplay => {
+            percent.clamp(1, 100)
+        }
+        BrightnessSourceKind::Keyboard | BrightnessSourceKind::Other => percent.min(100),
     }
 }
 
@@ -693,6 +713,7 @@ fn backlight_source_from_path(path: &Path) -> Option<BrightnessSource> {
     Some(BrightnessSource {
         id: format!("backlight:{device}"),
         name: "Built-in display".into(),
+        connector: backlight_connector_from_path(path),
         kind: BrightnessSourceKind::BuiltInDisplay,
         icon: source_icon(BrightnessSourceKind::BuiltInDisplay).into(),
         current,
@@ -736,6 +757,7 @@ impl BrightnessBackend for KeyboardBacklightBackend {
         vec![BrightnessSource {
             id: "keyboard:upower".into(),
             name: "Keyboard backlight".into(),
+            connector: None,
             kind: BrightnessSourceKind::Keyboard,
             icon: source_icon(BrightnessSourceKind::Keyboard).into(),
             current: current as u32,
@@ -823,6 +845,7 @@ fn led_source_from_path(path: &Path) -> Option<BrightnessSource> {
     Some(BrightnessSource {
         id: format!("led:{device}"),
         name: display_name_from_device(&device),
+        connector: None,
         kind,
         icon: source_icon(kind).into(),
         current,
@@ -910,6 +933,10 @@ impl BrightnessBackend for DdcutilBackend {
             sources.push(BrightnessSource {
                 id: format!("ddcutil:{index}"),
                 name: display.name,
+                connector: display
+                    .connector
+                    .as_deref()
+                    .and_then(monitor_connector_from_drm_device),
                 kind: BrightnessSourceKind::ExternalDisplay,
                 icon: source_icon(BrightnessSourceKind::ExternalDisplay).into(),
                 current,
@@ -932,7 +959,7 @@ impl BrightnessBackend for DdcutilBackend {
             &[
                 "setvcp",
                 "10",
-                &percent.min(100).to_string(),
+                &safe_percent_for_kind(BrightnessSourceKind::ExternalDisplay, percent).to_string(),
                 "--display",
                 index,
             ],
@@ -1014,6 +1041,18 @@ fn drm_connector_connected(drm_root: &Path, connector: &str) -> Option<bool> {
 fn drm_connector_from_device(device: &str) -> Option<String> {
     let _ = device.strip_prefix("card")?.split_once('-')?;
     Some(device.to_owned())
+}
+
+fn backlight_connector_from_path(path: &Path) -> Option<String> {
+    let link = fs::read_link(path).ok()?;
+    link.components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .find_map(monitor_connector_from_drm_device)
+}
+
+fn monitor_connector_from_drm_device(device: &str) -> Option<String> {
+    let (_, connector) = device.strip_prefix("card")?.split_once('-')?;
+    (!connector.is_empty()).then(|| connector.to_owned())
 }
 
 fn is_internal_connector(connector: &str) -> bool {
@@ -1116,8 +1155,14 @@ mod tests {
         assert_eq!(value_from_percent(255, 50), 128);
         assert_eq!(adjust_percent(5, -10), 0);
         assert_eq!(adjust_percent(95, 10), 100);
+        let display = source("display", BrightnessSourceKind::ExternalDisplay, true);
+        assert_eq!(adjust_percent_for_source(&display, -60), 1);
         assert_eq!(
             safe_percent_for_kind(BrightnessSourceKind::BuiltInDisplay, 0),
+            1
+        );
+        assert_eq!(
+            safe_percent_for_kind(BrightnessSourceKind::ExternalDisplay, 0),
             1
         );
         assert_eq!(safe_percent_for_kind(BrightnessSourceKind::Keyboard, 0), 0);
@@ -1188,6 +1233,19 @@ Display 2
                 },
             ]
         );
+    }
+
+    #[test]
+    fn monitor_connector_from_drm_device_removes_card_prefix() {
+        assert_eq!(
+            monitor_connector_from_drm_device("card1-DP-3").as_deref(),
+            Some("DP-3")
+        );
+        assert_eq!(
+            monitor_connector_from_drm_device("card0-eDP-1").as_deref(),
+            Some("eDP-1")
+        );
+        assert_eq!(monitor_connector_from_drm_device("DP-3"), None);
     }
 
     #[test]
@@ -1357,6 +1415,7 @@ Display 2
         BrightnessSource {
             id: id.into(),
             name: id.into(),
+            connector: None,
             kind,
             icon: source_icon(kind).into(),
             current: 50,

@@ -468,10 +468,9 @@ fn percent_from_scale_value(source: &BrightnessSource, value: f64) -> u8 {
             source.max,
         )
     } else {
-        let min = if source.kind == BrightnessSourceKind::BuiltInDisplay {
-            1.0
-        } else {
-            0.0
+        let min = match source.kind {
+            BrightnessSourceKind::BuiltInDisplay | BrightnessSourceKind::ExternalDisplay => 1.0,
+            BrightnessSourceKind::Keyboard | BrightnessSourceKind::Other => 0.0,
         };
         value.round().clamp(min, 100.0) as u8
     }
@@ -560,6 +559,19 @@ mod tests {
     }
 
     #[test]
+    fn external_display_source_uses_one_percent_floor() {
+        let source = source(
+            "external",
+            BrightnessSourceKind::ExternalDisplay,
+            50,
+            100,
+            50,
+        );
+
+        assert_eq!(percent_from_scale_value(&source, 0.0), 1);
+    }
+
+    #[test]
     fn pending_brightness_ignores_recent_stale_service_values() {
         let mut pending = Some(PendingBrightness::new(80));
         let now = Instant::now();
@@ -587,6 +599,7 @@ mod tests {
         BrightnessSource {
             id: id.into(),
             name: id.into(),
+            connector: None,
             kind,
             icon: "display-brightness-symbolic".into(),
             current,

@@ -248,6 +248,7 @@ fn empty_source(id: &str) -> BrightnessSource {
     BrightnessSource {
         id: id.into(),
         name: "Brightness".into(),
+        connector: None,
         kind: BrightnessSourceKind::BuiltInDisplay,
         icon: "display-brightness-symbolic".into(),
         current: 0,
@@ -322,6 +323,7 @@ mod tests {
         BrightnessSource {
             id: id.into(),
             name: id.into(),
+            connector: None,
             kind,
             icon: "display-brightness-symbolic".into(),
             current: 50,
