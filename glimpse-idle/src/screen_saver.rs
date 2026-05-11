@@ -30,17 +30,40 @@ impl ScreenSaver {
         application_name: String,
         reason_for_inhibit: String,
         #[zbus(header)] header: zbus::message::Header<'_>,
+        #[zbus(connection)] conn: &zbus::Connection,
     ) -> zbus::fdo::Result<u32> {
         let bus_name = header.sender().map(|s| s.to_string()).unwrap_or_default();
-        inhibit_impl(
+        let cookie = inhibit_impl(
             &self.registry,
             self.login1_inhibit.as_ref(),
             application_name,
             reason_for_inhibit,
-            bus_name,
+            bus_name.clone(),
             self.on_change.as_ref(),
         )
-        .await
+        .await?;
+
+        if !bus_name.is_empty() {
+            let registry = self.registry.clone();
+            let on_change = self.on_change.clone();
+            let conn = conn.clone();
+            tokio::spawn(async move {
+                if let Some(name) =
+                    crate::dbus_helpers::resolve_process_name(&conn, &bus_name).await
+                {
+                    let mut reg = registry.lock().await;
+                    if let Some(id) = reg.lookup_by_cookie(cookie) {
+                        if let Some(internal) = reg.records_mut().get_mut(&id) {
+                            internal.record.process_name = name;
+                        }
+                    }
+                    drop(reg);
+                    on_change();
+                }
+            });
+        }
+
+        Ok(cookie)
     }
 
     async fn un_inhibit(&self, cookie: u32) -> zbus::fdo::Result<()> {
