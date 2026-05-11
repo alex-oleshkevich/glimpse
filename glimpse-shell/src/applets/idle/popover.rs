@@ -240,10 +240,10 @@ impl Popover {
             let keep = seen.contains(id);
             if !keep {
                 let widget: &gtk::Widget = row.root.button.upcast_ref();
-                if let Some(parent) = widget.parent() {
-                    if let Ok(parent) = parent.downcast::<gtk::Box>() {
-                        parent.remove(widget);
-                    }
+                if let Some(parent) = widget.parent()
+                    && let Ok(parent) = parent.downcast::<gtk::Box>()
+                {
+                    parent.remove(widget);
                 }
             }
             keep
@@ -367,10 +367,10 @@ fn place_row(row: &IdleListRow, container: &gtk::Box, previous: Option<&gtk::Wid
     let already_in_container = row_widget.parent().is_some_and(|parent| parent == target);
 
     if !already_in_container {
-        if let Some(parent) = row_widget.parent() {
-            if let Ok(parent) = parent.downcast::<gtk::Box>() {
-                parent.remove(row_widget);
-            }
+        if let Some(parent) = row_widget.parent()
+            && let Ok(parent) = parent.downcast::<gtk::Box>()
+        {
+            parent.remove(row_widget);
         }
         container.append(row_widget);
     }

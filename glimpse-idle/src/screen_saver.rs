@@ -52,10 +52,10 @@ impl ScreenSaver {
                     crate::dbus_helpers::resolve_process_name(&conn, &bus_name).await
                 {
                     let mut reg = registry.lock().await;
-                    if let Some(id) = reg.lookup_by_cookie(cookie) {
-                        if let Some(internal) = reg.records_mut().get_mut(&id) {
-                            internal.record.process_name = name;
-                        }
+                    if let Some(id) = reg.lookup_by_cookie(cookie)
+                        && let Some(internal) = reg.records_mut().get_mut(&id)
+                    {
+                        internal.record.process_name = name;
                     }
                     drop(reg);
                     on_change();
@@ -165,10 +165,11 @@ mod tests {
         .await
         .unwrap();
         assert!(cookie >= 1);
-        let calls = fake.calls.lock().unwrap();
-        assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].0, "idle:sleep");
-        drop(calls);
+        {
+            let calls = fake.calls.lock().unwrap();
+            assert_eq!(calls.len(), 1);
+            assert_eq!(calls[0].0, "idle:sleep");
+        }
 
         let reg = registry.lock().await;
         let snap = reg.snapshot();

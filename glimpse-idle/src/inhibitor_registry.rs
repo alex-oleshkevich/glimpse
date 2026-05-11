@@ -111,12 +111,12 @@ impl Registry {
             }
             SourceKind::Login1 => {}
         }
-        if !internal.record.bus_name.is_empty() {
-            if let Some(ids) = self.bus_name_to_ids.get_mut(&internal.record.bus_name) {
-                ids.retain(|x| *x != id);
-                if ids.is_empty() {
-                    self.bus_name_to_ids.remove(&internal.record.bus_name);
-                }
+        if !internal.record.bus_name.is_empty()
+            && let Some(ids) = self.bus_name_to_ids.get_mut(&internal.record.bus_name)
+        {
+            ids.retain(|x| *x != id);
+            if ids.is_empty() {
+                self.bus_name_to_ids.remove(&internal.record.bus_name);
             }
         }
         Some(ReleaseOutcome { id, had_logind_fd })

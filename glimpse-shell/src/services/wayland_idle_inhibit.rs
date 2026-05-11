@@ -134,7 +134,7 @@ pub mod gdk_backend {
                 .ok_or_else(|| "GDK wl_display unavailable".to_string())?
                 .backend()
                 .upgrade()
-                .map(|backend| Connection::from_backend(backend))
+                .map(Connection::from_backend)
                 .ok_or_else(|| "GDK wayland backend gone".to_string())?;
 
             let (globals, queue) = registry_queue_init::<DispatchState>(&conn)
@@ -172,14 +172,12 @@ pub mod gdk_backend {
                     tracing::warn!(?error, "wayland flush after create_inhibitor failed");
                 }
                 tracing::debug!("GdkWaylandInhibitor: created zwp_idle_inhibitor_v1");
-            } else if !inhibited {
-                if let Some(inh) = self.inhibitor.take() {
-                    inh.destroy();
-                    if let Err(error) = self.conn.flush() {
-                        tracing::warn!(?error, "wayland flush after destroy failed");
-                    }
-                    tracing::debug!("GdkWaylandInhibitor: destroyed zwp_idle_inhibitor_v1");
+            } else if !inhibited && let Some(inh) = self.inhibitor.take() {
+                inh.destroy();
+                if let Err(error) = self.conn.flush() {
+                    tracing::warn!(?error, "wayland flush after destroy failed");
                 }
+                tracing::debug!("GdkWaylandInhibitor: destroyed zwp_idle_inhibitor_v1");
             }
         }
         fn health(&self) -> WaylandHealth {
@@ -209,18 +207,15 @@ pub async fn run(
         tokio::select! {
             _ = cancel.cancelled() => return,
             r = state_rx.changed() => if r.is_err() { return; },
-            swap = swap_rx.recv() => match swap {
-                Some(new_backend) => {
-                    if current {
-                        backend.set_inhibited(false);
-                    }
-                    backend = new_backend;
-                    let _ = health_tx.send(backend.health());
-                    if current {
-                        backend.set_inhibited(true);
-                    }
+            swap = swap_rx.recv() => if let Some(new_backend) = swap {
+                if current {
+                    backend.set_inhibited(false);
                 }
-                None => {}
+                backend = new_backend;
+                let _ = health_tx.send(backend.health());
+                if current {
+                    backend.set_inhibited(true);
+                }
             },
         }
     }
@@ -262,8 +257,6 @@ mod tests {
     }
 
     fn rec_suspend_only(id: u64) -> IdleInhibitorRecord {
-        let mut t = InhibitionTargets::default();
-        t.suspend = true;
         IdleInhibitorRecord {
             id,
             who: "x".into(),
@@ -271,7 +264,10 @@ mod tests {
             bus_name: ":1.1".into(),
             process_name: String::new(),
             source: IdleInhibitorSource::screen_saver(2),
-            targets: t,
+            targets: InhibitionTargets {
+                suspend: true,
+                ..InhibitionTargets::default()
+            },
             can_release: true,
             added_at_unix: 0,
         }

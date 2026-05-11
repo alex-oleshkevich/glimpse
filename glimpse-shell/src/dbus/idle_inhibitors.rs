@@ -134,10 +134,10 @@ async fn handle_command(
         }
         Command::SetManualHold(false) => {
             let cookie = manual.lock().await.cookie.take();
-            if let Some(cookie) = cookie {
-                if let Err(e) = screen_saver.un_inhibit(cookie).await {
-                    tracing::warn!(error = ?e, cookie, "manual hold UnInhibit failed");
-                }
+            if let Some(cookie) = cookie
+                && let Err(e) = screen_saver.un_inhibit(cookie).await
+            {
+                tracing::warn!(error = ?e, cookie, "manual hold UnInhibit failed");
             }
         }
         Command::Release { id } => {

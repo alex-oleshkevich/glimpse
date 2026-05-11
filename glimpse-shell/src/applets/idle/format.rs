@@ -185,8 +185,10 @@ mod tests {
 
     #[test]
     fn screen_saver_degraded_message_overrides_empty_state() {
-        let mut backend = InhibitorsHealth::default();
-        backend.screen_saver = BackendHealth::degraded("Bus name already owned");
+        let backend = InhibitorsHealth {
+            screen_saver: BackendHealth::degraded("Bus name already owned"),
+            ..InhibitorsHealth::default()
+        };
         let i = SubtitleInputs {
             daemon_offline: false,
             wayland: &WaylandHealth::Ready,
