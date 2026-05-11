@@ -200,7 +200,7 @@ right = ["network", "battery", "..."]
 | `audio` | Volume, mute state, output device, and microphone indicator. |
 | `battery` | Battery percentage, charging state, and power profile. |
 | `bluetooth` | Bluetooth state and connected devices. |
-| `brightness` | Screen brightness with scroll control. |
+| `brightness` | Screen brightness with monitor-aware scroll control. |
 | `clipboard` | Clipboard history. |
 | `clock` | Time, date, calendar, and optional world clocks. |
 | `command` | A button or menu that runs commands. |
