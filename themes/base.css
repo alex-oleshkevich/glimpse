@@ -443,7 +443,6 @@ button.applet:active,
     min-height: 22px;
     margin: 0 var(--space-1);
     padding: 0 4px 0 4px;
-    text-align: center;
     border-radius: var(--radius-pill);
     background: color-mix(in srgb, currentColor 1%, transparent);
     color: var(--panel-fg);
@@ -459,7 +458,6 @@ button.applet:active,
     font-weight: 500;
     font-size: 0.78rem;
     font-variant-numeric: tabular-nums;
-    text-align: center;
 }
 
 .pager-num.active {
@@ -1022,7 +1020,6 @@ popover.clipboard-app-menu .action-menu {
 }
 
 .badge {
-    box-sizing: border-box;
     min-width: var(--indicator-icon-size);
     min-height: var(--indicator-icon-size);
     border-radius: var(--badge-radius);
@@ -1533,7 +1530,6 @@ popover.clipboard-app-menu .action-menu {
 popover.mpris-popover {
     --popover-min-width: var(--popover-xlarge-width);
     --popover-min-height: 0px;
-    max-width: var(--popover-xlarge-width);
     --card-bg: color-mix(in srgb, var(--color-fg) 7%, transparent);
     --card-hover-bg: color-mix(in srgb, var(--color-fg) 11%, transparent);
     --card-border: transparent;
@@ -1773,8 +1769,6 @@ popover.mpris-popover {
 .popup-inline-image {
     min-width: var(--notification-inline-image-size);
     min-height: var(--notification-inline-image-size);
-    max-width: var(--notification-inline-image-size);
-    max-height: var(--notification-inline-image-size);
 }
 
 .notifications-popover .notif-body,
