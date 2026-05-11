@@ -27,7 +27,7 @@ mkdir -p \
     "$pkgroot/usr/share/dbus-1/services" \
     dist
 
-cargo build --release --locked \
+cargo build --release \
     -p glimpse-lock \
     -p glimpse-shell \
     -p glimpse-idle \

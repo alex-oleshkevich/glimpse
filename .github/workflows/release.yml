@@ -78,7 +78,7 @@ jobs:
             -p glimpse-lock \
             -p glimpse-sunset \
             -p glimpse-wallpaper
-          cargo check --locked \
+          cargo check \
             -p glimpse-lock \
             -p glimpse-shell \
             -p glimpse-idle \
