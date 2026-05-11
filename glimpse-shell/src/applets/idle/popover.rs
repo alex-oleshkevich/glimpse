@@ -233,7 +233,6 @@ fn build_row(
     row.button.set_tooltip_text(Some(&build_tooltip(r)));
 
     if r.can_release {
-        row.as_ref().add_css_class("is-danger");
         let cmd = Command::Release { id: r.id };
         let sender = sender.clone();
         row.button.connect_clicked(move |_| {
