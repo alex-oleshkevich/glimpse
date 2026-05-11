@@ -40,9 +40,16 @@ export default defineConfig({
         text: 'Applets',
         items: [
           { text: 'Applet Reference', link: '/applets/' },
-          { text: 'Command Applet', link: '/custom-applets/command' },
-          { text: 'Exec Applet', link: '/custom-applets/exec' },
-          { text: 'Exec SDK', link: '/applets/exec-sdk' }
+          { text: 'Command Applet', link: '/custom-applets/command' }
+        ]
+      },
+      {
+        text: 'Exec',
+        items: [
+          { text: 'Applet', link: '/custom-applets/exec' },
+          { text: 'SDK', link: '/applets/exec-sdk' },
+          { text: 'Line Protocol', link: '/custom-applets/exec-protocol' },
+          { text: 'Components', link: '/custom-applets/exec-components' }
         ]
       },
       {

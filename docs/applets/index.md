@@ -15,8 +15,8 @@ Configure an applet under `[applets.name]`:
 
 ```toml
 [applets.clock]
-format = "%H:%M"
-tooltip = "%A, %B %-d"
+label_format = "%H:%M"
+tooltip_format = "%A, %B %-d"
 ```
 
 To create a second copy or a custom-named applet, use `extends`:
@@ -32,7 +32,7 @@ right = ["short-battery", "session"]
 
 ## Common Format Fields
 
-Many applets support `label`, `label_format`, `tooltip`, or `tooltip_format`. Short aliases like `label` and `tooltip` are accepted by most applets.
+Many applets support `label_format` and `tooltip_format`. Each applet section lists the formatting fields it supports.
 
 An empty label means the applet shows only its icon.
 
@@ -40,7 +40,7 @@ An empty label means the applet shows only its icon.
 
 | Applet | What it shows |
 |---|---|
-| [`audio`](#audio) | Volume, mute state, output device, microphone indicator. |
+| [`audio`](#audio) | Volume, mute state, output device, muted microphone indicator. |
 | [`battery`](#battery) | Battery state, charge, time left, power profile. |
 | [`bluetooth`](#bluetooth) | Bluetooth state and connected devices. |
 | [`brightness`](#brightness) | Screen brightness with scroll control. |
@@ -65,8 +65,8 @@ Shows the current output volume. Scroll on the applet to change volume.
 
 ```toml
 [applets.audio]
-label = "{volume}%"
-tooltip = "{device} - {volume}%"
+label_format = "{volume}%"
+tooltip_format = "{device} - {volume}%"
 scroll_step = 5
 max_volume = 120
 show_mic_indicator = true
@@ -76,9 +76,9 @@ show_streams = true
 | Option | Default | Meaning |
 |---|---|---|
 | `show_icon` | `true` | Show the volume icon. |
-| `show_mic_indicator` | `true` | Show a microphone indicator when input is active. |
-| `label` / `label_format` | `""` | Panel text. |
-| `tooltip` / `tooltip_format` | `"{device} - {volume}%"` | Hover text. |
+| `show_mic_indicator` | `true` | Show a muted microphone indicator when the default input is muted. |
+| `label_format` | `""` | Panel text. |
+| `tooltip_format` | `"{device} - {volume}%"` | Hover text. |
 | `scroll_step` | `10` | Volume change per scroll step. |
 | `max_volume` | `100` | Maximum volume allowed from scrolling and controls. |
 | `show_streams` | `true` | Show application streams in the popover. |
@@ -116,14 +116,14 @@ Shows Bluetooth status and connected device count.
 
 ```toml
 [applets.bluetooth]
-label = "{devices}"
-tooltip = "{devices} connected devices"
+label_format = "{devices}"
+tooltip_format = "{devices} connected devices"
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
-| `label` / `label_format` | `""` | Panel text. |
-| `tooltip` / `tooltip_format` | `"{devices} connected devices"` | Hover text. |
+| `label_format` | `""` | Panel text. |
+| `tooltip_format` | `"{devices} connected devices"` | Hover text. |
 
 Placeholders: `{devices}`, `{state}`.
 
@@ -136,15 +136,15 @@ clamped to at least 1%.
 
 ```toml
 [applets.brightness]
-label = "{percent}%"
-tooltip = "{source}: {percent}%"
+label_format = "{percent}%"
+tooltip_format = "{source}: {percent}%"
 scroll_step = 5
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
-| `label` / `label_format` | `""` | Panel text. |
-| `tooltip` / `tooltip_format` | `"{source}: {percent}%"` | Hover text. |
+| `label_format` | `""` | Panel text. |
+| `tooltip_format` | `"{source}: {percent}%"` | Hover text. |
 | `scroll_step` | `10` | Brightness change per scroll step. |
 
 Placeholders: `{source}`, `{percent}`.
@@ -155,15 +155,15 @@ Shows clipboard history and opens a popover for copying older entries.
 
 ```toml
 [applets.clipboard]
-label = "{count}"
-tooltip = "{count} clipboard items"
+label_format = "{count}"
+tooltip_format = "{count} clipboard items"
 show_when_empty = false
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
-| `label` / `label_format` | `""` | Panel text. |
-| `tooltip` / `tooltip_format` | `"{count} clipboard items"` | Hover text. |
+| `label_format` | `""` | Panel text. |
+| `tooltip_format` | `"{count} clipboard items"` | Hover text. |
 | `show_when_empty` | `false` | Keep the applet visible with no history. |
 
 Placeholders: `{count}`, `{state}`.
@@ -174,23 +174,59 @@ Shows time and opens a calendar popover.
 
 ```toml
 [applets.clock]
-format = "%H:%M"
-tooltip = "%A, %B %-d %Y"
+label_format = "%H:%M"
+tooltip_format = "%A, %B %-d %Y"
 tick_interval = 1
 
 [[applets.clock.timezones]]
-label = "Tokyo"
+name = "Tokyo"
 timezone = "Asia/Tokyo"
+format = "%H:%M"
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
-| `format` / `label_format` | `"%a %-d %b, %H:%M"` | Panel time format. |
-| `tooltip` / `tooltip_format` | `"%A, %-d %B %Y"` | Hover date format. |
+| `label_format` | `"%a %-d %b, %H:%M"` | Panel time format. |
+| `tooltip_format` | `"%A, %-d %B %Y"` | Hover date format. |
 | `tick_interval` | `1` | Seconds between clock updates. Values are clamped from 1 to 60. |
 | `timezones` | `[]` | Optional world clocks shown in the popover. |
 
 Clock formats use `strftime` style patterns.
+
+### World clocks
+
+Add one `[[applets.clock.timezones]]` table per extra timezone. World clocks appear in the clock popover, below the local calendar.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `name` | `""` | Display name. When empty, the timezone name is shown. |
+| `timezone` | `"UTC"` | IANA timezone name, such as `"Europe/Warsaw"` or `"Asia/Tokyo"`. Invalid names are skipped. |
+| `format` | `"%H:%M"` | Time format for this world clock row. |
+
+```toml
+[[applets.clock.timezones]]
+name = "New York"
+timezone = "America/New_York"
+format = "%-I:%M %p"
+
+[[applets.clock.timezones]]
+name = "Tokyo"
+timezone = "Asia/Tokyo"
+format = "%H:%M"
+```
+
+### Common time formats
+
+Copy these into `label_format`, `tooltip_format`, or a world clock `format`.
+
+| Format | Example output | Notes |
+|---|---|---|
+| `"%H:%M"` | `23:07` | 24-hour time. |
+| `"%H:%M:%S"` | `23:07:42` | 24-hour time with seconds. |
+| `"%-I:%M %p"` | `11:07 PM` | 12-hour time without leading zero. |
+| `"%a %-d %b, %H:%M"` | `Mon 11 May, 23:07` | Matches the default panel label shape. |
+| `"%A, %-d %B %Y"` | `Monday, 11 May 2026` | Matches the default tooltip shape. |
+| `"%Y-%m-%d %H:%M"` | `2026-05-11 23:07` | Sortable date and time. |
 
 ## Command
 
@@ -225,6 +261,10 @@ Runs your own script and lets it draw status items and popovers.
 extends = "exec"
 command = ["sh", "-c", "~/.config/glimpse/scripts/sysinfo"]
 restart_delay_ms = 1000
+env_clear = false
+
+[applets.sysinfo.env]
+PATH = "/usr/bin:/bin"
 
 [applets.sysinfo.options]
 interval = 5
@@ -234,10 +274,37 @@ interval = 5
 |---|---|---|
 | `extends` | required for custom names | Use `"exec"` for custom exec applets. |
 | `command` | `[]` | Script or program to run. Required. |
-| `restart_delay_ms` | `1000` | Delay before restarting the script after it exits. |
+| `restart_delay_ms` | `1000` | Delay before restarting the script after it exits. Minimum 50. |
 | `options` | `{}` | Custom data sent to your script on startup. |
+| `env_clear` | `false` | Clear the inherited environment before starting the script. |
+| `env` | `{}` | Extra environment variables for the script. Applied after `env_clear`. |
 
-Read [Exec Applet](../custom-applets/exec.md) for basic usage and [Exec SDK](./exec-sdk.md) for components, events, and best practices.
+Read [Exec Applet](../custom-applets/exec.md) for config and options, [Line Protocol](../custom-applets/exec-protocol.md) for raw protocol details, [Components](../custom-applets/exec-components.md) for popover component fields, and [Exec SDK](./exec-sdk.md) for SDK installation and language examples.
+
+## Idle Inhibitor
+
+Lists every active idle inhibitor across four sources and lets you release the ones whose owner allows it:
+
+- **Manual hold** — toggle the hero switch in the popover to keep the system awake (blocks idle and suspend). Dies with the shell.
+- **`org.freedesktop.ScreenSaver`** — external apps like Firefox, mpv, VLC, OBS. Releasable from the popover.
+- **`org.freedesktop.impl.portal.Inhibit`** — Flatpak/sandboxed apps via xdg-desktop-portal. Releasable from the popover.
+- **`systemd-logind`** — `systemd-inhibit`, package managers during upgrade, backup tools. Read-only (we don't own the fd).
+
+Each row shows the source's targets as inline chips: `idle`, `suspend`, `shutdown`, `lid` (primary tier) and `power-key`, `suspend-key`, `hibernate-key` (secondary tier). The hero icon flips between a "cup empty" and "cup full" symbolic whenever any inhibitor is active.
+
+```toml
+[[panels]]
+right = ["...", "idle"]
+```
+
+The applet has no per-instance configuration. It is added to the default right panel between `battery` and `session`; remove it from the panel section if you don't want it visible.
+
+The daemon ships an xdg-desktop-portal backend metadata file (`/usr/share/xdg-desktop-portal/portals/glimpse.portal`). On non-Glimpse desktops, route the Inhibit interface to it via your `portals.conf`:
+
+```ini
+[preferred]
+org.freedesktop.impl.portal.Inhibit=glimpse;
+```
 
 ## Keyboard
 
@@ -250,16 +317,22 @@ remember = "global"
 [keyboard.labels]
 "English (US)" = "EN"
 "Polish" = "PL"
-
-[applets.keyboard]
-labels = { "English (US)" = "EN", "Polish" = "PL" }
 ```
 
-| Option | Default | Meaning |
+| Setting | Default | Meaning |
 |---|---|---|
-| `labels` | `{}` | Replace long layout names with short labels. |
+| `[keyboard].remember` | `"global"` | How Glimpse remembers the active keyboard layout. |
+| `[keyboard.labels]` | `{}` | Replace long layout names with short labels. |
 
-You can set labels globally under `[keyboard.labels]` or directly on the applet.
+### Remember modes
+
+| Value | Behavior |
+|---|---|
+| `"global"` | Use one active layout everywhere. |
+| `"app"` | Restore the previous layout when focus returns to the same application. |
+| `"window"` | Restore the previous layout when focus returns to the same window. |
+
+Set labels globally under `[keyboard.labels]`. Applet-local `labels` are still accepted as a compatibility fallback when `[keyboard.labels]` is empty.
 
 ## MPRIS
 
@@ -267,8 +340,8 @@ Shows media player status and playback controls.
 
 ```toml
 [applets.mpris]
-label = "{artist} - {title}"
-tooltip = "{player}: {artist} - {title}"
+label_format = "{artist} - {title}"
+tooltip_format = "{player}: {artist} - {title}"
 hide_when_empty = true
 max_rows = 5
 show_artwork = true
@@ -276,8 +349,8 @@ show_artwork = true
 
 | Option | Default | Meaning |
 |---|---|---|
-| `label` / `label_format` | `"{artist} - {title}"` | Panel text. |
-| `tooltip` / `tooltip_format` | `"{player}: {artist} - {title}"` | Hover text. |
+| `label_format` | `"{artist} - {title}"` | Panel text. |
+| `tooltip_format` | `"{player}: {artist} - {title}"` | Hover text. |
 | `hide_when_empty` | `true` | Hide when no player is active. |
 | `max_rows` | `5` | Maximum players shown in the popover. Clamped from 1 to 12. |
 | `show_artwork` | `true` | Show album art when available. |
@@ -290,14 +363,14 @@ Shows current network state and opens a popover for Wi-Fi, wired network, and VP
 
 ```toml
 [applets.network]
-label = "{network}"
-tooltip = "{state}"
+label_format = "{network}"
+tooltip_format = "{state}"
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
-| `label` / `label_format` | `""` | Panel text. |
-| `tooltip` / `tooltip_format` | `"{state}"` | Hover text. |
+| `label_format` | `""` | Panel text. |
+| `tooltip_format` | `"{state}"` | Hover text. |
 
 Placeholders: `{state}`, `{network}`, `{type}`, `{wifi}`, `{access_points}`, `{connections}`, `{vpns}`, `{speed}`.
 
@@ -307,8 +380,8 @@ Shows notification state, a notification center, and popups.
 
 ```toml
 [applets.notifications]
-label = "{count}"
-tooltip = "{count} notifications"
+label_format = "{count}"
+tooltip_format = "{count} notifications"
 badge_style = "count"
 popup_timeout_ms = 5000
 popup_visible_limit = 8
@@ -320,15 +393,15 @@ popup_monitor = "DP-2"   # optional
 
 | Option | Default | Meaning |
 |---|---|---|
-| `label` / `label_format` | `""` | Panel text. |
-| `tooltip` / `tooltip_format` | `"{count} notifications"` | Hover text. |
+| `label_format` | `""` | Panel text. |
+| `tooltip_format` | `"{count} notifications"` | Hover text. |
 | `badge_style` | `"count"` | Badge style. Use `"none"` to hide the badge. |
 | `popup_timeout_ms` | `5000` | How long popups stay visible. |
-| `popup_visible_limit` | `8` | Maximum popups visible at once. |
-| `popup_position` | `"top_center"` | Popup position. |
+| `popup_visible_limit` | `8` | Maximum popups visible at once. Clamped from 1 to 20. |
+| `popup_position` | `"top_center"` | Popup position: `"top_left"`, `"top_center"`, `"top_right"`, `"bottom_left"`, `"bottom_center"`, or `"bottom_right"`. |
 | `popup_margin_x` | `12` | Horizontal popup margin. |
 | `popup_margin_y` | `32` | Vertical popup margin. |
-| `popup_monitor` | unset | Pin popups to a specific output by connector name (e.g. `"eDP-1"`, `"DP-2"`). When unset, popups appear on the alphabetically-first connected output. |
+| `popup_monitor` | unset | Pin popups to a specific output by connector name (e.g. `"eDP-1"`, `"DP-2"`). When unset, Glimpse chooses a default monitor automatically. |
 
 Placeholders: `{count}`, `{state}`.
 
@@ -337,8 +410,8 @@ Placeholders: `{count}`, `{state}`.
 By default Glimpse runs one panel per connected monitor, and the `notifications` applet on each of those panels would otherwise create its own popup window. To keep popups single, only one applet across the shell actually owns the popup window:
 
 - If `popup_monitor` is set, only the applet whose panel sits on that connector owns the popup. Popups always appear on that monitor regardless of which monitor currently has focus.
-- If `popup_monitor` is unset, the alphabetically-first connected connector wins. Deterministic across restarts; no extra config needed for typical single-monitor setups.
-- If the configured `popup_monitor` connector is not currently connected, no popup window exists until that connector returns. Notifications still arrive in the notification center popover.
+- If `popup_monitor` is unset, Glimpse chooses a default monitor automatically.
+- If the configured `popup_monitor` is unavailable, Glimpse cannot pin popups to that output. Notifications are still available from the notifications applet popover.
 
 The `notifications` applet should be configured on at most one `[[panels]]` block — duplicates on the same connector are silently dropped (first one to initialize wins), but it's clearer to leave it in one place.
 
@@ -376,15 +449,7 @@ Workspace label placeholders: `{index}`, `{id}`, `{name}`. Unnamed workspaces re
 
 Shows privacy indicators such as microphone, camera, screen sharing, and location use.
 
-```toml
-[applets.privacy]
-```
-
-This applet has no user config today.
-
-| Option | Default | Meaning |
-|---|---|---|
-| none | none | The privacy applet is configured by placing or removing it from the panel. |
+The privacy applet has no config; add or remove `privacy` from a panel to show or hide it.
 
 ## Removable
 
@@ -411,8 +476,8 @@ Shows the current user and opens session actions.
 
 ```toml
 [applets.session]
-label = "{user}"
-tooltip = "{user} on {host}"
+label_format = "{user}"
+tooltip_format = "{user} on {host}"
 show_lock = true
 show_logout = true
 show_suspend = true
@@ -428,8 +493,8 @@ confirm_shutdown = true
 
 | Option | Default | Meaning |
 |---|---|---|
-| `label` / `label_format` | `"{user}"` | Panel text. |
-| `tooltip` / `tooltip_format` | `"{user} on {host}"` | Hover text. |
+| `label_format` | `"{user}"` | Panel text. |
+| `tooltip_format` | `"{user} on {host}"` | Hover text. |
 | `show_lock` | `true` | Show lock action. |
 | `show_logout` | `true` | Show logout action. |
 | `show_suspend` | `true` | Show suspend action. |
@@ -466,27 +531,25 @@ Shows current weather and a forecast popover.
 ```toml
 [applets.weather]
 city_name = "Warsaw, PL"
-geolocate = false
 hourly_slots = 5
 forecast_days = 5
-label = "{temp}°"
-tooltip = "{condition} · {temp} · feels like {feels_like} · {location}"
+label_format = "{temp}"
+tooltip_format = "{condition} · {temp} · feels like {feels_like} · {location}"
 refresh_interval = 1800
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
-| `city_name` | `""` | Place to use when not geolocating. |
-| `geolocate` | `false` | Use configured location instead of `city_name`. |
+| `city_name` | `""` | Place to fetch. When empty, weather uses the shared `[location]` settings. |
 | `hourly_slots` | `5` | Hourly entries in the popover. Clamped from 1 to 8. |
 | `forecast_days` | `5` | Forecast days in the popover. Clamped from 1 to 10. |
-| `label` / `label_format` | `"{temp}°"` | Panel text. |
-| `tooltip` / `tooltip_format` | `"{condition} · {temp} · feels like {feels_like} · {location}"` | Hover text. |
+| `label_format` | `"{temp}"` | Panel text. |
+| `tooltip_format` | `"{condition} · {temp} · feels like {feels_like} · {location}"` | Hover text. |
 | `refresh_interval` | `1800` | Seconds between updates. Minimum 60. |
 
 Placeholders: `{temp}`, `{condition}`, `{feels_like}`, `{location}`.
 
-To use your shared location:
+To use your shared location, configure `[location]` and leave `city_name` empty:
 
 ```toml
 [location]
@@ -495,5 +558,5 @@ latitude = 52.2297
 longitude = 21.0122
 
 [applets.weather]
-geolocate = true
+city_name = ""
 ```

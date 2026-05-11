@@ -1,15 +1,8 @@
 # Exec Applet
 
-The exec applet is for live custom status. Your script decides what the panel shows.
+The exec applet runs a child process and lets that process control panel status and popover content.
 
-Use it for things like:
-
-| Idea | Example |
-|---|---|
-| System status | CPU temperature, memory, disk space. |
-| Personal workflow | Current task, timer, VPN status. |
-| Web data | Build status, unread count, package updates. |
-| Setup details | Current theme, song mood, workspace mode. |
+Use it when you want a custom local widget without writing a built-in Rust applet. Raw exec applets use the [line protocol](./exec-protocol.md). If you prefer typed helpers instead of raw protocol lines, use the [Exec SDK](../applets/exec-sdk.md).
 
 ## Basic Config
 
@@ -18,70 +11,65 @@ Use it for things like:
 extends = "exec"
 command = ["sh", "-c", "~/.config/glimpse/scripts/sysinfo"]
 restart_delay_ms = 1000
+env_clear = false
+
+[applets.sysinfo.env]
+PATH = "/usr/bin:/bin"
 
 [applets.sysinfo.options]
+interval = 5
 unit = "celsius"
 ```
 
-Add it to the panel:
+Add the custom applet name to a panel section:
 
 ```toml
 right = ["sysinfo", "network", "battery"]
 ```
 
-## What Your Script Prints
+| Option | Default | Meaning |
+|---|---|---|
+| `extends` | required for custom names | Use `"exec"` for custom exec applets. |
+| `command` | `[]` | Program to run. Required. Use `["sh", "-c", "..."]` when you need shell syntax. |
+| `restart_delay_ms` | `1000` | Delay before the program restarts after exit. Minimum 50. |
+| `options` | `{}` | Custom data sent to the child process in the `init` message. |
+| `env_clear` | `false` | Clear the inherited environment before starting the child process. |
+| `env` | `{}` | Extra environment variables for the child process. Applied after `env_clear`. |
 
-Your script prints lines to update the applet.
+## Options
 
-Set the visible status:
+`[applets.<name>.options]` is arbitrary data for your applet instance. Glimpse does not interpret it.
 
-```txt
-status {"items":[{"id":"cpu","label":"42°C","icon":{"name":"temperature-symbolic"},"tooltip":"CPU temperature"}]}
-```
-
-Set popover content:
-
-```txt
-popover {"root":{"type":"detail_grid","data":{"rows":[{"key":"CPU","value":"42°C"},{"key":"RAM","value":"51%"}]}}}
-```
-
-Keep the script running if the value changes over time.
-
-## Click Events
-
-When the user clicks an item with an `id`, your script receives an event line:
+When the child process starts, Glimpse sends the options in the first `init` line:
 
 ```txt
-event {"id":"cpu","type":"click","source":"status","button":"left"}
+init {"instance":"sysinfo","options":{"interval":5,"unit":"celsius"}}
 ```
 
-That lets your script react to clicks, open tools, or change what it shows.
+Use this for script-specific settings such as polling intervals, units, paths, thresholds, or feature flags.
 
-## Practical Script Shape
+## Raw Protocol Applets
 
-```sh
-#!/bin/sh
+A raw exec applet reads lines from stdin and writes lines to stdout. Glimpse sends `init` and `event` messages to the child process. The child process sends `status` and `popover` messages back.
 
-while true; do
-  temp="$(sensors | rg 'Package id 0' | rg -o '[0-9]+\\.[0-9]+°C' | head -n1)"
-  printf 'status {"items":[{"id":"cpu","label":"%s","icon":{"name":"temperature-symbolic"}}]}\n' "$temp"
-  sleep 5
-done
-```
+Read [Line Protocol](./exec-protocol.md) for the full message reference.
 
-Make it executable:
+## Popover Components
 
-```sh
-chmod +x ~/.config/glimpse/scripts/sysinfo
-```
+Popover content is a component tree. Each node has a `type` and `data`, and the available component types are shared by raw protocol applets and SDK applets.
 
-## Tips
+Read [Components](./exec-components.md) for the component reference.
 
-| Tip | Why |
+## SDK Applets
+
+SDK applets still run through `extends = "exec"`, but the SDK handles stdin, stdout, JSON encoding, events, and rendering.
+
+Read [Exec SDK](../applets/exec-sdk.md) for installation and minimal examples in Python, TypeScript, Rust, and Go.
+
+## See Also
+
+| Page | Covers |
 |---|---|
-| Print one status line at startup | The panel has something to show immediately. |
-| Keep updates modest | Once every few seconds is enough for most status items. |
-| Restart safely | If the script exits, Glimpse starts it again after `restart_delay_ms`. |
-| Use `sh -c` for shell scripts | It keeps paths, pipes, and redirects predictable. |
-
-For popover components, events, and complete protocol details, read the [Exec SDK](../applets/exec-sdk.md).
+| [Line Protocol](./exec-protocol.md) | Raw protocol commands, message shapes, events, and shell examples. |
+| [Components](./exec-components.md) | Popover component fields and component types. |
+| [Exec SDK](../applets/exec-sdk.md) | SDK installation and language examples. |

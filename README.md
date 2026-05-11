@@ -168,9 +168,9 @@ longitude = 21.0122
 Default panel layout:
 
 - **Left:** `pager`, `mpris`
-- **Center:** `clock`, `weather`, `notifications`
-- **Right:** `tray`, `removable`, `clipboard`, `keyboard`, `privacy`,
-  `bluetooth`, `network`, `brightness`, `audio`, `battery`, `session`
+- **Center:** `clock`, `weather`, `notifications`, `privacy`
+- **Right:** `tray`, `removable`, `clipboard`, `keyboard`, `bluetooth`,
+  `network`, `brightness`, `audio`, `battery`, `session`
 
 Panel options:
 
