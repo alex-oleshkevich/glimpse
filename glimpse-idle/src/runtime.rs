@@ -7,7 +7,7 @@ use zbus::fdo::{DBusProxy, RequestNameFlags, RequestNameReply};
 pub const APP_ID: &str = "me.aresa.GlimpseIdle";
 
 pub struct InstanceGuard {
-    _connection: zbus::Connection,
+    pub connection: zbus::Connection,
 }
 
 pub async fn acquire_single_instance() -> anyhow::Result<InstanceGuard> {
@@ -32,14 +32,34 @@ async fn acquire_dbus_name(name: &'static str) -> anyhow::Result<InstanceGuard> 
     match reply {
         RequestNameReply::PrimaryOwner | RequestNameReply::AlreadyOwner => {
             tracing::debug!(name, reply = ?reply, "D-Bus name acquired");
-            Ok(InstanceGuard {
-                _connection: connection,
-            })
+            Ok(InstanceGuard { connection })
         }
         RequestNameReply::Exists | RequestNameReply::InQueue => {
             bail!("another glimpse-idle instance already owns {name}")
         }
     }
+}
+
+/// Best-effort acquire of an additional well-known name on an existing
+/// session connection. Returns Ok(true) on success, Ok(false) if the name
+/// is already owned by another process. Err on D-Bus errors.
+pub async fn try_acquire_name(
+    conn: &zbus::Connection,
+    name: &str,
+) -> anyhow::Result<bool> {
+    let proxy = DBusProxy::new(conn)
+        .await
+        .context("create session D-Bus proxy")?;
+    let well_known = zbus::names::WellKnownName::try_from(name)
+        .with_context(|| format!("validate D-Bus name {name}"))?;
+    let reply = proxy
+        .request_name(well_known, RequestNameFlags::DoNotQueue.into())
+        .await
+        .with_context(|| format!("request D-Bus name {name}"))?;
+    Ok(matches!(
+        reply,
+        RequestNameReply::PrimaryOwner | RequestNameReply::AlreadyOwner
+    ))
 }
 
 #[derive(Debug)]
