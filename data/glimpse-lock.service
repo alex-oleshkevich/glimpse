@@ -1,17 +1,32 @@
 [Unit]
 Description=Glimpse lock screen
+Documentation=https://github.com/alex-oleshkevich/glimpse
 # Start AFTER graphical-session.target so WAYLAND_DISPLAY and XDG_RUNTIME_DIR
 # are present in the systemd user manager's environment when this service
 # spawns. Same race as glimpse-idle — see that unit for the explanation.
 PartOf=graphical-session.target
 After=graphical-session.target
 Requisite=graphical-session.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
 
 [Service]
-Type=simple
+Type=exec
 ExecStart=/usr/bin/glimpse-lock
 Restart=on-failure
 RestartSec=2
+
+# Defense-in-depth hardening. Note: glimpse-lock uses PAM for password
+# auth, which needs access to /etc/pam.d and PAM modules — DO NOT add
+# ProtectSystem=strict or related options without testing PAM still
+# loads. The kernel-level Protect* lines below are safe.
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
 
 [Install]
 WantedBy=graphical-session.target

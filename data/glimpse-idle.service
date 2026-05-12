@@ -1,5 +1,6 @@
 [Unit]
 Description=Glimpse idle
+Documentation=https://github.com/alex-oleshkevich/glimpse
 # Start AFTER graphical-session.target (not the pre variant) so that the
 # compositor has had a chance to import WAYLAND_DISPLAY into the systemd
 # user manager via `systemctl --user import-environment`. Otherwise the
@@ -8,12 +9,26 @@ Description=Glimpse idle
 PartOf=graphical-session.target
 After=graphical-session.target
 Requisite=graphical-session.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
 
 [Service]
-Type=simple
+Type=exec
 ExecStart=/usr/bin/glimpse-idle
 Restart=on-failure
 RestartSec=2
+
+# Defense-in-depth hardening — all are no-ops for our happy path; they
+# only kick in if something in the daemon goes wrong and tries to do
+# something a desktop service should never need (load kernel modules,
+# escalate privileges, tweak cgroups, etc.).
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
 
 [Install]
 WantedBy=graphical-session.target

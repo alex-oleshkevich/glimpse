@@ -1,14 +1,26 @@
 [Unit]
 Description=Glimpse sunset
+Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=graphical-session.target
 After=graphical-session.target
 Requisite=graphical-session.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
 
 [Service]
-Type=simple
+Type=exec
 ExecStart=/usr/bin/glimpse-sunset
 Restart=on-failure
 RestartSec=2
+
+# Defense-in-depth hardening — see glimpse-idle.service for rationale.
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
 
 [Install]
 WantedBy=graphical-session.target
