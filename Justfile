@@ -91,3 +91,107 @@ watch-runs:
     run_id="$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')"
     test -n "$run_id"
     gh run watch "$run_id" --exit-status
+
+# ---- SDK releases ------------------------------------------------------------
+# Tag format per SDK:
+#   rs -> sdk-rs-vX.Y.Z   (publishes to crates.io)
+#   py -> sdk-py-vX.Y.Z   (publishes to PyPI)
+#   ts -> sdk-ts-vX.Y.Z   (publishes to npmjs.org)
+#   go -> sdk-go/vX.Y.Z   (creates a GitHub Release; Go consumes by tag)
+#
+# GitHub Actions silently drops tag-push triggers when more than three tags
+# are pushed in a single git push. release-sdks-all pushes them one at a time
+# to avoid that.
+
+sdk-version LANG:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ LANG }}" in
+        rs) awk -F'"' '/^version = / { print $2; exit }' sdk/sdk-rs/Cargo.toml ;;
+        py) awk -F'"' '/^version = / { print $2; exit }' sdk/sdk-py/pyproject.toml ;;
+        ts) node -p "require('./sdk/sdk-ts/package.json').version" ;;
+        go) echo "(no manifest; pass version explicitly)" ;;
+        *) echo "unknown SDK: {{ LANG }}" >&2; exit 2 ;;
+    esac
+
+sdk-versions:
+    @echo "rs: $(just sdk-version rs)"
+    @echo "py: $(just sdk-version py)"
+    @echo "ts: $(just sdk-version ts)"
+    @echo "go: $(just sdk-version go)"
+
+sdk-tag LANG VERSION:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{ LANG }}" in
+        rs|py|ts) echo "sdk-{{ LANG }}-v{{ VERSION }}" ;;
+        go) echo "sdk-go/v{{ VERSION }}" ;;
+        *) echo "unknown SDK: {{ LANG }}" >&2; exit 2 ;;
+    esac
+
+# Verify the working tree is clean and the manifest version matches.
+sdk-preflight LANG VERSION:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    git diff --quiet
+    git diff --cached --quiet
+    if [ "{{ LANG }}" != "go" ]; then
+        actual="$(just sdk-version {{ LANG }})"
+        if [ "$actual" != "{{ VERSION }}" ]; then
+            echo "manifest version is $actual but you asked to release {{ VERSION }}" >&2
+            exit 1
+        fi
+    fi
+
+# Tag a single SDK release and push the tag on its own. If the tag
+# already exists, delete and re-push it so the publish workflow re-runs.
+release-sdk LANG VERSION: (sdk-preflight LANG VERSION)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tag="$(just sdk-tag {{ LANG }} {{ VERSION }})"
+    if git rev-parse "$tag" >/dev/null 2>&1; then
+        echo "tag $tag exists; re-pushing"
+        git push origin ":$tag" || true
+        git tag -d "$tag" >/dev/null
+    fi
+    git tag -a "$tag" -m "Glimpse {{ LANG }} SDK {{ VERSION }}"
+    git push origin "$tag"
+    echo "pushed $tag"
+
+# Delete and re-push the tag to retry a failed publish workflow.
+retry-sdk-release LANG VERSION:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tag="$(just sdk-tag {{ LANG }} {{ VERSION }})"
+    git push origin ":$tag" || true
+    git tag -d "$tag" 2>/dev/null || true
+    git tag -a "$tag" -m "Glimpse {{ LANG }} SDK {{ VERSION }}"
+    git push origin "$tag"
+    echo "re-pushed $tag"
+
+# Release every SDK at the version pinned in the manifests. Verifies
+# all three manifest versions match, then tags and pushes them one at
+# a time (GitHub Actions silently drops the trigger when more than three
+# tags arrive in a single push).
+release-sdks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rs="$(just sdk-version rs)"
+    py="$(just sdk-version py)"
+    ts="$(just sdk-version ts)"
+    if [ "$rs" != "$py" ] || [ "$rs" != "$ts" ]; then
+        echo "manifest versions disagree: rs=$rs py=$py ts=$ts" >&2
+        exit 1
+    fi
+    version="$rs"
+    echo "releasing all SDKs at $version"
+    just release-sdk rs "$version"
+    just release-sdk py "$version"
+    just release-sdk ts "$version"
+    just release-sdk go "$version"
+
+# Show recent release workflow runs for the four SDKs.
+watch-sdk-releases:
+    @gh run list --limit 12 --json name,headBranch,status,conclusion,createdAt \
+        --jq '.[] | select(.headBranch|startswith("sdk-")) | "\(.headBranch)\t\(.name)\t\(.status)\t\(.conclusion // "")"' \
+        | column -t -s $'\t'
