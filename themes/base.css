@@ -96,6 +96,13 @@ popover {
     --panel-opacity: 1;
     --panel-padding-y: 0;
     --panel-padding-x: var(--space-4);
+    --panel-margin: 0;
+    --panel-radius: 0;
+
+    --island-gap: 4px;
+    --island-bg: transparent;
+    --island-border: 0;
+    --island-radius: 0;
 
     --indicator-fg: var(--panel-fg);
     --indicator-bg: transparent;
@@ -105,10 +112,12 @@ popover {
     --indicator-checked-fg: var(--color-accent-fg);
     --indicator-danger-bg: color-mix(in srgb, var(--color-danger) 86%, black 14%);
     --indicator-warning-bg: color-mix(in srgb, var(--color-warning) 86%, black 14%);
-    --indicator-padding-x: 8px;
-    --indicator-padding-y: 6px;
+    --indicator-padding-x: 6px;
+    --indicator-padding-y: 4px;
     --indicator-gap: 6px;
-    --indicator-icon-size: 16px;
+    --indicator-size: 22px;
+    --indicator-icon-size: 22px;
+    --indicator-font-weight: 600;
     --indicator-radius: var(--radius-pill);
 
     --popover-bg: var(--color-surface);
@@ -240,7 +249,6 @@ popover {
     --dim-opacity: var(--opacity-muted);
 
     --dark-indicator-bg: transparent;
-
 }
 
 @media (prefers-color-scheme: dark) {
@@ -343,6 +351,8 @@ popover.theme-dark {
     --panel-border: var(--dark-panel-border);
     --indicator-hover-bg: var(--dark-indicator-hover-bg);
     --indicator-active-bg: var(--dark-indicator-active-bg);
+
+    /*--dark-panel-bg: green;*/
 }
 
 .theme-light label,
@@ -371,32 +381,51 @@ popover.theme-dark {
     font-size: var(--font-size-md);
     color: var(--panel-fg);
     padding: var(--panel-padding-y) var(--panel-padding-x);
-    border-radius: 0;
+    border-radius: var(--panel-radius);
     box-shadow: var(--shadow-sm);
     background: var(--panel-bg);
     opacity: var(--panel-opacity);
+    margin: var(--panel-margin);
+}
+
+.island {
+    background: var(--island-bg);
+    border: var(--island-border);
+    border-radius: var(--island-radius);
+}
+
+.island .applet {
+    margin-right: var(--island-gap);
 }
 
 .applet {
     color: var(--indicator-fg);
     border-radius: var(--indicator-radius);
-    font-weight: 600;
+    font-weight: var(--indicator-font-weight);
     line-height: 1;
-    min-height: 0;
-    min-width: 0;
+    min-height: var(--indicator-size);
+    min-width: var(--indicator-size);
     padding: var(--indicator-padding-y) var(--indicator-padding-x);
     background-color: var(--indicator-bg);
     transition:
         background-color var(--motion-fast) var(--ease-standard),
         color var(--motion-fast) var(--ease-standard),
         transform var(--motion-fast) var(--ease-standard);
+
+    /*background-color: blue;*/
+}
+
+.applet image {
+    /*background-color: red;*/
+    min-height: var(--indicator-icon-size);
+    min-width: var(--indicator-icon-size);
 }
 
 button.applet:hover,
 button.applet:active,
 .applet:hover,
 .applet:active {
-    background: transparent;
+    background: var(--indicator-hover-bg);
     transform: none;
 }
 

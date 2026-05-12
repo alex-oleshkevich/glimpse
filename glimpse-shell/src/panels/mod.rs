@@ -103,19 +103,19 @@ impl Component for Panel {
 
         let layout_orientation = orientation_for_position(&init.config.position);
         let left_box = gtk::Box::builder()
+            .css_classes(vec!["island", "island-start"])
             .orientation(layout_orientation)
             .valign(gtk::Align::Center)
-            .spacing(4)
             .build();
         let center_box = gtk::Box::builder()
+            .css_classes(vec!["island", "island-center"])
             .orientation(layout_orientation)
             .valign(gtk::Align::Center)
-            .spacing(4)
             .build();
         let right_box = gtk::Box::builder()
+            .css_classes(vec!["island", "island-end"])
             .orientation(layout_orientation)
             .valign(gtk::Align::Center)
-            .spacing(4)
             .build();
         let layout = gtk::CenterBox::new();
 
@@ -239,15 +239,14 @@ fn apply_panel_config(window: &gtk::Window, config: &PanelConfig) {
         Position::Top | Position::Bottom => {
             window.set_height_request(config.size);
             window.set_width_request(1);
+            window.add_css_class("panel-horizontal");
         }
         Position::Left | Position::Right => {
             window.set_height_request(1);
             window.set_width_request(config.size);
+            window.add_css_class("panel-vertical");
         }
     }
-    // if let Some(monitor) = config.monitor {
-    //     window.set_mo
-    // }
 
     match config.position {
         Position::Top => {
