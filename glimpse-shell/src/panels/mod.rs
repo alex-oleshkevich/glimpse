@@ -104,14 +104,17 @@ impl Component for Panel {
         let layout_orientation = orientation_for_position(&init.config.position);
         let left_box = gtk::Box::builder()
             .orientation(layout_orientation)
+            .valign(gtk::Align::Center)
             .spacing(4)
             .build();
         let center_box = gtk::Box::builder()
             .orientation(layout_orientation)
+            .valign(gtk::Align::Center)
             .spacing(4)
             .build();
         let right_box = gtk::Box::builder()
             .orientation(layout_orientation)
+            .valign(gtk::Align::Center)
             .spacing(4)
             .build();
         let layout = gtk::CenterBox::new();

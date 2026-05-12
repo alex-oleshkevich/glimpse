@@ -1,4 +1,9 @@
-use std::{env, path::PathBuf};
+use std::{
+    collections::HashMap,
+    env,
+    path::PathBuf,
+    sync::{Mutex, OnceLock},
+};
 
 use anyhow::{Context, bail, ensure};
 use serde_json::Value;
@@ -13,14 +18,51 @@ use crate::compositors::{
     ScreencastTarget,
     compositors::{
         CompositorCapabilities, CompositorEvent, CompositorRefresh, CompositorSnapshot,
-        CompositorStructureSnapshot, KeyboardLayout, KeyboardLayoutSnapshot, Monitor, Window,
-        Workspace,
+        CompositorStructureSnapshot, KeyboardLayout, KeyboardLayoutSnapshot, Monitor, MonitorMode,
+        Window, Workspace, is_builtin_connector,
     },
     keyboard_layout_code,
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Hyprland;
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(crate) struct HyprlandMonitorConfig {
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub refresh_rate: Option<f64>,
+    pub x: Option<i32>,
+    pub y: Option<i32>,
+    pub scale: Option<f64>,
+    pub transform: Option<u32>,
+}
+
+impl HyprlandMonitorConfig {
+    pub(crate) fn keyword_args(&self, name: &str) -> String {
+        let (Some(width), Some(height)) = (self.width, self.height) else {
+            return format!("{name},preferred,auto,1");
+        };
+        let rate_part = match self.refresh_rate {
+            Some(rate) => format!("{width}x{height}@{:.3}", rate),
+            None => format!("{width}x{height}"),
+        };
+        let pos = format!("{}x{}", self.x.unwrap_or(0), self.y.unwrap_or(0));
+        let scale = self.scale.unwrap_or(1.0);
+        let mut out = format!("{name},{rate_part},{pos},{scale}");
+        if let Some(transform) = self.transform
+            && transform != 0
+        {
+            out.push_str(&format!(",transform,{transform}"));
+        }
+        out
+    }
+}
+
+fn disabled_monitor_cache() -> &'static Mutex<HashMap<String, HyprlandMonitorConfig>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, HyprlandMonitorConfig>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
 
 impl Hyprland {
     pub async fn listen(self, sender: mpsc::Sender<CompositorEvent>) -> anyhow::Result<()> {
@@ -153,6 +195,66 @@ impl Hyprland {
 
     pub async fn focus_previous_window(&self) -> anyhow::Result<()> {
         send_command("dispatch cyclenext prev").await
+    }
+
+    pub async fn set_monitor_enabled(&self, name: &str, on: bool) -> anyhow::Result<()> {
+        if on {
+            let cached = disabled_monitor_cache()
+                .lock()
+                .ok()
+                .and_then(|mut cache| cache.remove(name));
+            let args = match cached {
+                Some(config) => config.keyword_args(name),
+                None => format!("{name},preferred,auto,1"),
+            };
+            send_command(format!("keyword monitor {args}")).await
+        } else {
+            if let Ok(Some(config)) = hyprctl_monitor_config(name).await
+                && let Ok(mut cache) = disabled_monitor_cache().lock()
+            {
+                cache.insert(name.to_owned(), config);
+            }
+            send_command(format!("keyword monitor {name},disable")).await
+        }
+    }
+}
+
+pub(crate) async fn hyprctl_monitor_config(
+    name: &str,
+) -> anyhow::Result<Option<HyprlandMonitorConfig>> {
+    let value = json_command("j/monitors").await?;
+    Ok(value
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|monitor| monitor.get("name").and_then(Value::as_str) == Some(name))
+        .map(parse_monitor_config))
+}
+
+fn parse_monitor_config(value: &Value) -> HyprlandMonitorConfig {
+    HyprlandMonitorConfig {
+        width: value
+            .get("width")
+            .and_then(Value::as_u64)
+            .and_then(|v| u32::try_from(v).ok()),
+        height: value
+            .get("height")
+            .and_then(Value::as_u64)
+            .and_then(|v| u32::try_from(v).ok()),
+        refresh_rate: value.get("refreshRate").and_then(Value::as_f64),
+        x: value
+            .get("x")
+            .and_then(Value::as_i64)
+            .and_then(|v| i32::try_from(v).ok()),
+        y: value
+            .get("y")
+            .and_then(Value::as_i64)
+            .and_then(|v| i32::try_from(v).ok()),
+        scale: value.get("scale").and_then(Value::as_f64),
+        transform: value
+            .get("transform")
+            .and_then(Value::as_u64)
+            .and_then(|v| u32::try_from(v).ok()),
     }
 }
 
@@ -405,8 +507,19 @@ fn parse_monitors(value: &Value) -> Vec<Monitor> {
         .flatten()
         .filter_map(|monitor| {
             let name = field_string(monitor, "name")?;
+            let disabled = monitor
+                .get("disabled")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            let enabled = !disabled;
+            let current_mode = if enabled {
+                parse_current_mode(monitor)
+            } else {
+                None
+            };
             Some(Monitor {
                 id: field_usize(monitor, "id"),
+                built_in: is_builtin_connector(&name, None),
                 name,
                 description: field_string(monitor, "description"),
                 active_workspace: monitor
@@ -416,9 +529,28 @@ fn parse_monitors(value: &Value) -> Vec<Monitor> {
                     .get("focused")
                     .and_then(Value::as_bool)
                     .unwrap_or(false),
+                make: field_string(monitor, "make"),
+                model: field_string(monitor, "model"),
+                enabled,
+                current_mode,
             })
         })
         .collect()
+}
+
+fn parse_current_mode(value: &Value) -> Option<MonitorMode> {
+    let width = value.get("width").and_then(Value::as_u64)?;
+    let height = value.get("height").and_then(Value::as_u64)?;
+    let refresh_hz = value.get("refreshRate").and_then(Value::as_f64)?;
+    let refresh_mhz = (refresh_hz * 1000.0).round();
+    if !refresh_mhz.is_finite() || refresh_mhz < 0.0 {
+        return None;
+    }
+    Some(MonitorMode {
+        width: u32::try_from(width).ok()?,
+        height: u32::try_from(height).ok()?,
+        refresh_mhz: refresh_mhz as u32,
+    })
 }
 
 fn parse_workspaces(value: &Value) -> Vec<Workspace> {
@@ -574,6 +706,7 @@ fn field_usize(value: &Value, field: &str) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn parses_workspace_events() {
@@ -709,5 +842,167 @@ mod tests {
                 stoppable: false,
             })]
         );
+    }
+
+    #[test]
+    fn parse_monitors_with_disabled_field_sets_enabled_false_and_no_mode() {
+        let value = json!([
+            {
+                "id": 0,
+                "name": "DP-1",
+                "make": "Dell Inc.",
+                "model": "Dell U2723QE",
+                "width": 3840,
+                "height": 2160,
+                "refreshRate": 59.997,
+                "disabled": true
+            }
+        ]);
+
+        let monitors = parse_monitors(&value);
+        assert_eq!(monitors.len(), 1);
+        assert_eq!(monitors[0].name, "DP-1");
+        assert!(!monitors[0].enabled);
+        assert_eq!(monitors[0].current_mode, None);
+    }
+
+    #[test]
+    fn parse_monitors_extracts_make_model_and_current_mode() {
+        let value = json!([
+            {
+                "id": 0,
+                "name": "DP-1",
+                "make": "Dell Inc.",
+                "model": "Dell U2723QE",
+                "width": 3840,
+                "height": 2160,
+                "refreshRate": 59.997
+            }
+        ]);
+
+        let monitors = parse_monitors(&value);
+        assert_eq!(monitors.len(), 1);
+        let monitor = &monitors[0];
+        assert_eq!(monitor.make.as_deref(), Some("Dell Inc."));
+        assert_eq!(monitor.model.as_deref(), Some("Dell U2723QE"));
+        assert!(monitor.enabled);
+        assert_eq!(
+            monitor.current_mode,
+            Some(MonitorMode {
+                width: 3840,
+                height: 2160,
+                refresh_mhz: 59997,
+            })
+        );
+    }
+
+    #[test]
+    fn parse_monitors_marks_edp_as_builtin() {
+        let value = json!([
+            { "name": "eDP-1" },
+            { "name": "LVDS-1" },
+            { "name": "DSI-1" },
+            { "name": "DP-1" },
+            { "name": "HDMI-A-1" }
+        ]);
+
+        let monitors = parse_monitors(&value);
+        let by_name = |n: &str| {
+            monitors
+                .iter()
+                .find(|m| m.name == n)
+                .unwrap_or_else(|| panic!("missing {n}"))
+        };
+        assert!(by_name("eDP-1").built_in);
+        assert!(by_name("LVDS-1").built_in);
+        assert!(by_name("DSI-1").built_in);
+        assert!(!by_name("DP-1").built_in);
+        assert!(!by_name("HDMI-A-1").built_in);
+    }
+
+    #[test]
+    fn hyprland_monitor_config_struct_round_trips_to_keyword_string() {
+        let config = HyprlandMonitorConfig {
+            width: Some(3840),
+            height: Some(2160),
+            refresh_rate: Some(59.997),
+            x: Some(1920),
+            y: Some(0),
+            scale: Some(1.5),
+            transform: Some(1),
+        };
+        assert_eq!(
+            config.keyword_args("DP-1"),
+            "DP-1,3840x2160@59.997,1920x0,1.5,transform,1"
+        );
+
+        let no_transform = HyprlandMonitorConfig {
+            transform: Some(0),
+            ..config.clone()
+        };
+        assert_eq!(
+            no_transform.keyword_args("DP-1"),
+            "DP-1,3840x2160@59.997,1920x0,1.5"
+        );
+
+        let no_transform_field = HyprlandMonitorConfig {
+            transform: None,
+            ..config
+        };
+        assert_eq!(
+            no_transform_field.keyword_args("DP-1"),
+            "DP-1,3840x2160@59.997,1920x0,1.5"
+        );
+    }
+
+    #[test]
+    fn hyprland_monitor_config_falls_back_to_preferred_when_unknown() {
+        let empty = HyprlandMonitorConfig::default();
+        assert_eq!(empty.keyword_args("DP-1"), "DP-1,preferred,auto,1");
+
+        let no_dimensions = HyprlandMonitorConfig {
+            refresh_rate: Some(60.0),
+            ..Default::default()
+        };
+        assert_eq!(
+            no_dimensions.keyword_args("HDMI-A-1"),
+            "HDMI-A-1,preferred,auto,1"
+        );
+    }
+
+    #[test]
+    fn hyprland_monitor_config_without_refresh_rate_omits_at_clause() {
+        let config = HyprlandMonitorConfig {
+            width: Some(1920),
+            height: Some(1080),
+            refresh_rate: None,
+            x: Some(0),
+            y: Some(0),
+            scale: Some(1.0),
+            transform: None,
+        };
+        assert_eq!(config.keyword_args("DP-2"), "DP-2,1920x1080,0x0,1");
+    }
+
+    #[test]
+    fn parse_monitor_config_extracts_fields_from_hyprctl_json() {
+        let value = json!({
+            "name": "DP-1",
+            "width": 2560,
+            "height": 1440,
+            "refreshRate": 144.0,
+            "x": 0,
+            "y": 0,
+            "scale": 1.25,
+            "transform": 0
+        });
+        let config = parse_monitor_config(&value);
+        assert_eq!(config.width, Some(2560));
+        assert_eq!(config.height, Some(1440));
+        assert_eq!(config.refresh_rate, Some(144.0));
+        assert_eq!(config.x, Some(0));
+        assert_eq!(config.y, Some(0));
+        assert_eq!(config.scale, Some(1.25));
+        assert_eq!(config.transform, Some(0));
     }
 }

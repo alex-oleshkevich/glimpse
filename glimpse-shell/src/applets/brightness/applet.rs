@@ -590,6 +590,11 @@ mod tests {
             description: None,
             active_workspace,
             focused: false,
+            make: None,
+            model: None,
+            enabled: true,
+            built_in: false,
+            current_mode: None,
         }
     }
 
@@ -600,6 +605,11 @@ mod tests {
             description: None,
             active_workspace: Some(1),
             focused: true,
+            make: None,
+            model: None,
+            enabled: true,
+            built_in: false,
+            current_mode: None,
         }
     }
 }

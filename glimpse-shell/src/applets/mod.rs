@@ -8,6 +8,7 @@ pub mod command;
 pub mod exec;
 pub mod idle;
 pub mod keyboard;
+pub mod monitors;
 pub mod mpris;
 pub mod network;
 pub mod notifications;

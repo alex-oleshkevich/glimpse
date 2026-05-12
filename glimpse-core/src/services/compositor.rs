@@ -1,4 +1,5 @@
 use tokio::sync::{mpsc, watch};
+use tokio::task::JoinHandle;
 use tokio::time::{Duration, Instant, sleep};
 use tokio_util::sync::CancellationToken;
 
@@ -15,6 +16,8 @@ const COMMAND_QUEUE_SIZE: usize = 8;
 const EVENT_QUEUE_SIZE: usize = 32;
 const RETRY_DELAY: Duration = Duration::from_secs(2);
 const REFRESH_DEBOUNCE: Duration = Duration::from_millis(40);
+const RECOVERY_DEBOUNCE: Duration = Duration::from_millis(500);
+const RECOVERY_COOLDOWN: Duration = Duration::from_secs(2);
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct State {
     pub compositor: CompositorType,
@@ -40,13 +43,25 @@ pub enum Command {
     FocusNextWindow,
     FocusPreviousWindow,
     StopScreencast(String),
+    SetMonitorEnabled { name: String, on: bool },
 }
 
 pub type CompositorHandle = ServiceHandle<State, Command>;
 
+#[derive(Debug)]
+enum RecoveryOutcome {
+    Failed,
+    Succeeded,
+}
+
 pub struct CompositorService {
     state_tx: watch::Sender<State>,
     command_rx: mpsc::Receiver<ServiceCommand<Command>>,
+    recovery_handle: Option<JoinHandle<()>>,
+    recovery_cooldown_until: Option<Instant>,
+    recovery_outcome_tx: mpsc::UnboundedSender<RecoveryOutcome>,
+    recovery_outcome_rx: mpsc::UnboundedReceiver<RecoveryOutcome>,
+    builtin_override: Option<String>,
 }
 
 enum RunOutcome {
@@ -58,11 +73,17 @@ impl CompositorService {
     pub fn new() -> (Self, CompositorHandle) {
         let (state_tx, state_rx) = watch::channel(State::default());
         let (command_tx, command_rx) = mpsc::channel(COMMAND_QUEUE_SIZE);
+        let (recovery_outcome_tx, recovery_outcome_rx) = mpsc::unbounded_channel();
 
         (
             Self {
                 state_tx,
                 command_rx,
+                recovery_handle: None,
+                recovery_cooldown_until: None,
+                recovery_outcome_tx,
+                recovery_outcome_rx,
+                builtin_override: None,
             },
             ServiceHandle::new(state_rx, command_tx),
         )
@@ -103,6 +124,7 @@ impl CompositorService {
         );
         self.publish_identity(compositor);
         self.refresh_snapshot(compositor).await;
+        self.check_all_off_and_schedule_recovery(compositor);
 
         let (event_tx, mut event_rx) = mpsc::channel(EVENT_QUEUE_SIZE);
         let listener = tokio::spawn(compositor.listen(event_tx));
@@ -114,6 +136,7 @@ impl CompositorService {
             tokio::select! {
                 _ = cancel.cancelled() => {
                     listener.abort();
+                    self.cancel_recovery();
                     return Ok(RunOutcome::Cancelled);
                 }
                 result = &mut listener => {
@@ -123,12 +146,25 @@ impl CompositorService {
                         Err(error) if error.is_cancelled() => {}
                         Err(error) => tracing::warn!(error = %error, "compositor event listener task failed"),
                     }
+                    self.cancel_recovery();
                     return Ok(RunOutcome::RetryAfterDelay);
                 }
                 _ = &mut refresh_timer, if pending_refresh.is_some() => {
                     if let Some(refresh) = pending_refresh.take() {
                         self.refresh(compositor, refresh).await;
+                        self.check_all_off_and_schedule_recovery(compositor);
                     }
+                }
+                Some(outcome) = self.recovery_outcome_rx.recv() => {
+                    match outcome {
+                        RecoveryOutcome::Failed => {
+                            self.recovery_cooldown_until = Some(Instant::now() + RECOVERY_COOLDOWN);
+                        }
+                        RecoveryOutcome::Succeeded => {
+                            self.recovery_cooldown_until = None;
+                        }
+                    }
+                    self.recovery_handle = None;
                 }
                 event = event_rx.recv() => match event {
                     Some(CompositorEvent::RefreshRequested(refresh)) => {
@@ -141,22 +177,33 @@ impl CompositorService {
                             refresh_timer.as_mut().reset(Instant::now() + REFRESH_DEBOUNCE);
                         }
                     }
-                    Some(event) => self.apply_event(compositor, event).await,
-                    None => return Ok(RunOutcome::RetryAfterDelay),
+                    Some(event) => {
+                        self.apply_event(compositor, event).await;
+                        self.check_all_off_and_schedule_recovery(compositor);
+                    }
+                    None => {
+                        self.cancel_recovery();
+                        return Ok(RunOutcome::RetryAfterDelay);
+                    }
                 },
                 command = self.command_rx.recv() => match command {
                     Some(ServiceCommand::Command(command)) => {
                         self.execute_command(compositor, command).await;
                     }
                     Some(ServiceCommand::Control(control)) => match control {
-                        Control::Start(_) | Control::Reconfigure(_) => {}
+                        Control::Start(config) | Control::Reconfigure(config) => {
+                            self.builtin_override = config.monitors.builtin_connector.clone();
+                            self.check_all_off_and_schedule_recovery(compositor);
+                        }
                         Control::Shutdown => {
                             listener.abort();
+                            self.cancel_recovery();
                             return Ok(RunOutcome::Cancelled);
                         }
                     },
                     None => {
                         listener.abort();
+                        self.cancel_recovery();
                         return Ok(RunOutcome::Cancelled);
                     }
                 },
@@ -402,12 +449,111 @@ impl CompositorService {
             Command::FocusNextWindow => compositor.focus_next_window().await,
             Command::FocusPreviousWindow => compositor.focus_previous_window().await,
             Command::StopScreencast(session_id) => compositor.stop_screencast(&session_id).await,
+            Command::SetMonitorEnabled { name, on } => {
+                if would_disable_last(&self.state_tx.borrow().monitors, &name, on) {
+                    tracing::warn!(monitor = %name, "refusing to disable the only enabled monitor");
+                    return;
+                }
+                compositor.set_monitor_enabled(&name, on).await
+            }
         };
 
         if let Err(error) = result {
             tracing::warn!(error = %error, "compositor command failed");
         }
     }
+
+    fn cancel_recovery(&mut self) {
+        if let Some(handle) = self.recovery_handle.take() {
+            handle.abort();
+        }
+    }
+
+    fn check_all_off_and_schedule_recovery(&mut self, compositor: Compositor) {
+        let monitors = self.state_tx.borrow().monitors.clone();
+        if !should_schedule_recovery(&monitors) {
+            self.cancel_recovery();
+            return;
+        }
+
+        if self
+            .recovery_cooldown_until
+            .is_some_and(|deadline| Instant::now() < deadline)
+        {
+            return;
+        }
+
+        if pick_recovery_target(&monitors, self.builtin_override.as_deref()).is_none() {
+            return;
+        }
+
+        self.cancel_recovery();
+        let outcome_tx = self.recovery_outcome_tx.clone();
+        let state_rx = self.state_tx.subscribe();
+        let builtin_override = self.builtin_override.clone();
+        let handle = tokio::spawn(async move {
+            sleep(RECOVERY_DEBOUNCE).await;
+            let monitors = state_rx.borrow().monitors.clone();
+            if !should_schedule_recovery(&monitors) {
+                let _ = outcome_tx.send(RecoveryOutcome::Succeeded);
+                return;
+            }
+            let Some(target) = pick_recovery_target(&monitors, builtin_override.as_deref())
+                .map(str::to_owned)
+            else {
+                let _ = outcome_tx.send(RecoveryOutcome::Succeeded);
+                return;
+            };
+            tracing::warn!(monitor = %target, "all outputs disabled; re-enabling");
+            match compositor.set_monitor_enabled(&target, true).await {
+                Ok(()) => {
+                    let _ = outcome_tx.send(RecoveryOutcome::Succeeded);
+                }
+                Err(error) => {
+                    tracing::warn!(error = %error, monitor = %target, "recovery failed");
+                    let _ = outcome_tx.send(RecoveryOutcome::Failed);
+                }
+            }
+        });
+        self.recovery_handle = Some(handle);
+    }
+}
+
+fn should_schedule_recovery(monitors: &[Monitor]) -> bool {
+    !monitors.is_empty() && monitors.iter().all(|m| !m.enabled)
+}
+
+/// Priority order: explicit override -> first `built_in==true` by name -> first by name alphabetical.
+fn pick_recovery_target<'a>(
+    monitors: &'a [Monitor],
+    builtin_override: Option<&str>,
+) -> Option<&'a str> {
+    if monitors.is_empty() {
+        return None;
+    }
+    let mut sorted: Vec<&Monitor> = monitors.iter().collect();
+    sorted.sort_by(|a, b| a.name.cmp(&b.name));
+    if let Some(override_name) = builtin_override
+        && let Some(m) = sorted.iter().find(|m| m.name == override_name)
+    {
+        return Some(m.name.as_str());
+    }
+    sorted
+        .iter()
+        .find(|m| m.built_in)
+        .or_else(|| sorted.first())
+        .map(|m| m.name.as_str())
+}
+
+fn would_disable_last(monitors: &[Monitor], name: &str, on: bool) -> bool {
+    if on {
+        return false;
+    }
+    let enabled_count = monitors.iter().filter(|m| m.enabled).count();
+    if enabled_count != 1 {
+        return false;
+    }
+    monitors.iter().any(|m| m.name == name && m.enabled)
 }
 
 fn apply_snapshot(
@@ -864,6 +1010,108 @@ mod tests {
         assert_eq!(screencasts, vec![screencast("new-niri")]);
     }
 
+    #[test]
+    fn would_disable_last_returns_true_when_target_is_only_enabled_monitor() {
+        let mut other = monitor("HDMI-A-1", None, false);
+        other.enabled = false;
+        let monitors = vec![monitor("DP-1", None, true), other];
+
+        assert!(would_disable_last(&monitors, "DP-1", false));
+    }
+
+    #[test]
+    fn would_disable_last_returns_false_when_another_monitor_is_enabled() {
+        let monitors = vec![
+            monitor("DP-1", None, true),
+            monitor("HDMI-A-1", None, false),
+        ];
+
+        assert!(!would_disable_last(&monitors, "DP-1", false));
+    }
+
+    #[test]
+    fn would_disable_last_returns_false_when_command_is_enabling() {
+        let mut m = monitor("DP-1", None, false);
+        m.enabled = false;
+        let monitors = vec![m, monitor("HDMI-A-1", None, true)];
+
+        assert!(!would_disable_last(&monitors, "DP-1", true));
+    }
+
+    #[test]
+    fn would_disable_last_returns_false_when_target_is_already_disabled() {
+        let mut m = monitor("DP-1", None, false);
+        m.enabled = false;
+        let monitors = vec![m, monitor("HDMI-A-1", None, true)];
+
+        assert!(!would_disable_last(&monitors, "DP-1", false));
+    }
+
+    #[test]
+    fn should_schedule_recovery_true_when_all_disabled() {
+        let mut a = monitor("DP-1", None, false);
+        a.enabled = false;
+        let mut b = monitor("HDMI-A-1", None, false);
+        b.enabled = false;
+        assert!(should_schedule_recovery(&[a, b]));
+    }
+
+    #[test]
+    fn should_schedule_recovery_false_when_any_enabled() {
+        let mut a = monitor("DP-1", None, false);
+        a.enabled = false;
+        let b = monitor("HDMI-A-1", None, false);
+        assert!(!should_schedule_recovery(&[a, b]));
+    }
+
+    #[test]
+    fn should_schedule_recovery_false_when_no_monitors() {
+        assert!(!should_schedule_recovery(&[]));
+    }
+
+    #[test]
+    fn pick_recovery_target_prefers_builtin() {
+        let mut a = monitor("DP-1", None, false);
+        a.enabled = false;
+        let mut b = monitor("eDP-1", None, false);
+        b.enabled = false;
+        b.built_in = true;
+        let mut c = monitor("HDMI-A-1", None, false);
+        c.enabled = false;
+        assert_eq!(pick_recovery_target(&[a, b, c], None), Some("eDP-1"));
+    }
+
+    #[test]
+    fn pick_recovery_target_falls_back_to_first_alphabetical() {
+        let mut a = monitor("HDMI-A-1", None, false);
+        a.enabled = false;
+        let mut b = monitor("DP-2", None, false);
+        b.enabled = false;
+        let mut c = monitor("DP-1", None, false);
+        c.enabled = false;
+        assert_eq!(pick_recovery_target(&[a, b, c], None), Some("DP-1"));
+    }
+
+    #[test]
+    fn pick_recovery_target_honours_explicit_override() {
+        let mut a = monitor("DP-1", None, false);
+        a.enabled = false;
+        let mut b = monitor("eDP-1", None, false);
+        b.enabled = false;
+        b.built_in = true;
+        let mut c = monitor("HDMI-A-1", None, false);
+        c.enabled = false;
+        assert_eq!(
+            pick_recovery_target(&[a, b, c], Some("HDMI-A-1")),
+            Some("HDMI-A-1")
+        );
+    }
+
+    #[test]
+    fn pick_recovery_target_returns_none_for_empty() {
+        assert_eq!(pick_recovery_target(&[], None), None);
+    }
+
     fn window(id: usize, focused: bool, workspace: Option<usize>) -> Window {
         Window {
             id,
@@ -899,6 +1147,11 @@ mod tests {
             description: None,
             active_workspace,
             focused,
+            make: None,
+            model: None,
+            enabled: true,
+            built_in: false,
+            current_mode: None,
         }
     }
 

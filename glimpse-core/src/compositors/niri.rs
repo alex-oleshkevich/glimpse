@@ -10,8 +10,8 @@ use tokio::{
 
 use crate::compositors::compositors::{
     CompositorCapabilities, CompositorEvent, CompositorSnapshot, KeyboardLayout, Monitor,
-    ScreencastControlCapability, ScreencastKind, ScreencastSession, ScreencastStateCapability,
-    ScreencastTarget, Window, Workspace,
+    MonitorMode, ScreencastControlCapability, ScreencastKind, ScreencastSession,
+    ScreencastStateCapability, ScreencastTarget, Window, Workspace, is_builtin_connector,
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -205,6 +205,29 @@ impl Niri {
         }))
         .await
     }
+
+    pub async fn set_monitor_enabled(&self, name: &str, on: bool) -> anyhow::Result<()> {
+        let action = if on { "On" } else { "Off" };
+        send_request(json!({
+            "Output": {
+                "output": name,
+                "action": action
+            }
+        }))
+        .await
+    }
+}
+
+async fn send_request(request: Value) -> anyhow::Result<()> {
+    let mut stream = connect().await?;
+    write_request(&mut stream, &request).await?;
+
+    let mut lines = BufReader::new(stream).lines();
+    let reply = lines
+        .next_line()
+        .await?
+        .context("niri action closed before reply")?;
+    ensure_ok_reply(&reply)
 }
 
 async fn send_action(action: Value) -> anyhow::Result<()> {
@@ -591,21 +614,61 @@ fn parse_outputs(value: &Value) -> Vec<Monitor> {
 
     outputs
         .iter()
-        .map(|(name, output)| Monitor {
-            id: None,
-            name: output
+        .map(|(name, output)| {
+            let name_str = output
                 .get("name")
                 .and_then(Value::as_str)
                 .unwrap_or(name)
-                .to_owned(),
-            description: output
+                .to_owned();
+            let model = output
                 .get("model")
                 .and_then(Value::as_str)
-                .map(ToOwned::to_owned),
-            active_workspace: None,
-            focused: false,
+                .map(ToOwned::to_owned);
+            let make = output
+                .get("make")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned);
+            let description = output
+                .get("description")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned);
+            let current_mode_index = output
+                .get("current_mode")
+                .and_then(|v| if v.is_null() { None } else { v.as_u64() });
+            let enabled = current_mode_index.is_some();
+            let current_mode = current_mode_index.and_then(|idx| {
+                output
+                    .get("modes")
+                    .and_then(Value::as_array)
+                    .and_then(|modes| modes.get(idx as usize))
+                    .and_then(parse_mode_entry)
+            });
+            let built_in = is_builtin_connector(&name_str, None);
+            Monitor {
+                id: None,
+                name: name_str,
+                description,
+                active_workspace: None,
+                focused: false,
+                make,
+                model,
+                enabled,
+                built_in,
+                current_mode,
+            }
         })
         .collect()
+}
+
+fn parse_mode_entry(value: &Value) -> Option<MonitorMode> {
+    let width = value.get("width").and_then(Value::as_u64)?;
+    let height = value.get("height").and_then(Value::as_u64)?;
+    let refresh = value.get("refresh_rate").and_then(Value::as_u64)?;
+    Some(MonitorMode {
+        width: u32::try_from(width).ok()?,
+        height: u32::try_from(height).ok()?,
+        refresh_mhz: u32::try_from(refresh).ok()?,
+    })
 }
 
 fn parse_workspace(value: &Value) -> Option<Workspace> {
@@ -851,5 +914,98 @@ mod tests {
             parse_niri_event(r#"{"CastStopped":{"stream_id":8}}"#, &mut state),
             vec![CompositorEvent::ScreencastStopped("8".into())]
         );
+    }
+
+    #[test]
+    fn parse_outputs_with_null_current_mode_marks_disabled() {
+        let value = json!({
+            "DP-1": {
+                "name": "DP-1",
+                "make": "Dell Inc.",
+                "model": "Dell U2723QE",
+                "current_mode": null
+            }
+        });
+
+        let monitors = parse_outputs(&value);
+        assert_eq!(monitors.len(), 1);
+        assert_eq!(monitors[0].name, "DP-1");
+        assert!(!monitors[0].enabled);
+        assert_eq!(monitors[0].current_mode, None);
+    }
+
+    #[test]
+    fn parse_outputs_extracts_make_model_and_current_mode() {
+        let value = json!({
+            "DP-1": {
+                "name": "DP-1",
+                "make": "Dell Inc.",
+                "model": "Dell U2723QE",
+                "modes": [
+                    { "width": 3840, "height": 2160, "refresh_rate": 60000, "is_preferred": true },
+                    { "width": 2560, "height": 1440, "refresh_rate": 144000, "is_preferred": false }
+                ],
+                "current_mode": 0
+            }
+        });
+
+        let monitors = parse_outputs(&value);
+        assert_eq!(monitors.len(), 1);
+        let monitor = &monitors[0];
+        assert_eq!(monitor.make.as_deref(), Some("Dell Inc."));
+        assert_eq!(monitor.model.as_deref(), Some("Dell U2723QE"));
+        assert_eq!(monitor.description, None);
+        assert!(monitor.enabled);
+        assert_eq!(
+            monitor.current_mode,
+            Some(MonitorMode {
+                width: 3840,
+                height: 2160,
+                refresh_mhz: 60000,
+            })
+        );
+    }
+
+    #[test]
+    fn parse_outputs_uses_description_when_available() {
+        let value = json!({
+            "DP-1": {
+                "name": "DP-1",
+                "make": "Dell Inc.",
+                "model": "Dell U2723QE",
+                "description": "Dell Inc. Dell U2723QE 0x1234",
+                "current_mode": null
+            }
+        });
+
+        let monitors = parse_outputs(&value);
+        assert_eq!(
+            monitors[0].description.as_deref(),
+            Some("Dell Inc. Dell U2723QE 0x1234")
+        );
+    }
+
+    #[test]
+    fn parse_outputs_marks_edp_as_builtin() {
+        let value = json!({
+            "eDP-1": { "name": "eDP-1" },
+            "LVDS-1": { "name": "LVDS-1" },
+            "DSI-1": { "name": "DSI-1" },
+            "DP-1": { "name": "DP-1" },
+            "HDMI-A-1": { "name": "HDMI-A-1" }
+        });
+
+        let monitors = parse_outputs(&value);
+        let by_name = |n: &str| {
+            monitors
+                .iter()
+                .find(|m| m.name == n)
+                .unwrap_or_else(|| panic!("missing {n}"))
+        };
+        assert!(by_name("eDP-1").built_in);
+        assert!(by_name("LVDS-1").built_in);
+        assert!(by_name("DSI-1").built_in);
+        assert!(!by_name("DP-1").built_in);
+        assert!(!by_name("HDMI-A-1").built_in);
     }
 }

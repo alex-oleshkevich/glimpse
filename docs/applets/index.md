@@ -50,6 +50,7 @@ An empty label means the applet shows only its icon.
 | [`exec`](#exec) | A live custom status widget from your script. |
 | [`idle`](#idle-inhibitor) | System idle inhibitors and a manual "keep awake" toggle. |
 | [`keyboard`](#keyboard) | Current keyboard layout. |
+| [`monitors`](#monitors) | Connected displays with per-output enable/disable toggles. |
 | [`mpris`](#mpris) | Media players and playback controls. |
 | [`network`](#network) | Wi-Fi, wired network, and VPN status. |
 | [`notifications`](#notifications) | Notification center and popups. |
@@ -354,6 +355,24 @@ remember = "global"
 | `"window"` | Restore the previous layout when focus returns to the same window. |
 
 Set labels globally under `[keyboard.labels]`. Applet-local `labels` are still accepted as a compatibility fallback when `[keyboard.labels]` is empty.
+
+## Monitors
+
+Lists connected displays and lets you enable or disable each output from the popover. Glimpse keeps at least one monitor on at all times — if everything ends up disabled, the built-in display is re-enabled automatically.
+
+```toml
+[[panels.right.applets]]
+type = "monitors"
+
+[monitors]
+builtin_connector = "eDP-1"
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `builtin_connector` | auto-detected | Connector to treat as the built-in display for all-off recovery. |
+
+Read the full [Monitors Applet](./monitors.md) guide for behavior details, troubleshooting, and compositor caveats.
 
 ## MPRIS
 

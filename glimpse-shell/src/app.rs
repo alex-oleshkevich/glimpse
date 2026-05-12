@@ -53,6 +53,7 @@ pub struct App {
     prompt_fallback_parent: gtk4::Widget,
     wayland_swap_tx: tokio::sync::mpsc::Sender<Box<dyn WaylandIdleInhibitor + Send>>,
     wayland_installed: bool,
+    wayland_host_key: Option<panels::PanelKey>,
 }
 
 #[relm4::component(pub)]
@@ -184,6 +185,7 @@ impl SimpleComponent for App {
             prompt_fallback_parent,
             wayland_swap_tx,
             wayland_installed: false,
+            wayland_host_key: None,
         };
 
         ComponentParts { model, widgets }
@@ -378,6 +380,17 @@ impl App {
             );
         }
 
+        if let Some(host) = &self.wayland_host_key
+            && !self.panels.iter().any(|p| &p.key == host)
+        {
+            tracing::debug!(
+                monitor = %host.monitor,
+                "wayland idle inhibitor host panel gone, rebinding"
+            );
+            self.wayland_installed = false;
+            self.wayland_host_key = None;
+        }
+
         self.maybe_install_wayland_inhibitor();
     }
 
@@ -389,31 +402,41 @@ impl App {
             return;
         };
         let window: gtk4::Window = panel.controller.widget().clone().upcast();
-        self.wayland_installed = true;
+        let host_key = panel.key.clone();
         let swap_tx = self.wayland_swap_tx.clone();
-        let install = move |window: &gtk4::Window| match GdkWaylandInhibitor::try_new(window) {
-            Ok(backend) => {
-                let boxed: Box<dyn WaylandIdleInhibitor + Send> = Box::new(backend);
-                if let Err(e) = swap_tx.try_send(boxed) {
-                    tracing::warn!(?e, "failed to install wayland idle inhibitor backend");
-                } else {
-                    tracing::info!("installed real wayland idle inhibitor backend");
+        let install = move |window: &gtk4::Window| -> Result<(), String> {
+            match GdkWaylandInhibitor::try_new(window) {
+                Ok(backend) => {
+                    let boxed: Box<dyn WaylandIdleInhibitor + Send> = Box::new(backend);
+                    if let Err(e) = swap_tx.try_send(boxed) {
+                        tracing::warn!(?e, "failed to install wayland idle inhibitor backend");
+                        Err(format!("{e:?}"))
+                    } else {
+                        tracing::info!("installed real wayland idle inhibitor backend");
+                        Ok(())
+                    }
                 }
-            }
-            Err(message) => {
-                tracing::warn!(
-                    %message,
-                    "wayland idle inhibit unavailable; staying on Noop backend"
-                );
+                Err(message) => {
+                    tracing::warn!(
+                        %message,
+                        "wayland idle inhibit unavailable; staying on Noop backend"
+                    );
+                    Err(message)
+                }
             }
         };
         if window.is_mapped() {
-            install(&window);
+            if install(&window).is_ok() {
+                self.wayland_installed = true;
+                self.wayland_host_key = Some(host_key);
+            }
         } else {
             let install_once = std::cell::Cell::new(Some(install));
+            self.wayland_installed = true;
+            self.wayland_host_key = Some(host_key);
             window.connect_map(move |w| {
                 if let Some(install) = install_once.take() {
-                    install(w);
+                    let _ = install(w);
                 }
             });
         }

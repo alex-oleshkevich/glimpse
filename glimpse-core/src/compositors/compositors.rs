@@ -292,6 +292,13 @@ pub struct Workspace {
     pub active_window: Option<usize>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MonitorMode {
+    pub width: u32,
+    pub height: u32,
+    pub refresh_mhz: u32,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Monitor {
     pub id: Option<usize>,
@@ -299,6 +306,11 @@ pub struct Monitor {
     pub description: Option<String>,
     pub active_workspace: Option<usize>,
     pub focused: bool,
+    pub make: Option<String>,
+    pub model: Option<String>,
+    pub enabled: bool,
+    pub built_in: bool,
+    pub current_mode: Option<MonitorMode>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -409,6 +421,13 @@ impl Compositor {
         }
     }
 
+    pub async fn set_monitor_enabled(&self, name: &str, on: bool) -> anyhow::Result<()> {
+        match self {
+            Self::Niri(compositor) => compositor.set_monitor_enabled(name, on).await,
+            Self::Hyprland(compositor) => compositor.set_monitor_enabled(name, on).await,
+        }
+    }
+
     pub async fn stop_screencast(&self, session_id: &str) -> anyhow::Result<()> {
         match self {
             Self::Niri(compositor) => compositor.stop_screencast(session_id).await,
@@ -419,6 +438,15 @@ impl Compositor {
 
 pub fn detect_compositor() -> Option<Compositor> {
     detect_compositor_from_env(std::env::vars())
+}
+
+pub fn is_builtin_connector(name: &str, override_connector: Option<&str>) -> bool {
+    if let Some(override_name) = override_connector
+        && override_name == name
+    {
+        return true;
+    }
+    name.starts_with("eDP") || name.starts_with("LVDS") || name.starts_with("DSI")
 }
 
 fn detect_compositor_from_env<I, K, V>(vars: I) -> Option<Compositor>
@@ -501,5 +529,21 @@ mod tests {
     fn gamma_capable_wayland_compositors_advertise_night_light() {
         assert!(Compositor::Niri(Niri).capabilities().night_light);
         assert!(Compositor::Hyprland(Hyprland).capabilities().night_light);
+    }
+
+    #[test]
+    fn is_builtin_connector_matches_prefix_heuristic() {
+        assert!(is_builtin_connector("eDP-1", None));
+        assert!(is_builtin_connector("LVDS-1", None));
+        assert!(is_builtin_connector("DSI-1", None));
+        assert!(!is_builtin_connector("HDMI-A-1", None));
+        assert!(!is_builtin_connector("DP-1", None));
+    }
+
+    #[test]
+    fn is_builtin_connector_respects_explicit_override() {
+        assert!(is_builtin_connector("DP-3", Some("DP-3")));
+        assert!(!is_builtin_connector("DP-2", Some("DP-3")));
+        assert!(is_builtin_connector("eDP-1", Some("DP-3")));
     }
 }

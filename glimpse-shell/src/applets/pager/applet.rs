@@ -1369,6 +1369,11 @@ mod tests {
                 description: None,
                 active_workspace: Some(1),
                 focused: false,
+                make: None,
+                model: None,
+                enabled: true,
+                built_in: false,
+                current_mode: None,
             },
             glimpse_core::compositors::Monitor {
                 id: Some(2),
@@ -1376,6 +1381,11 @@ mod tests {
                 description: None,
                 active_workspace: Some(3),
                 focused: true,
+                make: None,
+                model: None,
+                enabled: true,
+                built_in: false,
+                current_mode: None,
             },
         ];
         state
@@ -1522,6 +1532,11 @@ mod tests {
                 description: None,
                 active_workspace: Some(1),
                 focused: false,
+                make: None,
+                model: None,
+                enabled: true,
+                built_in: false,
+                current_mode: None,
             },
             glimpse_core::compositors::Monitor {
                 id: None,
@@ -1529,6 +1544,11 @@ mod tests {
                 description: None,
                 active_workspace: Some(2),
                 focused: true,
+                make: None,
+                model: None,
+                enabled: true,
+                built_in: false,
+                current_mode: None,
             },
         ];
         state.capabilities.monitors = true;

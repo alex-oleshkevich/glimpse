@@ -8,8 +8,8 @@ use tokio::sync::mpsc;
 
 use crate::{
     AppletConfig, BackdropConfig, ConfigFileDiscovery, IdleConfig, KeyboardConfig, LocationConfig,
-    LockConfig, NightLightConfig, PanelConfig, ResolvedWallpaperSpec, ThemeMode, WallpaperConfig,
-    resolve_wallpaper_spec, watch_config_file,
+    LockConfig, MonitorsConfig, NightLightConfig, PanelConfig, ResolvedWallpaperSpec, ThemeMode,
+    WallpaperConfig, resolve_wallpaper_spec, watch_config_file,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -32,6 +32,8 @@ pub struct Config {
     pub backdrop: BackdropConfig,
     #[serde(default)]
     pub lock: LockConfig,
+    #[serde(default)]
+    pub monitors: MonitorsConfig,
 }
 
 impl Config {
@@ -146,6 +148,7 @@ impl Default for Config {
             wallpaper: WallpaperConfig::default(),
             backdrop: BackdropConfig::default(),
             lock: LockConfig::default(),
+            monitors: MonitorsConfig::default(),
         }
     }
 }
