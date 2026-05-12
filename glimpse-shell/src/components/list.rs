@@ -6,7 +6,7 @@ use relm4::{
     gtk::{self, prelude::*},
 };
 
-use crate::components::menu_item::{MenuItem, attach_context_menu};
+use crate::components::menu_item::{MenuItem, attach_context_menu, build_menu_popover};
 
 #[relm4::widget_template(pub)]
 impl WidgetTemplate for ListItem {
@@ -16,6 +16,7 @@ impl WidgetTemplate for ListItem {
             add_css_class: "flat",
             add_css_class: "list-item",
             add_css_class: "list-item__button",
+            set_hexpand: false,
 
             gtk::Box {
                 add_css_class: "list-item__content",
@@ -39,6 +40,11 @@ impl WidgetTemplate for ListItem {
                     set_orientation: gtk::Orientation::Vertical,
                     set_spacing: 0,
                     set_hexpand: true,
+                    // Center the text Box vertically so a single label
+                    // aligns with the icon (instead of sitting at the
+                    // top of the fill-height area). When sublabel is
+                    // visible, both lines stay grouped and centered.
+                    set_valign: gtk::Align::Center,
 
                     #[name = "label"]
                     gtk::Label {
@@ -73,9 +79,13 @@ impl WidgetTemplate for ListItem {
 
 /// Data for a single row in [`ListView`].
 ///
-/// `menu_items` populates the row's right-click context menu — see
-/// [`crate::components::menu_item::attach_context_menu`]. Leave empty
-/// for rows without a context menu.
+/// `menu_items` populates the row's **right-click** context menu.
+/// `trailing_menu` populates a hamburger `gtk::MenuButton` rendered in
+/// the row's right slot — clickable on **left-click**. Use either,
+/// neither, or both.
+///
+/// `on_click_command` fires when the user clicks the row body (anywhere
+/// not consumed by the trailing MenuButton).
 #[derive(Debug, Clone)]
 pub struct ListItemModel<Cmd> {
     pub label: String,
@@ -83,6 +93,8 @@ pub struct ListItemModel<Cmd> {
     pub icon: Option<String>,
     pub tooltip: Option<String>,
     pub menu_items: Vec<MenuItem<Cmd>>,
+    pub trailing_menu: Vec<MenuItem<Cmd>>,
+    pub on_click_command: Option<Cmd>,
 }
 
 impl<Cmd> ListItemModel<Cmd> {
@@ -93,6 +105,8 @@ impl<Cmd> ListItemModel<Cmd> {
             icon: None,
             tooltip: None,
             menu_items: Vec::new(),
+            trailing_menu: Vec::new(),
+            on_click_command: None,
         }
     }
 
@@ -115,6 +129,16 @@ impl<Cmd> ListItemModel<Cmd> {
         self.menu_items = items;
         self
     }
+
+    pub fn with_trailing_menu(mut self, items: Vec<MenuItem<Cmd>>) -> Self {
+        self.trailing_menu = items;
+        self
+    }
+
+    pub fn on_click(mut self, command: Cmd) -> Self {
+        self.on_click_command = Some(command);
+        self
+    }
 }
 
 // ───────────────────────── Row factory ────────────────────────
@@ -122,6 +146,8 @@ impl<Cmd> ListItemModel<Cmd> {
 pub struct ListItemRow<Cmd: Clone + Debug + Send + 'static> {
     template: ListItem,
     menu_items: Vec<MenuItem<Cmd>>,
+    trailing_menu: Vec<MenuItem<Cmd>>,
+    on_click_command: Option<Cmd>,
 }
 
 impl<Cmd> FactoryComponent for ListItemRow<Cmd>
@@ -160,6 +186,8 @@ where
         Self {
             template,
             menu_items: init.menu_items,
+            trailing_menu: init.trailing_menu,
+            on_click_command: init.on_click_command,
         }
     }
 
@@ -174,12 +202,40 @@ where
         _returned: &<Self::ParentWidget as relm4::factory::FactoryView>::ReturnedWidget,
         sender: FactorySender<Self>,
     ) -> Self::Widgets {
+        // Right-click context menu
         if !self.menu_items.is_empty() {
             attach_context_menu(
                 &root,
                 self.menu_items.clone(),
                 sender.output_sender().clone(),
             );
+        }
+
+        // Trailing hamburger MenuButton in the right slot
+        if !self.trailing_menu.is_empty() {
+            let popover = build_menu_popover(&self.trailing_menu, sender.output_sender().clone());
+            let button = gtk::MenuButton::new();
+            button.set_icon_name("open-menu-symbolic");
+            button.set_has_frame(false);
+            button.add_css_class("flat");
+            button.add_css_class("menu-button");
+            button.set_popover(Some(&popover));
+            self.template.right.append(&button);
+            self.template.right.set_visible(true);
+        }
+
+        // Row-body activation. Default Bubble propagation phase means child
+        // widgets (like the trailing MenuButton) consume their clicks first;
+        // this gesture only fires for clicks that reach the row container.
+        if let Some(cmd) = self.on_click_command.clone() {
+            let click = gtk::GestureClick::new();
+            let output = sender.output_sender().clone();
+            click.connect_released(move |_, n_press, _, _| {
+                if n_press == 1 {
+                    let _ = output.send(cmd.clone());
+                }
+            });
+            root.add_controller(click);
         }
     }
 }

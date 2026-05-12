@@ -79,7 +79,16 @@ pub fn attach_context_menu<W, Cmd>(
     widget.add_controller(click);
 }
 
-fn build_menu_popover<Cmd>(items: &[MenuItem<Cmd>], sender: relm4::Sender<Cmd>) -> gtk::Popover
+/// Build a `gtk::Popover` whose body is a flat list of action buttons,
+/// one per entry in `items`. Each entry's `command` is sent on `sender`
+/// when activated; the popover closes itself afterward.
+///
+/// Used by both [`attach_context_menu`] (right-click trigger) and
+/// `MenuButton` (left-click trigger on a `gtk::MenuButton`).
+pub(crate) fn build_menu_popover<Cmd>(
+    items: &[MenuItem<Cmd>],
+    sender: relm4::Sender<Cmd>,
+) -> gtk::Popover
 where
     Cmd: Clone + 'static,
 {
