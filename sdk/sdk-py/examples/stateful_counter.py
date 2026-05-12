@@ -34,13 +34,13 @@ class CounterApplet(Applet[CounterState]):
                     label=str(self.state.count),
                 )
             ],
-            hero=Hero(
-                icon=Icon.name("view-refresh-symbolic"),
-                title="Counter",
-                subtitle=f"Value: {self.state.count}",
-            ),
             tree=Box.vertical(
                 [
+                    Hero(
+                        icon=Icon.name("view-refresh-symbolic"),
+                        title="Counter",
+                        subtitle=f"Value: {self.state.count}",
+                    ),
                     Label(f"Count = {self.state.count}"),
                     Button(id="increment", label="Increment"),
                 ],

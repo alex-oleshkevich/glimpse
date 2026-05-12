@@ -12,6 +12,9 @@ from .events import (
 )
 from .protocol import Icon, MenuItem, StatusItem
 from .widgets import (
+    ActionMenu,
+    ActionMenuItem,
+    ActionRow,
     Align,
     Badge,
     Box,
@@ -20,6 +23,7 @@ from .widgets import (
     Checkbox,
     Collapsible,
     CollapsibleItem,
+    Column,
     Copyable,
     DetailGrid,
     DetailGridItem,
@@ -42,6 +46,7 @@ from .widgets import (
     Scroll,
     Section,
     Separator,
+    Spinner,
     StatusDot,
     Switch,
     Toast,
@@ -51,6 +56,9 @@ from .widgets import (
 )
 
 __all__ = [
+    "ActionMenu",
+    "ActionMenuItem",
+    "ActionRow",
     "Align",
     "Applet",
     "AppletState",
@@ -64,6 +72,7 @@ __all__ = [
     "ClickEvent",
     "Collapsible",
     "CollapsibleItem",
+    "Column",
     "Copyable",
     "DetailGrid",
     "DetailGridItem",
@@ -92,6 +101,7 @@ __all__ = [
     "ScrollEvent",
     "Section",
     "Separator",
+    "Spinner",
     "StatusItem",
     "MenuItem",
     "StatusDot",

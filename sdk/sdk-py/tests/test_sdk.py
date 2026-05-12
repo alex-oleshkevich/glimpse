@@ -6,11 +6,15 @@ import unittest
 from dataclasses import dataclass
 
 from glimpse_applet import (
+    ActionMenu,
+    ActionMenuItem,
+    ActionRow,
     Applet,
     AppletState,
     Box,
     Button,
     ChangeEvent,
+    Column,
     Dropdown,
     DropdownItem,
     Icon,
@@ -20,6 +24,8 @@ from glimpse_applet import (
     PopoverEvent,
     RenderResult,
     Row,
+    Spinner,
+    StatusDot,
     StatusItem,
     MenuItem,
     Variant,
@@ -94,9 +100,33 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["type"], "dropdown")
         self.assertEqual(payload["data"]["items"][0]["id"], "prod")
 
-    def test_row_serializes_as_action_row(self) -> None:
-        payload = Row(id="open", title="Open").to_protocol()
+    def test_action_row_serializes_as_action_row(self) -> None:
+        payload = ActionRow(id="open", title="Open").to_protocol()
         self.assertEqual(payload["type"], "action_row")
+
+    def test_row_and_column_serialize_as_layout_protocol_types(self) -> None:
+        self.assertEqual(Row().to_protocol()["type"], "row")
+        self.assertEqual(Column().to_protocol()["type"], "column")
+
+    def test_status_dot_serializes_as_status_protocol_type(self) -> None:
+        self.assertEqual(StatusDot().to_protocol()["type"], "status")
+
+    def test_action_menu_serializes_with_items(self) -> None:
+        payload = ActionMenu(
+            header="Pick one",
+            items=[
+                ActionMenuItem(id="a", label="Alpha", checked=True),
+                ActionMenuItem(id="b", label="Beta"),
+            ],
+        ).to_protocol()
+        self.assertEqual(payload["type"], "action_menu")
+        self.assertEqual(payload["data"]["header"], "Pick one")
+        self.assertEqual(payload["data"]["items"][0]["checked"], True)
+
+    def test_spinner_serializes_with_default_spinning(self) -> None:
+        payload = Spinner().to_protocol()
+        self.assertEqual(payload["type"], "spinner")
+        self.assertEqual(payload["data"]["spinning"], True)
 
     def test_variant_serializes_as_semantic_protocol_value(self) -> None:
         payload = Label(text="Warning", variant=Variant.WARNING).to_protocol()
@@ -119,7 +149,8 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_init_event_rerenders_changed_state(self) -> None:
         applet = InitApplet()
-        loop_task = asyncio.create_task(applet._event_loop())
+        eof = asyncio.Event()
+        loop_task = asyncio.create_task(applet._event_loop(eof))
         try:
             status = await applet._outgoing.get()
             await applet._outgoing.get()

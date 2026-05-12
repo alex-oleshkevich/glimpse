@@ -70,7 +70,13 @@ export function parseCallbackEvent(payload: Record<string, unknown>): CallbackEv
     return { id, event, text: String(payload.text ?? "") };
   }
   if (event === "toggle") {
-    return { id, event, value: Boolean(payload.active ?? payload.value) };
+    let value = false;
+    if (typeof payload.active === "boolean") {
+      value = payload.active;
+    } else if (typeof payload.value === "boolean") {
+      value = payload.value;
+    }
+    return { id, event, value };
   }
   if (event === "open" || event === "close") {
     return { id, event, open: event === "open" };

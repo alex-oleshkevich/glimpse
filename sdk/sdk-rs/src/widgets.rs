@@ -569,13 +569,11 @@ pub struct Item {
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub left: Option<Box<TreeNode>>,
-    #[serde(skip_serializing_if = "String::is_empty")]
     pub label: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub right: Option<Box<TreeNode>>,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub clickable: bool,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub menu: Vec<MenuItem>,
 }
 
@@ -634,7 +632,6 @@ pub struct CollapsibleItem {
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub left: Option<Box<TreeNode>>,
-    #[serde(skip_serializing_if = "String::is_empty")]
     pub label: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub right: Option<Box<TreeNode>>,
@@ -663,7 +660,6 @@ pub struct Meter {
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<Icon>,
-    #[serde(skip_serializing_if = "String::is_empty")]
     pub label: String,
     pub value: f64,
     pub min: f64,
@@ -671,7 +667,6 @@ pub struct Meter {
     pub step: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub interactive: bool,
 }
 
@@ -727,7 +722,6 @@ pub struct Toast {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<Icon>,
     pub title: String,
-    #[serde(skip_serializing_if = "String::is_empty")]
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action: Option<ToastAction>,
@@ -748,7 +742,7 @@ impl Toast {
 with_common!(Toast);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Row {
+pub struct ActionRow {
     #[serde(flatten)]
     pub common: CommonProps,
     pub title: String,
@@ -758,7 +752,7 @@ pub struct Row {
     pub icon: Option<Icon>,
 }
 
-impl Row {
+impl ActionRow {
     pub fn new(id: impl Into<String>, title: impl Into<String>) -> Self {
         Self {
             common: CommonProps {
@@ -788,7 +782,159 @@ impl Row {
     }
 }
 
+with_common!(ActionRow);
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Row {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub spacing: i32,
+    pub children: Vec<TreeNode>,
+}
+
+impl Row {
+    pub fn new(children: Vec<TreeNode>) -> Self {
+        Self {
+            common: CommonProps::default(),
+            spacing: 0,
+            children,
+        }
+    }
+
+    pub fn spacing(mut self, spacing: i32) -> Self {
+        self.spacing = spacing;
+        self
+    }
+}
+
 with_common!(Row);
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Column {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub spacing: i32,
+    pub children: Vec<TreeNode>,
+}
+
+impl Column {
+    pub fn new(children: Vec<TreeNode>) -> Self {
+        Self {
+            common: CommonProps::default(),
+            spacing: 0,
+            children,
+        }
+    }
+
+    pub fn spacing(mut self, spacing: i32) -> Self {
+        self.spacing = spacing;
+        self
+    }
+}
+
+with_common!(Column);
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ActionMenuItem {
+    pub id: String,
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<Icon>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub visible: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checked: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selectable: Option<bool>,
+}
+
+impl ActionMenuItem {
+    pub fn new(id: impl Into<String>, label: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            label: label.into(),
+            icon: None,
+            visible: None,
+            checked: None,
+            selectable: None,
+        }
+    }
+
+    pub fn icon(mut self, icon: Icon) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    pub fn checked(mut self, checked: bool) -> Self {
+        self.checked = Some(checked);
+        self
+    }
+
+    pub fn selectable(mut self, selectable: bool) -> Self {
+        self.selectable = Some(selectable);
+        self
+    }
+
+    pub fn visible(mut self, visible: bool) -> Self {
+        self.visible = Some(visible);
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ActionMenu {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub header: Option<String>,
+    pub items: Vec<ActionMenuItem>,
+}
+
+impl ActionMenu {
+    pub fn new(items: Vec<ActionMenuItem>) -> Self {
+        Self {
+            common: CommonProps::default(),
+            header: None,
+            items,
+        }
+    }
+
+    pub fn header(mut self, header: impl Into<String>) -> Self {
+        self.header = Some(header.into());
+        self
+    }
+}
+
+with_common!(ActionMenu);
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Spinner {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub spinning: bool,
+}
+
+impl Spinner {
+    pub fn new() -> Self {
+        Self {
+            common: CommonProps::default(),
+            spinning: true,
+        }
+    }
+
+    pub fn spinning(mut self, spinning: bool) -> Self {
+        self.spinning = spinning;
+        self
+    }
+}
+
+impl Default for Spinner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+with_common!(Spinner);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DetailGridItem {
@@ -894,17 +1040,21 @@ pub enum TreeNode {
     Meter(Meter),
     Copyable(Copyable),
     Toast(Toast),
-    #[serde(rename = "action_row")]
-    Row(Row),
+    ActionRow(ActionRow),
+    ActionMenu(ActionMenu),
     DetailGrid(DetailGrid),
     EmptyState(EmptyState),
     Badge(Badge),
+    #[serde(rename = "status")]
     StatusDot(StatusDot),
     Box(BoxNode),
+    Row(Row),
+    Column(Column),
     Grid(Grid),
     Scroll(Scroll),
     Progress(Progress),
     Separator(Separator),
+    Spinner(Spinner),
     Label(Label),
     Icon(IconWidget),
     Image(Image),
@@ -960,9 +1110,29 @@ impl From<Toast> for TreeNode {
         Self::Toast(value)
     }
 }
+impl From<ActionRow> for TreeNode {
+    fn from(value: ActionRow) -> Self {
+        Self::ActionRow(value)
+    }
+}
+impl From<ActionMenu> for TreeNode {
+    fn from(value: ActionMenu) -> Self {
+        Self::ActionMenu(value)
+    }
+}
 impl From<Row> for TreeNode {
     fn from(value: Row) -> Self {
         Self::Row(value)
+    }
+}
+impl From<Column> for TreeNode {
+    fn from(value: Column) -> Self {
+        Self::Column(value)
+    }
+}
+impl From<Spinner> for TreeNode {
+    fn from(value: Spinner) -> Self {
+        Self::Spinner(value)
     }
 }
 impl From<DetailGrid> for TreeNode {

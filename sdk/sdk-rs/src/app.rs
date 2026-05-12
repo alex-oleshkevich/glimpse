@@ -127,20 +127,36 @@ where
             continue;
         }
 
-        let incoming = parse_incoming_line(&line)?;
-        match incoming.kind.as_str() {
-            "init" => {
-                applet.on_init(parse_init_event(incoming.data)?).await?;
+        let incoming = match parse_incoming_line(&line) {
+            Ok(msg) => msg,
+            Err(err) => {
+                eprintln!("glimpse-applet: ignoring malformed input: {err}");
+                continue;
             }
-            "event" => {
-                let event = parse_callback_event(incoming.data)?;
-                if let CallbackEvent::Popover(popover) = &event {
-                    applet.set_popover_open(popover.open);
+        };
+        let result: AppletResult<()> = match incoming.kind.as_str() {
+            "init" => match parse_init_event(incoming.data) {
+                Ok(evt) => applet.on_init(evt).await,
+                Err(err) => {
+                    eprintln!("glimpse-applet: ignoring malformed init: {err}");
+                    continue;
                 }
-                applet.on_callback(event).await?;
-            }
+            },
+            "event" => match parse_callback_event(incoming.data) {
+                Ok(event) => {
+                    if let CallbackEvent::Popover(popover) = &event {
+                        applet.set_popover_open(popover.open);
+                    }
+                    applet.on_callback(event).await
+                }
+                Err(err) => {
+                    eprintln!("glimpse-applet: ignoring malformed event: {err}");
+                    continue;
+                }
+            },
             _ => continue,
-        }
+        };
+        result?;
 
         let rendered = applet.render().await?;
         flush_render(
@@ -213,8 +229,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        BoxNode, Button, CallbackEvent, ClickEvent, Icon, Item, Label, MenuItem, Row, StatusItem,
-        TreeNode,
+        ActionRow, BoxNode, Button, CallbackEvent, ClickEvent, Icon, Item, Label, MenuItem,
+        StatusItem, TreeNode,
     };
 
     struct DemoApplet {
@@ -330,9 +346,49 @@ mod tests {
 
     #[test]
     fn action_rows_use_canonical_protocol_name() {
-        let payload =
-            serde_json::to_value(TreeNode::from(Row::new("open", "Open"))).expect("row serializes");
+        let payload = serde_json::to_value(TreeNode::from(ActionRow::new("open", "Open")))
+            .expect("action row serializes");
         assert_eq!(payload["type"], "action_row");
+    }
+
+    #[test]
+    fn status_dot_serializes_as_status_protocol_name() {
+        let payload = serde_json::to_value(TreeNode::from(crate::StatusDot::new()))
+            .expect("status dot serializes");
+        assert_eq!(payload["type"], "status");
+    }
+
+    #[test]
+    fn row_and_column_serialize_as_layout_protocol_names() {
+        let row =
+            serde_json::to_value(TreeNode::from(crate::Row::new(vec![]))).expect("row serializes");
+        assert_eq!(row["type"], "row");
+
+        let column = serde_json::to_value(TreeNode::from(crate::Column::new(vec![])))
+            .expect("column serializes");
+        assert_eq!(column["type"], "column");
+    }
+
+    #[test]
+    fn action_menu_serializes_with_items() {
+        let menu = crate::ActionMenu::new(vec![
+            crate::ActionMenuItem::new("a", "Alpha").checked(true),
+            crate::ActionMenuItem::new("b", "Beta"),
+        ])
+        .header("Pick one");
+        let payload =
+            serde_json::to_value(TreeNode::from(menu)).expect("action_menu serializes");
+        assert_eq!(payload["type"], "action_menu");
+        assert_eq!(payload["data"]["header"], "Pick one");
+        assert_eq!(payload["data"]["items"][0]["checked"], true);
+    }
+
+    #[test]
+    fn spinner_serializes_with_default_spinning() {
+        let payload = serde_json::to_value(TreeNode::from(crate::Spinner::new()))
+            .expect("spinner serializes");
+        assert_eq!(payload["type"], "spinner");
+        assert_eq!(payload["data"]["spinning"], true);
     }
 
     #[test]

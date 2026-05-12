@@ -70,6 +70,7 @@ class Applet(Generic[StateT]):
         self._render_requested = True
         if self._render_task is None or self._render_task.done():
             self._render_task = asyncio.create_task(self._flush_render())
+            self._render_task.add_done_callback(_log_render_exception)
 
     async def _flush_render(self) -> None:
         await asyncio.sleep(0)
@@ -104,55 +105,103 @@ class Applet(Generic[StateT]):
         else:
             await self.on_callback(event)
 
-    async def _reader_loop(self) -> None:
-        while True:
-            line = await asyncio.to_thread(sys.stdin.readline)
-            if line == "":
-                break
-            parsed = _parse_line(line)
-            if parsed is None:
-                continue
-            message_type, data = parsed
-            if message_type == "init":
-                await self._incoming.put(parse_init_event(data))
-            elif message_type == "event":
-                await self._incoming.put(parse_callback_event(data))
+    async def _reader_loop(self, eof: asyncio.Event) -> None:
+        try:
+            while True:
+                line = await asyncio.to_thread(sys.stdin.readline)
+                if line == "":
+                    break
+                try:
+                    parsed = _parse_line(line)
+                except (ValueError, json.JSONDecodeError) as exc:
+                    print(f"glimpse-applet: ignoring malformed input: {exc}", file=sys.stderr)
+                    continue
+                if parsed is None:
+                    continue
+                message_type, data = parsed
+                try:
+                    if message_type == "init":
+                        await self._incoming.put(parse_init_event(data))
+                    elif message_type == "event":
+                        await self._incoming.put(parse_callback_event(data))
+                except Exception as exc:
+                    print(f"glimpse-applet: ignoring malformed event: {exc}", file=sys.stderr)
+                    continue
+        finally:
+            eof.set()
 
     async def _writer_loop(self) -> None:
         while True:
             command, payload = await self._outgoing.get()
-            sys.stdout.write(f"{command} {json.dumps(payload, separators=(',', ':'))}\n")
-            sys.stdout.flush()
+            try:
+                sys.stdout.write(f"{command} {json.dumps(payload, separators=(',', ':'))}\n")
+                sys.stdout.flush()
+            except (BrokenPipeError, OSError):
+                return
 
-    async def _event_loop(self) -> None:
+    async def _event_loop(self, eof: asyncio.Event) -> None:
         await self.on_start()
         self._schedule_render()
-        while True:
-            event = await self._incoming.get()
-            if isinstance(event, InitEvent):
-                await self.on_init(event)
-                self._schedule_render()
+        get_task: asyncio.Task[InitEvent | CallbackEvent] | None = None
+        eof_task = asyncio.create_task(eof.wait())
+        try:
+            while True:
+                if get_task is None:
+                    get_task = asyncio.create_task(self._incoming.get())
+                done, _ = await asyncio.wait(
+                    {get_task, eof_task}, return_when=asyncio.FIRST_COMPLETED
+                )
+                if eof_task in done and get_task not in done:
+                    get_task.cancel()
+                    return
+                event = get_task.result()
+                get_task = None
+                if isinstance(event, InitEvent):
+                    await self.on_init(event)
+                    self._schedule_render()
+                else:
+                    if isinstance(event, PopoverEvent):
+                        self._popover_open = event.open
+                    await self._dispatch_callback(event)
+                    self._schedule_render()
+                if self._render_task is not None and self._render_task.done():
+                    exc = self._render_task.exception()
+                    if exc is not None:
+                        raise exc
                 await asyncio.sleep(0)
-            else:
-                if isinstance(event, PopoverEvent):
-                    self._popover_open = event.open
-                await self._dispatch_callback(event)
-                self._schedule_render()
-                await asyncio.sleep(0)
+        finally:
+            if get_task is not None:
+                get_task.cancel()
+            eof_task.cancel()
 
     async def _run(self) -> None:
         if not is_dataclass(self.state):
             raise TypeError("Applet state must be a dataclass instance")
+        eof = asyncio.Event()
         writer = asyncio.create_task(self._writer_loop())
-        reader = asyncio.create_task(self._reader_loop())
+        reader = asyncio.create_task(self._reader_loop(eof))
         try:
-            await self._event_loop()
+            await self._event_loop(eof)
         finally:
             reader.cancel()
             writer.cancel()
+            if self._render_task is not None and not self._render_task.done():
+                self._render_task.cancel()
 
     def run(self) -> None:
         asyncio.run(self._run())
+
+
+def _log_render_exception(task: "asyncio.Task[None]") -> None:
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is None:
+        return
+    import traceback
+
+    print("glimpse-applet: render error:", file=sys.stderr)
+    traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
 
 
 def _parse_line(line: str) -> tuple[str, dict[str, Any]] | None:

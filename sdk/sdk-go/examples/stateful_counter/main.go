@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	sdk "github.com/glimpse-project/custom-applet-sdk-go/sdk"
+	sdk "github.com/alex-oleshkevich/glimpse/sdk/sdk-go/sdk"
 )
 
 type counterState struct {
@@ -38,7 +38,7 @@ func (a *counterApplet) Render(context.Context) (sdk.RenderResult, error) {
 		Status: []sdk.StatusItem{
 			{ID: "counter", Icon: sdk.IconName("view-refresh-symbolic"), Label: fmt.Sprintf("%d", a.State().Count)},
 		},
-		Tree: ptr(sdk.BoxVertical([]sdk.TreeNode{
+		Tree: ptr(sdk.NewColumn([]sdk.TreeNode{
 			sdk.NewHero("Counter", fmt.Sprintf("Value: %d", a.State().Count)),
 			sdk.NewLabel(fmt.Sprintf("Count = %d", a.State().Count)),
 			sdk.NewButton("increment", "Increment"),

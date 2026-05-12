@@ -47,7 +47,7 @@ func (a *demoApplet) OnCallback(_ context.Context, event CallbackEvent) error {
 func (a *demoApplet) Render(context.Context) (RenderResult, error) {
 	var tree *TreeNode
 	if a.State().Tree {
-		tree = ptr(BoxVertical([]TreeNode{
+		tree = ptr(NewColumn([]TreeNode{
 			NewHero("Demo", a.State().Version),
 			NewLabel(a.State().Version),
 			NewButton("submit", "Submit"),

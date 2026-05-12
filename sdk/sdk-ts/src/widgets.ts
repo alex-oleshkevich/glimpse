@@ -428,13 +428,11 @@ export class Item extends WidgetBase {
   toProtocol(): Record<string, unknown> {
     const payload = this.withCommon({
       label: this.options.label ?? "",
+      clickable: this.options.clickable ?? false,
+      menu: (this.options.menu ?? []).map((item) => item.toProtocol()),
     });
     if (this.options.left !== undefined) payload.left = this.options.left.toProtocol();
     if (this.options.right !== undefined) payload.right = this.options.right.toProtocol();
-    if (this.options.clickable !== undefined) payload.clickable = this.options.clickable;
-    if (this.options.menu !== undefined) {
-      payload.menu = this.options.menu.map((item) => item.toProtocol());
-    }
     return { type: "item", data: payload };
   }
 }
@@ -488,10 +486,10 @@ export class Meter extends WidgetBase {
       min: this.options.min ?? 0,
       max: this.options.max ?? 1,
       step: this.options.step ?? 0.01,
+      interactive: this.options.interactive ?? false,
     });
     if (this.options.icon !== undefined) payload.icon = this.options.icon.toProtocol();
     if (this.options.text !== undefined) payload.text = this.options.text;
-    if (this.options.interactive !== undefined) payload.interactive = this.options.interactive;
     return { type: "meter", data: payload };
   }
 }
@@ -551,7 +549,7 @@ export class Toast extends WidgetBase {
   }
 }
 
-export class Row extends WidgetBase {
+export class ActionRow extends WidgetBase {
   constructor(
     private readonly options: CommonProps & {
       title: string;
@@ -571,6 +569,109 @@ export class Row extends WidgetBase {
     });
     if (this.options.icon !== undefined) payload.icon = this.options.icon.toProtocol();
     return { type: "action_row", data: payload };
+  }
+}
+
+export class Row extends WidgetBase {
+  constructor(
+    private readonly options: CommonProps & {
+      spacing?: number;
+      children?: TreeNode[];
+    } = {},
+  ) {
+    super(options);
+  }
+
+  toProtocol(): Record<string, unknown> {
+    return {
+      type: "row",
+      data: this.withCommon({
+        spacing: this.options.spacing ?? 0,
+        children: (this.options.children ?? []).map((child) => child.toProtocol()),
+      }),
+    };
+  }
+}
+
+export class Column extends WidgetBase {
+  constructor(
+    private readonly options: CommonProps & {
+      spacing?: number;
+      children?: TreeNode[];
+    } = {},
+  ) {
+    super(options);
+  }
+
+  toProtocol(): Record<string, unknown> {
+    return {
+      type: "column",
+      data: this.withCommon({
+        spacing: this.options.spacing ?? 0,
+        children: (this.options.children ?? []).map((child) => child.toProtocol()),
+      }),
+    };
+  }
+}
+
+export class ActionMenuItem {
+  constructor(
+    public readonly options: {
+      id: string;
+      label: string;
+      icon?: Icon;
+      visible?: boolean;
+      checked?: boolean;
+      selectable?: boolean;
+    },
+  ) {}
+
+  toProtocol(): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+      id: this.options.id,
+      label: this.options.label,
+    };
+    if (this.options.icon !== undefined) payload.icon = this.options.icon.toProtocol();
+    if (this.options.visible !== undefined) payload.visible = this.options.visible;
+    if (this.options.checked !== undefined) payload.checked = this.options.checked;
+    if (this.options.selectable !== undefined) payload.selectable = this.options.selectable;
+    return payload;
+  }
+}
+
+export class ActionMenu extends WidgetBase {
+  constructor(
+    private readonly options: CommonProps & {
+      header?: string;
+      items?: ActionMenuItem[];
+    } = {},
+  ) {
+    super(options);
+  }
+
+  toProtocol(): Record<string, unknown> {
+    const payload = this.withCommon({
+      items: (this.options.items ?? []).map((item) => item.toProtocol()),
+    });
+    if (this.options.header !== undefined) payload.header = this.options.header;
+    return { type: "action_menu", data: payload };
+  }
+}
+
+export class Spinner extends WidgetBase {
+  constructor(
+    private readonly options: CommonProps & {
+      spinning?: boolean;
+    } = {},
+  ) {
+    super(options);
+  }
+
+  toProtocol(): Record<string, unknown> {
+    return {
+      type: "spinner",
+      data: this.withCommon({ spinning: this.options.spinning ?? true }),
+    };
   }
 }
 
@@ -650,7 +751,7 @@ export class StatusDot extends WidgetBase {
   }
 
   toProtocol(): Record<string, unknown> {
-    return { type: "status_dot", data: this.withCommon({}) };
+    return { type: "status", data: this.withCommon({}) };
   }
 }
 
@@ -695,16 +796,20 @@ export type TreeNode =
   | Meter
   | Copyable
   | Toast
-  | Row
+  | ActionRow
+  | ActionMenu
   | DetailGrid
   | EmptyState
   | Badge
   | StatusDot
   | Box
+  | Row
+  | Column
   | Grid
   | Scroll
   | Progress
   | Separator
+  | Spinner
   | Label
   | IconWidget
   | Image

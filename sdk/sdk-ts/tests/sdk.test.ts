@@ -2,9 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  ActionMenu,
+  ActionMenuItem,
+  ActionRow,
   Applet,
   Box,
   Button,
+  Column,
   Dropdown,
   DropdownItem,
   Hero,
@@ -14,6 +18,8 @@ import {
   Label,
   RenderResult,
   Row,
+  Spinner,
+  StatusDot,
   StatusItem,
   MenuItem,
   parseCallbackEvent,
@@ -121,9 +127,40 @@ test("dropdown serializes items", () => {
   assert.equal((payload.data as any).items[0].id, "prod");
 });
 
-test("row serializes as action_row", () => {
-  const payload = new Row({ id: "open", title: "Open" }).toProtocol();
+test("action row serializes as action_row", () => {
+  const payload = new ActionRow({ id: "open", title: "Open" }).toProtocol();
   assert.equal(payload.type, "action_row");
+});
+
+test("row and column serialize as layout protocol types", () => {
+  const row = new Row({ children: [], spacing: 4 }).toProtocol();
+  assert.equal(row.type, "row");
+  const column = new Column({ children: [], spacing: 4 }).toProtocol();
+  assert.equal(column.type, "column");
+});
+
+test("status dot serializes as status protocol type", () => {
+  const payload = new StatusDot().toProtocol();
+  assert.equal(payload.type, "status");
+});
+
+test("action menu serializes with items", () => {
+  const payload = new ActionMenu({
+    header: "Pick one",
+    items: [
+      new ActionMenuItem({ id: "a", label: "Alpha", checked: true }),
+      new ActionMenuItem({ id: "b", label: "Beta" }),
+    ],
+  }).toProtocol();
+  assert.equal(payload.type, "action_menu");
+  assert.equal((payload.data as any).header, "Pick one");
+  assert.equal((payload.data as any).items[0].checked, true);
+});
+
+test("spinner serializes with default spinning", () => {
+  const payload = new Spinner().toProtocol();
+  assert.equal(payload.type, "spinner");
+  assert.equal((payload.data as any).spinning, true);
 });
 
 test("item serializes menu items", () => {

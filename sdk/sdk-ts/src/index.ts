@@ -13,6 +13,9 @@ export {
 } from "./events.js";
 export { Icon, MenuItem, StatusItem } from "./protocol.js";
 export {
+  ActionMenu,
+  ActionMenuItem,
+  ActionRow,
   type Align,
   Badge,
   Box,
@@ -21,6 +24,7 @@ export {
   Checkbox,
   Collapsible,
   CollapsibleItem,
+  Column,
   Copyable,
   DetailGrid,
   DetailGridItem,
@@ -43,6 +47,7 @@ export {
   Scroll,
   Section,
   Separator,
+  Spinner,
   StatusDot,
   Switch,
   Toast,

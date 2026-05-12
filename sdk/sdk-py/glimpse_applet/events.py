@@ -63,11 +63,15 @@ def parse_callback_event(payload: dict[str, Any]) -> CallbackEvent:
     if event_type == "input":
         return InputEvent(id=callback_id, event=event_type, text=str(payload.get("text", "")))
     if event_type == "toggle":
-        return ToggleEvent(
-            id=callback_id,
-            event=event_type,
-            value=bool(payload.get("active", payload.get("value", False))),
-        )
+        active = payload.get("active")
+        value = payload.get("value")
+        if isinstance(active, bool):
+            toggled = active
+        elif isinstance(value, bool):
+            toggled = value
+        else:
+            toggled = False
+        return ToggleEvent(id=callback_id, event=event_type, value=toggled)
     if event_type in {"open", "close"}:
         return PopoverEvent(id=callback_id, event=event_type, open=event_type == "open")
     return ChangeEvent(id=callback_id, event=event_type, value=payload.get("value"))

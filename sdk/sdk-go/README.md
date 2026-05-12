@@ -30,7 +30,7 @@ func (a *CounterApplet) Render(context.Context) (sdk.RenderResult, error) {
             Title: "Counter",
             Subtitle: fmt.Sprintf("Value: %d", a.State().Count),
         },
-        Tree: ptr(sdk.BoxVertical([]sdk.TreeNode{
+        Tree: ptr(sdk.NewColumn([]sdk.TreeNode{
             sdk.NewLabel(fmt.Sprintf("Count = %d", a.State().Count)),
             sdk.NewButton("increment", "Increment"),
         }, 8)),

@@ -52,7 +52,7 @@ pub struct PopoverEvent {
     pub open: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub(crate) struct IncomingMessage {
     pub kind: String,
     pub data: Value,

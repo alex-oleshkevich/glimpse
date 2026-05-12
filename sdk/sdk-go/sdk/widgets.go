@@ -1,6 +1,11 @@
 package sdk
 
-import "encoding/json"
+func ensureSlice[T any](s []T) []T {
+	if s == nil {
+		return []T{}
+	}
+	return s
+}
 
 type Align string
 type Orientation string
@@ -161,7 +166,7 @@ type Dropdown struct {
 }
 
 func NewDropdown(id string, items []DropdownItem) TreeNode {
-	return TreeNode{Type: "dropdown", Data: Dropdown{CommonProps: CommonProps{ID: id}, Items: items}}
+	return TreeNode{Type: "dropdown", Data: Dropdown{CommonProps: CommonProps{ID: id}, Items: ensureSlice(items)}}
 }
 
 type Separator struct {
@@ -182,6 +187,10 @@ func NewScroll(child TreeNode) TreeNode {
 	return TreeNode{Type: "scroll", Data: Scroll{Child: child}}
 }
 
+func NewGridChild(row int, column int, child TreeNode) GridChild {
+	return GridChild{Row: row, Column: column, Width: 1, Height: 1, Child: child}
+}
+
 type GridChild struct {
 	Row    int      `json:"row"`
 	Column int      `json:"column"`
@@ -198,7 +207,7 @@ type Grid struct {
 }
 
 func NewGrid(children []GridChild) TreeNode {
-	return TreeNode{Type: "grid", Data: Grid{Children: children}}
+	return TreeNode{Type: "grid", Data: Grid{Children: ensureSlice(children)}}
 }
 
 type Box struct {
@@ -214,7 +223,7 @@ type Card struct {
 }
 
 func NewCard(children []TreeNode) TreeNode {
-	return TreeNode{Type: "card", Data: Card{Children: children}}
+	return TreeNode{Type: "card", Data: Card{Children: ensureSlice(children)}}
 }
 
 type Header struct {
@@ -224,87 +233,49 @@ type Header struct {
 
 type Section struct {
 	CommonProps
-	Title    string     `json:"-"`
-	Subtitle string     `json:"-"`
-	Children []TreeNode `json:"-"`
-	Header   *Header    `json:"header,omitempty"`
-	Body     []TreeNode `json:"body,omitempty"`
+	Header *Header    `json:"header,omitempty"`
+	Body   []TreeNode `json:"body"`
 }
 
 func NewSection(title string, children []TreeNode) TreeNode {
 	return TreeNode{
 		Type: "section",
 		Data: Section{
-			Title:    title,
-			Children: children,
-			Header:   &Header{Title: title},
-			Body:     children,
+			Header: &Header{Title: title},
+			Body:   ensureSlice(children),
 		},
 	}
 }
 
-func (s Section) MarshalJSON() ([]byte, error) {
-	type alias Section
-	value := alias(s)
-	if value.Header == nil && (value.Title != "" || value.Subtitle != "") {
-		value.Header = &Header{Title: value.Title, Subtitle: value.Subtitle}
-	}
-	if value.Body == nil && value.Children != nil {
-		value.Body = value.Children
-	}
-	return marshalAlias(value)
-}
-
 type Collapsible struct {
 	CommonProps
-	Title    string     `json:"-"`
-	Subtitle string     `json:"-"`
-	Children []TreeNode `json:"-"`
 	Header   *Header    `json:"header,omitempty"`
 	Expanded bool       `json:"expanded"`
-	Body     []TreeNode `json:"body,omitempty"`
+	Body     []TreeNode `json:"body"`
 }
 
 func NewCollapsible(title string, expanded bool, children []TreeNode) TreeNode {
 	return TreeNode{
 		Type: "collapsible",
 		Data: Collapsible{
-			Title:    title,
-			Children: children,
 			Header:   &Header{Title: title},
 			Expanded: expanded,
-			Body:     children,
+			Body:     ensureSlice(children),
 		},
 	}
-}
-
-func NewCollapsibleSection(title string, expanded bool, children []TreeNode) TreeNode {
-	return NewCollapsible(title, expanded, children)
-}
-
-func (c Collapsible) MarshalJSON() ([]byte, error) {
-	type alias Collapsible
-	value := alias(c)
-	if value.Header == nil && (value.Title != "" || value.Subtitle != "") {
-		value.Header = &Header{Title: value.Title, Subtitle: value.Subtitle}
-	}
-	if value.Body == nil && value.Children != nil {
-		value.Body = value.Children
-	}
-	return marshalAlias(value)
 }
 
 type Item struct {
 	CommonProps
 	Left      *TreeNode  `json:"left,omitempty"`
-	Label     string     `json:"label,omitempty"`
+	Label     string     `json:"label"`
 	Right     *TreeNode  `json:"right,omitempty"`
-	Clickable bool       `json:"clickable,omitempty"`
-	Menu      []MenuItem `json:"menu,omitempty"`
+	Clickable bool       `json:"clickable"`
+	Menu      []MenuItem `json:"menu"`
 }
 
 func NewItem(label string) TreeNode {
-	return TreeNode{Type: "item", Data: Item{Label: label}}
+	return TreeNode{Type: "item", Data: Item{Label: label, Menu: []MenuItem{}}}
 }
 
 func NewClickableItem(id string, label string) TreeNode {
@@ -314,6 +285,7 @@ func NewClickableItem(id string, label string) TreeNode {
 			CommonProps: CommonProps{ID: id},
 			Label:       label,
 			Clickable:   true,
+			Menu:        []MenuItem{},
 		},
 	}
 }
@@ -321,9 +293,9 @@ func NewClickableItem(id string, label string) TreeNode {
 type CollapsibleItem struct {
 	CommonProps
 	Left     *TreeNode  `json:"left,omitempty"`
-	Label    string     `json:"label,omitempty"`
+	Label    string     `json:"label"`
 	Right    *TreeNode  `json:"right,omitempty"`
-	Expanded bool       `json:"expanded,omitempty"`
+	Expanded bool       `json:"expanded"`
 	Body     []TreeNode `json:"body"`
 }
 
@@ -333,7 +305,7 @@ func NewCollapsibleItem(label string, expanded bool, children []TreeNode) TreeNo
 		Data: CollapsibleItem{
 			Label:    label,
 			Expanded: expanded,
-			Body:     children,
+			Body:     ensureSlice(children),
 		},
 	}
 }
@@ -341,13 +313,13 @@ func NewCollapsibleItem(label string, expanded bool, children []TreeNode) TreeNo
 type Meter struct {
 	CommonProps
 	Icon        *Icon   `json:"icon,omitempty"`
-	Label       string  `json:"label,omitempty"`
+	Label       string  `json:"label"`
 	Value       float64 `json:"value"`
-	Min         float64 `json:"min,omitempty"`
+	Min         float64 `json:"min"`
 	Max         float64 `json:"max"`
-	Step        float64 `json:"step,omitempty"`
+	Step        float64 `json:"step"`
 	Text        string  `json:"text,omitempty"`
-	Interactive bool    `json:"interactive,omitempty"`
+	Interactive bool    `json:"interactive"`
 }
 
 func NewMeter(label string, value float64, max float64) TreeNode {
@@ -357,6 +329,7 @@ func NewMeter(label string, value float64, max float64) TreeNode {
 			Label: label,
 			Value: value,
 			Max:   max,
+			Step:  0.01,
 		},
 	}
 }
@@ -380,7 +353,7 @@ type Toast struct {
 	CommonProps
 	Icon    *Icon        `json:"icon,omitempty"`
 	Title   string       `json:"title"`
-	Message string       `json:"message,omitempty"`
+	Message string       `json:"message"`
 	Action  *ToastAction `json:"action,omitempty"`
 }
 
@@ -392,7 +365,7 @@ type ActionMenuItem struct {
 	ID         string `json:"id"`
 	Label      string `json:"label"`
 	Icon       *Icon  `json:"icon,omitempty"`
-	Visible    bool   `json:"visible"`
+	Visible    *bool  `json:"visible,omitempty"`
 	Checked    *bool  `json:"checked,omitempty"`
 	Selectable *bool  `json:"selectable,omitempty"`
 }
@@ -430,8 +403,8 @@ func NewDetailGrid(rows []DetailGridItem) TreeNode {
 type ActionRow struct {
 	CommonProps
 	Title    string `json:"title"`
-	Subtitle string `json:"subtitle,omitempty"`
-	Meta     string `json:"meta,omitempty"`
+	Subtitle string `json:"subtitle"`
+	Meta     string `json:"meta"`
 	Icon     *Icon  `json:"icon,omitempty"`
 }
 
@@ -442,7 +415,7 @@ func NewActionRow(id string, title string) TreeNode {
 type EmptyState struct {
 	CommonProps
 	Title    string `json:"title"`
-	Subtitle string `json:"subtitle,omitempty"`
+	Subtitle string `json:"subtitle"`
 }
 
 func NewEmptyState(title string) TreeNode {
@@ -458,12 +431,12 @@ func NewBadge(label string) TreeNode {
 	return TreeNode{Type: "badge", Data: Badge{Label: label}}
 }
 
-type Status struct {
+type StatusDot struct {
 	CommonProps
 }
 
-func NewStatus() TreeNode {
-	return TreeNode{Type: "status", Data: Status{}}
+func NewStatusDot() TreeNode {
+	return TreeNode{Type: "status", Data: StatusDot{}}
 }
 
 type Spinner struct {
@@ -472,7 +445,11 @@ type Spinner struct {
 }
 
 func NewSpinner() TreeNode {
-	return TreeNode{Type: "spinner", Data: Spinner{Spinning: true}}
+	return NewSpinnerWith(true)
+}
+
+func NewSpinnerWith(spinning bool) TreeNode {
+	return TreeNode{Type: "spinner", Data: Spinner{Spinning: spinning}}
 }
 
 type Layout struct {
@@ -501,41 +478,14 @@ func NewRow(children []TreeNode, spacing int) TreeNode {
 	}
 }
 
-func BoxVertical(children []TreeNode, spacing int) TreeNode {
+func NewBox(orientation Orientation, spacing int, children []TreeNode) TreeNode {
 	return TreeNode{
-		Type: "column",
+		Type: "box",
 		Data: Box{
-			Orientation: OrientationVertical,
+			Orientation: orientation,
 			Spacing:     spacing,
 			Children:    children,
 		},
 	}
 }
 
-func BoxHorizontal(children []TreeNode, spacing int) TreeNode {
-	return TreeNode{
-		Type: "row",
-		Data: Box{
-			Orientation: OrientationHorizontal,
-			Spacing:     spacing,
-			Children:    children,
-		},
-	}
-}
-
-func marshalAlias(value any) ([]byte, error) {
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		return nil, err
-	}
-	var payload map[string]any
-	if err := json.Unmarshal(encoded, &payload); err != nil {
-		return nil, err
-	}
-	for key, value := range payload {
-		if value == nil {
-			delete(payload, key)
-		}
-	}
-	return json.Marshal(payload)
-}

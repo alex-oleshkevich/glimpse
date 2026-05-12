@@ -97,6 +97,12 @@ export abstract class Applet<State extends object> {
   }
 
   async run(): Promise<void> {
+    process.stdout.on("error", (err: NodeJS.ErrnoException) => {
+      if (err.code === "EPIPE") {
+        process.exit(0);
+      }
+    });
+
     await this.onStart();
     await this.scheduleRender();
 
@@ -109,12 +115,22 @@ export abstract class Applet<State extends object> {
       if (!line) {
         continue;
       }
-      const raw = parseLine(line);
+      let raw: { command: string; data: unknown } | null;
+      try {
+        raw = parseLine(line);
+      } catch (err) {
+        process.stderr.write(`glimpse-applet: ignoring malformed input: ${err}\n`);
+        continue;
+      }
       if (raw === null) {
         continue;
       }
       const data = raw.data as Record<string, unknown>;
-      await this.handleIncoming(raw.command, data);
+      try {
+        await this.handleIncoming(raw.command, data);
+      } catch (err) {
+        process.stderr.write(`glimpse-applet: error handling input: ${err}\n`);
+      }
     }
   }
 
@@ -190,7 +206,14 @@ export abstract class Applet<State extends object> {
   private emit(command: string, data: unknown): void {
     const line = `${command} ${JSON.stringify(data)}`;
     this.outgoing.push({ command, data, line });
-    process.stdout.write(`${line}\n`);
+    try {
+      process.stdout.write(`${line}\n`);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code !== "EPIPE") {
+        throw err;
+      }
+    }
   }
 }
 

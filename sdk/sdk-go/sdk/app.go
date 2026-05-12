@@ -144,7 +144,8 @@ func (r *Runtime[S]) Run(ctx context.Context) error {
 			case "init":
 				event, err := parseInitEvent(msg.Data)
 				if err != nil {
-					return err
+					fmt.Fprintf(os.Stderr, "glimpse-applet: ignoring malformed init: %v\n", err)
+					continue
 				}
 				if err := r.applet.OnInit(ctx, event); err != nil {
 					return err
@@ -152,7 +153,8 @@ func (r *Runtime[S]) Run(ctx context.Context) error {
 			case "event":
 				event, err := parseCallbackEvent(msg.Data)
 				if err != nil {
-					return err
+					fmt.Fprintf(os.Stderr, "glimpse-applet: ignoring malformed event: %v\n", err)
+					continue
 				}
 				if popoverEvent, ok := event.(PopoverEvent); ok {
 					r.setPopoverOpen(popoverEvent.Open)
@@ -190,8 +192,8 @@ func (r *Runtime[S]) scanInput(
 		}
 		msg, err := parseIncomingLine(line)
 		if err != nil {
-			errCh <- err
-			return
+			fmt.Fprintf(os.Stderr, "glimpse-applet: ignoring malformed input: %v\n", err)
+			continue
 		}
 		if msg.Type == "" {
 			continue
