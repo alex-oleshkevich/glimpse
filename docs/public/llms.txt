@@ -1,0 +1,21 @@
+# Glimpse
+
+> Glimpse is a polished desktop shell toolkit for Niri on Wayland: panel,
+> idle, lock screen, wallpaper, and sunset daemons. Extension authors can
+> add panel widgets via `command` (declarative launchers) or `exec`
+> (long-running child processes that speak a line protocol).
+
+The pages below are LLM-optimized: single-file, self-contained references
+that include every option, every JSON payload shape, and complete worked
+examples in TOML, shell, Python, TypeScript, Rust, and Go.
+
+## Extension References
+
+- [Command Applet — Full Reference](https://alex-oleshkevich.github.io/glimpse/llms/command): TOML-only launcher buttons and right-click menus. No script, no protocol.
+- [Exec Applet — Full Reference](https://alex-oleshkevich.github.io/glimpse/llms/exec): Long-running child processes driving panel status and popovers over a line protocol. Includes the protocol, every component type, every event, plus SDK starters for Python, TypeScript, Rust, and Go.
+
+## Human Documentation
+
+- [Glimpse Home](https://alex-oleshkevich.github.io/glimpse/): Overview, installation, configuration, theming.
+- [Applet Reference](https://alex-oleshkevich.github.io/glimpse/applets/): Built-in applets (clock, battery, network, etc.).
+- [Custom Applets Overview](https://alex-oleshkevich.github.io/glimpse/custom-applets/): Choosing between `command` and `exec`.

@@ -8,10 +8,10 @@ Use this page when you want to build an applet with one of the SDK languages. Fo
 
 | Language | Package | Source path |
 |---|---|---|
-| Python | `glimpse-applet` | `frameworks/custom-applet/sdk` |
-| TypeScript | `@glimpse/custom-applet-sdk-ts` | `frameworks/custom-applet/sdk-ts` |
-| Rust | `glimpse-custom-applet-sdk` | `frameworks/custom-applet/sdk-rs` |
-| Go | `github.com/glimpse-project/custom-applet-sdk-go` | `frameworks/custom-applet/sdk-go` |
+| Python | `glimpse-applet` | `sdk/sdk-py` |
+| TypeScript | `@glimpse/custom-applet-sdk-ts` | `sdk/sdk-ts` |
+| Rust | `glimpse-custom-applet-sdk` | `sdk/sdk-rs` |
+| Go | `github.com/alex-oleshkevich/glimpse/sdk/sdk-go` | `sdk/sdk-go` |
 
 ## Configure An SDK Applet
 
@@ -33,7 +33,7 @@ The SDK receives `options` during initialization and handles the line transport 
 Install from the repository checkout or your packaged copy:
 
 ```sh
-python -m pip install /path/to/glimpse/frameworks/custom-applet/sdk
+python -m pip install /path/to/glimpse/sdk/sdk-py
 ```
 
 Minimal applet:
@@ -79,7 +79,7 @@ if __name__ == "__main__":
 Install from the repository checkout or your packaged copy:
 
 ```sh
-npm install /path/to/glimpse/frameworks/custom-applet/sdk-ts
+npm install /path/to/glimpse/sdk/sdk-ts
 ```
 
 Minimal applet:
@@ -127,7 +127,7 @@ Add the SDK as a path dependency:
 ```toml
 [dependencies]
 async-trait = "0.1"
-glimpse-custom-applet-sdk = { path = "/path/to/glimpse/frameworks/custom-applet/sdk-rs" }
+glimpse-custom-applet-sdk = { path = "/path/to/glimpse/sdk/sdk-rs" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -196,7 +196,7 @@ async fn main() -> AppletResult<()> {
 Add the SDK module:
 
 ```sh
-go get github.com/glimpse-project/custom-applet-sdk-go
+go get github.com/alex-oleshkevich/glimpse/sdk/sdk-go
 ```
 
 Minimal applet:
@@ -208,7 +208,7 @@ import (
 	"context"
 	"fmt"
 
-	sdk "github.com/glimpse-project/custom-applet-sdk-go/sdk"
+	sdk "github.com/alex-oleshkevich/glimpse/sdk/sdk-go/sdk"
 )
 
 type counterState struct {
