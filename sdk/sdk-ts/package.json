@@ -1,10 +1,53 @@
 {
-  "name": "@glimpse/custom-applet-sdk-ts",
+  "name": "glimpse-custom-applet-sdk",
   "version": "0.1.0",
-  "private": true,
+  "description": "Typed async framework for building Glimpse exec applets",
   "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "files": [
+    "dist/src",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/tests/*.test.js"
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "glimpse",
+    "applet",
+    "panel",
+    "desktop",
+    "sdk"
+  ],
+  "license": "MIT",
+  "author": "Alex Oleshkevich <alex.oleshkevich@gmail.com>",
+  "homepage": "https://alex-oleshkevich.github.io/glimpse/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alex-oleshkevich/glimpse.git",
+    "directory": "sdk/sdk-ts"
+  },
+  "bugs": {
+    "url": "https://github.com/alex-oleshkevich/glimpse/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.6.0"
   }
 }

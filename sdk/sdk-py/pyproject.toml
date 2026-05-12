@@ -7,8 +7,31 @@ name = "glimpse-applet"
 version = "0.1.0"
 description = "Typed async framework for Glimpse exec applets"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = []
+authors = [{ name = "Alex Oleshkevich", email = "alex.oleshkevich@gmail.com" }]
+keywords = ["glimpse", "applet", "panel", "desktop", "sdk"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Desktop Environment",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://alex-oleshkevich.github.io/glimpse/"
+Documentation = "https://alex-oleshkevich.github.io/glimpse/applets/exec-sdk"
+Repository = "https://github.com/alex-oleshkevich/glimpse"
+Issues = "https://github.com/alex-oleshkevich/glimpse/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["glimpse_applet*"]
