@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use crate::{
     applets::{
         audio, battery, bluetooth, brightness, clipboard, clock, command, exec, idle, keyboard,
-        monitors, mpris, network, notifications, pager, privacy, removable, session, tray, weather,
+        mpris, network, notifications, pager, privacy, removable, session, tray, weather,
     },
     panels::PanelSection,
     services::{framework::Services, wayland_idle_inhibit::SHELL_EXTENSIONS},
@@ -50,7 +50,6 @@ pub enum AppletController {
     Exec(Controller<exec::Applet>),
     Idle(Controller<idle::applet::Applet>),
     Keyboard(Controller<keyboard::Applet>),
-    Monitors(Controller<monitors::Applet>),
     Mpris(Controller<mpris::Applet>),
     Network(Controller<network::Applet>),
     Notifications(Controller<notifications::Applet>),
@@ -75,7 +74,6 @@ impl AppletController {
             Self::Exec(_) => AppletType::Exec,
             Self::Idle(_) => AppletType::Idle,
             Self::Keyboard(_) => AppletType::Keyboard,
-            Self::Monitors(_) => AppletType::Monitors,
             Self::Mpris(_) => AppletType::Mpris,
             Self::Network(_) => AppletType::Network,
             Self::Notifications(_) => AppletType::Notifications,
@@ -100,7 +98,6 @@ impl AppletController {
             Self::Exec(controller) => controller.widget().clone().upcast(),
             Self::Idle(controller) => controller.widget().clone().upcast(),
             Self::Keyboard(controller) => controller.widget().clone().upcast(),
-            Self::Monitors(controller) => controller.widget().clone().upcast(),
             Self::Mpris(controller) => controller.widget().clone().upcast(),
             Self::Network(controller) => controller.widget().clone().upcast(),
             Self::Notifications(controller) => controller.widget().clone().upcast(),
@@ -161,7 +158,6 @@ impl AppletController {
                     &config.cloned(),
                 )));
             }
-            Self::Monitors(_) => {}
             Self::Network(controller) => {
                 controller.emit(network::Input::Reconfigure(network::Config::from_raw(
                     &config.cloned(),
@@ -405,14 +401,6 @@ pub fn create_applet(
                 .launch(weather::Init {
                     service: services.weather.clone(),
                     config: weather::Config::from_raw(&blueprint.config),
-                })
-                .detach(),
-        )),
-        AppletType::Monitors => Some(AppletController::Monitors(
-            monitors::Applet::builder()
-                .launch(monitors::Init {
-                    compositor: services.compositor.clone(),
-                    config: monitors::Config::from_raw(&blueprint.config),
                 })
                 .detach(),
         )),

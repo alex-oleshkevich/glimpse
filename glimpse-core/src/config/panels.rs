@@ -84,7 +84,6 @@ pub enum AppletType {
     Exec,
     Idle,
     Keyboard,
-    Monitors,
     Mpris,
     Network,
     Notifications,
@@ -109,7 +108,6 @@ impl AppletType {
             "exec" => Some(Self::Exec),
             "idle" => Some(Self::Idle),
             "keyboard" => Some(Self::Keyboard),
-            "monitors" => Some(Self::Monitors),
             "mpris" => Some(Self::Mpris),
             "network" => Some(Self::Network),
             "notifications" => Some(Self::Notifications),
@@ -191,13 +189,5 @@ mod tests {
     #[test]
     fn removable_applet_type_is_available_from_config_name() {
         assert!(AppletType::from_config_name("removable").is_some());
-    }
-
-    #[test]
-    fn monitors_applet_name_roundtrips_through_from_config_name() {
-        assert_eq!(
-            AppletType::from_config_name("monitors"),
-            Some(AppletType::Monitors)
-        );
     }
 }
