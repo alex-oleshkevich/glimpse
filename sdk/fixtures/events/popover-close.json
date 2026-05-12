@@ -1,0 +1,11 @@
+{
+  "incoming": {
+    "id": "popover",
+    "source": "popover",
+    "type": "close"
+  },
+  "parsed": {
+    "kind": "popover",
+    "open": false
+  }
+}

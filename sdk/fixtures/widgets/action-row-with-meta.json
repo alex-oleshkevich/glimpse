@@ -1,0 +1,12 @@
+{
+  "data": {
+    "icon": {
+      "name": "network-vpn-symbolic"
+    },
+    "id": "go",
+    "meta": "4 routes",
+    "subtitle": "wg0",
+    "title": "Connect"
+  },
+  "type": "action_row"
+}

@@ -1,0 +1,18 @@
+{
+  "data": {
+    "header": "Power profile",
+    "items": [
+      {
+        "checked": false,
+        "id": "saver",
+        "label": "Power Saver"
+      },
+      {
+        "checked": true,
+        "id": "balanced",
+        "label": "Balanced"
+      }
+    ]
+  },
+  "type": "action_menu"
+}

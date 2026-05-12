@@ -1,0 +1,7 @@
+{
+  "data": {
+    "active": false,
+    "id": "vpn"
+  },
+  "type": "switch"
+}

@@ -1,0 +1,13 @@
+{
+  "incoming": {
+    "delta_y": -1.5,
+    "id": "cpu",
+    "source": "status",
+    "type": "scroll"
+  },
+  "parsed": {
+    "delta_y": -1.5,
+    "id": "cpu",
+    "kind": "scroll"
+  }
+}

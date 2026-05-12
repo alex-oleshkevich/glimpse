@@ -1,0 +1,9 @@
+{
+  "data": {
+    "max": 1.0,
+    "show_text": true,
+    "text": "70%",
+    "value": 0.7
+  },
+  "type": "progress"
+}

@@ -1,0 +1,13 @@
+{
+  "incoming": {
+    "id": "filter",
+    "source": "popover",
+    "text": "foo",
+    "type": "input"
+  },
+  "parsed": {
+    "id": "filter",
+    "kind": "input",
+    "text": "foo"
+  }
+}

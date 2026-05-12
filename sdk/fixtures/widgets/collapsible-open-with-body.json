@@ -1,0 +1,17 @@
+{
+  "data": {
+    "body": [
+      {
+        "data": {
+          "text": "inside"
+        },
+        "type": "label"
+      }
+    ],
+    "expanded": true,
+    "header": {
+      "title": "Advanced"
+    }
+  },
+  "type": "collapsible"
+}

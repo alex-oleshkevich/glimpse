@@ -1,0 +1,38 @@
+{
+  "data": {
+    "children": [
+      {
+        "data": {
+          "subtitle": "Value: 0",
+          "title": "Counter"
+        },
+        "type": "hero"
+      },
+      {
+        "data": {
+          "body": [
+            {
+              "data": {
+                "text": "Current"
+              },
+              "type": "label"
+            },
+            {
+              "data": {
+                "id": "increment",
+                "label": "Increment"
+              },
+              "type": "button"
+            }
+          ],
+          "header": {
+            "title": "Controls"
+          }
+        },
+        "type": "section"
+      }
+    ],
+    "spacing": 8
+  },
+  "type": "column"
+}

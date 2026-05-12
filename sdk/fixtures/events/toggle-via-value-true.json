@@ -1,0 +1,13 @@
+{
+  "incoming": {
+    "id": "vpn",
+    "source": "popover",
+    "type": "toggle",
+    "value": true
+  },
+  "parsed": {
+    "id": "vpn",
+    "kind": "toggle",
+    "value": true
+  }
+}

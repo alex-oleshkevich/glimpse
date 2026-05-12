@@ -1,0 +1,12 @@
+{
+  "incoming": {
+    "id": "submit",
+    "source": "popover",
+    "type": "click"
+  },
+  "parsed": {
+    "button": null,
+    "id": "submit",
+    "kind": "click"
+  }
+}

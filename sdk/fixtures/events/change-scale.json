@@ -1,0 +1,13 @@
+{
+  "incoming": {
+    "id": "brightness",
+    "source": "popover",
+    "type": "change",
+    "value": 0.72
+  },
+  "parsed": {
+    "id": "brightness",
+    "kind": "change",
+    "value": 0.72
+  }
+}

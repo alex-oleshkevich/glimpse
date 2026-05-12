@@ -1,0 +1,10 @@
+{
+  "data": {
+    "icon": {
+      "name": "network-vpn-symbolic"
+    },
+    "subtitle": "Connected",
+    "title": "VPN"
+  },
+  "type": "hero"
+}

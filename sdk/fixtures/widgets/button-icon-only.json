@@ -1,0 +1,9 @@
+{
+  "data": {
+    "icon": {
+      "name": "go-symbolic"
+    },
+    "id": "go"
+  },
+  "type": "button"
+}

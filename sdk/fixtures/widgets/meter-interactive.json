@@ -1,0 +1,15 @@
+{
+  "data": {
+    "icon": {
+      "name": "audio-volume-medium-symbolic"
+    },
+    "interactive": true,
+    "label": "Volume",
+    "max": 1.0,
+    "min": 0.0,
+    "step": 0.01,
+    "text": "42%",
+    "value": 0.42
+  },
+  "type": "meter"
+}

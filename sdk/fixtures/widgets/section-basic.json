@@ -1,0 +1,16 @@
+{
+  "data": {
+    "body": [
+      {
+        "data": {
+          "text": "uptime"
+        },
+        "type": "label"
+      }
+    ],
+    "header": {
+      "title": "System"
+    }
+  },
+  "type": "section"
+}

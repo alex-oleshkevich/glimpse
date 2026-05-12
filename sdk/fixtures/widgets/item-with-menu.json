@@ -1,0 +1,19 @@
+{
+  "data": {
+    "clickable": true,
+    "id": "wifi-home",
+    "label": "home-5G",
+    "menu": [
+      {
+        "id": "forget",
+        "label": "Forget"
+      },
+      {
+        "enabled": false,
+        "id": "details",
+        "label": "Details"
+      }
+    ]
+  },
+  "type": "item"
+}

@@ -1,0 +1,14 @@
+{
+  "data": {
+    "action": {
+      "id": "update",
+      "label": "Update"
+    },
+    "icon": {
+      "name": "dialog-warning-symbolic"
+    },
+    "message": "Version 0.8 is available.",
+    "title": "Update available"
+  },
+  "type": "toast"
+}

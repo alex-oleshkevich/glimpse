@@ -1,0 +1,11 @@
+{
+  "data": {
+    "child": {
+      "data": {
+        "text": "scrollable"
+      },
+      "type": "label"
+    }
+  },
+  "type": "scroll"
+}

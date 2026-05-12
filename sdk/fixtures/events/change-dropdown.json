@@ -1,0 +1,21 @@
+{
+  "incoming": {
+    "id": "env",
+    "source": "popover",
+    "type": "change",
+    "value": {
+      "id": "stage",
+      "index": 1,
+      "label": "Staging"
+    }
+  },
+  "parsed": {
+    "id": "env",
+    "kind": "change",
+    "value": {
+      "id": "stage",
+      "index": 1,
+      "label": "Staging"
+    }
+  }
+}
