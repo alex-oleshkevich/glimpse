@@ -342,6 +342,30 @@ A self-contained set covering popup and inline notification surfaces (see `theme
 | `--popover-section-spacing` | `var(--popover-section-gap)` |
 | `--dim-opacity` | `var(--opacity-muted)` |
 
+## Libadwaita Accent Colors
+
+`--sys-accent` flows into **Glimpse's own** CSS rules (`.panel`, `.indicator`, `.badge`, …). Stock libadwaita widgets — `Switch`, `CheckButton`, `ProgressBar`, links, focus rings — read their accent from libadwaita's CSS variables: `--accent-color`, `--accent-bg-color`, `--accent-fg-color` (introduced in libadwaita 1.6).
+
+**Themes don't need to do anything.** `themes/base.css` declares:
+
+```css
+:root, popover {
+    --accent-color: var(--sys-accent);
+    --accent-bg-color: var(--sys-accent);
+    --accent-fg-color: var(--sys-accent-fg);
+}
+```
+
+So any theme that sets `--sys-accent` (which is the standard contract — see "Color — Light Values" above) automatically tints stock libadwaita widgets too. Dark-mode follows automatically: `base-remap.css` remaps `--sys-accent` to `--dark-sys-accent`, and `--accent-bg-color: var(--sys-accent)` re-evaluates at use time.
+
+| Variable | What it tints |
+|---|---|
+| `--accent-bg-color` | Filled accent surfaces (switch thumb, progress bar fill, primary button bg). |
+| `--accent-color` | Standalone accent — borders, focus rings, link text. |
+| `--accent-fg-color` | Text/icons drawn over `--accent-bg-color`. |
+
+Per-panel `theme_mode = "dark"` flips libadwaita accents in that panel for free: `.theme-dark` remaps `--sys-accent → var(--dark-sys-accent)`, and `--accent-bg-color: var(--sys-accent)` re-evaluates to the dark accent. No `@define-color` or programmatic API needed.
+
 ## Lock Tokens
 
 `glimpse-lock/resources/lock.css` declares a `--lock-*` token set that themes override in their `lock.css`. The default values render an opaque dark lock screen; themes typically swap surfaces and accent tones.

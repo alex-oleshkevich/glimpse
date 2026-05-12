@@ -1,0 +1,100 @@
+/*
+ * Mode remap rules — extracted from base.css so they can be loaded into a
+ * higher-priority CSS provider than user theme packs.
+ *
+ * Why a separate provider? GTK CSS provider priority overrides selector
+ * specificity *across* providers (higher priority wins regardless of how
+ * specific the rule is). A theme pack at PRIORITY_USER (800) declaring
+ * `:root, popover { --color-bg: <light> }` would otherwise win against
+ * `.theme-dark { --color-bg: var(--dark-color-bg) }` if those remap rules
+ * lived at PRIORITY_APPLICATION (600). By loading these remap rules at
+ * PRIORITY_USER + 1, they win over the theme pack's :root declarations and
+ * the pack's `--dark-*` values still feed through `var(...)` lookups.
+ *
+ * Provider order:
+ *   PRIORITY_APPLICATION (600): themes/base.css           — light defaults + --dark-* defaults
+ *   PRIORITY_USER (800):        theme pack panel.css      — pack values for :root + --dark-*
+ *   PRIORITY_USER + 1 (801):    themes/base-remap.css     — this file
+ *   PRIORITY_USER + 2 (802):    ~/.config/glimpse/themes/panel.css — user override (final say)
+ */
+
+@media (prefers-color-scheme: dark) {
+    :root,
+    popover {
+        --color-bg: var(--dark-color-bg);
+        --color-fg: var(--dark-color-fg);
+        --color-surface: var(--dark-color-surface);
+        --color-surface-raised: var(--dark-color-surface-raised);
+        --color-border: var(--dark-color-border);
+        --color-muted-fg: var(--dark-color-muted-fg);
+
+        --overlay-hover: var(--dark-overlay-hover);
+        --overlay-active: var(--dark-overlay-active);
+        --overlay-selected: var(--dark-overlay-selected);
+        --overlay-focus: var(--dark-overlay-focus);
+
+        --panel-bg: var(--dark-panel-bg);
+        --panel-fg: var(--dark-panel-fg);
+        --indicator-hover-bg: var(--dark-indicator-hover-bg);
+        --indicator-active-bg: var(--dark-indicator-active-bg);
+
+        --popover-bg: var(--dark-popover-bg);
+        --popover-fg: var(--dark-popover-fg);
+        --popover-border: var(--dark-popover-border);
+
+        --row-fg: var(--dark-row-fg);
+        --row-muted-fg: var(--dark-row-muted-fg);
+        --card-bg: var(--dark-card-bg);
+        --card-fg: var(--dark-card-fg);
+        --card-border: var(--dark-card-border);
+        --badge-bg: var(--dark-badge-bg);
+        --badge-fg: var(--dark-badge-fg);
+
+        --sys-accent: var(--dark-sys-accent);
+        --sys-accent-fg: var(--dark-sys-accent-fg);
+        --color-success: var(--dark-color-success);
+        --color-success-fg: var(--dark-color-success-fg);
+        --color-warning: var(--dark-color-warning);
+        --color-warning-fg: var(--dark-color-warning-fg);
+        --color-danger: var(--dark-color-danger);
+        --color-danger-fg: var(--dark-color-danger-fg);
+    }
+}
+
+.theme-dark,
+.theme-dark popover,
+popover.theme-dark {
+    --color-bg: var(--dark-color-bg);
+    --color-fg: var(--dark-color-fg);
+    --color-surface: var(--dark-color-surface);
+    --color-surface-raised: var(--dark-color-surface-raised);
+    --color-border: var(--dark-color-border);
+    --color-muted-fg: var(--dark-color-muted-fg);
+    --overlay-hover: var(--dark-overlay-hover);
+    --overlay-active: var(--dark-overlay-active);
+    --overlay-selected: var(--dark-overlay-selected);
+    --overlay-focus: var(--dark-overlay-focus);
+    --popover-bg: var(--dark-popover-bg);
+    --popover-fg: var(--dark-popover-fg);
+    --popover-border: var(--dark-popover-border);
+    --row-fg: var(--dark-row-fg);
+    --row-muted-fg: var(--dark-row-muted-fg);
+    --card-bg: var(--dark-card-bg);
+    --card-fg: var(--dark-card-fg);
+    --card-border: var(--dark-card-border);
+    --badge-bg: var(--dark-badge-bg);
+    --badge-fg: var(--dark-badge-fg);
+    --panel-bg: var(--dark-panel-bg);
+    --panel-fg: var(--dark-panel-fg);
+    --indicator-hover-bg: var(--dark-indicator-hover-bg);
+    --indicator-active-bg: var(--dark-indicator-active-bg);
+
+    --sys-accent: var(--dark-sys-accent);
+    --sys-accent-fg: var(--dark-sys-accent-fg);
+    --color-success: var(--dark-color-success);
+    --color-success-fg: var(--dark-color-success-fg);
+    --color-warning: var(--dark-color-warning);
+    --color-warning-fg: var(--dark-color-warning-fg);
+    --color-danger: var(--dark-color-danger);
+    --color-danger-fg: var(--dark-color-danger-fg);
+}

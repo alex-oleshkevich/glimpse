@@ -63,8 +63,8 @@ impl Default for PanelConfig {
                 "network".into(),
                 "brightness".into(),
                 "audio".into(),
-                "battery".into(),
                 "idle".into(),
+                "battery".into(),
                 "session".into(),
             ],
         }

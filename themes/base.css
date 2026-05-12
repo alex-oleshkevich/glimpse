@@ -33,6 +33,16 @@ popover {
     --sys-accent: #3584e4;
     --sys-accent-fg: #ffffff;
 
+    /* Libadwaita accent variables — stock GTK/Adwaita widgets (Switch,
+     * CheckButton, ProgressBar, links, focus rings) read these in
+     * libadwaita 1.6+. Wiring them to var(--sys-accent) means any theme
+     * that sets --sys-accent automatically tints all libadwaita controls.
+     * CSS variables resolve at use time, so the dark-mode remap of
+     * --sys-accent (in base-remap.css) cascades through automatically. */
+    --accent-color: var(--sys-accent);
+    --accent-bg-color: var(--sys-accent);
+    --accent-fg-color: var(--sys-accent-fg);
+
     /* Semantic colors */
     --color-bg: #fafafa;
     --color-fg: #1f1f1f;

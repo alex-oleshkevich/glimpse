@@ -1,0 +1,45 @@
+/*
+ * Rosé Pine — lock screen palette overrides.
+ *
+ * The base lock CSS defines all colors as `--lock-*` custom properties.
+ * Themes only need to redeclare the variables they want to change.
+ *
+ * Dark side uses the Rosé Pine Moon palette to match the panel.
+ */
+:root {
+  /* Surfaces */
+  --lock-bg: #232136;                            /* moon base */
+  --lock-scrim: rgba(35, 33, 54, 0.45);
+
+  /* Foreground tiers */
+  --lock-fg: #e0def4;                            /* text */
+  --lock-fg-emphasis: rgba(224, 222, 244, 0.94);
+  --lock-fg-secondary: rgba(224, 222, 244, 0.78);
+  --lock-fg-status: rgba(224, 222, 244, 0.66);
+  --lock-fg-muted: rgba(224, 222, 244, 0.56);
+  --lock-fg-caps: #f6c177;                       /* gold */
+
+  /* Password input — accented with iris */
+  --lock-input-bg: rgba(57, 53, 82, 0.72);       /* moon overlay */
+  --lock-input-bg-focus: rgba(68, 65, 90, 0.88); /* moon highlight-med */
+  --lock-input-border: rgba(196, 167, 231, 0.32);
+  --lock-input-border-focus: #c4a7e7;            /* iris */
+  --lock-input-highlight: rgba(224, 222, 244, 0.10);
+  --lock-input-shadow: rgba(0, 0, 0, 0.32);
+
+  /* Avatar */
+  --lock-avatar-bg: rgba(196, 167, 231, 0.18);
+
+  /* Control buttons */
+  --lock-button-hover-bg: rgba(196, 167, 231, 0.14);
+  --lock-button-active-bg: rgba(196, 167, 231, 0.22);
+
+  /* Power menu + modal */
+  --lock-menu-bg: rgba(42, 39, 63, 0.78);        /* moon surface */
+  --lock-modal-bg: #2a273f;                      /* moon surface */
+  --lock-modal-border: rgba(224, 222, 244, 0.10);
+  --lock-modal-shadow: rgba(0, 0, 0, 0.48);
+  --lock-modal-button-bg: rgba(68, 65, 90, 0.64);
+  --lock-modal-button-hover-bg: rgba(196, 167, 231, 0.22);
+  --lock-modal-button-danger-bg: rgba(235, 111, 146, 0.28); /* love */
+}

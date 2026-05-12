@@ -54,6 +54,19 @@ install -Dm644 data/pam.d/glimpse-lock "$pkgroot/etc/pam.d/glimpse-lock"
 install -Dm644 data/portals/glimpse.portal "$pkgroot/usr/share/xdg-desktop-portal/portals/glimpse.portal"
 install -Dm644 data/dbus-1/me.aresa.GlimpseIdle.Portal.service "$pkgroot/usr/share/dbus-1/services/me.aresa.GlimpseIdle.Portal.service"
 
+# Ship the bundled theme packs under /usr/share/glimpse/themes/. The shell,
+# wallpaper, and lock crates resolve theme packs by name from this root (after
+# the user dir $XDG_CONFIG_HOME/glimpse/themes/) so users can pick a packaged
+# theme via `theme = "<name>"` in config without copying anything.
+themes_dest="$pkgroot/usr/share/glimpse/themes"
+for pack in rosepine; do
+    if [[ -d "themes/$pack" ]]; then
+        install -d "$themes_dest/$pack"
+        find "themes/$pack" -mindepth 1 -maxdepth 1 -type f -print0 \
+            | xargs -0 -I{} install -Dm644 {} "$themes_dest/$pack/"
+    fi
+done
+
 if [[ -f LICENSE ]]; then
     install -Dm644 LICENSE "$pkgroot/LICENSE"
 fi
