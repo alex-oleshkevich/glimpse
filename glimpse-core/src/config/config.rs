@@ -278,8 +278,8 @@ right = ["...", "custom"]
                 "network",
                 "brightness",
                 "audio",
-                "battery",
                 "idle",
+                "battery",
                 "session",
                 "custom"
             ]
