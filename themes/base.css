@@ -94,8 +94,11 @@ popover {
     --panel-fg: #030712;
     --panel-border: rgb(255 255 255 / 0.08);
     --panel-opacity: 1;
+    --panel-padding-y: 0;
+    --panel-padding-x: var(--space-4);
 
     --indicator-fg: var(--panel-fg);
+    --indicator-bg: transparent;
     --indicator-hover-bg: rgb(255 255 255 / 0.08);
     --indicator-active-bg: rgb(255 255 255 / 0.16);
     --indicator-checked-bg: color-mix(in srgb, var(--color-accent) 88%, black 12%);
@@ -103,7 +106,7 @@ popover {
     --indicator-danger-bg: color-mix(in srgb, var(--color-danger) 86%, black 14%);
     --indicator-warning-bg: color-mix(in srgb, var(--color-warning) 86%, black 14%);
     --indicator-padding-x: 8px;
-    --indicator-padding-y: 0px;
+    --indicator-padding-y: 6px;
     --indicator-gap: 6px;
     --indicator-icon-size: 16px;
     --indicator-radius: var(--radius-pill);
@@ -235,6 +238,9 @@ popover {
     --border: var(--color-border);
     --popover-section-spacing: var(--popover-section-gap);
     --dim-opacity: var(--opacity-muted);
+
+    --dark-indicator-bg: transparent;
+
 }
 
 @media (prefers-color-scheme: dark) {
@@ -259,6 +265,7 @@ popover {
         --panel-bg: var(--dark-panel-bg);
         --panel-fg: var(--dark-panel-fg);
         --panel-border: var(--dark-panel-border);
+        --indicator-bg: var(--dark-indicator-bg);
         --indicator-hover-bg: var(--dark-indicator-hover-bg);
         --indicator-active-bg: var(--dark-indicator-active-bg);
 
@@ -363,7 +370,7 @@ popover.theme-dark {
     font-family: var(--font-family-ui);
     font-size: var(--font-size-md);
     color: var(--panel-fg);
-    padding: 0 var(--space-4);
+    padding: var(--panel-padding-y) var(--panel-padding-x);
     border-radius: 0;
     box-shadow: var(--shadow-sm);
     background: var(--panel-bg);
@@ -374,7 +381,11 @@ popover.theme-dark {
     color: var(--indicator-fg);
     border-radius: var(--indicator-radius);
     font-weight: 600;
+    line-height: 1;
+    min-height: 0;
+    min-width: 0;
     padding: var(--indicator-padding-y) var(--indicator-padding-x);
+    background-color: var(--indicator-bg);
     transition:
         background-color var(--motion-fast) var(--ease-standard),
         color var(--motion-fast) var(--ease-standard),

@@ -440,6 +440,7 @@ pub fn build_applets(
             theme_mode,
         ) {
             let widget = applet.widget();
+            widget.set_valign(gtk::Align::Center);
             container.append(&widget);
             applets.insert(entry.key, applet);
         }
@@ -605,6 +606,7 @@ pub fn collect_applets(
 }
 
 fn place_widget(container: &gtk::Box, widget: &gtk::Widget, sibling: Option<&gtk::Widget>) {
+    widget.set_valign(gtk::Align::Center);
     match widget.parent() {
         Some(parent) if parent == container.clone().upcast::<gtk::Widget>() => {
             container.reorder_child_after(widget, sibling);

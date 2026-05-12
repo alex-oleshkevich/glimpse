@@ -16,27 +16,6 @@ use crate::components::{
 
 use super::format;
 
-#[relm4::widget_template(pub)]
-impl WidgetTemplate for MonitorRowTemplate {
-    view! {
-        #[template]
-        ItemView {
-            #[template_child] left {
-                set_visible: true,
-                gtk::Image {
-                    set_icon_name: Some("video-display-symbolic"),
-                    set_pixel_size: 16,
-                },
-            },
-            #[template_child] right {
-                set_visible: true,
-                #[name = "switch"]
-                gtk::Switch { set_valign: gtk::Align::Center },
-            },
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MonitorRow {
     pub name: String,
@@ -55,7 +34,7 @@ pub struct Popover {
 }
 
 struct RowWidgets {
-    view: MonitorRowTemplate,
+    view: ItemView,
     switch: gtk::Switch,
 }
 
@@ -231,13 +210,17 @@ fn build_row(
     suppress: &Rc<Cell<bool>>,
     sender: &ComponentSender<Popover>,
 ) -> RowWidgets {
-    relm4::view! {
-        #[template]
-        template = MonitorRowTemplate {}
-    }
+    let view = ItemView::init(());
+    view.left.set_visible(true);
+    view.right.set_visible(true);
 
-    let switch = template.switch.clone();
-    let view = template;
+    let icon = gtk::Image::from_icon_name("video-display-symbolic");
+    icon.set_pixel_size(16);
+    view.left.append(&icon);
+
+    let switch = gtk::Switch::new();
+    switch.set_valign(gtk::Align::Center);
+    view.right.append(&switch);
 
     let name = row.name.clone();
     let guard = suppress.clone();

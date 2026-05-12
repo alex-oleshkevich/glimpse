@@ -141,7 +141,7 @@ impl Component for Applet {
     view! {
         root = gtk::Box {
             set_orientation: gtk::Orientation::Horizontal,
-            set_spacing: 0,
+            set_spacing: 4,
         }
     }
 
@@ -321,7 +321,9 @@ impl Applet {
                             orientation,
                         },
                     });
-                root.append(controller.widget());
+                let widget = controller.widget();
+                widget.set_valign(gtk::Align::Center);
+                root.append(widget);
 
                 let mut state = ItemState {
                     controller,

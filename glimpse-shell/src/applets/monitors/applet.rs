@@ -61,7 +61,6 @@ impl SimpleComponent for Applet {
             add_css_class: "monitors-applet",
             set_orientation: gtk::Orientation::Horizontal,
             set_spacing: 4,
-            set_valign: gtk::Align::Center,
             set_tooltip_text: Some("Monitors"),
 
             add_controller = gtk::GestureClick {

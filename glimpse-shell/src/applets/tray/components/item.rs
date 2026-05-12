@@ -84,6 +84,7 @@ impl SimpleComponent for TrayItem {
         gtk::Button {
             add_css_class: "flat",
             add_css_class: "applet",
+            set_valign: gtk::Align::Center,
             #[watch]
             set_tooltip_text: model.view.tooltip.as_deref(),
             #[watch]
