@@ -21,6 +21,7 @@ popover {
 
     /* Typography */
     --font-family-ui: "Adwaita Sans", system-ui, sans-serif;
+    --font-size-xxs: 10px;
     --font-size-xs: 11px;
     --font-size-sm: 12px;
     --font-size-md: 13px;
@@ -662,6 +663,7 @@ popover.popover-size-xlarge {
 }
 
 .item,
+.list-item,
 .collapsible-item,
 .meter,
 .copyable,
@@ -671,12 +673,15 @@ popover.popover-size-xlarge {
 }
 
 .item__content,
+.list-item__content,
 .collapsible-item__content {
     padding: var(--row-padding-y) var(--row-padding-x);
 }
 
 .item__left,
 .item__right,
+.list-item_left,
+.list-item_right,
 .collapsible-item__left,
 .collapsible-item__right {
     color: var(--row-muted-fg);
@@ -688,6 +693,10 @@ popover.popover-size-xlarge {
 .collapsible-item__right image,
 .item__left .badge,
 .item__right .badge,
+.list-item__left image,
+.list-item__right image,
+.list-item__left .badge,
+.list-item__right .badge,
 .collapsible-item__left .badge,
 .collapsible-item__right .badge {
     min-width: 0;
@@ -695,8 +704,18 @@ popover.popover-size-xlarge {
 }
 
 .item__label,
+.list-item__label,
 .collapsible-item__label {
     color: var(--row-fg);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-normal);
+}
+
+.item__secondary_label,
+.list-item__secondary_label,
+.collapsible-item__label {
+    color: var(--color-muted-fg);
+    font-size: var(--font-size-xxs);
     font-weight: var(--font-weight-normal);
 }
 

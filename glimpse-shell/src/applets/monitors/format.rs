@@ -9,6 +9,19 @@ pub fn row_label(monitor: &Monitor) -> String {
         .to_string()
 }
 
+pub fn row_sublabel(monitor: &Monitor) -> String {
+    match monitor.current_mode {
+        Some(mode) => format!(
+            "{} \u{00b7} {}\u{00d7}{} @ {} Hz",
+            monitor.name,
+            mode.width,
+            mode.height,
+            refresh_hz(&mode)
+        ),
+        None => monitor.name.clone(),
+    }
+}
+
 pub fn row_tooltip(monitor: &Monitor) -> String {
     match monitor.current_mode {
         Some(mode) => format!(

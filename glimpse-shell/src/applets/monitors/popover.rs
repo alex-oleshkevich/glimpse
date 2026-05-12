@@ -10,7 +10,11 @@ use relm4::{
 use glimpse_core::compositors::Monitor;
 
 use crate::components::{
-    animated_popover::AnimatedPopover, hero::HeroView, item::ItemView, popover_scroll,
+    animated_popover::AnimatedPopover,
+    hero::HeroView,
+    list::ListItem,
+    menu_item::{MenuItem, attach_context_menu},
+    popover_scroll,
     popover_shell::PopoverShell,
 };
 
@@ -20,6 +24,7 @@ use super::format;
 pub struct MonitorRow {
     pub name: String,
     pub label: String,
+    pub sublabel: String,
     pub tooltip: String,
     pub enabled: bool,
 }
@@ -33,9 +38,16 @@ pub struct Popover {
     hero_subtitle: gtk::Label,
 }
 
+/// Per-row pending state. The switch is **owned by user intent** (latched
+/// to `Some(target)`) until a `StateChanged` arrives where the server's
+/// `enabled` matches `target`. While pending, server state updates are
+/// ignored for this row's switch (preventing the stale-state flicker
+/// bug). The switch is also `set_sensitive(false)` while pending, so the
+/// user can't re-click during the round trip.
 struct RowWidgets {
-    view: ItemView,
+    view: ListItem,
     switch: gtk::Switch,
+    pending: Rc<Cell<Option<bool>>>,
 }
 
 pub struct Init {
@@ -141,8 +153,7 @@ impl SimpleComponent for Popover {
             Input::Toggle => self.animation.toggle(),
             Input::StateChanged(monitors) => {
                 self.monitors = sorted_rows(&monitors);
-                self.hero_subtitle
-                    .set_label(&hero_subtitle(&self.monitors));
+                self.hero_subtitle.set_label(&hero_subtitle(&self.monitors));
                 self.suppress_toggle_emit.set(true);
                 self.sync_rows(&sender);
                 self.suppress_toggle_emit.set(false);
@@ -160,9 +171,12 @@ impl SimpleComponent for Popover {
                         .map(|m| m.label.clone())
                         .unwrap_or_else(|| name.clone());
                     if let Some(widgets) = self.rows.get(&name) {
+                        // Reject the user's intent: clear the latch and
+                        // restore the switch to "on" (the only enabled
+                        // monitor must stay on).
+                        widgets.pending.set(None);
                         self.suppress_toggle_emit.set(true);
                         widgets.switch.set_active(true);
-                        widgets.switch.set_state(true);
                         self.suppress_toggle_emit.set(false);
                     }
                     let _ = sender.output(Output::LastMonitorWarning { label });
@@ -187,13 +201,13 @@ impl Popover {
                 .or_insert_with(|| build_row(monitor, &self.suppress_toggle_emit, sender));
             update_row(widgets, monitor, &self.suppress_toggle_emit);
             place_row(&widgets.view, &self.list, previous.as_ref());
-            previous = Some(widgets.view.button.clone().upcast());
+            previous = Some(widgets.view.container.clone().upcast());
         }
 
         self.rows.retain(|name, widgets| {
             let keep = seen.contains(name);
             if !keep {
-                let widget: &gtk::Widget = widgets.view.button.upcast_ref();
+                let widget: &gtk::Widget = widgets.view.container.upcast_ref();
                 if let Some(parent) = widget.parent()
                     && let Ok(parent) = parent.downcast::<gtk::Box>()
                 {
@@ -210,7 +224,7 @@ fn build_row(
     suppress: &Rc<Cell<bool>>,
     sender: &ComponentSender<Popover>,
 ) -> RowWidgets {
-    let view = ItemView::init(());
+    let view = ListItem::init(());
     view.left.set_visible(true);
     view.right.set_visible(true);
 
@@ -222,37 +236,112 @@ fn build_row(
     switch.set_valign(gtk::Align::Center);
     view.right.append(&switch);
 
+    let pending: Rc<Cell<Option<bool>>> = Rc::new(Cell::new(None));
+
     let name = row.name.clone();
     let guard = suppress.clone();
     let toggle_sender = sender.clone();
-    switch.connect_state_set(move |sw, active| {
+    let pending_ref = pending.clone();
+    switch.connect_state_set(move |_sw, active| {
+        // Programmatic update from update_row → don't latch, just let the
+        // default handler sync :state and :active.
         if guard.get() {
-            return glib::Propagation::Stop;
+            return glib::Propagation::Proceed;
         }
-        sw.set_state(active);
+        // User-driven toggle: latch the switch to the user's intent.
+        // While `pending` is Some(target), update_row will NOT touch the
+        // switch — preventing stale ServiceStateChanged updates (arriving
+        // before the compositor applies the change) from flipping it back.
+        //
+        // We do NOT call set_sensitive(false) here — disabling the widget
+        // during the same signal cycle that's trying to commit its state
+        // confuses GTK's default state-set handler and the toggle stops
+        // animating. Re-clicks during the round trip simply update the
+        // latch and emit a fresh command; compositor commands are idempotent.
+        pending_ref.set(Some(active));
         toggle_sender.input(Input::ToggleClicked {
             name: name.clone(),
             on: active,
         });
-        glib::Propagation::Stop
+        glib::Propagation::Proceed
     });
 
-    let widgets = RowWidgets { view, switch };
+    // Right-click → context menu with Enable/Disable. Both items always
+    // present and both clickable — the popover's `Input::ToggleClicked`
+    // handler dedupes via the last-enabled guard and the compositor
+    // service treats a no-op toggle idempotently.
+    attach_context_menu(
+        &view.container,
+        monitor_menu_items(&row.name),
+        sender.input_sender().clone(),
+    );
+
+    let widgets = RowWidgets {
+        view,
+        switch,
+        pending,
+    };
     update_row(&widgets, row, suppress);
     widgets
 }
 
-fn update_row(widgets: &RowWidgets, row: &MonitorRow, suppress: &Rc<Cell<bool>>) {
-    widgets.view.label.set_label(&row.label);
-    widgets.view.button.set_tooltip_text(Some(&row.tooltip));
-    suppress.set(true);
-    widgets.switch.set_active(row.enabled);
-    widgets.switch.set_state(row.enabled);
-    suppress.set(false);
+fn monitor_menu_items(name: &str) -> Vec<MenuItem<Input>> {
+    vec![
+        MenuItem::new(
+            "Enable",
+            Input::ToggleClicked {
+                name: name.to_string(),
+                on: true,
+            },
+        )
+        .with_icon("emblem-ok-symbolic"),
+        MenuItem::new(
+            "Disable",
+            Input::ToggleClicked {
+                name: name.to_string(),
+                on: false,
+            },
+        )
+        .with_icon("window-close-symbolic"),
+    ]
 }
 
-fn place_row(view: &ItemView, container: &gtk::Box, previous: Option<&gtk::Widget>) {
-    let row_widget: &gtk::Widget = view.button.upcast_ref();
+fn update_row(widgets: &RowWidgets, row: &MonitorRow, suppress: &Rc<Cell<bool>>) {
+    widgets.view.label.set_label(&row.label);
+    if row.sublabel.is_empty() {
+        widgets.view.secondary_label.set_visible(false);
+    } else {
+        widgets.view.secondary_label.set_label(&row.sublabel);
+        widgets.view.secondary_label.set_visible(true);
+    }
+    widgets.view.container.set_tooltip_text(Some(&row.tooltip));
+
+    match widgets.pending.get() {
+        Some(target) if target == row.enabled => {
+            // Server reached the user's target — release the latch. The
+            // optimistic update already set the switch; a defensive
+            // programmatic resync keeps :state and :active aligned.
+            widgets.pending.set(None);
+            suppress.set(true);
+            widgets.switch.set_active(row.enabled);
+            suppress.set(false);
+        }
+        Some(_) => {
+            // Latched waiting for the server to apply — ignore this update,
+            // keep the optimistic switch state. (A subsequent StateChanged
+            // with matching `enabled` will release the latch.)
+        }
+        None => {
+            // Idle row → switch follows server state.
+            suppress.set(true);
+            widgets.switch.set_active(row.enabled);
+            suppress.set(false);
+        }
+    }
+}
+
+fn place_row(view: &ListItem, container: &gtk::Box, previous: Option<&gtk::Widget>) {
+    let row_widget: &gtk::Widget = view.container.upcast_ref();
     let target = container.clone().upcast::<gtk::Widget>();
     let already_in_container = row_widget.parent().is_some_and(|parent| parent == target);
 
@@ -292,6 +381,7 @@ pub(crate) fn sorted_rows(monitors: &[Monitor]) -> Vec<MonitorRow> {
         .map(|m| MonitorRow {
             name: m.name.clone(),
             label: format::row_label(m),
+            sublabel: format::row_sublabel(m),
             tooltip: format::row_tooltip(m),
             enabled: m.enabled,
         })
@@ -309,6 +399,7 @@ mod tests {
         MonitorRow {
             name: name.into(),
             label: name.into(),
+            sublabel: String::new(),
             tooltip: name.into(),
             enabled,
         }
@@ -373,6 +464,7 @@ mod tests {
         let rows = sorted_rows(&monitors);
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].label, "Dell U2720Q");
+        assert_eq!(rows[0].sublabel, "DP-1 \u{00b7} 3840\u{00d7}2160 @ 60 Hz");
         assert_eq!(rows[0].tooltip, "DP-1 \u{00b7} 3840\u{00d7}2160 @ 60 Hz");
     }
 }
