@@ -5,7 +5,7 @@ import contextlib
 import unittest
 from dataclasses import dataclass
 
-from glimpse_applet import (
+from glimpse_sdk import (
     ActionMenu,
     ActionMenuItem,
     ActionRow,
@@ -31,7 +31,7 @@ from glimpse_applet import (
     Variant,
     click,
 )
-from glimpse_applet.events import parse_callback_event
+from glimpse_sdk.events import parse_callback_event
 
 
 @dataclass

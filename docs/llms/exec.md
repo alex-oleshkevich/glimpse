@@ -946,7 +946,7 @@ restart_delay_ms = 1000
 **Install:**
 
 ```sh
-pip install glimpse-applet
+pip install glimpse-sdk
 ```
 
 **Applet:**
@@ -954,7 +954,7 @@ pip install glimpse-applet
 ```python
 from dataclasses import dataclass
 
-from glimpse_applet import (
+from glimpse_sdk import (
     Applet,
     AppletState,
     Button,
@@ -1043,7 +1043,7 @@ command = ["python", "/home/me/applets/counter.py"]
 **Install:**
 
 ```sh
-npm install glimpse-custom-applet-sdk
+npm install glimpse-sdk
 ```
 
 **Applet:**
@@ -1059,7 +1059,7 @@ import {
   RenderResult,
   Section,
   StatusItem,
-} from "glimpse-custom-applet-sdk";
+} from "glimpse-sdk";
 
 interface CounterState {
   count: number;
@@ -1136,7 +1136,7 @@ command = ["node", "/home/me/applets/counter.js"]
 ```toml
 [dependencies]
 async-trait = "0.1"
-glimpse-custom-applet-sdk = "0.1"
+glimpse-sdk = "0.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -1144,7 +1144,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 ```rust
 use async_trait::async_trait;
-use glimpse_custom_applet_sdk::{
+use glimpse_sdk::{
     Applet, AppletResult, Button, CallbackEvent, Column, Hero, Icon, Item, RenderResult, Section,
     StateStore, StatusItem, TreeNode, run,
 };

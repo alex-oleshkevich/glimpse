@@ -130,7 +130,7 @@ where
         let incoming = match parse_incoming_line(&line) {
             Ok(msg) => msg,
             Err(err) => {
-                eprintln!("glimpse-applet: ignoring malformed input: {err}");
+                eprintln!("glimpse-sdk: ignoring malformed input: {err}");
                 continue;
             }
         };
@@ -138,7 +138,7 @@ where
             "init" => match parse_init_event(incoming.data) {
                 Ok(evt) => applet.on_init(evt).await,
                 Err(err) => {
-                    eprintln!("glimpse-applet: ignoring malformed init: {err}");
+                    eprintln!("glimpse-sdk: ignoring malformed init: {err}");
                     continue;
                 }
             },
@@ -150,7 +150,7 @@ where
                     applet.on_callback(event).await
                 }
                 Err(err) => {
-                    eprintln!("glimpse-applet: ignoring malformed event: {err}");
+                    eprintln!("glimpse-sdk: ignoring malformed event: {err}");
                     continue;
                 }
             },

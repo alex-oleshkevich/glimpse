@@ -15,7 +15,7 @@ Small async framework for building Glimpse `exec` applets without touching stdio
 
 ```rust
 use async_trait::async_trait;
-use glimpse_custom_applet_sdk::{
+use glimpse_sdk::{
     run, Applet, AppletResult, BoxNode, Button, Hero, Icon, Label, RenderResult, StateStore,
     StatusItem, TreeNode,
 };

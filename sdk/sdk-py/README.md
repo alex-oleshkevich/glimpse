@@ -15,7 +15,7 @@ Small async framework for building Glimpse `exec` applets without touching stdio
 ```python
 from dataclasses import dataclass, field
 
-from glimpse_applet import (
+from glimpse_sdk import (
     Applet,
     AppletState,
     Box,

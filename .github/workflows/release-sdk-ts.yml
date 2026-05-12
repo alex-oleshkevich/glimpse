@@ -27,15 +27,33 @@ jobs:
           cache: 'npm'
           cache-dependency-path: sdk/sdk-ts/package-lock.json
       - name: Verify tag matches package.json version
+        id: version
         env:
           TAG: ${{ github.ref_name }}
         run: |
           version="$(node -p "require('./package.json').version")"
           tag="${TAG#sdk-ts-v}"
           test "$version" = "$tag"
-      - run: npm ci
-      - run: npm run build
-      - run: npm test
-      - run: npm publish --provenance --access public
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Check whether this version is already published
+        id: check
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          name="glimpse-sdk"
+          if npm view "$name@$VERSION" version >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "$name@$VERSION already on npmjs.org; skipping publish"
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.check.outputs.already == 'false'
+        run: npm ci
+      - if: steps.check.outputs.already == 'false'
+        run: npm run build
+      - if: steps.check.outputs.already == 'false'
+        run: npm test
+      - if: steps.check.outputs.already == 'false'
+        run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_CI_TOKEN }}

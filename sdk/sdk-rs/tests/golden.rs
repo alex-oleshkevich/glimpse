@@ -8,7 +8,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use glimpse_custom_applet_sdk::{
+use glimpse_sdk::{
     ActionMenu, ActionMenuItem, ActionRow, Align, Badge, BoxNode, Button, Card, CallbackEvent,
     Checkbox, Collapsible, CollapsibleItem, Column, Copyable, DetailGrid, DetailGridItem, Dropdown,
     DropdownItem, EmptyState, Grid, GridChild, Hero, Icon, IconWidget, Image, Item, Label, MenuItem,

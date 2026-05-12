@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use glimpse_custom_applet_sdk::{
+use glimpse_sdk::{
     Applet, AppletResult, BoxNode, Button, Hero, Icon, Label, RenderResult, StateStore, StatusItem,
     TreeNode, run,
 };
@@ -48,9 +48,9 @@ impl Applet for CounterApplet {
 
     async fn on_callback(
         &mut self,
-        event: glimpse_custom_applet_sdk::CallbackEvent,
+        event: glimpse_sdk::CallbackEvent,
     ) -> AppletResult<()> {
-        if let glimpse_custom_applet_sdk::CallbackEvent::Click(click) = event {
+        if let glimpse_sdk::CallbackEvent::Click(click) = event {
             if click.id == "increment" {
                 self.set_state(|state| state.count += 1);
             }

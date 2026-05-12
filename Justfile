@@ -143,39 +143,90 @@ sdk-preflight LANG VERSION:
         fi
     fi
 
-# Tag a single SDK release and push the tag on its own. If the tag
-# already exists, delete and re-push it so the publish workflow re-runs.
-release-sdk LANG VERSION: (sdk-preflight LANG VERSION)
+# Tag a single SDK release locally. Used by release-sdks for traceability
+# (the registry publish itself runs separately).
+sdk-tag-local LANG VERSION:
     #!/usr/bin/env bash
     set -euo pipefail
     tag="$(just sdk-tag {{ LANG }} {{ VERSION }})"
     if git rev-parse "$tag" >/dev/null 2>&1; then
-        echo "tag $tag exists; re-pushing"
-        git push origin ":$tag" || true
-        git tag -d "$tag" >/dev/null
+        echo "tag $tag already exists; skipping"
+    else
+        git tag -a "$tag" -m "Glimpse {{ LANG }} SDK {{ VERSION }}"
     fi
-    git tag -a "$tag" -m "Glimpse {{ LANG }} SDK {{ VERSION }}"
-    git push origin "$tag"
-    echo "pushed $tag"
 
-# Delete and re-push the tag to retry a failed publish workflow.
-retry-sdk-release LANG VERSION:
+# ---- Local publish recipes ---------------------------------------------------
+# Each recipe runs tests, builds, and publishes from this machine without
+# going through GitHub Actions. Tokens come from the calling shell's
+# environment (in fish: `set -x CRATES_API_TOKEN ...`).
+
+publish-sdk-rs:
     #!/usr/bin/env bash
     set -euo pipefail
-    tag="$(just sdk-tag {{ LANG }} {{ VERSION }})"
-    git push origin ":$tag" || true
-    git tag -d "$tag" 2>/dev/null || true
-    git tag -a "$tag" -m "Glimpse {{ LANG }} SDK {{ VERSION }}"
-    git push origin "$tag"
-    echo "re-pushed $tag"
+    : "${CRATES_API_TOKEN:?CRATES_API_TOKEN must be set in the environment}"
+    cd sdk/sdk-rs
+    cargo test
+    CARGO_REGISTRY_TOKEN="$CRATES_API_TOKEN" cargo publish
 
-# Release every SDK at the version pinned in the manifests. Verifies
-# all three manifest versions match, then tags and pushes them one at
-# a time (GitHub Actions silently drops the trigger when more than three
-# tags arrive in a single push).
+publish-sdk-py:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${PYPI_TOKEN:?PYPI_TOKEN must be set in the environment}"
+    cd sdk/sdk-py
+    python -m unittest discover -s tests
+    python -m pip install --quiet --upgrade build twine
+    rm -rf dist build glimpse_sdk.egg-info
+    python -m build
+    TWINE_USERNAME=__token__ TWINE_PASSWORD="$PYPI_TOKEN" python -m twine upload dist/*
+
+publish-sdk-ts:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${NPM_CI_TOKEN:?NPM_CI_TOKEN must be set in the environment}"
+    cd sdk/sdk-ts
+    npm ci
+    npm run build
+    npm test
+    npmrc="$(mktemp)"
+    trap 'rm -f "$npmrc"' EXIT
+    chmod 600 "$npmrc"
+    printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_CI_TOKEN" > "$npmrc"
+    NPM_CONFIG_USERCONFIG="$npmrc" npm publish --access public
+
+publish-sdk-go VERSION:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd sdk/sdk-go
+    go build ./...
+    go vet ./...
+    go test ./...
+    cd ../..
+    tag="sdk-go/v{{ VERSION }}"
+    if ! git rev-parse "$tag" >/dev/null 2>&1; then
+        git tag -a "$tag" -m "Glimpse Go SDK {{ VERSION }}"
+    fi
+    git push origin "$tag" --force
+    notes="$(mktemp)"
+    trap 'rm -f "$notes"' EXIT
+    {
+        printf 'Go module: `github.com/alex-oleshkevich/glimpse/sdk/sdk-go` at `%s`.\n\n' "$tag"
+        printf 'Install: `go get github.com/alex-oleshkevich/glimpse/sdk/sdk-go@v%s`\n' "{{ VERSION }}"
+    } > "$notes"
+    if gh release view "$tag" >/dev/null 2>&1; then
+        gh release edit "$tag" --title "Go SDK v{{ VERSION }}" --notes-file "$notes"
+    else
+        gh release create "$tag" --title "Go SDK v{{ VERSION }}" --notes-file "$notes"
+    fi
+
+# Release every SDK at the version pinned in the manifests, publishing
+# directly from this machine to crates.io / PyPI / npmjs.org / GitHub
+# Releases. Requires CRATES_API_TOKEN, PYPI_TOKEN, NPM_CI_TOKEN to be
+# exported in the calling shell.
 release-sdks:
     #!/usr/bin/env bash
     set -euo pipefail
+    git diff --quiet
+    git diff --cached --quiet
     rs="$(just sdk-version rs)"
     py="$(just sdk-version py)"
     ts="$(just sdk-version ts)"
@@ -184,14 +235,26 @@ release-sdks:
         exit 1
     fi
     version="$rs"
-    echo "releasing all SDKs at $version"
-    just release-sdk rs "$version"
-    just release-sdk py "$version"
-    just release-sdk ts "$version"
-    just release-sdk go "$version"
-
-# Show recent release workflow runs for the four SDKs.
-watch-sdk-releases:
-    @gh run list --limit 12 --json name,headBranch,status,conclusion,createdAt \
-        --jq '.[] | select(.headBranch|startswith("sdk-")) | "\(.headBranch)\t\(.name)\t\(.status)\t\(.conclusion // "")"' \
-        | column -t -s $'\t'
+    : "${CRATES_API_TOKEN:?CRATES_API_TOKEN must be set in the environment}"
+    : "${PYPI_TOKEN:?PYPI_TOKEN must be set in the environment}"
+    : "${NPM_CI_TOKEN:?NPM_CI_TOKEN must be set in the environment}"
+    echo "releasing all SDKs at $version (local publish)"
+    just publish-sdk-rs
+    just sdk-tag-local rs "$version"
+    just publish-sdk-py
+    just sdk-tag-local py "$version"
+    just publish-sdk-ts
+    just sdk-tag-local ts "$version"
+    just publish-sdk-go "$version"
+    # Push the rs/py/ts tags last so the registry publish failures (if any)
+    # don't leave dangling tags on the remote.
+    for lang in rs py ts; do
+        tag="$(just sdk-tag $lang $version)"
+        git push origin "$tag" --force
+    done
+    echo
+    echo "all SDKs released at $version:"
+    echo "  rs -> https://crates.io/crates/glimpse-sdk/$version"
+    echo "  py -> https://pypi.org/project/glimpse-sdk/$version/"
+    echo "  ts -> https://www.npmjs.com/package/glimpse-sdk/v/$version"
+    echo "  go -> https://github.com/alex-oleshkevich/glimpse/releases/tag/sdk-go/v$version"

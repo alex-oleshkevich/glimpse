@@ -1,5 +1,5 @@
 [package]
-name = "glimpse-custom-applet-sdk"
+name = "glimpse-sdk"
 version = "0.1.0"
 edition = "2024"
 description = "Typed async framework for building Glimpse exec applets"

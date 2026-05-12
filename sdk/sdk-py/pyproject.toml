@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "glimpse-applet"
+name = "glimpse-sdk"
 version = "0.1.0"
 description = "Typed async framework for Glimpse exec applets"
 readme = "README.md"
@@ -34,4 +34,4 @@ Issues = "https://github.com/alex-oleshkevich/glimpse/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["glimpse_applet*"]
+include = ["glimpse_sdk*"]

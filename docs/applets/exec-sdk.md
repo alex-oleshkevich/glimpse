@@ -8,9 +8,9 @@ Use this page when you want to build an applet with one of the SDK languages. Fo
 
 | Language | Package | Source path |
 |---|---|---|
-| Python | `glimpse-applet` | `sdk/sdk-py` |
+| Python | `glimpse-sdk` | `sdk/sdk-py` |
 | TypeScript | `@glimpse/custom-applet-sdk-ts` | `sdk/sdk-ts` |
-| Rust | `glimpse-custom-applet-sdk` | `sdk/sdk-rs` |
+| Rust | `glimpse-sdk` | `sdk/sdk-rs` |
 | Go | `github.com/alex-oleshkevich/glimpse/sdk/sdk-go` | `sdk/sdk-go` |
 
 ## Configure An SDK Applet
@@ -41,7 +41,7 @@ Minimal applet:
 ```python
 from dataclasses import dataclass
 
-from glimpse_applet import Applet, AppletState, Button, Icon, RenderResult, StatusItem, click
+from glimpse_sdk import Applet, AppletState, Button, Icon, RenderResult, StatusItem, click
 
 
 @dataclass
@@ -127,7 +127,7 @@ Add the SDK as a path dependency:
 ```toml
 [dependencies]
 async-trait = "0.1"
-glimpse-custom-applet-sdk = { path = "/path/to/glimpse/sdk/sdk-rs" }
+glimpse-sdk = { path = "/path/to/glimpse/sdk/sdk-rs" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -135,7 +135,7 @@ Minimal applet:
 
 ```rust
 use async_trait::async_trait;
-use glimpse_custom_applet_sdk::{
+use glimpse_sdk::{
     Applet, AppletResult, Button, Icon, RenderResult, StateStore, StatusItem, TreeNode, run,
 };
 
@@ -171,9 +171,9 @@ impl Applet for CounterApplet {
 
     async fn on_callback(
         &mut self,
-        event: glimpse_custom_applet_sdk::CallbackEvent,
+        event: glimpse_sdk::CallbackEvent,
     ) -> AppletResult<()> {
-        if let glimpse_custom_applet_sdk::CallbackEvent::Click(click) = event {
+        if let glimpse_sdk::CallbackEvent::Click(click) = event {
             if click.id == "increment" {
                 self.set_state(|state| state.count += 1);
             }

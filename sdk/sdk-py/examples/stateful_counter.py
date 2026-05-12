@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from glimpse_applet import (
+from glimpse_sdk import (
     Applet,
     AppletState,
     Box,

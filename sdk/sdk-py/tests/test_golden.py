@@ -12,7 +12,7 @@ import json
 import unittest
 from pathlib import Path
 
-from glimpse_applet import (
+from glimpse_sdk import (
     ActionMenu,
     ActionMenuItem,
     ActionRow,
@@ -55,7 +55,7 @@ from glimpse_applet import (
     ToastAction,
     Variant,
 )
-from glimpse_applet.events import (
+from glimpse_sdk.events import (
     ChangeEvent,
     ClickEvent,
     InputEvent,
@@ -64,7 +64,7 @@ from glimpse_applet.events import (
     ToggleEvent,
     parse_callback_event,
 )
-from glimpse_applet.widgets import Header
+from glimpse_sdk.widgets import Header
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
 

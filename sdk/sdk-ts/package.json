@@ -1,5 +1,5 @@
 {
-  "name": "glimpse-custom-applet-sdk",
+  "name": "glimpse-sdk",
   "version": "0.1.0",
   "description": "Typed async framework for building Glimpse exec applets",
   "type": "module",

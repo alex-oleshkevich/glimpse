@@ -119,7 +119,7 @@ export abstract class Applet<State extends object> {
       try {
         raw = parseLine(line);
       } catch (err) {
-        process.stderr.write(`glimpse-applet: ignoring malformed input: ${err}\n`);
+        process.stderr.write(`glimpse-sdk: ignoring malformed input: ${err}\n`);
         continue;
       }
       if (raw === null) {
@@ -129,7 +129,7 @@ export abstract class Applet<State extends object> {
       try {
         await this.handleIncoming(raw.command, data);
       } catch (err) {
-        process.stderr.write(`glimpse-applet: error handling input: ${err}\n`);
+        process.stderr.write(`glimpse-sdk: error handling input: ${err}\n`);
       }
     }
   }
