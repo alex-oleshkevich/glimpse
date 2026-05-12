@@ -6,7 +6,7 @@ rust-version.workspace = true
 
 [features]
 default = ["dev"]
-dev = []
+dev = ["glimpse-core/dev"]
 
 [dependencies]
 adw.workspace = true

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    env, fs,
+    fs,
     path::{Path, PathBuf},
 };
 use tokio::sync::mpsc;
@@ -9,7 +9,8 @@ use tokio::sync::mpsc;
 use crate::{
     AppletConfig, BackdropConfig, ConfigFileDiscovery, IdleConfig, KeyboardConfig, LocationConfig,
     LockConfig, MonitorsConfig, NightLightConfig, PanelConfig, ResolvedWallpaperSpec, ThemeMode,
-    WallpaperConfig, resolve_wallpaper_spec, watch_config_file,
+    ThemePack, WallpaperConfig, resolve_wallpaper_spec, services::theme::EffectiveThemeMode,
+    watch_config_file,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -71,14 +72,20 @@ impl Config {
         Self::config_dir().join("themes")
     }
 
-    pub fn theme_file(&self) -> PathBuf {
-        env::var("GLIMPSE_THEME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| Self::themes_dir().join(format!("{}.css", self.theme)))
+    pub fn theme_pack(&self) -> ThemePack {
+        ThemePack::resolve(&self.theme)
     }
 
-    pub fn resolve_wallpaper(&self) -> ResolvedWallpaperSpec {
-        resolve_wallpaper_spec(&self.wallpaper, &self.backdrop)
+    /// User-only override CSS layered on top of the active pack's `panel.css`.
+    /// Returns `None` when the file is absent. The lock screen's equivalent
+    /// override path is configured via `LockConfig::css_path` (default
+    /// `themes/lock.css`), kept separate so it can be overridden explicitly.
+    pub fn override_panel_css() -> Option<PathBuf> {
+        existing_file(Self::themes_dir().join("panel.css"))
+    }
+
+    pub fn resolve_wallpaper(&self, mode: EffectiveThemeMode) -> ResolvedWallpaperSpec {
+        resolve_wallpaper_spec(&self.wallpaper, &self.backdrop, &self.theme_pack(), mode)
     }
 
     pub fn load_from_file(path: &Path) -> Self {
@@ -110,6 +117,13 @@ impl Config {
             expand_panel_section("right", &mut panel.right, &defaults.right);
         }
     }
+}
+
+fn existing_file(path: PathBuf) -> Option<PathBuf> {
+    fs::metadata(&path)
+        .ok()
+        .filter(|m| m.is_file())
+        .map(|_| path)
 }
 
 fn expand_panel_section(section: &'static str, applets: &mut Vec<String>, defaults: &[String]) {

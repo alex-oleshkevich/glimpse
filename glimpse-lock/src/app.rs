@@ -12,7 +12,7 @@ use std::{
 use css_color::Srgb;
 use glimpse_core::{
     Config, ConfigEvent, FitMode, KeyboardConfig, LocationConfig, LockConfig, LockControlButton,
-    ResolvedImageSpec, ResolvedLockSpec, WallpaperConfig,
+    ResolvedImageSpec, ResolvedLockSpec, ThemeMode, ThemePack, WallpaperConfig,
     dbus::Dbus,
     heic, resolve_lock_spec,
     services::{
@@ -26,10 +26,12 @@ use glimpse_core::{
         location::{LocationHandle, LocationService},
         network::{NetworkHandle, NetworkService, State as NetworkState},
         session::{Command as SessionCommand, SessionAction, SessionHandle, SessionService},
+        theme::EffectiveThemeMode,
         weather::{WeatherHandle, WeatherService, model as weather_model},
     },
     watch_for_config_changes,
 };
+use gio::prelude::SettingsExt;
 use gtk4::{
     ContentFit, CssProvider, gdk,
     glib::{
@@ -70,6 +72,7 @@ pub enum AppCommand {
     ApplySharedConfig(Box<Config>),
     ReloadCss,
     ReloadAssets,
+    ThemeModeChanged(EffectiveThemeMode),
     SubmitPassword(SecretString),
     AuthFinished(AuthResult),
     RefreshControls,
@@ -103,13 +106,21 @@ pub struct LockAppConfig {
     pub wallpaper: WallpaperConfig,
     pub location: LocationConfig,
     pub keyboard: KeyboardConfig,
+    pub theme_pack: ThemePack,
+    pub theme_mode: ThemeMode,
     pub config_dir: PathBuf,
 }
 
 impl LockAppConfig {
     pub fn load() -> Self {
         let shared = Config::load();
+        Self::from_shared(shared)
+    }
+
+    fn from_shared(shared: Config) -> Self {
         Self {
+            theme_pack: shared.theme_pack(),
+            theme_mode: shared.theme_mode,
             lock: shared.lock,
             wallpaper: shared.wallpaper,
             location: shared.location,
@@ -118,18 +129,18 @@ impl LockAppConfig {
         }
     }
 
-    fn resolve(&self) -> ResolvedLockSpec {
-        resolve_lock_spec(&self.lock, &self.wallpaper, &self.config_dir)
+    fn resolve(&self, mode: EffectiveThemeMode) -> ResolvedLockSpec {
+        resolve_lock_spec(
+            &self.lock,
+            &self.wallpaper,
+            &self.theme_pack,
+            mode,
+            &self.config_dir,
+        )
     }
 
     fn with_shared(&self, shared: Config) -> Self {
-        Self {
-            lock: shared.lock,
-            wallpaper: shared.wallpaper,
-            location: shared.location,
-            keyboard: shared.keyboard,
-            config_dir: Config::config_dir(),
-        }
+        Self::from_shared(shared)
     }
 
     fn services_changed(&self, next: &Self) -> bool {
@@ -210,12 +221,16 @@ pub struct LockApp {
     runtime: LockRuntime,
     config: LockAppConfig,
     spec: ResolvedLockSpec,
+    effective_mode: EffectiveThemeMode,
     authenticator: Arc<dyn Authenticator>,
     windows: Vec<MonitorWindow>,
     preview_window: Option<Controller<LockWindow>>,
     _base_css_provider: CssProvider,
+    pack_css_provider: CssProvider,
     custom_css_provider: CssProvider,
+    _color_scheme_settings: Option<gio::Settings>,
     css_watch_cancel: Option<CancellationToken>,
+    pack_css_watch_cancel: Option<CancellationToken>,
     asset_watch_cancel: Option<CancellationToken>,
     user: UserInfo,
     authenticating: bool,
@@ -245,11 +260,18 @@ impl SimpleComponent for LockApp {
     ) -> ComponentParts<Self> {
         root.set_opacity(0.0);
         let base_css_provider = CssProvider::new();
+        let pack_css_provider = CssProvider::new();
         let custom_css_provider = CssProvider::new();
-        install_css_provider(&base_css_provider);
-        install_css_provider(&custom_css_provider);
+        install_css_provider(&base_css_provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+        install_css_provider(&pack_css_provider, gtk::STYLE_PROVIDER_PRIORITY_USER);
+        install_css_provider(&custom_css_provider, gtk::STYLE_PROVIDER_PRIORITY_USER + 1);
         base_css_provider.load_from_resource(LOCK_CSS_RESOURCE);
-        let spec = init.config.resolve();
+        tracing::info!(source = %LOCK_CSS_RESOURCE, "lock: loaded bundled lock.css");
+        let effective_mode = read_effective_theme_mode(init.config.theme_mode);
+        let spec = init.config.resolve(effective_mode);
+        let color_scheme_settings = subscribe_color_scheme(sender.clone());
+        log_lock_sources(&init.config, &spec, effective_mode);
+        load_pack_css(&pack_css_provider, spec.pack_css_path.as_deref());
         load_custom_css(&custom_css_provider, &spec.css_path);
 
         let (shared_config_tx, mut shared_config_rx) = mpsc::channel(1);
@@ -325,12 +347,16 @@ impl SimpleComponent for LockApp {
             runtime: LockRuntime::default(),
             config: init.config,
             spec,
+            effective_mode,
+            _color_scheme_settings: Some(color_scheme_settings),
             authenticator: init.authenticator,
             windows: Vec::new(),
             preview_window: None,
             _base_css_provider: base_css_provider,
+            pack_css_provider,
             custom_css_provider,
             css_watch_cancel: None,
+            pack_css_watch_cancel: None,
             asset_watch_cancel: None,
             user: current_user_info(),
             authenticating: false,
@@ -342,6 +368,7 @@ impl SimpleComponent for LockApp {
             connect_monitor_changes(&sender);
         }
         model.watch_css(sender.clone());
+        model.watch_pack_css(sender.clone());
         model.watch_assets(sender.clone());
         if model.mode == LockMode::Preview {
             model.create_preview_window(sender.clone());
@@ -391,7 +418,8 @@ impl SimpleComponent for LockApp {
                 if self.config.services_changed(&next_config) {
                     reconfigure_lock_services(&self.services, &next_config);
                 }
-                let next = next_config.resolve();
+                self.effective_mode = read_effective_theme_mode(next_config.theme_mode);
+                let next = next_config.resolve(self.effective_mode);
                 if self.spec == next {
                     self.config = next_config;
                     return;
@@ -399,13 +427,31 @@ impl SimpleComponent for LockApp {
                 tracing::info!("lock shared config changed");
                 self.config = next_config;
                 self.spec = next;
+                log_lock_sources(&self.config, &self.spec, self.effective_mode);
+                load_pack_css(&self.pack_css_provider, self.spec.pack_css_path.as_deref());
                 load_custom_css(&self.custom_css_provider, &self.spec.css_path);
                 self.watch_css(sender.clone());
+                self.watch_pack_css(sender.clone());
                 self.watch_assets(sender.clone());
                 self.emit_to_lock_windows(LockWindowInput::Reconfigure(self.spec.clone()));
             }
             AppCommand::ReloadCss => {
-                load_custom_css(&self.custom_css_provider, &self.spec.css_path)
+                load_pack_css(&self.pack_css_provider, self.spec.pack_css_path.as_deref());
+                load_custom_css(&self.custom_css_provider, &self.spec.css_path);
+            }
+            AppCommand::ThemeModeChanged(mode) => {
+                if self.effective_mode == mode {
+                    return;
+                }
+                tracing::info!(?mode, "lock effective theme mode changed");
+                self.effective_mode = mode;
+                let next = self.config.resolve(mode);
+                if self.spec == next {
+                    return;
+                }
+                self.spec = next;
+                self.watch_assets(sender.clone());
+                self.emit_to_lock_windows(LockWindowInput::Reconfigure(self.spec.clone()));
             }
             AppCommand::ReloadAssets => {
                 self.emit_to_lock_windows(LockWindowInput::Reconfigure(self.spec.clone()));
@@ -663,6 +709,22 @@ impl LockApp {
             watch_file(path, WatchCommand::ReloadCss, input, task_cancel).await;
         });
         self.css_watch_cancel = Some(cancel);
+    }
+
+    fn watch_pack_css(&mut self, sender: ComponentSender<Self>) {
+        if let Some(cancel) = self.pack_css_watch_cancel.take() {
+            cancel.cancel();
+        }
+        let Some(path) = self.spec.pack_css_path.clone() else {
+            return;
+        };
+        let cancel = CancellationToken::new();
+        let task_cancel = cancel.clone();
+        let input = sender.input_sender().clone();
+        relm4::spawn_local(async move {
+            watch_file(path, WatchCommand::ReloadCss, input, task_cancel).await;
+        });
+        self.pack_css_watch_cancel = Some(cancel);
     }
 
     fn watch_assets(&mut self, sender: ComponentSender<Self>) {
@@ -2062,13 +2124,97 @@ impl SimpleComponent for BackgroundLayer {
     }
 }
 
-fn install_css_provider(provider: &CssProvider) {
+const GNOME_INTERFACE_SCHEMA: &str = "org.gnome.desktop.interface";
+const GNOME_COLOR_SCHEME_KEY: &str = "color-scheme";
+
+fn log_lock_sources(
+    config: &LockAppConfig,
+    spec: &ResolvedLockSpec,
+    mode: EffectiveThemeMode,
+) {
+    let (bg_src, bg_path) = if config.lock.background.path.is_some() {
+        ("config.lock.background", config.lock.background.path.as_ref())
+    } else if config.wallpaper.path.is_some() {
+        ("config.wallpaper", config.wallpaper.path.as_ref())
+    } else if config.theme_pack.lock_bg_for(mode).is_some() {
+        (
+            "theme.lock-image",
+            spec.background.image.as_ref().map(|i| &i.path),
+        )
+    } else if config.theme_pack.wallpaper_for(mode).is_some() {
+        (
+            "theme.wallpaper",
+            spec.background.image.as_ref().map(|i| &i.path),
+        )
+    } else {
+        ("none", None)
+    };
+    tracing::info!(
+        theme = %config.theme_pack.name,
+        mode = ?mode,
+        pack_css = spec.pack_css_path.as_ref().map(|p| p.display().to_string()).as_deref().unwrap_or("<none>"),
+        override_css = %spec.css_path.display(),
+        background_source = bg_src,
+        background_path = bg_path.map(|p| p.display().to_string()).as_deref().unwrap_or("<none>"),
+        "lock: resolved sources"
+    );
+}
+
+fn read_effective_theme_mode(configured: ThemeMode) -> EffectiveThemeMode {
+    match configured {
+        ThemeMode::Light => EffectiveThemeMode::Light,
+        ThemeMode::Dark => EffectiveThemeMode::Dark,
+        ThemeMode::Auto => {
+            let value = gio::Settings::new(GNOME_INTERFACE_SCHEMA).string(GNOME_COLOR_SCHEME_KEY);
+            if value == "prefer-dark" {
+                EffectiveThemeMode::Dark
+            } else {
+                EffectiveThemeMode::Light
+            }
+        }
+    }
+}
+
+fn subscribe_color_scheme(sender: ComponentSender<LockApp>) -> gio::Settings {
+    let settings = gio::Settings::new(GNOME_INTERFACE_SCHEMA);
+    settings.connect_changed(Some(GNOME_COLOR_SCHEME_KEY), move |_, _| {
+        let config = Config::load();
+        let mode = read_effective_theme_mode(config.theme_mode);
+        let _ = sender.input(AppCommand::ThemeModeChanged(mode));
+    });
+    settings
+}
+
+fn install_css_provider(provider: &CssProvider, priority: u32) {
     if let Some(display) = gdk::Display::default() {
-        gtk::style_context_add_provider_for_display(
-            &display,
-            provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
+        gtk::style_context_add_provider_for_display(&display, provider, priority);
+    }
+}
+
+fn load_pack_css(provider: &CssProvider, path: Option<&Path>) {
+    let Some(path) = path else {
+        provider.load_from_string("");
+        return;
+    };
+    match fs::read_to_string(path) {
+        Ok(css) => {
+            if css_has_parse_errors(&css) {
+                tracing::warn!(
+                    path = %path.display(),
+                    "lock pack CSS has parse errors; keeping previous valid CSS"
+                );
+            } else {
+                provider.load_from_string(&css);
+                tracing::info!(path = %path.display(), "loaded lock pack CSS");
+            }
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            provider.load_from_string("");
+            tracing::debug!(path = %path.display(), "lock pack CSS not found");
+        }
+        Err(error) => {
+            tracing::warn!(path = %path.display(), %error, "failed to read lock pack CSS")
+        }
     }
 }
 

@@ -8,6 +8,7 @@ pub mod monitors;
 pub mod night_light;
 pub mod panels;
 pub mod theme;
+pub mod theme_pack;
 pub mod wallpaper;
 pub mod watch;
 
@@ -21,5 +22,6 @@ pub use monitors::*;
 pub use night_light::*;
 pub use panels::*;
 pub use theme::*;
+pub use theme_pack::*;
 pub use wallpaper::*;
 pub use watch::*;

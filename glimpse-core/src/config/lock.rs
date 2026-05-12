@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use crate::{FitMode, ResolvedImageSpec, WallpaperConfig};
+use crate::{FitMode, ResolvedImageSpec, ThemePack, WallpaperConfig, services::theme::EffectiveThemeMode};
 
 fn default_css_path() -> String {
     "themes/lock.css".into()
@@ -113,6 +113,9 @@ impl Default for LockClockConfig {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedLockSpec {
     pub pam_service: String,
+    /// Theme pack `lock.css` — applied below the override layer.
+    pub pack_css_path: Option<PathBuf>,
+    /// User override CSS — applied on top of the pack layer.
     pub css_path: PathBuf,
     pub background: ResolvedLockBackgroundSpec,
     pub clock: ResolvedLockClockSpec,
@@ -137,6 +140,8 @@ pub struct ResolvedLockClockSpec {
 pub fn resolve_lock_spec(
     lock: &LockConfig,
     wallpaper: &WallpaperConfig,
+    pack: &ThemePack,
+    mode: EffectiveThemeMode,
     config_dir: &Path,
 ) -> ResolvedLockSpec {
     let color = lock
@@ -145,11 +150,18 @@ pub fn resolve_lock_spec(
         .clone()
         .unwrap_or_else(|| wallpaper.color.clone());
     let has_lock_image = lock.background.path.is_some();
+    // Config always wins over theme assets. Order:
+    //   1. lock.background.path    (most specific config)
+    //   2. wallpaper.path          (config)
+    //   3. pack.lock_bg_for(mode)  (theme — lock-specific)
+    //   4. pack.wallpaper_for(mode)(theme — wallpaper)
     let path = lock
         .background
         .path
         .clone()
-        .or_else(|| wallpaper.path.clone());
+        .or_else(|| wallpaper.path.clone())
+        .or_else(|| pack.lock_bg_for(mode).map(|p| p.to_path_buf()))
+        .or_else(|| pack.wallpaper_for(mode).map(|p| p.to_path_buf()));
     let fit = lock.background.fit.unwrap_or(if has_lock_image {
         FitMode::Cover
     } else {
@@ -159,6 +171,7 @@ pub fn resolve_lock_spec(
 
     ResolvedLockSpec {
         pam_service: lock.pam_service.clone(),
+        pack_css_path: pack.lock_css.clone(),
         css_path: if css_path.is_absolute() {
             css_path
         } else {
@@ -267,7 +280,13 @@ buttons = ["wifi", "input", "power"]
             ..WallpaperConfig::default()
         };
 
-        let spec = resolve_lock_spec(&lock, &wallpaper, &PathBuf::from("/tmp/config"));
+        let spec = resolve_lock_spec(
+            &lock,
+            &wallpaper,
+            &ThemePack::default(),
+            EffectiveThemeMode::Light,
+            &PathBuf::from("/tmp/config"),
+        );
 
         assert_eq!(spec.pam_service, "login");
         assert_eq!(spec.background.color, "#112233");
@@ -301,7 +320,13 @@ dim = 0.5
             ..WallpaperConfig::default()
         };
 
-        let spec = resolve_lock_spec(&config.lock, &wallpaper, &PathBuf::from("/tmp/config"));
+        let spec = resolve_lock_spec(
+            &config.lock,
+            &wallpaper,
+            &ThemePack::default(),
+            EffectiveThemeMode::Light,
+            &PathBuf::from("/tmp/config"),
+        );
 
         assert_eq!(spec.background.color, "#445566");
         assert_eq!(

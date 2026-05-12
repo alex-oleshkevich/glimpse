@@ -1,13 +1,60 @@
+/*
+ * Default lock screen styling. All colors are declared as CSS custom
+ * properties so theme packs can override them via lock.css without
+ * redefining the structural rules below.
+ *
+ * Theme packs override variables at `:root` (or any ancestor); structural
+ * properties (margins, sizes, font weights) stay here and rarely need
+ * customisation.
+ */
+:root {
+  /* Surfaces */
+  --lock-bg: #101010;
+  --lock-scrim: rgba(0, 0, 0, 0.35);
+
+  /* Foreground tiers — primary → muted */
+  --lock-fg: white;
+  --lock-fg-emphasis: rgba(255, 255, 255, 0.9);
+  --lock-fg-secondary: rgba(255, 255, 255, 0.78);
+  --lock-fg-status: rgba(255, 255, 255, 0.72);
+  --lock-fg-muted: rgba(255, 255, 255, 0.68);
+  --lock-fg-caps: rgba(255, 255, 255, 0.88);
+
+  /* Password input */
+  --lock-input-bg: rgba(255, 255, 255, 0.22);
+  --lock-input-bg-focus: rgba(255, 255, 255, 0.3);
+  --lock-input-border: rgba(255, 255, 255, 0.42);
+  --lock-input-border-focus: rgba(255, 255, 255, 0.64);
+  --lock-input-highlight: rgba(255, 255, 255, 0.32);
+  --lock-input-shadow: rgba(0, 0, 0, 0.18);
+
+  /* Avatar */
+  --lock-avatar-bg: rgba(255, 255, 255, 0.2);
+
+  /* Control buttons */
+  --lock-button-hover-bg: rgba(255, 255, 255, 0.14);
+  --lock-button-active-bg: rgba(255, 255, 255, 0.22);
+
+  /* Power menu + confirmation modal */
+  --lock-menu-bg: rgba(18, 18, 18, 0.58);
+  --lock-modal-bg: rgb(18, 18, 18);
+  --lock-modal-border: rgba(255, 255, 255, 0.16);
+  --lock-modal-shadow: rgba(0, 0, 0, 0.32);
+  --lock-modal-button-bg: rgba(255, 255, 255, 0.08);
+  --lock-modal-button-hover-bg: rgba(255, 255, 255, 0.16);
+  --lock-modal-button-danger-bg: rgba(255, 255, 255, 0.14);
+}
+
 .lock-window {
-  background: #101010;
+  background: var(--lock-bg);
 }
 
 .lock-background {
-  background: #101010;
+  background: var(--lock-bg);
 }
 
 .lock-scrim {
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--lock-scrim);
 }
 
 .lock-content {
@@ -15,13 +62,13 @@
 }
 
 .lock-clock {
-  color: white;
+  color: var(--lock-fg);
   font-size: 48px;
   font-weight: 700;
 }
 
 .lock-date {
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--lock-fg-secondary);
   font-size: 18px;
 }
 
@@ -36,7 +83,7 @@
 }
 
 .lock-user-avatar {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--lock-avatar-bg);
   border-radius: 48px;
   min-height: 96px;
   min-width: 96px;
@@ -47,40 +94,40 @@
 }
 
 .lock-user-initials {
-  color: white;
+  color: var(--lock-fg);
   font-size: 34px;
   font-weight: 600;
 }
 
 .lock-user-name {
-  color: white;
+  color: var(--lock-fg);
   font-size: 20px;
   font-weight: 500;
 }
 
 .lock-password {
-  background: rgba(255, 255, 255, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: var(--lock-input-bg);
+  border: 1px solid var(--lock-input-border);
   border-radius: 18px;
   box-shadow:
-    inset 0 1px rgba(255, 255, 255, 0.32),
-    0 12px 36px rgba(0, 0, 0, 0.18);
-  color: white;
+    inset 0 1px var(--lock-input-highlight),
+    0 12px 36px var(--lock-input-shadow);
+  color: var(--lock-fg);
   min-width: 260px;
   padding: 8px 14px;
 }
 
 .lock-password:focus {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.64);
+  background: var(--lock-input-bg-focus);
+  border-color: var(--lock-input-border-focus);
 }
 
 .lock-status {
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--lock-fg-status);
 }
 
 .lock-caps-indicator {
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--lock-fg-caps);
   font-size: 12px;
   font-weight: 600;
   margin-top: -4px;
@@ -113,19 +160,19 @@
   background: transparent;
   border: none;
   border-radius: 18px;
-  color: white;
+  color: var(--lock-fg);
   min-height: 36px;
   min-width: 36px;
   padding: 8px;
 }
 
 .lock-control-action-button:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--lock-button-hover-bg);
 }
 
 .lock-control-action-button:active,
 .lock-control-action-button:checked {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--lock-button-active-bg);
 }
 
 .lock-control-status-button:hover,
@@ -148,7 +195,7 @@
 }
 
 .lock-power-menu {
-  background: rgba(18, 18, 18, 0.58);
+  background: var(--lock-menu-bg);
   border-radius: 14px;
   min-width: 112px;
   padding: 4px;
@@ -159,11 +206,11 @@
 }
 
 .lock-power-confirm-modal {
-  background: rgb(18, 18, 18);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--lock-modal-bg);
+  border: 1px solid var(--lock-modal-border);
   border-radius: 18px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
-  color: white;
+  box-shadow: 0 18px 48px var(--lock-modal-shadow);
+  color: var(--lock-fg);
   min-width: 320px;
   padding: 22px;
 }
@@ -173,13 +220,13 @@
 }
 
 .lock-power-confirm-title {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--lock-fg-emphasis);
   font-size: 18px;
   font-weight: 600;
 }
 
 .lock-power-confirm-body {
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--lock-fg-muted);
   font-size: 13px;
 }
 
@@ -188,33 +235,33 @@
 }
 
 .lock-power-confirm-button {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--lock-modal-button-bg);
   border: none;
   border-radius: 10px;
-  color: white;
+  color: var(--lock-fg);
   min-height: 32px;
   min-width: 72px;
   padding: 6px 10px;
 }
 
 .lock-power-confirm-button:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--lock-modal-button-hover-bg);
 }
 
 .lock-power-confirm-danger {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--lock-modal-button-danger-bg);
 }
 
 .lock-power-action {
   background: transparent;
   border: none;
   border-radius: 10px;
-  color: white;
+  color: var(--lock-fg);
   min-height: 38px;
   min-width: 80px;
   padding: 8px 14px;
 }
 
 .lock-power-action:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--lock-button-hover-bg);
 }

@@ -4,6 +4,10 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
+[features]
+default = ["dev"]
+dev = ["glimpse-core/dev"]
+
 [dependencies]
 anyhow.workspace = true
 chrono.workspace = true

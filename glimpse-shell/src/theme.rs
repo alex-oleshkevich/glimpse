@@ -23,18 +23,29 @@ const DEV_THEME_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../themes");
 
 pub struct ThemeState {
     base: CssProvider,
-    theme: CssProvider,
+    pack: CssProvider,
+    remap: CssProvider,
+    overrides: CssProvider,
     provider_scheme: Cell<InterfaceColorScheme>,
 }
 
 impl ThemeState {
-    /// Register both providers on the display once. Subsequent config changes
-    /// should call `reload` — never call `install` twice or providers stack.
+    /// Register all four providers on the display once. Subsequent config
+    /// changes should call `reload` — never call `install` twice or providers
+    /// stack.
+    ///
+    /// Provider stack (lowest → highest priority):
+    ///   1. APPLICATION  (600)  base.css                  — light defaults + --dark-* defaults
+    ///   2. USER         (800)  theme pack panel.css      — pack-level overrides
+    ///   3. USER + 1     (801)  base-remap.css            — .theme-dark / @media remap rules
+    ///   4. USER + 2     (802)  ~/.config/glimpse/themes/panel.css — user final override
     pub fn install(config: &Config) -> Self {
         let display = gdk::Display::default().expect("no default display");
 
         let base = CssProvider::new();
-        let theme = CssProvider::new();
+        let pack = CssProvider::new();
+        let remap = CssProvider::new();
+        let overrides = CssProvider::new();
 
         gtk4::style_context_add_provider_for_display(
             &display,
@@ -43,13 +54,25 @@ impl ThemeState {
         );
         gtk4::style_context_add_provider_for_display(
             &display,
-            &theme,
+            &pack,
             gtk4::STYLE_PROVIDER_PRIORITY_USER,
+        );
+        gtk4::style_context_add_provider_for_display(
+            &display,
+            &remap,
+            gtk4::STYLE_PROVIDER_PRIORITY_USER + 1,
+        );
+        gtk4::style_context_add_provider_for_display(
+            &display,
+            &overrides,
+            gtk4::STYLE_PROVIDER_PRIORITY_USER + 2,
         );
 
         let state = Self {
             base,
-            theme,
+            pack,
+            remap,
+            overrides,
             provider_scheme: Cell::new(InterfaceColorScheme::Default),
         };
         state.reload(config);
@@ -57,27 +80,40 @@ impl ThemeState {
         state
     }
 
-    /// Replace both providers' CSS content in place. Safe to call any time.
+    /// Replace all providers' CSS content in place. Safe to call any time.
     pub fn reload(&self, config: &Config) {
         load_base_css(&self.base);
+        load_remap_css(&self.remap);
 
-        let theme_file = config.theme_file();
-        if theme_file.exists() && theme_file.is_file() {
-            tracing::info!(
-                theme = %config.theme,
-                mode = ?config.theme_mode,
-                source = %theme_file.display(),
-                "applied user theme"
-            );
-            self.theme.load_from_path(&theme_file);
-        } else {
-            tracing::debug!(
-                theme = %config.theme,
-                mode = ?config.theme_mode,
-                source = %theme_file.display(),
-                "user theme not found; using base theme only"
-            );
-            self.theme.load_from_string("");
+        let pack = config.theme_pack();
+        match pack.panel_css.as_deref() {
+            Some(panel_css) => {
+                tracing::info!(
+                    theme = %config.theme,
+                    mode = ?config.theme_mode,
+                    source = %panel_css.display(),
+                    "shell: loaded theme pack panel.css"
+                );
+                self.pack.load_from_path(panel_css);
+            }
+            None => {
+                tracing::info!(
+                    theme = %config.theme,
+                    mode = ?config.theme_mode,
+                    "shell: theme pack has no panel.css; pack provider empty"
+                );
+                self.pack.load_from_string("");
+            }
+        }
+
+        match Config::override_panel_css() {
+            Some(path) => {
+                tracing::info!(source = %path.display(), "shell: loaded user override panel.css");
+                self.overrides.load_from_path(&path);
+            }
+            None => {
+                self.overrides.load_from_string("");
+            }
         }
 
         self.apply_provider_color_scheme(self.provider_scheme.get());
@@ -98,7 +134,9 @@ impl ThemeState {
     fn apply_provider_color_scheme(&self, scheme: InterfaceColorScheme) {
         self.provider_scheme.set(scheme);
         self.base.set_prefers_color_scheme(scheme);
-        self.theme.set_prefers_color_scheme(scheme);
+        self.pack.set_prefers_color_scheme(scheme);
+        self.remap.set_prefers_color_scheme(scheme);
+        self.overrides.set_prefers_color_scheme(scheme);
     }
 }
 
@@ -159,13 +197,31 @@ fn load_base_css(provider: &CssProvider) {
     {
         let path = dev_theme_path("base.css");
         if path.is_file() {
-            tracing::info!(source = %path.display(), "applied dev base theme");
+            tracing::info!(source = %path.display(), "shell: loaded dev base.css");
             provider.load_from_path(path);
             return;
         }
     }
 
-    provider.load_from_resource(&format!("{RESOURCE_BASE}/themes/base.css"));
+    let resource = format!("{RESOURCE_BASE}/themes/base.css");
+    tracing::info!(source = %resource, "shell: loaded bundled base.css");
+    provider.load_from_resource(&resource);
+}
+
+fn load_remap_css(provider: &CssProvider) {
+    #[cfg(feature = "dev")]
+    {
+        let path = dev_theme_path("base-remap.css");
+        if path.is_file() {
+            tracing::info!(source = %path.display(), "shell: loaded dev base-remap.css");
+            provider.load_from_path(path);
+            return;
+        }
+    }
+
+    let resource = format!("{RESOURCE_BASE}/themes/base-remap.css");
+    tracing::info!(source = %resource, "shell: loaded bundled base-remap.css");
+    provider.load_from_resource(&resource);
 }
 
 #[cfg(feature = "dev")]
@@ -224,6 +280,7 @@ pub async fn watch_user_themes(sender: mpsc::Sender<()>) {
 fn theme_watch_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     push_theme_watch_dir(&mut dirs, Config::themes_dir());
+    push_theme_watch_dir(&mut dirs, PathBuf::from("/usr/share/glimpse/themes"));
 
     #[cfg(feature = "dev")]
     push_theme_watch_dir(&mut dirs, PathBuf::from(DEV_THEME_DIR));

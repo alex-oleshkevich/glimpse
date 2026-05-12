@@ -8,7 +8,6 @@ popover {
     --space-5: 12px;
     --space-6: 16px;
 
-    --radius-sm: 4px;
     --radius-md: 6px;
     --radius-lg: 12px;
     --radius-pill: 999px;
@@ -40,8 +39,6 @@ popover {
     --color-surface: #ffffff;
     --color-surface-raised: #f4f4f4;
     --color-border: rgb(0 0 0 / 0.14);
-    --color-border-strong: rgb(0 0 0 / 0.22);
-    --color-muted: #6e6e6e;
     --color-muted-fg: #707070;
     --color-accent: var(--sys-accent);
     --color-accent-fg: var(--sys-accent-fg);
@@ -58,17 +55,13 @@ popover {
     --dark-color-surface: #262626;
     --dark-color-surface-raised: #303030;
     --dark-color-border: rgb(255 255 255 / 0.12);
-    --dark-color-border-strong: rgb(255 255 255 / 0.24);
-    --dark-color-muted: #9f9f9f;
     --dark-color-muted-fg: #a7a7a7;
     --dark-overlay-hover: rgb(255 255 255 / 0.08);
     --dark-overlay-active: rgb(255 255 255 / 0.14);
     --dark-overlay-selected: rgb(120 174 255 / 0.24);
     --dark-overlay-focus: rgb(120 174 255 / 0.28);
-    --dark-overlay-disabled: rgb(0 0 0 / 0.18);
     --dark-panel-bg: #000000;
     --dark-panel-fg: #ffffff;
-    --dark-panel-border: rgb(255 255 255 / 0.08);
     --dark-indicator-hover-bg: rgb(255 255 255 / 0.08);
     --dark-indicator-active-bg: rgb(255 255 255 / 0.16);
     --dark-popover-bg: #262626;
@@ -82,17 +75,27 @@ popover {
     --dark-badge-bg: var(--dark-overlay-selected);
     --dark-badge-fg: var(--dark-color-fg);
 
+    /* Dark accent + semantic palette. Raw hex on purpose — referencing
+     * `var(--color-success)` etc. here would create a remap loop in the
+     * `.theme-dark` / `@media (prefers-color-scheme: dark)` blocks below. */
+    --dark-sys-accent: #3584e4;
+    --dark-sys-accent-fg: #ffffff;
+    --dark-color-success: #2b7a4b;
+    --dark-color-success-fg: #ffffff;
+    --dark-color-warning: #b26400;
+    --dark-color-warning-fg: #ffffff;
+    --dark-color-danger: #c01c28;
+    --dark-color-danger-fg: #ffffff;
+
     /* Overlay/state colors */
     --overlay-hover: rgb(0 0 0 / 0.06);
     --overlay-active: rgb(0 0 0 / 0.12);
     --overlay-selected: rgb(53 132 228 / 0.18);
     --overlay-focus: rgb(53 132 228 / 0.22);
-    --overlay-disabled: rgb(255 255 255 / 0.24);
 
     /* Component aliases */
     --panel-bg: #ffffff;
     --panel-fg: #030712;
-    --panel-border: rgb(255 255 255 / 0.08);
     --panel-opacity: 1;
     --panel-padding-y: 0;
     --panel-padding-x: var(--space-4);
@@ -108,13 +111,8 @@ popover {
     --indicator-bg: transparent;
     --indicator-hover-bg: rgb(255 255 255 / 0.08);
     --indicator-active-bg: rgb(255 255 255 / 0.16);
-    --indicator-checked-bg: color-mix(in srgb, var(--color-accent) 88%, black 12%);
-    --indicator-checked-fg: var(--color-accent-fg);
-    --indicator-danger-bg: color-mix(in srgb, var(--color-danger) 86%, black 14%);
-    --indicator-warning-bg: color-mix(in srgb, var(--color-warning) 86%, black 14%);
     --indicator-padding-x: 6px;
     --indicator-padding-y: 4px;
-    --indicator-gap: 6px;
     --indicator-size: 22px;
     --indicator-icon-size: 22px;
     --indicator-font-weight: 600;
@@ -127,7 +125,6 @@ popover {
     --popover-radius: var(--radius-lg);
     --popover-padding: 4px;
     --popover-section-gap: 12px;
-    --popover-row-gap: 6px;
     --popover-small-width: 280px;
     --popover-medium-width: 320px;
     --popover-large-width: 540px;
@@ -144,17 +141,10 @@ popover {
     --row-radius: var(--radius-md);
     --row-padding-x: 8px;
     --row-padding-y: 4px;
-    --row-gap: 8px;
-    --row-icon-size: 16px;
-    --row-trailing-gap: 8px;
 
     --hero-title-fg: var(--color-fg);
     --hero-subtitle-fg: var(--color-muted-fg);
-    --hero-gap: 12px;
-    --hero-padding-x: 0px;
-    --hero-padding-y: 0px;
     --hero-icon-size: 32px;
-    --hero-icon-radius: var(--radius-md);
 
     --card-bg: var(--color-surface-raised);
     --card-fg: var(--color-fg);
@@ -163,16 +153,12 @@ popover {
     --card-radius: var(--radius-lg);
     --card-shell-padding: 0px;
     --card-padding: 12px;
-    --card-gap: 8px;
     --card-extra-shadow: 0 0 transparent;
     --card-hover-extra-shadow: var(--shadow-sm);
 
-    --footer-bg: transparent;
     --footer-fg: var(--color-fg);
     --footer-border: var(--color-border);
     --footer-hover-bg: var(--row-hover-bg);
-    --footer-padding-x: 8px;
-    --footer-padding-y: 4px;
 
     --badge-bg: var(--overlay-selected);
     --badge-fg: var(--color-fg);
@@ -189,17 +175,14 @@ popover {
     --notification-inline-image-size: 48px;
     --notification-control-size: 24px;
     --notification-card-padding: 12px;
-    --notification-card-margin-y: 2px;
     --notification-card-radius: 12px;
     --notification-group-radius: 14px;
     --notification-action-radius: 8px;
-    --notification-list-padding-y: 4px;
     --notification-group-gap: 4px;
     --notification-group-header-padding: 4px 12px 0px 12px;
     --notification-stack-offset: 2px;
     --notification-stack-second-height: 4px;
     --notification-stack-third-height: 3px;
-    --notification-popup-card-margin-bottom: 8px;
     --notification-popup-padding: var(--space-5);
     --notification-popup-card-padding: 16px;
     --notification-popup-card-radius: 16px;
@@ -213,13 +196,11 @@ popover {
     --notification-inline-image-radius: 10px;
     --notification-summary-size: 14px;
     --notification-title-size: 15px;
-    --notification-subtitle-size: 12px;
     --notification-app-name-size: 13px;
     --notification-body-size: 13px;
     --notification-popup-body-size: 14px;
     --notification-time-size: 11px;
     --notification-surface-bg: color-mix(in srgb, var(--color-fg) 6%, transparent);
-    --notification-surface-hover-bg: color-mix(in srgb, var(--color-fg) 10%, transparent);
     --notification-inline-image-bg: color-mix(in srgb, var(--color-fg) 4%, transparent);
     --notification-dismiss-hover-bg: color-mix(in srgb, currentColor 10%, transparent);
     --notification-popup-bg: var(--color-bg);
@@ -227,69 +208,22 @@ popover {
 
     /* Motion */
     --motion-fast: 120ms;
-    --motion-normal: 180ms;
-    --motion-slow: 240ms;
     --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-    --ease-emphasized: cubic-bezier(0.2, 0, 0, 1.15);
     --press-scale: 0.985;
     --popover-animation-duration: 160ms;
-    --popover-enter-offset: 6px;
-    --popover-enter-scale: 0.985;
 
     /* Compatibility aliases */
-    --view-bg: var(--color-bg);
-    --on-view: var(--color-fg);
     --accent-bg: var(--color-accent);
     --on-accent: var(--color-accent-fg);
-    --radius: var(--radius-lg);
-    --card-padding-legacy: var(--card-padding);
     --border-opacity: 14%;
     --border: var(--color-border);
     --popover-section-spacing: var(--popover-section-gap);
     --dim-opacity: var(--opacity-muted);
-
-    --dark-indicator-bg: transparent;
 }
 
-@media (prefers-color-scheme: dark) {
-
-    :root,
-    popover {
-        --color-bg: var(--dark-color-bg);
-        --color-fg: var(--dark-color-fg);
-        --color-surface: var(--dark-color-surface);
-        --color-surface-raised: var(--dark-color-surface-raised);
-        --color-border: var(--dark-color-border);
-        --color-border-strong: var(--dark-color-border-strong);
-        --color-muted: var(--dark-color-muted);
-        --color-muted-fg: var(--dark-color-muted-fg);
-
-        --overlay-hover: var(--dark-overlay-hover);
-        --overlay-active: var(--dark-overlay-active);
-        --overlay-selected: var(--dark-overlay-selected);
-        --overlay-focus: var(--dark-overlay-focus);
-        --overlay-disabled: var(--dark-overlay-disabled);
-
-        --panel-bg: var(--dark-panel-bg);
-        --panel-fg: var(--dark-panel-fg);
-        --panel-border: var(--dark-panel-border);
-        --indicator-bg: var(--dark-indicator-bg);
-        --indicator-hover-bg: var(--dark-indicator-hover-bg);
-        --indicator-active-bg: var(--dark-indicator-active-bg);
-
-        --popover-bg: var(--dark-popover-bg);
-        --popover-fg: var(--dark-popover-fg);
-        --popover-border: var(--dark-popover-border);
-
-        --row-fg: var(--dark-row-fg);
-        --row-muted-fg: var(--dark-row-muted-fg);
-        --card-bg: var(--dark-card-bg);
-        --card-fg: var(--dark-card-fg);
-        --card-border: var(--dark-card-border);
-        --badge-bg: var(--dark-badge-bg);
-        --badge-fg: var(--dark-badge-fg);
-    }
-}
+/* Mode remap rules live in themes/base-remap.css, loaded into a higher-
+ * priority CSS provider than user theme packs so the remap can override the
+ * pack's :root declarations. See that file for the architecture rationale. */
 
 .theme-light,
 .theme-light popover,
@@ -299,14 +233,11 @@ popover.theme-light {
     --color-surface: #ffffff;
     --color-surface-raised: #f4f4f4;
     --color-border: rgb(0 0 0 / 0.14);
-    --color-border-strong: rgb(0 0 0 / 0.22);
-    --color-muted: #6e6e6e;
     --color-muted-fg: #707070;
     --overlay-hover: rgb(0 0 0 / 0.06);
     --overlay-active: rgb(0 0 0 / 0.12);
     --overlay-selected: rgb(53 132 228 / 0.18);
     --overlay-focus: rgb(53 132 228 / 0.22);
-    --overlay-disabled: rgb(255 255 255 / 0.24);
     --popover-bg: var(--color-surface);
     --popover-fg: var(--color-fg);
     --popover-border: var(--color-border);
@@ -320,40 +251,7 @@ popover.theme-light {
     --panel-bg: #ffffff;
 }
 
-.theme-dark,
-.theme-dark popover,
-popover.theme-dark {
-    --color-bg: var(--dark-color-bg);
-    --color-fg: var(--dark-color-fg);
-    --color-surface: var(--dark-color-surface);
-    --color-surface-raised: var(--dark-color-surface-raised);
-    --color-border: var(--dark-color-border);
-    --color-border-strong: var(--dark-color-border-strong);
-    --color-muted: var(--dark-color-muted);
-    --color-muted-fg: var(--dark-color-muted-fg);
-    --overlay-hover: var(--dark-overlay-hover);
-    --overlay-active: var(--dark-overlay-active);
-    --overlay-selected: var(--dark-overlay-selected);
-    --overlay-focus: var(--dark-overlay-focus);
-    --overlay-disabled: var(--dark-overlay-disabled);
-    --popover-bg: var(--dark-popover-bg);
-    --popover-fg: var(--dark-popover-fg);
-    --popover-border: var(--dark-popover-border);
-    --row-fg: var(--dark-row-fg);
-    --row-muted-fg: var(--dark-row-muted-fg);
-    --card-bg: var(--dark-card-bg);
-    --card-fg: var(--dark-card-fg);
-    --card-border: var(--dark-card-border);
-    --badge-bg: var(--dark-badge-bg);
-    --badge-fg: var(--dark-badge-fg);
-    --panel-bg: var(--dark-panel-bg);
-    --panel-fg: var(--dark-panel-fg);
-    --panel-border: var(--dark-panel-border);
-    --indicator-hover-bg: var(--dark-indicator-hover-bg);
-    --indicator-active-bg: var(--dark-indicator-active-bg);
-
-    /*--dark-panel-bg: green;*/
-}
+/* .theme-dark block: see themes/base-remap.css. */
 
 .theme-light label,
 .theme-dark label {
@@ -363,12 +261,8 @@ popover.theme-dark {
 @media (prefers-reduced-motion: reduce) {
     :root {
         --motion-fast: 1ms;
-        --motion-normal: 1ms;
-        --motion-slow: 1ms;
         --press-scale: 1;
         --popover-animation-duration: 1ms;
-        --popover-enter-offset: 0px;
-        --popover-enter-scale: 1;
         --notification-popup-enter-duration: 1ms;
         --notification-popup-leave-duration: 1ms;
         --notification-popup-enter-offset: 0px;

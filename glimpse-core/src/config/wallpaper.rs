@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::{ThemePack, services::theme::EffectiveThemeMode};
+
 fn default_wallpaper_color() -> String {
     "#101010".into()
 }
@@ -88,11 +90,21 @@ pub struct ResolvedWallpaperSpec {
 pub fn resolve_wallpaper_spec(
     wallpaper: &WallpaperConfig,
     backdrop: &BackdropConfig,
+    pack: &ThemePack,
+    mode: EffectiveThemeMode,
 ) -> ResolvedWallpaperSpec {
-    let backdrop_path = backdrop.path.clone().or_else(|| wallpaper.path.clone());
+    let image_path = wallpaper
+        .path
+        .clone()
+        .or_else(|| pack.wallpaper_for(mode).map(|p| p.to_path_buf()));
+    let backdrop_path = backdrop
+        .path
+        .clone()
+        .or_else(|| pack.backdrop_for(mode).map(|p| p.to_path_buf()))
+        .or_else(|| image_path.clone());
     ResolvedWallpaperSpec {
         color: wallpaper.color.clone(),
-        image: wallpaper.path.clone().map(|path| ResolvedImageSpec {
+        image: image_path.map(|path| ResolvedImageSpec {
             path,
             fit: wallpaper.fit,
         }),
@@ -162,7 +174,7 @@ blur_radius = 18
         };
 
         assert_eq!(
-            config.resolve_wallpaper(),
+            config.resolve_wallpaper(EffectiveThemeMode::Light),
             ResolvedWallpaperSpec {
                 color: "#101010".into(),
                 image: None,
@@ -190,7 +202,7 @@ blur_radius = 18
         };
 
         assert_eq!(
-            config.resolve_wallpaper(),
+            config.resolve_wallpaper(EffectiveThemeMode::Light),
             ResolvedWallpaperSpec {
                 color: "#202020".into(),
                 image: Some(ResolvedImageSpec {
@@ -224,11 +236,68 @@ blur_radius = 18
         };
 
         assert_eq!(
-            config.resolve_wallpaper().backdrop,
+            config.resolve_wallpaper(EffectiveThemeMode::Light).backdrop,
             ResolvedBackdropSpec::Enabled {
                 path: Some(PathBuf::from("/tmp/wall.png")),
                 blur_radius: 24,
             }
+        );
+    }
+
+    #[test]
+    fn themed_wallpaper_used_when_user_path_absent() {
+        let pack = ThemePack {
+            name: "x".into(),
+            wallpaper_light: Some(PathBuf::from("/tmp/themed-light.png")),
+            wallpaper_dark: Some(PathBuf::from("/tmp/themed-dark.png")),
+            ..ThemePack::default()
+        };
+        let wallpaper = WallpaperConfig {
+            color: "#000".into(),
+            path: None,
+            fit: FitMode::Cover,
+            transition_ms: 800,
+        };
+        let backdrop = BackdropConfig {
+            enabled: true,
+            path: None,
+            blur_radius: 24,
+        };
+
+        let dark_spec =
+            resolve_wallpaper_spec(&wallpaper, &backdrop, &pack, EffectiveThemeMode::Dark);
+        assert_eq!(
+            dark_spec.image.as_ref().map(|i| &i.path),
+            Some(&PathBuf::from("/tmp/themed-dark.png"))
+        );
+        let light_spec =
+            resolve_wallpaper_spec(&wallpaper, &backdrop, &pack, EffectiveThemeMode::Light);
+        assert_eq!(
+            light_spec.image.as_ref().map(|i| &i.path),
+            Some(&PathBuf::from("/tmp/themed-light.png"))
+        );
+    }
+
+    #[test]
+    fn user_wallpaper_path_overrides_themed_wallpaper() {
+        let pack = ThemePack {
+            name: "x".into(),
+            wallpaper_light: Some(PathBuf::from("/tmp/themed-light.png")),
+            wallpaper_dark: Some(PathBuf::from("/tmp/themed-dark.png")),
+            ..ThemePack::default()
+        };
+        let wallpaper = WallpaperConfig {
+            color: "#000".into(),
+            path: Some(PathBuf::from("/tmp/user.png")),
+            fit: FitMode::Cover,
+            transition_ms: 800,
+        };
+        let backdrop = BackdropConfig::default();
+
+        let spec = resolve_wallpaper_spec(&wallpaper, &backdrop, &pack, EffectiveThemeMode::Dark);
+        assert_eq!(
+            spec.image.as_ref().map(|i| &i.path),
+            Some(&PathBuf::from("/tmp/user.png"))
         );
     }
 }

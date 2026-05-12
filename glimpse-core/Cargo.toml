@@ -4,6 +4,9 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
+[features]
+dev = []
+
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true

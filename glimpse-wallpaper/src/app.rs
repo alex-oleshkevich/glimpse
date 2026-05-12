@@ -9,8 +9,11 @@ use std::{
 use css_color::Srgb;
 use glimpse_core::{
     Config, ConfigEvent, FitMode, ResolvedBackdropSpec, ResolvedImageSpec, ResolvedWallpaperSpec,
-    heic, watch_for_config_changes,
+    heic,
+    services::theme::EffectiveThemeMode,
+    watch_for_config_changes,
 };
+use gio::prelude::SettingsExt;
 use gtk4::prelude::ListModelExt;
 use gtk4::{
     ContentFit,
@@ -37,10 +40,10 @@ pub enum AppCommand {
     ApplyResolvedSpec(ResolvedWallpaperSpec),
     ReloadConfig,
     ReloadAssets,
+    ThemeModeChanged(EffectiveThemeMode),
     MonitorsChanged,
 }
 
-#[derive(Default)]
 pub struct WallpaperAppModel {
     active_spec: Option<ResolvedWallpaperSpec>,
     wallpaper_windows: HashMap<MonitorKey, Controller<WallpaperWindow>>,
@@ -48,6 +51,23 @@ pub struct WallpaperAppModel {
     subscribed_monitors: HashSet<MonitorKey>,
     asset_watch_cancel: Option<CancellationToken>,
     ready_logged: bool,
+    effective_mode: EffectiveThemeMode,
+    _color_scheme_settings: Option<gio::Settings>,
+}
+
+impl Default for WallpaperAppModel {
+    fn default() -> Self {
+        Self {
+            active_spec: None,
+            wallpaper_windows: HashMap::new(),
+            backdrop_windows: HashMap::new(),
+            subscribed_monitors: HashSet::new(),
+            asset_watch_cancel: None,
+            ready_logged: false,
+            effective_mode: EffectiveThemeMode::Light,
+            _color_scheme_settings: None,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
@@ -103,6 +123,8 @@ impl SimpleComponent for WallpaperAppModel {
         root.set_opacity(0.0);
         tracing::debug!("initialized invisible wallpaper app root window");
 
+        let initial_mode = read_effective_theme_mode(&init.config);
+
         let (config_tx, mut config_rx) = mpsc::channel(1);
         relm4::spawn(async move {
             tracing::debug!("starting configuration watcher");
@@ -113,10 +135,15 @@ impl SimpleComponent for WallpaperAppModel {
         relm4::spawn(async move {
             while let Some(ConfigEvent::Changed(config)) = config_rx.recv().await {
                 tracing::info!("configuration changed, applying wallpaper settings");
-                let spec = config.resolve_wallpaper();
+                let mode = read_effective_theme_mode(&config);
+                log_wallpaper_sources(&config, mode);
+                let spec = config.resolve_wallpaper(mode);
+                let _ = config_sender.input(AppCommand::ThemeModeChanged(mode));
                 let _ = config_sender.input(AppCommand::ApplyResolvedSpec(spec));
             }
         });
+
+        let color_scheme_settings = subscribe_color_scheme(sender.clone());
 
         if let Some(display) = gdk::Display::default() {
             let monitor_count = display.monitors().n_items();
@@ -131,7 +158,8 @@ impl SimpleComponent for WallpaperAppModel {
             tracing::warn!("no default GDK display; wallpaper surfaces cannot be created yet");
         }
 
-        let initial_spec = init.config.resolve_wallpaper();
+        log_wallpaper_sources(&init.config, initial_mode);
+        let initial_spec = init.config.resolve_wallpaper(initial_mode);
         tracing::info!(
             color = %initial_spec.color,
             image = initial_spec.image.as_ref().map(|image| image.path.display().to_string()).as_deref().unwrap_or("<none>"),
@@ -141,7 +169,11 @@ impl SimpleComponent for WallpaperAppModel {
         );
         let _ = sender.input(AppCommand::ApplyResolvedSpec(initial_spec));
 
-        let model = WallpaperAppModel::default();
+        let model = WallpaperAppModel {
+            effective_mode: initial_mode,
+            _color_scheme_settings: Some(color_scheme_settings),
+            ..WallpaperAppModel::default()
+        };
         let widgets = view_output!();
         ComponentParts { model, widgets }
     }
@@ -155,14 +187,26 @@ impl SimpleComponent for WallpaperAppModel {
             AppCommand::ReloadConfig => {
                 tracing::info!("reloading wallpaper configuration");
                 let config = Config::load();
-                let spec = config.resolve_wallpaper();
+                self.effective_mode = read_effective_theme_mode(&config);
+                let spec = config.resolve_wallpaper(self.effective_mode);
                 let _ = sender.input(AppCommand::ApplyResolvedSpec(spec));
             }
             AppCommand::ReloadAssets => {
                 tracing::info!("reloading wallpaper assets");
                 let config = Config::load();
-                let spec = config.resolve_wallpaper();
+                self.effective_mode = read_effective_theme_mode(&config);
+                let spec = config.resolve_wallpaper(self.effective_mode);
                 self.apply_resolved_spec(spec, true, sender);
+            }
+            AppCommand::ThemeModeChanged(mode) => {
+                if self.effective_mode == mode {
+                    return;
+                }
+                tracing::info!(?mode, "effective theme mode changed");
+                self.effective_mode = mode;
+                let config = Config::load();
+                let spec = config.resolve_wallpaper(mode);
+                self.apply_resolved_spec(spec, false, sender);
             }
             AppCommand::MonitorsChanged => {
                 if let Some(spec) = self.active_spec.clone() {
@@ -473,6 +517,65 @@ fn monitor_target_size(monitor: &gdk::Monitor) -> (i32, i32) {
         geometry.width().saturating_mul(scale),
         geometry.height().saturating_mul(scale),
     )
+}
+
+const GNOME_INTERFACE_SCHEMA: &str = "org.gnome.desktop.interface";
+const GNOME_COLOR_SCHEME_KEY: &str = "color-scheme";
+
+fn log_wallpaper_sources(config: &Config, mode: EffectiveThemeMode) {
+    let pack = config.theme_pack();
+    let (wallpaper_src, wallpaper_path) = match (&config.wallpaper.path, pack.wallpaper_for(mode))
+    {
+        (Some(p), _) => ("config", Some(p.display().to_string())),
+        (None, Some(p)) => ("theme", Some(p.display().to_string())),
+        (None, None) => ("color-only", None),
+    };
+    let (backdrop_src, backdrop_path) = match (&config.backdrop.path, pack.backdrop_for(mode)) {
+        (Some(p), _) => ("config", Some(p.display().to_string())),
+        (None, Some(p)) => ("theme", Some(p.display().to_string())),
+        (None, None) => ("wallpaper-fallback", None),
+    };
+    tracing::info!(
+        theme = %pack.name,
+        mode = ?mode,
+        wallpaper_source = wallpaper_src,
+        wallpaper_path = wallpaper_path.as_deref().unwrap_or("<none>"),
+        backdrop_source = backdrop_src,
+        backdrop_path = backdrop_path.as_deref().unwrap_or("<none>"),
+        "wallpaper: resolved sources"
+    );
+}
+
+fn read_effective_theme_mode(config: &Config) -> EffectiveThemeMode {
+    use glimpse_core::ThemeMode;
+    match config.theme_mode {
+        ThemeMode::Light => EffectiveThemeMode::Light,
+        ThemeMode::Dark => EffectiveThemeMode::Dark,
+        ThemeMode::Auto => color_scheme_to_effective_mode(&read_gnome_color_scheme()),
+    }
+}
+
+fn read_gnome_color_scheme() -> String {
+    gio::Settings::new(GNOME_INTERFACE_SCHEMA).string(GNOME_COLOR_SCHEME_KEY).to_string()
+}
+
+fn color_scheme_to_effective_mode(value: &str) -> EffectiveThemeMode {
+    if value == "prefer-dark" {
+        EffectiveThemeMode::Dark
+    } else {
+        EffectiveThemeMode::Light
+    }
+}
+
+fn subscribe_color_scheme(sender: ComponentSender<WallpaperAppModel>) -> gio::Settings {
+    let settings = gio::Settings::new(GNOME_INTERFACE_SCHEMA);
+    settings.connect_changed(Some(GNOME_COLOR_SCHEME_KEY), move |_, _| {
+        // Re-read config so an explicit Light/Dark theme_mode wins over the gsetting.
+        let config = Config::load();
+        let mode = read_effective_theme_mode(&config);
+        let _ = sender.input(AppCommand::ThemeModeChanged(mode));
+    });
+    settings
 }
 
 fn backdrop_label(backdrop: &ResolvedBackdropSpec) -> &'static str {
