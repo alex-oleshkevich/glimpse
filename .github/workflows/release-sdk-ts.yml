@@ -1,0 +1,41 @@
+name: Release TypeScript SDK
+
+on:
+  push:
+    tags:
+      - 'sdk-ts-v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npmjs.org
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: sdk/sdk-ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: sdk/sdk-ts/package-lock.json
+      - name: Verify tag matches package.json version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="${TAG#sdk-ts-v}"
+          test "$version" = "$tag"
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_CI_TOKEN }}
