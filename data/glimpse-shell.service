@@ -1,7 +1,8 @@
 [Unit]
 Description=Glimpse shell
 PartOf=graphical-session.target
-After=graphical-session-pre.target glimpse-wallpaper.service
+After=graphical-session.target glimpse-wallpaper.service
+Requisite=graphical-session.target
 Wants=glimpse-wallpaper.service
 
 [Service]

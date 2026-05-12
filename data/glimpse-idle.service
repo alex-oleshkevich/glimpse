@@ -1,7 +1,13 @@
 [Unit]
 Description=Glimpse idle
+# Start AFTER graphical-session.target (not the pre variant) so that the
+# compositor has had a chance to import WAYLAND_DISPLAY into the systemd
+# user manager via `systemctl --user import-environment`. Otherwise the
+# idle daemon spawns with stale env and loops forever logging
+# "Could not find wayland compositor".
 PartOf=graphical-session.target
-After=graphical-session-pre.target
+After=graphical-session.target
+Requisite=graphical-session.target
 
 [Service]
 Type=simple

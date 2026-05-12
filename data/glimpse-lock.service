@@ -1,7 +1,11 @@
 [Unit]
 Description=Glimpse lock screen
+# Start AFTER graphical-session.target so WAYLAND_DISPLAY and XDG_RUNTIME_DIR
+# are present in the systemd user manager's environment when this service
+# spawns. Same race as glimpse-idle — see that unit for the explanation.
 PartOf=graphical-session.target
-After=graphical-session-pre.target
+After=graphical-session.target
+Requisite=graphical-session.target
 
 [Service]
 Type=simple
