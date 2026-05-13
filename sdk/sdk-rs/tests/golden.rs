@@ -472,18 +472,19 @@ fn widget_common_props_all() {
 
 #[test]
 fn widget_tree_hero_column_section() {
-    let tree = Column::new(vec![
-        TreeNode::from(Hero::new("Counter", "Value: 0")),
-        TreeNode::from(Section::new(
+    use glimpse_sdk::tree;
+    let column = Column::new(tree![
+        Hero::new("Counter", "Value: 0"),
+        Section::new(
             "Controls",
-            vec![
-                Label::new("Current").into(),
-                Button::new("increment").label("Increment").into(),
+            tree![
+                Label::new("Current"),
+                Button::new("increment").label("Increment"),
             ],
-        )),
+        ),
     ])
     .spacing(8);
-    assert_widget("tree-hero-column-section", tree.into());
+    assert_widget("tree-hero-column-section", column.into());
 }
 
 #[test]

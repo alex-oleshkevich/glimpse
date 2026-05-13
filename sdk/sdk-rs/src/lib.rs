@@ -3,6 +3,29 @@ mod events;
 mod protocol;
 mod widgets;
 
+/// Build a `Vec<TreeNode>` from heterogeneous widget expressions, wrapping
+/// each in `TreeNode::from(...)` automatically.
+///
+/// ```ignore
+/// use glimpse_sdk::{tree, Button, Column, Hero, Item, Section, TreeNode};
+///
+/// let column = Column::new(tree![
+///     Hero::new("Counter", "Value: 0"),
+///     Section::new("Controls", tree![
+///         Item::new("Current"),
+///         Button::new("increment").label("Increment"),
+///     ]),
+/// ])
+/// .spacing(8);
+/// ```
+#[macro_export]
+macro_rules! tree {
+    () => { ::std::vec::Vec::<$crate::TreeNode>::new() };
+    ($($widget:expr),+ $(,)?) => {
+        ::std::vec![$( $crate::TreeNode::from($widget) ),+]
+    };
+}
+
 pub use app::{Applet, AppletError, AppletResult, RenderResult, StateStore, run};
 pub use events::{
     CallbackEvent, ChangeEvent, ClickEvent, InitEvent, InputEvent, PopoverEvent, ScrollEvent,

@@ -1146,7 +1146,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 use async_trait::async_trait;
 use glimpse_sdk::{
     Applet, AppletResult, Button, CallbackEvent, Column, Hero, Icon, Item, RenderResult, Section,
-    StateStore, StatusItem, TreeNode, run,
+    StateStore, StatusItem, TreeNode, run, tree,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -1175,22 +1175,21 @@ impl Applet for CounterApplet {
             status: vec![StatusItem::new("counter")
                 .icon(Icon::name("view-refresh-symbolic"))
                 .label(self.state().count.to_string())],
-            tree: Some(TreeNode::from(
-                Column::new(vec![
-                    TreeNode::from(
-                        Hero::new("Counter", format!("Value: {}", self.state().count))
-                            .icon(Icon::name("view-refresh-symbolic")),
-                    ),
-                    TreeNode::from(Section::new(
+            tree: Some(
+                Column::new(tree![
+                    Hero::new("Counter", format!("Value: {}", self.state().count))
+                        .icon(Icon::name("view-refresh-symbolic")),
+                    Section::new(
                         "Controls",
-                        vec![
-                            TreeNode::from(Item::new("Current")),
-                            TreeNode::from(Button::new("increment").label("Increment")),
+                        tree![
+                            Item::new("Current"),
+                            Button::new("increment").label("Increment"),
                         ],
-                    )),
+                    ),
                 ])
-                .spacing(8),
-            )),
+                .spacing(8)
+                .into(),
+            ),
         })
     }
 

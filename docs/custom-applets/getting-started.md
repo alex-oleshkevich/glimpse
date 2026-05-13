@@ -70,7 +70,7 @@ Replace `src/main.rs` with:
 use async_trait::async_trait;
 use glimpse_sdk::{
     Applet, AppletResult, Button, CallbackEvent, Column, Hero, Icon, Item, RenderResult, Section,
-    StateStore, StatusItem, TreeNode, run,
+    StateStore, StatusItem, TreeNode, run, tree,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -100,19 +100,20 @@ impl Applet for CounterApplet {
             status: vec![StatusItem::new("counter")
                 .icon(Icon::name("view-refresh-symbolic"))
                 .label(count.to_string())],
-            tree: Some(TreeNode::from(
-                Column::new(vec![
-                    TreeNode::from(Hero::new("Counter", format!("Value: {count}"))),
-                    TreeNode::from(Section::new(
+            tree: Some(
+                Column::new(tree![
+                    Hero::new("Counter", format!("Value: {count}")),
+                    Section::new(
                         "Controls",
-                        vec![
-                            TreeNode::from(Item::new(format!("Current: {count}"))),
-                            TreeNode::from(Button::new("increment").label("Increment")),
+                        tree![
+                            Item::new(format!("Current: {count}")),
+                            Button::new("increment").label("Increment"),
                         ],
-                    )),
+                    ),
                 ])
-                .spacing(8),
-            )),
+                .spacing(8)
+                .into(),
+            ),
         })
     }
 
