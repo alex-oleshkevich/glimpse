@@ -23,23 +23,6 @@ interface OutgoingMessage {
   line: string;
 }
 
-export class RenderResult {
-  constructor(
-    public readonly options: {
-      status?: StatusItem[];
-      tree?: TreeNode | null;
-    } = {},
-  ) {}
-
-  get status(): StatusItem[] {
-    return this.options.status ?? [];
-  }
-
-  get tree(): TreeNode | null {
-    return this.options.tree ?? null;
-  }
-}
-
 export abstract class Applet<State extends object> {
   state: State;
 
@@ -63,8 +46,12 @@ export abstract class Applet<State extends object> {
 
   protected async onCallback(_event: CallbackEvent): Promise<void> {}
 
-  protected async render(): Promise<RenderResult> {
-    return new RenderResult();
+  protected async status(_state: State): Promise<StatusItem[]> {
+    return [];
+  }
+
+  protected async popover(_state: State): Promise<TreeNode | null> {
+    return null;
   }
 
   async setState(patch: Partial<State>): Promise<void> {
@@ -188,16 +175,18 @@ export abstract class Applet<State extends object> {
   }
 
   private async flushRender(): Promise<void> {
-    const rendered = await this.render();
-    const status = rendered.status.map((item) => item.toProtocol());
-    const tree = { root: rendered.tree?.toProtocol() ?? null };
-
+    const statusItems = await this.status(this.state);
+    const status = statusItems.map((item) => item.toProtocol());
     if (!deepEqual(status, this.lastStatus)) {
       this.lastStatus = status;
       this.emit("status", { items: status });
     }
-    const publishPopover = this.popoverOpen || this.lastTree === null || tree.root === null;
-    if (publishPopover && !deepEqual(tree, this.lastTree)) {
+
+    const widget = await this.popover(this.state);
+    const tree = { root: widget?.toProtocol() ?? null };
+    // Emit only when popover open, or first render, or clearing.
+    const shouldEmit = this.popoverOpen || this.lastTree === null || tree.root === null;
+    if (shouldEmit && !deepEqual(tree, this.lastTree)) {
       this.lastTree = tree;
       this.emit("popover", tree);
     }

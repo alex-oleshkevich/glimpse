@@ -44,22 +44,22 @@ func (a *demoApplet) OnCallback(_ context.Context, event CallbackEvent) error {
 	return nil
 }
 
-func (a *demoApplet) Render(context.Context) (RenderResult, error) {
-	var tree Widget
-	if a.State().Tree {
-		tree = Column{
-			Children: []Widget{
-				Hero{Title: "Demo", Subtitle: a.State().Version},
-				Label{Text: a.State().Version},
-				Button{CommonProps: CommonProps{ID: "submit"}, Label: "Submit"},
-			},
-		}
+func (a *demoApplet) Status(_ context.Context, state *demoState) ([]StatusItem, error) {
+	return []StatusItem{
+		{ID: "demo", Icon: IconName("demo-symbolic"), Label: state.Version},
+	}, nil
+}
+
+func (a *demoApplet) Popover(_ context.Context, state *demoState) (Widget, error) {
+	if !state.Tree {
+		return nil, nil
 	}
-	return RenderResult{
-		Status: []StatusItem{
-			{ID: "demo", Icon: IconName("demo-symbolic"), Label: a.State().Version},
+	return Column{
+		Children: []Widget{
+			Hero{Title: "Demo", Subtitle: state.Version},
+			Label{Text: state.Version},
+			Button{CommonProps: CommonProps{ID: "submit"}, Label: "Submit"},
 		},
-		Tree: tree,
 	}, nil
 }
 
@@ -234,12 +234,12 @@ func TestSetStateUpdatesRenderedStatus(t *testing.T) {
 	if err := applet.OnCallback(context.Background(), ClickEvent{ID: "submit", Button: "left"}); err != nil {
 		t.Fatalf("callback: %v", err)
 	}
-	rendered, err := applet.Render(context.Background())
+	status, err := applet.Status(context.Background(), applet.State())
 	if err != nil {
-		t.Fatalf("render: %v", err)
+		t.Fatalf("status: %v", err)
 	}
-	if rendered.Status[0].Label != "v2" {
-		t.Fatalf("expected updated status label, got %q", rendered.Status[0].Label)
+	if status[0].Label != "v2" {
+		t.Fatalf("expected updated status label, got %q", status[0].Label)
 	}
 }
 
@@ -270,12 +270,14 @@ func (a *asyncDemoApplet) OnStart(context.Context) error {
 func (a *asyncDemoApplet) OnInit(context.Context, InitEvent) error         { return nil }
 func (a *asyncDemoApplet) OnCallback(context.Context, CallbackEvent) error { return nil }
 
-func (a *asyncDemoApplet) Render(context.Context) (RenderResult, error) {
-	return RenderResult{
-		Status: []StatusItem{
-			{ID: "demo", Icon: IconName("demo-symbolic"), Label: a.State().Version},
-		},
+func (a *asyncDemoApplet) Status(_ context.Context, state *demoState) ([]StatusItem, error) {
+	return []StatusItem{
+		{ID: "demo", Icon: IconName("demo-symbolic"), Label: state.Version},
 	}, nil
+}
+
+func (a *asyncDemoApplet) Popover(_ context.Context, _ *demoState) (Widget, error) {
+	return nil, nil
 }
 
 func TestRuntimeFlushesWhenStateChangesWithoutInput(t *testing.T) {

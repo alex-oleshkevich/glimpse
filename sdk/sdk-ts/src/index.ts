@@ -1,4 +1,4 @@
-export { Applet, RenderResult } from "./app.js";
+export { Applet } from "./app.js";
 export {
   type CallbackEvent,
   type ChangeEvent,

@@ -13,94 +13,50 @@ use crate::{
 pub type AppletError = Box<dyn std::error::Error + Send + Sync>;
 pub type AppletResult<T> = Result<T, AppletError>;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Default)]
-pub struct RenderResult {
-    #[serde(default)]
-    pub status: Vec<StatusItem>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tree: Option<TreeNode>,
-}
-
-#[derive(Debug, Clone)]
-pub struct StateStore<State> {
-    state: State,
-    popover_open: bool,
-}
-
-impl<State> StateStore<State> {
-    pub fn new(state: State) -> Self {
-        Self {
-            state,
-            popover_open: false,
-        }
-    }
-
-    pub fn state(&self) -> &State {
-        &self.state
-    }
-
-    pub fn state_mut(&mut self) -> &mut State {
-        &mut self.state
-    }
-
-    pub fn set_state<F>(&mut self, patch: F)
-    where
-        F: FnOnce(&mut State),
-    {
-        patch(&mut self.state);
-    }
-
-    pub fn is_popover_open(&self) -> bool {
-        self.popover_open
-    }
-
-    pub fn set_popover_open(&mut self, open: bool) {
-        self.popover_open = open;
-    }
-}
-
+/// An exec applet. The applet itself is a stateless method bag — state
+/// lives in `Self::State` and is passed in by the runtime to every
+/// method. Mutate the state directly inside handlers and the next render
+/// sees the new value.
+///
+/// `status` and `popover` are pure functions of `state`; they should not
+/// mutate. The runtime calls them after every event and emits a wire
+/// message only when the output changes.
 #[async_trait]
-pub trait Applet: Send {
+pub trait Applet: Send + Sync {
     type State: Send + Sync + 'static;
 
-    fn store(&self) -> &StateStore<Self::State>;
-    fn store_mut(&mut self) -> &mut StateStore<Self::State>;
+    /// Build the panel status items for the current state.
+    async fn status(&self, state: &Self::State) -> AppletResult<Vec<StatusItem>>;
 
-    async fn render(&self) -> AppletResult<RenderResult>;
+    /// Build the popover content tree, or `None` for no popover.
+    /// The default impl returns `None` so applets without popovers
+    /// don't have to implement this.
+    async fn popover(&self, _state: &Self::State) -> AppletResult<Option<TreeNode>> {
+        Ok(None)
+    }
 
-    async fn on_start(&mut self) -> AppletResult<()> {
+    /// Called once before the read loop begins.
+    async fn on_start(&mut self, _state: &mut Self::State) -> AppletResult<()> {
         Ok(())
     }
 
-    async fn on_init(&mut self, _event: InitEvent) -> AppletResult<()> {
+    /// Called once when Glimpse sends the `init` line.
+    async fn on_init(
+        &mut self,
+        _state: &mut Self::State,
+        _event: InitEvent,
+    ) -> AppletResult<()> {
         Ok(())
     }
 
-    async fn on_callback(&mut self, _event: CallbackEvent) -> AppletResult<()> {
+    /// Called for every interactive event (click, scroll, toggle, change,
+    /// popover open/close, etc.).
+    async fn on_callback(
+        &mut self,
+        _state: &mut Self::State,
+        _event: CallbackEvent,
+    ) -> AppletResult<()> {
         Ok(())
-    }
-
-    fn state(&self) -> &Self::State {
-        self.store().state()
-    }
-
-    fn state_mut(&mut self) -> &mut Self::State {
-        self.store_mut().state_mut()
-    }
-
-    fn set_state<F>(&mut self, patch: F)
-    where
-        F: FnOnce(&mut Self::State),
-    {
-        self.store_mut().set_state(patch);
-    }
-
-    fn is_popover_open(&self) -> bool {
-        self.store().is_popover_open()
-    }
-
-    fn set_popover_open(&mut self, open: bool) {
-        self.store_mut().set_popover_open(open);
     }
 }
 
@@ -109,18 +65,35 @@ struct TreePayload {
     root: Option<TreeNode>,
 }
 
-pub async fn run<A>(mut applet: A) -> AppletResult<()>
+struct LastSeen {
+    status: Vec<StatusItem>,
+    tree: Option<TreeNode>,
+    initialized: bool,
+}
+
+impl LastSeen {
+    fn new() -> Self {
+        Self {
+            status: Vec::new(),
+            tree: None,
+            initialized: false,
+        }
+    }
+}
+
+/// Run an applet against stdin/stdout, owning the state for its lifetime.
+pub async fn run<A>(mut applet: A, mut state: A::State) -> AppletResult<()>
 where
     A: Applet,
 {
     let mut stdout = io::stdout();
     let stdin = BufReader::new(io::stdin());
     let mut lines = stdin.lines();
-    let mut last_render: Option<RenderResult> = None;
+    let mut last = LastSeen::new();
+    let mut popover_open = false;
 
-    applet.on_start().await?;
-    let initial = applet.render().await?;
-    flush_render(&mut stdout, &mut last_render, initial, applet.is_popover_open()).await?;
+    applet.on_start(&mut state).await?;
+    flush(&mut stdout, &applet, &state, &mut last, popover_open).await?;
 
     while let Some(line) = lines.next_line().await? {
         if line.trim().is_empty() {
@@ -136,7 +109,7 @@ where
         };
         let result: AppletResult<()> = match incoming.kind.as_str() {
             "init" => match parse_init_event(incoming.data) {
-                Ok(evt) => applet.on_init(evt).await,
+                Ok(evt) => applet.on_init(&mut state, evt).await,
                 Err(err) => {
                     eprintln!("glimpse-sdk: ignoring malformed init: {err}");
                     continue;
@@ -145,9 +118,9 @@ where
             "event" => match parse_callback_event(incoming.data) {
                 Ok(event) => {
                     if let CallbackEvent::Popover(popover) = &event {
-                        applet.set_popover_open(popover.open);
+                        popover_open = popover.open;
                     }
-                    applet.on_callback(event).await
+                    applet.on_callback(&mut state, event).await
                 }
                 Err(err) => {
                     eprintln!("glimpse-sdk: ignoring malformed event: {err}");
@@ -158,54 +131,39 @@ where
         };
         result?;
 
-        let rendered = applet.render().await?;
-        flush_render(
-            &mut stdout,
-            &mut last_render,
-            rendered,
-            applet.is_popover_open(),
-        )
-        .await?;
+        flush(&mut stdout, &applet, &state, &mut last, popover_open).await?;
     }
 
     Ok(())
 }
 
-async fn flush_render(
+async fn flush<A>(
     stdout: &mut io::Stdout,
-    previous: &mut Option<RenderResult>,
-    next: RenderResult,
+    applet: &A,
+    state: &A::State,
+    last: &mut LastSeen,
     popover_open: bool,
-) -> AppletResult<()> {
-    let changed = previous.as_ref();
-    if changed
-        .map(|prev| prev.status != next.status)
-        .unwrap_or(true)
-    {
-        write_message(
-            stdout,
-            "status",
-            &serde_json::json!({ "items": next.status }),
-        )
-        .await?;
-    }
-    let publish_popover = popover_open || previous.is_none() || next.tree.is_none();
-    if publish_popover && changed.map(|prev| prev.tree != next.tree).unwrap_or(true) {
-        write_message(
-            stdout,
-            "popover",
-            &TreePayload {
-                root: next.tree.clone(),
-            },
-        )
-        .await?;
+) -> AppletResult<()>
+where
+    A: Applet,
+{
+    let next_status = applet.status(state).await?;
+    if !last.initialized || last.status != next_status {
+        write_message(stdout, "status", &serde_json::json!({ "items": next_status })).await?;
+        last.status = next_status;
     }
 
-    let mut stored = next;
-    if !publish_popover {
-        stored.tree = previous.as_ref().and_then(|prev| prev.tree.clone());
+    let next_tree = applet.popover(state).await?;
+    // Emit only when the popover is open (user sees it), or this is the
+    // first render (daemon needs the initial tree), or we're clearing an
+    // existing tree (must reach the daemon even if closed).
+    let should_emit = popover_open || !last.initialized || next_tree.is_none();
+    if should_emit && last.tree != next_tree {
+        write_message(stdout, "popover", &TreePayload { root: next_tree.clone() }).await?;
+        last.tree = next_tree;
     }
-    *previous = Some(stored);
+
+    last.initialized = true;
     Ok(())
 }
 
@@ -233,9 +191,7 @@ mod tests {
         StatusItem, TreeNode,
     };
 
-    struct DemoApplet {
-        store: StateStore<DemoState>,
-    }
+    struct DemoApplet;
 
     #[derive(Debug, Clone)]
     struct DemoState {
@@ -247,46 +203,35 @@ mod tests {
     impl Applet for DemoApplet {
         type State = DemoState;
 
-        fn store(&self) -> &StateStore<Self::State> {
-            &self.store
+        async fn status(&self, state: &Self::State) -> AppletResult<Vec<StatusItem>> {
+            Ok(vec![
+                StatusItem::new("demo")
+                    .icon(Icon::name("demo-symbolic"))
+                    .label(state.version.clone()),
+            ])
         }
 
-        fn store_mut(&mut self) -> &mut StateStore<Self::State> {
-            &mut self.store
+        async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode>> {
+            Ok(Some(TreeNode::from(BoxNode::vertical(vec![
+                TreeNode::from(crate::Hero::new("Demo", state.version.clone())),
+                TreeNode::from(Label::new(state.version.clone())),
+                TreeNode::from(Button::new("submit").label("Submit")),
+            ]))))
         }
 
-        async fn render(&self) -> AppletResult<RenderResult> {
-            Ok(RenderResult {
-                status: vec![
-                    StatusItem::new("demo")
-                        .icon(Icon::name("demo-symbolic"))
-                        .label(self.state().version.clone()),
-                ],
-                tree: Some(TreeNode::from(BoxNode::vertical(vec![
-                    TreeNode::from(crate::Hero::new("Demo", self.state().version.clone())),
-                    TreeNode::from(Label::new(self.state().version.clone())),
-                    TreeNode::from(Button::new("submit").label("Submit")),
-                ]))),
-            })
-        }
-
-        async fn on_callback(&mut self, event: CallbackEvent) -> AppletResult<()> {
-            match event {
-                CallbackEvent::Click(click) if click.id == "submit" => {
-                    self.set_state(|state| state.clicks += 1);
-                    self.set_state(|state| state.version = "v2".into());
+        async fn on_callback(
+            &mut self,
+            state: &mut Self::State,
+            event: CallbackEvent,
+        ) -> AppletResult<()> {
+            if let CallbackEvent::Click(click) = event {
+                if click.id == "submit" {
+                    state.clicks += 1;
+                    state.version = "v2".into();
                 }
-                _ => {}
             }
             Ok(())
         }
-    }
-
-    #[test]
-    fn render_result_defaults_are_empty() {
-        let result = RenderResult::default();
-        assert!(result.status.is_empty());
-        assert!(result.tree.is_none());
     }
 
     #[test]
@@ -400,23 +345,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn set_state_updates_rendered_status() {
-        let mut applet = DemoApplet {
-            store: StateStore::new(DemoState {
-                version: "v1".into(),
-                clicks: 0,
-            }),
+    async fn callback_mutates_state_and_status_observes_it() {
+        let mut applet = DemoApplet;
+        let mut state = DemoState {
+            version: "v1".into(),
+            clicks: 0,
         };
 
         applet
-            .on_callback(CallbackEvent::Click(ClickEvent {
-                id: "submit".into(),
-                button: Some("left".into()),
-            }))
+            .on_callback(
+                &mut state,
+                CallbackEvent::Click(ClickEvent {
+                    id: "submit".into(),
+                    button: Some("left".into()),
+                }),
+            )
             .await
             .expect("callback should update state");
 
-        let rendered = applet.render().await.expect("render should succeed");
-        assert_eq!(rendered.status[0].label.as_deref(), Some("v2"));
+        let status = applet.status(&state).await.expect("status should succeed");
+        assert_eq!(status[0].label.as_deref(), Some("v2"));
+        assert_eq!(state.clicks, 1);
     }
 }

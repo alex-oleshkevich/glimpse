@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, BoxNode, Button, CallbackEvent, Hero, Icon, Label, StatusItem, TreeNode,
-    run, tree,
+    Applet, AppletResult, Button, CallbackEvent, Column, Hero, Icon, StatusItem, TreeNode, run,
+    tree,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -24,11 +24,10 @@ impl Applet for CounterApplet {
     }
 
     async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode>> {
+        let count = state.count;
         Ok(Some(
-            BoxNode::vertical(tree![
-                Hero::new("Counter", format!("Value: {}", state.count))
-                    .icon(Icon::name("view-refresh-symbolic")),
-                Label::new(format!("Count = {}", state.count)),
+            Column::new(tree![
+                Hero::new("__NAME__", format!("Value: {count}")),
                 Button::new("increment").label("Increment"),
             ])
             .spacing(8)

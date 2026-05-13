@@ -45,7 +45,7 @@ Minimal applet:
 ```python
 from dataclasses import dataclass
 
-from glimpse_sdk import Applet, AppletState, Button, Icon, RenderResult, StatusItem, click
+from glimpse_sdk import Applet, AppletState, Button, Icon, StatusItem, click
 
 
 @dataclass
@@ -57,17 +57,17 @@ class CounterApplet(Applet[CounterState]):
     def initial_state(self) -> CounterState:
         return CounterState()
 
-    async def render(self) -> RenderResult:
-        return RenderResult(
-            status=[
-                StatusItem(
-                    id="counter",
-                    icon=Icon.name("view-refresh-symbolic"),
-                    label=str(self.state.count),
-                )
-            ],
-            tree=Button(id="increment", label="Increment"),
-        )
+    async def status(self, state: CounterState):
+        return [
+            StatusItem(
+                id="counter",
+                icon=Icon.name("view-refresh-symbolic"),
+                label=str(state.count),
+            )
+        ]
+
+    async def popover(self, state: CounterState):
+        return Button(id="increment", label="Increment")
 
     @click("increment")
     async def on_increment(self, _event) -> None:
@@ -89,7 +89,7 @@ npm install glimpse-sdk
 Minimal applet:
 
 ```ts
-import { Applet, Button, Icon, RenderResult, StatusItem } from "glimpse-sdk";
+import { Applet, Button, Icon, StatusItem, type TreeNode } from "glimpse-sdk";
 
 interface CounterState {
   count: number;
@@ -107,17 +107,18 @@ class CounterApplet extends Applet<CounterState> {
     });
   }
 
-  protected async render(): Promise<RenderResult> {
-    return new RenderResult({
-      status: [
-        new StatusItem({
-          id: "counter",
-          icon: Icon.name("view-refresh-symbolic"),
-          label: String(this.state.count),
-        }),
-      ],
-      tree: new Button({ id: "increment", label: "Increment" }),
-    });
+  protected async status(state: CounterState): Promise<StatusItem[]> {
+    return [
+      new StatusItem({
+        id: "counter",
+        icon: Icon.name("view-refresh-symbolic"),
+        label: String(state.count),
+      }),
+    ];
+  }
+
+  protected async popover(_state: CounterState): Promise<TreeNode | null> {
+    return new Button({ id: "increment", label: "Increment" });
   }
 }
 
@@ -131,7 +132,7 @@ Add the SDK from crates.io:
 ```toml
 [dependencies]
 async-trait = "0.1"
-glimpse-sdk = "0.1"
+glimpse-sdk = "0.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -140,7 +141,7 @@ Minimal applet:
 ```rust
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, Button, Icon, RenderResult, StateStore, StatusItem, TreeNode, run,
+    Applet, AppletResult, Button, CallbackEvent, Icon, StatusItem, TreeNode, run,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -148,38 +149,32 @@ struct CounterState {
     count: u32,
 }
 
-struct CounterApplet {
-    store: StateStore<CounterState>,
-}
+struct CounterApplet;
 
 #[async_trait]
 impl Applet for CounterApplet {
     type State = CounterState;
 
-    fn store(&self) -> &StateStore<Self::State> {
-        &self.store
-    }
-
-    fn store_mut(&mut self) -> &mut StateStore<Self::State> {
-        &mut self.store
-    }
-
-    async fn render(&self) -> AppletResult<RenderResult> {
-        Ok(RenderResult {
-            status: vec![StatusItem::new("counter")
+    async fn status(&self, state: &Self::State) -> AppletResult<Vec<StatusItem>> {
+        Ok(vec![
+            StatusItem::new("counter")
                 .icon(Icon::name("view-refresh-symbolic"))
-                .label(self.state().count.to_string())],
-            tree: Some(TreeNode::from(Button::new("increment").label("Increment"))),
-        })
+                .label(state.count.to_string()),
+        ])
+    }
+
+    async fn popover(&self, _state: &Self::State) -> AppletResult<Option<TreeNode>> {
+        Ok(Some(Button::new("increment").label("Increment").into()))
     }
 
     async fn on_callback(
         &mut self,
-        event: glimpse_sdk::CallbackEvent,
+        state: &mut Self::State,
+        event: CallbackEvent,
     ) -> AppletResult<()> {
-        if let glimpse_sdk::CallbackEvent::Click(click) = event {
+        if let CallbackEvent::Click(click) = event {
             if click.id == "increment" {
-                self.set_state(|state| state.count += 1);
+                state.count += 1;
             }
         }
         Ok(())
@@ -188,10 +183,7 @@ impl Applet for CounterApplet {
 
 #[tokio::main]
 async fn main() -> AppletResult<()> {
-    run(CounterApplet {
-        store: StateStore::new(CounterState::default()),
-    })
-    .await
+    run(CounterApplet, CounterState::default()).await
 }
 ```
 
@@ -239,19 +231,20 @@ func (a *counterApplet) OnCallback(_ context.Context, event sdk.CallbackEvent) e
 	return nil
 }
 
-func (a *counterApplet) Render(context.Context) (sdk.RenderResult, error) {
-	return sdk.RenderResult{
-		Status: []sdk.StatusItem{
-			{
-				ID:    "counter",
-				Icon:  sdk.IconName("view-refresh-symbolic"),
-				Label: fmt.Sprintf("%d", a.State().Count),
-			},
+func (a *counterApplet) Status(_ context.Context, state *counterState) ([]sdk.StatusItem, error) {
+	return []sdk.StatusItem{
+		{
+			ID:    "counter",
+			Icon:  sdk.IconName("view-refresh-symbolic"),
+			Label: fmt.Sprintf("%d", state.Count),
 		},
-		Tree: sdk.Button{
-			CommonProps: sdk.CommonProps{ID: "increment"},
-			Label:       "Increment",
-		},
+	}, nil
+}
+
+func (a *counterApplet) Popover(_ context.Context, _ *counterState) (sdk.Widget, error) {
+	return sdk.Button{
+		CommonProps: sdk.CommonProps{ID: "increment"},
+		Label:       "Increment",
 	}, nil
 }
 

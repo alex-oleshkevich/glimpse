@@ -10,18 +10,14 @@ import (
 	"sync"
 )
 
-type RenderResult struct {
-	Status []StatusItem
-	Tree   Widget
-}
-
 type Applet[S any] interface {
 	State() *S
 	SetState(func(*S))
 	OnStart(context.Context) error
 	OnInit(context.Context, InitEvent) error
 	OnCallback(context.Context, CallbackEvent) error
-	Render(context.Context) (RenderResult, error)
+	Status(context.Context, *S) ([]StatusItem, error)
+	Popover(context.Context, *S) (Widget, error)
 }
 
 type BaseApplet[S any] struct {
@@ -211,22 +207,29 @@ func (r *Runtime[S]) scanInput(
 }
 
 func (r *Runtime[S]) flush(ctx context.Context) error {
-	_ = ctx
-	rendered, err := r.applet.Render(context.Background())
+	state := r.applet.State()
+
+	statusItems, err := r.applet.Status(ctx, state)
 	if err != nil {
 		return err
 	}
-	if !statusEqual(r.lastStatus, rendered.Status) {
-		if err := r.writeMessage("status", map[string]any{"items": rendered.Status}); err != nil {
+	if !statusEqual(r.lastStatus, statusItems) {
+		if err := r.writeMessage("status", map[string]any{"items": statusItems}); err != nil {
 			return err
 		}
-		r.lastStatus = append([]StatusItem(nil), rendered.Status...)
+		r.lastStatus = append([]StatusItem(nil), statusItems...)
 	}
-	tree := &treePayload{Root: rendered.Tree}
-	if !r.popoverOpen && r.lastTree != nil && tree.Root != nil {
-		return nil
+
+	widget, err := r.applet.Popover(ctx, state)
+	if err != nil {
+		return err
 	}
-	if !treePayloadEqual(r.lastTree, tree) {
+	tree := &treePayload{Root: widget}
+	// Emit only when the popover is open (user sees it), or this is the
+	// first render (daemon needs the initial tree), or we're clearing an
+	// existing tree (must reach the daemon even if closed).
+	shouldEmit := r.popoverOpen || r.lastTree == nil || widget == nil
+	if shouldEmit && !treePayloadEqual(r.lastTree, tree) {
 		if err := r.writeMessage("popover", tree); err != nil {
 			return err
 		}

@@ -257,3 +257,13 @@ release-sdks:
     echo "  py -> https://pypi.org/project/glimpse-applet-sdk/$version/"
     echo "  ts -> https://www.npmjs.com/package/glimpse-sdk/v/$version"
     echo "  go -> https://github.com/alex-oleshkevich/glimpse/releases/tag/sdk-go/v$version"
+
+# Run the end-to-end protocol contract test against every SDK's
+# counter example: build, spawn, drive through init + clicks + close,
+# assert the status/popover messages match the counter contract.
+e2e-sdks:
+    python3 scripts/sdk-e2e.py
+
+# Run the e2e test against a single SDK (rs|py|ts|go).
+e2e-sdk LANG:
+    python3 scripts/sdk-e2e.py -k {{ LANG }}

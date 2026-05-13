@@ -18,16 +18,6 @@ class AppletState:
     pass
 
 
-@dataclass(slots=True)
-class RenderResult:
-    status: list[StatusItem] | None = None
-    tree: TreeNode | None = None
-
-    def __post_init__(self) -> None:
-        if self.status is None:
-            self.status = []
-
-
 class Applet(Generic[StateT]):
     def __init__(self) -> None:
         self.state: StateT = self.initial_state()
@@ -52,8 +42,11 @@ class Applet(Generic[StateT]):
     async def on_callback(self, _event: CallbackEvent) -> None:
         return None
 
-    async def render(self) -> RenderResult:
-        return RenderResult()
+    async def status(self, state: StateT) -> list[StatusItem]:
+        return []
+
+    async def popover(self, state: StateT) -> TreeNode | None:
+        return None
 
     async def set_state(self, **kwargs: Any) -> None:
         for key, value in kwargs.items():
@@ -76,16 +69,20 @@ class Applet(Generic[StateT]):
         await asyncio.sleep(0)
         while self._render_requested:
             self._render_requested = False
-            rendered = await self.render()
-            status = [item.to_protocol() for item in rendered.status]
-            content = None if rendered.tree is None else rendered.tree.to_protocol()
-            tree = {"root": content}
-
+            status_items = await self.status(self.state)
+            status = [item.to_protocol() for item in status_items]
             if status != self._last_status:
                 self._last_status = status
                 await self._outgoing.put(("status", {"items": status}))
-            publish_popover = self._popover_open or self._last_tree is None or content is None
-            if publish_popover and tree != self._last_tree:
+
+            widget = await self.popover(self.state)
+            content = None if widget is None else widget.to_protocol()
+            tree = {"root": content}
+            # Emit only when popover open, or first render, or clearing.
+            should_emit = (
+                self._popover_open or self._last_tree is None or content is None
+            )
+            if should_emit and tree != self._last_tree:
                 self._last_tree = tree
                 await self._outgoing.put(("popover", tree))
 

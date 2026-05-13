@@ -7,7 +7,7 @@ Small async framework for building Glimpse `exec` applets without touching stdio
 ```toml
 [dependencies]
 async-trait = "0.1"
-glimpse-sdk = "0.1"
+glimpse-sdk = "0.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -16,17 +16,16 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 - typed protocol models
 - typed widget builders
 - async runtime
-- trait-based applet API
-- state-driven rendering via `set_state(...)`
-- single `render()` method returning all panel state
+- trait-based applet API: `status(&state)`, `popover(&state)`, and event handlers receive `&mut state`
+- state owned by the runtime; mutate it directly in handlers
 
 ## Example
 
 ```rust
 use async_trait::async_trait;
 use glimpse_sdk::{
-    run, tree, Applet, AppletResult, BoxNode, Button, Hero, Icon, Label, RenderResult, StateStore,
-    StatusItem, TreeNode,
+    Applet, AppletResult, BoxNode, Button, CallbackEvent, Hero, Icon, Label, StatusItem, TreeNode,
+    run, tree,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -34,33 +33,47 @@ struct CounterState {
     count: u32,
 }
 
-struct CounterApplet {
-    store: StateStore<CounterState>,
-}
+struct CounterApplet;
 
 #[async_trait]
 impl Applet for CounterApplet {
     type State = CounterState;
 
-    fn store(&self) -> &StateStore<Self::State> {
-        &self.store
-    }
-
-    fn store_mut(&mut self) -> &mut StateStore<Self::State> {
-        &mut self.store
-    }
-
-    async fn render(&self) -> AppletResult<RenderResult> {
-        Ok(RenderResult {
-            status: vec![StatusItem::new("counter")
+    async fn status(&self, state: &Self::State) -> AppletResult<Vec<StatusItem>> {
+        Ok(vec![
+            StatusItem::new("counter")
                 .icon(Icon::name("view-refresh-symbolic"))
-                .label(self.state().count.to_string())],
-            tree: Some(BoxNode::vertical(tree![
-                Hero::new("Counter", format!("Value: {}", self.state().count)),
-                Label::new(format!("Count = {}", self.state().count)),
-                Button::new("increment").label("Increment"),
-            ]).into()),
-        })
+                .label(state.count.to_string()),
+        ])
     }
+
+    async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode>> {
+        Ok(Some(
+            BoxNode::vertical(tree![
+                Hero::new("Counter", format!("Value: {}", state.count)),
+                Label::new(format!("Count = {}", state.count)),
+                Button::new("increment").label("Increment"),
+            ])
+            .into(),
+        ))
+    }
+
+    async fn on_callback(
+        &mut self,
+        state: &mut Self::State,
+        event: CallbackEvent,
+    ) -> AppletResult<()> {
+        if let CallbackEvent::Click(click) = event {
+            if click.id == "increment" {
+                state.count += 1;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[tokio::main]
+async fn main() -> AppletResult<()> {
+    run(CounterApplet, CounterState::default()).await
 }
 ```

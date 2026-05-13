@@ -1,4 +1,4 @@
-from .app import Applet, AppletState, RenderResult
+from .app import Applet, AppletState
 from .decorators import change, click, event, input, scroll, toggle
 from .events import (
     CallbackEvent,
@@ -94,7 +94,6 @@ __all__ = [
     "Orientation",
     "PopoverEvent",
     "Progress",
-    "RenderResult",
     "Row",
     "Scale",
     "Scroll",

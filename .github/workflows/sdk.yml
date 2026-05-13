@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'sdk/**'
+      - 'scripts/sdk-e2e.py'
       - '.github/workflows/sdk.yml'
   push:
     branches:
@@ -11,6 +12,7 @@ on:
       - main
     paths:
       - 'sdk/**'
+      - 'scripts/sdk-e2e.py'
       - '.github/workflows/sdk.yml'
 
 permissions:
@@ -88,3 +90,31 @@ jobs:
       - run: go build ./...
       - run: go vet ./...
       - run: go test ./...
+
+  e2e:
+    name: SDK E2E protocol contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/git
+            ~/.cargo/registry
+            sdk/sdk-rs/target
+          key: ${{ runner.os }}-sdk-e2e-rs-${{ hashFiles('sdk/sdk-rs/Cargo.toml') }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: sdk/sdk-ts/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+      - name: Run protocol contract test against all SDKs
+        run: python3 scripts/sdk-e2e.py

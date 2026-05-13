@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "glimpse-applets-bin",
     "glimpse-core",
     "glimpse-idle",
     "glimpse-lock",

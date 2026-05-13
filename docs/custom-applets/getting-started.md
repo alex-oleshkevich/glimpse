@@ -69,8 +69,8 @@ Replace `src/main.rs` with:
 ```rust
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, Button, CallbackEvent, Column, Hero, Icon, Item, RenderResult, Section,
-    StateStore, StatusItem, TreeNode, run, tree,
+    Applet, AppletResult, Button, CallbackEvent, Column, Hero, Icon, Item, Section, StatusItem,
+    TreeNode, run, tree,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -78,49 +78,46 @@ struct CounterState {
     count: u32,
 }
 
-struct CounterApplet {
-    store: StateStore<CounterState>,
-}
+struct CounterApplet;
 
 #[async_trait]
 impl Applet for CounterApplet {
     type State = CounterState;
 
-    fn store(&self) -> &StateStore<Self::State> {
-        &self.store
-    }
-
-    fn store_mut(&mut self) -> &mut StateStore<Self::State> {
-        &mut self.store
-    }
-
-    async fn render(&self) -> AppletResult<RenderResult> {
-        let count = self.state().count;
-        Ok(RenderResult {
-            status: vec![StatusItem::new("counter")
+    async fn status(&self, state: &Self::State) -> AppletResult<Vec<StatusItem>> {
+        Ok(vec![
+            StatusItem::new("counter")
                 .icon(Icon::name("view-refresh-symbolic"))
-                .label(count.to_string())],
-            tree: Some(
-                Column::new(tree![
-                    Hero::new("Counter", format!("Value: {count}")),
-                    Section::new(
-                        "Controls",
-                        tree![
-                            Item::new(format!("Current: {count}")),
-                            Button::new("increment").label("Increment"),
-                        ],
-                    ),
-                ])
-                .spacing(8)
-                .into(),
-            ),
-        })
+                .label(state.count.to_string()),
+        ])
     }
 
-    async fn on_callback(&mut self, event: CallbackEvent) -> AppletResult<()> {
+    async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode>> {
+        let count = state.count;
+        Ok(Some(
+            Column::new(tree![
+                Hero::new("Counter", format!("Value: {count}")),
+                Section::new(
+                    "Controls",
+                    tree![
+                        Item::new(format!("Current: {count}")),
+                        Button::new("increment").label("Increment"),
+                    ],
+                ),
+            ])
+            .spacing(8)
+            .into(),
+        ))
+    }
+
+    async fn on_callback(
+        &mut self,
+        state: &mut Self::State,
+        event: CallbackEvent,
+    ) -> AppletResult<()> {
         if let CallbackEvent::Click(click) = event {
             if click.id == "increment" {
-                self.set_state(|s| s.count += 1);
+                state.count += 1;
             }
         }
         Ok(())
@@ -129,10 +126,7 @@ impl Applet for CounterApplet {
 
 #[tokio::main]
 async fn main() -> AppletResult<()> {
-    run(CounterApplet {
-        store: StateStore::new(CounterState::default()),
-    })
-    .await
+    run(CounterApplet, CounterState::default()).await
 }
 ```
 
@@ -175,7 +169,6 @@ from glimpse_sdk import (
     Hero,
     Icon,
     Item,
-    RenderResult,
     Section,
     StatusItem,
     click,
@@ -192,29 +185,28 @@ class CounterApplet(Applet[CounterState]):
     def initial_state(self) -> CounterState:
         return CounterState()
 
-    async def render(self) -> RenderResult:
-        count = self.state.count
-        return RenderResult(
-            status=[
-                StatusItem(
-                    id="counter",
-                    icon=Icon.name("view-refresh-symbolic"),
-                    label=str(count),
-                )
+    async def status(self, state: CounterState):
+        return [
+            StatusItem(
+                id="counter",
+                icon=Icon.name("view-refresh-symbolic"),
+                label=str(state.count),
+            )
+        ]
+
+    async def popover(self, state: CounterState):
+        return Column(
+            spacing=8,
+            children=[
+                Hero(title="Counter", subtitle=f"Value: {state.count}"),
+                Section(
+                    header=Header(title="Controls"),
+                    body=[
+                        Item(label=f"Current: {state.count}"),
+                        Button(id="increment", label="Increment"),
+                    ],
+                ),
             ],
-            tree=Column(
-                spacing=8,
-                children=[
-                    Hero(title="Counter", subtitle=f"Value: {count}"),
-                    Section(
-                        header=Header(title="Controls"),
-                        body=[
-                            Item(label=f"Current: {count}"),
-                            Button(id="increment", label="Increment"),
-                        ],
-                    ),
-                ],
-            ),
         )
 
     @click("increment")
@@ -278,9 +270,9 @@ import {
   Hero,
   Icon,
   Item,
-  RenderResult,
   Section,
   StatusItem,
+  type TreeNode,
 } from "glimpse-sdk";
 
 interface CounterState {
@@ -299,29 +291,29 @@ class CounterApplet extends Applet<CounterState> {
     });
   }
 
-  protected async render(): Promise<RenderResult> {
-    const count = this.state.count;
-    return new RenderResult({
-      status: [
-        new StatusItem({
-          id: "counter",
-          icon: Icon.name("view-refresh-symbolic"),
-          label: String(count),
+  protected async status(state: CounterState): Promise<StatusItem[]> {
+    return [
+      new StatusItem({
+        id: "counter",
+        icon: Icon.name("view-refresh-symbolic"),
+        label: String(state.count),
+      }),
+    ];
+  }
+
+  protected async popover(state: CounterState): Promise<TreeNode | null> {
+    return new Column({
+      spacing: 8,
+      children: [
+        new Hero({ title: "Counter", subtitle: `Value: ${state.count}` }),
+        new Section({
+          title: "Controls",
+          body: [
+            new Item({ label: `Current: ${state.count}` }),
+            new Button({ id: "increment", label: "Increment" }),
+          ],
         }),
       ],
-      tree: new Column({
-        spacing: 8,
-        children: [
-          new Hero({ title: "Counter", subtitle: `Value: ${count}` }),
-          new Section({
-            title: "Controls",
-            body: [
-              new Item({ label: `Current: ${count}` }),
-              new Button({ id: "increment", label: "Increment" }),
-            ],
-          }),
-        ],
-      }),
     });
   }
 }
@@ -384,28 +376,28 @@ func (a *counterApplet) OnCallback(_ context.Context, event sdk.CallbackEvent) e
     return nil
 }
 
-func (a *counterApplet) Render(context.Context) (sdk.RenderResult, error) {
-    count := a.State().Count
-    return sdk.RenderResult{
-        Status: []sdk.StatusItem{
-            {
-                ID:    "counter",
-                Icon:  sdk.IconName("view-refresh-symbolic"),
-                Label: fmt.Sprintf("%d", count),
-            },
+func (a *counterApplet) Status(_ context.Context, state *counterState) ([]sdk.StatusItem, error) {
+    return []sdk.StatusItem{
+        {
+            ID:    "counter",
+            Icon:  sdk.IconName("view-refresh-symbolic"),
+            Label: fmt.Sprintf("%d", state.Count),
         },
-        Tree: sdk.Column{
-            Spacing: 8,
-            Children: []sdk.Widget{
-                sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", count)},
-                sdk.Section{
-                    Header: &sdk.Header{Title: "Controls"},
-                    Body: []sdk.Widget{
-                        sdk.Item{Label: fmt.Sprintf("Current: %d", count)},
-                        sdk.Button{
-                            CommonProps: sdk.CommonProps{ID: "increment"},
-                            Label:       "Increment",
-                        },
+    }, nil
+}
+
+func (a *counterApplet) Popover(_ context.Context, state *counterState) (sdk.Widget, error) {
+    return sdk.Column{
+        Spacing: 8,
+        Children: []sdk.Widget{
+            sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
+            sdk.Section{
+                Header: &sdk.Header{Title: "Controls"},
+                Body: []sdk.Widget{
+                    sdk.Item{Label: fmt.Sprintf("Current: %d", state.Count)},
+                    sdk.Button{
+                        CommonProps: sdk.CommonProps{ID: "increment"},
+                        Label:       "Increment",
                     },
                 },
             },

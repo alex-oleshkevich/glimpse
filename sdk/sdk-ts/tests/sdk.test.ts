@@ -16,7 +16,6 @@ import {
   Item,
   type InitEvent,
   Label,
-  RenderResult,
   Row,
   Spinner,
   StatusDot,
@@ -42,21 +41,22 @@ class DemoApplet extends Applet<DemoState> {
     });
   }
 
-  protected async render(): Promise<RenderResult> {
-    return new RenderResult({
-      status: [
-        new StatusItem({
-          id: "demo",
-          icon: Icon.name("demo-symbolic"),
-          label: this.state.version,
-        }),
-      ],
-      tree: Box.vertical([
-        new Hero({ title: "Demo", subtitle: this.state.version }),
-        new Label(this.state.version),
-        new Button({ id: "submit", label: "Submit" }),
-      ]),
-    });
+  protected async status(state: DemoState) {
+    return [
+      new StatusItem({
+        id: "demo",
+        icon: Icon.name("demo-symbolic"),
+        label: state.version,
+      }),
+    ];
+  }
+
+  protected async popover(state: DemoState) {
+    return Box.vertical([
+      new Hero({ title: "Demo", subtitle: state.version }),
+      new Label(state.version),
+      new Button({ id: "submit", label: "Submit" }),
+    ]);
   }
 
   protected async onInit(event: InitEvent): Promise<void> {
@@ -208,8 +208,3 @@ test("variant serializes as semantic protocol value", () => {
   assert.equal((payload.data as any).variant, "warning");
 });
 
-test("RenderResult defaults to empty status and null tree", () => {
-  const result = new RenderResult();
-  assert.deepEqual(result.status, []);
-  assert.equal(result.tree, null);
-});

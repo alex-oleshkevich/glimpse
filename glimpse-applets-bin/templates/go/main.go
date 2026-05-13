@@ -26,30 +26,29 @@ func (a *counterApplet) OnInit(context.Context, sdk.InitEvent) error { return ni
 
 func (a *counterApplet) OnCallback(_ context.Context, event sdk.CallbackEvent) error {
 	if click, ok := event.(sdk.ClickEvent); ok && click.ID == "increment" {
-		a.SetState(func(state *counterState) {
-			state.Count++
-		})
+		a.SetState(func(s *counterState) { s.Count++ })
 	}
 	return nil
 }
 
-func (a *counterApplet) Status(_ context.Context, state *counterState) ([]sdk.StatusItem, error) {
-	return []sdk.StatusItem{
-		{
-			ID:    "counter",
-			Icon:  sdk.IconName("view-refresh-symbolic"),
-			Label: fmt.Sprintf("%d", state.Count),
+func (a *counterApplet) Render(_ context.Context, state *counterState) (sdk.RenderResult, error) {
+	return sdk.RenderResult{
+		Status: []sdk.StatusItem{
+			{
+				ID:    "counter",
+				Icon:  sdk.IconName("view-refresh-symbolic"),
+				Label: fmt.Sprintf("%d", state.Count),
+			},
 		},
-	}, nil
-}
-
-func (a *counterApplet) Popover(_ context.Context, state *counterState) (sdk.Widget, error) {
-	return sdk.Column{
-		Spacing: 8,
-		Children: []sdk.Widget{
-			sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
-			sdk.Label{Text: fmt.Sprintf("Count = %d", state.Count)},
-			sdk.Button{CommonProps: sdk.CommonProps{ID: "increment"}, Label: "Increment"},
+		Tree: sdk.Column{
+			Spacing: 8,
+			Children: []sdk.Widget{
+				sdk.Hero{Title: "__NAME__", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
+				sdk.Button{
+					CommonProps: sdk.CommonProps{ID: "increment"},
+					Label:       "Increment",
+				},
+			},
 		},
 	}, nil
 }

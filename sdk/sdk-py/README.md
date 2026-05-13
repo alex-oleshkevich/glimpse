@@ -19,8 +19,8 @@ The distribution is named `glimpse-applet-sdk` on PyPI; the import name is `glim
 - typed protocol models
 - typed widget builders
 - async runtime
-- decorator-based callbacks
-- state-driven rendering via `await self.set_state(...)`
+- decorator-based callbacks (`@click`, `@scroll`, `@input`, `@change`, `@toggle`)
+- separate `status(state)` and `popover(state)` methods; state mutation via `await self.set_state(...)`
 
 ## Example
 
@@ -35,7 +35,6 @@ from glimpse_sdk import (
     Hero,
     Icon,
     Label,
-    RenderResult,
     StatusItem,
     click,
 )
@@ -51,26 +50,26 @@ class DeployApplet(Applet[DeployState]):
     def initial_state(self) -> DeployState:
         return DeployState()
 
-    async def render(self) -> RenderResult:
-        return RenderResult(
-            status=[
-                StatusItem(
-                    id="deploy",
+    async def status(self, state: DeployState):
+        return [
+            StatusItem(
+                id="deploy",
+                icon=Icon.name("software-update-available-symbolic"),
+                label=state.status,
+            )
+        ]
+
+    async def popover(self, state: DeployState):
+        return Box.vertical(
+            [
+                Hero(
                     icon=Icon.name("software-update-available-symbolic"),
-                    label=self.state.status,
-                )
-            ],
-            tree=Box.vertical(
-                [
-                    Hero(
-                        icon=Icon.name("software-update-available-symbolic"),
-                        title="Deploy",
-                        subtitle=self.state.version,
-                    ),
-                    Label("Version"),
-                    Button(id="deploy_now", label="Deploy now"),
-                ]
-            ),
+                    title="Deploy",
+                    subtitle=state.version,
+                ),
+                Label("Version"),
+                Button(id="deploy_now", label="Deploy now"),
+            ]
         )
 
     @click("deploy_now")

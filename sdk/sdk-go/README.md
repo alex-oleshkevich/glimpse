@@ -16,15 +16,11 @@ The package import path is `github.com/alex-oleshkevich/glimpse/sdk/sdk-go/sdk`.
 
 - typed protocol models
 - typed widget builders
-- generic stateful applet API
-- state-driven rendering via `SetState(...)`
-- single `Render()` method returning all panel state
+- generic stateful applet API: `Status(ctx, *state)`, `Popover(ctx, *state)`, plus event handlers
+- state-driven rendering via `SetState(func(*State))`
+- struct-literal widget composition (Flutter-style)
 
 ## Example
-
-Widget trees are plain struct literals — a Flutter-style composition.
-Every widget implements the `sdk.Widget` interface, so containers
-can hold heterogeneous children via `[]sdk.Widget`.
 
 ```go
 type CounterState struct {
@@ -35,25 +31,25 @@ type CounterApplet struct {
     sdk.BaseApplet[CounterState]
 }
 
-func (a *CounterApplet) Render(context.Context) (sdk.RenderResult, error) {
-    count := a.State().Count
-    return sdk.RenderResult{
-        Status: []sdk.StatusItem{
-            {
-                ID:    "counter",
-                Icon:  sdk.IconName("view-refresh-symbolic"),
-                Label: fmt.Sprintf("%d", count),
-            },
+func (a *CounterApplet) Status(_ context.Context, state *CounterState) ([]sdk.StatusItem, error) {
+    return []sdk.StatusItem{
+        {
+            ID:    "counter",
+            Icon:  sdk.IconName("view-refresh-symbolic"),
+            Label: fmt.Sprintf("%d", state.Count),
         },
-        Tree: sdk.Column{
-            Spacing: 8,
-            Children: []sdk.Widget{
-                sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", count)},
-                sdk.Label{Text: fmt.Sprintf("Count = %d", count)},
-                sdk.Button{
-                    CommonProps: sdk.CommonProps{ID: "increment"},
-                    Label:       "Increment",
-                },
+    }, nil
+}
+
+func (a *CounterApplet) Popover(_ context.Context, state *CounterState) (sdk.Widget, error) {
+    return sdk.Column{
+        Spacing: 8,
+        Children: []sdk.Widget{
+            sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
+            sdk.Label{Text: fmt.Sprintf("Count = %d", state.Count)},
+            sdk.Button{
+                CommonProps: sdk.CommonProps{ID: "increment"},
+                Label:       "Increment",
             },
         },
     }, nil

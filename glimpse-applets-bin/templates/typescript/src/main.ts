@@ -1,13 +1,12 @@
 import {
   Applet,
-  Box,
   Button,
+  Column,
   Hero,
   Icon,
-  Label,
   StatusItem,
   type TreeNode,
-} from "../src/index.js";
+} from "glimpse-sdk";
 
 interface CounterState {
   count: number;
@@ -36,19 +35,14 @@ class CounterApplet extends Applet<CounterState> {
   }
 
   protected async popover(state: CounterState): Promise<TreeNode | null> {
-    return Box.vertical(
-      [
-        new Hero({
-          icon: Icon.name("view-refresh-symbolic"),
-          title: "Counter",
-          subtitle: `Value: ${state.count}`,
-        }),
-        new Label(`Count = ${state.count}`),
+    return new Column({
+      spacing: 8,
+      children: [
+        new Hero({ title: "__NAME__", subtitle: `Value: ${state.count}` }),
         new Button({ id: "increment", label: "Increment" }),
       ],
-      8,
-    );
+    });
   }
 }
 
-void new CounterApplet().run();
+await new CounterApplet().run();

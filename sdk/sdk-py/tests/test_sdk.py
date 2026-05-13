@@ -22,7 +22,6 @@ from glimpse_sdk import (
     Item,
     Label,
     PopoverEvent,
-    RenderResult,
     Row,
     Spinner,
     StatusDot,
@@ -44,13 +43,11 @@ class DemoApplet(Applet[DemoState]):
     def initial_state(self) -> DemoState:
         return DemoState()
 
-    async def render(self) -> RenderResult:
-        return RenderResult(
-            status=[
-                StatusItem(id="demo", icon=Icon.name("demo-symbolic"), label=self.state.version)
-            ],
-            tree=Box.vertical([Label(text=self.state.version), Button(id="submit", label="Submit")]),
-        )
+    async def status(self, state: DemoState):
+        return [StatusItem(id="demo", icon=Icon.name("demo-symbolic"), label=state.version)]
+
+    async def popover(self, state: DemoState):
+        return Box.vertical([Label(text=state.version), Button(id="submit", label="Submit")])
 
     @click("submit")
     async def handle_submit(self, _event) -> None:
@@ -78,11 +75,6 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status[1]["items"][0]["label"], "v2")
         self.assertEqual(tree[0], "popover")
         self.assertIn("root", tree[1])
-
-    async def test_render_result_defaults_allow_partial_updates(self) -> None:
-        result = RenderResult()
-        self.assertEqual(result.status, [])
-        self.assertIsNone(result.tree)
 
     def test_parse_callback_event_returns_typed_variant(self) -> None:
         event = parse_callback_event({"id": "submit", "type": "click", "button": "left"})

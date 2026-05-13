@@ -16,8 +16,7 @@ npm install glimpse-sdk
 - typed widget builders
 - async runtime
 - explicit typed handler registration
-- state-driven rendering via `await this.setState(...)`
-- single `render()` method that returns all panel state
+- separate `status(state)` and `popover(state)` methods; state mutation via `await this.setState(...)`
 
 ## Example
 
@@ -29,9 +28,9 @@ import {
   Hero,
   Icon,
   Label,
-  RenderResult,
   StatusItem,
-} from "./src/index.js";
+  type TreeNode,
+} from "glimpse-sdk";
 
 interface DeployState {
   version: string;
@@ -50,25 +49,26 @@ class DeployApplet extends Applet<DeployState> {
     });
   }
 
-  protected async render(): Promise<RenderResult> {
-    return new RenderResult({
-      status: [
-        new StatusItem({
-          id: "deploy",
-          icon: Icon.name("software-update-available-symbolic"),
-          label: this.state.status,
-        }),
-      ],
-      hero: new Hero({
+  protected async status(state: DeployState): Promise<StatusItem[]> {
+    return [
+      new StatusItem({
+        id: "deploy",
+        icon: Icon.name("software-update-available-symbolic"),
+        label: state.status,
+      }),
+    ];
+  }
+
+  protected async popover(state: DeployState): Promise<TreeNode | null> {
+    return Box.vertical([
+      new Hero({
         icon: Icon.name("software-update-available-symbolic"),
         title: "Deploy",
-        subtitle: this.state.version,
+        subtitle: state.version,
       }),
-      tree: Box.vertical([
-        new Label("Version"),
-        new Button({ id: "deploy_now", label: "Deploy now" }),
-      ]),
-    });
+      new Label("Version"),
+      new Button({ id: "deploy_now", label: "Deploy now" }),
+    ]);
   }
 }
 
@@ -85,4 +85,5 @@ Use explicit registration helpers instead of decorators:
 - `this.onChange(id, handler)`
 - `this.onToggle(id, handler)`
 
-The SDK owns the line transport and writes `status {json}` and `popover {json}` messages derived from `render()`.
+The SDK owns the line transport. `status(state)` produces the panel items;
+`popover(state)` produces the popover tree; both are pure functions of state.
