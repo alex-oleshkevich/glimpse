@@ -30,8 +30,8 @@ Most popover components accept these fields:
 
 | Component | Default fields | Use it for |
 |---|---|---|
-| `section` | `title = unset`, `subtitle = ""`, `header = unset`, `body = []`, `children = []` | A titled group. |
-| `collapsible` | `title = unset`, `subtitle = ""`, `expanded = false`, `body = []`, `children = []` | Expandable group. |
+| `section` | `header = {title, subtitle?}` (required), `body = []` | A titled group. |
+| `collapsible` | `header = {title, subtitle?}` (required), `expanded = false`, `body = []` | Expandable group. |
 | `card` | `children = []` | A framed group. |
 | `row` | `spacing = 0`, `children = []` | Horizontal layout. |
 | `column` | `spacing = 0`, `children = []` | Vertical layout. |
@@ -51,8 +51,8 @@ Grid children use:
 | Component | Default fields | Use it for |
 |---|---|---|
 | `hero` | `subtitle = ""`, `icon = unset`; requires `title` | Big header for a popover. |
-| `item` | `left = unset`, `label = ""`, `right = unset`, `clickable = false` | Standard list row. |
-| `collapsible_item` | `left = unset`, `label = ""`, `right = unset`, `expanded = false`, `body = []`, `children = []` | Expandable list row. |
+| `item` | `left = unset`, `label = ""`, `right = unset`, `clickable = false`, `menu = []` | Standard list row. |
+| `collapsible_item` | `left = unset`, `label = ""`, `right = unset`, `expanded = false`, `body = []` | Expandable list row. |
 | `action_row` | `subtitle = ""`, `meta = ""`, `icon = unset`; requires `title` | Clickable-looking row with summary text. |
 | `action_menu` | `header = unset`, `items = []` | Menu of script-defined actions. |
 | `detail_grid` | `rows = []` | Key/value facts. |

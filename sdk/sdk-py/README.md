@@ -2,6 +2,18 @@
 
 Small async framework for building Glimpse `exec` applets without touching stdio or raw JSON.
 
+Requires Python 3.14+.
+
+## Install
+
+```sh
+pip install glimpse-applet-sdk
+# or with uv:
+uv add glimpse-applet-sdk
+```
+
+The distribution is named `glimpse-applet-sdk` on PyPI; the import name is `glimpse_sdk`.
+
 ## Goals
 
 - typed protocol models
@@ -13,7 +25,7 @@ Small async framework for building Glimpse `exec` applets without touching stdio
 ## Example
 
 ```python
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from glimpse_sdk import (
     Applet,
@@ -22,12 +34,10 @@ from glimpse_sdk import (
     Button,
     Hero,
     Icon,
-    InputEvent,
     Label,
     RenderResult,
     StatusItem,
     click,
-    input,
 )
 
 
@@ -50,13 +60,13 @@ class DeployApplet(Applet[DeployState]):
                     label=self.state.status,
                 )
             ],
-            hero=Hero(
-                icon=Icon.name("software-update-available-symbolic"),
-                title="Deploy",
-                subtitle=self.state.version,
-            ),
             tree=Box.vertical(
                 [
+                    Hero(
+                        icon=Icon.name("software-update-available-symbolic"),
+                        title="Deploy",
+                        subtitle=self.state.version,
+                    ),
                     Label("Version"),
                     Button(id="deploy_now", label="Deploy now"),
                 ]

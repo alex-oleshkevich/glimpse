@@ -4,6 +4,8 @@ Custom applets let you add your own buttons, menus, and live status items to the
 
 Use them when the built-in applets are not enough, or when you want your desktop to show exactly the things you care about.
 
+**New here?** Walk through [Getting Started](./getting-started.md) to build your first applet in Rust, Python, TypeScript, or Go.
+
 ## Two Types
 
 | Type | Use it for |

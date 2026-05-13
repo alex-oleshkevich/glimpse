@@ -2,6 +2,14 @@
 
 Small async framework for building Glimpse `exec` applets without touching stdio or raw JSON.
 
+Requires Node.js 20+.
+
+## Install
+
+```sh
+npm install glimpse-sdk
+```
+
 ## Goals
 
 - typed protocol models

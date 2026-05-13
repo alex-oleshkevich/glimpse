@@ -30,11 +30,15 @@ The SDK receives `options` during initialization and handles the line transport 
 
 ## Python
 
-Install from the repository checkout or your packaged copy:
+Requires Python 3.14+. Install from PyPI:
 
 ```sh
-python -m pip install /path/to/glimpse/sdk/sdk-py
+pip install glimpse-applet-sdk
+# or with uv:
+uv add glimpse-applet-sdk
 ```
+
+The distribution name is `glimpse-applet-sdk`; the import name is `glimpse_sdk`.
 
 Minimal applet:
 
@@ -76,16 +80,16 @@ if __name__ == "__main__":
 
 ## TypeScript
 
-Install from the repository checkout or your packaged copy:
+Requires Node.js 20+. Install from npmjs.org:
 
 ```sh
-npm install /path/to/glimpse/sdk/sdk-ts
+npm install glimpse-sdk
 ```
 
 Minimal applet:
 
 ```ts
-import { Applet, Button, Icon, RenderResult, StatusItem } from "@glimpse/custom-applet-sdk-ts";
+import { Applet, Button, Icon, RenderResult, StatusItem } from "glimpse-sdk";
 
 interface CounterState {
   count: number;
@@ -122,12 +126,12 @@ await new CounterApplet().run();
 
 ## Rust
 
-Add the SDK as a path dependency:
+Add the SDK from crates.io:
 
 ```toml
 [dependencies]
 async-trait = "0.1"
-glimpse-sdk = { path = "/path/to/glimpse/sdk/sdk-rs" }
+glimpse-sdk = "0.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 

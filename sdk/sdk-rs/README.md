@@ -2,6 +2,15 @@
 
 Small async framework for building Glimpse `exec` applets without touching stdio or raw JSON.
 
+## Install
+
+```toml
+[dependencies]
+async-trait = "0.1"
+glimpse-sdk = "0.1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
+
 ## Goals
 
 - typed protocol models
