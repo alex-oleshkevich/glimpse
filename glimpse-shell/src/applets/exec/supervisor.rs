@@ -46,11 +46,14 @@ pub async fn run(
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        if config.env_clear {
+        if !config.env_forward {
             command_builder.env_clear();
         }
         for (key, value) in &config.env {
             command_builder.env(key, value);
+        }
+        if let Some(dir) = &config.work_dir {
+            command_builder.current_dir(dir);
         }
         let mut child = match command_builder.spawn() {
             Ok(child) => child,
@@ -369,8 +372,9 @@ mod tests {
                 ],
                 restart_delay_ms: 60_000,
                 options: serde_json::json!({}),
-                env_clear: false,
+                env_forward: true,
                 env: std::collections::HashMap::new(),
+                work_dir: None,
             };
 
             let task = tokio::spawn(run("fast".into(), config, outbound_rx, control_rx, sender));
@@ -410,8 +414,9 @@ mod tests {
             ],
             restart_delay_ms: 60_000,
             options: serde_json::json!({}),
-            env_clear: false,
+            env_forward: true,
             env: std::collections::HashMap::new(),
+            work_dir: None,
         };
 
         let task = tokio::spawn(run("leaky".into(), config, outbound_rx, control_rx, sender));

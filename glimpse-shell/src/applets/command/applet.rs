@@ -1,6 +1,7 @@
 #![allow(unused_assignments)]
 
-use std::process::{Output, Stdio};
+use std::process::Stdio;
+use std::time::Duration;
 
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
@@ -11,7 +12,8 @@ use tokio::process::Command as TokioCommand;
 
 use crate::panels::applets::AppletConfig;
 
-const MAX_LOG_OUTPUT_BYTES: usize = 16 * 1024;
+const SCROLL_DEBOUNCE_MS: u64 = 100;
+
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
@@ -19,7 +21,19 @@ pub struct Config {
     pub icon: Option<String>,
     pub label: Option<String>,
     pub tooltip: Option<String>,
-    pub command: Vec<String>,
+    #[serde(alias = "left_click", alias = "command")]
+    pub on_click: Vec<String>,
+    #[serde(alias = "middle_click")]
+    pub on_middle_click: Vec<String>,
+    #[serde(alias = "scroll_up")]
+    pub on_scroll_up: Vec<String>,
+    #[serde(alias = "scroll_down")]
+    pub on_scroll_down: Vec<String>,
+    #[serde(alias = "h_scroll_left")]
+    pub on_scroll_left: Vec<String>,
+    #[serde(alias = "h_scroll_right")]
+    pub on_scroll_right: Vec<String>,
+    #[serde(alias = "right_click_menu")]
     pub menu: Vec<MenuItemConfig>,
 }
 
@@ -42,6 +56,7 @@ impl Config {
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
 pub struct MenuItemConfig {
+    #[serde(alias = "name")]
     pub label: String,
     pub command: Vec<String>,
 }
@@ -52,6 +67,8 @@ pub struct Applet {
     view: View,
     root: gtk::Box,
     context_menu: gtk::PopoverMenu,
+    scroll_v: Option<tokio::task::JoinHandle<()>>,
+    scroll_h: Option<tokio::task::JoinHandle<()>>,
 }
 
 #[derive(Debug)]
@@ -63,6 +80,11 @@ pub struct Init {
 #[derive(Debug)]
 pub enum Input {
     Activate,
+    MiddleClick,
+    ScrollUp,
+    ScrollDown,
+    HScrollLeft,
+    HScrollRight,
     MenuCommand(usize),
     ShowContextMenu,
     Reconfigure(Config),
@@ -106,10 +128,30 @@ impl SimpleComponent for Applet {
             },
 
             add_controller = gtk::GestureClick {
+                set_button: 2,
+                connect_pressed[sender] => move |gesture, _, _, _| {
+                    gesture.set_state(gtk::EventSequenceState::Claimed);
+                    sender.input(Input::MiddleClick);
+                },
+            },
+
+            add_controller = gtk::GestureClick {
                 set_button: 3,
                 connect_pressed[sender] => move |gesture, _, _, _| {
                     gesture.set_state(gtk::EventSequenceState::Claimed);
                     sender.input(Input::ShowContextMenu);
+                },
+            },
+
+            add_controller = gtk::EventControllerScroll {
+                set_flags: gtk::EventControllerScrollFlags::BOTH_AXES,
+                connect_scroll[sender] => move |_, dx, dy| {
+                    let mut consumed = false;
+                    if dy < 0.0 { sender.input(Input::ScrollUp); consumed = true; }
+                    else if dy > 0.0 { sender.input(Input::ScrollDown); consumed = true; }
+                    if dx < 0.0 { sender.input(Input::HScrollLeft); consumed = true; }
+                    else if dx > 0.0 { sender.input(Input::HScrollRight); consumed = true; }
+                    if consumed { gtk::glib::Propagation::Stop } else { gtk::glib::Propagation::Proceed }
                 },
             },
 
@@ -155,6 +197,8 @@ impl SimpleComponent for Applet {
             view,
             root: root.clone(),
             context_menu,
+            scroll_v: None,
+            scroll_h: None,
         };
         let widgets = view_output!();
 
@@ -163,7 +207,12 @@ impl SimpleComponent for Applet {
 
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
-            Input::Activate => self.spawn_command(&self.config.command),
+            Input::Activate => self.spawn_command(&self.config.on_click),
+            Input::MiddleClick => self.spawn_command(&self.config.on_middle_click),
+            Input::ScrollUp => self.debounce_scroll_v(&self.config.on_scroll_up.clone()),
+            Input::ScrollDown => self.debounce_scroll_v(&self.config.on_scroll_down.clone()),
+            Input::HScrollLeft => self.debounce_scroll_h(&self.config.on_scroll_left.clone()),
+            Input::HScrollRight => self.debounce_scroll_h(&self.config.on_scroll_right.clone()),
             Input::MenuCommand(index) => {
                 if let Some(item) = self.config.menu.get(index) {
                     self.spawn_command(&item.command);
@@ -179,6 +228,8 @@ impl SimpleComponent for Applet {
                 if self.config == config {
                     return;
                 }
+                self.scroll_v.take().map(|h| h.abort());
+                self.scroll_h.take().map(|h| h.abort());
                 self.context_menu.popdown();
                 self.context_menu.unparent();
                 self.context_menu = build_context_menu(&self.root, &config, &sender);
@@ -191,6 +242,8 @@ impl SimpleComponent for Applet {
 
 impl Drop for Applet {
     fn drop(&mut self) {
+        self.scroll_v.take().map(|h| h.abort());
+        self.scroll_h.take().map(|h| h.abort());
         self.context_menu.popdown();
         self.context_menu.unparent();
     }
@@ -199,6 +252,36 @@ impl Drop for Applet {
 impl Applet {
     pub fn can_launch(config: &Config) -> bool {
         view_from_config(config).visible
+    }
+
+    fn debounce_scroll_v(&mut self, command: &[String]) {
+        self.scroll_v.take().map(|h| h.abort());
+        if command.is_empty() {
+            return;
+        }
+        let name = self.name.clone();
+        let cmd = command.to_vec();
+        self.scroll_v = Some(relm4::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(SCROLL_DEBOUNCE_MS)).await;
+            if let Err(e) = run_command(&name, cmd).await {
+                tracing::warn!(%e, applet = %name, "scroll command failed");
+            }
+        }));
+    }
+
+    fn debounce_scroll_h(&mut self, command: &[String]) {
+        self.scroll_h.take().map(|h| h.abort());
+        if command.is_empty() {
+            return;
+        }
+        let name = self.name.clone();
+        let cmd = command.to_vec();
+        self.scroll_h = Some(relm4::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(SCROLL_DEBOUNCE_MS)).await;
+            if let Err(e) = run_command(&name, cmd).await {
+                tracing::warn!(%e, applet = %name, "scroll command failed");
+            }
+        }));
     }
 
     fn spawn_command(&self, command: &[String]) {
@@ -221,68 +304,17 @@ async fn run_command(applet: &str, command: Vec<String>) -> anyhow::Result<()> {
         return Ok(());
     };
 
-    let output = TokioCommand::new(program)
+    tracing::debug!(applet, %program, ?args, "command applet running command");
+
+    TokioCommand::new(program)
         .args(args)
         .stdin(Stdio::null())
-        .output()
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
         .await?;
 
-    log_command_output(applet, program, args, &output);
-
     Ok(())
-}
-
-fn log_command_output(applet: &str, program: &str, args: &[String], output: &Output) {
-    let stdout = log_output_text(&output.stdout);
-    if !stdout.is_empty() {
-        tracing::debug!(
-            applet = %applet,
-            program = %program,
-            args = ?args,
-            stream = "stdout",
-            output = %stdout,
-            "command applet output"
-        );
-    }
-
-    let stderr = log_output_text(&output.stderr);
-    if !stderr.is_empty() {
-        tracing::debug!(
-            applet = %applet,
-            program = %program,
-            args = ?args,
-            stream = "stderr",
-            output = %stderr,
-            "command applet output"
-        );
-    }
-
-    if !output.status.success() {
-        tracing::warn!(
-            applet = %applet,
-            program = %program,
-            args = ?args,
-            status = %output.status,
-            stdout = %stdout,
-            stderr = %stderr,
-            "command applet command exited with failure"
-        );
-    }
-}
-
-fn log_output_text(bytes: &[u8]) -> String {
-    let truncated = bytes.len() > MAX_LOG_OUTPUT_BYTES;
-    let bytes = if truncated {
-        &bytes[..MAX_LOG_OUTPUT_BYTES]
-    } else {
-        bytes
-    };
-
-    let mut output = String::from_utf8_lossy(bytes).trim_end().to_string();
-    if truncated {
-        output.push_str("\n... truncated");
-    }
-    output
 }
 
 fn view_from_config(config: &Config) -> View {
@@ -412,16 +444,6 @@ mod tests {
             label: "Open".into(),
             command: vec!["true".into()],
         }]));
-    }
-
-    #[test]
-    fn log_output_text_trims_and_truncates() {
-        assert_eq!(log_output_text(b"hello\n"), "hello");
-
-        let long = vec![b'x'; MAX_LOG_OUTPUT_BYTES + 1];
-        let output = log_output_text(&long);
-        assert!(output.ends_with("\n... truncated"));
-        assert!(output.len() > MAX_LOG_OUTPUT_BYTES);
     }
 
     #[test]

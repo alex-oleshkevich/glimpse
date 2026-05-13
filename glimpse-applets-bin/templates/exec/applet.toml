@@ -1,0 +1,5 @@
+id   = "__NAME__"
+type = "exec"
+
+[exec]
+command = []

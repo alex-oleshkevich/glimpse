@@ -1,3 +1,4 @@
+pub mod applet_watcher;
 pub mod audio;
 pub mod audio_events;
 pub mod battery;

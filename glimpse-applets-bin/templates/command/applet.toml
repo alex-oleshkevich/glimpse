@@ -1,0 +1,31 @@
+id   = "__NAME__"
+type = "command"
+
+[command]
+# Icon name from the system icon theme (required if no label is set).
+icon = "application-x-executable"
+
+# Text label shown next to (or instead of) the icon.
+label = "__NAME__"
+
+# Tooltip shown on hover.
+# tooltip = ""
+
+# Command run on left-click.
+on_click = []
+
+# Command run on middle-click.
+# on_middle_click = []
+
+# Commands run on scroll wheel.
+# on_scroll_up   = []
+# on_scroll_down = []
+
+# Commands run on horizontal scroll.
+# on_scroll_left  = []
+# on_scroll_right = []
+
+# Right-click context menu entries.
+# [[command.menu]]
+# label   = "Action"
+# command = []

@@ -29,13 +29,9 @@ pub struct Config {
     pub command: Vec<String>,
     pub restart_delay_ms: u64,
     pub options: serde_json::Value,
-    /// When true, drop the parent's environment before running the command.
-    /// Defaults to false for backward compatibility; opt in to avoid leaking
-    /// session-bus addresses, tokens, and other shell exports.
-    pub env_clear: bool,
-    /// Additional environment variables to set on the spawned process.
-    /// Applied after env_clear, so they survive a cleared environment.
+    pub env_forward: bool,
     pub env: std::collections::HashMap<String, String>,
+    pub work_dir: Option<std::path::PathBuf>,
 }
 
 impl Config {
@@ -73,8 +69,9 @@ impl Default for Config {
             command: Vec::new(),
             restart_delay_ms: DEFAULT_RESTART_DELAY_MS,
             options: serde_json::json!({}),
-            env_clear: false,
+            env_forward: true,
             env: std::collections::HashMap::new(),
+            work_dir: None,
         }
     }
 }

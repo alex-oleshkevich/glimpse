@@ -4,8 +4,9 @@ use anyhow::{Result, anyhow};
 use clap::ValueEnum;
 use std::path::{Path, PathBuf};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, ValueEnum)]
 pub enum Language {
+    #[default]
     Rust,
     Python,
     Typescript,

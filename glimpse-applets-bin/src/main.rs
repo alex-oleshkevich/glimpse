@@ -21,6 +21,10 @@ enum Command {
     New(commands::new::Args),
     /// Run an applet in development mode with auto-rebuild and process restart.
     Dev(commands::dev::Args),
+    /// Symlink the current applet into the Glimpse applets directory.
+    Link(commands::link::Args),
+    /// Remove the symlink created by link.
+    Unlink(commands::link::unlink::Args),
     /// Verify that everything you need to build applets is installed.
     Doctor(commands::doctor::Args),
 }
@@ -31,6 +35,8 @@ async fn main() -> Result<()> {
     match cli.command {
         Command::New(args) => commands::new::run(args),
         Command::Dev(args) => commands::dev::run(args).await,
+        Command::Link(args) => commands::link::run(args),
+        Command::Unlink(args) => commands::link::unlink::run(args),
         Command::Doctor(args) => commands::doctor::run(args),
     }
 }

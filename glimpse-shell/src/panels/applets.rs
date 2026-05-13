@@ -10,8 +10,8 @@ use std::collections::HashMap;
 
 use crate::{
     applets::{
-        audio, battery, bluetooth, brightness, clipboard, clock, command, exec, idle, keyboard,
-        mpris, network, notifications, pager, privacy, removable, session, tray, weather,
+        audio, battery, bluetooth, brightness, clipboard, clock, command, dev, exec, idle,
+        keyboard, mpris, network, notifications, pager, privacy, removable, session, tray, weather,
     },
     panels::PanelSection,
     services::{framework::Services, wayland_idle_inhibit::SHELL_EXTENSIONS},
@@ -47,6 +47,7 @@ pub enum AppletController {
     Clipboard(Controller<clipboard::Applet>),
     Clock(Controller<clock::Applet>),
     Command(Controller<command::Applet>),
+    Dev(Controller<dev::Applet>),
     Exec(Controller<exec::Applet>),
     Idle(Controller<idle::applet::Applet>),
     Keyboard(Controller<keyboard::Applet>),
@@ -71,6 +72,7 @@ impl AppletController {
             Self::Clipboard(_) => AppletType::Clipboard,
             Self::Clock(_) => AppletType::Clock,
             Self::Command(_) => AppletType::Command,
+            Self::Dev(_) => AppletType::Dev,
             Self::Exec(_) => AppletType::Exec,
             Self::Idle(_) => AppletType::Idle,
             Self::Keyboard(_) => AppletType::Keyboard,
@@ -95,6 +97,7 @@ impl AppletController {
             Self::Clipboard(controller) => controller.widget().clone().upcast(),
             Self::Clock(controller) => controller.widget().clone().upcast(),
             Self::Command(controller) => controller.widget().clone().upcast(),
+            Self::Dev(controller) => controller.widget().clone().upcast(),
             Self::Exec(controller) => controller.widget().clone().upcast(),
             Self::Idle(controller) => controller.widget().clone().upcast(),
             Self::Keyboard(controller) => controller.widget().clone().upcast(),
@@ -127,6 +130,7 @@ impl AppletController {
                     &config.cloned(),
                 )));
             }
+            Self::Dev(_) => {}
             Self::Brightness(controller) => {
                 controller.emit(brightness::Input::Reconfigure(
                     brightness::Config::from_raw(&config.cloned()),
@@ -404,6 +408,13 @@ pub fn create_applet(
                 })
                 .detach(),
         )),
+        AppletType::Dev => Some(AppletController::Dev(
+            dev::Applet::builder()
+                .launch(dev::Init {
+                    watcher: services.applet_watcher.clone(),
+                })
+                .detach(),
+        )),
     }
 }
 
@@ -419,7 +430,7 @@ pub fn build_applets(
     let mut applets = HashMap::new();
     let entries = collect_applets(section, configured_applets, applet_configs);
     for entry in entries {
-        tracing::debug!(name = %entry.name, applet_type = ?entry.applet_type, "create applet");
+        tracing::debug!(name = %entry.name, applet_type = ?entry.applet_type, "loading applet");
 
         if let Some(applet) = create_applet(
             entry.clone(),
@@ -477,6 +488,7 @@ pub fn reconcile_applets(
                 existing
             }
             PlannedAction::Replace => {
+                tracing::debug!(name = %entry.name, applet_type = ?entry.applet_type, "replacing applet");
                 let existing = remaining
                     .remove(&entry.key)
                     .expect("existing applet missing");
@@ -492,6 +504,7 @@ pub fn reconcile_applets(
                 created
             }
             PlannedAction::Create => {
+                tracing::debug!(name = %entry.name, applet_type = ?entry.applet_type, "adding applet");
                 let Some(created) = create_applet(
                     entry.clone(),
                     services.clone(),
@@ -512,6 +525,7 @@ pub fn reconcile_applets(
 
     for key in plan.removals {
         if let Some(leftover) = remaining.remove(&key) {
+            tracing::debug!(name = %key.name, "removing applet");
             detach_widget(&leftover.widget());
         }
     }

@@ -258,6 +258,10 @@ release-sdks:
     echo "  ts -> https://www.npmjs.com/package/glimpse-sdk/v/$version"
     echo "  go -> https://github.com/alex-oleshkevich/glimpse/releases/tag/sdk-go/v$version"
 
+# Install glimpse-applet CLI to ~/.cargo/bin.
+install-applet-cli:
+    cargo install --path glimpse-applets-bin --locked
+
 # Run the end-to-end protocol contract test against every SDK's
 # counter example: build, spawn, drive through init + clicks + close,
 # assert the status/popover messages match the counter contract.

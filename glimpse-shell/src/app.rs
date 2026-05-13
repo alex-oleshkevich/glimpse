@@ -17,8 +17,8 @@ use adw::gdk::{self, prelude::DisplayExt, prelude::MonitorExt};
 use gio::prelude::ListModelExt;
 use glib::object::{Cast, CastNone};
 use glimpse_core::{
-    Config, ConfigEvent, PanelConfig, services::theme::State as ThemeServiceState,
-    watch_for_config_changes,
+    Config, ConfigEvent, DiscoveredApplets, PanelConfig, config::merge_applet_configs,
+    services::theme::State as ThemeServiceState, watch_for_config_changes,
 };
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use gtk4_layer_shell::LayerShell;
@@ -36,6 +36,7 @@ pub struct AppInit {
 #[derive(Debug)]
 pub enum Input {
     ConfigChanged(Config),
+    AppletDirsChanged(DiscoveredApplets),
     ThemeReload,
     ThemeChanged(ThemeServiceState),
     MonitorsChanged,
@@ -43,6 +44,7 @@ pub enum Input {
 
 pub struct App {
     config: Config,
+    discovered_applets: DiscoveredApplets,
     services: ServiceRuntime,
     theme: ThemeState,
     panels: Vec<PanelState>,
@@ -154,6 +156,21 @@ impl SimpleComponent for App {
         services.broadcast(Control::Start(init.config.clone()));
         spawn_theme_subscription(services.handles().theme, sender.input_sender().clone());
 
+        let mut applet_watcher_rx = services.handles().applet_watcher.clone();
+        let discovered_applets = applet_watcher_rx.borrow_and_update().clone();
+        let applet_watcher_sender = sender.input_sender().clone();
+        relm4::spawn(async move {
+            while applet_watcher_rx.changed().await.is_ok() {
+                let discovered = applet_watcher_rx.borrow_and_update().clone();
+                if applet_watcher_sender
+                    .send(Input::AppletDirsChanged(discovered))
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        });
+
         let prompt_fallback_parent: gtk4::Widget = root.clone().upcast();
 
         let network_prompt_host = network_prompts::PromptHost::builder()
@@ -175,6 +192,7 @@ impl SimpleComponent for App {
         let widgets = view_output!();
         let model = App {
             config: init.config,
+            discovered_applets,
             services,
             theme,
             panels: vec![],
@@ -234,6 +252,12 @@ impl SimpleComponent for App {
                         "failed to sync system color scheme"
                     );
                 }
+            }
+            Input::AppletDirsChanged(discovered) => {
+                tracing::debug!("applet directories changed, reconciling panels");
+                self.discovered_applets = discovered;
+                let config = self.config.clone();
+                self.reconcile_panels(&config);
             }
             Input::MonitorsChanged => {
                 tracing::info!("monitors changed, reconciling panels");
@@ -323,6 +347,8 @@ fn spawn_theme_subscription(
 
 impl App {
     fn reconcile_panels(&mut self, new_config: &Config) {
+        let effective_applets =
+            merge_applet_configs(&self.discovered_applets.normal, &new_config.applets);
         let services = self.services.handles();
         let monitors = list_gdk_monitors();
 
@@ -351,7 +377,7 @@ impl App {
                         state.controller.emit(panels::Input::Reconfigure(
                             panels::PanelRuntimeConfig {
                                 config: cfg.clone(),
-                                applet_configs: new_config.applets.clone(),
+                                applet_configs: effective_applets.clone(),
                             },
                         ));
                         state
@@ -361,7 +387,7 @@ impl App {
                         cfg.clone(),
                         services.clone(),
                         monitor.clone(),
-                        new_config.clone(),
+                        effective_applets.clone(),
                     ),
                 };
                 new_panels.push(state);
@@ -487,7 +513,7 @@ fn build_panel(
     config: PanelConfig,
     services: Services,
     monitor: gdk::Monitor,
-    app_config: Config,
+    applet_configs: glimpse_core::AppletConfigs,
 ) -> PanelState {
     let key = panels::PanelKey {
         index,
@@ -501,7 +527,7 @@ fn build_panel(
             services: services.clone(),
             monitor: Some(monitor),
             monitor_connector,
-            applet_configs: app_config.applets.clone(),
+            applet_configs,
         })
         .detach();
     PanelState { key, controller }
