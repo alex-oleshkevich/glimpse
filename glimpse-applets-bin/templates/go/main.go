@@ -31,23 +31,24 @@ func (a *counterApplet) OnCallback(_ context.Context, event sdk.CallbackEvent) e
 	return nil
 }
 
-func (a *counterApplet) Render(_ context.Context, state *counterState) (sdk.RenderResult, error) {
-	return sdk.RenderResult{
-		Status: []sdk.StatusItem{
-			{
-				ID:    "counter",
-				Icon:  sdk.IconName("view-refresh-symbolic"),
-				Label: fmt.Sprintf("%d", state.Count),
-			},
+func (a *counterApplet) Status(_ context.Context, state *counterState) ([]sdk.StatusItem, error) {
+	return []sdk.StatusItem{
+		{
+			ID:    "counter",
+			Icon:  sdk.IconName("view-refresh-symbolic"),
+			Label: fmt.Sprintf("%d", state.Count),
 		},
-		Tree: sdk.Column{
-			Spacing: 8,
-			Children: []sdk.Widget{
-				sdk.Hero{Title: "__NAME__", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
-				sdk.Button{
-					CommonProps: sdk.CommonProps{ID: "increment"},
-					Label:       "Increment",
-				},
+	}, nil
+}
+
+func (a *counterApplet) Popover(_ context.Context, state *counterState) (sdk.Widget, error) {
+	return sdk.Column{
+		Spacing: 8,
+		Children: []sdk.Widget{
+			sdk.Hero{Title: "__NAME__", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
+			sdk.Button{
+				CommonProps: sdk.CommonProps{ID: "increment"},
+				Label:       "Increment",
 			},
 		},
 	}, nil
