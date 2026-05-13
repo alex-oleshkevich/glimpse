@@ -36,7 +36,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           name="glimpse-sdk"
-          if curl -fsSL "https://crates.io/api/v1/crates/$name/$VERSION" >/dev/null 2>&1; then
+          if curl -fsSL -A "glimpse-sdk-release/1.0" "https://crates.io/api/v1/crates/$name/$VERSION" >/dev/null 2>&1; then
             echo "already=true" >> "$GITHUB_OUTPUT"
             echo "$name@$VERSION already on crates.io; skipping publish"
           else

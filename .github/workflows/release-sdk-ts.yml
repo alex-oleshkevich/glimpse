@@ -55,5 +55,3 @@ jobs:
         run: npm test
       - if: steps.check.outputs.already == 'false'
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_CI_TOKEN }}
