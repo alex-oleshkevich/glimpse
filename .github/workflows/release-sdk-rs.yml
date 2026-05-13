@@ -12,6 +12,9 @@ jobs:
   publish:
     name: Publish to crates.io
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: sdk/sdk-rs
@@ -40,8 +43,11 @@ jobs:
             echo "already=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.check.outputs.already == 'false'
+        uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - if: steps.check.outputs.already == 'false'
         run: cargo test
       - if: steps.check.outputs.already == 'false'
         run: cargo publish
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_API_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
