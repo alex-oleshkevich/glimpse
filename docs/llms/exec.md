@@ -946,7 +946,7 @@ restart_delay_ms = 1000
 **Install:**
 
 ```sh
-pip install glimpse-sdk
+pip install glimpse-applet-sdk
 ```
 
 **Applet:**

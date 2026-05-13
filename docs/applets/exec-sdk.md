@@ -8,8 +8,8 @@ Use this page when you want to build an applet with one of the SDK languages. Fo
 
 | Language | Package | Source path |
 |---|---|---|
-| Python | `glimpse-sdk` | `sdk/sdk-py` |
-| TypeScript | `@glimpse/custom-applet-sdk-ts` | `sdk/sdk-ts` |
+| Python | `glimpse-applet-sdk` | `sdk/sdk-py` |
+| TypeScript | `glimpse-sdk` | `sdk/sdk-ts` |
 | Rust | `glimpse-sdk` | `sdk/sdk-rs` |
 | Go | `github.com/alex-oleshkevich/glimpse/sdk/sdk-go` | `sdk/sdk-go` |
 

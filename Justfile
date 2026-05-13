@@ -174,10 +174,9 @@ publish-sdk-py:
     : "${PYPI_TOKEN:?PYPI_TOKEN must be set in the environment}"
     cd sdk/sdk-py
     python -m unittest discover -s tests
-    python -m pip install --quiet --upgrade build twine
     rm -rf dist build glimpse_sdk.egg-info
-    python -m build
-    TWINE_USERNAME=__token__ TWINE_PASSWORD="$PYPI_TOKEN" python -m twine upload dist/*
+    uv build
+    UV_PUBLISH_TOKEN="$PYPI_TOKEN" uv publish
 
 publish-sdk-ts:
     #!/usr/bin/env bash
@@ -255,6 +254,6 @@ release-sdks:
     echo
     echo "all SDKs released at $version:"
     echo "  rs -> https://crates.io/crates/glimpse-sdk/$version"
-    echo "  py -> https://pypi.org/project/glimpse-sdk/$version/"
+    echo "  py -> https://pypi.org/project/glimpse-applet-sdk/$version/"
     echo "  ts -> https://www.npmjs.com/package/glimpse-sdk/v/$version"
     echo "  go -> https://github.com/alex-oleshkevich/glimpse/releases/tag/sdk-go/v$version"
