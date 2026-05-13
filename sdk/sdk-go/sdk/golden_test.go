@@ -39,11 +39,11 @@ func loadFixture(t *testing.T, rel string) any {
 	return value
 }
 
-// serialized turns the SDK's structured TreeNode into a generic any tree,
-// which is what the fixture parses to. This is the basis for deep-equal.
-func serialized(t *testing.T, node TreeNode) any {
+// serialized turns a Widget into a generic any tree (mirrors the fixture
+// shape) for deep-equal comparison.
+func serialized(t *testing.T, widget Widget) any {
 	t.Helper()
-	data, err := json.Marshal(node)
+	data, err := json.Marshal(widget)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
@@ -54,10 +54,10 @@ func serialized(t *testing.T, node TreeNode) any {
 	return value
 }
 
-func assertWidget(t *testing.T, name string, node TreeNode) {
+func assertWidget(t *testing.T, name string, widget Widget) {
 	t.Helper()
 	expected := loadFixture(t, filepath.Join("widgets", name+".json"))
-	got := serialized(t, node)
+	got := serialized(t, widget)
 	if !reflect.DeepEqual(got, expected) {
 		gotJSON, _ := json.MarshalIndent(got, "", "  ")
 		expJSON, _ := json.MarshalIndent(expected, "", "  ")
@@ -66,339 +66,360 @@ func assertWidget(t *testing.T, name string, node TreeNode) {
 	}
 }
 
-func TestGoldenLabelBasic(t *testing.T)            { assertWidget(t, "label-basic", NewLabel("Hello")) }
+func TestGoldenLabelBasic(t *testing.T) {
+	assertWidget(t, "label-basic", Label{Text: "Hello"})
+}
+
 func TestGoldenLabelModifiers(t *testing.T) {
 	xalign := float32(0.5)
-	assertWidget(t, "label-modifiers", TreeNode{
-		Type: "label",
-		Data: Label{Text: "Hello", Wrap: true, XAlign: &xalign, Selectable: true},
+	assertWidget(t, "label-modifiers", Label{
+		Text:       "Hello",
+		Wrap:       true,
+		XAlign:     &xalign,
+		Selectable: true,
 	})
 }
 
 func TestGoldenButtonBasic(t *testing.T) {
-	assertWidget(t, "button-basic", NewButton("go", "Go"))
+	assertWidget(t, "button-basic", Button{
+		CommonProps: CommonProps{ID: "go"},
+		Label:       "Go",
+	})
 }
 
 func TestGoldenButtonWithIcon(t *testing.T) {
-	icon := IconName("go-symbolic")
-	assertWidget(t, "button-with-icon", TreeNode{
-		Type: "button",
-		Data: Button{CommonProps: CommonProps{ID: "go"}, Label: "Go", Icon: icon},
+	assertWidget(t, "button-with-icon", Button{
+		CommonProps: CommonProps{ID: "go"},
+		Label:       "Go",
+		Icon:        IconName("go-symbolic"),
 	})
 }
 
 func TestGoldenButtonIconOnly(t *testing.T) {
-	icon := IconName("go-symbolic")
-	assertWidget(t, "button-icon-only", TreeNode{
-		Type: "button",
-		Data: Button{CommonProps: CommonProps{ID: "go"}, Icon: icon},
+	assertWidget(t, "button-icon-only", Button{
+		CommonProps: CommonProps{ID: "go"},
+		Icon:        IconName("go-symbolic"),
 	})
 }
 
 func TestGoldenSwitchOn(t *testing.T) {
-	assertWidget(t, "switch-on", TreeNode{
-		Type: "switch",
-		Data: Switch{CommonProps: CommonProps{ID: "vpn"}, Label: "VPN", Active: true},
+	assertWidget(t, "switch-on", Switch{
+		CommonProps: CommonProps{ID: "vpn"},
+		Label:       "VPN",
+		Active:      true,
 	})
 }
 
 func TestGoldenSwitchOff(t *testing.T) {
-	assertWidget(t, "switch-off", NewSwitch("vpn", false))
+	assertWidget(t, "switch-off", Switch{CommonProps: CommonProps{ID: "vpn"}})
 }
 
 func TestGoldenCheckboxOn(t *testing.T) {
-	assertWidget(t, "checkbox-on", TreeNode{
-		Type: "checkbox",
-		Data: Checkbox{CommonProps: CommonProps{ID: "autostart"}, Label: "Run at login", Active: true},
+	assertWidget(t, "checkbox-on", Checkbox{
+		CommonProps: CommonProps{ID: "autostart"},
+		Label:       "Run at login",
+		Active:      true,
 	})
 }
 
 func TestGoldenScale(t *testing.T) {
-	assertWidget(t, "scale", TreeNode{
-		Type: "scale",
-		Data: Scale{
-			CommonProps: CommonProps{ID: "brightness"},
-			Min:         0.0,
-			Max:         1.0,
-			Step:        0.05,
-			Value:       0.6,
-		},
+	assertWidget(t, "scale", Scale{
+		CommonProps: CommonProps{ID: "brightness"},
+		Min:         0.0,
+		Max:         1.0,
+		Step:        0.05,
+		Value:       0.6,
 	})
 }
 
 func TestGoldenDropdown(t *testing.T) {
 	selected := uint32(0)
-	assertWidget(t, "dropdown", TreeNode{
-		Type: "dropdown",
-		Data: Dropdown{
-			CommonProps: CommonProps{ID: "env"},
-			Items: []DropdownItem{
-				{ID: "prod", Label: "Production"},
-				{ID: "stage", Label: "Staging"},
-			},
-			Selected: &selected,
+	assertWidget(t, "dropdown", Dropdown{
+		CommonProps: CommonProps{ID: "env"},
+		Items: []DropdownItem{
+			{ID: "prod", Label: "Production"},
+			{ID: "stage", Label: "Staging"},
 		},
+		Selected: &selected,
 	})
 }
 
 func TestGoldenDropdownEmpty(t *testing.T) {
-	assertWidget(t, "dropdown-empty", NewDropdown("env", nil))
+	assertWidget(t, "dropdown-empty", Dropdown{CommonProps: CommonProps{ID: "env"}})
 }
 
 func TestGoldenBadge(t *testing.T) {
-	assertWidget(t, "badge", NewBadge("42%"))
+	assertWidget(t, "badge", Badge{Label: "42%"})
 }
 
 func TestGoldenBadgeSuccessVariant(t *testing.T) {
-	assertWidget(t, "badge-success-variant", TreeNode{
-		Type: "badge",
-		Data: Badge{CommonProps: CommonProps{Variant: VariantSuccess}, Label: "OK"},
+	assertWidget(t, "badge-success-variant", Badge{
+		CommonProps: CommonProps{Variant: VariantSuccess},
+		Label:       "OK",
 	})
 }
 
 func TestGoldenHeroBasic(t *testing.T) {
-	assertWidget(t, "hero-basic", NewHero("Counter", "Value: 0"))
+	assertWidget(t, "hero-basic", Hero{Title: "Counter", Subtitle: "Value: 0"})
 }
 
 func TestGoldenHeroWithIcon(t *testing.T) {
-	icon := IconName("network-vpn-symbolic")
-	assertWidget(t, "hero-with-icon", TreeNode{
-		Type: "hero",
-		Data: Hero{Title: "VPN", Subtitle: "Connected", Icon: icon},
+	assertWidget(t, "hero-with-icon", Hero{
+		Title:    "VPN",
+		Subtitle: "Connected",
+		Icon:     IconName("network-vpn-symbolic"),
 	})
 }
 
 func TestGoldenProgress(t *testing.T) {
-	assertWidget(t, "progress", NewProgress(0.7))
+	assertWidget(t, "progress", Progress{Value: 0.7, Max: 1.0})
 }
 
 func TestGoldenProgressWithText(t *testing.T) {
-	assertWidget(t, "progress-with-text", TreeNode{
-		Type: "progress",
-		Data: Progress{Value: 0.7, Max: 1.0, ShowText: true, Text: "70%"},
+	assertWidget(t, "progress-with-text", Progress{
+		Value:    0.7,
+		Max:      1.0,
+		ShowText: true,
+		Text:     "70%",
 	})
 }
 
-func TestGoldenSpinnerDefault(t *testing.T) { assertWidget(t, "spinner-default", NewSpinner()) }
-func TestGoldenSpinnerStopped(t *testing.T) {
-	assertWidget(t, "spinner-stopped", NewSpinnerWith(false))
+func TestGoldenSpinnerDefault(t *testing.T) {
+	assertWidget(t, "spinner-default", Spinner{Spinning: true})
 }
 
-func TestGoldenStatusDot(t *testing.T) { assertWidget(t, "status-dot", NewStatusDot()) }
+func TestGoldenSpinnerStopped(t *testing.T) {
+	assertWidget(t, "spinner-stopped", Spinner{Spinning: false})
+}
+
+func TestGoldenStatusDot(t *testing.T) {
+	assertWidget(t, "status-dot", StatusDot{})
+}
+
 func TestGoldenStatusDotWarning(t *testing.T) {
-	assertWidget(t, "status-dot-warning", TreeNode{
-		Type: "status",
-		Data: StatusDot{CommonProps: CommonProps{Variant: VariantWarning}},
+	assertWidget(t, "status-dot-warning", StatusDot{
+		CommonProps: CommonProps{Variant: VariantWarning},
 	})
 }
 
 func TestGoldenIcon(t *testing.T) {
 	pixel := 24
-	icon := IconName("network-wireless-symbolic")
-	assertWidget(t, "icon", TreeNode{
-		Type: "icon",
-		Data: IconWidget{Icon: icon, PixelSize: &pixel},
+	assertWidget(t, "icon", IconWidget{
+		Icon:      IconName("network-wireless-symbolic"),
+		PixelSize: &pixel,
 	})
 }
 
 func TestGoldenImageByName(t *testing.T) {
-	icon := IconName("user-info-symbolic")
-	assertWidget(t, "image-by-name", NewImage(icon))
+	assertWidget(t, "image-by-name", Image{Icon: IconName("user-info-symbolic")})
 }
 
 func TestGoldenImageByPath(t *testing.T) {
 	pixel := 64
-	icon := IconPath("/home/me/avatar.png")
-	assertWidget(t, "image-by-path", TreeNode{
-		Type: "image",
-		Data: Image{Icon: icon, PixelSize: &pixel},
+	assertWidget(t, "image-by-path", Image{
+		Icon:      IconPath("/home/me/avatar.png"),
+		PixelSize: &pixel,
 	})
 }
 
-func TestGoldenSeparator(t *testing.T) { assertWidget(t, "separator", NewSeparator()) }
+func TestGoldenSeparator(t *testing.T) {
+	assertWidget(t, "separator", Separator{})
+}
 
 func TestGoldenBoxVertical(t *testing.T) {
-	assertWidget(t, "box-vertical", NewBox(OrientationVertical, 8, []TreeNode{}))
+	assertWidget(t, "box-vertical", Box{
+		Orientation: OrientationVertical,
+		Spacing:     8,
+		Children:    []Widget{},
+	})
 }
 
 func TestGoldenBoxHorizontal(t *testing.T) {
-	assertWidget(t, "box-horizontal", NewBox(OrientationHorizontal, 4, []TreeNode{}))
+	assertWidget(t, "box-horizontal", Box{
+		Orientation: OrientationHorizontal,
+		Spacing:     4,
+		Children:    []Widget{},
+	})
 }
 
 func TestGoldenRow(t *testing.T) {
-	assertWidget(t, "row", NewRow([]TreeNode{}, 8))
+	assertWidget(t, "row", Row{Spacing: 8})
 }
 
 func TestGoldenColumn(t *testing.T) {
-	assertWidget(t, "column", NewColumn([]TreeNode{}, 8))
+	assertWidget(t, "column", Column{Spacing: 8})
 }
 
 func TestGoldenGrid(t *testing.T) {
-	children := []GridChild{
-		NewGridChild(0, 0, NewLabel("A")),
-		{Row: 0, Column: 1, Width: 2, Height: 1, Child: NewLabel("B")},
-	}
-	assertWidget(t, "grid", TreeNode{
-		Type: "grid",
-		Data: Grid{Children: children, RowSpacing: 4, ColumnSpacing: 4},
+	assertWidget(t, "grid", Grid{
+		Children: []GridChild{
+			{Row: 0, Column: 0, Width: 1, Height: 1, Child: Label{Text: "A"}},
+			{Row: 0, Column: 1, Width: 2, Height: 1, Child: Label{Text: "B"}},
+		},
+		RowSpacing:    4,
+		ColumnSpacing: 4,
 	})
 }
 
 func TestGoldenScroll(t *testing.T) {
-	assertWidget(t, "scroll", NewScroll(NewLabel("scrollable")))
+	assertWidget(t, "scroll", Scroll{Child: Label{Text: "scrollable"}})
 }
 
 func TestGoldenCard(t *testing.T) {
-	assertWidget(t, "card", NewCard([]TreeNode{NewLabel("in card")}))
+	assertWidget(t, "card", Card{Children: []Widget{Label{Text: "in card"}}})
 }
 
 func TestGoldenCardEmpty(t *testing.T) {
-	assertWidget(t, "card-empty", NewCard(nil))
+	assertWidget(t, "card-empty", Card{})
 }
 
 func TestGoldenSectionBasic(t *testing.T) {
-	assertWidget(t, "section-basic", NewSection("System", []TreeNode{NewLabel("uptime")}))
+	assertWidget(t, "section-basic", Section{
+		Header: &Header{Title: "System"},
+		Body:   []Widget{Label{Text: "uptime"}},
+	})
 }
 
 func TestGoldenSectionEmptyBody(t *testing.T) {
-	assertWidget(t, "section-empty-body", NewSection("Empty", nil))
+	assertWidget(t, "section-empty-body", Section{Header: &Header{Title: "Empty"}})
 }
 
 func TestGoldenCollapsibleClosed(t *testing.T) {
-	assertWidget(t, "collapsible-closed", NewCollapsible("Advanced", false, nil))
+	assertWidget(t, "collapsible-closed", Collapsible{
+		Header:   &Header{Title: "Advanced"},
+		Expanded: false,
+	})
 }
 
 func TestGoldenCollapsibleOpenWithBody(t *testing.T) {
-	assertWidget(t, "collapsible-open-with-body",
-		NewCollapsible("Advanced", true, []TreeNode{NewLabel("inside")}))
+	assertWidget(t, "collapsible-open-with-body", Collapsible{
+		Header:   &Header{Title: "Advanced"},
+		Expanded: true,
+		Body:     []Widget{Label{Text: "inside"}},
+	})
 }
 
 func TestGoldenItemBasic(t *testing.T) {
-	assertWidget(t, "item-basic", NewItem("Plain"))
+	assertWidget(t, "item-basic", Item{Label: "Plain"})
 }
 
 func TestGoldenItemClickable(t *testing.T) {
-	assertWidget(t, "item-clickable", NewClickableItem("run", "Run"))
+	assertWidget(t, "item-clickable", Item{
+		CommonProps: CommonProps{ID: "run"},
+		Label:       "Run",
+		Clickable:   true,
+	})
 }
 
 func TestGoldenItemWithMenu(t *testing.T) {
 	enabled := false
-	assertWidget(t, "item-with-menu", TreeNode{
-		Type: "item",
-		Data: Item{
-			CommonProps: CommonProps{ID: "wifi-home"},
-			Label:       "home-5G",
-			Clickable:   true,
-			Menu: []MenuItem{
-				{ID: "forget", Label: "Forget"},
-				{ID: "details", Label: "Details", Enabled: &enabled},
-			},
+	assertWidget(t, "item-with-menu", Item{
+		CommonProps: CommonProps{ID: "wifi-home"},
+		Label:       "home-5G",
+		Clickable:   true,
+		Menu: []MenuItem{
+			{ID: "forget", Label: "Forget"},
+			{ID: "details", Label: "Details", Enabled: &enabled},
 		},
 	})
 }
 
 func TestGoldenCollapsibleItem(t *testing.T) {
-	assertWidget(t, "collapsible-item", NewCollapsibleItem("Devices", false, nil))
+	assertWidget(t, "collapsible-item", CollapsibleItem{Label: "Devices"})
 }
 
 func TestGoldenActionRow(t *testing.T) {
-	assertWidget(t, "action-row", NewActionRow("go", "Connect"))
+	assertWidget(t, "action-row", ActionRow{
+		CommonProps: CommonProps{ID: "go"},
+		Title:       "Connect",
+	})
 }
 
 func TestGoldenActionRowWithMeta(t *testing.T) {
-	icon := IconName("network-vpn-symbolic")
-	assertWidget(t, "action-row-with-meta", TreeNode{
-		Type: "action_row",
-		Data: ActionRow{
-			CommonProps: CommonProps{ID: "go"},
-			Title:       "Connect",
-			Subtitle:    "wg0",
-			Meta:        "4 routes",
-			Icon:        icon,
-		},
+	assertWidget(t, "action-row-with-meta", ActionRow{
+		CommonProps: CommonProps{ID: "go"},
+		Title:       "Connect",
+		Subtitle:    "wg0",
+		Meta:        "4 routes",
+		Icon:        IconName("network-vpn-symbolic"),
 	})
 }
 
 func TestGoldenActionMenu(t *testing.T) {
 	chkFalse := false
 	chkTrue := true
-	assertWidget(t, "action-menu", TreeNode{
-		Type: "action_menu",
-		Data: ActionMenu{
-			Header: "Power profile",
-			Items: []ActionMenuItem{
-				{ID: "saver", Label: "Power Saver", Checked: &chkFalse},
-				{ID: "balanced", Label: "Balanced", Checked: &chkTrue},
-			},
+	assertWidget(t, "action-menu", ActionMenu{
+		Header: "Power profile",
+		Items: []ActionMenuItem{
+			{ID: "saver", Label: "Power Saver", Checked: &chkFalse},
+			{ID: "balanced", Label: "Balanced", Checked: &chkTrue},
 		},
 	})
 }
 
 func TestGoldenActionMenuEmpty(t *testing.T) {
-	assertWidget(t, "action-menu-empty", NewActionMenu("", []ActionMenuItem{}))
+	assertWidget(t, "action-menu-empty", ActionMenu{})
 }
 
 func TestGoldenDetailGrid(t *testing.T) {
-	assertWidget(t, "detail-grid", NewDetailGrid([]DetailGridItem{
+	assertWidget(t, "detail-grid", DetailGrid{Rows: []DetailGridItem{
 		{Key: "SSID", Value: "home-5G"},
 		{Key: "IPv4", Value: "10.0.0.42"},
-	}))
+	}})
 }
 
 func TestGoldenDetailGridEmpty(t *testing.T) {
-	assertWidget(t, "detail-grid-empty", NewDetailGrid([]DetailGridItem{}))
+	assertWidget(t, "detail-grid-empty", DetailGrid{})
 }
 
 func TestGoldenEmptyState(t *testing.T) {
-	assertWidget(t, "empty-state", NewEmptyState("Nothing here"))
+	assertWidget(t, "empty-state", EmptyState{Title: "Nothing here"})
 }
 
 func TestGoldenEmptyStateWithSubtitle(t *testing.T) {
-	assertWidget(t, "empty-state-with-subtitle", TreeNode{
-		Type: "empty_state",
-		Data: EmptyState{Title: "Nothing here", Subtitle: "Plug in a device."},
+	assertWidget(t, "empty-state-with-subtitle", EmptyState{
+		Title:    "Nothing here",
+		Subtitle: "Plug in a device.",
 	})
 }
 
 func TestGoldenMeter(t *testing.T) {
-	assertWidget(t, "meter", NewMeter("Memory", 0.51, 1.0))
+	assertWidget(t, "meter", Meter{
+		Label: "Memory",
+		Value: 0.51,
+		Min:   0.0,
+		Max:   1.0,
+		Step:  0.01,
+	})
 }
 
 func TestGoldenMeterInteractive(t *testing.T) {
-	icon := IconName("audio-volume-medium-symbolic")
-	assertWidget(t, "meter-interactive", TreeNode{
-		Type: "meter",
-		Data: Meter{
-			Icon:        icon,
-			Label:       "Volume",
-			Value:       0.42,
-			Min:         0.0,
-			Max:         1.0,
-			Step:        0.01,
-			Text:        "42%",
-			Interactive: true,
-		},
+	assertWidget(t, "meter-interactive", Meter{
+		Icon:        IconName("audio-volume-medium-symbolic"),
+		Label:       "Volume",
+		Value:       0.42,
+		Min:         0.0,
+		Max:         1.0,
+		Step:        0.01,
+		Text:        "42%",
+		Interactive: true,
 	})
 }
 
 func TestGoldenCopyable(t *testing.T) {
-	assertWidget(t, "copyable", NewCopyable("IPv4", "10.0.0.42"))
+	assertWidget(t, "copyable", Copyable{Label: "IPv4", Value: "10.0.0.42"})
 }
 
 func TestGoldenToast(t *testing.T) {
-	assertWidget(t, "toast", NewToast("Saved", ""))
+	assertWidget(t, "toast", Toast{Title: "Saved"})
 }
 
 func TestGoldenToastWithAction(t *testing.T) {
-	icon := IconName("dialog-warning-symbolic")
-	assertWidget(t, "toast-with-action", TreeNode{
-		Type: "toast",
-		Data: Toast{
-			Icon:    icon,
-			Title:   "Update available",
-			Message: "Version 0.8 is available.",
-			Action:  &ToastAction{ID: "update", Label: "Update"},
-		},
+	assertWidget(t, "toast-with-action", Toast{
+		Icon:    IconName("dialog-warning-symbolic"),
+		Title:   "Update available",
+		Message: "Version 0.8 is available.",
+		Action:  &ToastAction{ID: "update", Label: "Update"},
 	})
 }
 
@@ -406,48 +427,50 @@ func TestGoldenCommonPropsAll(t *testing.T) {
 	visible := false
 	hex := true
 	vex := true
-	assertWidget(t, "common-props-all", TreeNode{
-		Type: "label",
-		Data: Label{
-			CommonProps: CommonProps{
-				ID:      "marked",
-				Visible: &visible,
-				HExpand: &hex,
-				VExpand: &vex,
-				HAlign:  AlignCenter,
-				VAlign:  AlignEnd,
-				Tooltip: "details",
-				Variant: VariantWarning,
-			},
-			Text: "marked",
+	assertWidget(t, "common-props-all", Label{
+		CommonProps: CommonProps{
+			ID:      "marked",
+			Visible: &visible,
+			HExpand: &hex,
+			VExpand: &vex,
+			HAlign:  AlignCenter,
+			VAlign:  AlignEnd,
+			Tooltip: "details",
+			Variant: VariantWarning,
 		},
+		Text: "marked",
 	})
 }
 
 func TestGoldenTreeHeroColumnSection(t *testing.T) {
-	tree := NewColumn([]TreeNode{
-		NewHero("Counter", "Value: 0"),
-		NewSection("Controls", []TreeNode{
-			NewLabel("Current"),
-			NewButton("increment", "Increment"),
-		}),
-	}, 8)
-	assertWidget(t, "tree-hero-column-section", tree)
+	assertWidget(t, "tree-hero-column-section", Column{
+		Spacing: 8,
+		Children: []Widget{
+			Hero{Title: "Counter", Subtitle: "Value: 0"},
+			Section{
+				Header: &Header{Title: "Controls"},
+				Body: []Widget{
+					Label{Text: "Current"},
+					Button{CommonProps: CommonProps{ID: "increment"}, Label: "Increment"},
+				},
+			},
+		},
+	})
 }
 
 func TestGoldenTreeCardWithGrid(t *testing.T) {
-	grid := TreeNode{
-		Type: "grid",
-		Data: Grid{
-			Children: []GridChild{
-				NewGridChild(0, 0, NewLabel("K")),
-				NewGridChild(0, 1, NewBadge("V")),
+	assertWidget(t, "tree-card-with-grid", Card{
+		Children: []Widget{
+			Grid{
+				Children: []GridChild{
+					{Row: 0, Column: 0, Width: 1, Height: 1, Child: Label{Text: "K"}},
+					{Row: 0, Column: 1, Width: 1, Height: 1, Child: Badge{Label: "V"}},
+				},
+				RowSpacing:    4,
+				ColumnSpacing: 8,
 			},
-			RowSpacing:    4,
-			ColumnSpacing: 8,
 		},
-	}
-	assertWidget(t, "tree-card-with-grid", NewCard([]TreeNode{grid}))
+	})
 }
 
 // ---------- events ----------

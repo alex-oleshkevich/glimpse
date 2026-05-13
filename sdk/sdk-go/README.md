@@ -22,6 +22,10 @@ The package import path is `github.com/alex-oleshkevich/glimpse/sdk/sdk-go/sdk`.
 
 ## Example
 
+Widget trees are plain struct literals — a Flutter-style composition.
+Every widget implements the `sdk.Widget` interface, so containers
+can hold heterogeneous children via `[]sdk.Widget`.
+
 ```go
 type CounterState struct {
     Count int
@@ -32,16 +36,26 @@ type CounterApplet struct {
 }
 
 func (a *CounterApplet) Render(context.Context) (sdk.RenderResult, error) {
-    tree := sdk.NewColumn([]sdk.TreeNode{
-        sdk.NewHero("Counter", fmt.Sprintf("Value: %d", a.State().Count)),
-        sdk.NewLabel(fmt.Sprintf("Count = %d", a.State().Count)),
-        sdk.NewButton("increment", "Increment"),
-    }, 8)
+    count := a.State().Count
     return sdk.RenderResult{
         Status: []sdk.StatusItem{
-            {ID: "counter", Icon: sdk.IconName("view-refresh-symbolic"), Label: fmt.Sprintf("%d", a.State().Count)},
+            {
+                ID:    "counter",
+                Icon:  sdk.IconName("view-refresh-symbolic"),
+                Label: fmt.Sprintf("%d", count),
+            },
         },
-        Tree: &tree,
+        Tree: sdk.Column{
+            Spacing: 8,
+            Children: []sdk.Widget{
+                sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", count)},
+                sdk.Label{Text: fmt.Sprintf("Count = %d", count)},
+                sdk.Button{
+                    CommonProps: sdk.CommonProps{ID: "increment"},
+                    Label:       "Increment",
+                },
+            },
+        },
     }, nil
 }
 ```

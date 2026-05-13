@@ -45,13 +45,15 @@ func (a *demoApplet) OnCallback(_ context.Context, event CallbackEvent) error {
 }
 
 func (a *demoApplet) Render(context.Context) (RenderResult, error) {
-	var tree *TreeNode
+	var tree Widget
 	if a.State().Tree {
-		tree = ptr(NewColumn([]TreeNode{
-			NewHero("Demo", a.State().Version),
-			NewLabel(a.State().Version),
-			NewButton("submit", "Submit"),
-		}, 0))
+		tree = Column{
+			Children: []Widget{
+				Hero{Title: "Demo", Subtitle: a.State().Version},
+				Label{Text: a.State().Version},
+				Button{CommonProps: CommonProps{ID: "submit"}, Label: "Submit"},
+			},
+		}
 	}
 	return RenderResult{
 		Status: []StatusItem{
@@ -90,8 +92,11 @@ func TestParseCallbackEventReturnsTypedPopoverVariant(t *testing.T) {
 }
 
 func TestDropdownSerializesItems(t *testing.T) {
-	node := NewDropdown("env", []DropdownItem{{ID: "prod", Label: "Production"}})
-	payload, err := json.Marshal(node)
+	widget := Dropdown{
+		CommonProps: CommonProps{ID: "env"},
+		Items:       []DropdownItem{{ID: "prod", Label: "Production"}},
+	}
+	payload, err := json.Marshal(widget)
 	if err != nil {
 		t.Fatalf("marshal dropdown: %v", err)
 	}
@@ -105,20 +110,17 @@ func TestDropdownSerializesItems(t *testing.T) {
 }
 
 func TestItemSerializesMenuItems(t *testing.T) {
-	node := TreeNode{
-		Type: "item",
-		Data: Item{
-			CommonProps: CommonProps{ID: "run"},
-			Label:       "Run",
-			Clickable:   true,
-			Menu: []MenuItem{
-				{ID: "open", Label: "Open"},
-				{ID: "cancel", Label: "Cancel", Enabled: ptr(false)},
-			},
+	widget := Item{
+		CommonProps: CommonProps{ID: "run"},
+		Label:       "Run",
+		Clickable:   true,
+		Menu: []MenuItem{
+			{ID: "open", Label: "Open"},
+			{ID: "cancel", Label: "Cancel", Enabled: ptr(false)},
 		},
 	}
 
-	payload, err := json.Marshal(node)
+	payload, err := json.Marshal(widget)
 	if err != nil {
 		t.Fatalf("marshal item: %v", err)
 	}
@@ -131,15 +133,8 @@ func TestItemSerializesMenuItems(t *testing.T) {
 }
 
 func TestVariantSerializesAsSemanticProtocolValue(t *testing.T) {
-	node := NewLabel("Warning")
-	label, ok := node.Data.(Label)
-	if !ok {
-		t.Fatalf("expected Label data, got %T", node.Data)
-	}
-	label.Variant = VariantWarning
-	node.Data = label
-
-	payload, err := json.Marshal(node)
+	widget := Label{CommonProps: CommonProps{Variant: VariantWarning}, Text: "Warning"}
+	payload, err := json.Marshal(widget)
 	if err != nil {
 		t.Fatalf("marshal label: %v", err)
 	}

@@ -34,15 +34,23 @@ func (a *counterApplet) OnCallback(_ context.Context, event sdk.CallbackEvent) e
 }
 
 func (a *counterApplet) Render(context.Context) (sdk.RenderResult, error) {
+	count := a.State().Count
 	return sdk.RenderResult{
 		Status: []sdk.StatusItem{
-			{ID: "counter", Icon: sdk.IconName("view-refresh-symbolic"), Label: fmt.Sprintf("%d", a.State().Count)},
+			{
+				ID:    "counter",
+				Icon:  sdk.IconName("view-refresh-symbolic"),
+				Label: fmt.Sprintf("%d", count),
+			},
 		},
-		Tree: ptr(sdk.NewColumn([]sdk.TreeNode{
-			sdk.NewHero("Counter", fmt.Sprintf("Value: %d", a.State().Count)),
-			sdk.NewLabel(fmt.Sprintf("Count = %d", a.State().Count)),
-			sdk.NewButton("increment", "Increment"),
-		}, 8)),
+		Tree: sdk.Column{
+			Spacing: 8,
+			Children: []sdk.Widget{
+				sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", count)},
+				sdk.Label{Text: fmt.Sprintf("Count = %d", count)},
+				sdk.Button{CommonProps: sdk.CommonProps{ID: "increment"}, Label: "Increment"},
+			},
+		},
 	}, nil
 }
 
@@ -50,8 +58,4 @@ func main() {
 	if err := sdk.Run[counterState](context.Background(), newCounterApplet()); err != nil {
 		panic(err)
 	}
-}
-
-func ptr[T any](value T) *T {
-	return &value
 }

@@ -12,7 +12,7 @@ import (
 
 type RenderResult struct {
 	Status []StatusItem
-	Tree   *TreeNode
+	Tree   Widget
 }
 
 type Applet[S any] interface {
@@ -82,7 +82,7 @@ func (a *BaseApplet[S]) Updates() <-chan struct{} {
 }
 
 type treePayload struct {
-	Root *TreeNode `json:"root"`
+	Root Widget `json:"root"`
 }
 
 type Runtime[S any] struct {

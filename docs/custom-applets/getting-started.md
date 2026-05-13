@@ -385,13 +385,6 @@ func (a *counterApplet) OnCallback(_ context.Context, event sdk.CallbackEvent) e
 
 func (a *counterApplet) Render(context.Context) (sdk.RenderResult, error) {
     count := a.State().Count
-    tree := sdk.NewColumn([]sdk.TreeNode{
-        sdk.NewHero("Counter", fmt.Sprintf("Value: %d", count)),
-        sdk.NewSection("Controls", []sdk.TreeNode{
-            sdk.NewItem(fmt.Sprintf("Current: %d", count)),
-            sdk.NewButton("increment", "Increment"),
-        }),
-    }, 8)
     return sdk.RenderResult{
         Status: []sdk.StatusItem{
             {
@@ -400,7 +393,22 @@ func (a *counterApplet) Render(context.Context) (sdk.RenderResult, error) {
                 Label: fmt.Sprintf("%d", count),
             },
         },
-        Tree: &tree,
+        Tree: sdk.Column{
+            Spacing: 8,
+            Children: []sdk.Widget{
+                sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", count)},
+                sdk.Section{
+                    Header: &sdk.Header{Title: "Controls"},
+                    Body: []sdk.Widget{
+                        sdk.Item{Label: fmt.Sprintf("Current: %d", count)},
+                        sdk.Button{
+                            CommonProps: sdk.CommonProps{ID: "increment"},
+                            Label:       "Increment",
+                        },
+                    },
+                },
+            },
+        },
     }, nil
 }
 

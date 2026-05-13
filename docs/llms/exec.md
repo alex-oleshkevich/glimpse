@@ -1279,20 +1279,29 @@ func (a *counterApplet) OnCallback(_ context.Context, event sdk.CallbackEvent) e
 }
 
 func (a *counterApplet) Render(context.Context) (sdk.RenderResult, error) {
-	tree := sdk.NewColumn([]sdk.TreeNode{
-		sdk.NewHero("Counter", fmt.Sprintf("Value: %d", a.State().Count)),
-		sdk.NewSection("Controls", []sdk.TreeNode{
-			sdk.NewItem("Current"),
-			sdk.NewButton("increment", "Increment"),
-		}),
-	}, 8)
+	count := a.State().Count
 	return sdk.RenderResult{
 		Status: []sdk.StatusItem{{
 			ID:    "counter",
 			Icon:  sdk.IconName("view-refresh-symbolic"),
-			Label: fmt.Sprintf("%d", a.State().Count),
+			Label: fmt.Sprintf("%d", count),
 		}},
-		Tree: &tree,
+		Tree: sdk.Column{
+			Spacing: 8,
+			Children: []sdk.Widget{
+				sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", count)},
+				sdk.Section{
+					Header: &sdk.Header{Title: "Controls"},
+					Body: []sdk.Widget{
+						sdk.Item{Label: "Current"},
+						sdk.Button{
+							CommonProps: sdk.CommonProps{ID: "increment"},
+							Label:       "Increment",
+						},
+					},
+				},
+			},
+		},
 	}, nil
 }
 
@@ -1316,6 +1325,9 @@ command = ["/home/me/applets/counter"]
 - Embed `sdk.BaseApplet[YourState]` in your struct.
 - Implement `OnStart`, `OnInit`, `OnCallback`, `Render`. The base provides
   `State()` and `SetState(func(*State))`.
-- `Render` returns a `RenderResult { Status, Tree }`. `Tree` is `*TreeNode`.
-- Construct widgets with `sdk.NewX(...)` builders.
+- `Render` returns a `RenderResult { Status, Tree }`. `Tree` is any value
+  implementing `sdk.Widget` (or `nil` for no popover).
+- Compose trees with struct literals: `sdk.Hero{Title: "..."}`,
+  `sdk.Column{Children: []sdk.Widget{...}}`, etc. Every widget type
+  satisfies `sdk.Widget`.
 - Call `sdk.Run[State](ctx, applet)` from `main`.

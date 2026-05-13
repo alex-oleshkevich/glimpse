@@ -1,4 +1,27 @@
+// Widget tree types. Each widget is a struct that implements Widget and
+// MarshalJSON so it can be composed via struct literals:
+//
+//	Column{
+//	    Spacing: 8,
+//	    Children: []Widget{
+//	        Hero{Title: "Counter"},
+//	        Button{ID: "go", Label: "Go"},
+//	    },
+//	}
+//
+// Each MarshalJSON emits the canonical {"type": "<name>", "data": {...}}
+// envelope. The inner data is the struct itself, marshaled via an
+// unexported alias type so json does not recurse into our MarshalJSON.
+
 package sdk
+
+import "encoding/json"
+
+// Widget is any component that can appear in a popover tree. All concrete
+// widget types implement this interface and json.Marshaler.
+type Widget interface {
+	isWidget()
+}
 
 func ensureSlice[T any](s []T) []T {
 	if s == nil {
@@ -6,6 +29,15 @@ func ensureSlice[T any](s []T) []T {
 	}
 	return s
 }
+
+func envelope(typeName string, data any) ([]byte, error) {
+	return json.Marshal(struct {
+		Type string `json:"type"`
+		Data any    `json:"data"`
+	}{Type: typeName, Data: data})
+}
+
+// ---- Enums -----------------------------------------------------------------
 
 type Align string
 type Orientation string
@@ -29,6 +61,8 @@ const (
 	VariantDanger  Variant = "danger"
 )
 
+// CommonProps are the shared layout / accessibility fields every widget
+// accepts. Embed it as the first field of every widget struct.
 type CommonProps struct {
 	ID      string  `json:"id,omitempty"`
 	Visible *bool   `json:"visible,omitempty"`
@@ -40,10 +74,7 @@ type CommonProps struct {
 	Variant Variant `json:"variant,omitempty"`
 }
 
-type TreeNode struct {
-	Type string `json:"type"`
-	Data any    `json:"data"`
-}
+// ---- Display widgets -------------------------------------------------------
 
 type Hero struct {
 	CommonProps
@@ -52,8 +83,10 @@ type Hero struct {
 	Icon     *Icon  `json:"icon,omitempty"`
 }
 
-func NewHero(title string, subtitle string) TreeNode {
-	return TreeNode{Type: "hero", Data: Hero{Title: title, Subtitle: subtitle}}
+func (Hero) isWidget() {}
+func (h Hero) MarshalJSON() ([]byte, error) {
+	type alias Hero
+	return envelope("hero", alias(h))
 }
 
 type IconWidget struct {
@@ -62,20 +95,22 @@ type IconWidget struct {
 	PixelSize *int  `json:"pixel_size,omitempty"`
 }
 
-func NewIcon(icon *Icon) TreeNode {
-	return TreeNode{Type: "icon", Data: IconWidget{Icon: icon}}
+func (IconWidget) isWidget() {}
+func (w IconWidget) MarshalJSON() ([]byte, error) {
+	type alias IconWidget
+	return envelope("icon", alias(w))
 }
 
-type Progress struct {
+type Image struct {
 	CommonProps
-	Value    float64 `json:"value"`
-	Max      float64 `json:"max"`
-	ShowText bool    `json:"show_text,omitempty"`
-	Text     string  `json:"text,omitempty"`
+	Icon      *Icon `json:"icon"`
+	PixelSize *int  `json:"pixel_size,omitempty"`
 }
 
-func NewProgress(value float64) TreeNode {
-	return TreeNode{Type: "progress", Data: Progress{Value: value, Max: 1}}
+func (Image) isWidget() {}
+func (w Image) MarshalJSON() ([]byte, error) {
+	type alias Image
+	return envelope("image", alias(w))
 }
 
 type Label struct {
@@ -86,87 +121,42 @@ type Label struct {
 	Selectable bool     `json:"selectable,omitempty"`
 }
 
-func NewLabel(text string) TreeNode {
-	return TreeNode{Type: "label", Data: Label{Text: text}}
+func (Label) isWidget() {}
+func (l Label) MarshalJSON() ([]byte, error) {
+	type alias Label
+	return envelope("label", alias(l))
 }
 
-type Image struct {
+type Badge struct {
 	CommonProps
-	Icon      *Icon `json:"icon"`
-	PixelSize *int  `json:"pixel_size,omitempty"`
-}
-
-func NewImage(icon *Icon) TreeNode {
-	return TreeNode{Type: "image", Data: Image{Icon: icon}}
-}
-
-type Button struct {
-	CommonProps
-	Label string    `json:"label,omitempty"`
-	Icon  *Icon     `json:"icon,omitempty"`
-	Child *TreeNode `json:"child,omitempty"`
-}
-
-func NewButton(id string, label string) TreeNode {
-	return TreeNode{Type: "button", Data: Button{CommonProps: CommonProps{ID: id}, Label: label}}
-}
-
-type Switch struct {
-	CommonProps
-	Label  string `json:"label,omitempty"`
-	Active bool   `json:"active"`
-}
-
-func NewSwitch(id string, active bool) TreeNode {
-	return TreeNode{Type: "switch", Data: Switch{CommonProps: CommonProps{ID: id}, Active: active}}
-}
-
-type Scale struct {
-	CommonProps
-	Min         float64     `json:"min"`
-	Max         float64     `json:"max"`
-	Step        float64     `json:"step"`
-	Value       float64     `json:"value"`
-	Orientation Orientation `json:"orientation,omitempty"`
-	DrawValue   bool        `json:"draw_value,omitempty"`
-}
-
-func NewScale(id string, value float64) TreeNode {
-	return TreeNode{
-		Type: "scale",
-		Data: Scale{
-			CommonProps: CommonProps{ID: id},
-			Min:         0,
-			Max:         1,
-			Step:        0.1,
-			Value:       value,
-		},
-	}
-}
-
-type Checkbox struct {
-	CommonProps
-	Label  string `json:"label,omitempty"`
-	Active bool   `json:"active"`
-}
-
-func NewCheckbox(id string, active bool) TreeNode {
-	return TreeNode{Type: "checkbox", Data: Checkbox{CommonProps: CommonProps{ID: id}, Active: active}}
-}
-
-type DropdownItem struct {
-	ID    string `json:"id"`
 	Label string `json:"label"`
 }
 
-type Dropdown struct {
-	CommonProps
-	Items    []DropdownItem `json:"items"`
-	Selected *uint32        `json:"selected,omitempty"`
+func (Badge) isWidget() {}
+func (b Badge) MarshalJSON() ([]byte, error) {
+	type alias Badge
+	return envelope("badge", alias(b))
 }
 
-func NewDropdown(id string, items []DropdownItem) TreeNode {
-	return TreeNode{Type: "dropdown", Data: Dropdown{CommonProps: CommonProps{ID: id}, Items: ensureSlice(items)}}
+type StatusDot struct {
+	CommonProps
+}
+
+func (StatusDot) isWidget() {}
+func (s StatusDot) MarshalJSON() ([]byte, error) {
+	type alias StatusDot
+	return envelope("status", alias(s))
+}
+
+type Spinner struct {
+	CommonProps
+	Spinning bool `json:"spinning"`
+}
+
+func (Spinner) isWidget() {}
+func (s Spinner) MarshalJSON() ([]byte, error) {
+	type alias Spinner
+	return envelope("spinner", alias(s))
 }
 
 type Separator struct {
@@ -174,140 +164,36 @@ type Separator struct {
 	Orientation Orientation `json:"orientation,omitempty"`
 }
 
-func NewSeparator() TreeNode {
-	return TreeNode{Type: "separator", Data: Separator{}}
+func (Separator) isWidget() {}
+func (s Separator) MarshalJSON() ([]byte, error) {
+	type alias Separator
+	return envelope("separator", alias(s))
 }
 
-type Scroll struct {
+type EmptyState struct {
 	CommonProps
-	Child TreeNode `json:"child"`
-}
-
-func NewScroll(child TreeNode) TreeNode {
-	return TreeNode{Type: "scroll", Data: Scroll{Child: child}}
-}
-
-func NewGridChild(row int, column int, child TreeNode) GridChild {
-	return GridChild{Row: row, Column: column, Width: 1, Height: 1, Child: child}
-}
-
-type GridChild struct {
-	Row    int      `json:"row"`
-	Column int      `json:"column"`
-	Width  int      `json:"width"`
-	Height int      `json:"height"`
-	Child  TreeNode `json:"child"`
-}
-
-type Grid struct {
-	CommonProps
-	Children      []GridChild `json:"children"`
-	RowSpacing    int         `json:"row_spacing"`
-	ColumnSpacing int         `json:"column_spacing"`
-}
-
-func NewGrid(children []GridChild) TreeNode {
-	return TreeNode{Type: "grid", Data: Grid{Children: ensureSlice(children)}}
-}
-
-type Box struct {
-	CommonProps
-	Orientation Orientation `json:"orientation"`
-	Spacing     int         `json:"spacing"`
-	Children    []TreeNode  `json:"children"`
-}
-
-type Card struct {
-	CommonProps
-	Children []TreeNode `json:"children"`
-}
-
-func NewCard(children []TreeNode) TreeNode {
-	return TreeNode{Type: "card", Data: Card{Children: ensureSlice(children)}}
-}
-
-type Header struct {
 	Title    string `json:"title"`
-	Subtitle string `json:"subtitle,omitempty"`
+	Subtitle string `json:"subtitle"`
 }
 
-type Section struct {
+func (EmptyState) isWidget() {}
+func (e EmptyState) MarshalJSON() ([]byte, error) {
+	type alias EmptyState
+	return envelope("empty_state", alias(e))
+}
+
+type Progress struct {
 	CommonProps
-	Header *Header    `json:"header,omitempty"`
-	Body   []TreeNode `json:"body"`
+	Value    float64 `json:"value"`
+	Max      float64 `json:"max"`
+	ShowText bool    `json:"show_text,omitempty"`
+	Text     string  `json:"text,omitempty"`
 }
 
-func NewSection(title string, children []TreeNode) TreeNode {
-	return TreeNode{
-		Type: "section",
-		Data: Section{
-			Header: &Header{Title: title},
-			Body:   ensureSlice(children),
-		},
-	}
-}
-
-type Collapsible struct {
-	CommonProps
-	Header   *Header    `json:"header,omitempty"`
-	Expanded bool       `json:"expanded"`
-	Body     []TreeNode `json:"body"`
-}
-
-func NewCollapsible(title string, expanded bool, children []TreeNode) TreeNode {
-	return TreeNode{
-		Type: "collapsible",
-		Data: Collapsible{
-			Header:   &Header{Title: title},
-			Expanded: expanded,
-			Body:     ensureSlice(children),
-		},
-	}
-}
-
-type Item struct {
-	CommonProps
-	Left      *TreeNode  `json:"left,omitempty"`
-	Label     string     `json:"label"`
-	Right     *TreeNode  `json:"right,omitempty"`
-	Clickable bool       `json:"clickable"`
-	Menu      []MenuItem `json:"menu"`
-}
-
-func NewItem(label string) TreeNode {
-	return TreeNode{Type: "item", Data: Item{Label: label, Menu: []MenuItem{}}}
-}
-
-func NewClickableItem(id string, label string) TreeNode {
-	return TreeNode{
-		Type: "item",
-		Data: Item{
-			CommonProps: CommonProps{ID: id},
-			Label:       label,
-			Clickable:   true,
-			Menu:        []MenuItem{},
-		},
-	}
-}
-
-type CollapsibleItem struct {
-	CommonProps
-	Left     *TreeNode  `json:"left,omitempty"`
-	Label    string     `json:"label"`
-	Right    *TreeNode  `json:"right,omitempty"`
-	Expanded bool       `json:"expanded"`
-	Body     []TreeNode `json:"body"`
-}
-
-func NewCollapsibleItem(label string, expanded bool, children []TreeNode) TreeNode {
-	return TreeNode{
-		Type: "collapsible_item",
-		Data: CollapsibleItem{
-			Label:    label,
-			Expanded: expanded,
-			Body:     ensureSlice(children),
-		},
-	}
+func (Progress) isWidget() {}
+func (p Progress) MarshalJSON() ([]byte, error) {
+	type alias Progress
+	return envelope("progress", alias(p))
 }
 
 type Meter struct {
@@ -322,16 +208,10 @@ type Meter struct {
 	Interactive bool    `json:"interactive"`
 }
 
-func NewMeter(label string, value float64, max float64) TreeNode {
-	return TreeNode{
-		Type: "meter",
-		Data: Meter{
-			Label: label,
-			Value: value,
-			Max:   max,
-			Step:  0.01,
-		},
-	}
+func (Meter) isWidget() {}
+func (m Meter) MarshalJSON() ([]byte, error) {
+	type alias Meter
+	return envelope("meter", alias(m))
 }
 
 type Copyable struct {
@@ -340,8 +220,10 @@ type Copyable struct {
 	Value string `json:"value"`
 }
 
-func NewCopyable(label string, value string) TreeNode {
-	return TreeNode{Type: "copyable", Data: Copyable{Label: label, Value: value}}
+func (Copyable) isWidget() {}
+func (c Copyable) MarshalJSON() ([]byte, error) {
+	type alias Copyable
+	return envelope("copyable", alias(c))
 }
 
 type ToastAction struct {
@@ -357,8 +239,262 @@ type Toast struct {
 	Action  *ToastAction `json:"action,omitempty"`
 }
 
-func NewToast(title string, message string) TreeNode {
-	return TreeNode{Type: "toast", Data: Toast{Title: title, Message: message}}
+func (Toast) isWidget() {}
+func (t Toast) MarshalJSON() ([]byte, error) {
+	type alias Toast
+	return envelope("toast", alias(t))
+}
+
+// ---- Interactive widgets ---------------------------------------------------
+
+type Button struct {
+	CommonProps
+	Label string `json:"label,omitempty"`
+	Icon  *Icon  `json:"icon,omitempty"`
+	Child Widget `json:"child,omitempty"`
+}
+
+func (Button) isWidget() {}
+func (b Button) MarshalJSON() ([]byte, error) {
+	type alias Button
+	return envelope("button", alias(b))
+}
+
+type Switch struct {
+	CommonProps
+	Label  string `json:"label,omitempty"`
+	Active bool   `json:"active"`
+}
+
+func (Switch) isWidget() {}
+func (s Switch) MarshalJSON() ([]byte, error) {
+	type alias Switch
+	return envelope("switch", alias(s))
+}
+
+type Checkbox struct {
+	CommonProps
+	Label  string `json:"label,omitempty"`
+	Active bool   `json:"active"`
+}
+
+func (Checkbox) isWidget() {}
+func (c Checkbox) MarshalJSON() ([]byte, error) {
+	type alias Checkbox
+	return envelope("checkbox", alias(c))
+}
+
+type Scale struct {
+	CommonProps
+	Min         float64     `json:"min"`
+	Max         float64     `json:"max"`
+	Step        float64     `json:"step"`
+	Value       float64     `json:"value"`
+	Orientation Orientation `json:"orientation,omitempty"`
+	DrawValue   bool        `json:"draw_value,omitempty"`
+}
+
+func (Scale) isWidget() {}
+func (s Scale) MarshalJSON() ([]byte, error) {
+	type alias Scale
+	return envelope("scale", alias(s))
+}
+
+type DropdownItem struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+
+type Dropdown struct {
+	CommonProps
+	Items    []DropdownItem `json:"items"`
+	Selected *uint32        `json:"selected,omitempty"`
+}
+
+func (Dropdown) isWidget() {}
+func (d Dropdown) MarshalJSON() ([]byte, error) {
+	type alias Dropdown
+	out := d
+	out.Items = ensureSlice(out.Items)
+	return envelope("dropdown", alias(out))
+}
+
+// ---- Layouts ---------------------------------------------------------------
+
+type Box struct {
+	CommonProps
+	Orientation Orientation `json:"orientation"`
+	Spacing     int         `json:"spacing"`
+	Children    []Widget    `json:"children"`
+}
+
+func (Box) isWidget() {}
+func (b Box) MarshalJSON() ([]byte, error) {
+	type alias Box
+	out := b
+	out.Children = ensureSlice(out.Children)
+	return envelope("box", alias(out))
+}
+
+type Row struct {
+	CommonProps
+	Spacing  int      `json:"spacing"`
+	Children []Widget `json:"children"`
+}
+
+func (Row) isWidget() {}
+func (r Row) MarshalJSON() ([]byte, error) {
+	type alias Row
+	out := r
+	out.Children = ensureSlice(out.Children)
+	return envelope("row", alias(out))
+}
+
+type Column struct {
+	CommonProps
+	Spacing  int      `json:"spacing"`
+	Children []Widget `json:"children"`
+}
+
+func (Column) isWidget() {}
+func (c Column) MarshalJSON() ([]byte, error) {
+	type alias Column
+	out := c
+	out.Children = ensureSlice(out.Children)
+	return envelope("column", alias(out))
+}
+
+type GridChild struct {
+	Row    int    `json:"row"`
+	Column int    `json:"column"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	Child  Widget `json:"child"`
+}
+
+type Grid struct {
+	CommonProps
+	Children      []GridChild `json:"children"`
+	RowSpacing    int         `json:"row_spacing"`
+	ColumnSpacing int         `json:"column_spacing"`
+}
+
+func (Grid) isWidget() {}
+func (g Grid) MarshalJSON() ([]byte, error) {
+	type alias Grid
+	out := g
+	out.Children = ensureSlice(out.Children)
+	return envelope("grid", alias(out))
+}
+
+type Card struct {
+	CommonProps
+	Children []Widget `json:"children"`
+}
+
+func (Card) isWidget() {}
+func (c Card) MarshalJSON() ([]byte, error) {
+	type alias Card
+	out := c
+	out.Children = ensureSlice(out.Children)
+	return envelope("card", alias(out))
+}
+
+type Scroll struct {
+	CommonProps
+	Child Widget `json:"child"`
+}
+
+func (Scroll) isWidget() {}
+func (s Scroll) MarshalJSON() ([]byte, error) {
+	type alias Scroll
+	return envelope("scroll", alias(s))
+}
+
+// ---- Group widgets ---------------------------------------------------------
+
+type Header struct {
+	Title    string `json:"title"`
+	Subtitle string `json:"subtitle,omitempty"`
+}
+
+type Section struct {
+	CommonProps
+	Header *Header  `json:"header,omitempty"`
+	Body   []Widget `json:"body"`
+}
+
+func (Section) isWidget() {}
+func (s Section) MarshalJSON() ([]byte, error) {
+	type alias Section
+	out := s
+	out.Body = ensureSlice(out.Body)
+	return envelope("section", alias(out))
+}
+
+type Collapsible struct {
+	CommonProps
+	Header   *Header  `json:"header,omitempty"`
+	Expanded bool     `json:"expanded"`
+	Body     []Widget `json:"body"`
+}
+
+func (Collapsible) isWidget() {}
+func (c Collapsible) MarshalJSON() ([]byte, error) {
+	type alias Collapsible
+	out := c
+	out.Body = ensureSlice(out.Body)
+	return envelope("collapsible", alias(out))
+}
+
+// ---- List rows -------------------------------------------------------------
+
+type Item struct {
+	CommonProps
+	Left      Widget     `json:"left,omitempty"`
+	Label     string     `json:"label"`
+	Right     Widget     `json:"right,omitempty"`
+	Clickable bool       `json:"clickable"`
+	Menu      []MenuItem `json:"menu"`
+}
+
+func (Item) isWidget() {}
+func (i Item) MarshalJSON() ([]byte, error) {
+	type alias Item
+	out := i
+	out.Menu = ensureSlice(out.Menu)
+	return envelope("item", alias(out))
+}
+
+type CollapsibleItem struct {
+	CommonProps
+	Left     Widget   `json:"left,omitempty"`
+	Label    string   `json:"label"`
+	Right    Widget   `json:"right,omitempty"`
+	Expanded bool     `json:"expanded"`
+	Body     []Widget `json:"body"`
+}
+
+func (CollapsibleItem) isWidget() {}
+func (c CollapsibleItem) MarshalJSON() ([]byte, error) {
+	type alias CollapsibleItem
+	out := c
+	out.Body = ensureSlice(out.Body)
+	return envelope("collapsible_item", alias(out))
+}
+
+type ActionRow struct {
+	CommonProps
+	Title    string `json:"title"`
+	Subtitle string `json:"subtitle"`
+	Meta     string `json:"meta"`
+	Icon     *Icon  `json:"icon,omitempty"`
+}
+
+func (ActionRow) isWidget() {}
+func (a ActionRow) MarshalJSON() ([]byte, error) {
+	type alias ActionRow
+	return envelope("action_row", alias(a))
 }
 
 type ActionMenuItem struct {
@@ -376,14 +512,12 @@ type ActionMenu struct {
 	Items  []ActionMenuItem `json:"items"`
 }
 
-func NewActionMenu(header string, items []ActionMenuItem) TreeNode {
-	return TreeNode{
-		Type: "action_menu",
-		Data: ActionMenu{
-			Header: header,
-			Items:  items,
-		},
-	}
+func (ActionMenu) isWidget() {}
+func (a ActionMenu) MarshalJSON() ([]byte, error) {
+	type alias ActionMenu
+	out := a
+	out.Items = ensureSlice(out.Items)
+	return envelope("action_menu", alias(out))
 }
 
 type DetailGridItem struct {
@@ -396,96 +530,10 @@ type DetailGrid struct {
 	Rows []DetailGridItem `json:"rows"`
 }
 
-func NewDetailGrid(rows []DetailGridItem) TreeNode {
-	return TreeNode{Type: "detail_grid", Data: DetailGrid{Rows: rows}}
+func (DetailGrid) isWidget() {}
+func (d DetailGrid) MarshalJSON() ([]byte, error) {
+	type alias DetailGrid
+	out := d
+	out.Rows = ensureSlice(out.Rows)
+	return envelope("detail_grid", alias(out))
 }
-
-type ActionRow struct {
-	CommonProps
-	Title    string `json:"title"`
-	Subtitle string `json:"subtitle"`
-	Meta     string `json:"meta"`
-	Icon     *Icon  `json:"icon,omitempty"`
-}
-
-func NewActionRow(id string, title string) TreeNode {
-	return TreeNode{Type: "action_row", Data: ActionRow{CommonProps: CommonProps{ID: id}, Title: title}}
-}
-
-type EmptyState struct {
-	CommonProps
-	Title    string `json:"title"`
-	Subtitle string `json:"subtitle"`
-}
-
-func NewEmptyState(title string) TreeNode {
-	return TreeNode{Type: "empty_state", Data: EmptyState{Title: title}}
-}
-
-type Badge struct {
-	CommonProps
-	Label string `json:"label"`
-}
-
-func NewBadge(label string) TreeNode {
-	return TreeNode{Type: "badge", Data: Badge{Label: label}}
-}
-
-type StatusDot struct {
-	CommonProps
-}
-
-func NewStatusDot() TreeNode {
-	return TreeNode{Type: "status", Data: StatusDot{}}
-}
-
-type Spinner struct {
-	CommonProps
-	Spinning bool `json:"spinning"`
-}
-
-func NewSpinner() TreeNode {
-	return NewSpinnerWith(true)
-}
-
-func NewSpinnerWith(spinning bool) TreeNode {
-	return TreeNode{Type: "spinner", Data: Spinner{Spinning: spinning}}
-}
-
-type Layout struct {
-	CommonProps
-	Spacing  int        `json:"spacing"`
-	Children []TreeNode `json:"children"`
-}
-
-func NewColumn(children []TreeNode, spacing int) TreeNode {
-	return TreeNode{
-		Type: "column",
-		Data: Layout{
-			Spacing:  spacing,
-			Children: children,
-		},
-	}
-}
-
-func NewRow(children []TreeNode, spacing int) TreeNode {
-	return TreeNode{
-		Type: "row",
-		Data: Layout{
-			Spacing:  spacing,
-			Children: children,
-		},
-	}
-}
-
-func NewBox(orientation Orientation, spacing int, children []TreeNode) TreeNode {
-	return TreeNode{
-		Type: "box",
-		Data: Box{
-			Orientation: orientation,
-			Spacing:     spacing,
-			Children:    children,
-		},
-	}
-}
-

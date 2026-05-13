@@ -242,9 +242,16 @@ func (a *counterApplet) OnCallback(_ context.Context, event sdk.CallbackEvent) e
 func (a *counterApplet) Render(context.Context) (sdk.RenderResult, error) {
 	return sdk.RenderResult{
 		Status: []sdk.StatusItem{
-			{ID: "counter", Icon: sdk.IconName("view-refresh-symbolic"), Label: fmt.Sprintf("%d", a.State().Count)},
+			{
+				ID:    "counter",
+				Icon:  sdk.IconName("view-refresh-symbolic"),
+				Label: fmt.Sprintf("%d", a.State().Count),
+			},
 		},
-		Tree: ptr(sdk.NewButton("increment", "Increment")),
+		Tree: sdk.Button{
+			CommonProps: sdk.CommonProps{ID: "increment"},
+			Label:       "Increment",
+		},
 	}, nil
 }
 
@@ -252,10 +259,6 @@ func main() {
 	if err := sdk.Run[counterState](context.Background(), newCounterApplet()); err != nil {
 		panic(err)
 	}
-}
-
-func ptr[T any](value T) *T {
-	return &value
 }
 ```
 
