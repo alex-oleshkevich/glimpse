@@ -114,7 +114,7 @@ class Applet(Generic[StateT]):
                 try:
                     parsed = _parse_line(line)
                 except (ValueError, json.JSONDecodeError) as exc:
-                    print(f"glimpse-applet: ignoring malformed input: {exc}", file=sys.stderr)
+                    print(f"glimpse-sdk: ignoring malformed input: {exc}", file=sys.stderr)
                     continue
                 if parsed is None:
                     continue
@@ -125,7 +125,7 @@ class Applet(Generic[StateT]):
                     elif message_type == "event":
                         await self._incoming.put(parse_callback_event(data))
                 except Exception as exc:
-                    print(f"glimpse-applet: ignoring malformed event: {exc}", file=sys.stderr)
+                    print(f"glimpse-sdk: ignoring malformed event: {exc}", file=sys.stderr)
                     continue
         finally:
             eof.set()
@@ -200,7 +200,7 @@ def _log_render_exception(task: "asyncio.Task[None]") -> None:
         return
     import traceback
 
-    print("glimpse-applet: render error:", file=sys.stderr)
+    print("glimpse-sdk: render error:", file=sys.stderr)
     traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
 
 
