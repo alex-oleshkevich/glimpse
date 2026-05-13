@@ -143,6 +143,7 @@ async fn wire_inhibitor_subsystem(
             InhibitorsApi {
                 registry: registry.clone(),
                 health: health.clone(),
+                on_change: on_change.clone(),
             },
         )
         .await?;

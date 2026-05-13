@@ -1,6 +1,6 @@
 {
   "name": "glimpse-sdk",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Typed async framework for building Glimpse exec applets",
   "type": "module",
   "main": "dist/src/index.js",
