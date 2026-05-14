@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use relm4::{
     WidgetTemplate,
     gtk::{self, prelude::*},
