@@ -19,6 +19,7 @@ pub fn start(services: &Services) -> broadcast::Sender<Arc<IpcEvent>> {
     spawn_mpris_watcher(services.mpris.subscribe(), tx.clone());
     spawn_notifications_watcher(services.notifications.subscribe(), tx.clone());
     spawn_brightness_watcher(services.brightness.subscribe(), tx.clone());
+    spawn_idle_watcher(services.idle.subscribe(), tx.clone());
 
     tx
 }
@@ -641,6 +642,8 @@ fn spawn_battery_watcher(
     mut rx: watch::Receiver<crate::services::battery::State>,
     tx: broadcast::Sender<Arc<IpcEvent>>,
 ) {
+    use crate::services::battery::BatteryState;
+
     tokio::spawn(async move {
         let mut prev = rx.borrow_and_update().clone();
         loop {
@@ -649,34 +652,110 @@ fn spawn_battery_watcher(
             }
             let next = rx.borrow_and_update().clone();
 
+            // --- main battery status ---
             if prev.status.percentage != next.status.percentage {
                 emit(
                     &tx,
                     "battery.level_changed",
-                    vec![("percentage", next.status.percentage.to_string())],
+                    vec![
+                        ("percentage", next.status.percentage.to_string()),
+                        ("on_battery", next.status.on_battery.to_string()),
+                        ("time_to_empty", next.status.time_to_empty.to_string()),
+                        ("energy_rate", format!("{:.2}", next.status.energy_rate)),
+                    ],
                 );
                 if next.status.percentage <= 10 && prev.status.percentage > 10 {
                     emit(
                         &tx,
                         "battery.critical",
-                        vec![("percentage", next.status.percentage.to_string())],
+                        vec![
+                            ("percentage", next.status.percentage.to_string()),
+                            ("time_to_empty", next.status.time_to_empty.to_string()),
+                            ("energy_rate", format!("{:.2}", next.status.energy_rate)),
+                        ],
                     );
                 }
             }
 
             if prev.status.state != next.status.state {
-                let event = match &next.status.state {
-                    crate::services::battery::BatteryState::Charging => "battery.charging_started",
-                    crate::services::battery::BatteryState::Discharging => {
-                        "battery.discharging_started"
-                    }
-                    _ => "battery.state_changed",
-                };
-                emit(
-                    &tx,
-                    event,
-                    vec![("on_battery", next.status.on_battery.to_string())],
-                );
+                match &next.status.state {
+                    BatteryState::Charging => emit(
+                        &tx,
+                        "battery.charging_started",
+                        vec![
+                            ("percentage", next.status.percentage.to_string()),
+                            ("time_to_full", next.status.time_to_full.to_string()),
+                        ],
+                    ),
+                    BatteryState::Discharging => emit(
+                        &tx,
+                        "battery.discharging_started",
+                        vec![
+                            ("percentage", next.status.percentage.to_string()),
+                            ("time_to_empty", next.status.time_to_empty.to_string()),
+                            ("energy_rate", format!("{:.2}", next.status.energy_rate)),
+                        ],
+                    ),
+                    BatteryState::FullyCharged => emit(
+                        &tx,
+                        "battery.fully_charged",
+                        vec![("percentage", next.status.percentage.to_string())],
+                    ),
+                    BatteryState::Empty => emit(
+                        &tx,
+                        "battery.empty",
+                        vec![("percentage", next.status.percentage.to_string())],
+                    ),
+                    _ => emit(
+                        &tx,
+                        "battery.state_changed",
+                        vec![("on_battery", next.status.on_battery.to_string())],
+                    ),
+                }
+            }
+
+            // --- peripheral devices ---
+            let prev_by_path: HashMap<&str, _> =
+                prev.devices.iter().map(|d| (d.path.as_str(), d)).collect();
+            let next_by_path: HashMap<&str, _> =
+                next.devices.iter().map(|d| (d.path.as_str(), d)).collect();
+            for (path, dev) in &next_by_path {
+                if !prev_by_path.contains_key(path) {
+                    emit(
+                        &tx,
+                        "battery.device_added",
+                        vec![
+                            ("path", dev.path.clone()),
+                            ("model", dev.model.clone()),
+                            ("percentage", (dev.percentage as u8).to_string()),
+                        ],
+                    );
+                    continue;
+                }
+                let prev_dev = prev_by_path[path];
+                if (prev_dev.percentage as u8) != (dev.percentage as u8) {
+                    emit(
+                        &tx,
+                        "battery.device_level_changed",
+                        vec![
+                            ("path", dev.path.clone()),
+                            ("model", dev.model.clone()),
+                            ("percentage", (dev.percentage as u8).to_string()),
+                        ],
+                    );
+                }
+            }
+            for (path, dev) in &prev_by_path {
+                if !next_by_path.contains_key(path) {
+                    emit(
+                        &tx,
+                        "battery.device_removed",
+                        vec![
+                            ("path", dev.path.clone()),
+                            ("model", dev.model.clone()),
+                        ],
+                    );
+                }
             }
 
             prev = next;
@@ -733,6 +812,8 @@ fn spawn_mpris_watcher(
     mut rx: watch::Receiver<crate::services::mpris::State>,
     tx: broadcast::Sender<Arc<IpcEvent>>,
 ) {
+    use crate::services::mpris::PlaybackStatus;
+
     tokio::spawn(async move {
         let mut prev = rx.borrow_and_update().clone();
         loop {
@@ -741,51 +822,134 @@ fn spawn_mpris_watcher(
             }
             let next = rx.borrow_and_update().clone();
 
-            let prev_status = prev
+            // --- player list lifecycle ---
+            let prev_by_id: HashMap<&str, _> = prev
                 .snapshot
-                .current_player
-                .as_ref()
-                .map(|p| p.playback_status);
-            let next_player = next.snapshot.current_player.as_ref();
-            let next_status = next_player.map(|p| p.playback_status);
+                .players
+                .iter()
+                .map(|p| (p.player_id.as_str(), p))
+                .collect();
+            let next_by_id: HashMap<&str, _> = next
+                .snapshot
+                .players
+                .iter()
+                .map(|p| (p.player_id.as_str(), p))
+                .collect();
+            for (id, p) in &next_by_id {
+                if !prev_by_id.contains_key(id) {
+                    emit(
+                        &tx,
+                        "mpris.player_appeared",
+                        vec![
+                            ("player", p.identity.clone()),
+                            ("player_id", p.player_id.clone()),
+                        ],
+                    );
+                }
+            }
+            for (id, p) in &prev_by_id {
+                if !next_by_id.contains_key(id) {
+                    emit(
+                        &tx,
+                        "mpris.player_disappeared",
+                        vec![
+                            ("player", p.identity.clone()),
+                            ("player_id", p.player_id.clone()),
+                        ],
+                    );
+                }
+            }
 
+            // --- current player ---
+            let prev_cur = prev.snapshot.current_player.as_ref();
+            let next_cur = next.snapshot.current_player.as_ref();
+
+            let prev_player_id = prev_cur.map(|p| p.player_id.as_str());
+            let next_player_id = next_cur.map(|p| p.player_id.as_str());
+            if prev_player_id != next_player_id {
+                if let Some(p) = next_cur {
+                    emit(
+                        &tx,
+                        "mpris.player_switched",
+                        vec![
+                            ("player", p.identity.clone()),
+                            ("player_id", p.player_id.clone()),
+                        ],
+                    );
+                }
+            }
+
+            let prev_status = prev_cur.map(|p| p.playback_status);
+            let next_status = next_cur.map(|p| p.playback_status);
             if prev_status != next_status {
                 let event = match next_status {
-                    Some(crate::services::mpris::PlaybackStatus::Playing) => "mpris.playing",
-                    Some(crate::services::mpris::PlaybackStatus::Paused) => "mpris.paused",
+                    Some(PlaybackStatus::Playing) => "mpris.playing",
+                    Some(PlaybackStatus::Paused) => "mpris.paused",
                     _ => "mpris.stopped",
                 };
                 emit(
                     &tx,
                     event,
                     vec![
-                        ("player", next_player.map(|p| p.identity.as_str()).unwrap_or("").to_owned()),
-                        ("title", next_player.map(|p| p.title.as_str()).unwrap_or("").to_owned()),
-                        ("artist", next_player.map(|p| p.artist.as_str()).unwrap_or("").to_owned()),
+                        ("player", next_cur.map(|p| p.identity.as_str()).unwrap_or("").to_owned()),
+                        ("player_id", next_cur.map(|p| p.player_id.as_str()).unwrap_or("").to_owned()),
+                        ("title", next_cur.map(|p| p.title.as_str()).unwrap_or("").to_owned()),
+                        ("artist", next_cur.map(|p| p.artist.as_str()).unwrap_or("").to_owned()),
+                        ("album", next_cur.map(|p| p.album.as_str()).unwrap_or("").to_owned()),
                     ],
                 );
             }
 
-            let prev_track = prev
-                .snapshot
-                .current_player
-                .as_ref()
-                .map(|p| (p.title.clone(), p.artist.clone()));
-            let next_track = next_player.map(|p| (p.title.clone(), p.artist.clone()));
-            if prev_track != next_track
-                && next_status == Some(crate::services::mpris::PlaybackStatus::Playing)
-            {
-                if let Some(p) = next_player {
+            let prev_track = prev_cur.map(|p| (p.title.as_str(), p.artist.as_str()));
+            let next_track = next_cur.map(|p| (p.title.as_str(), p.artist.as_str()));
+            if prev_track != next_track && next_status == Some(PlaybackStatus::Playing) {
+                if let Some(p) = next_cur {
                     emit(
                         &tx,
                         "mpris.track_changed",
                         vec![
+                            ("player", p.identity.clone()),
+                            ("player_id", p.player_id.clone()),
                             ("title", p.title.clone()),
                             ("artist", p.artist.clone()),
                             ("album", p.album.clone()),
                         ],
                     );
                 }
+            }
+
+            prev = next;
+        }
+    });
+}
+
+fn spawn_idle_watcher(
+    mut rx: watch::Receiver<crate::services::idle::State>,
+    tx: broadcast::Sender<Arc<IpcEvent>>,
+) {
+    tokio::spawn(async move {
+        let mut prev = rx.borrow_and_update().clone();
+        loop {
+            if rx.changed().await.is_err() {
+                break;
+            }
+            let next = rx.borrow_and_update().clone();
+
+            let prev_fired: HashSet<usize> = prev.fired_listeners.iter().copied().collect();
+            let next_fired: HashSet<usize> = next.fired_listeners.iter().copied().collect();
+            for &id in next_fired.difference(&prev_fired) {
+                let timeout = next.listeners.iter().find(|l| l.id == id).map(|l| l.timeout).unwrap_or(0);
+                emit(&tx, "idle.triggered", vec![
+                    ("listener", id.to_string()),
+                    ("timeout", timeout.to_string()),
+                ]);
+            }
+            for &id in prev_fired.difference(&next_fired) {
+                let timeout = prev.listeners.iter().find(|l| l.id == id).map(|l| l.timeout).unwrap_or(0);
+                emit(&tx, "idle.resumed", vec![
+                    ("listener", id.to_string()),
+                    ("timeout", timeout.to_string()),
+                ]);
             }
 
             prev = next;

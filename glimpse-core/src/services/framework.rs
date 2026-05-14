@@ -7,9 +7,9 @@ use crate::{
     dbus::Dbus,
     services::{
         applet_watcher::AppletWatcher, audio, audio_events, battery, bluetooth, brightness,
-        calendar_events, clipboard, clock, compositor, geoclue, keyboard, location, microphone,
-        mpris, network, notifications, power, session, solar, storage, theme, tray, weather,
-        webcam,
+        calendar_events, clipboard, clock, compositor, geoclue, idle, keyboard, location,
+        microphone, mpris, network, notifications, power, session, solar, storage, theme, tray,
+        weather, webcam,
     },
 };
 
@@ -160,6 +160,7 @@ pub struct Services {
     pub storage: storage::StorageHandle,
     pub tray: tray::TrayHandle,
     pub webcam: webcam::WebcamHandle,
+    pub idle: idle::IdleHandle,
     pub applet_watcher: watch::Receiver<DiscoveredApplets>,
     pub system_dbus: zbus::Connection,
     pub session_dbus: zbus::Connection,
@@ -194,7 +195,8 @@ impl Services {
                 weather,
                 storage,
                 tray,
-                webcam
+                webcam,
+                idle
             ]
         );
     }
@@ -286,6 +288,9 @@ impl ServiceRuntime {
         let (webcam_service, webcam) = webcam::WebcamService::new();
         let webcam_service = spawn_service(|cancel| webcam_service.run(cancel));
 
+        let (idle_service, idle) = idle::IdleService::new(battery.clone());
+        let idle_service = spawn_service(|cancel| idle_service.run(cancel));
+
         let applet_watcher = AppletWatcher::start(AppletDirectoryScanner::from_process());
 
         let running_services = vec![
@@ -313,6 +318,7 @@ impl ServiceRuntime {
             storage_service,
             tray_service,
             webcam_service,
+            idle_service,
         ];
         let handles = Services {
             audio,
@@ -339,6 +345,7 @@ impl ServiceRuntime {
             storage,
             tray,
             webcam,
+            idle,
             applet_watcher,
             system_dbus,
             session_dbus,
