@@ -337,4 +337,4 @@ Fixture rules:
 | [Applet Tooling](../custom-applets/tooling.md) | `glimpse-applet` project, dev, link, and diagnostics workflows. |
 | [Line Protocol](../custom-applets/exec-protocol.md) | Raw protocol commands, message shapes, and events. |
 | [Components](../custom-applets/exec-components.md) | Popover component fields and component types. |
-| [SDK Golden Fixtures](../../sdk/fixtures/README.md) | Cross-language fixture rules and validation commands. |
+| [SDK Golden Fixtures](https://github.com/alex-oleshkevich/glimpse/blob/master/sdk/fixtures/README.md) | Cross-language fixture rules and validation commands. |

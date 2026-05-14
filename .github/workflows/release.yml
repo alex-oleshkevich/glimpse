@@ -16,7 +16,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Verify tag matches workspace version
         id: version
@@ -46,13 +46,13 @@ jobs:
             pkgconf
 
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Trust checkout directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Restore Cargo dependency cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/git
@@ -62,7 +62,7 @@ jobs:
             ${{ runner.os }}-arch-cargo-
 
       - name: Restore Cargo build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: target
           key: ${{ runner.os }}-arch-target-test-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
@@ -109,13 +109,13 @@ jobs:
             zstd
 
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Trust checkout directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Restore Cargo dependency cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/git
@@ -125,7 +125,7 @@ jobs:
             ${{ runner.os }}-arch-cargo-
 
       - name: Restore Cargo build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: target
           key: ${{ runner.os }}-arch-target-release-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
@@ -143,7 +143,7 @@ jobs:
           echo "checksum=$checksum" >> "$GITHUB_OUTPUT"
 
       - name: Upload binary archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: binary-release
           path: ${{ steps.package.outputs.asset }}
@@ -171,13 +171,13 @@ jobs:
             openssh
 
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Trust checkout directory
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Download binary archive
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: binary-release
           path: dist

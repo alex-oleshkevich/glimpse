@@ -29,10 +29,10 @@ jobs:
             pkgconf
 
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Restore Cargo dependency cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/git
@@ -42,7 +42,7 @@ jobs:
             ${{ runner.os }}-arch-cargo-
 
       - name: Restore Cargo build cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: target
           key: ${{ runner.os }}-arch-target-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
