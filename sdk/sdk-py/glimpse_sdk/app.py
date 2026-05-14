@@ -6,7 +6,7 @@ import sys
 from dataclasses import dataclass, is_dataclass
 from typing import Any, Generic, TypeVar
 
-from .events import CallbackEvent, InitEvent, PopoverEvent, parse_callback_event, parse_init_event
+from .events import CallbackEvent, InitEvent, OptionsT, PopoverEvent, parse_callback_event, parse_init_event
 from .protocol import StatusItem
 from .widgets import TreeNode
 
@@ -18,10 +18,10 @@ class AppletState:
     pass
 
 
-class Applet(Generic[StateT]):
+class Applet(Generic[StateT, OptionsT]):
     def __init__(self) -> None:
         self.state: StateT = self.initial_state()
-        self._incoming: asyncio.Queue[InitEvent | CallbackEvent] = asyncio.Queue()
+        self._incoming: asyncio.Queue[InitEvent[OptionsT] | CallbackEvent] = asyncio.Queue()
         self._outgoing: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
         self._handler_map = self._collect_handlers()
         self._render_task: asyncio.Task[None] | None = None
@@ -36,7 +36,10 @@ class Applet(Generic[StateT]):
     async def on_start(self) -> None:
         return None
 
-    async def on_init(self, _event: InitEvent) -> None:
+    def parse_options(self, raw: dict[str, Any]) -> OptionsT:
+        return raw  # type: ignore[return-value]
+
+    async def on_init(self, _event: InitEvent[OptionsT]) -> None:
         return None
 
     async def on_callback(self, _event: CallbackEvent) -> None:
@@ -145,7 +148,9 @@ class Applet(Generic[StateT]):
         message_type, data = parsed
         try:
             if message_type == "init":
-                await self._incoming.put(parse_init_event(data))
+                raw = parse_init_event(data)
+                typed: InitEvent[OptionsT] = InitEvent(instance=raw.instance, options=self.parse_options(raw.options))
+                await self._incoming.put(typed)
             elif message_type == "event":
                 await self._incoming.put(parse_callback_event(data))
         except Exception as exc:
@@ -211,7 +216,10 @@ class Applet(Generic[StateT]):
                 self._render_task.cancel()
 
     def run(self) -> None:
-        asyncio.run(self._run())
+        try:
+            asyncio.run(self._run())
+        except KeyboardInterrupt:
+            pass
 
 
 def _log_render_exception(task: "asyncio.Task[None]") -> None:

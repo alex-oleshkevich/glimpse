@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Generic, TypeVar
+
+OptionsT = TypeVar("OptionsT", default=dict[str, Any])
 
 
 @dataclass(slots=True)
-class InitEvent:
+class InitEvent(Generic[OptionsT]):
     instance: str
-    options: dict[str, Any]
+    options: OptionsT
 
 
 @dataclass(slots=True)
@@ -46,7 +48,7 @@ class PopoverEvent(CallbackEvent):
     open: bool = False
 
 
-def parse_init_event(payload: dict[str, Any]) -> InitEvent:
+def parse_init_event(payload: dict[str, Any]) -> InitEvent[dict[str, Any]]:
     return InitEvent(
         instance=str(payload.get("instance", "")),
         options=payload.get("options") or {},
