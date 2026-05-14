@@ -1,7 +1,7 @@
 # SDK Golden Fixtures
 
-Shared JSON fixtures used by all four SDK test suites to enforce
-cross-language serialization parity.
+Shared JSON fixtures used by all four SDK test suites and the Rust renderer
+test to enforce cross-language serialization parity and renderability.
 
 Each `widgets/*.json` file contains the exact JSON that the SDKs must emit
 for the corresponding widget case. Each `events/*.json` file contains an
@@ -18,14 +18,27 @@ Each SDK has a `golden_test` test file that:
 3. For event fixtures: parses the fixture as the incoming JSON and asserts
    the SDK's parser returns the documented typed event.
 
+The Rust renderer also has `golden_widget_fixtures_render_without_errors`.
+That test reads every `widgets/*.json` file, deserializes it through the
+exec protocol model, and sends it to the renderer. A fixture is not valid
+unless it can be serialized by every SDK and rendered by the shell.
+
 ## Adding a fixture
 
-1. Drop the new `.json` file under `widgets/` or `events/`.
+1. Add the case to `generate.py` and regenerate the JSON fixture.
 2. Add the same case name + corresponding builder to **all four** SDK test
    files (`sdk-rs/tests/golden.rs`, `sdk-ts/tests/golden.test.ts`,
    `sdk-py/tests/test_golden.py`, `sdk-go/sdk/golden_test.go`).
-3. Run each SDK's test suite. If any SDK diverges, fix the SDK — never
-   change the fixture to match an SDK.
+3. Run each SDK's test suite.
+4. Run the Rust renderer fixture test from the repo root:
+
+   ```sh
+   cargo test -p glimpse-shell golden_widget_fixtures_render_without_errors -- --nocapture
+   ```
+
+If any SDK diverges, fix the SDK unless the fixture violates the documented
+protocol. If the renderer rejects a fixture, either fix the fixture shape or
+extend the renderer and protocol together.
 
 ## Canonical-shape rules
 
@@ -42,3 +55,4 @@ re-think before adding.
 | Modifier booleans (`wrap`, `selectable`, `show_text`, `interactive`, `draw_value`) | omit when false |
 | `Box.orientation`, `Box.spacing`, `Row.spacing`, `Column.spacing` | always emit |
 | Numerics with non-zero defaults (`Grid.row_spacing`, `Grid.column_spacing`) | always emit |
+| Interactive widgets (`button`, `switch`, `toggle_button`, `checkbox`, `slider`, `select`, interactive `meter`, `action_item`) | include a stable `id` |

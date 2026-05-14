@@ -2,7 +2,7 @@
 
 The exec applet runs a child process and lets that process control panel status and popover content.
 
-Use it when you want a custom local widget without writing a built-in Rust applet. Raw exec applets use the [line protocol](./exec-protocol.md). If you prefer typed helpers instead of raw protocol lines, use the [Exec SDK](../applets/exec-sdk.md).
+Use it when you want a custom local widget without writing a built-in Rust applet. Raw exec applets use the [line protocol](./exec-protocol.md). If you prefer typed helpers instead of raw protocol lines, use the [Exec SDK](../applets/exec-sdk.md). For project creation and live reload, use [Applet Tooling](./tooling.md).
 
 ## Basic Config
 
@@ -35,6 +35,31 @@ right = ["sysinfo", "network", "battery"]
 | `options` | `{}` | Custom data sent to the child process in the `init` message. |
 | `env_clear` | `false` | Clear the inherited environment before starting the child process. |
 | `env` | `{}` | Extra environment variables for the child process. Applied after `env_clear`. |
+
+## Applet Directories
+
+Exec applets can be declared directly in `~/.config/glimpse/config.toml`, or packaged as applet project directories with an `applet.toml` file:
+
+```toml
+id = "sysinfo"
+type = "exec"
+
+[exec]
+command = ["uv", "run", "main.py"]
+restart_delay_ms = 1000
+```
+
+Project directories are the preferred shape for SDK applets. They keep source code, package metadata, and `applet.toml` together. `glimpse-applet link` installs the project by symlinking `applet.toml` to `~/.config/glimpse/applets/<id>.toml`.
+
+Development mode creates a temporary discovered applet instead:
+
+```sh
+glimpse-applet dev /path/to/sysinfo
+```
+
+That command writes `~/.config/glimpse/applets/sysinfo.dev.toml` while it runs. Add `__dev__` to a panel section to show active dev applets.
+
+If an applet id exists both in `config.toml` and as a discovered applet, the explicit `config.toml` entry wins.
 
 ## Options
 
@@ -73,3 +98,4 @@ Read [Exec SDK](../applets/exec-sdk.md) for installation and minimal examples in
 | [Line Protocol](./exec-protocol.md) | Raw protocol commands, message shapes, events, and shell examples. |
 | [Components](./exec-components.md) | Popover component fields and component types. |
 | [Exec SDK](../applets/exec-sdk.md) | SDK installation and language examples. |
+| [Applet Tooling](./tooling.md) | Project scaffolding, live reload, linking, and diagnostics. |

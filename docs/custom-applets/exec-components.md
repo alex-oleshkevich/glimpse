@@ -13,6 +13,8 @@ Each node has this shape:
 | `type` | Component name. |
 | `data` | Component fields. The expected fields depend on `type`. |
 
+Only the component names listed below are valid exec protocol widgets. Internal GTK component names such as `action_row` and `action_menu` are not protocol types; use `action_item`, `section`, `button`, `menu_button`, `row`, or `column` instead.
+
 ## Common Component Fields
 
 Most popover components accept these fields:

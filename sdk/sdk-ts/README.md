@@ -10,6 +10,18 @@ Requires Node.js 20+.
 npm install glimpse-sdk
 ```
 
+## Develop
+
+Create and live-run a TypeScript applet project with the Glimpse tooling:
+
+```sh
+glimpse-applet new counter --lang typescript
+cd counter
+glimpse-applet dev
+```
+
+Read `docs/custom-applets/tooling.md` for project layout, `applet.toml`, dev applets, linking, and diagnostics.
+
 ## Goals
 
 - typed protocol models

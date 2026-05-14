@@ -2,8 +2,7 @@
 
 This walkthrough takes you from an empty directory to a working
 **counter applet** in your panel. The counter shows a number; clicking
-"Increment" inside its popover bumps the number by one. Total time:
-roughly ten minutes.
+"Increment" inside its popover bumps the number by one.
 
 You can do this in any of four languages — Rust, Python, TypeScript,
 or Go. Pick the one you're comfortable with; the protocol underneath
@@ -18,19 +17,57 @@ and come back here only if you need live state or custom controls.
 - A working Glimpse install (`glimpse-shell` running, your panel
   visible). See [Installation](../installation.md).
 - A `~/.config/glimpse/config.toml` you can edit.
+- The `glimpse-applet` command. Run `glimpse-applet doctor` to check your host and language toolchain.
 - One language toolchain installed:
   - **Rust**: `rustc` 1.93+ and `cargo`.
   - **Python**: 3.14+.
   - **TypeScript**: Node.js 20+.
   - **Go**: 1.24+.
 
+## Fast Path With `glimpse-applet`
+
+Create a generated project:
+
+```sh
+glimpse-applet new counter --lang python
+cd counter
+```
+
+Run it in live development mode:
+
+```sh
+glimpse-applet dev
+```
+
+Make sure your panel includes `__dev__` so active dev applets are visible:
+
+```toml
+[[panels]]
+right = ["network", "__dev__", "battery"]
+```
+
+When the applet is ready for normal use, install it:
+
+```sh
+glimpse-applet link
+```
+
+Then replace `__dev__` or add the applet id directly in a panel section:
+
+```toml
+[[panels]]
+right = ["counter", "network", "battery"]
+```
+
+The rest of this page shows the code shape behind the generated project. Read [Applet Tooling](./tooling.md) for the full command reference.
+
 ## What you're building
 
 Your applet is a separate program that Glimpse spawns. It reads JSON
 lines from stdin (events) and writes JSON lines to stdout (status
 items and popover content). The SDK hides the line protocol behind a
-small applet base class — you implement `render()` and event
-handlers, and the SDK takes care of stdio + the JSON.
+small applet base class: you implement status, popover, and event
+handlers, and the SDK takes care of stdio and JSON.
 
 The final result, in your panel:
 
@@ -463,7 +500,7 @@ either click your existing reload button or restart `glimpse-shell`
 You should now see your counter in the panel. Left-click opens the
 popover; click **Increment** and the number updates in both places.
 
-## What just happened
+## What happened
 
 When Glimpse started your applet it sent one `init` line on stdin
 with the applet's name and any `options` from your config (we didn't
@@ -473,15 +510,15 @@ Increment, Glimpse sent an `event` line back; the SDK routed it to
 your click handler; you mutated state; the SDK re-rendered and pushed
 fresh `status` + `popover` lines.
 
-You never wrote a single byte of JSON or touched stdin/stdout — the
-SDK handles all of it, and the `render()` function is your only
-required entry point.
+You never wrote JSON or touched stdin/stdout. The SDK handles the line
+transport, while your applet provides status items, popover content,
+and event handlers.
 
 ## Common follow-ups
 
 - **Pass per-applet config.** Add a `[applets.counter.options]` table
   in your TOML; the SDK exposes it to your applet during `init`.
-- **Refresh on a timer**, not just on events. Spawn a background task
+- **Refresh on a timer**, not only on events. Spawn a background task
   that mutates state every N seconds — the SDK re-renders
   automatically.
 - **Use richer widgets.** The full component reference is at
@@ -501,6 +538,7 @@ required entry point.
 
 | Topic | Page |
 |---|---|
+| Scaffold, run, link, and remove applets | [Applet Tooling](./tooling.md) |
 | Configure the exec applet | [Exec Applet](./exec.md) |
 | Line protocol reference | [Line Protocol](./exec-protocol.md) |
 | Every widget with its fields | [Components](./exec-components.md) |

@@ -14,19 +14,22 @@ SDK starters in four languages are all here.
 ## Table Of Contents
 
 1. [Quickstart](#quickstart)
-2. [Configuration](#configuration)
-3. [Line Protocol](#line-protocol)
-4. [Messages From Glimpse To Child](#messages-from-glimpse-to-child)
-5. [Messages From Child To Glimpse](#messages-from-child-to-glimpse)
-6. [Component Reference](#component-reference)
-7. [Event Reference](#event-reference)
-8. [Lifecycle And Restart Semantics](#lifecycle-and-restart-semantics)
-9. [Best Practices](#best-practices)
-10. [Raw Shell Starter](#raw-shell-starter)
-11. [Python SDK Starter](#python-sdk-starter)
-12. [TypeScript SDK Starter](#typescript-sdk-starter)
-13. [Rust SDK Starter](#rust-sdk-starter)
-14. [Go SDK Starter](#go-sdk-starter)
+2. [Choosing Command Or Exec](#choosing-command-or-exec)
+3. [Applet Project Directories](#applet-project-directories)
+4. [`glimpse-applet` CLI Workflow](#glimpse-applet-cli-workflow)
+5. [Configuration](#configuration)
+6. [Line Protocol](#line-protocol)
+7. [Messages From Glimpse To Child](#messages-from-glimpse-to-child)
+8. [Messages From Child To Glimpse](#messages-from-child-to-glimpse)
+9. [Component Reference](#component-reference)
+10. [Event Reference](#event-reference)
+11. [Lifecycle And Restart Semantics](#lifecycle-and-restart-semantics)
+12. [Best Practices](#best-practices)
+13. [Raw Shell Starter](#raw-shell-starter)
+14. [Python SDK Starter](#python-sdk-starter)
+15. [TypeScript SDK Starter](#typescript-sdk-starter)
+16. [Rust SDK Starter](#rust-sdk-starter)
+17. [Go SDK Starter](#go-sdk-starter)
 
 ---
 
@@ -54,6 +57,157 @@ right = ["hello"]
 
 That's a complete, working exec applet. To go beyond, read the rest of this
 page.
+
+---
+
+## Choosing Command Or Exec
+
+Choose the applet type before writing code:
+
+| Need | Applet type | Why |
+|---|---|---|
+| Launch an app or URL | `command` | A static button can run one configured command. |
+| Show a small static menu of commands | `command` | Menu items are TOML config, not a child process. |
+| Show changing status | `exec` | A child process can emit new `status` lines over time. |
+| Show custom popover widgets | `exec` | The child process owns a component tree. |
+| React to clicks, sliders, toggles, or popover open/close | `exec` | Glimpse sends `event` lines to the child. |
+| Use Python, TypeScript, Rust, or Go SDK helpers | `exec` | SDKs wrap the exec protocol. |
+
+LLM guidance: if the requested applet has state, live data, custom UI, or interactive controls, create an `exec` applet. Use `command` only for launchers and command menus.
+
+---
+
+## Applet Project Directories
+
+Prefer project directories for custom applets. A project directory keeps the applet package, source code, and install metadata together.
+
+```txt
+counter/
+  applet.toml
+  main.py
+```
+
+The root file is always `applet.toml`. For an exec SDK applet it looks like:
+
+```toml
+id = "counter"
+type = "exec"
+
+[exec]
+command = ["uv", "run", "main.py"]
+```
+
+For a command applet it looks like:
+
+```toml
+id = "terminal"
+type = "command"
+
+[command]
+icon = "utilities-terminal-symbolic"
+tooltip = "Open terminal"
+command = ["ghostty"]
+```
+
+Project directories can be discovered in two ways:
+
+| Method | File written | When to use |
+|---|---|---|
+| `glimpse-applet dev` | `~/.config/glimpse/applets/<id>.dev.toml` | Live development with rebuild and restart. |
+| `glimpse-applet link` | `~/.config/glimpse/applets/<id>.toml` symlink | Normal use after the applet is ready. |
+
+Add linked applets by id in a panel section:
+
+```toml
+[[panels]]
+right = ["counter", "network", "battery"]
+```
+
+Add active dev applets with `__dev__`:
+
+```toml
+[[panels]]
+right = ["network", "__dev__", "battery"]
+```
+
+If the same applet id appears in `~/.config/glimpse/config.toml` and in the discovered applets directory, the explicit `config.toml` entry wins. During development, remove or rename the explicit entry if it shadows the dev applet.
+
+---
+
+## `glimpse-applet` CLI Workflow
+
+Use `glimpse-applet` to create, run, install, inspect, and debug applets.
+
+### Create
+
+```sh
+glimpse-applet new counter --lang python
+glimpse-applet new counter --lang typescript
+glimpse-applet new counter --lang rust
+glimpse-applet new counter --lang go
+glimpse-applet new terminal --type command
+```
+
+`new` creates a project directory and writes `applet.toml`. Exec scaffolds include a starter SDK applet for the selected language.
+
+### Develop
+
+```sh
+cd counter
+glimpse-applet dev
+```
+
+`dev` behavior:
+
+| Language | Build step | Runtime command | Watched paths |
+|---|---|---|---|
+| Rust | `cargo build --quiet` | `cargo run --quiet` | `src`, `Cargo.toml` |
+| Python | none | `uv run main.py` | `main.py` |
+| TypeScript | `npx tsc` | `node dist/main.js` | `src`, `tsconfig.json` |
+| Go | `go build -o .dev-build` | `.dev-build` | project directory |
+
+The dev command:
+
+- writes `~/.config/glimpse/applets/<id>.dev.toml` while it runs;
+- watches source files with a debounce window;
+- rebuilds and restarts the child after source changes;
+- forwards Glimpse stdin/stdout between the shell and applet;
+- caches the `init` line and replays it to every restarted child;
+- removes the generated `.dev.toml` file when the interactive dev process exits.
+
+### Link And Remove
+
+```sh
+glimpse-applet link
+glimpse-applet link /path/to/counter
+glimpse-applet unlink
+glimpse-applet unlink /path/to/counter
+glimpse-applet rm counter
+glimpse-applet rm counter --yes
+```
+
+`link` symlinks the project `applet.toml` into `~/.config/glimpse/applets/<id>.toml`. `unlink` removes that symlink. `rm` removes an installed applet file by id and asks for confirmation unless `--yes` is provided.
+
+### Inspect And Diagnose
+
+```sh
+glimpse-applet list
+glimpse-applet doctor
+glimpse-applet doctor --lang python
+glimpse-applet doctor --strict
+```
+
+`list` shows linked and active dev applets. `doctor` checks `glimpse-shell`, `glimpse-applet`, and language toolchains; `--strict` exits non-zero on failures.
+
+### IPC Debugging
+
+```sh
+glimpse-applet watch
+glimpse-applet watch bluetooth.*
+glimpse-applet dispatch open_uri uri=https://example.com
+```
+
+`watch` subscribes to shell events and prints them. `dispatch` sends a shell IPC command and waits for an acknowledgement. Both commands use `GLIMPSE_IPC_SOCKET` if set, then `$XDG_RUNTIME_DIR/glimpse/ipc.sock`, then `/tmp/glimpse/ipc.sock`.
 
 ---
 
@@ -236,6 +390,8 @@ default to unset unless noted.
 | `variant` | string | `normal`, `muted`, `accent`, `success`, `warning`, `danger` | Visual emphasis. Default `normal`. |
 
 The component-specific fields below are all in addition to these.
+
+Only the component names listed in this section are valid. Internal GTK component names such as `action_row` and `action_menu` are not exec protocol widget types; use `action_item`, `section`, `button`, `menu_button`, `row`, or `column` instead.
 
 ### Layout Components
 
@@ -886,8 +1042,8 @@ event {"id":"popover","type":"close","source":"popover"}
 ## Raw Shell Starter
 
 This is a complete, self-contained shell applet that drives a CPU-temperature
-status item and shows a basic popover with one toggle button. No SDK is needed
-— it's just `sh`, `printf`, and a loop.
+status item and shows a basic popover with one toggle button. No SDK is needed:
+it uses `sh`, `printf`, and a loop.
 
 ```sh
 #!/bin/sh

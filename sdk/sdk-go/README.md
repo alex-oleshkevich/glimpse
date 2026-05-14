@@ -12,6 +12,18 @@ go get github.com/alex-oleshkevich/glimpse/sdk/sdk-go
 
 The package import path is `github.com/alex-oleshkevich/glimpse/sdk/sdk-go/sdk`.
 
+## Develop
+
+Create and live-run a Go applet project with the Glimpse tooling:
+
+```sh
+glimpse-applet new counter --lang go
+cd counter
+glimpse-applet dev
+```
+
+Read `docs/custom-applets/tooling.md` for project layout, `applet.toml`, dev applets, linking, and diagnostics.
+
 ## Goals
 
 - typed protocol models

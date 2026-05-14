@@ -11,6 +11,18 @@ glimpse-sdk = "0.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
+## Develop
+
+Create and live-run a Rust applet project with the Glimpse tooling:
+
+```sh
+glimpse-applet new counter --lang rust
+cd counter
+glimpse-applet dev
+```
+
+Read `docs/custom-applets/tooling.md` for project layout, `applet.toml`, dev applets, linking, and diagnostics.
+
 ## Goals
 
 - typed protocol models

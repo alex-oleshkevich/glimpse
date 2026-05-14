@@ -2,7 +2,7 @@
 
 The Exec SDKs wrap the raw exec applet protocol with typed applet classes, state, render methods, widget builders, and event handlers.
 
-Use this page when you want to build an applet with one of the SDK languages. For config, protocol lines, component JSON, and event payloads, read [Exec Applet](../custom-applets/exec.md), [Line Protocol](../custom-applets/exec-protocol.md), and [Components](../custom-applets/exec-components.md).
+Use this page when you want to build an applet with one of the SDK languages. For project scaffolding and live reload, read [Applet Tooling](../custom-applets/tooling.md). For config, protocol lines, component JSON, and event payloads, read [Exec Applet](../custom-applets/exec.md), [Line Protocol](../custom-applets/exec-protocol.md), and [Components](../custom-applets/exec-components.md).
 
 ## SDK Locations
 
@@ -27,6 +27,42 @@ start = 0
 ```
 
 The SDK receives `options` during initialization and handles the line transport for you.
+
+## Develop With `glimpse-applet`
+
+The SDKs are easiest to use from an applet project directory:
+
+```sh
+glimpse-applet new counter --lang python
+cd counter
+glimpse-applet dev
+```
+
+`glimpse-applet dev` writes a temporary `~/.config/glimpse/applets/<id>.dev.toml`, watches source files, rebuilds when needed, restarts the child process, and replays the cached `init` line. Add `__dev__` to a panel section to display active dev applets:
+
+```toml
+[[panels]]
+right = ["network", "__dev__", "battery"]
+```
+
+When the applet is ready for normal use, run:
+
+```sh
+glimpse-applet link
+```
+
+That symlinks the project's `applet.toml` into `~/.config/glimpse/applets`. Add the applet id to a panel section to keep it visible after the dev command exits.
+
+## SDK Responsibilities
+
+| Responsibility | Detail |
+|---|---|
+| State | Each SDK owns applet state and re-renders after state changes. |
+| Status | `status` returns the full list of panel items for the applet. |
+| Popover | `popover` returns the full widget tree or `None`/`null` when there is no content. |
+| Events | Interactive widgets route `click`, `toggle`, `change`, and lifecycle events to handlers. |
+| Actions | SDK action helpers emit `action` protocol lines for shell-side effects such as opening URIs, copying text, showing notifications, dismissing notifications, and closing the popover. |
+| Transport | SDK runtimes own stdin/stdout protocol parsing and serialization. Applet diagnostics should go to stderr. |
 
 ## Python
 
@@ -273,10 +309,32 @@ func main() {
 }
 ```
 
+## Golden Fixture Workflow
+
+The four SDKs share canonical JSON fixtures under `sdk/fixtures`. Use them when adding widgets, events, common props, or action helpers.
+
+| Check | Command |
+|---|---|
+| Rust SDK fixture tests | `cargo test` in `sdk/sdk-rs` |
+| TypeScript SDK fixture tests | `npm test` in `sdk/sdk-ts` |
+| Python SDK fixture tests | `python -m pytest` in `sdk/sdk-py` |
+| Go SDK fixture tests | `go test ./sdk` in `sdk/sdk-go` |
+| Rust renderer fixture test | `cargo test -p glimpse-shell golden_widget_fixtures_render_without_errors -- --nocapture` from the repo root |
+
+Fixture rules:
+
+- Widget fixtures must match every SDK serializer.
+- Event fixtures must match every SDK parser.
+- The Rust renderer fixture test must be able to deserialize and render every widget fixture without a renderer error.
+- If a fixture and an SDK disagree, fix the SDK unless the fixture violates the documented protocol.
+- Interactive renderer widgets that emit events require stable `id` fields.
+
 ## See Also
 
 | Page | Covers |
 |---|---|
 | [Exec Applet](../custom-applets/exec.md) | Applet config and options. |
+| [Applet Tooling](../custom-applets/tooling.md) | `glimpse-applet` project, dev, link, and diagnostics workflows. |
 | [Line Protocol](../custom-applets/exec-protocol.md) | Raw protocol commands, message shapes, and events. |
 | [Components](../custom-applets/exec-components.md) | Popover component fields and component types. |
+| [SDK Golden Fixtures](../../sdk/fixtures/README.md) | Cross-language fixture rules and validation commands. |
