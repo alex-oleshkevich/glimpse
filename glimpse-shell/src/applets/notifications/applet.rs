@@ -41,6 +41,7 @@ pub struct Config {
     pub popup_margin_y: i32,
     pub popup_monitor: Option<String>,
     pub max_history: usize,
+    pub filter_regex: Vec<String>,
 }
 
 impl Config {
@@ -75,6 +76,7 @@ impl Default for Config {
             popup_margin_y: 32,
             popup_monitor: None,
             max_history: 100,
+            filter_regex: Vec::new(),
         }
     }
 }
@@ -239,6 +241,7 @@ impl SimpleComponent for Applet {
         };
         model.apply_state(model.state.clone());
         model.send_notification(Command::SetMaxHistory(model.config.max_history));
+        model.send_notification(Command::SetFilterRegex(model.config.filter_regex.clone()));
 
         subscribe_services(&model, sender.clone());
 
@@ -254,6 +257,7 @@ impl SimpleComponent for Applet {
                 self.config = config;
                 self.theme_mode = theme_mode;
                 self.send_notification(Command::SetMaxHistory(self.config.max_history));
+                self.send_notification(Command::SetFilterRegex(self.config.filter_regex.clone()));
                 self.apply_state(self.service.snapshot());
                 if let Some(popup) = &self.popup {
                     popup.emit(PopupInput::Reconfigure {
@@ -660,6 +664,29 @@ mod tests {
         let config = Config::from_raw(&Some(raw));
 
         assert_eq!(config.popup_monitor.as_deref(), Some("DP-2"));
+    }
+
+    #[test]
+    fn config_accepts_notification_filter_regex_rules() {
+        let raw = AppletConfig {
+            extends: None,
+            settings: toml::toml! {
+                filter_regex = ["(?i)^discord$", "build succeeded"]
+            }
+            .into(),
+        };
+
+        let config = Config::from_raw(&Some(raw));
+
+        assert_eq!(
+            config.filter_regex,
+            vec!["(?i)^discord$".to_string(), "build succeeded".to_string()]
+        );
+    }
+
+    #[test]
+    fn config_defaults_filter_regex_to_empty_list() {
+        assert!(Config::default().filter_regex.is_empty());
     }
 
     #[test]

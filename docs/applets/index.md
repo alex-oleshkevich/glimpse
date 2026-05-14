@@ -411,6 +411,10 @@ popup_position = "top_center"
 popup_margin_x = 12
 popup_margin_y = 32
 popup_monitor = "DP-2"   # optional
+filter_regex = [
+  "(?i)^discord$",
+  "(?i)build succeeded",
+]
 ```
 
 | Option | Default | Meaning |
@@ -425,6 +429,7 @@ popup_monitor = "DP-2"   # optional
 | `popup_margin_x` | `12` | Horizontal popup margin. |
 | `popup_margin_y` | `32` | Vertical popup margin. |
 | `popup_monitor` | unset | Pin popups to a specific output by connector name (e.g. `"eDP-1"`, `"DP-2"`). When unset, Glimpse chooses a default monitor automatically. |
+| `filter_regex` | `[]` | Regex rules matched against app name, title, and body. If any rule matches, non-critical notifications are hidden from popups, history, badge count, and the notification center. Critical notifications are never filtered. |
 
 Placeholders: `{count}`, `{state}`.
 

@@ -1,4 +1,5 @@
 use anyhow::{Result, anyhow};
+use regex::Regex;
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio_util::sync::CancellationToken;
 
@@ -21,6 +22,7 @@ pub struct NotificationsService {
     server_rx: mpsc::Receiver<ServerRequest>,
     dispatcher: NotificationServerDispatcher,
     max_history: usize,
+    filters: NotificationFilters,
 }
 
 pub(crate) enum ServerRequest {
@@ -82,6 +84,7 @@ impl NotificationsService {
                 server_rx,
                 dispatcher,
                 max_history: 100,
+                filters: NotificationFilters::default(),
             },
             ServiceHandle::new(state_rx, command_tx),
         )
@@ -147,15 +150,12 @@ impl NotificationsService {
                     summary = %entry.summary,
                     "notification received"
                 );
-                if accepts_notification(state, &entry) {
-                    upsert_notification(&mut state.notifications, entry);
-                    enforce_history_limit(&mut state.notifications, self.max_history);
-                } else {
+                if !store_notification_if_accepted(state, &self.filters, self.max_history, &entry) {
                     tracing::debug!(
                         id = entry.id,
                         app = %entry.app_name,
                         urgency = entry.urgency,
-                        "notification ignored by do not disturb"
+                        "notification ignored by policy"
                     );
                 }
                 let _ = reply.send(Ok(()));
@@ -175,6 +175,10 @@ impl NotificationsService {
     ) {
         if let Command::SetMaxHistory(max) = command {
             self.max_history = max;
+            return;
+        }
+        if let Command::SetFilterRegex(rules) = command {
+            self.filters = NotificationFilters::compile_lossy(rules);
             return;
         }
 
@@ -232,6 +236,7 @@ impl NotificationsService {
                 Ok(())
             }
             Command::SetMaxHistory(_) => unreachable!("handled before active_action tracking"),
+            Command::SetFilterRegex(_) => unreachable!("handled before active_action tracking"),
         };
 
         if let Err(error) = result {
@@ -296,8 +301,83 @@ fn upsert_notification(notifications: &mut Vec<NotificationEntry>, entry: Notifi
     }
 }
 
-fn accepts_notification(state: &State, entry: &NotificationEntry) -> bool {
-    !state.dnd || entry.urgency == 2
+fn store_notification_if_accepted(
+    state: &mut State,
+    filters: &NotificationFilters,
+    max_history: usize,
+    entry: &NotificationEntry,
+) -> bool {
+    if !accepts_notification_with_filters(state, filters, entry) {
+        return false;
+    }
+
+    upsert_notification(&mut state.notifications, entry.clone());
+    enforce_history_limit(&mut state.notifications, max_history);
+    true
+}
+
+fn accepts_notification_with_filters(
+    state: &State,
+    filters: &NotificationFilters,
+    entry: &NotificationEntry,
+) -> bool {
+    if entry.urgency == 2 {
+        return true;
+    }
+    if state.dnd {
+        return false;
+    }
+    !filters.matches(entry)
+}
+
+#[derive(Debug, Default)]
+struct NotificationFilters {
+    rules: Vec<Regex>,
+}
+
+impl NotificationFilters {
+    #[cfg(test)]
+    fn compile<I, S>(rules: I) -> std::result::Result<Self, regex::Error>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        rules
+            .into_iter()
+            .map(|rule| Regex::new(rule.as_ref()))
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map(|rules| Self { rules })
+    }
+
+    fn compile_lossy<I, S>(rules: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let rules = rules
+            .into_iter()
+            .filter_map(|rule| match Regex::new(rule.as_ref()) {
+                Ok(regex) => Some(regex),
+                Err(error) => {
+                    tracing::warn!(
+                        rule = rule.as_ref(),
+                        %error,
+                        "invalid notification filter regex; skipping rule"
+                    );
+                    None
+                }
+            })
+            .collect();
+        Self { rules }
+    }
+
+    fn matches(&self, entry: &NotificationEntry) -> bool {
+        self.rules.iter().any(|rule| {
+            rule.is_match(&entry.summary)
+                || rule.is_match(&entry.body)
+                || rule.is_match(&entry.app_name)
+        })
+    }
 }
 
 fn active_action_for(command: &Command) -> ActiveAction {
@@ -310,6 +390,7 @@ fn active_action_for(command: &Command) -> ActiveAction {
         },
         Command::SetDnd(enabled) => ActiveAction::SetDnd(*enabled),
         Command::SetMaxHistory(_) => unreachable!("handled before active_action tracking"),
+        Command::SetFilterRegex(_) => unreachable!("handled before active_action tracking"),
     }
 }
 
@@ -404,8 +485,79 @@ mod tests {
         let mut critical = notification(2, "critical");
         critical.urgency = 2;
 
-        assert!(!accepts_notification(&state, &normal));
-        assert!(accepts_notification(&state, &critical));
+        assert!(!accepts_notification_with_filters(
+            &state,
+            &NotificationFilters::default(),
+            &normal
+        ));
+        assert!(accepts_notification_with_filters(
+            &state,
+            &NotificationFilters::default(),
+            &critical
+        ));
+    }
+
+    #[test]
+    fn filter_rejects_non_critical_notification_when_title_matches() {
+        let filters = NotificationFilters::compile(["Build succeeded"]).expect("valid regex");
+        let notification = notification(1, "Build succeeded");
+
+        assert!(!accepts_notification_with_filters(
+            &State::default(),
+            &filters,
+            &notification
+        ));
+    }
+
+    #[test]
+    fn filter_rejects_non_critical_notification_when_body_matches() {
+        let filters = NotificationFilters::compile(["sync complete"]).expect("valid regex");
+        let mut notification = notification(1, "Backup");
+        notification.body = "Nightly sync complete".into();
+
+        assert!(!accepts_notification_with_filters(
+            &State::default(),
+            &filters,
+            &notification
+        ));
+    }
+
+    #[test]
+    fn filter_rejects_non_critical_notification_when_app_matches() {
+        let filters = NotificationFilters::compile(["(?i)^discord$"]).expect("valid regex");
+        let mut notification = notification(1, "Message");
+        notification.app_name = "Discord".into();
+
+        assert!(!accepts_notification_with_filters(
+            &State::default(),
+            &filters,
+            &notification
+        ));
+    }
+
+    #[test]
+    fn filter_keeps_critical_notification_even_when_rule_matches() {
+        let filters = NotificationFilters::compile(["urgent spam"]).expect("valid regex");
+        let mut notification = notification(1, "urgent spam");
+        notification.urgency = 2;
+
+        assert!(accepts_notification_with_filters(
+            &State::default(),
+            &filters,
+            &notification
+        ));
+    }
+
+    #[test]
+    fn filtered_notification_is_not_kept_in_memory() {
+        let filters = NotificationFilters::compile(["Build succeeded"]).expect("valid regex");
+        let mut state = State::default();
+
+        let notification = notification(1, "Build succeeded");
+        let rejected = store_notification_if_accepted(&mut state, &filters, 100, &notification);
+
+        assert!(!rejected);
+        assert!(state.notifications.is_empty());
     }
 
     #[test]

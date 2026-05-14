@@ -57,6 +57,7 @@ pub enum Command {
     },
     SetDnd(bool),
     SetMaxHistory(usize),
+    SetFilterRegex(Vec<String>),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]

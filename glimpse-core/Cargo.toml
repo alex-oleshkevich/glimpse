@@ -19,6 +19,7 @@ notify.workspace = true
 notify-debouncer-full.workspace = true
 pipewire = "0.9"
 reqwest.workspace = true
+regex.workspace = true
 serde = { workspace = true }
 serde_json.workspace = true
 sunrise.workspace = true
