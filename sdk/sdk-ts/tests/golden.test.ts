@@ -423,6 +423,7 @@ test("widget meter-interactive", () => {
   assertWidget(
     "meter-interactive",
     new Meter({
+      id: "volume",
       icon: Icon.name("audio-volume-medium-symbolic"),
       label: "Volume",
       value: 0.42,

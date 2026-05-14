@@ -489,6 +489,7 @@ func TestGoldenMeter(t *testing.T) {
 
 func TestGoldenMeterInteractive(t *testing.T) {
 	assertWidget(t, "meter-interactive", Meter{
+		CommonProps: CommonProps{ID: "volume"},
 		Icon:        IconName("audio-volume-medium-symbolic"),
 		Label:       "Volume",
 		Value:       0.42,

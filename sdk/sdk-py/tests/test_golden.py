@@ -406,6 +406,7 @@ class GoldenWidgetTests(unittest.TestCase):
         self._assert_widget(
             "meter-interactive",
             Meter(
+                id="volume",
                 icon=Icon.name("audio-volume-medium-symbolic"),
                 label="Volume",
                 value=0.42,

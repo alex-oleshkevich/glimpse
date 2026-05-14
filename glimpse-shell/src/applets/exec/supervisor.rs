@@ -52,7 +52,10 @@ pub async fn run(
         for (key, value) in &config.env {
             command_builder.env(key, value);
         }
-        command_builder.env("GLIMPSE_IPC_SOCKET", crate::ipc::server::resolve_socket_path());
+        command_builder.env(
+            "GLIMPSE_IPC_SOCKET",
+            crate::ipc::server::resolve_socket_path(),
+        );
         if let Some(dir) = &config.work_dir {
             command_builder.current_dir(dir);
         }
@@ -135,7 +138,7 @@ pub async fn run(
                 line = stdout_lines.next_line() => match line {
                     Ok(Some(BoundedLine::Line(line))) => match parse_child_line(&line) {
                         Ok(command) => send_child_command(&out, command),
-                        Err(error) => tracing::debug!(%error, raw = %line, applet = %name, "exec applet ignored child line"),
+                        Err(error) => tracing::warn!(%error, raw = %line, applet = %name, "exec applet ignored child line"),
                     },
                     Ok(Some(BoundedLine::Oversize(bytes))) => {
                         tracing::warn!(applet = %name, bytes, max = MAX_LINE_BYTES, "dropped oversize exec applet stdout line");

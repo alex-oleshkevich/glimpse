@@ -3,6 +3,7 @@
     "icon": {
       "name": "audio-volume-medium-symbolic"
     },
+    "id": "volume",
     "interactive": true,
     "label": "Volume",
     "max": 1.0,

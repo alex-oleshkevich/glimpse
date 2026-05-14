@@ -396,6 +396,7 @@ def widgets() -> None:
     write(WIDGETS, "meter-interactive", {
         "type": "meter",
         "data": {
+            "id": "volume",
             "icon": {"name": "audio-volume-medium-symbolic"},
             "label": "Volume",
             "value": 0.42,

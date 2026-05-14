@@ -23,6 +23,24 @@ interface OutgoingMessage {
   line: string;
 }
 
+interface ShowNotificationArgs {
+  summary: string;
+  body?: string;
+  urgency?: string;
+}
+
+interface OpenUriArgs {
+  uri: string;
+}
+
+interface CopyToClipboardArgs {
+  text: string;
+}
+
+interface DismissNotificationArgs {
+  id: number;
+}
+
 export abstract class Applet<State extends object> {
   state: State;
 
@@ -81,6 +99,26 @@ export abstract class Applet<State extends object> {
 
   isPopoverOpen(): boolean {
     return this.popoverOpen;
+  }
+
+  protected showNotification(args: ShowNotificationArgs): void {
+    this.emitAction("show_notification", args);
+  }
+
+  protected openUri(args: OpenUriArgs): void {
+    this.emitAction("open_uri", args);
+  }
+
+  protected copyToClipboard(args: CopyToClipboardArgs): void {
+    this.emitAction("copy_to_clipboard", args);
+  }
+
+  protected dismissNotification(args: DismissNotificationArgs): void {
+    this.emitAction("dismiss_notification", args);
+  }
+
+  protected closePopover(): void {
+    this.emitAction("close_popover", {});
   }
 
   async run(): Promise<void> {
@@ -201,6 +239,10 @@ export abstract class Applet<State extends object> {
         throw err;
       }
     }
+  }
+
+  private emitAction(type: string, args: object): void {
+    this.emit("action", { type, arguments: args });
   }
 }
 

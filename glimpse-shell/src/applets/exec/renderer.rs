@@ -934,6 +934,70 @@ mod tests {
     use super::*;
     use crate::components::test_support::gtk_available_on_this_thread;
     use std::cell::RefCell;
+    use std::{fs, path::PathBuf};
+
+    #[test]
+    fn golden_widget_fixtures_render_without_errors() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("sdk")
+            .join("fixtures")
+            .join("widgets");
+        let mut fixtures = fs::read_dir(&fixtures_dir)
+            .unwrap_or_else(|error| {
+                panic!(
+                    "read widget fixtures directory {}: {error}",
+                    fixtures_dir.display()
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap_or_else(|error| panic!("read widget fixture entry: {error}"));
+        fixtures.sort_by_key(|entry| entry.file_name());
+
+        let renderer = RenderCatalog::new(Rc::new(|_| {}));
+        let mut failures = Vec::new();
+
+        for entry in fixtures {
+            let path = entry.path();
+            if path.extension().and_then(|extension| extension.to_str()) != Some("json") {
+                continue;
+            }
+
+            let name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("<unknown>")
+                .to_string();
+            let contents = match fs::read_to_string(&path) {
+                Ok(contents) => contents,
+                Err(error) => {
+                    failures.push(format!("{name}: read failed: {error}"));
+                    continue;
+                }
+            };
+            let node = match serde_json::from_str::<TreeNode>(&contents) {
+                Ok(node) => node,
+                Err(error) => {
+                    failures.push(format!("{name}: decode failed: {error}"));
+                    continue;
+                }
+            };
+
+            if let Err(error) = renderer.render(&node) {
+                failures.push(format!("{name}: render failed: {error:?}"));
+            }
+        }
+
+        assert!(
+            failures.is_empty(),
+            "golden widget fixtures should render without errors:\n{}",
+            failures.join("\n")
+        );
+    }
 
     #[test]
     fn buttons_require_ids_for_events() {

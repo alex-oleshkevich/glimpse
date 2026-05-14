@@ -252,9 +252,9 @@ impl SimpleComponent for Applet {
                     if let Some(event) = event {
                         self.send_event(event);
                     }
-                    if self.has_popover_content() && !self.popover_open {
-                        self.open_popover_if_available();
-                    }
+                    // if self.has_popover_content() && !self.popover_open {
+                    self.open_popover_if_available();
+                    // }
                 }
             },
             Input::PopoverOutput(PopoverOutput::Opened) => {

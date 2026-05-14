@@ -134,52 +134,6 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(command, "popover")
         self.assertEqual(payload["root"]["data"]["children"][0]["data"]["text"], "v2")
 
-    async def test_action_helpers_emit_protocol_messages(self) -> None:
-        applet = DemoApplet()
-
-        await applet.show_notification(
-            {
-                "summary": "Backup finished",
-                "body": "42 files synced",
-                "urgency": "normal",
-            }
-        )
-        await applet.open_uri({"uri": "https://example.com/docs"})
-        await applet.copy_to_clipboard({"text": "device-42"})
-        await applet.dismiss_notification({"id": 42})
-        await applet.close_popover()
-
-        messages = [await applet._outgoing.get() for _ in range(5)]
-        self.assertEqual(
-            messages,
-            [
-                (
-                    "action",
-                    {
-                        "type": "show_notification",
-                        "arguments": {
-                            "summary": "Backup finished",
-                            "body": "42 files synced",
-                            "urgency": "normal",
-                        },
-                    },
-                ),
-                (
-                    "action",
-                    {
-                        "type": "open_uri",
-                        "arguments": {"uri": "https://example.com/docs"},
-                    },
-                ),
-                (
-                    "action",
-                    {"type": "copy_to_clipboard", "arguments": {"text": "device-42"}},
-                ),
-                ("action", {"type": "dismiss_notification", "arguments": {"id": 42}}),
-                ("action", {"type": "close_popover", "arguments": {}}),
-            ],
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

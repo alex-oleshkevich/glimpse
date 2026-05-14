@@ -510,6 +510,7 @@ fn widget_meter() {
 #[test]
 fn widget_meter_interactive() {
     let mut m = Meter::new("Volume", 0.42, 1.0);
+    m.common.id = Some("volume".into());
     m.icon = Some(Icon::name("audio-volume-medium-symbolic"));
     m.text = Some("42%".into());
     m.interactive = true;

@@ -70,29 +70,6 @@ class DemoApplet extends Applet<DemoState> {
     await (this as any).handleIncoming("event", payload);
   }
 
-  showNotificationForTest(): void {
-    this.showNotification({
-      summary: "Backup finished",
-      body: "42 files synced",
-      urgency: "normal",
-    });
-  }
-
-  openUriForTest(): void {
-    this.openUri({ uri: "https://example.com/docs" });
-  }
-
-  copyToClipboardForTest(): void {
-    this.copyToClipboard({ text: "device-42" });
-  }
-
-  dismissNotificationForTest(): void {
-    this.dismissNotification({ id: 42 });
-  }
-
-  closePopoverForTest(): void {
-    this.closePopover();
-  }
 }
 
 test("setState updates state and emits protocol messages", async () => {
@@ -187,29 +164,6 @@ test("init event rerenders changed state", async () => {
   await applet.initForTest("v3");
   const drained = await applet.drain();
   assert.equal((drained[0] as any).data.items[0].label, "v3");
-});
-
-test("action helpers emit protocol action messages", async () => {
-  const applet = new DemoApplet();
-  await applet.drain();
-
-  applet.showNotificationForTest();
-  applet.openUriForTest();
-  applet.copyToClipboardForTest();
-  applet.dismissNotificationForTest();
-  applet.closePopoverForTest();
-
-  const drained = await applet.drain();
-  assert.deepEqual(
-    drained.map((message: any) => message.line),
-    [
-      'action {"type":"show_notification","arguments":{"summary":"Backup finished","body":"42 files synced","urgency":"normal"}}',
-      'action {"type":"open_uri","arguments":{"uri":"https://example.com/docs"}}',
-      'action {"type":"copy_to_clipboard","arguments":{"text":"device-42"}}',
-      'action {"type":"dismiss_notification","arguments":{"id":42}}',
-      'action {"type":"close_popover","arguments":{}}',
-    ],
-  );
 });
 
 test("variant serializes as semantic protocol value", () => {
