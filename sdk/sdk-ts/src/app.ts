@@ -184,9 +184,7 @@ export abstract class Applet<State extends object> {
 
     const widget = await this.popover(this.state);
     const tree = { root: widget?.toProtocol() ?? null };
-    // Emit only when popover open, or first render, or clearing.
-    const shouldEmit = this.popoverOpen || this.lastTree === null || tree.root === null;
-    if (shouldEmit && !deepEqual(tree, this.lastTree)) {
+    if (!deepEqual(tree, this.lastTree)) {
       this.lastTree = tree;
       this.emit("popover", tree);
     }

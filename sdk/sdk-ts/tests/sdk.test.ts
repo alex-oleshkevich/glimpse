@@ -164,20 +164,21 @@ test("spinner serializes with default spinning", () => {
   assert.equal((payload.data as any).spinning, true);
 });
 
-test("closed popover updates are dropped until opened", async () => {
+test("popover updates are emitted when state changes", async () => {
   const applet = new DemoApplet();
   await applet.drain();
   await applet.setState({ version: "v2" });
 
-  let drained = await applet.drain();
-  assert.deepEqual(
-    drained.map((message: any) => message.command),
-    ["status"],
-  );
-
-  await applet.eventForTest({ id: "popover", type: "open", source: "popover" });
-  drained = await applet.drain();
+  const drained = await applet.drain();
+  assert.ok(drained.some((message: any) => message.command === "status"));
   assert.ok(drained.some((message: any) => message.command === "popover"));
+  assert.ok(
+    drained.some(
+      (message: any) =>
+        message.command === "popover" &&
+        JSON.stringify(message.data).includes("v2"),
+    ),
+  );
 });
 
 test("init event rerenders changed state", async () => {

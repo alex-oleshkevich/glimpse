@@ -225,11 +225,7 @@ func (r *Runtime[S]) flush(ctx context.Context) error {
 		return err
 	}
 	tree := &treePayload{Root: widget}
-	// Emit only when the popover is open (user sees it), or this is the
-	// first render (daemon needs the initial tree), or we're clearing an
-	// existing tree (must reach the daemon even if closed).
-	shouldEmit := r.popoverOpen || r.lastTree == nil || widget == nil
-	if shouldEmit && !treePayloadEqual(r.lastTree, tree) {
+	if !treePayloadEqual(r.lastTree, tree) {
 		if err := r.writeMessage("popover", tree); err != nil {
 			return err
 		}

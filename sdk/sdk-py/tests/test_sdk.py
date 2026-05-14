@@ -120,7 +120,7 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
             with contextlib.suppress(asyncio.CancelledError):
                 await loop_task
 
-    async def test_closed_popover_updates_are_dropped_until_opened(self) -> None:
+    async def test_popover_updates_are_emitted_when_state_changes(self) -> None:
         applet = DemoApplet()
         applet._render_requested = True
         await applet._flush_render()
@@ -130,11 +130,6 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         await applet.set_state(version="v2")
         status = await applet._outgoing.get()
         self.assertEqual(status[0], "status")
-        self.assertTrue(applet._outgoing.empty())
-
-        applet._popover_open = True
-        applet._render_requested = True
-        await applet._flush_render()
         command, payload = await applet._outgoing.get()
         self.assertEqual(command, "popover")
         self.assertEqual(payload["root"]["data"]["children"][0]["data"]["text"], "v2")

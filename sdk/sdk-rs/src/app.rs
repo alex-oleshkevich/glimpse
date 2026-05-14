@@ -86,10 +86,8 @@ where
     let stdin = BufReader::new(io::stdin());
     let mut lines = stdin.lines();
     let mut last = LastSeen::new();
-    let mut popover_open = false;
-
     applet.on_start(&mut state).await?;
-    flush(&mut stdout, &applet, &state, &mut last, popover_open).await?;
+    flush(&mut stdout, &applet, &state, &mut last).await?;
 
     while let Some(line) = lines.next_line().await? {
         if line.trim().is_empty() {
@@ -112,12 +110,7 @@ where
                 }
             },
             "event" => match parse_callback_event(incoming.data) {
-                Ok(event) => {
-                    if let CallbackEvent::Popover(popover) = &event {
-                        popover_open = popover.open;
-                    }
-                    applet.on_callback(&mut state, event).await
-                }
+                Ok(event) => applet.on_callback(&mut state, event).await,
                 Err(err) => {
                     eprintln!("glimpse-sdk: ignoring malformed event: {err}");
                     continue;
@@ -127,7 +120,7 @@ where
         };
         result?;
 
-        flush(&mut stdout, &applet, &state, &mut last, popover_open).await?;
+        flush(&mut stdout, &applet, &state, &mut last).await?;
     }
 
     Ok(())
@@ -138,7 +131,6 @@ async fn flush<A>(
     applet: &A,
     state: &A::State,
     last: &mut LastSeen,
-    popover_open: bool,
 ) -> AppletResult<()>
 where
     A: Applet,
@@ -155,11 +147,7 @@ where
     }
 
     let next_tree = applet.popover(state).await?;
-    // Emit only when the popover is open (user sees it), or this is the
-    // first render (daemon needs the initial tree), or we're clearing an
-    // existing tree (must reach the daemon even if closed).
-    let should_emit = popover_open || !last.initialized || next_tree.is_none();
-    if should_emit && last.tree != next_tree {
+    if last.tree != next_tree {
         write_message(
             stdout,
             "popover",

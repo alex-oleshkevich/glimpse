@@ -81,11 +81,7 @@ class Applet(Generic[StateT, OptionsT]):
             widget = await self.popover(self.state)
             content = None if widget is None else widget.to_protocol()
             tree = {"root": content}
-            # Emit only when popover open, or first render, or clearing.
-            should_emit = (
-                self._popover_open or self._last_tree is None or content is None
-            )
-            if should_emit and tree != self._last_tree:
+            if tree != self._last_tree:
                 self._last_tree = tree
                 await self._outgoing.put(("popover", tree))
 

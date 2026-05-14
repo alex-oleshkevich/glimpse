@@ -167,7 +167,7 @@ func TestRuntimeFlushesActionHelperMessages(t *testing.T) {
 	}
 }
 
-func TestRuntimeDropsClosedPopoverUpdatesAfterInitialTree(t *testing.T) {
+func TestRuntimeEmitsPopoverUpdatesWhenStateChanges(t *testing.T) {
 	applet := newDemoApplet()
 	var output bytes.Buffer
 	runtime := NewRuntime[demoState](applet, bytes.NewBufferString(""), &output)
@@ -181,25 +181,16 @@ func TestRuntimeDropsClosedPopoverUpdatesAfterInitialTree(t *testing.T) {
 		state.Version = "v2"
 	})
 	if err := runtime.flush(context.Background()); err != nil {
-		t.Fatalf("closed flush render: %v", err)
-	}
-	if strings.Contains(output.String(), "popover ") {
-		t.Fatalf("expected closed popover update to be dropped, got %q", output.String())
+		t.Fatalf("flush after state change: %v", err)
 	}
 	if !strings.Contains(output.String(), "status ") {
-		t.Fatalf("expected status updates to continue while popover is closed, got %q", output.String())
-	}
-
-	output.Reset()
-	runtime.setPopoverOpen(true)
-	if err := runtime.flush(context.Background()); err != nil {
-		t.Fatalf("open flush render: %v", err)
+		t.Fatalf("expected status update, got %q", output.String())
 	}
 	if !strings.Contains(output.String(), "popover ") {
-		t.Fatalf("expected fresh popover update after open, got %q", output.String())
+		t.Fatalf("expected popover update even while closed, got %q", output.String())
 	}
 	if !strings.Contains(output.String(), "v2") {
-		t.Fatalf("expected latest popover model after open, got %q", output.String())
+		t.Fatalf("expected latest popover model, got %q", output.String())
 	}
 }
 
