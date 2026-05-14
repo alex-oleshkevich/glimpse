@@ -60,7 +60,7 @@ edition = "2024"
 
 [dependencies]
 async-trait = "0.1"
-glimpse-sdk = "0.1"
+glimpse-sdk = "0.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 

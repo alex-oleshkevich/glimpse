@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "glimpse-applet-sdk"
-version = "0.2.0"
+version = "0.3.0"
 description = "Typed async framework for Glimpse exec applets"
 readme = "README.md"
 license = "MIT"
