@@ -91,6 +91,12 @@ pub struct Applet {
     context_menu: gtk::PopoverMenu,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PopoverOpenStep {
+    SyncRoot,
+    Toggle,
+}
+
 #[derive(Debug)]
 pub struct Init {
     pub name: String,
@@ -236,9 +242,7 @@ impl SimpleComponent for Applet {
             }
             Input::StatusItemOutput(output) => match output {
                 StatusItemOutput::TogglePopover => {
-                    if self.has_popover_content() {
-                        self.popover.emit(PopoverInput::Toggle);
-                    }
+                    self.open_popover_if_available();
                 }
                 StatusItemOutput::ContextMenu => {
                     self.context_menu.popup();
@@ -249,7 +253,7 @@ impl SimpleComponent for Applet {
                         self.send_event(event);
                     }
                     if self.has_popover_content() && !self.popover_open {
-                        self.popover.emit(PopoverInput::Toggle);
+                        self.open_popover_if_available();
                     }
                 }
             },
@@ -286,6 +290,17 @@ impl Applet {
         if self.popover_open {
             self.popover
                 .emit(PopoverInput::SetRoot(self.root_node.clone()));
+        }
+    }
+
+    fn open_popover_if_available(&self) {
+        for step in popover_open_plan(self.root_node.as_ref()) {
+            match step {
+                PopoverOpenStep::SyncRoot => self
+                    .popover
+                    .emit(PopoverInput::SetRoot(self.root_node.clone())),
+                PopoverOpenStep::Toggle => self.popover.emit(PopoverInput::Toggle),
+            }
         }
     }
 
@@ -386,6 +401,14 @@ fn status_item_key(index: usize, item: &StatusItemModel) -> String {
         .unwrap_or_else(|| format!("index:{index}"))
 }
 
+fn popover_open_plan(root_node: Option<&TreeNode>) -> Vec<PopoverOpenStep> {
+    if root_node.is_some() {
+        vec![PopoverOpenStep::SyncRoot, PopoverOpenStep::Toggle]
+    } else {
+        Vec::new()
+    }
+}
+
 fn build_context_menu(root: &gtk::Box, sender: &ComponentSender<Applet>) -> gtk::PopoverMenu {
     let action_group = gio::SimpleActionGroup::new();
     let restart_action = gio::SimpleAction::new("restart", None);
@@ -451,5 +474,26 @@ mod tests {
         };
 
         assert_eq!(status_item_key(3, &item), "index:3");
+    }
+
+    #[test]
+    fn popover_open_plan_syncs_content_before_toggle_when_root_exists() {
+        let root = TreeNode::Label(super::super::protocol::LabelNode {
+            common: super::super::protocol::CommonProps::default(),
+            text: "Ready".into(),
+            wrap: false,
+            xalign: None,
+            selectable: false,
+        });
+
+        assert_eq!(
+            popover_open_plan(Some(&root)),
+            vec![PopoverOpenStep::SyncRoot, PopoverOpenStep::Toggle]
+        );
+    }
+
+    #[test]
+    fn popover_open_plan_does_nothing_without_root_content() {
+        assert_eq!(popover_open_plan(None), Vec::<PopoverOpenStep>::new());
     }
 }

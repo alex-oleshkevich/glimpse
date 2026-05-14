@@ -314,6 +314,53 @@ mod tests {
         assert_eq!(payload["data"]["variant"], "warning");
     }
 
+    #[test]
+    fn action_helpers_encode_protocol_messages() {
+        assert_eq!(
+            encode_action_line(
+                "show_notification",
+                &ShowNotificationArgs {
+                    summary: "Backup finished".into(),
+                    body: Some("42 files synced".into()),
+                    icon: None,
+                    urgency: Some(NotificationUrgency::Normal),
+                }
+            )
+            .expect("show notification action should encode"),
+            r#"action {"type":"show_notification","arguments":{"summary":"Backup finished","body":"42 files synced","urgency":"normal"}}"#
+        );
+        assert_eq!(
+            encode_action_line(
+                "open_uri",
+                &OpenUriArgs {
+                    uri: "https://example.com/docs".into(),
+                }
+            )
+            .expect("open uri action should encode"),
+            r#"action {"type":"open_uri","arguments":{"uri":"https://example.com/docs"}}"#
+        );
+        assert_eq!(
+            encode_action_line(
+                "copy_to_clipboard",
+                &CopyToClipboardArgs {
+                    text: "device-42".into(),
+                }
+            )
+            .expect("copy action should encode"),
+            r#"action {"type":"copy_to_clipboard","arguments":{"text":"device-42"}}"#
+        );
+        assert_eq!(
+            encode_action_line("dismiss_notification", &DismissNotificationArgs { id: 42 })
+                .expect("dismiss action should encode"),
+            r#"action {"type":"dismiss_notification","arguments":{"id":42}}"#
+        );
+        assert_eq!(
+            encode_action_line("close_popover", &ClosePopoverArgs)
+                .expect("close popover action should encode"),
+            r#"action {"type":"close_popover","arguments":{}}"#
+        );
+    }
+
     #[tokio::test]
     async fn callback_mutates_state_and_status_observes_it() {
         let mut applet = DemoApplet;

@@ -135,6 +135,38 @@ func TestRuntimeFlushesRenderedMessages(t *testing.T) {
 	}
 }
 
+func TestRuntimeFlushesActionHelperMessages(t *testing.T) {
+	applet := newDemoApplet()
+	var output bytes.Buffer
+	runtime := NewRuntime[demoState](applet, bytes.NewBufferString(""), &output)
+
+	applet.ShowNotification(ShowNotificationArgs{
+		Summary: "Backup finished",
+		Body:    "42 files synced",
+		Urgency: NotificationUrgencyNormal,
+	})
+	applet.OpenURI(OpenURIArgs{URI: "https://example.com/docs"})
+	applet.CopyToClipboard(CopyToClipboardArgs{Text: "device-42"})
+	applet.DismissNotification(DismissNotificationArgs{ID: 42})
+	applet.ClosePopover()
+
+	if err := runtime.flushActions(); err != nil {
+		t.Fatalf("flush actions: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
+	expected := []string{
+		`action {"type":"show_notification","arguments":{"summary":"Backup finished","body":"42 files synced","urgency":"normal"}}`,
+		`action {"type":"open_uri","arguments":{"uri":"https://example.com/docs"}}`,
+		`action {"type":"copy_to_clipboard","arguments":{"text":"device-42"}}`,
+		`action {"type":"dismiss_notification","arguments":{"id":42}}`,
+		`action {"type":"close_popover","arguments":{}}`,
+	}
+	if !reflect.DeepEqual(lines, expected) {
+		t.Fatalf("unexpected action lines:\nwant %#v\ngot  %#v", expected, lines)
+	}
+}
+
 func TestRuntimeDropsClosedPopoverUpdatesAfterInitialTree(t *testing.T) {
 	applet := newDemoApplet()
 	var output bytes.Buffer
