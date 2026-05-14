@@ -126,7 +126,9 @@ async fn handle_command(
 ) {
     match cmd {
         Command::SetManualHold(true) => {
-            tracing::info!("idle_inhibitors: sending ScreenSaver.Inhibit('Glimpse', 'Manual hold')");
+            tracing::info!(
+                "idle_inhibitors: sending ScreenSaver.Inhibit('Glimpse', 'Manual hold')"
+            );
             match screen_saver.inhibit("Glimpse", "Manual hold").await {
                 Ok(cookie) => manual.lock().await.cookie = Some(cookie),
                 Err(e) => tracing::warn!(error = ?e, "manual hold Inhibit failed"),

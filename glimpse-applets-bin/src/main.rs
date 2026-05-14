@@ -25,6 +25,10 @@ enum Command {
     Link(commands::link::Args),
     /// Remove the symlink created by link.
     Unlink(commands::link::unlink::Args),
+    /// List installed applets.
+    List(commands::list::Args),
+    /// Remove an installed applet.
+    Rm(commands::rm::Args),
     /// Verify that everything you need to build applets is installed.
     Doctor(commands::doctor::Args),
 }
@@ -37,6 +41,8 @@ async fn main() -> Result<()> {
         Command::Dev(args) => commands::dev::run(args).await,
         Command::Link(args) => commands::link::run(args),
         Command::Unlink(args) => commands::link::unlink::run(args),
+        Command::List(args) => commands::list::run(args),
+        Command::Rm(args) => commands::rm::run(args),
         Command::Doctor(args) => commands::doctor::run(args),
     }
 }

@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
@@ -61,6 +59,7 @@ impl PendingBrightness {
     }
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for SourceControl {
     type Init = BrightnessSource;
@@ -314,6 +313,7 @@ impl FactoryComponent for SourceRowItem {
     }
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for SourceSection {
     type Init = SourceSectionInit;

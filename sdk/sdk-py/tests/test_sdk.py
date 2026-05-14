@@ -6,27 +6,22 @@ import unittest
 from dataclasses import dataclass
 
 from glimpse_sdk import (
-    ActionMenu,
-    ActionMenuItem,
-    ActionRow,
     Applet,
     AppletState,
     Box,
     Button,
     ChangeEvent,
     Column,
-    Dropdown,
-    DropdownItem,
     Icon,
     InitEvent,
-    Item,
     Label,
     PopoverEvent,
     Row,
+    Select,
+    SelectOption,
     Spinner,
     StatusDot,
     StatusItem,
-    MenuItem,
     Variant,
     click,
 )
@@ -86,15 +81,11 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(event, PopoverEvent)
         self.assertTrue(getattr(event, "open"))
 
-    def test_dropdown_serializes_items(self) -> None:
-        node = Dropdown(id="env", items=[DropdownItem(id="prod", label="Production")], selected=0)
+    def test_select_serializes_items(self) -> None:
+        node = Select(id="env", items=[SelectOption(id="prod", label="Production")], selected=0)
         payload = node.to_protocol()
-        self.assertEqual(payload["type"], "dropdown")
+        self.assertEqual(payload["type"], "select")
         self.assertEqual(payload["data"]["items"][0]["id"], "prod")
-
-    def test_action_row_serializes_as_action_row(self) -> None:
-        payload = ActionRow(id="open", title="Open").to_protocol()
-        self.assertEqual(payload["type"], "action_row")
 
     def test_row_and_column_serialize_as_layout_protocol_types(self) -> None:
         self.assertEqual(Row().to_protocol()["type"], "row")
@@ -102,18 +93,6 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
 
     def test_status_dot_serializes_as_status_protocol_type(self) -> None:
         self.assertEqual(StatusDot().to_protocol()["type"], "status")
-
-    def test_action_menu_serializes_with_items(self) -> None:
-        payload = ActionMenu(
-            header="Pick one",
-            items=[
-                ActionMenuItem(id="a", label="Alpha", checked=True),
-                ActionMenuItem(id="b", label="Beta"),
-            ],
-        ).to_protocol()
-        self.assertEqual(payload["type"], "action_menu")
-        self.assertEqual(payload["data"]["header"], "Pick one")
-        self.assertEqual(payload["data"]["items"][0]["checked"], True)
 
     def test_spinner_serializes_with_default_spinning(self) -> None:
         payload = Spinner().to_protocol()
@@ -123,21 +102,6 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
     def test_variant_serializes_as_semantic_protocol_value(self) -> None:
         payload = Label(text="Warning", variant=Variant.WARNING).to_protocol()
         self.assertEqual(payload["data"]["variant"], "warning")
-
-    def test_item_serializes_menu_items(self) -> None:
-        payload = Item(
-            id="run",
-            label="Run",
-            clickable=True,
-            menu=[
-                MenuItem(id="open", label="Open"),
-                MenuItem(id="cancel", label="Cancel", enabled=False),
-            ],
-        ).to_protocol()
-
-        self.assertEqual(payload["type"], "item")
-        self.assertEqual(payload["data"]["menu"][0]["id"], "open")
-        self.assertEqual(payload["data"]["menu"][1]["enabled"], False)
 
     async def test_init_event_rerenders_changed_state(self) -> None:
         applet = InitApplet()

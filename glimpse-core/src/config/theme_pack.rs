@@ -55,9 +55,7 @@ impl ThemePack {
             name: effective_name,
             panel_css: find_in_roots(&roots, |dir| existing_file(&dir.join(PANEL_CSS))),
             lock_css: find_in_roots(&roots, |dir| existing_file(&dir.join(LOCK_CSS))),
-            wallpaper_light: find_in_roots(&roots, |dir| {
-                find_wallpaper(dir, WALLPAPER_LIGHT_STEM)
-            }),
+            wallpaper_light: find_in_roots(&roots, |dir| find_wallpaper(dir, WALLPAPER_LIGHT_STEM)),
             wallpaper_dark: find_in_roots(&roots, |dir| find_wallpaper(dir, WALLPAPER_DARK_STEM)),
             backdrop_light: find_in_roots(&roots, |dir| find_wallpaper(dir, BACKDROP_LIGHT_STEM)),
             backdrop_dark: find_in_roots(&roots, |dir| find_wallpaper(dir, BACKDROP_DARK_STEM)),
@@ -196,7 +194,10 @@ mod tests {
         if let Some(parent) = path.parent() {
             create_dir_all(parent).unwrap();
         }
-        File::create(path).unwrap().write_all(content.as_bytes()).unwrap();
+        File::create(path)
+            .unwrap()
+            .write_all(content.as_bytes())
+            .unwrap();
     }
 
     fn resolve_with_roots(roots: &[PathBuf]) -> ThemePack {
@@ -268,8 +269,14 @@ mod tests {
             wallpaper_light: Some(only_light.clone()),
             ..ThemePack::default()
         };
-        assert_eq!(pack.wallpaper_for(EffectiveThemeMode::Dark), Some(only_light.as_path()));
-        assert_eq!(pack.wallpaper_for(EffectiveThemeMode::Light), Some(only_light.as_path()));
+        assert_eq!(
+            pack.wallpaper_for(EffectiveThemeMode::Dark),
+            Some(only_light.as_path())
+        );
+        assert_eq!(
+            pack.wallpaper_for(EffectiveThemeMode::Light),
+            Some(only_light.as_path())
+        );
     }
 
     #[test]

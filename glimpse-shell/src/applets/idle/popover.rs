@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -55,6 +53,7 @@ pub enum Output {
     Command(Command),
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Popover {
     type Init = Init;
@@ -214,11 +213,7 @@ impl SimpleComponent for Popover {
 }
 
 impl Popover {
-    fn sync_rows(
-        &mut self,
-        records: &[IdleInhibitorRecord],
-        sender: &ComponentSender<Self>,
-    ) {
+    fn sync_rows(&mut self, records: &[IdleInhibitorRecord], sender: &ComponentSender<Self>) {
         let mut seen: HashSet<u64> = HashSet::new();
         let mut previous: Option<gtk::Widget> = None;
 
@@ -227,9 +222,7 @@ impl Popover {
             let is_self = record.bus_name == self.own_unique_name;
 
             let entry = self.rows.entry(record.id);
-            let row = entry.or_insert_with(|| {
-                IdleListRow::new(record, is_self, sender)
-            });
+            let row = entry.or_insert_with(|| IdleListRow::new(record, is_self, sender));
             row.update(record, is_self);
             place_row(row, &self.list, previous.as_ref());
             previous = Some(row.root.button.clone().upcast());
@@ -300,7 +293,9 @@ impl IdleListRow {
         debug_assert_eq!(self.id, record.id);
         self.icon.set_icon_name(Some(&pick_icon(record, is_self)));
         self.root.label.set_label(&format::row_label(record));
-        self.root.button.set_tooltip_text(Some(&build_tooltip(record)));
+        self.root
+            .button
+            .set_tooltip_text(Some(&build_tooltip(record)));
         // Read-only Login1 rows: button insensitive (menu install was skipped).
         self.root.button.set_sensitive(record.can_release);
     }
@@ -432,13 +427,27 @@ fn build_tooltip(r: &IdleInhibitorRecord) -> String {
 
 fn describe_targets(t: &glimpse_core::services::idle_inhibitor::InhibitionTargets) -> String {
     let mut parts: Vec<&str> = Vec::new();
-    if t.idle { parts.push("idle"); }
-    if t.suspend { parts.push("suspend"); }
-    if t.shutdown { parts.push("shutdown"); }
-    if t.lid_switch { parts.push("lid"); }
-    if t.power_key { parts.push("power-key"); }
-    if t.suspend_key { parts.push("suspend-key"); }
-    if t.hibernate_key { parts.push("hibernate-key"); }
+    if t.idle {
+        parts.push("idle");
+    }
+    if t.suspend {
+        parts.push("suspend");
+    }
+    if t.shutdown {
+        parts.push("shutdown");
+    }
+    if t.lid_switch {
+        parts.push("lid");
+    }
+    if t.power_key {
+        parts.push("power-key");
+    }
+    if t.suspend_key {
+        parts.push("suspend-key");
+    }
+    if t.hibernate_key {
+        parts.push("hibernate-key");
+    }
     parts.join(", ")
 }
 

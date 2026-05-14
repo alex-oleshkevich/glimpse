@@ -2,25 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  ActionMenu,
-  ActionMenuItem,
-  ActionRow,
   Applet,
   Box,
   Button,
   Column,
-  Dropdown,
-  DropdownItem,
   Hero,
   Icon,
-  Item,
   type InitEvent,
   Label,
   Row,
+  Select,
+  SelectOption,
   Spinner,
   StatusDot,
   StatusItem,
-  MenuItem,
   parseCallbackEvent,
 } from "../src/index.js";
 
@@ -116,20 +111,15 @@ test("parseCallbackEvent returns typed popover event", () => {
   assert.equal(event.open, true);
 });
 
-test("dropdown serializes items", () => {
-  const node = new Dropdown({
+test("select serializes items", () => {
+  const node = new Select({
     id: "env",
-    items: [new DropdownItem("prod", "Production")],
+    items: [new SelectOption("prod", "Production")],
     selected: 0,
   });
   const payload = node.toProtocol();
-  assert.equal(payload.type, "dropdown");
+  assert.equal(payload.type, "select");
   assert.equal((payload.data as any).items[0].id, "prod");
-});
-
-test("action row serializes as action_row", () => {
-  const payload = new ActionRow({ id: "open", title: "Open" }).toProtocol();
-  assert.equal(payload.type, "action_row");
 });
 
 test("row and column serialize as layout protocol types", () => {
@@ -144,39 +134,10 @@ test("status dot serializes as status protocol type", () => {
   assert.equal(payload.type, "status");
 });
 
-test("action menu serializes with items", () => {
-  const payload = new ActionMenu({
-    header: "Pick one",
-    items: [
-      new ActionMenuItem({ id: "a", label: "Alpha", checked: true }),
-      new ActionMenuItem({ id: "b", label: "Beta" }),
-    ],
-  }).toProtocol();
-  assert.equal(payload.type, "action_menu");
-  assert.equal((payload.data as any).header, "Pick one");
-  assert.equal((payload.data as any).items[0].checked, true);
-});
-
 test("spinner serializes with default spinning", () => {
   const payload = new Spinner().toProtocol();
   assert.equal(payload.type, "spinner");
   assert.equal((payload.data as any).spinning, true);
-});
-
-test("item serializes menu items", () => {
-  const payload = new Item({
-    id: "run",
-    label: "Run",
-    clickable: true,
-    menu: [
-      new MenuItem({ id: "open", label: "Open" }),
-      new MenuItem({ id: "cancel", label: "Cancel", enabled: false }),
-    ],
-  }).toProtocol();
-
-  assert.equal(payload.type, "item");
-  assert.equal((payload.data as any).menu[0].id, "open");
-  assert.equal((payload.data as any).menu[1].enabled, false);
 });
 
 test("closed popover updates are dropped until opened", async () => {
@@ -207,4 +168,3 @@ test("variant serializes as semantic protocol value", () => {
   const payload = new Label("Warning", { variant: "warning" }).toProtocol();
   assert.equal((payload.data as any).variant, "warning");
 });
-

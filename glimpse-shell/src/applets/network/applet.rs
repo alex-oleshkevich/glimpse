@@ -87,8 +87,6 @@ impl SimpleComponent for Applet {
     view! {
         root = gtk::Box {
             add_css_class: "applet",
-            add_css_class: "network",
-            add_css_class: "hoverable",
             set_orientation: gtk::Orientation::Horizontal,
             set_spacing: 4,
             #[watch]
@@ -192,6 +190,7 @@ impl SimpleComponent for Applet {
             Input::Reconfigure(config) => {
                 self.config = config;
                 let state = self.service.snapshot();
+                self.icon_name = icon_name_for_state(&state).into();
                 self.label = format::label(&self.config.label_format, &state);
                 self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
                 self.state = state;

@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, glib, prelude::*},
@@ -40,6 +38,7 @@ pub enum Output {
     Activate(Option<EventPayload>),
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for StatusItem {
     type Init = Init;

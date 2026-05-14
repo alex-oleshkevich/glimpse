@@ -1,21 +1,11 @@
-#![allow(unused_assignments)]
-
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
     factory::FactoryVecDeque,
     gtk::{self, prelude::*},
 };
-use serde::Deserialize;
 
 use super::item::{Init as ItemInit, Input as ItemInput, Item};
-
-#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum PagerAppearance {
-    #[default]
-    Dots,
-    Numbers,
-}
+pub use crate::components::pager::PagerAppearance;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PagerItem {
@@ -70,6 +60,7 @@ enum RowSyncOp {
     Remove { at: usize },
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Strip {
     type Init = ();

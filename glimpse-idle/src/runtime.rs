@@ -43,10 +43,7 @@ async fn acquire_dbus_name(name: &'static str) -> anyhow::Result<InstanceGuard> 
 /// Best-effort acquire of an additional well-known name on an existing
 /// session connection. Returns Ok(true) on success, Ok(false) if the name
 /// is already owned by another process. Err on D-Bus errors.
-pub async fn try_acquire_name(
-    conn: &zbus::Connection,
-    name: &str,
-) -> anyhow::Result<bool> {
+pub async fn try_acquire_name(conn: &zbus::Connection, name: &str) -> anyhow::Result<bool> {
     let proxy = DBusProxy::new(conn)
         .await
         .context("create session D-Bus proxy")?;

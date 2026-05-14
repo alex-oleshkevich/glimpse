@@ -10,7 +10,10 @@ impl WidgetTemplate for EmptyStateView {
             add_css_class: "empty-state",
             set_orientation: gtk::Orientation::Vertical,
             set_spacing: 4,
+            set_hexpand: true,
+            set_vexpand: true,
             set_halign: gtk::Align::Center,
+            set_valign: gtk::Align::Center,
 
             #[name = "title"]
             gtk::Label {
@@ -42,6 +45,10 @@ mod tests {
         let empty = EmptyStateView::init(());
 
         assert!(empty.has_css_class("empty-state"));
+        assert!(empty.hexpands());
+        assert!(empty.vexpands());
+        assert_eq!(empty.halign(), gtk::Align::Center);
+        assert_eq!(empty.valign(), gtk::Align::Center);
         assert!(empty.title.has_css_class("empty-state__title"));
         assert!(empty.subtitle.has_css_class("empty-state__subtitle"));
         assert!(!empty.subtitle.is_visible());

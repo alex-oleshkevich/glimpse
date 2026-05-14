@@ -91,44 +91,21 @@ func TestParseCallbackEventReturnsTypedPopoverVariant(t *testing.T) {
 	}
 }
 
-func TestDropdownSerializesItems(t *testing.T) {
-	widget := Dropdown{
+func TestSelectSerializesItems(t *testing.T) {
+	widget := Select{
 		CommonProps: CommonProps{ID: "env"},
-		Items:       []DropdownItem{{ID: "prod", Label: "Production"}},
+		Items:       []SelectOption{{ID: "prod", Label: "Production"}},
 	}
 	payload, err := json.Marshal(widget)
 	if err != nil {
-		t.Fatalf("marshal dropdown: %v", err)
+		t.Fatalf("marshal select: %v", err)
 	}
 	var decoded map[string]any
 	if err := json.Unmarshal(payload, &decoded); err != nil {
-		t.Fatalf("unmarshal dropdown: %v", err)
+		t.Fatalf("unmarshal select: %v", err)
 	}
-	if decoded["type"] != "dropdown" {
-		t.Fatalf("expected dropdown type, got %v", decoded["type"])
-	}
-}
-
-func TestItemSerializesMenuItems(t *testing.T) {
-	widget := Item{
-		CommonProps: CommonProps{ID: "run"},
-		Label:       "Run",
-		Clickable:   true,
-		Menu: []MenuItem{
-			{ID: "open", Label: "Open"},
-			{ID: "cancel", Label: "Cancel", Enabled: ptr(false)},
-		},
-	}
-
-	payload, err := json.Marshal(widget)
-	if err != nil {
-		t.Fatalf("marshal item: %v", err)
-	}
-	text := string(payload)
-	for _, expected := range []string{`"menu"`, `"id":"open"`, `"label":"Cancel"`, `"enabled":false`} {
-		if !strings.Contains(text, expected) {
-			t.Fatalf("expected %s in item payload: %s", expected, text)
-		}
+	if decoded["type"] != "select" {
+		t.Fatalf("expected select type, got %v", decoded["type"])
 	}
 }
 

@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use chrono::{Local, NaiveDate};
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent, WidgetTemplate,
@@ -18,6 +16,7 @@ pub enum DateInput {
     SetDate(NaiveDate),
 }
 
+#[allow(unused_assignments)]
 #[relm4::widget_template(pub)]
 impl WidgetTemplate for DateView {
     view! {
@@ -40,6 +39,7 @@ impl WidgetTemplate for DateView {
     }
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Date {
     type Init = NaiveDate;

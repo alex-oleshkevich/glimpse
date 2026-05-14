@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent, WidgetTemplate,
     gtk::{self, prelude::*},
@@ -26,6 +24,7 @@ struct ForecastRowInit {
     temperatures: String,
 }
 
+#[allow(unused_assignments)]
 #[relm4::widget_template]
 impl WidgetTemplate for ForecastRow {
     type Init = ForecastRowInit;
@@ -87,6 +86,7 @@ impl WidgetTemplate for ForecastRow {
     }
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Forecast {
     type Init = ();

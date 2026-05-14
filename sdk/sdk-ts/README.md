@@ -67,7 +67,12 @@ class DeployApplet extends Applet<DeployState> {
         subtitle: state.version,
       }),
       new Label("Version"),
-      new Button({ id: "deploy_now", label: "Deploy now" }),
+      new Button({
+        id: "deploy_now",
+        label: "Deploy now",
+        icon: "media-playback-start-symbolic",
+        variant: "primary",
+      }),
     ]);
   }
 }

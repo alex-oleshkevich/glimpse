@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent, WidgetTemplate,
     gtk::{self, prelude::*},
@@ -25,6 +23,7 @@ struct HourlyColumnInit {
     temperature: String,
 }
 
+#[allow(unused_assignments)]
 #[relm4::widget_template]
 impl WidgetTemplate for HourlyColumn {
     type Init = HourlyColumnInit;
@@ -54,6 +53,7 @@ impl WidgetTemplate for HourlyColumn {
     }
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Hourly {
     type Init = ();

@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::fmt::Debug;
 
 use relm4::{
@@ -36,6 +34,7 @@ pub enum Input<Command> {
     Update(Vec<ActionMenuItem<Command>>),
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl<Command> SimpleComponent for ActionMenu<Command>
 where

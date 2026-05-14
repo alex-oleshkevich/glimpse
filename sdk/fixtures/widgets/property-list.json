@@ -1,0 +1,15 @@
+{
+  "data": {
+    "rows": [
+      {
+        "key": "IPv4",
+        "value": "10.0.0.42"
+      },
+      {
+        "key": "SSID",
+        "value": "home-5G"
+      }
+    ]
+  },
+  "type": "property_list"
+}

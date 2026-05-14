@@ -1,6 +1,6 @@
 {
   "data": {
-    "body": [
+    "children": [
       {
         "data": {
           "text": "uptime"
@@ -8,9 +8,7 @@
         "type": "label"
       }
     ],
-    "header": {
-      "title": "System"
-    }
+    "title": "System"
   },
   "type": "section"
 }

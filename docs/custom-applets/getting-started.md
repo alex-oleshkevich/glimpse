@@ -69,8 +69,8 @@ Replace `src/main.rs` with:
 ```rust
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, Button, CallbackEvent, Column, Hero, Icon, Item, Section, StatusItem,
-    TreeNode, run, tree,
+    Applet, AppletResult, Button, ButtonVariant, CallbackEvent, Column, Hero, Icon, Label, Section,
+    StatusItem, TreeNode, run, tree,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -100,8 +100,11 @@ impl Applet for CounterApplet {
                 Section::new(
                     "Controls",
                     tree![
-                        Item::new(format!("Current: {count}")),
-                        Button::new("increment").label("Increment"),
+                        Label::new(format!("Current: {count}")),
+                        Button::new("increment")
+                            .label("Increment")
+                            .icon("list-add-symbolic")
+                            .variant(ButtonVariant::Primary),
                     ],
                 ),
             ])
@@ -165,15 +168,15 @@ from glimpse_sdk import (
     Applet,
     AppletState,
     Button,
+    ButtonVariant,
     Column,
     Hero,
     Icon,
-    Item,
+    Label,
     Section,
     StatusItem,
     click,
 )
-from glimpse_sdk.widgets import Header
 
 
 @dataclass
@@ -200,10 +203,15 @@ class CounterApplet(Applet[CounterState]):
             children=[
                 Hero(title="Counter", subtitle=f"Value: {state.count}"),
                 Section(
-                    header=Header(title="Controls"),
-                    body=[
-                        Item(label=f"Current: {state.count}"),
-                        Button(id="increment", label="Increment"),
+                    title="Controls",
+                    children=[
+                        Label(text=f"Current: {state.count}"),
+                        Button(
+                            id="increment",
+                            label="Increment",
+                            icon="list-add-symbolic",
+                            variant=ButtonVariant.PRIMARY,
+                        ),
                     ],
                 ),
             ],
@@ -269,7 +277,7 @@ import {
   Column,
   Hero,
   Icon,
-  Item,
+  Label,
   Section,
   StatusItem,
   type TreeNode,
@@ -308,9 +316,14 @@ class CounterApplet extends Applet<CounterState> {
         new Hero({ title: "Counter", subtitle: `Value: ${state.count}` }),
         new Section({
           title: "Controls",
-          body: [
-            new Item({ label: `Current: ${state.count}` }),
-            new Button({ id: "increment", label: "Increment" }),
+          children: [
+            new Label(`Current: ${state.count}`),
+            new Button({
+              id: "increment",
+              label: "Increment",
+              icon: "list-add-symbolic",
+              variant: "primary",
+            }),
           ],
         }),
       ],
@@ -392,12 +405,14 @@ func (a *counterApplet) Popover(_ context.Context, state *counterState) (sdk.Wid
         Children: []sdk.Widget{
             sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
             sdk.Section{
-                Header: &sdk.Header{Title: "Controls"},
-                Body: []sdk.Widget{
-                    sdk.Item{Label: fmt.Sprintf("Current: %d", state.Count)},
+                Title: "Controls",
+                Children: []sdk.Widget{
+                    sdk.Label{Text: fmt.Sprintf("Current: %d", state.Count)},
                     sdk.Button{
                         CommonProps: sdk.CommonProps{ID: "increment"},
                         Label:       "Increment",
+                        Icon:        "list-add-symbolic",
+                        Variant:     sdk.ButtonVariantPrimary,
                     },
                 },
             },
@@ -471,8 +486,10 @@ required entry point.
   automatically.
 - **Use richer widgets.** The full component reference is at
   [Components](./exec-components.md). The most useful ones for live
-  state are `meter` (progress + slider), `detail_grid` (key/value
-  facts), and `dropdown` (mode switcher).
+  state are `item` (display row with a right slot), `action_item`
+  (clickable row with a render-only right slot), `meter` (progress +
+  slider), `property_list` (key/value facts), `slider` (numeric control),
+  and `select` (mode switcher).
 - **Restart on crash.** The `restart_delay_ms` config option controls
   how soon Glimpse re-spawns your applet after it exits. The default
   is 1 second.

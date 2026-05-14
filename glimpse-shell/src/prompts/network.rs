@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
@@ -40,6 +38,7 @@ pub enum PromptHostInput {
     DialogOutput(PromptDialogOutput),
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl Component for PromptHost {
     type Init = PromptHostInit;
@@ -167,6 +166,7 @@ pub enum PromptDialogOutput {
     },
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for PromptDialog {
     type Init = PromptDialogInit;

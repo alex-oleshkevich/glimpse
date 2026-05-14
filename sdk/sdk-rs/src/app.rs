@@ -41,11 +41,7 @@ pub trait Applet: Send + Sync {
     }
 
     /// Called once when Glimpse sends the `init` line.
-    async fn on_init(
-        &mut self,
-        _state: &mut Self::State,
-        _event: InitEvent,
-    ) -> AppletResult<()> {
+    async fn on_init(&mut self, _state: &mut Self::State, _event: InitEvent) -> AppletResult<()> {
         Ok(())
     }
 
@@ -149,7 +145,12 @@ where
 {
     let next_status = applet.status(state).await?;
     if !last.initialized || last.status != next_status {
-        write_message(stdout, "status", &serde_json::json!({ "items": next_status })).await?;
+        write_message(
+            stdout,
+            "status",
+            &serde_json::json!({ "items": next_status }),
+        )
+        .await?;
         last.status = next_status;
     }
 
@@ -159,7 +160,14 @@ where
     // existing tree (must reach the daemon even if closed).
     let should_emit = popover_open || !last.initialized || next_tree.is_none();
     if should_emit && last.tree != next_tree {
-        write_message(stdout, "popover", &TreePayload { root: next_tree.clone() }).await?;
+        write_message(
+            stdout,
+            "popover",
+            &TreePayload {
+                root: next_tree.clone(),
+            },
+        )
+        .await?;
         last.tree = next_tree;
     }
 
@@ -186,10 +194,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::{
-        ActionRow, BoxNode, Button, CallbackEvent, ClickEvent, Icon, Item, Label, MenuItem,
-        StatusItem, TreeNode,
-    };
+    use crate::{BoxNode, Button, CallbackEvent, ClickEvent, Icon, Label, StatusItem, TreeNode};
 
     struct DemoApplet;
 
@@ -268,32 +273,11 @@ mod tests {
     }
 
     #[test]
-    fn dropdown_like_tree_nodes_serialize() {
-        let node =
-            crate::Dropdown::new("env", vec![crate::DropdownItem::new("prod", "Production")]);
+    fn select_tree_nodes_serialize() {
+        let node = crate::Select::new("env", vec![crate::SelectOption::new("prod", "Production")]);
         let payload = serde_json::to_value(TreeNode::from(node)).expect("tree should serialize");
-        assert_eq!(payload["type"], "dropdown");
+        assert_eq!(payload["type"], "select");
         assert_eq!(payload["data"]["items"][0]["id"], "prod");
-    }
-
-    #[test]
-    fn items_serialize_menu_items() {
-        let item = Item::clickable("run", "Run").menu(vec![
-            MenuItem::new("open", "Open"),
-            MenuItem::new("cancel", "Cancel").enabled(false),
-        ]);
-
-        let payload = serde_json::to_value(TreeNode::from(item)).expect("item should serialize");
-        assert_eq!(payload["type"], "item");
-        assert_eq!(payload["data"]["menu"][0]["id"], "open");
-        assert_eq!(payload["data"]["menu"][1]["enabled"], false);
-    }
-
-    #[test]
-    fn action_rows_use_canonical_protocol_name() {
-        let payload = serde_json::to_value(TreeNode::from(ActionRow::new("open", "Open")))
-            .expect("action row serializes");
-        assert_eq!(payload["type"], "action_row");
     }
 
     #[test]
@@ -312,20 +296,6 @@ mod tests {
         let column = serde_json::to_value(TreeNode::from(crate::Column::new(vec![])))
             .expect("column serializes");
         assert_eq!(column["type"], "column");
-    }
-
-    #[test]
-    fn action_menu_serializes_with_items() {
-        let menu = crate::ActionMenu::new(vec![
-            crate::ActionMenuItem::new("a", "Alpha").checked(true),
-            crate::ActionMenuItem::new("b", "Beta"),
-        ])
-        .header("Pick one");
-        let payload =
-            serde_json::to_value(TreeNode::from(menu)).expect("action_menu serializes");
-        assert_eq!(payload["type"], "action_menu");
-        assert_eq!(payload["data"]["header"], "Pick one");
-        assert_eq!(payload["data"]["items"][0]["checked"], true);
     }
 
     #[test]

@@ -10,8 +10,8 @@ use std::collections::HashMap;
 
 use crate::{
     applets::{
-        audio, battery, bluetooth, brightness, clipboard, clock, command, dev, exec, idle,
-        keyboard, mpris, network, notifications, pager, privacy, removable, session, tray, weather,
+        audio, battery, bluetooth, brightness, clipboard, clock, command, exec, idle, keyboard,
+        mpris, network, notifications, pager, privacy, removable, session, tray, weather,
     },
     panels::PanelSection,
     services::{framework::Services, wayland_idle_inhibit::SHELL_EXTENSIONS},
@@ -19,10 +19,6 @@ use crate::{
 
 use glimpse_core::ThemeMode;
 pub use glimpse_core::{AppletConfig, AppletType};
-
-fn applet_type_from_name(name: &str) -> Option<AppletType> {
-    AppletType::from_config_name(name)
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AppletKey {
@@ -47,7 +43,6 @@ pub enum AppletController {
     Clipboard(Controller<clipboard::Applet>),
     Clock(Controller<clock::Applet>),
     Command(Controller<command::Applet>),
-    Dev(Controller<dev::Applet>),
     Exec(Controller<exec::Applet>),
     Idle(Controller<idle::applet::Applet>),
     Keyboard(Controller<keyboard::Applet>),
@@ -72,7 +67,6 @@ impl AppletController {
             Self::Clipboard(_) => AppletType::Clipboard,
             Self::Clock(_) => AppletType::Clock,
             Self::Command(_) => AppletType::Command,
-            Self::Dev(_) => AppletType::Dev,
             Self::Exec(_) => AppletType::Exec,
             Self::Idle(_) => AppletType::Idle,
             Self::Keyboard(_) => AppletType::Keyboard,
@@ -97,7 +91,6 @@ impl AppletController {
             Self::Clipboard(controller) => controller.widget().clone().upcast(),
             Self::Clock(controller) => controller.widget().clone().upcast(),
             Self::Command(controller) => controller.widget().clone().upcast(),
-            Self::Dev(controller) => controller.widget().clone().upcast(),
             Self::Exec(controller) => controller.widget().clone().upcast(),
             Self::Idle(controller) => controller.widget().clone().upcast(),
             Self::Keyboard(controller) => controller.widget().clone().upcast(),
@@ -130,7 +123,6 @@ impl AppletController {
                     &config.cloned(),
                 )));
             }
-            Self::Dev(_) => {}
             Self::Brightness(controller) => {
                 controller.emit(brightness::Input::Reconfigure(
                     brightness::Config::from_raw(&config.cloned()),
@@ -408,13 +400,6 @@ pub fn create_applet(
                 })
                 .detach(),
         )),
-        AppletType::Dev => Some(AppletController::Dev(
-            dev::Applet::builder()
-                .launch(dev::Init {
-                    watcher: services.applet_watcher.clone(),
-                })
-                .detach(),
-        )),
     }
 }
 
@@ -639,7 +624,7 @@ fn resolve_applet(
     let applet_type = applet_config
         .as_ref()
         .and_then(|config| config.extends)
-        .or_else(|| applet_type_from_name(name));
+        .or_else(|| AppletType::from_config_name(name));
 
     let Some(applet_type) = applet_type else {
         tracing::warn!(name, "unknown applet config, ignoring");

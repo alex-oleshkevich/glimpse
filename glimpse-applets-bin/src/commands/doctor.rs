@@ -111,7 +111,12 @@ impl Report {
     }
 }
 
-fn check_command(cmd: &str, version_args: &[&str], required: bool, allow_missing_path: bool) -> Check {
+fn check_command(
+    cmd: &str,
+    version_args: &[&str],
+    required: bool,
+    allow_missing_path: bool,
+) -> Check {
     let path: Option<PathBuf> = which::which(cmd).ok();
 
     match path {
@@ -179,7 +184,9 @@ fn install_hint(cmd: &str) -> Option<String> {
         "uv" => "uv (recommended for Python): `curl -LsSf https://astral.sh/uv/install.sh | sh`",
         "node" | "npm" => "Node 20+ and npm: install via your distro or https://nodejs.org",
         "go" => "Go 1.24+: `pacman -S go` (Arch) / https://go.dev/dl",
-        "glimpse-shell" => "glimpse-shell: install Glimpse — https://github.com/alex-oleshkevich/glimpse",
+        "glimpse-shell" => {
+            "glimpse-shell: install Glimpse — https://github.com/alex-oleshkevich/glimpse"
+        }
         "watchexec" => "watchexec (used by `glimpse-applet dev`): `cargo install watchexec-cli`",
         _ => return None,
     };

@@ -5,7 +5,7 @@ Exec popovers are component trees. Raw protocol applets send them in `popover` m
 Each node has this shape:
 
 ```json
-{"type":"section","data":{"title":"System","body":[]}}
+{"type":"section","data":{"title":"System","children":[]}}
 ```
 
 | Field | Meaning |
@@ -30,14 +30,17 @@ Most popover components accept these fields:
 
 | Component | Default fields | Use it for |
 |---|---|---|
-| `section` | `header = {title, subtitle?}` (required), `body = []` | A titled group. |
-| `collapsible` | `header = {title, subtitle?}` (required), `expanded = false`, `body = []` | Expandable group. |
+| `section` | `title = ""`, `subtitle = ""`, `children = []` | A titled group. |
 | `card` | `children = []` | A framed group. |
 | `row` | `spacing = 0`, `children = []` | Horizontal layout. |
 | `column` | `spacing = 0`, `children = []` | Vertical layout. |
 | `box` | `spacing = 0`, `children = []` | Explicit horizontal or vertical layout. Requires `orientation`. |
 | `grid` | `row_spacing = 0`, `column_spacing = 0`, `children = []` | Two-dimensional layout. |
 | `scroll` | no default child | Scrollable content. Requires `child`. |
+| `overlay` | `overlays = []`; requires `child` | Stack render-only overlay nodes above a base child. |
+| `list_box` | `children = []` | GTK list with one row per child. |
+| `expander` | `expanded = false`; requires `label`, `child` | Collapsible disclosure container backed by `gtk::Expander`. |
+| `tree_expander` | `hide_expander = false`, `indent_for_depth = false`, `indent_for_icon = false`; requires `child` | GTK tree expander wrapper around one child. |
 | `separator` | `orientation = unset` | Visual divider. |
 
 Grid children use:
@@ -51,41 +54,92 @@ Grid children use:
 | Component | Default fields | Use it for |
 |---|---|---|
 | `hero` | `subtitle = ""`, `icon = unset`; requires `title` | Big header for a popover. |
-| `item` | `left = unset`, `label = ""`, `right = unset`, `clickable = false`, `menu = []` | Standard list row. |
-| `collapsible_item` | `left = unset`, `label = ""`, `right = unset`, `expanded = false`, `body = []` | Expandable list row. |
-| `action_row` | `subtitle = ""`, `meta = ""`, `icon = unset`; requires `title` | Clickable-looking row with summary text. |
-| `action_menu` | `header = unset`, `items = []` | Menu of script-defined actions. |
-| `detail_grid` | `rows = []` | Key/value facts. |
+| `property_list` | `title = ""`, `rows = []` | Key/value facts. |
+| `item` | `icon = ""`, `sublabel = ""`, `right = unset`; requires `label` | Display-only row with an optional right-side component. |
+| `action_item` | `icon = ""`, `sublabel = ""`, `right = unset`, `enabled = true`; requires `id`, `label` | Clickable row with an optional render-only right-side component. |
 | `empty_state` | `subtitle = ""`; requires `title` | Friendly empty message. |
 | `badge` | requires `label` | Small pill label. |
 | `status` | common fields only | Small status marker. |
 | `meter` | `icon = unset`, `label = ""`, `min = 0`, `max = 1`, `step = 0.01`, `text = unset`, `interactive = false`; requires `value` | Progress row or slider row. |
 | `progress` | `max = 1`, `show_text = false`, `text = unset`; requires `value` | Progress bar. |
+| `level_bar` | `min = 0`, `max = 1`, `mode = continuous`; requires `value` | Native GTK level indicator. Modes: `continuous`, `discrete`. |
 | `copyable` | `label = ""`; requires `value` | Text row with copy action. |
-| `toast` | `icon = unset`, `message = ""`, `action = unset`; requires `title` | Inline notice. |
 | `spinner` | `spinning = true` | Loading indicator. |
 | `label` | `wrap = false`, `xalign = unset`, `selectable = false`; requires `text` | Text. |
 | `icon` | `pixel_size = unset`; requires `icon` | Symbolic icon. |
 | `image` | `pixel_size = unset`; requires `icon` | Image from icon name or path. |
-| `button` | `label = unset`, `icon = unset`, `child = unset`; requires `id` for events | Button. |
+| `picture` | `content_fit = contain`; requires `path` | Image file rendered with `gtk::Picture`. Fits: `fill`, `contain`, `cover`, `scale_down`. |
+| `button` | `label = unset`, `icon = unset`, `enabled = true`, `variant = flat`; requires `id` for events | Button. `icon` is an icon-name string. Variants: `primary`, `secondary`, `compact`, `flat`, `danger`. |
+| `link_button` | `label = unset`; requires `uri` | Link-style button that opens a URI through GTK. Does not emit applet events. |
+| `menu_button` | `label = unset`, `icon = unset`; requires `popover` | Button that opens a rendered popover child. The button itself does not emit applet events. |
 | `switch` | `label = unset`, `active = false`; requires `id` | Toggle switch. |
+| `toggle_button` | `label = unset`, `active = false`; requires `id` | Button-like toggle that emits `toggle` events. |
 | `checkbox` | `label = unset`, `active = false`; requires `id` | Checkbox. |
-| `scale` | `orientation = unset`, `draw_value = false`; requires `id`, `min`, `max`, `step`, `value` | Slider. |
-| `dropdown` | `items = []`, `selected = unset`; requires `id` | Dropdown. |
+| `slider` | `orientation = unset`, `draw_value = false`; requires `id`, `min`, `max`, `step`, `value` | Slider. |
+| `select` | `items = []`, `selected = unset`; requires `id` | Select control. |
 
-## Action Menu
+## Button
 
-Use `action_menu` when a compact list of actions is better than separate buttons.
+Use `button` for explicit commands. Buttons do not accept child widgets or menu actions.
 
 ```txt
-popover {"root":{"type":"action_menu","data":{
-  "header":"Power profile",
-  "items":[
-    {"id":"power-saver","label":"Power Saver","checked":false},
-    {"id":"balanced","label":"Balanced","checked":true},
-    {"id":"performance","label":"Performance","checked":false}
-  ]
-}}}
+popover {"root":{"type":"button","data":{"id":"refresh","label":"Refresh","icon":"view-refresh-symbolic","variant":"primary"}}}
+```
+
+## Link Button
+
+Use `link_button` for external documentation or support links. It opens the URI directly through GTK and does not send an applet event.
+
+```txt
+popover {"root":{"type":"link_button","data":{"uri":"https://example.com/docs","label":"Docs"}}}
+```
+
+## Expander
+
+Use `expander` for optional detail content that should stay in the same popover.
+
+```txt
+popover {"root":{"type":"expander","data":{"label":"Details","expanded":true,"child":{"type":"label","data":{"text":"More"}}}}}
+```
+
+## Tree Expander
+
+Use `tree_expander` for a GTK tree expander wrapper around a child node.
+
+```txt
+popover {"root":{"type":"tree_expander","data":{"child":{"type":"label","data":{"text":"Nested"}},"hide_expander":true,"indent_for_depth":true,"indent_for_icon":true}}}
+```
+
+## Menu Button
+
+Use `menu_button` for compact controls that open rendered popover content. Controls inside the nested `popover` node still emit their own events.
+
+```txt
+popover {"root":{"type":"menu_button","data":{"label":"More","icon":"open-menu-symbolic","popover":{"type":"label","data":{"text":"Menu content"}}}}}
+```
+
+## Overlay
+
+Use `overlay` to render badges or other status affordances above a base component.
+
+```txt
+popover {"root":{"type":"overlay","data":{"child":{"type":"picture","data":{"path":"/home/me/.cache/avatar.png","content_fit":"cover"}},"overlays":[{"type":"badge","data":{"label":"Live","halign":"end","valign":"start"}}]}}}
+```
+
+## List Box
+
+Use `list_box` for native GTK list rows. Each child is rendered inside its own row.
+
+```txt
+popover {"root":{"type":"list_box","data":{"children":[{"type":"label","data":{"text":"First"}},{"type":"badge","data":{"label":"Second"}}]}}}
+```
+
+## Level Bar
+
+Use `level_bar` for native GTK level indicators.
+
+```txt
+popover {"root":{"type":"level_bar","data":{"value":0.7,"min":0,"max":1,"mode":"continuous"}}}
 ```
 
 ## See Also

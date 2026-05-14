@@ -7,13 +7,11 @@ use std::{
 };
 
 use css_color::Srgb;
+use gio::prelude::SettingsExt;
 use glimpse_core::{
     Config, ConfigEvent, FitMode, ResolvedBackdropSpec, ResolvedImageSpec, ResolvedWallpaperSpec,
-    heic,
-    services::theme::EffectiveThemeMode,
-    watch_for_config_changes,
+    heic, services::theme::EffectiveThemeMode, watch_for_config_changes,
 };
-use gio::prelude::SettingsExt;
 use gtk4::prelude::ListModelExt;
 use gtk4::{
     ContentFit,
@@ -277,7 +275,8 @@ impl WallpaperAppModel {
             .chain(pending.iter())
             .map(MonitorKey::for_monitor)
             .collect();
-        self.subscribed_monitors.retain(|key| live_keys.contains(key));
+        self.subscribed_monitors
+            .retain(|key| live_keys.contains(key));
 
         if monitors.is_empty() {
             tracing::warn!(
@@ -524,8 +523,7 @@ const GNOME_COLOR_SCHEME_KEY: &str = "color-scheme";
 
 fn log_wallpaper_sources(config: &Config, mode: EffectiveThemeMode) {
     let pack = config.theme_pack();
-    let (wallpaper_src, wallpaper_path) = match (&config.wallpaper.path, pack.wallpaper_for(mode))
-    {
+    let (wallpaper_src, wallpaper_path) = match (&config.wallpaper.path, pack.wallpaper_for(mode)) {
         (Some(p), _) => ("config", Some(p.display().to_string())),
         (None, Some(p)) => ("theme", Some(p.display().to_string())),
         (None, None) => ("color-only", None),
@@ -556,7 +554,9 @@ fn read_effective_theme_mode(config: &Config) -> EffectiveThemeMode {
 }
 
 fn read_gnome_color_scheme() -> String {
-    gio::Settings::new(GNOME_INTERFACE_SCHEMA).string(GNOME_COLOR_SCHEME_KEY).to_string()
+    gio::Settings::new(GNOME_INTERFACE_SCHEMA)
+        .string(GNOME_COLOR_SCHEME_KEY)
+        .to_string()
 }
 
 fn color_scheme_to_effective_mode(value: &str) -> EffectiveThemeMode {

@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
     gtk::{self, gio, prelude::*},
@@ -111,6 +109,7 @@ pub enum Input {
     PopoverOutput(PopoverOutput),
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Applet {
     type Init = Init;

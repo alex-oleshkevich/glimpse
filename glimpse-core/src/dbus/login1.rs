@@ -33,13 +33,7 @@ pub trait Login1Manager {
     fn power_off(&self, interactive: bool) -> zbus::Result<()>;
     fn terminate_session(&self, session_id: &str) -> zbus::Result<()>;
 
-    fn inhibit(
-        &self,
-        what: &str,
-        who: &str,
-        why: &str,
-        mode: &str,
-    ) -> zbus::Result<OwnedFd>;
+    fn inhibit(&self, what: &str, who: &str, why: &str, mode: &str) -> zbus::Result<OwnedFd>;
 
     fn list_inhibitors(&self) -> zbus::Result<Vec<Login1InhibitorEntry>>;
 

@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent, WidgetTemplate,
     gtk::{self, prelude::*},
@@ -19,6 +17,7 @@ pub enum WorldClockInput {
     Update(Vec<WorldClockTime>),
 }
 
+#[allow(unused_assignments)]
 #[relm4::widget_template(pub)]
 impl WidgetTemplate for WorldClockRowView {
     view! {
@@ -56,20 +55,19 @@ impl WidgetTemplate for WorldClockRowView {
                 #[name = "time"]
                 gtk::Label {
                     add_css_class: "world-clock-time",
-                    add_css_class: "detail-grid__value",
                 },
 
                 #[name = "offset"]
                 gtk::Label {
                     add_css_class: "world-clock-tz",
                     add_css_class: "dim-label",
-                    add_css_class: "detail-grid__key",
                 },
             },
         }
     }
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for WorldClock {
     type Init = Vec<WorldClockTime>;

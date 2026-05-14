@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 mod action_button;
 mod group;
 

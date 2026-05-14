@@ -20,7 +20,7 @@ pub struct AppletDirectoryScanner {
 #[derive(Debug, Default, Clone)]
 pub struct DiscoveredApplets {
     pub normal: HashMap<String, AppletConfig>,
-    pub dev: HashMap<String, PathBuf>,
+    pub dev: HashMap<String, AppletConfig>,
 }
 
 impl AppletDirectoryScanner {
@@ -48,7 +48,7 @@ impl AppletDirectoryScanner {
 fn scan_dir(
     dir: &Path,
     normal: &mut HashMap<String, AppletConfig>,
-    dev: &mut HashMap<String, PathBuf>,
+    dev: &mut HashMap<String, AppletConfig>,
 ) {
     let entries = match fs::read_dir(dir) {
         Ok(e) => e,
@@ -73,7 +73,9 @@ fn scan_dir(
 
         if let Some(base) = stem.strip_suffix(".dev") {
             if !base.is_empty() {
-                dev.insert(base.to_string(), path);
+                if let Some(config) = parse_dev_package(&path) {
+                    dev.insert(base.to_string(), config);
+                }
             }
             continue;
         }
@@ -150,6 +152,39 @@ fn parse_package(path: &Path) -> Option<(String, AppletConfig)> {
             settings,
         },
     ))
+}
+
+fn parse_dev_package(path: &Path) -> Option<AppletConfig> {
+    let content = fs::read_to_string(path)
+        .map_err(
+            |e| tracing::warn!(path = %path.display(), %e, "could not read dev applet package"),
+        )
+        .ok()?;
+    let desc: AppletDescriptor = toml::from_str(&content)
+        .map_err(
+            |e| tracing::warn!(path = %path.display(), %e, "could not parse dev applet package"),
+        )
+        .ok()?;
+    if desc.id.is_empty() {
+        tracing::warn!(path = %path.display(), "dev applet package has empty id, skipping");
+        return None;
+    }
+    match desc.kind.as_str() {
+        "exec" => match desc.exec {
+            Some(settings) => Some(AppletConfig {
+                extends: Some(AppletType::Exec),
+                settings,
+            }),
+            None => {
+                tracing::warn!(path = %path.display(), "dev exec applet package missing [exec] section, skipping");
+                None
+            }
+        },
+        other => {
+            tracing::warn!(path = %path.display(), kind = other, "dev applet has unknown type, skipping");
+            None
+        }
+    }
 }
 
 pub fn merge_applet_configs(

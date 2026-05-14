@@ -19,10 +19,3 @@ type StatusItem struct {
 	Label   string `json:"label,omitempty"`
 	Tooltip string `json:"tooltip,omitempty"`
 }
-
-type MenuItem struct {
-	ID      string `json:"id"`
-	Label   string `json:"label"`
-	Visible *bool  `json:"visible,omitempty"`
-	Enabled *bool  `json:"enabled,omitempty"`
-}

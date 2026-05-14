@@ -19,7 +19,13 @@ node_modules
 dist/
 frameworks/custom-applet/sdk-go/stateful_counter
 .superpowers
-var/
+var/*
+!var/demo/
+!var/demo/**
+var/demo/py/__pycache__/
+var/demo/ts/dist/
+var/demo/ts/node_modules/
+var/demo/rs/target/
 !var/sysstats/
 !var/sysstats/**
 var/sysstats/sysstats-applet

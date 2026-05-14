@@ -1,0 +1,12 @@
+[panel]
+refresh_ms = 1500
+format = "{cpu} | {ram} | {swap}"
+
+[panel.items.cpu]
+label = "PROC"
+
+[panel.items.swap]
+warn_at = 85
+
+[popover.sections]
+network = false

@@ -14,7 +14,7 @@ use crate::{
 use glimpse_core::services::framework::Services;
 use glimpse_core::{AppletConfig, PanelConfig, Position};
 
-#[derive(PartialEq, Clone, Eq, Hash)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct PanelKey {
     pub index: usize,
     pub monitor: String,

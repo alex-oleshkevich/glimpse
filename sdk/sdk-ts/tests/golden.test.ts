@@ -11,45 +11,47 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import {
-  ActionMenu,
-  ActionMenuItem,
-  ActionRow,
+  ActionItem,
   Badge,
   Box,
   Button,
   Card,
   Checkbox,
-  Collapsible,
-  CollapsibleItem,
   Column,
   Copyable,
-  DetailGrid,
-  DetailGridItem,
-  Dropdown,
-  DropdownItem,
   EmptyState,
+  Expander,
   Grid,
   GridChild,
   Hero,
   Icon,
-  IconWidget,
   Image,
   Item,
   Label,
-  MenuItem,
+  LevelBar,
+  LinkButton,
+  ListBox,
+  MenuButton,
   Meter,
+  Overlay,
+  PagerItem,
+  PagerStrip,
+  Picture,
   parseCallbackEvent,
   Progress,
+  PropertyList,
   Row,
-  Scale,
   Scroll,
   Section,
+  Select,
+  SelectOption,
   Separator,
+  Slider,
   Spinner,
   StatusDot,
   Switch,
-  Toast,
-  ToastAction,
+  ToggleButton,
+  TreeExpander,
 } from "../src/index.js";
 
 // Compiled path is sdk-ts/dist/tests/golden.test.js -> 3 levels up to sdk/, then /fixtures.
@@ -89,14 +91,73 @@ test("widget button-basic", () => {
 test("widget button-with-icon", () => {
   assertWidget(
     "button-with-icon",
-    new Button({ id: "go", label: "Go", icon: Icon.name("go-symbolic") }),
+    new Button({ id: "go", label: "Go", icon: "go-symbolic" }),
   );
 });
 
 test("widget button-icon-only", () => {
   assertWidget(
     "button-icon-only",
-    new Button({ id: "go", icon: Icon.name("go-symbolic") }),
+    new Button({ id: "go", icon: "go-symbolic" }),
+  );
+});
+
+test("widget button-primary", () => {
+  assertWidget("button-primary", new Button({ id: "go", label: "Go", variant: "primary" }));
+});
+
+test("widget button-disabled", () => {
+  assertWidget("button-disabled", new Button({ id: "go", label: "Go", enabled: false }));
+});
+
+test("widget link-button", () => {
+  assertWidget("link-button", new LinkButton({ uri: "https://example.com" }));
+});
+
+test("widget link-button-label", () => {
+  assertWidget("link-button-label", new LinkButton({ uri: "https://example.com/docs", label: "Docs" }));
+});
+
+test("widget expander", () => {
+  assertWidget("expander", new Expander({ label: "Details", child: new Label("More") }));
+});
+
+test("widget expander-expanded", () => {
+  assertWidget("expander-expanded", new Expander({ label: "Details", expanded: true, child: new Label("More") }));
+});
+
+test("widget overlay", () => {
+  assertWidget("overlay", new Overlay({ child: new Label("Base"), overlays: [new Badge({ label: "Top" })] }));
+});
+
+test("widget list-box", () => {
+  assertWidget("list-box", new ListBox({ children: [new Label("First"), new Badge({ label: "Second" })] }));
+});
+
+test("widget level-bar", () => {
+  assertWidget("level-bar", new LevelBar({ value: 0.7, min: 0, max: 1, mode: "continuous" }));
+});
+
+test("widget tree-expander", () => {
+  assertWidget(
+    "tree-expander",
+    new TreeExpander({
+      child: new Label("Nested"),
+      hide_expander: true,
+      indent_for_depth: true,
+      indent_for_icon: true,
+    }),
+  );
+});
+
+test("widget menu-button", () => {
+  assertWidget(
+    "menu-button",
+    new MenuButton({
+      label: "More",
+      icon: "open-menu-symbolic",
+      popover: new Label("Menu content"),
+    }),
   );
 });
 
@@ -108,27 +169,35 @@ test("widget switch-off", () => {
   assertWidget("switch-off", new Switch({ id: "vpn" }));
 });
 
+test("widget toggle-button-on", () => {
+  assertWidget("toggle-button-on", new ToggleButton({ id: "wifi", label: "Wi-Fi", active: true }));
+});
+
+test("widget toggle-button-off", () => {
+  assertWidget("toggle-button-off", new ToggleButton({ id: "wifi" }));
+});
+
 test("widget checkbox-on", () => {
   assertWidget("checkbox-on", new Checkbox({ id: "autostart", label: "Run at login", active: true }));
 });
 
-test("widget scale", () => {
-  assertWidget("scale", new Scale({ id: "brightness", min: 0, max: 1, step: 0.05, value: 0.6 }));
+test("widget slider", () => {
+  assertWidget("slider", new Slider({ id: "brightness", min: 0, max: 1, step: 0.05, value: 0.6 }));
 });
 
-test("widget dropdown", () => {
+test("widget select", () => {
   assertWidget(
-    "dropdown",
-    new Dropdown({
+    "select",
+    new Select({
       id: "env",
-      items: [new DropdownItem("prod", "Production"), new DropdownItem("stage", "Staging")],
+      items: [new SelectOption("prod", "Production"), new SelectOption("stage", "Staging")],
       selected: 0,
     }),
   );
 });
 
-test("widget dropdown-empty", () => {
-  assertWidget("dropdown-empty", new Dropdown({ id: "env" }));
+test("widget select-empty", () => {
+  assertWidget("select-empty", new Select({ id: "env" }));
 });
 
 test("widget badge", () => {
@@ -177,10 +246,23 @@ test("widget status-dot-warning", () => {
   assertWidget("status-dot-warning", new StatusDot({ variant: "warning" }));
 });
 
-test("widget icon", () => {
+test("widget pager-item-number-active", () => {
   assertWidget(
-    "icon",
-    new IconWidget(Icon.name("network-wireless-symbolic"), { pixel_size: 24 }),
+    "pager-item-number-active",
+    new PagerItem({ id: "workspace-1", appearance: "numbers", label: "1", active: true }),
+  );
+});
+
+test("widget pager-strip", () => {
+  assertWidget(
+    "pager-strip",
+    new PagerStrip({
+      items: [
+        new PagerItem({ id: "workspace-1", appearance: "numbers", label: "1", active: true }),
+        new PagerItem({ id: "workspace-2", appearance: "numbers", label: "2", occupied: true }),
+        new PagerItem({ id: "workspace-3", appearance: "dots", urgent: true }),
+      ],
+    }),
   );
 });
 
@@ -193,6 +275,14 @@ test("widget image-by-path", () => {
     "image-by-path",
     new Image(Icon.path("/home/me/avatar.png"), { pixel_size: 64 }),
   );
+});
+
+test("widget picture", () => {
+  assertWidget("picture", new Picture({ path: "/home/me/photo.png" }));
+});
+
+test("widget picture-content-fit", () => {
+  assertWidget("picture-content-fit", new Picture({ path: "/home/me/photo.png", content_fit: "cover" }));
 });
 
 test("widget separator", () => {
@@ -244,103 +334,74 @@ test("widget card-empty", () => {
 test("widget section-basic", () => {
   assertWidget(
     "section-basic",
-    new Section({ title: "System", body: [new Label("uptime")] }),
+    new Section({ title: "System", children: [new Label("uptime")] }),
   );
 });
 
-test("widget section-empty-body", () => {
-  assertWidget("section-empty-body", new Section({ title: "Empty", body: [] }));
+test("widget section-empty-children", () => {
+  assertWidget("section-empty-children", new Section({ title: "Empty", children: [] }));
 });
 
-test("widget collapsible-closed", () => {
+test("widget property-list", () => {
   assertWidget(
-    "collapsible-closed",
-    new Collapsible({ title: "Advanced", expanded: false, body: [] }),
+    "property-list",
+    new PropertyList({
+      rows: {
+        IPv4: "10.0.0.42",
+        SSID: "home-5G",
+      },
+    }),
   );
 });
 
-test("widget collapsible-open-with-body", () => {
+test("widget property-list-title", () => {
   assertWidget(
-    "collapsible-open-with-body",
-    new Collapsible({ title: "Advanced", expanded: true, body: [new Label("inside")] }),
+    "property-list-title",
+    new PropertyList({
+      title: "Network",
+      rows: {
+        IPv4: "10.0.0.42",
+        SSID: "home-5G",
+      },
+    }),
   );
 });
 
-test("widget item-basic", () => {
-  assertWidget("item-basic", new Item({ label: "Plain" }));
+test("widget property-list-empty", () => {
+  assertWidget("property-list-empty", new PropertyList());
 });
 
-test("widget item-clickable", () => {
-  assertWidget("item-clickable", new Item({ id: "run", label: "Run", clickable: true }));
+test("widget item", () => {
+  assertWidget("item", new Item({ label: "Wi-Fi" }));
 });
 
-test("widget item-with-menu", () => {
+test("widget item-with-right", () => {
   assertWidget(
-    "item-with-menu",
+    "item-with-right",
     new Item({
-      id: "wifi-home",
-      label: "home-5G",
-      clickable: true,
-      menu: [
-        new MenuItem({ id: "forget", label: "Forget" }),
-        new MenuItem({ id: "details", label: "Details", enabled: false }),
-      ],
+      icon: "network-wireless-symbolic",
+      label: "Wi-Fi",
+      sublabel: "Connected",
+      right: new Badge({ label: "home-5G" }),
     }),
   );
 });
 
-test("widget collapsible-item", () => {
-  assertWidget("collapsible-item", new CollapsibleItem({ label: "Devices", expanded: false, body: [] }));
+test("widget action-item", () => {
+  assertWidget("action-item", new ActionItem({ id: "wifi", label: "Wi-Fi" }));
 });
 
-test("widget action-row", () => {
-  assertWidget("action-row", new ActionRow({ id: "go", title: "Connect" }));
-});
-
-test("widget action-row-with-meta", () => {
+test("widget action-item-with-right", () => {
   assertWidget(
-    "action-row-with-meta",
-    new ActionRow({
-      id: "go",
-      title: "Connect",
-      subtitle: "wg0",
-      meta: "4 routes",
-      icon: Icon.name("network-vpn-symbolic"),
+    "action-item-with-right",
+    new ActionItem({
+      id: "wifi",
+      icon: "network-wireless-symbolic",
+      label: "Wi-Fi",
+      sublabel: "Connected",
+      right: new Badge({ label: "home-5G" }),
     }),
   );
-});
-
-test("widget action-menu", () => {
-  assertWidget(
-    "action-menu",
-    new ActionMenu({
-      header: "Power profile",
-      items: [
-        new ActionMenuItem({ id: "saver", label: "Power Saver", checked: false }),
-        new ActionMenuItem({ id: "balanced", label: "Balanced", checked: true }),
-      ],
-    }),
-  );
-});
-
-test("widget action-menu-empty", () => {
-  assertWidget("action-menu-empty", new ActionMenu({ items: [] }));
-});
-
-test("widget detail-grid", () => {
-  assertWidget(
-    "detail-grid",
-    new DetailGrid({
-      rows: [
-        new DetailGridItem("SSID", "home-5G"),
-        new DetailGridItem("IPv4", "10.0.0.42"),
-      ],
-    }),
-  );
-});
-
-test("widget detail-grid-empty", () => {
-  assertWidget("detail-grid-empty", new DetailGrid({ rows: [] }));
 });
 
 test("widget empty-state", () => {
@@ -378,22 +439,6 @@ test("widget copyable", () => {
   assertWidget("copyable", new Copyable({ label: "IPv4", value: "10.0.0.42" }));
 });
 
-test("widget toast", () => {
-  assertWidget("toast", new Toast({ title: "Saved" }));
-});
-
-test("widget toast-with-action", () => {
-  assertWidget(
-    "toast-with-action",
-    new Toast({
-      icon: Icon.name("dialog-warning-symbolic"),
-      title: "Update available",
-      message: "Version 0.8 is available.",
-      action: new ToastAction("update", "Update"),
-    }),
-  );
-});
-
 test("widget common-props-all", () => {
   assertWidget(
     "common-props-all",
@@ -419,7 +464,7 @@ test("widget tree-hero-column-section", () => {
         new Hero({ title: "Counter", subtitle: "Value: 0" }),
         new Section({
           title: "Controls",
-          body: [new Label("Current"), new Button({ id: "increment", label: "Increment" })],
+          children: [new Label("Current"), new Button({ id: "increment", label: "Increment" })],
         }),
       ],
     }),

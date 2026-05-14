@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::collections::{HashMap, HashSet};
 
 use relm4::{
@@ -46,6 +44,7 @@ pub enum PopoverOutput {
     Command(Command),
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Popover {
     type Init = PopoverInit;

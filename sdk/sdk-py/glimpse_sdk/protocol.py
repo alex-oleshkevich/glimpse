@@ -21,25 +21,6 @@ class Icon:
 
 
 @dataclass(slots=True)
-class MenuItem:
-    id: str
-    label: str
-    visible: bool | None = None
-    enabled: bool | None = None
-
-    def to_protocol(self) -> dict[str, object]:
-        payload: dict[str, object] = {
-            "id": self.id,
-            "label": self.label,
-        }
-        if self.visible is not None:
-            payload["visible"] = self.visible
-        if self.enabled is not None:
-            payload["enabled"] = self.enabled
-        return payload
-
-
-@dataclass(slots=True)
 class StatusItem:
     id: str | None = None
     icon: Icon | None = None

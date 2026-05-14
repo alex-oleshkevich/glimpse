@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, gdk, prelude::*},
@@ -37,6 +35,7 @@ pub enum CurrentPlayerOutput {
     Raise { player_id: String },
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for CurrentPlayer {
     type Init = ();

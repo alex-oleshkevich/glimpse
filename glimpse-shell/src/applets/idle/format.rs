@@ -38,7 +38,10 @@ pub fn subtitle(inputs: &SubtitleInputs<'_>) -> String {
         return "Nothing is preventing idle".into();
     }
 
-    let manual = inputs.records.iter().any(|r| r.bus_name == inputs.own_unique_name);
+    let manual = inputs
+        .records
+        .iter()
+        .any(|r| r.bus_name == inputs.own_unique_name);
     let others: Vec<&IdleInhibitorRecord> = inputs
         .records
         .iter()
@@ -84,10 +87,15 @@ pub fn relative_time(added_at_unix: u64) -> String {
         .map(|d| d.as_secs())
         .unwrap_or(0);
     let dt = now.saturating_sub(added_at_unix);
-    if dt < 5 { "just now".into() }
-    else if dt < 60 { format!("{dt} s") }
-    else if dt < 3600 { format!("{} min", dt / 60) }
-    else { format!("{} h", dt / 3600) }
+    if dt < 5 {
+        "just now".into()
+    } else if dt < 60 {
+        format!("{dt} s")
+    } else if dt < 3600 {
+        format!("{} min", dt / 60)
+    } else {
+        format!("{} h", dt / 3600)
+    }
 }
 
 #[cfg(test)]
@@ -99,11 +107,15 @@ mod tests {
         let mut t = InhibitionTargets::idle_only();
         t.suspend = suspend;
         IdleInhibitorRecord {
-            id: 1, who: who.into(), why: "y".into(), bus_name: bus_name.into(),
+            id: 1,
+            who: who.into(),
+            why: "y".into(),
+            bus_name: bus_name.into(),
             process_name: String::new(),
             source: IdleInhibitorSource::screen_saver(1),
             targets: t,
-            can_release: true, added_at_unix: 0,
+            can_release: true,
+            added_at_unix: 0,
         }
     }
 
@@ -124,28 +136,40 @@ mod tests {
     #[test]
     fn empty_state() {
         let backend = InhibitorsHealth::default();
-        assert_eq!(subtitle(&inputs(&backend, &[], ":1.7")), "Nothing is preventing idle");
+        assert_eq!(
+            subtitle(&inputs(&backend, &[], ":1.7")),
+            "Nothing is preventing idle"
+        );
     }
 
     #[test]
     fn manual_hold_only() {
         let backend = InhibitorsHealth::default();
         let recs = vec![rec(":1.7", "Glimpse", false)];
-        assert_eq!(subtitle(&inputs(&backend, &recs, ":1.7")), "Manual hold active");
+        assert_eq!(
+            subtitle(&inputs(&backend, &recs, ":1.7")),
+            "Manual hold active"
+        );
     }
 
     #[test]
     fn one_external_idle_only() {
         let backend = InhibitorsHealth::default();
         let recs = vec![rec(":1.99", "Firefox", false)];
-        assert_eq!(subtitle(&inputs(&backend, &recs, ":1.7")), "1 app preventing idle");
+        assert_eq!(
+            subtitle(&inputs(&backend, &recs, ":1.7")),
+            "1 app preventing idle"
+        );
     }
 
     #[test]
     fn many_externals_with_suspend() {
         let backend = InhibitorsHealth::default();
         let recs = vec![rec(":1.99", "Firefox", false), rec(":1.100", "apt", true)];
-        assert_eq!(subtitle(&inputs(&backend, &recs, ":1.7")), "2 apps preventing idle or sleep");
+        assert_eq!(
+            subtitle(&inputs(&backend, &recs, ":1.7")),
+            "2 apps preventing idle or sleep"
+        );
     }
 
     #[test]
@@ -156,7 +180,10 @@ mod tests {
             rec(":1.99", "Firefox", false),
             rec(":1.100", "apt", true),
         ];
-        assert_eq!(subtitle(&inputs(&backend, &recs, ":1.7")), "Manual hold · 2 apps preventing idle or sleep");
+        assert_eq!(
+            subtitle(&inputs(&backend, &recs, ":1.7")),
+            "Manual hold · 2 apps preventing idle or sleep"
+        );
     }
 
     #[test]
@@ -166,7 +193,8 @@ mod tests {
             daemon_offline: true,
             wayland: &WaylandHealth::Ready,
             backend: &InhibitorsHealth::default(),
-            records: &recs, own_unique_name: ":1.7",
+            records: &recs,
+            own_unique_name: ":1.7",
         };
         assert_eq!(subtitle(&i), "Idle daemon not running");
     }
@@ -176,9 +204,12 @@ mod tests {
         let recs = vec![rec(":1.99", "Firefox", false)];
         let i = SubtitleInputs {
             daemon_offline: false,
-            wayland: &WaylandHealth::Unsupported { message: "Not supported on this compositor".into() },
+            wayland: &WaylandHealth::Unsupported {
+                message: "Not supported on this compositor".into(),
+            },
             backend: &InhibitorsHealth::default(),
-            records: &recs, own_unique_name: ":1.7",
+            records: &recs,
+            own_unique_name: ":1.7",
         };
         assert_eq!(subtitle(&i), "Not supported on this compositor");
     }
@@ -193,7 +224,8 @@ mod tests {
             daemon_offline: false,
             wayland: &WaylandHealth::Ready,
             backend: &backend,
-            records: &[], own_unique_name: ":1.7",
+            records: &[],
+            own_unique_name: ":1.7",
         };
         assert_eq!(subtitle(&i), "Bus name already owned");
     }
@@ -208,5 +240,4 @@ mod tests {
         r.who = String::new();
         assert_eq!(row_label(&r), ":1.99");
     }
-
 }

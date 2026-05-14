@@ -2,32 +2,34 @@ use std::rc::Rc;
 
 use relm4::{
     WidgetTemplate,
-    gtk::{self, gio, prelude::*},
+    gtk::{self, prelude::*},
 };
 
 use crate::components::{
-    action_row::{ActionRow, ActionRowInit},
     badge::BadgeView,
     card_surface::CardSurface,
-    collapsible_section::CollapsibleSectionView,
     copyable::CopyableView,
     empty_state::EmptyStateView,
     hero::HeroView,
-    item::ItemView,
     key_value_grid::{KeyValueItem, static_key_value_grid},
     meter::MeterView,
+    pager::{
+        PagerAppearance as PagerComponentAppearance, PagerItemView, static_pager_item,
+        static_pager_strip,
+    },
     section_header::SectionHeader,
     status_dot::StatusDotView,
-    toast::ToastView,
 };
 
 use super::protocol::{
-    ActionMenuNode, ActionRowNode, AlignValue, BadgeNode, BoxNode, ButtonNode, CardNode,
-    CheckboxNode, CollapsibleItemNode, CollapsibleNode, CommonProps, CopyableNode, DetailGridNode,
-    DropdownNode, EmptyStateNode, EventKind, EventPayload, EventSource, GridNode, HeaderNode,
-    HeroNode, Icon, IconNode, ImageNode, ItemNode, LabelNode, LayoutNode, MenuItem, MeterNode,
-    OrientationValue, ProgressNode, ScaleNode, ScrollNode, SectionNode, SeparatorNode, SpinnerNode,
-    StatusNode, SwitchNode, ToastNode, TreeNode,
+    ActionItemNode, AlignValue, BadgeNode, BoxNode, ButtonNode, ButtonVariant, CardNode,
+    CheckboxNode, CommonProps, ContentFitValue, CopyableNode, EmptyStateNode, EventKind,
+    EventPayload, EventSource, ExpanderNode, GridNode, HeroNode, Icon, IconNode, ImageNode,
+    ItemNode, LabelNode, LayoutNode, LevelBarModeValue, LevelBarNode, LinkButtonNode, ListBoxNode,
+    MenuButtonNode, MeterNode, OrientationValue, OverlayNode, PagerAppearanceValue, PagerItemNode,
+    PagerStripNode, PictureNode, ProgressNode, PropertyListNode, ScrollNode, SectionNode,
+    SelectNode, SeparatorNode, SliderNode, SpinnerNode, StatusNode, SwitchNode, ToggleButtonNode,
+    TreeExpanderNode, TreeNode,
 };
 
 pub type EventSink = Rc<dyn Fn(EventPayload)>;
@@ -47,38 +49,43 @@ impl RenderCatalog {
             TreeNode::Hero(data) => self.render_hero(data),
             TreeNode::Card(data) => self.render_card(data),
             TreeNode::Section(data) => self.render_section(data),
-            TreeNode::Collapsible(data) | TreeNode::CollapsibleSection(data) => {
-                self.render_collapsible(data)
-            }
-            TreeNode::ActionMenu(data) => self.render_action_menu(data),
-            TreeNode::Item(data) => self.render_item(data),
-            TreeNode::CollapsibleItem(data) => self.render_collapsible_item(data),
             TreeNode::Meter(data) => self.render_meter(data),
             TreeNode::Copyable(data) => Ok(self.render_copyable(data).upcast()),
-            TreeNode::Toast(data) => self.render_toast(data),
             TreeNode::Column(data) => {
                 self.render_layout(data, gtk::Orientation::Vertical, "column")
             }
             TreeNode::Row(data) => self.render_layout(data, gtk::Orientation::Horizontal, "row"),
-            TreeNode::ActionRow(data) => self.render_action_row(data),
-            TreeNode::DetailGrid(data) => Ok(self.render_detail_grid(data).upcast()),
+            TreeNode::PropertyList(data) => Ok(self.render_property_list(data).upcast()),
+            TreeNode::Item(data) => self.render_item(data),
+            TreeNode::ActionItem(data) => self.render_action_item(data),
             TreeNode::EmptyState(data) => Ok(self.render_empty_state(data).upcast()),
             TreeNode::Badge(data) => Ok(self.render_badge(data).upcast()),
             TreeNode::Status(data) => Ok(self.render_status(data).upcast()),
+            TreeNode::PagerItem(data) => Ok(self.render_pager_item(data).upcast()),
+            TreeNode::PagerStrip(data) => Ok(self.render_pager_strip(data).upcast()),
             TreeNode::Spinner(data) => Ok(self.render_spinner(data).upcast()),
             TreeNode::Box(data) => self.render_box(data),
             TreeNode::Grid(data) => self.render_grid(data),
             TreeNode::Scroll(data) => self.render_scroll(data),
+            TreeNode::Overlay(data) => self.render_overlay(data),
+            TreeNode::ListBox(data) => self.render_list_box(data),
+            TreeNode::LevelBar(data) => Ok(self.render_level_bar(data).upcast()),
             TreeNode::Progress(data) => Ok(self.render_progress(data).upcast()),
             TreeNode::Separator(data) => Ok(self.render_separator(data).upcast()),
             TreeNode::Label(data) => Ok(self.render_label(data).upcast()),
             TreeNode::Icon(data) => Ok(self.render_icon(data).upcast()),
             TreeNode::Image(data) => Ok(self.render_image(data).upcast()),
+            TreeNode::Picture(data) => Ok(self.render_picture(data).upcast()),
             TreeNode::Button(data) => self.render_button(data),
+            TreeNode::LinkButton(data) => Ok(self.render_link_button(data).upcast()),
+            TreeNode::Expander(data) => self.render_expander(data),
+            TreeNode::TreeExpander(data) => self.render_tree_expander(data),
+            TreeNode::MenuButton(data) => self.render_menu_button(data),
             TreeNode::Switch(data) => self.render_switch(data),
+            TreeNode::ToggleButton(data) => self.render_toggle_button(data),
             TreeNode::Checkbox(data) => self.render_checkbox(data),
-            TreeNode::Scale(data) => self.render_scale(data),
-            TreeNode::Dropdown(data) => self.render_dropdown(data),
+            TreeNode::Slider(data) => self.render_slider(data),
+            TreeNode::Select(data) => self.render_select(data),
         }
     }
 
@@ -110,91 +117,22 @@ impl RenderCatalog {
         root.add_css_class("section");
         apply_common_props(&root, &data.common);
 
-        if let Some(header_data) = section_header(data) {
+        if !data.title.is_empty() {
             let header = SectionHeader::init(());
-            header.title.set_label(&header_data.title);
-            header.subtitle.set_label(&header_data.subtitle);
-            header
-                .subtitle
-                .set_visible(!header_data.subtitle.is_empty());
+            header.title.set_label(&data.title);
+            header.subtitle.set_label(&data.subtitle);
+            header.subtitle.set_visible(!data.subtitle.is_empty());
             root.append(header.as_ref());
         }
 
         let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
         body.add_css_class("section-block__body");
         body.add_css_class("section__body");
-        for child in section_body(data) {
+        for child in &data.children {
             body.append(&self.render(child)?);
         }
         root.append(&body);
         Ok(root.upcast())
-    }
-
-    fn render_collapsible(&self, data: &CollapsibleNode) -> Result<gtk::Widget, RenderError> {
-        let section = CollapsibleSectionView::init(());
-        section.as_ref().add_css_class("collapsible");
-        let header = collapsible_header(data);
-        section.title.set_label(
-            header
-                .as_ref()
-                .map(|header| header.title.as_str())
-                .unwrap_or_default(),
-        );
-        section.subtitle.set_label(
-            header
-                .as_ref()
-                .map(|header| header.subtitle.as_str())
-                .unwrap_or_default(),
-        );
-        section.subtitle.set_visible(
-            header
-                .as_ref()
-                .is_some_and(|header| !header.subtitle.is_empty()),
-        );
-        section.content.set_visible(data.expanded);
-        section.chevron.set_icon_name(Some(if data.expanded {
-            "pan-down-symbolic"
-        } else {
-            "pan-end-symbolic"
-        }));
-        for child in collapsible_body(data) {
-            section.content.append(&self.render(child)?);
-        }
-        let content = section.content.clone();
-        let chevron = section.chevron.clone();
-        section.button.connect_clicked(move |_| {
-            let expanded = !content.is_visible();
-            content.set_visible(expanded);
-            chevron.set_icon_name(Some(if expanded {
-                "pan-down-symbolic"
-            } else {
-                "pan-end-symbolic"
-            }));
-        });
-        apply_common_props(section.as_ref(), &data.common);
-        Ok(section.as_ref().clone().upcast())
-    }
-
-    fn render_action_row(&self, data: &ActionRowNode) -> Result<gtk::Widget, RenderError> {
-        let row = ActionRow::init(ActionRowInit {
-            title: data.title.clone(),
-            subtitle: data.subtitle.clone(),
-            meta: data.meta.clone(),
-            icon: icon_name(&data.icon),
-            visible: data.common.visible.unwrap_or(true),
-            selectable: false,
-        });
-        apply_common_props(row.as_ref(), &data.common);
-        row.button.set_sensitive(data.common.id.is_some());
-        if let Some(icon) = &data.icon {
-            apply_icon_to_image(&row.icon, icon);
-            row.icon.set_visible(true);
-        }
-
-        if let Some(id) = &data.common.id {
-            connect_click(&row.button, self.event.clone(), id.clone());
-        }
-        Ok(row.as_ref().clone().upcast())
     }
 
     fn render_layout(
@@ -210,165 +148,6 @@ impl RenderCatalog {
             root.append(&self.render(child)?);
         }
         Ok(root.upcast())
-    }
-
-    fn render_action_menu(&self, data: &ActionMenuNode) -> Result<gtk::Widget, RenderError> {
-        let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        root.add_css_class("action-menu");
-        apply_common_props(&root, &data.common);
-
-        if let Some(header) = &data.header {
-            let header_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
-            header_box.add_css_class("action-menu__header");
-
-            let title = gtk::Label::new(Some(header));
-            title.set_halign(gtk::Align::Start);
-            title.add_css_class("action-menu__title");
-            header_box.append(&title);
-            root.append(&header_box);
-        }
-
-        let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        body.add_css_class("action-menu__body");
-        for item in &data.items {
-            if !item.visible {
-                continue;
-            }
-            let selectable = item.selectable.unwrap_or(item.checked.is_some());
-            let checked = item.checked.unwrap_or(false);
-            let row = ActionRow::init(ActionRowInit {
-                title: item.label.clone(),
-                subtitle: String::new(),
-                meta: String::new(),
-                icon: icon_name(&item.icon),
-                visible: true,
-                selectable,
-            });
-            if checked {
-                row.as_ref().add_css_class("is-checked");
-                row.as_ref().add_css_class("is-selected");
-            }
-            if let Some(icon) = &item.icon {
-                apply_icon_to_image(&row.icon, icon);
-                row.icon.set_visible(true);
-            }
-            connect_click(&row.button, self.event.clone(), item.id.clone());
-            body.append(row.as_ref());
-        }
-        root.set_visible(data.items.iter().any(|item| item.visible));
-        root.append(&body);
-        Ok(root.upcast())
-    }
-
-    fn render_item(&self, data: &ItemNode) -> Result<gtk::Widget, RenderError> {
-        let item = self.render_item_view(
-            data.left.as_deref(),
-            &data.label,
-            data.right.as_deref(),
-            None,
-        )?;
-        let button = item.button.clone();
-
-        apply_common_props(&button, &data.common);
-
-        if data.clickable {
-            let id = require_id("item", &data.common)?;
-            connect_click(&button, self.event.clone(), id);
-        } else {
-            button.add_css_class("item__button--static");
-            button.set_focusable(false);
-        }
-
-        attach_item_menu(&button, &data.menu, self.event.clone());
-
-        Ok(button.upcast())
-    }
-
-    fn render_collapsible_item(
-        &self,
-        data: &CollapsibleItemNode,
-    ) -> Result<gtk::Widget, RenderError> {
-        let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        root.add_css_class("collapsible-item");
-        apply_common_props(&root, &data.common);
-
-        let chevron = gtk::Image::new();
-        chevron.add_css_class("collapsible-item__chevron");
-        chevron.set_pixel_size(16);
-        chevron.set_icon_name(Some(if data.expanded {
-            "pan-down-symbolic"
-        } else {
-            "pan-end-symbolic"
-        }));
-
-        let header = gtk::Button::new();
-        header.add_css_class("flat");
-        header.add_css_class("item");
-        header.add_css_class("collapsible-item__button");
-        let item = self.render_item_view(
-            data.left.as_deref(),
-            &data.label,
-            data.right.as_deref(),
-            Some(&chevron),
-        )?;
-        item.content.add_css_class("collapsible-item__content");
-        item.left.add_css_class("collapsible-item__left");
-        item.label.add_css_class("collapsible-item__label");
-        item.right.add_css_class("collapsible-item__right");
-        header.set_child(Some(&item.content));
-        root.append(&header);
-
-        let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        body.add_css_class("collapsible-item__body");
-        body.set_visible(data.expanded);
-        for child in collapsible_item_body(data) {
-            body.append(&self.render(child)?);
-        }
-        root.append(&body);
-
-        let body_ref = body.clone();
-        header.connect_clicked(move |_| {
-            let expanded = !body_ref.is_visible();
-            body_ref.set_visible(expanded);
-            chevron.set_icon_name(Some(if expanded {
-                "pan-down-symbolic"
-            } else {
-                "pan-end-symbolic"
-            }));
-        });
-
-        Ok(root.upcast())
-    }
-
-    fn render_item_view(
-        &self,
-        left: Option<&TreeNode>,
-        label: &str,
-        right: Option<&TreeNode>,
-        chevron: Option<&gtk::Image>,
-    ) -> Result<ItemView, RenderError> {
-        let item = ItemView::init(());
-        item.label.set_label(label);
-
-        if let Some(left) = left {
-            let child = self.render(left)?;
-            constrain_slot_child(&child);
-            item.left.append(&child);
-            item.left.set_visible(true);
-        }
-
-        if let Some(right) = right {
-            let child = self.render(right)?;
-            constrain_slot_child(&child);
-            item.right.append(&child);
-            item.right.set_visible(true);
-        }
-
-        if let Some(chevron) = chevron {
-            item.content.append(chevron);
-        }
-
-        Ok(item)
     }
 
     fn render_meter(&self, data: &MeterNode) -> Result<gtk::Widget, RenderError> {
@@ -438,28 +217,19 @@ impl RenderCatalog {
         copyable.as_ref().clone()
     }
 
-    fn render_toast(&self, data: &ToastNode) -> Result<gtk::Widget, RenderError> {
-        let toast = ToastView::init(());
-        if let Some(icon) = &data.icon {
-            apply_icon_to_image(&toast.icon, icon);
-            toast.icon.set_visible(true);
-        }
-        toast.title.set_label(&data.title);
-        toast.message.set_label(&data.message);
-        toast.message.set_visible(!data.message.is_empty());
+    fn render_property_list(&self, data: &PropertyListNode) -> gtk::Box {
+        let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        root.add_css_class("property-list");
 
-        if let Some(action) = &data.action {
-            toast.action.set_label(&action.label);
-            toast.action.set_visible(true);
-            connect_click(&toast.action, self.event.clone(), action.id.clone());
+        if !data.title.is_empty() {
+            let title = gtk::Label::new(Some(&data.title));
+            title.add_css_class("property-list__title");
+            title.set_halign(gtk::Align::Start);
+            title.set_xalign(0.0);
+            root.append(&title);
         }
 
-        apply_common_props(toast.as_ref(), &data.common);
-        Ok(toast.as_ref().clone().upcast())
-    }
-
-    fn render_detail_grid(&self, data: &DetailGridNode) -> gtk::Box {
-        let root = static_key_value_grid(
+        let rows = static_key_value_grid(
             data.rows
                 .iter()
                 .map(|item| KeyValueItem {
@@ -469,8 +239,52 @@ impl RenderCatalog {
                 })
                 .collect(),
         );
+        rows.add_css_class("property-list__rows");
+        root.append(&rows);
         apply_common_props(&root, &data.common);
         root
+    }
+
+    fn render_item(&self, data: &ItemNode) -> Result<gtk::Widget, RenderError> {
+        let root = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        root.add_css_class("flat");
+        root.add_css_class("list-item");
+        root.add_css_class("list-item__button");
+        root.set_hexpand(false);
+
+        let content = build_item_content(
+            &data.icon,
+            &data.label,
+            &data.sublabel,
+            data.right.as_deref(),
+            self,
+        )?;
+        root.append(&content);
+        apply_common_props(&root, &data.common);
+        Ok(root.upcast())
+    }
+
+    fn render_action_item(&self, data: &ActionItemNode) -> Result<gtk::Widget, RenderError> {
+        let id = require_id("action_item", &data.common)?;
+        let root = gtk::Button::new();
+        root.add_css_class("flat");
+        root.add_css_class("list-item");
+        root.add_css_class("list-item__button");
+        root.set_hexpand(false);
+        root.set_sensitive(data.enabled);
+
+        let inert_renderer = RenderCatalog::new(Rc::new(|_| {}));
+        let content = build_item_content(
+            &data.icon,
+            &data.label,
+            &data.sublabel,
+            data.right.as_deref(),
+            &inert_renderer,
+        )?;
+        root.set_child(Some(&content));
+        apply_common_props(&root, &data.common);
+        connect_click(&root, self.event.clone(), id);
+        Ok(root.upcast())
     }
 
     fn render_empty_state(&self, data: &EmptyStateNode) -> gtk::Box {
@@ -494,6 +308,35 @@ impl RenderCatalog {
         dot.add_css_class("status");
         apply_common_props(dot.as_ref(), &data.common);
         dot.as_ref().clone()
+    }
+
+    fn render_pager_item(&self, data: &PagerItemNode) -> gtk::Box {
+        let item = static_pager_item(&pager_item_view(data));
+        if let Some(id) = data.common.id.clone().filter(|id| !id.is_empty()) {
+            connect_widget_click(&item, self.event.clone(), id);
+        }
+        apply_common_props(&item, &data.common);
+        item
+    }
+
+    fn render_pager_strip(&self, data: &PagerStripNode) -> gtk::Box {
+        let views = data.items.iter().map(pager_item_view).collect::<Vec<_>>();
+        let strip = static_pager_strip(&views);
+        let mut child = strip.first_child();
+        for item in &data.items {
+            let Some(widget) = child else {
+                break;
+            };
+            if let Ok(item_box) = widget.clone().downcast::<gtk::Box>() {
+                if let Some(id) = item.common.id.clone().filter(|id| !id.is_empty()) {
+                    connect_widget_click(&item_box, self.event.clone(), id);
+                }
+                apply_common_props(&item_box, &item.common);
+            }
+            child = widget.next_sibling();
+        }
+        apply_common_props(&strip, &data.common);
+        strip
     }
 
     fn render_spinner(&self, data: &SpinnerNode) -> gtk::Spinner {
@@ -545,6 +388,33 @@ impl RenderCatalog {
         Ok(scroll.upcast())
     }
 
+    fn render_overlay(&self, data: &OverlayNode) -> Result<gtk::Widget, RenderError> {
+        let overlay = gtk::Overlay::new();
+        overlay.add_css_class("overlay");
+        let child = self.render(&data.child)?;
+        overlay.set_child(Some(&child));
+        for node in &data.overlays {
+            let overlaid = self.render(node)?;
+            overlay.add_overlay(&overlaid);
+        }
+        apply_common_props(&overlay, &data.common);
+        Ok(overlay.upcast())
+    }
+
+    fn render_list_box(&self, data: &ListBoxNode) -> Result<gtk::Widget, RenderError> {
+        let list_box = gtk::ListBox::new();
+        list_box.add_css_class("list-box");
+        for child in &data.children {
+            let row = gtk::ListBoxRow::new();
+            row.set_selectable(false);
+            row.set_activatable(false);
+            row.set_child(Some(&self.render(child)?));
+            list_box.append(&row);
+        }
+        apply_common_props(&list_box, &data.common);
+        Ok(list_box.upcast())
+    }
+
     fn render_progress(&self, data: &ProgressNode) -> gtk::ProgressBar {
         let progress = gtk::ProgressBar::new();
         progress.add_css_class("progress");
@@ -555,6 +425,17 @@ impl RenderCatalog {
             progress.set_text(data.text.as_deref());
         }
         progress
+    }
+
+    fn render_level_bar(&self, data: &LevelBarNode) -> gtk::LevelBar {
+        let level_bar = gtk::LevelBar::new();
+        level_bar.add_css_class("level-bar");
+        level_bar.set_min_value(data.min);
+        level_bar.set_max_value(data.max);
+        level_bar.set_value(data.value);
+        level_bar.set_mode(to_level_bar_mode(data.mode));
+        apply_common_props(&level_bar, &data.common);
+        level_bar
     }
 
     fn render_separator(&self, data: &SeparatorNode) -> gtk::Separator {
@@ -600,29 +481,91 @@ impl RenderCatalog {
         image
     }
 
+    fn render_picture(&self, data: &PictureNode) -> gtk::Picture {
+        let picture = gtk::Picture::for_filename(&data.path);
+        picture.add_css_class("picture");
+        picture.set_content_fit(to_content_fit(data.content_fit));
+        apply_common_props(&picture, &data.common);
+        picture
+    }
+
     fn render_button(&self, data: &ButtonNode) -> Result<gtk::Widget, RenderError> {
         let id = require_id("button", &data.common)?;
         let button = gtk::Button::new();
         button.add_css_class("button");
-        button.add_css_class("flat");
+        apply_button_variant(&button, data.variant);
+        button.set_sensitive(data.enabled);
         apply_common_props(&button, &data.common);
-        if let Some(child) = &data.child {
-            button.set_child(Some(&self.render(child)?));
+        let content = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        content.set_valign(gtk::Align::Center);
+        if let Some(icon) = &data.icon {
+            let image = gtk::Image::from_icon_name(icon);
+            content.append(&image);
+        }
+        if let Some(label) = &data.label {
+            content.append(&gtk::Label::new(Some(label)));
+        }
+        button.set_child(Some(&content));
+        connect_click(&button, self.event.clone(), id);
+        Ok(button.upcast())
+    }
+
+    fn render_link_button(&self, data: &LinkButtonNode) -> gtk::LinkButton {
+        let link = if let Some(label) = &data.label {
+            gtk::LinkButton::with_label(&data.uri, label)
         } else {
-            let content = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+            gtk::LinkButton::new(&data.uri)
+        };
+        link.add_css_class("link-button");
+        apply_common_props(&link, &data.common);
+        link
+    }
+
+    fn render_expander(&self, data: &ExpanderNode) -> Result<gtk::Widget, RenderError> {
+        let expander = gtk::Expander::new(Some(&data.label));
+        expander.add_css_class("expander");
+        expander.set_expanded(data.expanded);
+        let child = self.render(&data.child)?;
+        expander.set_child(Some(&child));
+        apply_common_props(&expander, &data.common);
+        Ok(expander.upcast())
+    }
+
+    fn render_tree_expander(&self, data: &TreeExpanderNode) -> Result<gtk::Widget, RenderError> {
+        let tree_expander = gtk::TreeExpander::new();
+        tree_expander.add_css_class("tree-expander");
+        tree_expander.set_hide_expander(data.hide_expander);
+        tree_expander.set_indent_for_depth(data.indent_for_depth);
+        tree_expander.set_indent_for_icon(data.indent_for_icon);
+        let child = self.render(&data.child)?;
+        tree_expander.set_child(Some(&child));
+        apply_common_props(&tree_expander, &data.common);
+        Ok(tree_expander.upcast())
+    }
+
+    fn render_menu_button(&self, data: &MenuButtonNode) -> Result<gtk::Widget, RenderError> {
+        let menu_button = gtk::MenuButton::new();
+        menu_button.add_css_class("menu-button");
+
+        if data.label.is_some() || data.icon.is_some() {
+            let content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            content.add_css_class("menu-button__content");
             content.set_valign(gtk::Align::Center);
             if let Some(icon) = &data.icon {
-                let image = gtk::Image::new();
-                apply_icon_to_image(&image, icon);
-                content.append(&image);
+                content.append(&gtk::Image::from_icon_name(icon));
             }
             if let Some(label) = &data.label {
                 content.append(&gtk::Label::new(Some(label)));
             }
-            button.set_child(Some(&content));
+            menu_button.set_child(Some(&content));
         }
-        connect_click(&button, self.event.clone(), id);
-        Ok(button.upcast())
+
+        let popover = gtk::Popover::new();
+        popover.add_css_class("menu-button__popover");
+        popover.set_child(Some(&self.render(&data.popover)?));
+        menu_button.set_popover(Some(&popover));
+        apply_common_props(&menu_button, &data.common);
+        Ok(menu_button.upcast())
     }
 
     fn render_switch(&self, data: &SwitchNode) -> Result<gtk::Widget, RenderError> {
@@ -655,6 +598,31 @@ impl RenderCatalog {
         Ok(row.upcast())
     }
 
+    fn render_toggle_button(&self, data: &ToggleButtonNode) -> Result<gtk::Widget, RenderError> {
+        let id = require_id("toggle_button", &data.common)?;
+        let toggle = if let Some(label) = &data.label {
+            gtk::ToggleButton::with_label(label)
+        } else {
+            gtk::ToggleButton::new()
+        };
+        toggle.add_css_class("toggle-button");
+        toggle.set_active(data.active);
+        apply_common_props(&toggle, &data.common);
+        let event = self.event.clone();
+        toggle.connect_toggled(move |button| {
+            event(EventPayload {
+                id: id.clone(),
+                kind: EventKind::Toggle,
+                source: EventSource::Popover,
+                button: None,
+                active: Some(button.is_active()),
+                value: None,
+                delta_y: None,
+            });
+        });
+        Ok(toggle.upcast())
+    }
+
     fn render_checkbox(&self, data: &CheckboxNode) -> Result<gtk::Widget, RenderError> {
         let id = require_id("checkbox", &data.common)?;
         let checkbox = if let Some(label) = &data.label {
@@ -680,46 +648,46 @@ impl RenderCatalog {
         Ok(checkbox.upcast())
     }
 
-    fn render_scale(&self, data: &ScaleNode) -> Result<gtk::Widget, RenderError> {
-        let id = require_id("scale", &data.common)?;
-        let scale = gtk::Scale::with_range(
+    fn render_slider(&self, data: &SliderNode) -> Result<gtk::Widget, RenderError> {
+        let id = require_id("slider", &data.common)?;
+        let slider = gtk::Scale::with_range(
             to_orientation(data.orientation.unwrap_or(OrientationValue::Horizontal)),
             data.min,
             data.max,
             data.step,
         );
-        scale.add_css_class("scale");
-        scale.set_value(data.value);
-        scale.set_draw_value(data.draw_value);
-        apply_common_props(&scale, &data.common);
+        slider.add_css_class("slider");
+        slider.set_value(data.value);
+        slider.set_draw_value(data.draw_value);
+        apply_common_props(&slider, &data.common);
         let event = self.event.clone();
-        scale.connect_value_changed(move |scale| {
+        slider.connect_value_changed(move |slider| {
             event(EventPayload {
                 id: id.clone(),
                 kind: EventKind::Change,
                 source: EventSource::Popover,
                 button: None,
                 active: None,
-                value: Some(serde_json::Value::from(scale.value())),
+                value: Some(serde_json::Value::from(slider.value())),
                 delta_y: None,
             });
         });
-        Ok(scale.upcast())
+        Ok(slider.upcast())
     }
 
-    fn render_dropdown(&self, data: &DropdownNode) -> Result<gtk::Widget, RenderError> {
-        let id = require_id("dropdown", &data.common)?;
+    fn render_select(&self, data: &SelectNode) -> Result<gtk::Widget, RenderError> {
+        let id = require_id("select", &data.common)?;
         let labels: Vec<&str> = data.items.iter().map(|item| item.label.as_str()).collect();
-        let dropdown = gtk::DropDown::from_strings(&labels);
-        dropdown.add_css_class("dropdown");
+        let select = gtk::DropDown::from_strings(&labels);
+        select.add_css_class("select");
         if let Some(selected) = data.selected {
-            dropdown.set_selected(selected);
+            select.set_selected(selected);
         }
-        apply_common_props(&dropdown, &data.common);
+        apply_common_props(&select, &data.common);
         let items = data.items.clone();
         let event = self.event.clone();
-        dropdown.connect_selected_notify(move |dropdown| {
-            let index = dropdown.selected();
+        select.connect_selected_notify(move |select| {
+            let index = select.selected();
             let value = items
                 .get(index as usize)
                 .map(|item| serde_json::json!({"id": item.id, "label": item.label, "index": index}))
@@ -734,7 +702,7 @@ impl RenderCatalog {
                 delta_y: None,
             });
         });
-        Ok(dropdown.upcast())
+        Ok(select.upcast())
     }
 }
 
@@ -760,68 +728,12 @@ pub fn apply_icon_to_image(image: &gtk::Image, icon: &Icon) {
     }
 }
 
-fn icon_name(icon: &Option<Icon>) -> Option<String> {
-    match icon {
-        Some(Icon::Name { name }) => Some(name.clone()),
-        Some(Icon::Path { .. }) | None => None,
-    }
-}
-
-fn section_header(data: &SectionNode) -> Option<HeaderNode> {
-    data.header.clone().or_else(|| {
-        data.title.as_ref().map(|title| HeaderNode {
-            title: title.clone(),
-            subtitle: data.subtitle.clone(),
-        })
-    })
-}
-
-fn section_body(data: &SectionNode) -> &[TreeNode] {
-    if data.body.is_empty() {
-        &data.children
-    } else {
-        &data.body
-    }
-}
-
-fn collapsible_header(data: &CollapsibleNode) -> Option<HeaderNode> {
-    data.header.clone().or_else(|| {
-        data.title.as_ref().map(|title| HeaderNode {
-            title: title.clone(),
-            subtitle: data.subtitle.clone(),
-        })
-    })
-}
-
-fn collapsible_body(data: &CollapsibleNode) -> &[TreeNode] {
-    if data.body.is_empty() {
-        &data.children
-    } else {
-        &data.body
-    }
-}
-
-fn collapsible_item_body(data: &CollapsibleItemNode) -> &[TreeNode] {
-    if data.body.is_empty() {
-        &data.children
-    } else {
-        &data.body
-    }
-}
-
 fn progress_fraction(value: f64, max: f64) -> f64 {
     if max <= 0.0 {
         0.0
     } else {
         (value / max).clamp(0.0, 1.0)
     }
-}
-
-fn constrain_slot_child(widget: &impl IsA<gtk::Widget>) {
-    widget.set_halign(gtk::Align::Center);
-    widget.set_valign(gtk::Align::Center);
-    widget.set_hexpand(false);
-    widget.set_vexpand(false);
 }
 
 fn meter_bounds(min: f64, max: f64, step: f64) -> (f64, f64) {
@@ -840,6 +752,63 @@ fn meter_fraction(value: f64, min: f64, max: f64) -> f64 {
     }
 }
 
+fn build_item_content(
+    icon: &str,
+    label_text: &str,
+    sublabel_text: &str,
+    right_node: Option<&TreeNode>,
+    right_renderer: &RenderCatalog,
+) -> Result<gtk::Box, RenderError> {
+    let content = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    content.add_css_class("list-item__content");
+    content.set_valign(gtk::Align::Center);
+
+    let left = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    left.add_css_class("list-item__left");
+    left.set_halign(gtk::Align::Start);
+    left.set_valign(gtk::Align::Center);
+    left.set_hexpand(false);
+    left.set_visible(!icon.is_empty());
+    if !icon.is_empty() {
+        let image = gtk::Image::from_icon_name(icon);
+        image.set_pixel_size(16);
+        left.append(&image);
+    }
+    content.append(&left);
+
+    let text = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    text.add_css_class("list-item__text");
+    text.set_hexpand(true);
+    text.set_valign(gtk::Align::Center);
+
+    let label = gtk::Label::new(Some(label_text));
+    label.add_css_class("list-item__label");
+    label.set_halign(gtk::Align::Start);
+    label.set_xalign(0.0);
+    text.append(&label);
+
+    let sublabel = gtk::Label::new(Some(sublabel_text));
+    sublabel.add_css_class("list-item__secondary_label");
+    sublabel.set_halign(gtk::Align::Start);
+    sublabel.set_xalign(0.0);
+    sublabel.set_visible(!sublabel_text.is_empty());
+    text.append(&sublabel);
+    content.append(&text);
+
+    let right = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    right.add_css_class("list-item__right");
+    right.set_halign(gtk::Align::End);
+    right.set_valign(gtk::Align::Center);
+    right.set_hexpand(false);
+    right.set_visible(right_node.is_some());
+    if let Some(child) = right_node {
+        right.append(&right_renderer.render(child)?);
+    }
+    content.append(&right);
+
+    Ok(content)
+}
+
 fn connect_click(button: &gtk::Button, event: EventSink, id: String) {
     button.connect_clicked(move |_| {
         event(EventPayload {
@@ -854,67 +823,21 @@ fn connect_click(button: &gtk::Button, event: EventSink, id: String) {
     });
 }
 
-fn attach_item_menu(button: &gtk::Button, items: &[MenuItem], event: EventSink) {
-    if !has_visible_menu_items(items) {
-        return;
-    }
-
-    let action_group = gio::SimpleActionGroup::new();
-    let menu = gio::Menu::new();
-    for (index, item) in items.iter().enumerate() {
-        if !item.visible {
-            continue;
-        }
-
-        let action_name = format!("item{index}");
-        let action = gio::SimpleAction::new(&action_name, None);
-        action.set_enabled(item.enabled);
-        action.connect_activate({
-            let id = item.id.clone();
-            let event = event.clone();
-            move |_, _| {
-                event(EventPayload {
-                    id: id.clone(),
-                    kind: EventKind::Click,
-                    source: EventSource::Popover,
-                    button: Some(super::protocol::MouseButton::Left),
-                    active: None,
-                    value: None,
-                    delta_y: None,
-                });
-            }
-        });
-        action_group.add_action(&action);
-        menu.append(
-            Some(&item.label),
-            Some(&format!("exec-item-menu.{action_name}")),
-        );
-    }
-
-    button.insert_action_group("exec-item-menu", Some(&action_group));
-
-    let popover = gtk::PopoverMenu::from_model(Some(&menu));
-    popover.add_css_class("exec-item-menu");
-    popover.set_parent(button);
-    popover.set_has_arrow(false);
-
+fn connect_widget_click(widget: &impl IsA<gtk::Widget>, event: EventSink, id: String) {
     let click = gtk::GestureClick::new();
-    click.set_button(3);
-    click.set_propagation_phase(gtk::PropagationPhase::Capture);
-    click.connect_pressed({
-        let popover = popover.clone();
-        move |gesture, _, _, _| {
-            gesture.set_state(gtk::EventSequenceState::Claimed);
-            popover.popup();
-        }
+    click.set_button(1);
+    click.connect_pressed(move |_, _, _, _| {
+        event(EventPayload {
+            id: id.clone(),
+            kind: EventKind::Click,
+            source: EventSource::Popover,
+            button: Some(super::protocol::MouseButton::Left),
+            active: None,
+            value: None,
+            delta_y: None,
+        });
     });
-    button.add_controller(click);
-
-    button.connect_destroy(move |_| popover.unparent());
-}
-
-fn has_visible_menu_items(items: &[MenuItem]) -> bool {
-    items.iter().any(|item| item.visible)
+    widget.add_controller(click);
 }
 
 fn require_id(widget_type: &'static str, props: &CommonProps) -> Result<String, RenderError> {
@@ -949,6 +872,30 @@ fn apply_common_props(widget: &impl IsA<gtk::Widget>, props: &CommonProps) {
     }
 }
 
+fn apply_button_variant(button: &gtk::Button, variant: ButtonVariant) {
+    match variant {
+        ButtonVariant::Primary => button.add_css_class("suggested-action"),
+        ButtonVariant::Secondary => {}
+        ButtonVariant::Compact => button.add_css_class("compact"),
+        ButtonVariant::Flat => button.add_css_class("flat"),
+        ButtonVariant::Danger => button.add_css_class("destructive-action"),
+    }
+}
+
+fn pager_item_view(data: &PagerItemNode) -> PagerItemView {
+    PagerItemView {
+        appearance: match data.appearance {
+            PagerAppearanceValue::Dots => PagerComponentAppearance::Dots,
+            PagerAppearanceValue::Numbers => PagerComponentAppearance::Numbers,
+        },
+        label: data.label.clone(),
+        active: data.active,
+        inactive: data.inactive,
+        occupied: data.occupied,
+        urgent: data.urgent,
+    }
+}
+
 fn to_orientation(value: OrientationValue) -> gtk::Orientation {
     match value {
         OrientationValue::Horizontal => gtk::Orientation::Horizontal,
@@ -966,10 +913,27 @@ fn to_align(value: AlignValue) -> gtk::Align {
     }
 }
 
+fn to_content_fit(value: ContentFitValue) -> gtk::ContentFit {
+    match value {
+        ContentFitValue::Fill => gtk::ContentFit::Fill,
+        ContentFitValue::Contain => gtk::ContentFit::Contain,
+        ContentFitValue::Cover => gtk::ContentFit::Cover,
+        ContentFitValue::ScaleDown => gtk::ContentFit::ScaleDown,
+    }
+}
+
+fn to_level_bar_mode(value: LevelBarModeValue) -> gtk::LevelBarMode {
+    match value {
+        LevelBarModeValue::Continuous => gtk::LevelBarMode::Continuous,
+        LevelBarModeValue::Discrete => gtk::LevelBarMode::Discrete,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::components::test_support::gtk_available_on_this_thread;
+    use std::cell::RefCell;
 
     #[test]
     fn buttons_require_ids_for_events() {
@@ -982,37 +946,14 @@ mod tests {
             common: CommonProps::default(),
             label: Some("Run".into()),
             icon: None,
-            child: None,
+            enabled: true,
+            variant: ButtonVariant::Flat,
         }));
 
         assert_eq!(
             result.err(),
             Some(RenderError::MissingId {
                 widget_type: "button"
-            })
-        );
-    }
-
-    #[test]
-    fn clickable_items_require_ids_for_events() {
-        if !gtk_available_on_this_thread() {
-            return;
-        }
-
-        let renderer = RenderCatalog::new(Rc::new(|_| {}));
-        let result = renderer.render(&TreeNode::Item(ItemNode {
-            common: CommonProps::default(),
-            left: None,
-            label: "Open".into(),
-            right: None,
-            clickable: true,
-            menu: Vec::new(),
-        }));
-
-        assert_eq!(
-            result.err(),
-            Some(RenderError::MissingId {
-                widget_type: "item"
             })
         );
     }
@@ -1042,5 +983,439 @@ mod tests {
                 widget_type: "meter"
             })
         );
+    }
+
+    #[test]
+    fn item_renders_list_item_class_contract() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let renderer = RenderCatalog::new(Rc::new(|_| {}));
+        let item = renderer
+            .render(&TreeNode::Item(ItemNode {
+                common: CommonProps::default(),
+                icon: "network-wireless-symbolic".into(),
+                label: "Wi-Fi".into(),
+                sublabel: "Connected".into(),
+                right: Some(Box::new(TreeNode::Badge(BadgeNode {
+                    common: CommonProps::default(),
+                    label: "home-5G".into(),
+                }))),
+            }))
+            .expect("item should render")
+            .downcast::<gtk::Box>()
+            .expect("item root should be a box");
+
+        assert!(item.has_css_class("list-item"));
+        assert!(item.has_css_class("list-item__button"));
+
+        let content = item
+            .first_child()
+            .and_downcast::<gtk::Box>()
+            .expect("item should contain content box");
+        assert!(content.has_css_class("list-item__content"));
+
+        let left = content
+            .first_child()
+            .and_downcast::<gtk::Box>()
+            .expect("item should contain left slot");
+        assert!(left.has_css_class("list-item__left"));
+
+        let text = left
+            .next_sibling()
+            .and_downcast::<gtk::Box>()
+            .expect("item should contain text box");
+        assert!(text.has_css_class("list-item__text"));
+
+        let label = text
+            .first_child()
+            .and_downcast::<gtk::Label>()
+            .expect("item should contain label");
+        assert!(label.has_css_class("list-item__label"));
+
+        let sublabel = label
+            .next_sibling()
+            .and_downcast::<gtk::Label>()
+            .expect("item should contain sublabel");
+        assert!(sublabel.has_css_class("list-item__secondary_label"));
+
+        let right = text
+            .next_sibling()
+            .and_downcast::<gtk::Box>()
+            .expect("item should contain right slot");
+        assert!(right.has_css_class("list-item__right"));
+        assert!(right.first_child().is_some());
+    }
+
+    #[test]
+    fn action_item_renders_clickable_list_item_with_render_only_right_slot() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let event_sink = {
+            let events = events.clone();
+            Rc::new(move |event| events.borrow_mut().push(event))
+        };
+        let renderer = RenderCatalog::new(event_sink);
+        let action_item = renderer
+            .render(&TreeNode::ActionItem(ActionItemNode {
+                common: CommonProps {
+                    id: Some("wifi".into()),
+                    ..CommonProps::default()
+                },
+                icon: "network-wireless-symbolic".into(),
+                label: "Wi-Fi".into(),
+                sublabel: "Connected".into(),
+                enabled: true,
+                right: Some(Box::new(TreeNode::Button(ButtonNode {
+                    common: CommonProps {
+                        id: Some("nested".into()),
+                        ..CommonProps::default()
+                    },
+                    label: None,
+                    icon: Some("go-next-symbolic".into()),
+                    enabled: true,
+                    variant: ButtonVariant::Flat,
+                }))),
+            }))
+            .expect("action item should render")
+            .downcast::<gtk::Button>()
+            .expect("action item root should be a button");
+
+        assert!(action_item.has_css_class("list-item"));
+        assert!(action_item.has_css_class("list-item__button"));
+
+        let content = action_item
+            .child()
+            .and_downcast::<gtk::Box>()
+            .expect("action item should contain row content");
+        assert!(content.has_css_class("list-item__content"));
+
+        let right = content
+            .last_child()
+            .and_downcast::<gtk::Box>()
+            .expect("action item should contain a right slot");
+        assert!(right.has_css_class("list-item__right"));
+
+        let nested = right
+            .first_child()
+            .and_downcast::<gtk::Button>()
+            .expect("right slot should render nested button visually");
+        nested.emit_clicked();
+        assert!(events.borrow().is_empty());
+
+        action_item.emit_clicked();
+        let events = events.borrow();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].id, "wifi");
+        assert_eq!(events[0].kind, EventKind::Click);
+    }
+
+    #[test]
+    fn picture_renders_gtk_picture_with_content_fit() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let renderer = RenderCatalog::new(Rc::new(|_| {}));
+        let picture = renderer
+            .render(&TreeNode::Picture(PictureNode {
+                common: CommonProps::default(),
+                path: "/home/me/photo.png".into(),
+                content_fit: ContentFitValue::Cover,
+            }))
+            .expect("picture should render")
+            .downcast::<gtk::Picture>()
+            .expect("picture root should be gtk::Picture");
+
+        assert!(picture.has_css_class("picture"));
+        assert_eq!(picture.content_fit(), gtk::ContentFit::Cover);
+    }
+
+    #[test]
+    fn link_button_renders_uri_and_label() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let renderer = RenderCatalog::new(Rc::new(|_| {}));
+        let link = renderer
+            .render(&TreeNode::LinkButton(LinkButtonNode {
+                common: CommonProps::default(),
+                uri: "https://example.com/docs".into(),
+                label: Some("Docs".into()),
+            }))
+            .expect("link button should render")
+            .downcast::<gtk::LinkButton>()
+            .expect("link button root should be gtk::LinkButton");
+
+        assert!(link.has_css_class("link-button"));
+        assert_eq!(link.uri().as_str(), "https://example.com/docs");
+        assert_eq!(link.label().as_deref(), Some("Docs"));
+    }
+
+    #[test]
+    fn expander_renders_label_expanded_state_and_child() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let renderer = RenderCatalog::new(Rc::new(|_| {}));
+        let expander = renderer
+            .render(&TreeNode::Expander(ExpanderNode {
+                common: CommonProps::default(),
+                label: "Details".into(),
+                expanded: true,
+                child: Box::new(TreeNode::Label(LabelNode {
+                    common: CommonProps::default(),
+                    text: "More".into(),
+                    wrap: false,
+                    xalign: None,
+                    selectable: false,
+                })),
+            }))
+            .expect("expander should render")
+            .downcast::<gtk::Expander>()
+            .expect("expander root should be gtk::Expander");
+
+        assert!(expander.has_css_class("expander"));
+        assert_eq!(expander.label().as_deref(), Some("Details"));
+        assert!(expander.is_expanded());
+        let child = expander
+            .child()
+            .and_downcast::<gtk::Label>()
+            .expect("expander child should render nested label");
+        assert_eq!(child.label().as_str(), "More");
+    }
+
+    #[test]
+    fn overlay_renders_base_child_and_overlays() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let renderer = RenderCatalog::new(Rc::new(|_| {}));
+        let overlay = renderer
+            .render(&TreeNode::Overlay(OverlayNode {
+                common: CommonProps::default(),
+                child: Box::new(TreeNode::Label(LabelNode {
+                    common: CommonProps::default(),
+                    text: "Base".into(),
+                    wrap: false,
+                    xalign: None,
+                    selectable: false,
+                })),
+                overlays: vec![TreeNode::Badge(BadgeNode {
+                    common: CommonProps::default(),
+                    label: "Top".into(),
+                })],
+            }))
+            .expect("overlay should render")
+            .downcast::<gtk::Overlay>()
+            .expect("overlay root should be gtk::Overlay");
+
+        assert!(overlay.has_css_class("overlay"));
+        let base = overlay
+            .child()
+            .and_downcast::<gtk::Label>()
+            .expect("overlay child should be a label");
+        assert_eq!(base.label().as_str(), "Base");
+
+        let overlaid = overlay
+            .last_child()
+            .and_downcast::<gtk::Label>()
+            .expect("overlay should expose the overlaid badge as a label child");
+        assert!(overlaid.has_css_class("badge"));
+        assert_eq!(overlaid.label().as_str(), "Top");
+    }
+
+    #[test]
+    fn list_box_renders_each_child_in_a_row() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let renderer = RenderCatalog::new(Rc::new(|_| {}));
+        let list_box = renderer
+            .render(&TreeNode::ListBox(ListBoxNode {
+                common: CommonProps::default(),
+                children: vec![
+                    TreeNode::Label(LabelNode {
+                        common: CommonProps::default(),
+                        text: "First".into(),
+                        wrap: false,
+                        xalign: None,
+                        selectable: false,
+                    }),
+                    TreeNode::Badge(BadgeNode {
+                        common: CommonProps::default(),
+                        label: "Second".into(),
+                    }),
+                ],
+            }))
+            .expect("list box should render")
+            .downcast::<gtk::ListBox>()
+            .expect("list box root should be gtk::ListBox");
+
+        assert!(list_box.has_css_class("list-box"));
+        let first_row = list_box
+            .first_child()
+            .and_downcast::<gtk::ListBoxRow>()
+            .expect("first child should be a list box row");
+        let first_label = first_row
+            .child()
+            .and_downcast::<gtk::Label>()
+            .expect("first row should contain the rendered label");
+        assert_eq!(first_label.label().as_str(), "First");
+
+        let last_row = list_box
+            .last_child()
+            .and_downcast::<gtk::ListBoxRow>()
+            .expect("last child should be a list box row");
+        let badge = last_row
+            .child()
+            .and_downcast::<gtk::Label>()
+            .expect("last row should contain the rendered badge");
+        assert!(badge.has_css_class("badge"));
+        assert_eq!(badge.label().as_str(), "Second");
+    }
+
+    #[test]
+    fn level_bar_renders_value_range_and_mode() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let renderer = RenderCatalog::new(Rc::new(|_| {}));
+        let level_bar = renderer
+            .render(&TreeNode::LevelBar(LevelBarNode {
+                common: CommonProps::default(),
+                value: 0.7,
+                min: 0.0,
+                max: 1.0,
+                mode: LevelBarModeValue::Continuous,
+            }))
+            .expect("level bar should render")
+            .downcast::<gtk::LevelBar>()
+            .expect("level bar root should be gtk::LevelBar");
+
+        assert!(level_bar.has_css_class("level-bar"));
+        assert_eq!(level_bar.value(), 0.7);
+        assert_eq!(level_bar.min_value(), 0.0);
+        assert_eq!(level_bar.max_value(), 1.0);
+        assert_eq!(level_bar.mode(), gtk::LevelBarMode::Continuous);
+    }
+
+    #[test]
+    fn tree_expander_renders_child_and_flags() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let renderer = RenderCatalog::new(Rc::new(|_| {}));
+        let tree_expander = renderer
+            .render(&TreeNode::TreeExpander(TreeExpanderNode {
+                common: CommonProps::default(),
+                child: Box::new(TreeNode::Label(LabelNode {
+                    common: CommonProps::default(),
+                    text: "Nested".into(),
+                    wrap: false,
+                    xalign: None,
+                    selectable: false,
+                })),
+                hide_expander: true,
+                indent_for_depth: true,
+                indent_for_icon: true,
+            }))
+            .expect("tree expander should render")
+            .downcast::<gtk::TreeExpander>()
+            .expect("tree expander root should be gtk::TreeExpander");
+
+        assert!(tree_expander.has_css_class("tree-expander"));
+        assert!(tree_expander.hides_expander());
+        assert!(tree_expander.is_indent_for_depth());
+        assert!(tree_expander.is_indent_for_icon());
+        let child = tree_expander
+            .child()
+            .and_downcast::<gtk::Label>()
+            .expect("tree expander child should render nested label");
+        assert_eq!(child.label().as_str(), "Nested");
+    }
+
+    #[test]
+    fn menu_button_renders_content_and_popover() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let renderer = RenderCatalog::new(Rc::new(|_| {}));
+        let menu_button = renderer
+            .render(&TreeNode::MenuButton(MenuButtonNode {
+                common: CommonProps::default(),
+                label: Some("More".into()),
+                icon: Some("open-menu-symbolic".into()),
+                popover: Box::new(TreeNode::Label(LabelNode {
+                    common: CommonProps::default(),
+                    text: "Menu content".into(),
+                    wrap: false,
+                    xalign: None,
+                    selectable: false,
+                })),
+            }))
+            .expect("menu button should render")
+            .downcast::<gtk::MenuButton>()
+            .expect("menu button root should be gtk::MenuButton");
+
+        assert!(menu_button.has_css_class("menu-button"));
+        assert!(menu_button.child().is_some());
+        let popover = menu_button
+            .popover()
+            .expect("menu button should have popover");
+        assert!(popover.has_css_class("menu-button__popover"));
+        let child = popover
+            .child()
+            .and_downcast::<gtk::Label>()
+            .expect("popover child should render nested label");
+        assert_eq!(child.label().as_str(), "Menu content");
+    }
+
+    #[test]
+    fn toggle_button_renders_and_emits_toggle_event() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let event_sink = {
+            let events = events.clone();
+            Rc::new(move |event| events.borrow_mut().push(event))
+        };
+        let renderer = RenderCatalog::new(event_sink);
+        let toggle = renderer
+            .render(&TreeNode::ToggleButton(ToggleButtonNode {
+                common: CommonProps {
+                    id: Some("wifi".into()),
+                    ..CommonProps::default()
+                },
+                label: Some("Wi-Fi".into()),
+                active: false,
+            }))
+            .expect("toggle button should render")
+            .downcast::<gtk::ToggleButton>()
+            .expect("toggle button root should be gtk::ToggleButton");
+
+        assert!(toggle.has_css_class("toggle-button"));
+        assert_eq!(toggle.label().as_deref(), Some("Wi-Fi"));
+        assert!(!toggle.is_active());
+
+        toggle.set_active(true);
+        let events = events.borrow();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].id, "wifi");
+        assert_eq!(events[0].kind, EventKind::Toggle);
+        assert_eq!(events[0].active, Some(true));
     }
 }

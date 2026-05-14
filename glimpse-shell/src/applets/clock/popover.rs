@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use chrono::{Local, NaiveDate};
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
@@ -52,6 +50,7 @@ pub enum PopoverOutput {
     VisibleMonthChanged(MonthKey),
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Popover {
     type Init = PopoverInit;

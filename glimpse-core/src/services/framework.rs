@@ -3,11 +3,13 @@ use tokio_util::sync::CancellationToken;
 
 use crate::Config;
 use crate::{
+    config::{AppletDirectoryScanner, DiscoveredApplets},
     dbus::Dbus,
     services::{
-        audio, audio_events, battery, bluetooth, brightness, calendar_events, clipboard, clock,
-        compositor, geoclue, keyboard, location, microphone, mpris, network, notifications, power,
-        session, solar, storage, theme, tray, weather, webcam,
+        applet_watcher::AppletWatcher, audio, audio_events, battery, bluetooth, brightness,
+        calendar_events, clipboard, clock, compositor, geoclue, keyboard, location, microphone,
+        mpris, network, notifications, power, session, solar, storage, theme, tray, weather,
+        webcam,
     },
 };
 
@@ -158,6 +160,7 @@ pub struct Services {
     pub storage: storage::StorageHandle,
     pub tray: tray::TrayHandle,
     pub webcam: webcam::WebcamHandle,
+    pub applet_watcher: watch::Receiver<DiscoveredApplets>,
     pub system_dbus: zbus::Connection,
     pub session_dbus: zbus::Connection,
 }
@@ -283,6 +286,8 @@ impl ServiceRuntime {
         let (webcam_service, webcam) = webcam::WebcamService::new();
         let webcam_service = spawn_service(|cancel| webcam_service.run(cancel));
 
+        let applet_watcher = AppletWatcher::start(AppletDirectoryScanner::from_process());
+
         let running_services = vec![
             audio_events_service,
             audio_service,
@@ -334,6 +339,7 @@ impl ServiceRuntime {
             storage,
             tray,
             webcam,
+            applet_watcher,
             system_dbus,
             session_dbus,
         };

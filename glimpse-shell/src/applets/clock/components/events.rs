@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use chrono::{Local, NaiveDate};
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent, WidgetTemplate,
@@ -31,6 +29,7 @@ pub enum EventsInput {
     Tick,
 }
 
+#[allow(unused_assignments)]
 #[relm4::widget_template(pub)]
 impl WidgetTemplate for EventRowView {
     view! {
@@ -58,6 +57,7 @@ impl WidgetTemplate for EventRowView {
     }
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Events {
     type Init = NaiveDate;

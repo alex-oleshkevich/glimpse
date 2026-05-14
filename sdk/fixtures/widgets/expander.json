@@ -1,0 +1,13 @@
+{
+  "data": {
+    "child": {
+      "data": {
+        "text": "More"
+      },
+      "type": "label"
+    },
+    "expanded": false,
+    "label": "Details"
+  },
+  "type": "expander"
+}

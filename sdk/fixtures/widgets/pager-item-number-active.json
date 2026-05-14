@@ -1,0 +1,12 @@
+{
+  "data": {
+    "active": true,
+    "appearance": "numbers",
+    "id": "workspace-1",
+    "inactive": false,
+    "label": "1",
+    "occupied": false,
+    "urgent": false
+  },
+  "type": "pager_item"
+}

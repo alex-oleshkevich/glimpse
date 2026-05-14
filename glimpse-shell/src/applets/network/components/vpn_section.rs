@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
     gtk::{self, prelude::*},
@@ -23,6 +21,7 @@ pub enum VpnSectionInput {
     MenuCommand(Command),
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for VpnSection {
     type Init = ();

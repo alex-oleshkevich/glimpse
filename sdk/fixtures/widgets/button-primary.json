@@ -1,0 +1,8 @@
+{
+  "data": {
+    "id": "go",
+    "label": "Go",
+    "variant": "primary"
+  },
+  "type": "button"
+}

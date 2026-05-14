@@ -38,7 +38,7 @@ Your child process sends:
 
 ```txt
 status {"items":[{"id":"cpu","label":"42%","icon":{"name":"cpu-symbolic"},"tooltip":"CPU usage"}]}
-popover {"root":{"type":"section","data":{"title":"System","body":[]}}}
+popover {"root":{"type":"section","data":{"title":"System","children":[]}}}
 ```
 
 Glimpse sends:
@@ -75,9 +75,18 @@ A `popover` message replaces this applet's popover content. The payload has a `r
 ```txt
 popover {"root":{"type":"section","data":{
   "title":"System",
-  "body":[
-    {"type":"item","data":{"label":"CPU","right":{"type":"badge","data":{"label":"42%"}}}},
-    {"type":"meter","data":{"label":"Memory","value":0.51,"text":"51%"}}
+  "children":[
+    {"type":"row","data":{"spacing":8,"children":[{"type":"label","data":{"text":"CPU"}},{"type":"badge","data":{"label":"42%"}}]}},
+    {"type":"meter","data":{"label":"Memory","value":0.51,"text":"51%"}},
+    {"type":"level_bar","data":{"value":0.7,"min":0.0,"max":1.0,"mode":"continuous"}},
+    {"type":"toggle_button","data":{"id":"focus","label":"Focus","active":false}},
+    {"type":"picture","data":{"path":"/home/me/.cache/avatar.png","content_fit":"cover"}},
+    {"type":"overlay","data":{"child":{"type":"label","data":{"text":"Preview"}},"overlays":[{"type":"badge","data":{"label":"Live","halign":"end","valign":"start"}}]}},
+    {"type":"list_box","data":{"children":[{"type":"label","data":{"text":"First"}},{"type":"badge","data":{"label":"Second"}}]}},
+    {"type":"tree_expander","data":{"child":{"type":"label","data":{"text":"Nested"}},"hide_expander":true,"indent_for_depth":true,"indent_for_icon":true}},
+    {"type":"menu_button","data":{"label":"More","icon":"open-menu-symbolic","popover":{"type":"label","data":{"text":"Menu content"}}}},
+    {"type":"link_button","data":{"uri":"https://example.com/docs","label":"Docs"}},
+    {"type":"expander","data":{"label":"More","expanded":false,"child":{"type":"label","data":{"text":"Extra details"}}}}
   ]
 }}}
 ```
@@ -86,7 +95,7 @@ The `root` object uses this structure:
 
 | Field | Meaning |
 |---|---|
-| `type` | Component name, such as `section`, `item`, `button`, or `meter`. |
+| `type` | Component name, such as `section`, `row`, `button`, or `meter`. |
 | `data` | Component fields. The expected fields depend on `type`. |
 
 Send a complete popover update whenever the content changes. Read [Components](./exec-components.md) for valid component types and fields.
@@ -99,14 +108,15 @@ Interactive status items and popover components send `event` lines back to the c
 |---|---|---|
 | Status item with `id` | `click`, `scroll` | `button` or `delta_y`. |
 | Popover `button` | `click` | `button = "left"`. |
-| Popover `item` with `clickable = true` and `id` | `click` | `button = "left"`. |
-| Popover `action_menu` item | `click` | selected item id. |
 | Popover `switch` | `toggle` | `active = true` or `false`. |
+| Popover `toggle_button` | `toggle` | `active = true` or `false`. |
 | Popover `checkbox` | `toggle` | `active = true` or `false`. |
-| Popover `scale` | `change` | numeric `value`. |
+| Popover `slider` | `change` | numeric `value`. |
 | Interactive `meter` | `change` | numeric `value`. |
-| Popover `dropdown` | `change` | selected item id, label, and index. |
+| Popover `select` | `change` | selected item id, label, and index. |
 | Popover lifecycle | `open`, `close` | id `popover`. |
+
+`link_button` opens its URI through GTK and does not emit an applet event.
 
 Example event:
 
@@ -127,7 +137,7 @@ while IFS= read -r line; do
       printf 'status {"items":[{"id":"load","label":"ready","icon":{"name":"utilities-system-monitor-symbolic"}}]}\n'
       ;;
     event\ *)
-      printf 'popover {"root":{"type":"section","data":{"title":"System","body":[{"type":"item","data":{"label":"Last event","right":{"type":"badge","data":{"label":"seen"}}}}]}}}\n'
+      printf 'popover {"root":{"type":"section","data":{"title":"System","children":[{"type":"row","data":{"spacing":8,"children":[{"type":"label","data":{"text":"Last event"}},{"type":"badge","data":{"label":"seen"}}]}}]}}}\n'
       ;;
   esac
 done
@@ -161,7 +171,7 @@ command = ["sh", "-c", "~/.config/glimpse/scripts/cpu-temp"]
 Use a button and handle its click event:
 
 ```txt
-popover {"root":{"type":"section","data":{"title":"VPN","body":[{"type":"button","data":{"id":"toggle-vpn","label":"Toggle VPN","variant":"accent"}}]}}}
+popover {"root":{"type":"section","data":{"title":"VPN","children":[{"type":"button","data":{"id":"toggle-vpn","label":"Toggle VPN","icon":"network-vpn-symbolic","variant":"primary"}}]}}}
 ```
 
 Your script receives:

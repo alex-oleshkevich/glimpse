@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::collections::HashMap;
 
 use chrono::{Datelike, Days, Local, NaiveDate, Weekday};
@@ -118,6 +116,7 @@ impl relm4::factory::FactoryComponent for CalendarDayItem {
     }
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl Component for Calendar {
     type Init = NaiveDate;

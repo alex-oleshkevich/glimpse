@@ -31,7 +31,11 @@ pub struct ReleaseOutcome {
 
 impl Registry {
     pub fn new() -> Self {
-        Self { next_id: 1, next_cookie: 1, ..Self::default() }
+        Self {
+            next_id: 1,
+            next_cookie: 1,
+            ..Self::default()
+        }
     }
 
     pub fn mint_id(&mut self) -> u64 {
@@ -66,14 +70,19 @@ impl Registry {
                 self.cookie_to_id.insert(record.source.cookie, id);
             }
             SourceKind::Portal => {
-                self.portal_handle_to_id.insert(record.source.request_handle.clone(), id);
+                self.portal_handle_to_id
+                    .insert(record.source.request_handle.clone(), id);
             }
             SourceKind::Login1 => {}
         }
         if !record.bus_name.is_empty() {
-            self.bus_name_to_ids.entry(record.bus_name.clone()).or_default().push(id);
+            self.bus_name_to_ids
+                .entry(record.bus_name.clone())
+                .or_default()
+                .push(id);
         }
-        self.records.insert(id, InternalRecord { record, logind_fd });
+        self.records
+            .insert(id, InternalRecord { record, logind_fd });
     }
 
     pub fn get(&self, id: u64) -> Option<&InternalRecord> {
@@ -107,7 +116,8 @@ impl Registry {
                 self.cookie_to_id.remove(&internal.record.source.cookie);
             }
             SourceKind::Portal => {
-                self.portal_handle_to_id.remove(&internal.record.source.request_handle);
+                self.portal_handle_to_id
+                    .remove(&internal.record.source.request_handle);
             }
             SourceKind::Login1 => {}
         }
@@ -126,7 +136,11 @@ impl Registry {
     /// NameOwnerChanged listener when callers disconnect. Returns the ids
     /// that were released.
     pub fn release_by_bus_name(&mut self, bus_name: &str) -> Vec<u64> {
-        let ids: Vec<u64> = self.bus_name_to_ids.get(bus_name).cloned().unwrap_or_default();
+        let ids: Vec<u64> = self
+            .bus_name_to_ids
+            .get(bus_name)
+            .cloned()
+            .unwrap_or_default();
         for id in &ids {
             self.release_record(*id);
         }
@@ -142,14 +156,19 @@ impl Registry {
     }
 
     pub fn ids_for_bus_name(&self, bus_name: &str) -> Vec<u64> {
-        self.bus_name_to_ids.get(bus_name).cloned().unwrap_or_default()
+        self.bus_name_to_ids
+            .get(bus_name)
+            .cloned()
+            .unwrap_or_default()
     }
 
     pub fn any_idle_target(&self) -> bool {
         self.records.values().any(|r| r.record.targets.idle)
     }
 
-    pub fn count(&self) -> usize { self.records.len() }
+    pub fn count(&self) -> usize {
+        self.records.len()
+    }
 
     /// Mutable access for in-place backfill (used by `process_name`
     /// resolution in the ScreenSaver and portal servers).
@@ -169,7 +188,10 @@ pub fn build_screen_saver_record(
     targets: InhibitionTargets,
 ) -> IdleInhibitorRecord {
     IdleInhibitorRecord {
-        id, who, why, bus_name,
+        id,
+        who,
+        why,
+        bus_name,
         process_name: String::new(),
         source: glimpse_core::services::idle_inhibitor::IdleInhibitorSource::screen_saver(cookie),
         targets,
@@ -185,10 +207,15 @@ mod tests {
 
     fn rec(id: u64, source: IdleInhibitorSource, bus_name: &str) -> IdleInhibitorRecord {
         IdleInhibitorRecord {
-            id, who: "x".into(), why: "y".into(), bus_name: bus_name.into(),
-            process_name: String::new(), source,
+            id,
+            who: "x".into(),
+            why: "y".into(),
+            bus_name: bus_name.into(),
+            process_name: String::new(),
+            source,
             targets: InhibitionTargets::idle_only(),
-            can_release: true, added_at_unix: 0,
+            can_release: true,
+            added_at_unix: 0,
         }
     }
 
@@ -197,7 +224,10 @@ mod tests {
         let mut r = Registry::new();
         let id = r.mint_id();
         let cookie = r.mint_cookie();
-        r.insert(rec(id, IdleInhibitorSource::screen_saver(cookie), ":1.1"), None);
+        r.insert(
+            rec(id, IdleInhibitorSource::screen_saver(cookie), ":1.1"),
+            None,
+        );
         assert_eq!(r.lookup_by_cookie(cookie), Some(id));
     }
 
@@ -205,7 +235,14 @@ mod tests {
     fn portal_handle_lookup_round_trips() {
         let mut r = Registry::new();
         let id = r.mint_id();
-        r.insert(rec(id, IdleInhibitorSource::portal("org.foo".into(), "/req/1".into()), ":1.2"), None);
+        r.insert(
+            rec(
+                id,
+                IdleInhibitorSource::portal("org.foo".into(), "/req/1".into()),
+                ":1.2",
+            ),
+            None,
+        );
         assert_eq!(r.lookup_by_portal_handle("/req/1"), Some(id));
     }
 
@@ -214,7 +251,10 @@ mod tests {
         let mut r = Registry::new();
         let id = r.mint_id();
         let cookie = r.mint_cookie();
-        r.insert(rec(id, IdleInhibitorSource::screen_saver(cookie), ":1.1"), None);
+        r.insert(
+            rec(id, IdleInhibitorSource::screen_saver(cookie), ":1.1"),
+            None,
+        );
         let outcome = r.release_record(id).unwrap();
         assert_eq!(outcome.id, id);
         assert!(!outcome.had_logind_fd);
@@ -236,8 +276,14 @@ mod tests {
         let cookie1 = r.mint_cookie();
         let id2 = r.mint_id();
         let cookie2 = r.mint_cookie();
-        r.insert(rec(id1, IdleInhibitorSource::screen_saver(cookie1), ":1.7"), None);
-        r.insert(rec(id2, IdleInhibitorSource::screen_saver(cookie2), ":1.7"), None);
+        r.insert(
+            rec(id1, IdleInhibitorSource::screen_saver(cookie1), ":1.7"),
+            None,
+        );
+        r.insert(
+            rec(id2, IdleInhibitorSource::screen_saver(cookie2), ":1.7"),
+            None,
+        );
         assert_eq!(r.ids_for_bus_name(":1.7").len(), 2);
         r.release_record(id1);
         assert_eq!(r.ids_for_bus_name(":1.7"), vec![id2]);
@@ -250,8 +296,14 @@ mod tests {
         let cookie1 = r.mint_cookie();
         let id2 = r.mint_id();
         let cookie2 = r.mint_cookie();
-        r.insert(rec(id1, IdleInhibitorSource::screen_saver(cookie1), ":1.5"), None);
-        r.insert(rec(id2, IdleInhibitorSource::screen_saver(cookie2), ":1.5"), None);
+        r.insert(
+            rec(id1, IdleInhibitorSource::screen_saver(cookie1), ":1.5"),
+            None,
+        );
+        r.insert(
+            rec(id2, IdleInhibitorSource::screen_saver(cookie2), ":1.5"),
+            None,
+        );
         let released = r.release_by_bus_name(":1.5");
         assert_eq!(released.len(), 2);
         assert_eq!(r.count(), 0);
@@ -263,7 +315,10 @@ mod tests {
         assert!(!r.any_idle_target());
         let id = r.mint_id();
         let cookie = r.mint_cookie();
-        r.insert(rec(id, IdleInhibitorSource::screen_saver(cookie), ":1.1"), None);
+        r.insert(
+            rec(id, IdleInhibitorSource::screen_saver(cookie), ":1.1"),
+            None,
+        );
         assert!(r.any_idle_target());
         r.release_record(id);
         assert!(!r.any_idle_target());

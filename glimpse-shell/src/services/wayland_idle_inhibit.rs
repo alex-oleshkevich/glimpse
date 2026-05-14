@@ -277,7 +277,9 @@ mod tests {
     async fn binary_state_flips_exactly_once_per_predicate_change() {
         let (tx, rx) = watch::channel(State::default());
         let events = Arc::new(Mutex::new(Vec::new()));
-        let backend = FakeBackend { events: events.clone() };
+        let backend = FakeBackend {
+            events: events.clone(),
+        };
         let (_swap_tx, swap_rx) = mpsc::channel(1);
         let (health_tx, _health_rx) = watch::channel(WaylandHealth::Ready);
         let cancel = CancellationToken::new();
@@ -321,15 +323,27 @@ mod tests {
         let (state_tx, state_rx) = watch::channel(State::default());
         let events_a = Arc::new(Mutex::new(Vec::new()));
         let events_b = Arc::new(Mutex::new(Vec::new()));
-        let backend_a = FakeBackend { events: events_a.clone() };
-        let backend_b = FakeBackend { events: events_b.clone() };
+        let backend_a = FakeBackend {
+            events: events_a.clone(),
+        };
+        let backend_b = FakeBackend {
+            events: events_b.clone(),
+        };
         let (swap_tx, swap_rx) = mpsc::channel(1);
-        let (health_tx, mut health_rx) =
-            watch::channel(WaylandHealth::Unsupported { message: "init".into() });
+        let (health_tx, mut health_rx) = watch::channel(WaylandHealth::Unsupported {
+            message: "init".into(),
+        });
         let cancel = CancellationToken::new();
         let task_cancel = cancel.clone();
         let task = tokio::spawn(async move {
-            run(Box::new(backend_a), state_rx, swap_rx, health_tx, task_cancel).await;
+            run(
+                Box::new(backend_a),
+                state_rx,
+                swap_rx,
+                health_tx,
+                task_cancel,
+            )
+            .await;
         });
 
         let mut s = State::default();

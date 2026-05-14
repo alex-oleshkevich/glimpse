@@ -42,7 +42,7 @@ pub struct Args {
 }
 
 pub fn run(args: Args) -> Result<()> {
-    validate_name(&args.name, args.lang, args.r#type)?;
+    validate_name(&args.name)?;
 
     let parent = args.dir.unwrap_or_else(|| PathBuf::from("."));
     let project_dir = parent.join(&args.name);
@@ -85,7 +85,7 @@ pub fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn validate_name(name: &str, lang: Language, applet_type: AppletType) -> Result<()> {
+fn validate_name(name: &str) -> Result<()> {
     if name.is_empty() {
         bail!("project name must not be empty");
     }
@@ -97,11 +97,6 @@ fn validate_name(name: &str, lang: Language, applet_type: AppletType) -> Result<
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
     if !ok {
         bail!("project name {name:?} contains characters other than [A-Za-z0-9_-]");
-    }
-    if matches!(applet_type, AppletType::Exec) && lang == Language::Python && name.contains('-') {
-        bail!(
-            "python project name {name:?} contains a hyphen. use underscores so the import name matches."
-        );
     }
     Ok(())
 }
@@ -137,10 +132,6 @@ fn templates_for(lang: Language) -> &'static [(&'static str, &'static str)] {
             ),
         ],
         Language::Python => &[
-            (
-                "pyproject.toml",
-                include_str!("../../templates/python/pyproject.toml"),
-            ),
             ("main.py", include_str!("../../templates/python/main.py")),
             (
                 ".gitignore",
@@ -205,12 +196,11 @@ fn print_next_steps(lang: Language, applet_type: AppletType, project_dir: &Path,
                     );
                 }
                 Language::Python => {
-                    println!("  uv sync         # or: pip install -e .");
                     println!("  uv run main.py  # smoke test");
                     println!();
                     println!("Then set the command in applet.toml:");
                     println!(
-                        "  command = [\"uv\", \"run\", \"--directory\", \"{}\", \"python\", \"main.py\"]",
+                        "  command = [\"uv\", \"run\", \"{}/main.py\"]",
                         absolute.display()
                     );
                 }

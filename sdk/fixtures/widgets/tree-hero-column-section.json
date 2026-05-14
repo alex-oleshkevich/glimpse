@@ -10,7 +10,7 @@
       },
       {
         "data": {
-          "body": [
+          "children": [
             {
               "data": {
                 "text": "Current"
@@ -25,9 +25,7 @@
               "type": "button"
             }
           ],
-          "header": {
-            "title": "Controls"
-          }
+          "title": "Controls"
         },
         "type": "section"
       }

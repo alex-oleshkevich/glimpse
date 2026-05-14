@@ -41,11 +41,80 @@ def widgets() -> None:
     })
     write(WIDGETS, "button-with-icon", {
         "type": "button",
-        "data": {"id": "go", "label": "Go", "icon": {"name": "go-symbolic"}},
+        "data": {"id": "go", "label": "Go", "icon": "go-symbolic"},
     })
     write(WIDGETS, "button-icon-only", {
         "type": "button",
-        "data": {"id": "go", "icon": {"name": "go-symbolic"}},
+        "data": {"id": "go", "icon": "go-symbolic"},
+    })
+    write(WIDGETS, "button-primary", {
+        "type": "button",
+        "data": {"id": "go", "label": "Go", "variant": "primary"},
+    })
+    write(WIDGETS, "button-disabled", {
+        "type": "button",
+        "data": {"id": "go", "label": "Go", "enabled": False},
+    })
+    write(WIDGETS, "link-button", {
+        "type": "link_button",
+        "data": {"uri": "https://example.com"},
+    })
+    write(WIDGETS, "link-button-label", {
+        "type": "link_button",
+        "data": {"uri": "https://example.com/docs", "label": "Docs"},
+    })
+    write(WIDGETS, "expander", {
+        "type": "expander",
+        "data": {
+            "label": "Details",
+            "expanded": False,
+            "child": {"type": "label", "data": {"text": "More"}},
+        },
+    })
+    write(WIDGETS, "expander-expanded", {
+        "type": "expander",
+        "data": {
+            "label": "Details",
+            "expanded": True,
+            "child": {"type": "label", "data": {"text": "More"}},
+        },
+    })
+    write(WIDGETS, "overlay", {
+        "type": "overlay",
+        "data": {
+            "child": {"type": "label", "data": {"text": "Base"}},
+            "overlays": [{"type": "badge", "data": {"label": "Top"}}],
+        },
+    })
+    write(WIDGETS, "list-box", {
+        "type": "list_box",
+        "data": {
+            "children": [
+                {"type": "label", "data": {"text": "First"}},
+                {"type": "badge", "data": {"label": "Second"}},
+            ],
+        },
+    })
+    write(WIDGETS, "level-bar", {
+        "type": "level_bar",
+        "data": {"value": 0.7, "min": 0.0, "max": 1.0, "mode": "continuous"},
+    })
+    write(WIDGETS, "tree-expander", {
+        "type": "tree_expander",
+        "data": {
+            "child": {"type": "label", "data": {"text": "Nested"}},
+            "hide_expander": True,
+            "indent_for_depth": True,
+            "indent_for_icon": True,
+        },
+    })
+    write(WIDGETS, "menu-button", {
+        "type": "menu_button",
+        "data": {
+            "label": "More",
+            "icon": "open-menu-symbolic",
+            "popover": {"type": "label", "data": {"text": "Menu content"}},
+        },
     })
     write(WIDGETS, "switch-on", {
         "type": "switch",
@@ -55,16 +124,24 @@ def widgets() -> None:
         "type": "switch",
         "data": {"id": "vpn", "active": False},
     })
+    write(WIDGETS, "toggle-button-on", {
+        "type": "toggle_button",
+        "data": {"id": "wifi", "label": "Wi-Fi", "active": True},
+    })
+    write(WIDGETS, "toggle-button-off", {
+        "type": "toggle_button",
+        "data": {"id": "wifi", "active": False},
+    })
     write(WIDGETS, "checkbox-on", {
         "type": "checkbox",
         "data": {"id": "autostart", "label": "Run at login", "active": True},
     })
-    write(WIDGETS, "scale", {
-        "type": "scale",
+    write(WIDGETS, "slider", {
+        "type": "slider",
         "data": {"id": "brightness", "min": 0.0, "max": 1.0, "step": 0.05, "value": 0.6},
     })
-    write(WIDGETS, "dropdown", {
-        "type": "dropdown",
+    write(WIDGETS, "select", {
+        "type": "select",
         "data": {
             "id": "env",
             "items": [
@@ -74,8 +151,8 @@ def widgets() -> None:
             "selected": 0,
         },
     })
-    write(WIDGETS, "dropdown-empty", {
-        "type": "dropdown",
+    write(WIDGETS, "select-empty", {
+        "type": "select",
         "data": {"id": "env", "items": []},
     })
     write(WIDGETS, "badge", {"type": "badge", "data": {"label": "42%"}})
@@ -116,9 +193,51 @@ def widgets() -> None:
         "type": "status",
         "data": {"variant": "warning"},
     })
-    write(WIDGETS, "icon", {
-        "type": "icon",
-        "data": {"icon": {"name": "network-wireless-symbolic"}, "pixel_size": 24},
+    write(WIDGETS, "pager-item-number-active", {
+        "type": "pager_item",
+        "data": {
+            "id": "workspace-1",
+            "appearance": "numbers",
+            "label": "1",
+            "active": True,
+            "inactive": False,
+            "occupied": False,
+            "urgent": False,
+        },
+    })
+    write(WIDGETS, "pager-strip", {
+        "type": "pager_strip",
+        "data": {
+            "items": [
+                {
+                    "id": "workspace-1",
+                    "appearance": "numbers",
+                    "label": "1",
+                    "active": True,
+                    "inactive": False,
+                    "occupied": False,
+                    "urgent": False,
+                },
+                {
+                    "id": "workspace-2",
+                    "appearance": "numbers",
+                    "label": "2",
+                    "active": False,
+                    "inactive": False,
+                    "occupied": True,
+                    "urgent": False,
+                },
+                {
+                    "id": "workspace-3",
+                    "appearance": "dots",
+                    "label": "",
+                    "active": False,
+                    "inactive": False,
+                    "occupied": False,
+                    "urgent": True,
+                },
+            ],
+        },
     })
     write(WIDGETS, "image-by-name", {
         "type": "image",
@@ -127,6 +246,14 @@ def widgets() -> None:
     write(WIDGETS, "image-by-path", {
         "type": "image",
         "data": {"icon": {"path": "/home/me/avatar.png"}, "pixel_size": 64},
+    })
+    write(WIDGETS, "picture", {
+        "type": "picture",
+        "data": {"path": "/home/me/photo.png"},
+    })
+    write(WIDGETS, "picture-content-fit", {
+        "type": "picture",
+        "data": {"path": "/home/me/photo.png", "content_fit": "cover"},
     })
     write(WIDGETS, "separator", {"type": "separator", "data": {}})
     write(WIDGETS, "box-vertical", {
@@ -187,102 +314,65 @@ def widgets() -> None:
     write(WIDGETS, "section-basic", {
         "type": "section",
         "data": {
-            "header": {"title": "System"},
-            "body": [
+            "title": "System",
+            "children": [
                 {"type": "label", "data": {"text": "uptime"}},
             ],
         },
     })
-    write(WIDGETS, "section-empty-body", {
+    write(WIDGETS, "section-empty-children", {
         "type": "section",
-        "data": {"header": {"title": "Empty"}, "body": []},
+        "data": {"title": "Empty", "children": []},
     })
-    write(WIDGETS, "collapsible-closed", {
-        "type": "collapsible",
-        "data": {
-            "header": {"title": "Advanced"},
-            "expanded": False,
-            "body": [],
-        },
-    })
-    write(WIDGETS, "collapsible-open-with-body", {
-        "type": "collapsible",
-        "data": {
-            "header": {"title": "Advanced"},
-            "expanded": True,
-            "body": [
-                {"type": "label", "data": {"text": "inside"}},
-            ],
-        },
-    })
-    write(WIDGETS, "item-basic", {
-        "type": "item",
-        "data": {"label": "Plain", "clickable": False, "menu": []},
-    })
-    write(WIDGETS, "item-clickable", {
-        "type": "item",
-        "data": {"id": "run", "label": "Run", "clickable": True, "menu": []},
-    })
-    write(WIDGETS, "item-with-menu", {
-        "type": "item",
-        "data": {
-            "id": "wifi-home",
-            "label": "home-5G",
-            "clickable": True,
-            "menu": [
-                {"id": "forget", "label": "Forget"},
-                {"id": "details", "label": "Details", "enabled": False},
-            ],
-        },
-    })
-    write(WIDGETS, "collapsible-item", {
-        "type": "collapsible_item",
-        "data": {
-            "label": "Devices",
-            "expanded": False,
-            "body": [],
-        },
-    })
-    write(WIDGETS, "action-row", {
-        "type": "action_row",
-        "data": {"id": "go", "title": "Connect", "subtitle": "", "meta": ""},
-    })
-    write(WIDGETS, "action-row-with-meta", {
-        "type": "action_row",
-        "data": {
-            "id": "go",
-            "title": "Connect",
-            "subtitle": "wg0",
-            "meta": "4 routes",
-            "icon": {"name": "network-vpn-symbolic"},
-        },
-    })
-    write(WIDGETS, "action-menu", {
-        "type": "action_menu",
-        "data": {
-            "header": "Power profile",
-            "items": [
-                {"id": "saver", "label": "Power Saver", "checked": False},
-                {"id": "balanced", "label": "Balanced", "checked": True},
-            ],
-        },
-    })
-    write(WIDGETS, "action-menu-empty", {
-        "type": "action_menu",
-        "data": {"items": []},
-    })
-    write(WIDGETS, "detail-grid", {
-        "type": "detail_grid",
+    write(WIDGETS, "property-list", {
+        "type": "property_list",
         "data": {
             "rows": [
-                {"key": "SSID", "value": "home-5G"},
                 {"key": "IPv4", "value": "10.0.0.42"},
+                {"key": "SSID", "value": "home-5G"},
             ],
         },
     })
-    write(WIDGETS, "detail-grid-empty", {
-        "type": "detail_grid",
+    write(WIDGETS, "property-list-title", {
+        "type": "property_list",
+        "data": {
+            "title": "Network",
+            "rows": [
+                {"key": "IPv4", "value": "10.0.0.42"},
+                {"key": "SSID", "value": "home-5G"},
+            ],
+        },
+    })
+    write(WIDGETS, "property-list-empty", {
+        "type": "property_list",
         "data": {"rows": []},
+    })
+    write(WIDGETS, "item", {
+        "type": "item",
+        "data": {"label": "Wi-Fi"},
+    })
+    write(WIDGETS, "item-with-right", {
+        "type": "item",
+        "data": {
+            "icon": "network-wireless-symbolic",
+            "label": "Wi-Fi",
+            "sublabel": "Connected",
+            "right": {"type": "badge", "data": {"label": "home-5G"}},
+        },
+    })
+    write(WIDGETS, "action-item", {
+        "type": "action_item",
+        "data": {"id": "wifi", "label": "Wi-Fi"},
+    })
+    write(WIDGETS, "action-item-with-right", {
+        "type": "action_item",
+        "data": {
+            "id": "wifi",
+            "icon": "network-wireless-symbolic",
+            "label": "Wi-Fi",
+            "sublabel": "Connected",
+            "right": {"type": "badge", "data": {"label": "home-5G"}},
+        },
     })
     write(WIDGETS, "empty-state", {
         "type": "empty_state",
@@ -320,19 +410,6 @@ def widgets() -> None:
         "type": "copyable",
         "data": {"label": "IPv4", "value": "10.0.0.42"},
     })
-    write(WIDGETS, "toast", {
-        "type": "toast",
-        "data": {"title": "Saved", "message": ""},
-    })
-    write(WIDGETS, "toast-with-action", {
-        "type": "toast",
-        "data": {
-            "icon": {"name": "dialog-warning-symbolic"},
-            "title": "Update available",
-            "message": "Version 0.8 is available.",
-            "action": {"id": "update", "label": "Update"},
-        },
-    })
     write(WIDGETS, "common-props-all", {
         "type": "label",
         "data": {
@@ -365,8 +442,8 @@ def trees() -> None:
                 {
                     "type": "section",
                     "data": {
-                        "header": {"title": "Controls"},
-                        "body": [
+                        "title": "Controls",
+                        "children": [
                             {"type": "label", "data": {"text": "Current"}},
                             {
                                 "type": "button",

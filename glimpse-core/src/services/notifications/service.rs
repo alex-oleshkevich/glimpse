@@ -20,6 +20,7 @@ pub struct NotificationsService {
     command_rx: mpsc::Receiver<ServiceCommand<Command>>,
     server_rx: mpsc::Receiver<ServerRequest>,
     dispatcher: NotificationServerDispatcher,
+    max_history: usize,
 }
 
 pub(crate) enum ServerRequest {
@@ -80,6 +81,7 @@ impl NotificationsService {
                 command_rx,
                 server_rx,
                 dispatcher,
+                max_history: 100,
             },
             ServiceHandle::new(state_rx, command_tx),
         )
@@ -147,6 +149,7 @@ impl NotificationsService {
                 );
                 if accepts_notification(state, &entry) {
                     upsert_notification(&mut state.notifications, entry);
+                    enforce_history_limit(&mut state.notifications, self.max_history);
                 } else {
                     tracing::debug!(
                         id = entry.id,
@@ -165,11 +168,16 @@ impl NotificationsService {
     }
 
     async fn handle_command(
-        &self,
+        &mut self,
         state: &mut State,
         signal_emitter: Option<&zbus::object_server::SignalEmitter<'static>>,
         command: Command,
     ) {
+        if let Command::SetMaxHistory(max) = command {
+            self.max_history = max;
+            return;
+        }
+
         state.active_action = Some(active_action_for(&command));
         self.publish(state);
 
@@ -223,6 +231,7 @@ impl NotificationsService {
                 state.dnd = enabled;
                 Ok(())
             }
+            Command::SetMaxHistory(_) => unreachable!("handled before active_action tracking"),
         };
 
         if let Err(error) = result {
@@ -300,6 +309,7 @@ fn active_action_for(command: &Command) -> ActiveAction {
             action_key: action_key.clone(),
         },
         Command::SetDnd(enabled) => ActiveAction::SetDnd(*enabled),
+        Command::SetMaxHistory(_) => unreachable!("handled before active_action tracking"),
     }
 }
 
@@ -308,6 +318,19 @@ fn signal_name(signal: &Signal) -> &'static str {
         Signal::NotificationClosed { .. } => "NotificationClosed",
         Signal::ActionInvoked { .. } => "ActionInvoked",
         Signal::ActivationToken { .. } => "ActivationToken",
+    }
+}
+
+fn enforce_history_limit(notifications: &mut Vec<NotificationEntry>, max: usize) {
+    if max == 0 || notifications.len() <= max {
+        return;
+    }
+    let mut i = notifications.len();
+    while notifications.len() > max && i > 0 {
+        i -= 1;
+        if notifications[i].urgency < 2 {
+            notifications.remove(i);
+        }
     }
 }
 
@@ -383,5 +406,48 @@ mod tests {
 
         assert!(!accepts_notification(&state, &normal));
         assert!(accepts_notification(&state, &critical));
+    }
+
+    #[test]
+    fn enforce_history_limit_removes_oldest_non_critical_first() {
+        let mut notifications = vec![
+            notification(3, "newest"),
+            notification(2, "middle"),
+            notification(1, "oldest"),
+        ];
+        enforce_history_limit(&mut notifications, 2);
+        assert_eq!(notifications.len(), 2);
+        assert_eq!(notifications[0].id, 3);
+        assert_eq!(notifications[1].id, 2);
+    }
+
+    #[test]
+    fn enforce_history_limit_preserves_critical_notifications() {
+        let mut critical = notification(1, "oldest critical");
+        critical.urgency = 2;
+        let mut notifications = vec![
+            notification(3, "newest"),
+            notification(2, "middle"),
+            critical,
+        ];
+        enforce_history_limit(&mut notifications, 2);
+        assert_eq!(notifications.len(), 2);
+        assert!(notifications.iter().any(|n| n.id == 1));
+        assert!(notifications.iter().any(|n| n.id == 3));
+    }
+
+    #[test]
+    fn enforce_history_limit_zero_means_unlimited() {
+        let mut notifications: Vec<NotificationEntry> =
+            (1..=200).map(|i| notification(i, "n")).collect();
+        enforce_history_limit(&mut notifications, 0);
+        assert_eq!(notifications.len(), 200);
+    }
+
+    #[test]
+    fn enforce_history_limit_noop_when_within_limit() {
+        let mut notifications = vec![notification(1, "a"), notification(2, "b")];
+        enforce_history_limit(&mut notifications, 5);
+        assert_eq!(notifications.len(), 2);
     }
 }

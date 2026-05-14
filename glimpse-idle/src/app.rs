@@ -192,8 +192,7 @@ async fn wire_inhibitor_subsystem(
         Ok(true) => tracing::info!("acquired org.freedesktop.ScreenSaver"),
         Ok(false) => {
             tracing::warn!("ScreenSaver bus name already owned — running in degraded mode");
-            health.lock().await.screen_saver =
-                BackendHealth::degraded("Bus name already owned");
+            health.lock().await.screen_saver = BackendHealth::degraded("Bus name already owned");
         }
         Err(e) => {
             tracing::warn!(error = ?e, "ScreenSaver bus name acquisition failed");

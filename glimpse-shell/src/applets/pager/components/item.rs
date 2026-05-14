@@ -3,7 +3,9 @@ use relm4::{
     gtk::{self, prelude::*},
 };
 
-use super::strip::{Output, PagerAppearance, PagerItem};
+use crate::components::pager::{PagerItemView, apply_pager_item_view};
+
+use super::strip::{Output, PagerItem};
 
 pub struct Item {
     view: PagerItem,
@@ -31,24 +33,20 @@ impl Item {
     }
 
     fn apply_view(&self, root: &gtk::Box, label: &gtk::Label) {
-        set_class(
-            root,
-            "pager-dot",
-            self.view.appearance == PagerAppearance::Dots,
-        );
-        set_class(
-            root,
-            "pager-num",
-            self.view.appearance == PagerAppearance::Numbers,
-        );
         let active = self.view.focused && self.view.monitor_focused;
         let inactive = self.view.focused && !self.view.monitor_focused;
-        set_class(root, "active", active);
-        set_class(root, "inactive", inactive);
-        set_class(root, "occupied", self.view.occupied && !self.view.focused);
-        set_class(root, "urgent", self.view.urgent);
-        label.set_visible(self.view.appearance == PagerAppearance::Numbers);
-        label.set_label(&self.view.label);
+        apply_pager_item_view(
+            root,
+            label,
+            &PagerItemView {
+                appearance: self.view.appearance,
+                label: self.view.label.clone(),
+                active,
+                inactive,
+                occupied: self.view.occupied && !self.view.focused,
+                urgent: self.view.urgent,
+            },
+        );
     }
 }
 
@@ -113,13 +111,5 @@ impl FactoryComponent for Item {
 
     fn update_view(&self, widgets: &mut Self::Widgets, _sender: FactorySender<Self>) {
         self.apply_view(&widgets.root, &widgets.label);
-    }
-}
-
-fn set_class(widget: &gtk::Box, class: &str, active: bool) {
-    if active {
-        widget.add_css_class(class);
-    } else {
-        widget.remove_css_class(class);
     }
 }

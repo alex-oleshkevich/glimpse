@@ -44,7 +44,12 @@ class CounterApplet extends Applet<CounterState> {
           subtitle: `Value: ${state.count}`,
         }),
         new Label(`Count = ${state.count}`),
-        new Button({ id: "increment", label: "Increment" }),
+        new Button({
+          id: "increment",
+          label: "Increment",
+          icon: "list-add-symbolic",
+          variant: "primary",
+        }),
       ],
       8,
     );

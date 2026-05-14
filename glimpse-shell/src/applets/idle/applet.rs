@@ -11,7 +11,9 @@ use crate::services::{
     wayland_idle_inhibit::WaylandHealth,
 };
 
-use super::popover::{Init as PopoverInit, Input as PopoverInput, Output as PopoverOutput, Popover};
+use super::popover::{
+    Init as PopoverInit, Input as PopoverInput, Output as PopoverOutput, Popover,
+};
 
 pub struct Applet {
     icon_name: &'static str,
@@ -227,11 +229,15 @@ mod tests {
 
     fn rec() -> IdleInhibitorRecord {
         IdleInhibitorRecord {
-            id: 1, who: "x".into(), why: "y".into(), bus_name: ":1.1".into(),
+            id: 1,
+            who: "x".into(),
+            why: "y".into(),
+            bus_name: ":1.1".into(),
             process_name: String::new(),
             source: IdleInhibitorSource::screen_saver(1),
             targets: InhibitionTargets::idle_only(),
-            can_release: true, added_at_unix: 0,
+            can_release: true,
+            added_at_unix: 0,
         }
     }
 

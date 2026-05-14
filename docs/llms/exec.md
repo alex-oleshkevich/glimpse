@@ -187,9 +187,6 @@ Each item:
 | `tooltip` | string | unset | Hover text. |
 
 Left-click on a status item opens the popover (if the applet has any).
-Right-click opens the item's context menu (if any was set on the corresponding
-popover `item` — see component reference). Status items themselves do not
-carry menus directly.
 
 ### `popover`
 
@@ -201,8 +198,8 @@ will buffer them.
 ```
 popover {"root":{"type":"section","data":{
   "title":"System",
-  "body":[
-    {"type":"item","data":{"label":"CPU","right":{"type":"badge","data":{"label":"42%"}}}},
+  "children":[
+    {"type":"row","data":{"spacing":8,"children":[{"type":"label","data":{"text":"CPU"}},{"type":"badge","data":{"label":"42%"}}]}},
     {"type":"meter","data":{"label":"Memory","value":0.51,"text":"51%"}}
   ]
 }}}
@@ -229,7 +226,7 @@ default to unset unless noted.
 
 | Field | Type | Values | Meaning |
 |---|---|---|---|
-| `id` | string | — | Required for interactive components (button, switch, scale, checkbox, dropdown, clickable item, interactive meter). Used as the `id` in events. |
+| `id` | string | — | Required for interactive components (button, switch, toggle_button, slider, checkbox, select, interactive meter). Used as the `id` in events. |
 | `visible` | bool | `true`/`false`; default `true` | Hide the component without removing it. |
 | `hexpand` | bool | default `false` | Let the component grow horizontally. |
 | `vexpand` | bool | default `false` | Let the component grow vertically. |
@@ -329,41 +326,82 @@ Wrap a node in a scrollable region.
 |---|---|---|
 | `child` | node | Required. The content to scroll. |
 
+#### `overlay`
+
+Stack render-only overlay nodes above a base child.
+
+```json
+{"type":"overlay","data":{"child":{"type":"picture","data":{"path":"/home/me/.cache/avatar.png","content_fit":"cover"}},"overlays":[{"type":"badge","data":{"label":"Live","halign":"end","valign":"start"}}]}}
+```
+
+| Field | Type | Default |
+|---|---|---|
+| `child` | node | required |
+| `overlays` | array of nodes | `[]` |
+
+#### `list_box`
+
+GTK list with one row per child.
+
+```json
+{"type":"list_box","data":{"children":[{"type":"label","data":{"text":"First"}},{"type":"badge","data":{"label":"Second"}}]}}
+```
+
+| Field | Type | Default |
+|---|---|---|
+| `children` | array of nodes | `[]` |
+
+#### `expander`
+
+Collapsible disclosure container backed by `gtk::Expander`.
+
+```json
+{"type":"expander","data":{"label":"Details","expanded":true,"child":{"type":"label","data":{"text":"More"}}}}
+```
+
+| Field | Type | Default |
+|---|---|---|
+| `label` | string | required |
+| `expanded` | bool | `false` |
+| `child` | node | required |
+
+#### `tree_expander`
+
+GTK tree expander wrapper around one child.
+
+```json
+{"type":"tree_expander","data":{
+  "child":{"type":"label","data":{"text":"Nested"}},
+  "hide_expander":true,
+  "indent_for_depth":true,
+  "indent_for_icon":true
+}}
+```
+
+| Field | Type | Default |
+|---|---|---|
+| `child` | node | required |
+| `hide_expander` | bool | `false` |
+| `indent_for_depth` | bool | `false` |
+| `indent_for_icon` | bool | `false` |
+
 #### `section`
 
 Titled group with optional subtitle.
 
 ```json
 {"type":"section","data":{
-  "header":{"title":"Network","subtitle":"Connected"},
-  "body":[ /* nodes */ ]
+  "title":"Network",
+  "subtitle":"Connected",
+  "children":[ /* nodes */ ]
 }}
 ```
 
 | Field | Type | Default |
 |---|---|---|
-| `header` | object `{title, subtitle?}` | unset |
-| `body` | array of nodes | `[]` |
-
-Some SDKs also accept `title`/`subtitle` directly as a shorthand for the header.
-
-#### `collapsible`
-
-Section that can be expanded/collapsed by the user.
-
-```json
-{"type":"collapsible","data":{
-  "header":{"title":"Advanced"},
-  "expanded":false,
-  "body":[ /* nodes */ ]
-}}
-```
-
-| Field | Type | Default |
-|---|---|---|
-| `header` | object `{title, subtitle?}` | unset |
-| `expanded` | bool | `false` |
-| `body` | array of nodes | `[]` |
+| `title` | string | `""` |
+| `subtitle` | string | `""` |
+| `children` | array of nodes | `[]` |
 
 #### `card`
 
@@ -446,9 +484,22 @@ Image from icon name or file path. Same shape as `icon`.
 {"type":"image","data":{"icon":{"path":"/home/me/.cache/avatar.png"},"pixel_size":64}}
 ```
 
+#### `picture`
+
+Image file rendered with `gtk::Picture`.
+
+```json
+{"type":"picture","data":{"path":"/home/me/.cache/avatar.png","content_fit":"cover"}}
+```
+
+| Field | Type | Default |
+|---|---|---|
+| `path` | string file path | required |
+| `content_fit` | string: `fill`, `contain`, `cover`, `scale_down` | `contain` |
+
 #### `badge`
 
-Small inline pill, typically used in `item.right` or as a status indicator.
+Small inline pill, typically used in rows, headers, or as a status indicator.
 
 ```json
 {"type":"badge","data":{"label":"42%","variant":"success"}}
@@ -513,6 +564,21 @@ Plain progress bar.
 | `show_text` | bool | `false` |
 | `text` | string | unset |
 
+#### `level_bar`
+
+Native GTK level indicator.
+
+```json
+{"type":"level_bar","data":{"value":0.7,"min":0.0,"max":1.0,"mode":"continuous"}}
+```
+
+| Field | Type | Default |
+|---|---|---|
+| `value` | float | required |
+| `min` | float | `0.0` |
+| `max` | float | `1.0` |
+| `mode` | string: `continuous`, `discrete` | `continuous` |
+
 #### `spinner`
 
 Loading indicator.
@@ -538,28 +604,6 @@ Label + value pair with a copy-to-clipboard affordance on the value.
 | `label` | string | `""` |
 | `value` | string | required |
 
-#### `toast`
-
-Inline notice / alert.
-
-```json
-{"type":"toast","data":{
-  "icon":{"name":"dialog-warning-symbolic"},
-  "title":"Update available",
-  "message":"glimpse 0.8.0 is available.",
-  "action":{"id":"update","label":"Update"}
-}}
-```
-
-| Field | Type | Default |
-|---|---|---|
-| `icon` | object | unset |
-| `title` | string | required |
-| `message` | string | `""` |
-| `action` | object `{id, label}` | unset |
-
-If `action` is set, clicking it emits a `click` event with the action's `id`.
-
 #### `empty_state`
 
 Friendly placeholder when there's nothing to show.
@@ -573,126 +617,12 @@ Friendly placeholder when there's nothing to show.
 | `title` | string | required |
 | `subtitle` | string | `""` |
 
-### List & Item Components
-
-#### `item`
-
-Standard list row. Left content, label, right content, optional context menu.
-
-```json
-{"type":"item","data":{
-  "id":"wifi-home",
-  "left":{"type":"icon","data":{"icon":{"name":"network-wireless-symbolic"}}},
-  "label":"home-5G",
-  "right":{"type":"badge","data":{"label":"−42 dBm"}},
-  "clickable":true,
-  "menu":[
-    {"id":"forget","label":"Forget","enabled":true,"visible":true},
-    {"id":"details","label":"Details"}
-  ]
-}}
-```
-
-| Field | Type | Default |
-|---|---|---|
-| `left` | node | unset |
-| `label` | string | `""` |
-| `right` | node | unset |
-| `clickable` | bool | `false` |
-| `menu` | array of menu items | `[]` |
-
-Each `menu` entry:
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `id` | string | required | Event id when the entry is selected. |
-| `label` | string | required | Display text. |
-| `enabled` | bool | `true` | Greyed out when `false`. |
-| `visible` | bool | `true` | Hidden when `false`. |
-
-#### `collapsible_item`
-
-Item that expands to reveal nested content.
-
-```json
-{"type":"collapsible_item","data":{
-  "left":{"type":"icon","data":{"icon":{"name":"folder-symbolic"}}},
-  "label":"Devices",
-  "expanded":false,
-  "body":[ /* nodes */ ]
-}}
-```
-
-| Field | Type | Default |
-|---|---|---|
-| `left` | node | unset |
-| `label` | string | `""` |
-| `right` | node | unset |
-| `expanded` | bool | `false` |
-| `body` | array of nodes | `[]` |
-
-#### `action_row`
-
-Larger summary-style row, usually for top-level actions inside a section.
-
-```json
-{"type":"action_row","data":{
-  "id":"connect",
-  "title":"Connect to VPN",
-  "subtitle":"wg0",
-  "meta":"4 routes",
-  "icon":{"name":"network-vpn-symbolic"}
-}}
-```
-
-| Field | Type | Default |
-|---|---|---|
-| `title` | string | required |
-| `subtitle` | string | `""` |
-| `meta` | string | `""` |
-| `icon` | object | unset |
-
-Emits `click` events when the row's `id` is set.
-
-#### `action_menu`
-
-Compact picker — a list of mutually selectable / toggleable actions.
-
-```json
-{"type":"action_menu","data":{
-  "header":"Power profile",
-  "items":[
-    {"id":"power-saver","label":"Power Saver","checked":false},
-    {"id":"balanced","label":"Balanced","checked":true},
-    {"id":"performance","label":"Performance","checked":false}
-  ]
-}}
-```
-
-| Field | Type | Default |
-|---|---|---|
-| `header` | string | unset |
-| `items` | array of action-menu items | `[]` |
-
-Each item:
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `id` | string | required | Event id. |
-| `label` | string | required | Display text. |
-| `icon` | object | unset | Optional icon. |
-| `visible` | bool | `true` | Hide without removing. |
-| `checked` | bool | unset | Show a checkmark. |
-| `selectable` | bool | `true` | If `false`, the item is decorative. |
-
-Selecting an item emits a `click` event with that item's `id`.
-
-#### `detail_grid`
+#### `property_list`
 
 Two-column key/value table.
 
 ```json
-{"type":"detail_grid","data":{"rows":[
+{"type":"property_list","data":{"title":"Network","rows":[
   {"key":"SSID","value":"home-5G"},
   {"key":"IPv4","value":"10.0.0.42"},
   {"key":"Gateway","value":"10.0.0.1"}
@@ -701,24 +631,102 @@ Two-column key/value table.
 
 | Field | Type | Default |
 |---|---|---|
+| `title` | string | `""` |
 | `rows` | array of `{key, value}` | `[]` |
+
+#### `item`
+
+Display-only row with optional icon, sublabel, and a right child slot.
+
+```json
+{"type":"item","data":{
+  "icon":"network-wireless-symbolic",
+  "label":"Wi-Fi",
+  "sublabel":"Connected",
+  "right":{"type":"badge","data":{"label":"home-5G"}}
+}}
+```
+
+| Field | Type | Default |
+|---|---|---|
+| `icon` | string icon name | `""` |
+| `label` | string | required |
+| `sublabel` | string | `""` |
+| `right` | component node | unset |
+
+#### `action_item`
+
+Clickable row with optional icon, sublabel, and a render-only right child slot.
+
+```json
+{"type":"action_item","data":{
+  "id":"wifi",
+  "icon":"network-wireless-symbolic",
+  "label":"Wi-Fi",
+  "sublabel":"Connected",
+  "right":{"type":"badge","data":{"label":"home-5G"}}
+}}
+```
+
+| Field | Type | Default |
+|---|---|---|
+| `id` | string | required for events |
+| `icon` | string icon name | `""` |
+| `label` | string | required |
+| `sublabel` | string | `""` |
+| `right` | component node | unset |
+| `enabled` | bool | `true` |
+
+Emits `click` with `button: "left"` from the row. The `right` node is visual only.
 
 ### Interactive Controls
 
 #### `button`
 
 ```json
-{"type":"button","data":{"id":"deploy","label":"Deploy","icon":{"name":"rocket-symbolic"}}}
+{"type":"button","data":{"id":"deploy","label":"Deploy","icon":"rocket-symbolic","variant":"primary"}}
 ```
 
 | Field | Type | Default |
 |---|---|---|
 | `id` | string | required for events |
 | `label` | string | unset |
-| `icon` | object | unset |
-| `child` | node | unset (use for fully custom content) |
+| `icon` | string | unset |
+| `enabled` | bool | `true` |
+| `variant` | string | `flat`; one of `primary`, `secondary`, `compact`, `flat`, `danger` |
 
 Emits `click` with `button: "left"`.
+
+#### `link_button`
+
+Link-style button that opens a URI through GTK. It does not emit applet events.
+
+```json
+{"type":"link_button","data":{"uri":"https://example.com/docs","label":"Docs"}}
+```
+
+| Field | Type | Default |
+|---|---|---|
+| `uri` | string URI | required |
+| `label` | string | unset |
+
+#### `menu_button`
+
+Button that opens a rendered nested popover. The `menu_button` itself does not emit applet events; controls inside its `popover` node keep their normal behavior.
+
+```json
+{"type":"menu_button","data":{
+  "label":"More",
+  "icon":"open-menu-symbolic",
+  "popover":{"type":"label","data":{"text":"Menu content"}}
+}}
+```
+
+| Field | Type | Default |
+|---|---|---|
+| `label` | string | unset |
+| `icon` | string icon name | unset |
+| `popover` | node | required |
 
 #### `switch`
 
@@ -734,6 +742,16 @@ Emits `click` with `button: "left"`.
 
 Emits `toggle` with `active` (and equivalently `value`).
 
+#### `toggle_button`
+
+Button-like toggle control.
+
+```json
+{"type":"toggle_button","data":{"id":"focus","label":"Focus mode","active":false}}
+```
+
+Same fields and events as `switch`.
+
 #### `checkbox`
 
 ```json
@@ -742,12 +760,12 @@ Emits `toggle` with `active` (and equivalently `value`).
 
 Same fields and events as `switch`.
 
-#### `scale`
+#### `slider`
 
 Slider.
 
 ```json
-{"type":"scale","data":{
+{"type":"slider","data":{
   "id":"brightness",
   "min":0.0,
   "max":1.0,
@@ -770,10 +788,10 @@ Slider.
 
 Emits `change` with numeric `value`.
 
-#### `dropdown`
+#### `select`
 
 ```json
-{"type":"dropdown","data":{
+{"type":"select","data":{
   "id":"network",
   "selected":1,
   "items":[
@@ -789,7 +807,7 @@ Emits `change` with numeric `value`.
 | `items` | array of `{id, label}` | `[]` |
 | `selected` | int | unset |
 
-Emits `change` with the selected item's `id` and index.
+Emits `change` with the selected item's `id`, label, and index.
 
 ---
 
@@ -802,14 +820,13 @@ All events have at minimum `id`, `type`, `source`. Type-specific fields:
 | Status item | `click` | `button: "left"\|"middle"\|"right"` | `status` item with `id` |
 | Status item | `scroll` | `delta_y: float` | `status` item with `id` |
 | Popover button | `click` | `button: "left"` | `button` |
-| Popover item | `click` | `button: "left"` | `item` with `clickable:true` and `id` |
-| Popover action_row | `click` | `button: "left"` | `action_row` with `id` |
-| Popover action_menu item | `click` | — (id is the item's id) | `action_menu` |
+| Popover action item | `click` | `button: "left"` | `action_item` |
 | Popover switch | `toggle` | `active: bool`, `value: bool` | `switch` |
+| Popover toggle button | `toggle` | `active: bool`, `value: bool` | `toggle_button` |
 | Popover checkbox | `toggle` | `active: bool`, `value: bool` | `checkbox` |
-| Popover scale | `change` | `value: float` | `scale` |
+| Popover slider | `change` | `value: float` | `slider` |
 | Popover interactive meter | `change` | `value: float` | `meter` with `interactive:true` |
-| Popover dropdown | `change` | `value: {id, label, index}` | `dropdown` |
+| Popover select | `change` | `value: {id, label, index}` | `select` |
 | Popover input | `input` | `text: string` | (reserved for future input components) |
 | Popover lifecycle | `open` / `close` | `id: "popover"` | popover open/close |
 
@@ -883,7 +900,7 @@ render_status() {
 }
 
 render_popover() {
-  printf 'popover {"root":{"type":"section","data":{"header":{"title":"CPU"},"body":[{"type":"item","data":{"label":"Temperature","right":{"type":"badge","data":{"label":"%s"}}}},{"type":"button","data":{"id":"refresh","label":"Refresh"}}]}}}\n' "$1"
+  printf 'popover {"root":{"type":"section","data":{"title":"CPU","children":[{"type":"row","data":{"spacing":8,"children":[{"type":"label","data":{"text":"Temperature"}},{"type":"badge","data":{"label":"%s"}}]}},{"type":"button","data":{"id":"refresh","label":"Refresh"}}]}}}\n' "$1"
 }
 
 read_temp() {
@@ -958,10 +975,11 @@ from glimpse_sdk import (
     Applet,
     AppletState,
     Button,
+    ButtonVariant,
     Column,
     Hero,
     Icon,
-    Item,
+    Label,
     Section,
     StatusItem,
     click,
@@ -997,9 +1015,14 @@ class CounterApplet(Applet[CounterState]):
                 ),
                 Section(
                     title="Controls",
-                    body=[
-                        Item(label="Current", right=None),
-                        Button(id="increment", label="Increment"),
+                    children=[
+                        Label(text="Current"),
+                        Button(
+                            id="increment",
+                            label="Increment",
+                            icon="list-add-symbolic",
+                            variant=ButtonVariant.PRIMARY,
+                        ),
                     ],
                 ),
             ],
@@ -1055,7 +1078,7 @@ import {
   Column,
   Hero,
   Icon,
-  Item,
+  Label,
   Section,
   StatusItem,
   type TreeNode,
@@ -1098,9 +1121,14 @@ class CounterApplet extends Applet<CounterState> {
         }),
         new Section({
           title: "Controls",
-          body: [
-            new Item({ label: "Current" }),
-            new Button({ id: "increment", label: "Increment" }),
+          children: [
+            new Label("Current"),
+            new Button({
+              id: "increment",
+              label: "Increment",
+              icon: "list-add-symbolic",
+              variant: "primary",
+            }),
           ],
         }),
       ],
@@ -1148,8 +1176,8 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```rust
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, Button, CallbackEvent, Column, Hero, Icon, Item, Section, StatusItem,
-    TreeNode, run, tree,
+    Applet, AppletResult, Button, ButtonVariant, CallbackEvent, Column, Hero, Icon, Label, Section,
+    StatusItem, TreeNode, run, tree,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -1179,8 +1207,11 @@ impl Applet for CounterApplet {
                 Section::new(
                     "Controls",
                     tree![
-                        Item::new("Current"),
-                        Button::new("increment").label("Increment"),
+                        Label::new("Current"),
+                        Button::new("increment")
+                            .label("Increment")
+                            .icon("list-add-symbolic")
+                            .variant(ButtonVariant::Primary),
                     ],
                 ),
             ])
@@ -1289,12 +1320,14 @@ func (a *counterApplet) Popover(_ context.Context, state *counterState) (sdk.Wid
 		Children: []sdk.Widget{
 			sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
 			sdk.Section{
-				Header: &sdk.Header{Title: "Controls"},
-				Body: []sdk.Widget{
-					sdk.Item{Label: "Current"},
+				Title: "Controls",
+				Children: []sdk.Widget{
+					sdk.Label{Text: "Current"},
 					sdk.Button{
 						CommonProps: sdk.CommonProps{ID: "increment"},
 						Label:       "Increment",
+						Icon:        "list-add-symbolic",
+						Variant:     sdk.ButtonVariantPrimary,
 					},
 				},
 			},

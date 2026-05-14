@@ -1,0 +1,13 @@
+{
+  "data": {
+    "icon": "open-menu-symbolic",
+    "label": "More",
+    "popover": {
+      "data": {
+        "text": "Menu content"
+      },
+      "type": "label"
+    }
+  },
+  "type": "menu_button"
+}

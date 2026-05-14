@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::collections::HashSet;
 use std::fmt::Debug;
 
@@ -90,6 +88,7 @@ struct DeviceRow<Command> {
     primary_action_slot: gtk::Box,
 }
 
+#[allow(unused_assignments)]
 #[relm4::component]
 impl<Command> SimpleComponent for DeviceRow<Command>
 where
@@ -318,7 +317,6 @@ fn render_chip_row(list: &gtk::Box, chips: &[DeviceListChip]) {
 
     let has_primary = chips.iter().any(|chip| chip.tier == ChipTier::Primary);
     let has_secondary = chips.iter().any(|chip| chip.tier == ChipTier::Secondary);
-    let mut separator_inserted = false;
 
     for chip in chips.iter().filter(|chip| chip.tier == ChipTier::Primary) {
         list.append(&build_chip_label(chip));
@@ -328,9 +326,7 @@ fn render_chip_row(list: &gtk::Box, chips: &[DeviceListChip]) {
         let separator = gtk::Separator::new(gtk::Orientation::Vertical);
         separator.add_css_class("chip-row__separator");
         list.append(&separator);
-        separator_inserted = true;
     }
-    let _ = separator_inserted;
 
     for chip in chips.iter().filter(|chip| chip.tier == ChipTier::Secondary) {
         list.append(&build_chip_label(chip));
@@ -490,6 +486,7 @@ where
     }
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl<Command> SimpleComponent for DeviceList<Command>
 where

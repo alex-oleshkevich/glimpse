@@ -29,37 +29,6 @@ pub struct StatusItem {
     pub tooltip: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct MenuItem {
-    pub id: String,
-    pub label: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub visible: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub enabled: Option<bool>,
-}
-
-impl MenuItem {
-    pub fn new(id: impl Into<String>, label: impl Into<String>) -> Self {
-        Self {
-            id: id.into(),
-            label: label.into(),
-            visible: None,
-            enabled: None,
-        }
-    }
-
-    pub fn visible(mut self, visible: bool) -> Self {
-        self.visible = Some(visible);
-        self
-    }
-
-    pub fn enabled(mut self, enabled: bool) -> Self {
-        self.enabled = Some(enabled);
-        self
-    }
-}
-
 impl StatusItem {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
@@ -82,5 +51,4 @@ impl StatusItem {
         self.tooltip = Some(tooltip.into());
         self
     }
-
 }

@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::rc::Rc;
 
 use relm4::{
@@ -40,6 +38,7 @@ pub enum Output {
     Event(EventPayload),
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Popover {
     type Init = Init;

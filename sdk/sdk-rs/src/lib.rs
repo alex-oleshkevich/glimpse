@@ -7,12 +7,12 @@ mod widgets;
 /// each in `TreeNode::from(...)` automatically.
 ///
 /// ```ignore
-/// use glimpse_sdk::{tree, Button, Column, Hero, Item, Section, TreeNode};
+/// use glimpse_sdk::{tree, Button, Column, Hero, Label, Section, TreeNode};
 ///
 /// let column = Column::new(tree![
 ///     Hero::new("Counter", "Value: 0"),
 ///     Section::new("Controls", tree![
-///         Item::new("Current"),
+///         Label::new("Current"),
 ///         Button::new("increment").label("Increment"),
 ///     ]),
 /// ])
@@ -31,11 +31,12 @@ pub use events::{
     CallbackEvent, ChangeEvent, ClickEvent, InitEvent, InputEvent, PopoverEvent, ScrollEvent,
     ToggleEvent, parse_callback_event, parse_init_event,
 };
-pub use protocol::{Icon, MenuItem, StatusItem};
+pub use protocol::{Icon, StatusItem};
 pub use widgets::{
-    ActionMenu, ActionMenuItem, ActionRow, Align, Badge, BoxNode, Button, Card, Checkbox,
-    Collapsible, CollapsibleItem, Column, Copyable, DetailGrid, DetailGridItem, Dropdown,
-    DropdownItem, EmptyState, Grid, GridChild, Header, Hero, IconWidget, Image, Item, Label, Meter,
-    Orientation, Progress, Row, Scale, Scroll, Section, Separator, Spinner, StatusDot, Switch,
-    Toast, ToastAction, TreeNode, Variant,
+    ActionItem, Align, Badge, BoxNode, Button, ButtonVariant, Card, Checkbox, Column, Copyable,
+    ContentFit, EmptyState, Expander, Grid, GridChild, Hero, Image, Item, Label, LevelBar,
+    LevelBarMode, LinkButton, ListBox, MenuButton, Meter, Orientation, Overlay, PagerAppearance,
+    PagerItem, PagerStrip, Picture, Progress, PropertyList, Row, Scroll, Section, Select,
+    SelectOption, Separator, Slider, Spinner, StatusDot, Switch, ToggleButton, TreeExpander,
+    TreeNode, Variant,
 };

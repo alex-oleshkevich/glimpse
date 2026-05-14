@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::collections::HashMap;
 
 use relm4::{
@@ -131,6 +129,7 @@ enum ClickOutcome {
     ServiceCommand(Command),
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl Component for Applet {
     type Init = Init;

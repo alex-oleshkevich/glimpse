@@ -1,0 +1,34 @@
+{
+  "data": {
+    "items": [
+      {
+        "active": true,
+        "appearance": "numbers",
+        "id": "workspace-1",
+        "inactive": false,
+        "label": "1",
+        "occupied": false,
+        "urgent": false
+      },
+      {
+        "active": false,
+        "appearance": "numbers",
+        "id": "workspace-2",
+        "inactive": false,
+        "label": "2",
+        "occupied": true,
+        "urgent": false
+      },
+      {
+        "active": false,
+        "appearance": "dots",
+        "id": "workspace-3",
+        "inactive": false,
+        "label": "",
+        "occupied": false,
+        "urgent": true
+      }
+    ]
+  },
+  "type": "pager_strip"
+}

@@ -56,6 +56,7 @@ pub enum Command {
         activation_token: Option<String>,
     },
     SetDnd(bool),
+    SetMaxHistory(usize),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]

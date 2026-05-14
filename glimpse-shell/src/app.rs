@@ -18,7 +18,7 @@ use gio::prelude::ListModelExt;
 use glib::object::{Cast, CastNone};
 use glimpse_core::{
     Config, ConfigEvent, DiscoveredApplets, PanelConfig, config::merge_applet_configs,
-    services::theme::State as ThemeServiceState, watch_for_config_changes,
+    expand_dev_slot, services::theme::State as ThemeServiceState, watch_for_config_changes,
 };
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use gtk4_layer_shell::LayerShell;
@@ -40,6 +40,7 @@ pub enum Input {
     ThemeReload,
     ThemeChanged(ThemeServiceState),
     MonitorsChanged,
+    WaylandInstalled(panels::PanelKey),
 }
 
 pub struct App {
@@ -55,6 +56,7 @@ pub struct App {
     prompt_fallback_parent: gtk4::Widget,
     wayland_swap_tx: tokio::sync::mpsc::Sender<Box<dyn WaylandIdleInhibitor + Send>>,
     wayland_installed: bool,
+    wayland_pending: bool,
     wayland_host_key: Option<panels::PanelKey>,
 }
 
@@ -203,13 +205,14 @@ impl SimpleComponent for App {
             prompt_fallback_parent,
             wayland_swap_tx,
             wayland_installed: false,
+            wayland_pending: false,
             wayland_host_key: None,
         };
 
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
+    fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
             Input::ConfigChanged(config) => {
                 if self.config == config {
@@ -221,7 +224,7 @@ impl SimpleComponent for App {
                     .broadcast(Control::Reconfigure(config.clone()));
                 self.theme.reload(&config);
                 self.theme.apply_configured_mode(&config.theme_mode);
-                self.reconcile_panels(&config);
+                self.reconcile_panels(&config, &sender);
                 self.config = config;
             }
             Input::ThemeReload => {
@@ -257,12 +260,17 @@ impl SimpleComponent for App {
                 tracing::debug!("applet directories changed, reconciling panels");
                 self.discovered_applets = discovered;
                 let config = self.config.clone();
-                self.reconcile_panels(&config);
+                self.reconcile_panels(&config, &sender);
             }
             Input::MonitorsChanged => {
                 tracing::info!("monitors changed, reconciling panels");
                 let config = self.config.clone();
-                self.reconcile_panels(&config);
+                self.reconcile_panels(&config, &sender);
+            }
+            Input::WaylandInstalled(host_key) => {
+                self.wayland_pending = false;
+                self.wayland_installed = true;
+                self.wayland_host_key = Some(host_key);
             }
         }
     }
@@ -346,9 +354,16 @@ fn spawn_theme_subscription(
 }
 
 impl App {
-    fn reconcile_panels(&mut self, new_config: &Config) {
-        let effective_applets =
-            merge_applet_configs(&self.discovered_applets.normal, &new_config.applets);
+    fn reconcile_panels(&mut self, new_config: &Config, sender: &ComponentSender<Self>) {
+        // Merge normal + dev discovered applets; explicit config entries win.
+        let mut all_discovered = self.discovered_applets.normal.clone();
+        all_discovered.extend(self.discovered_applets.dev.clone());
+        let effective_applets = merge_applet_configs(&all_discovered, &new_config.applets);
+
+        // Sorted dev names used to expand __dev__ in each panel's slot lists.
+        let mut dev_names: Vec<String> = self.discovered_applets.dev.keys().cloned().collect();
+        dev_names.sort();
+
         let services = self.services.handles();
         let monitors = list_gdk_monitors();
 
@@ -360,6 +375,7 @@ impl App {
 
         let mut new_panels: Vec<PanelState> = Vec::new();
         for (index, cfg) in new_config.panels.iter().enumerate() {
+            let expanded = expand_dev_slot(cfg, &dev_names);
             for monitor in &monitors {
                 let connector = monitor_connector(monitor);
                 if let Some(target) = cfg.monitor.as_deref() {
@@ -376,15 +392,15 @@ impl App {
                     Some(state) => {
                         state.controller.emit(panels::Input::Reconfigure(
                             panels::PanelRuntimeConfig {
-                                config: cfg.clone(),
+                                config: expanded.clone(),
                                 applet_configs: effective_applets.clone(),
                             },
                         ));
                         state
                     }
                     None => build_panel(
-                        index,
-                        cfg.clone(),
+                        key,
+                        expanded.clone(),
                         services.clone(),
                         monitor.clone(),
                         effective_applets.clone(),
@@ -394,7 +410,7 @@ impl App {
             }
         }
         self.panels = new_panels;
-        self.update_prompt_parent(new_config);
+        self.update_prompt_parent();
 
         for (key, state) in existing.drain() {
             state.controller.widget().destroy();
@@ -414,14 +430,15 @@ impl App {
                 "wayland idle inhibitor host panel gone, rebinding"
             );
             self.wayland_installed = false;
+            self.wayland_pending = false;
             self.wayland_host_key = None;
         }
 
-        self.maybe_install_wayland_inhibitor();
+        self.maybe_install_wayland_inhibitor(sender);
     }
 
-    fn maybe_install_wayland_inhibitor(&mut self) {
-        if self.wayland_installed {
+    fn maybe_install_wayland_inhibitor(&mut self, sender: &ComponentSender<Self>) {
+        if self.wayland_installed || self.wayland_pending {
             return;
         }
         let Some(panel) = self.panels.first() else {
@@ -457,25 +474,27 @@ impl App {
                 self.wayland_host_key = Some(host_key);
             }
         } else {
+            self.wayland_pending = true;
+            self.wayland_host_key = Some(host_key.clone());
+            let input_sender = sender.input_sender().clone();
             let install_once = std::cell::Cell::new(Some(install));
-            self.wayland_installed = true;
-            self.wayland_host_key = Some(host_key);
             window.connect_map(move |w| {
                 if let Some(install) = install_once.take() {
-                    let _ = install(w);
+                    if install(w).is_ok() {
+                        let _ = input_sender.send(Input::WaylandInstalled(host_key.clone()));
+                    }
                 }
             });
         }
     }
 
-    fn update_prompt_parent(&self, config: &Config) {
+    fn update_prompt_parent(&self) {
         let parent = self
             .panels
             .first()
             .map(|panel| panel.controller.widget().clone().upcast())
             .unwrap_or_else(|| self.prompt_fallback_parent.clone());
 
-        let _ = config;
         let theme_mode = theme::DIALOG_THEME_MODE;
         theme::apply_theme_mode(&self.prompt_fallback_parent, &theme_mode);
         self.network_prompt_host
@@ -509,17 +528,12 @@ fn monitor_connector(monitor: &gdk::Monitor) -> Option<String> {
 }
 
 fn build_panel(
-    index: usize,
+    key: panels::PanelKey,
     config: PanelConfig,
     services: Services,
     monitor: gdk::Monitor,
     applet_configs: glimpse_core::AppletConfigs,
 ) -> PanelState {
-    let key = panels::PanelKey {
-        index,
-        monitor: monitor_connector(&monitor).unwrap_or_default(),
-        position: config.position.clone(),
-    };
     let monitor_connector = monitor_connector(&monitor);
     let controller = panels::Panel::builder()
         .launch(panels::Init {

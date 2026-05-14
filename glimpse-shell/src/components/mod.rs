@@ -15,6 +15,7 @@ pub mod list;
 pub mod menu_button;
 pub mod menu_item;
 pub mod meter;
+pub mod pager;
 pub mod popover_scroll;
 pub mod popover_shell;
 pub mod section_header;

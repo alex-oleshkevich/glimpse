@@ -1,0 +1,15 @@
+{
+  "data": {
+    "icon": "network-wireless-symbolic",
+    "id": "wifi",
+    "label": "Wi-Fi",
+    "right": {
+      "data": {
+        "label": "home-5G"
+      },
+      "type": "badge"
+    },
+    "sublabel": "Connected"
+  },
+  "type": "action_item"
+}

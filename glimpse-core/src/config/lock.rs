@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use crate::{FitMode, ResolvedImageSpec, ThemePack, WallpaperConfig, services::theme::EffectiveThemeMode};
+use crate::{
+    FitMode, ResolvedImageSpec, ThemePack, WallpaperConfig, services::theme::EffectiveThemeMode,
+};
 
 fn default_css_path() -> String {
     "themes/lock.css".into()

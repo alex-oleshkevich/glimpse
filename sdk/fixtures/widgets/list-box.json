@@ -1,0 +1,19 @@
+{
+  "data": {
+    "children": [
+      {
+        "data": {
+          "text": "First"
+        },
+        "type": "label"
+      },
+      {
+        "data": {
+          "label": "Second"
+        },
+        "type": "badge"
+      }
+    ]
+  },
+  "type": "list_box"
+}

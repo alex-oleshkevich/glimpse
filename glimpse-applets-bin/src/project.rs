@@ -23,6 +23,15 @@ impl Language {
         }
     }
 
+    pub fn entrypoint(self) -> &'static str {
+        match self {
+            Self::Rust => "src/main.rs",
+            Self::Python => "main.py",
+            Self::Typescript => "src/main.ts",
+            Self::Go => "main.go",
+        }
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             Self::Rust => "rust",
@@ -32,27 +41,52 @@ impl Language {
         }
     }
 
-    /// Detect a project's language by walking up from `dir` looking for a
-    /// language-defining manifest. Errors if zero or multiple are found in
-    /// the same directory; the caller can disambiguate with `--lang`.
+    /// Detect a project's language from `dir`. First tries manifest files
+    /// (Cargo.toml, pyproject.toml, package.json, go.mod); if none are found,
+    /// falls back to entry-point filenames (main.py, main.go, etc.). Pass
+    /// `--lang` to the caller to override when detection is ambiguous.
     pub fn detect(dir: &Path) -> Result<(Self, PathBuf)> {
-        let mut found: Vec<(Self, PathBuf)> = Vec::new();
-        for lang in [Self::Rust, Self::Python, Self::Typescript, Self::Go] {
-            let path = dir.join(lang.manifest());
-            if path.is_file() {
-                found.push((lang, path));
-            }
+        let all = [Self::Rust, Self::Python, Self::Typescript, Self::Go];
+
+        let mut by_manifest: Vec<(Self, PathBuf)> = all
+            .iter()
+            .filter_map(|&lang| {
+                let p = dir.join(lang.manifest());
+                p.is_file().then_some((lang, p))
+            })
+            .collect();
+
+        if by_manifest.len() == 1 {
+            return Ok(by_manifest.remove(0));
         }
-        match found.len() {
+        if by_manifest.len() > 1 {
+            let names: Vec<&str> = by_manifest.iter().map(|(l, _)| l.name()).collect();
+            return Err(anyhow!(
+                "multiple language manifests in {}: {}. pass --lang to choose.",
+                dir.display(),
+                names.join(", ")
+            ));
+        }
+
+        // No manifest — try entry-point files.
+        let mut by_entrypoint: Vec<(Self, PathBuf)> = all
+            .iter()
+            .filter_map(|&lang| {
+                let p = dir.join(lang.entrypoint());
+                p.is_file().then_some((lang, p))
+            })
+            .collect();
+
+        match by_entrypoint.len() {
             0 => Err(anyhow!(
                 "no language manifest found in {}. expected one of: Cargo.toml, pyproject.toml, package.json, go.mod",
                 dir.display()
             )),
-            1 => Ok(found.remove(0)),
+            1 => Ok(by_entrypoint.remove(0)),
             _ => {
-                let names: Vec<&str> = found.iter().map(|(l, _)| l.name()).collect();
+                let names: Vec<&str> = by_entrypoint.iter().map(|(l, _)| l.name()).collect();
                 Err(anyhow!(
-                    "multiple language manifests in {}: {}. pass --lang to choose.",
+                    "multiple entry points in {}: {}. pass --lang to choose.",
                     dir.display(),
                     names.join(", ")
                 ))

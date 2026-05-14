@@ -30,7 +30,11 @@ pub fn parse_mode(s: &str) -> Login1Mode {
 }
 
 pub fn key_of(e: &Login1InhibitorEntry) -> Login1Key {
-    Login1Key { pid: e.5, who: e.1.clone(), why: e.2.clone() }
+    Login1Key {
+        pid: e.5,
+        who: e.1.clone(),
+        why: e.2.clone(),
+    }
 }
 
 pub fn read_proc_comm(pid: u32) -> String {
@@ -71,11 +75,8 @@ pub fn diff(
 
     let surfaced = |e: &Login1InhibitorEntry| e.5 != own_pid && is_block_mode(&e.3);
 
-    let current_keys: HashSet<Login1Key> = current
-        .iter()
-        .filter(|e| surfaced(e))
-        .map(key_of)
-        .collect();
+    let current_keys: HashSet<Login1Key> =
+        current.iter().filter(|e| surfaced(e)).map(key_of).collect();
 
     let added: Vec<_> = current
         .iter()
@@ -172,7 +173,9 @@ async fn refresh_process_names(
     let mut renames = 0usize;
     let mut reg = registry.lock().await;
     for (_, id) in tracked.iter() {
-        let Some(internal) = reg.records_mut().get_mut(id) else { continue };
+        let Some(internal) = reg.records_mut().get_mut(id) else {
+            continue;
+        };
         if !matches!(
             internal.record.source.kind,
             glimpse_core::services::idle_inhibitor::SourceKind::Login1
@@ -221,7 +224,7 @@ mod tests {
         let (added, _) = diff(&prev, &curr, 9999);
         let names: Vec<&str> = added.iter().map(|e| e.1.as_str()).collect();
         assert!(names.contains(&"firefox"));
-        assert!(names.contains(&"apt"));        // block-weak still surfaces
+        assert!(names.contains(&"apt")); // block-weak still surfaces
         assert!(!names.contains(&"NetworkManager"));
         assert!(!names.contains(&"ModemManager"));
     }
@@ -229,8 +232,22 @@ mod tests {
     #[test]
     fn diff_detects_removals() {
         let mut prev = HashMap::new();
-        prev.insert(Login1Key { pid: 1234, who: "firefox".into(), why: "video".into() }, 1);
-        prev.insert(Login1Key { pid: 5678, who: "apt".into(), why: "upgrade".into() }, 2);
+        prev.insert(
+            Login1Key {
+                pid: 1234,
+                who: "firefox".into(),
+                why: "video".into(),
+            },
+            1,
+        );
+        prev.insert(
+            Login1Key {
+                pid: 5678,
+                who: "apt".into(),
+                why: "upgrade".into(),
+            },
+            2,
+        );
         let curr = vec![e("idle", "firefox", "video", "block", 1234)];
         let (added, removed) = diff(&prev, &curr, 9999);
         assert!(added.is_empty());
@@ -278,7 +295,11 @@ mod tests {
                 None,
             );
             tracked.insert(
-                Login1Key { pid: own_pid, who: "test".into(), why: "x".into() },
+                Login1Key {
+                    pid: own_pid,
+                    who: "test".into(),
+                    why: "x".into(),
+                },
                 id,
             );
         }

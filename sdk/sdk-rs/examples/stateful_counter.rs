@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, BoxNode, Button, CallbackEvent, Hero, Icon, Label, StatusItem, TreeNode,
-    run, tree,
+    Applet, AppletResult, BoxNode, Button, ButtonVariant, CallbackEvent, Hero, Icon, Label,
+    StatusItem, TreeNode, run, tree,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -29,7 +29,10 @@ impl Applet for CounterApplet {
                 Hero::new("Counter", format!("Value: {}", state.count))
                     .icon(Icon::name("view-refresh-symbolic")),
                 Label::new(format!("Count = {}", state.count)),
-                Button::new("increment").label("Increment"),
+                Button::new("increment")
+                    .label("Increment")
+                    .icon("list-add-symbolic")
+                    .variant(ButtonVariant::Primary),
             ])
             .spacing(8)
             .into(),

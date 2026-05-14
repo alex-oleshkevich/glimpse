@@ -15,7 +15,10 @@
 
 package sdk
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"sort"
+)
 
 // Widget is any component that can appear in a popover tree. All concrete
 // widget types implement this interface and json.Marshaler.
@@ -42,6 +45,10 @@ func envelope(typeName string, data any) ([]byte, error) {
 type Align string
 type Orientation string
 type Variant string
+type ButtonVariant string
+type PagerAppearance string
+type ContentFit string
+type LevelBarMode string
 
 const (
 	AlignFill     Align = "fill"
@@ -59,6 +66,23 @@ const (
 	VariantSuccess Variant = "success"
 	VariantWarning Variant = "warning"
 	VariantDanger  Variant = "danger"
+
+	ButtonVariantPrimary   ButtonVariant = "primary"
+	ButtonVariantSecondary ButtonVariant = "secondary"
+	ButtonVariantCompact   ButtonVariant = "compact"
+	ButtonVariantFlat      ButtonVariant = "flat"
+	ButtonVariantDanger    ButtonVariant = "danger"
+
+	PagerAppearanceDots    PagerAppearance = "dots"
+	PagerAppearanceNumbers PagerAppearance = "numbers"
+
+	ContentFitFill      ContentFit = "fill"
+	ContentFitContain   ContentFit = "contain"
+	ContentFitCover     ContentFit = "cover"
+	ContentFitScaleDown ContentFit = "scale_down"
+
+	LevelBarModeContinuous LevelBarMode = "continuous"
+	LevelBarModeDiscrete   LevelBarMode = "discrete"
 )
 
 // CommonProps are the shared layout / accessibility fields every widget
@@ -89,18 +113,6 @@ func (h Hero) MarshalJSON() ([]byte, error) {
 	return envelope("hero", alias(h))
 }
 
-type IconWidget struct {
-	CommonProps
-	Icon      *Icon `json:"icon"`
-	PixelSize *int  `json:"pixel_size,omitempty"`
-}
-
-func (IconWidget) isWidget() {}
-func (w IconWidget) MarshalJSON() ([]byte, error) {
-	type alias IconWidget
-	return envelope("icon", alias(w))
-}
-
 type Image struct {
 	CommonProps
 	Icon      *Icon `json:"icon"`
@@ -111,6 +123,18 @@ func (Image) isWidget() {}
 func (w Image) MarshalJSON() ([]byte, error) {
 	type alias Image
 	return envelope("image", alias(w))
+}
+
+type Picture struct {
+	CommonProps
+	Path       string     `json:"path"`
+	ContentFit ContentFit `json:"content_fit,omitempty"`
+}
+
+func (Picture) isWidget() {}
+func (w Picture) MarshalJSON() ([]byte, error) {
+	type alias Picture
+	return envelope("picture", alias(w))
 }
 
 type Label struct {
@@ -146,6 +170,50 @@ func (StatusDot) isWidget() {}
 func (s StatusDot) MarshalJSON() ([]byte, error) {
 	type alias StatusDot
 	return envelope("status", alias(s))
+}
+
+type PagerItem struct {
+	CommonProps
+	Appearance PagerAppearance `json:"appearance"`
+	Label      string          `json:"label"`
+	Active     bool            `json:"active"`
+	Inactive   bool            `json:"inactive"`
+	Occupied   bool            `json:"occupied"`
+	Urgent     bool            `json:"urgent"`
+}
+
+func (PagerItem) isWidget() {}
+func (p PagerItem) MarshalJSON() ([]byte, error) {
+	return envelope("pager_item", pagerItemData(p))
+}
+
+type PagerStrip struct {
+	CommonProps
+	Items []PagerItem `json:"items"`
+}
+
+func (PagerStrip) isWidget() {}
+func (p PagerStrip) MarshalJSON() ([]byte, error) {
+	items := make([]pagerItemAlias, 0, len(p.Items))
+	for _, item := range p.Items {
+		items = append(items, pagerItemData(item))
+	}
+	return envelope("pager_strip", struct {
+		CommonProps
+		Items []pagerItemAlias `json:"items"`
+	}{
+		CommonProps: p.CommonProps,
+		Items:       ensureSlice(items),
+	})
+}
+
+type pagerItemAlias PagerItem
+
+func pagerItemData(item PagerItem) pagerItemAlias {
+	if item.Appearance == "" {
+		item.Appearance = PagerAppearanceDots
+	}
+	return pagerItemAlias(item)
 }
 
 type Spinner struct {
@@ -196,6 +264,27 @@ func (p Progress) MarshalJSON() ([]byte, error) {
 	return envelope("progress", alias(p))
 }
 
+type LevelBar struct {
+	CommonProps
+	Value float64      `json:"value"`
+	Min   float64      `json:"min"`
+	Max   float64      `json:"max"`
+	Mode  LevelBarMode `json:"mode"`
+}
+
+func (LevelBar) isWidget() {}
+func (l LevelBar) MarshalJSON() ([]byte, error) {
+	type alias LevelBar
+	out := l
+	if out.Max == 0 {
+		out.Max = 1
+	}
+	if out.Mode == "" {
+		out.Mode = LevelBarModeContinuous
+	}
+	return envelope("level_bar", alias(out))
+}
+
 type Meter struct {
 	CommonProps
 	Icon        *Icon   `json:"icon,omitempty"`
@@ -226,38 +315,72 @@ func (c Copyable) MarshalJSON() ([]byte, error) {
 	return envelope("copyable", alias(c))
 }
 
-type ToastAction struct {
-	ID    string `json:"id"`
-	Label string `json:"label"`
-}
-
-type Toast struct {
-	CommonProps
-	Icon    *Icon        `json:"icon,omitempty"`
-	Title   string       `json:"title"`
-	Message string       `json:"message"`
-	Action  *ToastAction `json:"action,omitempty"`
-}
-
-func (Toast) isWidget() {}
-func (t Toast) MarshalJSON() ([]byte, error) {
-	type alias Toast
-	return envelope("toast", alias(t))
-}
-
 // ---- Interactive widgets ---------------------------------------------------
 
 type Button struct {
 	CommonProps
-	Label string `json:"label,omitempty"`
-	Icon  *Icon  `json:"icon,omitempty"`
-	Child Widget `json:"child,omitempty"`
+	Label   string        `json:"label,omitempty"`
+	Icon    string        `json:"icon,omitempty"`
+	Enabled *bool         `json:"enabled,omitempty"`
+	Variant ButtonVariant `json:"variant,omitempty"`
 }
 
 func (Button) isWidget() {}
 func (b Button) MarshalJSON() ([]byte, error) {
 	type alias Button
 	return envelope("button", alias(b))
+}
+
+type LinkButton struct {
+	CommonProps
+	URI   string `json:"uri"`
+	Label string `json:"label,omitempty"`
+}
+
+func (LinkButton) isWidget() {}
+func (l LinkButton) MarshalJSON() ([]byte, error) {
+	type alias LinkButton
+	return envelope("link_button", alias(l))
+}
+
+type Expander struct {
+	CommonProps
+	Label    string `json:"label"`
+	Expanded bool   `json:"expanded"`
+	Child    Widget `json:"child"`
+}
+
+func (Expander) isWidget() {}
+func (e Expander) MarshalJSON() ([]byte, error) {
+	type alias Expander
+	return envelope("expander", alias(e))
+}
+
+type TreeExpander struct {
+	CommonProps
+	Child          Widget `json:"child"`
+	HideExpander   bool   `json:"hide_expander"`
+	IndentForDepth bool   `json:"indent_for_depth"`
+	IndentForIcon  bool   `json:"indent_for_icon"`
+}
+
+func (TreeExpander) isWidget() {}
+func (t TreeExpander) MarshalJSON() ([]byte, error) {
+	type alias TreeExpander
+	return envelope("tree_expander", alias(t))
+}
+
+type MenuButton struct {
+	CommonProps
+	Label   string `json:"label,omitempty"`
+	Icon    string `json:"icon,omitempty"`
+	Popover Widget `json:"popover"`
+}
+
+func (MenuButton) isWidget() {}
+func (m MenuButton) MarshalJSON() ([]byte, error) {
+	type alias MenuButton
+	return envelope("menu_button", alias(m))
 }
 
 type Switch struct {
@@ -272,6 +395,18 @@ func (s Switch) MarshalJSON() ([]byte, error) {
 	return envelope("switch", alias(s))
 }
 
+type ToggleButton struct {
+	CommonProps
+	Label  string `json:"label,omitempty"`
+	Active bool   `json:"active"`
+}
+
+func (ToggleButton) isWidget() {}
+func (t ToggleButton) MarshalJSON() ([]byte, error) {
+	type alias ToggleButton
+	return envelope("toggle_button", alias(t))
+}
+
 type Checkbox struct {
 	CommonProps
 	Label  string `json:"label,omitempty"`
@@ -284,7 +419,7 @@ func (c Checkbox) MarshalJSON() ([]byte, error) {
 	return envelope("checkbox", alias(c))
 }
 
-type Scale struct {
+type Slider struct {
 	CommonProps
 	Min         float64     `json:"min"`
 	Max         float64     `json:"max"`
@@ -294,29 +429,29 @@ type Scale struct {
 	DrawValue   bool        `json:"draw_value,omitempty"`
 }
 
-func (Scale) isWidget() {}
-func (s Scale) MarshalJSON() ([]byte, error) {
-	type alias Scale
-	return envelope("scale", alias(s))
+func (Slider) isWidget() {}
+func (s Slider) MarshalJSON() ([]byte, error) {
+	type alias Slider
+	return envelope("slider", alias(s))
 }
 
-type DropdownItem struct {
+type SelectOption struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
 }
 
-type Dropdown struct {
+type Select struct {
 	CommonProps
-	Items    []DropdownItem `json:"items"`
+	Items    []SelectOption `json:"items"`
 	Selected *uint32        `json:"selected,omitempty"`
 }
 
-func (Dropdown) isWidget() {}
-func (d Dropdown) MarshalJSON() ([]byte, error) {
-	type alias Dropdown
+func (Select) isWidget() {}
+func (d Select) MarshalJSON() ([]byte, error) {
+	type alias Select
 	out := d
 	out.Items = ensureSlice(out.Items)
-	return envelope("dropdown", alias(out))
+	return envelope("select", alias(out))
 }
 
 // ---- Layouts ---------------------------------------------------------------
@@ -411,129 +546,113 @@ func (s Scroll) MarshalJSON() ([]byte, error) {
 	return envelope("scroll", alias(s))
 }
 
-// ---- Group widgets ---------------------------------------------------------
-
-type Header struct {
-	Title    string `json:"title"`
-	Subtitle string `json:"subtitle,omitempty"`
+type Overlay struct {
+	CommonProps
+	Child    Widget   `json:"child"`
+	Overlays []Widget `json:"overlays"`
 }
+
+func (Overlay) isWidget() {}
+func (o Overlay) MarshalJSON() ([]byte, error) {
+	type alias Overlay
+	out := o
+	out.Overlays = ensureSlice(out.Overlays)
+	return envelope("overlay", alias(out))
+}
+
+type ListBox struct {
+	CommonProps
+	Children []Widget `json:"children"`
+}
+
+func (ListBox) isWidget() {}
+func (l ListBox) MarshalJSON() ([]byte, error) {
+	type alias ListBox
+	out := l
+	out.Children = ensureSlice(out.Children)
+	return envelope("list_box", alias(out))
+}
+
+// ---- Group widgets ---------------------------------------------------------
 
 type Section struct {
 	CommonProps
-	Header *Header  `json:"header,omitempty"`
-	Body   []Widget `json:"body"`
+	Title    string   `json:"title"`
+	Subtitle string   `json:"subtitle,omitempty"`
+	Children []Widget `json:"children"`
 }
 
 func (Section) isWidget() {}
 func (s Section) MarshalJSON() ([]byte, error) {
 	type alias Section
 	out := s
-	out.Body = ensureSlice(out.Body)
+	out.Children = ensureSlice(out.Children)
 	return envelope("section", alias(out))
 }
 
-type Collapsible struct {
+type Properties map[string]string
+
+type PropertyList struct {
 	CommonProps
-	Header   *Header  `json:"header,omitempty"`
-	Expanded bool     `json:"expanded"`
-	Body     []Widget `json:"body"`
+	Title string     `json:"title,omitempty"`
+	Rows  Properties `json:"rows"`
 }
 
-func (Collapsible) isWidget() {}
-func (c Collapsible) MarshalJSON() ([]byte, error) {
-	type alias Collapsible
-	out := c
-	out.Body = ensureSlice(out.Body)
-	return envelope("collapsible", alias(out))
-}
+func (PropertyList) isWidget() {}
+func (p PropertyList) MarshalJSON() ([]byte, error) {
+	type row struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+	type data struct {
+		CommonProps
+		Title string `json:"title,omitempty"`
+		Rows  []row  `json:"rows"`
+	}
 
-// ---- List rows -------------------------------------------------------------
+	keys := make([]string, 0, len(p.Rows))
+	for key := range p.Rows {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	rows := make([]row, 0, len(keys))
+	for _, key := range keys {
+		rows = append(rows, row{Key: key, Value: p.Rows[key]})
+	}
+
+	return envelope("property_list", data{
+		CommonProps: p.CommonProps,
+		Title:       p.Title,
+		Rows:        rows,
+	})
+}
 
 type Item struct {
 	CommonProps
-	Left      Widget     `json:"left,omitempty"`
-	Label     string     `json:"label"`
-	Right     Widget     `json:"right,omitempty"`
-	Clickable bool       `json:"clickable"`
-	Menu      []MenuItem `json:"menu"`
+	Icon     string `json:"icon,omitempty"`
+	Label    string `json:"label"`
+	Sublabel string `json:"sublabel,omitempty"`
+	Right    Widget `json:"right,omitempty"`
 }
 
 func (Item) isWidget() {}
 func (i Item) MarshalJSON() ([]byte, error) {
 	type alias Item
-	out := i
-	out.Menu = ensureSlice(out.Menu)
-	return envelope("item", alias(out))
+	return envelope("item", alias(i))
 }
 
-type CollapsibleItem struct {
+type ActionItem struct {
 	CommonProps
-	Left     Widget   `json:"left,omitempty"`
-	Label    string   `json:"label"`
-	Right    Widget   `json:"right,omitempty"`
-	Expanded bool     `json:"expanded"`
-	Body     []Widget `json:"body"`
+	Icon     string `json:"icon,omitempty"`
+	Label    string `json:"label"`
+	Sublabel string `json:"sublabel,omitempty"`
+	Right    Widget `json:"right,omitempty"`
+	Enabled  *bool  `json:"enabled,omitempty"`
 }
 
-func (CollapsibleItem) isWidget() {}
-func (c CollapsibleItem) MarshalJSON() ([]byte, error) {
-	type alias CollapsibleItem
-	out := c
-	out.Body = ensureSlice(out.Body)
-	return envelope("collapsible_item", alias(out))
-}
-
-type ActionRow struct {
-	CommonProps
-	Title    string `json:"title"`
-	Subtitle string `json:"subtitle"`
-	Meta     string `json:"meta"`
-	Icon     *Icon  `json:"icon,omitempty"`
-}
-
-func (ActionRow) isWidget() {}
-func (a ActionRow) MarshalJSON() ([]byte, error) {
-	type alias ActionRow
-	return envelope("action_row", alias(a))
-}
-
-type ActionMenuItem struct {
-	ID         string `json:"id"`
-	Label      string `json:"label"`
-	Icon       *Icon  `json:"icon,omitempty"`
-	Visible    *bool  `json:"visible,omitempty"`
-	Checked    *bool  `json:"checked,omitempty"`
-	Selectable *bool  `json:"selectable,omitempty"`
-}
-
-type ActionMenu struct {
-	CommonProps
-	Header string           `json:"header,omitempty"`
-	Items  []ActionMenuItem `json:"items"`
-}
-
-func (ActionMenu) isWidget() {}
-func (a ActionMenu) MarshalJSON() ([]byte, error) {
-	type alias ActionMenu
-	out := a
-	out.Items = ensureSlice(out.Items)
-	return envelope("action_menu", alias(out))
-}
-
-type DetailGridItem struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
-type DetailGrid struct {
-	CommonProps
-	Rows []DetailGridItem `json:"rows"`
-}
-
-func (DetailGrid) isWidget() {}
-func (d DetailGrid) MarshalJSON() ([]byte, error) {
-	type alias DetailGrid
-	out := d
-	out.Rows = ensureSlice(out.Rows)
-	return envelope("detail_grid", alias(out))
+func (ActionItem) isWidget() {}
+func (i ActionItem) MarshalJSON() ([]byte, error) {
+	type alias ActionItem
+	return envelope("action_item", alias(i))
 }

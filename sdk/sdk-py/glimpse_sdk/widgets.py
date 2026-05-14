@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TypeAlias
 
-from .protocol import Icon, MenuItem
+from .protocol import Icon
 
 
 class Align(StrEnum):
@@ -27,6 +28,31 @@ class Variant(StrEnum):
     SUCCESS = "success"
     WARNING = "warning"
     DANGER = "danger"
+
+
+class ButtonVariant(StrEnum):
+    PRIMARY = "primary"
+    SECONDARY = "secondary"
+    COMPACT = "compact"
+    FLAT = "flat"
+    DANGER = "danger"
+
+
+class PagerAppearance(StrEnum):
+    DOTS = "dots"
+    NUMBERS = "numbers"
+
+
+class ContentFit(StrEnum):
+    FILL = "fill"
+    CONTAIN = "contain"
+    COVER = "cover"
+    SCALE_DOWN = "scale_down"
+
+
+class LevelBarMode(StrEnum):
+    CONTINUOUS = "continuous"
+    DISCRETE = "discrete"
 
 
 @dataclass(slots=True)
@@ -85,21 +111,6 @@ class Hero(Widget):
 
 
 @dataclass(slots=True)
-class IconWidget(Widget):
-    icon: Icon | None = None
-    pixel_size: int | None = None
-    widget_type: str = "icon"
-
-    def to_protocol(self) -> dict[str, object]:
-        if self.icon is None:
-            raise ValueError("IconWidget requires an icon")
-        payload = self.apply_common({"icon": self.icon.to_protocol()})
-        if self.pixel_size is not None:
-            payload["pixel_size"] = self.pixel_size
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
 class Progress(Widget):
     value: float = 0.0
     max: float = 1.0
@@ -136,6 +147,22 @@ class Label(Widget):
 
 
 @dataclass(slots=True)
+class LevelBar(Widget):
+    value: float = 0.0
+    min: float = 0.0
+    max: float = 1.0
+    mode: LevelBarMode | str = LevelBarMode.CONTINUOUS
+    widget_type: str = "level_bar"
+
+    def to_protocol(self) -> dict[str, object]:
+        mode = self.mode.value if isinstance(self.mode, LevelBarMode) else self.mode
+        payload = self.apply_common(
+            {"value": self.value, "min": self.min, "max": self.max, "mode": mode}
+        )
+        return {"type": self.widget_type, "data": payload}
+
+
+@dataclass(slots=True)
 class Image(Widget):
     icon: Icon | None = None
     pixel_size: int | None = None
@@ -151,10 +178,28 @@ class Image(Widget):
 
 
 @dataclass(slots=True)
+class Picture(Widget):
+    path: str = ""
+    content_fit: ContentFit | str | None = None
+    widget_type: str = "picture"
+
+    def to_protocol(self) -> dict[str, object]:
+        payload = self.apply_common({"path": self.path})
+        if self.content_fit is not None:
+            payload["content_fit"] = (
+                self.content_fit.value
+                if isinstance(self.content_fit, ContentFit)
+                else self.content_fit
+            )
+        return {"type": self.widget_type, "data": payload}
+
+
+@dataclass(slots=True)
 class Button(Widget):
     label: str | None = None
-    icon: Icon | None = None
-    child: "TreeNode | None" = None
+    icon: str | None = None
+    enabled: bool | None = None
+    variant: ButtonVariant | None = None
     widget_type: str = "button"
 
     def to_protocol(self) -> dict[str, object]:
@@ -162,9 +207,76 @@ class Button(Widget):
         if self.label is not None:
             payload["label"] = self.label
         if self.icon is not None:
-            payload["icon"] = self.icon.to_protocol()
+            payload["icon"] = self.icon
+        if self.enabled is not None:
+            payload["enabled"] = self.enabled
+        return {"type": self.widget_type, "data": payload}
+
+
+@dataclass(slots=True)
+class LinkButton(Widget):
+    uri: str = ""
+    label: str | None = None
+    widget_type: str = "link_button"
+
+    def to_protocol(self) -> dict[str, object]:
+        payload = self.apply_common({"uri": self.uri})
+        if self.label is not None:
+            payload["label"] = self.label
+        return {"type": self.widget_type, "data": payload}
+
+
+@dataclass(slots=True)
+class Expander(Widget):
+    label: str = ""
+    child: "TreeNode | None" = None
+    expanded: bool = False
+    widget_type: str = "expander"
+
+    def to_protocol(self) -> dict[str, object]:
+        payload = self.apply_common({"label": self.label, "expanded": self.expanded})
         if self.child is not None:
             payload["child"] = self.child.to_protocol()
+        return {"type": self.widget_type, "data": payload}
+
+
+@dataclass(slots=True)
+class TreeExpander(Widget):
+    child: "TreeNode | None" = None
+    hide_expander: bool = False
+    indent_for_depth: bool = False
+    indent_for_icon: bool = False
+    widget_type: str = "tree_expander"
+
+    def to_protocol(self) -> dict[str, object]:
+        if self.child is None:
+            raise ValueError("TreeExpander requires a child")
+        payload = self.apply_common(
+            {
+                "child": self.child.to_protocol(),
+                "hide_expander": self.hide_expander,
+                "indent_for_depth": self.indent_for_depth,
+                "indent_for_icon": self.indent_for_icon,
+            }
+        )
+        return {"type": self.widget_type, "data": payload}
+
+
+@dataclass(slots=True)
+class MenuButton(Widget):
+    label: str | None = None
+    icon: str | None = None
+    popover: "TreeNode | None" = None
+    widget_type: str = "menu_button"
+
+    def to_protocol(self) -> dict[str, object]:
+        if self.popover is None:
+            raise ValueError("MenuButton requires a popover")
+        payload = self.apply_common({"popover": self.popover.to_protocol()})
+        if self.label is not None:
+            payload["label"] = self.label
+        if self.icon is not None:
+            payload["icon"] = self.icon
         return {"type": self.widget_type, "data": payload}
 
 
@@ -182,14 +294,27 @@ class Switch(Widget):
 
 
 @dataclass(slots=True)
-class Scale(Widget):
+class ToggleButton(Widget):
+    label: str | None = None
+    active: bool = False
+    widget_type: str = "toggle_button"
+
+    def to_protocol(self) -> dict[str, object]:
+        payload = self.apply_common({"active": self.active})
+        if self.label is not None:
+            payload["label"] = self.label
+        return {"type": self.widget_type, "data": payload}
+
+
+@dataclass(slots=True)
+class Slider(Widget):
     min: float = 0.0
     max: float = 1.0
     step: float = 0.1
     value: float = 0.0
     orientation: Orientation | None = None
     draw_value: bool = False
-    widget_type: str = "scale"
+    widget_type: str = "slider"
 
     def to_protocol(self) -> dict[str, object]:
         payload = self.apply_common(
@@ -221,7 +346,7 @@ class Checkbox(Widget):
 
 
 @dataclass(slots=True)
-class DropdownItem:
+class SelectOption:
     id: str
     label: str
 
@@ -230,10 +355,10 @@ class DropdownItem:
 
 
 @dataclass(slots=True)
-class Dropdown(Widget):
-    items: list[DropdownItem] = field(default_factory=list)
+class Select(Widget):
+    items: list[SelectOption] = field(default_factory=list)
     selected: int | None = None
-    widget_type: str = "dropdown"
+    widget_type: str = "select"
 
     def to_protocol(self) -> dict[str, object]:
         payload = self.apply_common(
@@ -265,6 +390,36 @@ class Scroll(Widget):
         if self.child is None:
             raise ValueError("Scroll requires a child")
         payload = self.apply_common({"child": self.child.to_protocol()})
+        return {"type": self.widget_type, "data": payload}
+
+
+@dataclass(slots=True)
+class Overlay(Widget):
+    child: "TreeNode | None" = None
+    overlays: list["TreeNode"] = field(default_factory=list)
+    widget_type: str = "overlay"
+
+    def to_protocol(self) -> dict[str, object]:
+        if self.child is None:
+            raise ValueError("Overlay requires a child")
+        payload = self.apply_common(
+            {
+                "child": self.child.to_protocol(),
+                "overlays": [overlay.to_protocol() for overlay in self.overlays],
+            }
+        )
+        return {"type": self.widget_type, "data": payload}
+
+
+@dataclass(slots=True)
+class ListBox(Widget):
+    children: list["TreeNode"] = field(default_factory=list)
+    widget_type: str = "list_box"
+
+    def to_protocol(self) -> dict[str, object]:
+        payload = self.apply_common(
+            {"children": [child.to_protocol() for child in self.children]}
+        )
         return {"type": self.widget_type, "data": payload}
 
 
@@ -341,113 +496,21 @@ class Card(Widget):
 
 
 @dataclass(slots=True)
-class Header:
-    title: str
-    subtitle: str = ""
-
-    def to_protocol(self) -> dict[str, object]:
-        payload: dict[str, object] = {"title": self.title}
-        if self.subtitle:
-            payload["subtitle"] = self.subtitle
-        return payload
-
-
-@dataclass(slots=True)
 class Section(Widget):
     title: str = ""
     subtitle: str = ""
-    header: Header | None = None
-    body: list["TreeNode"] = field(default_factory=list)
     children: list["TreeNode"] = field(default_factory=list)
     widget_type: str = "section"
 
     def to_protocol(self) -> dict[str, object]:
-        header = self.header
-        if header is None and (self.title or self.subtitle):
-            header = Header(self.title, self.subtitle)
-        body = self.body or self.children
         payload = self.apply_common(
             {
-                "body": [child.to_protocol() for child in body],
+                "title": self.title,
+                "children": [child.to_protocol() for child in self.children],
             }
         )
-        if header is not None:
-            payload["header"] = header.to_protocol()
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
-class Collapsible(Widget):
-    title: str = ""
-    subtitle: str = ""
-    header: Header | None = None
-    expanded: bool = False
-    body: list["TreeNode"] = field(default_factory=list)
-    children: list["TreeNode"] = field(default_factory=list)
-    widget_type: str = "collapsible"
-
-    def to_protocol(self) -> dict[str, object]:
-        header = self.header
-        if header is None and (self.title or self.subtitle):
-            header = Header(self.title, self.subtitle)
-        body = self.body or self.children
-        payload = self.apply_common(
-            {
-                "expanded": self.expanded,
-                "body": [child.to_protocol() for child in body],
-            }
-        )
-        if header is not None:
-            payload["header"] = header.to_protocol()
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
-class Item(Widget):
-    left: "TreeNode | None" = None
-    label: str = ""
-    right: "TreeNode | None" = None
-    clickable: bool = False
-    menu: list[MenuItem] = field(default_factory=list)
-    widget_type: str = "item"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common(
-            {
-                "label": self.label,
-                "clickable": self.clickable,
-                "menu": [item.to_protocol() for item in self.menu],
-            }
-        )
-        if self.left is not None:
-            payload["left"] = self.left.to_protocol()
-        if self.right is not None:
-            payload["right"] = self.right.to_protocol()
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
-class CollapsibleItem(Widget):
-    left: "TreeNode | None" = None
-    label: str = ""
-    right: "TreeNode | None" = None
-    expanded: bool = False
-    body: list["TreeNode"] = field(default_factory=list)
-    children: list["TreeNode"] = field(default_factory=list)
-    widget_type: str = "collapsible_item"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common(
-            {
-                "label": self.label,
-                "expanded": self.expanded,
-                "body": [child.to_protocol() for child in (self.body or self.children)],
-            }
-        )
-        if self.left is not None:
-            payload["left"] = self.left.to_protocol()
-        if self.right is not None:
-            payload["right"] = self.right.to_protocol()
+        if self.subtitle:
+            payload["subtitle"] = self.subtitle
         return {"type": self.widget_type, "data": payload}
 
 
@@ -493,49 +556,6 @@ class Copyable(Widget):
 
 
 @dataclass(slots=True)
-class ToastAction:
-    id: str
-    label: str
-
-    def to_protocol(self) -> dict[str, str]:
-        return {"id": self.id, "label": self.label}
-
-
-@dataclass(slots=True)
-class Toast(Widget):
-    icon: Icon | None = None
-    title: str = ""
-    message: str = ""
-    action: ToastAction | None = None
-    widget_type: str = "toast"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"title": self.title, "message": self.message})
-        if self.icon is not None:
-            payload["icon"] = self.icon.to_protocol()
-        if self.action is not None:
-            payload["action"] = self.action.to_protocol()
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
-class ActionRow(Widget):
-    title: str = ""
-    subtitle: str = ""
-    meta: str = ""
-    icon: Icon | None = None
-    widget_type: str = "action_row"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common(
-            {"title": self.title, "subtitle": self.subtitle, "meta": self.meta}
-        )
-        if self.icon is not None:
-            payload["icon"] = self.icon.to_protocol()
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
 class Row(Widget):
     spacing: int = 0
     children: list["TreeNode"] = field(default_factory=list)
@@ -568,43 +588,6 @@ class Column(Widget):
 
 
 @dataclass(slots=True)
-class ActionMenuItem:
-    id: str
-    label: str
-    icon: Icon | None = None
-    visible: bool | None = None
-    checked: bool | None = None
-    selectable: bool | None = None
-
-    def to_protocol(self) -> dict[str, object]:
-        payload: dict[str, object] = {"id": self.id, "label": self.label}
-        if self.icon is not None:
-            payload["icon"] = self.icon.to_protocol()
-        if self.visible is not None:
-            payload["visible"] = self.visible
-        if self.checked is not None:
-            payload["checked"] = self.checked
-        if self.selectable is not None:
-            payload["selectable"] = self.selectable
-        return payload
-
-
-@dataclass(slots=True)
-class ActionMenu(Widget):
-    header: str | None = None
-    items: list[ActionMenuItem] = field(default_factory=list)
-    widget_type: str = "action_menu"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common(
-            {"items": [item.to_protocol() for item in self.items]}
-        )
-        if self.header is not None:
-            payload["header"] = self.header
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
 class Spinner(Widget):
     spinning: bool = True
     widget_type: str = "spinner"
@@ -614,22 +597,77 @@ class Spinner(Widget):
         return {"type": self.widget_type, "data": payload}
 
 
-@dataclass(slots=True)
-class DetailGridItem:
-    key: str
-    value: str
+@dataclass(slots=True, init=False)
+class PropertyList(Widget):
+    rows: Mapping[str, str] | Iterable[tuple[str, str]] = field(default_factory=dict)
+    title: str = ""
+    widget_type: str = "property_list"
 
-    def to_protocol(self) -> dict[str, str]:
-        return {"key": self.key, "value": self.value}
-
-
-@dataclass(slots=True)
-class DetailGrid(Widget):
-    rows: list[DetailGridItem] = field(default_factory=list)
-    widget_type: str = "detail_grid"
+    def __init__(
+        self,
+        rows: Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
+        title: str = "",
+        **common: object,
+    ) -> None:
+        unknown = sorted(set(common) - set(CommonProps.__dataclass_fields__))
+        if unknown:
+            raise TypeError(f"unexpected keyword argument: {unknown[0]}")
+        for name in CommonProps.__dataclass_fields__:
+            setattr(self, name, common.get(name))
+        self.rows = {} if rows is None else rows
+        self.title = title
+        self.widget_type = "property_list"
 
     def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"rows": [row.to_protocol() for row in self.rows]})
+        rows = self.rows.items() if isinstance(self.rows, Mapping) else self.rows
+        payload = self.apply_common(
+            {
+                "rows": [{"key": key, "value": value} for key, value in rows],
+            }
+        )
+        if self.title:
+            payload["title"] = self.title
+        return {"type": self.widget_type, "data": payload}
+
+
+@dataclass(slots=True)
+class Item(Widget):
+    label: str = ""
+    sublabel: str = ""
+    icon: str = ""
+    right: "TreeNode | None" = None
+    widget_type: str = "item"
+
+    def to_protocol(self) -> dict[str, object]:
+        payload = self.apply_common({"label": self.label})
+        if self.icon:
+            payload["icon"] = self.icon
+        if self.sublabel:
+            payload["sublabel"] = self.sublabel
+        if self.right is not None:
+            payload["right"] = self.right.to_protocol()
+        return {"type": self.widget_type, "data": payload}
+
+
+@dataclass(slots=True)
+class ActionItem(Widget):
+    label: str = ""
+    sublabel: str = ""
+    icon: str = ""
+    right: "TreeNode | None" = None
+    enabled: bool | None = None
+    widget_type: str = "action_item"
+
+    def to_protocol(self) -> dict[str, object]:
+        payload = self.apply_common({"label": self.label})
+        if self.icon:
+            payload["icon"] = self.icon
+        if self.sublabel:
+            payload["sublabel"] = self.sublabel
+        if self.right is not None:
+            payload["right"] = self.right.to_protocol()
+        if self.enabled is not None:
+            payload["enabled"] = self.enabled
         return {"type": self.widget_type, "data": payload}
 
 
@@ -663,36 +701,78 @@ class StatusDot(Widget):
         return {"type": self.widget_type, "data": payload}
 
 
+@dataclass(slots=True)
+class PagerItem(Widget):
+    appearance: PagerAppearance = PagerAppearance.DOTS
+    label: str = ""
+    active: bool = False
+    inactive: bool = False
+    occupied: bool = False
+    urgent: bool = False
+    widget_type: str = "pager_item"
+
+    def to_data(self) -> dict[str, object]:
+        return self.apply_common(
+            {
+                "appearance": self.appearance.value,
+                "label": self.label,
+                "active": self.active,
+                "inactive": self.inactive,
+                "occupied": self.occupied,
+                "urgent": self.urgent,
+            }
+        )
+
+    def to_protocol(self) -> dict[str, object]:
+        return {"type": self.widget_type, "data": self.to_data()}
+
+
+@dataclass(slots=True)
+class PagerStrip(Widget):
+    items: list[PagerItem] = field(default_factory=list)
+    widget_type: str = "pager_strip"
+
+    def to_protocol(self) -> dict[str, object]:
+        payload = self.apply_common({"items": [item.to_data() for item in self.items]})
+        return {"type": self.widget_type, "data": payload}
+
+
 TreeNode: TypeAlias = (
     Hero
     | Card
     | Section
-    | Collapsible
-    | Item
-    | CollapsibleItem
     | Meter
     | Copyable
-    | Toast
-    | ActionRow
-    | ActionMenu
-    | DetailGrid
+    | PropertyList
+    | Item
+    | ActionItem
     | EmptyState
     | Badge
     | StatusDot
+    | PagerItem
+    | PagerStrip
     | Box
     | Row
     | Column
     | Grid
     | Scroll
+    | Overlay
+    | ListBox
+    | LevelBar
+    | TreeExpander
+    | MenuButton
     | Progress
     | Separator
     | Spinner
     | Label
-    | IconWidget
     | Image
+    | Picture
     | Button
+    | LinkButton
+    | Expander
     | Switch
-    | Scale
-    | Dropdown
+    | ToggleButton
+    | Slider
+    | Select
     | Checkbox
 )

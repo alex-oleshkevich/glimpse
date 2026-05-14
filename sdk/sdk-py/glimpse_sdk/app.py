@@ -103,29 +103,54 @@ class Applet(Generic[StateT]):
             await self.on_callback(event)
 
     async def _reader_loop(self, eof: asyncio.Event) -> None:
+        transport: asyncio.BaseTransport | None = None
         try:
+            try:
+                reader = asyncio.StreamReader()
+                protocol = asyncio.StreamReaderProtocol(reader)
+                transport, _ = await asyncio.get_running_loop().connect_read_pipe(
+                    lambda: protocol,
+                    sys.stdin,
+                )
+            except (NotImplementedError, OSError, ValueError):
+                await self._reader_loop_threaded()
+                return
+
             while True:
-                line = await asyncio.to_thread(sys.stdin.readline)
-                if line == "":
+                raw = await reader.readline()
+                if raw == b"":
                     break
-                try:
-                    parsed = _parse_line(line)
-                except (ValueError, json.JSONDecodeError) as exc:
-                    print(f"glimpse-sdk: ignoring malformed input: {exc}", file=sys.stderr)
-                    continue
-                if parsed is None:
-                    continue
-                message_type, data = parsed
-                try:
-                    if message_type == "init":
-                        await self._incoming.put(parse_init_event(data))
-                    elif message_type == "event":
-                        await self._incoming.put(parse_callback_event(data))
-                except Exception as exc:
-                    print(f"glimpse-sdk: ignoring malformed event: {exc}", file=sys.stderr)
-                    continue
+                line = raw.decode(errors="replace")
+                await self._handle_input_line(line)
         finally:
+            if transport is not None:
+                transport.close()
             eof.set()
+
+    async def _reader_loop_threaded(self) -> None:
+        while True:
+            line = await asyncio.to_thread(sys.stdin.readline)
+            if line == "":
+                break
+            await self._handle_input_line(line)
+
+    async def _handle_input_line(self, line: str) -> None:
+        try:
+            parsed = _parse_line(line)
+        except (ValueError, json.JSONDecodeError) as exc:
+            print(f"glimpse-sdk: ignoring malformed input: {exc}", file=sys.stderr)
+            return
+        if parsed is None:
+            return
+        message_type, data = parsed
+        try:
+            if message_type == "init":
+                await self._incoming.put(parse_init_event(data))
+            elif message_type == "event":
+                await self._incoming.put(parse_callback_event(data))
+        except Exception as exc:
+            print(f"glimpse-sdk: ignoring malformed event: {exc}", file=sys.stderr)
+            return
 
     async def _writer_loop(self) -> None:
         while True:

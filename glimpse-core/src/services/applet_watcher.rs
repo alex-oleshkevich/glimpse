@@ -118,7 +118,9 @@ fn update_symlink_watches(
 ) {
     let mut current_targets: HashSet<PathBuf> = HashSet::new();
     for dir in dirs {
-        let Ok(entries) = fs::read_dir(dir) else { continue };
+        let Ok(entries) = fs::read_dir(dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_symlink() {
@@ -132,7 +134,11 @@ fn update_symlink_watches(
                 } else if let Ok(raw) = fs::read_link(&path) {
                     // Broken symlink: target doesn't exist yet; watch its parent
                     // so we notice when the file is created.
-                    let abs = if raw.is_absolute() { raw } else { dir.join(raw) };
+                    let abs = if raw.is_absolute() {
+                        raw
+                    } else {
+                        dir.join(raw)
+                    };
                     abs.parent().map(|p| p.to_path_buf())
                 } else {
                     None

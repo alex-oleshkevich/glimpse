@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
     factory::{DynamicIndex, FactoryComponent, FactorySender},
@@ -37,6 +35,7 @@ pub enum PlayerRowOutput {
     Raise { player_id: String },
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for PlayerRow {
     type Init = PlayerRowInit;

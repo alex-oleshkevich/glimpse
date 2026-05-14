@@ -46,28 +46,3 @@ export class StatusItem {
     return payload;
   }
 }
-
-export class MenuItem {
-  constructor(
-    public readonly options: {
-      id: string;
-      label: string;
-      visible?: boolean;
-      enabled?: boolean;
-    },
-  ) {}
-
-  toProtocol(): Record<string, unknown> {
-    const payload: Record<string, unknown> = {
-      id: this.options.id,
-      label: this.options.label,
-    };
-    if (this.options.visible !== undefined) {
-      payload.visible = this.options.visible;
-    }
-    if (this.options.enabled !== undefined) {
-      payload.enabled = this.options.enabled;
-    }
-    return payload;
-  }
-}

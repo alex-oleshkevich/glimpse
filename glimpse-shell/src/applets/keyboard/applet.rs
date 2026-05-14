@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::collections::HashMap;
 
 use relm4::{
@@ -60,6 +58,7 @@ pub enum Input {
     Scroll { next: bool },
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Applet {
     type Init = Init;

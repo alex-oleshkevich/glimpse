@@ -10,6 +10,7 @@ use std::{
 };
 
 use css_color::Srgb;
+use gio::prelude::SettingsExt;
 use glimpse_core::{
     Config, ConfigEvent, FitMode, KeyboardConfig, LocationConfig, LockConfig, LockControlButton,
     ResolvedImageSpec, ResolvedLockSpec, ThemeMode, ThemePack, WallpaperConfig,
@@ -31,7 +32,6 @@ use glimpse_core::{
     },
     watch_for_config_changes,
 };
-use gio::prelude::SettingsExt;
 use gtk4::{
     ContentFit, CssProvider, gdk,
     glib::{
@@ -2127,13 +2127,12 @@ impl SimpleComponent for BackgroundLayer {
 const GNOME_INTERFACE_SCHEMA: &str = "org.gnome.desktop.interface";
 const GNOME_COLOR_SCHEME_KEY: &str = "color-scheme";
 
-fn log_lock_sources(
-    config: &LockAppConfig,
-    spec: &ResolvedLockSpec,
-    mode: EffectiveThemeMode,
-) {
+fn log_lock_sources(config: &LockAppConfig, spec: &ResolvedLockSpec, mode: EffectiveThemeMode) {
     let (bg_src, bg_path) = if config.lock.background.path.is_some() {
-        ("config.lock.background", config.lock.background.path.as_ref())
+        (
+            "config.lock.background",
+            config.lock.background.path.as_ref(),
+        )
     } else if config.wallpaper.path.is_some() {
         ("config.wallpaper", config.wallpaper.path.as_ref())
     } else if config.theme_pack.lock_bg_for(mode).is_some() {

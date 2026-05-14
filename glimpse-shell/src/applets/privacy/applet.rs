@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::time::{Duration, Instant};
 
 use relm4::{
@@ -77,6 +75,7 @@ pub enum Input {
     Activate,
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Applet {
     type Init = Init;

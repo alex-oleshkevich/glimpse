@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
     gtk::{self, prelude::*},
@@ -50,6 +48,7 @@ pub enum PopoverOutput {
     SetProfile(String),
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Popover {
     type Init = PopoverInit;

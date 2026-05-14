@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::{
     cell::{Cell, RefCell},
     collections::{HashMap, HashSet},
@@ -115,6 +113,7 @@ pub enum PopupInput {
     },
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Popup {
     type Init = PopupInit;
@@ -152,7 +151,7 @@ impl SimpleComponent for Popup {
             init.popup_monitor.as_deref(),
             &init.theme_mode,
         );
-        theme::apply_theme_mode(&widgets.card_box, &theme::DIALOG_THEME_MODE);
+        theme::apply_theme_mode(&widgets.card_box, &init.theme_mode);
         let model = Popup {
             window: widgets.root.clone(),
             card_box: widgets.card_box.clone(),
@@ -218,8 +217,8 @@ impl SimpleComponent for Popup {
                 self.theme_mode = theme_mode;
                 apply_position(&self.window, position, margin_x, margin_y);
                 apply_popup_monitor(&self.window, self.popup_monitor.as_deref());
-                theme::apply_theme_mode(&self.window, &theme::DIALOG_THEME_MODE);
-                theme::apply_theme_mode(&self.card_box, &theme::DIALOG_THEME_MODE);
+                theme::apply_theme_mode(&self.window, &self.theme_mode);
+                theme::apply_theme_mode(&self.card_box, &self.theme_mode);
             }
             PopupInput::TimeoutElapsed(id) => self.remove_card(id, &sender),
             PopupInput::Cancel(id) => self.remove_card(id, &sender),
@@ -439,6 +438,7 @@ struct PopupCardInit {
     body: String,
 }
 
+#[allow(unused_assignments)]
 #[relm4::widget_template]
 impl WidgetTemplate for PopupCardView {
     type Init = PopupCardInit;
@@ -695,8 +695,7 @@ fn configure_window(
     window.set_resizable(false);
     window.set_default_size(380, -1);
     window.add_css_class("notification-popup");
-    let _ = theme_mode;
-    theme::apply_theme_mode(window, &theme::DIALOG_THEME_MODE);
+    theme::apply_theme_mode(window, theme_mode);
     window.init_layer_shell();
     window.set_layer(Layer::Overlay);
     window.set_namespace(Some("glimpse-notification-popup"));

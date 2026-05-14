@@ -5,7 +5,6 @@ pub mod brightness;
 pub mod clipboard;
 pub mod clock;
 pub mod command;
-pub mod dev;
 pub mod exec;
 pub mod idle;
 pub mod keyboard;

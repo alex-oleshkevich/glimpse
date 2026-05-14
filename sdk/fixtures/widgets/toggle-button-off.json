@@ -1,0 +1,7 @@
+{
+  "data": {
+    "active": false,
+    "id": "wifi"
+  },
+  "type": "toggle_button"
+}

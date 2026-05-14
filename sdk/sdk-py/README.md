@@ -32,6 +32,7 @@ from glimpse_sdk import (
     AppletState,
     Box,
     Button,
+    ButtonVariant,
     Hero,
     Icon,
     Label,
@@ -67,8 +68,13 @@ class DeployApplet(Applet[DeployState]):
                     title="Deploy",
                     subtitle=state.version,
                 ),
-                Label("Version"),
-                Button(id="deploy_now", label="Deploy now"),
+                Label(text="Version"),
+                Button(
+                    id="deploy_now",
+                    label="Deploy now",
+                    icon="media-playback-start-symbolic",
+                    variant=ButtonVariant.PRIMARY,
+                ),
             ]
         )
 

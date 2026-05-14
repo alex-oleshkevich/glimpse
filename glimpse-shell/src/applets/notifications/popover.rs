@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::{
     cell::Cell,
     collections::{HashMap, HashSet},
@@ -80,6 +78,7 @@ pub enum PopoverOutput {
     InvokeAction { id: u32, action_key: String },
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Popover {
     type Init = PopoverInit;
@@ -415,6 +414,7 @@ fn place_row(row: &NotificationRow, container: &gtk::Box, previous: Option<&gtk:
     container.reorder_child_after(row_widget, previous);
 }
 
+#[allow(unused_assignments)]
 #[relm4::widget_template]
 impl WidgetTemplate for NotificationRowView {
     view! {

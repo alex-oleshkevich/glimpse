@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
@@ -54,6 +52,7 @@ pub(crate) enum NotificationGroupAction {
     Toggle(String),
 }
 
+#[allow(unused_assignments)]
 #[relm4::widget_template(pub(crate))]
 impl WidgetTemplate for NotificationGroupView {
     view! {

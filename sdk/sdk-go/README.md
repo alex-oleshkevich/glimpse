@@ -50,6 +50,8 @@ func (a *CounterApplet) Popover(_ context.Context, state *CounterState) (sdk.Wid
             sdk.Button{
                 CommonProps: sdk.CommonProps{ID: "increment"},
                 Label:       "Increment",
+                Icon:        "list-add-symbolic",
+                Variant:     sdk.ButtonVariantPrimary,
             },
         },
     }, nil

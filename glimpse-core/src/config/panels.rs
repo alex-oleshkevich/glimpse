@@ -5,6 +5,31 @@ use crate::ThemeMode;
 
 pub const DEFAULT_PANEL_APPLETS_PLACEHOLDER: &str = "...";
 
+/// Marker that expands to all currently-installed dev applets when building a panel.
+pub const DEV_SLOT: &str = "__dev__";
+
+/// Replace every `DEV_SLOT` entry in a panel's left/center/right lists with
+/// the sorted set of dev-applet names.
+pub fn expand_dev_slot(config: &PanelConfig, dev_names: &[String]) -> PanelConfig {
+    let expand = |list: &[String]| -> Vec<String> {
+        list.iter()
+            .flat_map(|name| {
+                if name == DEV_SLOT {
+                    dev_names.to_vec()
+                } else {
+                    vec![name.clone()]
+                }
+            })
+            .collect()
+    };
+    PanelConfig {
+        left: expand(&config.left),
+        center: expand(&config.center),
+        right: expand(&config.right),
+        ..config.clone()
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum Position {
@@ -81,7 +106,6 @@ pub enum AppletType {
     Clipboard,
     Clock,
     Command,
-    Dev,
     Exec,
     Idle,
     Keyboard,
@@ -106,7 +130,6 @@ impl AppletType {
             "clipboard" => Some(Self::Clipboard),
             "clock" => Some(Self::Clock),
             "command" => Some(Self::Command),
-            "dev" => Some(Self::Dev),
             "exec" => Some(Self::Exec),
             "idle" => Some(Self::Idle),
             "keyboard" => Some(Self::Keyboard),

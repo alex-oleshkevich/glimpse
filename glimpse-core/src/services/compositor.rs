@@ -498,8 +498,8 @@ impl CompositorService {
                 let _ = outcome_tx.send(RecoveryOutcome::Succeeded);
                 return;
             }
-            let Some(target) = pick_recovery_target(&monitors, builtin_override.as_deref())
-                .map(str::to_owned)
+            let Some(target) =
+                pick_recovery_target(&monitors, builtin_override.as_deref()).map(str::to_owned)
             else {
                 let _ = outcome_tx.send(RecoveryOutcome::Succeeded);
                 return;
@@ -894,9 +894,15 @@ mod tests {
         assert!(apply_workspace_changed(&mut state, 2, true));
 
         assert_eq!(state.current_workspace, Some(2));
-        assert!(!state.workspaces[0].active, "previous active sibling cleared");
+        assert!(
+            !state.workspaces[0].active,
+            "previous active sibling cleared"
+        );
         assert!(state.workspaces[1].active, "newly activated marked active");
-        assert!(state.workspaces[2].active, "other monitor's active untouched");
+        assert!(
+            state.workspaces[2].active,
+            "other monitor's active untouched"
+        );
         assert!(!state.workspaces[0].focused);
         assert!(state.workspaces[1].focused);
         assert_eq!(state.monitors[0].active_workspace, Some(2));

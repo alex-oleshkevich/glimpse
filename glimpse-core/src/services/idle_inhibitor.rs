@@ -12,7 +12,9 @@ pub const PORTAL_FLAG_USER_SWITCH: u32 = 2;
 pub const PORTAL_FLAG_SUSPEND: u32 = 4;
 pub const PORTAL_FLAG_IDLE: u32 = 8;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue,
+)]
 pub struct InhibitionTargets {
     pub idle: bool,
     pub suspend: bool,
@@ -25,11 +27,18 @@ pub struct InhibitionTargets {
 
 impl InhibitionTargets {
     pub fn idle_only() -> Self {
-        Self { idle: true, ..Self::default() }
+        Self {
+            idle: true,
+            ..Self::default()
+        }
     }
 
     pub fn manual_hold() -> Self {
-        Self { idle: true, suspend: true, ..Self::default() }
+        Self {
+            idle: true,
+            suspend: true,
+            ..Self::default()
+        }
     }
 
     /// Parse the colon-separated `what` field from logind. Unknown tokens are ignored.
@@ -61,12 +70,19 @@ impl InhibitionTargets {
     }
 
     pub fn any(&self) -> bool {
-        self.idle || self.suspend || self.shutdown || self.lid_switch
-            || self.power_key || self.suspend_key || self.hibernate_key
+        self.idle
+            || self.suspend
+            || self.shutdown
+            || self.lid_switch
+            || self.power_key
+            || self.suspend_key
+            || self.hibernate_key
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue,
+)]
 pub enum Login1Mode {
     #[default]
     Block,
@@ -144,12 +160,12 @@ impl IdleInhibitorSource {
     pub fn is_consistent(&self) -> bool {
         match self.kind {
             SourceKind::ScreenSaver => {
-                self.app_id.is_empty() && self.request_handle.is_empty()
-                    && self.pid == 0 && self.uid == 0
+                self.app_id.is_empty()
+                    && self.request_handle.is_empty()
+                    && self.pid == 0
+                    && self.uid == 0
             }
-            SourceKind::Portal => {
-                self.cookie == 0 && self.pid == 0 && self.uid == 0
-            }
+            SourceKind::Portal => self.cookie == 0 && self.pid == 0 && self.uid == 0,
             SourceKind::Login1 => {
                 self.cookie == 0 && self.app_id.is_empty() && self.request_handle.is_empty()
             }
@@ -157,7 +173,9 @@ impl IdleInhibitorSource {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type, Value, OwnedValue,
+)]
 pub enum HealthKind {
     #[default]
     Ready,
@@ -174,14 +192,22 @@ pub struct BackendHealth {
 }
 
 impl BackendHealth {
-    pub fn ready() -> Self { Self::default() }
+    pub fn ready() -> Self {
+        Self::default()
+    }
 
     pub fn degraded(message: impl Into<String>) -> Self {
-        Self { kind: HealthKind::Degraded, message: message.into() }
+        Self {
+            kind: HealthKind::Degraded,
+            message: message.into(),
+        }
     }
 
     pub fn unsupported(message: impl Into<String>) -> Self {
-        Self { kind: HealthKind::Unsupported, message: message.into() }
+        Self {
+            kind: HealthKind::Unsupported,
+            message: message.into(),
+        }
     }
 }
 
@@ -237,8 +263,15 @@ mod tests {
     fn login1_what_round_trips_every_token() {
         let all = "shutdown:sleep:idle:handle-power-key:handle-suspend-key:handle-hibernate-key:handle-lid-switch";
         let t = InhibitionTargets::from_login1_what(all);
-        assert!(t.idle && t.suspend && t.shutdown && t.lid_switch
-            && t.power_key && t.suspend_key && t.hibernate_key);
+        assert!(
+            t.idle
+                && t.suspend
+                && t.shutdown
+                && t.lid_switch
+                && t.power_key
+                && t.suspend_key
+                && t.hibernate_key
+        );
     }
 
     #[test]

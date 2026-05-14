@@ -24,8 +24,8 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```rust
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, BoxNode, Button, CallbackEvent, Hero, Icon, Label, StatusItem, TreeNode,
-    run, tree,
+    Applet, AppletResult, BoxNode, Button, ButtonVariant, CallbackEvent, Hero, Icon, Label,
+    StatusItem, TreeNode, run, tree,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -52,7 +52,10 @@ impl Applet for CounterApplet {
             BoxNode::vertical(tree![
                 Hero::new("Counter", format!("Value: {}", state.count)),
                 Label::new(format!("Count = {}", state.count)),
-                Button::new("increment").label("Increment"),
+                Button::new("increment")
+                    .label("Increment")
+                    .icon("list-add-symbolic")
+                    .variant(ButtonVariant::Primary),
             ])
             .into(),
         ))

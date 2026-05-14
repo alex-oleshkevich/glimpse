@@ -91,14 +91,99 @@ func TestGoldenButtonWithIcon(t *testing.T) {
 	assertWidget(t, "button-with-icon", Button{
 		CommonProps: CommonProps{ID: "go"},
 		Label:       "Go",
-		Icon:        IconName("go-symbolic"),
+		Icon:        "go-symbolic",
 	})
 }
 
 func TestGoldenButtonIconOnly(t *testing.T) {
 	assertWidget(t, "button-icon-only", Button{
 		CommonProps: CommonProps{ID: "go"},
-		Icon:        IconName("go-symbolic"),
+		Icon:        "go-symbolic",
+	})
+}
+
+func TestGoldenButtonPrimary(t *testing.T) {
+	assertWidget(t, "button-primary", Button{
+		CommonProps: CommonProps{ID: "go"},
+		Label:       "Go",
+		Variant:     ButtonVariantPrimary,
+	})
+}
+
+func TestGoldenButtonDisabled(t *testing.T) {
+	enabled := false
+	assertWidget(t, "button-disabled", Button{
+		CommonProps: CommonProps{ID: "go"},
+		Label:       "Go",
+		Enabled:     &enabled,
+	})
+}
+
+func TestGoldenLinkButton(t *testing.T) {
+	assertWidget(t, "link-button", LinkButton{URI: "https://example.com"})
+}
+
+func TestGoldenLinkButtonLabel(t *testing.T) {
+	assertWidget(t, "link-button-label", LinkButton{
+		URI:   "https://example.com/docs",
+		Label: "Docs",
+	})
+}
+
+func TestGoldenExpander(t *testing.T) {
+	assertWidget(t, "expander", Expander{
+		Label: "Details",
+		Child: Label{Text: "More"},
+	})
+}
+
+func TestGoldenExpanderExpanded(t *testing.T) {
+	assertWidget(t, "expander-expanded", Expander{
+		Label:    "Details",
+		Expanded: true,
+		Child:    Label{Text: "More"},
+	})
+}
+
+func TestGoldenOverlay(t *testing.T) {
+	assertWidget(t, "overlay", Overlay{
+		Child:    Label{Text: "Base"},
+		Overlays: []Widget{Badge{Label: "Top"}},
+	})
+}
+
+func TestGoldenListBox(t *testing.T) {
+	assertWidget(t, "list-box", ListBox{
+		Children: []Widget{
+			Label{Text: "First"},
+			Badge{Label: "Second"},
+		},
+	})
+}
+
+func TestGoldenLevelBar(t *testing.T) {
+	assertWidget(t, "level-bar", LevelBar{
+		Value: 0.7,
+		Min:   0.0,
+		Max:   1.0,
+		Mode:  LevelBarModeContinuous,
+	})
+}
+
+func TestGoldenTreeExpander(t *testing.T) {
+	assertWidget(t, "tree-expander", TreeExpander{
+		Child:          Label{Text: "Nested"},
+		HideExpander:   true,
+		IndentForDepth: true,
+		IndentForIcon:  true,
+	})
+}
+
+func TestGoldenMenuButton(t *testing.T) {
+	assertWidget(t, "menu-button", MenuButton{
+		Label:   "More",
+		Icon:    "open-menu-symbolic",
+		Popover: Label{Text: "Menu content"},
 	})
 }
 
@@ -114,6 +199,18 @@ func TestGoldenSwitchOff(t *testing.T) {
 	assertWidget(t, "switch-off", Switch{CommonProps: CommonProps{ID: "vpn"}})
 }
 
+func TestGoldenToggleButtonOn(t *testing.T) {
+	assertWidget(t, "toggle-button-on", ToggleButton{
+		CommonProps: CommonProps{ID: "wifi"},
+		Label:       "Wi-Fi",
+		Active:      true,
+	})
+}
+
+func TestGoldenToggleButtonOff(t *testing.T) {
+	assertWidget(t, "toggle-button-off", ToggleButton{CommonProps: CommonProps{ID: "wifi"}})
+}
+
 func TestGoldenCheckboxOn(t *testing.T) {
 	assertWidget(t, "checkbox-on", Checkbox{
 		CommonProps: CommonProps{ID: "autostart"},
@@ -122,8 +219,8 @@ func TestGoldenCheckboxOn(t *testing.T) {
 	})
 }
 
-func TestGoldenScale(t *testing.T) {
-	assertWidget(t, "scale", Scale{
+func TestGoldenSlider(t *testing.T) {
+	assertWidget(t, "slider", Slider{
 		CommonProps: CommonProps{ID: "brightness"},
 		Min:         0.0,
 		Max:         1.0,
@@ -132,11 +229,11 @@ func TestGoldenScale(t *testing.T) {
 	})
 }
 
-func TestGoldenDropdown(t *testing.T) {
+func TestGoldenSelect(t *testing.T) {
 	selected := uint32(0)
-	assertWidget(t, "dropdown", Dropdown{
+	assertWidget(t, "select", Select{
 		CommonProps: CommonProps{ID: "env"},
-		Items: []DropdownItem{
+		Items: []SelectOption{
 			{ID: "prod", Label: "Production"},
 			{ID: "stage", Label: "Staging"},
 		},
@@ -144,8 +241,8 @@ func TestGoldenDropdown(t *testing.T) {
 	})
 }
 
-func TestGoldenDropdownEmpty(t *testing.T) {
-	assertWidget(t, "dropdown-empty", Dropdown{CommonProps: CommonProps{ID: "env"}})
+func TestGoldenSelectEmpty(t *testing.T) {
+	assertWidget(t, "select-empty", Select{CommonProps: CommonProps{ID: "env"}})
 }
 
 func TestGoldenBadge(t *testing.T) {
@@ -202,12 +299,35 @@ func TestGoldenStatusDotWarning(t *testing.T) {
 	})
 }
 
-func TestGoldenIcon(t *testing.T) {
-	pixel := 24
-	assertWidget(t, "icon", IconWidget{
-		Icon:      IconName("network-wireless-symbolic"),
-		PixelSize: &pixel,
+func TestGoldenPagerItemNumberActive(t *testing.T) {
+	assertWidget(t, "pager-item-number-active", PagerItem{
+		CommonProps: CommonProps{ID: "workspace-1"},
+		Appearance:  PagerAppearanceNumbers,
+		Label:       "1",
+		Active:      true,
 	})
+}
+
+func TestGoldenPagerStrip(t *testing.T) {
+	assertWidget(t, "pager-strip", PagerStrip{Items: []PagerItem{
+		{
+			CommonProps: CommonProps{ID: "workspace-1"},
+			Appearance:  PagerAppearanceNumbers,
+			Label:       "1",
+			Active:      true,
+		},
+		{
+			CommonProps: CommonProps{ID: "workspace-2"},
+			Appearance:  PagerAppearanceNumbers,
+			Label:       "2",
+			Occupied:    true,
+		},
+		{
+			CommonProps: CommonProps{ID: "workspace-3"},
+			Appearance:  PagerAppearanceDots,
+			Urgent:      true,
+		},
+	}})
 }
 
 func TestGoldenImageByName(t *testing.T) {
@@ -219,6 +339,17 @@ func TestGoldenImageByPath(t *testing.T) {
 	assertWidget(t, "image-by-path", Image{
 		Icon:      IconPath("/home/me/avatar.png"),
 		PixelSize: &pixel,
+	})
+}
+
+func TestGoldenPicture(t *testing.T) {
+	assertWidget(t, "picture", Picture{Path: "/home/me/photo.png"})
+}
+
+func TestGoldenPictureContentFit(t *testing.T) {
+	assertWidget(t, "picture-content-fit", Picture{
+		Path:       "/home/me/photo.png",
+		ContentFit: ContentFitCover,
 	})
 }
 
@@ -275,101 +406,64 @@ func TestGoldenCardEmpty(t *testing.T) {
 
 func TestGoldenSectionBasic(t *testing.T) {
 	assertWidget(t, "section-basic", Section{
-		Header: &Header{Title: "System"},
-		Body:   []Widget{Label{Text: "uptime"}},
+		Title:    "System",
+		Children: []Widget{Label{Text: "uptime"}},
 	})
 }
 
-func TestGoldenSectionEmptyBody(t *testing.T) {
-	assertWidget(t, "section-empty-body", Section{Header: &Header{Title: "Empty"}})
+func TestGoldenSectionEmptyChildren(t *testing.T) {
+	assertWidget(t, "section-empty-children", Section{Title: "Empty"})
 }
 
-func TestGoldenCollapsibleClosed(t *testing.T) {
-	assertWidget(t, "collapsible-closed", Collapsible{
-		Header:   &Header{Title: "Advanced"},
-		Expanded: false,
-	})
-}
-
-func TestGoldenCollapsibleOpenWithBody(t *testing.T) {
-	assertWidget(t, "collapsible-open-with-body", Collapsible{
-		Header:   &Header{Title: "Advanced"},
-		Expanded: true,
-		Body:     []Widget{Label{Text: "inside"}},
-	})
-}
-
-func TestGoldenItemBasic(t *testing.T) {
-	assertWidget(t, "item-basic", Item{Label: "Plain"})
-}
-
-func TestGoldenItemClickable(t *testing.T) {
-	assertWidget(t, "item-clickable", Item{
-		CommonProps: CommonProps{ID: "run"},
-		Label:       "Run",
-		Clickable:   true,
-	})
-}
-
-func TestGoldenItemWithMenu(t *testing.T) {
-	enabled := false
-	assertWidget(t, "item-with-menu", Item{
-		CommonProps: CommonProps{ID: "wifi-home"},
-		Label:       "home-5G",
-		Clickable:   true,
-		Menu: []MenuItem{
-			{ID: "forget", Label: "Forget"},
-			{ID: "details", Label: "Details", Enabled: &enabled},
-		},
-	})
-}
-
-func TestGoldenCollapsibleItem(t *testing.T) {
-	assertWidget(t, "collapsible-item", CollapsibleItem{Label: "Devices"})
-}
-
-func TestGoldenActionRow(t *testing.T) {
-	assertWidget(t, "action-row", ActionRow{
-		CommonProps: CommonProps{ID: "go"},
-		Title:       "Connect",
-	})
-}
-
-func TestGoldenActionRowWithMeta(t *testing.T) {
-	assertWidget(t, "action-row-with-meta", ActionRow{
-		CommonProps: CommonProps{ID: "go"},
-		Title:       "Connect",
-		Subtitle:    "wg0",
-		Meta:        "4 routes",
-		Icon:        IconName("network-vpn-symbolic"),
-	})
-}
-
-func TestGoldenActionMenu(t *testing.T) {
-	chkFalse := false
-	chkTrue := true
-	assertWidget(t, "action-menu", ActionMenu{
-		Header: "Power profile",
-		Items: []ActionMenuItem{
-			{ID: "saver", Label: "Power Saver", Checked: &chkFalse},
-			{ID: "balanced", Label: "Balanced", Checked: &chkTrue},
-		},
-	})
-}
-
-func TestGoldenActionMenuEmpty(t *testing.T) {
-	assertWidget(t, "action-menu-empty", ActionMenu{})
-}
-
-func TestGoldenDetailGrid(t *testing.T) {
-	assertWidget(t, "detail-grid", DetailGrid{Rows: []DetailGridItem{
-		{Key: "SSID", Value: "home-5G"},
-		{Key: "IPv4", Value: "10.0.0.42"},
+func TestGoldenPropertyList(t *testing.T) {
+	assertWidget(t, "property-list", PropertyList{Rows: Properties{
+		"SSID": "home-5G",
+		"IPv4": "10.0.0.42",
 	}})
 }
 
-func TestGoldenDetailGridEmpty(t *testing.T) {
-	assertWidget(t, "detail-grid-empty", DetailGrid{})
+func TestGoldenPropertyListTitle(t *testing.T) {
+	assertWidget(t, "property-list-title", PropertyList{
+		Title: "Network",
+		Rows: Properties{
+			"SSID": "home-5G",
+			"IPv4": "10.0.0.42",
+		},
+	})
+}
+
+func TestGoldenPropertyListEmpty(t *testing.T) {
+	assertWidget(t, "property-list-empty", PropertyList{})
+}
+
+func TestGoldenItem(t *testing.T) {
+	assertWidget(t, "item", Item{Label: "Wi-Fi"})
+}
+
+func TestGoldenItemWithRight(t *testing.T) {
+	assertWidget(t, "item-with-right", Item{
+		Icon:     "network-wireless-symbolic",
+		Label:    "Wi-Fi",
+		Sublabel: "Connected",
+		Right:    Badge{Label: "home-5G"},
+	})
+}
+
+func TestGoldenActionItem(t *testing.T) {
+	assertWidget(t, "action-item", ActionItem{
+		CommonProps: CommonProps{ID: "wifi"},
+		Label:       "Wi-Fi",
+	})
+}
+
+func TestGoldenActionItemWithRight(t *testing.T) {
+	assertWidget(t, "action-item-with-right", ActionItem{
+		CommonProps: CommonProps{ID: "wifi"},
+		Icon:        "network-wireless-symbolic",
+		Label:       "Wi-Fi",
+		Sublabel:    "Connected",
+		Right:       Badge{Label: "home-5G"},
+	})
 }
 
 func TestGoldenEmptyState(t *testing.T) {
@@ -410,19 +504,6 @@ func TestGoldenCopyable(t *testing.T) {
 	assertWidget(t, "copyable", Copyable{Label: "IPv4", Value: "10.0.0.42"})
 }
 
-func TestGoldenToast(t *testing.T) {
-	assertWidget(t, "toast", Toast{Title: "Saved"})
-}
-
-func TestGoldenToastWithAction(t *testing.T) {
-	assertWidget(t, "toast-with-action", Toast{
-		Icon:    IconName("dialog-warning-symbolic"),
-		Title:   "Update available",
-		Message: "Version 0.8 is available.",
-		Action:  &ToastAction{ID: "update", Label: "Update"},
-	})
-}
-
 func TestGoldenCommonPropsAll(t *testing.T) {
 	visible := false
 	hex := true
@@ -448,8 +529,8 @@ func TestGoldenTreeHeroColumnSection(t *testing.T) {
 		Children: []Widget{
 			Hero{Title: "Counter", Subtitle: "Value: 0"},
 			Section{
-				Header: &Header{Title: "Controls"},
-				Body: []Widget{
+				Title: "Controls",
+				Children: []Widget{
 					Label{Text: "Current"},
 					Button{CommonProps: CommonProps{ID: "increment"}, Label: "Increment"},
 				},

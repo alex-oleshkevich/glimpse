@@ -1,5 +1,3 @@
-#![allow(unused_assignments)]
-
 use std::process::Stdio;
 use std::time::Duration;
 
@@ -13,7 +11,6 @@ use tokio::process::Command as TokioCommand;
 use crate::panels::applets::AppletConfig;
 
 const SCROLL_DEBOUNCE_MS: u64 = 100;
-
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
@@ -102,6 +99,7 @@ struct View {
     tooltip: Option<String>,
 }
 
+#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Applet {
     type Init = Init;

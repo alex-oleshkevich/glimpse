@@ -37,8 +37,7 @@ re-think before adding.
 | Common props (id, visible, hexpand, vexpand, halign, valign, tooltip, variant) | omit when unset |
 | Optional icons / children / right-side accessories | omit when unset |
 | Structural arrays (`children`, `body`, `items`, `rows`, `menu`) | always emit (`[]` when empty) |
-| Structural strings on display widgets (`label` on Item/Meter; `subtitle`/`meta` on ActionRow; `message` on Toast; `subtitle` on EmptyState) | always emit (`""` when empty) |
-| `Header.subtitle` | omit when empty (historical 4-of-4 agreement; documented exception) |
+| Structural strings on display widgets (`label` on Item/ActionItem/Meter; `subtitle` on EmptyState) | always emit (`""` when empty) |
 | Primary state booleans (`expanded`, `clickable`, `active`, `spinning`) | always emit |
 | Modifier booleans (`wrap`, `selectable`, `show_text`, `interactive`, `draw_value`) | omit when false |
 | `Box.orientation`, `Box.spacing`, `Row.spacing`, `Column.spacing` | always emit |

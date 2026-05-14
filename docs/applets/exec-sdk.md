@@ -45,7 +45,7 @@ Minimal applet:
 ```python
 from dataclasses import dataclass
 
-from glimpse_sdk import Applet, AppletState, Button, Icon, StatusItem, click
+from glimpse_sdk import Applet, AppletState, Button, ButtonVariant, Icon, StatusItem, click
 
 
 @dataclass
@@ -67,7 +67,12 @@ class CounterApplet(Applet[CounterState]):
         ]
 
     async def popover(self, state: CounterState):
-        return Button(id="increment", label="Increment")
+        return Button(
+            id="increment",
+            label="Increment",
+            icon="list-add-symbolic",
+            variant=ButtonVariant.PRIMARY,
+        )
 
     @click("increment")
     async def on_increment(self, _event) -> None:
@@ -118,7 +123,12 @@ class CounterApplet extends Applet<CounterState> {
   }
 
   protected async popover(_state: CounterState): Promise<TreeNode | null> {
-    return new Button({ id: "increment", label: "Increment" });
+    return new Button({
+      id: "increment",
+      label: "Increment",
+      icon: "list-add-symbolic",
+      variant: "primary",
+    });
   }
 }
 
@@ -141,7 +151,7 @@ Minimal applet:
 ```rust
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, Button, CallbackEvent, Icon, StatusItem, TreeNode, run,
+    Applet, AppletResult, Button, ButtonVariant, CallbackEvent, Icon, StatusItem, TreeNode, run,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -164,7 +174,13 @@ impl Applet for CounterApplet {
     }
 
     async fn popover(&self, _state: &Self::State) -> AppletResult<Option<TreeNode>> {
-        Ok(Some(Button::new("increment").label("Increment").into()))
+        Ok(Some(
+            Button::new("increment")
+                .label("Increment")
+                .icon("list-add-symbolic")
+                .variant(ButtonVariant::Primary)
+                .into(),
+        ))
     }
 
     async fn on_callback(
@@ -245,6 +261,8 @@ func (a *counterApplet) Popover(_ context.Context, _ *counterState) (sdk.Widget,
 	return sdk.Button{
 		CommonProps: sdk.CommonProps{ID: "increment"},
 		Label:       "Increment",
+		Icon:        "list-add-symbolic",
+		Variant:     sdk.ButtonVariantPrimary,
 	}, nil
 }
 

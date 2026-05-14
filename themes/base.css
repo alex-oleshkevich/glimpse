@@ -664,7 +664,6 @@ popover.popover-size-xlarge {
 
 .item,
 .list-item,
-.collapsible-item,
 .meter,
 .copyable,
 .toast {
@@ -673,47 +672,38 @@ popover.popover-size-xlarge {
 }
 
 .item__content,
-.list-item__content,
-.collapsible-item__content {
+.list-item__content {
     padding: var(--row-padding-y) var(--row-padding-x);
 }
 
 .item__left,
 .item__right,
 .list-item_left,
-.list-item_right,
-.collapsible-item__left,
-.collapsible-item__right {
+.list-item_right {
     color: var(--row-muted-fg);
 }
 
 .item__left image,
 .item__right image,
-.collapsible-item__left image,
-.collapsible-item__right image,
 .item__left .badge,
 .item__right .badge,
 .list-item__left image,
 .list-item__right image,
 .list-item__left .badge,
-.list-item__right .badge,
-.collapsible-item__left .badge,
-.collapsible-item__right .badge {
+.list-item__right .badge {
     min-width: 0;
     min-height: 0;
 }
 
 .item__label,
-.list-item__label,
-.collapsible-item__label {
+.list-item__label {
     color: var(--row-fg);
     font-size: var(--font-size-md);
     font-weight: var(--font-weight-normal);
 }
 
 .item__secondary_label,
-.list-item__secondary_label,
-.collapsible-item__label {
+.list-item__secondary_label {
     color: var(--color-muted-fg);
     font-size: var(--font-size-xxs);
     font-weight: var(--font-weight-normal);
@@ -727,14 +717,12 @@ popover.popover-size-xlarge {
 }
 
 .item__button:hover,
-.collapsible-item__button:hover,
 .copyable__button:hover,
 .toast__action:hover {
     background: var(--row-hover-bg);
 }
 
 .item__button:active,
-.collapsible-item__button:active,
 .copyable__button:active,
 .toast__action:active {
     background: var(--row-active-bg);
@@ -745,14 +733,6 @@ popover.popover-size-xlarge {
 .item__button--static:active {
     background: transparent;
     transform: none;
-}
-
-.collapsible-item__body {
-    margin-top: var(--space-2);
-}
-
-.collapsible-item__chevron {
-    color: var(--row-muted-fg);
 }
 
 .meter,
@@ -934,20 +914,24 @@ popover.clipboard-app-menu .action-menu {
     padding-bottom: 0;
 }
 
-.detail-grid__row:not(:last-child),
 .key-value-grid__row:not(:last-child) {
     margin-bottom: var(--space-2);
 }
 
-.detail-grid__key,
 .key-value-grid__key {
     color: var(--color-muted-fg);
 }
 
-.detail-grid__value,
 .key-value-grid__value {
     color: var(--row-fg);
     font-variant-numeric: tabular-nums;
+}
+
+.property-list__title {
+    color: var(--row-fg);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: var(--space-2);
 }
 
 .footer-action {

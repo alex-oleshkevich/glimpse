@@ -1,8 +1,6 @@
 {
   "data": {
-    "icon": {
-      "name": "go-symbolic"
-    },
+    "icon": "go-symbolic",
     "id": "go",
     "label": "Go"
   },

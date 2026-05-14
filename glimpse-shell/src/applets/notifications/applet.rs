@@ -40,6 +40,7 @@ pub struct Config {
     pub popup_margin_x: i32,
     pub popup_margin_y: i32,
     pub popup_monitor: Option<String>,
+    pub max_history: usize,
 }
 
 impl Config {
@@ -73,6 +74,7 @@ impl Default for Config {
             popup_margin_x: 12,
             popup_margin_y: 32,
             popup_monitor: None,
+            max_history: 100,
         }
     }
 }
@@ -236,6 +238,7 @@ impl SimpleComponent for Applet {
             theme_mode: init.theme_mode,
         };
         model.apply_state(model.state.clone());
+        model.send_notification(Command::SetMaxHistory(model.config.max_history));
 
         subscribe_services(&model, sender.clone());
 
@@ -250,6 +253,7 @@ impl SimpleComponent for Applet {
             Input::Reconfigure { config, theme_mode } => {
                 self.config = config;
                 self.theme_mode = theme_mode;
+                self.send_notification(Command::SetMaxHistory(self.config.max_history));
                 self.apply_state(self.service.snapshot());
                 if let Some(popup) = &self.popup {
                     popup.emit(PopupInput::Reconfigure {

@@ -9,11 +9,12 @@ use std::fs;
 use std::path::PathBuf;
 
 use glimpse_sdk::{
-    ActionMenu, ActionMenuItem, ActionRow, Align, Badge, BoxNode, Button, Card, CallbackEvent,
-    Checkbox, Collapsible, CollapsibleItem, Column, Copyable, DetailGrid, DetailGridItem, Dropdown,
-    DropdownItem, EmptyState, Grid, GridChild, Hero, Icon, IconWidget, Image, Item, Label, MenuItem,
-    Meter, Progress, Row, Scale, Scroll, Section, Separator, Spinner, StatusDot, Switch, Toast,
-    ToastAction, TreeNode, Variant, parse_callback_event,
+    ActionItem, Align, Badge, BoxNode, Button, ButtonVariant, CallbackEvent, Card, Checkbox, Column,
+    ContentFit, Copyable, EmptyState, Expander, Grid, GridChild, Hero, Icon, Image, Item, Label,
+    LevelBar, LevelBarMode, LinkButton, ListBox, MenuButton, Meter, Overlay, PagerItem, PagerStrip,
+    Picture, Progress, PropertyList, Row, Scroll, Section, Select, SelectOption, Separator, Slider,
+    Spinner, StatusDot, Switch, ToggleButton, TreeExpander, TreeNode, Variant, parse_callback_event,
+    tree,
 };
 use serde_json::Value;
 
@@ -27,8 +28,7 @@ fn load(rel: &str) -> Value {
     let path = fixtures_root().join(rel);
     let text = fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("read fixture {}: {e}", path.display()));
-    serde_json::from_str(&text)
-        .unwrap_or_else(|e| panic!("parse fixture {}: {e}", path.display()))
+    serde_json::from_str(&text).unwrap_or_else(|e| panic!("parse fixture {}: {e}", path.display()))
 }
 
 #[track_caller]
@@ -60,15 +60,121 @@ fn widget_button_basic() {
 #[test]
 fn widget_button_with_icon() {
     let mut b = Button::new("go").label("Go");
-    b.icon = Some(Icon::name("go-symbolic"));
+    b.icon = Some("go-symbolic".into());
     assert_widget("button-with-icon", b.into());
 }
 
 #[test]
 fn widget_button_icon_only() {
     let mut b = Button::new("go");
-    b.icon = Some(Icon::name("go-symbolic"));
+    b.icon = Some("go-symbolic".into());
     assert_widget("button-icon-only", b.into());
+}
+
+#[test]
+fn widget_button_primary() {
+    assert_widget(
+        "button-primary",
+        Button::new("go")
+            .label("Go")
+            .variant(ButtonVariant::Primary)
+            .into(),
+    );
+}
+
+#[test]
+fn widget_button_disabled() {
+    assert_widget(
+        "button-disabled",
+        Button::new("go").label("Go").enabled(false).into(),
+    );
+}
+
+#[test]
+fn widget_link_button() {
+    assert_widget("link-button", LinkButton::new("https://example.com").into());
+}
+
+#[test]
+fn widget_link_button_label() {
+    assert_widget(
+        "link-button-label",
+        LinkButton::new("https://example.com/docs")
+            .label("Docs")
+            .into(),
+    );
+}
+
+#[test]
+fn widget_expander() {
+    assert_widget(
+        "expander",
+        Expander::new("Details").child(Label::new("More")).into(),
+    );
+}
+
+#[test]
+fn widget_expander_expanded() {
+    assert_widget(
+        "expander-expanded",
+        Expander::new("Details")
+            .expanded(true)
+            .child(Label::new("More"))
+            .into(),
+    );
+}
+
+#[test]
+fn widget_overlay() {
+    assert_widget(
+        "overlay",
+        Overlay::new(Label::new("Base"))
+            .overlay(Badge::new("Top"))
+            .into(),
+    );
+}
+
+#[test]
+fn widget_list_box() {
+    assert_widget(
+        "list-box",
+        ListBox::new(tree![Label::new("First"), Badge::new("Second")]).into(),
+    );
+}
+
+#[test]
+fn widget_level_bar() {
+    assert_widget(
+        "level-bar",
+        LevelBar::new(0.7)
+            .min(0.0)
+            .max(1.0)
+            .mode(LevelBarMode::Continuous)
+            .into(),
+    );
+}
+
+#[test]
+fn widget_tree_expander() {
+    assert_widget(
+        "tree-expander",
+        TreeExpander::new(Label::new("Nested"))
+            .hide_expander(true)
+            .indent_for_depth(true)
+            .indent_for_icon(true)
+            .into(),
+    );
+}
+
+#[test]
+fn widget_menu_button() {
+    assert_widget(
+        "menu-button",
+        MenuButton::new(Label::new("Menu content"))
+            .label("More")
+            .icon("open-menu-symbolic")
+            .into(),
+    );
 }
 
 #[test]
@@ -85,6 +191,19 @@ fn widget_switch_off() {
 }
 
 #[test]
+fn widget_toggle_button_on() {
+    let mut toggle = ToggleButton::new("wifi");
+    toggle.label = Some("Wi-Fi".into());
+    toggle.active = true;
+    assert_widget("toggle-button-on", toggle.into());
+}
+
+#[test]
+fn widget_toggle_button_off() {
+    assert_widget("toggle-button-off", ToggleButton::new("wifi").into());
+}
+
+#[test]
 fn widget_checkbox_on() {
     let mut c = Checkbox::new("autostart");
     c.label = Some("Run at login".into());
@@ -93,31 +212,31 @@ fn widget_checkbox_on() {
 }
 
 #[test]
-fn widget_scale() {
-    let mut s = Scale::new("brightness");
+fn widget_slider() {
+    let mut s = Slider::new("brightness");
     s.min = 0.0;
     s.max = 1.0;
     s.step = 0.05;
     s.value = 0.6;
-    assert_widget("scale", s.into());
+    assert_widget("slider", s.into());
 }
 
 #[test]
-fn widget_dropdown() {
-    let mut d = Dropdown::new(
+fn widget_select() {
+    let mut d = Select::new(
         "env",
         vec![
-            DropdownItem::new("prod", "Production"),
-            DropdownItem::new("stage", "Staging"),
+            SelectOption::new("prod", "Production"),
+            SelectOption::new("stage", "Staging"),
         ],
     );
     d.selected = Some(0);
-    assert_widget("dropdown", d.into());
+    assert_widget("select", d.into());
 }
 
 #[test]
-fn widget_dropdown_empty() {
-    assert_widget("dropdown-empty", Dropdown::new("env", vec![]).into());
+fn widget_select_empty() {
+    assert_widget("select-empty", Select::new("env", vec![]).into());
 }
 
 #[test]
@@ -134,10 +253,7 @@ fn widget_badge_success_variant() {
 
 #[test]
 fn widget_hero_basic() {
-    assert_widget(
-        "hero-basic",
-        Hero::new("Counter", "Value: 0").into(),
-    );
+    assert_widget("hero-basic", Hero::new("Counter", "Value: 0").into());
 }
 
 #[test]
@@ -159,7 +275,11 @@ fn widget_progress() {
 fn widget_progress_with_text() {
     assert_widget(
         "progress-with-text",
-        Progress::new(0.7).max(1.0).show_text(true).text("70%").into(),
+        Progress::new(0.7)
+            .max(1.0)
+            .show_text(true)
+            .text("70%")
+            .into(),
     );
 }
 
@@ -170,10 +290,7 @@ fn widget_spinner_default() {
 
 #[test]
 fn widget_spinner_stopped() {
-    assert_widget(
-        "spinner-stopped",
-        Spinner::new().spinning(false).into(),
-    );
+    assert_widget("spinner-stopped", Spinner::new().spinning(false).into());
 }
 
 #[test]
@@ -189,12 +306,23 @@ fn widget_status_dot_warning() {
 }
 
 #[test]
-fn widget_icon() {
+fn widget_pager_item_number_active() {
     assert_widget(
-        "icon",
-        IconWidget::new(Icon::name("network-wireless-symbolic"))
-            .pixel_size(24)
-            .into(),
+        "pager-item-number-active",
+        PagerItem::number("1").id("workspace-1").active(true).into(),
+    );
+}
+
+#[test]
+fn widget_pager_strip() {
+    assert_widget(
+        "pager-strip",
+        PagerStrip::new(vec![
+            PagerItem::number("1").id("workspace-1").active(true),
+            PagerItem::number("2").id("workspace-2").occupied(true),
+            PagerItem::dots().id("workspace-3").urgent(true),
+        ])
+        .into(),
     );
 }
 
@@ -214,16 +342,28 @@ fn widget_image_by_path() {
 }
 
 #[test]
+fn widget_picture() {
+    assert_widget("picture", Picture::new("/home/me/photo.png").into());
+}
+
+#[test]
+fn widget_picture_content_fit() {
+    assert_widget(
+        "picture-content-fit",
+        Picture::new("/home/me/photo.png")
+            .content_fit(ContentFit::Cover)
+            .into(),
+    );
+}
+
+#[test]
 fn widget_separator() {
     assert_widget("separator", Separator::new().into());
 }
 
 #[test]
 fn widget_box_vertical() {
-    assert_widget(
-        "box-vertical",
-        BoxNode::vertical(vec![]).spacing(8).into(),
-    );
+    assert_widget("box-vertical", BoxNode::vertical(vec![]).spacing(8).into());
 }
 
 #[test]
@@ -246,14 +386,11 @@ fn widget_column() {
 
 #[test]
 fn widget_grid() {
-    let mut grid = Grid::new(vec![
-        GridChild::new(0, 0, Label::new("A").into()),
-        {
-            let mut c = GridChild::new(0, 1, Label::new("B").into());
-            c.width = 2;
-            c
-        },
-    ]);
+    let mut grid = Grid::new(vec![GridChild::new(0, 0, Label::new("A").into()), {
+        let mut c = GridChild::new(0, 1, Label::new("B").into());
+        c.width = 2;
+        c
+    }]);
     grid.row_spacing = 4;
     grid.column_spacing = 4;
     assert_widget("grid", grid.into());
@@ -269,10 +406,7 @@ fn widget_scroll() {
 
 #[test]
 fn widget_card() {
-    assert_widget(
-        "card",
-        Card::new(vec![Label::new("in card").into()]).into(),
-    );
+    assert_widget("card", Card::new(vec![Label::new("in card").into()]).into());
 }
 
 #[test]
@@ -289,115 +423,68 @@ fn widget_section_basic() {
 }
 
 #[test]
-fn widget_section_empty_body() {
+fn widget_section_empty_children() {
     assert_widget(
-        "section-empty-body",
+        "section-empty-children",
         Section::new("Empty", vec![]).into(),
     );
 }
 
 #[test]
-fn widget_collapsible_closed() {
+fn widget_property_list() {
     assert_widget(
-        "collapsible-closed",
-        Collapsible::new("Advanced", false, vec![]).into(),
+        "property-list",
+        PropertyList::new([("IPv4", "10.0.0.42"), ("SSID", "home-5G")]).into(),
     );
 }
 
 #[test]
-fn widget_collapsible_open_with_body() {
+fn widget_property_list_title() {
     assert_widget(
-        "collapsible-open-with-body",
-        Collapsible::new("Advanced", true, vec![Label::new("inside").into()]).into(),
-    );
-}
-
-#[test]
-fn widget_item_basic() {
-    assert_widget("item-basic", Item::new("Plain").into());
-}
-
-#[test]
-fn widget_item_clickable() {
-    assert_widget(
-        "item-clickable",
-        Item::clickable("run", "Run").into(),
-    );
-}
-
-#[test]
-fn widget_item_with_menu() {
-    let item = Item::clickable("wifi-home", "home-5G").menu(vec![
-        MenuItem::new("forget", "Forget"),
-        MenuItem::new("details", "Details").enabled(false),
-    ]);
-    assert_widget("item-with-menu", item.into());
-}
-
-#[test]
-fn widget_collapsible_item() {
-    assert_widget(
-        "collapsible-item",
-        CollapsibleItem::new("Devices", false, vec![]).into(),
-    );
-}
-
-#[test]
-fn widget_action_row() {
-    assert_widget(
-        "action-row",
-        ActionRow::new("go", "Connect").into(),
-    );
-}
-
-#[test]
-fn widget_action_row_with_meta() {
-    assert_widget(
-        "action-row-with-meta",
-        ActionRow::new("go", "Connect")
-            .subtitle("wg0")
-            .meta("4 routes")
-            .icon(Icon::name("network-vpn-symbolic"))
+        "property-list-title",
+        PropertyList::new([("IPv4", "10.0.0.42"), ("SSID", "home-5G")])
+            .title("Network")
             .into(),
     );
 }
 
 #[test]
-fn widget_action_menu() {
+fn widget_property_list_empty() {
+    assert_widget("property-list-empty", PropertyList::default().into());
+}
+
+#[test]
+fn widget_item() {
+    assert_widget("item", Item::new("Wi-Fi").into());
+}
+
+#[test]
+fn widget_item_with_right() {
     assert_widget(
-        "action-menu",
-        ActionMenu::new(vec![
-            ActionMenuItem::new("saver", "Power Saver").checked(false),
-            ActionMenuItem::new("balanced", "Balanced").checked(true),
-        ])
-        .header("Power profile")
-        .into(),
+        "item-with-right",
+        Item::new("Wi-Fi")
+            .icon("network-wireless-symbolic")
+            .sublabel("Connected")
+            .right(Badge::new("home-5G"))
+            .into(),
     );
 }
 
 #[test]
-fn widget_action_menu_empty() {
-    assert_widget(
-        "action-menu-empty",
-        ActionMenu::new(vec![]).into(),
-    );
+fn widget_action_item() {
+    assert_widget("action-item", ActionItem::new("wifi", "Wi-Fi").into());
 }
 
 #[test]
-fn widget_detail_grid() {
+fn widget_action_item_with_right() {
     assert_widget(
-        "detail-grid",
-        DetailGrid::new(vec![
-            DetailGridItem::new("SSID", "home-5G"),
-            DetailGridItem::new("IPv4", "10.0.0.42"),
-        ])
-        .into(),
+        "action-item-with-right",
+        ActionItem::new("wifi", "Wi-Fi")
+            .icon("network-wireless-symbolic")
+            .sublabel("Connected")
+            .right(Badge::new("home-5G"))
+            .into(),
     );
-}
-
-#[test]
-fn widget_detail_grid_empty() {
-    assert_widget("detail-grid-empty", DetailGrid::new(vec![]).into());
 }
 
 #[test]
@@ -417,10 +504,7 @@ fn widget_empty_state_with_subtitle() {
 
 #[test]
 fn widget_meter() {
-    assert_widget(
-        "meter",
-        Meter::new("Memory", 0.51, 1.0).into(),
-    );
+    assert_widget("meter", Meter::new("Memory", 0.51, 1.0).into());
 }
 
 #[test]
@@ -434,26 +518,7 @@ fn widget_meter_interactive() {
 
 #[test]
 fn widget_copyable() {
-    assert_widget(
-        "copyable",
-        Copyable::new("IPv4", "10.0.0.42").into(),
-    );
-}
-
-#[test]
-fn widget_toast() {
-    assert_widget("toast", Toast::new("Saved", "").into());
-}
-
-#[test]
-fn widget_toast_with_action() {
-    let mut t = Toast::new("Update available", "Version 0.8 is available.");
-    t.icon = Some(Icon::name("dialog-warning-symbolic"));
-    t.action = Some(ToastAction {
-        id: "update".into(),
-        label: "Update".into(),
-    });
-    assert_widget("toast-with-action", t.into());
+    assert_widget("copyable", Copyable::new("IPv4", "10.0.0.42").into());
 }
 
 #[test]
@@ -523,7 +588,10 @@ fn event_click_left() {
             panic!("expected click event");
         };
         assert_eq!(c.id, parsed["id"].as_str().unwrap());
-        assert_eq!(c.button.as_deref().unwrap(), parsed["button"].as_str().unwrap());
+        assert_eq!(
+            c.button.as_deref().unwrap(),
+            parsed["button"].as_str().unwrap()
+        );
     });
 }
 

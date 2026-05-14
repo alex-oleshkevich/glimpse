@@ -190,6 +190,7 @@ impl SimpleComponent for Applet {
             Input::Reconfigure(config) => {
                 self.config = config;
                 let state = self.service.snapshot();
+                self.icon_name = icon_name_for_state(&state).into();
                 self.label = format::label(&self.config.label_format, &state);
                 self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
                 self.state = state;

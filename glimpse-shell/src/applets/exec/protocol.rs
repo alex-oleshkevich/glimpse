@@ -22,16 +22,6 @@ pub struct StatusItem {
     pub tooltip: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MenuItem {
-    pub id: String,
-    pub label: String,
-    #[serde(default = "default_true")]
-    pub visible: bool,
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct StatusPayload {
     #[serde(default)]
@@ -147,6 +137,17 @@ pub enum Variant {
     Danger,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ButtonVariant {
+    Primary,
+    Secondary,
+    Compact,
+    #[default]
+    Flat,
+    Danger,
+}
+
 impl Variant {
     pub fn class_name(self) -> Option<&'static str> {
         match self {
@@ -218,44 +219,31 @@ pub struct CardNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct HeaderNode {
-    pub title: String,
-    #[serde(default)]
-    pub subtitle: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SectionNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default)]
-    pub header: Option<HeaderNode>,
-    #[serde(default)]
-    pub title: Option<String>,
+    pub title: String,
     #[serde(default)]
     pub subtitle: String,
-    #[serde(default)]
-    pub body: Vec<TreeNode>,
     #[serde(default)]
     pub children: Vec<TreeNode>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PropertyListItem {
+    pub key: String,
+    pub value: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CollapsibleNode {
+pub struct PropertyListNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default)]
-    pub header: Option<HeaderNode>,
+    pub title: String,
     #[serde(default)]
-    pub title: Option<String>,
-    #[serde(default)]
-    pub subtitle: String,
-    #[serde(default)]
-    pub expanded: bool,
-    #[serde(default)]
-    pub body: Vec<TreeNode>,
-    #[serde(default)]
-    pub children: Vec<TreeNode>,
+    pub rows: Vec<PropertyListItem>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -263,88 +251,29 @@ pub struct ItemNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default)]
-    pub left: Option<Box<TreeNode>>,
+    pub icon: String,
     #[serde(default)]
     pub label: String,
     #[serde(default)]
-    pub right: Option<Box<TreeNode>>,
+    pub sublabel: String,
     #[serde(default)]
-    pub clickable: bool,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub menu: Vec<MenuItem>,
+    pub right: Option<Box<TreeNode>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CollapsibleItemNode {
+pub struct ActionItemNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default)]
-    pub left: Option<Box<TreeNode>>,
+    pub icon: String,
     #[serde(default)]
     pub label: String,
+    #[serde(default)]
+    pub sublabel: String,
     #[serde(default)]
     pub right: Option<Box<TreeNode>>,
-    #[serde(default)]
-    pub expanded: bool,
-    #[serde(default)]
-    pub body: Vec<TreeNode>,
-    #[serde(default)]
-    pub children: Vec<TreeNode>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ActionRowNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub title: String,
-    #[serde(default)]
-    pub subtitle: String,
-    #[serde(default)]
-    pub meta: String,
-    #[serde(default)]
-    pub icon: Option<Icon>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ActionMenuItemNode {
-    pub id: String,
-    pub label: String,
-    #[serde(default)]
-    pub icon: Option<Icon>,
     #[serde(default = "default_true")]
-    pub visible: bool,
-    #[serde(default)]
-    pub checked: Option<bool>,
-    #[serde(default)]
-    pub selectable: Option<bool>,
-}
-
-fn default_true() -> bool {
-    true
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ActionMenuNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default)]
-    pub header: Option<String>,
-    #[serde(default)]
-    pub items: Vec<ActionMenuItemNode>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DetailGridItem {
-    pub key: String,
-    pub value: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct DetailGridNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default)]
-    pub rows: Vec<DetailGridItem>,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -367,6 +296,58 @@ pub struct BadgeNode {
 pub struct StatusNode {
     #[serde(flatten)]
     pub common: CommonProps,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PagerAppearanceValue {
+    #[default]
+    Dots,
+    Numbers,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContentFitValue {
+    Fill,
+    #[default]
+    Contain,
+    Cover,
+    ScaleDown,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LevelBarModeValue {
+    #[default]
+    Continuous,
+    Discrete,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PagerItemNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default)]
+    pub appearance: PagerAppearanceValue,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub active: bool,
+    #[serde(default)]
+    pub inactive: bool,
+    #[serde(default)]
+    pub occupied: bool,
+    #[serde(default)]
+    pub urgent: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PagerStripNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default)]
+    pub items: Vec<PagerItemNode>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -404,30 +385,15 @@ pub struct CopyableNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ToastActionNode {
-    pub id: String,
-    pub label: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ToastNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default)]
-    pub icon: Option<Icon>,
-    pub title: String,
-    #[serde(default)]
-    pub message: String,
-    #[serde(default)]
-    pub action: Option<ToastActionNode>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpinnerNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default = "default_true")]
     pub spinning: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -462,19 +428,83 @@ pub struct ImageNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PictureNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub path: String,
+    #[serde(default)]
+    pub content_fit: ContentFitValue,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ButtonNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default)]
     pub label: Option<String>,
     #[serde(default)]
-    pub icon: Option<Icon>,
+    pub icon: Option<String>,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
     #[serde(default)]
-    pub child: Option<Box<TreeNode>>,
+    pub variant: ButtonVariant,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LinkButtonNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub uri: String,
+    #[serde(default)]
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExpanderNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub label: String,
+    #[serde(default)]
+    pub expanded: bool,
+    pub child: Box<TreeNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TreeExpanderNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub child: Box<TreeNode>,
+    #[serde(default)]
+    pub hide_expander: bool,
+    #[serde(default)]
+    pub indent_for_depth: bool,
+    #[serde(default)]
+    pub indent_for_icon: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MenuButtonNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default)]
+    pub label: Option<String>,
+    #[serde(default)]
+    pub icon: Option<String>,
+    pub popover: Box<TreeNode>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SwitchNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default)]
+    pub label: Option<String>,
+    #[serde(default)]
+    pub active: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToggleButtonNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default)]
@@ -494,7 +524,7 @@ pub struct CheckboxNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ScaleNode {
+pub struct SliderNode {
     #[serde(flatten)]
     pub common: CommonProps,
     pub min: f64,
@@ -508,17 +538,17 @@ pub struct ScaleNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DropdownItem {
+pub struct SelectOption {
     pub id: String,
     pub label: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct DropdownNode {
+pub struct SelectNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default)]
-    pub items: Vec<DropdownItem>,
+    pub items: Vec<SelectOption>,
     #[serde(default)]
     pub selected: Option<u32>,
 }
@@ -541,6 +571,23 @@ fn default_progress_max() -> f64 {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LevelBarNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub value: f64,
+    #[serde(default)]
+    pub min: f64,
+    #[serde(default = "default_level_bar_max")]
+    pub max: f64,
+    #[serde(default)]
+    pub mode: LevelBarModeValue,
+}
+
+fn default_level_bar_max() -> f64 {
+    1.0
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SeparatorNode {
     #[serde(flatten)]
     pub common: CommonProps,
@@ -553,6 +600,23 @@ pub struct ScrollNode {
     #[serde(flatten)]
     pub common: CommonProps,
     pub child: Box<TreeNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OverlayNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub child: Box<TreeNode>,
+    #[serde(default)]
+    pub overlays: Vec<TreeNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ListBoxNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default)]
+    pub children: Vec<TreeNode>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -588,35 +652,41 @@ pub enum TreeNode {
     Hero(HeroNode),
     Card(CardNode),
     Section(SectionNode),
-    Collapsible(CollapsibleNode),
-    CollapsibleSection(CollapsibleNode),
-    ActionMenu(ActionMenuNode),
-    Item(ItemNode),
-    CollapsibleItem(CollapsibleItemNode),
     Meter(MeterNode),
     Copyable(CopyableNode),
-    Toast(ToastNode),
     Column(LayoutNode),
     Row(LayoutNode),
-    ActionRow(ActionRowNode),
-    DetailGrid(DetailGridNode),
+    PropertyList(PropertyListNode),
+    Item(ItemNode),
+    ActionItem(ActionItemNode),
     EmptyState(EmptyStateNode),
     Badge(BadgeNode),
     Status(StatusNode),
+    PagerItem(PagerItemNode),
+    PagerStrip(PagerStripNode),
     Spinner(SpinnerNode),
     Box(BoxNode),
     Grid(GridNode),
     Scroll(ScrollNode),
+    Overlay(OverlayNode),
+    ListBox(ListBoxNode),
+    LevelBar(LevelBarNode),
     Progress(ProgressNode),
     Separator(SeparatorNode),
     Label(LabelNode),
     Icon(IconNode),
     Image(ImageNode),
+    Picture(PictureNode),
     Button(ButtonNode),
+    LinkButton(LinkButtonNode),
+    Expander(ExpanderNode),
+    TreeExpander(TreeExpanderNode),
+    MenuButton(MenuButtonNode),
     Switch(SwitchNode),
+    ToggleButton(ToggleButtonNode),
     Checkbox(CheckboxNode),
-    Scale(ScaleNode),
-    Dropdown(DropdownNode),
+    Slider(SliderNode),
+    Select(SelectNode),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -722,39 +792,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_popover_item_menu() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"item","data":{"id":"run","label":"Run","clickable":true,"menu":[{"id":"open","label":"Open"},{"id":"cancel","label":"Cancel","visible":false}]}}}"#,
-        )
-        .expect("popover item menu line should parse");
-
-        let ChildCommand::Popover(PopoverPayload {
-            root: Some(TreeNode::Item(item)),
-        }) = command
-        else {
-            panic!("expected popover item");
-        };
-
-        assert_eq!(
-            item.menu,
-            vec![
-                MenuItem {
-                    id: "open".into(),
-                    label: "Open".into(),
-                    visible: true,
-                    enabled: true,
-                },
-                MenuItem {
-                    id: "cancel".into(),
-                    label: "Cancel".into(),
-                    visible: false,
-                    enabled: true,
-                },
-            ]
-        );
-    }
-
-    #[test]
     fn parses_popover_line_with_root_node() {
         let command = parse_child_line(
             r#"popover {"root":{"type":"section","data":{"title":"System","children":[{"type":"button","data":{"id":"refresh","label":"Refresh"}}]}}}"#,
@@ -772,7 +809,7 @@ mod tests {
     #[test]
     fn parses_layer_two_nodes() {
         let command = parse_child_line(
-            r#"popover {"root":{"type":"section","data":{"header":{"title":"System"},"body":[{"type":"item","data":{"id":"wifi","label":"Wi-Fi","clickable":true,"right":{"type":"badge","data":{"label":"on"}}}},{"type":"collapsible","data":{"header":{"title":"Details","subtitle":"More"},"expanded":true,"body":[{"type":"meter","data":{"id":"volume","label":"Volume","value":0.5,"interactive":true}},{"type":"copyable","data":{"label":"ID","value":"device-42"}},{"type":"toast","data":{"title":"Saved","message":"Copied"}}]}}]}}}"#,
+            r#"popover {"root":{"type":"section","data":{"title":"System","children":[{"type":"row","data":{"children":[{"type":"label","data":{"text":"Wi-Fi"}},{"type":"badge","data":{"label":"on"}}]}},{"type":"section","data":{"title":"Details","subtitle":"More","children":[{"type":"meter","data":{"id":"volume","label":"Volume","value":0.5,"interactive":true}},{"type":"copyable","data":{"label":"ID","value":"device-42"}},{"type":"button","data":{"id":"refresh","label":"Refresh","variant":"primary"}}]}}]}}}"#,
         )
         .expect("layer two nodes should parse");
 
@@ -785,11 +822,236 @@ mod tests {
     }
 
     #[test]
+    fn parses_item_node_with_right_slot() {
+        let command = parse_child_line(
+            r#"popover {"root":{"type":"item","data":{"icon":"network-wireless-symbolic","label":"Wi-Fi","sublabel":"Connected","right":{"type":"badge","data":{"label":"home-5G"}}}}}"#,
+        )
+        .expect("item node should parse");
+
+        match command {
+            ChildCommand::Popover(PopoverPayload {
+                root: Some(TreeNode::Item(item)),
+            }) => {
+                assert_eq!(item.icon, "network-wireless-symbolic");
+                assert_eq!(item.label, "Wi-Fi");
+                assert_eq!(item.sublabel, "Connected");
+                assert!(matches!(item.right.as_deref(), Some(TreeNode::Badge(_))));
+            }
+            other => panic!("expected item popover, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_action_item_node_with_right_slot() {
+        let command = parse_child_line(
+            r#"popover {"root":{"type":"action_item","data":{"id":"wifi","icon":"network-wireless-symbolic","label":"Wi-Fi","sublabel":"Connected","right":{"type":"badge","data":{"label":"home-5G"}}}}}"#,
+        )
+        .expect("action item node should parse");
+
+        match command {
+            ChildCommand::Popover(PopoverPayload {
+                root: Some(TreeNode::ActionItem(item)),
+            }) => {
+                assert_eq!(item.common.id.as_deref(), Some("wifi"));
+                assert_eq!(item.icon, "network-wireless-symbolic");
+                assert_eq!(item.label, "Wi-Fi");
+                assert_eq!(item.sublabel, "Connected");
+                assert!(matches!(item.right.as_deref(), Some(TreeNode::Badge(_))));
+            }
+            other => panic!("expected action item popover, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_picture_node() {
+        let command = parse_child_line(
+            r#"popover {"root":{"type":"picture","data":{"path":"/home/me/photo.png","content_fit":"cover"}}}"#,
+        )
+        .expect("picture node should parse");
+
+        match command {
+            ChildCommand::Popover(PopoverPayload {
+                root: Some(TreeNode::Picture(picture)),
+            }) => {
+                assert_eq!(picture.path, "/home/me/photo.png");
+                assert_eq!(picture.content_fit, ContentFitValue::Cover);
+            }
+            other => panic!("expected picture popover, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_toggle_button_node() {
+        let command = parse_child_line(
+            r#"popover {"root":{"type":"toggle_button","data":{"id":"wifi","label":"Wi-Fi","active":true}}}"#,
+        )
+        .expect("toggle button node should parse");
+
+        match command {
+            ChildCommand::Popover(PopoverPayload {
+                root: Some(TreeNode::ToggleButton(toggle)),
+            }) => {
+                assert_eq!(toggle.common.id.as_deref(), Some("wifi"));
+                assert_eq!(toggle.label.as_deref(), Some("Wi-Fi"));
+                assert!(toggle.active);
+            }
+            other => panic!("expected toggle button popover, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_link_button_node() {
+        let command = parse_child_line(
+            r#"popover {"root":{"type":"link_button","data":{"uri":"https://example.com/docs","label":"Docs"}}}"#,
+        )
+        .expect("link button node should parse");
+
+        match command {
+            ChildCommand::Popover(PopoverPayload {
+                root: Some(TreeNode::LinkButton(link)),
+            }) => {
+                assert_eq!(link.uri, "https://example.com/docs");
+                assert_eq!(link.label.as_deref(), Some("Docs"));
+            }
+            other => panic!("expected link button popover, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_expander_node() {
+        let command = parse_child_line(
+            r#"popover {"root":{"type":"expander","data":{"label":"Details","expanded":true,"child":{"type":"label","data":{"text":"More"}}}}}"#,
+        )
+        .expect("expander node should parse");
+
+        match command {
+            ChildCommand::Popover(PopoverPayload {
+                root: Some(TreeNode::Expander(expander)),
+            }) => {
+                assert_eq!(expander.label, "Details");
+                assert!(expander.expanded);
+                assert!(matches!(expander.child.as_ref(), TreeNode::Label(_)));
+            }
+            other => panic!("expected expander popover, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_tree_expander_node() {
+        let command = parse_child_line(
+            r#"popover {"root":{"type":"tree_expander","data":{"child":{"type":"label","data":{"text":"Nested"}},"hide_expander":true,"indent_for_depth":true,"indent_for_icon":true}}}"#,
+        )
+        .expect("tree expander node should parse");
+
+        match command {
+            ChildCommand::Popover(PopoverPayload {
+                root: Some(TreeNode::TreeExpander(tree_expander)),
+            }) => {
+                assert!(matches!(tree_expander.child.as_ref(), TreeNode::Label(_)));
+                assert!(tree_expander.hide_expander);
+                assert!(tree_expander.indent_for_depth);
+                assert!(tree_expander.indent_for_icon);
+            }
+            other => panic!("expected tree expander popover, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_menu_button_node() {
+        let command = parse_child_line(
+            r#"popover {"root":{"type":"menu_button","data":{"label":"More","icon":"open-menu-symbolic","popover":{"type":"label","data":{"text":"Menu content"}}}}}"#,
+        )
+        .expect("menu button node should parse");
+
+        match command {
+            ChildCommand::Popover(PopoverPayload {
+                root: Some(TreeNode::MenuButton(menu_button)),
+            }) => {
+                assert_eq!(menu_button.label.as_deref(), Some("More"));
+                assert_eq!(menu_button.icon.as_deref(), Some("open-menu-symbolic"));
+                assert!(matches!(menu_button.popover.as_ref(), TreeNode::Label(_)));
+            }
+            other => panic!("expected menu button popover, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_overlay_node() {
+        let command = parse_child_line(
+            r#"popover {"root":{"type":"overlay","data":{"child":{"type":"label","data":{"text":"Base"}},"overlays":[{"type":"badge","data":{"label":"Top"}}]}}}"#,
+        )
+        .expect("overlay node should parse");
+
+        match command {
+            ChildCommand::Popover(PopoverPayload {
+                root: Some(TreeNode::Overlay(overlay)),
+            }) => {
+                assert!(matches!(overlay.child.as_ref(), TreeNode::Label(_)));
+                assert_eq!(overlay.overlays.len(), 1);
+                assert!(matches!(overlay.overlays.first(), Some(TreeNode::Badge(_))));
+            }
+            other => panic!("expected overlay popover, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_list_box_node() {
+        let command = parse_child_line(
+            r#"popover {"root":{"type":"list_box","data":{"children":[{"type":"label","data":{"text":"First"}},{"type":"badge","data":{"label":"Second"}}]}}}"#,
+        )
+        .expect("list box node should parse");
+
+        match command {
+            ChildCommand::Popover(PopoverPayload {
+                root: Some(TreeNode::ListBox(list_box)),
+            }) => {
+                assert_eq!(list_box.children.len(), 2);
+                assert!(matches!(
+                    list_box.children.first(),
+                    Some(TreeNode::Label(_))
+                ));
+                assert!(matches!(list_box.children.get(1), Some(TreeNode::Badge(_))));
+            }
+            other => panic!("expected list box popover, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_level_bar_node() {
+        let command = parse_child_line(
+            r#"popover {"root":{"type":"level_bar","data":{"value":0.7,"min":0.0,"max":1.0,"mode":"continuous"}}}"#,
+        )
+        .expect("level bar node should parse");
+
+        match command {
+            ChildCommand::Popover(PopoverPayload {
+                root: Some(TreeNode::LevelBar(level_bar)),
+            }) => {
+                assert_eq!(level_bar.value, 0.7);
+                assert_eq!(level_bar.min, 0.0);
+                assert_eq!(level_bar.max, 1.0);
+                assert_eq!(level_bar.mode, LevelBarModeValue::Continuous);
+            }
+            other => panic!("expected level bar popover, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn rejects_text_entry_nodes() {
         let error = parse_child_line(
             r#"popover {"root":{"type":"entry","data":{"id":"name","text":"bad"}}}"#,
         )
         .expect_err("text entry nodes should be unsupported");
+
+        assert!(error.to_string().contains("popover"));
+    }
+
+    #[test]
+    fn rejects_collapsible_nodes() {
+        let error = parse_child_line(
+            r#"popover {"root":{"type":"collapsible","data":{"title":"Details","expanded":false,"body":[]}}}"#,
+        )
+        .expect_err("collapsible nodes should be unsupported");
 
         assert!(error.to_string().contains("popover"));
     }

@@ -13,46 +13,50 @@ import unittest
 from pathlib import Path
 
 from glimpse_sdk import (
-    ActionMenu,
-    ActionMenuItem,
-    ActionRow,
+    ActionItem,
     Align,
     Badge,
     Box,
     Button,
+    ButtonVariant,
     Card,
     Checkbox,
-    Collapsible,
-    CollapsibleItem,
     Column,
     Copyable,
-    DetailGrid,
-    DetailGridItem,
-    Dropdown,
-    DropdownItem,
     EmptyState,
+    Expander,
     Grid,
     GridChild,
     Hero,
     Icon,
-    IconWidget,
     Image,
     Item,
     Label,
-    MenuItem,
+    LevelBar,
+    LinkButton,
+    ListBox,
+    MenuButton,
     Meter,
+    Overlay,
     Orientation,
+    PagerAppearance,
+    PagerItem,
+    PagerStrip,
+    Picture,
     Progress,
+    PropertyList,
     Row,
-    Scale,
     Scroll,
     Section,
+    Select,
+    SelectOption,
     Separator,
+    Slider,
     Spinner,
     StatusDot,
     Switch,
-    Toast,
-    ToastAction,
+    ToggleButton,
+    TreeExpander,
     Variant,
 )
 from glimpse_sdk.events import (
@@ -64,8 +68,6 @@ from glimpse_sdk.events import (
     ToggleEvent,
     parse_callback_event,
 )
-from glimpse_sdk.widgets import Header
-
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
 
 
@@ -96,13 +98,76 @@ class GoldenWidgetTests(unittest.TestCase):
     def test_button_with_icon(self) -> None:
         self._assert_widget(
             "button-with-icon",
-            Button(id="go", label="Go", icon=Icon.name("go-symbolic")),
+            Button(id="go", label="Go", icon="go-symbolic"),
         )
 
     def test_button_icon_only(self) -> None:
         self._assert_widget(
             "button-icon-only",
-            Button(id="go", icon=Icon.name("go-symbolic")),
+            Button(id="go", icon="go-symbolic"),
+        )
+
+    def test_button_primary(self) -> None:
+        self._assert_widget("button-primary", Button(id="go", label="Go", variant=ButtonVariant.PRIMARY))
+
+    def test_button_disabled(self) -> None:
+        self._assert_widget("button-disabled", Button(id="go", label="Go", enabled=False))
+
+    def test_link_button(self) -> None:
+        self._assert_widget("link-button", LinkButton(uri="https://example.com"))
+
+    def test_link_button_label(self) -> None:
+        self._assert_widget(
+            "link-button-label",
+            LinkButton(uri="https://example.com/docs", label="Docs"),
+        )
+
+    def test_expander(self) -> None:
+        self._assert_widget("expander", Expander(label="Details", child=Label(text="More")))
+
+    def test_expander_expanded(self) -> None:
+        self._assert_widget(
+            "expander-expanded",
+            Expander(label="Details", expanded=True, child=Label(text="More")),
+        )
+
+    def test_overlay(self) -> None:
+        self._assert_widget(
+            "overlay",
+            Overlay(child=Label(text="Base"), overlays=[Badge(label="Top")]),
+        )
+
+    def test_list_box(self) -> None:
+        self._assert_widget(
+            "list-box",
+            ListBox(children=[Label(text="First"), Badge(label="Second")]),
+        )
+
+    def test_level_bar(self) -> None:
+        self._assert_widget(
+            "level-bar",
+            LevelBar(value=0.7, min=0.0, max=1.0, mode="continuous"),
+        )
+
+    def test_tree_expander(self) -> None:
+        self._assert_widget(
+            "tree-expander",
+            TreeExpander(
+                child=Label(text="Nested"),
+                hide_expander=True,
+                indent_for_depth=True,
+                indent_for_icon=True,
+            ),
+        )
+
+    def test_menu_button(self) -> None:
+        self._assert_widget(
+            "menu-button",
+            MenuButton(
+                label="More",
+                icon="open-menu-symbolic",
+                popover=Label(text="Menu content"),
+            ),
         )
 
     def test_switch_on(self) -> None:
@@ -111,31 +176,37 @@ class GoldenWidgetTests(unittest.TestCase):
     def test_switch_off(self) -> None:
         self._assert_widget("switch-off", Switch(id="vpn"))
 
+    def test_toggle_button_on(self) -> None:
+        self._assert_widget("toggle-button-on", ToggleButton(id="wifi", label="Wi-Fi", active=True))
+
+    def test_toggle_button_off(self) -> None:
+        self._assert_widget("toggle-button-off", ToggleButton(id="wifi"))
+
     def test_checkbox_on(self) -> None:
         self._assert_widget(
             "checkbox-on", Checkbox(id="autostart", label="Run at login", active=True)
         )
 
-    def test_scale(self) -> None:
+    def test_slider(self) -> None:
         self._assert_widget(
-            "scale", Scale(id="brightness", min=0.0, max=1.0, step=0.05, value=0.6)
+            "slider", Slider(id="brightness", min=0.0, max=1.0, step=0.05, value=0.6)
         )
 
-    def test_dropdown(self) -> None:
+    def test_select(self) -> None:
         self._assert_widget(
-            "dropdown",
-            Dropdown(
+            "select",
+            Select(
                 id="env",
                 items=[
-                    DropdownItem(id="prod", label="Production"),
-                    DropdownItem(id="stage", label="Staging"),
+                    SelectOption(id="prod", label="Production"),
+                    SelectOption(id="stage", label="Staging"),
                 ],
                 selected=0,
             ),
         )
 
-    def test_dropdown_empty(self) -> None:
-        self._assert_widget("dropdown-empty", Dropdown(id="env"))
+    def test_select_empty(self) -> None:
+        self._assert_widget("select-empty", Select(id="env"))
 
     def test_badge(self) -> None:
         self._assert_widget("badge", Badge(label="42%"))
@@ -175,9 +246,41 @@ class GoldenWidgetTests(unittest.TestCase):
     def test_status_dot_warning(self) -> None:
         self._assert_widget("status-dot-warning", StatusDot(variant=Variant.WARNING))
 
-    def test_icon(self) -> None:
+    def test_pager_item_number_active(self) -> None:
         self._assert_widget(
-            "icon", IconWidget(icon=Icon.name("network-wireless-symbolic"), pixel_size=24)
+            "pager-item-number-active",
+            PagerItem(
+                id="workspace-1",
+                appearance=PagerAppearance.NUMBERS,
+                label="1",
+                active=True,
+            ),
+        )
+
+    def test_pager_strip(self) -> None:
+        self._assert_widget(
+            "pager-strip",
+            PagerStrip(
+                items=[
+                    PagerItem(
+                        id="workspace-1",
+                        appearance=PagerAppearance.NUMBERS,
+                        label="1",
+                        active=True,
+                    ),
+                    PagerItem(
+                        id="workspace-2",
+                        appearance=PagerAppearance.NUMBERS,
+                        label="2",
+                        occupied=True,
+                    ),
+                    PagerItem(
+                        id="workspace-3",
+                        appearance=PagerAppearance.DOTS,
+                        urgent=True,
+                    ),
+                ]
+            ),
         )
 
     def test_image_by_name(self) -> None:
@@ -186,6 +289,15 @@ class GoldenWidgetTests(unittest.TestCase):
     def test_image_by_path(self) -> None:
         self._assert_widget(
             "image-by-path", Image(icon=Icon.path("/home/me/avatar.png"), pixel_size=64)
+        )
+
+    def test_picture(self) -> None:
+        self._assert_widget("picture", Picture(path="/home/me/photo.png"))
+
+    def test_picture_content_fit(self) -> None:
+        self._assert_widget(
+            "picture-content-fit",
+            Picture(path="/home/me/photo.png", content_fit="cover"),
         )
 
     def test_separator(self) -> None:
@@ -228,97 +340,55 @@ class GoldenWidgetTests(unittest.TestCase):
     def test_section_basic(self) -> None:
         self._assert_widget(
             "section-basic",
-            Section(header=Header(title="System"), body=[Label(text="uptime")]),
+            Section(title="System", children=[Label(text="uptime")]),
         )
 
-    def test_section_empty_body(self) -> None:
-        self._assert_widget("section-empty-body", Section(header=Header(title="Empty")))
+    def test_section_empty_children(self) -> None:
+        self._assert_widget("section-empty-children", Section(title="Empty"))
 
-    def test_collapsible_closed(self) -> None:
+    def test_property_list(self) -> None:
         self._assert_widget(
-            "collapsible-closed",
-            Collapsible(header=Header(title="Advanced"), expanded=False),
+            "property-list",
+            PropertyList({"IPv4": "10.0.0.42", "SSID": "home-5G"}),
         )
 
-    def test_collapsible_open_with_body(self) -> None:
+    def test_property_list_title(self) -> None:
         self._assert_widget(
-            "collapsible-open-with-body",
-            Collapsible(
-                header=Header(title="Advanced"),
-                expanded=True,
-                body=[Label(text="inside")],
-            ),
+            "property-list-title",
+            PropertyList({"IPv4": "10.0.0.42", "SSID": "home-5G"}, title="Network"),
         )
 
-    def test_item_basic(self) -> None:
-        self._assert_widget("item-basic", Item(label="Plain"))
+    def test_property_list_empty(self) -> None:
+        self._assert_widget("property-list-empty", PropertyList())
 
-    def test_item_clickable(self) -> None:
-        self._assert_widget("item-clickable", Item(id="run", label="Run", clickable=True))
+    def test_item(self) -> None:
+        self._assert_widget("item", Item(label="Wi-Fi"))
 
-    def test_item_with_menu(self) -> None:
+    def test_item_with_right(self) -> None:
         self._assert_widget(
-            "item-with-menu",
+            "item-with-right",
             Item(
-                id="wifi-home",
-                label="home-5G",
-                clickable=True,
-                menu=[
-                    MenuItem(id="forget", label="Forget"),
-                    MenuItem(id="details", label="Details", enabled=False),
-                ],
+                icon="network-wireless-symbolic",
+                label="Wi-Fi",
+                sublabel="Connected",
+                right=Badge(label="home-5G"),
             ),
         )
 
-    def test_collapsible_item(self) -> None:
-        self._assert_widget(
-            "collapsible-item",
-            CollapsibleItem(label="Devices", expanded=False),
-        )
+    def test_action_item(self) -> None:
+        self._assert_widget("action-item", ActionItem(id="wifi", label="Wi-Fi"))
 
-    def test_action_row(self) -> None:
-        self._assert_widget("action-row", ActionRow(id="go", title="Connect"))
-
-    def test_action_row_with_meta(self) -> None:
+    def test_action_item_with_right(self) -> None:
         self._assert_widget(
-            "action-row-with-meta",
-            ActionRow(
-                id="go",
-                title="Connect",
-                subtitle="wg0",
-                meta="4 routes",
-                icon=Icon.name("network-vpn-symbolic"),
+            "action-item-with-right",
+            ActionItem(
+                id="wifi",
+                icon="network-wireless-symbolic",
+                label="Wi-Fi",
+                sublabel="Connected",
+                right=Badge(label="home-5G"),
             ),
         )
-
-    def test_action_menu(self) -> None:
-        self._assert_widget(
-            "action-menu",
-            ActionMenu(
-                header="Power profile",
-                items=[
-                    ActionMenuItem(id="saver", label="Power Saver", checked=False),
-                    ActionMenuItem(id="balanced", label="Balanced", checked=True),
-                ],
-            ),
-        )
-
-    def test_action_menu_empty(self) -> None:
-        self._assert_widget("action-menu-empty", ActionMenu())
-
-    def test_detail_grid(self) -> None:
-        self._assert_widget(
-            "detail-grid",
-            DetailGrid(
-                rows=[
-                    DetailGridItem(key="SSID", value="home-5G"),
-                    DetailGridItem(key="IPv4", value="10.0.0.42"),
-                ]
-            ),
-        )
-
-    def test_detail_grid_empty(self) -> None:
-        self._assert_widget("detail-grid-empty", DetailGrid())
 
     def test_empty_state(self) -> None:
         self._assert_widget("empty-state", EmptyState(title="Nothing here"))
@@ -348,20 +418,6 @@ class GoldenWidgetTests(unittest.TestCase):
     def test_copyable(self) -> None:
         self._assert_widget("copyable", Copyable(label="IPv4", value="10.0.0.42"))
 
-    def test_toast(self) -> None:
-        self._assert_widget("toast", Toast(title="Saved"))
-
-    def test_toast_with_action(self) -> None:
-        self._assert_widget(
-            "toast-with-action",
-            Toast(
-                icon=Icon.name("dialog-warning-symbolic"),
-                title="Update available",
-                message="Version 0.8 is available.",
-                action=ToastAction(id="update", label="Update"),
-            ),
-        )
-
     def test_common_props_all(self) -> None:
         self._assert_widget(
             "common-props-all",
@@ -386,8 +442,8 @@ class GoldenWidgetTests(unittest.TestCase):
                 children=[
                     Hero(title="Counter", subtitle="Value: 0"),
                     Section(
-                        header=Header(title="Controls"),
-                        body=[
+                        title="Controls",
+                        children=[
                             Label(text="Current"),
                             Button(id="increment", label="Increment"),
                         ],

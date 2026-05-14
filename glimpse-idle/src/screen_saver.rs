@@ -87,8 +87,7 @@ pub(crate) async fn inhibit_impl(
     bus_name: String,
     on_change: &(dyn Fn() + Send + Sync),
 ) -> zbus::fdo::Result<u32> {
-    let manual_hold =
-        application_name == MANUAL_HOLD_WHO && reason_for_inhibit == MANUAL_HOLD_WHY;
+    let manual_hold = application_name == MANUAL_HOLD_WHO && reason_for_inhibit == MANUAL_HOLD_WHY;
     let targets = if manual_hold {
         InhibitionTargets::manual_hold()
     } else {
