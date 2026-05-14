@@ -404,6 +404,7 @@ Shows notification state, a notification center, and popups.
 label_format = "{count}"
 tooltip_format = "{count} notifications"
 badge_style = "count"
+max_history = 100
 popup_timeout_ms = 5000
 popup_visible_limit = 8
 popup_position = "top_center"
@@ -417,6 +418,7 @@ popup_monitor = "DP-2"   # optional
 | `label_format` | `""` | Panel text. |
 | `tooltip_format` | `"{count} notifications"` | Hover text. |
 | `badge_style` | `"count"` | Badge style. Use `"none"` to hide the badge. |
+| `max_history` | `100` | Maximum notifications kept in memory. When the limit is exceeded, the oldest non-critical notifications are evicted first. Set to `0` for unlimited. |
 | `popup_timeout_ms` | `5000` | How long popups stay visible. |
 | `popup_visible_limit` | `8` | Maximum popups visible at once. Clamped from 1 to 20. |
 | `popup_position` | `"top_center"` | Popup position: `"top_left"`, `"top_center"`, `"top_right"`, `"bottom_left"`, `"bottom_center"`, or `"bottom_right"`. |

@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.14"
-# dependencies = ["glimpse-applet-sdk>=0.2,<0.3"]
+# dependencies = ["glimpse-applet-sdk>=0.2,<1"]
 # ///
 
 from dataclasses import dataclass
@@ -50,4 +50,7 @@ class CounterApplet(Applet[CounterState]):
 
 
 if __name__ == "__main__":
-    CounterApplet().run()
+    try:
+        CounterApplet().run()
+    except KeyboardInterrupt:
+        pass
