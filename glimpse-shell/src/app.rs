@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     agents::{bluetooth::BluetoothAgentRuntime, network::NetworkAgentRuntime},
+    ipc::{IpcHandle, IpcServer},
     panels,
     prompts::{bluetooth as bluetooth_prompts, network as network_prompts},
     services::{
@@ -47,6 +48,7 @@ pub struct App {
     config: Config,
     discovered_applets: DiscoveredApplets,
     services: ServiceRuntime,
+    ipc: IpcHandle,
     theme: ThemeState,
     panels: Vec<PanelState>,
     network_prompt_host: Controller<network_prompts::PromptHost>,
@@ -156,6 +158,7 @@ impl SimpleComponent for App {
 
         let services = ServiceRuntime::new(init.dbus);
         services.broadcast(Control::Start(init.config.clone()));
+        let ipc = IpcServer::launch(&services.handles());
         spawn_theme_subscription(services.handles().theme, sender.input_sender().clone());
 
         let mut applet_watcher_rx = services.handles().applet_watcher.clone();
@@ -196,6 +199,7 @@ impl SimpleComponent for App {
             config: init.config,
             discovered_applets,
             services,
+            ipc,
             theme,
             panels: vec![],
             network_prompt_host,
@@ -226,6 +230,7 @@ impl SimpleComponent for App {
                 self.theme.apply_configured_mode(&config.theme_mode);
                 self.reconcile_panels(&config, &sender);
                 self.config = config;
+                self.ipc.emit("config.changed", vec![]);
             }
             Input::ThemeReload => {
                 tracing::info!("theme file changed, reloading");

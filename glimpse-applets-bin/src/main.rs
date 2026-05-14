@@ -31,6 +31,10 @@ enum Command {
     Rm(commands::rm::Args),
     /// Verify that everything you need to build applets is installed.
     Doctor(commands::doctor::Args),
+    /// Subscribe to shell events and print them to stdout.
+    Watch(commands::ipc::WatchArgs),
+    /// Send a command to the shell and print the acknowledgement.
+    Dispatch(commands::ipc::DispatchArgs),
 }
 
 #[tokio::main]
@@ -44,5 +48,7 @@ async fn main() -> Result<()> {
         Command::List(args) => commands::list::run(args),
         Command::Rm(args) => commands::rm::run(args),
         Command::Doctor(args) => commands::doctor::run(args),
+        Command::Watch(args) => commands::ipc::watch(args).await,
+        Command::Dispatch(args) => commands::ipc::dispatch(args).await,
     }
 }
