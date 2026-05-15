@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     agents::{bluetooth::BluetoothAgentRuntime, network::NetworkAgentRuntime},
-    ipc::{IpcHandle, launch as launch_ipc},
+    ipc::{IpcEmitter, IpcHandle, launch as launch_ipc},
     panels,
     prompts::{bluetooth as bluetooth_prompts, network as network_prompts},
     services::{
@@ -18,8 +18,9 @@ use adw::gdk::{self, prelude::DisplayExt, prelude::MonitorExt};
 use gio::prelude::ListModelExt;
 use glib::object::{Cast, CastNone};
 use glimpse_core::{
-    Config, ConfigEvent, DiscoveredApplets, PanelConfig, config::merge_applet_configs,
-    expand_dev_slot, services::theme::State as ThemeServiceState, watch_for_config_changes,
+    Config, ConfigEvent, DiscoveredApplets, PanelConfig, Position,
+    config::merge_applet_configs, expand_dev_slot, services::theme::State as ThemeServiceState,
+    watch_for_config_changes,
 };
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use gtk4_layer_shell::LayerShell;
@@ -263,6 +264,7 @@ impl SimpleComponent for App {
             }
             Input::AppletDirsChanged(discovered) => {
                 tracing::debug!("applet directories changed, reconciling panels");
+                diff_discovered(&self.ipc, &self.discovered_applets, &discovered);
                 self.discovered_applets = discovered;
                 let config = self.config.clone();
                 self.reconcile_panels(&config, &sender);
@@ -403,13 +405,17 @@ impl App {
                         ));
                         state
                     }
-                    None => build_panel(
-                        key,
-                        expanded.clone(),
-                        services.clone(),
-                        monitor.clone(),
-                        effective_applets.clone(),
-                    ),
+                    None => {
+                        emit_panel(&self.ipc, "panel.added", &key);
+                        build_panel(
+                            key,
+                            expanded.clone(),
+                            services.clone(),
+                            monitor.clone(),
+                            effective_applets.clone(),
+                            self.ipc.emitter(),
+                        )
+                    }
                 };
                 new_panels.push(state);
             }
@@ -419,6 +425,7 @@ impl App {
 
         for (key, state) in existing.drain() {
             state.controller.widget().destroy();
+            emit_panel(&self.ipc, "panel.removed", &key);
             tracing::debug!(
                 ?key.position,
                 index = key.index,
@@ -538,6 +545,7 @@ fn build_panel(
     services: Services,
     monitor: gdk::Monitor,
     applet_configs: glimpse_core::AppletConfigs,
+    ipc: IpcEmitter,
 ) -> PanelState {
     let monitor_connector = monitor_connector(&monitor);
     let controller = panels::Panel::builder()
@@ -547,7 +555,65 @@ fn build_panel(
             monitor: Some(monitor),
             monitor_connector,
             applet_configs,
+            ipc,
         })
         .detach();
     PanelState { key, controller }
+}
+
+fn position_name(position: &Position) -> &'static str {
+    match position {
+        Position::Left => "left",
+        Position::Top => "top",
+        Position::Right => "right",
+        Position::Bottom => "bottom",
+    }
+}
+
+fn emit_panel(ipc: &IpcHandle, event: &str, key: &panels::PanelKey) {
+    ipc.emit(
+        event,
+        vec![
+            ("index", key.index.to_string()),
+            ("monitor", key.monitor.clone()),
+            ("position", position_name(&key.position).to_owned()),
+        ],
+    );
+}
+
+/// Emit `applet.discovered name=<> kind=<normal|dev> change=<added|updated|removed>`
+/// for every applet package that appeared, changed, or vanished on disk.
+fn diff_discovered(ipc: &IpcHandle, old: &DiscoveredApplets, new: &DiscoveredApplets) {
+    for (kind, prev, next) in [
+        ("normal", &old.normal, &new.normal),
+        ("dev", &old.dev, &new.dev),
+    ] {
+        for (name, cfg) in next {
+            let change = match prev.get(name) {
+                None => "added",
+                Some(p) if p != cfg => "updated",
+                Some(_) => continue,
+            };
+            ipc.emit(
+                "applet.discovered",
+                vec![
+                    ("name", name.clone()),
+                    ("kind", kind.to_owned()),
+                    ("change", change.to_owned()),
+                ],
+            );
+        }
+        for name in prev.keys() {
+            if !next.contains_key(name) {
+                ipc.emit(
+                    "applet.discovered",
+                    vec![
+                        ("name", name.clone()),
+                        ("kind", kind.to_owned()),
+                        ("change", "removed".to_owned()),
+                    ],
+                );
+            }
+        }
+    }
 }

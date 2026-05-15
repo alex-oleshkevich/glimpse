@@ -18,7 +18,33 @@ use crate::{
 };
 
 use glimpse_core::ThemeMode;
+use glimpse_core::ipc::IpcEmitter;
 pub use glimpse_core::{AppletConfig, AppletType};
+
+fn applet_type_name(applet_type: AppletType) -> String {
+    format!("{applet_type:?}").to_lowercase()
+}
+
+fn section_name(section: &PanelSection) -> &'static str {
+    match section {
+        PanelSection::Left => "left",
+        PanelSection::Center => "center",
+        PanelSection::Right => "right",
+    }
+}
+
+fn emit_applet(ipc: &IpcEmitter, event: &str, monitor: &str, key: &AppletKey, applet_type: AppletType) {
+    ipc.emit(
+        event,
+        vec![
+            ("monitor", monitor.to_owned()),
+            ("section", section_name(&key.section).to_owned()),
+            ("name", key.name.clone()),
+            ("type", applet_type_name(applet_type)),
+            ("occurrence", key.occurrence.to_string()),
+        ],
+    );
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AppletKey {
@@ -411,6 +437,8 @@ pub fn build_applets(
     services: Services,
     monitor_connector: Option<&str>,
     theme_mode: ThemeMode,
+    ipc: &IpcEmitter,
+    panel_monitor: &str,
 ) -> HashMap<AppletKey, AppletController> {
     let mut applets = HashMap::new();
     let entries = collect_applets(section, configured_applets, applet_configs);
@@ -426,6 +454,7 @@ pub fn build_applets(
             let widget = applet.widget();
             widget.set_valign(gtk::Align::Center);
             container.append(&widget);
+            emit_applet(ipc, "applet.added", panel_monitor, &entry.key, entry.applet_type);
             applets.insert(entry.key, applet);
         }
     }
@@ -443,8 +472,10 @@ pub fn reconcile_applets(
     services: Services,
     monitor_connector: Option<&str>,
     theme_mode: ThemeMode,
+    ipc: &IpcEmitter,
+    panel_monitor: &str,
 ) {
-    let current_types = current
+    let current_types: HashMap<AppletKey, AppletType> = current
         .iter()
         .map(|(key, controller)| (key.clone(), controller.applet_type()))
         .collect();
@@ -502,6 +533,22 @@ pub fn reconcile_applets(
             }
         };
 
+        match planned.action {
+            PlannedAction::Reconfigure => {
+                emit_applet(ipc, "applet.updated", panel_monitor, &entry.key, entry.applet_type)
+            }
+            PlannedAction::Create => {
+                emit_applet(ipc, "applet.added", panel_monitor, &entry.key, entry.applet_type)
+            }
+            PlannedAction::Replace => {
+                if let Some(old) = current_types.get(&entry.key) {
+                    emit_applet(ipc, "applet.removed", panel_monitor, &entry.key, *old);
+                }
+                emit_applet(ipc, "applet.added", panel_monitor, &entry.key, entry.applet_type);
+            }
+            PlannedAction::Reuse => {}
+        }
+
         let widget = controller.widget();
         place_widget(container, &widget, previous_widget.as_ref());
         previous_widget = Some(widget);
@@ -512,6 +559,9 @@ pub fn reconcile_applets(
         if let Some(leftover) = remaining.remove(&key) {
             tracing::debug!(name = %key.name, "removing applet");
             detach_widget(&leftover.widget());
+            if let Some(removed_type) = current_types.get(&key) {
+                emit_applet(ipc, "applet.removed", panel_monitor, &key, *removed_type);
+            }
         }
     }
 

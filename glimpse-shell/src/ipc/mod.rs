@@ -1,6 +1,6 @@
 pub mod cli;
 
-pub use glimpse_core::ipc::{IpcHandle, IpcServer};
+pub use glimpse_core::ipc::{IpcEmitter, IpcHandle, IpcServer};
 pub use glimpse_core::ipc::client::NoopCommandHandler;
 pub use glimpse_core::ipc::server::resolve_socket_path;
 

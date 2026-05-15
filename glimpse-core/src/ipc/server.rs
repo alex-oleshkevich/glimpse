@@ -30,6 +30,28 @@ impl IpcHandle {
             .collect();
         let _ = self.event_tx.send(Arc::new(IpcEvent::new(name, owned)));
     }
+
+    /// A cloneable, `Send` emitter for code that produces events away from the
+    /// `IpcHandle` owner (e.g. shell panel/applet components on the GTK thread).
+    pub fn emitter(&self) -> IpcEmitter {
+        IpcEmitter {
+            event_tx: self.event_tx.clone(),
+        }
+    }
+}
+
+/// Detached event emitter handed to subsystems that don't own the `IpcHandle`.
+#[derive(Clone)]
+pub struct IpcEmitter {
+    event_tx: broadcast::Sender<Arc<IpcEvent>>,
+}
+
+impl IpcEmitter {
+    pub fn emit(&self, name: &str, fields: Vec<(&str, String)>) {
+        let owned: Vec<(String, String)> =
+            fields.into_iter().map(|(k, v)| (k.to_owned(), v)).collect();
+        let _ = self.event_tx.send(Arc::new(IpcEvent::new(name, owned)));
+    }
 }
 
 pub struct IpcServer;

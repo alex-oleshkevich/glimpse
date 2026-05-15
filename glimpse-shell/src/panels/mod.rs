@@ -11,6 +11,7 @@ use crate::{
     panels::applets::{AppletController, AppletKey, build_applets, reconcile_applets},
     theme,
 };
+use glimpse_core::ipc::IpcEmitter;
 use glimpse_core::services::framework::Services;
 use glimpse_core::{AppletConfig, PanelConfig, Position};
 
@@ -27,6 +28,7 @@ pub struct Init {
     pub monitor: Option<gdk::Monitor>,
     pub monitor_connector: Option<String>,
     pub applet_configs: HashMap<String, AppletConfig>,
+    pub ipc: IpcEmitter,
 }
 
 #[derive(Debug)]
@@ -51,6 +53,7 @@ pub struct Panel {
     services: Services,
     monitor_connector: Option<String>,
     applet_configs: HashMap<String, AppletConfig>,
+    ipc: IpcEmitter,
     left: SectionState,
     center: SectionState,
     right: SectionState,
@@ -119,6 +122,8 @@ impl Component for Panel {
             .build();
         let layout = gtk::CenterBox::new();
 
+        let ipc = init.ipc;
+        let panel_monitor = init.monitor_connector.clone().unwrap_or_default();
         let left_applets = build_applets(
             PanelSection::Left,
             &init.config.left,
@@ -127,6 +132,8 @@ impl Component for Panel {
             init.services.clone(),
             init.monitor_connector.as_deref(),
             init.config.theme_mode,
+            &ipc,
+            &panel_monitor,
         );
         let center_applets = build_applets(
             PanelSection::Center,
@@ -136,6 +143,8 @@ impl Component for Panel {
             init.services.clone(),
             init.monitor_connector.as_deref(),
             init.config.theme_mode,
+            &ipc,
+            &panel_monitor,
         );
         let right_applets = build_applets(
             PanelSection::Right,
@@ -145,12 +154,15 @@ impl Component for Panel {
             init.services.clone(),
             init.monitor_connector.as_deref(),
             init.config.theme_mode,
+            &ipc,
+            &panel_monitor,
         );
         let widgets = view_output!();
         let model = Panel {
             services: init.services,
             monitor_connector: init.monitor_connector,
             applet_configs: init.applet_configs,
+            ipc,
             left: SectionState {
                 container: left_box,
                 applets: left_applets,
@@ -177,6 +189,7 @@ impl Component for Panel {
                 apply_panel_config(root, &runtime.config);
                 theme::apply_theme_mode(root, &runtime.config.theme_mode);
 
+                let panel_monitor = self.monitor_connector.clone().unwrap_or_default();
                 reconcile_applets(
                     PanelSection::Left,
                     &runtime.config.left,
@@ -187,6 +200,8 @@ impl Component for Panel {
                     self.services.clone(),
                     self.monitor_connector.as_deref(),
                     runtime.config.theme_mode,
+                    &self.ipc,
+                    &panel_monitor,
                 );
                 reconcile_applets(
                     PanelSection::Center,
@@ -198,6 +213,8 @@ impl Component for Panel {
                     self.services.clone(),
                     self.monitor_connector.as_deref(),
                     runtime.config.theme_mode,
+                    &self.ipc,
+                    &panel_monitor,
                 );
                 reconcile_applets(
                     PanelSection::Right,
@@ -209,6 +226,8 @@ impl Component for Panel {
                     self.services.clone(),
                     self.monitor_connector.as_deref(),
                     runtime.config.theme_mode,
+                    &self.ipc,
+                    &panel_monitor,
                 );
 
                 self.applet_configs = runtime.applet_configs;

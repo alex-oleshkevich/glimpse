@@ -5,7 +5,7 @@ pub mod protocol;
 pub mod server;
 
 pub use server::{
-    IpcHandle, IpcServer,
+    IpcEmitter, IpcHandle, IpcServer,
     idle_socket_path, new_event_channel, resolve_socket_path,
     shell_socket_path, sunset_socket_path, wallpaper_socket_path,
 };
