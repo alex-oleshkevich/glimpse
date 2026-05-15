@@ -295,3 +295,9 @@ e2e-sdk LANG:
 # applies real gamma changes while running.
 e2e-sunset:
     bash glimpse-sunset/tests/ipc_e2e.sh
+
+# Run the wallpaper IPC e2e test. Intrusive — stops/starts
+# glimpse-wallpaper.service, briefly changes the real desktop wallpaper,
+# and edits config.toml (restored on exit). Requires a live Wayland session.
+e2e-wallpaper:
+    bash glimpse-wallpaper/tests/ipc_e2e.sh

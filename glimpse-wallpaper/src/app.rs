@@ -42,6 +42,77 @@ pub enum AppCommand {
     ReloadAssets,
     ThemeModeChanged(EffectiveThemeMode),
     MonitorsChanged,
+    /// An IPC client requested a runtime change (see [`WallpaperCommand`]).
+    IpcCommand(WallpaperCommand),
+    /// The on-disk config changed; re-resolve the base spec but keep any
+    /// active IPC override layered on top (only `reload_config` clears it).
+    ExternalConfigChanged,
+}
+
+/// Runtime intent sent by IPC clients. Unlike [`AppCommand`] these are
+/// un-resolved partial overrides; the model resolves them against the
+/// current config + theme.
+#[derive(Debug)]
+pub enum WallpaperCommand {
+    ReloadConfig,
+    SetImage(PathBuf),
+    SetColor(String),
+    SetFit(FitMode),
+    SetBackdrop {
+        enabled: bool,
+        path: Option<PathBuf>,
+        blur: Option<u32>,
+    },
+    SetThemeMode(ThemeModeRequest),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ThemeModeRequest {
+    Light,
+    Dark,
+    /// Stop pinning the theme; follow config/gsettings again.
+    Auto,
+}
+
+/// Ephemeral, non-persisted overrides layered on top of the resolved
+/// config spec. Cleared only by the IPC `reload_config` command.
+#[derive(Debug, Default, Clone)]
+pub struct WallpaperOverride {
+    color: Option<String>,
+    image: Option<PathBuf>,
+    fit: Option<FitMode>,
+    backdrop: Option<ResolvedBackdropSpec>,
+    theme_mode: Option<EffectiveThemeMode>,
+}
+
+impl WallpaperOverride {
+    /// Layer the active overrides onto a freshly resolved base spec.
+    fn apply_to(&self, mut base: ResolvedWallpaperSpec) -> ResolvedWallpaperSpec {
+        if let Some(color) = &self.color {
+            base.color = color.clone();
+        }
+        match (&self.image, self.fit) {
+            (Some(path), fit_override) => {
+                let fit = fit_override
+                    .or_else(|| base.image.as_ref().map(|image| image.fit))
+                    .unwrap_or(FitMode::Cover);
+                base.image = Some(ResolvedImageSpec {
+                    path: path.clone(),
+                    fit,
+                });
+            }
+            (None, Some(fit)) => {
+                if let Some(image) = base.image.as_mut() {
+                    image.fit = fit;
+                }
+            }
+            (None, None) => {}
+        }
+        if let Some(backdrop) = &self.backdrop {
+            base.backdrop = backdrop.clone();
+        }
+        base
+    }
 }
 
 pub struct WallpaperAppModel {
@@ -52,6 +123,7 @@ pub struct WallpaperAppModel {
     asset_watch_cancel: Option<CancellationToken>,
     ready_logged: bool,
     effective_mode: EffectiveThemeMode,
+    wallpaper_override: WallpaperOverride,
     _color_scheme_settings: Option<gio::Settings>,
     event_tx: broadcast::Sender<Arc<IpcEvent>>,
 }
@@ -66,9 +138,16 @@ impl WallpaperAppModel {
             asset_watch_cancel: None,
             ready_logged: false,
             effective_mode: EffectiveThemeMode::Light,
+            wallpaper_override: WallpaperOverride::default(),
             _color_scheme_settings: None,
             event_tx,
         }
+    }
+}
+
+impl Default for WallpaperAppModel {
+    fn default() -> Self {
+        Self::with_event_tx(broadcast::channel(16).0)
     }
 }
 
@@ -96,6 +175,7 @@ impl WallpaperAppModel {
 pub struct AppInit {
     pub config: Config,
     pub event_tx: broadcast::Sender<Arc<IpcEvent>>,
+    pub command_rx: mpsc::Receiver<WallpaperCommand>,
 }
 
 #[relm4::component(pub)]
@@ -136,13 +216,17 @@ impl SimpleComponent for WallpaperAppModel {
 
         let config_sender = sender.clone();
         relm4::spawn(async move {
-            while let Some(ConfigEvent::Changed(config)) = config_rx.recv().await {
-                tracing::info!("configuration changed, applying wallpaper settings");
-                let mode = read_effective_theme_mode(&config);
-                log_wallpaper_sources(&config, mode);
-                let spec = config.resolve_wallpaper(mode);
-                let _ = config_sender.input(AppCommand::ThemeModeChanged(mode));
-                let _ = config_sender.input(AppCommand::ApplyResolvedSpec(spec));
+            while let Some(ConfigEvent::Changed(_config)) = config_rx.recv().await {
+                tracing::info!("configuration changed, re-resolving wallpaper");
+                let _ = config_sender.input(AppCommand::ExternalConfigChanged);
+            }
+        });
+
+        let command_sender = sender.clone();
+        let mut command_rx = init.command_rx;
+        relm4::spawn(async move {
+            while let Some(command) = command_rx.recv().await {
+                let _ = command_sender.input(AppCommand::IpcCommand(command));
             }
         });
 
@@ -187,29 +271,24 @@ impl SimpleComponent for WallpaperAppModel {
                 tracing::debug!("received resolved wallpaper spec");
                 self.apply_resolved_spec(spec, false, sender);
             }
-            AppCommand::ReloadConfig => {
-                tracing::info!("reloading wallpaper configuration");
-                let config = Config::load();
-                self.effective_mode = read_effective_theme_mode(&config);
-                let spec = config.resolve_wallpaper(self.effective_mode);
-                let _ = sender.input(AppCommand::ApplyResolvedSpec(spec));
+            AppCommand::ReloadConfig | AppCommand::ExternalConfigChanged => {
+                tracing::info!("re-resolving wallpaper configuration");
+                self.reapply_with_override(false, sender);
             }
             AppCommand::ReloadAssets => {
                 tracing::info!("reloading wallpaper assets");
-                let config = Config::load();
-                self.effective_mode = read_effective_theme_mode(&config);
-                let spec = config.resolve_wallpaper(self.effective_mode);
-                self.apply_resolved_spec(spec, true, sender);
+                self.reapply_with_override(true, sender);
             }
-            AppCommand::ThemeModeChanged(mode) => {
-                if self.effective_mode == mode {
-                    return;
+            AppCommand::ThemeModeChanged(_mode) => {
+                let previous = self.effective_mode;
+                self.reapply_with_override(false, sender);
+                if self.effective_mode != previous {
+                    tracing::info!(mode = ?self.effective_mode, "effective theme mode changed");
+                    crate::ipc::emit_theme_changed(&self.event_tx, self.effective_mode);
                 }
-                tracing::info!(?mode, "effective theme mode changed");
-                self.effective_mode = mode;
-                let config = Config::load();
-                let spec = config.resolve_wallpaper(mode);
-                self.apply_resolved_spec(spec, false, sender);
+            }
+            AppCommand::IpcCommand(command) => {
+                self.handle_ipc_command(command, sender);
             }
             AppCommand::MonitorsChanged => {
                 if let Some(spec) = self.active_spec.clone() {
@@ -222,6 +301,75 @@ impl SimpleComponent for WallpaperAppModel {
 }
 
 impl WallpaperAppModel {
+    fn handle_ipc_command(&mut self, command: WallpaperCommand, sender: ComponentSender<Self>) {
+        match command {
+            WallpaperCommand::ReloadConfig => {
+                self.wallpaper_override = WallpaperOverride::default();
+                tracing::info!("ipc: reload_config (cleared runtime overrides)");
+                self.reapply_with_override(false, sender);
+            }
+            WallpaperCommand::SetImage(path) => {
+                tracing::info!(path = %path.display(), "ipc: set_image");
+                self.wallpaper_override.image = Some(path);
+                self.reapply_with_override(false, sender);
+            }
+            WallpaperCommand::SetColor(color) => {
+                tracing::info!(%color, "ipc: set_color");
+                self.wallpaper_override.color = Some(color);
+                self.reapply_with_override(false, sender);
+            }
+            WallpaperCommand::SetFit(fit) => {
+                tracing::info!(?fit, "ipc: set_fit");
+                self.wallpaper_override.fit = Some(fit);
+                self.reapply_with_override(false, sender);
+            }
+            WallpaperCommand::SetBackdrop {
+                enabled,
+                path,
+                blur,
+            } => {
+                let backdrop = if enabled {
+                    let blur_radius =
+                        blur.unwrap_or_else(|| Config::load().backdrop.blur_radius);
+                    ResolvedBackdropSpec::Enabled { path, blur_radius }
+                } else {
+                    ResolvedBackdropSpec::Disabled
+                };
+                tracing::info!(enabled, "ipc: set_backdrop");
+                self.wallpaper_override.backdrop = Some(backdrop);
+                self.reapply_with_override(false, sender);
+            }
+            WallpaperCommand::SetThemeMode(request) => {
+                self.wallpaper_override.theme_mode = match request {
+                    ThemeModeRequest::Light => Some(EffectiveThemeMode::Light),
+                    ThemeModeRequest::Dark => Some(EffectiveThemeMode::Dark),
+                    ThemeModeRequest::Auto => None,
+                };
+                let previous = self.effective_mode;
+                tracing::info!(?request, "ipc: set_theme_mode");
+                self.reapply_with_override(false, sender);
+                if self.effective_mode != previous {
+                    crate::ipc::emit_theme_changed(&self.event_tx, self.effective_mode);
+                }
+            }
+        }
+    }
+
+    /// Re-resolve the base spec from the current config + effective theme,
+    /// then layer any active IPC override on top and apply the result.
+    fn reapply_with_override(&mut self, force_image_reload: bool, sender: ComponentSender<Self>) {
+        let config = Config::load();
+        let mode = self
+            .wallpaper_override
+            .theme_mode
+            .unwrap_or_else(|| read_effective_theme_mode(&config));
+        self.effective_mode = mode;
+        log_wallpaper_sources(&config, mode);
+        let base = config.resolve_wallpaper(mode);
+        let merged = self.wallpaper_override.apply_to(base);
+        self.apply_resolved_spec(merged, force_image_reload, sender);
+    }
+
     fn apply_resolved_spec(
         &mut self,
         spec: ResolvedWallpaperSpec,
@@ -1685,9 +1833,10 @@ fn image_color_label(color: image::ColorType) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{
-        DecodedImage, ImageCacheKey, ImageLayerInit, active_paths, backdrop_texture_dimensions,
-        blur_processing_dimensions, decode_image, load_cached_image, load_legacy_unprocessed_cache,
-        resize_rgba_for_fit, should_start_image_load, write_cached_image,
+        DecodedImage, ImageCacheKey, ImageLayerInit, WallpaperOverride, active_paths,
+        backdrop_texture_dimensions, blur_processing_dimensions, decode_image, load_cached_image,
+        load_legacy_unprocessed_cache, resize_rgba_for_fit, should_start_image_load,
+        write_cached_image,
     };
     use glimpse_core::{FitMode, ResolvedBackdropSpec, ResolvedImageSpec, ResolvedWallpaperSpec};
     use std::{
@@ -1902,5 +2051,97 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("glimpse-wallpaper-{name}-{suffix}"))
+    }
+
+    fn base_spec() -> ResolvedWallpaperSpec {
+        ResolvedWallpaperSpec {
+            color: "#101010".into(),
+            image: Some(ResolvedImageSpec {
+                path: PathBuf::from("/base/image.png"),
+                fit: FitMode::Cover,
+            }),
+            transition_ms: 800,
+            backdrop: ResolvedBackdropSpec::Disabled,
+        }
+    }
+
+    #[test]
+    fn empty_override_is_identity() {
+        let base = base_spec();
+        assert_eq!(WallpaperOverride::default().apply_to(base.clone()), base);
+    }
+
+    #[test]
+    fn color_override_only_replaces_color() {
+        let over = WallpaperOverride {
+            color: Some("#abcdef".into()),
+            ..WallpaperOverride::default()
+        };
+        let result = over.apply_to(base_spec());
+        assert_eq!(result.color, "#abcdef");
+        assert_eq!(result.image, base_spec().image);
+    }
+
+    #[test]
+    fn image_override_preserves_base_fit_when_no_fit_override() {
+        let over = WallpaperOverride {
+            image: Some(PathBuf::from("/new/pic.png")),
+            ..WallpaperOverride::default()
+        };
+        let result = over.apply_to(base_spec());
+        let image = result.image.expect("image present");
+        assert_eq!(image.path, PathBuf::from("/new/pic.png"));
+        assert_eq!(image.fit, FitMode::Cover);
+    }
+
+    #[test]
+    fn fit_override_without_image_edits_existing_image_fit() {
+        let over = WallpaperOverride {
+            fit: Some(FitMode::Contain),
+            ..WallpaperOverride::default()
+        };
+        let result = over.apply_to(base_spec());
+        assert_eq!(result.image.expect("image present").fit, FitMode::Contain);
+    }
+
+    #[test]
+    fn fit_override_with_no_base_image_is_noop_on_image() {
+        let mut base = base_spec();
+        base.image = None;
+        let over = WallpaperOverride {
+            fit: Some(FitMode::Fill),
+            ..WallpaperOverride::default()
+        };
+        assert!(over.apply_to(base).image.is_none());
+    }
+
+    #[test]
+    fn image_and_fit_override_combine() {
+        let over = WallpaperOverride {
+            image: Some(PathBuf::from("/new/pic.png")),
+            fit: Some(FitMode::Fill),
+            ..WallpaperOverride::default()
+        };
+        let image = over.apply_to(base_spec()).image.expect("image present");
+        assert_eq!(image.path, PathBuf::from("/new/pic.png"));
+        assert_eq!(image.fit, FitMode::Fill);
+    }
+
+    #[test]
+    fn backdrop_override_replaces_backdrop() {
+        let over = WallpaperOverride {
+            backdrop: Some(ResolvedBackdropSpec::Enabled {
+                path: None,
+                blur_radius: 40,
+            }),
+            ..WallpaperOverride::default()
+        };
+        assert_eq!(
+            over.apply_to(base_spec()).backdrop,
+            ResolvedBackdropSpec::Enabled {
+                path: None,
+                blur_radius: 40
+            }
+        );
     }
 }
