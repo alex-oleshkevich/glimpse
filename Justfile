@@ -301,3 +301,9 @@ e2e-sunset:
 # and edits config.toml (restored on exit). Requires a live Wayland session.
 e2e-wallpaper:
     bash glimpse-wallpaper/tests/ipc_e2e.sh
+
+# Run the shell IPC e2e test. Intrusive — stops/starts glimpse-shell.service
+# (your whole panel) and briefly toggles real volume/DND (restored on exit).
+# Destructive commands are only tested for the confirm guard. Live Wayland.
+e2e-shell:
+    bash glimpse-shell/tests/ipc_e2e.sh
