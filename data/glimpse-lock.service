@@ -17,16 +17,14 @@ Restart=on-failure
 RestartSec=2
 
 # Defense-in-depth hardening. Note: glimpse-lock uses PAM for password
-# auth, which needs access to /etc/pam.d and PAM modules — DO NOT add
-# ProtectSystem=strict or related options without testing PAM still
-# loads. The kernel-level Protect* lines below are safe.
-NoNewPrivileges=true
+# auth, which needs access to /etc/pam.d, PAM modules, and setuid helpers
+# such as unix_chkpwd. Do not add NoNewPrivileges, RestrictSUIDSGID, or
+# ProtectSystem=strict without testing PAM still authenticates.
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
 LockPersonality=true
 RestrictRealtime=true
-RestrictSUIDSGID=true
 
 [Install]
 WantedBy=graphical-session.target

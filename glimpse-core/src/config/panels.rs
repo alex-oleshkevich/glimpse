@@ -129,8 +129,6 @@ impl AppletType {
             "brightness" => Some(Self::Brightness),
             "clipboard" => Some(Self::Clipboard),
             "clock" => Some(Self::Clock),
-            "command" => Some(Self::Command),
-            "exec" => Some(Self::Exec),
             "idle" => Some(Self::Idle),
             "keyboard" => Some(Self::Keyboard),
             "mpris" => Some(Self::Mpris),

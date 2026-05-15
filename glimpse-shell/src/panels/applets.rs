@@ -669,6 +669,48 @@ mod tests {
     }
 
     #[test]
+    fn collect_applets_uses_named_exec_package_entry() {
+        let mut applet_configs = HashMap::new();
+        applet_configs.insert(
+            "sysinfo".to_string(),
+            AppletConfig {
+                extends: Some(AppletType::Exec),
+                settings: toml::Value::Table(toml::map::Map::new()),
+            },
+        );
+
+        let entries = collect_applets(PanelSection::Left, &["sysinfo".into()], &applet_configs);
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name, "sysinfo");
+        assert_eq!(entries[0].applet_type, AppletType::Exec);
+        assert!(entries[0].config.is_some());
+    }
+
+    #[test]
+    fn collect_applets_uses_named_command_package_entry() {
+        let mut applet_configs = HashMap::new();
+        applet_configs.insert(
+            "launcher".to_string(),
+            AppletConfig {
+                extends: Some(AppletType::Command),
+                settings: toml::Value::Table(toml::map::Map::new()),
+            },
+        );
+
+        let entries = collect_applets(
+            PanelSection::Left,
+            &["launcher".into()],
+            &applet_configs,
+        );
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name, "launcher");
+        assert_eq!(entries[0].applet_type, AppletType::Command);
+        assert!(entries[0].config.is_some());
+    }
+
+    #[test]
     fn collect_applets_falls_back_to_builtin_name() {
         let entries = collect_applets(PanelSection::Left, &["battery".into()], &HashMap::new());
 
@@ -719,23 +761,17 @@ mod tests {
     }
 
     #[test]
-    fn collect_applets_falls_back_to_command_builtin_name() {
+    fn collect_applets_rejects_bare_command_name() {
         let entries = collect_applets(PanelSection::Left, &["command".into()], &HashMap::new());
 
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].name, "command");
-        assert_eq!(entries[0].applet_type, AppletType::Command);
-        assert!(entries[0].config.is_none());
+        assert!(entries.is_empty());
     }
 
     #[test]
-    fn collect_applets_falls_back_to_exec_builtin_name() {
+    fn collect_applets_rejects_bare_exec_name() {
         let entries = collect_applets(PanelSection::Left, &["exec".into()], &HashMap::new());
 
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].name, "exec");
-        assert_eq!(entries[0].applet_type, AppletType::Exec);
-        assert!(entries[0].config.is_none());
+        assert!(entries.is_empty());
     }
 
     #[test]

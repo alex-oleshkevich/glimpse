@@ -436,12 +436,14 @@ impl Drop for Applet {
 ///   connector, there is no popup until the monitor returns and panels reconcile).
 /// - `popup_monitor = None`: own iff this applet's panel sits on the alphabetically-first
 ///   currently-connected connector. Deterministic single-popup default, no extra config required.
+/// - `panel_monitor = None`: never own, because an unbound applet cannot prove it is the singleton
+///   popup owner.
 fn applet_owns_popup(popup_monitor: Option<&str>, panel_monitor: Option<&str>) -> bool {
     match (popup_monitor, panel_monitor) {
         (Some(target), Some(panel)) => target == panel,
         (Some(_), None) => false,
         (None, Some(panel)) => primary_connector().as_deref() == Some(panel),
-        (None, None) => true,
+        (None, None) => false,
     }
 }
 
@@ -707,8 +709,8 @@ mod tests {
     }
 
     #[test]
-    fn applet_owns_popup_falls_through_when_no_pin_and_no_panel_binding() {
-        // Single-monitor / unconfigured panels keep the legacy "compositor places it" behavior.
-        assert!(applet_owns_popup(None, None));
+    fn applet_owns_popup_rejects_unbound_panel_when_unpinned() {
+        // Unbound panels cannot safely choose a singleton popup owner on their own.
+        assert!(!applet_owns_popup(None, None));
     }
 }

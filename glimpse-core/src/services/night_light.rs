@@ -44,6 +44,7 @@ pub struct State {
     pub health: NightLightHealth,
     pub config: NightLightConfig,
     pub phase: NightLightPhase,
+    pub manual_override: Option<bool>,
     pub current_temperature_kelvin: u32,
     pub target_temperature_kelvin: u32,
     pub effective_temperature_kelvin: u32,
@@ -56,6 +57,7 @@ impl Default for State {
             health: NightLightHealth::Starting,
             config: NightLightConfig::default(),
             phase: NightLightPhase::Disabled,
+            manual_override: None,
             current_temperature_kelvin: DAYLIGHT_TEMPERATURE_KELVIN,
             target_temperature_kelvin: DAYLIGHT_TEMPERATURE_KELVIN,
             effective_temperature_kelvin: DAYLIGHT_TEMPERATURE_KELVIN,
@@ -67,6 +69,9 @@ impl Default for State {
 pub enum Command {
     Refresh,
     ApplyConfig(NightLightConfig),
+    /// Temporarily override the scheduler: true = force Night, false = clear the override.
+    /// Cleared by Control::Start/Reconfigure or by Manual(false).
+    Manual(bool),
 }
 
 pub type NightLightHandle = ServiceHandle<State, Command>;
@@ -76,6 +81,7 @@ pub struct NightLightService {
     solar: solar::SolarHandle,
     state_tx: watch::Sender<State>,
     command_rx: mpsc::Receiver<ServiceCommand<Command>>,
+    manual_override: Option<bool>,
 }
 
 impl NightLightService {
@@ -92,6 +98,7 @@ impl NightLightService {
                 solar,
                 state_tx,
                 command_rx,
+                manual_override: None,
             },
             ServiceHandle::new(state_rx, command_tx),
         )
@@ -121,6 +128,7 @@ impl NightLightService {
                 command = self.command_rx.recv() => match command {
                     Some(ServiceCommand::Control(Control::Start(config)))
                     | Some(ServiceCommand::Control(Control::Reconfigure(config))) => {
+                        self.manual_override = None;
                         self.apply_config(config.night_light).await;
                     }
                     Some(ServiceCommand::Control(Control::Shutdown)) | None => {
@@ -131,7 +139,13 @@ impl NightLightService {
                         self.refresh_from_current_state().await;
                     }
                     Some(ServiceCommand::Command(Command::ApplyConfig(config))) => {
+                        // Preserve manual_override across config changes (e.g. set_temperature
+                        // while in forced Night should stay in Night with the new temperature).
                         self.apply_config(config).await;
+                    }
+                    Some(ServiceCommand::Command(Command::Manual(forced))) => {
+                        self.manual_override = if forced { Some(true) } else { None };
+                        self.refresh_from_current_state().await;
                     }
                 }
             }
@@ -151,6 +165,7 @@ impl NightLightService {
             &self.solar,
             &self.state_tx,
             config.clone(),
+            self.manual_override,
         )
         .await
         {
@@ -229,6 +244,7 @@ async fn apply_config(
     solar: &solar::SolarHandle,
     state_tx: &watch::Sender<State>,
     config: NightLightConfig,
+    manual_override: Option<bool>,
 ) -> ServiceResult<()> {
     let compositor = backend.compositor_type();
     let compositor_capabilities = backend.compositor_capabilities();
@@ -240,6 +256,7 @@ async fn apply_config(
         next_state.config = config;
         next_state.health = NightLightHealth::Unsupported;
         next_state.phase = NightLightPhase::Disabled;
+        next_state.manual_override = manual_override;
         next_state.current_temperature_kelvin = DAYLIGHT_TEMPERATURE_KELVIN;
         next_state.target_temperature_kelvin = DAYLIGHT_TEMPERATURE_KELVIN;
         next_state.effective_temperature_kelvin = DAYLIGHT_TEMPERATURE_KELVIN;
@@ -247,7 +264,7 @@ async fn apply_config(
         return Ok(());
     }
 
-    let (phase, effective_temperature) = resolve_effective_temperature(&config, solar).await?;
+    let (phase, effective_temperature) = resolve_effective_temperature(&config, solar, manual_override).await?;
 
     apply_temperature_transition(
         backend,
@@ -264,6 +281,7 @@ async fn apply_config(
         health: NightLightHealth::Ready,
         config,
         phase,
+        manual_override,
         current_temperature_kelvin: effective_temperature,
         target_temperature_kelvin: target_temperature,
         effective_temperature_kelvin: effective_temperature,
@@ -276,9 +294,17 @@ async fn apply_config(
 async fn resolve_effective_temperature(
     config: &NightLightConfig,
     solar: &solar::SolarHandle,
+    manual_override: Option<bool>,
 ) -> ServiceResult<(NightLightPhase, u32)> {
+    // schedule=Off is an explicit hard disable; it beats the manual override.
+    if config.schedule == NightLightSchedule::Off {
+        return Ok((NightLightPhase::Disabled, DAYLIGHT_TEMPERATURE_KELVIN));
+    }
+    if manual_override == Some(true) {
+        return Ok((NightLightPhase::Night, config.temperature));
+    }
     match config.schedule {
-        NightLightSchedule::Off => Ok((NightLightPhase::Disabled, DAYLIGHT_TEMPERATURE_KELVIN)),
+        NightLightSchedule::Off => unreachable!("handled above"),
         NightLightSchedule::Schedule => {
             let start = config
                 .start_time

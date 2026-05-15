@@ -36,22 +36,37 @@ fn main() -> Result<()> {
             return Ok(());
         }
         Some("watch") => {
-            let patterns: Vec<String> = argv[1..].to_vec();
-            let patterns = if patterns.is_empty() {
-                vec!["*".to_owned()]
-            } else {
-                patterns
-            };
-            return run_async(ipc::cli::watch(ipc::cli::WatchArgs { patterns }));
+            let rest = argv[1..].to_vec();
+            if rest.iter().any(|a| a == "--help" || a == "-h") {
+                print_help();
+                return Ok(());
+            }
+            let json = rest.iter().any(|a| a == "--json");
+            let patterns: Vec<String> = rest.into_iter().filter(|a| a != "--json").collect();
+            let patterns = if patterns.is_empty() { vec!["*".to_owned()] } else { patterns };
+            return run_async(ipc::cli::watch(ipc::cli::WatchArgs { patterns, json }));
         }
         Some("dispatch") => {
-            let rest = &argv[1..];
+            let rest_raw = &argv[1..];
+            if rest_raw.iter().any(|a| a == "--help" || a == "-h") {
+                print_help();
+                return Ok(());
+            }
+            let json = rest_raw.iter().any(|a| a == "--json");
+            let rest: Vec<String> = rest_raw.iter().filter(|a| a.as_str() != "--json").cloned().collect();
             let command = rest
                 .first()
                 .ok_or_else(|| anyhow::anyhow!("dispatch: command name required"))?
                 .clone();
+            if let Some((cmd, _)) = command.split_once('=') {
+                eprintln!("glimpse-shell: dispatch command must not contain '='");
+                eprintln!("  got:  dispatch {command}");
+                eprintln!("  try:  dispatch {cmd} <key>=<value>");
+                eprintln!("Run 'glimpse-shell dispatch --help' for available commands.");
+                std::process::exit(1);
+            }
             let fields = rest[1..].to_vec();
-            return run_async(ipc::cli::dispatch(ipc::cli::DispatchArgs { command, fields }));
+            return run_async(ipc::cli::dispatch(ipc::cli::DispatchArgs { command, fields, json }));
         }
         None => {}
         Some(unknown) => {

@@ -100,7 +100,7 @@ fn parses_shell_compatible_config_with_shared_wallpaper_settings() {
             .applets
             .get("sysinfo")
             .and_then(|applet| applet.extends),
-        Some(AppletType::Exec)
+        None
     );
 
     let serialized = toml::to_string_pretty(&config).unwrap();

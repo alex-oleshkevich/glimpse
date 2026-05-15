@@ -128,7 +128,7 @@ impl CommandHandler for IdleCommandHandler {
         &'a self,
         name: &'a str,
         fields: &'a [(String, String)],
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + 'a>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<(String, String)>, String>> + Send + 'a>> {
         Box::pin(async move {
             match name {
                 "release" => {
@@ -143,7 +143,7 @@ impl CommandHandler for IdleCommandHandler {
                     let released = self.registry.lock().await.release_record(id).is_some();
                     if released {
                         (self.on_change)();
-                        Ok(())
+                        Ok(vec![])
                     } else {
                         Err(format!("no inhibitor with id {id}"))
                     }

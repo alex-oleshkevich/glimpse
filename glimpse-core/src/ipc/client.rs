@@ -6,7 +6,7 @@ use tokio::{
     sync::broadcast,
 };
 
-use super::protocol::{ClientMsg, IpcEvent, ack_line, hello_line, matches_pattern, parse_client_line};
+use super::protocol::{ClientMsg, IpcEvent, ack_line, escape, hello_line, matches_pattern, parse_client_line};
 
 const MAX_IPC_LINE: usize = 64 * 1024;
 
@@ -15,7 +15,7 @@ pub trait CommandHandler: Send + 'static {
         &'a self,
         name: &'a str,
         fields: &'a [(String, String)],
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + 'a>>;
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<(String, String)>, String>> + Send + 'a>>;
 }
 
 #[derive(Clone)]
@@ -26,7 +26,7 @@ impl CommandHandler for NoopCommandHandler {
         &'a self,
         name: &'a str,
         _fields: &'a [(String, String)],
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + 'a>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<(String, String)>, String>> + Send + 'a>> {
         let msg = format!("unknown command: {name}");
         Box::pin(async move { Err(msg) })
     }
@@ -79,13 +79,25 @@ impl<H: CommandHandler> IpcClientHandler<H> {
                                 Ok(ClientMsg::Command { name, fields }) => {
                                     let result = self.command_handler.execute(&name, &fields).await;
                                     let response = match result {
-                                        Ok(()) => ack_line(true, None),
+                                        Ok(extra) => {
+                                            let mut line = "ack ok=true".to_owned();
+                                            for (k, v) in &extra {
+                                                line.push(' ');
+                                                line.push_str(k);
+                                                line.push('=');
+                                                line.push_str(&escape(v));
+                                            }
+                                            line
+                                        }
                                         Err(e) => ack_line(false, Some(&e)),
                                     };
                                     let _ = writer.write_all(format!("{response}\n").as_bytes()).await;
                                 }
                                 Err(e) => {
                                     tracing::debug!(error = %e, "IPC client sent unparseable line");
+                                    let _ = writer.write_all(
+                                        format!("{}\n", ack_line(false, Some(&e))).as_bytes()
+                                    ).await;
                                 }
                             }
                         }

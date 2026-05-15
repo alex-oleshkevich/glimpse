@@ -1,10 +1,13 @@
 use glimpse_core::Config;
+use glimpse_core::dbus::glimpse_lock::GlimpseLockProxy;
 use glimpse_lock::{
     app::{self, LockAppConfig},
     dbus::LockApiState,
     logind,
     runtime::LockRuntime,
+    safety,
 };
+use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 
@@ -12,17 +15,32 @@ const EXPORTED_LOCK_CSS: &str = include_str!("../resources/export-lock.css");
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    if let Some(output) = version_output(&args) {
-        println!("{output}");
-        return Ok(());
+    let command = parse_command(&args)?;
+    match command {
+        Command::Version => {
+            println!("glimpse-lock {}", env!("CARGO_PKG_VERSION"));
+            return Ok(());
+        }
+        Command::ExportCss => {
+            let path = export_css()?;
+            println!("wrote {}", path.display());
+            return Ok(());
+        }
+        Command::Lock => {
+            let runtime = tokio::runtime::Runtime::new()?;
+            return runtime.block_on(request_resident_lock());
+        }
+        Command::Status => {
+            let runtime = tokio::runtime::Runtime::new()?;
+            return runtime.block_on(print_status());
+        }
+        Command::Check => {
+            return run_check();
+        }
+        Command::Run | Command::Preview => {}
     }
-    if export_css_requested(&args) {
-        let path = export_css()?;
-        println!("wrote {}", path.display());
-        return Ok(());
-    }
-    let preview = preview_requested(&args);
-    let gtk_args = gtk_args(&args);
+    let preview = command == Command::Preview;
+    let gtk_args = gtk_args(&args, command);
     register_resources();
 
     tracing_subscriber::fmt()
@@ -57,36 +75,57 @@ fn main() -> anyhow::Result<()> {
     result
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Command {
+    Run,
+    Lock,
+    Preview,
+    ExportCss,
+    Status,
+    Check,
+    Version,
+}
+
+fn parse_command<I, S>(args: I) -> anyhow::Result<Command>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let mut args = args.into_iter().skip(1);
+    let Some(command) = args.next() else {
+        return Ok(Command::Run);
+    };
+    let command = command.as_ref();
+    let parsed = match command {
+        "lock" => Command::Lock,
+        "preview" => Command::Preview,
+        "export-css" => Command::ExportCss,
+        "status" => Command::Status,
+        "check" => Command::Check,
+        "version" => Command::Version,
+        _ => anyhow::bail!("unknown glimpse-lock command: {command}"),
+    };
+    if !matches!(parsed, Command::Run | Command::Preview) && args.next().is_some() {
+        anyhow::bail!("command {command} does not accept extra arguments");
+    }
+    Ok(parsed)
+}
+
 fn register_resources() {
     gio::resources_register_include!("glimpse-lock.gresource")
         .expect("failed to register embedded lock resources");
 }
 
-fn preview_requested<I, S>(args: I) -> bool
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    args.into_iter()
-        .skip(1)
-        .any(|arg| matches!(arg.as_ref(), "--preview"))
-}
-
-fn export_css_requested<I, S>(args: I) -> bool
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    args.into_iter()
-        .skip(1)
-        .any(|arg| matches!(arg.as_ref(), "--export-css"))
-}
-
-fn gtk_args(args: &[String]) -> Vec<String> {
-    args.iter()
-        .filter(|arg| !matches!(arg.as_str(), "--preview" | "--export-css"))
-        .cloned()
-        .collect()
+fn gtk_args(args: &[String], command: Command) -> Vec<String> {
+    match command {
+        Command::Preview => args
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| *index != 1)
+            .map(|(_, arg)| arg.clone())
+            .collect(),
+        _ => args.to_vec(),
+    }
 }
 
 fn export_css() -> anyhow::Result<PathBuf> {
@@ -127,56 +166,198 @@ fn normalized_glimpse_log_filter(value: &str) -> Option<EnvFilter> {
     EnvFilter::try_new(filter).ok()
 }
 
-fn version_output<I, S>(args: I) -> Option<String>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    args.into_iter()
-        .skip(1)
-        .any(|arg| matches!(arg.as_ref(), "--version" | "-V"))
-        .then(|| format!("glimpse-lock {}", env!("CARGO_PKG_VERSION")))
+async fn request_resident_lock() -> anyhow::Result<()> {
+    let connection = zbus::Connection::session().await?;
+    let proxy = GlimpseLockProxy::new(&connection).await?;
+    proxy.lock().await?;
+    Ok(())
+}
+
+async fn print_status() -> anyhow::Result<()> {
+    let connection = zbus::Connection::session().await?;
+    let proxy = GlimpseLockProxy::new(&connection).await?;
+    let active = proxy.get_active().await?;
+    let active_time = proxy.get_active_time().await?;
+
+    println!("service: available");
+    println!("active: {active}");
+    println!("active_time: {active_time}");
+    Ok(())
+}
+
+fn run_check() -> anyhow::Result<()> {
+    let mut failed = false;
+
+    let no_new_privs = safety::current_no_new_privs()?.unwrap_or(false);
+    print_check("no_new_privs", !no_new_privs);
+    failed |= no_new_privs;
+
+    let pam_file_ok = std::fs::read_to_string("/etc/pam.d/glimpse-lock")
+        .map(|contents| pam_file_uses_real_auth(&contents))
+        .unwrap_or(false);
+    print_check("pam_file", pam_file_ok);
+    failed |= !pam_file_ok;
+
+    let unix_chkpwd_ok = unix_chkpwd_allows_pam();
+    print_check("unix_chkpwd", unix_chkpwd_ok);
+    failed |= !unix_chkpwd_ok;
+
+    // Only meaningful when run from the source tree; an installed binary has no
+    // repo-relative data/ file, so skip rather than print a misleading "ok".
+    if let Ok(service) = std::fs::read_to_string("data/glimpse-lock.service") {
+        let packaged_service_ok = service_file_allows_pam_helpers(&service);
+        print_check("packaged_service", packaged_service_ok);
+        failed |= !packaged_service_ok;
+    }
+
+    let effective_unit_ok = effective_unit_allows_pam_helpers();
+    print_check("effective_unit", effective_unit_ok);
+    failed |= !effective_unit_ok;
+
+    if failed {
+        anyhow::bail!("glimpse-lock check failed");
+    }
+    Ok(())
+}
+
+fn print_check(name: &str, ok: bool) {
+    println!("{name}: {}", if ok { "ok" } else { "fail" });
+}
+
+fn unix_chkpwd_allows_pam() -> bool {
+    let Ok(metadata) = std::fs::metadata("/usr/bin/unix_chkpwd") else {
+        return false;
+    };
+    metadata.is_file()
+        && metadata.uid() == 0
+        && metadata.gid() == 0
+        && metadata.mode() & 0o4000 != 0
+}
+
+fn service_file_allows_pam_helpers(service: &str) -> bool {
+    !service.lines().any(|line| {
+        let line = line.trim();
+        matches!(line, "NoNewPrivileges=true" | "RestrictSUIDSGID=true")
+    })
+}
+
+fn pam_file_uses_real_auth(contents: &str) -> bool {
+    !contents
+        .lines()
+        .map(str::trim)
+        .any(|line| !line.starts_with('#') && line.contains("pam_permit.so"))
+}
+
+fn effective_unit_allows_pam_helpers() -> bool {
+    let Ok(output) = std::process::Command::new("systemctl")
+        .args([
+            "--user",
+            "show",
+            "glimpse-lock.service",
+            "-p",
+            "NoNewPrivileges",
+            "-p",
+            "RestrictSUIDSGID",
+            "--no-pager",
+        ])
+        .output()
+    else {
+        return true;
+    };
+    if !output.status.success() {
+        return true;
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    !stdout
+        .lines()
+        .any(|line| matches!(line.trim(), "NoNewPrivileges=yes" | "RestrictSUIDSGID=yes"))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{export_css_requested, gtk_args, preview_requested, version_output};
+    use super::{Command, pam_file_uses_real_auth, parse_command, service_file_allows_pam_helpers};
 
     #[test]
-    fn version_output_uses_cargo_package_version() {
+    fn command_parser_defaults_to_resident_daemon() {
         assert_eq!(
-            version_output(["glimpse-lock", "--version"]),
-            Some(format!("glimpse-lock {}", env!("CARGO_PKG_VERSION")))
+            parse_command(["glimpse-lock"]).expect("default command should parse"),
+            Command::Run
         );
     }
 
     #[test]
-    fn preview_flag_is_detected() {
-        assert!(preview_requested(["glimpse-lock", "--preview"]));
-        assert!(!preview_requested(["glimpse-lock"]));
-    }
-
-    #[test]
-    fn export_css_flag_is_detected() {
-        assert!(export_css_requested(["glimpse-lock", "--export-css"]));
-        assert!(!export_css_requested(["glimpse-lock"]));
-    }
-
-    #[test]
-    fn glimpse_flags_are_removed_from_gtk_args() {
-        let args = vec![
-            "glimpse-lock".to_string(),
-            "--preview".to_string(),
-            "--export-css".to_string(),
-            "--gapplication-service".to_string(),
-        ];
-
+    fn command_parser_accepts_lock_subcommand() {
         assert_eq!(
-            gtk_args(&args),
-            vec![
-                "glimpse-lock".to_string(),
-                "--gapplication-service".to_string()
-            ]
+            parse_command(["glimpse-lock", "lock"]).expect("lock command should parse"),
+            Command::Lock
         );
+    }
+
+    #[test]
+    fn command_parser_accepts_preview_subcommand() {
+        assert_eq!(
+            parse_command(["glimpse-lock", "preview"]).expect("preview command should parse"),
+            Command::Preview
+        );
+    }
+
+    #[test]
+    fn command_parser_accepts_export_css_subcommand() {
+        assert_eq!(
+            parse_command(["glimpse-lock", "export-css"]).expect("export-css command should parse"),
+            Command::ExportCss
+        );
+    }
+
+    #[test]
+    fn command_parser_accepts_status_check_and_version_subcommands() {
+        assert_eq!(
+            parse_command(["glimpse-lock", "status"]).expect("status command should parse"),
+            Command::Status
+        );
+        assert_eq!(
+            parse_command(["glimpse-lock", "check"]).expect("check command should parse"),
+            Command::Check
+        );
+        assert_eq!(
+            parse_command(["glimpse-lock", "version"]).expect("version command should parse"),
+            Command::Version
+        );
+    }
+
+    #[test]
+    fn command_parser_rejects_legacy_flags() {
+        assert!(parse_command(["glimpse-lock", "--preview"]).is_err());
+        assert!(parse_command(["glimpse-lock", "--export-css"]).is_err());
+        assert!(parse_command(["glimpse-lock", "--version"]).is_err());
+        assert!(parse_command(["glimpse-lock", "-V"]).is_err());
+    }
+
+    #[test]
+    fn packaged_service_file_allows_pam_helpers() {
+        let service = include_str!("../../data/glimpse-lock.service");
+
+        assert!(service_file_allows_pam_helpers(service));
+    }
+
+    #[test]
+    fn service_file_regression_detects_pam_breaking_hardening() {
+        let service = "NoNewPrivileges=true\nRestrictSUIDSGID=true\n";
+
+        assert!(!service_file_allows_pam_helpers(service));
+    }
+
+    #[test]
+    fn pam_file_check_rejects_rescue_permit_stack() {
+        let contents = "auth required pam_permit.so\n";
+
+        assert!(!pam_file_uses_real_auth(contents));
+    }
+
+    #[test]
+    fn pam_file_check_accepts_real_stack() {
+        let contents = "auth include system-local-login\n";
+
+        assert!(pam_file_uses_real_auth(contents));
     }
 }

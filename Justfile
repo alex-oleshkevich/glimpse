@@ -17,6 +17,23 @@ verify-release: sync-pkgver
     cargo test --locked -p glimpse-core -p glimpse-idle -p glimpse-lock -p glimpse-sunset -p glimpse-wallpaper
     cargo check --locked -p glimpse-core -p glimpse-idle -p glimpse-lock -p glimpse-sunset -p glimpse-wallpaper
 
+# ---- Local development -------------------------------------------------------
+
+run-shell *args:
+    RUST_LOG="${RUST_LOG:-info}" cargo run -p glimpse-shell -- {{ args }}
+
+run-idle *args:
+    RUST_LOG="${RUST_LOG:-info}" cargo run -p glimpse-idle -- {{ args }}
+
+run-lock *args:
+    RUST_LOG="${RUST_LOG:-info}" cargo run -p glimpse-lock -- {{ args }}
+
+run-sunset *args:
+    RUST_LOG="${RUST_LOG:-info}" cargo run -p glimpse-sunset -- {{ args }}
+
+run-wallpaper *args:
+    RUST_LOG="${RUST_LOG:-info}" cargo run -p glimpse-wallpaper -- {{ args }}
+
 binary-package: verify-release
     scripts/package-binary.sh "$(just version)"
 
@@ -271,3 +288,10 @@ e2e-sdks:
 # Run the e2e test against a single SDK (rs|py|ts|go).
 e2e-sdk LANG:
     python3 scripts/sdk-e2e.py -k {{ LANG }}
+
+# Run the per-daemon IPC e2e test: stops the systemd service, drives the
+# freshly built binary through every watch/dispatch path, restores the
+# service on exit. Intrusive — stops/starts glimpse-sunset.service and
+# applies real gamma changes while running.
+e2e-sunset:
+    bash glimpse-sunset/tests/ipc_e2e.sh

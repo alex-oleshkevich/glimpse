@@ -30,6 +30,7 @@ pub enum State {
 #[derive(Debug, Clone)]
 pub enum Command {
     Refresh,
+    SetManual(f64, f64),
 }
 
 pub type LocationHandle = ServiceHandle<State, Command>;
@@ -189,6 +190,12 @@ impl LocationService {
                                     tracing::debug!("refresh message dropped because the service is not running");
                                     lifecycle
                                 },
+                            },
+                            Command::SetManual(lat, lon) => {
+                                tracing::info!(lat, lon, "location overridden via IPC");
+                                shutdown_task(lifecycle).await;
+                                self.change_state(State::Ready(Coordinates { latitude: lat, longitude: lon }));
+                                Lifecycle::Idle
                             },
                         },
                     },

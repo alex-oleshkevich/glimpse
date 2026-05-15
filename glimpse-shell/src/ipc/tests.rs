@@ -4,23 +4,13 @@ use std::time::Duration;
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::UnixStream,
-    sync::{broadcast, mpsc, watch},
+    sync::broadcast,
 };
 
-use crate::services::{audio, framework::ServiceHandle};
-
-use glimpse_core::ipc::client::IpcClientHandler;
+use glimpse_core::ipc::client::{IpcClientHandler, NoopCommandHandler};
 use glimpse_core::ipc::protocol::IpcEvent;
 
-use super::ShellCommandHandler;
-
 // ── helpers ───────────────────────────────────────────────────────────────────
-
-fn stub_audio() -> ServiceHandle<audio::State, audio::Command> {
-    let (_, state_rx) = watch::channel(audio::State::default());
-    let (cmd_tx, _cmd_rx) = mpsc::channel(16);
-    ServiceHandle::new(state_rx, cmd_tx)
-}
 
 struct TestConn {
     event_tx: broadcast::Sender<Arc<IpcEvent>>,
@@ -34,10 +24,9 @@ impl TestConn {
         let (event_tx, _) = broadcast::channel::<Arc<IpcEvent>>(64);
         let (client, server) = UnixStream::pair().unwrap();
         let event_rx = event_tx.subscribe();
-        let audio = stub_audio();
 
         let task = tokio::spawn(async move {
-            IpcClientHandler::new(server, event_rx, ShellCommandHandler { audio }).run().await;
+            IpcClientHandler::new(server, event_rx, NoopCommandHandler).run().await;
         });
 
         let (reader, writer) = client.into_split();
@@ -58,9 +47,6 @@ impl TestConn {
         self.writer.write_all(format!("{line}\n").as_bytes()).await.unwrap();
     }
 
-    /// Subscribe and synchronise: waits until the handler has definitely processed
-    /// the subscribe line before returning.  Uses an unknown command as a sentinel;
-    /// the ack proves subscribe was processed first (messages are in-order).
     async fn subscribe(&mut self, patterns: &str) {
         self.send(&format!("subscribe {patterns}")).await;
         self.sync().await;
@@ -71,7 +57,6 @@ impl TestConn {
         self.sync().await;
     }
 
-    /// Send a no-op command and wait for its ack, flushing all prior messages.
     async fn sync(&mut self) {
         self.send("__sync__").await;
         let line = tokio::time::timeout(Duration::from_secs(1), self.lines.next_line())
@@ -114,7 +99,6 @@ impl TestConn {
 
 #[tokio::test]
 async fn hello_on_connect() {
-    // TestConn::new already asserts the hello format; this test just exercises it
     let _c = TestConn::new().await;
 }
 
@@ -140,8 +124,7 @@ async fn subscribe_prefix_filters_correctly() {
 
     let line = c.expect("bluetooth.device_connected").await;
     assert!(line.contains("address=AA:BB:CC:DD:EE:FF"), "{line}");
-
-    c.expect_none().await; // no audio event
+    c.expect_none().await;
 }
 
 #[tokio::test]
@@ -204,40 +187,11 @@ async fn unknown_command_ack_false() {
 }
 
 #[tokio::test]
-async fn set_volume_valid() {
-    let mut c = TestConn::new().await;
-    c.send("set_volume level=80").await;
-    c.expect("ack ok=true").await;
-}
-
-#[tokio::test]
-async fn set_volume_out_of_range() {
-    let mut c = TestConn::new().await;
-    c.send("set_volume level=101").await;
-    c.expect("ack ok=false").await;
-}
-
-#[tokio::test]
-async fn set_volume_missing_level() {
-    let mut c = TestConn::new().await;
-    c.send("set_volume").await;
-    c.expect("ack ok=false").await;
-}
-
-#[tokio::test]
-async fn toggle_mute_ack() {
-    let mut c = TestConn::new().await;
-    c.send("toggle_mute").await;
-    c.expect("ack ok=true").await;
-}
-
-#[tokio::test]
 async fn oversize_line_disconnects_client() {
     let mut c = TestConn::new().await;
     let big = format!("{}\n", "x".repeat(65 * 1024));
     let _ = c.writer.write_all(big.as_bytes()).await;
 
-    // server must close the connection; next_line should return EOF
     let got = tokio::time::timeout(Duration::from_secs(1), c.lines.next_line())
         .await
         .expect("timed out waiting for disconnect")

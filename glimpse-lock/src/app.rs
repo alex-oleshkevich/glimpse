@@ -578,7 +578,6 @@ impl LockApp {
             tracing::error!("failed to lock session because ext-session-lock is not supported");
             return;
         }
-
         self.clear_lock_state();
 
         let instance = Instance::new();
