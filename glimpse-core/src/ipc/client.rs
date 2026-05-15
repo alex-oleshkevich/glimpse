@@ -18,6 +18,7 @@ pub trait CommandHandler: Send + 'static {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + 'a>>;
 }
 
+#[derive(Clone)]
 pub struct NoopCommandHandler;
 
 impl CommandHandler for NoopCommandHandler {

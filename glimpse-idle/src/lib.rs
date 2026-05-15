@@ -1,5 +1,6 @@
 pub mod app;
 pub mod backend;
+pub mod ipc;
 pub mod dbus_helpers;
 pub mod inhibitor_registry;
 pub mod inhibitors_api;

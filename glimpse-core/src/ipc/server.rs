@@ -8,6 +8,8 @@ use crate::services::framework::Services;
 
 use super::{client::{CommandHandler, IpcClientHandler}, dispatcher, protocol::IpcEvent};
 
+const BROADCAST_CAPACITY: usize = 256;
+
 #[must_use]
 pub struct IpcHandle {
     event_tx: broadcast::Sender<Arc<IpcEvent>>,
@@ -33,14 +35,28 @@ impl IpcHandle {
 pub struct IpcServer;
 
 impl IpcServer {
+    /// Launch the IPC server for the shell. Starts the full service dispatcher
+    /// and binds to the shell socket path.
     pub fn launch<H>(services: &Services, command_handler: H) -> IpcHandle
     where
         H: CommandHandler + Clone + Send + 'static,
     {
-        let socket_path = resolve_socket_path();
         let event_tx = dispatcher::start(services);
-        let cancel = CancellationToken::new();
+        Self::launch_at(event_tx, shell_socket_path(), command_handler)
+    }
 
+    /// Launch an IPC server at an arbitrary socket path with a caller-supplied
+    /// broadcast channel. Used by non-shell daemons that manage their own
+    /// event channels and socket paths.
+    pub fn launch_at<H>(
+        event_tx: broadcast::Sender<Arc<IpcEvent>>,
+        socket_path: PathBuf,
+        command_handler: H,
+    ) -> IpcHandle
+    where
+        H: CommandHandler + Clone + Send + 'static,
+    {
+        let cancel = CancellationToken::new();
         {
             let cancel_task = cancel.clone();
             let path_clone = socket_path.clone();
@@ -70,7 +86,6 @@ impl IpcServer {
                 }
             });
         }
-
         IpcHandle { event_tx, cancel }
     }
 }
@@ -104,7 +119,20 @@ async fn accept_loop<H>(
     let _ = std::fs::remove_file(&path);
 }
 
-pub fn resolve_socket_path() -> PathBuf {
-    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into());
-    PathBuf::from(runtime_dir).join("glimpse").join("ipc.sock")
+fn runtime_dir() -> PathBuf {
+    PathBuf::from(std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into()))
+        .join("glimpse")
+}
+
+pub fn shell_socket_path() -> PathBuf   { runtime_dir().join("ipc.sock") }
+pub fn idle_socket_path() -> PathBuf    { runtime_dir().join("idle.sock") }
+pub fn sunset_socket_path() -> PathBuf  { runtime_dir().join("sunset.sock") }
+pub fn wallpaper_socket_path() -> PathBuf { runtime_dir().join("wallpaper.sock") }
+
+/// Kept for backwards compatibility — same as `shell_socket_path()`.
+pub fn resolve_socket_path() -> PathBuf { shell_socket_path() }
+
+/// Create a new broadcast channel suitable for use with `IpcServer::launch_at`.
+pub fn new_event_channel() -> broadcast::Sender<Arc<IpcEvent>> {
+    broadcast::channel(BROADCAST_CAPACITY).0
 }

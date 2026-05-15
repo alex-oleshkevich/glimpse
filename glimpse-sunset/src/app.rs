@@ -65,6 +65,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         night_light_service.run(cancel)
     }));
 
+    let _ipc = crate::ipc::start(night_light.clone());
     start_services(&location, &solar, &night_light, config.clone());
     running_services.push(spawn_night_light_subscription(
         night_light.clone(),

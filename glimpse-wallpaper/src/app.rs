@@ -3,6 +3,7 @@ use std::{
     fs,
     hash::{Hash, Hasher},
     path::{Path, PathBuf},
+    sync::Arc,
     time::{Duration, UNIX_EPOCH},
 };
 
@@ -10,8 +11,9 @@ use css_color::Srgb;
 use gio::prelude::SettingsExt;
 use glimpse_core::{
     Config, ConfigEvent, FitMode, ResolvedBackdropSpec, ResolvedImageSpec, ResolvedWallpaperSpec,
-    heic, services::theme::EffectiveThemeMode, watch_for_config_changes,
+    heic, ipc::protocol::IpcEvent, services::theme::EffectiveThemeMode, watch_for_config_changes,
 };
+use tokio::sync::broadcast;
 use gtk4::prelude::ListModelExt;
 use gtk4::{
     ContentFit,
@@ -51,10 +53,11 @@ pub struct WallpaperAppModel {
     ready_logged: bool,
     effective_mode: EffectiveThemeMode,
     _color_scheme_settings: Option<gio::Settings>,
+    event_tx: broadcast::Sender<Arc<IpcEvent>>,
 }
 
-impl Default for WallpaperAppModel {
-    fn default() -> Self {
+impl WallpaperAppModel {
+    fn with_event_tx(event_tx: broadcast::Sender<Arc<IpcEvent>>) -> Self {
         Self {
             active_spec: None,
             wallpaper_windows: HashMap::new(),
@@ -64,6 +67,7 @@ impl Default for WallpaperAppModel {
             ready_logged: false,
             effective_mode: EffectiveThemeMode::Light,
             _color_scheme_settings: None,
+            event_tx,
         }
     }
 }
@@ -91,6 +95,7 @@ impl WallpaperAppModel {
 
 pub struct AppInit {
     pub config: Config,
+    pub event_tx: broadcast::Sender<Arc<IpcEvent>>,
 }
 
 #[relm4::component(pub)]
@@ -170,7 +175,7 @@ impl SimpleComponent for WallpaperAppModel {
         let model = WallpaperAppModel {
             effective_mode: initial_mode,
             _color_scheme_settings: Some(color_scheme_settings),
-            ..WallpaperAppModel::default()
+            ..WallpaperAppModel::with_event_tx(init.event_tx)
         };
         let widgets = view_output!();
         ComponentParts { model, widgets }
@@ -236,6 +241,7 @@ impl WallpaperAppModel {
             "applying wallpaper spec"
         );
         self.active_spec = Some(spec.clone());
+        crate::ipc::emit_spec_changed(&self.event_tx, &spec);
         self.reconcile_windows(&spec, force_image_reload, sender.clone());
         self.watch_active_paths(spec, sender);
     }

@@ -90,6 +90,8 @@ impl SimpleComponent for Applet {
             set_orientation: gtk::Orientation::Horizontal,
             set_spacing: 4,
             #[watch]
+            set_visible: !model.state.snapshot.adapters.is_empty(),
+            #[watch]
             set_tooltip_text: if model.tooltip.is_empty() { None } else { Some(&model.tooltip) },
 
             add_controller = gtk::GestureClick {

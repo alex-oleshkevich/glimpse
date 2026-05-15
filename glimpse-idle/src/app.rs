@@ -7,10 +7,11 @@ use glimpse_core::{
         battery::{BatteryHandle, BatteryService},
         framework::Control,
         idle::{self, IdleHandle, IdleService, State},
-        idle_inhibitor::InhibitorsHealth,
+        idle_inhibitor::{self, InhibitorsHealth},
     },
     watch_for_config_changes,
 };
+use tokio::sync::watch;
 use tokio::sync::{Mutex, mpsc};
 use tokio_util::sync::CancellationToken;
 
@@ -58,7 +59,7 @@ pub async fn run(config: Config, instance: InstanceGuard) -> anyhow::Result<()> 
         backend::run(backend_idle.clone(), cancel)
     }));
 
-    if let Err(e) = wire_inhibitor_subsystem(
+    let _ipc = match wire_inhibitor_subsystem(
         &session,
         &system_dbus,
         cancel.clone(),
@@ -66,8 +67,12 @@ pub async fn run(config: Config, instance: InstanceGuard) -> anyhow::Result<()> 
     )
     .await
     {
-        tracing::error!(error = ?e, "failed to wire inhibitor subsystem; daemon continues without it");
-    }
+        Ok(handle) => Some(handle),
+        Err(e) => {
+            tracing::error!(error = ?e, "failed to wire inhibitor subsystem; daemon continues without it");
+            None
+        }
+    };
 
     let (config_tx, mut config_rx) = mpsc::channel(1);
     let config_cancel = cancel.clone();
@@ -115,9 +120,10 @@ async fn wire_inhibitor_subsystem(
     system_dbus: &zbus::Connection,
     cancel: CancellationToken,
     running_services: &mut Vec<AppTask>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<glimpse_core::ipc::IpcHandle> {
     let registry = Arc::new(Mutex::new(Registry::new()));
     let health = Arc::new(Mutex::new(InhibitorsHealth::default()));
+    let (state_tx, state_rx) = watch::channel(idle_inhibitor::State::default());
 
     let login1_proxy = Login1ManagerProxy::new(system_dbus).await?;
     let login1_inhibit: Arc<dyn Login1InhibitTaker + Send + Sync> = Arc::new(RealLogin1Inhibit {
@@ -128,10 +134,22 @@ async fn wire_inhibitor_subsystem(
     // on the InhibitorsApi path so the shell's proxies refresh. Synchronous from
     // the caller's perspective; emission happens on a background task.
     let session_for_change = session.clone();
+    let registry_for_change = registry.clone();
+    let health_for_change = health.clone();
+    let state_tx_for_change = state_tx.clone();
     let on_change: Arc<dyn Fn() + Send + Sync> = Arc::new(move || {
         let session = session_for_change.clone();
+        let registry = registry_for_change.clone();
+        let health = health_for_change.clone();
+        let tx = state_tx_for_change.clone();
         tokio::spawn(async move {
             emit_inhibitors_changed(&session).await;
+            let reg = registry.lock().await;
+            let h = health.lock().await;
+            let _ = tx.send(idle_inhibitor::State {
+                health: h.clone(),
+                inhibitors: reg.snapshot(),
+            });
         });
     });
 
@@ -264,8 +282,18 @@ async fn wire_inhibitor_subsystem(
         }
     }));
 
+    // Publish initial state (health may already be degraded from bus name acquisition).
+    {
+        let reg = registry.lock().await;
+        let h = health.lock().await;
+        let _ = state_tx.send(idle_inhibitor::State {
+            health: h.clone(),
+            inhibitors: reg.snapshot(),
+        });
+    }
+
     tracing::info!("inhibitor subsystem wired");
-    Ok(())
+    Ok(crate::ipc::start(state_rx, registry.clone(), on_change.clone()))
 }
 
 async fn emit_inhibitors_changed(session: &zbus::Connection) {

@@ -1,6 +1,7 @@
 use glimpse_core::Config;
 use glimpse_wallpaper::{
     app::{AppInit, WallpaperAppModel},
+    ipc as wallpaper_ipc,
     runtime::{GTK_APPLICATION_ID, WallpaperRuntime},
 };
 use relm4::{
@@ -53,6 +54,7 @@ async fn main() -> anyhow::Result<()> {
         backdrop_enabled = config.backdrop.enabled,
         "resolved startup configuration"
     );
+    let (_ipc_handle, event_tx) = wallpaper_ipc::start();
     let gtk_app = gtk::Application::builder()
         .application_id(&app_id)
         .flags(gtk::gio::ApplicationFlags::NON_UNIQUE)
@@ -61,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::debug!(app_id, "starting GTK application");
     let app = RelmApp::from_app(gtk_app);
     app.visible_on_activate(false)
-        .run::<WallpaperAppModel>(AppInit { config });
+        .run::<WallpaperAppModel>(AppInit { config, event_tx });
     tracing::info!("glimpse-wallpaper stopped");
 
     Ok(())
