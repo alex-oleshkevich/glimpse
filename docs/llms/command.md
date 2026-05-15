@@ -9,12 +9,15 @@ working command applet.
 
 ## Defining A Command Applet
 
-Custom applets live under `[applets.<name>]` in `~/.config/glimpse/config.toml`.
-A command applet is declared by setting `extends = "command"`:
+Custom command applets live as package files in `~/.config/glimpse/applets`.
+A command applet is declared with `type = "command"`:
 
 ```toml
-[applets.terminal]
-extends = "command"
+# ~/.config/glimpse/applets/terminal.toml
+id = "terminal"
+type = "command"
+
+[command]
 icon = "utilities-terminal-symbolic"
 label = "Terminal"
 tooltip = "Open a terminal"
@@ -33,7 +36,7 @@ right = ["terminal", "network", "battery"]
 
 | Option | Type | Default | Meaning |
 |---|---|---|---|
-| `extends` | string | required | Must be `"command"`. |
+| `type` | string | required | Must be `"command"`. |
 | `icon` | string | unset | Symbolic icon name (preferred) or absolute path to an image. Symbolic icons should end in `-symbolic`. |
 | `label` | string | unset | Optional text shown beside the icon in the panel. |
 | `tooltip` | string | unset | Hover text. |
@@ -42,7 +45,7 @@ right = ["terminal", "network", "battery"]
 
 ### Menu Items
 
-Each menu entry is a `[[applets.<name>.menu]]` table:
+Each menu entry is a `[[command.menu]]` table:
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
@@ -76,8 +79,10 @@ Rules of thumb:
 ### Plain Launcher
 
 ```toml
-[applets.terminal]
-extends = "command"
+id = "terminal"
+type = "command"
+
+[command]
 icon = "utilities-terminal-symbolic"
 tooltip = "Open terminal"
 command = ["ghostty"]
@@ -86,8 +91,10 @@ command = ["ghostty"]
 ### Launcher With Visible Label
 
 ```toml
-[applets.editor]
-extends = "command"
+id = "editor"
+type = "command"
+
+[command]
 icon = "accessories-text-editor-symbolic"
 label = "Edit"
 tooltip = "Open editor"
@@ -97,21 +104,23 @@ command = ["code", "-n"]
 ### Power Menu (Button + Right-Click Menu)
 
 ```toml
-[applets.power-menu]
-extends = "command"
+id = "power-menu"
+type = "command"
+
+[command]
 icon = "system-shutdown-symbolic"
 tooltip = "Power"
 command = ["loginctl", "lock-session"]
 
-[[applets.power-menu.menu]]
+[[command.menu]]
 label = "Suspend"
 command = ["systemctl", "suspend"]
 
-[[applets.power-menu.menu]]
+[[command.menu]]
 label = "Restart"
 command = ["systemctl", "reboot"]
 
-[[applets.power-menu.menu]]
+[[command.menu]]
 label = "Shutdown"
 command = ["systemctl", "poweroff"]
 ```
@@ -121,8 +130,10 @@ Left-click locks the session; right-click opens Suspend / Restart / Shutdown.
 ### Web Shortcut
 
 ```toml
-[applets.calendar]
-extends = "command"
+id = "calendar"
+type = "command"
+
+[command]
 icon = "x-office-calendar-symbolic"
 label = "Cal"
 command = ["xdg-open", "https://calendar.google.com"]
@@ -131,8 +142,10 @@ command = ["xdg-open", "https://calendar.google.com"]
 ### Screenshot With Shell Substitution
 
 ```toml
-[applets.screenshot]
-extends = "command"
+id = "screenshot"
+type = "command"
+
+[command]
 icon = "camera-photo-symbolic"
 tooltip = "Screenshot region"
 command = ["sh", "-c", "slurp | grim -g - ~/Pictures/$(date +%F-%H%M%S).png"]
@@ -141,8 +154,10 @@ command = ["sh", "-c", "slurp | grim -g - ~/Pictures/$(date +%F-%H%M%S).png"]
 ### Append A Timestamped Note
 
 ```toml
-[applets.note-time]
-extends = "command"
+id = "note-time"
+type = "command"
+
+[command]
 icon = "document-edit-symbolic"
 command = ["sh", "-c", "date >> ~/.cache/glimpse-notes.log"]
 ```
@@ -150,18 +165,20 @@ command = ["sh", "-c", "date >> ~/.cache/glimpse-notes.log"]
 ### Custom Script Path With Menu
 
 ```toml
-[applets.dotfiles]
-extends = "command"
+id = "dotfiles"
+type = "command"
+
+[command]
 icon = "preferences-system-symbolic"
 tooltip = "Dotfiles"
 command = ["sh", "-c", "~/.local/bin/dotfiles-status | xclip -selection clipboard"]
 
-[[applets.dotfiles.menu]]
+[[command.menu]]
 icon = "view-refresh-symbolic"
 label = "Sync"
 command = ["sh", "-c", "~/.local/bin/dotfiles-sync"]
 
-[[applets.dotfiles.menu]]
+[[command.menu]]
 icon = "document-open-symbolic"
 label = "Open"
 command = ["xdg-open", "/home/me/.dotfiles"]
@@ -170,20 +187,22 @@ command = ["xdg-open", "/home/me/.dotfiles"]
 ### Quick-Switch With Multiple Menu Targets
 
 ```toml
-[applets.workspaces]
-extends = "command"
+id = "workspaces"
+type = "command"
+
+[command]
 icon = "preferences-desktop-workspaces-symbolic"
 command = ["niri", "msg", "action", "focus-workspace", "1"]
 
-[[applets.workspaces.menu]]
+[[command.menu]]
 label = "Workspace 1"
 command = ["niri", "msg", "action", "focus-workspace", "1"]
 
-[[applets.workspaces.menu]]
+[[command.menu]]
 label = "Workspace 2"
 command = ["niri", "msg", "action", "focus-workspace", "2"]
 
-[[applets.workspaces.menu]]
+[[command.menu]]
 label = "Workspace 3"
 command = ["niri", "msg", "action", "focus-workspace", "3"]
 ```

@@ -44,13 +44,19 @@ printf 'status {"items":[{"id":"hello","label":"hi","icon":{"name":"face-smile-s
 exec sleep infinity
 ```
 
-Then wire it up in `~/.config/glimpse/config.toml`:
+Then create an applet package file and reference its id from panel config:
 
 ```toml
-[applets.hello]
-extends = "exec"
-command = ["sh", "-c", "~/.config/glimpse/scripts/hello"]
+# ~/.config/glimpse/applets/hello.toml
+id = "hello"
+type = "exec"
 
+[exec]
+command = ["sh", "-c", "~/.config/glimpse/scripts/hello"]
+```
+
+```toml
+# ~/.config/glimpse/config.toml
 [[panels]]
 right = ["hello"]
 ```
@@ -214,24 +220,27 @@ glimpse-applet dispatch open_uri uri=https://example.com
 ## Configuration
 
 ```toml
-[applets.sysinfo]
-extends = "exec"
+# ~/.config/glimpse/applets/sysinfo.toml
+id = "sysinfo"
+type = "exec"
+
+[exec]
 command = ["sh", "-c", "~/.config/glimpse/scripts/sysinfo"]
 restart_delay_ms = 1000
 env_clear = false
 
-[applets.sysinfo.env]
+[exec.env]
 PATH = "/usr/bin:/bin"
 LANG = "C.UTF-8"
 
-[applets.sysinfo.options]
+[exec.options]
 interval = 5
 unit = "celsius"
 ```
 
 | Option | Type | Default | Meaning |
 |---|---|---|---|
-| `extends` | string | required | Must be `"exec"`. |
+| `type` | string | required | Must be `"exec"`. |
 | `command` | array of strings | required | Argv to spawn the child process. No shell expansion — wrap with `["sh", "-c", "..."]` for shell features. |
 | `restart_delay_ms` | int | `1000` | Delay before restarting a crashed/exited child. Minimum `50`. |
 | `env_clear` | bool | `false` | If `true`, the child's environment starts empty (only `env` entries are kept). |
@@ -290,8 +299,8 @@ init {"instance":"sysinfo","options":{"interval":5,"unit":"celsius"}}
 
 | Field | Type | Meaning |
 |---|---|---|
-| `instance` | string | The applet `<name>` from the config. |
-| `options` | object | Verbatim copy of `[applets.<name>.options]`. Empty `{}` if omitted in config. |
+| `instance` | string | The applet package `id`. |
+| `options` | object | Verbatim copy of `[exec.options]`. Empty `{}` if omitted in the package file. |
 
 ### `event`
 
@@ -1106,8 +1115,10 @@ done
 Config:
 
 ```toml
-[applets.cpu-temp]
-extends = "exec"
+id = "cpu-temp"
+type = "exec"
+
+[exec]
 command = ["sh", "-c", "~/.config/glimpse/scripts/cpu-temp"]
 restart_delay_ms = 1000
 ```
@@ -1196,8 +1207,10 @@ if __name__ == "__main__":
 Config:
 
 ```toml
-[applets.counter]
-extends = "exec"
+id = "counter"
+type = "exec"
+
+[exec]
 command = ["python", "/home/me/applets/counter.py"]
 ```
 
@@ -1298,8 +1311,10 @@ await new CounterApplet().run();
 Config:
 
 ```toml
-[applets.counter]
-extends = "exec"
+id = "counter"
+type = "exec"
+
+[exec]
 command = ["node", "/home/me/applets/counter.js"]
 ```
 
@@ -1399,8 +1414,10 @@ async fn main() -> AppletResult<()> {
 Config:
 
 ```toml
-[applets.counter]
-extends = "exec"
+id = "counter"
+type = "exec"
+
+[exec]
 command = ["/home/me/.cargo/bin/counter-applet"]
 ```
 
@@ -1501,8 +1518,10 @@ func main() {
 Config:
 
 ```toml
-[applets.counter]
-extends = "exec"
+id = "counter"
+type = "exec"
+
+[exec]
 command = ["/home/me/applets/counter"]
 ```
 

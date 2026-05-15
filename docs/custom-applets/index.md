@@ -35,12 +35,18 @@ right = ["network", "__dev__", "battery"]
 ## Quick Launcher
 
 ```toml
-[applets.terminal]
-extends = "command"
+# ~/.config/glimpse/applets/terminal.toml
+id = "terminal"
+type = "command"
+
+[command]
 icon = "utilities-terminal-symbolic"
 tooltip = "Open terminal"
 command = ["ghostty"]
+```
 
+```toml
+# ~/.config/glimpse/config.toml
 [[panels]]
 right = ["terminal", "network", "battery"]
 ```

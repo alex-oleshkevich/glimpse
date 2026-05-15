@@ -5,8 +5,11 @@ The command applet is the easiest way to add a launcher or small menu to your pa
 ## Button Example
 
 ```toml
-[applets.terminal]
-extends = "command"
+# ~/.config/glimpse/applets/terminal.toml
+id = "terminal"
+type = "command"
+
+[command]
 icon = "utilities-terminal-symbolic"
 label = "Terminal"
 tooltip = "Open terminal"
@@ -22,21 +25,24 @@ right = ["terminal", "network", "battery"]
 ## Menu Example
 
 ```toml
-[applets.power-menu]
-extends = "command"
+# ~/.config/glimpse/applets/power-menu.toml
+id = "power-menu"
+type = "command"
+
+[command]
 icon = "system-shutdown-symbolic"
 tooltip = "Power"
 command = ["loginctl", "lock-session"]
 
-[[applets.power-menu.menu]]
+[[command.menu]]
 label = "Suspend"
 command = ["systemctl", "suspend"]
 
-[[applets.power-menu.menu]]
+[[command.menu]]
 label = "Restart"
 command = ["systemctl", "reboot"]
 
-[[applets.power-menu.menu]]
+[[command.menu]]
 label = "Shutdown"
 command = ["systemctl", "poweroff"]
 ```

@@ -477,12 +477,14 @@ Skip to the next section and use `/path/to/counter/counter` as
 
 ## Wire it into your panel
 
-Open `~/.config/glimpse/config.toml` and add an exec applet that
-points at your binary or script:
+Create an applet package file that points at your binary or script:
 
 ```toml
-[applets.counter]
-extends = "exec"
+# ~/.config/glimpse/applets/counter.toml
+id = "counter"
+type = "exec"
+
+[exec]
 command = ["/absolute/path/to/your/counter"]
 ```
 

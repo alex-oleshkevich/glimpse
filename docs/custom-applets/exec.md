@@ -7,16 +7,19 @@ Use it when you want a custom local widget without writing a built-in Rust apple
 ## Basic Config
 
 ```toml
-[applets.sysinfo]
-extends = "exec"
+# ~/.config/glimpse/applets/sysinfo.toml
+id = "sysinfo"
+type = "exec"
+
+[exec]
 command = ["sh", "-c", "~/.config/glimpse/scripts/sysinfo"]
 restart_delay_ms = 1000
 env_clear = false
 
-[applets.sysinfo.env]
+[exec.env]
 PATH = "/usr/bin:/bin"
 
-[applets.sysinfo.options]
+[exec.options]
 interval = 5
 unit = "celsius"
 ```
@@ -29,7 +32,7 @@ right = ["sysinfo", "network", "battery"]
 
 | Option | Default | Meaning |
 |---|---|---|
-| `extends` | required for custom names | Use `"exec"` for custom exec applets. |
+| `type` | required | Use `"exec"` in an applet package file. |
 | `command` | `[]` | Program to run. Required. Use `["sh", "-c", "..."]` when you need shell syntax. |
 | `restart_delay_ms` | `1000` | Delay before the program restarts after exit. Minimum 50. |
 | `options` | `{}` | Custom data sent to the child process in the `init` message. |
@@ -38,7 +41,9 @@ right = ["sysinfo", "network", "battery"]
 
 ## Applet Directories
 
-Exec applets can be declared directly in `~/.config/glimpse/config.toml`, or packaged as applet project directories with an `applet.toml` file:
+Exec applets are declared as applet package files, either linked into
+`~/.config/glimpse/applets` or kept in project directories with an `applet.toml`
+file:
 
 ```toml
 id = "sysinfo"
@@ -59,11 +64,12 @@ glimpse-applet dev /path/to/sysinfo
 
 That command writes `~/.config/glimpse/applets/sysinfo.dev.toml` while it runs. Add `__dev__` to a panel section to show active dev applets.
 
-If an applet id exists both in `config.toml` and as a discovered applet, the explicit `config.toml` entry wins.
+If an applet id exists in both the normal applet directory and the dev applet
+set, the normal linked applet wins.
 
 ## Options
 
-`[applets.<name>.options]` is arbitrary data for your applet instance. Glimpse does not interpret it.
+`[exec.options]` is arbitrary data for your applet instance. Glimpse does not interpret it.
 
 When the child process starts, Glimpse sends the options in the first `init` line:
 

@@ -234,8 +234,11 @@ Copy these into `label_format`, `tooltip_format`, or a world clock `format`.
 Runs a command from a panel button or menu.
 
 ```toml
-[applets.terminal]
-extends = "command"
+# ~/.config/glimpse/applets/terminal.toml
+id = "terminal"
+type = "command"
+
+[command]
 icon = "utilities-terminal-symbolic"
 label = "Terminal"
 tooltip = "Open terminal"
@@ -244,7 +247,7 @@ command = ["ghostty"]
 
 | Option | Default | Meaning |
 |---|---|---|
-| `extends` | required for custom names | Use `"command"` for custom command applets. |
+| `type` | required | Use `"command"` in an applet package file. |
 | `icon` | unset | Symbolic icon name. |
 | `label` | unset | Optional button text. |
 | `tooltip` | unset | Hover text. |
@@ -258,22 +261,25 @@ Read the full [Command Applet](../custom-applets/command.md) guide for menus and
 Runs your own script and lets it draw status items and popovers.
 
 ```toml
-[applets.sysinfo]
-extends = "exec"
+# ~/.config/glimpse/applets/sysinfo.toml
+id = "sysinfo"
+type = "exec"
+
+[exec]
 command = ["sh", "-c", "~/.config/glimpse/scripts/sysinfo"]
 restart_delay_ms = 1000
 env_clear = false
 
-[applets.sysinfo.env]
+[exec.env]
 PATH = "/usr/bin:/bin"
 
-[applets.sysinfo.options]
+[exec.options]
 interval = 5
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
-| `extends` | required for custom names | Use `"exec"` for custom exec applets. |
+| `type` | required | Use `"exec"` in an applet package file. |
 | `command` | `[]` | Script or program to run. Required. |
 | `restart_delay_ms` | `1000` | Delay before restarting the script after it exits. Minimum 50. |
 | `options` | `{}` | Custom data sent to your script on startup. |

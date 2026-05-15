@@ -15,14 +15,18 @@ Use this page when you want to build an applet with one of the SDK languages. Fo
 
 ## Configure An SDK Applet
 
-SDK applets still run through the built-in `exec` applet. Point `command` at your SDK program:
+SDK applets run through an `exec` applet package. Point `command` at your SDK
+program:
 
 ```toml
-[applets.counter]
-extends = "exec"
+# ~/.config/glimpse/applets/counter.toml
+id = "counter"
+type = "exec"
+
+[exec]
 command = ["/home/alex/.config/glimpse/applets/counter"]
 
-[applets.counter.options]
+[exec.options]
 start = 0
 ```
 

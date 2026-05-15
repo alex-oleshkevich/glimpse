@@ -161,8 +161,11 @@ done
 Config:
 
 ```toml
-[applets.cpu-temp]
-extends = "exec"
+# ~/.config/glimpse/applets/cpu-temp.toml
+id = "cpu-temp"
+type = "exec"
+
+[exec]
 command = ["sh", "-c", "~/.config/glimpse/scripts/cpu-temp"]
 ```
 

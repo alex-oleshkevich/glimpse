@@ -19,7 +19,10 @@ Lookup order:
 ## Panel Example
 
 ```toml
-[applets.sysstats]
-extends = "exec"
+# ~/.config/glimpse/applets/sysstats.toml
+id = "sysstats"
+type = "exec"
+
+[exec]
 command = ["var/sysstats/sysstats-applet"]
 ```

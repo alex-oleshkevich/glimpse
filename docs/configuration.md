@@ -72,17 +72,22 @@ right = ["weather", "network", "battery"]
 
 ### Add another instance
 
-Use `extends` when you want a second copy of an applet with its own name and settings.
+Built-in applet settings live under `[applets.<name>]`. Custom `exec` and
+`command` applets are loaded from applet package files in
+`$XDG_CONFIG_HOME/glimpse/applets`.
 
 ```toml
-[applets.terminal]
-extends = "command"
+# ~/.config/glimpse/applets/terminal.toml
+id = "terminal"
+type = "command"
+
+[command]
 icon = "utilities-terminal-symbolic"
 tooltip = "Open terminal"
 command = ["ghostty"]
 ```
 
-Then place that custom name in a panel section:
+Then place the package id in a panel section:
 
 ```toml
 right = ["weather", "terminal", "network", "battery"]

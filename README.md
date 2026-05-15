@@ -228,24 +228,36 @@ label = "Tokyo"
 timezone = "Asia/Tokyo"
 ```
 
-Create named applets with `extends`:
+Custom `exec` and `command` applets are loaded from applet package files in
+`$XDG_CONFIG_HOME/glimpse/applets`. Put the package id in a panel section:
 
 ```toml
-[[panels]]
-position = "top"
-right = ["terminal", "screenshot", "network", "battery"]
+# ~/.config/glimpse/applets/terminal.toml
+id = "terminal"
+type = "command"
 
-[applets.terminal]
-extends = "command"
+[command]
 icon = "utilities-terminal-symbolic"
 tooltip = "Open terminal"
 command = ["ghostty"]
+```
 
-[applets.screenshot]
-extends = "command"
+```toml
+# ~/.config/glimpse/applets/screenshot.toml
+id = "screenshot"
+type = "command"
+
+[command]
 icon = "camera-photo-symbolic"
 tooltip = "Copy area screenshot"
 command = ["/bin/sh", "-c", "grim -g \"$(slurp)\" - | wl-copy"]
+```
+
+```toml
+# ~/.config/glimpse/config.toml
+[[panels]]
+position = "top"
+right = ["terminal", "screenshot", "network", "battery"]
 ```
 
 `command` applets run a command on click and can expose a right-click menu.

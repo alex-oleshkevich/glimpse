@@ -74,9 +74,6 @@ fn parses_shell_compatible_config_with_shared_wallpaper_settings() {
         [applets.system_tray]
         extends = "tray"
 
-        [applets.sysinfo]
-        extends = "exec"
-        command = ["/tmp/sysinfo"]
         "##,
     )
     .unwrap();
@@ -95,14 +92,6 @@ fn parses_shell_compatible_config_with_shared_wallpaper_settings() {
             .and_then(|applet| applet.extends),
         Some(AppletType::Tray)
     );
-    assert_eq!(
-        config
-            .applets
-            .get("sysinfo")
-            .and_then(|applet| applet.extends),
-        None
-    );
-
     let serialized = toml::to_string_pretty(&config).unwrap();
     assert!(serialized.contains("[wallpaper]"));
     assert!(serialized.contains("[backdrop]"));

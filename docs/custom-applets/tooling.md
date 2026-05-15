@@ -44,7 +44,7 @@ type = "exec"
 command = ["uv", "run", "main.py"]
 ```
 
-`glimpse-applet link` creates `~/.config/glimpse/applets/<id>.toml` as a symlink to that file. Glimpse discovers those files and merges them with applets declared directly in `~/.config/glimpse/config.toml`.
+`glimpse-applet link` creates `~/.config/glimpse/applets/<id>.toml` as a symlink to that file. Glimpse discovers those files and lets panel config reference them by id.
 
 ## Create A Project
 
@@ -96,7 +96,7 @@ Add `__dev__` to a panel section to show active dev applets:
 right = ["network", "__dev__", "battery"]
 ```
 
-If an applet with the same id is declared directly in `config.toml`, that explicit config wins over a discovered dev applet. Rename one of them or remove the explicit entry while testing.
+If a normal linked applet and a dev applet use the same id, the normal linked applet wins. Rename one of them or unlink the normal applet while testing.
 
 ## Link For Normal Use
 
