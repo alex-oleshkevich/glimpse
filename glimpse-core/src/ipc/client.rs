@@ -1,7 +1,7 @@
 use std::{collections::HashSet, pin::Pin, sync::Arc};
 
 use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
+    io::{AsyncBufRead, AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::UnixStream,
     sync::broadcast,
 };
@@ -9,6 +9,46 @@ use tokio::{
 use super::protocol::{ClientMsg, IpcEvent, ack_line, escape, hello_line, matches_pattern, parse_client_line};
 
 const MAX_IPC_LINE: usize = 64 * 1024;
+
+/// Read one `\n`-terminated line, enforcing `max` *while* reading so a client
+/// that never sends a newline cannot make us buffer unbounded memory.
+/// `Ok(None)` = EOF; an over-length line returns an error (caller disconnects).
+async fn read_capped_line<R: AsyncBufRead + Unpin>(
+    reader: &mut R,
+    max: usize,
+) -> std::io::Result<Option<String>> {
+    let mut buf: Vec<u8> = Vec::new();
+    loop {
+        let available = reader.fill_buf().await?;
+        if available.is_empty() {
+            return Ok(if buf.is_empty() {
+                None
+            } else {
+                Some(String::from_utf8_lossy(&buf).into_owned())
+            });
+        }
+        if let Some(pos) = available.iter().position(|&b| b == b'\n') {
+            if buf.len() + pos > max {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "IPC line exceeds maximum length",
+                ));
+            }
+            buf.extend_from_slice(&available[..pos]);
+            reader.consume(pos + 1);
+            return Ok(Some(String::from_utf8_lossy(&buf).into_owned()));
+        }
+        if buf.len() + available.len() > max {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "IPC line exceeds maximum length",
+            ));
+        }
+        let n = available.len();
+        buf.extend_from_slice(available);
+        reader.consume(n);
+    }
+}
 
 pub trait CommandHandler: Send + 'static {
     fn execute<'a>(
@@ -49,7 +89,7 @@ impl<H: CommandHandler> IpcClientHandler<H> {
 
     pub async fn run(mut self) {
         let (reader, mut writer) = self.stream.into_split();
-        let mut lines = BufReader::new(reader).lines();
+        let mut reader = BufReader::new(reader);
 
         let hello = format!("{}\n", hello_line());
         if writer.write_all(hello.as_bytes()).await.is_err() {
@@ -60,13 +100,9 @@ impl<H: CommandHandler> IpcClientHandler<H> {
 
         loop {
             tokio::select! {
-                line = lines.next_line() => {
+                line = read_capped_line(&mut reader, MAX_IPC_LINE) => {
                     match line {
                         Ok(Some(line)) if !line.trim().is_empty() => {
-                            if line.len() > MAX_IPC_LINE {
-                                tracing::debug!(len = line.len(), "IPC client sent oversize line; disconnecting");
-                                break;
-                            }
                             match parse_client_line(line.trim()) {
                                 Ok(ClientMsg::Subscribe(patterns)) => {
                                     subscriptions.extend(patterns);

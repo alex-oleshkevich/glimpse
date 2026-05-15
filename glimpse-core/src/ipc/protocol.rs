@@ -76,9 +76,16 @@ fn parse_field(token: &str) -> Result<(String, String), String> {
     Ok((k.to_owned(), unescape(v)))
 }
 
-/// Escape a value for wire encoding: spaces → `\s`, backslash → `\\`.
+/// Escape a value for wire encoding. The wire format is newline-delimited and
+/// space-separated, so `\`, newline, tab and space must all be encoded or an
+/// attacker-influenced field (notification body, window/media title, clipboard
+/// preview, SSID, BT device name) could forge or split event lines.
+/// Backslash must be replaced first so the escapes we introduce aren't re-escaped.
 pub fn escape(s: &str) -> String {
-    s.replace('\\', "\\\\").replace(' ', "\\s")
+    s.replace('\\', "\\\\")
+        .replace('\n', "\\n")
+        .replace('\t', "\\t")
+        .replace(' ', "\\s")
 }
 
 /// Unescape a wire-encoded value.
@@ -89,6 +96,8 @@ pub fn unescape(s: &str) -> String {
         if c == '\\' {
             match chars.next() {
                 Some('s') => out.push(' '),
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
                 Some('\\') => out.push('\\'),
                 Some(x) => { out.push('\\'); out.push(x); }
                 None => out.push('\\'),
@@ -158,6 +167,26 @@ mod tests {
     fn escape_roundtrip() {
         let s = "hello world\\backslash";
         assert_eq!(unescape(&escape(s)), s);
+    }
+
+    #[test]
+    fn escape_neutralizes_control_chars_and_roundtrips() {
+        // A field value that would otherwise forge/split an event line.
+        let s = "evil ts=0\nmpris.track_changed\ttitle=spoofed \\x";
+        let e = escape(s);
+        assert!(!e.contains('\n'), "newline must not survive encoding: {e}");
+        assert!(!e.contains('\t'), "tab must not survive encoding: {e}");
+        assert_eq!(unescape(&e), s);
+    }
+
+    #[test]
+    fn encoded_event_is_single_line_even_with_newline_field() {
+        let ev = IpcEvent {
+            name: "notification.received".into(),
+            ts: 0,
+            fields: vec![("body".into(), "line1\nline2".into())],
+        };
+        assert_eq!(ev.encode().matches('\n').count(), 0);
     }
 
     #[test]

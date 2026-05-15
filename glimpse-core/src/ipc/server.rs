@@ -119,9 +119,19 @@ async fn accept_loop<H>(
     let _ = std::fs::remove_file(&path);
 }
 
+/// The per-user runtime directory for Glimpse IPC sockets.
+///
+/// Requires `XDG_RUNTIME_DIR` (a private, 0700, user-owned tmpfs). There is
+/// deliberately no `/tmp` fallback: `/tmp` is world-writable, so a predictable
+/// `/tmp/glimpse/*.sock` path invites socket pre-creation / symlink hijack and
+/// cross-user DoS. A session without `XDG_RUNTIME_DIR` is misconfigured and we
+/// fail fast rather than bind an insecure socket.
 fn runtime_dir() -> PathBuf {
-    PathBuf::from(std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| "/tmp".into()))
-        .join("glimpse")
+    let base = std::env::var_os("XDG_RUNTIME_DIR").expect(
+        "XDG_RUNTIME_DIR is not set; refusing to create an IPC socket under /tmp \
+         (insecure). Run inside a proper user session.",
+    );
+    PathBuf::from(base).join("glimpse")
 }
 
 pub fn shell_socket_path() -> PathBuf   { runtime_dir().join("ipc.sock") }
