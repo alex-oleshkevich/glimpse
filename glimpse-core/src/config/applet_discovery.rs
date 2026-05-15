@@ -23,6 +23,41 @@ pub struct DiscoveredApplets {
     pub dev: HashMap<String, AppletConfig>,
 }
 
+/// Where a discovered applet package came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppletSource {
+    System,
+    User,
+    Dev,
+}
+
+impl std::fmt::Display for AppletSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::System => "system",
+            Self::User => "user",
+            Self::Dev => "dev",
+        })
+    }
+}
+
+/// One row of provenance-aware applet discovery (for `applets ls`).
+#[derive(Debug, Clone)]
+pub struct DiscoveredAppletInfo {
+    pub id: String,
+    pub kind: String,
+    pub source: AppletSource,
+}
+
+fn applet_kind(config: &AppletConfig) -> String {
+    match config.extends {
+        Some(AppletType::Exec) => "exec",
+        Some(AppletType::Command) => "command",
+        _ => "other",
+    }
+    .to_owned()
+}
+
 impl AppletDirectoryScanner {
     pub fn new(system_dir: PathBuf, user_dir: PathBuf) -> Self {
         Self {
@@ -42,6 +77,57 @@ impl AppletDirectoryScanner {
         scan_dir(&self.system_dir, &mut result.normal, &mut result.dev);
         scan_dir(&self.user_dir, &mut result.normal, &mut result.dev);
         result
+    }
+
+    /// Provenance-aware listing. A user package shadows a system package of
+    /// the same id (same precedence as [`scan`]); a user `*.dev.toml` shadows
+    /// a system one. Dev packages share the id namespace with normal ones, so
+    /// the same base id can appear once as normal and once as `dev`. Sorted by
+    /// id, then source.
+    pub fn scan_sources(&self) -> Vec<DiscoveredAppletInfo> {
+        let mut sys_normal = HashMap::new();
+        let mut sys_dev = HashMap::new();
+        scan_dir(&self.system_dir, &mut sys_normal, &mut sys_dev);
+        let mut user_normal = HashMap::new();
+        let mut user_dev = HashMap::new();
+        scan_dir(&self.user_dir, &mut user_normal, &mut user_dev);
+
+        let mut out: Vec<DiscoveredAppletInfo> = Vec::new();
+        for (id, cfg) in &user_normal {
+            out.push(DiscoveredAppletInfo {
+                id: id.clone(),
+                kind: applet_kind(cfg),
+                source: AppletSource::User,
+            });
+        }
+        for (id, cfg) in &sys_normal {
+            if !user_normal.contains_key(id) {
+                out.push(DiscoveredAppletInfo {
+                    id: id.clone(),
+                    kind: applet_kind(cfg),
+                    source: AppletSource::System,
+                });
+            }
+        }
+        for (id, cfg) in user_dev.iter().chain(sys_dev.iter()) {
+            if out
+                .iter()
+                .any(|a| a.id == *id && a.source == AppletSource::Dev)
+            {
+                continue;
+            }
+            out.push(DiscoveredAppletInfo {
+                id: id.clone(),
+                kind: applet_kind(cfg),
+                source: AppletSource::Dev,
+            });
+        }
+
+        out.sort_by(|a, b| {
+            a.id.cmp(&b.id)
+                .then_with(|| a.source.to_string().cmp(&b.source.to_string()))
+        });
+        out
     }
 }
 
@@ -451,5 +537,48 @@ command = ["/user/binary"]
         let merged = merge_applet_configs(&discovered, &explicit);
         assert_eq!(merged["shared"].extends, Some(AppletType::Battery));
         assert!(merged.contains_key("only-discovered"));
+    }
+
+    #[test]
+    fn scan_sources_tags_provenance_and_user_shadows_system() {
+        let system = TempDir::new("src-sys");
+        system.write(
+            "sys-applet.toml",
+            "id = \"sys-applet\"\ntype = \"command\"\n[command]\nleft_click = [\"x\"]\n",
+        );
+        system.write(
+            "shared.toml",
+            "id = \"shared\"\ntype = \"command\"\n[command]\nleft_click = [\"x\"]\n",
+        );
+        let user = TempDir::new("src-usr");
+        user.write(
+            "usr-applet.toml",
+            "id = \"usr-applet\"\ntype = \"exec\"\n[exec]\ncommand = [\"/bin/x\"]\n",
+        );
+        user.write(
+            "shared.toml",
+            "id = \"shared\"\ntype = \"exec\"\n[exec]\ncommand = [\"/bin/x\"]\n",
+        );
+        user.write(
+            "beta.dev.toml",
+            "id = \"beta\"\ntype = \"command\"\n[command]\nleft_click = [\"x\"]\n",
+        );
+
+        let scanner = AppletDirectoryScanner::new(system.path.clone(), user.path.clone());
+        let listed = scanner.scan_sources();
+        let by_id = |id: &str| listed.iter().find(|a| a.id == id).cloned();
+
+        assert_eq!(by_id("sys-applet").unwrap().source, AppletSource::System);
+        assert_eq!(by_id("usr-applet").unwrap().source, AppletSource::User);
+        let shared = by_id("shared").unwrap();
+        assert_eq!(shared.source, AppletSource::User, "user must shadow system");
+        assert_eq!(shared.kind, "exec");
+        assert_eq!(listed.iter().filter(|a| a.id == "shared").count(), 1);
+        assert_eq!(by_id("beta").unwrap().source, AppletSource::Dev);
+        // Sorted by id.
+        let ids: Vec<&str> = listed.iter().map(|a| a.id.as_str()).collect();
+        let mut sorted = ids.clone();
+        sorted.sort();
+        assert_eq!(ids, sorted);
     }
 }

@@ -38,7 +38,7 @@ fn main() -> Result<()> {
         Some("watch") => {
             let rest = argv[1..].to_vec();
             if rest.iter().any(|a| a == "--help" || a == "-h") {
-                print_help();
+                print_watch_help();
                 return Ok(());
             }
             let json = rest.iter().any(|a| a == "--json");
@@ -49,7 +49,7 @@ fn main() -> Result<()> {
         Some("dispatch") => {
             let rest_raw = &argv[1..];
             if rest_raw.iter().any(|a| a == "--help" || a == "-h") {
-                print_help();
+                print_dispatch_help();
                 return Ok(());
             }
             let json = rest_raw.iter().any(|a| a == "--json");
@@ -67,6 +67,23 @@ fn main() -> Result<()> {
             }
             let fields = rest[1..].to_vec();
             return run_async(ipc::cli::dispatch(ipc::cli::DispatchArgs { command, fields, json }));
+        }
+        Some("applets") => {
+            match argv.get(1).map(String::as_str) {
+                Some("ls") => {
+                    let json = argv[2..].iter().any(|a| a == "--json");
+                    return list_applets(json);
+                }
+                Some("--help") | Some("-h") | None => {
+                    print_applets_help();
+                    return Ok(());
+                }
+                Some(other) => {
+                    eprintln!("glimpse-shell: unknown applets subcommand '{other}'");
+                    eprintln!("Try 'glimpse-shell applets --help'.");
+                    std::process::exit(1);
+                }
+            }
         }
         None => {}
         Some(unknown) => {
@@ -89,6 +106,45 @@ where
         .block_on(f)
 }
 
+fn json_escape(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+/// `applets ls` — a pure filesystem scan (no daemon needed) of the system and
+/// user applet dirs, listing every discovered package with its provenance.
+fn list_applets(json: bool) -> Result<()> {
+    let applets = glimpse_core::AppletDirectoryScanner::from_process().scan_sources();
+
+    if json {
+        let body: Vec<String> = applets
+            .iter()
+            .map(|a| {
+                format!(
+                    r#"{{"id":"{}","type":"{}","source":"{}"}}"#,
+                    json_escape(&a.id),
+                    json_escape(&a.kind),
+                    a.source
+                )
+            })
+            .collect();
+        println!("[{}]", body.join(","));
+        return Ok(());
+    }
+
+    if applets.is_empty() {
+        println!("no applets found");
+        return Ok(());
+    }
+
+    let id_w = applets.iter().map(|a| a.id.len()).max().unwrap_or(2).max(2);
+    let ty_w = applets.iter().map(|a| a.kind.len()).max().unwrap_or(4).max(4);
+    println!("{:<id_w$}  {:<ty_w$}  SOURCE", "ID", "TYPE");
+    for a in &applets {
+        println!("{:<id_w$}  {:<ty_w$}  {}", a.id, a.kind, a.source);
+    }
+    Ok(())
+}
+
 fn print_help() {
     println!("glimpse-shell {}", env!("CARGO_PKG_VERSION"));
     println!("Glimpse Wayland status bar");
@@ -97,38 +153,111 @@ fn print_help() {
     println!("    glimpse-shell [COMMAND]");
     println!();
     println!("COMMANDS:");
-    println!("    watch [<pattern>...]       Subscribe to shell events (default: *)");
-    println!("    dispatch <cmd> [key=val...]  Send a command to the running shell");
+    println!("    watch      Subscribe to shell events from the running daemon");
+    println!("    dispatch   Send a command to the running daemon");
+    println!("    applets    Inspect discovered applet packages");
     println!();
     println!("OPTIONS:");
-    println!("    -h, --help       Print help");
-    println!("    -V, --version    Print version");
-    println!("    --json           (watch/dispatch) machine-readable output");
-    println!();
-    println!("DISPATCH COMMANDS:");
-    println!("    status                                 Aggregate state snapshot");
-    println!("    set_volume level=<0-100> | toggle_mute");
-    println!("    set_input_volume level=<0-100> | toggle_input_mute");
-    println!("    set_brightness percent=<0-100> [id=<src>]");
-    println!("    adjust_brightness delta=<i32> [id=<src>]");
-    println!("    set_power_profile profile=<name>");
-    println!("    set_dnd enabled=<bool>");
-    println!("    dismiss_notification id=<u32> | dismiss_all_notifications");
-    println!("    media_play_pause | media_next | media_previous  [player=<id>]");
-    println!("    set_theme mode=<light|dark|auto>");
-    println!("    next_keyboard_layout | prev_keyboard_layout | set_keyboard_layout index=<n>");
-    println!("    set_wifi enabled=<bool> | wifi_scan | connect_wifi ssid=<s> path=<p>");
-    println!("    set_bluetooth enabled=<bool> | bluetooth_scan action=<start|stop>");
-    println!("    connect_bluetooth address=<a> | disconnect_bluetooth address=<a>");
-    println!("    refresh service=<battery|brightness|power|storage>");
-    println!();
-    println!("DISPATCH COMMANDS (destructive — require confirm=true):");
-    println!("    forget_wifi uuid=<u> confirm=true");
-    println!("    forget_bluetooth address=<a> confirm=true");
-    println!("    eject id=<id> confirm=true | poweroff_drive id=<id> confirm=true");
-    println!("    clear_clipboard confirm=true | clear_clipboard_history confirm=true");
+    println!("    -h, --help      Print help");
+    println!("    -V, --version   Print version");
     println!();
     println!("Without a command, glimpse-shell starts the Wayland panel.");
+    println!("Run 'glimpse-shell <COMMAND> --help' for subcommand help.");
+}
+
+fn print_watch_help() {
+    println!("glimpse-shell-watch");
+    println!("Subscribe to shell events from the running daemon");
+    println!();
+    println!("USAGE:");
+    println!("    glimpse-shell watch [OPTIONS] [<pattern>...]");
+    println!();
+    println!("ARGS:");
+    println!("    <pattern>...   Event patterns to subscribe to (default: *)");
+    println!("                   Forms: '*', 'audio.*', 'panel.applet_added'");
+    println!();
+    println!("OPTIONS:");
+    println!("    --json      Print each event as a JSON object");
+    println!("    -h, --help  Print help");
+    println!();
+    println!("EVENTS:");
+    println!("    audio.*          volume/mute/device/stream changes");
+    println!("    network.*        connectivity/wifi/vpn/adapter changes");
+    println!("    bluetooth.*      power/scan/device/health changes");
+    println!("    battery.*        level/charge/peripheral changes");
+    println!("    brightness.*     source add/remove and percent changes");
+    println!("    power.*          profile and performance changes");
+    println!("    notification.*   received/closed/dnd/health changes");
+    println!("    mpris.*          player/playback/track/capability changes");
+    println!("    clipboard.*      clipboard content and history changes");
+    println!("    theme.*          effective theme mode changes");
+    println!("    input.*          keyboard layout/availability changes");
+    println!("    storage.*        device mount/eject/busy/error changes");
+    println!("    webcam.* mic.*   capture device in-use changes");
+    println!("    compositor.* window.* monitor.* screencast.*");
+    println!("    panel.* applet.* panel/applet lifecycle + discovery");
+    println!("    location.* solar.* idle.* tray.* session.* calendar.*");
+}
+
+fn print_dispatch_help() {
+    println!("glimpse-shell-dispatch");
+    println!("Send a command to the running daemon");
+    println!();
+    println!("USAGE:");
+    println!("    glimpse-shell dispatch [OPTIONS] <COMMAND> [key=value...]");
+    println!();
+    println!("OPTIONS:");
+    println!("    --json      Print the ack as a JSON object");
+    println!("    -h, --help  Print help");
+    println!();
+    println!("COMMANDS:");
+    println!("    status                                      Show current state snapshot");
+    println!("    set_volume level=<0-100>                    Set output volume");
+    println!("    toggle_mute                                 Toggle output mute");
+    println!("    set_input_volume level=<0-100>              Set input volume");
+    println!("    toggle_input_mute                           Toggle input mute");
+    println!("    set_brightness percent=<0-100> [id=<src>]   Set brightness");
+    println!("    adjust_brightness delta=<i32> [id=<src>]    Adjust brightness by delta");
+    println!("    set_power_profile profile=<name>            Set power profile");
+    println!("    set_dnd enabled=<bool>                      Toggle do-not-disturb");
+    println!("    dismiss_notification id=<u32>               Dismiss a notification");
+    println!("    dismiss_all_notifications                   Dismiss all notifications");
+    println!("    media_play_pause [player=<id>]              Play/pause current media");
+    println!("    media_next [player=<id>]                    Skip to next track");
+    println!("    media_previous [player=<id>]                Skip to previous track");
+    println!("    set_theme mode=<light|dark|auto>            Set theme mode");
+    println!("    next_keyboard_layout                        Cycle to next layout");
+    println!("    prev_keyboard_layout                        Cycle to previous layout");
+    println!("    set_keyboard_layout index=<n>               Set layout by index");
+    println!("    set_wifi enabled=<bool>                     Enable/disable Wi-Fi");
+    println!("    wifi_scan                                   Trigger a Wi-Fi scan");
+    println!("    connect_wifi ssid=<s> path=<p>              Connect to a Wi-Fi network");
+    println!("    set_bluetooth enabled=<bool>                Enable/disable Bluetooth");
+    println!("    bluetooth_scan action=<start|stop>          Start/stop discovery");
+    println!("    connect_bluetooth address=<a>               Connect a Bluetooth device");
+    println!("    disconnect_bluetooth address=<a>            Disconnect a Bluetooth device");
+    println!("    refresh service=<battery|brightness|power|storage>  Re-poll a service");
+    println!("    forget_wifi uuid=<u> confirm=true           Forget a network (destructive)");
+    println!("    forget_bluetooth address=<a> confirm=true   Unpair a device (destructive)");
+    println!("    eject id=<id> confirm=true                  Eject media (destructive)");
+    println!("    poweroff_drive id=<id> confirm=true         Power off a drive (destructive)");
+    println!("    clear_clipboard confirm=true                Clear clipboard (destructive)");
+    println!("    clear_clipboard_history confirm=true        Clear history (destructive)");
+}
+
+fn print_applets_help() {
+    println!("glimpse-shell-applets");
+    println!("Inspect discovered applet packages");
+    println!();
+    println!("USAGE:");
+    println!("    glimpse-shell applets <SUBCOMMAND>");
+    println!();
+    println!("OPTIONS:");
+    println!("    -h, --help  Print help");
+    println!();
+    println!("SUBCOMMANDS:");
+    println!("    ls [--json]   List discovered packages with a system|user|dev");
+    println!("                  qualifier (user shadows system; *.dev.toml = dev)");
 }
 
 fn run_shell() -> Result<()> {
