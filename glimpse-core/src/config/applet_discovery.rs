@@ -63,6 +63,14 @@ fn scan_dir(
             continue;
         };
 
+        if meta.is_dir() {
+            let Some(name) = path.file_name().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            scan_normal_package(&path.join("applet.toml"), name, normal);
+            continue;
+        }
+
         if !meta.is_file() || path.extension() != Some(OsStr::new("toml")) {
             continue;
         }
@@ -80,24 +88,28 @@ fn scan_dir(
             continue;
         }
 
-        if let Some((id, config)) = parse_package(&path) {
-            if id != stem {
-                tracing::warn!(
-                    path = %path.display(),
-                    id,
-                    filename = stem,
-                    "applet id does not match filename"
-                );
-            }
-            if normal.contains_key(&id) {
-                tracing::warn!(
-                    id,
-                    path = %path.display(),
-                    "duplicate applet id; overwriting previous entry"
-                );
-            }
-            normal.insert(id, config);
+        scan_normal_package(&path, stem, normal);
+    }
+}
+
+fn scan_normal_package(path: &Path, expected_id: &str, normal: &mut HashMap<String, AppletConfig>) {
+    if let Some((id, config)) = parse_package(path) {
+        if id != expected_id {
+            tracing::warn!(
+                path = %path.display(),
+                id,
+                expected_id,
+                "applet id does not match package path"
+            );
         }
+        if normal.contains_key(&id) {
+            tracing::warn!(
+                id,
+                path = %path.display(),
+                "duplicate applet id; overwriting previous entry"
+            );
+        }
+        normal.insert(id, config);
     }
 }
 
@@ -273,6 +285,38 @@ left_click = ["gnome-screenshot"]
         assert!(found.normal.contains_key("my-applet"));
         assert_eq!(found.normal["my-applet"].extends, Some(AppletType::Command));
         assert!(found.dev.is_empty());
+    }
+
+    #[test]
+    fn directory_package_applet_toml_is_discovered_as_normal() {
+        let dir = TempDir::new("dir-pkg");
+        dir.write("my-applet/applet.toml", COMMAND_PACKAGE);
+        let scanner = AppletDirectoryScanner::new(dir.path.clone(), PathBuf::new());
+
+        let found = scanner.scan();
+
+        assert!(found.normal.contains_key("my-applet"));
+        assert_eq!(found.normal["my-applet"].extends, Some(AppletType::Command));
+        assert!(found.dev.is_empty());
+    }
+
+    #[test]
+    fn packaged_terminal_applet_is_discovered_as_command() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        let scanner =
+            AppletDirectoryScanner::new(repo_root.join("packaged-applets"), PathBuf::new());
+
+        let found = scanner.scan();
+        let applet = found.normal.get("me.aresa.glimpse.terminal").unwrap();
+
+        assert_eq!(applet.extends, Some(AppletType::Command));
+        assert_eq!(
+            applet.settings["on_click"][0].as_str(),
+            Some("/usr/share/glimpse/applets/me.aresa.glimpse.terminal/open-terminal")
+        );
     }
 
     #[test]
