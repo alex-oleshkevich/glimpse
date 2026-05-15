@@ -4,7 +4,7 @@ use tokio::sync::{broadcast, watch};
 
 use crate::services::framework::Services;
 
-use super::protocol::IpcEvent;
+use crate::ipc::protocol::IpcEvent;
 
 const BROADCAST_CAPACITY: usize = 256;
 

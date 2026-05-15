@@ -4,8 +4,8 @@ use tokio::{
     net::UnixStream,
 };
 
-use super::protocol::escape;
-use super::server::resolve_socket_path;
+use glimpse_core::ipc::protocol::escape;
+use super::resolve_socket_path;
 
 async fn connect() -> Result<UnixStream> {
     let path = resolve_socket_path();

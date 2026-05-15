@@ -9,8 +9,10 @@ use tokio::{
 
 use crate::services::{audio, framework::ServiceHandle};
 
-use super::client::IpcClientHandler;
-use super::protocol::IpcEvent;
+use glimpse_core::ipc::client::IpcClientHandler;
+use glimpse_core::ipc::protocol::IpcEvent;
+
+use super::ShellCommandHandler;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -35,7 +37,7 @@ impl TestConn {
         let audio = stub_audio();
 
         let task = tokio::spawn(async move {
-            IpcClientHandler::with_audio(server, event_rx, audio).run().await;
+            IpcClientHandler::new(server, event_rx, ShellCommandHandler { audio }).run().await;
         });
 
         let (reader, writer) = client.into_split();

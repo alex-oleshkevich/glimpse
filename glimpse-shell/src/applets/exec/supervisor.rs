@@ -54,7 +54,7 @@ pub async fn run(
         }
         command_builder.env(
             "GLIMPSE_IPC_SOCKET",
-            crate::ipc::server::resolve_socket_path(),
+            crate::ipc::resolve_socket_path(),
         );
         if let Some(dir) = &config.work_dir {
             command_builder.current_dir(dir);

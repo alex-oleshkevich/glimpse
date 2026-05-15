@@ -6,7 +6,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::services::framework::Services;
 
-use super::{client::IpcClientHandler, dispatcher, protocol::IpcEvent};
+use super::{client::{CommandHandler, IpcClientHandler}, dispatcher, protocol::IpcEvent};
 
 #[must_use]
 pub struct IpcHandle {
@@ -33,17 +33,19 @@ impl IpcHandle {
 pub struct IpcServer;
 
 impl IpcServer {
-    pub fn launch(services: &Services) -> IpcHandle {
+    pub fn launch<H>(services: &Services, command_handler: H) -> IpcHandle
+    where
+        H: CommandHandler + Clone + Send + 'static,
+    {
         let socket_path = resolve_socket_path();
         let event_tx = dispatcher::start(services);
         let cancel = CancellationToken::new();
 
         {
             let cancel_task = cancel.clone();
-            let services_clone = services.clone();
             let path_clone = socket_path.clone();
             let tx_clone = event_tx.clone();
-            relm4::spawn(async move {
+            tokio::spawn(async move {
                 if let Some(parent) = path_clone.parent() {
                     let _ = std::fs::create_dir_all(parent);
                 }
@@ -55,7 +57,7 @@ impl IpcServer {
                             std::fs::Permissions::from_mode(0o600),
                         );
                         tracing::info!(path = %path_clone.display(), "IPC socket ready");
-                        accept_loop(listener, path_clone, tx_clone, services_clone, cancel_task)
+                        accept_loop(listener, path_clone, tx_clone, command_handler, cancel_task)
                             .await;
                     }
                     Err(e) => {
@@ -69,29 +71,28 @@ impl IpcServer {
             });
         }
 
-        IpcHandle {
-            event_tx,
-            cancel,
-        }
+        IpcHandle { event_tx, cancel }
     }
 }
 
-async fn accept_loop(
+async fn accept_loop<H>(
     listener: UnixListener,
     path: PathBuf,
     tx: broadcast::Sender<Arc<IpcEvent>>,
-    services: Services,
+    command_handler: H,
     cancel: CancellationToken,
-) {
+) where
+    H: CommandHandler + Clone + Send + 'static,
+{
     loop {
         tokio::select! {
             _ = cancel.cancelled() => break,
             result = listener.accept() => match result {
                 Ok((stream, _addr)) => {
                     let rx = tx.subscribe();
-                    let audio = services.audio.clone();
+                    let handler = command_handler.clone();
                     tokio::spawn(async move {
-                        IpcClientHandler::with_audio(stream, rx, audio).run().await;
+                        IpcClientHandler::new(stream, rx, handler).run().await;
                     });
                 }
                 Err(e) => {

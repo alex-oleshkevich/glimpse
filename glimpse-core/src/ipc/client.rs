@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, pin::Pin, sync::Arc};
 
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -6,27 +6,45 @@ use tokio::{
     sync::broadcast,
 };
 
-use crate::services::{audio, framework::ServiceHandle};
-
 use super::protocol::{ClientMsg, IpcEvent, ack_line, hello_line, matches_pattern, parse_client_line};
 
 const MAX_IPC_LINE: usize = 64 * 1024;
 
-pub struct IpcClientHandler {
-    stream: UnixStream,
-    events: broadcast::Receiver<Arc<IpcEvent>>,
-    audio: ServiceHandle<audio::State, audio::Command>,
+pub trait CommandHandler: Send + 'static {
+    fn execute<'a>(
+        &'a self,
+        name: &'a str,
+        fields: &'a [(String, String)],
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + 'a>>;
 }
 
-impl IpcClientHandler {
-    pub fn with_audio(
+pub struct NoopCommandHandler;
+
+impl CommandHandler for NoopCommandHandler {
+    fn execute<'a>(
+        &'a self,
+        name: &'a str,
+        _fields: &'a [(String, String)],
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + 'a>> {
+        let msg = format!("unknown command: {name}");
+        Box::pin(async move { Err(msg) })
+    }
+}
+
+pub struct IpcClientHandler<H: CommandHandler> {
+    stream: UnixStream,
+    events: broadcast::Receiver<Arc<IpcEvent>>,
+    command_handler: H,
+}
+
+impl<H: CommandHandler> IpcClientHandler<H> {
+    pub fn new(
         stream: UnixStream,
         events: broadcast::Receiver<Arc<IpcEvent>>,
-        audio: ServiceHandle<audio::State, audio::Command>,
+        command_handler: H,
     ) -> Self {
-        Self { stream, events, audio }
+        Self { stream, events, command_handler }
     }
-
 
     pub async fn run(mut self) {
         let (reader, mut writer) = self.stream.into_split();
@@ -58,7 +76,7 @@ impl IpcClientHandler {
                                     }
                                 }
                                 Ok(ClientMsg::Command { name, fields }) => {
-                                    let result = execute_command(&name, &fields, &self.audio).await;
+                                    let result = self.command_handler.execute(&name, &fields).await;
                                     let response = match result {
                                         Ok(()) => ack_line(true, None),
                                         Err(e) => ack_line(false, Some(&e)),
@@ -92,59 +110,5 @@ impl IpcClientHandler {
                 }
             }
         }
-    }
-}
-
-async fn execute_command(
-    name: &str,
-    fields: &[(String, String)],
-    audio: &ServiceHandle<audio::State, audio::Command>,
-) -> Result<(), String> {
-    let get = |key: &str| fields.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str());
-
-    match name {
-        "open_uri" => {
-            let uri = get("uri").ok_or("missing uri")?;
-            let allowed = uri.starts_with("http://")
-                || uri.starts_with("https://")
-                || uri.starts_with("mailto:");
-            if !allowed {
-                return Err("open_uri only allows http, https, and mailto URIs".into());
-            }
-            let mut child = tokio::process::Command::new("xdg-open")
-                .arg(uri)
-                .stdin(std::process::Stdio::null())
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .kill_on_drop(false)
-                .spawn()
-                .map_err(|e| format!("xdg-open failed: {e}"))?;
-            tokio::spawn(async move { let _ = child.wait().await; });
-            Ok(())
-        }
-        "set_volume" => {
-            let level: u32 = get("level")
-                .ok_or("missing level")?
-                .parse()
-                .map_err(|_| "level must be an integer 0–100")?;
-            if level > 100 {
-                return Err("level must be 0–100".into());
-            }
-            audio.try_send_command(
-                "audio",
-                audio::Command::SetOutputVolume(level),
-                "failed to set volume",
-            );
-            Ok(())
-        }
-        "toggle_mute" => {
-            audio.try_send_command(
-                "audio",
-                audio::Command::ToggleOutputMute,
-                "failed to toggle mute",
-            );
-            Ok(())
-        }
-        _ => Err(format!("unknown command: {name}")),
     }
 }

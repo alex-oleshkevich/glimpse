@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     agents::{bluetooth::BluetoothAgentRuntime, network::NetworkAgentRuntime},
-    ipc::{IpcHandle, IpcServer},
+    ipc::{IpcHandle, launch as launch_ipc},
     panels,
     prompts::{bluetooth as bluetooth_prompts, network as network_prompts},
     services::{
@@ -158,7 +158,7 @@ impl SimpleComponent for App {
 
         let services = ServiceRuntime::new(init.dbus);
         services.broadcast(Control::Start(init.config.clone()));
-        let ipc = IpcServer::launch(&services.handles());
+        let ipc = launch_ipc(&services.handles());
         spawn_theme_subscription(services.handles().theme, sender.input_sender().clone());
 
         let mut applet_watcher_rx = services.handles().applet_watcher.clone();
