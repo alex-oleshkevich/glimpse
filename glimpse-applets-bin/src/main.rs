@@ -8,7 +8,7 @@ mod project;
 #[command(
     name = "glimpse-applet",
     version,
-    about = "Scaffold, run, and verify Glimpse exec applets."
+    about = "Run, link, and verify Glimpse applets. (Scaffold moved to 'glimpse-shell applets new'.)"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -17,8 +17,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Scaffold a new applet project.
-    New(commands::new::Args),
     /// Run an applet in development mode with auto-rebuild and process restart.
     Dev(commands::dev::Args),
     /// Symlink the current applet into the Glimpse applets directory.
@@ -41,7 +39,6 @@ enum Command {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::New(args) => commands::new::run(args),
         Command::Dev(args) => commands::dev::run(args).await,
         Command::Link(args) => commands::link::run(args),
         Command::Unlink(args) => commands::link::unlink::run(args),

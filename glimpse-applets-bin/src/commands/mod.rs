@@ -4,5 +4,4 @@ pub mod doctor;
 pub mod ipc;
 pub mod link;
 pub mod list;
-pub mod new;
 pub mod rm;

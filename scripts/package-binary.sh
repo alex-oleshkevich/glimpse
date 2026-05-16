@@ -89,6 +89,23 @@ if [[ -d packaged-applets ]]; then
         done
 fi
 
+# Ship applet project templates under /usr/share/glimpse/applet-templates/.
+# `glimpse-shell applets new` reads these from disk (not embedded), so the
+# binary stays small and templates can be patched without a rebuild.
+templates_dest="$pkgroot/usr/share/glimpse/applet-templates"
+if [[ -d applet-templates ]]; then
+    install -d "$templates_dest"
+    find applet-templates -type f -print0 \
+        | while IFS= read -r -d '' file; do
+            relative="${file#applet-templates/}"
+            if [[ -x "$file" ]]; then
+                install -Dm755 "$file" "$templates_dest/$relative"
+            else
+                install -Dm644 "$file" "$templates_dest/$relative"
+            fi
+        done
+fi
+
 if [[ -f LICENSE ]]; then
     install -Dm644 LICENSE "$pkgroot/LICENSE"
 fi

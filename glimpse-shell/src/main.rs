@@ -1,5 +1,6 @@
 mod agents;
 mod app;
+mod applet_scaffold;
 mod applets;
 mod components;
 mod dbus;
@@ -73,6 +74,9 @@ fn main() -> Result<()> {
                 Some("ls") => {
                     let json = argv[2..].iter().any(|a| a == "--json");
                     return list_applets(json);
+                }
+                Some("new") => {
+                    return applet_scaffold::run(&argv[2..]);
                 }
                 Some("--help") | Some("-h") | None => {
                     print_applets_help();
@@ -247,7 +251,7 @@ fn print_dispatch_help() {
 
 fn print_applets_help() {
     println!("glimpse-shell-applets");
-    println!("Inspect discovered applet packages");
+    println!("Inspect and scaffold applet packages");
     println!();
     println!("USAGE:");
     println!("    glimpse-shell applets <SUBCOMMAND>");
@@ -256,8 +260,10 @@ fn print_applets_help() {
     println!("    -h, --help  Print help");
     println!();
     println!("SUBCOMMANDS:");
-    println!("    ls [--json]   List discovered packages with a system|user|dev");
-    println!("                  qualifier (user shadows system; *.dev.toml = dev)");
+    println!("    ls [--json]                List discovered packages with a");
+    println!("                               system|user|dev qualifier");
+    println!("    new <name> [OPTIONS]       Scaffold a new applet project");
+    println!("                               (--lang, --type, --dir, --force)");
 }
 
 fn run_shell() -> Result<()> {
