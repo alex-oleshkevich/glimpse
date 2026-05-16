@@ -1,3 +1,5 @@
+use regex::Regex;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PlaybackStatus {
     Playing,
@@ -68,6 +70,59 @@ pub enum Command {
     Previous { player_id: String },
     Next { player_id: String },
     Raise { player_id: String },
+    SetFilterRegex(Vec<String>),
+}
+
+#[derive(Debug, Default)]
+pub struct PlayerFilters {
+    rules: Vec<Regex>,
+}
+
+impl PlayerFilters {
+    #[cfg(test)]
+    pub fn compile<I, S>(rules: I) -> std::result::Result<Self, regex::Error>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        rules
+            .into_iter()
+            .map(|rule| Regex::new(rule.as_ref()))
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map(|rules| Self { rules })
+    }
+
+    pub fn compile_lossy<I, S>(rules: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let rules = rules
+            .into_iter()
+            .filter_map(|rule| match Regex::new(rule.as_ref()) {
+                Ok(regex) => Some(regex),
+                Err(error) => {
+                    tracing::warn!(
+                        rule = rule.as_ref(),
+                        %error,
+                        "invalid mpris filter regex; skipping rule"
+                    );
+                    None
+                }
+            })
+            .collect();
+        Self { rules }
+    }
+
+    pub fn matches(&self, player: &Player) -> bool {
+        self.rules.iter().any(|rule| {
+            rule.is_match(&player.identity)
+                || rule.is_match(&player.title)
+                || rule.is_match(&player.artist)
+                || rule.is_match(&player.album)
+                || rule.is_match(&player.player_id)
+        })
+    }
 }
 
 pub fn visible_players(players: &[Player]) -> Vec<Player> {
@@ -112,5 +167,75 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(ids, vec!["spotify", "firefox"]);
+    }
+
+    #[test]
+    fn player_filters_compile_rejects_invalid_regex() {
+        assert!(PlayerFilters::compile(["("]).is_err());
+    }
+
+    #[test]
+    fn player_filters_compile_lossy_skips_invalid_rules() {
+        let filters = PlayerFilters::compile_lossy(["(", "(?i)^spotify$"]);
+
+        let player = Player {
+            player_id: "Spotify".into(),
+            ..Default::default()
+        };
+
+        assert!(filters.matches(&player));
+    }
+
+    #[test]
+    fn player_filters_match_each_field() {
+        for player in [
+            Player {
+                identity: "blocked".into(),
+                ..Default::default()
+            },
+            Player {
+                title: "a blocked track".into(),
+                ..Default::default()
+            },
+            Player {
+                artist: "blocked artist".into(),
+                ..Default::default()
+            },
+            Player {
+                album: "blocked album".into(),
+                ..Default::default()
+            },
+            Player {
+                player_id: "blocked".into(),
+                ..Default::default()
+            },
+        ] {
+            let filters = PlayerFilters::compile(["blocked"]).expect("valid regex");
+            assert!(filters.matches(&player));
+        }
+    }
+
+    #[test]
+    fn player_filters_default_matches_nothing() {
+        let player = Player {
+            player_id: "spotify".into(),
+            identity: "Spotify".into(),
+            title: "Some Song".into(),
+            ..Default::default()
+        };
+
+        assert!(!PlayerFilters::default().matches(&player));
+    }
+
+    #[test]
+    fn player_filters_do_not_match_unrelated_player() {
+        let filters = PlayerFilters::compile(["(?i)^firefox$"]).expect("valid regex");
+        let player = Player {
+            player_id: "spotify".into(),
+            identity: "Spotify".into(),
+            ..Default::default()
+        };
+
+        assert!(!filters.matches(&player));
     }
 }

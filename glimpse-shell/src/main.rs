@@ -291,6 +291,7 @@ fn run_shell() -> Result<()> {
         .or_else(|_| EnvFilter::try_from_default_env())
         .unwrap_or_else(|_| EnvFilter::new("info,relm4=warn"));
     tracing_subscriber::fmt().with_env_filter(filter).init();
+    tracing::info!("glimpse-shell {}", env!("CARGO_PKG_VERSION"));
 
     let threads = std::env::var("GLIMPSE_THREADS")
         .ok()

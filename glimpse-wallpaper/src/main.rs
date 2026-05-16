@@ -81,6 +81,7 @@ async fn main() -> anyhow::Result<()> {
 
     let filter = log_filter();
     tracing_subscriber::fmt().with_env_filter(filter).init();
+    tracing::info!("glimpse-wallpaper {}", env!("CARGO_PKG_VERSION"));
 
     let threads = std::env::var("GLIMPSE_THREADS")
         .ok()

@@ -1,0 +1,18 @@
+[lock]
+pam_service = "glimpse-lock"
+css_path = "themes/lock.css"
+
+[lock.background]
+# color = "#000000"
+# path = "/path/to/image.png"
+# fit = "cover"          # cover | contain | fill | none
+blur_radius = 0
+dim = 0.35
+
+[lock.clock]
+enabled = true
+time_format = "%H:%M"
+date_format = "%A, %B %-d"
+
+[lock.controls]
+buttons = ["wifi", "input", "weather", "battery", "power"]

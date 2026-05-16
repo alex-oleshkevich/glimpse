@@ -10,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 use crate::services::framework::{Control, ServiceCommand, ServiceHandle};
 
 use super::{
-    model::{Command, Health, Snapshot, State},
+    model::{Command, Health, PlayerFilters, Snapshot, State},
     mpris_client::{MprisClient, MprisClientEvent},
 };
 
@@ -24,6 +24,8 @@ pub struct MprisService {
     session: zbus::Connection,
     state_tx: watch::Sender<State>,
     command_rx: mpsc::Receiver<ServiceCommand<Command>>,
+    filters: PlayerFilters,
+    last_snapshot: Snapshot,
 }
 
 enum RunOutcome {
@@ -41,6 +43,8 @@ impl MprisService {
                 session,
                 state_tx,
                 command_rx,
+                filters: PlayerFilters::default(),
+                last_snapshot: Snapshot::default(),
             },
             ServiceHandle::new(state_rx, command_tx),
         )
@@ -112,6 +116,11 @@ impl MprisService {
                     None => break Err(anyhow!("mpris event listener stopped")),
                 },
                 command = self.command_rx.recv() => match command {
+                    Some(ServiceCommand::Command(Command::SetFilterRegex(rules))) => {
+                        self.filters = PlayerFilters::compile_lossy(rules);
+                        let snapshot = self.last_snapshot.clone();
+                        self.apply_snapshot(snapshot);
+                    }
                     Some(ServiceCommand::Command(command)) => {
                         if let Err(error) = execute_command(&client, command).await {
                             tracing::warn!(error = %error, "mpris command failed");
@@ -146,18 +155,20 @@ impl MprisService {
         outcome
     }
 
-    async fn refresh_snapshot(&self, client: &MprisClient) -> anyhow::Result<()> {
+    async fn refresh_snapshot(&mut self, client: &MprisClient) -> anyhow::Result<()> {
         let snapshot = client.refresh().await?;
         self.apply_snapshot(snapshot);
         Ok(())
     }
 
-    fn apply_snapshot(&self, snapshot: Snapshot) {
+    fn apply_snapshot(&mut self, snapshot: Snapshot) {
+        self.last_snapshot = snapshot.clone();
+        let published = filter_snapshot(&self.filters, snapshot);
         let _ = self.state_tx.send_if_modified(|state| {
-            if state.snapshot == snapshot {
+            if state.snapshot == published {
                 return false;
             }
-            state.snapshot = snapshot.clone();
+            state.snapshot = published;
             true
         });
     }
@@ -173,6 +184,18 @@ impl MprisService {
     }
 }
 
+fn filter_snapshot(filters: &PlayerFilters, mut snapshot: Snapshot) -> Snapshot {
+    snapshot.players.retain(|player| !filters.matches(player));
+    if snapshot
+        .current_player
+        .as_ref()
+        .is_some_and(|player| filters.matches(player))
+    {
+        snapshot.current_player = None;
+    }
+    snapshot
+}
+
 fn should_refresh_progress(snapshot: &Snapshot) -> bool {
     snapshot.players.iter().any(|player| {
         player.playback_status == super::model::PlaybackStatus::Playing && player.progress_visible
@@ -185,6 +208,7 @@ async fn execute_command(client: &MprisClient, command: Command) -> anyhow::Resu
         Command::Previous { player_id } => client.previous(&player_id).await,
         Command::Next { player_id } => client.next(&player_id).await,
         Command::Raise { player_id } => client.raise(&player_id).await,
+        Command::SetFilterRegex(_) => unreachable!("handled before execute_command"),
     }
 }
 
@@ -201,7 +225,7 @@ mod tests {
     use tokio::sync::watch;
 
     use super::*;
-    use crate::services::mpris::model::{PlaybackStatus, Player};
+    use crate::services::mpris::model::{PlaybackStatus, Player, PlayerFilters};
 
     #[test]
     fn apply_snapshot_publishes_only_changed_values() {
@@ -233,6 +257,69 @@ mod tests {
         assert!(first);
         assert!(!second);
         assert_eq!(state_rx.borrow().snapshot, snapshot);
+    }
+
+    #[test]
+    fn filter_snapshot_drops_matching_players_and_clears_current() {
+        let filters = PlayerFilters::compile(["(?i)^firefox$"]).expect("valid regex");
+        let snapshot = Snapshot {
+            current_player: Some(Player {
+                player_id: "firefox".into(),
+                ..Default::default()
+            }),
+            players: vec![
+                Player {
+                    player_id: "firefox".into(),
+                    ..Default::default()
+                },
+                Player {
+                    player_id: "spotify".into(),
+                    ..Default::default()
+                },
+            ],
+        };
+
+        let filtered = filter_snapshot(&filters, snapshot);
+
+        assert_eq!(filtered.players.len(), 1);
+        assert_eq!(filtered.players[0].player_id, "spotify");
+        assert!(filtered.current_player.is_none());
+    }
+
+    #[test]
+    fn filter_snapshot_keeps_non_matching_snapshot_untouched() {
+        let filters = PlayerFilters::compile(["(?i)^firefox$"]).expect("valid regex");
+        let snapshot = Snapshot {
+            current_player: Some(Player {
+                player_id: "spotify".into(),
+                ..Default::default()
+            }),
+            players: vec![Player {
+                player_id: "spotify".into(),
+                ..Default::default()
+            }],
+        };
+
+        assert_eq!(filter_snapshot(&filters, snapshot.clone()), snapshot);
+    }
+
+    #[test]
+    fn filter_snapshot_without_rules_is_identity() {
+        let snapshot = Snapshot {
+            current_player: Some(Player {
+                player_id: "spotify".into(),
+                ..Default::default()
+            }),
+            players: vec![Player {
+                player_id: "spotify".into(),
+                ..Default::default()
+            }],
+        };
+
+        assert_eq!(
+            filter_snapshot(&PlayerFilters::default(), snapshot.clone()),
+            snapshot
+        );
     }
 
     #[test]

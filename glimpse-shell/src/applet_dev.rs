@@ -19,7 +19,10 @@ use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+
+static DEBUG: AtomicBool = AtomicBool::new(false);
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command as TokioCommand};
 use tokio::sync::{Mutex, mpsc};
@@ -111,8 +114,10 @@ impl Language {
 }
 
 fn log(msg: impl AsRef<str>) {
-    // stdout is the applet protocol stream the shell parses — talk on stderr.
-    eprintln!("[glimpse-shell applets dev] {}", msg.as_ref());
+    if DEBUG.load(Ordering::Relaxed) {
+        // stdout is the applet protocol stream the shell parses — talk on stderr.
+        eprintln!("[glimpse-shell applets dev] {}", msg.as_ref());
+    }
 }
 
 fn applets_dir() -> PathBuf {
@@ -132,6 +137,7 @@ pub fn print_help() {
     println!("OPTIONS:");
     println!("    --lang <rust|python|typescript|go>   Override language detection");
     println!("    --debounce-ms <N>                    File-change debounce (default: 300)");
+    println!("    --debug                              Print supervisor diagnostics to stderr");
     println!("    -h, --help                           Print help");
 }
 
@@ -147,6 +153,9 @@ pub async fn run(args: &[String]) -> Result<()> {
     let mut it = args.iter();
     while let Some(arg) = it.next() {
         match arg.as_str() {
+            "--debug" => {
+                DEBUG.store(true, Ordering::Relaxed);
+            }
             "--lang" => {
                 let v = it.next().context("--lang requires a value")?;
                 lang_override =
@@ -393,7 +402,7 @@ fn build_plan(lang: Language, path: &Path) -> Plan {
             args: vec!["run".into(), "main.py".into()],
             workdir: path.to_path_buf(),
             build: None,
-            watch_dirs: vec![path.join("main.py")],
+            watch_dirs: vec![path.to_path_buf()],
         },
         Language::Typescript => Plan {
             binary: "node".into(),

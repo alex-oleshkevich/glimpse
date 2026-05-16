@@ -69,6 +69,7 @@ fn run_async<F: std::future::Future<Output = Result<()>>>(f: F) -> Result<()> {
 fn run_daemon() -> Result<()> {
     let filter = log_filter();
     tracing_subscriber::fmt().with_env_filter(filter).init();
+    tracing::info!("glimpse-sunset {}", env!("CARGO_PKG_VERSION"));
 
     let config = Config::load();
     tracing::debug!(

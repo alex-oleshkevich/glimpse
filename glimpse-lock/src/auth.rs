@@ -168,6 +168,9 @@ fn authenticate_unavailable_result(code: ErrorCode) -> Option<AuthResult> {
             "Too many attempts; try again later",
         )),
         ErrorCode::PERM_DENIED => Some(AuthResult::AccountUnavailable("Account access denied")),
+        ErrorCode::AUTHINFO_UNAVAIL => Some(AuthResult::AccountUnavailable(
+            "Authentication service unavailable",
+        )),
         _ => None,
     }
 }

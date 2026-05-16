@@ -12,17 +12,27 @@ use std::path::PathBuf;
 use tracing_subscriber::EnvFilter;
 
 const EXPORTED_LOCK_CSS: &str = include_str!("../resources/export-lock.css");
+const EXPORTED_LOCK_CONFIG: &str = include_str!("../resources/export-config.toml");
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let command = parse_command(&args)?;
     match command {
+        Command::Help => {
+            print_help();
+            return Ok(());
+        }
         Command::Version => {
             println!("glimpse-lock {}", env!("CARGO_PKG_VERSION"));
             return Ok(());
         }
         Command::ExportCss => {
             let path = export_css()?;
+            println!("wrote {}", path.display());
+            return Ok(());
+        }
+        Command::ExportConfig => {
+            let path = export_config()?;
             println!("wrote {}", path.display());
             return Ok(());
         }
@@ -46,6 +56,7 @@ fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(log_filter())
         .init();
+    tracing::info!("glimpse-lock {}", env!("CARGO_PKG_VERSION"));
     let config = LockAppConfig::load();
     let runtime = tokio::runtime::Runtime::new()?;
     let instance_guard = if preview {
@@ -81,9 +92,11 @@ enum Command {
     Lock,
     Preview,
     ExportCss,
+    ExportConfig,
     Status,
     Check,
     Version,
+    Help,
 }
 
 fn parse_command<I, S>(args: I) -> anyhow::Result<Command>
@@ -100,12 +113,14 @@ where
         "lock" => Command::Lock,
         "preview" => Command::Preview,
         "export-css" => Command::ExportCss,
+        "export-config" => Command::ExportConfig,
         "status" => Command::Status,
         "check" => Command::Check,
         "version" | "--version" | "-V" => Command::Version,
+        "--help" | "-h" => Command::Help,
         _ => anyhow::bail!("unknown glimpse-lock command: {command}"),
     };
-    if !matches!(parsed, Command::Run | Command::Preview) && args.next().is_some() {
+    if !matches!(parsed, Command::Run | Command::Preview | Command::Help) && args.next().is_some() {
         anyhow::bail!("command {command} does not accept extra arguments");
     }
     Ok(parsed)
@@ -128,6 +143,28 @@ fn gtk_args(args: &[String], command: Command) -> Vec<String> {
     }
 }
 
+fn print_help() {
+    println!("glimpse-lock {}", env!("CARGO_PKG_VERSION"));
+    println!("Glimpse Wayland lock screen");
+    println!();
+    println!("USAGE:");
+    println!("    glimpse-lock [COMMAND]");
+    println!();
+    println!("COMMANDS:");
+    println!("    lock           Request the resident daemon to lock the session");
+    println!("    status         Show whether the lock screen is currently active");
+    println!("    check          Verify PAM and service configuration");
+    println!("    export-css     Write the default lock CSS to the config dir");
+    println!("    export-config  Write a starter config.toml to the config dir");
+    println!("    preview        Open the lock screen UI without locking the session");
+    println!();
+    println!("OPTIONS:");
+    println!("    -h, --help      Print help");
+    println!("    -V, --version   Print version");
+    println!();
+    println!("Without a command, glimpse-lock starts the resident daemon.");
+}
+
 fn export_css() -> anyhow::Result<PathBuf> {
     let path = Config::config_dir().join("themes").join("lock.css");
     if path.exists() {
@@ -140,6 +177,21 @@ fn export_css() -> anyhow::Result<PathBuf> {
         std::fs::create_dir_all(parent)?;
     }
     std::fs::write(&path, EXPORTED_LOCK_CSS)?;
+    Ok(path)
+}
+
+fn export_config() -> anyhow::Result<PathBuf> {
+    let path = Config::config_file();
+    if path.exists() {
+        anyhow::bail!(
+            "config already exists at {}; refusing to overwrite",
+            path.display()
+        );
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&path, EXPORTED_LOCK_CONFIG)?;
     Ok(path)
 }
 

@@ -31,6 +31,7 @@ pub struct Config {
     pub hide_when_empty: bool,
     pub max_rows: usize,
     pub show_artwork: bool,
+    pub filter_regex: Vec<String>,
 }
 
 impl Config {
@@ -61,6 +62,7 @@ impl Default for Config {
             hide_when_empty: true,
             max_rows: DEFAULT_MAX_ROWS,
             show_artwork: true,
+            filter_regex: Vec::new(),
         }
     }
 }
@@ -155,6 +157,7 @@ impl SimpleComponent for Applet {
             popover_open: false,
             subscription_cancel: CancellationToken::new(),
         };
+        model.send_command(Command::SetFilterRegex(model.config.filter_regex.clone()));
 
         let service = model.service.clone();
         let cancel = model.subscription_cancel.clone();
@@ -196,6 +199,7 @@ impl SimpleComponent for Applet {
             Input::ServiceStateChanged(state) => self.apply_state(state),
             Input::Reconfigure(config) => {
                 self.config = config;
+                self.send_command(Command::SetFilterRegex(self.config.filter_regex.clone()));
                 if self.popover_open {
                     self.sync_popover_config();
                 }
@@ -293,5 +297,28 @@ mod tests {
                 player_id: "spotify".into()
             })
         );
+    }
+
+    #[test]
+    fn config_accepts_filter_regex_rules() {
+        let raw = AppletConfig {
+            extends: None,
+            settings: toml::toml! {
+                filter_regex = ["(?i)^firefox$", "podcast"]
+            }
+            .into(),
+        };
+
+        let config = Config::from_raw(&Some(raw));
+
+        assert_eq!(
+            config.filter_regex,
+            vec!["(?i)^firefox$".to_string(), "podcast".to_string()]
+        );
+    }
+
+    #[test]
+    fn config_defaults_filter_regex_to_empty_list() {
+        assert!(Config::default().filter_regex.is_empty());
     }
 }
