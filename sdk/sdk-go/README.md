@@ -69,3 +69,26 @@ func (a *CounterApplet) Popover(_ context.Context, state *CounterState) (sdk.Wid
     }, nil
 }
 ```
+
+## IPC client
+
+Talk to a running Glimpse daemon: subscribe to event channels and dispatch
+actions. `IPC(service)` only resolves the socket path — the connection is
+opened lazily.
+
+```go
+ctx := context.Background()
+sub := sdk.IPC("shell") // "shell" | "wallpaper" | "idle" | "lock"
+
+// Fire an action; awaits the ack, errors if the server rejects it.
+ack, err := sub.Dispatch(ctx, "open_uri", map[string]string{
+    "uri": "https://example.com",
+})
+
+// Stream events until the socket closes.
+events, err := sub.Listen(ctx, "audio.*")
+for ev := range events {
+    fmt.Println(ev.Name, ev.Fields)
+}
+_ = sub.Err() // why the stream ended (nil = clean EOF)
+```

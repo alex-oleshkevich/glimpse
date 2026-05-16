@@ -98,3 +98,22 @@ class DeployApplet(Applet[DeployState]):
 if __name__ == "__main__":
     DeployApplet().run()
 ```
+
+## IPC client
+
+Talk to a running Glimpse daemon: subscribe to event channels and dispatch
+actions. `ipc(service)` only resolves the socket path — the connection is
+opened lazily.
+
+```python
+import glimpse_sdk
+
+sub = glimpse_sdk.ipc(service="shell")  # "shell" | "wallpaper" | "idle" | "lock"
+
+# Fire an action; awaits the ack, raises IpcError if the server rejects it.
+ack = await sub.dispatch("open_uri", {"uri": "https://example.com"})
+
+# Stream events until the socket closes.
+async for ev in sub.listen("audio.*"):
+    print(ev.name, ev.fields)
+```

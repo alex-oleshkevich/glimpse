@@ -7,7 +7,7 @@ Small async framework for building Glimpse `exec` applets without touching stdio
 ```toml
 [dependencies]
 async-trait = "0.1"
-glimpse-sdk = "0.3"
+glimpse-sdk = "0.5"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -90,5 +90,27 @@ impl Applet for CounterApplet {
 #[tokio::main]
 async fn main() -> AppletResult<()> {
     run(CounterApplet, CounterState::default()).await
+}
+```
+
+## IPC client
+
+Talk to a running Glimpse daemon: subscribe to event channels and dispatch
+actions. `ipc(service)` only resolves the socket path — the connection is
+opened lazily.
+
+```rust
+use glimpse_sdk::ipc;
+
+let sub = ipc("shell")?; // "shell" | "wallpaper" | "idle" | "lock"
+
+// Fire an action; awaits the ack, errors if the server rejects it.
+let ack = sub.dispatch("open_uri", [("uri", "https://example.com")]).await?;
+
+// Stream events until the socket closes.
+let mut events = sub.listen("audio.*").await?;
+while let Some(ev) = events.next().await {
+    let ev = ev?;
+    println!("{} {:?}", ev.name, ev.fields);
 }
 ```

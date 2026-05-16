@@ -12,6 +12,7 @@ export {
   parseInitEvent,
 } from "./events.js";
 export { Icon, StatusItem } from "./protocol.js";
+export { type Event, IpcError, Subscriber, ipc } from "./ipc.js";
 export {
   ActionItem,
   type Align,

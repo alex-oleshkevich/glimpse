@@ -303,6 +303,142 @@ SDKS = {
 }
 
 
+# ---------- IPC contract ----------------------------------------------------
+#
+# Each SDK ships an `ipc` example that: ipc("shell") -> dispatch("open_uri",
+# {uri}) -> listen("audio.*"). We point GLIMPSE_IPC_DIR at a temp dir, run a
+# tiny in-process server speaking the line protocol (hello / ack / one event
+# then close), and assert the example's stdout shows the ack echo and the
+# event. No running Glimpse needed.
+
+# Argv-list spawn alias (no shell — same safe form used above).
+_spawn_proc = asyncio.create_subprocess_exec
+
+
+def build_ipc_rust() -> tuple[list[str], Path, dict[str, str]]:
+    print("  building Rust ipc example…", flush=True)
+    subprocess.run(
+        ["cargo", "build", "--release", "--example", "ipc"],
+        cwd=ROOT / "sdk" / "sdk-rs",
+        check=True,
+        timeout=BUILD_TIMEOUT,
+    )
+    return (
+        [str(ROOT / "sdk" / "sdk-rs" / "target" / "release" / "examples" / "ipc")],
+        ROOT / "sdk" / "sdk-rs",
+        {},
+    )
+
+
+def build_ipc_python() -> tuple[list[str], Path, dict[str, str]]:
+    py = shutil.which("python3") or shutil.which("python")
+    if not py:
+        raise RuntimeError("python not found on PATH")
+    cwd = ROOT / "sdk" / "sdk-py"
+    return [py, str(cwd / "examples" / "ipc.py")], cwd, {"PYTHONPATH": str(cwd)}
+
+
+def build_ipc_typescript() -> tuple[list[str], Path, dict[str, str]]:
+    print("  building TypeScript ipc example…", flush=True)
+    cwd = ROOT / "sdk" / "sdk-ts"
+    if not (cwd / "node_modules").exists():
+        subprocess.run(
+            ["npm", "install", "--no-audit", "--no-fund"],
+            cwd=cwd,
+            check=True,
+            timeout=BUILD_TIMEOUT,
+        )
+    subprocess.run(["npm", "run", "build"], cwd=cwd, check=True, timeout=BUILD_TIMEOUT)
+    return ["node", str(cwd / "dist" / "examples" / "ipc.js")], cwd, {}
+
+
+def build_ipc_go() -> tuple[list[str], Path, dict[str, str]]:
+    print("  building Go ipc example…", flush=True)
+    cwd = ROOT / "sdk" / "sdk-go"
+    binary = cwd / "examples" / "ipc" / "ipc-e2e"
+    subprocess.run(
+        ["go", "build", "-o", str(binary), "./examples/ipc"],
+        cwd=cwd,
+        check=True,
+        timeout=BUILD_TIMEOUT,
+    )
+    return [str(binary)], cwd, {}
+
+
+IPC_BUILDERS = {
+    "rs": build_ipc_rust,
+    "py": build_ipc_python,
+    "ts": build_ipc_typescript,
+    "go": build_ipc_go,
+}
+
+
+async def _fake_ipc_server(socket_path: Path) -> asyncio.AbstractServer:
+    """One connection = one request. `subscribe …` → emit a single event
+    then close; anything else → a success ack then close."""
+
+    async def handle(
+        reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
+        try:
+            writer.write(b"hello version=e2e\n")
+            await writer.drain()
+            raw = await asyncio.wait_for(reader.readline(), EXPECT_TIMEOUT)
+            line = raw.decode(errors="replace").strip()
+            if line.startswith("subscribe "):
+                writer.write(b"audio.volume_changed volume=42 ts=7\n")
+            else:
+                writer.write(b"ack ok=true echo=done\n")
+            await writer.drain()
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
+
+    return await asyncio.start_unix_server(handle, path=str(socket_path))
+
+
+async def run_ipc_contract(key: str) -> None:
+    command, cwd, env = IPC_BUILDERS[key]()
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        sock = Path(tmp) / "ipc.sock"
+        server = await _fake_ipc_server(sock)
+        proc = await _spawn_proc(
+            *command,
+            cwd=cwd,
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env={**os.environ, "GLIMPSE_IPC_DIR": tmp, **env},
+        )
+        try:
+            out_b, err_b = await asyncio.wait_for(
+                proc.communicate(), timeout=EXPECT_TIMEOUT * 3
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            raise ProtocolError("ipc example timed out")
+        finally:
+            server.close()
+            await server.wait_closed()
+
+        out = out_b.decode(errors="replace")
+        if proc.returncode != 0:
+            raise ProtocolError(
+                f"ipc example exited {proc.returncode}; "
+                f"stderr={err_b.decode(errors='replace').strip()!r}"
+            )
+        if "done" not in out:
+            raise ProtocolError(f"dispatch ack echo missing from output: {out!r}")
+        if "audio.volume_changed" not in out or "42" not in out:
+            raise ProtocolError(f"listen event missing from output: {out!r}")
+
+
 # ---------- runner ---------------------------------------------------------
 
 
@@ -324,8 +460,15 @@ async def run_one(key: str) -> tuple[str, bool, str]:
             await applet.close()
         except Exception:
             pass
-        return label, False, f"contract failed: {contract_err}"
-    return label, True, "ok"
+        return label, False, f"counter contract failed: {contract_err}"
+
+    try:
+        await asyncio.wait_for(
+            run_ipc_contract(key), timeout=EXPECT_TIMEOUT * 4 + BUILD_TIMEOUT
+        )
+    except Exception as ipc_err:
+        return label, False, f"ipc contract failed: {ipc_err}"
+    return label, True, "ok (counter + ipc)"
 
 
 async def amain(only: list[str]) -> int:

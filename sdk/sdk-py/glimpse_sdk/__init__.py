@@ -11,6 +11,7 @@ from .events import (
     ScrollEvent,
     ToggleEvent,
 )
+from .ipc import Event, IpcError, Subscriber, ipc
 from .protocol import Icon, StatusItem
 from .widgets import (
     ActionItem,
@@ -80,6 +81,7 @@ __all__ = [
     "ContentFit",
     "Copyable",
     "EmptyState",
+    "Event",
     "Expander",
     "Grid",
     "GridChild",
@@ -89,6 +91,7 @@ __all__ = [
     "Item",
     "InitEvent",
     "InputEvent",
+    "IpcError",
     "OptionsT",
     "Label",
     "LevelBar",
@@ -115,6 +118,7 @@ __all__ = [
     "Separator",
     "Slider",
     "Spinner",
+    "Subscriber",
     "StatusItem",
     "StatusDot",
     "Switch",
@@ -127,6 +131,7 @@ __all__ = [
     "click",
     "event",
     "input",
+    "ipc",
     "scroll",
     "toggle",
 ]

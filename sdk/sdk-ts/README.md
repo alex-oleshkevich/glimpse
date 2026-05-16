@@ -104,3 +104,23 @@ Use explicit registration helpers instead of decorators:
 
 The SDK owns the line transport. `status(state)` produces the panel items;
 `popover(state)` produces the popover tree; both are pure functions of state.
+
+## IPC client
+
+Talk to a running Glimpse daemon: subscribe to event channels and dispatch
+actions. `ipc(service)` only resolves the socket path — the connection is
+opened lazily.
+
+```ts
+import { ipc } from "glimpse-sdk";
+
+const sub = ipc("shell"); // "shell" | "wallpaper" | "idle" | "lock"
+
+// Fire an action; awaits the ack, throws IpcError if the server rejects it.
+const ack = await sub.dispatch("open_uri", { uri: "https://example.com" });
+
+// Stream events until the socket closes.
+for await (const ev of sub.listen("audio.*")) {
+  console.log(ev.name, ev.fields);
+}
+```
