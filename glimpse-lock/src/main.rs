@@ -102,7 +102,7 @@ where
         "export-css" => Command::ExportCss,
         "status" => Command::Status,
         "check" => Command::Check,
-        "version" => Command::Version,
+        "version" | "--version" | "-V" => Command::Version,
         _ => anyhow::bail!("unknown glimpse-lock command: {command}"),
     };
     if !matches!(parsed, Command::Run | Command::Preview) && args.next().is_some() {
@@ -319,18 +319,18 @@ mod tests {
             parse_command(["glimpse-lock", "check"]).expect("check command should parse"),
             Command::Check
         );
-        assert_eq!(
-            parse_command(["glimpse-lock", "version"]).expect("version command should parse"),
-            Command::Version
-        );
+        for v in ["version", "--version", "-V"] {
+            assert_eq!(
+                parse_command(["glimpse-lock", v]).expect("version should parse"),
+                Command::Version
+            );
+        }
     }
 
     #[test]
     fn command_parser_rejects_legacy_flags() {
         assert!(parse_command(["glimpse-lock", "--preview"]).is_err());
         assert!(parse_command(["glimpse-lock", "--export-css"]).is_err());
-        assert!(parse_command(["glimpse-lock", "--version"]).is_err());
-        assert!(parse_command(["glimpse-lock", "-V"]).is_err());
     }
 
     #[test]
