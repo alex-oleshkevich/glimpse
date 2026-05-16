@@ -239,15 +239,15 @@ fn print_next_steps(kind: AppletKind, project_dir: &Path) {
         AppletKind::Command => {
             println!();
             println!("Fill in icon and click commands in applet.toml, then link it:");
-            println!("  glimpse-applet link");
+            println!("  glimpse-shell applets link");
         }
         AppletKind::Exec => {
             println!();
             println!("Build the program, set `command = [...]` in applet.toml to its");
             println!("binary/entrypoint, then link it into the applets directory:");
-            println!("  glimpse-applet link");
+            println!("  glimpse-shell applets link");
             println!("or run the dev server for live-reload:");
-            println!("  glimpse-applet dev {}", absolute.display());
+            println!("  glimpse-shell applets dev {}", absolute.display());
         }
     }
 }

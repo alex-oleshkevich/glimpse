@@ -236,6 +236,7 @@ pub fn create_applet(
     services: Services,
     monitor_connector: Option<&str>,
     theme_mode: ThemeMode,
+    ipc: &IpcEmitter,
 ) -> Option<AppletController> {
     match blueprint.applet_type {
         AppletType::Audio => Some(AppletController::Audio(
@@ -316,6 +317,7 @@ pub fn create_applet(
                     .launch(exec::Init {
                         name: blueprint.name,
                         config,
+                        ipc: ipc.clone(),
                     })
                     .detach(),
             ))
@@ -450,6 +452,7 @@ pub fn build_applets(
             services.clone(),
             monitor_connector,
             theme_mode,
+            ipc,
         ) {
             let widget = applet.widget();
             widget.set_valign(gtk::Align::Center);
@@ -514,6 +517,7 @@ pub fn reconcile_applets(
                     services.clone(),
                     monitor_connector,
                     theme_mode,
+                    ipc,
                 ) else {
                     continue;
                 };
@@ -526,6 +530,7 @@ pub fn reconcile_applets(
                     services.clone(),
                     monitor_connector,
                     theme_mode,
+                    ipc,
                 ) else {
                     continue;
                 };

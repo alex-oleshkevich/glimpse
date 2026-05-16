@@ -6,6 +6,7 @@ use serde::Deserialize;
 use tokio::sync::mpsc;
 
 use crate::panels::applets::AppletConfig;
+use glimpse_core::ipc::IpcEmitter;
 
 use super::{
     components::{StatusItem, StatusItemInit, StatusItemInput, StatusItemOutput},
@@ -101,6 +102,7 @@ enum PopoverOpenStep {
 pub struct Init {
     pub name: String,
     pub config: Config,
+    pub ipc: IpcEmitter,
 }
 
 #[derive(Debug)]
@@ -159,9 +161,10 @@ impl SimpleComponent for Applet {
         let (control_tx, control_rx) = mpsc::unbounded_channel();
         let name = init.name.clone();
         let config = init.config.clone();
+        let ipc = init.ipc.clone();
         let supervisor_sender = sender.input_sender().clone();
         relm4::spawn(async move {
-            supervisor::run(name, config, outbound_rx, control_rx, supervisor_sender).await;
+            supervisor::run(name, config, outbound_rx, control_rx, supervisor_sender, ipc).await;
         });
 
         let context_menu = build_context_menu(&root, &sender);

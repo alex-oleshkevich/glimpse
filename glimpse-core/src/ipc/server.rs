@@ -41,12 +41,20 @@ impl IpcHandle {
 }
 
 /// Detached event emitter handed to subsystems that don't own the `IpcHandle`.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IpcEmitter {
     event_tx: broadcast::Sender<Arc<IpcEvent>>,
 }
 
 impl IpcEmitter {
+    /// A detached emitter whose events go nowhere (no subscribers). Useful for
+    /// tests and code paths constructed without a live `IpcHandle`.
+    pub fn noop() -> Self {
+        Self {
+            event_tx: broadcast::channel(1).0,
+        }
+    }
+
     pub fn emit(&self, name: &str, fields: Vec<(&str, String)>) {
         let owned: Vec<(String, String)> =
             fields.into_iter().map(|(k, v)| (k.to_owned(), v)).collect();
@@ -141,17 +149,28 @@ async fn accept_loop<H>(
     let _ = std::fs::remove_file(&path);
 }
 
-/// The per-user runtime directory for Glimpse IPC sockets.
+/// The directory holding Glimpse IPC sockets. Resolved identically by every
+/// daemon (server bind) and every CLI client (`watch`/`dispatch`), so an
+/// override redirects both ends consistently.
 ///
-/// Requires `XDG_RUNTIME_DIR` (a private, 0700, user-owned tmpfs). There is
-/// deliberately no `/tmp` fallback: `/tmp` is world-writable, so a predictable
-/// `/tmp/glimpse/*.sock` path invites socket pre-creation / symlink hijack and
-/// cross-user DoS. A session without `XDG_RUNTIME_DIR` is misconfigured and we
-/// fail fast rather than bind an insecure socket.
+/// `GLIMPSE_IPC_DIR`, if set, is used verbatim as the socket directory. This
+/// is an explicit operator/test opt-in (e.g. running multiple shells, or an
+/// isolated/CI e2e) — the caller owns its security, so the world-writable
+/// `/tmp` concern below does not apply to it.
+///
+/// Otherwise it requires `XDG_RUNTIME_DIR` (a private, 0700, user-owned
+/// tmpfs). There is deliberately no implicit `/tmp` fallback: `/tmp` is
+/// world-writable, so a predictable `/tmp/glimpse/*.sock` path invites socket
+/// pre-creation / symlink hijack and cross-user DoS. A session without
+/// `XDG_RUNTIME_DIR` is misconfigured and we fail fast rather than bind an
+/// insecure socket.
 fn runtime_dir() -> PathBuf {
+    if let Some(dir) = std::env::var_os("GLIMPSE_IPC_DIR") {
+        return PathBuf::from(dir);
+    }
     let base = std::env::var_os("XDG_RUNTIME_DIR").expect(
-        "XDG_RUNTIME_DIR is not set; refusing to create an IPC socket under /tmp \
-         (insecure). Run inside a proper user session.",
+        "XDG_RUNTIME_DIR is not set; set GLIMPSE_IPC_DIR or run inside a proper \
+         user session (refusing an insecure /tmp socket fallback).",
     );
     PathBuf::from(base).join("glimpse")
 }

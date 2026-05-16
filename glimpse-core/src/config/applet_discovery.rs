@@ -144,7 +144,7 @@ fn scan_dir(
     for entry in entries.flatten() {
         let path = entry.path();
         // Use fs::metadata (follows symlinks) so that symlinked .toml files
-        // installed by `glimpse-applet link` are not skipped.
+        // installed by `glimpse-shell applets link` are not skipped.
         let Ok(meta) = fs::metadata(&path) else {
             continue;
         };
@@ -275,6 +275,16 @@ fn parse_dev_package(path: &Path) -> Option<AppletConfig> {
             }),
             None => {
                 tracing::warn!(path = %path.display(), "dev exec applet package missing [exec] section, skipping");
+                None
+            }
+        },
+        "command" => match desc.command {
+            Some(settings) => Some(AppletConfig {
+                extends: Some(AppletType::Command),
+                settings,
+            }),
+            None => {
+                tracing::warn!(path = %path.display(), "dev command applet package missing [command] section, skipping");
                 None
             }
         },

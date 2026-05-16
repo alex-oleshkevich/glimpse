@@ -275,10 +275,6 @@ release-sdks:
     echo "  ts -> https://www.npmjs.com/package/glimpse-sdk/v/$version"
     echo "  go -> https://github.com/alex-oleshkevich/glimpse/releases/tag/sdk-go/v$version"
 
-# Install glimpse-applet CLI to ~/.cargo/bin.
-install-applet-cli:
-    cargo install --path glimpse-applets-bin --locked
-
 # Run the end-to-end protocol contract test against every SDK's
 # counter example: build, spawn, drive through init + clicks + close,
 # assert the status/popover messages match the counter contract.
@@ -302,8 +298,16 @@ e2e-sunset:
 e2e-wallpaper:
     bash glimpse-wallpaper/tests/ipc_e2e.sh
 
-# Run the shell IPC e2e test. Intrusive — stops/starts glimpse-shell.service
-# (your whole panel) and briefly toggles real volume/DND (restored on exit).
-# Destructive commands are only tested for the confirm guard. Live Wayland.
+# Run the shell IPC e2e. Non-intrusive: does NOT stop your shell — starts an
+# isolated second shell (sandboxed socket/app-id/config) in the current
+# session. Briefly toggles real volume/brightness/dnd/profile (captured &
+# restored); destructive commands only guard-checked. Live Wayland.
 e2e-shell:
     bash glimpse-shell/tests/ipc_e2e.sh
+
+# Isolated e2e for the `applets` group (ls/new/dev). Fully sandboxed, no
+# compositor, doesn't touch a running shell. Set APPLETS_E2E_NIRI=1 (with
+# niri installed) to also run the per-language healthy `dev` matrix in a
+# nested, isolated niri.
+e2e-applets:
+    bash glimpse-shell/tests/applets_e2e.sh

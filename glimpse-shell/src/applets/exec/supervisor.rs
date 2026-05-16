@@ -31,10 +31,15 @@ pub async fn run(
     mut outbound_rx: mpsc::Receiver<PanelCommand>,
     mut control_rx: mpsc::UnboundedReceiver<Control>,
     out: relm4::Sender<Input>,
+    ipc: glimpse_core::ipc::IpcEmitter,
 ) {
     loop {
         let Some(program) = config.command.first().cloned() else {
             tracing::warn!(applet = %name, "exec applet command is empty");
+            ipc.emit(
+                "exec.applet_exited",
+                vec![("name", name.clone()), ("reason", "no_command".to_owned())],
+            );
             let _ = out.send(Input::ChildExited);
             return;
         };
@@ -63,6 +68,13 @@ pub async fn run(
             Ok(child) => child,
             Err(error) => {
                 tracing::warn!(%error, applet = %name, "exec applet failed to spawn child");
+                ipc.emit(
+                    "exec.applet_exited",
+                    vec![
+                        ("name", name.clone()),
+                        ("reason", "spawn_failed".to_owned()),
+                    ],
+                );
                 let _ = out.send(Input::ChildExited);
                 tokio::time::sleep(Duration::from_millis(config.restart_delay_ms)).await;
                 continue;
@@ -105,6 +117,8 @@ pub async fn run(
             tracing::warn!(%error, applet = %name, "exec applet failed to send init");
         }
 
+        ipc.emit("exec.applet_started", vec![("name", name.clone())]);
+
         let mut stdout_lines = BoundedLines::new(BufReader::new(stdout), MAX_LINE_BYTES);
         let mut stderr_lines = BoundedLines::new(BufReader::new(stderr), MAX_LINE_BYTES);
         let mut stderr_open = true;
@@ -137,7 +151,31 @@ pub async fn run(
                 },
                 line = stdout_lines.next_line() => match line {
                     Ok(Some(BoundedLine::Line(line))) => match parse_child_line(&line) {
-                        Ok(command) => send_child_command(&out, command),
+                        Ok(command) => {
+                            if let ChildCommand::Status(payload) = &command {
+                                let first = payload.items.first();
+                                ipc.emit(
+                                    "exec.applet_status",
+                                    vec![
+                                        ("name", name.clone()),
+                                        ("items", payload.items.len().to_string()),
+                                        (
+                                            "id",
+                                            first
+                                                .and_then(|i| i.id.clone())
+                                                .unwrap_or_default(),
+                                        ),
+                                        (
+                                            "label",
+                                            first
+                                                .and_then(|i| i.label.clone())
+                                                .unwrap_or_default(),
+                                        ),
+                                    ],
+                                );
+                            }
+                            send_child_command(&out, command)
+                        }
                         Err(error) => tracing::warn!(%error, raw = %line, applet = %name, "exec applet ignored child line"),
                     },
                     Ok(Some(BoundedLine::Oversize(bytes))) => {
@@ -173,6 +211,16 @@ pub async fn run(
 
         stderr_limiter.flush(&name);
         finish_child(&mut child, &name).await;
+
+        let reason = match exit {
+            ChildLoopExit::Restart => "restart",
+            ChildLoopExit::Stop => "stop",
+            ChildLoopExit::ProtocolEnded => "protocol_ended",
+        };
+        ipc.emit(
+            "exec.applet_exited",
+            vec![("name", name.clone()), ("reason", reason.to_owned())],
+        );
 
         let _ = out.send(Input::ChildExited);
         if matches!(exit, ChildLoopExit::Stop) {
@@ -381,7 +429,14 @@ mod tests {
                 work_dir: None,
             };
 
-            let task = tokio::spawn(run("fast".into(), config, outbound_rx, control_rx, sender));
+            let task = tokio::spawn(run(
+                "fast".into(),
+                config,
+                outbound_rx,
+                control_rx,
+                sender,
+                glimpse_core::ipc::IpcEmitter::noop(),
+            ));
 
             let first = tokio::time::timeout(Duration::from_secs(2), receiver.recv())
                 .await
@@ -423,7 +478,14 @@ mod tests {
             work_dir: None,
         };
 
-        let task = tokio::spawn(run("leaky".into(), config, outbound_rx, control_rx, sender));
+        let task = tokio::spawn(run(
+            "leaky".into(),
+            config,
+            outbound_rx,
+            control_rx,
+            sender,
+            glimpse_core::ipc::IpcEmitter::noop(),
+        ));
 
         let _ = tokio::time::timeout(Duration::from_secs(2), receiver.recv())
             .await

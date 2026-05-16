@@ -1,5 +1,7 @@
 mod agents;
 mod app;
+mod applet_dev;
+mod applet_manage;
 mod applet_scaffold;
 mod applets;
 mod components;
@@ -77,6 +79,18 @@ fn main() -> Result<()> {
                 }
                 Some("new") => {
                     return applet_scaffold::run(&argv[2..]);
+                }
+                Some("dev") => {
+                    return run_async(applet_dev::run(&argv[2..]));
+                }
+                Some("link") => {
+                    return applet_manage::link(&argv[2..]);
+                }
+                Some("unlink") => {
+                    return applet_manage::unlink(&argv[2..]);
+                }
+                Some("doctor") => {
+                    return applet_manage::doctor(&argv[2..]);
                 }
                 Some("--help") | Some("-h") | None => {
                     print_applets_help();
@@ -200,6 +214,7 @@ fn print_watch_help() {
     println!("    webcam.* mic.*   capture device in-use changes");
     println!("    compositor.* window.* monitor.* screencast.*");
     println!("    panel.* applet.* panel/applet lifecycle + discovery");
+    println!("    exec.*           exec/dev applet started/status/exited");
     println!("    location.* solar.* idle.* tray.* session.* calendar.*");
 }
 
@@ -264,6 +279,11 @@ fn print_applets_help() {
     println!("                               system|user|dev qualifier");
     println!("    new <name> [OPTIONS]       Scaffold a new applet project");
     println!("                               (--lang, --type, --dir, --force)");
+    println!("    dev [PATH] [OPTIONS]       Live rebuild + reload an applet,");
+    println!("                               errors shown in the panel");
+    println!("    link [PATH] [--force]      Symlink an applet into the applets dir");
+    println!("    unlink [PATH | <id>]       Remove a link (accepts a bare id)");
+    println!("    doctor [--lang L] [--strict]  Verify the build/run environment");
 }
 
 fn run_shell() -> Result<()> {
