@@ -17,26 +17,26 @@ and come back here only if you need live state or custom controls.
 - A working Glimpse install (`glimpse-shell` running, your panel
   visible). See [Installation](../installation.md).
 - A `~/.config/glimpse/config.toml` you can edit.
-- The `glimpse-applet` command. Run `glimpse-applet doctor` to check your host and language toolchain.
+- `glimpse-shell` in your PATH. Run `glimpse-shell applets doctor` to check your host and language toolchain.
 - One language toolchain installed:
   - **Rust**: `rustc` 1.93+ and `cargo`.
   - **Python**: 3.14+.
   - **TypeScript**: Node.js 20+.
   - **Go**: 1.24+.
 
-## Fast Path With `glimpse-applet`
+## Fast Path With `glimpse-shell applets`
 
 Create a generated project:
 
 ```sh
-glimpse-applet new counter --lang python
+glimpse-shell applets new counter --lang python
 cd counter
 ```
 
 Run it in live development mode:
 
 ```sh
-glimpse-applet dev
+glimpse-shell applets dev
 ```
 
 Make sure your panel includes `__dev__` so active dev applets are visible:
@@ -49,7 +49,7 @@ right = ["network", "__dev__", "battery"]
 When the applet is ready for normal use, install it:
 
 ```sh
-glimpse-applet link
+glimpse-shell applets link
 ```
 
 Then replace `__dev__` or add the applet id directly in a panel section:
@@ -59,7 +59,7 @@ Then replace `__dev__` or add the applet id directly in a panel section:
 right = ["counter", "network", "battery"]
 ```
 
-The rest of this page shows the code shape behind the generated project. Read [Applet Tooling](./tooling.md) for the full command reference.
+The rest of this page shows the code shape behind the generated project. Read [Applet Tooling](./tooling.md) for the full `glimpse-shell applets` command reference.
 
 ## What you're building
 
@@ -477,7 +477,7 @@ Skip to the next section and use `/path/to/counter/counter` as
 
 ## Wire it into your panel
 
-Create an applet package file that points at your binary or script:
+If your project has an `applet.toml`, run `glimpse-shell applets link` from the project directory to symlink it into `~/.config/glimpse/applets/` automatically. Otherwise, create the applet package file manually:
 
 ```toml
 # ~/.config/glimpse/applets/counter.toml
@@ -540,7 +540,7 @@ and event handlers.
 
 | Topic | Page |
 |---|---|
-| Scaffold, run, link, and remove applets | [Applet Tooling](./tooling.md) |
+| Scaffold, run, link, and remove applets with `glimpse-shell applets` | [Applet Tooling](./tooling.md) |
 | Configure the exec applet | [Exec Applet](./exec.md) |
 | Line protocol reference | [Line Protocol](./exec-protocol.md) |
 | Every widget with its fields | [Components](./exec-components.md) |

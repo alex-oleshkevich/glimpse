@@ -54,12 +54,12 @@ command = ["uv", "run", "main.py"]
 restart_delay_ms = 1000
 ```
 
-Project directories are the preferred shape for SDK applets. They keep source code, package metadata, and `applet.toml` together. `glimpse-applet link` installs the project by symlinking `applet.toml` to `~/.config/glimpse/applets/<id>.toml`.
+Project directories are the preferred shape for SDK applets. They keep source code, package metadata, and `applet.toml` together. `glimpse-shell applets link` installs the project by symlinking `applet.toml` to `~/.config/glimpse/applets/<id>.toml`.
 
 Development mode creates a temporary discovered applet instead:
 
 ```sh
-glimpse-applet dev /path/to/sysinfo
+glimpse-shell applets dev /path/to/sysinfo
 ```
 
 That command writes `~/.config/glimpse/applets/sysinfo.dev.toml` while it runs. Add `__dev__` to a panel section to show active dev applets.

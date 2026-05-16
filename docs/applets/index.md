@@ -372,6 +372,10 @@ tooltip_format = "{player}: {artist} - {title}"
 hide_when_empty = true
 max_rows = 5
 show_artwork = true
+filter_regex = [
+  "(?i)^firefox$",
+  "(?i)podcast",
+]
 ```
 
 | Option | Default | Meaning |
@@ -381,6 +385,7 @@ show_artwork = true
 | `hide_when_empty` | `true` | Hide when no player is active. |
 | `max_rows` | `5` | Maximum players shown in the popover. Clamped from 1 to 12. |
 | `show_artwork` | `true` | Show album art when available. |
+| `filter_regex` | `[]` | Regex rules matched against player identity, title, artist, album, and player id. If any rule matches, that player is hidden from the panel and popover. |
 
 Placeholders: `{player}`, `{artist}`, `{title}`, `{track}`, `{album}`, `{state}`, `{position}`, `{duration}`, `{remaining}`.
 

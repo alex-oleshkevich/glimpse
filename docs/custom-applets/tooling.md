@@ -1,25 +1,25 @@
 # Applet Tooling
 
-`glimpse-applet` scaffolds, runs, links, lists, and debugs custom applets. Use it when you want a repeatable project directory instead of hand-editing every config file.
+`glimpse-shell` scaffolds, runs, links, lists, and debugs custom applets. Use it when you want a repeatable project directory instead of hand-editing every config file.
 
 ## Workflow Overview
 
 | Phase | Command | Result |
 |---|---|---|
-| Create a project | `glimpse-applet new counter --lang python` | Creates an applet directory with source files and `applet.toml`. |
-| Develop in place | `glimpse-applet dev counter` | Registers a temporary dev applet, watches source files, and restarts on changes. |
+| Create a project | `glimpse-shell applets new counter --lang python` | Creates an applet directory with source files and `applet.toml`. |
+| Develop in place | `glimpse-shell applets dev counter` | Registers a temporary dev applet, watches source files, and restarts on changes. |
 | Show dev applets | Add `__dev__` to a panel section | Displays every active `.dev.toml` applet in that panel section. |
-| Install for normal use | `glimpse-applet link counter` | Symlinks `counter/applet.toml` into the Glimpse applets directory. |
-| Inspect or remove | `glimpse-applet list`, `glimpse-applet unlink`, `glimpse-applet rm` | Shows installed applets or removes applet config entries. |
+| Install for normal use | `glimpse-shell applets link counter` | Symlinks `counter/applet.toml` into the Glimpse applets directory. |
+| Inspect or remove | `glimpse-shell applets ls`, `glimpse-shell applets unlink` | Shows installed applets or removes applet config entries. |
 
 ```mermaid
 flowchart LR
-    New["glimpse-applet new"] --> Edit["Edit source and applet.toml"]
-    Edit --> Dev["glimpse-applet dev"]
+    New["glimpse-shell applets new"] --> Edit["Edit source and applet.toml"]
+    Edit --> Dev["glimpse-shell applets dev"]
     Dev --> Panel["Add __dev__ to a panel"]
-    Dev --> Link["glimpse-applet link"]
-    Link --> List["glimpse-applet list"]
-    List --> Remove["unlink or rm"]
+    Dev --> Link["glimpse-shell applets link"]
+    Link --> List["glimpse-shell applets ls"]
+    List --> Remove["glimpse-shell applets unlink"]
 ```
 
 ## Applet Project Directories
@@ -28,7 +28,7 @@ An applet project is a directory with an `applet.toml` file at its root. Exec ap
 
 | File | Purpose |
 |---|---|
-| `applet.toml` | Package-style applet definition used by `glimpse-applet link` and `glimpse-applet dev`. |
+| `applet.toml` | Package-style applet definition used by `glimpse-shell applets link` and `glimpse-shell applets dev`. |
 | `src/main.rs` | Rust exec applet entry point, when scaffolded with `--lang rust`. |
 | `main.py` | Python exec applet entry point, when scaffolded with `--lang python`. |
 | `src/main.ts` | TypeScript exec applet source, when scaffolded with `--lang typescript`. |
@@ -44,12 +44,12 @@ type = "exec"
 command = ["uv", "run", "main.py"]
 ```
 
-`glimpse-applet link` creates `~/.config/glimpse/applets/<id>.toml` as a symlink to that file. Glimpse discovers those files and lets panel config reference them by id.
+`glimpse-shell applets link` creates `~/.config/glimpse/applets/<id>.toml` as a symlink to that file. Glimpse discovers those files and lets panel config reference them by id.
 
 ## Create A Project
 
 ```sh
-glimpse-applet new counter --lang python
+glimpse-shell applets new counter --lang python
 cd counter
 ```
 
@@ -65,7 +65,7 @@ Supported exec languages are:
 Create a command applet instead of an exec applet when the applet only launches commands:
 
 ```sh
-glimpse-applet new terminal --type command
+glimpse-shell applets new terminal --type command
 ```
 
 Project names must use ASCII letters, numbers, `_`, or `-`, and cannot start with `.` or `-`.
@@ -75,8 +75,8 @@ Project names must use ASCII letters, numbers, `_`, or `-`, and cannot start wit
 Run development mode from the project directory or pass the project path:
 
 ```sh
-glimpse-applet dev
-glimpse-applet dev /path/to/counter
+glimpse-shell applets dev
+glimpse-shell applets dev /path/to/counter
 ```
 
 Development mode:
@@ -103,8 +103,8 @@ If a normal linked applet and a dev applet use the same id, the normal linked ap
 When the applet is ready, link the project into the applets directory:
 
 ```sh
-glimpse-applet link
-glimpse-applet link /path/to/counter
+glimpse-shell applets link
+glimpse-shell applets link /path/to/counter
 ```
 
 The command resolves `applet.toml`, reads its `id`, and creates `~/.config/glimpse/applets/<id>.toml` as a symlink. Add the id to a panel section:
@@ -114,40 +114,32 @@ The command resolves `applet.toml`, reads its `id`, and creates `~/.config/glimp
 right = ["counter", "network", "battery"]
 ```
 
-Use `unlink` to remove the symlink created by `link`:
+Use `unlink` to remove the symlink created by `link`. It accepts a project path or a bare applet id:
 
 ```sh
-glimpse-applet unlink
-glimpse-applet unlink /path/to/counter
+glimpse-shell applets unlink
+glimpse-shell applets unlink /path/to/counter
+glimpse-shell applets unlink counter
 ```
-
-Use `rm` when you want to remove an installed applet by id:
-
-```sh
-glimpse-applet rm counter
-glimpse-applet rm counter --yes
-```
-
-`rm` removes `~/.config/glimpse/applets/<id>.toml`. It asks for confirmation unless `--yes` is present.
 
 ## Inspect And Diagnose
 
 | Command | Use |
 |---|---|
-| `glimpse-applet list` | Lists linked applets and active dev applets from `~/.config/glimpse/applets`. |
-| `glimpse-applet doctor` | Checks the host and language toolchains. |
-| `glimpse-applet doctor --lang python` | Checks one language. |
-| `glimpse-applet doctor --strict` | Exits non-zero if any check fails. Useful in scripts. |
+| `glimpse-shell applets ls` | Lists linked and dev applets with a `system\|user\|dev` qualifier. Accepts `--json`. |
+| `glimpse-shell applets doctor` | Checks the host and language toolchains. |
+| `glimpse-shell applets doctor --lang python` | Checks one language. |
+| `glimpse-shell applets doctor --strict` | Exits non-zero if any check fails. Useful in scripts. |
 
 ## IPC Helpers
 
-`glimpse-applet watch` and `glimpse-applet dispatch` connect to the Glimpse IPC socket. They use `GLIMPSE_IPC_SOCKET` when set, otherwise `$XDG_RUNTIME_DIR/glimpse/ipc.sock`, then `/tmp/glimpse/ipc.sock`.
+`glimpse-shell watch` and `glimpse-shell dispatch` connect to the Glimpse IPC socket. They use `GLIMPSE_IPC_SOCKET` when set, otherwise `$XDG_RUNTIME_DIR/glimpse/ipc.sock`, then `/tmp/glimpse/ipc.sock`.
 
 | Command | Use |
 |---|---|
-| `glimpse-applet watch` | Subscribes to all shell events and prints them. |
-| `glimpse-applet watch bluetooth.*` | Subscribes to matching event patterns. |
-| `glimpse-applet dispatch open_uri uri=https://example.com` | Sends a shell command with key/value fields and waits for an acknowledgement. |
+| `glimpse-shell watch` | Subscribes to all shell events and prints them. |
+| `glimpse-shell watch bluetooth.*` | Subscribes to matching event patterns. |
+| `glimpse-shell dispatch open_uri uri=https://example.com` | Sends a shell command with key/value fields and waits for an acknowledgement. |
 
 These helpers are useful when an applet calls shell actions through an SDK helper and you want to observe the shell side of the flow.
 

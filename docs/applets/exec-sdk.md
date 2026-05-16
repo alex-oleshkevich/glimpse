@@ -32,17 +32,17 @@ start = 0
 
 The SDK receives `options` during initialization and handles the line transport for you.
 
-## Develop With `glimpse-applet`
+## Develop With `glimpse-shell applets`
 
 The SDKs are easiest to use from an applet project directory:
 
 ```sh
-glimpse-applet new counter --lang python
+glimpse-shell applets new counter --lang python
 cd counter
-glimpse-applet dev
+glimpse-shell applets dev
 ```
 
-`glimpse-applet dev` writes a temporary `~/.config/glimpse/applets/<id>.dev.toml`, watches source files, rebuilds when needed, restarts the child process, and replays the cached `init` line. Add `__dev__` to a panel section to display active dev applets:
+`glimpse-shell applets dev` writes a temporary `~/.config/glimpse/applets/<id>.dev.toml`, watches source files, rebuilds when needed, restarts the child process, and replays the cached `init` line. Add `__dev__` to a panel section to display active dev applets:
 
 ```toml
 [[panels]]
@@ -52,7 +52,7 @@ right = ["network", "__dev__", "battery"]
 When the applet is ready for normal use, run:
 
 ```sh
-glimpse-applet link
+glimpse-shell applets link
 ```
 
 That symlinks the project's `applet.toml` into `~/.config/glimpse/applets`. Add the applet id to a panel section to keep it visible after the dev command exits.
@@ -67,6 +67,71 @@ That symlinks the project's `applet.toml` into `~/.config/glimpse/applets`. Add 
 | Events | Interactive widgets route `click`, `toggle`, `change`, and lifecycle events to handlers. |
 | Actions | SDK action helpers emit `action` protocol lines for shell-side effects such as opening URIs, copying text, showing notifications, dismissing notifications, and closing the popover. |
 | Transport | SDK runtimes own stdin/stdout protocol parsing and serialization. Applet diagnostics should go to stderr. |
+
+## IPC Client
+
+The IPC client lets applets listen to shell events and dispatch commands over the Glimpse socket.
+
+`ipc()` / `IPC()` takes a service name (`"shell"` for the panel, the default). No connection is made until `listen` or `dispatch` is called. The socket path is `$GLIMPSE_IPC_DIR/<service>.sock`, or `$XDG_RUNTIME_DIR/glimpse/ipc.sock` for the shell.
+
+- **`listen(channel)`** — subscribes to events by exact name, prefix pattern (`"audio.*"`), or wildcard (`"*"`). Returns an async stream of `Event` objects with `.name`, `.ts`, and `.fields`.
+- **`dispatch(action, params)`** — sends a command and waits for acknowledgment, returning the ack fields.
+
+**Python**
+
+```python
+from glimpse_sdk import ipc
+
+async with app.background():
+    sub = ipc("shell")
+    async for event in await sub.listen("audio.*"):
+        volume = event.fields.get("volume")
+        await self.set_state(volume=int(volume or 0))
+```
+
+`ipc()` returns a `Subscriber`. `listen(channel)` is an async generator yielding `Event` objects. `dispatch(action, params)` sends a command and returns the ack fields.
+
+**TypeScript**
+
+```ts
+import { ipc } from "glimpse-sdk";
+
+const sub = ipc("shell"); // or ipc() — defaults to "shell"
+for await (const event of sub.listen("audio.*")) {
+  await this.setState({ volume: Number(event.fields.volume ?? 0) });
+}
+// Dispatch:
+await sub.dispatch("set_volume", { level: "50" });
+```
+
+**Rust**
+
+```rust
+use glimpse_sdk::ipc;
+
+let sub = ipc("shell")?;
+let mut stream = sub.listen("audio.*").await?;
+while let Some(event) = stream.next().await {
+    let event = event?;
+    // event.name, event.ts, event.fields
+}
+// Dispatch:
+let _ack = sub.dispatch("set_volume", [("level", "50")]).await?;
+```
+
+**Go**
+
+```go
+sub := sdk.IPC("shell") // or sdk.IPC("") — both resolve to shell
+ctx, cancel := context.WithCancel(ctx)
+defer cancel()
+events, err := sub.Listen(ctx, "audio.*")
+for event := range events {
+    // event.Name, event.Ts, event.Fields
+}
+// Dispatch:
+ack, err := sub.Dispatch(ctx, "set_volume", map[string]string{"level": "50"})
+```
 
 ## Python
 
@@ -338,7 +403,7 @@ Fixture rules:
 | Page | Covers |
 |---|---|
 | [Exec Applet](../custom-applets/exec.md) | Applet config and options. |
-| [Applet Tooling](../custom-applets/tooling.md) | `glimpse-applet` project, dev, link, and diagnostics workflows. |
+| [Applet Tooling](../custom-applets/tooling.md) | `glimpse-shell applets` project, dev, link, and diagnostics workflows. |
 | [Line Protocol](../custom-applets/exec-protocol.md) | Raw protocol commands, message shapes, and events. |
 | [Components](../custom-applets/exec-components.md) | Popover component fields and component types. |
 | [SDK Golden Fixtures](https://github.com/alex-oleshkevich/glimpse/blob/master/sdk/fixtures/README.md) | Cross-language fixture rules and validation commands. |

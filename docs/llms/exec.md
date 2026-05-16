@@ -16,7 +16,7 @@ SDK starters in four languages are all here.
 1. [Quickstart](#quickstart)
 2. [Choosing Command Or Exec](#choosing-command-or-exec)
 3. [Applet Project Directories](#applet-project-directories)
-4. [`glimpse-applet` CLI Workflow](#glimpse-applet-cli-workflow)
+4. [`glimpse-shell applets` CLI Workflow](#glimpse-shell-applets-cli-workflow)
 5. [Configuration](#configuration)
 6. [Line Protocol](#line-protocol)
 7. [Messages From Glimpse To Child](#messages-from-glimpse-to-child)
@@ -30,6 +30,7 @@ SDK starters in four languages are all here.
 15. [TypeScript SDK Starter](#typescript-sdk-starter)
 16. [Rust SDK Starter](#rust-sdk-starter)
 17. [Go SDK Starter](#go-sdk-starter)
+18. [IPC Client](#ipc-client)
 
 ---
 
@@ -119,8 +120,8 @@ Project directories can be discovered in two ways:
 
 | Method | File written | When to use |
 |---|---|---|
-| `glimpse-applet dev` | `~/.config/glimpse/applets/<id>.dev.toml` | Live development with rebuild and restart. |
-| `glimpse-applet link` | `~/.config/glimpse/applets/<id>.toml` symlink | Normal use after the applet is ready. |
+| `glimpse-shell applets dev` | `~/.config/glimpse/applets/<id>.dev.toml` | Live development with rebuild and restart. |
+| `glimpse-shell applets link` | `~/.config/glimpse/applets/<id>.toml` symlink | Normal use after the applet is ready. |
 
 Add linked applets by id in a panel section:
 
@@ -140,18 +141,18 @@ If the same applet id appears in `~/.config/glimpse/config.toml` and in the disc
 
 ---
 
-## `glimpse-applet` CLI Workflow
+## `glimpse-shell applets` CLI Workflow
 
-Use `glimpse-applet` to create, run, install, inspect, and debug applets.
+Use `glimpse-shell applets` to create, run, install, inspect, and debug applets.
 
 ### Create
 
 ```sh
-glimpse-applet new counter --lang python
-glimpse-applet new counter --lang typescript
-glimpse-applet new counter --lang rust
-glimpse-applet new counter --lang go
-glimpse-applet new terminal --type command
+glimpse-shell applets new counter --lang python
+glimpse-shell applets new counter --lang typescript
+glimpse-shell applets new counter --lang rust
+glimpse-shell applets new counter --lang go
+glimpse-shell applets new terminal --type command
 ```
 
 `new` creates a project directory and writes `applet.toml`. Exec scaffolds include a starter SDK applet for the selected language.
@@ -160,7 +161,7 @@ glimpse-applet new terminal --type command
 
 ```sh
 cd counter
-glimpse-applet dev
+glimpse-shell applets dev
 ```
 
 `dev` behavior:
@@ -184,33 +185,33 @@ The dev command:
 ### Link And Remove
 
 ```sh
-glimpse-applet link
-glimpse-applet link /path/to/counter
-glimpse-applet unlink
-glimpse-applet unlink /path/to/counter
-glimpse-applet rm counter
-glimpse-applet rm counter --yes
+glimpse-shell applets link
+glimpse-shell applets link /path/to/counter
+glimpse-shell applets unlink
+glimpse-shell applets unlink /path/to/counter
+glimpse-shell applets unlink counter
+glimpse-shell applets unlink counter --yes
 ```
 
-`link` symlinks the project `applet.toml` into `~/.config/glimpse/applets/<id>.toml`. `unlink` removes that symlink. `rm` removes an installed applet file by id and asks for confirmation unless `--yes` is provided.
+`link` symlinks the project `applet.toml` into `~/.config/glimpse/applets/<id>.toml`. `unlink` removes that symlink or removes an installed applet file by id; asks for confirmation unless `--yes` is provided.
 
 ### Inspect And Diagnose
 
 ```sh
-glimpse-applet list
-glimpse-applet doctor
-glimpse-applet doctor --lang python
-glimpse-applet doctor --strict
+glimpse-shell applets ls
+glimpse-shell applets doctor
+glimpse-shell applets doctor --lang python
+glimpse-shell applets doctor --strict
 ```
 
-`list` shows linked and active dev applets. `doctor` checks `glimpse-shell`, `glimpse-applet`, and language toolchains; `--strict` exits non-zero on failures.
+`ls` shows linked and active dev applets. `doctor` checks `glimpse-shell` and language toolchains; `--strict` exits non-zero on failures.
 
 ### IPC Debugging
 
 ```sh
-glimpse-applet watch
-glimpse-applet watch bluetooth.*
-glimpse-applet dispatch open_uri uri=https://example.com
+glimpse-shell watch
+glimpse-shell watch bluetooth.*
+glimpse-shell dispatch open_uri uri=https://example.com
 ```
 
 `watch` subscribes to shell events and prints them. `dispatch` sends a shell IPC command and waits for an acknowledgement. Both commands use `GLIMPSE_IPC_SOCKET` if set, then `$XDG_RUNTIME_DIR/glimpse/ipc.sock`, then `/tmp/glimpse/ipc.sock`.
@@ -1538,3 +1539,75 @@ command = ["/home/me/applets/counter"]
   `sdk.Column{Children: []sdk.Widget{...}}`, etc. Every widget type
   satisfies `sdk.Widget`.
 - Call `sdk.Run[State](ctx, applet)` from `main`.
+
+---
+
+## IPC Client
+
+Applets can connect to the Glimpse shell IPC socket to listen for events from other subsystems or dispatch commands without going through the exec protocol. This is useful for reacting to audio, network, Bluetooth, or any other shell event in real time.
+
+### Concepts
+
+- `ipc(service)` / `IPC(service)` takes a service name. Use `"shell"` (or the empty string, which also resolves to `"shell"`) to connect to the panel. The socket path is resolved as `$GLIMPSE_IPC_DIR/<service>.sock`, falling back to `$XDG_RUNTIME_DIR/glimpse/ipc.sock`.
+- No connection is made until `listen` or `dispatch` is called.
+- `listen(channel)` subscribes to events by exact name, prefix glob (`"audio.*"`), or wildcard (`"*"`). Returns an async stream of events; each event has `name` (string), `ts` (unix timestamp int), and `fields` (key/value string map).
+- `dispatch(action, params)` sends a command to the shell and awaits the server acknowledgement. Rejects/errors if the server responds with `ok=false`.
+
+### Python
+
+```python
+from glimpse_sdk import ipc
+
+sub = ipc("shell")  # or ipc() — defaults to "shell"
+async for event in await sub.listen("audio.*"):
+    # event.name: str, event.ts: int, event.fields: dict[str, str]
+    volume = event.fields.get("volume")
+    await self.set_state(volume=int(volume or 0))
+
+# Dispatch a command:
+ack = await sub.dispatch("set_volume", {"level": "50"})
+```
+
+### TypeScript
+
+```ts
+import { ipc } from "glimpse-sdk";
+
+const sub = ipc("shell"); // or ipc() — defaults to "shell"
+for await (const event of sub.listen("audio.*")) {
+  // event.name, event.ts, event.fields
+  await this.setState({ volume: Number(event.fields.volume ?? 0) });
+}
+// Dispatch a command:
+await sub.dispatch("set_volume", { level: "50" });
+```
+
+### Rust
+
+```rust
+use glimpse_sdk::ipc;
+
+let sub = ipc("shell")?; // or ipc("") — both resolve to shell
+let mut stream = sub.listen("audio.*").await?;
+while let Some(event) = stream.next().await {
+    let event = event?;
+    // event.name, event.ts, event.fields
+}
+// Dispatch:
+let _ack = sub.dispatch("set_volume", [("level", "50")]).await?;
+```
+
+### Go
+
+```go
+sub := sdk.IPC("shell") // or sdk.IPC("")
+ctx, cancel := context.WithCancel(ctx)
+defer cancel()
+events, err := sub.Listen(ctx, "audio.*")
+if err != nil { /* handle */ }
+for event := range events {
+    // event.Name, event.Ts, event.Fields
+}
+// Dispatch:
+ack, err := sub.Dispatch(ctx, "set_volume", map[string]string{"level": "50"})
+```
