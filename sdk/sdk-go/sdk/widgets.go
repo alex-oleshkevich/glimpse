@@ -660,3 +660,24 @@ func (i ActionItem) MarshalJSON() ([]byte, error) {
 	type alias ActionItem
 	return envelope("action_item", alias(i))
 }
+
+type PopoverSize string
+
+const (
+	PopoverSizeSmall  PopoverSize = "small"
+	PopoverSizeMedium PopoverSize = "medium"
+	PopoverSizeLarge  PopoverSize = "large"
+	PopoverSizeXLarge PopoverSize = "xlarge"
+)
+
+type PopoverScaffold struct {
+	Hero Widget      `json:"hero,omitempty"`
+	Body Widget      `json:"body"`
+	Size PopoverSize `json:"size,omitempty"`
+}
+
+func (PopoverScaffold) isWidget() {}
+func (w PopoverScaffold) MarshalJSON() ([]byte, error) {
+	type alias PopoverScaffold
+	return envelope("popover_scaffold", alias(w))
+}

@@ -14,11 +14,14 @@ use super::{
     renderer::RenderCatalog,
 };
 
+const DEFAULT_SIZE_CLASS: &str = "popover-size-medium";
+
 pub struct Popover {
     animation: AnimatedPopover,
     root_node: Option<TreeNode>,
     content_box: gtk::Box,
     root: gtk::Popover,
+    size_class: &'static str,
 }
 
 pub struct Init {
@@ -104,6 +107,7 @@ impl SimpleComponent for Popover {
             root_node: None,
             content_box: widgets.content_box.clone(),
             root: widgets.root.clone(),
+            size_class: DEFAULT_SIZE_CLASS,
         };
 
         ComponentParts { model, widgets }
@@ -125,12 +129,16 @@ impl SimpleComponent for Popover {
 }
 
 impl Popover {
-    fn rebuild(&self, sender: &ComponentSender<Self>) {
+    fn rebuild(&mut self, sender: &ComponentSender<Self>) {
+        self.root.remove_css_class(self.size_class);
+
         while let Some(child) = self.content_box.first_child() {
             self.content_box.remove(&child);
         }
 
         let Some(root) = &self.root_node else {
+            self.size_class = DEFAULT_SIZE_CLASS;
+            self.root.add_css_class(self.size_class);
             return;
         };
 
@@ -139,9 +147,26 @@ impl Popover {
             output_sender.emit(Output::Event(event));
         }));
 
-        match renderer.render(root) {
-            Ok(widget) => self.content_box.append(&widget),
-            Err(error) => tracing::warn!(%error, "exec popover render failed"),
+        if let TreeNode::PopoverScaffold(scaffold) = root {
+            self.size_class = scaffold.size.class_name();
+            self.root.add_css_class(self.size_class);
+            if let Some(hero) = &scaffold.hero {
+                match renderer.render(hero) {
+                    Ok(widget) => self.content_box.append(&widget),
+                    Err(error) => tracing::warn!(%error, "exec popover scaffold hero render failed"),
+                }
+            }
+            match renderer.render(&scaffold.body) {
+                Ok(widget) => self.content_box.append(&widget),
+                Err(error) => tracing::warn!(%error, "exec popover scaffold body render failed"),
+            }
+        } else {
+            self.size_class = DEFAULT_SIZE_CLASS;
+            self.root.add_css_class(self.size_class);
+            match renderer.render(root) {
+                Ok(widget) => self.content_box.append(&widget),
+                Err(error) => tracing::warn!(%error, "exec popover render failed"),
+            }
         }
     }
 }

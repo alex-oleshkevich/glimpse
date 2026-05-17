@@ -84,6 +84,9 @@ impl RenderCatalog {
             TreeNode::Checkbox(data) => self.render_checkbox(data),
             TreeNode::Slider(data) => self.render_slider(data),
             TreeNode::Select(data) => self.render_select(data),
+            // PopoverScaffold is a root-only node handled in Popover::rebuild();
+            // render just the body if encountered nested.
+            TreeNode::PopoverScaffold(data) => self.render(&data.body),
         }
     }
 

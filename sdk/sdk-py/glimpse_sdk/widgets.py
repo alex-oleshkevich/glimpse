@@ -739,6 +739,30 @@ class PagerStrip(Widget):
         return {"type": self.widget_type, "data": payload}
 
 
+class PopoverSize(StrEnum):
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+    XLARGE = "xlarge"
+
+
+@dataclass(slots=True)
+class PopoverScaffold(Widget):
+    body: Widget = field(default_factory=lambda: Column())
+    hero: Hero | None = None
+    size: PopoverSize = PopoverSize.MEDIUM
+    widget_type: str = "popover_scaffold"
+
+    def to_protocol(self) -> dict[str, object]:
+        data: dict[str, object] = {
+            "size": self.size.value,
+            "body": self.body.to_protocol(),
+        }
+        if self.hero is not None:
+            data["hero"] = self.hero.to_protocol()
+        return {"type": "popover_scaffold", "data": data}
+
+
 TreeNode: TypeAlias = (
     Hero
     | Card
@@ -776,4 +800,5 @@ TreeNode: TypeAlias = (
     | Slider
     | Select
     | Checkbox
+    | PopoverScaffold
 )

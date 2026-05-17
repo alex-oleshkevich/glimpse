@@ -584,6 +584,38 @@ fn default_level_bar_max() -> f64 {
     1.0
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PopoverSizeValue {
+    Small,
+    #[default]
+    Medium,
+    Large,
+    XLarge,
+}
+
+impl PopoverSizeValue {
+    pub fn class_name(self) -> &'static str {
+        match self {
+            Self::Small => "popover-size-small",
+            Self::Medium => "popover-size-medium",
+            Self::Large => "popover-size-large",
+            Self::XLarge => "popover-size-xlarge",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PopoverScaffoldNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hero: Option<Box<TreeNode>>,
+    pub body: Box<TreeNode>,
+    #[serde(default)]
+    pub size: PopoverSizeValue,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SeparatorNode {
     #[serde(flatten)]
@@ -682,6 +714,7 @@ pub enum TreeNode {
     Checkbox(CheckboxNode),
     Slider(SliderNode),
     Select(SelectNode),
+    PopoverScaffold(PopoverScaffoldNode),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

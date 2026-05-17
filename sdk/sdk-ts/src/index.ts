@@ -60,4 +60,6 @@ export {
   TreeExpander,
   type TreeNode,
   type Variant,
+  PopoverScaffold,
+  type PopoverSize,
 } from "./widgets.js";

@@ -59,6 +59,8 @@ from .widgets import (
     TreeExpander,
     TreeNode,
     Variant,
+    PopoverScaffold,
+    PopoverSize,
 )
 
 __all__ = [
@@ -122,6 +124,8 @@ __all__ = [
     "TreeExpander",
     "TreeNode",
     "Variant",
+    "PopoverScaffold",
+    "PopoverSize",
     "change",
     "click",
     "event",

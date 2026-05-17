@@ -893,4 +893,30 @@ export type TreeNode =
   | ToggleButton
   | Slider
   | Select
-  | Checkbox;
+  | Checkbox
+  | PopoverScaffold;
+
+export type PopoverSize = "small" | "medium" | "large" | "xlarge";
+
+export class PopoverScaffold extends WidgetBase {
+  constructor(
+    private readonly options: {
+      body: TreeNode;
+      hero?: TreeNode;
+      size?: PopoverSize;
+    },
+  ) {
+    super({});
+  }
+
+  toProtocol(): Record<string, unknown> {
+    const data: Record<string, unknown> = {
+      size: this.options.size ?? "medium",
+      body: this.options.body.toProtocol(),
+    };
+    if (this.options.hero !== undefined) {
+      data.hero = this.options.hero.toProtocol();
+    }
+    return { type: "popover_scaffold", data };
+  }
+}

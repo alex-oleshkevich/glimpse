@@ -40,5 +40,5 @@ pub use widgets::{
     LevelBarMode, LinkButton, ListBox, MenuButton, Meter, Orientation, Overlay, PagerAppearance,
     PagerItem, PagerStrip, Picture, Progress, PropertyList, Row, Scroll, Section, Select,
     Separator, Slider, Spinner, StatusDot, Switch, ToggleButton, TreeExpander,
-    TreeNode, Variant,
+    TreeNode, Variant, PopoverScaffold, PopoverSize,
 };

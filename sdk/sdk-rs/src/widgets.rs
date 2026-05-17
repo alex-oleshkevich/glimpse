@@ -1275,6 +1275,44 @@ impl PagerStrip {
 
 with_common!(PagerStrip);
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PopoverSize {
+    Small,
+    #[default]
+    Medium,
+    Large,
+    XLarge,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PopoverScaffold {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hero: Option<Box<TreeNode>>,
+    pub body: Box<TreeNode>,
+    pub size: PopoverSize,
+}
+
+impl PopoverScaffold {
+    pub fn new(body: impl Into<TreeNode>) -> Self {
+        Self {
+            hero: None,
+            body: Box::new(body.into()),
+            size: PopoverSize::Medium,
+        }
+    }
+
+    pub fn hero(mut self, hero: impl Into<TreeNode>) -> Self {
+        self.hero = Some(Box::new(hero.into()));
+        self
+    }
+
+    pub fn size(mut self, size: PopoverSize) -> Self {
+        self.size = size;
+        self
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum TreeNode {
@@ -1315,6 +1353,7 @@ pub enum TreeNode {
     Slider(Slider),
     Select(Select),
     Checkbox(Checkbox),
+    PopoverScaffold(PopoverScaffold),
 }
 
 impl From<Hero> for TreeNode {
@@ -1496,5 +1535,10 @@ impl From<Select> for TreeNode {
 impl From<Checkbox> for TreeNode {
     fn from(value: Checkbox) -> Self {
         Self::Checkbox(value)
+    }
+}
+impl From<PopoverScaffold> for TreeNode {
+    fn from(value: PopoverScaffold) -> Self {
+        Self::PopoverScaffold(value)
     }
 }
