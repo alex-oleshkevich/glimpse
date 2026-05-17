@@ -31,6 +31,7 @@ pub struct PopoverPayload {
 pub enum ChildCommand {
     Status(StatusPayload),
     Popover(PopoverPayload),
+    Class(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -716,6 +717,7 @@ pub fn parse_child_line(line: &str) -> Result<ChildCommand, ProtocolError> {
     match command {
         "status" => decode_payload(command, payload).map(ChildCommand::Status),
         "popover" => decode_payload(command, payload).map(ChildCommand::Popover),
+        "class" => Ok(ChildCommand::Class(payload.to_owned())),
         other => Err(ProtocolError::UnknownCommand {
             command: other.into(),
         }),
@@ -1046,6 +1048,12 @@ mod tests {
         .expect_err("collapsible nodes should be unsupported");
 
         assert!(error.to_string().contains("popover"));
+    }
+
+    #[test]
+    fn parses_class_line_as_bare_name() {
+        let command = parse_child_line("class workstation").expect("class line should parse");
+        assert_eq!(command, ChildCommand::Class("workstation".into()));
     }
 
     #[test]

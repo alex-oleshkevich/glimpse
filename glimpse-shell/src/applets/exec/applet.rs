@@ -31,7 +31,6 @@ pub struct Config {
     pub env_forward: bool,
     pub env: std::collections::HashMap<String, String>,
     pub work_dir: Option<std::path::PathBuf>,
-    pub css_class: Option<String>,
 }
 
 impl Config {
@@ -72,7 +71,6 @@ impl Default for Config {
             env_forward: true,
             env: std::collections::HashMap::new(),
             work_dir: None,
-            css_class: None,
         }
     }
 }
@@ -115,6 +113,7 @@ pub enum Input {
     Reconfigure(Config),
     ShowContextMenu,
     RestartCommand,
+    CssClass(String),
     StatusItemOutput(StatusItemOutput),
     PopoverOutput(PopoverOutput),
 }
@@ -153,11 +152,9 @@ impl SimpleComponent for Applet {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let css_class = init.config.css_class.clone();
         let popover = Popover::builder()
             .launch(super::popover::Init {
                 parent: root.clone(),
-                css_class: css_class.clone(),
             })
             .forward(sender.input_sender(), Input::PopoverOutput);
 
@@ -173,9 +170,6 @@ impl SimpleComponent for Applet {
 
         let context_menu = build_context_menu(&root, &sender);
         let widgets = view_output!();
-        if let Some(class) = &css_class {
-            widgets.root.add_css_class(&format!("applet-{class}"));
-        }
         widgets.root.set_visible(false);
 
         let model = Applet {
@@ -249,6 +243,10 @@ impl SimpleComponent for Applet {
                 if let Err(error) = self.control_tx.send(Control::Restart) {
                     tracing::warn!(%error, applet = %self.name, "exec applet failed to restart");
                 }
+            }
+            Input::CssClass(class) => {
+                self.root.add_css_class(&format!("applet-{class}"));
+                self.popover.emit(PopoverInput::SetCssClass(class));
             }
             Input::StatusItemOutput(output) => match output {
                 StatusItemOutput::TogglePopover => {

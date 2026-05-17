@@ -58,6 +58,10 @@ export abstract class Applet<State extends object> {
 
   protected abstract initialState(): State;
 
+  protected cssClass(): string | null {
+    return null;
+  }
+
   protected async onStart(): Promise<void> {}
 
   protected async onInit(_event: InitEvent): Promise<void> {}
@@ -129,6 +133,10 @@ export abstract class Applet<State extends object> {
     });
 
     await this.onStart();
+    const cssClass = this.cssClass();
+    if (cssClass !== null) {
+      process.stdout.write(`class ${cssClass}\n`);
+    }
     await this.scheduleRender();
 
     const rl = createInterface({

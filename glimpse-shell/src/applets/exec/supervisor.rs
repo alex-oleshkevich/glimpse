@@ -304,6 +304,7 @@ fn send_child_command(out: &relm4::Sender<Input>, command: ChildCommand) {
     let _ = out.send(match command {
         ChildCommand::Status(payload) => Input::StatusChanged(payload),
         ChildCommand::Popover(payload) => Input::PopoverChanged(payload),
+        ChildCommand::Class(name) => Input::CssClass(name),
     });
 }
 
@@ -427,7 +428,6 @@ mod tests {
                 env_forward: true,
                 env: std::collections::HashMap::new(),
                 work_dir: None,
-                css_class: None,
             };
 
             let task = tokio::spawn(run(
@@ -477,7 +477,6 @@ mod tests {
             env_forward: true,
             env: std::collections::HashMap::new(),
             work_dir: None,
-            css_class: None,
         };
 
         let task = tokio::spawn(run(

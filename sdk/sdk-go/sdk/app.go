@@ -18,6 +18,10 @@ type Applet[S any] interface {
 	OnCallback(context.Context, CallbackEvent) error
 	Status(context.Context, *S) ([]StatusItem, error)
 	Popover(context.Context, *S) (Widget, error)
+	// CssClass returns the CSS class applied to the applet indicator and popover
+	// (e.g. "workstation" → applet-workstation on both GTK widgets).
+	// Return "" (the default from BaseApplet) for no extra class.
+	CssClass() string
 }
 
 type BaseApplet[S any] struct {
@@ -77,6 +81,8 @@ func (a *BaseApplet[S]) Updates() <-chan struct{} {
 	return a.updates
 }
 
+func (a *BaseApplet[S]) CssClass() string { return "" }
+
 type treePayload struct {
 	Root Widget `json:"root"`
 }
@@ -103,6 +109,14 @@ func Run[S any](ctx context.Context, applet Applet[S]) error {
 func (r *Runtime[S]) Run(ctx context.Context) error {
 	if err := r.applet.OnStart(ctx); err != nil {
 		return err
+	}
+	if class := r.applet.CssClass(); class != "" {
+		r.mu.Lock()
+		_, err := fmt.Fprintf(r.writer, "class %s\n", class)
+		r.mu.Unlock()
+		if err != nil {
+			return err
+		}
 	}
 	if err := r.flush(ctx); err != nil {
 		return err

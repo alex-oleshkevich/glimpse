@@ -33,6 +33,9 @@ class Applet(Generic[StateT, OptionsT]):
     def initial_state(self) -> StateT:
         raise NotImplementedError
 
+    def css_class(self) -> str | None:
+        return None
+
     async def on_start(self) -> None:
         return None
 
@@ -164,6 +167,9 @@ class Applet(Generic[StateT, OptionsT]):
 
     async def _event_loop(self, eof: asyncio.Event) -> None:
         await self.on_start()
+        if (cls := self.css_class()) is not None:
+            sys.stdout.write(f"class {cls}\n")
+            sys.stdout.flush()
         self._schedule_render()
         get_task: asyncio.Task[InitEvent | CallbackEvent] | None = None
         eof_task = asyncio.create_task(eof.wait())

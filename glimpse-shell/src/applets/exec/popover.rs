@@ -18,11 +18,11 @@ pub struct Popover {
     animation: AnimatedPopover,
     root_node: Option<TreeNode>,
     content_box: gtk::Box,
+    root: gtk::Popover,
 }
 
 pub struct Init {
     pub parent: gtk::Box,
-    pub css_class: Option<String>,
 }
 
 #[derive(Debug)]
@@ -30,6 +30,7 @@ pub enum Input {
     Toggle,
     Close,
     SetRoot(Option<TreeNode>),
+    SetCssClass(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -84,9 +85,6 @@ impl SimpleComponent for Popover {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let widgets = view_output!();
-        if let Some(class) = &init.css_class {
-            widgets.root.add_css_class(&format!("applet-{class}"));
-        }
         widgets.root.set_parent(&init.parent);
         widgets.root.set_autohide(true);
         popover_scroll::install_half_monitor_limit(&widgets.root, &widgets.scroller, &init.parent);
@@ -105,6 +103,7 @@ impl SimpleComponent for Popover {
             animation: AnimatedPopover::new(&widgets.root),
             root_node: None,
             content_box: widgets.content_box.clone(),
+            root: widgets.root.clone(),
         };
 
         ComponentParts { model, widgets }
@@ -117,6 +116,9 @@ impl SimpleComponent for Popover {
             Input::SetRoot(root) => {
                 self.root_node = root;
                 self.rebuild(&sender);
+            }
+            Input::SetCssClass(class) => {
+                self.root.add_css_class(&format!("applet-{class}"));
             }
         }
     }

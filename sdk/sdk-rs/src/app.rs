@@ -54,6 +54,13 @@ pub trait Applet: Send + Sync {
     ) -> AppletResult<()> {
         Ok(())
     }
+
+    /// CSS class applied to the applet indicator and popover (e.g. `"workstation"`
+    /// → `applet-workstation` is added to both GTK widgets). Return `None` (the
+    /// default) to leave styling to the global theme.
+    fn css_class(&self) -> Option<&str> {
+        None
+    }
 }
 
 #[derive(Debug, Serialize, PartialEq)]
@@ -87,6 +94,10 @@ where
     let mut lines = stdin.lines();
     let mut last = LastSeen::new();
     applet.on_start(&mut state).await?;
+    if let Some(class) = applet.css_class() {
+        stdout.write_all(format!("class {class}\n").as_bytes()).await?;
+        stdout.flush().await?;
+    }
     flush(&mut stdout, &applet, &state, &mut last).await?;
 
     while let Some(line) = lines.next_line().await? {
