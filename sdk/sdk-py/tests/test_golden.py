@@ -41,6 +41,8 @@ from glimpse_sdk import (
     PagerItem,
     PagerStrip,
     Picture,
+    PopoverScaffold,
+    PopoverSize,
     Progress,
     PropertyList,
     Row,
@@ -458,6 +460,22 @@ class GoldenWidgetTests(unittest.TestCase):
                         GridChild(row=0, column=1, child=Badge(label="V")),
                     ],
                 )
+            ),
+        )
+
+    def test_popover_scaffold_basic(self) -> None:
+        self._assert_widget(
+            "popover-scaffold-basic",
+            PopoverScaffold(body=Label(text="Content")),
+        )
+
+    def test_popover_scaffold_with_hero(self) -> None:
+        self._assert_widget(
+            "popover-scaffold-with-hero",
+            PopoverScaffold(
+                body=Label(text="Content"),
+                hero=Hero(title="VPN", subtitle="Connected"),
+                size=PopoverSize.LARGE,
             ),
         )
 

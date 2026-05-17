@@ -1,0 +1,12 @@
+{
+  "data": {
+    "body": {
+      "data": {
+        "text": "Content"
+      },
+      "type": "label"
+    },
+    "size": "medium"
+  },
+  "type": "popover_scaffold"
+}

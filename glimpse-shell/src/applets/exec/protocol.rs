@@ -1084,6 +1084,21 @@ mod tests {
     }
 
     #[test]
+    fn parses_popover_scaffold_node() {
+        let command = parse_child_line(
+            r#"popover {"root":{"type":"popover_scaffold","data":{"body":{"type":"label","data":{"text":"Content"}},"hero":{"type":"hero","data":{"title":"VPN","subtitle":"Connected"}},"size":"large"}}}"#,
+        )
+        .expect("popover_scaffold line should parse");
+
+        assert!(matches!(
+            command,
+            ChildCommand::Popover(PopoverPayload {
+                root: Some(TreeNode::PopoverScaffold(_))
+            })
+        ));
+    }
+
+    #[test]
     fn parses_class_line_as_bare_name() {
         let command = parse_child_line("class workstation").expect("class line should parse");
         assert_eq!(command, ChildCommand::Class("workstation".into()));

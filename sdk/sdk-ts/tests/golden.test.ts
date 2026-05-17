@@ -35,6 +35,7 @@ import {
   PagerItem,
   PagerStrip,
   Picture,
+  PopoverScaffold,
   parseCallbackEvent,
   Progress,
   PropertyList,
@@ -474,6 +475,24 @@ test("widget tree-card-with-grid", () => {
           new GridChild(0, 1, new Badge({ label: "V" })),
         ],
       }),
+    }),
+  );
+});
+
+test("widget popover-scaffold-basic", () => {
+  assertWidget(
+    "popover-scaffold-basic",
+    new PopoverScaffold({ body: new Label("Content") }),
+  );
+});
+
+test("widget popover-scaffold-with-hero", () => {
+  assertWidget(
+    "popover-scaffold-with-hero",
+    new PopoverScaffold({
+      body: new Label("Content"),
+      hero: new Hero({ title: "VPN", subtitle: "Connected" }),
+      size: "large",
     }),
   );
 });

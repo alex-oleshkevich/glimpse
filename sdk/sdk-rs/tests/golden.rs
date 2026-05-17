@@ -12,9 +12,9 @@ use glimpse_sdk::{
     ActionItem, Align, Badge, Button, ButtonVariant, CallbackEvent, Card, Checkbox, Column,
     ContentFit, Copyable, EmptyState, Expander, Grid, GridChild, Hero, Icon, Item, Label,
     LevelBar, LevelBarMode, LinkButton, ListBox, MenuButton, Meter, Overlay, PagerItem, PagerStrip,
-    Picture, Progress, PropertyList, Row, Scroll, Section, Select, Separator, Slider,
-    Spinner, StatusDot, Switch, ToggleButton, TreeExpander, TreeNode, Variant, parse_callback_event,
-    tree,
+    Picture, PopoverScaffold, PopoverSize, Progress, PropertyList, Row, Scroll, Section, Select,
+    Separator, Slider, Spinner, StatusDot, Switch, ToggleButton, TreeExpander, TreeNode, Variant,
+    parse_callback_event, tree,
 };
 use serde_json::Value;
 
@@ -559,6 +559,20 @@ fn widget_tree_card_with_grid() {
     };
     let card = Card::new(Some(grid.into()));
     assert_widget("tree-card-with-grid", card.into());
+}
+
+#[test]
+fn widget_popover_scaffold_basic() {
+    let scaffold = PopoverScaffold::new(Label::new("Content"));
+    assert_widget("popover-scaffold-basic", scaffold.into());
+}
+
+#[test]
+fn widget_popover_scaffold_with_hero() {
+    let scaffold = PopoverScaffold::new(Label::new("Content"))
+        .hero(Hero::new("VPN", "Connected"))
+        .size(PopoverSize::Large);
+    assert_widget("popover-scaffold-with-hero", scaffold.into());
 }
 
 // ---------- events ----------

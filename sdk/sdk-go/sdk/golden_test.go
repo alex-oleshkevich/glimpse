@@ -482,6 +482,21 @@ func TestGoldenTreeCardWithGrid(t *testing.T) {
 	})
 }
 
+func TestGoldenPopoverScaffoldBasic(t *testing.T) {
+	assertWidget(t, "popover-scaffold-basic", PopoverScaffold{
+		Body: Label{Text: "Content"},
+		Size: PopoverSizeMedium,
+	})
+}
+
+func TestGoldenPopoverScaffoldWithHero(t *testing.T) {
+	assertWidget(t, "popover-scaffold-with-hero", PopoverScaffold{
+		Hero: Hero{Title: "VPN", Subtitle: "Connected"},
+		Body: Label{Text: "Content"},
+		Size: PopoverSizeLarge,
+	})
+}
+
 // ---------- events ----------
 
 type eventFixture struct {

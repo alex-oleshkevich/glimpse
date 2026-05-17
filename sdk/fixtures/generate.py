@@ -420,6 +420,23 @@ def widgets() -> None:
     })
 
 
+    write(WIDGETS, "popover-scaffold-basic", {
+        "type": "popover_scaffold",
+        "data": {
+            "body": {"type": "label", "data": {"text": "Content"}},
+            "size": "medium",
+        },
+    })
+    write(WIDGETS, "popover-scaffold-with-hero", {
+        "type": "popover_scaffold",
+        "data": {
+            "hero": {"type": "hero", "data": {"subtitle": "Connected", "title": "VPN"}},
+            "body": {"type": "label", "data": {"text": "Content"}},
+            "size": "large",
+        },
+    })
+
+
 # ---------- combined trees ----------
 
 

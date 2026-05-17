@@ -1,0 +1,19 @@
+{
+  "data": {
+    "body": {
+      "data": {
+        "text": "Content"
+      },
+      "type": "label"
+    },
+    "hero": {
+      "data": {
+        "subtitle": "Connected",
+        "title": "VPN"
+      },
+      "type": "hero"
+    },
+    "size": "large"
+  },
+  "type": "popover_scaffold"
+}
