@@ -3,19 +3,12 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Icon {
-    Name { name: String },
-    Path { path: String },
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct StatusItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub icon: Option<Icon>,
+    pub icon: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -109,8 +102,6 @@ impl MouseButton {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct CommonProps {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hexpand: Option<bool>,
@@ -122,8 +113,8 @@ pub struct CommonProps {
     pub valign: Option<AlignValue>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tooltip: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub variant: Option<Variant>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub css_classes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -182,23 +173,17 @@ pub enum OrientationValue {
 pub struct HeroNode {
     #[serde(flatten)]
     pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     pub title: String,
     #[serde(default)]
     pub subtitle: String,
-    #[serde(default)]
-    pub icon: Option<Icon>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub switch: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct BoxNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub orientation: OrientationValue,
-    #[serde(default)]
-    pub spacing: i32,
-    #[serde(default)]
-    pub children: Vec<TreeNode>,
-}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LayoutNode {
@@ -214,8 +199,8 @@ pub struct LayoutNode {
 pub struct CardNode {
     #[serde(flatten)]
     pub common: CommonProps,
-    #[serde(default)]
-    pub children: Vec<TreeNode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub child: Option<Box<TreeNode>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -226,8 +211,8 @@ pub struct SectionNode {
     pub title: String,
     #[serde(default)]
     pub subtitle: String,
-    #[serde(default)]
-    pub children: Vec<TreeNode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub child: Option<Box<TreeNode>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -251,7 +236,7 @@ pub struct ItemNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default)]
-    pub icon: String,
+    pub left: Option<Box<TreeNode>>,
     #[serde(default)]
     pub label: String,
     #[serde(default)]
@@ -264,8 +249,9 @@ pub struct ItemNode {
 pub struct ActionItemNode {
     #[serde(flatten)]
     pub common: CommonProps,
+    pub id: String,
     #[serde(default)]
-    pub icon: String,
+    pub left: Option<Box<TreeNode>>,
     #[serde(default)]
     pub label: String,
     #[serde(default)]
@@ -290,12 +276,16 @@ pub struct BadgeNode {
     #[serde(flatten)]
     pub common: CommonProps,
     pub label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variant: Option<Variant>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StatusNode {
     #[serde(flatten)]
     pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variant: Option<Variant>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -328,6 +318,8 @@ pub enum LevelBarModeValue {
 pub struct PagerItemNode {
     #[serde(flatten)]
     pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     #[serde(default)]
     pub appearance: PagerAppearanceValue,
     #[serde(default)]
@@ -346,6 +338,8 @@ pub struct PagerItemNode {
 pub struct PagerStripNode {
     #[serde(flatten)]
     pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     #[serde(default)]
     pub items: Vec<PagerItemNode>,
 }
@@ -354,8 +348,10 @@ pub struct PagerStripNode {
 pub struct MeterNode {
     #[serde(flatten)]
     pub common: CommonProps,
-    #[serde(default)]
-    pub icon: Option<Icon>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     #[serde(default)]
     pub label: String,
     pub value: f64,
@@ -407,25 +403,19 @@ pub struct LabelNode {
     pub xalign: Option<f32>,
     #[serde(default)]
     pub selectable: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variant: Option<Variant>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IconNode {
     #[serde(flatten)]
     pub common: CommonProps,
-    pub icon: Icon,
+    pub icon: String,
     #[serde(default)]
     pub pixel_size: Option<i32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ImageNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub icon: Icon,
-    #[serde(default)]
-    pub pixel_size: Option<i32>,
-}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PictureNode {
@@ -440,6 +430,7 @@ pub struct PictureNode {
 pub struct ButtonNode {
     #[serde(flatten)]
     pub common: CommonProps,
+    pub id: String,
     #[serde(default)]
     pub label: Option<String>,
     #[serde(default)]
@@ -497,6 +488,7 @@ pub struct MenuButtonNode {
 pub struct SwitchNode {
     #[serde(flatten)]
     pub common: CommonProps,
+    pub id: String,
     #[serde(default)]
     pub label: Option<String>,
     #[serde(default)]
@@ -507,6 +499,7 @@ pub struct SwitchNode {
 pub struct ToggleButtonNode {
     #[serde(flatten)]
     pub common: CommonProps,
+    pub id: String,
     #[serde(default)]
     pub label: Option<String>,
     #[serde(default)]
@@ -517,6 +510,7 @@ pub struct ToggleButtonNode {
 pub struct CheckboxNode {
     #[serde(flatten)]
     pub common: CommonProps,
+    pub id: String,
     #[serde(default)]
     pub label: Option<String>,
     #[serde(default)]
@@ -527,6 +521,7 @@ pub struct CheckboxNode {
 pub struct SliderNode {
     #[serde(flatten)]
     pub common: CommonProps,
+    pub id: String,
     pub min: f64,
     pub max: f64,
     pub step: f64,
@@ -547,6 +542,7 @@ pub struct SelectOption {
 pub struct SelectNode {
     #[serde(flatten)]
     pub common: CommonProps,
+    pub id: String,
     #[serde(default)]
     pub items: Vec<SelectOption>,
     #[serde(default)]
@@ -665,7 +661,6 @@ pub enum TreeNode {
     PagerItem(PagerItemNode),
     PagerStrip(PagerStripNode),
     Spinner(SpinnerNode),
-    Box(BoxNode),
     Grid(GridNode),
     Scroll(ScrollNode),
     Overlay(OverlayNode),
@@ -675,7 +670,6 @@ pub enum TreeNode {
     Separator(SeparatorNode),
     Label(LabelNode),
     Icon(IconNode),
-    Image(ImageNode),
     Picture(PictureNode),
     Button(ButtonNode),
     LinkButton(LinkButtonNode),
@@ -772,7 +766,7 @@ mod tests {
     #[test]
     fn parses_status_line_with_object_icons_and_labels() {
         let command = parse_child_line(
-            r#"status {"items":[{"id":"cpu","icon":{"name":"cpu-symbolic"},"label":"12%","tooltip":"CPU usage"}]}"#,
+            r#"status {"items":[{"id":"cpu","icon":"cpu-symbolic","label":"12%","tooltip":"CPU usage"}]}"#,
         )
         .expect("status line should parse");
 
@@ -781,9 +775,7 @@ mod tests {
             ChildCommand::Status(StatusPayload {
                 items: vec![StatusItem {
                     id: Some("cpu".into()),
-                    icon: Some(Icon::Name {
-                        name: "cpu-symbolic".into(),
-                    }),
+                    icon: Some("cpu-symbolic".into()),
                     label: Some("12%".into()),
                     tooltip: Some("CPU usage".into()),
                 }]
@@ -822,9 +814,9 @@ mod tests {
     }
 
     #[test]
-    fn parses_item_node_with_right_slot() {
+    fn parses_item_node_with_left_and_right_slots() {
         let command = parse_child_line(
-            r#"popover {"root":{"type":"item","data":{"icon":"network-wireless-symbolic","label":"Wi-Fi","sublabel":"Connected","right":{"type":"badge","data":{"label":"home-5G"}}}}}"#,
+            r#"popover {"root":{"type":"item","data":{"left":{"type":"icon","data":{"icon":"network-wireless-symbolic","pixel_size":16}},"label":"Wi-Fi","sublabel":"Connected","right":{"type":"badge","data":{"label":"home-5G"}}}}}"#,
         )
         .expect("item node should parse");
 
@@ -832,7 +824,7 @@ mod tests {
             ChildCommand::Popover(PopoverPayload {
                 root: Some(TreeNode::Item(item)),
             }) => {
-                assert_eq!(item.icon, "network-wireless-symbolic");
+                assert!(matches!(item.left.as_deref(), Some(TreeNode::Icon(_))));
                 assert_eq!(item.label, "Wi-Fi");
                 assert_eq!(item.sublabel, "Connected");
                 assert!(matches!(item.right.as_deref(), Some(TreeNode::Badge(_))));
@@ -842,9 +834,9 @@ mod tests {
     }
 
     #[test]
-    fn parses_action_item_node_with_right_slot() {
+    fn parses_action_item_node_with_left_and_right_slots() {
         let command = parse_child_line(
-            r#"popover {"root":{"type":"action_item","data":{"id":"wifi","icon":"network-wireless-symbolic","label":"Wi-Fi","sublabel":"Connected","right":{"type":"badge","data":{"label":"home-5G"}}}}}"#,
+            r#"popover {"root":{"type":"action_item","data":{"id":"wifi","left":{"type":"icon","data":{"icon":"network-wireless-symbolic","pixel_size":16}},"label":"Wi-Fi","sublabel":"Connected","right":{"type":"badge","data":{"label":"home-5G"}}}}}"#,
         )
         .expect("action item node should parse");
 
@@ -852,8 +844,8 @@ mod tests {
             ChildCommand::Popover(PopoverPayload {
                 root: Some(TreeNode::ActionItem(item)),
             }) => {
-                assert_eq!(item.common.id.as_deref(), Some("wifi"));
-                assert_eq!(item.icon, "network-wireless-symbolic");
+                assert_eq!(item.id.as_str(), "wifi");
+                assert!(matches!(item.left.as_deref(), Some(TreeNode::Icon(_))));
                 assert_eq!(item.label, "Wi-Fi");
                 assert_eq!(item.sublabel, "Connected");
                 assert!(matches!(item.right.as_deref(), Some(TreeNode::Badge(_))));
@@ -891,7 +883,7 @@ mod tests {
             ChildCommand::Popover(PopoverPayload {
                 root: Some(TreeNode::ToggleButton(toggle)),
             }) => {
-                assert_eq!(toggle.common.id.as_deref(), Some("wifi"));
+                assert_eq!(toggle.id.as_str(), "wifi");
                 assert_eq!(toggle.label.as_deref(), Some("Wi-Fi"));
                 assert!(toggle.active);
             }

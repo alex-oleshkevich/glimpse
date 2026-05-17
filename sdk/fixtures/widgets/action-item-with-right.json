@@ -1,8 +1,14 @@
 {
   "data": {
-    "icon": "network-wireless-symbolic",
     "id": "wifi",
     "label": "Wi-Fi",
+    "left": {
+      "data": {
+        "icon": "network-wireless-symbolic",
+        "pixel_size": 16
+      },
+      "type": "icon"
+    },
     "right": {
       "data": {
         "label": "home-5G"

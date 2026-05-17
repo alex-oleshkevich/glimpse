@@ -3,16 +3,13 @@ import assert from "node:assert/strict";
 
 import {
   Applet,
-  Box,
   Button,
   Column,
   Hero,
-  Icon,
   type InitEvent,
   Label,
   Row,
   Select,
-  SelectOption,
   Spinner,
   StatusDot,
   StatusItem,
@@ -40,18 +37,18 @@ class DemoApplet extends Applet<DemoState> {
     return [
       new StatusItem({
         id: "demo",
-        icon: Icon.name("demo-symbolic"),
+        icon: "demo-symbolic",
         label: state.version,
       }),
     ];
   }
 
   protected async popover(state: DemoState) {
-    return Box.vertical([
+    return new Column({ children: [
       new Hero({ title: "Demo", subtitle: state.version }),
       new Label(state.version),
       new Button({ id: "submit", label: "Submit" }),
-    ]);
+    ] });
   }
 
   protected async onInit(event: InitEvent): Promise<void> {
@@ -87,7 +84,7 @@ test("setState updates state and emits protocol messages", async () => {
     const commands = drained.map((message: any) => message.command);
     assert.deepEqual(commands, ["status", "popover"]);
     assert.equal((drained[0] as any).data.items[0].label, "v2");
-    assert.equal((drained[0] as any).line, 'status {"items":[{"id":"demo","icon":{"name":"demo-symbolic"},"label":"v2"}]}');
+    assert.equal((drained[0] as any).line, 'status {"items":[{"id":"demo","icon":"demo-symbolic","label":"v2"}]}');
     assert.equal(writes.length, 2);
   } finally {
     process.stdout.write = originalWrite;
@@ -115,7 +112,7 @@ test("parseCallbackEvent returns typed popover event", () => {
 test("select serializes items", () => {
   const node = new Select({
     id: "env",
-    items: [new SelectOption("prod", "Production")],
+    items: [{ id: "prod", label: "Production" }],
     selected: 0,
   });
   const payload = node.toProtocol();

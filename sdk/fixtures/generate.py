@@ -169,7 +169,16 @@ def widgets() -> None:
         "data": {
             "title": "VPN",
             "subtitle": "Connected",
-            "icon": {"name": "network-vpn-symbolic"},
+            "icon": "network-vpn-symbolic",
+        },
+    })
+    write(WIDGETS, "hero-with-switch", {
+        "type": "hero",
+        "data": {
+            "title": "VPN",
+            "subtitle": "Connected",
+            "id": "vpn-toggle",
+            "switch": True,
         },
     })
     write(WIDGETS, "progress", {
@@ -239,13 +248,9 @@ def widgets() -> None:
             ],
         },
     })
-    write(WIDGETS, "image-by-name", {
-        "type": "image",
-        "data": {"icon": {"name": "user-info-symbolic"}},
-    })
-    write(WIDGETS, "image-by-path", {
-        "type": "image",
-        "data": {"icon": {"path": "/home/me/avatar.png"}, "pixel_size": 64},
+    write(WIDGETS, "icon-by-name", {
+        "type": "icon",
+        "data": {"icon": "user-info-symbolic"},
     })
     write(WIDGETS, "picture", {
         "type": "picture",
@@ -256,14 +261,6 @@ def widgets() -> None:
         "data": {"path": "/home/me/photo.png", "content_fit": "cover"},
     })
     write(WIDGETS, "separator", {"type": "separator", "data": {}})
-    write(WIDGETS, "box-vertical", {
-        "type": "box",
-        "data": {"orientation": "vertical", "spacing": 8, "children": []},
-    })
-    write(WIDGETS, "box-horizontal", {
-        "type": "box",
-        "data": {"orientation": "horizontal", "spacing": 4, "children": []},
-    })
     write(WIDGETS, "row", {
         "type": "row",
         "data": {"spacing": 8, "children": []},
@@ -302,27 +299,23 @@ def widgets() -> None:
     write(WIDGETS, "card", {
         "type": "card",
         "data": {
-            "children": [
-                {"type": "label", "data": {"text": "in card"}},
-            ],
+            "child": {"type": "label", "data": {"text": "in card"}},
         },
     })
     write(WIDGETS, "card-empty", {
         "type": "card",
-        "data": {"children": []},
+        "data": {},
     })
     write(WIDGETS, "section-basic", {
         "type": "section",
         "data": {
             "title": "System",
-            "children": [
-                {"type": "label", "data": {"text": "uptime"}},
-            ],
+            "child": {"type": "label", "data": {"text": "uptime"}},
         },
     })
     write(WIDGETS, "section-empty-children", {
         "type": "section",
-        "data": {"title": "Empty", "children": []},
+        "data": {"title": "Empty"},
     })
     write(WIDGETS, "property-list", {
         "type": "property_list",
@@ -351,10 +344,11 @@ def widgets() -> None:
         "type": "item",
         "data": {"label": "Wi-Fi"},
     })
+    _icon_left = {"type": "icon", "data": {"icon": "network-wireless-symbolic", "pixel_size": 16}}
     write(WIDGETS, "item-with-right", {
         "type": "item",
         "data": {
-            "icon": "network-wireless-symbolic",
+            "left": _icon_left,
             "label": "Wi-Fi",
             "sublabel": "Connected",
             "right": {"type": "badge", "data": {"label": "home-5G"}},
@@ -368,7 +362,7 @@ def widgets() -> None:
         "type": "action_item",
         "data": {
             "id": "wifi",
-            "icon": "network-wireless-symbolic",
+            "left": _icon_left,
             "label": "Wi-Fi",
             "sublabel": "Connected",
             "right": {"type": "badge", "data": {"label": "home-5G"}},
@@ -397,7 +391,7 @@ def widgets() -> None:
         "type": "meter",
         "data": {
             "id": "volume",
-            "icon": {"name": "audio-volume-medium-symbolic"},
+            "icon": "audio-volume-medium-symbolic",
             "label": "Volume",
             "value": 0.42,
             "min": 0.0,
@@ -415,7 +409,6 @@ def widgets() -> None:
         "type": "label",
         "data": {
             "text": "marked",
-            "id": "marked",
             "visible": False,
             "hexpand": True,
             "vexpand": True,
@@ -444,13 +437,19 @@ def trees() -> None:
                     "type": "section",
                     "data": {
                         "title": "Controls",
-                        "children": [
-                            {"type": "label", "data": {"text": "Current"}},
-                            {
-                                "type": "button",
-                                "data": {"id": "increment", "label": "Increment"},
+                        "child": {
+                            "type": "column",
+                            "data": {
+                                "children": [
+                                    {"type": "label", "data": {"text": "Current"}},
+                                    {
+                                        "type": "button",
+                                        "data": {"id": "increment", "label": "Increment"},
+                                    },
+                                ],
+                                "spacing": 0,
                             },
-                        ],
+                        },
                     },
                 },
             ],
@@ -459,31 +458,29 @@ def trees() -> None:
     write(WIDGETS, "tree-card-with-grid", {
         "type": "card",
         "data": {
-            "children": [
-                {
-                    "type": "grid",
-                    "data": {
-                        "row_spacing": 4,
-                        "column_spacing": 8,
-                        "children": [
-                            {
-                                "row": 0,
-                                "column": 0,
-                                "width": 1,
-                                "height": 1,
-                                "child": {"type": "label", "data": {"text": "K"}},
-                            },
-                            {
-                                "row": 0,
-                                "column": 1,
-                                "width": 1,
-                                "height": 1,
-                                "child": {"type": "badge", "data": {"label": "V"}},
-                            },
-                        ],
-                    },
+            "child": {
+                "type": "grid",
+                "data": {
+                    "row_spacing": 4,
+                    "column_spacing": 8,
+                    "children": [
+                        {
+                            "row": 0,
+                            "column": 0,
+                            "width": 1,
+                            "height": 1,
+                            "child": {"type": "label", "data": {"text": "K"}},
+                        },
+                        {
+                            "row": 0,
+                            "column": 1,
+                            "width": 1,
+                            "height": 1,
+                            "child": {"type": "badge", "data": {"label": "V"}},
+                        },
+                    ],
                 },
-            ],
+            },
         },
     })
 

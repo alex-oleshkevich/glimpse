@@ -1,13 +1,11 @@
 {
   "data": {
-    "children": [
-      {
-        "data": {
-          "text": "uptime"
-        },
-        "type": "label"
-      }
-    ],
+    "child": {
+      "data": {
+        "text": "uptime"
+      },
+      "type": "label"
+    },
     "title": "System"
   },
   "type": "section"

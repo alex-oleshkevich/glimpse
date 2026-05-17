@@ -46,7 +46,7 @@ func (a *demoApplet) OnCallback(_ context.Context, event CallbackEvent) error {
 
 func (a *demoApplet) Status(_ context.Context, state *demoState) ([]StatusItem, error) {
 	return []StatusItem{
-		{ID: "demo", Icon: IconName("demo-symbolic"), Label: state.Version},
+		{ID: "demo", Icon: "demo-symbolic", Label: state.Version},
 	}, nil
 }
 
@@ -58,7 +58,7 @@ func (a *demoApplet) Popover(_ context.Context, state *demoState) (Widget, error
 		Children: []Widget{
 			Hero{Title: "Demo", Subtitle: state.Version},
 			Label{Text: state.Version},
-			Button{CommonProps: CommonProps{ID: "submit"}, Label: "Submit"},
+			Button{ID: "submit", Label: "Submit"},
 		},
 	}, nil
 }
@@ -93,8 +93,8 @@ func TestParseCallbackEventReturnsTypedPopoverVariant(t *testing.T) {
 
 func TestSelectSerializesItems(t *testing.T) {
 	widget := Select{
-		CommonProps: CommonProps{ID: "env"},
-		Items:       []SelectOption{{ID: "prod", Label: "Production"}},
+		ID:    "env",
+		Items: []map[string]string{{"id": "prod", "label": "Production"}},
 	}
 	payload, err := json.Marshal(widget)
 	if err != nil {
@@ -110,7 +110,7 @@ func TestSelectSerializesItems(t *testing.T) {
 }
 
 func TestVariantSerializesAsSemanticProtocolValue(t *testing.T) {
-	widget := Label{CommonProps: CommonProps{Variant: VariantWarning}, Text: "Warning"}
+	widget := Label{Text: "Warning", Variant: VariantWarning}
 	payload, err := json.Marshal(widget)
 	if err != nil {
 		t.Fatalf("marshal label: %v", err)
@@ -240,7 +240,7 @@ func (a *asyncDemoApplet) OnCallback(context.Context, CallbackEvent) error { ret
 
 func (a *asyncDemoApplet) Status(_ context.Context, state *demoState) ([]StatusItem, error) {
 	return []StatusItem{
-		{ID: "demo", Icon: IconName("demo-symbolic"), Label: state.Version},
+		{ID: "demo", Icon: "demo-symbolic", Label: state.Version},
 	}, nil
 }
 

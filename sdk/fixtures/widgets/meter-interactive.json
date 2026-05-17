@@ -1,8 +1,6 @@
 {
   "data": {
-    "icon": {
-      "name": "audio-volume-medium-symbolic"
-    },
+    "icon": "audio-volume-medium-symbolic",
     "id": "volume",
     "interactive": true,
     "label": "Volume",

@@ -1,9 +1,8 @@
 import {
   Applet,
-  Box,
   Button,
+  Column,
   Hero,
-  Icon,
   Label,
   StatusItem,
   type TreeNode,
@@ -29,17 +28,18 @@ class CounterApplet extends Applet<CounterState> {
     return [
       new StatusItem({
         id: "counter",
-        icon: Icon.name("view-refresh-symbolic"),
+        icon: "view-refresh-symbolic",
         label: String(state.count),
       }),
     ];
   }
 
   protected async popover(state: CounterState): Promise<TreeNode | null> {
-    return Box.vertical(
-      [
+    return new Column({
+      spacing: 8,
+      children: [
         new Hero({
-          icon: Icon.name("view-refresh-symbolic"),
+          icon: "view-refresh-symbolic",
           title: "Counter",
           subtitle: `Value: ${state.count}`,
         }),
@@ -51,8 +51,7 @@ class CounterApplet extends Applet<CounterState> {
           variant: "primary",
         }),
       ],
-      8,
-    );
+    });
   }
 }
 

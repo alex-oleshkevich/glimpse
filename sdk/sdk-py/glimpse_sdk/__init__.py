@@ -12,12 +12,11 @@ from .events import (
     ToggleEvent,
 )
 from .ipc import Event, IpcError, Subscriber, ipc
-from .protocol import Icon, StatusItem
+from .protocol import StatusItem
 from .widgets import (
     ActionItem,
     Align,
     Badge,
-    Box,
     Button,
     ButtonVariant,
     Card,
@@ -30,7 +29,7 @@ from .widgets import (
     Grid,
     GridChild,
     Hero,
-    Image,
+    Icon,
     Item,
     Label,
     LevelBar,
@@ -51,7 +50,6 @@ from .widgets import (
     Scroll,
     Section,
     Select,
-    SelectOption,
     Separator,
     Slider,
     Spinner,
@@ -69,7 +67,6 @@ __all__ = [
     "Applet",
     "AppletState",
     "Badge",
-    "Box",
     "Button",
     "ButtonVariant",
     "CallbackEvent",
@@ -87,7 +84,6 @@ __all__ = [
     "GridChild",
     "Hero",
     "Icon",
-    "Image",
     "Item",
     "InitEvent",
     "InputEvent",
@@ -114,7 +110,6 @@ __all__ = [
     "ScrollEvent",
     "Section",
     "Select",
-    "SelectOption",
     "Separator",
     "Slider",
     "Spinner",

@@ -33,12 +33,12 @@ pub use events::{
     CallbackEvent, ChangeEvent, ClickEvent, InitEvent, InputEvent, PopoverEvent, ScrollEvent,
     ToggleEvent, parse_callback_event, parse_init_event,
 };
-pub use protocol::{Icon, StatusItem};
+pub use protocol::StatusItem;
 pub use widgets::{
-    ActionItem, Align, Badge, BoxNode, Button, ButtonVariant, Card, Checkbox, Column, Copyable,
-    ContentFit, EmptyState, Expander, Grid, GridChild, Hero, Image, Item, Label, LevelBar,
+    ActionItem, Align, Badge, Button, ButtonVariant, Card, Checkbox, Column, Copyable,
+    ContentFit, EmptyState, Expander, Grid, GridChild, Hero, Icon, Item, Label, LevelBar,
     LevelBarMode, LinkButton, ListBox, MenuButton, Meter, Orientation, Overlay, PagerAppearance,
     PagerItem, PagerStrip, Picture, Progress, PropertyList, Row, Scroll, Section, Select,
-    SelectOption, Separator, Slider, Spinner, StatusDot, Switch, ToggleButton, TreeExpander,
+    Separator, Slider, Spinner, StatusDot, Switch, ToggleButton, TreeExpander,
     TreeNode, Variant,
 };

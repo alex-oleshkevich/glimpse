@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use glimpse_sdk::{
-    ActionItem, Applet, AppletResult, Badge, BoxNode, Button, ButtonVariant, CallbackEvent, Card,
+    ActionItem, Applet, AppletResult, Badge, Button, ButtonVariant, CallbackEvent, Card,
     Checkbox, Column, ContentFit, Copyable, EmptyState, Expander, Grid, GridChild, Hero, Icon,
-    Image, Label, LevelBar, LevelBarMode, LinkButton, ListBox, MenuButton, Meter, Orientation,
+    Label, LevelBar, LevelBarMode, LinkButton, ListBox, MenuButton, Meter, Orientation,
     Overlay, PagerItem, PagerStrip, Picture, Progress, PropertyList, Row, Scroll, Section, Select,
-    SelectOption, Separator, Slider, Spinner, StatusDot, StatusItem, Switch, ToggleButton,
+    Separator, Slider, Spinner, StatusDot, StatusItem, Switch, ToggleButton,
     TreeExpander, TreeNode, Variant, run, tree,
 };
 
@@ -61,7 +61,7 @@ impl Applet for WorkstationApplet {
         };
         Ok(vec![
             StatusItem::new("workstation")
-                .icon(Icon::name(icon))
+                .icon(icon)
                 .label(PROFILES[state.profile])
                 .tooltip(state.last_event.clone()),
         ])
@@ -79,11 +79,11 @@ impl Applet for WorkstationApplet {
                 .active(state.page == 3)
                 .urgent(state.cpu > 0.8),
         ]);
-        strip.common.id = Some("workspace-strip".into());
+        strip.id = Some("workspace-strip".into());
         strip.common.tooltip = Some("Scroll to switch pages".into());
 
         let mut vpn_dot = StatusDot::new();
-        vpn_dot.common.variant = Some(if state.vpn {
+        vpn_dot.variant = Some(if state.vpn {
             Variant::Success
         } else {
             Variant::Warning
@@ -97,8 +97,8 @@ impl Applet for WorkstationApplet {
         brightness.draw_value = true;
 
         let mut cpu_meter = Meter::new("CPU pressure", state.cpu, 1.0);
-        cpu_meter.common.id = Some("cpu-meter".into());
-        cpu_meter.icon = Some(Icon::name("utilities-system-monitor-symbolic"));
+        cpu_meter.id = Some("cpu-meter".into());
+        cpu_meter.icon = Some("utilities-system-monitor-symbolic".into());
         cpu_meter.step = 0.01;
         cpu_meter.text = Some(format!("{}%", (state.cpu * 100.0).round()));
         cpu_meter.interactive = true;
@@ -108,12 +108,12 @@ impl Applet for WorkstationApplet {
             PROFILES
                 .iter()
                 .enumerate()
-                .map(|(index, label)| SelectOption::new(index.to_string(), *label))
+                .map(|(index, label)| (index.to_string(), (*label).into()))
                 .collect(),
         );
         profile.selected = Some(state.profile as u32);
 
-        let mut info_icon = Image::new(Icon::name("dialog-information-symbolic"));
+        let mut info_icon = Icon::new("dialog-information-symbolic");
         info_icon.pixel_size = Some(20);
 
         Ok(Some(
@@ -126,7 +126,7 @@ impl Applet for WorkstationApplet {
                         "Popover is closing"
                     }
                 )
-                .icon(Icon::name("computer-symbolic")),
+                .icon("computer-symbolic"),
                 strip,
                 Grid::new(vec![
                     GridChild::new(
@@ -156,7 +156,7 @@ impl Applet for WorkstationApplet {
                 ]),
                 Section::new(
                     "Controls",
-                    tree![
+                    Some(Column::new(tree![
                         Row::new(tree![
                             Button::new("sync-now")
                                 .label("Sync")
@@ -189,12 +189,13 @@ impl Applet for WorkstationApplet {
                         .label("Menu")
                         .icon("open-menu-symbolic"),
                         profile,
-                    ]
+                    ])
+                    .into()),
                 )
                 .subtitle("Daily workstation settings"),
                 Section::new(
                     "Queue",
-                    tree![
+                    Some(Column::new(tree![
                         ActionItem::new("open-terminal", "Terminal session")
                             .icon("utilities-terminal-symbolic")
                             .sublabel(if state.vpn { "Secure session" } else { "Offline" })
@@ -212,9 +213,10 @@ impl Applet for WorkstationApplet {
                             .indent_for_depth(true)
                             .indent_for_icon(true),
                         background_jobs(state.backup),
-                    ]
+                    ])
+                    .into()),
                 ),
-                Card::new(tree![
+                Card::new(Some(Column::new(tree![
                     Row::new(tree![
                         Spinner::new().spinning(state.syncs % 2 == 0),
                         info_icon,
@@ -245,10 +247,11 @@ impl Applet for WorkstationApplet {
                         ),
                     ])
                     .title("Session"),
-                ]),
+                ])
+                .into())),
                 activity_area(state),
                 horizontal_separator(),
-                BoxNode::horizontal(tree![
+                Row::new(tree![
                     Badge::new("SDK"),
                     muted_label("All components covered"),
                 ])
@@ -346,13 +349,14 @@ impl Applet for WorkstationApplet {
 }
 
 fn metric_card(label: &str, value: String, icon_name: &str) -> TreeNode {
-    let mut icon = Image::new(Icon::name(icon_name));
+    let mut icon = Icon::new(icon_name);
     icon.pixel_size = Some(18);
     let ratio = value.trim_end_matches('%').parse::<f64>().unwrap_or(50.0) / 100.0;
-    Card::new(tree![
+    Card::new(Some(Column::new(tree![
         Row::new(tree![icon, Label::new(label)]).spacing(6),
         Progress::new(ratio).max(1.0).text(value).show_text(true),
     ])
+    .into()))
     .into()
 }
 
@@ -380,7 +384,7 @@ fn toggle_button(id: &str, label: &str, active: bool) -> ToggleButton {
 fn background_jobs(backup: bool) -> Section {
     Section::new(
         "Background jobs",
-        tree![
+        Some(Column::new(tree![
             Row::new(tree![Label::new("Index packages"), wrapped_label("Index packages")])
                 .spacing(8),
             Row::new(tree![
@@ -388,7 +392,8 @@ fn background_jobs(backup: bool) -> Section {
                 muted_label(if backup { "02:00" } else { "Paused" }),
             ])
             .spacing(8),
-        ],
+        ])
+        .into()),
     )
     .subtitle("Build, backup, and indexing")
 }
@@ -401,7 +406,7 @@ fn wrapped_label(text: &str) -> Label {
 
 fn muted_label(text: impl Into<String>) -> Label {
     let mut label = Label::new(text);
-    label.common.variant = Some(Variant::Muted);
+    label.variant = Some(Variant::Muted);
     label
 }
 

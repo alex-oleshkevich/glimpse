@@ -3,9 +3,8 @@ use relm4::{
     gtk::{self, glib, prelude::*},
 };
 
-use crate::applets::exec::{
-    protocol::{EventKind, EventPayload, EventSource, MouseButton, StatusItem as StatusItemModel},
-    renderer::apply_icon_to_image,
+use crate::applets::exec::protocol::{
+    EventKind, EventPayload, EventSource, MouseButton, StatusItem as StatusItemModel,
 };
 
 pub struct StatusItem {
@@ -163,7 +162,7 @@ impl SimpleComponent for StatusItem {
 impl StatusItem {
     fn apply_icon(&self) {
         match &self.item.icon {
-            Some(icon) => apply_icon_to_image(&self.image, icon),
+            Some(icon) => self.image.set_icon_name(Some(icon)),
             None => self.image.clear(),
         }
     }

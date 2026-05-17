@@ -22,14 +22,14 @@ use crate::components::{
 };
 
 use super::protocol::{
-    ActionItemNode, AlignValue, BadgeNode, BoxNode, ButtonNode, ButtonVariant, CardNode,
+    ActionItemNode, AlignValue, BadgeNode, ButtonNode, ButtonVariant, CardNode,
     CheckboxNode, CommonProps, ContentFitValue, CopyableNode, EmptyStateNode, EventKind,
-    EventPayload, EventSource, ExpanderNode, GridNode, HeroNode, Icon, IconNode, ImageNode,
+    EventPayload, EventSource, ExpanderNode, GridNode, HeroNode, IconNode,
     ItemNode, LabelNode, LayoutNode, LevelBarModeValue, LevelBarNode, LinkButtonNode, ListBoxNode,
     MenuButtonNode, MeterNode, OrientationValue, OverlayNode, PagerAppearanceValue, PagerItemNode,
     PagerStripNode, PictureNode, ProgressNode, PropertyListNode, ScrollNode, SectionNode,
     SelectNode, SeparatorNode, SliderNode, SpinnerNode, StatusNode, SwitchNode, ToggleButtonNode,
-    TreeExpanderNode, TreeNode,
+    TreeExpanderNode, TreeNode, Variant,
 };
 
 pub type EventSink = Rc<dyn Fn(EventPayload)>;
@@ -64,7 +64,6 @@ impl RenderCatalog {
             TreeNode::PagerItem(data) => Ok(self.render_pager_item(data).upcast()),
             TreeNode::PagerStrip(data) => Ok(self.render_pager_strip(data).upcast()),
             TreeNode::Spinner(data) => Ok(self.render_spinner(data).upcast()),
-            TreeNode::Box(data) => self.render_box(data),
             TreeNode::Grid(data) => self.render_grid(data),
             TreeNode::Scroll(data) => self.render_scroll(data),
             TreeNode::Overlay(data) => self.render_overlay(data),
@@ -74,7 +73,6 @@ impl RenderCatalog {
             TreeNode::Separator(data) => Ok(self.render_separator(data).upcast()),
             TreeNode::Label(data) => Ok(self.render_label(data).upcast()),
             TreeNode::Icon(data) => Ok(self.render_icon(data).upcast()),
-            TreeNode::Image(data) => Ok(self.render_image(data).upcast()),
             TreeNode::Picture(data) => Ok(self.render_picture(data).upcast()),
             TreeNode::Button(data) => self.render_button(data),
             TreeNode::LinkButton(data) => Ok(self.render_link_button(data).upcast()),
@@ -96,7 +94,26 @@ impl RenderCatalog {
         hero.subtitle.set_visible(!data.subtitle.is_empty());
         hero.icon.set_visible(data.icon.is_some());
         if let Some(icon) = &data.icon {
-            apply_icon_to_image(&hero.icon, icon);
+            hero.icon.set_icon_name(Some(icon.as_str()));
+        }
+        if let Some(active) = data.switch {
+            hero.trailing.set_visible(true);
+            hero.toggle.set_active(active);
+            if let Some(id) = data.id.clone().filter(|id| !id.is_empty()) {
+                let event = self.event.clone();
+                hero.toggle.connect_state_set(move |_, active| {
+                    event(EventPayload {
+                        id: id.clone(),
+                        kind: EventKind::Toggle,
+                        source: EventSource::Popover,
+                        button: None,
+                        active: Some(active),
+                        value: None,
+                        delta_y: None,
+                    });
+                    gtk::glib::Propagation::Proceed
+                });
+            }
         }
         apply_common_props(hero.as_ref(), &data.common);
         Ok(hero.as_ref().clone().upcast())
@@ -105,7 +122,7 @@ impl RenderCatalog {
     fn render_card(&self, data: &CardNode) -> Result<gtk::Widget, RenderError> {
         let card = CardSurface::init(());
         apply_common_props(card.as_ref(), &data.common);
-        for child in &data.children {
+        if let Some(child) = &data.child {
             card.body.append(&self.render(child)?);
         }
         Ok(card.as_ref().clone().upcast())
@@ -128,7 +145,7 @@ impl RenderCatalog {
         let body = gtk::Box::new(gtk::Orientation::Vertical, 0);
         body.add_css_class("section-block__body");
         body.add_css_class("section__body");
-        for child in &data.children {
+        if let Some(child) = &data.child {
             body.append(&self.render(child)?);
         }
         root.append(&body);
@@ -163,7 +180,7 @@ impl RenderCatalog {
         }
 
         if data.interactive {
-            let id = require_id("meter", &data.common)?;
+            let id = require_id("meter", data.id.as_deref().unwrap_or(""))?;
             let (min, max) = meter_bounds(data.min, data.max, data.step);
             let scale = gtk::Scale::with_range(
                 gtk::Orientation::Horizontal,
@@ -253,7 +270,8 @@ impl RenderCatalog {
         root.set_hexpand(false);
 
         let content = build_item_content(
-            &data.icon,
+            data.left.as_deref(),
+            self,
             &data.label,
             &data.sublabel,
             data.right.as_deref(),
@@ -265,7 +283,7 @@ impl RenderCatalog {
     }
 
     fn render_action_item(&self, data: &ActionItemNode) -> Result<gtk::Widget, RenderError> {
-        let id = require_id("action_item", &data.common)?;
+        let id = require_id("action_item", &data.id)?;
         let root = gtk::Button::new();
         root.add_css_class("flat");
         root.add_css_class("list-item");
@@ -275,7 +293,8 @@ impl RenderCatalog {
 
         let inert_renderer = RenderCatalog::new(Rc::new(|_| {}));
         let content = build_item_content(
-            &data.icon,
+            data.left.as_deref(),
+            &inert_renderer,
             &data.label,
             &data.sublabel,
             data.right.as_deref(),
@@ -300,6 +319,7 @@ impl RenderCatalog {
         let badge = BadgeView::init(());
         badge.set_label(&data.label);
         apply_common_props(badge.as_ref(), &data.common);
+        apply_variant(badge.as_ref(), data.variant);
         badge.as_ref().clone()
     }
 
@@ -307,12 +327,13 @@ impl RenderCatalog {
         let dot = StatusDotView::init(());
         dot.add_css_class("status");
         apply_common_props(dot.as_ref(), &data.common);
+        apply_variant(dot.as_ref(), data.variant);
         dot.as_ref().clone()
     }
 
     fn render_pager_item(&self, data: &PagerItemNode) -> gtk::Box {
         let item = static_pager_item(&pager_item_view(data));
-        if let Some(id) = data.common.id.clone().filter(|id| !id.is_empty()) {
+        if let Some(id) = data.id.clone().filter(|id| !id.is_empty()) {
             connect_widget_click(&item, self.event.clone(), id);
         }
         apply_common_props(&item, &data.common);
@@ -328,12 +349,15 @@ impl RenderCatalog {
                 break;
             };
             if let Ok(item_box) = widget.clone().downcast::<gtk::Box>() {
-                if let Some(id) = item.common.id.clone().filter(|id| !id.is_empty()) {
+                if let Some(id) = item.id.clone().filter(|id| !id.is_empty()) {
                     connect_widget_click(&item_box, self.event.clone(), id);
                 }
                 apply_common_props(&item_box, &item.common);
             }
             child = widget.next_sibling();
+        }
+        if let Some(id) = data.id.clone().filter(|id| !id.is_empty()) {
+            connect_widget_scroll(&strip, self.event.clone(), id);
         }
         apply_common_props(&strip, &data.common);
         strip
@@ -347,18 +371,6 @@ impl RenderCatalog {
         spinner
     }
 
-    fn render_box(&self, data: &BoxNode) -> Result<gtk::Widget, RenderError> {
-        let root = gtk::Box::new(to_orientation(data.orientation), data.spacing);
-        root.add_css_class(match data.orientation {
-            OrientationValue::Horizontal => "row",
-            OrientationValue::Vertical => "column",
-        });
-        apply_common_props(&root, &data.common);
-        for child in &data.children {
-            root.append(&self.render(child)?);
-        }
-        Ok(root.upcast())
-    }
 
     fn render_grid(&self, data: &GridNode) -> Result<gtk::Widget, RenderError> {
         let grid = gtk::Grid::new();
@@ -456,6 +468,7 @@ impl RenderCatalog {
             label.set_xalign(xalign);
         }
         apply_common_props(&label, &data.common);
+        apply_variant(&label, data.variant);
         label
     }
 
@@ -470,16 +483,6 @@ impl RenderCatalog {
         image
     }
 
-    fn render_image(&self, data: &ImageNode) -> gtk::Image {
-        let image = gtk::Image::new();
-        image.add_css_class("image");
-        if let Some(pixel_size) = data.pixel_size {
-            image.set_pixel_size(pixel_size);
-        }
-        apply_icon_to_image(&image, &data.icon);
-        apply_common_props(&image, &data.common);
-        image
-    }
 
     fn render_picture(&self, data: &PictureNode) -> gtk::Picture {
         let picture = gtk::Picture::for_filename(&data.path);
@@ -490,7 +493,7 @@ impl RenderCatalog {
     }
 
     fn render_button(&self, data: &ButtonNode) -> Result<gtk::Widget, RenderError> {
-        let id = require_id("button", &data.common)?;
+        let id = require_id("button", &data.id)?;
         let button = gtk::Button::new();
         button.add_css_class("button");
         apply_button_variant(&button, data.variant);
@@ -569,7 +572,7 @@ impl RenderCatalog {
     }
 
     fn render_switch(&self, data: &SwitchNode) -> Result<gtk::Widget, RenderError> {
-        let id = require_id("switch", &data.common)?;
+        let id = require_id("switch", &data.id)?;
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
         row.add_css_class("switch");
         apply_common_props(&row, &data.common);
@@ -599,7 +602,7 @@ impl RenderCatalog {
     }
 
     fn render_toggle_button(&self, data: &ToggleButtonNode) -> Result<gtk::Widget, RenderError> {
-        let id = require_id("toggle_button", &data.common)?;
+        let id = require_id("toggle_button", &data.id)?;
         let toggle = if let Some(label) = &data.label {
             gtk::ToggleButton::with_label(label)
         } else {
@@ -624,7 +627,7 @@ impl RenderCatalog {
     }
 
     fn render_checkbox(&self, data: &CheckboxNode) -> Result<gtk::Widget, RenderError> {
-        let id = require_id("checkbox", &data.common)?;
+        let id = require_id("checkbox", &data.id)?;
         let checkbox = if let Some(label) = &data.label {
             gtk::CheckButton::with_label(label)
         } else {
@@ -649,7 +652,7 @@ impl RenderCatalog {
     }
 
     fn render_slider(&self, data: &SliderNode) -> Result<gtk::Widget, RenderError> {
-        let id = require_id("slider", &data.common)?;
+        let id = require_id("slider", &data.id)?;
         let slider = gtk::Scale::with_range(
             to_orientation(data.orientation.unwrap_or(OrientationValue::Horizontal)),
             data.min,
@@ -676,7 +679,7 @@ impl RenderCatalog {
     }
 
     fn render_select(&self, data: &SelectNode) -> Result<gtk::Widget, RenderError> {
-        let id = require_id("select", &data.common)?;
+        let id = require_id("select", &data.id)?;
         let labels: Vec<&str> = data.items.iter().map(|item| item.label.as_str()).collect();
         let select = gtk::DropDown::from_strings(&labels);
         select.add_css_class("select");
@@ -721,11 +724,8 @@ impl std::fmt::Display for RenderError {
 
 impl std::error::Error for RenderError {}
 
-pub fn apply_icon_to_image(image: &gtk::Image, icon: &Icon) {
-    match icon {
-        Icon::Name { name } => image.set_icon_name(Some(name)),
-        Icon::Path { path } => image.set_from_file(Some(path)),
-    }
+pub fn apply_icon_to_image(image: &gtk::Image, icon: &str) {
+    image.set_icon_name(Some(icon));
 }
 
 fn progress_fraction(value: f64, max: f64) -> f64 {
@@ -753,7 +753,8 @@ fn meter_fraction(value: f64, min: f64, max: f64) -> f64 {
 }
 
 fn build_item_content(
-    icon: &str,
+    left_node: Option<&TreeNode>,
+    left_renderer: &RenderCatalog,
     label_text: &str,
     sublabel_text: &str,
     right_node: Option<&TreeNode>,
@@ -768,11 +769,9 @@ fn build_item_content(
     left.set_halign(gtk::Align::Start);
     left.set_valign(gtk::Align::Center);
     left.set_hexpand(false);
-    left.set_visible(!icon.is_empty());
-    if !icon.is_empty() {
-        let image = gtk::Image::from_icon_name(icon);
-        image.set_pixel_size(16);
-        left.append(&image);
+    left.set_visible(left_node.is_some());
+    if let Some(child) = left_node {
+        left.append(&left_renderer.render(child)?);
     }
     content.append(&left);
 
@@ -840,12 +839,29 @@ fn connect_widget_click(widget: &impl IsA<gtk::Widget>, event: EventSink, id: St
     widget.add_controller(click);
 }
 
-fn require_id(widget_type: &'static str, props: &CommonProps) -> Result<String, RenderError> {
-    props
-        .id
-        .clone()
-        .filter(|id| !id.is_empty())
-        .ok_or(RenderError::MissingId { widget_type })
+fn connect_widget_scroll(widget: &impl IsA<gtk::Widget>, event: EventSink, id: String) {
+    let scroll = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::VERTICAL);
+    scroll.connect_scroll(move |_, _, dy| {
+        event(EventPayload {
+            id: id.clone(),
+            kind: EventKind::Scroll,
+            source: EventSource::Popover,
+            button: None,
+            active: None,
+            value: None,
+            delta_y: Some(dy),
+        });
+        gtk::glib::Propagation::Stop
+    });
+    widget.add_controller(scroll);
+}
+
+fn require_id(widget_type: &'static str, id: &str) -> Result<String, RenderError> {
+    if id.is_empty() {
+        Err(RenderError::MissingId { widget_type })
+    } else {
+        Ok(id.to_owned())
+    }
 }
 
 fn apply_common_props(widget: &impl IsA<gtk::Widget>, props: &CommonProps) {
@@ -867,7 +883,13 @@ fn apply_common_props(widget: &impl IsA<gtk::Widget>, props: &CommonProps) {
     if let Some(tooltip) = &props.tooltip {
         widget.set_tooltip_text(Some(tooltip));
     }
-    if let Some(class_name) = props.variant.and_then(|variant| variant.class_name()) {
+    for class in &props.css_classes {
+        widget.add_css_class(class);
+    }
+}
+
+fn apply_variant(widget: &impl IsA<gtk::Widget>, variant: Option<Variant>) {
+    if let Some(class_name) = variant.and_then(|v| v.class_name()) {
         widget.add_css_class(class_name);
     }
 }
@@ -1008,6 +1030,7 @@ mod tests {
         let renderer = RenderCatalog::new(Rc::new(|_| {}));
         let result = renderer.render(&TreeNode::Button(ButtonNode {
             common: CommonProps::default(),
+            id: String::new(),
             label: Some("Run".into()),
             icon: None,
             enabled: true,
@@ -1031,6 +1054,7 @@ mod tests {
         let renderer = RenderCatalog::new(Rc::new(|_| {}));
         let result = renderer.render(&TreeNode::Meter(MeterNode {
             common: CommonProps::default(),
+            id: None,
             icon: None,
             label: "Volume".into(),
             value: 0.5,
@@ -1059,12 +1083,17 @@ mod tests {
         let item = renderer
             .render(&TreeNode::Item(ItemNode {
                 common: CommonProps::default(),
-                icon: "network-wireless-symbolic".into(),
+                left: Some(Box::new(TreeNode::Icon(IconNode {
+                    common: CommonProps::default(),
+                    icon: "network-wireless-symbolic".into(),
+                    pixel_size: Some(16),
+                }))),
                 label: "Wi-Fi".into(),
                 sublabel: "Connected".into(),
                 right: Some(Box::new(TreeNode::Badge(BadgeNode {
                     common: CommonProps::default(),
                     label: "home-5G".into(),
+                    variant: None,
                 }))),
             }))
             .expect("item should render")
@@ -1126,19 +1155,19 @@ mod tests {
         let renderer = RenderCatalog::new(event_sink);
         let action_item = renderer
             .render(&TreeNode::ActionItem(ActionItemNode {
-                common: CommonProps {
-                    id: Some("wifi".into()),
-                    ..CommonProps::default()
-                },
-                icon: "network-wireless-symbolic".into(),
+                common: CommonProps::default(),
+                id: "wifi".into(),
+                left: Some(Box::new(TreeNode::Icon(IconNode {
+                    common: CommonProps::default(),
+                    icon: "network-wireless-symbolic".into(),
+                    pixel_size: Some(16),
+                }))),
                 label: "Wi-Fi".into(),
                 sublabel: "Connected".into(),
                 enabled: true,
                 right: Some(Box::new(TreeNode::Button(ButtonNode {
-                    common: CommonProps {
-                        id: Some("nested".into()),
-                        ..CommonProps::default()
-                    },
+                    common: CommonProps::default(),
+                    id: "nested".into(),
                     label: None,
                     icon: Some("go-next-symbolic".into()),
                     enabled: true,
@@ -1239,6 +1268,7 @@ mod tests {
                     wrap: false,
                     xalign: None,
                     selectable: false,
+                    variant: None,
                 })),
             }))
             .expect("expander should render")
@@ -1271,10 +1301,12 @@ mod tests {
                     wrap: false,
                     xalign: None,
                     selectable: false,
+                    variant: None,
                 })),
                 overlays: vec![TreeNode::Badge(BadgeNode {
                     common: CommonProps::default(),
                     label: "Top".into(),
+                    variant: None,
                 })],
             }))
             .expect("overlay should render")
@@ -1313,10 +1345,12 @@ mod tests {
                         wrap: false,
                         xalign: None,
                         selectable: false,
+                        variant: None,
                     }),
                     TreeNode::Badge(BadgeNode {
                         common: CommonProps::default(),
                         label: "Second".into(),
+                        variant: None,
                     }),
                 ],
             }))
@@ -1389,6 +1423,7 @@ mod tests {
                     wrap: false,
                     xalign: None,
                     selectable: false,
+                    variant: None,
                 })),
                 hide_expander: true,
                 indent_for_depth: true,
@@ -1427,6 +1462,7 @@ mod tests {
                     wrap: false,
                     xalign: None,
                     selectable: false,
+                    variant: None,
                 })),
             }))
             .expect("menu button should render")
@@ -1460,10 +1496,8 @@ mod tests {
         let renderer = RenderCatalog::new(event_sink);
         let toggle = renderer
             .render(&TreeNode::ToggleButton(ToggleButtonNode {
-                common: CommonProps {
-                    id: Some("wifi".into()),
-                    ..CommonProps::default()
-                },
+                common: CommonProps::default(),
+                id: "wifi".into(),
                 label: Some("Wi-Fi".into()),
                 active: false,
             }))

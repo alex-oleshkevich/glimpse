@@ -9,7 +9,6 @@ from glimpse_sdk import (
     Button,
     ButtonVariant,
     Hero,
-    Icon,
     Label,
     StatusItem,
     click,
@@ -29,7 +28,7 @@ class CounterApplet(Applet[CounterState]):
         return [
             StatusItem(
                 id="counter",
-                icon=Icon.name("view-refresh-symbolic"),
+                icon="view-refresh-symbolic",
                 label=str(state.count),
             )
         ]
@@ -38,7 +37,7 @@ class CounterApplet(Applet[CounterState]):
         return Box.vertical(
             [
                 Hero(
-                    icon=Icon.name("view-refresh-symbolic"),
+                    icon="view-refresh-symbolic",
                     title="Counter",
                     subtitle=f"Value: {state.count}",
                 ),

@@ -13,7 +13,6 @@ import { join, resolve } from "node:path";
 import {
   ActionItem,
   Badge,
-  Box,
   Button,
   Card,
   Checkbox,
@@ -25,7 +24,6 @@ import {
   GridChild,
   Hero,
   Icon,
-  Image,
   Item,
   Label,
   LevelBar,
@@ -44,7 +42,6 @@ import {
   Scroll,
   Section,
   Select,
-  SelectOption,
   Separator,
   Slider,
   Spinner,
@@ -190,7 +187,7 @@ test("widget select", () => {
     "select",
     new Select({
       id: "env",
-      items: [new SelectOption("prod", "Production"), new SelectOption("stage", "Staging")],
+      items: [{ id: "prod", label: "Production" }, { id: "stage", label: "Staging" }],
       selected: 0,
     }),
   );
@@ -215,7 +212,14 @@ test("widget hero-basic", () => {
 test("widget hero-with-icon", () => {
   assertWidget(
     "hero-with-icon",
-    new Hero({ title: "VPN", subtitle: "Connected", icon: Icon.name("network-vpn-symbolic") }),
+    new Hero({ title: "VPN", subtitle: "Connected", icon: "network-vpn-symbolic" }),
+  );
+});
+
+test("widget hero-with-switch", () => {
+  assertWidget(
+    "hero-with-switch",
+    new Hero({ title: "VPN", subtitle: "Connected", id: "vpn-toggle", switch: true }),
   );
 });
 
@@ -266,15 +270,8 @@ test("widget pager-strip", () => {
   );
 });
 
-test("widget image-by-name", () => {
-  assertWidget("image-by-name", new Image(Icon.name("user-info-symbolic")));
-});
-
-test("widget image-by-path", () => {
-  assertWidget(
-    "image-by-path",
-    new Image(Icon.path("/home/me/avatar.png"), { pixel_size: 64 }),
-  );
+test("widget icon-by-name", () => {
+  assertWidget("icon-by-name", new Icon("user-info-symbolic"));
 });
 
 test("widget picture", () => {
@@ -287,14 +284,6 @@ test("widget picture-content-fit", () => {
 
 test("widget separator", () => {
   assertWidget("separator", new Separator());
-});
-
-test("widget box-vertical", () => {
-  assertWidget("box-vertical", Box.vertical([], 8));
-});
-
-test("widget box-horizontal", () => {
-  assertWidget("box-horizontal", Box.horizontal([], 4));
 });
 
 test("widget row", () => {
@@ -324,22 +313,22 @@ test("widget scroll", () => {
 });
 
 test("widget card", () => {
-  assertWidget("card", new Card({ children: [new Label("in card")] }));
+  assertWidget("card", new Card({ child: new Label("in card") }));
 });
 
 test("widget card-empty", () => {
-  assertWidget("card-empty", new Card({ children: [] }));
+  assertWidget("card-empty", new Card());
 });
 
 test("widget section-basic", () => {
   assertWidget(
     "section-basic",
-    new Section({ title: "System", children: [new Label("uptime")] }),
+    new Section({ title: "System", child: new Label("uptime") }),
   );
 });
 
 test("widget section-empty-children", () => {
-  assertWidget("section-empty-children", new Section({ title: "Empty", children: [] }));
+  assertWidget("section-empty-children", new Section({ title: "Empty" }));
 });
 
 test("widget property-list", () => {
@@ -424,7 +413,7 @@ test("widget meter-interactive", () => {
     "meter-interactive",
     new Meter({
       id: "volume",
-      icon: Icon.name("audio-volume-medium-symbolic"),
+      icon: "audio-volume-medium-symbolic",
       label: "Volume",
       value: 0.42,
       min: 0,
@@ -444,7 +433,6 @@ test("widget common-props-all", () => {
   assertWidget(
     "common-props-all",
     new Label("marked", {
-      id: "marked",
       visible: false,
       hexpand: true,
       vexpand: true,
@@ -465,7 +453,9 @@ test("widget tree-hero-column-section", () => {
         new Hero({ title: "Counter", subtitle: "Value: 0" }),
         new Section({
           title: "Controls",
-          children: [new Label("Current"), new Button({ id: "increment", label: "Increment" })],
+          child: new Column({
+            children: [new Label("Current"), new Button({ id: "increment", label: "Increment" })],
+          }),
         }),
       ],
     }),
@@ -476,16 +466,14 @@ test("widget tree-card-with-grid", () => {
   assertWidget(
     "tree-card-with-grid",
     new Card({
-      children: [
-        new Grid({
-          row_spacing: 4,
-          column_spacing: 8,
-          children: [
-            new GridChild(0, 0, new Label("K")),
-            new GridChild(0, 1, new Badge({ label: "V" })),
-          ],
-        }),
-      ],
+      child: new Grid({
+        row_spacing: 4,
+        column_spacing: 8,
+        children: [
+          new GridChild(0, 0, new Label("K")),
+          new GridChild(0, 1, new Badge({ label: "V" })),
+        ],
+      }),
     }),
   );
 });

@@ -9,10 +9,10 @@ use std::fs;
 use std::path::PathBuf;
 
 use glimpse_sdk::{
-    ActionItem, Align, Badge, BoxNode, Button, ButtonVariant, CallbackEvent, Card, Checkbox, Column,
-    ContentFit, Copyable, EmptyState, Expander, Grid, GridChild, Hero, Icon, Image, Item, Label,
+    ActionItem, Align, Badge, Button, ButtonVariant, CallbackEvent, Card, Checkbox, Column,
+    ContentFit, Copyable, EmptyState, Expander, Grid, GridChild, Hero, Icon, Item, Label,
     LevelBar, LevelBarMode, LinkButton, ListBox, MenuButton, Meter, Overlay, PagerItem, PagerStrip,
-    Picture, Progress, PropertyList, Row, Scroll, Section, Select, SelectOption, Separator, Slider,
+    Picture, Progress, PropertyList, Row, Scroll, Section, Select, Separator, Slider,
     Spinner, StatusDot, Switch, ToggleButton, TreeExpander, TreeNode, Variant, parse_callback_event,
     tree,
 };
@@ -226,8 +226,8 @@ fn widget_select() {
     let mut d = Select::new(
         "env",
         vec![
-            SelectOption::new("prod", "Production"),
-            SelectOption::new("stage", "Staging"),
+            ("prod".into(), "Production".into()),
+            ("stage".into(), "Staging".into()),
         ],
     );
     d.selected = Some(0);
@@ -246,9 +246,10 @@ fn widget_badge() {
 
 #[test]
 fn widget_badge_success_variant() {
-    let mut b = Badge::new("OK");
-    b.common.variant = Some(Variant::Success);
-    assert_widget("badge-success-variant", b.into());
+    assert_widget(
+        "badge-success-variant",
+        Badge::new("OK").variant(Variant::Success).into(),
+    );
 }
 
 #[test]
@@ -261,7 +262,18 @@ fn widget_hero_with_icon() {
     assert_widget(
         "hero-with-icon",
         Hero::new("VPN", "Connected")
-            .icon(Icon::name("network-vpn-symbolic"))
+            .icon("network-vpn-symbolic")
+            .into(),
+    );
+}
+
+#[test]
+fn widget_hero_with_switch() {
+    assert_widget(
+        "hero-with-switch",
+        Hero::new("VPN", "Connected")
+            .id("vpn-toggle")
+            .switch(true)
             .into(),
     );
 }
@@ -300,9 +312,10 @@ fn widget_status_dot() {
 
 #[test]
 fn widget_status_dot_warning() {
-    let mut dot = StatusDot::new();
-    dot.common.variant = Some(Variant::Warning);
-    assert_widget("status-dot-warning", dot.into());
+    assert_widget(
+        "status-dot-warning",
+        StatusDot::new().variant(Variant::Warning).into(),
+    );
 }
 
 #[test]
@@ -327,18 +340,11 @@ fn widget_pager_strip() {
 }
 
 #[test]
-fn widget_image_by_name() {
+fn widget_icon_by_name() {
     assert_widget(
-        "image-by-name",
-        Image::new(Icon::name("user-info-symbolic")).into(),
+        "icon-by-name",
+        Icon::new("user-info-symbolic").into(),
     );
-}
-
-#[test]
-fn widget_image_by_path() {
-    let mut img = Image::new(Icon::path("/home/me/avatar.png"));
-    img.pixel_size = Some(64);
-    assert_widget("image-by-path", img.into());
 }
 
 #[test]
@@ -359,19 +365,6 @@ fn widget_picture_content_fit() {
 #[test]
 fn widget_separator() {
     assert_widget("separator", Separator::new().into());
-}
-
-#[test]
-fn widget_box_vertical() {
-    assert_widget("box-vertical", BoxNode::vertical(vec![]).spacing(8).into());
-}
-
-#[test]
-fn widget_box_horizontal() {
-    assert_widget(
-        "box-horizontal",
-        BoxNode::horizontal(vec![]).spacing(4).into(),
-    );
 }
 
 #[test]
@@ -406,19 +399,19 @@ fn widget_scroll() {
 
 #[test]
 fn widget_card() {
-    assert_widget("card", Card::new(vec![Label::new("in card").into()]).into());
+    assert_widget("card", Card::new(Some(Label::new("in card").into())).into());
 }
 
 #[test]
 fn widget_card_empty() {
-    assert_widget("card-empty", Card::new(vec![]).into());
+    assert_widget("card-empty", Card::new(None).into());
 }
 
 #[test]
 fn widget_section_basic() {
     assert_widget(
         "section-basic",
-        Section::new("System", vec![Label::new("uptime").into()]).into(),
+        Section::new("System", Some(Label::new("uptime").into())).into(),
     );
 }
 
@@ -426,7 +419,7 @@ fn widget_section_basic() {
 fn widget_section_empty_children() {
     assert_widget(
         "section-empty-children",
-        Section::new("Empty", vec![]).into(),
+        Section::new("Empty", None).into(),
     );
 }
 
@@ -509,9 +502,8 @@ fn widget_meter() {
 
 #[test]
 fn widget_meter_interactive() {
-    let mut m = Meter::new("Volume", 0.42, 1.0);
-    m.common.id = Some("volume".into());
-    m.icon = Some(Icon::name("audio-volume-medium-symbolic"));
+    let mut m = Meter::new("Volume", 0.42, 1.0).id("volume");
+    m.icon = Some("audio-volume-medium-symbolic".into());
     m.text = Some("42%".into());
     m.interactive = true;
     assert_widget("meter-interactive", m.into());
@@ -524,15 +516,13 @@ fn widget_copyable() {
 
 #[test]
 fn widget_common_props_all() {
-    let mut label = Label::new("marked");
-    label.common.id = Some("marked".into());
+    let mut label = Label::new("marked").variant(Variant::Warning);
     label.common.visible = Some(false);
     label.common.hexpand = Some(true);
     label.common.vexpand = Some(true);
     label.common.halign = Some(Align::Center);
     label.common.valign = Some(Align::End);
     label.common.tooltip = Some("details".into());
-    label.common.variant = Some(Variant::Warning);
     assert_widget("common-props-all", label.into());
 }
 
@@ -543,10 +533,13 @@ fn widget_tree_hero_column_section() {
         Hero::new("Counter", "Value: 0"),
         Section::new(
             "Controls",
-            tree![
-                Label::new("Current"),
-                Button::new("increment").label("Increment"),
-            ],
+            Some(
+                Column::new(tree![
+                    Label::new("Current"),
+                    Button::new("increment").label("Increment"),
+                ])
+                .into(),
+            ),
         ),
     ])
     .spacing(8);
@@ -564,7 +557,7 @@ fn widget_tree_card_with_grid() {
         g.column_spacing = 8;
         g
     };
-    let card = Card::new(vec![grid.into()]);
+    let card = Card::new(Some(grid.into()));
     assert_widget("tree-card-with-grid", card.into());
 }
 

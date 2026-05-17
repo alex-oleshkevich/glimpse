@@ -2,7 +2,6 @@
   "data": {
     "halign": "center",
     "hexpand": true,
-    "id": "marked",
     "text": "marked",
     "tooltip": "details",
     "valign": "end",

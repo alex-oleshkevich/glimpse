@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, BoxNode, Button, ButtonVariant, CallbackEvent, Hero, Icon, Label,
+    Applet, AppletResult, Button, ButtonVariant, CallbackEvent, Column, Hero, Label,
     StatusItem, TreeNode, run, tree,
 };
 
@@ -18,16 +18,16 @@ impl Applet for CounterApplet {
     async fn status(&self, state: &Self::State) -> AppletResult<Vec<StatusItem>> {
         Ok(vec![
             StatusItem::new("counter")
-                .icon(Icon::name("view-refresh-symbolic"))
+                .icon("view-refresh-symbolic")
                 .label(state.count.to_string()),
         ])
     }
 
     async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode>> {
         Ok(Some(
-            BoxNode::vertical(tree![
+            Column::new(tree![
                 Hero::new("Counter", format!("Value: {}", state.count))
-                    .icon(Icon::name("view-refresh-symbolic")),
+                    .icon("view-refresh-symbolic"),
                 Label::new(format!("Count = {}", state.count)),
                 Button::new("increment")
                     .label("Increment")

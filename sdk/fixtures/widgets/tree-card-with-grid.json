@@ -1,40 +1,38 @@
 {
   "data": {
-    "children": [
-      {
-        "data": {
-          "children": [
-            {
-              "child": {
-                "data": {
-                  "text": "K"
-                },
-                "type": "label"
+    "child": {
+      "data": {
+        "children": [
+          {
+            "child": {
+              "data": {
+                "text": "K"
               },
-              "column": 0,
-              "height": 1,
-              "row": 0,
-              "width": 1
+              "type": "label"
             },
-            {
-              "child": {
-                "data": {
-                  "label": "V"
-                },
-                "type": "badge"
+            "column": 0,
+            "height": 1,
+            "row": 0,
+            "width": 1
+          },
+          {
+            "child": {
+              "data": {
+                "label": "V"
               },
-              "column": 1,
-              "height": 1,
-              "row": 0,
-              "width": 1
-            }
-          ],
-          "column_spacing": 8,
-          "row_spacing": 4
-        },
-        "type": "grid"
-      }
-    ]
+              "type": "badge"
+            },
+            "column": 1,
+            "height": 1,
+            "row": 0,
+            "width": 1
+          }
+        ],
+        "column_spacing": 8,
+        "row_spacing": 4
+      },
+      "type": "grid"
+    }
   },
   "type": "card"
 }

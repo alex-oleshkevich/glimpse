@@ -1,13 +1,11 @@
 {
   "data": {
-    "children": [
-      {
-        "data": {
-          "text": "in card"
-        },
-        "type": "label"
-      }
-    ]
+    "child": {
+      "data": {
+        "text": "in card"
+      },
+      "type": "label"
+    }
   },
   "type": "card"
 }

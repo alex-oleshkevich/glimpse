@@ -10,21 +10,27 @@
       },
       {
         "data": {
-          "children": [
-            {
-              "data": {
-                "text": "Current"
-              },
-              "type": "label"
+          "child": {
+            "data": {
+              "children": [
+                {
+                  "data": {
+                    "text": "Current"
+                  },
+                  "type": "label"
+                },
+                {
+                  "data": {
+                    "id": "increment",
+                    "label": "Increment"
+                  },
+                  "type": "button"
+                }
+              ],
+              "spacing": 0
             },
-            {
-              "data": {
-                "id": "increment",
-                "label": "Increment"
-              },
-              "type": "button"
-            }
-          ],
+            "type": "column"
+          },
           "title": "Controls"
         },
         "type": "section"

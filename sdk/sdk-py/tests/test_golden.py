@@ -16,7 +16,6 @@ from glimpse_sdk import (
     ActionItem,
     Align,
     Badge,
-    Box,
     Button,
     ButtonVariant,
     Card,
@@ -29,7 +28,6 @@ from glimpse_sdk import (
     GridChild,
     Hero,
     Icon,
-    Image,
     Item,
     Label,
     LevelBar,
@@ -49,7 +47,6 @@ from glimpse_sdk import (
     Scroll,
     Section,
     Select,
-    SelectOption,
     Separator,
     Slider,
     Spinner,
@@ -198,8 +195,8 @@ class GoldenWidgetTests(unittest.TestCase):
             Select(
                 id="env",
                 items=[
-                    SelectOption(id="prod", label="Production"),
-                    SelectOption(id="stage", label="Staging"),
+                    {"id": "prod", "label": "Production"},
+                    {"id": "stage", "label": "Staging"},
                 ],
                 selected=0,
             ),
@@ -222,7 +219,13 @@ class GoldenWidgetTests(unittest.TestCase):
     def test_hero_with_icon(self) -> None:
         self._assert_widget(
             "hero-with-icon",
-            Hero(title="VPN", subtitle="Connected", icon=Icon.name("network-vpn-symbolic")),
+            Hero(title="VPN", subtitle="Connected", icon="network-vpn-symbolic"),
+        )
+
+    def test_hero_with_switch(self) -> None:
+        self._assert_widget(
+            "hero-with-switch",
+            Hero(title="VPN", subtitle="Connected", id="vpn-toggle", switch=True),
         )
 
     def test_progress(self) -> None:
@@ -283,13 +286,8 @@ class GoldenWidgetTests(unittest.TestCase):
             ),
         )
 
-    def test_image_by_name(self) -> None:
-        self._assert_widget("image-by-name", Image(icon=Icon.name("user-info-symbolic")))
-
-    def test_image_by_path(self) -> None:
-        self._assert_widget(
-            "image-by-path", Image(icon=Icon.path("/home/me/avatar.png"), pixel_size=64)
-        )
+    def test_icon_by_name(self) -> None:
+        self._assert_widget("icon-by-name", Icon(icon="user-info-symbolic"))
 
     def test_picture(self) -> None:
         self._assert_widget("picture", Picture(path="/home/me/photo.png"))
@@ -302,12 +300,6 @@ class GoldenWidgetTests(unittest.TestCase):
 
     def test_separator(self) -> None:
         self._assert_widget("separator", Separator())
-
-    def test_box_vertical(self) -> None:
-        self._assert_widget("box-vertical", Box.vertical([], spacing=8))
-
-    def test_box_horizontal(self) -> None:
-        self._assert_widget("box-horizontal", Box.horizontal([], spacing=4))
 
     def test_row(self) -> None:
         self._assert_widget("row", Row(spacing=8))
@@ -332,7 +324,7 @@ class GoldenWidgetTests(unittest.TestCase):
         self._assert_widget("scroll", Scroll(child=Label(text="scrollable")))
 
     def test_card(self) -> None:
-        self._assert_widget("card", Card(children=[Label(text="in card")]))
+        self._assert_widget("card", Card(child=Label(text="in card")))
 
     def test_card_empty(self) -> None:
         self._assert_widget("card-empty", Card())
@@ -340,7 +332,7 @@ class GoldenWidgetTests(unittest.TestCase):
     def test_section_basic(self) -> None:
         self._assert_widget(
             "section-basic",
-            Section(title="System", children=[Label(text="uptime")]),
+            Section(title="System", child=Label(text="uptime")),
         )
 
     def test_section_empty_children(self) -> None:
@@ -407,7 +399,7 @@ class GoldenWidgetTests(unittest.TestCase):
             "meter-interactive",
             Meter(
                 id="volume",
-                icon=Icon.name("audio-volume-medium-symbolic"),
+                icon="audio-volume-medium-symbolic",
                 label="Volume",
                 value=0.42,
                 max=1.0,
@@ -424,7 +416,6 @@ class GoldenWidgetTests(unittest.TestCase):
             "common-props-all",
             Label(
                 text="marked",
-                id="marked",
                 visible=False,
                 hexpand=True,
                 vexpand=True,
@@ -444,10 +435,12 @@ class GoldenWidgetTests(unittest.TestCase):
                     Hero(title="Counter", subtitle="Value: 0"),
                     Section(
                         title="Controls",
-                        children=[
-                            Label(text="Current"),
-                            Button(id="increment", label="Increment"),
-                        ],
+                        child=Column(
+                            children=[
+                                Label(text="Current"),
+                                Button(id="increment", label="Increment"),
+                            ]
+                        ),
                     ),
                 ],
             ),
@@ -457,16 +450,14 @@ class GoldenWidgetTests(unittest.TestCase):
         self._assert_widget(
             "tree-card-with-grid",
             Card(
-                children=[
-                    Grid(
-                        row_spacing=4,
-                        column_spacing=8,
-                        children=[
-                            GridChild(row=0, column=0, child=Label(text="K")),
-                            GridChild(row=0, column=1, child=Badge(label="V")),
-                        ],
-                    )
-                ]
+                child=Grid(
+                    row_spacing=4,
+                    column_spacing=8,
+                    children=[
+                        GridChild(row=0, column=0, child=Label(text="K")),
+                        GridChild(row=0, column=1, child=Badge(label="V")),
+                    ],
+                )
             ),
         )
 

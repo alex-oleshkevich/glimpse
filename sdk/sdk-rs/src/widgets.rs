@@ -1,7 +1,5 @@
 use serde::Serialize;
 
-use crate::protocol::Icon;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Align {
@@ -70,8 +68,6 @@ pub enum LevelBarMode {
 #[derive(Debug, Clone, PartialEq, Serialize, Default)]
 pub struct CommonProps {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub visible: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hexpand: Option<bool>,
@@ -83,15 +79,15 @@ pub struct CommonProps {
     pub valign: Option<Align>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tooltip: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub variant: Option<Variant>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub css_classes: Vec<String>,
 }
 
 macro_rules! with_common {
     ($name:ident) => {
         impl $name {
-            pub fn id(mut self, id: impl Into<String>) -> Self {
-                self.common.id = Some(id.into());
+            pub fn css_class(mut self, class: impl Into<String>) -> Self {
+                self.common.css_classes.push(class.into());
                 self
             }
         }
@@ -109,6 +105,8 @@ pub struct Label {
     pub xalign: Option<f32>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub selectable: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub variant: Option<Variant>,
 }
 
 impl Label {
@@ -119,32 +117,38 @@ impl Label {
             wrap: false,
             xalign: None,
             selectable: false,
+            variant: None,
         }
+    }
+
+    pub fn variant(mut self, variant: Variant) -> Self {
+        self.variant = Some(variant);
+        self
     }
 }
 
 with_common!(Label);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Image {
+pub struct Icon {
     #[serde(flatten)]
     pub common: CommonProps,
-    pub icon: Icon,
+    pub icon: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pixel_size: Option<i32>,
 }
 
-impl Image {
-    pub fn new(icon: Icon) -> Self {
+impl Icon {
+    pub fn new(icon: impl Into<String>) -> Self {
         Self {
             common: CommonProps::default(),
-            icon,
+            icon: icon.into(),
             pixel_size: None,
         }
     }
 }
 
-with_common!(Image);
+with_common!(Icon);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Picture {
@@ -174,6 +178,7 @@ with_common!(Picture);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Button {
+    pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -189,10 +194,8 @@ pub struct Button {
 impl Button {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
-            common: CommonProps {
-                id: Some(id.into()),
-                ..CommonProps::default()
-            },
+            id: id.into(),
+            common: CommonProps::default(),
             label: None,
             icon: None,
             enabled: None,
@@ -356,6 +359,7 @@ with_common!(MenuButton);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Switch {
+    pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -366,10 +370,8 @@ pub struct Switch {
 impl Switch {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
-            common: CommonProps {
-                id: Some(id.into()),
-                ..CommonProps::default()
-            },
+            id: id.into(),
+            common: CommonProps::default(),
             label: None,
             active: false,
         }
@@ -380,6 +382,7 @@ with_common!(Switch);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ToggleButton {
+    pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -390,10 +393,8 @@ pub struct ToggleButton {
 impl ToggleButton {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
-            common: CommonProps {
-                id: Some(id.into()),
-                ..CommonProps::default()
-            },
+            id: id.into(),
+            common: CommonProps::default(),
             label: None,
             active: false,
         }
@@ -404,6 +405,7 @@ with_common!(ToggleButton);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Slider {
+    pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
     pub min: f64,
@@ -419,10 +421,8 @@ pub struct Slider {
 impl Slider {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
-            common: CommonProps {
-                id: Some(id.into()),
-                ..CommonProps::default()
-            },
+            id: id.into(),
+            common: CommonProps::default(),
             min: 0.0,
             max: 1.0,
             step: 0.1,
@@ -437,6 +437,7 @@ with_common!(Slider);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Checkbox {
+    pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -447,10 +448,8 @@ pub struct Checkbox {
 impl Checkbox {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
-            common: CommonProps {
-                id: Some(id.into()),
-                ..CommonProps::default()
-            },
+            id: id.into(),
+            common: CommonProps::default(),
             label: None,
             active: false,
         }
@@ -459,37 +458,34 @@ impl Checkbox {
 
 with_common!(Checkbox);
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct SelectOption {
-    pub id: String,
-    pub label: String,
-}
-
-impl SelectOption {
-    pub fn new(id: impl Into<String>, label: impl Into<String>) -> Self {
-        Self {
-            id: id.into(),
-            label: label.into(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Select {
+    pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
-    pub items: Vec<SelectOption>,
+    #[serde(serialize_with = "serialize_select_items")]
+    pub items: Vec<(String, String)>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub selected: Option<u32>,
 }
 
+fn serialize_select_items<S>(items: &[(String, String)], s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    use serde::ser::SerializeSeq;
+    let mut seq = s.serialize_seq(Some(items.len()))?;
+    for (id, label) in items {
+        seq.serialize_element(&serde_json::json!({"id": id, "label": label}))?;
+    }
+    seq.end()
+}
+
 impl Select {
-    pub fn new(id: impl Into<String>, items: Vec<SelectOption>) -> Self {
+    pub fn new(id: impl Into<String>, items: Vec<(String, String)>) -> Self {
         Self {
-            common: CommonProps {
-                id: Some(id.into()),
-                ..CommonProps::default()
-            },
+            id: id.into(),
+            common: CommonProps::default(),
             items,
             selected: None,
         }
@@ -665,48 +661,17 @@ impl Grid {
 
 with_common!(Grid);
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct BoxNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub orientation: Orientation,
-    pub spacing: i32,
-    pub children: Vec<TreeNode>,
-}
-
-impl BoxNode {
-    pub fn vertical(children: Vec<TreeNode>) -> Self {
-        Self {
-            common: CommonProps::default(),
-            orientation: Orientation::Vertical,
-            spacing: 0,
-            children,
-        }
-    }
-
-    pub fn horizontal(children: Vec<TreeNode>) -> Self {
-        Self {
-            common: CommonProps::default(),
-            orientation: Orientation::Horizontal,
-            spacing: 0,
-            children,
-        }
-    }
-
-    pub fn spacing(mut self, spacing: i32) -> Self {
-        self.spacing = spacing;
-        self
-    }
-}
-
-with_common!(BoxNode);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Hero {
     pub title: String,
     pub subtitle: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub icon: Option<Icon>,
+    pub icon: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub switch: Option<bool>,
     #[serde(flatten)]
     pub common: CommonProps,
 }
@@ -717,12 +682,24 @@ impl Hero {
             title: title.into(),
             subtitle: subtitle.into(),
             icon: None,
+            id: None,
+            switch: None,
             common: CommonProps::default(),
         }
     }
 
-    pub fn icon(mut self, icon: Icon) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<String>) -> Self {
+        self.icon = Some(icon.into());
+        self
+    }
+
+    pub fn id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
+    }
+
+    pub fn switch(mut self, active: bool) -> Self {
+        self.switch = Some(active);
         self
     }
 }
@@ -774,14 +751,15 @@ with_common!(Progress);
 pub struct Card {
     #[serde(flatten)]
     pub common: CommonProps,
-    pub children: Vec<TreeNode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub child: Option<Box<TreeNode>>,
 }
 
 impl Card {
-    pub fn new(children: Vec<TreeNode>) -> Self {
+    pub fn new(child: Option<TreeNode>) -> Self {
         Self {
             common: CommonProps::default(),
-            children,
+            child: child.map(Box::new),
         }
     }
 }
@@ -795,16 +773,17 @@ pub struct Section {
     pub title: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub subtitle: String,
-    pub children: Vec<TreeNode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub child: Option<Box<TreeNode>>,
 }
 
 impl Section {
-    pub fn new(title: impl Into<String>, children: Vec<TreeNode>) -> Self {
+    pub fn new(title: impl Into<String>, child: Option<TreeNode>) -> Self {
         Self {
             common: CommonProps::default(),
             title: title.into(),
             subtitle: String::new(),
-            children,
+            child: child.map(Box::new),
         }
     }
 
@@ -818,10 +797,12 @@ with_common!(Section);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Meter {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub icon: Option<Icon>,
+    pub icon: Option<String>,
     pub label: String,
     pub value: f64,
     pub min: f64,
@@ -835,6 +816,7 @@ pub struct Meter {
 impl Meter {
     pub fn new(label: impl Into<String>, value: f64, max: f64) -> Self {
         Self {
+            id: None,
             common: CommonProps::default(),
             icon: None,
             label: label.into(),
@@ -845,6 +827,11 @@ impl Meter {
             text: None,
             interactive: false,
         }
+    }
+
+    pub fn id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
     }
 }
 
@@ -1009,8 +996,8 @@ with_common!(PropertyList);
 pub struct Item {
     #[serde(flatten)]
     pub common: CommonProps,
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub icon: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub left: Option<std::boxed::Box<TreeNode>>,
     pub label: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub sublabel: String,
@@ -1022,15 +1009,24 @@ impl Item {
     pub fn new(label: impl Into<String>) -> Self {
         Self {
             common: CommonProps::default(),
-            icon: String::new(),
+            left: None,
             label: label.into(),
             sublabel: String::new(),
             right: None,
         }
     }
 
-    pub fn icon(mut self, icon: impl Into<String>) -> Self {
-        self.icon = icon.into();
+    pub fn icon(mut self, name: impl Into<String>) -> Self {
+        self.left = Some(std::boxed::Box::new(TreeNode::Icon(Icon {
+            common: CommonProps::default(),
+            icon: name.into(),
+            pixel_size: Some(16),
+        })));
+        self
+    }
+
+    pub fn left(mut self, left: impl Into<TreeNode>) -> Self {
+        self.left = Some(std::boxed::Box::new(left.into()));
         self
     }
 
@@ -1049,10 +1045,11 @@ with_common!(Item);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ActionItem {
+    pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub icon: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub left: Option<std::boxed::Box<TreeNode>>,
     pub label: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub sublabel: String,
@@ -1065,11 +1062,9 @@ pub struct ActionItem {
 impl ActionItem {
     pub fn new(id: impl Into<String>, label: impl Into<String>) -> Self {
         Self {
-            common: CommonProps {
-                id: Some(id.into()),
-                ..CommonProps::default()
-            },
-            icon: String::new(),
+            id: id.into(),
+            common: CommonProps::default(),
+            left: None,
             label: label.into(),
             sublabel: String::new(),
             right: None,
@@ -1077,8 +1072,17 @@ impl ActionItem {
         }
     }
 
-    pub fn icon(mut self, icon: impl Into<String>) -> Self {
-        self.icon = icon.into();
+    pub fn icon(mut self, name: impl Into<String>) -> Self {
+        self.left = Some(std::boxed::Box::new(TreeNode::Icon(Icon {
+            common: CommonProps::default(),
+            icon: name.into(),
+            pixel_size: Some(16),
+        })));
+        self
+    }
+
+    pub fn left(mut self, left: impl Into<TreeNode>) -> Self {
+        self.left = Some(std::boxed::Box::new(left.into()));
         self
     }
 
@@ -1130,6 +1134,8 @@ pub struct Badge {
     #[serde(flatten)]
     pub common: CommonProps,
     pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub variant: Option<Variant>,
 }
 
 impl Badge {
@@ -1137,7 +1143,13 @@ impl Badge {
         Self {
             common: CommonProps::default(),
             label: label.into(),
+            variant: None,
         }
+    }
+
+    pub fn variant(mut self, variant: Variant) -> Self {
+        self.variant = Some(variant);
+        self
     }
 }
 
@@ -1147,13 +1159,21 @@ with_common!(Badge);
 pub struct StatusDot {
     #[serde(flatten)]
     pub common: CommonProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub variant: Option<Variant>,
 }
 
 impl StatusDot {
     pub fn new() -> Self {
         Self {
             common: CommonProps::default(),
+            variant: None,
         }
+    }
+
+    pub fn variant(mut self, variant: Variant) -> Self {
+        self.variant = Some(variant);
+        self
     }
 }
 
@@ -1161,6 +1181,8 @@ with_common!(StatusDot);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PagerItem {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     #[serde(flatten)]
     pub common: CommonProps,
     pub appearance: PagerAppearance,
@@ -1174,6 +1196,7 @@ pub struct PagerItem {
 impl PagerItem {
     pub fn dots() -> Self {
         Self {
+            id: None,
             common: CommonProps::default(),
             appearance: PagerAppearance::Dots,
             label: String::new(),
@@ -1190,6 +1213,11 @@ impl PagerItem {
             label: label.into(),
             ..Self::dots()
         }
+    }
+
+    pub fn id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
     }
 
     pub fn active(mut self, active: bool) -> Self {
@@ -1225,6 +1253,8 @@ with_common!(PagerItem);
 pub struct PagerStrip {
     #[serde(flatten)]
     pub common: CommonProps,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
     pub items: Vec<PagerItem>,
 }
 
@@ -1232,8 +1262,14 @@ impl PagerStrip {
     pub fn new(items: Vec<PagerItem>) -> Self {
         Self {
             common: CommonProps::default(),
+            id: None,
             items,
         }
+    }
+
+    pub fn id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
     }
 }
 
@@ -1256,7 +1292,6 @@ pub enum TreeNode {
     StatusDot(StatusDot),
     PagerItem(PagerItem),
     PagerStrip(PagerStrip),
-    Box(BoxNode),
     Row(Row),
     Column(Column),
     Grid(Grid),
@@ -1268,7 +1303,7 @@ pub enum TreeNode {
     Separator(Separator),
     Spinner(Spinner),
     Label(Label),
-    Image(Image),
+    Icon(Icon),
     Picture(Picture),
     Button(Button),
     LinkButton(LinkButton),
@@ -1362,11 +1397,7 @@ impl From<PagerStrip> for TreeNode {
         Self::PagerStrip(value)
     }
 }
-impl From<BoxNode> for TreeNode {
-    fn from(value: BoxNode) -> Self {
-        Self::Box(value)
-    }
-}
+
 impl From<Grid> for TreeNode {
     fn from(value: Grid) -> Self {
         Self::Grid(value)
@@ -1407,9 +1438,9 @@ impl From<Label> for TreeNode {
         Self::Label(value)
     }
 }
-impl From<Image> for TreeNode {
-    fn from(value: Image) -> Self {
-        Self::Image(value)
+impl From<Icon> for TreeNode {
+    fn from(value: Icon) -> Self {
+        Self::Icon(value)
     }
 }
 impl From<Picture> for TreeNode {

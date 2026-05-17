@@ -427,6 +427,7 @@ mod tests {
                 env_forward: true,
                 env: std::collections::HashMap::new(),
                 work_dir: None,
+                css_class: None,
             };
 
             let task = tokio::spawn(run(
@@ -476,6 +477,7 @@ mod tests {
             env_forward: true,
             env: std::collections::HashMap::new(),
             work_dir: None,
+            css_class: None,
         };
 
         let task = tokio::spawn(run(

@@ -1,28 +1,11 @@
 use serde::Serialize;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(untagged)]
-pub enum Icon {
-    Name { name: String },
-    Path { path: String },
-}
-
-impl Icon {
-    pub fn name(value: impl Into<String>) -> Self {
-        Self::Name { name: value.into() }
-    }
-
-    pub fn path(value: impl Into<String>) -> Self {
-        Self::Path { path: value.into() }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
 pub struct StatusItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub icon: Option<Icon>,
+    pub icon: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -37,8 +20,8 @@ impl StatusItem {
         }
     }
 
-    pub fn icon(mut self, icon: Icon) -> Self {
-        self.icon = Some(icon);
+    pub fn icon(mut self, icon: impl Into<String>) -> Self {
+        self.icon = Some(icon.into());
         self
     }
 

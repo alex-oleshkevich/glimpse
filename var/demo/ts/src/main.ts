@@ -5,7 +5,6 @@ import {
   ActionItem,
   Applet,
   Badge,
-  Box,
   Button,
   Card,
   Checkbox,
@@ -17,7 +16,6 @@ import {
   GridChild,
   Hero,
   Icon,
-  Image,
   Label,
   LevelBar,
   LinkButton,
@@ -34,7 +32,6 @@ import {
   Scroll,
   Section,
   Select,
-  SelectOption,
   Separator,
   Slider,
   Spinner,
@@ -114,7 +111,7 @@ class WorkstationApplet extends Applet<DemoState> {
   protected async status(state: DemoState): Promise<StatusItem[]> {
     const icon = state.vpn ? "network-vpn-symbolic" : "network-offline-symbolic";
     return [
-      new StatusItem({ id: "workstation", icon: Icon.name(icon), label: profiles[state.profile], tooltip: state.lastEvent }),
+      new StatusItem({ id: "workstation", icon, label: profiles[state.profile], tooltip: state.lastEvent }),
     ];
   }
 
@@ -125,7 +122,7 @@ class WorkstationApplet extends Applet<DemoState> {
         new Hero({
           title: "Workstation",
           subtitle: state.popoverOpen ? "Controls are live" : "Popover is closing",
-          icon: Icon.name("computer-symbolic"),
+          icon: "computer-symbolic",
         }),
         new PagerStrip({
           id: "workspace-strip",
@@ -153,125 +150,133 @@ class WorkstationApplet extends Applet<DemoState> {
         new Section({
           title: "Controls",
           subtitle: "Daily workstation settings",
-          children: [
-            new Row({
-              spacing: 8,
-              children: [
-                new Button({ id: "sync-now", label: "Sync", icon: "view-refresh-symbolic", variant: "primary" }),
-                new Button({ id: "quiet", label: state.quiet ? "Quiet" : "Focus", icon: "notifications-disabled-symbolic", variant: "secondary" }),
-                new Button({ id: "danger", label: "Reset", icon: "edit-delete-symbolic", variant: "danger", enabled: false }),
-              ],
-            }),
-            new Switch({ id: "vpn-toggle", label: "VPN tunnel", active: state.vpn }),
-            new ToggleButton({ id: "focus-toggle", label: "Focus mode", active: state.quiet }),
-            new Checkbox({ id: "backup-toggle", label: "Nightly backups", active: state.backup }),
-            new Slider({ id: "brightness", min: 0, max: 1, step: 0.05, value: state.brightness, draw_value: true }),
-            new Meter({
-              id: "cpu-meter",
-              icon: Icon.name("utilities-system-monitor-symbolic"),
-              label: "CPU pressure",
-              value: state.cpu,
-              max: 1,
-              step: 0.01,
-              text: `${Math.round(state.cpu * 100)}%`,
-              interactive: true,
-            }),
-            new LevelBar({ value: state.cpu, min: 0, max: 1, mode: "continuous" }),
-            new MenuButton({
-              label: "Menu",
-              icon: "open-menu-symbolic",
-              popover: new Column({
-                spacing: 4,
-                children: [new Label("Quick actions"), new Badge({ label: "rendered" })],
+          child: new Column({
+            children: [
+              new Row({
+                spacing: 8,
+                children: [
+                  new Button({ id: "sync-now", label: "Sync", icon: "view-refresh-symbolic", variant: "primary" }),
+                  new Button({ id: "quiet", label: state.quiet ? "Quiet" : "Focus", icon: "notifications-disabled-symbolic", variant: "secondary" }),
+                  new Button({ id: "danger", label: "Reset", icon: "edit-delete-symbolic", variant: "danger", enabled: false }),
+                ],
               }),
-            }),
-            new Select({
-              id: "profile",
-              items: profiles.map((label, index) => new SelectOption(String(index), label)),
-              selected: state.profile,
-            }),
-          ],
+              new Switch({ id: "vpn-toggle", label: "VPN tunnel", active: state.vpn }),
+              new ToggleButton({ id: "focus-toggle", label: "Focus mode", active: state.quiet }),
+              new Checkbox({ id: "backup-toggle", label: "Nightly backups", active: state.backup }),
+              new Slider({ id: "brightness", min: 0, max: 1, step: 0.05, value: state.brightness, draw_value: true }),
+              new Meter({
+                id: "cpu-meter",
+                icon: "utilities-system-monitor-symbolic",
+                label: "CPU pressure",
+                value: state.cpu,
+                max: 1,
+                step: 0.01,
+                text: `${Math.round(state.cpu * 100)}%`,
+                interactive: true,
+              }),
+              new LevelBar({ value: state.cpu, min: 0, max: 1, mode: "continuous" }),
+              new MenuButton({
+                label: "Menu",
+                icon: "open-menu-symbolic",
+                popover: new Column({
+                  spacing: 4,
+                  children: [new Label("Quick actions"), new Badge({ label: "rendered" })],
+                }),
+              }),
+              new Select({
+                id: "profile",
+                items: profiles.map((label, index) => ({ id: String(index), label })),
+                selected: state.profile,
+              }),
+            ],
+          }),
         }),
         new Section({
           title: "Queue",
-          children: [
-            new ActionItem({
-              id: "open-terminal",
-              icon: "utilities-terminal-symbolic",
-              label: "Terminal session",
-              sublabel: state.vpn ? "Secure session" : "Offline",
-              right: new Button({ id: "open-terminal-indicator", icon: "utilities-terminal-symbolic", variant: "flat" }),
-            }),
-            new ListBox({
-              children: [
-                new Row({ spacing: 8, children: [new Label("Build cache"), new Badge({ label: "running" })] }),
-                new Row({ spacing: 8, children: [new Label("Backup job"), new Badge({ label: "scheduled" })] }),
-              ],
-            }),
-            new TreeExpander({
-              child: new Label("Nested queue row"),
-              hide_expander: true,
-              indent_for_depth: true,
-              indent_for_icon: true,
-            }),
-            new Section({
-              title: "Background jobs",
-              subtitle: "Build, backup, and indexing",
-              children: [
-                new Row({
-                  spacing: 8,
-                  children: [
-                    new Label("Index packages"),
-                    new Label("Index packages", { wrap: true }),
-                  ],
-                }),
-                new Row({
-                  spacing: 8,
-                  children: [
-                    new Label("Backup window"),
-                    new Label(state.backup ? "02:00" : "Paused", { variant: "muted" }),
-                  ],
-                }),
-              ],
-            }),
-          ],
-        }),
-        new Card({
-          children: [
-            new Row({
-              spacing: 8,
-              children: [
-                new Spinner({ spinning: state.syncs % 2 === 0 }),
-                new Image(Icon.name("dialog-information-symbolic"), { pixel_size: 20 }),
-                new Label("Filter input is handled through input callbacks.", { wrap: true }),
-              ],
-            }),
-            new Copyable({ label: "Host", value: "devbox.local" }),
-            new LinkButton({ uri: "https://example.com/docs", label: "Docs" }),
-            new Expander({
-              label: "Session details",
-              expanded: state.popoverOpen,
-              child: new Column({
-                spacing: 4,
+          child: new Column({
+            children: [
+              new ActionItem({
+                id: "open-terminal",
+                icon: "utilities-terminal-symbolic",
+                label: "Terminal session",
+                sublabel: state.vpn ? "Secure session" : "Offline",
+                right: new Button({ id: "open-terminal-indicator", icon: "utilities-terminal-symbolic", variant: "flat" }),
+              }),
+              new ListBox({
                 children: [
-                  new Label(`Profile: ${profiles[state.profile]}`),
-                  new Label(`Last event: ${state.lastEvent}`),
+                  new Row({ spacing: 8, children: [new Label("Build cache"), new Badge({ label: "running" })] }),
+                  new Row({ spacing: 8, children: [new Label("Backup job"), new Badge({ label: "scheduled" })] }),
                 ],
               }),
-            }),
-            new Overlay({
-              child: new Picture({ path: demoPicturePath, content_fit: "cover" }),
-              overlays: [new Badge({ label: "Live", variant: "success" })],
-            }),
-            new PropertyList({
-              title: "Session",
-              rows: {
-                Profile: profiles[state.profile],
-                "Last event": state.lastEvent,
-                Filter: state.filter || "none",
-              },
-            }),
-          ],
+              new TreeExpander({
+                child: new Label("Nested queue row"),
+                hide_expander: true,
+                indent_for_depth: true,
+                indent_for_icon: true,
+              }),
+              new Section({
+                title: "Background jobs",
+                subtitle: "Build, backup, and indexing",
+                child: new Column({
+                  children: [
+                    new Row({
+                      spacing: 8,
+                      children: [
+                        new Label("Index packages"),
+                        new Label("Index packages", { wrap: true }),
+                      ],
+                    }),
+                    new Row({
+                      spacing: 8,
+                      children: [
+                        new Label("Backup window"),
+                        new Label(state.backup ? "02:00" : "Paused", { variant: "muted" }),
+                      ],
+                    }),
+                  ],
+                }),
+              }),
+            ],
+          }),
+        }),
+        new Card({
+          child: new Column({
+            children: [
+              new Row({
+                spacing: 8,
+                children: [
+                  new Spinner({ spinning: state.syncs % 2 === 0 }),
+                  new Icon("dialog-information-symbolic", { pixel_size: 20 }),
+                  new Label("Filter input is handled through input callbacks.", { wrap: true }),
+                ],
+              }),
+              new Copyable({ label: "Host", value: "devbox.local" }),
+              new LinkButton({ uri: "https://example.com/docs", label: "Docs" }),
+              new Expander({
+                label: "Session details",
+                expanded: state.popoverOpen,
+                child: new Column({
+                  spacing: 4,
+                  children: [
+                    new Label(`Profile: ${profiles[state.profile]}`),
+                    new Label(`Last event: ${state.lastEvent}`),
+                  ],
+                }),
+              }),
+              new Overlay({
+                child: new Picture({ path: demoPicturePath, content_fit: "cover" }),
+                overlays: [new Badge({ label: "Live", variant: "success" })],
+              }),
+              new PropertyList({
+                title: "Session",
+                rows: {
+                  Profile: profiles[state.profile],
+                  "Last event": state.lastEvent,
+                  Filter: state.filter || "none",
+                },
+              }),
+            ],
+          }),
         }),
         state.filter
           ? new Scroll(
@@ -282,8 +287,7 @@ class WorkstationApplet extends Applet<DemoState> {
             )
           : new EmptyState({ title: "No filtered activity", subtitle: "Type in the shell-provided input callback to populate this area." }),
         new Separator({ orientation: "horizontal" }),
-        new Box({
-          orientation: "horizontal",
+        new Row({
           spacing: 6,
           children: [new Badge({ label: "SDK" }), new Label("All components covered", { variant: "muted" })],
         }),
@@ -319,13 +323,15 @@ class WorkstationApplet extends Applet<DemoState> {
 
 function metricCard(label: string, value: string, icon: string): TreeNode {
   return new Card({
-    children: [
-      new Row({
-        spacing: 6,
-        children: [new Image(Icon.name(icon), { pixel_size: 18 }), new Label(label)],
-      }),
-      new Progress({ value: Number.parseFloat(value) / 100 || 0.5, max: 1, text: value, show_text: true }),
-    ],
+    child: new Column({
+      children: [
+        new Row({
+          spacing: 6,
+          children: [new Icon(icon, { pixel_size: 18 }), new Label(label)],
+        }),
+        new Progress({ value: Number.parseFloat(value) / 100 || 0.5, max: 1, text: value, show_text: true }),
+      ],
+    }),
   });
 }
 

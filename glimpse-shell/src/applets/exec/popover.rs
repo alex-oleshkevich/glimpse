@@ -22,6 +22,7 @@ pub struct Popover {
 
 pub struct Init {
     pub parent: gtk::Box,
+    pub css_class: Option<String>,
 }
 
 #[derive(Debug)]
@@ -83,6 +84,9 @@ impl SimpleComponent for Popover {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let widgets = view_output!();
+        if let Some(class) = &init.css_class {
+            widgets.root.add_css_class(&format!("applet-{class}"));
+        }
         widgets.root.set_parent(&init.parent);
         widgets.root.set_autohide(true);
         popover_scroll::install_half_monitor_limit(&widgets.root, &widgets.scroller, &init.parent);

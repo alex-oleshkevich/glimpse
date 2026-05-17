@@ -121,7 +121,7 @@ func (a *workstationApplet) Status(_ context.Context, state *demoState) ([]sdk.S
 	}
 	return []sdk.StatusItem{{
 		ID:      "workstation",
-		Icon:    sdk.IconName(icon),
+		Icon:    icon,
 		Label:   profiles[state.Profile],
 		Tooltip: state.LastEvent,
 	}}, nil
@@ -135,9 +135,10 @@ func (a *workstationApplet) Popover(_ context.Context, state *demoState) (sdk.Wi
 	return sdk.Column{
 		Spacing: 10,
 		Children: []sdk.Widget{
-			sdk.Hero{Title: "Workstation", Subtitle: heroSubtitle, Icon: sdk.IconName("computer-symbolic")},
+			sdk.Hero{Title: "Workstation", Subtitle: heroSubtitle, Icon: "computer-symbolic"},
 			sdk.PagerStrip{
-				CommonProps: sdk.CommonProps{ID: "workspace-strip", Tooltip: "Scroll to switch pages"},
+				ID:          "workspace-strip",
+				CommonProps: sdk.CommonProps{Tooltip: "Scroll to switch pages"},
 				Items: []sdk.PagerItem{
 					{Appearance: sdk.PagerAppearanceNumbers, Label: "1", Active: state.Page == 1, Occupied: true},
 					{Appearance: sdk.PagerAppearanceNumbers, Label: "2", Active: state.Page == 2, Occupied: true},
@@ -151,7 +152,7 @@ func (a *workstationApplet) Popover(_ context.Context, state *demoState) (sdk.Wi
 					{Row: 0, Column: 0, Child: metricCard("CPU", percent(state.CPU), "view-statistics-symbolic")},
 					{Row: 0, Column: 1, Child: metricCard("Brightness", percent(state.Brightness), "display-brightness-symbolic")},
 					{Row: 1, Column: 0, Child: metricCard("Syncs", fmt.Sprint(state.Syncs), "view-refresh-symbolic")},
-					{Row: 1, Column: 1, Child: sdk.StatusDot{CommonProps: sdk.CommonProps{Variant: stateVariant(state.VPN)}}},
+					{Row: 1, Column: 1, Child: sdk.StatusDot{Variant: stateVariant(state.VPN)}},
 				},
 			},
 			controlsSection(state),
@@ -159,9 +160,8 @@ func (a *workstationApplet) Popover(_ context.Context, state *demoState) (sdk.Wi
 			infoCard(state),
 			activityArea(state),
 			sdk.Separator{Orientation: sdk.OrientationHorizontal},
-			sdk.Box{
-				Orientation: sdk.OrientationHorizontal,
-				Spacing:     6,
+			sdk.Row{
+				Spacing: 6,
 				Children: []sdk.Widget{
 					sdk.Badge{Label: "SDK"},
 					mutedLabel("All components covered"),
@@ -175,29 +175,29 @@ func controlsSection(state *demoState) sdk.Widget {
 	return sdk.Section{
 		Title:    "Controls",
 		Subtitle: "Daily workstation settings",
-		Children: []sdk.Widget{
+		Child: sdk.Column{Children: []sdk.Widget{
 			sdk.Row{
 				Spacing: 8,
 				Children: []sdk.Widget{
-					sdk.Button{CommonProps: sdk.CommonProps{ID: "sync-now"}, Label: "Sync", Icon: "view-refresh-symbolic", Variant: sdk.ButtonVariantPrimary},
-					sdk.Button{CommonProps: sdk.CommonProps{ID: "quiet"}, Label: quietLabel(state), Icon: "notifications-disabled-symbolic", Variant: sdk.ButtonVariantSecondary},
-					sdk.Button{CommonProps: sdk.CommonProps{ID: "danger"}, Label: "Reset", Icon: "edit-delete-symbolic", Enabled: boolPtr(false), Variant: sdk.ButtonVariantDanger},
+					sdk.Button{ID: "sync-now", Label: "Sync", Icon: "view-refresh-symbolic", Variant: sdk.ButtonVariantPrimary},
+					sdk.Button{ID: "quiet", Label: quietLabel(state), Icon: "notifications-disabled-symbolic", Variant: sdk.ButtonVariantSecondary},
+					sdk.Button{ID: "danger", Label: "Reset", Icon: "edit-delete-symbolic", Enabled: boolPtr(false), Variant: sdk.ButtonVariantDanger},
 				},
 			},
-			sdk.Switch{CommonProps: sdk.CommonProps{ID: "vpn-toggle"}, Label: "VPN tunnel", Active: state.VPN},
-			sdk.ToggleButton{CommonProps: sdk.CommonProps{ID: "focus-toggle"}, Label: "Focus mode", Active: state.Quiet},
-			sdk.Checkbox{CommonProps: sdk.CommonProps{ID: "backup-toggle"}, Label: "Nightly backups", Active: state.Backup},
+			sdk.Switch{ID: "vpn-toggle", Label: "VPN tunnel", Active: state.VPN},
+			sdk.ToggleButton{ID: "focus-toggle", Label: "Focus mode", Active: state.Quiet},
+			sdk.Checkbox{ID: "backup-toggle", Label: "Nightly backups", Active: state.Backup},
 			sdk.Slider{
-				CommonProps: sdk.CommonProps{ID: "brightness"},
-				Min:         0,
-				Max:         1,
-				Step:        0.05,
-				Value:       state.Brightness,
-				DrawValue:   true,
+				ID:        "brightness",
+				Min:       0,
+				Max:       1,
+				Step:      0.05,
+				Value:     state.Brightness,
+				DrawValue: true,
 			},
 			sdk.Meter{
-				CommonProps: sdk.CommonProps{ID: "cpu-meter"},
-				Icon:        sdk.IconName("utilities-system-monitor-symbolic"),
+				ID:          "cpu-meter",
+				Icon:        "utilities-system-monitor-symbolic",
 				Label:       "CPU pressure",
 				Value:       state.CPU,
 				Max:         1,
@@ -215,28 +215,28 @@ func controlsSection(state *demoState) sdk.Widget {
 				},
 			},
 			sdk.Select{
-				CommonProps: sdk.CommonProps{ID: "profile"},
-				Items: []sdk.SelectOption{
-					{ID: "0", Label: profiles[0]},
-					{ID: "1", Label: profiles[1]},
-					{ID: "2", Label: profiles[2]},
+				ID: "profile",
+				Items: []map[string]string{
+					{"id": "0", "label": profiles[0]},
+					{"id": "1", "label": profiles[1]},
+					{"id": "2", "label": profiles[2]},
 				},
 				Selected: uintPtr(uint32(state.Profile)),
 			},
-		},
+		}},
 	}
 }
 
 func queueSection(state *demoState) sdk.Widget {
 	return sdk.Section{
 		Title: "Queue",
-		Children: []sdk.Widget{
+		Child: sdk.Column{Children: []sdk.Widget{
 			sdk.ActionItem{
-				CommonProps: sdk.CommonProps{ID: "open-terminal"},
-				Icon:        "utilities-terminal-symbolic",
-				Label:       "Terminal session",
-				Sublabel:    terminalSubtitle(state),
-				Right:       sdk.Button{CommonProps: sdk.CommonProps{ID: "open-terminal-indicator"}, Icon: "utilities-terminal-symbolic", Variant: sdk.ButtonVariantFlat},
+				ID:       "open-terminal",
+				Icon:     "utilities-terminal-symbolic",
+				Label:    "Terminal session",
+				Sublabel: terminalSubtitle(state),
+				Right:    sdk.Button{ID: "open-terminal-indicator", Icon: "utilities-terminal-symbolic", Variant: sdk.ButtonVariantFlat},
 			},
 			sdk.ListBox{
 				Children: []sdk.Widget{
@@ -253,7 +253,7 @@ func queueSection(state *demoState) sdk.Widget {
 			sdk.Section{
 				Title:    "Background jobs",
 				Subtitle: "Build, backup, and indexing",
-				Children: []sdk.Widget{
+				Child: sdk.Column{Children: []sdk.Widget{
 					sdk.Row{
 						Spacing: 8,
 						Children: []sdk.Widget{
@@ -268,20 +268,20 @@ func queueSection(state *demoState) sdk.Widget {
 							mutedLabel(backupText(state)),
 						},
 					},
-				},
+				}},
 			},
-		},
+		}},
 	}
 }
 
 func infoCard(state *demoState) sdk.Widget {
 	return sdk.Card{
-		Children: []sdk.Widget{
+		Child: sdk.Column{Children: []sdk.Widget{
 			sdk.Row{
 				Spacing: 8,
 				Children: []sdk.Widget{
 					sdk.Spinner{Spinning: state.Syncs%2 == 0},
-					sdk.Image{Icon: sdk.IconName("dialog-information-symbolic"), PixelSize: intPtr(20)},
+					sdk.Icon{Icon: "dialog-information-symbolic", PixelSize: intPtr(20)},
 					sdk.Label{Text: "Filter input is handled through input callbacks.", Wrap: true},
 				},
 			},
@@ -301,7 +301,7 @@ func infoCard(state *demoState) sdk.Widget {
 			sdk.Overlay{
 				Child: sdk.Picture{Path: demoPicturePath(), ContentFit: sdk.ContentFitCover},
 				Overlays: []sdk.Widget{
-					sdk.Badge{CommonProps: sdk.CommonProps{Variant: sdk.VariantSuccess}, Label: "Live"},
+					sdk.Badge{Variant: sdk.VariantSuccess, Label: "Live"},
 				},
 			},
 			sdk.PropertyList{
@@ -312,7 +312,7 @@ func infoCard(state *demoState) sdk.Widget {
 					"Filter":     filterText(state),
 				},
 			},
-		},
+		}},
 	}
 }
 
@@ -337,21 +337,21 @@ func activityArea(state *demoState) sdk.Widget {
 
 func metricCard(label, value, icon string) sdk.Widget {
 	return sdk.Card{
-		Children: []sdk.Widget{
+		Child: sdk.Column{Children: []sdk.Widget{
 			sdk.Row{
 				Spacing: 6,
 				Children: []sdk.Widget{
-					sdk.Image{Icon: sdk.IconName(icon), PixelSize: intPtr(18)},
+					sdk.Icon{Icon: icon, PixelSize: intPtr(18)},
 					sdk.Label{Text: label},
 				},
 			},
 			sdk.Progress{Value: ratio(value), Max: 1, Text: value, ShowText: true},
-		},
+		}},
 	}
 }
 
 func mutedLabel(text string) sdk.Label {
-	return sdk.Label{CommonProps: sdk.CommonProps{Variant: sdk.VariantMuted}, Text: text}
+	return sdk.Label{Variant: sdk.VariantMuted, Text: text}
 }
 
 func demoPicturePath() string {

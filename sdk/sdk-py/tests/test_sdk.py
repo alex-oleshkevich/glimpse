@@ -8,17 +8,14 @@ from dataclasses import dataclass
 from glimpse_sdk import (
     Applet,
     AppletState,
-    Box,
     Button,
     ChangeEvent,
     Column,
-    Icon,
     InitEvent,
     Label,
     PopoverEvent,
     Row,
     Select,
-    SelectOption,
     Spinner,
     StatusDot,
     StatusItem,
@@ -39,10 +36,10 @@ class DemoApplet(Applet[DemoState]):
         return DemoState()
 
     async def status(self, state: DemoState):
-        return [StatusItem(id="demo", icon=Icon.name("demo-symbolic"), label=state.version)]
+        return [StatusItem(id="demo", icon="demo-symbolic", label=state.version)]
 
     async def popover(self, state: DemoState):
-        return Box.vertical([Label(text=state.version), Button(id="submit", label="Submit")])
+        return Column(children=[Label(text=state.version), Button(id="submit", label="Submit")])
 
     @click("submit")
     async def handle_submit(self, _event) -> None:
@@ -82,7 +79,7 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(getattr(event, "open"))
 
     def test_select_serializes_items(self) -> None:
-        node = Select(id="env", items=[SelectOption(id="prod", label="Production")], selected=0)
+        node = Select(id="env", items=[{"id": "prod", "label": "Production"}], selected=0)
         payload = node.to_protocol()
         self.assertEqual(payload["type"], "select")
         self.assertEqual(payload["data"]["items"][0]["id"], "prod")

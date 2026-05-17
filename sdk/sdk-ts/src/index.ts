@@ -11,13 +11,12 @@ export {
   parseCallbackEvent,
   parseInitEvent,
 } from "./events.js";
-export { Icon, StatusItem } from "./protocol.js";
+export { StatusItem } from "./protocol.js";
 export { type Event, IpcError, Subscriber, ipc } from "./ipc.js";
 export {
   ActionItem,
   type Align,
   Badge,
-  Box,
   Button,
   type ButtonVariant,
   Card,
@@ -30,7 +29,7 @@ export {
   Grid,
   GridChild,
   Hero,
-  Image,
+  Icon,
   Item,
   Label,
   LevelBar,
@@ -52,7 +51,6 @@ export {
   Scroll,
   Section,
   Select,
-  SelectOption,
   Separator,
   Slider,
   Spinner,
