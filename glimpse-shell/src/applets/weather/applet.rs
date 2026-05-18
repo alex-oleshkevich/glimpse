@@ -117,7 +117,8 @@ impl SimpleComponent for Applet {
 
             add_controller = gtk::GestureClick {
                 set_button: 1,
-                connect_pressed[sender] => move |_, _, _, _| {
+                connect_pressed[sender] => move |gesture, _, _, _| {
+                    gesture.set_state(gtk::EventSequenceState::Claimed);
                     sender.input(Input::TogglePopover);
                 },
             },

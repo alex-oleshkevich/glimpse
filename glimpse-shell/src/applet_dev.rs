@@ -13,14 +13,16 @@
 //! Both live in the `.dev` namespace and are removed on exit.
 
 use anyhow::{Context, Result, bail};
-use notify::RecursiveMode;
-use notify_debouncer_full::new_debouncer;
+use std::collections::HashMap;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
+use tokio::time::sleep;
+
+use crate::applets::exec::protocol::parse_child_line;
 
 static DEBUG: AtomicBool = AtomicBool::new(false);
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -44,12 +46,30 @@ impl Language {
             Self::Go => "go.mod",
         }
     }
-    fn entrypoint(self) -> &'static str {
+    fn entrypoint(self, dir: &Path) -> Option<PathBuf> {
         match self {
-            Self::Rust => "src/main.rs",
-            Self::Python => "main.py",
-            Self::Typescript => "src/main.ts",
-            Self::Go => "main.go",
+            Self::Rust => Some(dir.join("src/main.rs")),
+            Self::Python => {
+                // Package layout: <module>/__main__.py (preferred) or legacy main.py
+                let legacy = dir.join("main.py");
+                if legacy.is_file() {
+                    return Some(legacy);
+                }
+                // Find any subdirectory containing __main__.py
+                std::fs::read_dir(dir).ok().and_then(|mut entries| {
+                    entries.find_map(|e| {
+                        let e = e.ok()?;
+                        if e.file_type().ok()?.is_dir() {
+                            let candidate = e.path().join("__main__.py");
+                            candidate.is_file().then_some(candidate)
+                        } else {
+                            None
+                        }
+                    })
+                })
+            }
+            Self::Typescript => Some(dir.join("src/main.ts")),
+            Self::Go => Some(dir.join("main.go")),
         }
     }
     fn name(self) -> &'static str {
@@ -92,7 +112,7 @@ impl Language {
         let by_entry: Vec<Self> = all
             .iter()
             .copied()
-            .filter(|l| dir.join(l.entrypoint()).is_file())
+            .filter(|l| l.entrypoint(dir).is_some())
             .collect();
         match by_entry.len() {
             1 => Ok(by_entry[0]),
@@ -124,6 +144,10 @@ fn applets_dir() -> PathBuf {
     glimpse_core::AppletDirectoryScanner::from_process().user_dir
 }
 
+fn dev_log_path(applet_id: &str) -> PathBuf {
+    std::env::temp_dir().join(format!("glimpse-dev-{applet_id}.log"))
+}
+
 pub fn print_help() {
     println!("glimpse-shell-applets-dev");
     println!("Run an applet in dev mode: live rebuild + reload, errors shown in the panel");
@@ -136,7 +160,7 @@ pub fn print_help() {
     println!();
     println!("OPTIONS:");
     println!("    --lang <rust|python|typescript|go>   Override language detection");
-    println!("    --debounce-ms <N>                    File-change debounce (default: 300)");
+    println!("    --poll-ms <N>                        File-change poll interval ms (default: 300)");
     println!("    --debug                              Print supervisor diagnostics to stderr");
     println!("    -h, --help                           Print help");
 }
@@ -149,7 +173,7 @@ pub async fn run(args: &[String]) -> Result<()> {
 
     let mut path: Option<PathBuf> = None;
     let mut lang_override: Option<Language> = None;
-    let mut debounce_ms: u64 = 300;
+    let mut poll_ms: u64 = 300;
     let mut it = args.iter();
     while let Some(arg) = it.next() {
         match arg.as_str() {
@@ -163,12 +187,12 @@ pub async fn run(args: &[String]) -> Result<()> {
                         format!("--lang must be rust|python|typescript|go, got {v:?}")
                     })?);
             }
-            "--debounce-ms" => {
-                debounce_ms = it
+            "--poll-ms" => {
+                poll_ms = it
                     .next()
-                    .context("--debounce-ms requires a value")?
+                    .context("--poll-ms requires a value")?
                     .parse()
-                    .context("--debounce-ms must be a non-negative integer")?;
+                    .context("--poll-ms must be a non-negative integer")?;
             }
             other if other.starts_with('-') => bail!("unknown option: {other}"),
             positional => {
@@ -223,18 +247,23 @@ pub async fn run(args: &[String]) -> Result<()> {
         None => Language::detect(&path)?,
     };
     let plan = build_plan(lang, &path);
-    log(format!(
-        "watching {} ({}) — sources: {}",
-        path.display(),
-        lang.name(),
-        plan.watch_dirs
-            .iter()
-            .map(|p| p.display().to_string())
-            .collect::<Vec<_>>()
-            .join(", ")
-    ));
+    let log_path = dev_log_path(&applet_id);
+    log(format!("watching {} ({})", path.display(), lang.name()));
 
-    supervise(plan, debounce_ms, !standalone).await
+    if standalone {
+        // Standalone mode: the shell will spawn the real dev supervisor instance
+        // (non-standalone, stdin is a pipe). That instance runs the applet and
+        // tees its child's stderr to the log file. We just tail that file so all
+        // output appears in the user's terminal.
+        eprintln!("[applets dev] tailing {}", log_path.display());
+        tokio::select! {
+            _ = wait_for_shutdown() => {},
+            _ = tail_log_file(log_path) => {},
+        }
+        return Ok(());
+    }
+
+    supervise(plan, &path, poll_ms, true, log_path).await
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -385,7 +414,27 @@ struct Plan {
     args: Vec<String>,
     workdir: PathBuf,
     build: Option<(String, Vec<String>)>,
-    watch_dirs: Vec<PathBuf>,
+}
+
+fn python_module_name(path: &Path) -> String {
+    // Prefer [tool.uv.build-backend] module-name from pyproject.toml.
+    if let Ok(text) = std::fs::read_to_string(path.join("pyproject.toml")) {
+        if let Ok(v) = toml::from_str::<toml::Value>(&text) {
+            if let Some(name) = v
+                .get("tool")
+                .and_then(|t| t.get("uv"))
+                .and_then(|u| u.get("build-backend"))
+                .and_then(|b| b.get("module-name"))
+                .and_then(|n| n.as_str())
+            {
+                return name.to_owned();
+            }
+        }
+    }
+    // Fall back to directory name with hyphens replaced.
+    path.file_name()
+        .map(|n| n.to_string_lossy().replace('-', "_"))
+        .unwrap_or_else(|| "app".into())
 }
 
 fn build_plan(lang: Language, path: &Path) -> Plan {
@@ -395,21 +444,21 @@ fn build_plan(lang: Language, path: &Path) -> Plan {
             args: vec!["run".into(), "--quiet".into()],
             workdir: path.to_path_buf(),
             build: Some(("cargo".into(), vec!["build".into(), "--quiet".into()])),
-            watch_dirs: vec![path.join("src"), path.join("Cargo.toml")],
         },
-        Language::Python => Plan {
-            binary: "uv".into(),
-            args: vec!["run".into(), "main.py".into()],
-            workdir: path.to_path_buf(),
-            build: None,
-            watch_dirs: vec![path.to_path_buf()],
-        },
+        Language::Python => {
+            let module = python_module_name(path);
+            Plan {
+                binary: "uv".into(),
+                args: vec!["run".into(), "--no-sync".into(), "python".into(), "-m".into(), module],
+                workdir: path.to_path_buf(),
+                build: None,
+            }
+        }
         Language::Typescript => Plan {
             binary: "node".into(),
             args: vec!["dist/main.js".into()],
             workdir: path.to_path_buf(),
             build: Some(("npx".into(), vec!["tsc".into()])),
-            watch_dirs: vec![path.join("src"), path.join("tsconfig.json")],
         },
         Language::Go => {
             let bin = path.join(".dev-build");
@@ -421,22 +470,21 @@ fn build_plan(lang: Language, path: &Path) -> Plan {
                     "go".into(),
                     vec!["build".into(), "-o".into(), bin.display().to_string()],
                 )),
-                watch_dirs: vec![path.to_path_buf()],
             }
         }
     }
 }
 
-async fn supervise(plan: Plan, debounce_ms: u64, surface_errors: bool) -> Result<()> {
+async fn supervise(plan: Plan, watch_dir: &Path, poll_ms: u64, surface_errors: bool, log_path: PathBuf) -> Result<()> {
     let init_line: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
     let child: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
     // Captured failure text while no healthy child is running.
     let failure: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
 
     let (rebuild_tx, mut rebuild_rx) = mpsc::channel::<()>(8);
-    let _watcher = start_watcher(&plan.watch_dirs, debounce_ms, rebuild_tx.clone())?;
+    tokio::spawn(poll_watcher(watch_dir.to_path_buf(), poll_ms, rebuild_tx));
 
-    if let Err(e) = rebuild_and_respawn(&plan, &child, &init_line, &failure, surface_errors).await {
+    if let Err(e) = rebuild_and_respawn(&plan, &child, &init_line, &failure, surface_errors, &log_path).await {
         log(format!("initial build failed: {e:#}"));
     }
 
@@ -496,7 +544,7 @@ async fn supervise(plan: Plan, debounce_ms: u64, surface_errors: bool) -> Result
             Some(()) = rebuild_rx.recv() => {
                 while rebuild_rx.try_recv().is_ok() {}
                 if let Err(e) =
-                    rebuild_and_respawn(&plan, &child, &init_line, &failure, surface_errors).await
+                    rebuild_and_respawn(&plan, &child, &init_line, &failure, surface_errors, &log_path).await
                 {
                     log(format!("rebuild failed: {e:#}"));
                 }
@@ -583,64 +631,116 @@ async fn forward_to_child(child: &Arc<Mutex<Option<Child>>>, bytes: &[u8]) {
     }
 }
 
-fn start_watcher(
-    dirs: &[PathBuf],
-    debounce_ms: u64,
-    tx: mpsc::Sender<()>,
-) -> Result<
-    notify_debouncer_full::Debouncer<
-        notify::RecommendedWatcher,
-        notify_debouncer_full::RecommendedCache,
-    >,
-> {
-    let mut debouncer = new_debouncer(
-        Duration::from_millis(debounce_ms),
-        None,
-        move |result: notify_debouncer_full::DebounceEventResult| {
-            if let Ok(events) = result {
-                let interesting = events.iter().any(|e| {
-                    if matches!(
-                        e.kind,
-                        notify::EventKind::Access(_)
-                            | notify::EventKind::Modify(notify::event::ModifyKind::Metadata(_))
-                            | notify::EventKind::Other
-                    ) {
-                        return false;
-                    }
-                    !e.paths.iter().any(|p| {
-                        let s = p.to_string_lossy();
-                        s.contains("/target/")
-                            || s.contains("/dist/")
-                            || s.contains("/node_modules/")
-                            || s.contains("/.git/")
-                            || s.contains("__pycache__")
-                            || s.contains("/.venv/")
-                            || s.ends_with(".dev-build")
-                            || s.ends_with(".lock")
-                    })
-                });
-                if interesting {
-                    let _ = tx.try_send(());
+/// Collect mtime of every file under `dir`, skipping build artifact directories.
+fn collect_mtimes(dir: &Path) -> HashMap<PathBuf, SystemTime> {
+    let mut map = HashMap::new();
+    if std::fs::read_dir(dir).is_err() {
+        return map;
+    };
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(current) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&current) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let name = entry.file_name();
+            let s = name.to_string_lossy();
+            // Skip build artifact directories.
+            if s == "target" || s == "dist" || s == "node_modules" || s == ".git"
+                || s == "__pycache__" || s == ".venv" || s.ends_with(".dev-build")
+            {
+                continue;
+            }
+            if path.is_dir() {
+                stack.push(path);
+            } else if let Ok(meta) = entry.metadata() {
+                if let Ok(mtime) = meta.modified() {
+                    map.insert(path, mtime);
                 }
             }
-        },
-    )
-    .context("create file watcher")?;
-
-    for dir in dirs {
-        if !dir.exists() {
-            continue;
         }
-        let mode = if dir.is_dir() {
-            RecursiveMode::Recursive
-        } else {
-            RecursiveMode::NonRecursive
-        };
-        debouncer
-            .watch(dir, mode)
-            .with_context(|| format!("watch {}", dir.display()))?;
     }
-    Ok(debouncer)
+    map
+}
+
+async fn poll_watcher(dir: PathBuf, poll_ms: u64, tx: mpsc::Sender<()>) {
+    let mut last = collect_mtimes(&dir);
+    loop {
+        sleep(Duration::from_millis(poll_ms)).await;
+        let current = collect_mtimes(&dir);
+        if current != last {
+            last = current;
+            let _ = tx.send(()).await;
+        }
+    }
+}
+
+async fn append_to_log(path: &Path, text: &str) {
+    if let Ok(mut f) = tokio::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .await
+    {
+        let _ = f.write_all(text.as_bytes()).await;
+    }
+}
+
+async fn tee_stderr(stderr: tokio::process::ChildStderr, log_path: PathBuf) {
+    let Ok(mut log) = tokio::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .await
+    else {
+        return;
+    };
+    let mut reader = BufReader::new(stderr);
+    let mut buf = String::new();
+    loop {
+        buf.clear();
+        match reader.read_line(&mut buf).await {
+            Ok(0) => break,
+            Ok(_) => {
+                // Write to our stderr (pipe to shell → WARN logger)
+                let _ = tokio::io::stderr().write_all(buf.as_bytes()).await;
+                // Write to log file → standalone terminal tail
+                let _ = log.write_all(buf.as_bytes()).await;
+                let _ = log.flush().await;
+            }
+            Err(_) => break,
+        }
+    }
+}
+
+/// Tail a log file written by the non-standalone dev supervisor instance and
+/// print new lines to the terminal. Waits up to ~10 s for the file to appear.
+async fn tail_log_file(path: PathBuf) {
+    for _ in 0..100 {
+        if path.exists() {
+            break;
+        }
+        sleep(Duration::from_millis(100)).await;
+    }
+    loop {
+        if let Ok(file) = tokio::fs::File::open(&path).await {
+            let mut reader = BufReader::new(file);
+            let mut line = String::new();
+            loop {
+                line.clear();
+                match reader.read_line(&mut line).await {
+                    Ok(0) => sleep(Duration::from_millis(50)).await,
+                    Ok(_) => {
+                        let _ = tokio::io::stderr().write_all(line.as_bytes()).await;
+                    }
+                    Err(_) => break,
+                }
+            }
+        }
+        // File may have been replaced after a rebuild; retry.
+        sleep(Duration::from_millis(200)).await;
+    }
 }
 
 async fn rebuild_and_respawn(
@@ -649,6 +749,7 @@ async fn rebuild_and_respawn(
     init_line: &Arc<Mutex<Option<String>>>,
     failure: &Arc<Mutex<Option<String>>>,
     surface_errors: bool,
+    log_path: &Path,
 ) -> Result<()> {
     if let Some((cmd, args)) = &plan.build {
         log(format!("building: {cmd} {}", args.join(" ")));
@@ -665,8 +766,7 @@ async fn rebuild_and_respawn(
             } else {
                 stderr
             };
-            // Surface the failure in the panel (kill the stale child first so
-            // the error responder takes over).
+            append_to_log(log_path, &format!("[build error]\n{detail}\n")).await;
             if let Some(mut c) = child.lock().await.take() {
                 let _ = c.start_kill();
                 let _ = c.wait().await;
@@ -684,15 +784,21 @@ async fn rebuild_and_respawn(
         let _ = c.wait().await;
     }
 
+    let run_msg = format!("[dev] running: {} {}\n", plan.binary, plan.args.join(" "));
+    append_to_log(log_path, &run_msg).await;
     log(format!("starting: {} {}", plan.binary, plan.args.join(" ")));
     let mut new_child = TokioCommand::new(&plan.binary)
         .args(&plan.args)
         .current_dir(&plan.workdir)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::piped())
         .spawn()
         .with_context(|| format!("spawn {}", plan.binary))?;
+
+    if let Some(child_stderr) = new_child.stderr.take() {
+        tokio::spawn(tee_stderr(child_stderr, log_path.to_path_buf()));
+    }
 
     if let Some(init) = init_line.lock().await.clone() {
         if let Some(stdin) = new_child.stdin.as_mut() {
@@ -704,6 +810,7 @@ async fn rebuild_and_respawn(
     }
 
     if let Some(stdout) = new_child.stdout.take() {
+        let log_path = log_path.to_path_buf();
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout);
             let mut buf = String::new();
@@ -712,6 +819,13 @@ async fn rebuild_and_respawn(
                 match reader.read_line(&mut buf).await {
                     Ok(0) => return,
                     Ok(_) => {
+                        let trimmed = buf.trim();
+                        if !trimmed.is_empty() {
+                            if let Err(e) = parse_child_line(trimmed) {
+                                let msg = format!("[protocol error] {e}\n  raw: {trimmed}\n");
+                                append_to_log(&log_path, &msg).await;
+                            }
+                        }
                         let mut o = tokio::io::stdout();
                         if o.write_all(buf.as_bytes()).await.is_err() {
                             return;

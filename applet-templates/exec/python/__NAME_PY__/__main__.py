@@ -1,8 +1,3 @@
-# /// script
-# requires-python = ">=3.14"
-# dependencies = ["glimpse-applet-sdk>=0.2,<1"]
-# ///
-
 from dataclasses import dataclass
 
 from glimpse_sdk import (

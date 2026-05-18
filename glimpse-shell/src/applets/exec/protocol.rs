@@ -155,6 +155,24 @@ impl Variant {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum StatusVariant {
+    Success,
+    Warning,
+    Danger,
+}
+
+impl StatusVariant {
+    pub fn class_name(self) -> &'static str {
+        match self {
+            Self::Success => "is-success",
+            Self::Warning => "is-warning",
+            Self::Danger => "is-danger",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AlignValue {
     Fill,
     Start,
@@ -286,7 +304,7 @@ pub struct StatusNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub variant: Option<Variant>,
+    pub variant: Option<StatusVariant>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -462,30 +480,6 @@ pub struct ExpanderNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TreeExpanderNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub child: Box<TreeNode>,
-    #[serde(default)]
-    pub hide_expander: bool,
-    #[serde(default)]
-    pub indent_for_depth: bool,
-    #[serde(default)]
-    pub indent_for_icon: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct MenuButtonNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default)]
-    pub label: Option<String>,
-    #[serde(default)]
-    pub icon: Option<String>,
-    pub popover: Box<TreeNode>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SwitchNode {
     #[serde(flatten)]
     pub common: CommonProps,
@@ -503,6 +497,8 @@ pub struct ToggleButtonNode {
     pub id: String,
     #[serde(default)]
     pub label: Option<String>,
+    #[serde(default)]
+    pub icon: Option<String>,
     #[serde(default)]
     pub active: bool,
 }
@@ -632,23 +628,6 @@ pub struct ScrollNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct OverlayNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub child: Box<TreeNode>,
-    #[serde(default)]
-    pub overlays: Vec<TreeNode>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ListBoxNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default)]
-    pub children: Vec<TreeNode>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GridChildNode {
     pub row: i32,
     pub column: i32,
@@ -696,8 +675,6 @@ pub enum TreeNode {
     Spinner(SpinnerNode),
     Grid(GridNode),
     Scroll(ScrollNode),
-    Overlay(OverlayNode),
-    ListBox(ListBoxNode),
     LevelBar(LevelBarNode),
     Progress(ProgressNode),
     Separator(SeparatorNode),
@@ -707,8 +684,6 @@ pub enum TreeNode {
     Button(ButtonNode),
     LinkButton(LinkButtonNode),
     Expander(ExpanderNode),
-    TreeExpander(TreeExpanderNode),
-    MenuButton(MenuButtonNode),
     Switch(SwitchNode),
     ToggleButton(ToggleButtonNode),
     Checkbox(CheckboxNode),
@@ -960,86 +935,6 @@ mod tests {
                 assert!(matches!(expander.child.as_ref(), TreeNode::Label(_)));
             }
             other => panic!("expected expander popover, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parses_tree_expander_node() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"tree_expander","data":{"child":{"type":"label","data":{"text":"Nested"}},"hide_expander":true,"indent_for_depth":true,"indent_for_icon":true}}}"#,
-        )
-        .expect("tree expander node should parse");
-
-        match command {
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::TreeExpander(tree_expander)),
-            }) => {
-                assert!(matches!(tree_expander.child.as_ref(), TreeNode::Label(_)));
-                assert!(tree_expander.hide_expander);
-                assert!(tree_expander.indent_for_depth);
-                assert!(tree_expander.indent_for_icon);
-            }
-            other => panic!("expected tree expander popover, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parses_menu_button_node() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"menu_button","data":{"label":"More","icon":"open-menu-symbolic","popover":{"type":"label","data":{"text":"Menu content"}}}}}"#,
-        )
-        .expect("menu button node should parse");
-
-        match command {
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::MenuButton(menu_button)),
-            }) => {
-                assert_eq!(menu_button.label.as_deref(), Some("More"));
-                assert_eq!(menu_button.icon.as_deref(), Some("open-menu-symbolic"));
-                assert!(matches!(menu_button.popover.as_ref(), TreeNode::Label(_)));
-            }
-            other => panic!("expected menu button popover, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parses_overlay_node() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"overlay","data":{"child":{"type":"label","data":{"text":"Base"}},"overlays":[{"type":"badge","data":{"label":"Top"}}]}}}"#,
-        )
-        .expect("overlay node should parse");
-
-        match command {
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::Overlay(overlay)),
-            }) => {
-                assert!(matches!(overlay.child.as_ref(), TreeNode::Label(_)));
-                assert_eq!(overlay.overlays.len(), 1);
-                assert!(matches!(overlay.overlays.first(), Some(TreeNode::Badge(_))));
-            }
-            other => panic!("expected overlay popover, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parses_list_box_node() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"list_box","data":{"children":[{"type":"label","data":{"text":"First"}},{"type":"badge","data":{"label":"Second"}}]}}}"#,
-        )
-        .expect("list box node should parse");
-
-        match command {
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::ListBox(list_box)),
-            }) => {
-                assert_eq!(list_box.children.len(), 2);
-                assert!(matches!(
-                    list_box.children.first(),
-                    Some(TreeNode::Label(_))
-                ));
-                assert!(matches!(list_box.children.get(1), Some(TreeNode::Badge(_))));
-            }
-            other => panic!("expected list box popover, got {other:?}"),
         }
     }
 

@@ -170,7 +170,7 @@ pub fn run(args: &[String]) -> Result<()> {
     fs::write(project_dir.join("applet.toml"), applet_toml)
         .with_context(|| format!("write {}/applet.toml", project_dir.display()))?;
 
-    print_next_steps(kind, &project_dir);
+    print_next_steps(kind, lang, &name, &project_dir);
     Ok(())
 }
 
@@ -203,7 +203,8 @@ fn copy_rendered_tree(src: &Path, dst: &Path, name: &str) -> Result<()> {
     for entry in fs::read_dir(src).with_context(|| format!("read dir {}", src.display()))? {
         let entry = entry?;
         let from = entry.path();
-        let to = dst.join(entry.file_name());
+        let rendered_name = render(&entry.file_name().to_string_lossy(), name);
+        let to = dst.join(&rendered_name);
         if entry.file_type()?.is_dir() {
             fs::create_dir_all(&to)?;
             copy_rendered_tree(&from, &to, name)?;
@@ -221,7 +222,7 @@ fn copy_rendered_tree(src: &Path, dst: &Path, name: &str) -> Result<()> {
     Ok(())
 }
 
-fn print_next_steps(kind: AppletKind, project_dir: &Path) {
+fn print_next_steps(kind: AppletKind, lang: Language, name: &str, project_dir: &Path) {
     let absolute = project_dir
         .canonicalize()
         .unwrap_or_else(|_| project_dir.to_path_buf());
@@ -243,8 +244,19 @@ fn print_next_steps(kind: AppletKind, project_dir: &Path) {
         }
         AppletKind::Exec => {
             println!();
-            println!("Build the program, set `command = [...]` in applet.toml to its");
-            println!("binary/entrypoint, then link it into the applets directory:");
+            if matches!(lang, Language::Python) {
+                let module = name.replace('-', "_");
+                println!("Start the applet:");
+                println!("  uv run python -m {module}");
+                println!();
+                println!("Set command in applet.toml:");
+                println!("  command = [\"uv\", \"run\", \"python\", \"-m\", \"{module}\"]");
+                println!();
+                println!("Then link it:");
+            } else {
+                println!("Build the program, set `command = [...]` in applet.toml to its");
+                println!("binary/entrypoint, then link it:");
+            }
             println!("  glimpse-shell applets link");
             println!("or run the dev server for live-reload:");
             println!("  glimpse-shell applets dev {}", absolute.display());
