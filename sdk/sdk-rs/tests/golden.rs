@@ -9,12 +9,12 @@ use std::fs;
 use std::path::PathBuf;
 
 use glimpse_sdk::{
-    ActionItem, Align, Badge, Button, ButtonVariant, CallbackEvent, Card, Checkbox, Column,
-    ContentFit, Copyable, EmptyState, Expander, Grid, GridChild, Hero, Icon, Item, Label,
-    LevelBar, LevelBarMode, LinkButton, Meter, PagerItem, PagerStrip,
-    Picture, PopoverScaffold, PopoverSize, Progress, PropertyList, Row, Scroll, Section, Select,
-    Separator, Slider, Spinner, StatusDot, StatusVariant, Switch, ToggleButton, TreeNode, Variant,
-    parse_callback_event, tree,
+    ActionItem, Align, Badge, BorderWidth, Button, ButtonVariant, CallbackEvent, Card, Checkbox,
+    Color, Column, Container, ContentFit, Copyable, EmptyState, Expander, FontSize, FontWeight,
+    Grid, GridChild, Hero, Icon, Item, Label, LevelBar, LevelBarMode, LinkButton, Meter, PagerItem,
+    PagerStrip, Picture, PopoverScaffold, PopoverSize, Progress, PropertyList, Radius, Row, Scroll,
+    Select, Separator, Slider, Space, Spinner, StatusDot, StatusVariant, Switch, ToggleButton,
+    TreeNode, Variant, parse_callback_event,
 };
 use serde_json::Value;
 
@@ -166,7 +166,9 @@ fn widget_toggle_button_off() {
 fn widget_toggle_button_with_icon() {
     assert_widget(
         "toggle-button-with-icon",
-        ToggleButton::new("wifi").icon("network-wireless-symbolic").into(),
+        ToggleButton::new("wifi")
+            .icon("network-wireless-symbolic")
+            .into(),
     );
 }
 
@@ -308,10 +310,7 @@ fn widget_pager_strip() {
 
 #[test]
 fn widget_icon_by_name() {
-    assert_widget(
-        "icon-by-name",
-        Icon::new("user-info-symbolic").into(),
-    );
+    assert_widget("icon-by-name", Icon::new("user-info-symbolic").into());
 }
 
 #[test]
@@ -336,23 +335,21 @@ fn widget_separator() {
 
 #[test]
 fn widget_row() {
-    assert_widget("row", Row::new(vec![]).spacing(8).into());
+    assert_widget("row", Row::new(vec![]).into());
 }
 
 #[test]
 fn widget_column() {
-    assert_widget("column", Column::new(vec![]).spacing(8).into());
+    assert_widget("column", Column::new(vec![]).into());
 }
 
 #[test]
 fn widget_grid() {
-    let mut grid = Grid::new(vec![GridChild::new(0, 0, Label::new("A").into()), {
+    let grid = Grid::new(vec![GridChild::new(0, 0, Label::new("A").into()), {
         let mut c = GridChild::new(0, 1, Label::new("B").into());
         c.width = 2;
         c
     }]);
-    grid.row_spacing = 4;
-    grid.column_spacing = 4;
     assert_widget("grid", grid.into());
 }
 
@@ -375,18 +372,26 @@ fn widget_card_empty() {
 }
 
 #[test]
-fn widget_section_basic() {
+fn widget_container_styled() {
     assert_widget(
-        "section-basic",
-        Section::new("System", Some(Label::new("uptime").into())).into(),
-    );
-}
-
-#[test]
-fn widget_section_empty_children() {
-    assert_widget(
-        "section-empty-children",
-        Section::new("Empty", None).into(),
+        "container-styled",
+        Container::new(Some(Label::new("contained").into()))
+            .width(220)
+            .height(80)
+            .min_width(180)
+            .min_height(48)
+            .margin(Space::Xs)
+            .margin_top(Space::Sm)
+            .padding(Space::Md)
+            .padding_left(Space::Lg)
+            .background(Color::SurfaceRaised)
+            .color(Color::Fg)
+            .border_radius(Radius::Md)
+            .border_width(BorderWidth::Thin)
+            .border_color(Color::Border)
+            .font_size(FontSize::Sm)
+            .font_weight(FontWeight::Semibold)
+            .into(),
     );
 }
 
@@ -490,27 +495,32 @@ fn widget_common_props_all() {
     label.common.halign = Some(Align::Center);
     label.common.valign = Some(Align::End);
     label.common.tooltip = Some("details".into());
+    label.common.css_classes.push("marked".into());
+    label
+        .common
+        .styles
+        .insert("font-weight".into(), "600".into());
+    label
+        .common
+        .styles
+        .insert("margin-top".into(), "2px".into());
     assert_widget("common-props-all", label.into());
 }
 
 #[test]
-fn widget_tree_hero_column_section() {
+fn widget_tree_hero_column_card() {
     use glimpse_sdk::tree;
     let column = Column::new(tree![
         Hero::new("Counter", "Value: 0"),
-        Section::new(
-            "Controls",
-            Some(
-                Column::new(tree![
-                    Label::new("Current"),
-                    Button::new("increment").label("Increment"),
-                ])
-                .into(),
-            ),
-        ),
-    ])
-    .spacing(8);
-    assert_widget("tree-hero-column-section", column.into());
+        Card::new(Some(
+            Column::new(tree![
+                Label::new("Current"),
+                Button::new("increment").label("Increment"),
+            ])
+            .into(),
+        )),
+    ]);
+    assert_widget("tree-hero-column-card", column.into());
 }
 
 #[test]

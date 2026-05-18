@@ -92,7 +92,6 @@ pub struct Applet {
     context_menu: gtk::PopoverMenu,
 }
 
-
 #[derive(Debug)]
 pub struct Init {
     pub name: String,
@@ -160,7 +159,15 @@ impl SimpleComponent for Applet {
         let ipc = init.ipc.clone();
         let supervisor_sender = sender.input_sender().clone();
         relm4::spawn(async move {
-            supervisor::run(name, config, outbound_rx, control_rx, supervisor_sender, ipc).await;
+            supervisor::run(
+                name,
+                config,
+                outbound_rx,
+                control_rx,
+                supervisor_sender,
+                ipc,
+            )
+            .await;
         });
 
         let context_menu = build_context_menu(&root, &sender);
@@ -459,5 +466,4 @@ mod tests {
 
         assert_eq!(status_item_key(3, &item), "index:3");
     }
-
 }

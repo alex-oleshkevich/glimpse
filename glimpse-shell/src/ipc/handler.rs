@@ -15,7 +15,10 @@ pub(crate) struct ShellCommandHandler {
 }
 
 fn field<'a>(fields: &'a [(String, String)], key: &str) -> Option<&'a str> {
-    fields.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
+    fields
+        .iter()
+        .find(|(k, _)| k == key)
+        .map(|(_, v)| v.as_str())
 }
 
 fn require<'a>(fields: &'a [(String, String)], key: &str) -> Result<&'a str, String> {
@@ -247,9 +250,7 @@ impl CommandHandler for ShellCommandHandler {
                 "media_play_pause" | "media_next" | "media_previous" => {
                     let player_id = match field(fields, "player") {
                         Some(p) => p.to_owned(),
-                        None => self
-                            .current_player_id()
-                            .ok_or("no active media player")?,
+                        None => self.current_player_id().ok_or("no active media player")?,
                     };
                     let cmd = match name {
                         "media_play_pause" => mpris::Command::PlayPause { player_id },

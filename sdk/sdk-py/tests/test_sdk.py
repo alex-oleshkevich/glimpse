@@ -5,6 +5,7 @@ import contextlib
 import unittest
 from dataclasses import dataclass
 
+import glimpse_sdk
 from glimpse_sdk import (
     Applet,
     AppletState,
@@ -85,8 +86,15 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["data"]["items"][0]["id"], "prod")
 
     def test_row_and_column_serialize_as_layout_protocol_types(self) -> None:
-        self.assertEqual(Row().to_protocol()["type"], "row")
-        self.assertEqual(Column().to_protocol()["type"], "column")
+        row = Row().to_protocol()
+        column = Column().to_protocol()
+        self.assertEqual(row["type"], "row")
+        self.assertEqual(row["data"]["spacing"], 4)
+        self.assertEqual(column["type"], "column")
+        self.assertEqual(column["data"]["spacing"], 4)
+
+    def test_section_is_not_public_sdk_widget(self) -> None:
+        self.assertFalse(hasattr(glimpse_sdk, "Section"))
 
     def test_status_dot_serializes_as_status_protocol_type(self) -> None:
         self.assertEqual(StatusDot().to_protocol()["type"], "status")

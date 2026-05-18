@@ -274,7 +274,10 @@ mod tests {
         let ev = parse_event("notification.received body=line1\\nline2\\sword ts=42");
         assert_eq!(ev.name, "notification.received");
         assert_eq!(ev.ts, 42);
-        assert_eq!(ev.fields.get("body").map(String::as_str), Some("line1\nline2 word"));
+        assert_eq!(
+            ev.fields.get("body").map(String::as_str),
+            Some("line1\nline2 word")
+        );
     }
 
     #[test]
@@ -298,10 +301,7 @@ mod tests {
             .unwrap_err();
         assert!(err.to_string().contains("whitespace"));
         // A bad key must also be rejected before any connect attempt.
-        let err = sub
-            .dispatch("ok", [("bad key", "v")])
-            .await
-            .unwrap_err();
+        let err = sub.dispatch("ok", [("bad key", "v")]).await.unwrap_err();
         assert!(err.to_string().contains("whitespace"));
     }
 

@@ -1,261 +1,133 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Instructions for coding agents working in this repository.
 
-## Build Commands
+## Workflow
+
+- Show the plan before making code or test changes, then wait for confirmation.
+- Do not stage, commit, push, stash, rebase, or amend unless explicitly asked for that exact action.
+- Leave changes unstaged for review.
+- Do not revert user or unrelated work in a dirty worktree. Work around it or ask if it blocks the task.
+- Use `bd` for task tracking. Create, claim, and close issues with `--json`; do not create markdown TODO lists or alternate task trackers.
+- Prefer dedicated file tools for reading and editing. Use the shell for builds, tests, git, package managers, and commands that have no dedicated tool.
+- Prefer LSP tools for symbol navigation. Use text search for config keys, log strings, comments, and other literal text.
+
+## Current Architecture
+
+Glimpse is a Wayland status panel ecosystem.
+
+- `glimpse-core`: shared configuration, providers, and core data types.
+- `glimpse-shell`: GTK4 layer-shell panel, built-in applets, custom applet host, and applet development tooling.
+
+Configuration discovery order:
+
+1. `GLIMPSE_CONFIG`
+2. `./config.toml`
+3. `$XDG_CONFIG_HOME/glimpse/config.toml`
+4. `$HOME/.config/glimpse/config.toml` when `XDG_CONFIG_HOME` is unset
+
+Custom `exec` and `command` applets are package files under `$XDG_CONFIG_HOME/glimpse/applets` or project directories linked with `glimpse-shell applets link`.
+
+## Common Commands
 
 ```bash
-# Development build (default, loads CSS from files)
 cargo build
-
-# Production build (embeds CSS in binary)
-cargo build --release --no-default-features
-
-# Check compilation
 cargo check
+cargo run -p glimpse-shell
+RUST_LOG=info cargo run -p glimpse-shell
+cargo build -p glimpse-shell --release --no-default-features
+```
 
-# Run the daemon
-RUST_LOG=info cargo run -p glimpsed
+Useful custom applet tooling:
 
-# Run the panel
-RUST_LOG=info cargo run -p glimpse --bin glimpse-panel
+```bash
+glimpse-shell applets new counter --lang python
+glimpse-shell applets dev
+glimpse-shell applets link
+glimpse-shell applets ls
+glimpse-shell applets doctor --strict
+```
 
+## Rust Applet Development
 
-## Architecture
+- Decompose popovers into subcomponents.
+- Keep durable state in the applet; keep popover components focused on UI.
+- Use `zbus` macros for D-Bus proxies.
+- When creating a provider, prefer structs, enums, and methods. Use free functions only for truly standalone behavior.
+- `zbus::Connection` is `Arc`; clone it into provider constructors when needed.
+- If an applet has a popover, the panel item must have the `hoverable` class.
+- Use persistent widget maps such as `HashMap<key, WidgetRow>` instead of clear-and-rebuild loops when preserving menus, scroll position, or row identity matters.
+- Use the hero pattern consistently in popovers: icon, title, subtitle.
+- Use `PopoverMenu` for right-click menus with `gio::SimpleActionGroup` and a menu model.
 
-Glimpse is a Wayland status panel ecosystem with a client-server architecture.
-The `glimpse` package contains both the shared core library and the panel binary.
+## Styling Rules
 
-`glimpsed` is a legacy and should not be read as a reference.
+- Do not hardcode visual styles in Rust. Put styling in `themes/base.css`, a theme pack, or the relevant theme override.
+- Box spacing is a widget property, not CSS. Keep spacing values in Rust or SDK widget data.
+- Use CSS variables such as `--popover-padding`, `--popover-section-spacing`, `--dim-opacity`, and `--accent-bg`.
+- Popover root structure should follow `.foo-popover contents > box { margin: var(--popover-padding) }`.
+- Button text should use normal font weight on both button and label.
+- Numeric displays should use `font-variant-numeric: tabular-nums`.
 
-### Configuration
+## GTK4 Layout Pitfalls
 
-Config is loaded from (in priority order):
-1. `GLIMPSE_PANEL_CONFIG` env var
-2. `./panel.toml`
-3. `$XDG_CONFIG_HOME/glimpse/panel.toml`
+- Indicator and dot widgets stretch to panel height unless they use `set_valign(gtk::Align::Center)`.
+- Do not use CSS `min-width` to center content in fixed-width containers. Prefer padding or `label.set_xalign(0.5)`.
+- Never set `hexpand` on panel applet children; one child can consume the whole panel section.
+- `set_halign(Center)` on a box centers the box, not its children. Center the child that needs centering.
+- CSS `min-width` creates dead space because labels sit at the start of the box.
 
-Applets are configured in `[[panels]]` sections with per-applet `[applets.name]` overrides.
+## Exec Applet Widget Rules
 
-### Dev vs Prod Features
+- The four SDKs share the same canonical widget protocol through `sdk/fixtures`.
+- `Row`, `Column`, and `Grid` default spacing is `4`.
+- `Row.spacing`, `Column.spacing`, `Grid.row_spacing`, and `Grid.column_spacing` must always serialize.
+- The SDKs do not expose a `Section` widget. Treat protocol-level `section` support as legacy compatibility and do not add new SDK examples or fixtures that depend on it.
+- Prefer `PopoverScaffold` for popover roots with a `Hero` plus a `Column` body.
+- Use `Card` for grouped content, `PropertyList` for key-value details, `ActionItem` for clickable rows, and `Item` for non-clickable rows.
+- Keep widget JSON portable across Python, TypeScript, Go, and Rust. If a widget cannot be represented cleanly in all four SDKs, revisit the widget shape before implementing it.
+- Fixtures are canonical examples. Do not hand-edit generated fixture JSON without updating `sdk/fixtures/generate.py`.
 
-The `dev` feature (enabled by default) controls:
-- Base CSS loaded from file vs embedded
-- File watching for base CSS hot-reload
+## Exec Applet Testing
 
-## Provider Development
+When changing exec widgets, events, common props, or SDK serialization:
 
-## Applet Development
+1. Update `sdk/fixtures/generate.py`.
+2. Update committed fixtures under `sdk/fixtures/widgets` or `sdk/fixtures/events`.
+3. Update all four SDK golden tests:
+   - `sdk/sdk-py/tests/test_golden.py`
+   - `sdk/sdk-ts/tests/golden.test.ts`
+   - `sdk/sdk-go/sdk/golden_test.go`
+   - `sdk/sdk-rs/tests/golden.rs`
+4. Add or update focused SDK behavior tests when changing defaults, exports, event parsing, or runtime behavior.
+5. Run the relevant SDK suites:
 
-- decompose popover into subcomponents
-- use zbus macro to create proxies
-- do not hardocde styles in rust, put then in theme.css
-- if applet has popover, it has to have "hoverable" class
-- try to keep logic in the applet and keep popover only for ui whenever possible
-- when you create a new provider, use enums, structs and methods. use free functions only if they are truly standalone
-- zbus::Connection is Arc, you can clone it into provider's new()
-### Key patterns
+```bash
+cd sdk/sdk-py && python -m unittest discover -s tests
+cd sdk/sdk-ts && npm test
+cd sdk/sdk-go && go test ./...
+cargo test --manifest-path sdk/sdk-rs/Cargo.toml
+```
 
-- Persistent widget maps (`HashMap<key, WidgetRow>`) instead of clear+rebuild — preserves context menus, scroll position
-- Hero pattern: 32px icon + title + subtitle, consistent across all popover applets
-- Box spacing is a widget property, not CSS — keep spacing values in Rust code
-- PopoverMenu for right-click: GIO SimpleActionGroup + PopoverMenu from model
+6. Run the renderer fixture check from the repo root:
 
-### CSS conventions
+```bash
+cargo test -p glimpse-shell golden_widget_fixtures_render_without_errors -- --nocapture
+```
 
-- All styles in `theme.css`, not hardcoded in Rust
-- CSS variables: `--popover-padding`, `--popover-section-spacing`, `--dim-opacity`, `--accent-bg`
-- Popover structure: `.foo-popover contents > box { margin: var(--popover-padding) }`
-- Button text: always `font-weight: normal` on both button and label
-- Tabular numbers: `font-variant-numeric: tabular-nums` for all numeric displays
+For behavior changes, write or update the failing test first, confirm the failure is about the intended behavior, then implement the change and rerun the suite.
 
-# Important rules
-- always use your built-in tools to read, search, grep, write files. Only use bash as the last resort
-- if i don't allow you a certain actions - do not workaround it.
-- do not write any code unless i ask you - print instead. I want to review, i want to type everything by hand
-- make sure you don't hardcode styles in rust code, use theme.css for that
+## Beads
 
-## GTK4 Widget Layout Pitfalls
-
-When creating panel widgets, avoid these common GTK4 layout issues:
-
-- **Widgets stretch to fill panel height** — add `set_valign(gtk::Align::Center)` on indicator/dot widgets
-- **Content not centered in fixed-width containers** — don't use `min-width` in CSS for centering. Instead use `padding: 0 Npx` so the box wraps content with equal padding. Or use `label.set_xalign(0.5)` for text centering.
-- **`set_hexpand(true)` causes widgets to fill available space** — never use hexpand on panel applet children. The panel is a horizontal box; hexpand makes one applet consume all free space.
-- **`set_halign(Center)` on a box inside a horizontal parent** — this centers the box itself but doesn't center its children. Center the child (label), not the container.
-- **CSS `min-width` creates dead space** — the label sits at the start of the box. Use padding instead, or `set_size_request` with `label.set_xalign(0.5)`.
-
-
-<!-- BEGIN BEADS INTEGRATION v:1 profile:full hash:f65d5d33 -->
-## Issue Tracking with bd (beads)
-
-**IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.
-
-### Why bd?
-
-- Dependency-aware: Track blockers and relationships between issues
-- Git-friendly: Dolt-powered version control with native sync
-- Agent-optimized: JSON output, ready work detection, discovered-from links
-- Prevents duplicate tracking systems and confusion
-
-### Quick Start
-
-**Check for ready work:**
+Use `bd` for all tracked work:
 
 ```bash
 bd ready --json
-```
-
-**Create new issues:**
-
-```bash
-bd create "Issue title" --description="Detailed context" -t bug|feature|task -p 0-4 --json
-bd create "Issue title" --description="What this issue is about" -p 1 --deps discovered-from:bd-123 --json
-```
-
-**Claim and update:**
-
-```bash
+bd create "Issue title" --description="Context" -t task -p 2 --json
 bd update <id> --claim --json
-bd update bd-42 --priority 1 --json
+bd close <id> --reason "Completed" --json
 ```
 
-**Complete work:**
+Create linked issues for discovered follow-up work with `--deps discovered-from:<parent-id>`.
 
-```bash
-bd close bd-42 --reason "Completed" --json
-```
-
-### Issue Types
-
-- `bug` - Something broken
-- `feature` - New functionality
-- `task` - Work item (tests, docs, refactoring)
-- `epic` - Large feature with subtasks
-- `chore` - Maintenance (dependencies, tooling)
-
-### Priorities
-
-- `0` - Critical (security, data loss, broken builds)
-- `1` - High (major features, important bugs)
-- `2` - Medium (default, nice-to-have)
-- `3` - Low (polish, optimization)
-- `4` - Backlog (future ideas)
-
-### Workflow for AI Agents
-
-1. **Check ready work**: `bd ready` shows unblocked issues
-2. **Claim your task atomically**: `bd update <id> --claim`
-3. **Work on it**: Implement, test, document
-4. **Discover new work?** Create linked issue:
-   - `bd create "Found bug" --description="Details about what was found" -p 1 --deps discovered-from:<parent-id>`
-5. **Complete**: `bd close <id> --reason "Done"`
-
-### Quality
-- Use `--acceptance` and `--design` fields when creating issues
-- Use `--validate` to check description completeness
-
-### Lifecycle
-- `bd defer <id>` / `bd supersede <id>` for issue management
-- `bd stale` / `bd orphans` / `bd lint` for hygiene
-- `bd human <id>` to flag for human decisions
-- `bd formula list` / `bd mol pour <name>` for structured workflows
-
-### Auto-Sync
-
-bd automatically syncs via Dolt:
-
-- Each write auto-commits to Dolt history
-- Use `bd dolt push`/`bd dolt pull` for remote sync
-- No manual export/import needed!
-
-### Important Rules
-
-- ✅ Use bd for ALL task tracking
-- ✅ Always use `--json` flag for programmatic use
-- ✅ Link discovered work with `discovered-from` dependencies
-- ✅ Check `bd ready` before asking "what should I work on?"
-- ❌ Do NOT create markdown TODO lists
-- ❌ Do NOT use external issue trackers
-- ❌ Do NOT duplicate tracking systems
-
-For more details, see README.md and docs/QUICKSTART.md.
-
-## Session Completion
-
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
-
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd dolt push
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
-
-<!-- END BEADS INTEGRATION -->
-
-Use 'bd' for task tracking
-
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
-## Beads Issue Tracker
-
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
-
-### Quick Reference
-
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
-```
-
-### Rules
-
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
-
-## Session Completion
-
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
-
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd dolt push
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
-<!-- END BEADS INTEGRATION -->
-
-d
+Do not push Beads, git commits, or branches unless the user explicitly asks.

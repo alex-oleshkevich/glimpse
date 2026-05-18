@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import * as sdk from "../src/index.js";
 import {
   Applet,
   Button,
@@ -121,10 +122,16 @@ test("select serializes items", () => {
 });
 
 test("row and column serialize as layout protocol types", () => {
-  const row = new Row({ children: [], spacing: 4 }).toProtocol();
+  const row = new Row({ children: [] }).toProtocol();
   assert.equal(row.type, "row");
-  const column = new Column({ children: [], spacing: 4 }).toProtocol();
+  assert.equal((row.data as any).spacing, 4);
+  const column = new Column({ children: [] }).toProtocol();
   assert.equal(column.type, "column");
+  assert.equal((column.data as any).spacing, 4);
+});
+
+test("section is not a public SDK widget", () => {
+  assert.equal("Section" in sdk, false);
 });
 
 test("status dot serializes as status protocol type", () => {

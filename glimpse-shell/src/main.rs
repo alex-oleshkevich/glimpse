@@ -46,7 +46,11 @@ fn main() -> Result<()> {
             }
             let json = rest.iter().any(|a| a == "--json");
             let patterns: Vec<String> = rest.into_iter().filter(|a| a != "--json").collect();
-            let patterns = if patterns.is_empty() { vec!["*".to_owned()] } else { patterns };
+            let patterns = if patterns.is_empty() {
+                vec!["*".to_owned()]
+            } else {
+                patterns
+            };
             return run_async(ipc::cli::watch(ipc::cli::WatchArgs { patterns, json }));
         }
         Some("dispatch") => {
@@ -56,7 +60,11 @@ fn main() -> Result<()> {
                 return Ok(());
             }
             let json = rest_raw.iter().any(|a| a == "--json");
-            let rest: Vec<String> = rest_raw.iter().filter(|a| a.as_str() != "--json").cloned().collect();
+            let rest: Vec<String> = rest_raw
+                .iter()
+                .filter(|a| a.as_str() != "--json")
+                .cloned()
+                .collect();
             let command = rest
                 .first()
                 .ok_or_else(|| anyhow::anyhow!("dispatch: command name required"))?
@@ -69,40 +77,42 @@ fn main() -> Result<()> {
                 std::process::exit(1);
             }
             let fields = rest[1..].to_vec();
-            return run_async(ipc::cli::dispatch(ipc::cli::DispatchArgs { command, fields, json }));
+            return run_async(ipc::cli::dispatch(ipc::cli::DispatchArgs {
+                command,
+                fields,
+                json,
+            }));
         }
-        Some("applets") => {
-            match argv.get(1).map(String::as_str) {
-                Some("ls") => {
-                    let json = argv[2..].iter().any(|a| a == "--json");
-                    return list_applets(json);
-                }
-                Some("new") => {
-                    return applet_scaffold::run(&argv[2..]);
-                }
-                Some("dev") => {
-                    return run_async(applet_dev::run(&argv[2..]));
-                }
-                Some("link") => {
-                    return applet_manage::link(&argv[2..]);
-                }
-                Some("unlink") => {
-                    return applet_manage::unlink(&argv[2..]);
-                }
-                Some("doctor") => {
-                    return applet_manage::doctor(&argv[2..]);
-                }
-                Some("--help") | Some("-h") | None => {
-                    print_applets_help();
-                    return Ok(());
-                }
-                Some(other) => {
-                    eprintln!("glimpse-shell: unknown applets subcommand '{other}'");
-                    eprintln!("Try 'glimpse-shell applets --help'.");
-                    std::process::exit(1);
-                }
+        Some("applets") => match argv.get(1).map(String::as_str) {
+            Some("ls") => {
+                let json = argv[2..].iter().any(|a| a == "--json");
+                return list_applets(json);
             }
-        }
+            Some("new") => {
+                return applet_scaffold::run(&argv[2..]);
+            }
+            Some("dev") => {
+                return run_async(applet_dev::run(&argv[2..]));
+            }
+            Some("link") => {
+                return applet_manage::link(&argv[2..]);
+            }
+            Some("unlink") => {
+                return applet_manage::unlink(&argv[2..]);
+            }
+            Some("doctor") => {
+                return applet_manage::doctor(&argv[2..]);
+            }
+            Some("--help") | Some("-h") | None => {
+                print_applets_help();
+                return Ok(());
+            }
+            Some(other) => {
+                eprintln!("glimpse-shell: unknown applets subcommand '{other}'");
+                eprintln!("Try 'glimpse-shell applets --help'.");
+                std::process::exit(1);
+            }
+        },
         None => {}
         Some(unknown) => {
             eprintln!("glimpse-shell: unknown command '{unknown}'");
@@ -155,7 +165,12 @@ fn list_applets(json: bool) -> Result<()> {
     }
 
     let id_w = applets.iter().map(|a| a.id.len()).max().unwrap_or(2).max(2);
-    let ty_w = applets.iter().map(|a| a.kind.len()).max().unwrap_or(4).max(4);
+    let ty_w = applets
+        .iter()
+        .map(|a| a.kind.len())
+        .max()
+        .unwrap_or(4)
+        .max(4);
     println!("{:<id_w$}  {:<ty_w$}  SOURCE", "ID", "TYPE");
     for a in &applets {
         println!("{:<id_w$}  {:<ty_w$}  {}", a.id, a.kind, a.source);

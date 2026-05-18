@@ -160,7 +160,9 @@ pub fn print_help() {
     println!();
     println!("OPTIONS:");
     println!("    --lang <rust|python|typescript|go>   Override language detection");
-    println!("    --poll-ms <N>                        File-change poll interval ms (default: 300)");
+    println!(
+        "    --poll-ms <N>                        File-change poll interval ms (default: 300)"
+    );
     println!("    --debug                              Print supervisor diagnostics to stderr");
     println!("    -h, --help                           Print help");
 }
@@ -182,10 +184,9 @@ pub async fn run(args: &[String]) -> Result<()> {
             }
             "--lang" => {
                 let v = it.next().context("--lang requires a value")?;
-                lang_override =
-                    Some(Language::parse(v).with_context(|| {
-                        format!("--lang must be rust|python|typescript|go, got {v:?}")
-                    })?);
+                lang_override = Some(Language::parse(v).with_context(|| {
+                    format!("--lang must be rust|python|typescript|go, got {v:?}")
+                })?);
             }
             "--poll-ms" => {
                 poll_ms = it
@@ -324,8 +325,7 @@ fn materialize_dev_config(
         AppletType::Exec => {
             let original = std::fs::read_to_string(project_dir.join("applet.toml"))
                 .context("read applet.toml")?;
-            let mut value: toml::Value =
-                toml::from_str(&original).context("parse applet.toml")?;
+            let mut value: toml::Value = toml::from_str(&original).context("parse applet.toml")?;
             let table = value
                 .as_table_mut()
                 .context("applet.toml root is not a table")?;
@@ -449,7 +449,13 @@ fn build_plan(lang: Language, path: &Path) -> Plan {
             let module = python_module_name(path);
             Plan {
                 binary: "uv".into(),
-                args: vec!["run".into(), "--no-sync".into(), "python".into(), "-m".into(), module],
+                args: vec![
+                    "run".into(),
+                    "--no-sync".into(),
+                    "python".into(),
+                    "-m".into(),
+                    module,
+                ],
                 workdir: path.to_path_buf(),
                 build: None,
             }
@@ -475,7 +481,13 @@ fn build_plan(lang: Language, path: &Path) -> Plan {
     }
 }
 
-async fn supervise(plan: Plan, watch_dir: &Path, poll_ms: u64, surface_errors: bool, log_path: PathBuf) -> Result<()> {
+async fn supervise(
+    plan: Plan,
+    watch_dir: &Path,
+    poll_ms: u64,
+    surface_errors: bool,
+    log_path: PathBuf,
+) -> Result<()> {
     let init_line: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
     let child: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
     // Captured failure text while no healthy child is running.
@@ -484,7 +496,16 @@ async fn supervise(plan: Plan, watch_dir: &Path, poll_ms: u64, surface_errors: b
     let (rebuild_tx, mut rebuild_rx) = mpsc::channel::<()>(8);
     tokio::spawn(poll_watcher(watch_dir.to_path_buf(), poll_ms, rebuild_tx));
 
-    if let Err(e) = rebuild_and_respawn(&plan, &child, &init_line, &failure, surface_errors, &log_path).await {
+    if let Err(e) = rebuild_and_respawn(
+        &plan,
+        &child,
+        &init_line,
+        &failure,
+        surface_errors,
+        &log_path,
+    )
+    .await
+    {
         log(format!("initial build failed: {e:#}"));
     }
 
@@ -525,9 +546,7 @@ async fn supervise(plan: Plan, watch_dir: &Path, poll_ms: u64, surface_errors: b
 
     let (term_tx, mut term_rx) = mpsc::channel::<()>(1);
     #[cfg(unix)]
-    if let Ok(mut sig) =
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-    {
+    if let Ok(mut sig) = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
         tokio::spawn(async move {
             if sig.recv().await.is_some() {
                 let _ = term_tx.send(()).await;
@@ -562,9 +581,7 @@ async fn supervise(plan: Plan, watch_dir: &Path, poll_ms: u64, surface_errors: b
 async fn wait_for_shutdown() {
     let (term_tx, mut term_rx) = mpsc::channel::<()>(1);
     #[cfg(unix)]
-    if let Ok(mut sig) =
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-    {
+    if let Ok(mut sig) = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
         tokio::spawn(async move {
             if sig.recv().await.is_some() {
                 let _ = term_tx.send(()).await;
@@ -591,9 +608,7 @@ async fn respond_with_error(incoming: &str, message: &str) {
             "tooltip": short,
         }]
     });
-    let _ = out
-        .write_all(format!("status {status}\n").as_bytes())
-        .await;
+    let _ = out.write_all(format!("status {status}\n").as_bytes()).await;
 
     // The host sends `event {"id":"popover","type":"open",...}` when opened.
     if incoming.starts_with("event ")
@@ -647,8 +662,13 @@ fn collect_mtimes(dir: &Path) -> HashMap<PathBuf, SystemTime> {
             let name = entry.file_name();
             let s = name.to_string_lossy();
             // Skip build artifact directories.
-            if s == "target" || s == "dist" || s == "node_modules" || s == ".git"
-                || s == "__pycache__" || s == ".venv" || s.ends_with(".dev-build")
+            if s == "target"
+                || s == "dist"
+                || s == "node_modules"
+                || s == ".git"
+                || s == "__pycache__"
+                || s == ".venv"
+                || s.ends_with(".dev-build")
             {
                 continue;
             }
@@ -893,10 +913,7 @@ mod tests {
         assert_eq!(cmd[1].as_str(), Some("applets"));
         assert_eq!(cmd[2].as_str(), Some("dev"));
         assert_eq!(cmd[3].as_str(), Some(proj.to_str().unwrap()));
-        assert_eq!(
-            v["exec"]["work_dir"].as_str(),
-            Some(proj.to_str().unwrap())
-        );
+        assert_eq!(v["exec"]["work_dir"].as_str(), Some(proj.to_str().unwrap()));
         // Unrelated keys preserved.
         assert_eq!(v["settings"]["refresh_ms"].as_integer(), Some(1234));
         assert_eq!(v["exec"]["env"]["FOO"].as_str(), Some("bar"));
@@ -919,14 +936,12 @@ mod tests {
         let dest_dir = tmp("cmd-dest");
         let dest = dest_dir.join("c.dev.toml");
 
-        materialize_dev_config(&dest, &AppletType::Command, &proj, &PathBuf::from("/x"))
-            .unwrap();
+        materialize_dev_config(&dest, &AppletType::Command, &proj, &PathBuf::from("/x")).unwrap();
 
         assert!(std::fs::symlink_metadata(&dest).unwrap().is_symlink());
         assert_eq!(std::fs::read_link(&dest).unwrap(), src);
         // Re-materializing replaces a stale entry cleanly.
-        materialize_dev_config(&dest, &AppletType::Command, &proj, &PathBuf::from("/x"))
-            .unwrap();
+        materialize_dev_config(&dest, &AppletType::Command, &proj, &PathBuf::from("/x")).unwrap();
         assert_eq!(std::fs::read_link(&dest).unwrap(), src);
         std::fs::remove_dir_all(&proj).ok();
         std::fs::remove_dir_all(&dest_dir).ok();

@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use relm4::{
-    WidgetTemplate,
+    RelmWidgetExt, WidgetTemplate,
     gtk::{self, prelude::*},
 };
 
@@ -22,14 +22,14 @@ use crate::components::{
 };
 
 use super::protocol::{
-    ActionItemNode, AlignValue, BadgeNode, ButtonNode, ButtonVariant, CardNode,
-    CheckboxNode, CommonProps, ContentFitValue, CopyableNode, EmptyStateNode, EventKind,
-    EventPayload, EventSource, ExpanderNode, GridNode, HeroNode, IconNode,
-    ItemNode, LabelNode, LayoutNode, LevelBarModeValue, LevelBarNode, LinkButtonNode,
-    MeterNode, OrientationValue, PagerAppearanceValue, PagerItemNode,
-    PagerStripNode, PictureNode, ProgressNode, PropertyListNode, ScrollNode, SectionNode,
-    SelectNode, SeparatorNode, SliderNode, SpinnerNode, StatusNode, SwitchNode, ToggleButtonNode,
-    TreeNode, Variant,
+    ActionItemNode, AlignValue, BadgeNode, BorderWidthValue, ButtonNode, ButtonVariant, CardNode,
+    CheckboxNode, ColorValue, CommonProps, ContainerNode, ContentFitValue, CopyableNode,
+    EmptyStateNode, EventKind, EventPayload, EventSource, ExpanderNode, FontSizeValue,
+    FontWeightValue, GridNode, HeroNode, IconNode, ItemNode, LabelNode, LayoutNode,
+    LevelBarModeValue, LevelBarNode, LinkButtonNode, MeterNode, OrientationValue,
+    PagerAppearanceValue, PagerItemNode, PagerStripNode, PictureNode, ProgressNode,
+    PropertyListNode, RadiusValue, ScrollNode, SectionNode, SelectNode, SeparatorNode, SliderNode,
+    SpaceValue, SpinnerNode, StatusNode, SwitchNode, ToggleButtonNode, TreeNode, Variant,
 };
 
 pub type EventSink = Rc<dyn Fn(EventPayload)>;
@@ -48,6 +48,7 @@ impl RenderCatalog {
         match node {
             TreeNode::Hero(data) => self.render_hero(data),
             TreeNode::Card(data) => self.render_card(data),
+            TreeNode::Container(data) => self.render_container(data),
             TreeNode::Section(data) => self.render_section(data),
             TreeNode::Meter(data) => self.render_meter(data),
             TreeNode::Copyable(data) => Ok(self.render_copyable(data).upcast()),
@@ -125,6 +126,20 @@ impl RenderCatalog {
             card.body.append(&self.render(child)?);
         }
         Ok(card.as_ref().clone().upcast())
+    }
+
+    fn render_container(&self, data: &ContainerNode) -> Result<gtk::Widget, RenderError> {
+        let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        root.add_css_class("container");
+        apply_common_props_without_inline(&root, &data.common);
+        apply_container_size(&root, data);
+        apply_container_margin(&root, data);
+        apply_container_styles(&root, data);
+        apply_inline_styles(&root, &data.common);
+        if let Some(child) = &data.child {
+            root.append(&self.render(child)?);
+        }
+        Ok(root.upcast())
     }
 
     fn render_section(&self, data: &SectionNode) -> Result<gtk::Widget, RenderError> {
@@ -372,7 +387,6 @@ impl RenderCatalog {
         spinner
     }
 
-
     fn render_grid(&self, data: &GridNode) -> Result<gtk::Widget, RenderError> {
         let grid = gtk::Grid::new();
         grid.add_css_class("grid");
@@ -456,7 +470,6 @@ impl RenderCatalog {
         apply_common_props(&image, &data.common);
         image
     }
-
 
     fn render_picture(&self, data: &PictureNode) -> gtk::Picture {
         let picture = gtk::Picture::for_filename(&data.path);
@@ -809,6 +822,11 @@ fn require_id(widget_type: &'static str, id: &str) -> Result<String, RenderError
 }
 
 fn apply_common_props(widget: &impl IsA<gtk::Widget>, props: &CommonProps) {
+    apply_common_props_without_inline(widget, props);
+    apply_inline_styles(widget, props);
+}
+
+fn apply_common_props_without_inline(widget: &impl IsA<gtk::Widget>, props: &CommonProps) {
     if let Some(visible) = props.visible {
         widget.set_visible(visible);
     }
@@ -829,6 +847,215 @@ fn apply_common_props(widget: &impl IsA<gtk::Widget>, props: &CommonProps) {
     }
     for class in &props.css_classes {
         widget.add_css_class(class);
+    }
+}
+
+fn apply_inline_styles(widget: &impl IsA<gtk::Widget>, props: &CommonProps) {
+    if props.styles.is_empty() {
+        return;
+    }
+
+    let declarations = props
+        .styles
+        .iter()
+        .filter_map(|(property, value)| inline_style_declaration(property, value))
+        .collect::<Vec<_>>();
+    if declarations.is_empty() {
+        return;
+    }
+
+    widget.inline_css(&declarations.join(" "));
+}
+
+fn inline_style_declaration(property: &str, value: &str) -> Option<String> {
+    if !is_safe_css_property(property) || !is_safe_css_value(value) {
+        tracing::warn!(property, "exec widget: ignored invalid inline style");
+        return None;
+    }
+
+    Some(format!("{property}: {value};"))
+}
+
+fn is_safe_css_property(property: &str) -> bool {
+    !property.is_empty()
+        && property
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+}
+
+fn is_safe_css_value(value: &str) -> bool {
+    !value.is_empty() && !value.bytes().any(|byte| matches!(byte, b'{' | b'}' | b';'))
+}
+
+fn apply_container_size(widget: &impl IsA<gtk::Widget>, data: &ContainerNode) {
+    let width = size_request_value(data.width.or(data.min_width));
+    let height = size_request_value(data.height.or(data.min_height));
+    if width >= 0 || height >= 0 {
+        widget.set_size_request(width, height);
+    }
+}
+
+fn size_request_value(value: Option<i32>) -> i32 {
+    value.unwrap_or(-1).max(-1)
+}
+
+fn apply_container_margin(widget: &impl IsA<gtk::Widget>, data: &ContainerNode) {
+    let margin = data.margin.map(space_px);
+    if let Some(value) = data.margin_top.map(space_px).or(margin) {
+        widget.set_margin_top(value);
+    }
+    if let Some(value) = data.margin_right.map(space_px).or(margin) {
+        widget.set_margin_end(value);
+    }
+    if let Some(value) = data.margin_bottom.map(space_px).or(margin) {
+        widget.set_margin_bottom(value);
+    }
+    if let Some(value) = data.margin_left.map(space_px).or(margin) {
+        widget.set_margin_start(value);
+    }
+}
+
+fn apply_container_styles(widget: &impl IsA<gtk::Widget>, data: &ContainerNode) {
+    let mut declarations = Vec::new();
+    if let Some(background) = data.background {
+        declarations.push(format!("background: {};", color_css(background)));
+    }
+    if let Some(color) = data.color {
+        declarations.push(format!("color: {};", color_css(color)));
+    }
+    if let Some(radius) = data.border_radius {
+        declarations.push(format!("border-radius: {};", radius_css(radius)));
+    }
+    if let Some(width) = data.border_width {
+        declarations.push(format!("border-width: {};", border_width_css(width)));
+        declarations.push("border-style: solid;".into());
+    }
+    if let Some(color) = data.border_color {
+        declarations.push(format!("border-color: {};", color_css(color)));
+    }
+    if let Some(size) = data.font_size {
+        declarations.push(format!("font-size: {};", font_size_css(size)));
+    }
+    if let Some(weight) = data.font_weight {
+        declarations.push(format!("font-weight: {};", font_weight_css(weight)));
+    }
+    append_spacing_declarations(
+        &mut declarations,
+        "padding",
+        data.padding,
+        data.padding_top,
+        data.padding_right,
+        data.padding_bottom,
+        data.padding_left,
+    );
+    if !declarations.is_empty() {
+        widget.inline_css(&declarations.join(" "));
+    }
+}
+
+fn append_spacing_declarations(
+    declarations: &mut Vec<String>,
+    property: &str,
+    all: Option<SpaceValue>,
+    top: Option<SpaceValue>,
+    right: Option<SpaceValue>,
+    bottom: Option<SpaceValue>,
+    left: Option<SpaceValue>,
+) {
+    if let Some(value) = all {
+        declarations.push(format!("{property}: {};", space_css(value)));
+    }
+    if let Some(value) = top {
+        declarations.push(format!("{property}-top: {};", space_css(value)));
+    }
+    if let Some(value) = right {
+        declarations.push(format!("{property}-right: {};", space_css(value)));
+    }
+    if let Some(value) = bottom {
+        declarations.push(format!("{property}-bottom: {};", space_css(value)));
+    }
+    if let Some(value) = left {
+        declarations.push(format!("{property}-left: {};", space_css(value)));
+    }
+}
+
+fn space_px(value: SpaceValue) -> i32 {
+    match value {
+        SpaceValue::None => 0,
+        SpaceValue::Xxs => 2,
+        SpaceValue::Xs => 4,
+        SpaceValue::Sm => 6,
+        SpaceValue::Md => 8,
+        SpaceValue::Lg => 16,
+    }
+}
+
+fn space_css(value: SpaceValue) -> &'static str {
+    match value {
+        SpaceValue::None => "0",
+        SpaceValue::Xxs => "var(--space-1)",
+        SpaceValue::Xs => "var(--space-2)",
+        SpaceValue::Sm => "var(--space-3)",
+        SpaceValue::Md => "var(--space-4)",
+        SpaceValue::Lg => "var(--space-6)",
+    }
+}
+
+fn color_css(value: ColorValue) -> &'static str {
+    match value {
+        ColorValue::Bg => "var(--color-bg)",
+        ColorValue::Fg => "var(--color-fg)",
+        ColorValue::Surface => "var(--color-surface)",
+        ColorValue::SurfaceRaised => "var(--color-surface-raised)",
+        ColorValue::Border => "var(--color-border)",
+        ColorValue::MutedFg => "var(--color-muted-fg)",
+        ColorValue::Accent => "var(--color-accent)",
+        ColorValue::AccentFg => "var(--color-accent-fg)",
+        ColorValue::Success => "var(--color-success)",
+        ColorValue::SuccessFg => "var(--color-success-fg)",
+        ColorValue::Warning => "var(--color-warning)",
+        ColorValue::WarningFg => "var(--color-warning-fg)",
+        ColorValue::Danger => "var(--color-danger)",
+        ColorValue::DangerFg => "var(--color-danger-fg)",
+    }
+}
+
+fn radius_css(value: RadiusValue) -> &'static str {
+    match value {
+        RadiusValue::None => "0",
+        RadiusValue::Sm => "var(--radius-sm)",
+        RadiusValue::Md => "var(--radius-md)",
+        RadiusValue::Lg => "var(--radius-lg)",
+        RadiusValue::Pill => "var(--radius-pill)",
+    }
+}
+
+fn border_width_css(value: BorderWidthValue) -> &'static str {
+    match value {
+        BorderWidthValue::None => "var(--border-width-none)",
+        BorderWidthValue::Thin => "var(--border-width-thin)",
+        BorderWidthValue::Medium => "var(--border-width-medium)",
+        BorderWidthValue::Thick => "var(--border-width-thick)",
+    }
+}
+
+fn font_size_css(value: FontSizeValue) -> &'static str {
+    match value {
+        FontSizeValue::Xxs => "var(--font-size-xxs)",
+        FontSizeValue::Xs => "var(--font-size-xs)",
+        FontSizeValue::Sm => "var(--font-size-sm)",
+        FontSizeValue::Md | FontSizeValue::Base => "var(--font-size-md)",
+        FontSizeValue::Lg => "var(--font-size-lg)",
+        FontSizeValue::Xl => "var(--font-size-xl)",
+    }
+}
+
+fn font_weight_css(value: FontWeightValue) -> &'static str {
+    match value {
+        FontWeightValue::Normal => "var(--font-weight-normal)",
+        FontWeightValue::Medium => "var(--font-weight-medium)",
+        FontWeightValue::Semibold => "var(--font-weight-semibold)",
+        FontWeightValue::Bold => "var(--font-weight-bold)",
     }
 }
 
@@ -900,6 +1127,7 @@ mod tests {
     use super::*;
     use crate::components::test_support::gtk_available_on_this_thread;
     use std::cell::RefCell;
+    use std::collections::BTreeMap;
     use std::{fs, path::PathBuf};
 
     #[test]
@@ -962,6 +1190,60 @@ mod tests {
             failures.is_empty(),
             "golden widget fixtures should render without errors:\n{}",
             failures.join("\n")
+        );
+    }
+
+    #[test]
+    fn common_props_inline_styles_do_not_add_generated_css_class() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let mut styles = BTreeMap::new();
+        styles.insert("font-weight".into(), "600".into());
+        styles.insert("margin-top".into(), "2px".into());
+
+        let renderer = RenderCatalog::new(Rc::new(|_| {}));
+        let label = renderer
+            .render(&TreeNode::Label(LabelNode {
+                common: CommonProps {
+                    styles,
+                    ..Default::default()
+                },
+                text: "Styled".into(),
+                wrap: false,
+                xalign: None,
+                selectable: false,
+                variant: None,
+            }))
+            .expect("label should render")
+            .downcast::<gtk::Label>()
+            .expect("label root should be gtk::Label");
+
+        assert!(
+            label
+                .css_classes()
+                .iter()
+                .all(|class| !class.as_str().starts_with("glimpse-exec-inline-style-")),
+            "did not expect generated inline style class"
+        );
+    }
+
+    #[test]
+    fn container_size_request_clamps_external_negative_values() {
+        assert_eq!(size_request_value(None), -1);
+        assert_eq!(size_request_value(Some(-20)), -1);
+        assert_eq!(size_request_value(Some(-1)), -1);
+        assert_eq!(size_request_value(Some(0)), 0);
+        assert_eq!(size_request_value(Some(24)), 24);
+    }
+
+    #[test]
+    fn container_tokens_map_to_css_variables() {
+        assert_eq!(color_css(ColorValue::Border), "var(--color-border)");
+        assert_eq!(
+            border_width_css(BorderWidthValue::Thin),
+            "var(--border-width-thin)"
         );
     }
 

@@ -234,11 +234,11 @@ def widgets() -> None:
     write(WIDGETS, "separator", {"type": "separator", "data": {}})
     write(WIDGETS, "row", {
         "type": "row",
-        "data": {"spacing": 8, "children": []},
+        "data": {"spacing": 4, "children": []},
     })
     write(WIDGETS, "column", {
         "type": "column",
-        "data": {"spacing": 8, "children": []},
+        "data": {"spacing": 4, "children": []},
     })
     write(WIDGETS, "grid", {
         "type": "grid",
@@ -277,16 +277,26 @@ def widgets() -> None:
         "type": "card",
         "data": {},
     })
-    write(WIDGETS, "section-basic", {
-        "type": "section",
+    write(WIDGETS, "container-styled", {
+        "type": "container",
         "data": {
-            "title": "System",
-            "child": {"type": "label", "data": {"text": "uptime"}},
+            "child": {"type": "label", "data": {"text": "contained"}},
+            "width": 220,
+            "height": 80,
+            "min_width": 180,
+            "min_height": 48,
+            "margin": "xs",
+            "margin_top": "sm",
+            "padding": "md",
+            "padding_left": "lg",
+            "background": "surface_raised",
+            "color": "fg",
+            "border_radius": "md",
+            "border_width": "thin",
+            "border_color": "border",
+            "font_size": "sm",
+            "font_weight": "semibold",
         },
-    })
-    write(WIDGETS, "section-empty-children", {
-        "type": "section",
-        "data": {"title": "Empty"},
     })
     write(WIDGETS, "property-list", {
         "type": "property_list",
@@ -386,6 +396,8 @@ def widgets() -> None:
             "halign": "center",
             "valign": "end",
             "tooltip": "details",
+            "css_classes": ["marked"],
+            "styles": {"font-weight": "600", "margin-top": "2px"},
             "variant": "warning",
         },
     })
@@ -412,19 +424,18 @@ def widgets() -> None:
 
 
 def trees() -> None:
-    write(WIDGETS, "tree-hero-column-section", {
+    write(WIDGETS, "tree-hero-column-card", {
         "type": "column",
         "data": {
-            "spacing": 8,
+            "spacing": 4,
             "children": [
                 {
                     "type": "hero",
                     "data": {"title": "Counter", "subtitle": "Value: 0"},
                 },
                 {
-                    "type": "section",
+                    "type": "card",
                     "data": {
-                        "title": "Controls",
                         "child": {
                             "type": "column",
                             "data": {
@@ -435,7 +446,7 @@ def trees() -> None:
                                         "data": {"id": "increment", "label": "Increment"},
                                     },
                                 ],
-                                "spacing": 0,
+                                "spacing": 4,
                             },
                         },
                     },

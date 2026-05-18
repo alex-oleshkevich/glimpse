@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -26,6 +28,76 @@ pub enum Variant {
     Success,
     Warning,
     Danger,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Space {
+    None,
+    Xxs,
+    Xs,
+    Sm,
+    Md,
+    Lg,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Color {
+    Bg,
+    Fg,
+    Surface,
+    SurfaceRaised,
+    Border,
+    MutedFg,
+    Accent,
+    AccentFg,
+    Success,
+    SuccessFg,
+    Warning,
+    WarningFg,
+    Danger,
+    DangerFg,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Radius {
+    None,
+    Sm,
+    Md,
+    Lg,
+    Pill,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FontSize {
+    Xxs,
+    Xs,
+    Sm,
+    Md,
+    Base,
+    Lg,
+    Xl,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FontWeight {
+    Normal,
+    Medium,
+    Semibold,
+    Bold,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BorderWidth {
+    None,
+    Thin,
+    Medium,
+    Thick,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -89,6 +161,8 @@ pub struct CommonProps {
     pub tooltip: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub css_classes: Vec<String>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub styles: BTreeMap<String, String>,
 }
 
 macro_rules! with_common {
@@ -96,6 +170,23 @@ macro_rules! with_common {
         impl $name {
             pub fn css_class(mut self, class: impl Into<String>) -> Self {
                 self.common.css_classes.push(class.into());
+                self
+            }
+
+            pub fn style(mut self, property: impl Into<String>, value: impl Into<String>) -> Self {
+                self.common.styles.insert(property.into(), value.into());
+                self
+            }
+
+            pub fn styles(
+                mut self,
+                styles: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
+            ) -> Self {
+                self.common.styles.extend(
+                    styles
+                        .into_iter()
+                        .map(|(property, value)| (property.into(), value.into())),
+                );
                 self
             }
         }
@@ -548,14 +639,13 @@ impl Grid {
         Self {
             common: CommonProps::default(),
             children,
-            row_spacing: 0,
-            column_spacing: 0,
+            row_spacing: 4,
+            column_spacing: 4,
         }
     }
 }
 
 with_common!(Grid);
-
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Hero {
@@ -662,33 +752,196 @@ impl Card {
 with_common!(Card);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Section {
+pub struct Container {
     #[serde(flatten)]
     pub common: CommonProps,
-    pub title: String,
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub subtitle: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub child: Option<Box<TreeNode>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub height: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_width: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub min_height: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub margin: Option<Space>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub margin_top: Option<Space>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub margin_right: Option<Space>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub margin_bottom: Option<Space>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub margin_left: Option<Space>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub padding: Option<Space>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub padding_top: Option<Space>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub padding_right: Option<Space>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub padding_bottom: Option<Space>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub padding_left: Option<Space>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub background: Option<Color>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<Color>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub border_radius: Option<Radius>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub border_width: Option<BorderWidth>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub border_color: Option<Color>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub font_size: Option<FontSize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub font_weight: Option<FontWeight>,
 }
 
-impl Section {
-    pub fn new(title: impl Into<String>, child: Option<TreeNode>) -> Self {
+impl Container {
+    pub fn new(child: Option<TreeNode>) -> Self {
         Self {
             common: CommonProps::default(),
-            title: title.into(),
-            subtitle: String::new(),
             child: child.map(Box::new),
+            width: None,
+            height: None,
+            min_width: None,
+            min_height: None,
+            margin: None,
+            margin_top: None,
+            margin_right: None,
+            margin_bottom: None,
+            margin_left: None,
+            padding: None,
+            padding_top: None,
+            padding_right: None,
+            padding_bottom: None,
+            padding_left: None,
+            background: None,
+            color: None,
+            border_radius: None,
+            border_width: None,
+            border_color: None,
+            font_size: None,
+            font_weight: None,
         }
     }
 
-    pub fn subtitle(mut self, subtitle: impl Into<String>) -> Self {
-        self.subtitle = subtitle.into();
+    pub fn child(mut self, child: impl Into<TreeNode>) -> Self {
+        self.child = Some(Box::new(child.into()));
+        self
+    }
+
+    pub fn width(mut self, width: i32) -> Self {
+        self.width = Some(width);
+        self
+    }
+
+    pub fn height(mut self, height: i32) -> Self {
+        self.height = Some(height);
+        self
+    }
+
+    pub fn min_width(mut self, min_width: i32) -> Self {
+        self.min_width = Some(min_width);
+        self
+    }
+
+    pub fn min_height(mut self, min_height: i32) -> Self {
+        self.min_height = Some(min_height);
+        self
+    }
+
+    pub fn margin(mut self, margin: Space) -> Self {
+        self.margin = Some(margin);
+        self
+    }
+
+    pub fn margin_top(mut self, margin_top: Space) -> Self {
+        self.margin_top = Some(margin_top);
+        self
+    }
+
+    pub fn margin_right(mut self, margin_right: Space) -> Self {
+        self.margin_right = Some(margin_right);
+        self
+    }
+
+    pub fn margin_bottom(mut self, margin_bottom: Space) -> Self {
+        self.margin_bottom = Some(margin_bottom);
+        self
+    }
+
+    pub fn margin_left(mut self, margin_left: Space) -> Self {
+        self.margin_left = Some(margin_left);
+        self
+    }
+
+    pub fn padding(mut self, padding: Space) -> Self {
+        self.padding = Some(padding);
+        self
+    }
+
+    pub fn padding_top(mut self, padding_top: Space) -> Self {
+        self.padding_top = Some(padding_top);
+        self
+    }
+
+    pub fn padding_right(mut self, padding_right: Space) -> Self {
+        self.padding_right = Some(padding_right);
+        self
+    }
+
+    pub fn padding_bottom(mut self, padding_bottom: Space) -> Self {
+        self.padding_bottom = Some(padding_bottom);
+        self
+    }
+
+    pub fn padding_left(mut self, padding_left: Space) -> Self {
+        self.padding_left = Some(padding_left);
+        self
+    }
+
+    pub fn background(mut self, background: Color) -> Self {
+        self.background = Some(background);
+        self
+    }
+
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    pub fn border_radius(mut self, border_radius: Radius) -> Self {
+        self.border_radius = Some(border_radius);
+        self
+    }
+
+    pub fn border_width(mut self, border_width: BorderWidth) -> Self {
+        self.border_width = Some(border_width);
+        self
+    }
+
+    pub fn border_color(mut self, border_color: Color) -> Self {
+        self.border_color = Some(border_color);
+        self
+    }
+
+    pub fn font_size(mut self, font_size: FontSize) -> Self {
+        self.font_size = Some(font_size);
+        self
+    }
+
+    pub fn font_weight(mut self, font_weight: FontWeight) -> Self {
+        self.font_weight = Some(font_weight);
         self
     }
 }
 
-with_common!(Section);
+with_common!(Container);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Meter {
@@ -765,7 +1018,7 @@ impl Row {
     pub fn new(children: Vec<TreeNode>) -> Self {
         Self {
             common: CommonProps::default(),
-            spacing: 0,
+            spacing: 4,
             children,
         }
     }
@@ -790,7 +1043,7 @@ impl Column {
     pub fn new(children: Vec<TreeNode>) -> Self {
         Self {
             common: CommonProps::default(),
-            spacing: 0,
+            spacing: 4,
             children,
         }
     }
@@ -1213,7 +1466,7 @@ impl PopoverScaffold {
 pub enum TreeNode {
     Hero(Hero),
     Card(Card),
-    Section(Section),
+    Container(Container),
     Meter(Meter),
     Copyable(Copyable),
     PropertyList(PropertyList),
@@ -1257,9 +1510,9 @@ impl From<Card> for TreeNode {
         Self::Card(value)
     }
 }
-impl From<Section> for TreeNode {
-    fn from(value: Section) -> Self {
-        Self::Section(value)
+impl From<Container> for TreeNode {
+    fn from(value: Container) -> Self {
+        Self::Container(value)
     }
 }
 impl From<Meter> for TreeNode {

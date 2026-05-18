@@ -18,9 +18,8 @@ use adw::gdk::{self, prelude::DisplayExt, prelude::MonitorExt};
 use gio::prelude::ListModelExt;
 use glib::object::{Cast, CastNone};
 use glimpse_core::{
-    Config, ConfigEvent, DiscoveredApplets, PanelConfig, Position,
-    config::merge_applet_configs, expand_dev_slot, services::theme::State as ThemeServiceState,
-    watch_for_config_changes,
+    Config, ConfigEvent, DiscoveredApplets, PanelConfig, Position, config::merge_applet_configs,
+    expand_dev_slot, services::theme::State as ThemeServiceState, watch_for_config_changes,
 };
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use gtk4_layer_shell::LayerShell;

@@ -276,11 +276,11 @@ func TestGoldenSeparator(t *testing.T) {
 }
 
 func TestGoldenRow(t *testing.T) {
-	assertWidget(t, "row", Row{Spacing: 8})
+	assertWidget(t, "row", Row{})
 }
 
 func TestGoldenColumn(t *testing.T) {
-	assertWidget(t, "column", Column{Spacing: 8})
+	assertWidget(t, "column", Column{})
 }
 
 func TestGoldenGrid(t *testing.T) {
@@ -289,9 +289,33 @@ func TestGoldenGrid(t *testing.T) {
 			{Row: 0, Column: 0, Width: 1, Height: 1, Child: Label{Text: "A"}},
 			{Row: 0, Column: 1, Width: 2, Height: 1, Child: Label{Text: "B"}},
 		},
-		RowSpacing:    4,
-		ColumnSpacing: 4,
 	})
+}
+
+func TestGoLayoutSpacingCanBeExplicitZero(t *testing.T) {
+	cases := []struct {
+		name string
+		node Widget
+	}{
+		{name: "row", node: Row{SpacingSet: true}},
+		{name: "column", node: Column{SpacingSet: true}},
+		{name: "grid", node: Grid{RowSpacingSet: true, ColumnSpacingSet: true}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			data := serialized(t, tc.node).(map[string]any)["data"].(map[string]any)
+			if tc.name == "grid" {
+				if data["row_spacing"] != float64(0) || data["column_spacing"] != float64(0) {
+					t.Fatalf("expected explicit zero grid spacing, got %#v", data)
+				}
+				return
+			}
+			if data["spacing"] != float64(0) {
+				t.Fatalf("expected explicit zero spacing, got %#v", data)
+			}
+		})
+	}
 }
 
 func TestGoldenScroll(t *testing.T) {
@@ -306,15 +330,25 @@ func TestGoldenCardEmpty(t *testing.T) {
 	assertWidget(t, "card-empty", Card{})
 }
 
-func TestGoldenSectionBasic(t *testing.T) {
-	assertWidget(t, "section-basic", Section{
-		Title: "System",
-		Child: Label{Text: "uptime"},
+func TestGoldenContainerStyled(t *testing.T) {
+	assertWidget(t, "container-styled", Container{
+		Width:        Int(220),
+		Height:       Int(80),
+		MinWidth:     Int(180),
+		MinHeight:    Int(48),
+		Margin:       SpaceXS,
+		MarginTop:    SpaceSM,
+		Padding:      SpaceMD,
+		PaddingLeft:  SpaceLG,
+		Background:   ColorSurfaceRaised,
+		Color:        ColorFG,
+		BorderRadius: RadiusMD,
+		BorderWidth:  BorderWidthThin,
+		BorderColor:  ColorBorder,
+		FontSize:     FontSizeSM,
+		FontWeight:   FontWeightSemibold,
+		Child:        Label{Text: "contained"},
 	})
-}
-
-func TestGoldenSectionEmptyChildren(t *testing.T) {
-	assertWidget(t, "section-empty-children", Section{Title: "Empty"})
 }
 
 func TestGoldenPropertyList(t *testing.T) {
@@ -416,19 +450,24 @@ func TestGoldenCommonPropsAll(t *testing.T) {
 			HAlign:  AlignCenter,
 			VAlign:  AlignEnd,
 			Tooltip: "details",
+			CssClasses: []string{
+				"marked",
+			},
+			Styles: map[string]string{
+				"font-weight": "600",
+				"margin-top":  "2px",
+			},
 		},
 		Text:    "marked",
 		Variant: VariantWarning,
 	})
 }
 
-func TestGoldenTreeHeroColumnSection(t *testing.T) {
-	assertWidget(t, "tree-hero-column-section", Column{
-		Spacing: 8,
+func TestGoldenTreeHeroColumnCard(t *testing.T) {
+	assertWidget(t, "tree-hero-column-card", Column{
 		Children: []Widget{
 			Hero{Title: "Counter", Subtitle: "Value: 0"},
-			Section{
-				Title: "Controls",
+			Card{
 				Child: Column{
 					Children: []Widget{
 						Label{Text: "Current"},

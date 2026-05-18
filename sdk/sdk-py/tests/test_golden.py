@@ -16,14 +16,19 @@ from glimpse_sdk import (
     ActionItem,
     Align,
     Badge,
+    BorderWidth,
     Button,
     ButtonVariant,
     Card,
     Checkbox,
+    Color,
     Column,
+    Container,
     Copyable,
     EmptyState,
     Expander,
+    FontSize,
+    FontWeight,
     Grid,
     GridChild,
     Hero,
@@ -42,12 +47,13 @@ from glimpse_sdk import (
     PopoverSize,
     Progress,
     PropertyList,
+    Radius,
     Row,
     Scroll,
-    Section,
     Select,
     Separator,
     Slider,
+    Space,
     Spinner,
     StatusDot,
     StatusVariant,
@@ -271,17 +277,15 @@ class GoldenWidgetTests(unittest.TestCase):
         self._assert_widget("separator", Separator())
 
     def test_row(self) -> None:
-        self._assert_widget("row", Row(spacing=8))
+        self._assert_widget("row", Row())
 
     def test_column(self) -> None:
-        self._assert_widget("column", Column(spacing=8))
+        self._assert_widget("column", Column())
 
     def test_grid(self) -> None:
         self._assert_widget(
             "grid",
             Grid(
-                row_spacing=4,
-                column_spacing=4,
                 children=[
                     GridChild(row=0, column=0, child=Label(text="A")),
                     GridChild(row=0, column=1, width=2, child=Label(text="B")),
@@ -298,14 +302,28 @@ class GoldenWidgetTests(unittest.TestCase):
     def test_card_empty(self) -> None:
         self._assert_widget("card-empty", Card())
 
-    def test_section_basic(self) -> None:
+    def test_container_styled(self) -> None:
         self._assert_widget(
-            "section-basic",
-            Section(title="System", child=Label(text="uptime")),
+            "container-styled",
+            Container(
+                width=220,
+                height=80,
+                min_width=180,
+                min_height=48,
+                margin=Space.XS,
+                margin_top=Space.SM,
+                padding=Space.MD,
+                padding_left=Space.LG,
+                background=Color.SURFACE_RAISED,
+                color=Color.FG,
+                border_radius=Radius.MD,
+                border_width=BorderWidth.THIN,
+                border_color=Color.BORDER,
+                font_size=FontSize.SM,
+                font_weight=FontWeight.SEMIBOLD,
+                child=Label(text="contained"),
+            ),
         )
-
-    def test_section_empty_children(self) -> None:
-        self._assert_widget("section-empty-children", Section(title="Empty"))
 
     def test_property_list(self) -> None:
         self._assert_widget(
@@ -391,19 +409,19 @@ class GoldenWidgetTests(unittest.TestCase):
                 halign=Align.CENTER,
                 valign=Align.END,
                 tooltip="details",
+                css_classes=["marked"],
+                styles={"font-weight": "600", "margin-top": "2px"},
                 variant=Variant.WARNING,
             ),
         )
 
-    def test_tree_hero_column_section(self) -> None:
+    def test_tree_hero_column_card(self) -> None:
         self._assert_widget(
-            "tree-hero-column-section",
+            "tree-hero-column-card",
             Column(
-                spacing=8,
                 children=[
                     Hero(title="Counter", subtitle="Value: 0"),
-                    Section(
-                        title="Controls",
+                    Card(
                         child=Column(
                             children=[
                                 Label(text="Current"),

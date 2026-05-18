@@ -33,7 +33,13 @@ fn section_name(section: &PanelSection) -> &'static str {
     }
 }
 
-fn emit_applet(ipc: &IpcEmitter, event: &str, monitor: &str, key: &AppletKey, applet_type: AppletType) {
+fn emit_applet(
+    ipc: &IpcEmitter,
+    event: &str,
+    monitor: &str,
+    key: &AppletKey,
+    applet_type: AppletType,
+) {
     ipc.emit(
         event,
         vec![
@@ -457,7 +463,13 @@ pub fn build_applets(
             let widget = applet.widget();
             widget.set_valign(gtk::Align::Center);
             container.append(&widget);
-            emit_applet(ipc, "applet.added", panel_monitor, &entry.key, entry.applet_type);
+            emit_applet(
+                ipc,
+                "applet.added",
+                panel_monitor,
+                &entry.key,
+                entry.applet_type,
+            );
             applets.insert(entry.key, applet);
         }
     }
@@ -539,17 +551,31 @@ pub fn reconcile_applets(
         };
 
         match planned.action {
-            PlannedAction::Reconfigure => {
-                emit_applet(ipc, "applet.updated", panel_monitor, &entry.key, entry.applet_type)
-            }
-            PlannedAction::Create => {
-                emit_applet(ipc, "applet.added", panel_monitor, &entry.key, entry.applet_type)
-            }
+            PlannedAction::Reconfigure => emit_applet(
+                ipc,
+                "applet.updated",
+                panel_monitor,
+                &entry.key,
+                entry.applet_type,
+            ),
+            PlannedAction::Create => emit_applet(
+                ipc,
+                "applet.added",
+                panel_monitor,
+                &entry.key,
+                entry.applet_type,
+            ),
             PlannedAction::Replace => {
                 if let Some(old) = current_types.get(&entry.key) {
                     emit_applet(ipc, "applet.removed", panel_monitor, &entry.key, *old);
                 }
-                emit_applet(ipc, "applet.added", panel_monitor, &entry.key, entry.applet_type);
+                emit_applet(
+                    ipc,
+                    "applet.added",
+                    panel_monitor,
+                    &entry.key,
+                    entry.applet_type,
+                );
             }
             PlannedAction::Reuse => {}
         }
@@ -753,11 +779,7 @@ mod tests {
             },
         );
 
-        let entries = collect_applets(
-            PanelSection::Left,
-            &["launcher".into()],
-            &applet_configs,
-        );
+        let entries = collect_applets(PanelSection::Left, &["launcher".into()], &applet_configs);
 
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "launcher");

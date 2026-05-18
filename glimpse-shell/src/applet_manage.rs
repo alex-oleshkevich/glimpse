@@ -37,11 +37,9 @@ fn resolve_applet_toml(arg: Option<&str>) -> Option<PathBuf> {
     } else {
         p.join("applet.toml")
     };
-    candidate.exists().then(|| {
-        candidate
-            .canonicalize()
-            .unwrap_or(candidate.clone())
-    })
+    candidate
+        .exists()
+        .then(|| candidate.canonicalize().unwrap_or(candidate.clone()))
 }
 
 /// Parse + validate an applet.toml. Returns `(id, kind)` where kind is
@@ -61,11 +59,20 @@ fn validate_applet_toml(path: &Path) -> Result<(String, &'static str)> {
     let kind = match value.get("type").and_then(|v| v.as_str()) {
         Some("command") => "command",
         Some("exec") => "exec",
-        Some(other) => bail!("{} has unknown type {other:?} (expected exec or command)", path.display()),
-        None => bail!("{} has no `type` (expected type = \"exec\" or \"command\")", path.display()),
+        Some(other) => bail!(
+            "{} has unknown type {other:?} (expected exec or command)",
+            path.display()
+        ),
+        None => bail!(
+            "{} has no `type` (expected type = \"exec\" or \"command\")",
+            path.display()
+        ),
     };
     if value.get(kind).and_then(|v| v.as_table()).is_none() {
-        bail!("{} is type={kind} but has no [{kind}] section", path.display());
+        bail!(
+            "{} is type={kind} but has no [{kind}] section",
+            path.display()
+        );
     }
     Ok((id, kind))
 }
@@ -114,7 +121,11 @@ pub fn link(args: &[String]) -> Result<()> {
 
     if dest.is_symlink() {
         if dest.read_link().ok().as_deref() == Some(applet_toml.as_path()) {
-            println!("already linked: {} → {}", dest.display(), applet_toml.display());
+            println!(
+                "already linked: {} → {}",
+                dest.display(),
+                applet_toml.display()
+            );
             return Ok(());
         }
         std::fs::remove_file(&dest)
@@ -131,7 +142,11 @@ pub fn link(args: &[String]) -> Result<()> {
 
     std::os::unix::fs::symlink(&applet_toml, &dest)
         .with_context(|| format!("create symlink {}", dest.display()))?;
-    println!("linked ({kind}): {} → {}", dest.display(), applet_toml.display());
+    println!(
+        "linked ({kind}): {} → {}",
+        dest.display(),
+        applet_toml.display()
+    );
     println!(
         "add \"{id}\" to a panel's left/center/right in {} to show it in the bar",
         config_toml_path().display()
@@ -169,7 +184,10 @@ pub fn unlink(args: &[String]) -> Result<()> {
     let dest = applets_dir().join(format!("{id}.toml"));
     if !dest.is_symlink() {
         if dest.exists() {
-            bail!("{} is not a symlink — refusing to remove it", dest.display());
+            bail!(
+                "{} is not a symlink — refusing to remove it",
+                dest.display()
+            );
         }
         println!("{id} is not linked (no {})", dest.display());
         return Ok(());
@@ -298,18 +316,30 @@ pub fn doctor(args: &[String]) -> Result<()> {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("/usr/share/glimpse/applet-templates"));
     if tdir.join("command").is_dir() && tdir.join("exec").is_dir() {
-        report(&mut doc, "applet-templates", St::Ok(tdir.display().to_string()), None);
+        report(
+            &mut doc,
+            "applet-templates",
+            St::Ok(tdir.display().to_string()),
+            None,
+        );
     } else {
         report(
             &mut doc,
             "applet-templates",
             St::Missing,
-            Some("needed by `applets new`; install the package or set GLIMPSE_APPLET_TEMPLATES_DIR"),
+            Some(
+                "needed by `applets new`; install the package or set GLIMPSE_APPLET_TEMPLATES_DIR",
+            ),
         );
     }
     let adir = applets_dir();
     match std::fs::create_dir_all(&adir) {
-        Ok(()) => report(&mut doc, "applets-dir", St::Ok(adir.display().to_string()), None),
+        Ok(()) => report(
+            &mut doc,
+            "applets-dir",
+            St::Ok(adir.display().to_string()),
+            None,
+        ),
         Err(e) => report(&mut doc, "applets-dir", St::Missing, Some(&format!("{e}"))),
     }
 
@@ -317,25 +347,48 @@ pub fn doctor(args: &[String]) -> Result<()> {
         (
             "rust",
             &[
-                ("cargo", &["--version"], true, "Rust via rustup → https://rustup.rs"),
-                ("rustc", &["--version"], true, "Rust via rustup → https://rustup.rs"),
+                (
+                    "cargo",
+                    &["--version"],
+                    true,
+                    "Rust via rustup → https://rustup.rs",
+                ),
+                (
+                    "rustc",
+                    &["--version"],
+                    true,
+                    "Rust via rustup → https://rustup.rs",
+                ),
             ],
         ),
         (
             "python",
             &[
-                ("python", &["--version"], true, "Python 3.14+ from your distro"),
+                (
+                    "python",
+                    &["--version"],
+                    true,
+                    "Python 3.14+ from your distro",
+                ),
                 ("uv", &["--version"], false, ""),
             ],
         ),
         (
             "typescript",
             &[
-                ("node", &["--version"], true, "Node 20+ → https://nodejs.org"),
+                (
+                    "node",
+                    &["--version"],
+                    true,
+                    "Node 20+ → https://nodejs.org",
+                ),
                 ("npm", &["--version"], true, "Node 20+ ships npm"),
             ],
         ),
-        ("go", &[("go", &["version"], true, "Go 1.24+ → https://go.dev/dl")]),
+        (
+            "go",
+            &[("go", &["version"], true, "Go 1.24+ → https://go.dev/dl")],
+        ),
     ];
     for (name, checks) in langs {
         if let Some(want) = &only {

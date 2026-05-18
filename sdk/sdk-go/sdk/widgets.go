@@ -33,6 +33,10 @@ func ensureSlice[T any](s []T) []T {
 	return s
 }
 
+func Int(value int) *int {
+	return &value
+}
+
 func envelope(typeName string, data any) ([]byte, error) {
 	return json.Marshal(struct {
 		Type string `json:"type"`
@@ -50,6 +54,12 @@ type ButtonVariant string
 type PagerAppearance string
 type ContentFit string
 type LevelBarMode string
+type Space string
+type Color string
+type Radius string
+type FontSize string
+type FontWeight string
+type BorderWidth string
 
 const (
 	AlignFill     Align = "fill"
@@ -88,29 +98,76 @@ const (
 
 	LevelBarModeContinuous LevelBarMode = "continuous"
 	LevelBarModeDiscrete   LevelBarMode = "discrete"
+
+	SpaceNone Space = "none"
+	SpaceXXS  Space = "xxs"
+	SpaceXS   Space = "xs"
+	SpaceSM   Space = "sm"
+	SpaceMD   Space = "md"
+	SpaceLG   Space = "lg"
+
+	ColorBG            Color = "bg"
+	ColorFG            Color = "fg"
+	ColorSurface       Color = "surface"
+	ColorSurfaceRaised Color = "surface_raised"
+	ColorBorder        Color = "border"
+	ColorMutedFG       Color = "muted_fg"
+	ColorAccent        Color = "accent"
+	ColorAccentFG      Color = "accent_fg"
+	ColorSuccess       Color = "success"
+	ColorSuccessFG     Color = "success_fg"
+	ColorWarning       Color = "warning"
+	ColorWarningFG     Color = "warning_fg"
+	ColorDanger        Color = "danger"
+	ColorDangerFG      Color = "danger_fg"
+
+	RadiusNone Radius = "none"
+	RadiusSM   Radius = "sm"
+	RadiusMD   Radius = "md"
+	RadiusLG   Radius = "lg"
+	RadiusPill Radius = "pill"
+
+	FontSizeXXS  FontSize = "xxs"
+	FontSizeXS   FontSize = "xs"
+	FontSizeSM   FontSize = "sm"
+	FontSizeMD   FontSize = "md"
+	FontSizeBase FontSize = "base"
+	FontSizeLG   FontSize = "lg"
+	FontSizeXL   FontSize = "xl"
+
+	FontWeightNormal   FontWeight = "normal"
+	FontWeightMedium   FontWeight = "medium"
+	FontWeightSemibold FontWeight = "semibold"
+	FontWeightBold     FontWeight = "bold"
+
+	BorderWidthNone   BorderWidth = "none"
+	BorderWidthThin   BorderWidth = "thin"
+	BorderWidthMedium BorderWidth = "medium"
+	BorderWidthThick  BorderWidth = "thick"
 )
 
 // CommonProps are the shared layout / accessibility fields every widget
 // accepts. Embed it as the first field of every widget struct.
 type CommonProps struct {
-	Visible    *bool    `json:"visible,omitempty"`
-	HExpand    *bool    `json:"hexpand,omitempty"`
-	VExpand    *bool    `json:"vexpand,omitempty"`
-	HAlign     Align    `json:"halign,omitempty"`
-	VAlign     Align    `json:"valign,omitempty"`
-	Tooltip    string   `json:"tooltip,omitempty"`
-	CssClasses []string `json:"css_classes,omitempty"`
+	Visible    *bool             `json:"visible,omitempty"`
+	HExpand    *bool             `json:"hexpand,omitempty"`
+	VExpand    *bool             `json:"vexpand,omitempty"`
+	HAlign     Align             `json:"halign,omitempty"`
+	VAlign     Align             `json:"valign,omitempty"`
+	Tooltip    string            `json:"tooltip,omitempty"`
+	CssClasses []string          `json:"css_classes,omitempty"`
+	Styles     map[string]string `json:"styles,omitempty"`
 }
 
 // ---- Display widgets -------------------------------------------------------
 
 type Hero struct {
 	CommonProps
-	Title      string `json:"title"`
-	Subtitle   string `json:"subtitle"`
-	Icon       string `json:"icon,omitempty"`
-	ID         string `json:"id,omitempty"`
-	SwitchOn   *bool  `json:"switch,omitempty"`
+	Title    string `json:"title"`
+	Subtitle string `json:"subtitle"`
+	Icon     string `json:"icon,omitempty"`
+	ID       string `json:"id,omitempty"`
+	SwitchOn *bool  `json:"switch,omitempty"`
 }
 
 func (Hero) isWidget() {}
@@ -145,11 +202,11 @@ func (w Picture) MarshalJSON() ([]byte, error) {
 
 type Label struct {
 	CommonProps
-	Text       string  `json:"text"`
-	Wrap       bool    `json:"wrap,omitempty"`
+	Text       string   `json:"text"`
+	Wrap       bool     `json:"wrap,omitempty"`
 	XAlign     *float32 `json:"xalign,omitempty"`
-	Selectable bool    `json:"selectable,omitempty"`
-	Variant    Variant `json:"variant,omitempty"`
+	Selectable bool     `json:"selectable,omitempty"`
+	Variant    Variant  `json:"variant,omitempty"`
 }
 
 func (Label) isWidget() {}
@@ -332,7 +389,7 @@ func (c Copyable) MarshalJSON() ([]byte, error) {
 // ---- Interactive widgets ---------------------------------------------------
 
 type Button struct {
-	ID      string        `json:"id"`
+	ID string `json:"id"`
 	CommonProps
 	Label   string        `json:"label,omitempty"`
 	Icon    string        `json:"icon,omitempty"`
@@ -372,7 +429,7 @@ func (e Expander) MarshalJSON() ([]byte, error) {
 }
 
 type Switch struct {
-	ID     string `json:"id"`
+	ID string `json:"id"`
 	CommonProps
 	Label  string `json:"label,omitempty"`
 	Active bool   `json:"active"`
@@ -385,7 +442,7 @@ func (s Switch) MarshalJSON() ([]byte, error) {
 }
 
 type ToggleButton struct {
-	ID     string `json:"id"`
+	ID string `json:"id"`
 	CommonProps
 	Label  string `json:"label,omitempty"`
 	Icon   string `json:"icon,omitempty"`
@@ -399,7 +456,7 @@ func (t ToggleButton) MarshalJSON() ([]byte, error) {
 }
 
 type Checkbox struct {
-	ID     string `json:"id"`
+	ID string `json:"id"`
 	CommonProps
 	Label  string `json:"label,omitempty"`
 	Active bool   `json:"active"`
@@ -412,7 +469,7 @@ func (c Checkbox) MarshalJSON() ([]byte, error) {
 }
 
 type Slider struct {
-	ID          string      `json:"id"`
+	ID string `json:"id"`
 	CommonProps
 	Min         float64     `json:"min"`
 	Max         float64     `json:"max"`
@@ -429,7 +486,7 @@ func (s Slider) MarshalJSON() ([]byte, error) {
 }
 
 type Select struct {
-	ID       string              `json:"id"`
+	ID string `json:"id"`
 	CommonProps
 	Items    []map[string]string `json:"items"`
 	Selected *uint32             `json:"selected,omitempty"`
@@ -449,28 +506,36 @@ func (d Select) MarshalJSON() ([]byte, error) {
 
 type Row struct {
 	CommonProps
-	Spacing  int      `json:"spacing"`
-	Children []Widget `json:"children"`
+	Spacing    int      `json:"spacing"`
+	SpacingSet bool     `json:"-"`
+	Children   []Widget `json:"children"`
 }
 
 func (Row) isWidget() {}
 func (r Row) MarshalJSON() ([]byte, error) {
 	type alias Row
 	out := r
+	if !out.SpacingSet && out.Spacing == 0 {
+		out.Spacing = 4
+	}
 	out.Children = ensureSlice(out.Children)
 	return envelope("row", alias(out))
 }
 
 type Column struct {
 	CommonProps
-	Spacing  int      `json:"spacing"`
-	Children []Widget `json:"children"`
+	Spacing    int      `json:"spacing"`
+	SpacingSet bool     `json:"-"`
+	Children   []Widget `json:"children"`
 }
 
 func (Column) isWidget() {}
 func (c Column) MarshalJSON() ([]byte, error) {
 	type alias Column
 	out := c
+	if !out.SpacingSet && out.Spacing == 0 {
+		out.Spacing = 4
+	}
 	out.Children = ensureSlice(out.Children)
 	return envelope("column", alias(out))
 }
@@ -485,15 +550,23 @@ type GridChild struct {
 
 type Grid struct {
 	CommonProps
-	Children      []GridChild `json:"children"`
-	RowSpacing    int         `json:"row_spacing"`
-	ColumnSpacing int         `json:"column_spacing"`
+	Children         []GridChild `json:"children"`
+	RowSpacing       int         `json:"row_spacing"`
+	RowSpacingSet    bool        `json:"-"`
+	ColumnSpacing    int         `json:"column_spacing"`
+	ColumnSpacingSet bool        `json:"-"`
 }
 
 func (Grid) isWidget() {}
 func (g Grid) MarshalJSON() ([]byte, error) {
 	type alias Grid
 	out := g
+	if !out.RowSpacingSet && out.RowSpacing == 0 {
+		out.RowSpacing = 4
+	}
+	if !out.ColumnSpacingSet && out.ColumnSpacing == 0 {
+		out.ColumnSpacing = 4
+	}
 	out.Children = ensureSlice(out.Children)
 	return envelope("grid", alias(out))
 }
@@ -509,6 +582,38 @@ func (c Card) MarshalJSON() ([]byte, error) {
 	return envelope("card", alias(c))
 }
 
+type Container struct {
+	CommonProps
+	Child         Widget      `json:"child,omitempty"`
+	Width         *int        `json:"width,omitempty"`
+	Height        *int        `json:"height,omitempty"`
+	MinWidth      *int        `json:"min_width,omitempty"`
+	MinHeight     *int        `json:"min_height,omitempty"`
+	Margin        Space       `json:"margin,omitempty"`
+	MarginTop     Space       `json:"margin_top,omitempty"`
+	MarginRight   Space       `json:"margin_right,omitempty"`
+	MarginBottom  Space       `json:"margin_bottom,omitempty"`
+	MarginLeft    Space       `json:"margin_left,omitempty"`
+	Padding       Space       `json:"padding,omitempty"`
+	PaddingTop    Space       `json:"padding_top,omitempty"`
+	PaddingRight  Space       `json:"padding_right,omitempty"`
+	PaddingBottom Space       `json:"padding_bottom,omitempty"`
+	PaddingLeft   Space       `json:"padding_left,omitempty"`
+	Background    Color       `json:"background,omitempty"`
+	Color         Color       `json:"color,omitempty"`
+	BorderRadius  Radius      `json:"border_radius,omitempty"`
+	BorderWidth   BorderWidth `json:"border_width,omitempty"`
+	BorderColor   Color       `json:"border_color,omitempty"`
+	FontSize      FontSize    `json:"font_size,omitempty"`
+	FontWeight    FontWeight  `json:"font_weight,omitempty"`
+}
+
+func (Container) isWidget() {}
+func (c Container) MarshalJSON() ([]byte, error) {
+	type alias Container
+	return envelope("container", alias(c))
+}
+
 type Scroll struct {
 	CommonProps
 	Child Widget `json:"child"`
@@ -518,21 +623,6 @@ func (Scroll) isWidget() {}
 func (s Scroll) MarshalJSON() ([]byte, error) {
 	type alias Scroll
 	return envelope("scroll", alias(s))
-}
-
-// ---- Group widgets ---------------------------------------------------------
-
-type Section struct {
-	CommonProps
-	Title    string `json:"title"`
-	Subtitle string `json:"subtitle,omitempty"`
-	Child    Widget `json:"child,omitempty"`
-}
-
-func (Section) isWidget() {}
-func (s Section) MarshalJSON() ([]byte, error) {
-	type alias Section
-	return envelope("section", alias(s))
 }
 
 type Properties map[string]string
@@ -593,7 +683,7 @@ func (i Item) MarshalJSON() ([]byte, error) {
 }
 
 type ActionItem struct {
-	ID       string `json:"id"`
+	ID string `json:"id"`
 	CommonProps
 	Icon     string `json:"-"`
 	Left     Widget `json:"left,omitempty"`

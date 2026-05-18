@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{collections::BTreeMap, fmt};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -116,6 +116,8 @@ pub struct CommonProps {
     pub tooltip: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub css_classes: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub styles: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -203,7 +205,6 @@ pub struct HeroNode {
     pub switch: Option<bool>,
 }
 
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LayoutNode {
     #[serde(flatten)]
@@ -220,6 +221,126 @@ pub struct CardNode {
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub child: Option<Box<TreeNode>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpaceValue {
+    None,
+    Xxs,
+    Xs,
+    Sm,
+    Md,
+    Lg,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ColorValue {
+    Bg,
+    Fg,
+    Surface,
+    SurfaceRaised,
+    Border,
+    MutedFg,
+    Accent,
+    AccentFg,
+    Success,
+    SuccessFg,
+    Warning,
+    WarningFg,
+    Danger,
+    DangerFg,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RadiusValue {
+    None,
+    Sm,
+    Md,
+    Lg,
+    Pill,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FontSizeValue {
+    Xxs,
+    Xs,
+    Sm,
+    Md,
+    Base,
+    Lg,
+    Xl,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FontWeightValue {
+    Normal,
+    Medium,
+    Semibold,
+    Bold,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BorderWidthValue {
+    None,
+    Thin,
+    Medium,
+    Thick,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContainerNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub child: Option<Box<TreeNode>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_width: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_height: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub margin: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub margin_top: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub margin_right: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub margin_bottom: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub margin_left: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding_top: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding_right: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding_bottom: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding_left: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<ColorValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<ColorValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_radius: Option<RadiusValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_width: Option<BorderWidthValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_color: Option<ColorValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font_size: Option<FontSizeValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font_weight: Option<FontWeightValue>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -434,7 +555,6 @@ pub struct IconNode {
     #[serde(default)]
     pub pixel_size: Option<i32>,
 }
-
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PictureNode {
@@ -659,6 +779,7 @@ pub struct GridNode {
 pub enum TreeNode {
     Hero(HeroNode),
     Card(CardNode),
+    Container(ContainerNode),
     Section(SectionNode),
     Meter(MeterNode),
     Copyable(CopyableNode),

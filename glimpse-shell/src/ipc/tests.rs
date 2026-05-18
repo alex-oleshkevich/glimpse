@@ -26,7 +26,9 @@ impl TestConn {
         let event_rx = event_tx.subscribe();
 
         let task = tokio::spawn(async move {
-            IpcClientHandler::new(server, event_rx, NoopCommandHandler).run().await;
+            IpcClientHandler::new(server, event_rx, NoopCommandHandler)
+                .run()
+                .await;
         });
 
         let (reader, writer) = client.into_split();
@@ -38,13 +40,24 @@ impl TestConn {
             .expect("hello timed out")
             .expect("io error on hello")
             .expect("EOF before hello");
-        assert!(hello.starts_with("hello version="), "unexpected greeting: {hello}");
+        assert!(
+            hello.starts_with("hello version="),
+            "unexpected greeting: {hello}"
+        );
 
-        TestConn { event_tx, lines, writer, _task: task }
+        TestConn {
+            event_tx,
+            lines,
+            writer,
+            _task: task,
+        }
     }
 
     async fn send(&mut self, line: &str) {
-        self.writer.write_all(format!("{line}\n").as_bytes()).await.unwrap();
+        self.writer
+            .write_all(format!("{line}\n").as_bytes())
+            .await
+            .unwrap();
     }
 
     async fn subscribe(&mut self, patterns: &str) {
@@ -64,7 +77,10 @@ impl TestConn {
             .expect("sync ack timed out")
             .expect("sync io error")
             .expect("EOF waiting for sync ack");
-        assert!(line.contains("ack ok=false"), "expected sync ack, got: {line}");
+        assert!(
+            line.contains("ack ok=false"),
+            "expected sync ack, got: {line}"
+        );
     }
 
     async fn recv(&mut self) -> Option<String> {
@@ -76,9 +92,10 @@ impl TestConn {
     }
 
     async fn expect(&mut self, contains: &str) -> String {
-        let line = self.recv().await.unwrap_or_else(|| {
-            panic!("expected line containing '{contains}', got nothing")
-        });
+        let line = self
+            .recv()
+            .await
+            .unwrap_or_else(|| panic!("expected line containing '{contains}', got nothing"));
         assert!(line.contains(contains), "expected '{contains}' in '{line}'");
         line
     }
@@ -89,8 +106,10 @@ impl TestConn {
     }
 
     fn emit(&self, name: &str, fields: Vec<(&str, &str)>) {
-        let owned: Vec<(String, String)> =
-            fields.into_iter().map(|(k, v)| (k.to_owned(), v.to_owned())).collect();
+        let owned: Vec<(String, String)> = fields
+            .into_iter()
+            .map(|(k, v)| (k.to_owned(), v.to_owned()))
+            .collect();
         let _ = self.event_tx.send(Arc::new(IpcEvent::new(name, owned)));
     }
 }
@@ -120,7 +139,10 @@ async fn subscribe_prefix_filters_correctly() {
     c.subscribe("bluetooth.*").await;
 
     c.emit("audio.volume_changed", vec![("volume", "50")]); // filtered
-    c.emit("bluetooth.device_connected", vec![("address", "AA:BB:CC:DD:EE:FF")]);
+    c.emit(
+        "bluetooth.device_connected",
+        vec![("address", "AA:BB:CC:DD:EE:FF")],
+    );
 
     let line = c.expect("bluetooth.device_connected").await;
     assert!(line.contains("address=AA:BB:CC:DD:EE:FF"), "{line}");
@@ -176,7 +198,10 @@ async fn event_values_with_spaces_are_escaped() {
     c.emit("compositor.window_focused", vec![("title", "Hello World")]);
 
     let line = c.expect("compositor.window_focused").await;
-    assert!(line.contains("title=Hello\\sWorld"), "expected escaped value in: {line}");
+    assert!(
+        line.contains("title=Hello\\sWorld"),
+        "expected escaped value in: {line}"
+    );
 }
 
 #[tokio::test]
@@ -196,5 +221,8 @@ async fn oversize_line_disconnects_client() {
         .await
         .expect("timed out waiting for disconnect")
         .expect("io error");
-    assert!(got.is_none(), "expected EOF after oversize line, got: {got:?}");
+    assert!(
+        got.is_none(),
+        "expected EOF after oversize line, got: {got:?}"
+    );
 }

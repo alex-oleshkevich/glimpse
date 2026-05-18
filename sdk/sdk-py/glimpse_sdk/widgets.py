@@ -28,6 +28,64 @@ class Variant(StrEnum):
     DANGER = "danger"
 
 
+class Space(StrEnum):
+    NONE = "none"
+    XXS = "xxs"
+    XS = "xs"
+    SM = "sm"
+    MD = "md"
+    LG = "lg"
+
+
+class Color(StrEnum):
+    BG = "bg"
+    FG = "fg"
+    SURFACE = "surface"
+    SURFACE_RAISED = "surface_raised"
+    BORDER = "border"
+    MUTED_FG = "muted_fg"
+    ACCENT = "accent"
+    ACCENT_FG = "accent_fg"
+    SUCCESS = "success"
+    SUCCESS_FG = "success_fg"
+    WARNING = "warning"
+    WARNING_FG = "warning_fg"
+    DANGER = "danger"
+    DANGER_FG = "danger_fg"
+
+
+class Radius(StrEnum):
+    NONE = "none"
+    SM = "sm"
+    MD = "md"
+    LG = "lg"
+    PILL = "pill"
+
+
+class FontSize(StrEnum):
+    XXS = "xxs"
+    XS = "xs"
+    SM = "sm"
+    MD = "md"
+    BASE = "base"
+    LG = "lg"
+    XL = "xl"
+
+
+class FontWeight(StrEnum):
+    NORMAL = "normal"
+    MEDIUM = "medium"
+    SEMIBOLD = "semibold"
+    BOLD = "bold"
+
+
+class BorderWidth(StrEnum):
+    NONE = "none"
+    THIN = "thin"
+    MEDIUM = "medium"
+    THICK = "thick"
+
+
 class ButtonVariant(StrEnum):
     PRIMARY = "primary"
     SECONDARY = "secondary"
@@ -68,6 +126,7 @@ class CommonProps:
     valign: Align | None = None
     tooltip: str | None = None
     css_classes: list[str] = field(default_factory=list)
+    styles: dict[str, str] = field(default_factory=dict)
 
     def apply_common(self, payload: dict[str, object]) -> dict[str, object]:
         if self.visible is not None:
@@ -84,6 +143,8 @@ class CommonProps:
             payload["tooltip"] = self.tooltip
         if self.css_classes:
             payload["css_classes"] = self.css_classes
+        if self.styles:
+            payload["styles"] = self.styles
         return payload
 
 
@@ -387,8 +448,8 @@ class GridChild:
 @dataclass(slots=True)
 class Grid(Widget):
     children: list[GridChild] = field(default_factory=list)
-    row_spacing: int = 0
-    column_spacing: int = 0
+    row_spacing: int = 4
+    column_spacing: int = 4
     widget_type: str = "grid"
 
     def to_protocol(self) -> dict[str, object]:
@@ -416,19 +477,62 @@ class Card(Widget):
 
 
 @dataclass(slots=True)
-class Section(Widget):
-    title: str = ""
-    subtitle: str = ""
+class Container(Widget):
     child: "TreeNode | None" = None
-    widget_type: str = "section"
+    width: int | None = None
+    height: int | None = None
+    min_width: int | None = None
+    min_height: int | None = None
+    margin: Space | None = None
+    margin_top: Space | None = None
+    margin_right: Space | None = None
+    margin_bottom: Space | None = None
+    margin_left: Space | None = None
+    padding: Space | None = None
+    padding_top: Space | None = None
+    padding_right: Space | None = None
+    padding_bottom: Space | None = None
+    padding_left: Space | None = None
+    background: Color | None = None
+    color: Color | None = None
+    border_radius: Radius | None = None
+    border_width: BorderWidth | None = None
+    border_color: Color | None = None
+    font_size: FontSize | None = None
+    font_weight: FontWeight | None = None
+    widget_type: str = "container"
 
     def to_protocol(self) -> dict[str, object]:
-        data: dict[str, object] = {"title": self.title}
+        data: dict[str, object] = {}
         if self.child is not None:
             data["child"] = self.child.to_protocol()
+        for key in ("width", "height", "min_width", "min_height"):
+            value = getattr(self, key)
+            if value is not None:
+                data[key] = value
+        for key in (
+            "margin",
+            "margin_top",
+            "margin_right",
+            "margin_bottom",
+            "margin_left",
+            "padding",
+            "padding_top",
+            "padding_right",
+            "padding_bottom",
+            "padding_left",
+            "background",
+            "color",
+            "border_radius",
+            "border_width",
+            "border_color",
+            "font_size",
+            "font_weight",
+        ):
+            value = getattr(self, key)
+            if value is not None:
+                data[key] = value.value
         payload = self.apply_common(data)
-        if self.subtitle:
-            payload["subtitle"] = self.subtitle
         return {"type": self.widget_type, "data": payload}
 
 
@@ -478,7 +582,7 @@ class Copyable(Widget):
 
 @dataclass(slots=True)
 class Row(Widget):
-    spacing: int = 0
+    spacing: int = 4
     children: list["TreeNode"] = field(default_factory=list)
     widget_type: str = "row"
 
@@ -494,7 +598,7 @@ class Row(Widget):
 
 @dataclass(slots=True)
 class Column(Widget):
-    spacing: int = 0
+    spacing: int = 4
     children: list["TreeNode"] = field(default_factory=list)
     widget_type: str = "column"
 
@@ -705,7 +809,7 @@ class PopoverScaffold(Widget):
 TreeNode: TypeAlias = (
     Hero
     | Card
-    | Section
+    | Container
     | Meter
     | Copyable
     | PropertyList

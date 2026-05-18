@@ -1,6 +1,64 @@
 export type Align = "fill" | "start" | "end" | "center" | "baseline";
 export type Orientation = "horizontal" | "vertical";
 export type Variant = "normal" | "muted" | "accent" | "success" | "warning" | "danger";
+export const Space = {
+  NONE: "none",
+  XXS: "xxs",
+  XS: "xs",
+  SM: "sm",
+  MD: "md",
+  LG: "lg",
+} as const;
+export type Space = (typeof Space)[keyof typeof Space];
+export const Color = {
+  BG: "bg",
+  FG: "fg",
+  SURFACE: "surface",
+  SURFACE_RAISED: "surface_raised",
+  BORDER: "border",
+  MUTED_FG: "muted_fg",
+  ACCENT: "accent",
+  ACCENT_FG: "accent_fg",
+  SUCCESS: "success",
+  SUCCESS_FG: "success_fg",
+  WARNING: "warning",
+  WARNING_FG: "warning_fg",
+  DANGER: "danger",
+  DANGER_FG: "danger_fg",
+} as const;
+export type Color = (typeof Color)[keyof typeof Color];
+export const Radius = {
+  NONE: "none",
+  SM: "sm",
+  MD: "md",
+  LG: "lg",
+  PILL: "pill",
+} as const;
+export type Radius = (typeof Radius)[keyof typeof Radius];
+export const FontSize = {
+  XXS: "xxs",
+  XS: "xs",
+  SM: "sm",
+  MD: "md",
+  BASE: "base",
+  LG: "lg",
+  XL: "xl",
+} as const;
+export type FontSize = (typeof FontSize)[keyof typeof FontSize];
+export const FontWeight = {
+  NORMAL: "normal",
+  MEDIUM: "medium",
+  SEMIBOLD: "semibold",
+  BOLD: "bold",
+} as const;
+export type FontWeight = (typeof FontWeight)[keyof typeof FontWeight];
+export const BorderWidth = {
+  NONE: "none",
+  THIN: "thin",
+  MEDIUM: "medium",
+  THICK: "thick",
+} as const;
+export type BorderWidth = (typeof BorderWidth)[keyof typeof BorderWidth];
 export type ButtonVariant = "primary" | "secondary" | "compact" | "flat" | "danger";
 export type PagerAppearance = "dots" | "numbers";
 export type ContentFit = "fill" | "contain" | "cover" | "scale_down";
@@ -19,6 +77,7 @@ export interface CommonProps {
   valign?: Align;
   tooltip?: string;
   css_classes?: string[];
+  styles?: Record<string, string>;
 }
 
 function applyCommonProps(
@@ -32,6 +91,7 @@ function applyCommonProps(
   if (props.valign !== undefined) payload.valign = props.valign;
   if (props.tooltip !== undefined) payload.tooltip = props.tooltip;
   if (props.css_classes !== undefined && props.css_classes.length > 0) payload.css_classes = props.css_classes;
+  if (props.styles !== undefined && Object.keys(props.styles).length > 0) payload.styles = props.styles;
   return payload;
 }
 
@@ -374,8 +434,8 @@ export class Grid extends WidgetBase {
     return {
       type: "grid",
       data: this.withCommon({
-        row_spacing: this.options.row_spacing ?? 0,
-        column_spacing: this.options.column_spacing ?? 0,
+        row_spacing: this.options.row_spacing ?? 4,
+        column_spacing: this.options.column_spacing ?? 4,
         children: (this.options.children ?? []).map((child) => child.toProtocol()),
       }),
     };
@@ -428,31 +488,61 @@ export class Card extends WidgetBase {
   }
 }
 
-export class Section extends WidgetBase {
+export class Container extends WidgetBase {
   constructor(
     private readonly options: CommonProps & {
-      title?: string;
-      subtitle?: string;
       child?: TreeNode;
-    },
+      width?: number;
+      height?: number;
+      min_width?: number;
+      min_height?: number;
+      margin?: Space;
+      margin_top?: Space;
+      margin_right?: Space;
+      margin_bottom?: Space;
+      margin_left?: Space;
+      padding?: Space;
+      padding_top?: Space;
+      padding_right?: Space;
+      padding_bottom?: Space;
+      padding_left?: Space;
+      background?: Color;
+      color?: Color;
+      border_radius?: Radius;
+      border_width?: BorderWidth;
+      border_color?: Color;
+      font_size?: FontSize;
+      font_weight?: FontWeight;
+    } = {},
   ) {
     super(options);
   }
 
   toProtocol(): Record<string, unknown> {
-    const payload: Record<string, unknown> = {
-      title: this.options.title ?? "",
-    };
-    if (this.options.child !== undefined) {
-      payload.child = this.options.child.toProtocol();
-    }
-    if (this.options.subtitle !== undefined && this.options.subtitle !== "") {
-      payload.subtitle = this.options.subtitle;
-    }
-    return {
-      type: "section",
-      data: this.withCommon(payload),
-    };
+    const data: Record<string, unknown> = {};
+    if (this.options.child !== undefined) data.child = this.options.child.toProtocol();
+    if (this.options.width !== undefined) data.width = this.options.width;
+    if (this.options.height !== undefined) data.height = this.options.height;
+    if (this.options.min_width !== undefined) data.min_width = this.options.min_width;
+    if (this.options.min_height !== undefined) data.min_height = this.options.min_height;
+    if (this.options.margin !== undefined) data.margin = this.options.margin;
+    if (this.options.margin_top !== undefined) data.margin_top = this.options.margin_top;
+    if (this.options.margin_right !== undefined) data.margin_right = this.options.margin_right;
+    if (this.options.margin_bottom !== undefined) data.margin_bottom = this.options.margin_bottom;
+    if (this.options.margin_left !== undefined) data.margin_left = this.options.margin_left;
+    if (this.options.padding !== undefined) data.padding = this.options.padding;
+    if (this.options.padding_top !== undefined) data.padding_top = this.options.padding_top;
+    if (this.options.padding_right !== undefined) data.padding_right = this.options.padding_right;
+    if (this.options.padding_bottom !== undefined) data.padding_bottom = this.options.padding_bottom;
+    if (this.options.padding_left !== undefined) data.padding_left = this.options.padding_left;
+    if (this.options.background !== undefined) data.background = this.options.background;
+    if (this.options.color !== undefined) data.color = this.options.color;
+    if (this.options.border_radius !== undefined) data.border_radius = this.options.border_radius;
+    if (this.options.border_width !== undefined) data.border_width = this.options.border_width;
+    if (this.options.border_color !== undefined) data.border_color = this.options.border_color;
+    if (this.options.font_size !== undefined) data.font_size = this.options.font_size;
+    if (this.options.font_weight !== undefined) data.font_weight = this.options.font_weight;
+    return { type: "container", data: this.withCommon(data) };
   }
 }
 
@@ -524,7 +614,7 @@ export class Row extends WidgetBase {
     return {
       type: "row",
       data: this.withCommon({
-        spacing: this.options.spacing ?? 0,
+        spacing: this.options.spacing ?? 4,
         children: (this.options.children ?? []).map((child) => child.toProtocol()),
       }),
     };
@@ -545,7 +635,7 @@ export class Column extends WidgetBase {
     return {
       type: "column",
       data: this.withCommon({
-        spacing: this.options.spacing ?? 0,
+        spacing: this.options.spacing ?? 4,
         children: (this.options.children ?? []).map((child) => child.toProtocol()),
       }),
     };
@@ -779,7 +869,7 @@ export class PagerStrip extends WidgetBase {
 export type TreeNode =
   | Hero
   | Card
-  | Section
+  | Container
   | Meter
   | Copyable
   | PropertyList

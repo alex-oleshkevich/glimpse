@@ -102,16 +102,11 @@ pub fn run(args: &[String]) -> Result<()> {
                 kind = match it.next().map(String::as_str) {
                     Some("exec") => AppletKind::Exec,
                     Some("command") => AppletKind::Command,
-                    other => bail!(
-                        "--type must be exec|command, got {:?}",
-                        other.unwrap_or("")
-                    ),
+                    other => bail!("--type must be exec|command, got {:?}", other.unwrap_or("")),
                 };
             }
             "--dir" => {
-                dir = Some(PathBuf::from(
-                    it.next().context("--dir requires a value")?,
-                ));
+                dir = Some(PathBuf::from(it.next().context("--dir requires a value")?));
             }
             "--force" => force = true,
             other if other.starts_with('-') => bail!("unknown option: {other}"),

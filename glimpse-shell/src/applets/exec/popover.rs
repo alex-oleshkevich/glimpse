@@ -153,7 +153,9 @@ impl Popover {
             if let Some(hero) = &scaffold.hero {
                 match renderer.render(hero) {
                     Ok(widget) => self.content_box.append(&widget),
-                    Err(error) => tracing::warn!(%error, "exec popover scaffold hero render failed"),
+                    Err(error) => {
+                        tracing::warn!(%error, "exec popover scaffold hero render failed")
+                    }
                 }
             }
             match renderer.render(&scaffold.body) {

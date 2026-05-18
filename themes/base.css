@@ -8,11 +8,16 @@ popover {
     --space-5: 12px;
     --space-6: 16px;
 
+    --radius-sm: 4px;
     --radius-md: 6px;
     --radius-lg: 12px;
     --radius-pill: 999px;
 
     --border-width: 1px;
+    --border-width-none: 0;
+    --border-width-thin: var(--border-width);
+    --border-width-medium: 2px;
+    --border-width-thick: 4px;
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.12);
     --shadow-md: 0 10px 24px rgb(0 0 0 / 0.16);
 
@@ -26,9 +31,11 @@ popover {
     --font-size-sm: 12px;
     --font-size-md: 13px;
     --font-size-lg: 15px;
+    --font-size-xl: 18px;
     --font-weight-normal: 400;
     --font-weight-medium: 500;
     --font-weight-semibold: 600;
+    --font-weight-bold: 700;
 
     /* System-derived dynamic tokens */
     --sys-accent: #3584e4;
@@ -279,6 +286,160 @@ popover.theme-light {
         --notification-popup-enter-offset: 0px;
         --notification-popup-enter-offset-negative: 0px;
     }
+}
+
+/* Semantic utilities for exec/app SDK css_classes. */
+.text-muted {
+    color: var(--color-muted-fg);
+}
+
+.text-accent {
+    color: var(--color-accent);
+}
+
+.text-success {
+    color: var(--color-success);
+}
+
+.text-warning {
+    color: var(--color-warning);
+}
+
+.text-danger {
+    color: var(--color-danger);
+}
+
+.text-on-accent {
+    color: var(--color-accent-fg);
+}
+
+.text-on-success {
+    color: var(--color-success-fg);
+}
+
+.text-on-warning {
+    color: var(--color-warning-fg);
+}
+
+.text-on-danger {
+    color: var(--color-danger-fg);
+}
+
+.bg-surface {
+    background: var(--color-surface);
+}
+
+.bg-surface-raised {
+    background: var(--color-surface-raised);
+}
+
+.bg-muted {
+    background: var(--overlay-hover);
+}
+
+.bg-accent {
+    background: var(--color-accent);
+}
+
+.bg-success {
+    background: var(--color-success);
+}
+
+.bg-warning {
+    background: var(--color-warning);
+}
+
+.bg-danger {
+    background: var(--color-danger);
+}
+
+.border-default {
+    border: var(--border-width) solid var(--color-border);
+}
+
+.border-none {
+    border-width: var(--border-width-none);
+}
+
+.border-thin {
+    border-width: var(--border-width-thin);
+}
+
+.border-medium {
+    border-width: var(--border-width-medium);
+}
+
+.border-thick {
+    border-width: var(--border-width-thick);
+}
+
+.text-xxs {
+    font-size: var(--font-size-xxs);
+}
+
+.text-xs {
+    font-size: var(--font-size-xs);
+}
+
+.text-sm {
+    font-size: var(--font-size-sm);
+}
+
+.text-md,
+.text-base {
+    font-size: var(--font-size-md);
+}
+
+.text-lg {
+    font-size: var(--font-size-lg);
+}
+
+.text-xl {
+    font-size: var(--font-size-xl);
+}
+
+.font-normal {
+    font-weight: var(--font-weight-normal);
+}
+
+.font-medium {
+    font-weight: var(--font-weight-medium);
+}
+
+.font-semibold {
+    font-weight: var(--font-weight-semibold);
+}
+
+.font-bold {
+    font-weight: var(--font-weight-bold);
+}
+
+.radius-none {
+    border-radius: 0;
+}
+
+.radius-sm {
+    border-radius: var(--radius-sm);
+}
+
+.radius-md {
+    border-radius: var(--radius-md);
+}
+
+.radius-lg {
+    border-radius: var(--radius-lg);
+}
+
+.radius-pill {
+    border-radius: var(--radius-pill);
+}
+
+.opacity-muted {
+    opacity: var(--opacity-muted);
+}
+
+.opacity-disabled {
+    opacity: var(--opacity-disabled);
 }
 
 .panel {
@@ -1869,4 +2030,11 @@ popover.mpris-popover {
     font-weight: 600;
     opacity: var(--opacity-muted);
     padding: var(--notification-popup-padding);
+}
+
+.header {
+    font-weight: 600;
+    font-size: 120%;
+    text-align: left;
+    margin-bottom: var(--space-5);
 }

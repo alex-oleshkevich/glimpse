@@ -10,16 +10,22 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import * as sdk from "../src/index.js";
 import {
   ActionItem,
   Badge,
+  BorderWidth,
   Button,
   Card,
   Checkbox,
+  Color,
   Column,
+  Container,
   Copyable,
   EmptyState,
   Expander,
+  FontSize,
+  FontWeight,
   Grid,
   GridChild,
   Hero,
@@ -36,12 +42,13 @@ import {
   parseCallbackEvent,
   Progress,
   PropertyList,
+  Radius,
   Row,
   Scroll,
-  Section,
   Select,
   Separator,
   Slider,
+  Space,
   Spinner,
   StatusDot,
   Switch,
@@ -257,19 +264,17 @@ test("widget separator", () => {
 });
 
 test("widget row", () => {
-  assertWidget("row", new Row({ spacing: 8, children: [] }));
+  assertWidget("row", new Row());
 });
 
 test("widget column", () => {
-  assertWidget("column", new Column({ spacing: 8, children: [] }));
+  assertWidget("column", new Column());
 });
 
 test("widget grid", () => {
   assertWidget(
     "grid",
     new Grid({
-      row_spacing: 4,
-      column_spacing: 4,
       children: [
         new GridChild(0, 0, new Label("A")),
         new GridChild(0, 1, new Label("B"), 2, 1),
@@ -290,15 +295,28 @@ test("widget card-empty", () => {
   assertWidget("card-empty", new Card());
 });
 
-test("widget section-basic", () => {
+test("widget container-styled", () => {
   assertWidget(
-    "section-basic",
-    new Section({ title: "System", child: new Label("uptime") }),
+    "container-styled",
+    new Container({
+      width: 220,
+      height: 80,
+      min_width: 180,
+      min_height: 48,
+      margin: Space.XS,
+      margin_top: Space.SM,
+      padding: Space.MD,
+      padding_left: Space.LG,
+      background: Color.SURFACE_RAISED,
+      color: Color.FG,
+      border_radius: Radius.MD,
+      border_width: BorderWidth.THIN,
+      border_color: Color.BORDER,
+      font_size: FontSize.SM,
+      font_weight: FontWeight.SEMIBOLD,
+      child: new Label("contained"),
+    }),
   );
-});
-
-test("widget section-empty-children", () => {
-  assertWidget("section-empty-children", new Section({ title: "Empty" }));
 });
 
 test("widget property-list", () => {
@@ -409,20 +427,20 @@ test("widget common-props-all", () => {
       halign: "center",
       valign: "end",
       tooltip: "details",
+      css_classes: ["marked"],
+      styles: { "font-weight": "600", "margin-top": "2px" },
       variant: "warning",
     }),
   );
 });
 
-test("widget tree-hero-column-section", () => {
+test("widget tree-hero-column-card", () => {
   assertWidget(
-    "tree-hero-column-section",
+    "tree-hero-column-card",
     new Column({
-      spacing: 8,
       children: [
         new Hero({ title: "Counter", subtitle: "Value: 0" }),
-        new Section({
-          title: "Controls",
+        new Card({
           child: new Column({
             children: [new Label("Current"), new Button({ id: "increment", label: "Increment" })],
           }),
@@ -430,6 +448,10 @@ test("widget tree-hero-column-section", () => {
       ],
     }),
   );
+});
+
+test("section is not a public SDK widget", () => {
+  assert.equal("Section" in sdk, false);
 });
 
 test("widget tree-card-with-grid", () => {

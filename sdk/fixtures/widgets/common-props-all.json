@@ -1,7 +1,14 @@
 {
   "data": {
+    "css_classes": [
+      "marked"
+    ],
     "halign": "center",
     "hexpand": true,
+    "styles": {
+      "font-weight": "600",
+      "margin-top": "2px"
+    },
     "text": "marked",
     "tooltip": "details",
     "valign": "end",

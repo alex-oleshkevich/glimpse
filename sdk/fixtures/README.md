@@ -53,6 +53,6 @@ re-think before adding.
 | Structural strings on display widgets (`label` on Item/ActionItem/Meter; `subtitle` on EmptyState) | always emit (`""` when empty) |
 | Primary state booleans (`expanded`, `clickable`, `active`, `spinning`) | always emit |
 | Modifier booleans (`wrap`, `selectable`, `show_text`, `interactive`, `draw_value`) | omit when false |
-| `Box.orientation`, `Box.spacing`, `Row.spacing`, `Column.spacing` | always emit |
-| Numerics with non-zero defaults (`Grid.row_spacing`, `Grid.column_spacing`) | always emit |
+| `Box.orientation`, `Box.spacing`, `Row.spacing`, `Column.spacing` | always emit; `Row` and `Column` default to `4` |
+| Numerics with non-zero defaults (`Grid.row_spacing`, `Grid.column_spacing`) | always emit; grid spacing defaults to `4` |
 | Interactive widgets (`button`, `switch`, `toggle_button`, `checkbox`, `slider`, `select`, interactive `meter`, `action_item`) | include a stable `id` |

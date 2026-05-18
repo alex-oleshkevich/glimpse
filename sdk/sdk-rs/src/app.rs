@@ -102,7 +102,9 @@ where
     let mut last = LastSeen::new();
     applet.on_start(&mut state).await?;
     if let Some(class) = applet.css_class() {
-        stdout.write_all(format!("class {class}\n").as_bytes()).await?;
+        stdout
+            .write_all(format!("class {class}\n").as_bytes())
+            .await?;
         stdout.flush().await?;
     }
     flush(&mut stdout, &applet, &state, &mut last).await?;

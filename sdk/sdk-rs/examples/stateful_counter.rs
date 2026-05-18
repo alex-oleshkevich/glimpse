@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, Button, ButtonVariant, CallbackEvent, Column, Hero, Label,
-    StatusItem, TreeNode, run, tree,
+    Applet, AppletResult, Button, ButtonVariant, CallbackEvent, Column, Hero, Label, StatusItem,
+    TreeNode, run, tree,
 };
 
 #[derive(Debug, Clone, Default)]
