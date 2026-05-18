@@ -132,5 +132,71 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["root"]["data"]["children"][0]["data"]["text"], "v2")
 
 
+    async def test_wildcard_handler_matches_by_pattern(self) -> None:
+        hits: list[str] = []
+
+        @dataclass
+        class S(AppletState):
+            pass
+
+        class WildApplet(Applet[S]):
+            def initial_state(self) -> S:
+                return S()
+
+            @click("item_*")
+            async def on_item(self, event) -> None:
+                hits.append(event.id)
+
+        applet = WildApplet()
+        ev = parse_callback_event({"id": "item_42", "type": "click", "source": "popover"})
+        await applet._dispatch_callback(ev)
+        self.assertEqual(hits, ["item_42"])
+
+    async def test_exact_handler_takes_priority_over_pattern(self) -> None:
+        hits: list[str] = []
+
+        @dataclass
+        class S(AppletState):
+            pass
+
+        class PriorityApplet(Applet[S]):
+            def initial_state(self) -> S:
+                return S()
+
+            @click("item_*")
+            async def on_item_any(self, event) -> None:
+                hits.append(f"pattern:{event.id}")
+
+            @click("item_special")
+            async def on_item_special(self, event) -> None:
+                hits.append(f"exact:{event.id}")
+
+        applet = PriorityApplet()
+        ev_special = parse_callback_event({"id": "item_special", "type": "click", "source": "popover"})
+        ev_other = parse_callback_event({"id": "item_42", "type": "click", "source": "popover"})
+        await applet._dispatch_callback(ev_special)
+        await applet._dispatch_callback(ev_other)
+        self.assertEqual(hits, ["exact:item_special", "pattern:item_42"])
+
+    async def test_unmatched_event_falls_through_to_on_callback(self) -> None:
+        hits: list[str] = []
+
+        @dataclass
+        class S(AppletState):
+            pass
+
+        class FallbackApplet(Applet[S]):
+            def initial_state(self) -> S:
+                return S()
+
+            async def on_callback(self, event) -> None:
+                hits.append(event.id)
+
+        applet = FallbackApplet()
+        ev = parse_callback_event({"id": "unknown", "type": "click", "source": "popover"})
+        await applet._dispatch_callback(ev)
+        self.assertEqual(hits, ["unknown"])
+
+
 if __name__ == "__main__":
     unittest.main()

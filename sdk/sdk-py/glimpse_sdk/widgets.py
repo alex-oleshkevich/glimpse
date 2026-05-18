@@ -6,7 +6,6 @@ from enum import StrEnum
 from typing import TypeAlias
 
 
-
 class Align(StrEnum):
     FILL = "fill"
     START = "start"
@@ -54,6 +53,12 @@ class LevelBarMode(StrEnum):
     DISCRETE = "discrete"
 
 
+class StatusVariant(StrEnum):
+    SUCCESS = "success"
+    WARNING = "warning"
+    DANGER = "danger"
+
+
 @dataclass(slots=True)
 class CommonProps:
     visible: bool | None = None
@@ -99,10 +104,12 @@ class Hero(Widget):
     widget_type: str = "hero"
 
     def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({
-            "title": self.title,
-            "subtitle": self.subtitle,
-        })
+        payload = self.apply_common(
+            {
+                "title": self.title,
+                "subtitle": self.subtitle,
+            }
+        )
         if self.icon is not None:
             payload["icon"] = self.icon
         if self.id is not None:
@@ -249,46 +256,6 @@ class Expander(Widget):
 
 
 @dataclass(slots=True)
-class TreeExpander(Widget):
-    child: "TreeNode | None" = None
-    hide_expander: bool = False
-    indent_for_depth: bool = False
-    indent_for_icon: bool = False
-    widget_type: str = "tree_expander"
-
-    def to_protocol(self) -> dict[str, object]:
-        if self.child is None:
-            raise ValueError("TreeExpander requires a child")
-        payload = self.apply_common(
-            {
-                "child": self.child.to_protocol(),
-                "hide_expander": self.hide_expander,
-                "indent_for_depth": self.indent_for_depth,
-                "indent_for_icon": self.indent_for_icon,
-            }
-        )
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
-class MenuButton(Widget):
-    label: str | None = None
-    icon: str | None = None
-    popover: "TreeNode | None" = None
-    widget_type: str = "menu_button"
-
-    def to_protocol(self) -> dict[str, object]:
-        if self.popover is None:
-            raise ValueError("MenuButton requires a popover")
-        payload = self.apply_common({"popover": self.popover.to_protocol()})
-        if self.label is not None:
-            payload["label"] = self.label
-        if self.icon is not None:
-            payload["icon"] = self.icon
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
 class Switch(Widget):
     id: str = ""
     label: str | None = None
@@ -306,6 +273,7 @@ class Switch(Widget):
 class ToggleButton(Widget):
     id: str = ""
     label: str | None = None
+    icon: str | None = None
     active: bool = False
     widget_type: str = "toggle_button"
 
@@ -313,6 +281,8 @@ class ToggleButton(Widget):
         payload = self.apply_common({"id": self.id, "active": self.active})
         if self.label is not None:
             payload["label"] = self.label
+        if self.icon is not None:
+            payload["icon"] = self.icon
         return {"type": self.widget_type, "data": payload}
 
 
@@ -397,36 +367,6 @@ class Scroll(Widget):
 
 
 @dataclass(slots=True)
-class Overlay(Widget):
-    child: "TreeNode | None" = None
-    overlays: list["TreeNode"] = field(default_factory=list)
-    widget_type: str = "overlay"
-
-    def to_protocol(self) -> dict[str, object]:
-        if self.child is None:
-            raise ValueError("Overlay requires a child")
-        payload = self.apply_common(
-            {
-                "child": self.child.to_protocol(),
-                "overlays": [overlay.to_protocol() for overlay in self.overlays],
-            }
-        )
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
-class ListBox(Widget):
-    children: list["TreeNode"] = field(default_factory=list)
-    widget_type: str = "list_box"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common(
-            {"children": [child.to_protocol() for child in self.children]}
-        )
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
 class GridChild:
     row: int
     column: int
@@ -460,7 +400,6 @@ class Grid(Widget):
             }
         )
         return {"type": self.widget_type, "data": payload}
-
 
 
 @dataclass(slots=True)
@@ -684,7 +623,7 @@ class Badge(Widget):
 
 @dataclass(slots=True)
 class StatusDot(Widget):
-    variant: Variant | None = None
+    variant: StatusVariant | None = None
     widget_type: str = "status"
 
     def to_protocol(self) -> dict[str, object]:
@@ -781,11 +720,7 @@ TreeNode: TypeAlias = (
     | Column
     | Grid
     | Scroll
-    | Overlay
-    | ListBox
     | LevelBar
-    | TreeExpander
-    | MenuButton
     | Progress
     | Separator
     | Spinner

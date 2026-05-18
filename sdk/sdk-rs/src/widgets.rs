@@ -28,6 +28,14 @@ pub enum Variant {
     Danger,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StatusVariant {
+    Success,
+    Warning,
+    Danger,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ButtonVariant {
@@ -285,79 +293,6 @@ impl Expander {
 with_common!(Expander);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct TreeExpander {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub child: Box<TreeNode>,
-    pub hide_expander: bool,
-    pub indent_for_depth: bool,
-    pub indent_for_icon: bool,
-}
-
-impl TreeExpander {
-    pub fn new(child: impl Into<TreeNode>) -> Self {
-        Self {
-            common: CommonProps::default(),
-            child: Box::new(child.into()),
-            hide_expander: false,
-            indent_for_depth: false,
-            indent_for_icon: false,
-        }
-    }
-
-    pub fn hide_expander(mut self, hide_expander: bool) -> Self {
-        self.hide_expander = hide_expander;
-        self
-    }
-
-    pub fn indent_for_depth(mut self, indent_for_depth: bool) -> Self {
-        self.indent_for_depth = indent_for_depth;
-        self
-    }
-
-    pub fn indent_for_icon(mut self, indent_for_icon: bool) -> Self {
-        self.indent_for_icon = indent_for_icon;
-        self
-    }
-}
-
-with_common!(TreeExpander);
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct MenuButton {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub label: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub icon: Option<String>,
-    pub popover: Box<TreeNode>,
-}
-
-impl MenuButton {
-    pub fn new(popover: impl Into<TreeNode>) -> Self {
-        Self {
-            common: CommonProps::default(),
-            label: None,
-            icon: None,
-            popover: Box::new(popover.into()),
-        }
-    }
-
-    pub fn label(mut self, label: impl Into<String>) -> Self {
-        self.label = Some(label.into());
-        self
-    }
-
-    pub fn icon(mut self, icon: impl Into<String>) -> Self {
-        self.icon = Some(icon.into());
-        self
-    }
-}
-
-with_common!(MenuButton);
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Switch {
     pub id: String,
     #[serde(flatten)]
@@ -387,6 +322,8 @@ pub struct ToggleButton {
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
     pub active: bool,
 }
 
@@ -396,8 +333,14 @@ impl ToggleButton {
             id: id.into(),
             common: CommonProps::default(),
             label: None,
+            icon: None,
             active: false,
         }
+    }
+
+    pub fn icon(mut self, icon: impl Into<String>) -> Self {
+        self.icon = Some(icon.into());
+        self
     }
 }
 
@@ -530,54 +473,6 @@ impl Scroll {
 }
 
 with_common!(Scroll);
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Overlay {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub child: Box<TreeNode>,
-    pub overlays: Vec<TreeNode>,
-}
-
-impl Overlay {
-    pub fn new(child: impl Into<TreeNode>) -> Self {
-        Self {
-            common: CommonProps::default(),
-            child: Box::new(child.into()),
-            overlays: Vec::new(),
-        }
-    }
-
-    pub fn overlay(mut self, overlay: impl Into<TreeNode>) -> Self {
-        self.overlays.push(overlay.into());
-        self
-    }
-
-    pub fn overlays(mut self, overlays: Vec<TreeNode>) -> Self {
-        self.overlays = overlays;
-        self
-    }
-}
-
-with_common!(Overlay);
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct ListBox {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub children: Vec<TreeNode>,
-}
-
-impl ListBox {
-    pub fn new(children: Vec<TreeNode>) -> Self {
-        Self {
-            common: CommonProps::default(),
-            children,
-        }
-    }
-}
-
-with_common!(ListBox);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct LevelBar {
@@ -1160,7 +1055,7 @@ pub struct StatusDot {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub variant: Option<Variant>,
+    pub variant: Option<StatusVariant>,
 }
 
 impl StatusDot {
@@ -1171,7 +1066,7 @@ impl StatusDot {
         }
     }
 
-    pub fn variant(mut self, variant: Variant) -> Self {
+    pub fn variant(mut self, variant: StatusVariant) -> Self {
         self.variant = Some(variant);
         self
     }
@@ -1334,8 +1229,6 @@ pub enum TreeNode {
     Column(Column),
     Grid(Grid),
     Scroll(Scroll),
-    Overlay(Overlay),
-    ListBox(ListBox),
     LevelBar(LevelBar),
     Progress(Progress),
     Separator(Separator),
@@ -1346,8 +1239,6 @@ pub enum TreeNode {
     Button(Button),
     LinkButton(LinkButton),
     Expander(Expander),
-    TreeExpander(TreeExpander),
-    MenuButton(MenuButton),
     Switch(Switch),
     ToggleButton(ToggleButton),
     Slider(Slider),
@@ -1447,16 +1338,6 @@ impl From<Scroll> for TreeNode {
         Self::Scroll(value)
     }
 }
-impl From<Overlay> for TreeNode {
-    fn from(value: Overlay) -> Self {
-        Self::Overlay(value)
-    }
-}
-impl From<ListBox> for TreeNode {
-    fn from(value: ListBox) -> Self {
-        Self::ListBox(value)
-    }
-}
 impl From<LevelBar> for TreeNode {
     fn from(value: LevelBar) -> Self {
         Self::LevelBar(value)
@@ -1500,16 +1381,6 @@ impl From<LinkButton> for TreeNode {
 impl From<Expander> for TreeNode {
     fn from(value: Expander) -> Self {
         Self::Expander(value)
-    }
-}
-impl From<TreeExpander> for TreeNode {
-    fn from(value: TreeExpander) -> Self {
-        Self::TreeExpander(value)
-    }
-}
-impl From<MenuButton> for TreeNode {
-    fn from(value: MenuButton) -> Self {
-        Self::MenuButton(value)
     }
 }
 impl From<Switch> for TreeNode {

@@ -79,42 +79,9 @@ def widgets() -> None:
             "child": {"type": "label", "data": {"text": "More"}},
         },
     })
-    write(WIDGETS, "overlay", {
-        "type": "overlay",
-        "data": {
-            "child": {"type": "label", "data": {"text": "Base"}},
-            "overlays": [{"type": "badge", "data": {"label": "Top"}}],
-        },
-    })
-    write(WIDGETS, "list-box", {
-        "type": "list_box",
-        "data": {
-            "children": [
-                {"type": "label", "data": {"text": "First"}},
-                {"type": "badge", "data": {"label": "Second"}},
-            ],
-        },
-    })
     write(WIDGETS, "level-bar", {
         "type": "level_bar",
         "data": {"value": 0.7, "min": 0.0, "max": 1.0, "mode": "continuous"},
-    })
-    write(WIDGETS, "tree-expander", {
-        "type": "tree_expander",
-        "data": {
-            "child": {"type": "label", "data": {"text": "Nested"}},
-            "hide_expander": True,
-            "indent_for_depth": True,
-            "indent_for_icon": True,
-        },
-    })
-    write(WIDGETS, "menu-button", {
-        "type": "menu_button",
-        "data": {
-            "label": "More",
-            "icon": "open-menu-symbolic",
-            "popover": {"type": "label", "data": {"text": "Menu content"}},
-        },
     })
     write(WIDGETS, "switch-on", {
         "type": "switch",
@@ -131,6 +98,10 @@ def widgets() -> None:
     write(WIDGETS, "toggle-button-off", {
         "type": "toggle_button",
         "data": {"id": "wifi", "active": False},
+    })
+    write(WIDGETS, "toggle-button-with-icon", {
+        "type": "toggle_button",
+        "data": {"id": "wifi", "icon": "network-wireless-symbolic", "active": False},
     })
     write(WIDGETS, "checkbox-on", {
         "type": "checkbox",

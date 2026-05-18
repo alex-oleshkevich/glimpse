@@ -37,8 +37,8 @@ pub use protocol::StatusItem;
 pub use widgets::{
     ActionItem, Align, Badge, Button, ButtonVariant, Card, Checkbox, Column, Copyable,
     ContentFit, EmptyState, Expander, Grid, GridChild, Hero, Icon, Item, Label, LevelBar,
-    LevelBarMode, LinkButton, ListBox, MenuButton, Meter, Orientation, Overlay, PagerAppearance,
+    LevelBarMode, LinkButton, Meter, Orientation, PagerAppearance,
     PagerItem, PagerStrip, Picture, Progress, PropertyList, Row, Scroll, Section, Select,
-    Separator, Slider, Spinner, StatusDot, Switch, ToggleButton, TreeExpander,
+    Separator, Slider, Spinner, StatusDot, StatusVariant, Switch, ToggleButton,
     TreeNode, Variant, PopoverScaffold, PopoverSize,
 };

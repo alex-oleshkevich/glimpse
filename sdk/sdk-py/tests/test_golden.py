@@ -32,10 +32,7 @@ from glimpse_sdk import (
     Label,
     LevelBar,
     LinkButton,
-    ListBox,
-    MenuButton,
     Meter,
-    Overlay,
     Orientation,
     PagerAppearance,
     PagerItem,
@@ -53,9 +50,9 @@ from glimpse_sdk import (
     Slider,
     Spinner,
     StatusDot,
+    StatusVariant,
     Switch,
     ToggleButton,
-    TreeExpander,
     Variant,
 )
 from glimpse_sdk.events import (
@@ -130,43 +127,10 @@ class GoldenWidgetTests(unittest.TestCase):
             Expander(label="Details", expanded=True, child=Label(text="More")),
         )
 
-    def test_overlay(self) -> None:
-        self._assert_widget(
-            "overlay",
-            Overlay(child=Label(text="Base"), overlays=[Badge(label="Top")]),
-        )
-
-    def test_list_box(self) -> None:
-        self._assert_widget(
-            "list-box",
-            ListBox(children=[Label(text="First"), Badge(label="Second")]),
-        )
-
     def test_level_bar(self) -> None:
         self._assert_widget(
             "level-bar",
             LevelBar(value=0.7, min=0.0, max=1.0, mode="continuous"),
-        )
-
-    def test_tree_expander(self) -> None:
-        self._assert_widget(
-            "tree-expander",
-            TreeExpander(
-                child=Label(text="Nested"),
-                hide_expander=True,
-                indent_for_depth=True,
-                indent_for_icon=True,
-            ),
-        )
-
-    def test_menu_button(self) -> None:
-        self._assert_widget(
-            "menu-button",
-            MenuButton(
-                label="More",
-                icon="open-menu-symbolic",
-                popover=Label(text="Menu content"),
-            ),
         )
 
     def test_switch_on(self) -> None:
@@ -180,6 +144,9 @@ class GoldenWidgetTests(unittest.TestCase):
 
     def test_toggle_button_off(self) -> None:
         self._assert_widget("toggle-button-off", ToggleButton(id="wifi"))
+
+    def test_toggle_button_with_icon(self) -> None:
+        self._assert_widget("toggle-button-with-icon", ToggleButton(id="wifi", icon="network-wireless-symbolic"))
 
     def test_checkbox_on(self) -> None:
         self._assert_widget(
@@ -249,7 +216,7 @@ class GoldenWidgetTests(unittest.TestCase):
         self._assert_widget("status-dot", StatusDot())
 
     def test_status_dot_warning(self) -> None:
-        self._assert_widget("status-dot-warning", StatusDot(variant=Variant.WARNING))
+        self._assert_widget("status-dot-warning", StatusDot(variant=StatusVariant.WARNING))
 
     def test_pager_item_number_active(self) -> None:
         self._assert_widget(

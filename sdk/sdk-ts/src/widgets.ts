@@ -5,6 +5,7 @@ export type ButtonVariant = "primary" | "secondary" | "compact" | "flat" | "dang
 export type PagerAppearance = "dots" | "numbers";
 export type ContentFit = "fill" | "contain" | "cover" | "scale_down";
 export type LevelBarMode = "continuous" | "discrete";
+export type StatusVariant = "success" | "warning" | "danger";
 
 export interface WidgetNode {
   toProtocol(): Record<string, unknown>;
@@ -207,50 +208,6 @@ export class Expander extends WidgetBase {
   }
 }
 
-export class TreeExpander extends WidgetBase {
-  constructor(
-    private readonly options: CommonProps & {
-      child: TreeNode;
-      hide_expander?: boolean;
-      indent_for_depth?: boolean;
-      indent_for_icon?: boolean;
-    },
-  ) {
-    super(options);
-  }
-
-  toProtocol(): Record<string, unknown> {
-    return {
-      type: "tree_expander",
-      data: this.withCommon({
-        child: this.options.child.toProtocol(),
-        hide_expander: this.options.hide_expander ?? false,
-        indent_for_depth: this.options.indent_for_depth ?? false,
-        indent_for_icon: this.options.indent_for_icon ?? false,
-      }),
-    };
-  }
-}
-
-export class MenuButton extends WidgetBase {
-  constructor(
-    private readonly options: CommonProps & {
-      label?: string;
-      icon?: string;
-      popover: TreeNode;
-    },
-  ) {
-    super(options);
-  }
-
-  toProtocol(): Record<string, unknown> {
-    const payload = this.withCommon({ popover: this.options.popover.toProtocol() });
-    if (this.options.label !== undefined) payload.label = this.options.label;
-    if (this.options.icon !== undefined) payload.icon = this.options.icon;
-    return { type: "menu_button", data: payload };
-  }
-}
-
 export class Switch extends WidgetBase {
   constructor(
     private readonly options: CommonProps & {
@@ -274,6 +231,7 @@ export class ToggleButton extends WidgetBase {
     private readonly options: CommonProps & {
       id: string;
       label?: string;
+      icon?: string;
       active?: boolean;
     },
   ) {
@@ -283,6 +241,7 @@ export class ToggleButton extends WidgetBase {
   toProtocol(): Record<string, unknown> {
     const payload = this.withCommon({ id: this.options.id, active: this.options.active ?? false });
     if (this.options.label !== undefined) payload.label = this.options.label;
+    if (this.options.icon !== undefined) payload.icon = this.options.icon;
     return { type: "toggle_button", data: payload };
   }
 }
@@ -377,46 +336,6 @@ export class Scroll extends WidgetBase {
 
   toProtocol(): Record<string, unknown> {
     return { type: "scroll", data: this.withCommon({ child: this.child.toProtocol() }) };
-  }
-}
-
-export class Overlay extends WidgetBase {
-  constructor(
-    private readonly options: CommonProps & {
-      child: TreeNode;
-      overlays?: TreeNode[];
-    },
-  ) {
-    super(options);
-  }
-
-  toProtocol(): Record<string, unknown> {
-    return {
-      type: "overlay",
-      data: this.withCommon({
-        child: this.options.child.toProtocol(),
-        overlays: (this.options.overlays ?? []).map((overlay) => overlay.toProtocol()),
-      }),
-    };
-  }
-}
-
-export class ListBox extends WidgetBase {
-  constructor(
-    private readonly options: CommonProps & {
-      children?: TreeNode[];
-    } = {},
-  ) {
-    super(options);
-  }
-
-  toProtocol(): Record<string, unknown> {
-    return {
-      type: "list_box",
-      data: this.withCommon({
-        children: (this.options.children ?? []).map((child) => child.toProtocol()),
-      }),
-    };
   }
 }
 
@@ -793,7 +712,7 @@ export class Badge extends WidgetBase {
 }
 
 export class StatusDot extends WidgetBase {
-  constructor(private readonly options: CommonProps & { variant?: Variant } = {}) {
+  constructor(private readonly options: CommonProps & { variant?: StatusVariant } = {}) {
     super(options);
   }
 
@@ -875,11 +794,7 @@ export type TreeNode =
   | Column
   | Grid
   | Scroll
-  | Overlay
-  | ListBox
   | LevelBar
-  | TreeExpander
-  | MenuButton
   | Progress
   | Separator
   | Spinner

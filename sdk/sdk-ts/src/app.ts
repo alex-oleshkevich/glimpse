@@ -105,6 +105,10 @@ export abstract class Applet<State extends object> {
     return this.popoverOpen;
   }
 
+  log(...args: unknown[]): void {
+    process.stderr.write(args.map(String).join(" ") + "\n");
+  }
+
   protected showNotification(args: ShowNotificationArgs): void {
     this.emitAction("show_notification", args);
   }

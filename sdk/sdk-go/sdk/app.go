@@ -83,6 +83,13 @@ func (a *BaseApplet[S]) Updates() <-chan struct{} {
 
 func (a *BaseApplet[S]) CssClass() string { return "" }
 
+// Log writes a debug line to stderr. In applets dev mode the line appears
+// directly in the terminal; when running under the panel it is captured by
+// the shell's stderr logger.
+func (a *BaseApplet[S]) Log(args ...any) {
+	fmt.Fprintln(os.Stderr, args...)
+}
+
 type treePayload struct {
 	Root Widget `json:"root"`
 }

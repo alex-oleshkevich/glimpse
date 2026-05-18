@@ -61,6 +61,13 @@ pub trait Applet: Send + Sync {
     fn css_class(&self) -> Option<&str> {
         None
     }
+
+    /// Write a debug line to stderr. In `applets dev` mode the line appears
+    /// directly in the terminal; when running under the panel it is captured
+    /// by the shell's stderr logger.
+    fn log(&self, msg: impl std::fmt::Display) {
+        eprintln!("{msg}");
+    }
 }
 
 #[derive(Debug, Serialize, PartialEq)]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import fnmatch
 import json
 import sys
 from dataclasses import dataclass, is_dataclass
@@ -23,7 +24,7 @@ class Applet(Generic[StateT, OptionsT]):
         self.state: StateT = self.initial_state()
         self._incoming: asyncio.Queue[InitEvent[OptionsT] | CallbackEvent] = asyncio.Queue()
         self._outgoing: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
-        self._handler_map = self._collect_handlers()
+        self._handler_map, self._pattern_handlers = self._collect_handlers()
         self._render_task: asyncio.Task[None] | None = None
         self._render_requested = False
         self._last_status: list[dict[str, Any]] | None = None
@@ -65,6 +66,9 @@ class Applet(Generic[StateT, OptionsT]):
     def is_popover_open(self) -> bool:
         return self._popover_open
 
+    def log(self, *args: object) -> None:
+        print(*args, file=sys.stderr, flush=True)
+
     def _schedule_render(self) -> None:
         self._render_requested = True
         if self._render_task is None or self._render_task.done():
@@ -88,17 +92,30 @@ class Applet(Generic[StateT, OptionsT]):
                 self._last_tree = tree
                 await self._outgoing.put(("popover", tree))
 
-    def _collect_handlers(self) -> dict[tuple[str, str], Any]:
-        handlers: dict[tuple[str, str], Any] = {}
+    def _collect_handlers(
+        self,
+    ) -> tuple[dict[tuple[str, str], Any], list[tuple[tuple[str, str], Any]]]:
+        exact: dict[tuple[str, str], Any] = {}
+        patterns: list[tuple[tuple[str, str], Any]] = []
         for name in dir(self):
             value = getattr(self, name)
             handler_meta = getattr(value, "__glimpse_handler__", None)
-            if handler_meta is not None:
-                handlers[handler_meta] = value
-        return handlers
+            if handler_meta is None:
+                continue
+            ev_type, target_id = handler_meta
+            if any(c in target_id for c in ("*", "?", "[")):
+                patterns.append(((ev_type, target_id), value))
+            else:
+                exact[(ev_type, target_id)] = value
+        return exact, patterns
 
     async def _dispatch_callback(self, event: CallbackEvent) -> None:
         handler = self._handler_map.get((event.event, event.id))
+        if handler is None:
+            for (ev_type, pat), h in self._pattern_handlers:
+                if ev_type == event.event and fnmatch.fnmatch(event.id, pat):
+                    handler = h
+                    break
         if handler is not None:
             await handler(event)
         else:

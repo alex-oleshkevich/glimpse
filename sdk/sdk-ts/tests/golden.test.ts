@@ -28,10 +28,7 @@ import {
   Label,
   LevelBar,
   LinkButton,
-  ListBox,
-  MenuButton,
   Meter,
-  Overlay,
   PagerItem,
   PagerStrip,
   Picture,
@@ -49,7 +46,6 @@ import {
   StatusDot,
   Switch,
   ToggleButton,
-  TreeExpander,
 } from "../src/index.js";
 
 // Compiled path is sdk-ts/dist/tests/golden.test.js -> 3 levels up to sdk/, then /fixtures.
@@ -124,39 +120,8 @@ test("widget expander-expanded", () => {
   assertWidget("expander-expanded", new Expander({ label: "Details", expanded: true, child: new Label("More") }));
 });
 
-test("widget overlay", () => {
-  assertWidget("overlay", new Overlay({ child: new Label("Base"), overlays: [new Badge({ label: "Top" })] }));
-});
-
-test("widget list-box", () => {
-  assertWidget("list-box", new ListBox({ children: [new Label("First"), new Badge({ label: "Second" })] }));
-});
-
 test("widget level-bar", () => {
   assertWidget("level-bar", new LevelBar({ value: 0.7, min: 0, max: 1, mode: "continuous" }));
-});
-
-test("widget tree-expander", () => {
-  assertWidget(
-    "tree-expander",
-    new TreeExpander({
-      child: new Label("Nested"),
-      hide_expander: true,
-      indent_for_depth: true,
-      indent_for_icon: true,
-    }),
-  );
-});
-
-test("widget menu-button", () => {
-  assertWidget(
-    "menu-button",
-    new MenuButton({
-      label: "More",
-      icon: "open-menu-symbolic",
-      popover: new Label("Menu content"),
-    }),
-  );
 });
 
 test("widget switch-on", () => {
@@ -173,6 +138,10 @@ test("widget toggle-button-on", () => {
 
 test("widget toggle-button-off", () => {
   assertWidget("toggle-button-off", new ToggleButton({ id: "wifi" }));
+});
+
+test("widget toggle-button-with-icon", () => {
+  assertWidget("toggle-button-with-icon", new ToggleButton({ id: "wifi", icon: "network-wireless-symbolic" }));
 });
 
 test("widget checkbox-on", () => {

@@ -45,6 +45,7 @@ func envelope(typeName string, data any) ([]byte, error) {
 type Align string
 type Orientation string
 type Variant string
+type StatusVariant string
 type ButtonVariant string
 type PagerAppearance string
 type ContentFit string
@@ -66,6 +67,10 @@ const (
 	VariantSuccess Variant = "success"
 	VariantWarning Variant = "warning"
 	VariantDanger  Variant = "danger"
+
+	StatusVariantSuccess StatusVariant = "success"
+	StatusVariantWarning StatusVariant = "warning"
+	StatusVariantDanger  StatusVariant = "danger"
 
 	ButtonVariantPrimary   ButtonVariant = "primary"
 	ButtonVariantSecondary ButtonVariant = "secondary"
@@ -167,7 +172,7 @@ func (b Badge) MarshalJSON() ([]byte, error) {
 
 type StatusDot struct {
 	CommonProps
-	Variant Variant `json:"variant,omitempty"`
+	Variant StatusVariant `json:"variant,omitempty"`
 }
 
 func (StatusDot) isWidget() {}
@@ -366,33 +371,6 @@ func (e Expander) MarshalJSON() ([]byte, error) {
 	return envelope("expander", alias(e))
 }
 
-type TreeExpander struct {
-	CommonProps
-	Child          Widget `json:"child"`
-	HideExpander   bool   `json:"hide_expander"`
-	IndentForDepth bool   `json:"indent_for_depth"`
-	IndentForIcon  bool   `json:"indent_for_icon"`
-}
-
-func (TreeExpander) isWidget() {}
-func (t TreeExpander) MarshalJSON() ([]byte, error) {
-	type alias TreeExpander
-	return envelope("tree_expander", alias(t))
-}
-
-type MenuButton struct {
-	CommonProps
-	Label   string `json:"label,omitempty"`
-	Icon    string `json:"icon,omitempty"`
-	Popover Widget `json:"popover"`
-}
-
-func (MenuButton) isWidget() {}
-func (m MenuButton) MarshalJSON() ([]byte, error) {
-	type alias MenuButton
-	return envelope("menu_button", alias(m))
-}
-
 type Switch struct {
 	ID     string `json:"id"`
 	CommonProps
@@ -410,6 +388,7 @@ type ToggleButton struct {
 	ID     string `json:"id"`
 	CommonProps
 	Label  string `json:"label,omitempty"`
+	Icon   string `json:"icon,omitempty"`
 	Active bool   `json:"active"`
 }
 
@@ -539,33 +518,6 @@ func (Scroll) isWidget() {}
 func (s Scroll) MarshalJSON() ([]byte, error) {
 	type alias Scroll
 	return envelope("scroll", alias(s))
-}
-
-type Overlay struct {
-	CommonProps
-	Child    Widget   `json:"child"`
-	Overlays []Widget `json:"overlays"`
-}
-
-func (Overlay) isWidget() {}
-func (o Overlay) MarshalJSON() ([]byte, error) {
-	type alias Overlay
-	out := o
-	out.Overlays = ensureSlice(out.Overlays)
-	return envelope("overlay", alias(out))
-}
-
-type ListBox struct {
-	CommonProps
-	Children []Widget `json:"children"`
-}
-
-func (ListBox) isWidget() {}
-func (l ListBox) MarshalJSON() ([]byte, error) {
-	type alias ListBox
-	out := l
-	out.Children = ensureSlice(out.Children)
-	return envelope("list_box", alias(out))
 }
 
 // ---- Group widgets ---------------------------------------------------------

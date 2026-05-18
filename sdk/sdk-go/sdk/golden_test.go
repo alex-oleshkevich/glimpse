@@ -127,45 +127,12 @@ func TestGoldenExpanderExpanded(t *testing.T) {
 	})
 }
 
-func TestGoldenOverlay(t *testing.T) {
-	assertWidget(t, "overlay", Overlay{
-		Child:    Label{Text: "Base"},
-		Overlays: []Widget{Badge{Label: "Top"}},
-	})
-}
-
-func TestGoldenListBox(t *testing.T) {
-	assertWidget(t, "list-box", ListBox{
-		Children: []Widget{
-			Label{Text: "First"},
-			Badge{Label: "Second"},
-		},
-	})
-}
-
 func TestGoldenLevelBar(t *testing.T) {
 	assertWidget(t, "level-bar", LevelBar{
 		Value: 0.7,
 		Min:   0.0,
 		Max:   1.0,
 		Mode:  LevelBarModeContinuous,
-	})
-}
-
-func TestGoldenTreeExpander(t *testing.T) {
-	assertWidget(t, "tree-expander", TreeExpander{
-		Child:          Label{Text: "Nested"},
-		HideExpander:   true,
-		IndentForDepth: true,
-		IndentForIcon:  true,
-	})
-}
-
-func TestGoldenMenuButton(t *testing.T) {
-	assertWidget(t, "menu-button", MenuButton{
-		Label:   "More",
-		Icon:    "open-menu-symbolic",
-		Popover: Label{Text: "Menu content"},
 	})
 }
 
@@ -183,6 +150,10 @@ func TestGoldenToggleButtonOn(t *testing.T) {
 
 func TestGoldenToggleButtonOff(t *testing.T) {
 	assertWidget(t, "toggle-button-off", ToggleButton{ID: "wifi"})
+}
+
+func TestGoldenToggleButtonWithIcon(t *testing.T) {
+	assertWidget(t, "toggle-button-with-icon", ToggleButton{ID: "wifi", Icon: "network-wireless-symbolic"})
 }
 
 func TestGoldenCheckboxOn(t *testing.T) {
@@ -265,7 +236,7 @@ func TestGoldenStatusDot(t *testing.T) {
 }
 
 func TestGoldenStatusDotWarning(t *testing.T) {
-	assertWidget(t, "status-dot-warning", StatusDot{Variant: VariantWarning})
+	assertWidget(t, "status-dot-warning", StatusDot{Variant: StatusVariantWarning})
 }
 
 func TestGoldenPagerItemNumberActive(t *testing.T) {

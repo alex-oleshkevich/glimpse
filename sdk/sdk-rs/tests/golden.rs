@@ -11,9 +11,9 @@ use std::path::PathBuf;
 use glimpse_sdk::{
     ActionItem, Align, Badge, Button, ButtonVariant, CallbackEvent, Card, Checkbox, Column,
     ContentFit, Copyable, EmptyState, Expander, Grid, GridChild, Hero, Icon, Item, Label,
-    LevelBar, LevelBarMode, LinkButton, ListBox, MenuButton, Meter, Overlay, PagerItem, PagerStrip,
+    LevelBar, LevelBarMode, LinkButton, Meter, PagerItem, PagerStrip,
     Picture, PopoverScaffold, PopoverSize, Progress, PropertyList, Row, Scroll, Section, Select,
-    Separator, Slider, Spinner, StatusDot, Switch, ToggleButton, TreeExpander, TreeNode, Variant,
+    Separator, Slider, Spinner, StatusDot, StatusVariant, Switch, ToggleButton, TreeNode, Variant,
     parse_callback_event, tree,
 };
 use serde_json::Value;
@@ -125,24 +125,6 @@ fn widget_expander_expanded() {
 }
 
 #[test]
-fn widget_overlay() {
-    assert_widget(
-        "overlay",
-        Overlay::new(Label::new("Base"))
-            .overlay(Badge::new("Top"))
-            .into(),
-    );
-}
-
-#[test]
-fn widget_list_box() {
-    assert_widget(
-        "list-box",
-        ListBox::new(tree![Label::new("First"), Badge::new("Second")]).into(),
-    );
-}
-
-#[test]
 fn widget_level_bar() {
     assert_widget(
         "level-bar",
@@ -150,29 +132,6 @@ fn widget_level_bar() {
             .min(0.0)
             .max(1.0)
             .mode(LevelBarMode::Continuous)
-            .into(),
-    );
-}
-
-#[test]
-fn widget_tree_expander() {
-    assert_widget(
-        "tree-expander",
-        TreeExpander::new(Label::new("Nested"))
-            .hide_expander(true)
-            .indent_for_depth(true)
-            .indent_for_icon(true)
-            .into(),
-    );
-}
-
-#[test]
-fn widget_menu_button() {
-    assert_widget(
-        "menu-button",
-        MenuButton::new(Label::new("Menu content"))
-            .label("More")
-            .icon("open-menu-symbolic")
             .into(),
     );
 }
@@ -201,6 +160,14 @@ fn widget_toggle_button_on() {
 #[test]
 fn widget_toggle_button_off() {
     assert_widget("toggle-button-off", ToggleButton::new("wifi").into());
+}
+
+#[test]
+fn widget_toggle_button_with_icon() {
+    assert_widget(
+        "toggle-button-with-icon",
+        ToggleButton::new("wifi").icon("network-wireless-symbolic").into(),
+    );
 }
 
 #[test]
@@ -314,7 +281,7 @@ fn widget_status_dot() {
 fn widget_status_dot_warning() {
     assert_widget(
         "status-dot-warning",
-        StatusDot::new().variant(Variant::Warning).into(),
+        StatusDot::new().variant(StatusVariant::Warning).into(),
     );
 }
 
