@@ -29,7 +29,8 @@ use super::protocol::{
     LevelBarModeValue, LevelBarNode, LinkButtonNode, MeterNode, OrientationValue,
     PagerAppearanceValue, PagerItemNode, PagerStripNode, PictureNode, ProgressNode,
     PropertyListNode, RadiusValue, ScrollNode, SectionNode, SelectNode, SeparatorNode, SliderNode,
-    SpaceValue, SpinnerNode, StatusNode, SwitchNode, ToggleButtonNode, TreeNode, Variant,
+    SpaceValue, SpinnerNode, StatusNode, SwitchNode, TextAlignValue, TextNode, ToggleButtonNode,
+    TreeNode, Variant,
 };
 
 pub type EventSink = Rc<dyn Fn(EventPayload)>;
@@ -71,6 +72,7 @@ impl RenderCatalog {
             TreeNode::Progress(data) => Ok(self.render_progress(data).upcast()),
             TreeNode::Separator(data) => Ok(self.render_separator(data).upcast()),
             TreeNode::Label(data) => Ok(self.render_label(data).upcast()),
+            TreeNode::Text(data) => Ok(self.render_text(data).upcast()),
             TreeNode::Icon(data) => Ok(self.render_icon(data).upcast()),
             TreeNode::Picture(data) => Ok(self.render_picture(data).upcast()),
             TreeNode::Button(data) => self.render_button(data),
@@ -457,6 +459,18 @@ impl RenderCatalog {
         }
         apply_common_props(&label, &data.common);
         apply_variant(&label, data.variant);
+        label
+    }
+
+    fn render_text(&self, data: &TextNode) -> gtk::Label {
+        let label = gtk::Label::new(Some(&data.text));
+        label.add_css_class("text");
+        if let Some(align) = data.align {
+            label.set_xalign(text_align_xalign(align));
+        }
+        apply_common_props_without_inline(&label, &data.common);
+        apply_text_styles(&label, data);
+        apply_inline_styles(&label, &data.common);
         label
     }
 
@@ -953,6 +967,22 @@ fn apply_container_styles(widget: &impl IsA<gtk::Widget>, data: &ContainerNode) 
     }
 }
 
+fn apply_text_styles(widget: &impl IsA<gtk::Widget>, data: &TextNode) {
+    let mut declarations = Vec::new();
+    if let Some(color) = data.color {
+        declarations.push(format!("color: {};", color_css(color)));
+    }
+    if let Some(size) = data.size {
+        declarations.push(format!("font-size: {};", font_size_css(size)));
+    }
+    if let Some(weight) = data.weight {
+        declarations.push(format!("font-weight: {};", font_weight_css(weight)));
+    }
+    if !declarations.is_empty() {
+        widget.inline_css(&declarations.join(" "));
+    }
+}
+
 fn append_spacing_declarations(
     declarations: &mut Vec<String>,
     property: &str,
@@ -1106,6 +1136,14 @@ fn to_align(value: AlignValue) -> gtk::Align {
     }
 }
 
+fn text_align_xalign(value: TextAlignValue) -> f32 {
+    match value {
+        TextAlignValue::Left => 0.0,
+        TextAlignValue::Center => 0.5,
+        TextAlignValue::Right => 1.0,
+    }
+}
+
 fn to_content_fit(value: ContentFitValue) -> gtk::ContentFit {
     match value {
         ContentFitValue::Fill => gtk::ContentFit::Fill,
@@ -1244,6 +1282,23 @@ mod tests {
         assert_eq!(
             border_width_css(BorderWidthValue::Thin),
             "var(--border-width-thin)"
+        );
+    }
+
+    #[test]
+    fn text_align_values_map_to_label_xalign() {
+        assert_eq!(text_align_xalign(TextAlignValue::Left), 0.0);
+        assert_eq!(text_align_xalign(TextAlignValue::Center), 0.5);
+        assert_eq!(text_align_xalign(TextAlignValue::Right), 1.0);
+    }
+
+    #[test]
+    fn text_tokens_map_to_css_variables() {
+        assert_eq!(color_css(ColorValue::Accent), "var(--color-accent)");
+        assert_eq!(font_size_css(FontSizeValue::Lg), "var(--font-size-lg)");
+        assert_eq!(
+            font_weight_css(FontWeightValue::Bold),
+            "var(--font-weight-bold)"
         );
     }
 

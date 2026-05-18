@@ -93,6 +93,14 @@ pub enum FontWeight {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
+pub enum TextAlign {
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BorderWidth {
     None,
     Thin,
@@ -194,39 +202,54 @@ macro_rules! with_common {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Label {
+pub struct Text {
     #[serde(flatten)]
     pub common: CommonProps,
     pub text: String,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
-    pub wrap: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub xalign: Option<f32>,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
-    pub selectable: bool,
+    pub color: Option<Color>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub variant: Option<Variant>,
+    pub size: Option<FontSize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub weight: Option<FontWeight>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub align: Option<TextAlign>,
 }
 
-impl Label {
+impl Text {
     pub fn new(text: impl Into<String>) -> Self {
         Self {
             common: CommonProps::default(),
             text: text.into(),
-            wrap: false,
-            xalign: None,
-            selectable: false,
-            variant: None,
+            color: None,
+            size: None,
+            weight: None,
+            align: None,
         }
     }
 
-    pub fn variant(mut self, variant: Variant) -> Self {
-        self.variant = Some(variant);
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = Some(color);
+        self
+    }
+
+    pub fn size(mut self, size: FontSize) -> Self {
+        self.size = Some(size);
+        self
+    }
+
+    pub fn weight(mut self, weight: FontWeight) -> Self {
+        self.weight = Some(weight);
+        self
+    }
+
+    pub fn align(mut self, align: TextAlign) -> Self {
+        self.align = Some(align);
         self
     }
 }
 
-with_common!(Label);
+with_common!(Text);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Icon {
@@ -366,7 +389,7 @@ impl Expander {
             common: CommonProps::default(),
             label: label.into(),
             expanded: false,
-            child: Box::new(Label::new("").into()),
+            child: Box::new(Text::new("").into()),
         }
     }
 
@@ -1486,7 +1509,7 @@ pub enum TreeNode {
     Progress(Progress),
     Separator(Separator),
     Spinner(Spinner),
-    Label(Label),
+    Text(Text),
     Icon(Icon),
     Picture(Picture),
     Button(Button),
@@ -1606,9 +1629,9 @@ impl From<Separator> for TreeNode {
         Self::Separator(value)
     }
 }
-impl From<Label> for TreeNode {
-    fn from(value: Label) -> Self {
-        Self::Label(value)
+impl From<Text> for TreeNode {
+    fn from(value: Text) -> Self {
+        Self::Text(value)
     }
 }
 impl From<Icon> for TreeNode {

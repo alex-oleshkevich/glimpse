@@ -52,6 +52,12 @@ export const FontWeight = {
   BOLD: "bold",
 } as const;
 export type FontWeight = (typeof FontWeight)[keyof typeof FontWeight];
+export const TextAlign = {
+  LEFT: "left",
+  CENTER: "center",
+  RIGHT: "right",
+} as const;
+export type TextAlign = (typeof TextAlign)[keyof typeof TextAlign];
 export const BorderWidth = {
   NONE: "none",
   THIN: "thin",
@@ -105,14 +111,14 @@ abstract class WidgetBase implements WidgetNode {
   abstract toProtocol(): Record<string, unknown>;
 }
 
-export class Label extends WidgetBase {
+export class Text extends WidgetBase {
   constructor(
-    public readonly text: string,
+    private readonly text: string,
     private readonly options: CommonProps & {
-      wrap?: boolean;
-      xalign?: number;
-      selectable?: boolean;
-      variant?: Variant;
+      color?: Color;
+      size?: FontSize;
+      weight?: FontWeight;
+      align?: TextAlign;
     } = {},
   ) {
     super(options);
@@ -120,11 +126,11 @@ export class Label extends WidgetBase {
 
   toProtocol(): Record<string, unknown> {
     const payload = this.withCommon({ text: this.text });
-    if (this.options.wrap !== undefined) payload.wrap = this.options.wrap;
-    if (this.options.xalign !== undefined) payload.xalign = this.options.xalign;
-    if (this.options.selectable !== undefined) payload.selectable = this.options.selectable;
-    if (this.options.variant !== undefined) payload.variant = this.options.variant;
-    return { type: "label", data: payload };
+    if (this.options.color !== undefined) payload.color = this.options.color;
+    if (this.options.size !== undefined) payload.size = this.options.size;
+    if (this.options.weight !== undefined) payload.weight = this.options.weight;
+    if (this.options.align !== undefined) payload.align = this.options.align;
+    return { type: "text", data: payload };
   }
 }
 
@@ -888,7 +894,7 @@ export type TreeNode =
   | Progress
   | Separator
   | Spinner
-  | Label
+  | Text
   | Icon
   | Picture
   | Button

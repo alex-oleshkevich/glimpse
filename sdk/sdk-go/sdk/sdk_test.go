@@ -57,7 +57,7 @@ func (a *demoApplet) Popover(_ context.Context, state *demoState) (Widget, error
 	return Column{
 		Children: []Widget{
 			Hero{Title: "Demo", Subtitle: state.Version},
-			Label{Text: state.Version},
+			Text{Text: state.Version},
 			Button{ID: "submit", Label: "Submit"},
 		},
 	}, nil
@@ -110,10 +110,10 @@ func TestSelectSerializesItems(t *testing.T) {
 }
 
 func TestVariantSerializesAsSemanticProtocolValue(t *testing.T) {
-	widget := Label{Text: "Warning", Variant: VariantWarning}
+	widget := Badge{Label: "Warning", Variant: VariantWarning}
 	payload, err := json.Marshal(widget)
 	if err != nil {
-		t.Fatalf("marshal label: %v", err)
+		t.Fatalf("marshal badge: %v", err)
 	}
 	if !strings.Contains(string(payload), `"variant":"warning"`) {
 		t.Fatalf("expected warning variant, got %s", payload)

@@ -36,7 +36,7 @@ Read `docs/custom-applets/tooling.md` for project layout, `applet.toml`, dev app
 ```rust
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, BoxNode, Button, ButtonVariant, CallbackEvent, Hero, Icon, Label,
+    Applet, AppletResult, BoxNode, Button, ButtonVariant, CallbackEvent, Hero, Icon, Text,
     StatusItem, TreeNode, run, tree,
 };
 
@@ -63,7 +63,7 @@ impl Applet for CounterApplet {
         Ok(Some(
             BoxNode::vertical(tree![
                 Hero::new("Counter", format!("Value: {}", state.count)),
-                Label::new(format!("Count = {}", state.count)),
+                Text::new(format!("Count = {}", state.count)),
                 Button::new("increment")
                     .label("Increment")
                     .icon("list-add-symbolic")

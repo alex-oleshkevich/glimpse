@@ -39,8 +39,8 @@ import {
   Button,
   Hero,
   Icon,
-  Label,
   StatusItem,
+  Text,
   type TreeNode,
 } from "glimpse-sdk";
 
@@ -78,7 +78,7 @@ class DeployApplet extends Applet<DeployState> {
         title: "Deploy",
         subtitle: state.version,
       }),
-      new Label("Version"),
+      new Text("Version"),
       new Button({
         id: "deploy_now",
         label: "Deploy now",

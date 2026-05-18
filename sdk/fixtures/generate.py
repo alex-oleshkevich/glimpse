@@ -27,13 +27,15 @@ def write(folder: Path, name: str, value: object) -> None:
 
 
 def widgets() -> None:
-    write(WIDGETS, "label-basic", {
-        "type": "label",
-        "data": {"text": "Hello"},
-    })
-    write(WIDGETS, "label-modifiers", {
-        "type": "label",
-        "data": {"text": "Hello", "wrap": True, "xalign": 0.5, "selectable": True},
+    write(WIDGETS, "text-styled", {
+        "type": "text",
+        "data": {
+            "text": "Aligned text",
+            "color": "accent",
+            "size": "lg",
+            "weight": "bold",
+            "align": "center",
+        },
     })
     write(WIDGETS, "button-basic", {
         "type": "button",
@@ -68,7 +70,7 @@ def widgets() -> None:
         "data": {
             "label": "Details",
             "expanded": False,
-            "child": {"type": "label", "data": {"text": "More"}},
+            "child": {"type": "text", "data": {"text": "More"}},
         },
     })
     write(WIDGETS, "expander-expanded", {
@@ -76,7 +78,7 @@ def widgets() -> None:
         "data": {
             "label": "Details",
             "expanded": True,
-            "child": {"type": "label", "data": {"text": "More"}},
+            "child": {"type": "text", "data": {"text": "More"}},
         },
     })
     write(WIDGETS, "level-bar", {
@@ -251,26 +253,26 @@ def widgets() -> None:
                     "column": 0,
                     "width": 1,
                     "height": 1,
-                    "child": {"type": "label", "data": {"text": "A"}},
+                    "child": {"type": "text", "data": {"text": "A"}},
                 },
                 {
                     "row": 0,
                     "column": 1,
                     "width": 2,
                     "height": 1,
-                    "child": {"type": "label", "data": {"text": "B"}},
+                    "child": {"type": "text", "data": {"text": "B"}},
                 },
             ],
         },
     })
     write(WIDGETS, "scroll", {
         "type": "scroll",
-        "data": {"child": {"type": "label", "data": {"text": "scrollable"}}},
+        "data": {"child": {"type": "text", "data": {"text": "scrollable"}}},
     })
     write(WIDGETS, "card", {
         "type": "card",
         "data": {
-            "child": {"type": "label", "data": {"text": "in card"}},
+            "child": {"type": "text", "data": {"text": "in card"}},
         },
     })
     write(WIDGETS, "card-empty", {
@@ -280,7 +282,7 @@ def widgets() -> None:
     write(WIDGETS, "container-styled", {
         "type": "container",
         "data": {
-            "child": {"type": "label", "data": {"text": "contained"}},
+            "child": {"type": "text", "data": {"text": "contained"}},
             "width": 220,
             "height": 80,
             "min_width": 180,
@@ -387,7 +389,7 @@ def widgets() -> None:
         "data": {"label": "IPv4", "value": "10.0.0.42"},
     })
     write(WIDGETS, "common-props-all", {
-        "type": "label",
+        "type": "text",
         "data": {
             "text": "marked",
             "visible": False,
@@ -398,7 +400,6 @@ def widgets() -> None:
             "tooltip": "details",
             "css_classes": ["marked"],
             "styles": {"font-weight": "600", "margin-top": "2px"},
-            "variant": "warning",
         },
     })
 
@@ -406,7 +407,7 @@ def widgets() -> None:
     write(WIDGETS, "popover-scaffold-basic", {
         "type": "popover_scaffold",
         "data": {
-            "body": {"type": "label", "data": {"text": "Content"}},
+            "body": {"type": "text", "data": {"text": "Content"}},
             "size": "medium",
         },
     })
@@ -414,7 +415,7 @@ def widgets() -> None:
         "type": "popover_scaffold",
         "data": {
             "hero": {"type": "hero", "data": {"subtitle": "Connected", "title": "VPN"}},
-            "body": {"type": "label", "data": {"text": "Content"}},
+            "body": {"type": "text", "data": {"text": "Content"}},
             "size": "large",
         },
     })
@@ -440,7 +441,7 @@ def trees() -> None:
                             "type": "column",
                             "data": {
                                 "children": [
-                                    {"type": "label", "data": {"text": "Current"}},
+                                    {"type": "text", "data": {"text": "Current"}},
                                     {
                                         "type": "button",
                                         "data": {"id": "increment", "label": "Increment"},
@@ -468,7 +469,7 @@ def trees() -> None:
                             "column": 0,
                             "width": 1,
                             "height": 1,
-                            "child": {"type": "label", "data": {"text": "K"}},
+                            "child": {"type": "text", "data": {"text": "K"}},
                         },
                         {
                             "row": 0,

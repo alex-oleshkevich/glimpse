@@ -293,6 +293,14 @@ pub enum BorderWidthValue {
     Thick,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TextAlignValue {
+    Left,
+    Center,
+    Right,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ContainerNode {
     #[serde(flatten)]
@@ -548,6 +556,21 @@ pub struct LabelNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TextNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<ColorValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<FontSizeValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weight: Option<FontWeightValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub align: Option<TextAlignValue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IconNode {
     #[serde(flatten)]
     pub common: CommonProps,
@@ -800,6 +823,7 @@ pub enum TreeNode {
     Progress(ProgressNode),
     Separator(SeparatorNode),
     Label(LabelNode),
+    Text(TextNode),
     Icon(IconNode),
     Picture(PictureNode),
     Button(ButtonNode),

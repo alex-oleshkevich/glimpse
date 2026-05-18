@@ -66,17 +66,13 @@ func assertWidget(t *testing.T, name string, widget Widget) {
 	}
 }
 
-func TestGoldenLabelBasic(t *testing.T) {
-	assertWidget(t, "label-basic", Label{Text: "Hello"})
-}
-
-func TestGoldenLabelModifiers(t *testing.T) {
-	xalign := float32(0.5)
-	assertWidget(t, "label-modifiers", Label{
-		Text:       "Hello",
-		Wrap:       true,
-		XAlign:     &xalign,
-		Selectable: true,
+func TestGoldenTextStyled(t *testing.T) {
+	assertWidget(t, "text-styled", Text{
+		Text:   "Aligned text",
+		Color:  ColorAccent,
+		Size:   FontSizeLG,
+		Weight: FontWeightBold,
+		Align:  TextAlignCenter,
 	})
 }
 
@@ -115,7 +111,7 @@ func TestGoldenLinkButtonLabel(t *testing.T) {
 func TestGoldenExpander(t *testing.T) {
 	assertWidget(t, "expander", Expander{
 		Label: "Details",
-		Child: Label{Text: "More"},
+		Child: Text{Text: "More"},
 	})
 }
 
@@ -123,7 +119,7 @@ func TestGoldenExpanderExpanded(t *testing.T) {
 	assertWidget(t, "expander-expanded", Expander{
 		Label:    "Details",
 		Expanded: true,
-		Child:    Label{Text: "More"},
+		Child:    Text{Text: "More"},
 	})
 }
 
@@ -286,8 +282,8 @@ func TestGoldenColumn(t *testing.T) {
 func TestGoldenGrid(t *testing.T) {
 	assertWidget(t, "grid", Grid{
 		Children: []GridChild{
-			{Row: 0, Column: 0, Width: 1, Height: 1, Child: Label{Text: "A"}},
-			{Row: 0, Column: 1, Width: 2, Height: 1, Child: Label{Text: "B"}},
+			{Row: 0, Column: 0, Width: 1, Height: 1, Child: Text{Text: "A"}},
+			{Row: 0, Column: 1, Width: 2, Height: 1, Child: Text{Text: "B"}},
 		},
 	})
 }
@@ -319,11 +315,11 @@ func TestGoLayoutSpacingCanBeExplicitZero(t *testing.T) {
 }
 
 func TestGoldenScroll(t *testing.T) {
-	assertWidget(t, "scroll", Scroll{Child: Label{Text: "scrollable"}})
+	assertWidget(t, "scroll", Scroll{Child: Text{Text: "scrollable"}})
 }
 
 func TestGoldenCard(t *testing.T) {
-	assertWidget(t, "card", Card{Child: Label{Text: "in card"}})
+	assertWidget(t, "card", Card{Child: Text{Text: "in card"}})
 }
 
 func TestGoldenCardEmpty(t *testing.T) {
@@ -347,7 +343,7 @@ func TestGoldenContainerStyled(t *testing.T) {
 		BorderColor:  ColorBorder,
 		FontSize:     FontSizeSM,
 		FontWeight:   FontWeightSemibold,
-		Child:        Label{Text: "contained"},
+		Child:        Text{Text: "contained"},
 	})
 }
 
@@ -442,7 +438,7 @@ func TestGoldenCommonPropsAll(t *testing.T) {
 	visible := false
 	hex := true
 	vex := true
-	assertWidget(t, "common-props-all", Label{
+	assertWidget(t, "common-props-all", Text{
 		CommonProps: CommonProps{
 			Visible: &visible,
 			HExpand: &hex,
@@ -458,8 +454,7 @@ func TestGoldenCommonPropsAll(t *testing.T) {
 				"margin-top":  "2px",
 			},
 		},
-		Text:    "marked",
-		Variant: VariantWarning,
+		Text: "marked",
 	})
 }
 
@@ -470,7 +465,7 @@ func TestGoldenTreeHeroColumnCard(t *testing.T) {
 			Card{
 				Child: Column{
 					Children: []Widget{
-						Label{Text: "Current"},
+						Text{Text: "Current"},
 						Button{ID: "increment", Label: "Increment"},
 					},
 				},
@@ -483,7 +478,7 @@ func TestGoldenTreeCardWithGrid(t *testing.T) {
 	assertWidget(t, "tree-card-with-grid", Card{
 		Child: Grid{
 			Children: []GridChild{
-				{Row: 0, Column: 0, Width: 1, Height: 1, Child: Label{Text: "K"}},
+				{Row: 0, Column: 0, Width: 1, Height: 1, Child: Text{Text: "K"}},
 				{Row: 0, Column: 1, Width: 1, Height: 1, Child: Badge{Label: "V"}},
 			},
 			RowSpacing:    4,
@@ -494,7 +489,7 @@ func TestGoldenTreeCardWithGrid(t *testing.T) {
 
 func TestGoldenPopoverScaffoldBasic(t *testing.T) {
 	assertWidget(t, "popover-scaffold-basic", PopoverScaffold{
-		Body: Label{Text: "Content"},
+		Body: Text{Text: "Content"},
 		Size: PopoverSizeMedium,
 	})
 }
@@ -502,7 +497,7 @@ func TestGoldenPopoverScaffoldBasic(t *testing.T) {
 func TestGoldenPopoverScaffoldWithHero(t *testing.T) {
 	assertWidget(t, "popover-scaffold-with-hero", PopoverScaffold{
 		Hero: Hero{Title: "VPN", Subtitle: "Connected"},
-		Body: Label{Text: "Content"},
+		Body: Text{Text: "Content"},
 		Size: PopoverSizeLarge,
 	})
 }

@@ -11,10 +11,10 @@ use std::path::PathBuf;
 use glimpse_sdk::{
     ActionItem, Align, Badge, BorderWidth, Button, ButtonVariant, CallbackEvent, Card, Checkbox,
     Color, Column, Container, ContentFit, Copyable, EmptyState, Expander, FontSize, FontWeight,
-    Grid, GridChild, Hero, Icon, Item, Label, LevelBar, LevelBarMode, LinkButton, Meter, PagerItem,
+    Grid, GridChild, Hero, Icon, Item, LevelBar, LevelBarMode, LinkButton, Meter, PagerItem,
     PagerStrip, Picture, PopoverScaffold, PopoverSize, Progress, PropertyList, Radius, Row, Scroll,
-    Select, Separator, Slider, Space, Spinner, StatusDot, StatusVariant, Switch, ToggleButton,
-    TreeNode, Variant, parse_callback_event,
+    Select, Separator, Slider, Space, Spinner, StatusDot, StatusVariant, Switch, Text, TextAlign,
+    ToggleButton, TreeNode, Variant, parse_callback_event,
 };
 use serde_json::Value;
 
@@ -39,17 +39,16 @@ fn assert_widget(name: &str, node: TreeNode) {
 }
 
 #[test]
-fn widget_label_basic() {
-    assert_widget("label-basic", Label::new("Hello").into());
-}
-
-#[test]
-fn widget_label_modifiers() {
-    let mut label = Label::new("Hello");
-    label.wrap = true;
-    label.xalign = Some(0.5);
-    label.selectable = true;
-    assert_widget("label-modifiers", label.into());
+fn widget_text_styled() {
+    assert_widget(
+        "text-styled",
+        Text::new("Aligned text")
+            .color(Color::Accent)
+            .size(FontSize::Lg)
+            .weight(FontWeight::Bold)
+            .align(TextAlign::Center)
+            .into(),
+    );
 }
 
 #[test]
@@ -109,7 +108,7 @@ fn widget_link_button_label() {
 fn widget_expander() {
     assert_widget(
         "expander",
-        Expander::new("Details").child(Label::new("More")).into(),
+        Expander::new("Details").child(Text::new("More")).into(),
     );
 }
 
@@ -119,7 +118,7 @@ fn widget_expander_expanded() {
         "expander-expanded",
         Expander::new("Details")
             .expanded(true)
-            .child(Label::new("More"))
+            .child(Text::new("More"))
             .into(),
     );
 }
@@ -345,8 +344,8 @@ fn widget_column() {
 
 #[test]
 fn widget_grid() {
-    let grid = Grid::new(vec![GridChild::new(0, 0, Label::new("A").into()), {
-        let mut c = GridChild::new(0, 1, Label::new("B").into());
+    let grid = Grid::new(vec![GridChild::new(0, 0, Text::new("A").into()), {
+        let mut c = GridChild::new(0, 1, Text::new("B").into());
         c.width = 2;
         c
     }]);
@@ -355,15 +354,12 @@ fn widget_grid() {
 
 #[test]
 fn widget_scroll() {
-    assert_widget(
-        "scroll",
-        Scroll::new(Label::new("scrollable").into()).into(),
-    );
+    assert_widget("scroll", Scroll::new(Text::new("scrollable").into()).into());
 }
 
 #[test]
 fn widget_card() {
-    assert_widget("card", Card::new(Some(Label::new("in card").into())).into());
+    assert_widget("card", Card::new(Some(Text::new("in card").into())).into());
 }
 
 #[test]
@@ -375,7 +371,7 @@ fn widget_card_empty() {
 fn widget_container_styled() {
     assert_widget(
         "container-styled",
-        Container::new(Some(Label::new("contained").into()))
+        Container::new(Some(Text::new("contained").into()))
             .width(220)
             .height(80)
             .min_width(180)
@@ -488,23 +484,19 @@ fn widget_copyable() {
 
 #[test]
 fn widget_common_props_all() {
-    let mut label = Label::new("marked").variant(Variant::Warning);
-    label.common.visible = Some(false);
-    label.common.hexpand = Some(true);
-    label.common.vexpand = Some(true);
-    label.common.halign = Some(Align::Center);
-    label.common.valign = Some(Align::End);
-    label.common.tooltip = Some("details".into());
-    label.common.css_classes.push("marked".into());
-    label
-        .common
+    let mut text = Text::new("marked");
+    text.common.visible = Some(false);
+    text.common.hexpand = Some(true);
+    text.common.vexpand = Some(true);
+    text.common.halign = Some(Align::Center);
+    text.common.valign = Some(Align::End);
+    text.common.tooltip = Some("details".into());
+    text.common.css_classes.push("marked".into());
+    text.common
         .styles
         .insert("font-weight".into(), "600".into());
-    label
-        .common
-        .styles
-        .insert("margin-top".into(), "2px".into());
-    assert_widget("common-props-all", label.into());
+    text.common.styles.insert("margin-top".into(), "2px".into());
+    assert_widget("common-props-all", text.into());
 }
 
 #[test]
@@ -514,7 +506,7 @@ fn widget_tree_hero_column_card() {
         Hero::new("Counter", "Value: 0"),
         Card::new(Some(
             Column::new(tree![
-                Label::new("Current"),
+                Text::new("Current"),
                 Button::new("increment").label("Increment"),
             ])
             .into(),
@@ -527,7 +519,7 @@ fn widget_tree_hero_column_card() {
 fn widget_tree_card_with_grid() {
     let grid = {
         let mut g = Grid::new(vec![
-            GridChild::new(0, 0, Label::new("K").into()),
+            GridChild::new(0, 0, Text::new("K").into()),
             GridChild::new(0, 1, Badge::new("V").into()),
         ]);
         g.row_spacing = 4;
@@ -540,13 +532,13 @@ fn widget_tree_card_with_grid() {
 
 #[test]
 fn widget_popover_scaffold_basic() {
-    let scaffold = PopoverScaffold::new(Label::new("Content"));
+    let scaffold = PopoverScaffold::new(Text::new("Content"));
     assert_widget("popover-scaffold-basic", scaffold.into());
 }
 
 #[test]
 fn widget_popover_scaffold_with_hero() {
-    let scaffold = PopoverScaffold::new(Label::new("Content"))
+    let scaffold = PopoverScaffold::new(Text::new("Content"))
         .hero(Hero::new("VPN", "Connected"))
         .size(PopoverSize::Large);
     assert_widget("popover-scaffold-with-hero", scaffold.into());

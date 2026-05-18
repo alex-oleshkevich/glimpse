@@ -202,7 +202,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::{Button, CallbackEvent, ClickEvent, Column, Label, StatusItem, TreeNode};
+    use crate::{Badge, Button, CallbackEvent, ClickEvent, Column, StatusItem, Text, TreeNode};
 
     struct DemoApplet;
 
@@ -227,7 +227,7 @@ mod tests {
         async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode>> {
             Ok(Some(TreeNode::from(Column::new(vec![
                 TreeNode::from(crate::Hero::new("Demo", state.version.clone())),
-                TreeNode::from(Label::new(state.version.clone())),
+                TreeNode::from(Text::new(state.version.clone())),
                 TreeNode::from(Button::new("submit").label("Submit")),
             ]))))
         }
@@ -316,9 +316,9 @@ mod tests {
 
     #[test]
     fn variant_serializes_as_semantic_protocol_value() {
-        let mut label = Label::new("Warning");
-        label.variant = Some(crate::Variant::Warning);
-        let payload = serde_json::to_value(TreeNode::from(label)).expect("tree should serialize");
+        let mut badge = Badge::new("Warning");
+        badge.variant = Some(crate::Variant::Warning);
+        let payload = serde_json::to_value(TreeNode::from(badge)).expect("tree should serialize");
         assert_eq!(payload["data"]["variant"], "warning");
     }
 

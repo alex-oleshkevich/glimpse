@@ -12,9 +12,8 @@
     "text": "marked",
     "tooltip": "details",
     "valign": "end",
-    "variant": "warning",
     "vexpand": true,
     "visible": false
   },
-  "type": "label"
+  "type": "text"
 }

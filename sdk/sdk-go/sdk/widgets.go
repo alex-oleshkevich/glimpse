@@ -59,6 +59,7 @@ type Color string
 type Radius string
 type FontSize string
 type FontWeight string
+type TextAlign string
 type BorderWidth string
 
 const (
@@ -140,6 +141,10 @@ const (
 	FontWeightSemibold FontWeight = "semibold"
 	FontWeightBold     FontWeight = "bold"
 
+	TextAlignLeft   TextAlign = "left"
+	TextAlignCenter TextAlign = "center"
+	TextAlignRight  TextAlign = "right"
+
 	BorderWidthNone   BorderWidth = "none"
 	BorderWidthThin   BorderWidth = "thin"
 	BorderWidthMedium BorderWidth = "medium"
@@ -200,19 +205,19 @@ func (w Picture) MarshalJSON() ([]byte, error) {
 	return envelope("picture", alias(w))
 }
 
-type Label struct {
+type Text struct {
 	CommonProps
-	Text       string   `json:"text"`
-	Wrap       bool     `json:"wrap,omitempty"`
-	XAlign     *float32 `json:"xalign,omitempty"`
-	Selectable bool     `json:"selectable,omitempty"`
-	Variant    Variant  `json:"variant,omitempty"`
+	Text   string     `json:"text"`
+	Color  Color      `json:"color,omitempty"`
+	Size   FontSize   `json:"size,omitempty"`
+	Weight FontWeight `json:"weight,omitempty"`
+	Align  TextAlign  `json:"align,omitempty"`
 }
 
-func (Label) isWidget() {}
-func (l Label) MarshalJSON() ([]byte, error) {
-	type alias Label
-	return envelope("label", alias(l))
+func (Text) isWidget() {}
+func (t Text) MarshalJSON() ([]byte, error) {
+	type alias Text
+	return envelope("text", alias(t))
 }
 
 type Badge struct {

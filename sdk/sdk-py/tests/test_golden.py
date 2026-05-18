@@ -34,7 +34,6 @@ from glimpse_sdk import (
     Hero,
     Icon,
     Item,
-    Label,
     LevelBar,
     LinkButton,
     Meter,
@@ -58,6 +57,8 @@ from glimpse_sdk import (
     StatusDot,
     StatusVariant,
     Switch,
+    Text,
+    TextAlign,
     ToggleButton,
     Variant,
 )
@@ -85,13 +86,16 @@ class GoldenWidgetTests(unittest.TestCase):
         got = widget.to_protocol()
         self.assertEqual(got, expected, f"fixture mismatch for widgets/{name}.json")
 
-    def test_label_basic(self) -> None:
-        self._assert_widget("label-basic", Label(text="Hello"))
-
-    def test_label_modifiers(self) -> None:
+    def test_text_styled(self) -> None:
         self._assert_widget(
-            "label-modifiers",
-            Label(text="Hello", wrap=True, xalign=0.5, selectable=True),
+            "text-styled",
+            Text(
+                text="Aligned text",
+                color=Color.ACCENT,
+                size=FontSize.LG,
+                weight=FontWeight.BOLD,
+                align=TextAlign.CENTER,
+            ),
         )
 
     def test_button_basic(self) -> None:
@@ -125,12 +129,12 @@ class GoldenWidgetTests(unittest.TestCase):
         )
 
     def test_expander(self) -> None:
-        self._assert_widget("expander", Expander(label="Details", child=Label(text="More")))
+        self._assert_widget("expander", Expander(label="Details", child=Text(text="More")))
 
     def test_expander_expanded(self) -> None:
         self._assert_widget(
             "expander-expanded",
-            Expander(label="Details", expanded=True, child=Label(text="More")),
+            Expander(label="Details", expanded=True, child=Text(text="More")),
         )
 
     def test_level_bar(self) -> None:
@@ -287,17 +291,17 @@ class GoldenWidgetTests(unittest.TestCase):
             "grid",
             Grid(
                 children=[
-                    GridChild(row=0, column=0, child=Label(text="A")),
-                    GridChild(row=0, column=1, width=2, child=Label(text="B")),
+                    GridChild(row=0, column=0, child=Text(text="A")),
+                    GridChild(row=0, column=1, width=2, child=Text(text="B")),
                 ],
             ),
         )
 
     def test_scroll(self) -> None:
-        self._assert_widget("scroll", Scroll(child=Label(text="scrollable")))
+        self._assert_widget("scroll", Scroll(child=Text(text="scrollable")))
 
     def test_card(self) -> None:
-        self._assert_widget("card", Card(child=Label(text="in card")))
+        self._assert_widget("card", Card(child=Text(text="in card")))
 
     def test_card_empty(self) -> None:
         self._assert_widget("card-empty", Card())
@@ -321,7 +325,7 @@ class GoldenWidgetTests(unittest.TestCase):
                 border_color=Color.BORDER,
                 font_size=FontSize.SM,
                 font_weight=FontWeight.SEMIBOLD,
-                child=Label(text="contained"),
+                child=Text(text="contained"),
             ),
         )
 
@@ -401,7 +405,7 @@ class GoldenWidgetTests(unittest.TestCase):
     def test_common_props_all(self) -> None:
         self._assert_widget(
             "common-props-all",
-            Label(
+            Text(
                 text="marked",
                 visible=False,
                 hexpand=True,
@@ -411,7 +415,6 @@ class GoldenWidgetTests(unittest.TestCase):
                 tooltip="details",
                 css_classes=["marked"],
                 styles={"font-weight": "600", "margin-top": "2px"},
-                variant=Variant.WARNING,
             ),
         )
 
@@ -424,7 +427,7 @@ class GoldenWidgetTests(unittest.TestCase):
                     Card(
                         child=Column(
                             children=[
-                                Label(text="Current"),
+                                Text(text="Current"),
                                 Button(id="increment", label="Increment"),
                             ]
                         ),
@@ -441,7 +444,7 @@ class GoldenWidgetTests(unittest.TestCase):
                     row_spacing=4,
                     column_spacing=8,
                     children=[
-                        GridChild(row=0, column=0, child=Label(text="K")),
+                        GridChild(row=0, column=0, child=Text(text="K")),
                         GridChild(row=0, column=1, child=Badge(label="V")),
                     ],
                 )
@@ -451,14 +454,14 @@ class GoldenWidgetTests(unittest.TestCase):
     def test_popover_scaffold_basic(self) -> None:
         self._assert_widget(
             "popover-scaffold-basic",
-            PopoverScaffold(body=Label(text="Content")),
+            PopoverScaffold(body=Text(text="Content")),
         )
 
     def test_popover_scaffold_with_hero(self) -> None:
         self._assert_widget(
             "popover-scaffold-with-hero",
             PopoverScaffold(
-                body=Label(text="Content"),
+                body=Text(text="Content"),
                 hero=Hero(title="VPN", subtitle="Connected"),
                 size=PopoverSize.LARGE,
             ),

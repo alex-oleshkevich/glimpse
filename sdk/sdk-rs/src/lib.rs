@@ -8,12 +8,12 @@ mod widgets;
 /// each in `TreeNode::from(...)` automatically.
 ///
 /// ```ignore
-/// use glimpse_sdk::{tree, Button, Card, Column, Hero, Label, TreeNode};
+/// use glimpse_sdk::{tree, Button, Card, Column, Hero, Text, TreeNode};
 ///
 /// let column = Column::new(tree![
 ///     Hero::new("Counter", "Value: 0"),
 ///     Card::new(Some(Column::new(tree![
-///         Label::new("Current"),
+///         Text::new("Current"),
 ///         Button::new("increment").label("Increment"),
 ///     ]).into())),
 /// ])
@@ -36,8 +36,8 @@ pub use protocol::StatusItem;
 pub use widgets::{
     ActionItem, Align, Badge, BorderWidth, Button, ButtonVariant, Card, Checkbox, Color, Column,
     Container, ContentFit, Copyable, EmptyState, Expander, FontSize, FontWeight, Grid, GridChild,
-    Hero, Icon, Item, Label, LevelBar, LevelBarMode, LinkButton, Meter, Orientation,
-    PagerAppearance, PagerItem, PagerStrip, Picture, PopoverScaffold, PopoverSize, Progress,
-    PropertyList, Radius, Row, Scroll, Select, Separator, Slider, Space, Spinner, StatusDot,
-    StatusVariant, Switch, ToggleButton, TreeNode, Variant,
+    Hero, Icon, Item, LevelBar, LevelBarMode, LinkButton, Meter, Orientation, PagerAppearance,
+    PagerItem, PagerStrip, Picture, PopoverScaffold, PopoverSize, Progress, PropertyList, Radius,
+    Row, Scroll, Select, Separator, Slider, Space, Spinner, StatusDot, StatusVariant, Switch, Text,
+    TextAlign, ToggleButton, TreeNode, Variant,
 };

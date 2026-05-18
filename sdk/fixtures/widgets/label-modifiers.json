@@ -1,9 +1,0 @@
-{
-  "data": {
-    "selectable": true,
-    "text": "Hello",
-    "wrap": true,
-    "xalign": 0.5
-  },
-  "type": "label"
-}

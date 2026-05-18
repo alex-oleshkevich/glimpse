@@ -79,6 +79,12 @@ class FontWeight(StrEnum):
     BOLD = "bold"
 
 
+class TextAlign(StrEnum):
+    LEFT = "left"
+    CENTER = "center"
+    RIGHT = "right"
+
+
 class BorderWidth(StrEnum):
     NONE = "none"
     THIN = "thin"
@@ -198,28 +204,6 @@ class Progress(Widget):
 
 
 @dataclass(slots=True)
-class Label(Widget):
-    text: str = ""
-    wrap: bool = False
-    xalign: float | None = None
-    selectable: bool = False
-    variant: Variant | None = None
-    widget_type: str = "label"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"text": self.text})
-        if self.wrap:
-            payload["wrap"] = self.wrap
-        if self.xalign is not None:
-            payload["xalign"] = self.xalign
-        if self.selectable:
-            payload["selectable"] = self.selectable
-        if self.variant is not None:
-            payload["variant"] = self.variant.value
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
 class LevelBar(Widget):
     value: float = 0.0
     min: float = 0.0
@@ -232,6 +216,28 @@ class LevelBar(Widget):
         payload = self.apply_common(
             {"value": self.value, "min": self.min, "max": self.max, "mode": mode}
         )
+        return {"type": self.widget_type, "data": payload}
+
+
+@dataclass(slots=True)
+class Text(Widget):
+    text: str = ""
+    color: Color | None = None
+    size: FontSize | None = None
+    weight: FontWeight | None = None
+    align: TextAlign | None = None
+    widget_type: str = "text"
+
+    def to_protocol(self) -> dict[str, object]:
+        payload = self.apply_common({"text": self.text})
+        if self.color is not None:
+            payload["color"] = self.color.value
+        if self.size is not None:
+            payload["size"] = self.size.value
+        if self.weight is not None:
+            payload["weight"] = self.weight.value
+        if self.align is not None:
+            payload["align"] = self.align.value
         return {"type": self.widget_type, "data": payload}
 
 
@@ -828,7 +834,7 @@ TreeNode: TypeAlias = (
     | Progress
     | Separator
     | Spinner
-    | Label
+    | Text
     | Icon
     | Picture
     | Button

@@ -1,0 +1,10 @@
+{
+  "data": {
+    "align": "center",
+    "color": "accent",
+    "size": "lg",
+    "text": "Aligned text",
+    "weight": "bold"
+  },
+  "type": "text"
+}

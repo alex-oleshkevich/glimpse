@@ -48,7 +48,7 @@ func (a *counterApplet) Popover(_ context.Context, state *counterState) (sdk.Wid
 		Spacing: 8,
 		Children: []sdk.Widget{
 			sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
-			sdk.Label{Text: fmt.Sprintf("Count = %d", state.Count)},
+			sdk.Text{Text: fmt.Sprintf("Count = %d", state.Count)},
 			sdk.Button{
 				ID:      "increment",
 				Label:   "Increment",

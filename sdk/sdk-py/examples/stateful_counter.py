@@ -9,8 +9,8 @@ from glimpse_sdk import (
     Button,
     ButtonVariant,
     Hero,
-    Label,
     StatusItem,
+    Text,
     click,
 )
 
@@ -41,7 +41,7 @@ class CounterApplet(Applet[CounterState]):
                     title="Counter",
                     subtitle=f"Value: {state.count}",
                 ),
-                Label(text=f"Count = {state.count}"),
+                Text(text=f"Count = {state.count}"),
                 Button(
                     id="increment",
                     label="Increment",

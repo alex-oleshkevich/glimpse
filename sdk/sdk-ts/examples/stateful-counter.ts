@@ -3,8 +3,8 @@ import {
   Button,
   Column,
   Hero,
-  Label,
   StatusItem,
+  Text,
   type TreeNode,
 } from "../src/index.js";
 
@@ -43,7 +43,7 @@ class CounterApplet extends Applet<CounterState> {
           title: "Counter",
           subtitle: `Value: ${state.count}`,
         }),
-        new Label(`Count = ${state.count}`),
+        new Text(`Count = ${state.count}`),
         new Button({
           id: "increment",
           label: "Increment",

@@ -47,8 +47,8 @@ from glimpse_sdk import (
     ButtonVariant,
     Hero,
     Icon,
-    Label,
     StatusItem,
+    Text,
     click,
 )
 
@@ -80,7 +80,7 @@ class DeployApplet(Applet[DeployState]):
                     title="Deploy",
                     subtitle=state.version,
                 ),
-                Label(text="Version"),
+                Text(text="Version"),
                 Button(
                     id="deploy_now",
                     label="Deploy now",

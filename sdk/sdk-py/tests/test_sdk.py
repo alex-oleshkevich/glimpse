@@ -9,17 +9,18 @@ import glimpse_sdk
 from glimpse_sdk import (
     Applet,
     AppletState,
+    Badge,
     Button,
     ChangeEvent,
     Column,
     InitEvent,
-    Label,
     PopoverEvent,
     Row,
     Select,
     Spinner,
     StatusDot,
     StatusItem,
+    Text,
     Variant,
     click,
 )
@@ -40,7 +41,7 @@ class DemoApplet(Applet[DemoState]):
         return [StatusItem(id="demo", icon="demo-symbolic", label=state.version)]
 
     async def popover(self, state: DemoState):
-        return Column(children=[Label(text=state.version), Button(id="submit", label="Submit")])
+        return Column(children=[Text(text=state.version), Button(id="submit", label="Submit")])
 
     @click("submit")
     async def handle_submit(self, _event) -> None:
@@ -105,7 +106,7 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["data"]["spinning"], True)
 
     def test_variant_serializes_as_semantic_protocol_value(self) -> None:
-        payload = Label(text="Warning", variant=Variant.WARNING).to_protocol()
+        payload = Badge(label="Warning", variant=Variant.WARNING).to_protocol()
         self.assertEqual(payload["data"]["variant"], "warning")
 
     async def test_init_event_rerenders_changed_state(self) -> None:

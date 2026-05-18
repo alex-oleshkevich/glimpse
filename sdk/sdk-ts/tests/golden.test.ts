@@ -31,7 +31,6 @@ import {
   Hero,
   Icon,
   Item,
-  Label,
   LevelBar,
   LinkButton,
   Meter,
@@ -52,6 +51,8 @@ import {
   Spinner,
   StatusDot,
   Switch,
+  Text,
+  TextAlign,
   ToggleButton,
 } from "../src/index.js";
 
@@ -77,12 +78,16 @@ function assertWidget(name: string, widget: { toProtocol(): Record<string, unkno
   assert.deepEqual(got, expected, `fixture mismatch for widgets/${name}.json`);
 }
 
-test("widget label-basic", () => {
-  assertWidget("label-basic", new Label("Hello"));
-});
-
-test("widget label-modifiers", () => {
-  assertWidget("label-modifiers", new Label("Hello", { wrap: true, xalign: 0.5, selectable: true }));
+test("widget text-styled", () => {
+  assertWidget(
+    "text-styled",
+    new Text("Aligned text", {
+      color: Color.ACCENT,
+      size: FontSize.LG,
+      weight: FontWeight.BOLD,
+      align: TextAlign.CENTER,
+    }),
+  );
 });
 
 test("widget button-basic", () => {
@@ -120,11 +125,11 @@ test("widget link-button-label", () => {
 });
 
 test("widget expander", () => {
-  assertWidget("expander", new Expander({ label: "Details", child: new Label("More") }));
+  assertWidget("expander", new Expander({ label: "Details", child: new Text("More") }));
 });
 
 test("widget expander-expanded", () => {
-  assertWidget("expander-expanded", new Expander({ label: "Details", expanded: true, child: new Label("More") }));
+  assertWidget("expander-expanded", new Expander({ label: "Details", expanded: true, child: new Text("More") }));
 });
 
 test("widget level-bar", () => {
@@ -276,19 +281,19 @@ test("widget grid", () => {
     "grid",
     new Grid({
       children: [
-        new GridChild(0, 0, new Label("A")),
-        new GridChild(0, 1, new Label("B"), 2, 1),
+        new GridChild(0, 0, new Text("A")),
+        new GridChild(0, 1, new Text("B"), 2, 1),
       ],
     }),
   );
 });
 
 test("widget scroll", () => {
-  assertWidget("scroll", new Scroll(new Label("scrollable")));
+  assertWidget("scroll", new Scroll(new Text("scrollable")));
 });
 
 test("widget card", () => {
-  assertWidget("card", new Card({ child: new Label("in card") }));
+  assertWidget("card", new Card({ child: new Text("in card") }));
 });
 
 test("widget card-empty", () => {
@@ -314,7 +319,7 @@ test("widget container-styled", () => {
       border_color: Color.BORDER,
       font_size: FontSize.SM,
       font_weight: FontWeight.SEMIBOLD,
-      child: new Label("contained"),
+      child: new Text("contained"),
     }),
   );
 });
@@ -420,7 +425,7 @@ test("widget copyable", () => {
 test("widget common-props-all", () => {
   assertWidget(
     "common-props-all",
-    new Label("marked", {
+    new Text("marked", {
       visible: false,
       hexpand: true,
       vexpand: true,
@@ -429,7 +434,6 @@ test("widget common-props-all", () => {
       tooltip: "details",
       css_classes: ["marked"],
       styles: { "font-weight": "600", "margin-top": "2px" },
-      variant: "warning",
     }),
   );
 });
@@ -442,7 +446,7 @@ test("widget tree-hero-column-card", () => {
         new Hero({ title: "Counter", subtitle: "Value: 0" }),
         new Card({
           child: new Column({
-            children: [new Label("Current"), new Button({ id: "increment", label: "Increment" })],
+            children: [new Text("Current"), new Button({ id: "increment", label: "Increment" })],
           }),
         }),
       ],
@@ -462,7 +466,7 @@ test("widget tree-card-with-grid", () => {
         row_spacing: 4,
         column_spacing: 8,
         children: [
-          new GridChild(0, 0, new Label("K")),
+          new GridChild(0, 0, new Text("K")),
           new GridChild(0, 1, new Badge({ label: "V" })),
         ],
       }),
@@ -473,7 +477,7 @@ test("widget tree-card-with-grid", () => {
 test("widget popover-scaffold-basic", () => {
   assertWidget(
     "popover-scaffold-basic",
-    new PopoverScaffold({ body: new Label("Content") }),
+    new PopoverScaffold({ body: new Text("Content") }),
   );
 });
 
@@ -481,7 +485,7 @@ test("widget popover-scaffold-with-hero", () => {
   assertWidget(
     "popover-scaffold-with-hero",
     new PopoverScaffold({
-      body: new Label("Content"),
+      body: new Text("Content"),
       hero: new Hero({ title: "VPN", subtitle: "Connected" }),
       size: "large",
     }),

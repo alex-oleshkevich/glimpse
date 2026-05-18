@@ -4,16 +4,17 @@ import assert from "node:assert/strict";
 import * as sdk from "../src/index.js";
 import {
   Applet,
+  Badge,
   Button,
   Column,
   Hero,
   type InitEvent,
-  Label,
   Row,
   Select,
   Spinner,
   StatusDot,
   StatusItem,
+  Text,
   parseCallbackEvent,
 } from "../src/index.js";
 
@@ -47,7 +48,7 @@ class DemoApplet extends Applet<DemoState> {
   protected async popover(state: DemoState) {
     return new Column({ children: [
       new Hero({ title: "Demo", subtitle: state.version }),
-      new Label(state.version),
+      new Text(state.version),
       new Button({ id: "submit", label: "Submit" }),
     ] });
   }
@@ -171,6 +172,6 @@ test("init event rerenders changed state", async () => {
 });
 
 test("variant serializes as semantic protocol value", () => {
-  const payload = new Label("Warning", { variant: "warning" }).toProtocol();
+  const payload = new Badge({ label: "Warning", variant: "warning" }).toProtocol();
   assert.equal((payload.data as any).variant, "warning");
 });

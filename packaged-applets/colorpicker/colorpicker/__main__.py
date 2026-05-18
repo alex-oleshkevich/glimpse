@@ -13,14 +13,15 @@ from glimpse_sdk import (
     Applet,
     AppletState,
     ButtonVariant,
+    Color,
     Column,
     Container,
     EmptyState,
     Hero,
-    Label,
     PopoverScaffold,
     Radius,
     StatusItem,
+    Text,
     click,
 )
 from glimpse_sdk.widgets import Align, Button
@@ -47,7 +48,6 @@ class ColorPickerApplet(Applet[ColorPickerState]):
 
     async def status(self, state: ColorPickerState):
         return [
-            # Label(text="Hey")
             StatusItem(
                 id="counter",
                 icon="color-select-symbolic",
@@ -79,14 +79,15 @@ class ColorPickerApplet(Applet[ColorPickerState]):
                     Column(
                         spacing=4,
                         children=[
-                            Label(text="Recent colors", css_classes=["header"]),
+                            Text(text="Recent colors", css_classes=["header"]),
                             *[
                                 ActionItem(
                                     id=f"pick_{color}",
                                     label=color,
                                     left=Container(
-                                        min_width=24,
-                                        min_height=24,
+                                        min_width=20,
+                                        min_height=20,
+                                        border_color=Color.MUTED_FG,
                                         hexpand=True,
                                         vexpand=True,
                                         border_radius=Radius.PILL,
