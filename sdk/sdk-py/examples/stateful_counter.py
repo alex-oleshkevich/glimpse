@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from glimpse_sdk import (
     Applet,
     AppletState,
-    Box,
     Button,
     ButtonVariant,
+    Column,
     Hero,
     StatusItem,
     Text,
@@ -33,8 +33,8 @@ class CounterApplet(Applet[CounterState]):
         ]
 
     async def popover(self, state: CounterState):
-        return Box.vertical(
-            [
+        return Column(
+            children=[
                 Hero(
                     icon="view-refresh-symbolic",
                     title="Counter",

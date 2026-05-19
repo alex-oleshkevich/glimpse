@@ -1,9 +1,7 @@
 target/
 _old/
 .claude/
-**/Cargo.lock
-!/Cargo.lock
-!/glimpse-applets/*/Cargo.lock
+sdk/sdk-rs/Cargo.lock
 
 # Beads / Dolt files (added by bd init)
 .dolt/
