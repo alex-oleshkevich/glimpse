@@ -152,7 +152,11 @@ impl Popover {
             self.root.add_css_class(self.size_class);
             if let Some(hero) = &scaffold.hero {
                 match renderer.render(hero) {
-                    Ok(widget) => self.content_box.append(&widget),
+                    Ok(widget) => {
+                        self.content_box.append(&widget);
+                        let sep = gtk::Separator::new(gtk::Orientation::Horizontal);
+                        self.content_box.append(&sep);
+                    }
                     Err(error) => {
                         tracing::warn!(%error, "exec popover scaffold hero render failed")
                     }

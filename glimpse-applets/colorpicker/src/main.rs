@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use glimpse_sdk::{
     ActionItem, Align, Applet, AppletResult, Button, ButtonVariant, CallbackEvent, Color, Column,
     Container, EmptyState, Hero, PopoverScaffold, Radius, StatusItem, Text, TreeNode, close_popover,
-    run, tree,
+    copy_to_clipboard, run, tree,
 };
 use std::process::Stdio;
 use tokio::time::Duration;
@@ -87,7 +87,6 @@ impl Applet for ColorPickerApplet {
 
             let output = tokio::process::Command::new("hyprpicker")
                 .arg("--render-inactive")
-                .arg("--autocopy")
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -97,13 +96,14 @@ impl Applet for ColorPickerApplet {
             if output.status.success() {
                 let color = String::from_utf8_lossy(&output.stdout).trim().to_string();
                 if !color.is_empty() {
+                    copy_to_clipboard(&color).await.ok();
                     let mut items = vec![color];
                     items.extend(std::mem::take(&mut state.items));
                     state.items = items;
                 }
             }
         } else if let Some(color) = click.id.strip_prefix("pick_") {
-            self.copy_to_clipboard(color).await?;
+            copy_to_clipboard(color).await.ok();
         }
         Ok(())
     }
