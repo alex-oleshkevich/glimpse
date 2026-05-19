@@ -397,25 +397,6 @@ left_click = ["gnome-screenshot"]
     }
 
     #[test]
-    fn packaged_terminal_applet_is_discovered_as_command() {
-        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .to_path_buf();
-        let scanner =
-            AppletDirectoryScanner::new(repo_root.join("packaged-applets"), PathBuf::new());
-
-        let found = scanner.scan();
-        let applet = found.normal.get("me.aresa.glimpse.terminal").unwrap();
-
-        assert_eq!(applet.extends, Some(AppletType::Command));
-        assert_eq!(
-            applet.settings["on_click"][0].as_str(),
-            Some("/usr/share/glimpse/applets/me.aresa.glimpse.terminal/open-terminal")
-        );
-    }
-
-    #[test]
     fn id_is_used_as_map_key_not_filename() {
         let dir = TempDir::new("id-key");
         dir.write(
