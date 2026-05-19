@@ -42,6 +42,7 @@ class CounterApplet(Applet[CounterState]):
                 ),
                 Text(text=f"Count = {state.count}"),
                 Button(
+                    id="increment",
                     label="Increment",
                     on_click=self.on_increment,
                     icon="list-add-symbolic",
