@@ -11,7 +11,6 @@ from glimpse_sdk import (
     Hero,
     StatusItem,
     Text,
-    click,
 )
 
 
@@ -43,8 +42,8 @@ class CounterApplet(Applet[CounterState]):
                 ),
                 Text(text=f"Count = {state.count}"),
                 Button(
-                    id="increment",
                     label="Increment",
+                    on_click=self.on_increment,
                     icon="list-add-symbolic",
                     variant=ButtonVariant.PRIMARY,
                 ),
@@ -52,9 +51,8 @@ class CounterApplet(Applet[CounterState]):
             spacing=8,
         )
 
-    @click("increment")
-    async def on_increment(self, _event) -> None:
-        await self.set_state(count=self.state.count + 1)
+    async def on_increment(self, state: CounterState, _event) -> None:
+        await self.set_state(count=state.count + 1)
 
 
 if __name__ == "__main__":

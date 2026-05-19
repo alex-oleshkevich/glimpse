@@ -4,23 +4,32 @@ import asyncio
 import contextlib
 import unittest
 from dataclasses import dataclass
+from unittest.mock import patch
 
 import glimpse_sdk
 from glimpse_sdk import (
     Applet,
     AppletState,
+    ActionItem,
     Badge,
     Button,
     ChangeEvent,
+    Checkbox,
     Column,
+    Hero,
     InitEvent,
+    Meter,
     PopoverEvent,
+    PopoverScaffold,
     Row,
     Select,
     Spinner,
     StatusDot,
     StatusItem,
+    Slider,
+    Switch,
     Text,
+    ToggleButton,
     Variant,
     click,
 )
@@ -109,6 +118,27 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         payload = Badge(label="Warning", variant=Variant.WARNING).to_protocol()
         self.assertEqual(payload["data"]["variant"], "warning")
 
+    async def test_desktop_helpers_run_local_commands(self) -> None:
+        calls: list[tuple[str, list[str], str | None]] = []
+
+        async def fake_run(command: str, args: list[str], stdin: str | None = None) -> None:
+            calls.append((command, args, stdin))
+
+        applet = DemoApplet()
+        with patch("glimpse_sdk.app._run_desktop_command", fake_run):
+            await applet.copy_to_clipboard("hello")
+            await applet.open_uri("https://example.com")
+            await applet.show_notification("Build complete", "Tests passed")
+
+        self.assertEqual(
+            calls,
+            [
+                ("wl-copy", [], "hello"),
+                ("xdg-open", ["https://example.com"], None),
+                ("notify-send", ["Build complete", "Tests passed"], None),
+            ],
+        )
+
     async def test_init_event_rerenders_changed_state(self) -> None:
         applet = InitApplet()
         eof = asyncio.Event()
@@ -139,6 +169,130 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         command, payload = await applet._outgoing.get()
         self.assertEqual(command, "popover")
         self.assertEqual(payload["root"]["data"]["children"][0]["data"]["text"], "v2")
+
+    async def test_button_on_click_registers_generated_handler(self) -> None:
+        hits: list[str] = []
+
+        @dataclass
+        class S(AppletState):
+            seen: bool = False
+
+        class InlineHandlerApplet(Applet[S]):
+            def initial_state(self) -> S:
+                return S()
+
+            async def popover(self, state: S):
+                return Column(children=[Button(label="Pick", on_click=self.pick)])
+
+            def pick(self, state: S, event) -> None:
+                state.seen = True
+                hits.append(event.id)
+
+        applet = InlineHandlerApplet()
+        applet._render_requested = True
+        await applet._flush_render()
+        await applet._outgoing.get()
+        _, tree = await applet._outgoing.get()
+
+        button_id = tree["root"]["data"]["children"][0]["data"]["id"]
+        self.assertTrue(button_id.startswith("__glimpse:click:"))
+
+        ev = parse_callback_event({"id": button_id, "type": "click", "source": "popover"})
+        await applet._dispatch_callback(ev)
+
+        self.assertEqual(hits, [button_id])
+        self.assertTrue(applet.state.seen)
+
+    async def test_interactive_widgets_register_inline_handlers(self) -> None:
+        hits: list[tuple[str, str, object]] = []
+
+        @dataclass
+        class S(AppletState):
+            seen: int = 0
+
+        class InlineHandlerApplet(Applet[S]):
+            def initial_state(self) -> S:
+                return S()
+
+            async def popover(self, state: S):
+                return PopoverScaffold(
+                    hero=Hero(title="VPN", id="hero-toggle", switch=True, on_toggle=self.handle),
+                    body=Column(
+                        children=[
+                            ActionItem(label="Open", on_click=self.handle),
+                            Switch(label="VPN", on_toggle=self.handle),
+                            ToggleButton(label="Wi-Fi", on_toggle=self.handle),
+                            Checkbox(label="Run at login", on_toggle=self.handle),
+                            Slider(on_change=self.handle),
+                            Select(
+                                items=[{"id": "prod", "label": "Production"}],
+                                on_change=self.handle,
+                            ),
+                            Meter(label="Volume", on_change=self.handle),
+                        ]
+                    ),
+                )
+
+            async def handle(self, state: S, event) -> None:
+                state.seen += 1
+                value = getattr(event, "value", None)
+                hits.append((event.event, event.id, value))
+
+        applet = InlineHandlerApplet()
+        applet._render_requested = True
+        await applet._flush_render()
+        await applet._outgoing.get()
+        _, tree = await applet._outgoing.get()
+
+        children = tree["root"]["data"]["body"]["data"]["children"]
+        generated_ids = [
+            children[0]["data"]["id"],
+            children[1]["data"]["id"],
+            children[2]["data"]["id"],
+            children[3]["data"]["id"],
+            children[4]["data"]["id"],
+            children[5]["data"]["id"],
+            children[6]["data"]["id"],
+        ]
+        self.assertEqual(tree["root"]["data"]["hero"]["data"]["id"], "hero-toggle")
+        self.assertTrue(generated_ids[0].startswith("__glimpse:click:"))
+        for target_id in generated_ids[1:4]:
+            self.assertTrue(target_id.startswith("__glimpse:toggle:"))
+        for target_id in generated_ids[4:]:
+            self.assertTrue(target_id.startswith("__glimpse:change:"))
+
+        events = [
+            {"id": "hero-toggle", "type": "toggle", "source": "popover", "active": True},
+            {"id": generated_ids[0], "type": "click", "source": "popover"},
+            {"id": generated_ids[1], "type": "toggle", "source": "popover", "active": False},
+            {"id": generated_ids[2], "type": "toggle", "source": "popover", "active": True},
+            {"id": generated_ids[3], "type": "toggle", "source": "popover", "active": True},
+            {"id": generated_ids[4], "type": "change", "source": "popover", "value": 0.72},
+            {
+                "id": generated_ids[5],
+                "type": "change",
+                "source": "popover",
+                "value": {"id": "prod", "label": "Production", "index": 0},
+            },
+            {"id": generated_ids[6], "type": "change", "source": "popover", "value": 0.4},
+        ]
+        for event in events:
+            await applet._dispatch_callback(parse_callback_event(event))
+
+        self.assertEqual(applet.state.seen, 8)
+        self.assertEqual(
+            hits,
+            [
+                ("toggle", "hero-toggle", True),
+                ("click", generated_ids[0], None),
+                ("toggle", generated_ids[1], False),
+                ("toggle", generated_ids[2], True),
+                ("toggle", generated_ids[3], True),
+                ("change", generated_ids[4], 0.72),
+                ("change", generated_ids[5], {"id": "prod", "label": "Production", "index": 0}),
+                ("change", generated_ids[6], 0.4),
+            ],
+        )
 
 
     async def test_wildcard_handler_matches_by_pattern(self) -> None:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import fnmatch
+import inspect
 import json
 import sys
 from dataclasses import dataclass, is_dataclass
@@ -9,7 +10,7 @@ from typing import Any, Generic, TypeVar
 
 from .events import CallbackEvent, InitEvent, OptionsT, PopoverEvent, parse_callback_event, parse_init_event
 from .protocol import StatusItem
-from .widgets import TreeNode
+from .widgets import InlineHandler, TreeNode
 
 StateT = TypeVar("StateT", bound="AppletState")
 
@@ -19,12 +20,25 @@ class AppletState:
     pass
 
 
+class _InlineHandlerRegistry:
+    def __init__(self) -> None:
+        self.handlers: dict[tuple[str, str], InlineHandler] = {}
+
+    def generated_id(self, event: str, path: tuple[int, ...]) -> str:
+        suffix = ".".join(str(part) for part in path) if path else "root"
+        return f"__glimpse:{event}:{suffix}"
+
+    def add(self, event: str, target_id: str, handler: InlineHandler) -> None:
+        self.handlers[(event, target_id)] = handler
+
+
 class Applet(Generic[StateT, OptionsT]):
     def __init__(self) -> None:
         self.state: StateT = self.initial_state()
         self._incoming: asyncio.Queue[InitEvent[OptionsT] | CallbackEvent] = asyncio.Queue()
         self._outgoing: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
         self._handler_map, self._pattern_handlers = self._collect_handlers()
+        self._inline_handler_map: dict[tuple[str, str], InlineHandler] = {}
         self._render_task: asyncio.Task[None] | None = None
         self._render_requested = False
         self._last_status: list[dict[str, Any]] | None = None
@@ -69,6 +83,18 @@ class Applet(Generic[StateT, OptionsT]):
     def log(self, *args: object) -> None:
         print(*args, file=sys.stderr, flush=True)
 
+    async def copy_to_clipboard(self, text: str) -> None:
+        await _run_desktop_command("wl-copy", [], text)
+
+    async def open_uri(self, uri: str) -> None:
+        await _run_desktop_command("xdg-open", [uri])
+
+    async def show_notification(self, summary: str, body: str | None = None) -> None:
+        args = [summary]
+        if body is not None:
+            args.append(body)
+        await _run_desktop_command("notify-send", args)
+
     def _schedule_render(self) -> None:
         self._render_requested = True
         if self._render_task is None or self._render_task.done():
@@ -86,6 +112,12 @@ class Applet(Generic[StateT, OptionsT]):
                 await self._outgoing.put(("status", {"items": status}))
 
             widget = await self.popover(self.state)
+            if widget is not None:
+                registry = _InlineHandlerRegistry()
+                widget.bind_handlers(registry, ())
+                self._inline_handler_map = registry.handlers
+            else:
+                self._inline_handler_map = {}
             content = None if widget is None else widget.to_protocol()
             tree = {"root": content}
             if tree != self._last_tree:
@@ -110,6 +142,13 @@ class Applet(Generic[StateT, OptionsT]):
         return exact, patterns
 
     async def _dispatch_callback(self, event: CallbackEvent) -> None:
+        inline_handler = self._inline_handler_map.get((event.event, event.id))
+        if inline_handler is not None:
+            result = inline_handler(self.state, event)
+            if inspect.isawaitable(result):
+                await result
+            return
+
         handler = self._handler_map.get((event.event, event.id))
         if handler is None:
             for (ev_type, pat), h in self._pattern_handlers:
@@ -117,7 +156,9 @@ class Applet(Generic[StateT, OptionsT]):
                     handler = h
                     break
         if handler is not None:
-            await handler(event)
+            result = handler(event)
+            if inspect.isawaitable(result):
+                await result
         else:
             await self.on_callback(event)
 
@@ -239,6 +280,24 @@ class Applet(Generic[StateT, OptionsT]):
             asyncio.run(self._run())
         except KeyboardInterrupt:
             pass
+
+
+async def _run_desktop_command(
+    command: str,
+    args: list[str],
+    stdin: str | None = None,
+) -> None:
+    process = await asyncio.create_subprocess_exec(
+        command,
+        *args,
+        stdin=asyncio.subprocess.PIPE if stdin is not None else asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    input_bytes = stdin.encode() if stdin is not None else None
+    await process.communicate(input_bytes)
+    if process.returncode != 0:
+        raise RuntimeError(f"{command} exited with status {process.returncode}")
 
 
 def _log_render_exception(task: "asyncio.Task[None]") -> None:

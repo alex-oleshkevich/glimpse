@@ -26,7 +26,9 @@ macro_rules! tree {
     };
 }
 
-pub use app::{Applet, AppletError, AppletResult, run};
+pub use app::{
+    Applet, AppletError, AppletResult, copy_to_clipboard, open_uri, run, show_notification,
+};
 pub use events::{
     CallbackEvent, ChangeEvent, ClickEvent, InitEvent, InputEvent, PopoverEvent, ScrollEvent,
     ToggleEvent, parse_callback_event, parse_init_event,

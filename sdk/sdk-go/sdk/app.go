@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"strings"
 	"sync"
 )
 
@@ -88,6 +90,42 @@ func (a *BaseApplet[S]) CssClass() string { return "" }
 // the shell's stderr logger.
 func (a *BaseApplet[S]) Log(args ...any) {
 	fmt.Fprintln(os.Stderr, args...)
+}
+
+func (a *BaseApplet[S]) CopyToClipboard(ctx context.Context, text string) error {
+	return CopyToClipboard(ctx, text)
+}
+
+func (a *BaseApplet[S]) OpenURI(ctx context.Context, uri string) error {
+	return OpenURI(ctx, uri)
+}
+
+func (a *BaseApplet[S]) ShowNotification(ctx context.Context, summary string, body ...string) error {
+	return ShowNotification(ctx, summary, body...)
+}
+
+var runDesktopCommand = func(ctx context.Context, command string, args []string, stdin string) error {
+	cmd := exec.CommandContext(ctx, command, args...)
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
+	return cmd.Run()
+}
+
+func CopyToClipboard(ctx context.Context, text string) error {
+	return runDesktopCommand(ctx, "wl-copy", nil, text)
+}
+
+func OpenURI(ctx context.Context, uri string) error {
+	return runDesktopCommand(ctx, "xdg-open", []string{uri}, "")
+}
+
+func ShowNotification(ctx context.Context, summary string, body ...string) error {
+	args := []string{summary}
+	if len(body) > 0 {
+		args = append(args, body[0])
+	}
+	return runDesktopCommand(ctx, "notify-send", args, "")
 }
 
 type treePayload struct {

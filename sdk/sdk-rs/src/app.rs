@@ -1,6 +1,10 @@
 use async_trait::async_trait;
 use serde::Serialize;
-use tokio::io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader};
+use std::process::Stdio;
+use tokio::{
+    io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader},
+    process::Command,
+};
 
 use crate::{
     events::{
@@ -68,6 +72,90 @@ pub trait Applet: Send + Sync {
     fn log(&self, msg: impl std::fmt::Display) {
         eprintln!("{msg}");
     }
+
+    async fn copy_to_clipboard(&self, text: &str) -> AppletResult<()> {
+        copy_to_clipboard(text).await
+    }
+
+    async fn open_uri(&self, uri: &str) -> AppletResult<()> {
+        open_uri(uri).await
+    }
+
+    async fn show_notification(&self, summary: &str, body: Option<&str>) -> AppletResult<()> {
+        show_notification(summary, body).await
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DesktopCommand {
+    program: String,
+    args: Vec<String>,
+    stdin: Option<String>,
+}
+
+pub async fn copy_to_clipboard(text: &str) -> AppletResult<()> {
+    run_desktop_command(desktop_command_for_copy_to_clipboard(text)).await
+}
+
+pub async fn open_uri(uri: &str) -> AppletResult<()> {
+    run_desktop_command(desktop_command_for_open_uri(uri)).await
+}
+
+pub async fn show_notification(summary: &str, body: Option<&str>) -> AppletResult<()> {
+    run_desktop_command(desktop_command_for_show_notification(summary, body)).await
+}
+
+fn desktop_command_for_copy_to_clipboard(text: &str) -> DesktopCommand {
+    DesktopCommand {
+        program: "wl-copy".into(),
+        args: vec![],
+        stdin: Some(text.into()),
+    }
+}
+
+fn desktop_command_for_open_uri(uri: &str) -> DesktopCommand {
+    DesktopCommand {
+        program: "xdg-open".into(),
+        args: vec![uri.into()],
+        stdin: None,
+    }
+}
+
+fn desktop_command_for_show_notification(summary: &str, body: Option<&str>) -> DesktopCommand {
+    let mut args = vec![summary.into()];
+    if let Some(body) = body {
+        args.push(body.into());
+    }
+    DesktopCommand {
+        program: "notify-send".into(),
+        args,
+        stdin: None,
+    }
+}
+
+async fn run_desktop_command(command: DesktopCommand) -> AppletResult<()> {
+    let mut child = Command::new(&command.program)
+        .args(&command.args)
+        .stdin(if command.stdin.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+
+    if let Some(input) = command.stdin {
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(input.as_bytes()).await?;
+        }
+    }
+
+    let status = child.wait().await?;
+    if !status.success() {
+        return Err(format!("{} exited with status {status}", command.program).into());
+    }
+    Ok(())
 }
 
 #[derive(Debug, Serialize, PartialEq)]
@@ -344,5 +432,33 @@ mod tests {
         let status = applet.status(&state).await.expect("status should succeed");
         assert_eq!(status[0].label.as_deref(), Some("v2"));
         assert_eq!(state.clicks, 1);
+    }
+
+    #[test]
+    fn desktop_helpers_build_local_commands() {
+        assert_eq!(
+            desktop_command_for_copy_to_clipboard("hello"),
+            DesktopCommand {
+                program: "wl-copy".into(),
+                args: vec![],
+                stdin: Some("hello".into()),
+            }
+        );
+        assert_eq!(
+            desktop_command_for_open_uri("https://example.com"),
+            DesktopCommand {
+                program: "xdg-open".into(),
+                args: vec!["https://example.com".into()],
+                stdin: None,
+            }
+        );
+        assert_eq!(
+            desktop_command_for_show_notification("Build complete", Some("Tests passed")),
+            DesktopCommand {
+                program: "notify-send".into(),
+                args: vec!["Build complete".into(), "Tests passed".into()],
+                stdin: None,
+            }
+        );
     }
 }

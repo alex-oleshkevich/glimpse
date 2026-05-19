@@ -31,7 +31,7 @@ Read `docs/custom-applets/tooling.md` for project layout, `applet.toml`, dev app
 - typed protocol models
 - typed widget builders
 - async runtime
-- decorator-based callbacks (`@click`, `@scroll`, `@input`, `@change`, `@toggle`)
+- widget callbacks such as `Button(on_click=...)`, plus decorator-based callbacks for explicit ids
 - separate `status(state)` and `popover(state)` methods; state mutation via `await self.set_state(...)`
 
 ## Example
@@ -49,7 +49,6 @@ from glimpse_sdk import (
     Icon,
     StatusItem,
     Text,
-    click,
 )
 
 
@@ -82,16 +81,15 @@ class DeployApplet(Applet[DeployState]):
                 ),
                 Text(text="Version"),
                 Button(
-                    id="deploy_now",
                     label="Deploy now",
+                    on_click=self.on_deploy,
                     icon="media-playback-start-symbolic",
                     variant=ButtonVariant.PRIMARY,
                 ),
             ]
         )
 
-    @click("deploy_now")
-    async def on_deploy(self, _event) -> None:
+    async def on_deploy(self, state: DeployState, _event) -> None:
         await self.set_state(status="Deploying")
 
 

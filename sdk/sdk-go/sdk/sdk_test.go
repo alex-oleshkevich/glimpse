@@ -211,6 +211,53 @@ func TestSetStateUpdatesRenderedStatus(t *testing.T) {
 	}
 }
 
+func TestDesktopHelpersRunLocalCommands(t *testing.T) {
+	var calls []struct {
+		command string
+		args    []string
+		stdin   string
+	}
+	original := runDesktopCommand
+	runDesktopCommand = func(ctx context.Context, command string, args []string, stdin string) error {
+		calls = append(calls, struct {
+			command string
+			args    []string
+			stdin   string
+		}{command: command, args: append([]string(nil), args...), stdin: stdin})
+		return nil
+	}
+	t.Cleanup(func() {
+		runDesktopCommand = original
+	})
+
+	ctx := context.Background()
+	if err := CopyToClipboard(ctx, "hello"); err != nil {
+		t.Fatalf("copy to clipboard: %v", err)
+	}
+	if err := OpenURI(ctx, "https://example.com"); err != nil {
+		t.Fatalf("open URI: %v", err)
+	}
+	if err := ShowNotification(ctx, "Build complete", "Tests passed"); err != nil {
+		t.Fatalf("show notification: %v", err)
+	}
+
+	if len(calls) != 3 {
+		t.Fatalf("expected 3 command calls, got %d", len(calls))
+	}
+	if calls[0].command != "wl-copy" || len(calls[0].args) != 0 {
+		t.Fatalf("unexpected clipboard command: %#v", calls[0])
+	}
+	if calls[0].stdin != "hello" {
+		t.Fatalf("unexpected clipboard stdin: %q", calls[0].stdin)
+	}
+	if calls[1].command != "xdg-open" || strings.Join(calls[1].args, " ") != "https://example.com" {
+		t.Fatalf("unexpected open URI command: %#v", calls[1])
+	}
+	if calls[2].command != "notify-send" || strings.Join(calls[2].args, " ") != "Build complete Tests passed" {
+		t.Fatalf("unexpected notification command: %#v", calls[2])
+	}
+}
+
 func ptr[T any](value T) *T {
 	return &value
 }

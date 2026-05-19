@@ -24,7 +24,6 @@ from glimpse_sdk import (
     Color,
     Column,
     Container,
-    Copyable,
     EmptyState,
     Expander,
     FontSize,
@@ -35,12 +34,8 @@ from glimpse_sdk import (
     Icon,
     Item,
     LevelBar,
-    LinkButton,
     Meter,
     Orientation,
-    PagerAppearance,
-    PagerItem,
-    PagerStrip,
     Picture,
     PopoverScaffold,
     PopoverSize,
@@ -118,15 +113,6 @@ class GoldenWidgetTests(unittest.TestCase):
 
     def test_button_disabled(self) -> None:
         self._assert_widget("button-disabled", Button(id="go", label="Go", enabled=False))
-
-    def test_link_button(self) -> None:
-        self._assert_widget("link-button", LinkButton(uri="https://example.com"))
-
-    def test_link_button_label(self) -> None:
-        self._assert_widget(
-            "link-button-label",
-            LinkButton(uri="https://example.com/docs", label="Docs"),
-        )
 
     def test_expander(self) -> None:
         self._assert_widget("expander", Expander(label="Details", child=Text(text="More")))
@@ -227,43 +213,6 @@ class GoldenWidgetTests(unittest.TestCase):
 
     def test_status_dot_warning(self) -> None:
         self._assert_widget("status-dot-warning", StatusDot(variant=StatusVariant.WARNING))
-
-    def test_pager_item_number_active(self) -> None:
-        self._assert_widget(
-            "pager-item-number-active",
-            PagerItem(
-                id="workspace-1",
-                appearance=PagerAppearance.NUMBERS,
-                label="1",
-                active=True,
-            ),
-        )
-
-    def test_pager_strip(self) -> None:
-        self._assert_widget(
-            "pager-strip",
-            PagerStrip(
-                items=[
-                    PagerItem(
-                        id="workspace-1",
-                        appearance=PagerAppearance.NUMBERS,
-                        label="1",
-                        active=True,
-                    ),
-                    PagerItem(
-                        id="workspace-2",
-                        appearance=PagerAppearance.NUMBERS,
-                        label="2",
-                        occupied=True,
-                    ),
-                    PagerItem(
-                        id="workspace-3",
-                        appearance=PagerAppearance.DOTS,
-                        urgent=True,
-                    ),
-                ]
-            ),
-        )
 
     def test_icon_by_name(self) -> None:
         self._assert_widget("icon-by-name", Icon(icon="user-info-symbolic"))
@@ -398,9 +347,6 @@ class GoldenWidgetTests(unittest.TestCase):
                 interactive=True,
             ),
         )
-
-    def test_copyable(self) -> None:
-        self._assert_widget("copyable", Copyable(label="IPv4", value="10.0.0.42"))
 
     def test_common_props_all(self) -> None:
         self._assert_widget(

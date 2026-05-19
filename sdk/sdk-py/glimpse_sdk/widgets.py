@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TypeAlias
+from typing import Protocol, TypeAlias
 
 
 class Align(StrEnum):
@@ -100,11 +100,6 @@ class ButtonVariant(StrEnum):
     DANGER = "danger"
 
 
-class PagerAppearance(StrEnum):
-    DOTS = "dots"
-    NUMBERS = "numbers"
-
-
 class ContentFit(StrEnum):
     FILL = "fill"
     CONTAIN = "contain"
@@ -121,6 +116,15 @@ class StatusVariant(StrEnum):
     SUCCESS = "success"
     WARNING = "warning"
     DANGER = "danger"
+
+
+InlineHandler = Callable[[object, object], object]
+
+
+class HandlerRegistry(Protocol):
+    def generated_id(self, event: str, path: tuple[int, ...]) -> str: ...
+
+    def add(self, event: str, target_id: str, handler: InlineHandler) -> None: ...
 
 
 @dataclass(slots=True)
@@ -160,6 +164,9 @@ class Widget(CommonProps):
     def to_protocol(self) -> dict[str, object]:
         raise NotImplementedError
 
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        return None
+
 
 @dataclass(slots=True)
 class Hero(Widget):
@@ -168,6 +175,7 @@ class Hero(Widget):
     icon: str | None = None
     id: str | None = None
     switch: bool | None = None
+    on_toggle: InlineHandler | None = None
     widget_type: str = "hero"
 
     def to_protocol(self) -> dict[str, object]:
@@ -184,6 +192,13 @@ class Hero(Widget):
         if self.switch is not None:
             payload["switch"] = self.switch
         return {"type": self.widget_type, "data": payload}
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_toggle is None:
+            return
+        if not self.id:
+            self.id = registry.generated_id("toggle", path)
+        registry.add("toggle", self.id, self.on_toggle)
 
 
 @dataclass(slots=True)
@@ -275,8 +290,9 @@ class Picture(Widget):
 
 @dataclass(slots=True)
 class Button(Widget):
-    id: str = ""
     label: str | None = None
+    on_click: InlineHandler | None = None
+    id: str = ""
     icon: str | None = None
     enabled: bool | None = None
     variant: ButtonVariant | None = None
@@ -294,18 +310,12 @@ class Button(Widget):
             payload["variant"] = self.variant.value
         return {"type": self.widget_type, "data": payload}
 
-
-@dataclass(slots=True)
-class LinkButton(Widget):
-    uri: str = ""
-    label: str | None = None
-    widget_type: str = "link_button"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"uri": self.uri})
-        if self.label is not None:
-            payload["label"] = self.label
-        return {"type": self.widget_type, "data": payload}
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_click is None:
+            return
+        if not self.id:
+            self.id = registry.generated_id("click", path)
+        registry.add("click", self.id, self.on_click)
 
 
 @dataclass(slots=True)
@@ -321,12 +331,17 @@ class Expander(Widget):
             payload["child"] = self.child.to_protocol()
         return {"type": self.widget_type, "data": payload}
 
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.child is not None:
+            self.child.bind_handlers(registry, (*path, 0))
+
 
 @dataclass(slots=True)
 class Switch(Widget):
     id: str = ""
     label: str | None = None
     active: bool = False
+    on_toggle: InlineHandler | None = None
     widget_type: str = "switch"
 
     def to_protocol(self) -> dict[str, object]:
@@ -335,6 +350,13 @@ class Switch(Widget):
             payload["label"] = self.label
         return {"type": self.widget_type, "data": payload}
 
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_toggle is None:
+            return
+        if not self.id:
+            self.id = registry.generated_id("toggle", path)
+        registry.add("toggle", self.id, self.on_toggle)
+
 
 @dataclass(slots=True)
 class ToggleButton(Widget):
@@ -342,6 +364,7 @@ class ToggleButton(Widget):
     label: str | None = None
     icon: str | None = None
     active: bool = False
+    on_toggle: InlineHandler | None = None
     widget_type: str = "toggle_button"
 
     def to_protocol(self) -> dict[str, object]:
@@ -351,6 +374,13 @@ class ToggleButton(Widget):
         if self.icon is not None:
             payload["icon"] = self.icon
         return {"type": self.widget_type, "data": payload}
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_toggle is None:
+            return
+        if not self.id:
+            self.id = registry.generated_id("toggle", path)
+        registry.add("toggle", self.id, self.on_toggle)
 
 
 @dataclass(slots=True)
@@ -362,6 +392,7 @@ class Slider(Widget):
     value: float = 0.0
     orientation: Orientation | None = None
     draw_value: bool = False
+    on_change: InlineHandler | None = None
     widget_type: str = "slider"
 
     def to_protocol(self) -> dict[str, object]:
@@ -380,12 +411,20 @@ class Slider(Widget):
             payload["draw_value"] = self.draw_value
         return {"type": self.widget_type, "data": payload}
 
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_change is None:
+            return
+        if not self.id:
+            self.id = registry.generated_id("change", path)
+        registry.add("change", self.id, self.on_change)
+
 
 @dataclass(slots=True)
 class Checkbox(Widget):
     id: str = ""
     label: str | None = None
     active: bool = False
+    on_toggle: InlineHandler | None = None
     widget_type: str = "checkbox"
 
     def to_protocol(self) -> dict[str, object]:
@@ -394,12 +433,20 @@ class Checkbox(Widget):
             payload["label"] = self.label
         return {"type": self.widget_type, "data": payload}
 
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_toggle is None:
+            return
+        if not self.id:
+            self.id = registry.generated_id("toggle", path)
+        registry.add("toggle", self.id, self.on_toggle)
+
 
 @dataclass(slots=True)
 class Select(Widget):
     id: str = ""
     items: list[dict[str, str]] = field(default_factory=list)
     selected: int | None = None
+    on_change: InlineHandler | None = None
     widget_type: str = "select"
 
     def to_protocol(self) -> dict[str, object]:
@@ -407,6 +454,13 @@ class Select(Widget):
         if self.selected is not None:
             payload["selected"] = self.selected
         return {"type": self.widget_type, "data": payload}
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_change is None:
+            return
+        if not self.id:
+            self.id = registry.generated_id("change", path)
+        registry.add("change", self.id, self.on_change)
 
 
 @dataclass(slots=True)
@@ -431,6 +485,10 @@ class Scroll(Widget):
             raise ValueError("Scroll requires a child")
         payload = self.apply_common({"child": self.child.to_protocol()})
         return {"type": self.widget_type, "data": payload}
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.child is not None:
+            self.child.bind_handlers(registry, (*path, 0))
 
 
 @dataclass(slots=True)
@@ -468,6 +526,10 @@ class Grid(Widget):
         )
         return {"type": self.widget_type, "data": payload}
 
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        for index, child in enumerate(self.children):
+            child.child.bind_handlers(registry, (*path, index))
+
 
 @dataclass(slots=True)
 class Card(Widget):
@@ -480,6 +542,10 @@ class Card(Widget):
             data["child"] = self.child.to_protocol()
         payload = self.apply_common(data)
         return {"type": self.widget_type, "data": payload}
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.child is not None:
+            self.child.bind_handlers(registry, (*path, 0))
 
 
 @dataclass(slots=True)
@@ -541,6 +607,10 @@ class Container(Widget):
         payload = self.apply_common(data)
         return {"type": self.widget_type, "data": payload}
 
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.child is not None:
+            self.child.bind_handlers(registry, (*path, 0))
+
 
 @dataclass(slots=True)
 class Meter(Widget):
@@ -553,9 +623,11 @@ class Meter(Widget):
     step: float = 0.01
     text: str | None = None
     interactive: bool = False
+    on_change: InlineHandler | None = None
     widget_type: str = "meter"
 
     def to_protocol(self) -> dict[str, object]:
+        interactive = self.interactive or self.on_change is not None
         payload = self.apply_common(
             {
                 "label": self.label,
@@ -563,7 +635,7 @@ class Meter(Widget):
                 "min": self.min,
                 "max": self.max,
                 "step": self.step,
-                "interactive": self.interactive,
+                "interactive": interactive,
             }
         )
         if self.id is not None:
@@ -574,16 +646,12 @@ class Meter(Widget):
             payload["text"] = self.text
         return {"type": self.widget_type, "data": payload}
 
-
-@dataclass(slots=True)
-class Copyable(Widget):
-    label: str = ""
-    value: str = ""
-    widget_type: str = "copyable"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"label": self.label, "value": self.value})
-        return {"type": self.widget_type, "data": payload}
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_change is None:
+            return
+        if not self.id:
+            self.id = registry.generated_id("change", path)
+        registry.add("change", self.id, self.on_change)
 
 
 @dataclass(slots=True)
@@ -601,6 +669,10 @@ class Row(Widget):
         )
         return {"type": self.widget_type, "data": payload}
 
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        for index, child in enumerate(self.children):
+            child.bind_handlers(registry, (*path, index))
+
 
 @dataclass(slots=True)
 class Column(Widget):
@@ -616,6 +688,10 @@ class Column(Widget):
             }
         )
         return {"type": self.widget_type, "data": payload}
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        for index, child in enumerate(self.children):
+            child.bind_handlers(registry, (*path, index))
 
 
 @dataclass(slots=True)
@@ -681,6 +757,11 @@ class Item(Widget):
             payload["right"] = self.right.to_protocol()
         return {"type": self.widget_type, "data": payload}
 
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        for index, child in enumerate((self.left, self.right)):
+            if child is not None:
+                child.bind_handlers(registry, (*path, index))
+
 
 @dataclass(slots=True)
 class ActionItem(Widget):
@@ -691,6 +772,7 @@ class ActionItem(Widget):
     left: "TreeNode | None" = None
     right: "TreeNode | None" = None
     enabled: bool | None = None
+    on_click: InlineHandler | None = None
     widget_type: str = "action_item"
 
     def to_protocol(self) -> dict[str, object]:
@@ -705,6 +787,15 @@ class ActionItem(Widget):
         if self.enabled is not None:
             payload["enabled"] = self.enabled
         return {"type": self.widget_type, "data": payload}
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_click is not None:
+            if not self.id:
+                self.id = registry.generated_id("click", path)
+            registry.add("click", self.id, self.on_click)
+        for index, child in enumerate((self.left, self.right)):
+            if child is not None:
+                child.bind_handlers(registry, (*path, index))
 
 
 @dataclass(slots=True)
@@ -743,51 +834,6 @@ class StatusDot(Widget):
         return {"type": self.widget_type, "data": payload}
 
 
-@dataclass(slots=True)
-class PagerItem(Widget):
-    id: str | None = None
-    appearance: PagerAppearance = PagerAppearance.DOTS
-    label: str = ""
-    active: bool = False
-    inactive: bool = False
-    occupied: bool = False
-    urgent: bool = False
-    widget_type: str = "pager_item"
-
-    def to_data(self) -> dict[str, object]:
-        payload = self.apply_common(
-            {
-                "appearance": self.appearance.value,
-                "label": self.label,
-                "active": self.active,
-                "inactive": self.inactive,
-                "occupied": self.occupied,
-                "urgent": self.urgent,
-            }
-        )
-        if self.id is not None:
-            payload["id"] = self.id
-        return payload
-
-    def to_protocol(self) -> dict[str, object]:
-        return {"type": self.widget_type, "data": self.to_data()}
-
-
-@dataclass(slots=True)
-class PagerStrip(Widget):
-    id: str | None = None
-    items: list[PagerItem] = field(default_factory=list)
-    widget_type: str = "pager_strip"
-
-    def to_protocol(self) -> dict[str, object]:
-        data: dict[str, object] = {}
-        if self.id:
-            data["id"] = self.id
-        data["items"] = [item.to_data() for item in self.items]
-        payload = self.apply_common(data)
-        return {"type": self.widget_type, "data": payload}
-
-
 class PopoverSize(StrEnum):
     SMALL = "small"
     MEDIUM = "medium"
@@ -811,21 +857,23 @@ class PopoverScaffold(Widget):
             data["hero"] = self.hero.to_protocol()
         return {"type": "popover_scaffold", "data": data}
 
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.hero is not None:
+            self.hero.bind_handlers(registry, (*path, 0))
+        self.body.bind_handlers(registry, (*path, 1))
+
 
 TreeNode: TypeAlias = (
     Hero
     | Card
     | Container
     | Meter
-    | Copyable
     | PropertyList
     | Item
     | ActionItem
     | EmptyState
     | Badge
     | StatusDot
-    | PagerItem
-    | PagerStrip
     | Row
     | Column
     | Grid
@@ -838,7 +886,6 @@ TreeNode: TypeAlias = (
     | Icon
     | Picture
     | Button
-    | LinkButton
     | Expander
     | Switch
     | ToggleButton

@@ -1,4 +1,5 @@
 import { createInterface } from "node:readline";
+import { spawn } from "node:child_process";
 
 import {
   type CallbackEvent,
@@ -23,18 +24,8 @@ interface OutgoingMessage {
   line: string;
 }
 
-interface ShowNotificationArgs {
-  summary: string;
+interface ShowNotificationOptions {
   body?: string;
-  urgency?: string;
-}
-
-interface OpenUriArgs {
-  uri: string;
-}
-
-interface CopyToClipboardArgs {
-  text: string;
 }
 
 interface DismissNotificationArgs {
@@ -109,16 +100,20 @@ export abstract class Applet<State extends object> {
     process.stderr.write(args.map(String).join(" ") + "\n");
   }
 
-  protected showNotification(args: ShowNotificationArgs): void {
-    this.emitAction("show_notification", args);
+  protected async showNotification(summary: string, options: ShowNotificationOptions = {}): Promise<void> {
+    const args = [summary];
+    if (options.body !== undefined) {
+      args.push(options.body);
+    }
+    await this.runDesktopCommand("notify-send", args);
   }
 
-  protected openUri(args: OpenUriArgs): void {
-    this.emitAction("open_uri", args);
+  protected async openUri(uri: string): Promise<void> {
+    await this.runDesktopCommand("xdg-open", [uri]);
   }
 
-  protected copyToClipboard(args: CopyToClipboardArgs): void {
-    this.emitAction("copy_to_clipboard", args);
+  protected async copyToClipboard(text: string): Promise<void> {
+    await this.runDesktopCommand("wl-copy", [], text);
   }
 
   protected dismissNotification(args: DismissNotificationArgs): void {
@@ -127,6 +122,10 @@ export abstract class Applet<State extends object> {
 
   protected closePopover(): void {
     this.emitAction("close_popover", {});
+  }
+
+  protected async runDesktopCommand(command: string, args: string[], input?: string): Promise<void> {
+    await runDesktopCommand(command, args, input);
   }
 
   async run(): Promise<void> {
@@ -279,4 +278,23 @@ function deepEqual(left: unknown, right: unknown): boolean {
 
 function isPopoverEvent(event: CallbackEvent): event is PopoverEvent {
   return event.event === "open" || event.event === "close";
+}
+
+async function runDesktopCommand(command: string, args: string[], input?: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["pipe", "ignore", "ignore"] });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`${command} exited with status ${code}`));
+    });
+    if (input !== undefined) {
+      child.stdin.end(input);
+    } else {
+      child.stdin.end();
+    }
+  });
 }

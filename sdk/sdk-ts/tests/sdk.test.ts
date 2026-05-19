@@ -24,6 +24,8 @@ interface DemoState {
 }
 
 class DemoApplet extends Applet<DemoState> {
+  commands: Array<{ command: string; args: string[]; input?: string }> = [];
+
   protected initialState(): DemoState {
     return { version: "v1", clicks: 0 };
   }
@@ -69,6 +71,21 @@ class DemoApplet extends Applet<DemoState> {
     await (this as any).handleIncoming("event", payload);
   }
 
+  async copyForTest(text: string): Promise<void> {
+    await this.copyToClipboard(text);
+  }
+
+  async openUriForTest(uri: string): Promise<void> {
+    await this.openUri(uri);
+  }
+
+  async notifyForTest(summary: string, body?: string): Promise<void> {
+    await this.showNotification(summary, { body });
+  }
+
+  protected async runDesktopCommand(command: string, args: string[], input?: string): Promise<void> {
+    this.commands.push({ command, args, input });
+  }
 }
 
 test("setState updates state and emits protocol messages", async () => {
@@ -174,4 +191,18 @@ test("init event rerenders changed state", async () => {
 test("variant serializes as semantic protocol value", () => {
   const payload = new Badge({ label: "Warning", variant: "warning" }).toProtocol();
   assert.equal((payload.data as any).variant, "warning");
+});
+
+test("desktop helpers run local commands", async () => {
+  const applet = new DemoApplet();
+
+  await applet.copyForTest("hello");
+  await applet.openUriForTest("https://example.com");
+  await applet.notifyForTest("Build complete", "Tests passed");
+
+  assert.deepEqual(applet.commands, [
+    { command: "wl-copy", args: [], input: "hello" },
+    { command: "xdg-open", args: ["https://example.com"], input: undefined },
+    { command: "notify-send", args: ["Build complete", "Tests passed"], input: undefined },
+  ]);
 });
