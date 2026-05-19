@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, Button, ButtonVariant, CallbackEvent, Column, Hero, StatusItem, Text,
-    TreeNode, run, tree,
+    Applet, AppletResult, Button, ButtonVariant, Column, Hero, StatusItem, Text, TreeNode, run,
+    tree,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -9,11 +9,17 @@ struct CounterState {
     count: u32,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum Msg {
+    Increment,
+}
+
 struct CounterApplet;
 
 #[async_trait]
 impl Applet for CounterApplet {
     type State = CounterState;
+    type Msg = Msg;
 
     async fn status(&self, state: &Self::State) -> AppletResult<Vec<StatusItem>> {
         Ok(vec![
@@ -23,7 +29,14 @@ impl Applet for CounterApplet {
         ])
     }
 
-    async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode>> {
+    async fn update(&mut self, state: &mut CounterState, msg: Msg) -> AppletResult<()> {
+        if msg == Msg::Increment {
+            state.count += 1;
+        }
+        Ok(())
+    }
+
+    async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode<Msg>>> {
         Ok(Some(
             Column::new(tree![
                 Hero::new("Counter", format!("Value: {}", state.count))
@@ -32,24 +45,12 @@ impl Applet for CounterApplet {
                 Button::new("increment")
                     .label("Increment")
                     .icon("list-add-symbolic")
-                    .variant(ButtonVariant::Primary),
+                    .variant(ButtonVariant::Primary)
+                    .on_click(Msg::Increment),
             ])
             .spacing(8)
             .into(),
         ))
-    }
-
-    async fn on_callback(
-        &mut self,
-        state: &mut Self::State,
-        event: CallbackEvent,
-    ) -> AppletResult<()> {
-        if let CallbackEvent::Click(click) = event {
-            if click.id == "increment" {
-                state.count += 1;
-            }
-        }
-        Ok(())
     }
 }
 

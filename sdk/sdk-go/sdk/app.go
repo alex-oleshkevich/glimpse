@@ -27,6 +27,18 @@ type Applet[S any] interface {
 	CssClass() string
 }
 
+// Optional typed handler interfaces. Implement any of these on your applet
+// struct instead of OnCallback and the runtime will route to them directly.
+// OnCallback is still called for event types that have no matching interface.
+type ClickHandler interface{ OnClick(context.Context, ClickEvent) error }
+type ScrollHandler interface{ OnScroll(context.Context, ScrollEvent) error }
+type InputHandler interface{ OnInput(context.Context, InputEvent) error }
+type ChangeHandler interface{ OnChange(context.Context, ChangeEvent) error }
+type ToggleHandler interface{ OnToggle(context.Context, ToggleEvent) error }
+type PopoverHandler interface{ OnPopover(context.Context, PopoverEvent) error }
+
+type inlineHandler func(context.Context, CallbackEvent) error
+
 type BaseApplet[S any] struct {
 	mu          sync.RWMutex
 	state       S
@@ -183,9 +195,10 @@ type Runtime[S any] struct {
 	writer io.Writer
 	mu     sync.Mutex
 
-	lastStatus  []StatusItem
-	lastTree    *treePayload
-	popoverOpen bool
+	lastStatus     []StatusItem
+	lastTree       *treePayload
+	popoverOpen    bool
+	inlineHandlers map[string]inlineHandler
 }
 
 func NewRuntime[S any](applet Applet[S], reader io.Reader, writer io.Writer) *Runtime[S] {
@@ -259,7 +272,7 @@ func (r *Runtime[S]) Run(ctx context.Context) error {
 				if popoverEvent, ok := event.(PopoverEvent); ok {
 					r.setPopoverOpen(popoverEvent.Open)
 				}
-				if err := r.applet.OnCallback(ctx, event); err != nil {
+				if err := r.dispatchCallback(ctx, event); err != nil {
 					return err
 				}
 			default:
@@ -310,6 +323,99 @@ func (r *Runtime[S]) scanInput(
 	}
 }
 
+func collectHandlers(w Widget, out map[string]inlineHandler) {
+	if w == nil {
+		return
+	}
+	switch v := w.(type) {
+	case Button:
+		if v.OnClick != nil {
+			fn := v.OnClick
+			out["click:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
+				return fn(ctx, e.(ClickEvent))
+			}
+		}
+	case ActionItem:
+		if v.OnClick != nil {
+			fn := v.OnClick
+			out["click:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
+				return fn(ctx, e.(ClickEvent))
+			}
+		}
+		collectHandlers(v.Left, out)
+		collectHandlers(v.Right, out)
+	case Switch:
+		if v.OnToggle != nil {
+			fn := v.OnToggle
+			out["toggle:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
+				return fn(ctx, e.(ToggleEvent))
+			}
+		}
+	case ToggleButton:
+		if v.OnToggle != nil {
+			fn := v.OnToggle
+			out["toggle:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
+				return fn(ctx, e.(ToggleEvent))
+			}
+		}
+	case Checkbox:
+		if v.OnToggle != nil {
+			fn := v.OnToggle
+			out["toggle:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
+				return fn(ctx, e.(ToggleEvent))
+			}
+		}
+	case Slider:
+		if v.OnChange != nil {
+			fn := v.OnChange
+			out["change:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
+				return fn(ctx, e.(ChangeEvent))
+			}
+		}
+	case Select:
+		if v.OnChange != nil {
+			fn := v.OnChange
+			out["change:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
+				return fn(ctx, e.(ChangeEvent))
+			}
+		}
+	case Hero:
+		if v.OnToggle != nil && v.ID != "" {
+			fn := v.OnToggle
+			id := v.ID
+			out["toggle:"+id] = func(ctx context.Context, e CallbackEvent) error {
+				return fn(ctx, e.(ToggleEvent))
+			}
+		}
+	case Row:
+		for _, child := range v.Children {
+			collectHandlers(child, out)
+		}
+	case Column:
+		for _, child := range v.Children {
+			collectHandlers(child, out)
+		}
+	case Grid:
+		for _, gc := range v.Children {
+			collectHandlers(gc.Child, out)
+		}
+	case Card:
+		collectHandlers(v.Child, out)
+	case Container:
+		collectHandlers(v.Child, out)
+	case Scroll:
+		collectHandlers(v.Child, out)
+	case Expander:
+		collectHandlers(v.Child, out)
+	case PopoverScaffold:
+		collectHandlers(v.Hero, out)
+		collectHandlers(v.Body, out)
+	case Item:
+		collectHandlers(v.Left, out)
+		collectHandlers(v.Right, out)
+	}
+}
+
 func (r *Runtime[S]) flush(ctx context.Context) error {
 	state := r.applet.State()
 
@@ -328,6 +434,10 @@ func (r *Runtime[S]) flush(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	r.inlineHandlers = make(map[string]inlineHandler)
+	if widget != nil {
+		collectHandlers(widget, r.inlineHandlers)
+	}
 	tree := &treePayload{Root: widget}
 	if !treePayloadEqual(r.lastTree, tree) {
 		if err := r.writeMessage("popover", tree); err != nil {
@@ -336,6 +446,51 @@ func (r *Runtime[S]) flush(ctx context.Context) error {
 		r.lastTree = tree
 	}
 	return nil
+}
+
+func (r *Runtime[S]) dispatchCallback(ctx context.Context, event CallbackEvent) error {
+	var key string
+	switch e := event.(type) {
+	case ClickEvent:
+		key = "click:" + e.ID
+	case ToggleEvent:
+		key = "toggle:" + e.ID
+	case ChangeEvent:
+		key = "change:" + e.ID
+	}
+	if key != "" {
+		if h, ok := r.inlineHandlers[key]; ok {
+			return h(ctx, event)
+		}
+	}
+
+	switch e := event.(type) {
+	case ClickEvent:
+		if h, ok := r.applet.(ClickHandler); ok {
+			return h.OnClick(ctx, e)
+		}
+	case ScrollEvent:
+		if h, ok := r.applet.(ScrollHandler); ok {
+			return h.OnScroll(ctx, e)
+		}
+	case InputEvent:
+		if h, ok := r.applet.(InputHandler); ok {
+			return h.OnInput(ctx, e)
+		}
+	case ChangeEvent:
+		if h, ok := r.applet.(ChangeHandler); ok {
+			return h.OnChange(ctx, e)
+		}
+	case ToggleEvent:
+		if h, ok := r.applet.(ToggleHandler); ok {
+			return h.OnToggle(ctx, e)
+		}
+	case PopoverEvent:
+		if h, ok := r.applet.(PopoverHandler); ok {
+			return h.OnPopover(ctx, e)
+		}
+	}
+	return r.applet.OnCallback(ctx, event)
 }
 
 func (r *Runtime[S]) setPopoverOpen(open bool) {

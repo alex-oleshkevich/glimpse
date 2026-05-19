@@ -14,7 +14,7 @@ import {
   parseInitEvent,
 } from "./events.js";
 import { StatusItem } from "./protocol.js";
-import { type TreeNode } from "./widgets.js";
+import { type TreeNode, InlineHandlerRegistry } from "./widgets.js";
 
 type Handler<EventT> = (event: EventT) => void | Promise<void>;
 
@@ -42,6 +42,7 @@ export abstract class Applet<State extends object> {
   state: State;
 
   private readonly handlerMap = new Map<string, Handler<CallbackEvent>>();
+  private inlineHandlerMap = new Map<string, (event: CallbackEvent) => void | Promise<void>>();
   private readonly outgoing: OutgoingMessage[] = [];
   private flushPromise: Promise<void> | null = null;
   private renderQueued = false;
@@ -96,6 +97,11 @@ export abstract class Applet<State extends object> {
 
   onToggle(id: string, handler: Handler<ToggleEvent>): void {
     this.register("toggle", id, handler as Handler<CallbackEvent>);
+  }
+
+  onPopover(handler: Handler<PopoverEvent>): void {
+    this.register("open", "popover", handler as Handler<CallbackEvent>);
+    this.register("close", "popover", handler as Handler<CallbackEvent>);
   }
 
   isPopoverOpen(): boolean {
@@ -192,7 +198,13 @@ export abstract class Applet<State extends object> {
   }
 
   private async dispatchCallback(event: CallbackEvent): Promise<void> {
-    const handler = this.handlerMap.get(`${event.event}:${event.id}`);
+    const key = `${event.event}:${event.id}`;
+    const inlineHandler = this.inlineHandlerMap.get(key);
+    if (inlineHandler !== undefined) {
+      await inlineHandler(event);
+      return;
+    }
+    const handler = this.handlerMap.get(key);
     if (handler !== undefined) {
       await handler(event);
       return;
@@ -242,6 +254,13 @@ export abstract class Applet<State extends object> {
     }
 
     const widget = await this.popover(this.state);
+    if (widget !== null) {
+      const registry = new InlineHandlerRegistry();
+      widget.bindHandlers?.(registry, []);
+      this.inlineHandlerMap = registry.handlers;
+    } else {
+      this.inlineHandlerMap = new Map();
+    }
     const tree = { root: widget?.toProtocol() ?? null };
     if (!deepEqual(tree, this.lastTree)) {
       this.lastTree = tree;

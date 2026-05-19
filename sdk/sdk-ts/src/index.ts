@@ -35,6 +35,7 @@ export {
   GridChild,
   Hero,
   Icon,
+  InlineHandlerRegistry,
   Item,
   LevelBar,
   type LevelBarMode,

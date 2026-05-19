@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use glimpse_sdk::{
-    ActionItem, Align, Applet, AppletResult, Button, ButtonVariant, CallbackEvent, Color, Column,
-    Container, EmptyState, Hero, PopoverScaffold, Radius, StatusItem, Text, TreeNode, close_popover,
+    ActionItem, Align, Applet, AppletResult, Button, ButtonVariant, Color, Column, Container,
+    EmptyState, Hero, PopoverScaffold, Radius, StatusItem, Text, TreeNode, close_popover,
     copy_to_clipboard, run, tree,
 };
 use std::process::Stdio;
@@ -12,17 +12,53 @@ struct State {
     items: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum Msg {
+    Pick,
+    CopyColor(String),
+}
+
 struct ColorPickerApplet;
 
 #[async_trait]
 impl Applet for ColorPickerApplet {
     type State = State;
+    type Msg = Msg;
 
-    async fn status(&self, _state: &Self::State) -> AppletResult<Vec<StatusItem>> {
+    async fn status(&self, _state: &State) -> AppletResult<Vec<StatusItem>> {
         Ok(vec![StatusItem::new("colorpicker").icon("color-select-symbolic")])
     }
 
-    async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode>> {
+    async fn update(&mut self, state: &mut State, msg: Msg) -> AppletResult<()> {
+        match msg {
+            Msg::Pick => {
+                close_popover().await?;
+                tokio::time::sleep(Duration::from_millis(50)).await;
+
+                let output = tokio::process::Command::new("hyprpicker")
+                    .arg("--render-inactive")
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::piped())
+                    .output()
+                    .await?;
+
+                if output.status.success() {
+                    let color = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    if !color.is_empty() {
+                        copy_to_clipboard(&color).await.ok();
+                        state.items.insert(0, color);
+                    }
+                }
+            }
+            Msg::CopyColor(color) => {
+                copy_to_clipboard(&color).await.ok();
+            }
+        }
+        Ok(())
+    }
+
+    async fn popover(&self, state: &State) -> AppletResult<Option<TreeNode<Msg>>> {
         if !is_hyprpicker_installed() {
             return Ok(Some(
                 EmptyState::new("Not installed")
@@ -31,10 +67,10 @@ impl Applet for ColorPickerApplet {
             ));
         }
 
-        let recent: TreeNode = if state.items.is_empty() {
+        let recent: TreeNode<Msg> = if state.items.is_empty() {
             Text::new("No recent colors.").into()
         } else {
-            let mut children: Vec<TreeNode> = vec![{
+            let mut children: Vec<TreeNode<Msg>> = vec![{
                 let mut header =
                     Container::new(Some(Text::new("Recent colors").css_class("header").into()));
                 header.common.halign = Some(Align::Start);
@@ -52,6 +88,7 @@ impl Applet for ColorPickerApplet {
                 children.push(
                     ActionItem::new(format!("pick_{color}"), color.clone())
                         .left(swatch)
+                        .on_click(Msg::CopyColor(color.clone()))
                         .into(),
                 );
             }
@@ -60,7 +97,8 @@ impl Applet for ColorPickerApplet {
 
         let mut pick_button = Button::new("pick")
             .label("Pick color")
-            .variant(ButtonVariant::Primary);
+            .variant(ButtonVariant::Primary)
+            .on_click(Msg::Pick);
         pick_button.common.hexpand = Some(true);
 
         let mut body = Column::new(tree![pick_button, recent]).spacing(16);
@@ -71,41 +109,6 @@ impl Applet for ColorPickerApplet {
                 .hero(Hero::new("Color picker", "Pick a color").icon("color-select-symbolic"))
                 .into(),
         ))
-    }
-
-    async fn on_callback(
-        &mut self,
-        state: &mut Self::State,
-        event: CallbackEvent,
-    ) -> AppletResult<()> {
-        let CallbackEvent::Click(click) = event else {
-            return Ok(());
-        };
-        if click.id == "pick" {
-            close_popover().await?;
-            tokio::time::sleep(Duration::from_millis(300)).await;
-
-            let output = tokio::process::Command::new("hyprpicker")
-                .arg("--render-inactive")
-                .stdin(Stdio::null())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .output()
-                .await?;
-
-            if output.status.success() {
-                let color = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !color.is_empty() {
-                    copy_to_clipboard(&color).await.ok();
-                    let mut items = vec![color];
-                    items.extend(std::mem::take(&mut state.items));
-                    state.items = items;
-                }
-            }
-        } else if let Some(color) = click.id.strip_prefix("pick_") {
-            copy_to_clipboard(color).await.ok();
-        }
-        Ok(())
     }
 }
 

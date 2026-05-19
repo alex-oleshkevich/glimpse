@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::process::Stdio;
 use tokio::{
     io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -7,68 +8,67 @@ use tokio::{
 };
 
 use crate::{
+    AppletResult,
     events::{
-        CallbackEvent, InitEvent, parse_callback_event, parse_incoming_line, parse_init_event,
+        CallbackEvent, InitEvent, InputEvent, PopoverEvent, ScrollEvent,
+        parse_callback_event, parse_incoming_line, parse_init_event,
     },
     protocol::StatusItem,
     widgets::TreeNode,
 };
 
-pub type AppletError = Box<dyn std::error::Error + Send + Sync>;
-pub type AppletResult<T> = Result<T, AppletError>;
-
-/// An exec applet. The applet itself is a stateless method bag — state
-/// lives in `Self::State` and is passed in by the runtime to every
-/// method. Mutate the state directly inside handlers and the next render
-/// sees the new value.
-///
-/// `status` and `popover` are pure functions of `state`; they should not
-/// mutate. The runtime calls them after every event and emits a wire
-/// message only when the output changes.
 #[async_trait]
 pub trait Applet: Send + Sync {
-    type State: Send + Sync + 'static;
+    type State: Clone + Send + Sync + 'static;
+    type Msg: Clone + PartialEq + Send + 'static;
 
-    /// Build the panel status items for the current state.
     async fn status(&self, state: &Self::State) -> AppletResult<Vec<StatusItem>>;
 
-    /// Build the popover content tree, or `None` for no popover.
-    /// The default impl returns `None` so applets without popovers
-    /// don't have to implement this.
-    async fn popover(&self, _state: &Self::State) -> AppletResult<Option<TreeNode>> {
+    async fn popover(&self, _state: &Self::State) -> AppletResult<Option<TreeNode<Self::Msg>>> {
         Ok(None)
     }
 
-    /// Called once before the read loop begins.
-    async fn on_start(&mut self, _state: &mut Self::State) -> AppletResult<()> {
-        Ok(())
-    }
-
-    /// Called once when Glimpse sends the `init` line.
-    async fn on_init(&mut self, _state: &mut Self::State, _event: InitEvent) -> AppletResult<()> {
-        Ok(())
-    }
-
-    /// Called for every interactive event (click, scroll, toggle, change,
-    /// popover open/close, etc.).
-    async fn on_callback(
+    /// Called when a widget emits a message. All state mutation lives here.
+    async fn update(
         &mut self,
         _state: &mut Self::State,
-        _event: CallbackEvent,
+        _msg: Self::Msg,
     ) -> AppletResult<()> {
         Ok(())
     }
 
-    /// CSS class applied to the applet indicator and popover (e.g. `"workstation"`
-    /// → `applet-workstation` is added to both GTK widgets). Return `None` (the
-    /// default) to leave styling to the global theme.
+    async fn on_start(&mut self, _state: &mut Self::State) -> AppletResult<()> {
+        Ok(())
+    }
+
+    async fn on_init(&mut self, _state: &mut Self::State, _event: InitEvent) -> AppletResult<()> {
+        Ok(())
+    }
+
+    async fn on_scroll(
+        &mut self,
+        _state: &mut Self::State,
+        _event: ScrollEvent,
+    ) -> AppletResult<()> {
+        Ok(())
+    }
+
+    async fn on_input(&mut self, _state: &mut Self::State, _event: InputEvent) -> AppletResult<()> {
+        Ok(())
+    }
+
+    async fn on_popover(
+        &mut self,
+        _state: &mut Self::State,
+        _event: PopoverEvent,
+    ) -> AppletResult<()> {
+        Ok(())
+    }
+
     fn css_class(&self) -> Option<&str> {
         None
     }
 
-    /// Write a debug line to stderr. In `applets dev` mode the line appears
-    /// directly in the terminal; when running under the panel it is captured
-    /// by the shell's stderr logger.
     fn log(&self, msg: impl std::fmt::Display) {
         eprintln!("{msg}");
     }
@@ -193,17 +193,18 @@ async fn run_desktop_command(command: DesktopCommand) -> AppletResult<()> {
 }
 
 #[derive(Debug, Serialize, PartialEq)]
-struct TreePayload {
-    root: Option<TreeNode>,
+#[serde(bound(serialize = ""))]
+struct TreePayload<Msg> {
+    root: Option<TreeNode<Msg>>,
 }
 
-struct LastSeen {
+struct LastSeen<Msg> {
     status: Vec<StatusItem>,
-    tree: Option<TreeNode>,
+    tree: Option<TreeNode<Msg>>,
     initialized: bool,
 }
 
-impl LastSeen {
+impl<Msg> LastSeen<Msg> {
     fn new() -> Self {
         Self {
             status: Vec::new(),
@@ -213,7 +214,172 @@ impl LastSeen {
     }
 }
 
-/// Run an applet against stdin/stdout, owning the state for its lifetime.
+// Maps widget IDs to messages extracted from the current widget tree.
+struct MsgMap<Msg> {
+    click: HashMap<String, Msg>,
+    toggle: HashMap<String, std::sync::Arc<dyn Fn(bool) -> Msg + Send + Sync>>,
+    change: HashMap<
+        String,
+        std::sync::Arc<dyn Fn(Option<serde_json::Value>) -> Msg + Send + Sync>,
+    >,
+}
+
+impl<Msg> MsgMap<Msg> {
+    fn new() -> Self {
+        Self {
+            click: HashMap::new(),
+            toggle: HashMap::new(),
+            change: HashMap::new(),
+        }
+    }
+}
+
+fn collect_messages<Msg: Clone>(tree: &TreeNode<Msg>, map: &mut MsgMap<Msg>) {
+    use crate::widgets::TreeNode::*;
+    match tree {
+        Button(btn) => {
+            if let Some(msg) = &btn.on_click {
+                map.click.insert(btn.id.clone(), msg.clone());
+            }
+        }
+        ActionItem(item) => {
+            if let Some(msg) = &item.on_click {
+                map.click.insert(item.id.clone(), msg.clone());
+            }
+            if let Some(left) = &item.left {
+                collect_messages(left, map);
+            }
+            if let Some(right) = &item.right {
+                collect_messages(right, map);
+            }
+        }
+        Switch(sw) => {
+            if let Some(mapper) = &sw.on_toggle {
+                map.toggle
+                    .insert(sw.id.clone(), std::sync::Arc::clone(&mapper.0));
+            }
+        }
+        ToggleButton(tb) => {
+            if let Some(mapper) = &tb.on_toggle {
+                map.toggle
+                    .insert(tb.id.clone(), std::sync::Arc::clone(&mapper.0));
+            }
+        }
+        Checkbox(cb) => {
+            if let Some(mapper) = &cb.on_toggle {
+                map.toggle
+                    .insert(cb.id.clone(), std::sync::Arc::clone(&mapper.0));
+            }
+        }
+        Hero(hero) => {
+            if let Some(mapper) = &hero.on_toggle {
+                debug_assert!(
+                    hero.id.is_some(),
+                    "Hero has on_toggle but no id — handler will never fire"
+                );
+                if let Some(id) = &hero.id {
+                    map.toggle
+                        .insert(id.clone(), std::sync::Arc::clone(&mapper.0));
+                }
+            }
+        }
+        Slider(sl) => {
+            if let Some(mapper) = &sl.on_change {
+                map.change
+                    .insert(sl.id.clone(), std::sync::Arc::clone(&mapper.0));
+            }
+        }
+        Select(sel) => {
+            if let Some(mapper) = &sel.on_change {
+                map.change
+                    .insert(sel.id.clone(), std::sync::Arc::clone(&mapper.0));
+            }
+        }
+        Column(col) => {
+            for child in &col.children {
+                collect_messages(child, map);
+            }
+        }
+        Row(row) => {
+            for child in &row.children {
+                collect_messages(child, map);
+            }
+        }
+        Grid(grid) => {
+            for gc in &grid.children {
+                collect_messages(&gc.child, map);
+            }
+        }
+        Card(card) => {
+            if let Some(child) = &card.child {
+                collect_messages(child, map);
+            }
+        }
+        Container(c) => {
+            if let Some(child) = &c.child {
+                collect_messages(child, map);
+            }
+        }
+        Scroll(s) => {
+            collect_messages(&s.child, map);
+        }
+        Expander(e) => {
+            collect_messages(&e.child, map);
+        }
+        PopoverScaffold(ps) => {
+            if let Some(hero) = &ps.hero {
+                collect_messages(hero, map);
+            }
+            collect_messages(&ps.body, map);
+        }
+        Item(item) => {
+            if let Some(left) = &item.left {
+                collect_messages(left, map);
+            }
+            if let Some(right) = &item.right {
+                collect_messages(right, map);
+            }
+        }
+        _ => {}
+    }
+}
+
+async fn dispatch_msg<A: Applet>(
+    map: &MsgMap<A::Msg>,
+    applet: &mut A,
+    state: &mut A::State,
+    event: CallbackEvent,
+) -> AppletResult<()> {
+    let msg = match &event {
+        CallbackEvent::Click(e) => map.click.get(&e.id).cloned(),
+        CallbackEvent::Toggle(e) => map.toggle.get(&e.id).map(|f| f(e.value)),
+        CallbackEvent::Change(e) => map.change.get(&e.id).map(|f| f(e.value.clone())),
+        _ => None,
+    };
+
+    if let Some(msg) = msg {
+        applet.update(state, msg).await?;
+        return Ok(());
+    }
+
+    // Fallback for events without a registered message
+    match event {
+        CallbackEvent::Scroll(e) => applet.on_scroll(state, e).await?,
+        CallbackEvent::Input(e) => applet.on_input(state, e).await?,
+        CallbackEvent::Popover(e) => applet.on_popover(state, e).await?,
+        CallbackEvent::Click(e) => {
+            eprintln!("glimpse-sdk: unhandled click event for id {:?}", e.id);
+        }
+        CallbackEvent::Toggle(e) => {
+            eprintln!("glimpse-sdk: unhandled toggle event for id {:?}", e.id);
+        }
+        CallbackEvent::Change(e) => {
+            eprintln!("glimpse-sdk: unhandled change event for id {:?}", e.id);
+        }
+    }
+    Ok(())
+}
+
 pub async fn run<A>(mut applet: A, mut state: A::State) -> AppletResult<()>
 where
     A: Applet,
@@ -229,7 +395,7 @@ where
             .await?;
         stdout.flush().await?;
     }
-    flush(&mut stdout, &applet, &state, &mut last).await?;
+    let mut msg_map = flush(&mut stdout, &applet, &state, &mut last).await?;
 
     while let Some(line) = lines.next_line().await? {
         if line.trim().is_empty() {
@@ -252,7 +418,7 @@ where
                 }
             },
             "event" => match parse_callback_event(incoming.data) {
-                Ok(event) => applet.on_callback(&mut state, event).await,
+                Ok(event) => dispatch_msg(&msg_map, &mut applet, &mut state, event).await,
                 Err(err) => {
                     eprintln!("glimpse-sdk: ignoring malformed event: {err}");
                     continue;
@@ -262,7 +428,7 @@ where
         };
         result?;
 
-        flush(&mut stdout, &applet, &state, &mut last).await?;
+        msg_map = flush(&mut stdout, &applet, &state, &mut last).await?;
     }
 
     Ok(())
@@ -272,8 +438,8 @@ async fn flush<A>(
     stdout: &mut io::Stdout,
     applet: &A,
     state: &A::State,
-    last: &mut LastSeen,
-) -> AppletResult<()>
+    last: &mut LastSeen<A::Msg>,
+) -> AppletResult<MsgMap<A::Msg>>
 where
     A: Applet,
 {
@@ -289,6 +455,10 @@ where
     }
 
     let next_tree = applet.popover(state).await?;
+    let mut map = MsgMap::new();
+    if let Some(ref tree) = next_tree {
+        collect_messages(tree, &mut map);
+    }
     if last.tree != next_tree {
         write_message(
             stdout,
@@ -302,7 +472,7 @@ where
     }
 
     last.initialized = true;
-    Ok(())
+    Ok(map)
 }
 
 async fn write_message<T: Serialize>(
@@ -324,7 +494,13 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::{Badge, Button, CallbackEvent, ClickEvent, Column, StatusItem, Text, TreeNode};
+    use crate::{Badge, Button, Column, StatusItem, Text, TreeNode};
+
+    // A minimal Msg type for tests that need interaction.
+    #[derive(Debug, Clone, PartialEq)]
+    enum DemoMsg {
+        Submit,
+    }
 
     struct DemoApplet;
 
@@ -337,6 +513,7 @@ mod tests {
     #[async_trait]
     impl Applet for DemoApplet {
         type State = DemoState;
+        type Msg = DemoMsg;
 
         async fn status(&self, state: &Self::State) -> AppletResult<Vec<StatusItem>> {
             Ok(vec![
@@ -346,24 +523,25 @@ mod tests {
             ])
         }
 
-        async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode>> {
+        async fn popover(
+            &self,
+            state: &Self::State,
+        ) -> AppletResult<Option<TreeNode<Self::Msg>>> {
             Ok(Some(TreeNode::from(Column::new(vec![
                 TreeNode::from(crate::Hero::new("Demo", state.version.clone())),
                 TreeNode::from(Text::new(state.version.clone())),
-                TreeNode::from(Button::new("submit").label("Submit")),
+                TreeNode::from(Button::new("submit").label("Submit").on_click(DemoMsg::Submit)),
             ]))))
         }
 
-        async fn on_callback(
+        async fn update(
             &mut self,
             state: &mut Self::State,
-            event: CallbackEvent,
+            msg: Self::Msg,
         ) -> AppletResult<()> {
-            if let CallbackEvent::Click(click) = event {
-                if click.id == "submit" {
-                    state.clicks += 1;
-                    state.version = "v2".into();
-                }
+            if msg == DemoMsg::Submit {
+                state.clicks += 1;
+                state.version = "v2".into();
             }
             Ok(())
         }
@@ -380,7 +558,7 @@ mod tests {
 
         assert_eq!(
             event,
-            CallbackEvent::Click(ClickEvent {
+            CallbackEvent::Click(crate::ClickEvent {
                 id: "submit".into(),
                 button: Some("left".into()),
             })
@@ -404,33 +582,34 @@ mod tests {
 
     #[test]
     fn select_tree_nodes_serialize() {
-        let node = crate::Select::new("env", vec![("prod".into(), "Production".into())]);
-        let payload = serde_json::to_value(TreeNode::from(node)).expect("tree should serialize");
+        let node = crate::Select::<()>::new("env", vec![("prod".into(), "Production".into())]);
+        let payload =
+            serde_json::to_value(TreeNode::<()>::from(node)).expect("tree should serialize");
         assert_eq!(payload["type"], "select");
         assert_eq!(payload["data"]["items"][0]["id"], "prod");
     }
 
     #[test]
     fn status_dot_serializes_as_status_protocol_name() {
-        let payload = serde_json::to_value(TreeNode::from(crate::StatusDot::new()))
+        let payload = serde_json::to_value(TreeNode::<()>::from(crate::StatusDot::new()))
             .expect("status dot serializes");
         assert_eq!(payload["type"], "status");
     }
 
     #[test]
     fn row_and_column_serialize_as_layout_protocol_names() {
-        let row =
-            serde_json::to_value(TreeNode::from(crate::Row::new(vec![]))).expect("row serializes");
+        let row = serde_json::to_value(TreeNode::<()>::from(crate::Row::new(vec![])))
+            .expect("row serializes");
         assert_eq!(row["type"], "row");
 
-        let column = serde_json::to_value(TreeNode::from(crate::Column::new(vec![])))
+        let column = serde_json::to_value(TreeNode::<()>::from(crate::Column::new(vec![])))
             .expect("column serializes");
         assert_eq!(column["type"], "column");
     }
 
     #[test]
     fn spinner_serializes_with_default_spinning() {
-        let payload = serde_json::to_value(TreeNode::from(crate::Spinner::new()))
+        let payload = serde_json::to_value(TreeNode::<()>::from(crate::Spinner::new()))
             .expect("spinner serializes");
         assert_eq!(payload["type"], "spinner");
         assert_eq!(payload["data"]["spinning"], true);
@@ -440,12 +619,13 @@ mod tests {
     fn variant_serializes_as_semantic_protocol_value() {
         let mut badge = Badge::new("Warning");
         badge.variant = Some(crate::Variant::Warning);
-        let payload = serde_json::to_value(TreeNode::from(badge)).expect("tree should serialize");
+        let payload =
+            serde_json::to_value(TreeNode::<()>::from(badge)).expect("tree should serialize");
         assert_eq!(payload["data"]["variant"], "warning");
     }
 
     #[tokio::test]
-    async fn callback_mutates_state_and_status_observes_it() {
+    async fn update_mutates_state_and_status_observes_it() {
         let mut applet = DemoApplet;
         let mut state = DemoState {
             version: "v1".into(),
@@ -453,15 +633,9 @@ mod tests {
         };
 
         applet
-            .on_callback(
-                &mut state,
-                CallbackEvent::Click(ClickEvent {
-                    id: "submit".into(),
-                    button: Some("left".into()),
-                }),
-            )
+            .update(&mut state, DemoMsg::Submit)
             .await
-            .expect("callback should update state");
+            .expect("update should succeed");
 
         let status = applet.status(&state).await.expect("status should succeed");
         assert_eq!(status[0].label.as_deref(), Some("v2"));
@@ -514,7 +688,6 @@ mod tests {
     #[tokio::test]
     async fn run_command_rejects_empty_command() {
         let err = run_command(&[]).await.expect_err("empty command should fail");
-
         assert!(err.to_string().contains("command must not be empty"));
     }
 }

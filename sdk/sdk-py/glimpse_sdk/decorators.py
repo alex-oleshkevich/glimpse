@@ -30,3 +30,7 @@ def toggle(target_id: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]
 
 def scroll(target_id: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     return event("scroll", target_id)
+
+
+def popover() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    return event("open", "popover")

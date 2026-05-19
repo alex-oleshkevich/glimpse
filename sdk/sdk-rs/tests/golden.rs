@@ -32,7 +32,7 @@ fn load(rel: &str) -> Value {
 }
 
 #[track_caller]
-fn assert_widget(name: &str, node: TreeNode) {
+fn assert_widget(name: &str, node: TreeNode<()>) {
     let expected = load(&format!("widgets/{name}.json"));
     let got = serde_json::to_value(&node).expect("serialize");
     assert_eq!(got, expected, "fixture mismatch for widgets/{name}.json");

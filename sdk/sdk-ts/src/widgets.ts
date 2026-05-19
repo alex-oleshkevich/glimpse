@@ -1,3 +1,5 @@
+import type { CallbackEvent, ClickEvent, ToggleEvent, ChangeEvent } from "./events.js";
+
 export type Align = "fill" | "start" | "end" | "center" | "baseline";
 export type Orientation = "horizontal" | "vertical";
 export type Variant = "normal" | "muted" | "accent" | "success" | "warning" | "danger";
@@ -71,8 +73,22 @@ export type ContentFit = "fill" | "contain" | "cover" | "scale_down";
 export type LevelBarMode = "continuous" | "discrete";
 export type StatusVariant = "success" | "warning" | "danger";
 
+export class InlineHandlerRegistry {
+  readonly handlers = new Map<string, (event: CallbackEvent) => void | Promise<void>>();
+
+  generatedId(event: string, path: number[]): string {
+    const suffix = path.length > 0 ? path.join(".") : "root";
+    return `__glimpse:${event}:${suffix}`;
+  }
+
+  add(event: string, id: string, handler: (event: CallbackEvent) => void | Promise<void>): void {
+    this.handlers.set(`${event}:${id}`, handler);
+  }
+}
+
 export interface WidgetNode {
   toProtocol(): Record<string, unknown>;
+  bindHandlers?(registry: InlineHandlerRegistry, path: number[]): void;
 }
 
 export interface CommonProps {
@@ -109,6 +125,8 @@ abstract class WidgetBase implements WidgetNode {
   }
 
   abstract toProtocol(): Record<string, unknown>;
+
+  bindHandlers(_registry: InlineHandlerRegistry, _path: number[]): void {}
 }
 
 export class Text extends WidgetBase {
@@ -219,6 +237,7 @@ export class Button extends WidgetBase {
       icon?: string;
       enabled?: boolean;
       variant?: ButtonVariant;
+      onClick?: (event: ClickEvent) => void | Promise<void>;
     },
   ) {
     super(options);
@@ -231,6 +250,13 @@ export class Button extends WidgetBase {
     if (this.options.enabled !== undefined) payload.enabled = this.options.enabled;
     if (this.options.variant !== undefined) payload.variant = this.options.variant;
     return { type: "button", data: payload };
+  }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    if (this.options.onClick !== undefined) {
+      const id = this.options.id || registry.generatedId("click", path);
+      registry.add("click", id, this.options.onClick as (e: CallbackEvent) => void | Promise<void>);
+    }
   }
 }
 
@@ -272,6 +298,10 @@ export class Expander extends WidgetBase {
       }),
     };
   }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    this.options.child.bindHandlers?.(registry, [...path, 0]);
+  }
 }
 
 export class Switch extends WidgetBase {
@@ -280,6 +310,7 @@ export class Switch extends WidgetBase {
       id: string;
       label?: string;
       active?: boolean;
+      onToggle?: (event: ToggleEvent) => void | Promise<void>;
     },
   ) {
     super(options);
@@ -290,6 +321,13 @@ export class Switch extends WidgetBase {
     if (this.options.label !== undefined) payload.label = this.options.label;
     return { type: "switch", data: payload };
   }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    if (this.options.onToggle !== undefined) {
+      const id = this.options.id || registry.generatedId("toggle", path);
+      registry.add("toggle", id, this.options.onToggle as (e: CallbackEvent) => void | Promise<void>);
+    }
+  }
 }
 
 export class ToggleButton extends WidgetBase {
@@ -299,6 +337,7 @@ export class ToggleButton extends WidgetBase {
       label?: string;
       icon?: string;
       active?: boolean;
+      onToggle?: (event: ToggleEvent) => void | Promise<void>;
     },
   ) {
     super(options);
@@ -309,6 +348,13 @@ export class ToggleButton extends WidgetBase {
     if (this.options.label !== undefined) payload.label = this.options.label;
     if (this.options.icon !== undefined) payload.icon = this.options.icon;
     return { type: "toggle_button", data: payload };
+  }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    if (this.options.onToggle !== undefined) {
+      const id = this.options.id || registry.generatedId("toggle", path);
+      registry.add("toggle", id, this.options.onToggle as (e: CallbackEvent) => void | Promise<void>);
+    }
   }
 }
 
@@ -322,6 +368,7 @@ export class Slider extends WidgetBase {
       value?: number;
       orientation?: Orientation;
       draw_value?: boolean;
+      onChange?: (event: ChangeEvent) => void | Promise<void>;
     },
   ) {
     super(options);
@@ -339,6 +386,13 @@ export class Slider extends WidgetBase {
     if (this.options.draw_value !== undefined) payload.draw_value = this.options.draw_value;
     return { type: "slider", data: payload };
   }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    if (this.options.onChange !== undefined) {
+      const id = this.options.id || registry.generatedId("change", path);
+      registry.add("change", id, this.options.onChange as (e: CallbackEvent) => void | Promise<void>);
+    }
+  }
 }
 
 export class Checkbox extends WidgetBase {
@@ -347,6 +401,7 @@ export class Checkbox extends WidgetBase {
       id: string;
       label?: string;
       active?: boolean;
+      onToggle?: (event: ToggleEvent) => void | Promise<void>;
     },
   ) {
     super(options);
@@ -357,6 +412,13 @@ export class Checkbox extends WidgetBase {
     if (this.options.label !== undefined) payload.label = this.options.label;
     return { type: "checkbox", data: payload };
   }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    if (this.options.onToggle !== undefined) {
+      const id = this.options.id || registry.generatedId("toggle", path);
+      registry.add("toggle", id, this.options.onToggle as (e: CallbackEvent) => void | Promise<void>);
+    }
+  }
 }
 
 export class Select extends WidgetBase {
@@ -365,6 +427,7 @@ export class Select extends WidgetBase {
       id: string;
       items?: Array<{ id: string; label: string }>;
       selected?: number;
+      onChange?: (event: ChangeEvent) => void | Promise<void>;
     },
   ) {
     super(options);
@@ -377,6 +440,13 @@ export class Select extends WidgetBase {
     });
     if (this.options.selected !== undefined) payload.selected = this.options.selected;
     return { type: "select", data: payload };
+  }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    if (this.options.onChange !== undefined) {
+      const id = this.options.id || registry.generatedId("change", path);
+      registry.add("change", id, this.options.onChange as (e: CallbackEvent) => void | Promise<void>);
+    }
   }
 }
 
@@ -402,6 +472,10 @@ export class Scroll extends WidgetBase {
 
   toProtocol(): Record<string, unknown> {
     return { type: "scroll", data: this.withCommon({ child: this.child.toProtocol() }) };
+  }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    this.child.bindHandlers?.(registry, [...path, 0]);
   }
 }
 
@@ -446,6 +520,12 @@ export class Grid extends WidgetBase {
       }),
     };
   }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    (this.options.children ?? []).forEach((gc, i) => {
+      gc.child.bindHandlers?.(registry, [...path, i]);
+    });
+  }
 }
 
 export class Hero extends WidgetBase {
@@ -456,6 +536,7 @@ export class Hero extends WidgetBase {
       icon?: string;
       id?: string;
       switch?: boolean;
+      onToggle?: (event: ToggleEvent) => void | Promise<void>;
     },
   ) {
     super(options);
@@ -470,6 +551,13 @@ export class Hero extends WidgetBase {
     if (this.options.id !== undefined) payload.id = this.options.id;
     if (this.options.switch !== undefined) payload.switch = this.options.switch;
     return { type: "hero", data: payload };
+  }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    if (this.options.onToggle !== undefined) {
+      const id = this.options.id || registry.generatedId("toggle", path);
+      registry.add("toggle", id, this.options.onToggle as (e: CallbackEvent) => void | Promise<void>);
+    }
   }
 }
 
@@ -491,6 +579,10 @@ export class Card extends WidgetBase {
       type: "card",
       data: this.withCommon(data),
     };
+  }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    this.options.child?.bindHandlers?.(registry, [...path, 0]);
   }
 }
 
@@ -549,6 +641,10 @@ export class Container extends WidgetBase {
     if (this.options.font_size !== undefined) data.font_size = this.options.font_size;
     if (this.options.font_weight !== undefined) data.font_weight = this.options.font_weight;
     return { type: "container", data: this.withCommon(data) };
+  }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    this.options.child?.bindHandlers?.(registry, [...path, 0]);
   }
 }
 
@@ -625,6 +721,12 @@ export class Row extends WidgetBase {
       }),
     };
   }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    (this.options.children ?? []).forEach((child, i) => {
+      child.bindHandlers?.(registry, [...path, i]);
+    });
+  }
 }
 
 export class Column extends WidgetBase {
@@ -645,6 +747,12 @@ export class Column extends WidgetBase {
         children: (this.options.children ?? []).map((child) => child.toProtocol()),
       }),
     };
+  }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    (this.options.children ?? []).forEach((child, i) => {
+      child.bindHandlers?.(registry, [...path, i]);
+    });
   }
 }
 
@@ -725,6 +833,11 @@ export class Item extends WidgetBase {
       data: this.withCommon(payload),
     };
   }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    this.options.left?.bindHandlers?.(registry, [...path, 0]);
+    this.options.right?.bindHandlers?.(registry, [...path, 1]);
+  }
 }
 
 export class ActionItem extends WidgetBase {
@@ -737,6 +850,7 @@ export class ActionItem extends WidgetBase {
       left?: TreeNode;
       right?: TreeNode;
       enabled?: boolean;
+      onClick?: (event: ClickEvent) => void | Promise<void>;
     },
   ) {
     super(options);
@@ -766,6 +880,15 @@ export class ActionItem extends WidgetBase {
       type: "action_item",
       data: this.withCommon(payload),
     };
+  }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    if (this.options.onClick !== undefined) {
+      const id = this.options.id || registry.generatedId("click", path);
+      registry.add("click", id, this.options.onClick as (e: CallbackEvent) => void | Promise<void>);
+    }
+    this.options.left?.bindHandlers?.(registry, [...path, 0]);
+    this.options.right?.bindHandlers?.(registry, [...path, 1]);
   }
 }
 
@@ -929,5 +1052,10 @@ export class PopoverScaffold extends WidgetBase {
       data.hero = this.options.hero.toProtocol();
     }
     return { type: "popover_scaffold", data };
+  }
+
+  bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
+    this.options.hero?.bindHandlers?.(registry, [...path, 0]);
+    this.options.body.bindHandlers?.(registry, [...path, 1]);
   }
 }

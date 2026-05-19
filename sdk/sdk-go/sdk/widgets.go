@@ -16,6 +16,7 @@
 package sdk
 
 import (
+	"context"
 	"encoding/json"
 	"sort"
 )
@@ -173,6 +174,7 @@ type Hero struct {
 	Icon     string `json:"icon,omitempty"`
 	ID       string `json:"id,omitempty"`
 	SwitchOn *bool  `json:"switch,omitempty"`
+	OnToggle func(context.Context, ToggleEvent) error `json:"-"`
 }
 
 func (Hero) isWidget() {}
@@ -400,6 +402,7 @@ type Button struct {
 	Icon    string        `json:"icon,omitempty"`
 	Enabled *bool         `json:"enabled,omitempty"`
 	Variant ButtonVariant `json:"variant,omitempty"`
+	OnClick func(context.Context, ClickEvent) error `json:"-"`
 }
 
 func (Button) isWidget() {}
@@ -436,8 +439,9 @@ func (e Expander) MarshalJSON() ([]byte, error) {
 type Switch struct {
 	ID string `json:"id"`
 	CommonProps
-	Label  string `json:"label,omitempty"`
-	Active bool   `json:"active"`
+	Label    string `json:"label,omitempty"`
+	Active   bool   `json:"active"`
+	OnToggle func(context.Context, ToggleEvent) error `json:"-"`
 }
 
 func (Switch) isWidget() {}
@@ -449,9 +453,10 @@ func (s Switch) MarshalJSON() ([]byte, error) {
 type ToggleButton struct {
 	ID string `json:"id"`
 	CommonProps
-	Label  string `json:"label,omitempty"`
-	Icon   string `json:"icon,omitempty"`
-	Active bool   `json:"active"`
+	Label    string `json:"label,omitempty"`
+	Icon     string `json:"icon,omitempty"`
+	Active   bool   `json:"active"`
+	OnToggle func(context.Context, ToggleEvent) error `json:"-"`
 }
 
 func (ToggleButton) isWidget() {}
@@ -463,8 +468,9 @@ func (t ToggleButton) MarshalJSON() ([]byte, error) {
 type Checkbox struct {
 	ID string `json:"id"`
 	CommonProps
-	Label  string `json:"label,omitempty"`
-	Active bool   `json:"active"`
+	Label    string `json:"label,omitempty"`
+	Active   bool   `json:"active"`
+	OnToggle func(context.Context, ToggleEvent) error `json:"-"`
 }
 
 func (Checkbox) isWidget() {}
@@ -482,6 +488,7 @@ type Slider struct {
 	Value       float64     `json:"value"`
 	Orientation Orientation `json:"orientation,omitempty"`
 	DrawValue   bool        `json:"draw_value,omitempty"`
+	OnChange    func(context.Context, ChangeEvent) error `json:"-"`
 }
 
 func (Slider) isWidget() {}
@@ -494,7 +501,8 @@ type Select struct {
 	ID string `json:"id"`
 	CommonProps
 	Items    []map[string]string `json:"items"`
-	Selected *uint32             `json:"selected,omitempty"`
+	Selected  *uint32             `json:"selected,omitempty"`
+	OnChange  func(context.Context, ChangeEvent) error `json:"-"`
 }
 
 func (Select) isWidget() {}
@@ -696,6 +704,7 @@ type ActionItem struct {
 	Sublabel string `json:"sublabel,omitempty"`
 	Right    Widget `json:"right,omitempty"`
 	Enabled  *bool  `json:"enabled,omitempty"`
+	OnClick  func(context.Context, ClickEvent) error `json:"-"`
 }
 
 func (ActionItem) isWidget() {}

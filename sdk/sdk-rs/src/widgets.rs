@@ -1,6 +1,29 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use serde::Serialize;
+
+// Wraps a sync mapping function used for value-carrying events (toggle, change).
+// Always equal for tree diffing — handler identity doesn't affect the diff.
+pub struct MsgMapper<T, Msg>(pub(crate) Arc<dyn Fn(T) -> Msg + Send + Sync>);
+
+impl<T, Msg> Clone for MsgMapper<T, Msg> {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+}
+
+impl<T, Msg> PartialEq for MsgMapper<T, Msg> {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
+impl<T, Msg> std::fmt::Debug for MsgMapper<T, Msg> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("MsgMapper").finish()
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -199,6 +222,31 @@ macro_rules! with_common {
             }
         }
     };
+    ($name:ident < Msg >) => {
+        impl<Msg> $name<Msg> {
+            pub fn css_class(mut self, class: impl Into<String>) -> Self {
+                self.common.css_classes.push(class.into());
+                self
+            }
+
+            pub fn style(mut self, property: impl Into<String>, value: impl Into<String>) -> Self {
+                self.common.styles.insert(property.into(), value.into());
+                self
+            }
+
+            pub fn styles(
+                mut self,
+                styles: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
+            ) -> Self {
+                self.common.styles.extend(
+                    styles
+                        .into_iter()
+                        .map(|(property, value)| (property.into(), value.into())),
+                );
+                self
+            }
+        }
+    };
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -299,7 +347,8 @@ impl Picture {
 with_common!(Picture);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Button {
+#[serde(bound(serialize = ""))]
+pub struct Button<Msg> {
     pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
@@ -311,9 +360,11 @@ pub struct Button {
     pub enabled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub variant: Option<ButtonVariant>,
+    #[serde(skip)]
+    pub(crate) on_click: Option<Msg>,
 }
 
-impl Button {
+impl<Msg> Button<Msg> {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -322,6 +373,7 @@ impl Button {
             icon: None,
             enabled: None,
             variant: None,
+            on_click: None,
         }
     }
 
@@ -344,9 +396,14 @@ impl Button {
         self.variant = Some(variant);
         self
     }
+
+    pub fn on_click(mut self, msg: Msg) -> Self {
+        self.on_click = Some(msg);
+        self
+    }
 }
 
-with_common!(Button);
+with_common!(Button<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct LinkButton {
@@ -375,15 +432,16 @@ impl LinkButton {
 with_common!(LinkButton);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Expander {
+#[serde(bound(serialize = ""))]
+pub struct Expander<Msg> {
     #[serde(flatten)]
     pub common: CommonProps,
     pub label: String,
     pub expanded: bool,
-    pub child: Box<TreeNode>,
+    pub child: Box<TreeNode<Msg>>,
 }
 
-impl Expander {
+impl<Msg> Expander<Msg> {
     pub fn new(label: impl Into<String>) -> Self {
         Self {
             common: CommonProps::default(),
@@ -398,39 +456,59 @@ impl Expander {
         self
     }
 
-    pub fn child(mut self, child: impl Into<TreeNode>) -> Self {
+    pub fn child(mut self, child: impl Into<TreeNode<Msg>>) -> Self {
         self.child = Box::new(child.into());
         self
     }
 }
 
-with_common!(Expander);
+with_common!(Expander<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Switch {
+#[serde(bound(serialize = ""))]
+pub struct Switch<Msg> {
     pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     pub active: bool,
+    #[serde(skip)]
+    pub(crate) on_toggle: Option<MsgMapper<bool, Msg>>,
 }
 
-impl Switch {
+impl<Msg> Switch<Msg> {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             common: CommonProps::default(),
             label: None,
             active: false,
+            on_toggle: None,
         }
+    }
+
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
+        self
+    }
+
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    pub fn on_toggle<F: Fn(bool) -> Msg + Send + Sync + 'static>(mut self, f: F) -> Self {
+        self.on_toggle = Some(MsgMapper(Arc::new(f)));
+        self
     }
 }
 
-with_common!(Switch);
+with_common!(Switch<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct ToggleButton {
+#[serde(bound(serialize = ""))]
+pub struct ToggleButton<Msg> {
     pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
@@ -439,9 +517,11 @@ pub struct ToggleButton {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
     pub active: bool,
+    #[serde(skip)]
+    pub(crate) on_toggle: Option<MsgMapper<bool, Msg>>,
 }
 
-impl ToggleButton {
+impl<Msg> ToggleButton<Msg> {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -449,19 +529,36 @@ impl ToggleButton {
             label: None,
             icon: None,
             active: false,
+            on_toggle: None,
         }
+    }
+
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 
     pub fn icon(mut self, icon: impl Into<String>) -> Self {
         self.icon = Some(icon.into());
         self
     }
+
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
+        self
+    }
+
+    pub fn on_toggle<F: Fn(bool) -> Msg + Send + Sync + 'static>(mut self, f: F) -> Self {
+        self.on_toggle = Some(MsgMapper(Arc::new(f)));
+        self
+    }
 }
 
-with_common!(ToggleButton);
+with_common!(ToggleButton<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Slider {
+#[serde(bound(serialize = ""))]
+pub struct Slider<Msg> {
     pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
@@ -473,9 +570,11 @@ pub struct Slider {
     pub orientation: Option<Orientation>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub draw_value: bool,
+    #[serde(skip)]
+    pub(crate) on_change: Option<MsgMapper<Option<serde_json::Value>, Msg>>,
 }
 
-impl Slider {
+impl<Msg> Slider<Msg> {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -486,37 +585,86 @@ impl Slider {
             value: 0.0,
             orientation: None,
             draw_value: false,
+            on_change: None,
         }
+    }
+
+    pub fn min(mut self, min: f64) -> Self {
+        self.min = min;
+        self
+    }
+
+    pub fn max(mut self, max: f64) -> Self {
+        self.max = max;
+        self
+    }
+
+    pub fn step(mut self, step: f64) -> Self {
+        self.step = step;
+        self
+    }
+
+    pub fn value(mut self, value: f64) -> Self {
+        self.value = value;
+        self
+    }
+
+    pub fn on_change<F: Fn(Option<serde_json::Value>) -> Msg + Send + Sync + 'static>(
+        mut self,
+        f: F,
+    ) -> Self {
+        self.on_change = Some(MsgMapper(Arc::new(f)));
+        self
     }
 }
 
-with_common!(Slider);
+with_common!(Slider<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Checkbox {
+#[serde(bound(serialize = ""))]
+pub struct Checkbox<Msg> {
     pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     pub active: bool,
+    #[serde(skip)]
+    pub(crate) on_toggle: Option<MsgMapper<bool, Msg>>,
 }
 
-impl Checkbox {
+impl<Msg> Checkbox<Msg> {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             common: CommonProps::default(),
             label: None,
             active: false,
+            on_toggle: None,
         }
+    }
+
+    pub fn active(mut self, active: bool) -> Self {
+        self.active = active;
+        self
+    }
+
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    pub fn on_toggle<F: Fn(bool) -> Msg + Send + Sync + 'static>(mut self, f: F) -> Self {
+        self.on_toggle = Some(MsgMapper(Arc::new(f)));
+        self
     }
 }
 
-with_common!(Checkbox);
+with_common!(Checkbox<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Select {
+#[serde(bound(serialize = ""))]
+pub struct Select<Msg> {
     pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
@@ -524,6 +672,8 @@ pub struct Select {
     pub items: Vec<(String, String)>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub selected: Option<u32>,
+    #[serde(skip)]
+    pub(crate) on_change: Option<MsgMapper<Option<serde_json::Value>, Msg>>,
 }
 
 fn serialize_select_items<S>(items: &[(String, String)], s: S) -> Result<S::Ok, S::Error>
@@ -538,18 +688,32 @@ where
     seq.end()
 }
 
-impl Select {
+impl<Msg> Select<Msg> {
     pub fn new(id: impl Into<String>, items: Vec<(String, String)>) -> Self {
         Self {
             id: id.into(),
             common: CommonProps::default(),
             items,
             selected: None,
+            on_change: None,
         }
+    }
+
+    pub fn selected(mut self, selected: u32) -> Self {
+        self.selected = Some(selected);
+        self
+    }
+
+    pub fn on_change<F: Fn(Option<serde_json::Value>) -> Msg + Send + Sync + 'static>(
+        mut self,
+        f: F,
+    ) -> Self {
+        self.on_change = Some(MsgMapper(Arc::new(f)));
+        self
     }
 }
 
-with_common!(Select);
+with_common!(Select<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Separator {
@@ -568,17 +732,24 @@ impl Separator {
     }
 }
 
+impl Default for Separator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 with_common!(Separator);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Scroll {
+#[serde(bound(serialize = ""))]
+pub struct Scroll<Msg> {
     #[serde(flatten)]
     pub common: CommonProps,
-    pub child: Box<TreeNode>,
+    pub child: Box<TreeNode<Msg>>,
 }
 
-impl Scroll {
-    pub fn new(child: TreeNode) -> Self {
+impl<Msg> Scroll<Msg> {
+    pub fn new(child: TreeNode<Msg>) -> Self {
         Self {
             common: CommonProps::default(),
             child: Box::new(child),
@@ -586,7 +757,7 @@ impl Scroll {
     }
 }
 
-with_common!(Scroll);
+with_common!(Scroll<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct LevelBar {
@@ -628,16 +799,17 @@ impl LevelBar {
 with_common!(LevelBar);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct GridChild {
+#[serde(bound(serialize = ""))]
+pub struct GridChild<Msg> {
     pub row: i32,
     pub column: i32,
     pub width: i32,
     pub height: i32,
-    pub child: TreeNode,
+    pub child: TreeNode<Msg>,
 }
 
-impl GridChild {
-    pub fn new(row: i32, column: i32, child: TreeNode) -> Self {
+impl<Msg> GridChild<Msg> {
+    pub fn new(row: i32, column: i32, child: TreeNode<Msg>) -> Self {
         Self {
             row,
             column,
@@ -649,16 +821,17 @@ impl GridChild {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Grid {
+#[serde(bound(serialize = ""))]
+pub struct Grid<Msg> {
     #[serde(flatten)]
     pub common: CommonProps,
-    pub children: Vec<GridChild>,
+    pub children: Vec<GridChild<Msg>>,
     pub row_spacing: i32,
     pub column_spacing: i32,
 }
 
-impl Grid {
-    pub fn new(children: Vec<GridChild>) -> Self {
+impl<Msg> Grid<Msg> {
+    pub fn new(children: Vec<GridChild<Msg>>) -> Self {
         Self {
             common: CommonProps::default(),
             children,
@@ -668,10 +841,11 @@ impl Grid {
     }
 }
 
-with_common!(Grid);
+with_common!(Grid<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Hero {
+#[serde(bound(serialize = ""))]
+pub struct Hero<Msg> {
     pub title: String,
     pub subtitle: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -682,9 +856,11 @@ pub struct Hero {
     pub switch: Option<bool>,
     #[serde(flatten)]
     pub common: CommonProps,
+    #[serde(skip)]
+    pub(crate) on_toggle: Option<MsgMapper<bool, Msg>>,
 }
 
-impl Hero {
+impl<Msg> Hero<Msg> {
     pub fn new(title: impl Into<String>, subtitle: impl Into<String>) -> Self {
         Self {
             title: title.into(),
@@ -693,6 +869,7 @@ impl Hero {
             id: None,
             switch: None,
             common: CommonProps::default(),
+            on_toggle: None,
         }
     }
 
@@ -710,9 +887,14 @@ impl Hero {
         self.switch = Some(active);
         self
     }
+
+    pub fn on_toggle<F: Fn(bool) -> Msg + Send + Sync + 'static>(mut self, f: F) -> Self {
+        self.on_toggle = Some(MsgMapper(Arc::new(f)));
+        self
+    }
 }
 
-with_common!(Hero);
+with_common!(Hero<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Progress {
@@ -756,15 +938,16 @@ impl Progress {
 with_common!(Progress);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Card {
+#[serde(bound(serialize = ""))]
+pub struct Card<Msg> {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub child: Option<Box<TreeNode>>,
+    pub child: Option<Box<TreeNode<Msg>>>,
 }
 
-impl Card {
-    pub fn new(child: Option<TreeNode>) -> Self {
+impl<Msg> Card<Msg> {
+    pub fn new(child: Option<TreeNode<Msg>>) -> Self {
         Self {
             common: CommonProps::default(),
             child: child.map(Box::new),
@@ -772,14 +955,15 @@ impl Card {
     }
 }
 
-with_common!(Card);
+with_common!(Card<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Container {
+#[serde(bound(serialize = ""))]
+pub struct Container<Msg> {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub child: Option<Box<TreeNode>>,
+    pub child: Option<Box<TreeNode<Msg>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub width: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -824,8 +1008,8 @@ pub struct Container {
     pub font_weight: Option<FontWeight>,
 }
 
-impl Container {
-    pub fn new(child: Option<TreeNode>) -> Self {
+impl<Msg> Container<Msg> {
+    pub fn new(child: Option<TreeNode<Msg>>) -> Self {
         Self {
             common: CommonProps::default(),
             child: child.map(Box::new),
@@ -853,7 +1037,7 @@ impl Container {
         }
     }
 
-    pub fn child(mut self, child: impl Into<TreeNode>) -> Self {
+    pub fn child(mut self, child: impl Into<TreeNode<Msg>>) -> Self {
         self.child = Some(Box::new(child.into()));
         self
     }
@@ -964,7 +1148,7 @@ impl Container {
     }
 }
 
-with_common!(Container);
+with_common!(Container<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Meter {
@@ -1030,15 +1214,16 @@ impl Copyable {
 with_common!(Copyable);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Row {
+#[serde(bound(serialize = ""))]
+pub struct Row<Msg> {
     #[serde(flatten)]
     pub common: CommonProps,
     pub spacing: i32,
-    pub children: Vec<TreeNode>,
+    pub children: Vec<TreeNode<Msg>>,
 }
 
-impl Row {
-    pub fn new(children: Vec<TreeNode>) -> Self {
+impl<Msg> Row<Msg> {
+    pub fn new(children: Vec<TreeNode<Msg>>) -> Self {
         Self {
             common: CommonProps::default(),
             spacing: 4,
@@ -1052,18 +1237,19 @@ impl Row {
     }
 }
 
-with_common!(Row);
+with_common!(Row<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Column {
+#[serde(bound(serialize = ""))]
+pub struct Column<Msg> {
     #[serde(flatten)]
     pub common: CommonProps,
     pub spacing: i32,
-    pub children: Vec<TreeNode>,
+    pub children: Vec<TreeNode<Msg>>,
 }
 
-impl Column {
-    pub fn new(children: Vec<TreeNode>) -> Self {
+impl<Msg> Column<Msg> {
+    pub fn new(children: Vec<TreeNode<Msg>>) -> Self {
         Self {
             common: CommonProps::default(),
             spacing: 4,
@@ -1077,7 +1263,7 @@ impl Column {
     }
 }
 
-with_common!(Column);
+with_common!(Column<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Spinner {
@@ -1164,19 +1350,20 @@ impl Default for PropertyList {
 with_common!(PropertyList);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Item {
+#[serde(bound(serialize = ""))]
+pub struct Item<Msg> {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub left: Option<std::boxed::Box<TreeNode>>,
+    pub left: Option<Box<TreeNode<Msg>>>,
     pub label: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub sublabel: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub right: Option<std::boxed::Box<TreeNode>>,
+    pub right: Option<Box<TreeNode<Msg>>>,
 }
 
-impl Item {
+impl<Msg> Item<Msg> {
     pub fn new(label: impl Into<String>) -> Self {
         Self {
             common: CommonProps::default(),
@@ -1188,7 +1375,7 @@ impl Item {
     }
 
     pub fn icon(mut self, name: impl Into<String>) -> Self {
-        self.left = Some(std::boxed::Box::new(TreeNode::Icon(Icon {
+        self.left = Some(Box::new(TreeNode::Icon(Icon {
             common: CommonProps::default(),
             icon: name.into(),
             pixel_size: Some(16),
@@ -1196,8 +1383,8 @@ impl Item {
         self
     }
 
-    pub fn left(mut self, left: impl Into<TreeNode>) -> Self {
-        self.left = Some(std::boxed::Box::new(left.into()));
+    pub fn left(mut self, left: impl Into<TreeNode<Msg>>) -> Self {
+        self.left = Some(Box::new(left.into()));
         self
     }
 
@@ -1206,31 +1393,34 @@ impl Item {
         self
     }
 
-    pub fn right(mut self, right: impl Into<TreeNode>) -> Self {
-        self.right = Some(std::boxed::Box::new(right.into()));
+    pub fn right(mut self, right: impl Into<TreeNode<Msg>>) -> Self {
+        self.right = Some(Box::new(right.into()));
         self
     }
 }
 
-with_common!(Item);
+with_common!(Item<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct ActionItem {
+#[serde(bound(serialize = ""))]
+pub struct ActionItem<Msg> {
     pub id: String,
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub left: Option<std::boxed::Box<TreeNode>>,
+    pub left: Option<Box<TreeNode<Msg>>>,
     pub label: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub sublabel: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub right: Option<std::boxed::Box<TreeNode>>,
+    pub right: Option<Box<TreeNode<Msg>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enabled: Option<bool>,
+    #[serde(skip)]
+    pub(crate) on_click: Option<Msg>,
 }
 
-impl ActionItem {
+impl<Msg> ActionItem<Msg> {
     pub fn new(id: impl Into<String>, label: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -1240,11 +1430,12 @@ impl ActionItem {
             sublabel: String::new(),
             right: None,
             enabled: None,
+            on_click: None,
         }
     }
 
     pub fn icon(mut self, name: impl Into<String>) -> Self {
-        self.left = Some(std::boxed::Box::new(TreeNode::Icon(Icon {
+        self.left = Some(Box::new(TreeNode::Icon(Icon {
             common: CommonProps::default(),
             icon: name.into(),
             pixel_size: Some(16),
@@ -1252,8 +1443,8 @@ impl ActionItem {
         self
     }
 
-    pub fn left(mut self, left: impl Into<TreeNode>) -> Self {
-        self.left = Some(std::boxed::Box::new(left.into()));
+    pub fn left(mut self, left: impl Into<TreeNode<Msg>>) -> Self {
+        self.left = Some(Box::new(left.into()));
         self
     }
 
@@ -1262,8 +1453,8 @@ impl ActionItem {
         self
     }
 
-    pub fn right(mut self, right: impl Into<TreeNode>) -> Self {
-        self.right = Some(std::boxed::Box::new(right.into()));
+    pub fn right(mut self, right: impl Into<TreeNode<Msg>>) -> Self {
+        self.right = Some(Box::new(right.into()));
         self
     }
 
@@ -1271,9 +1462,14 @@ impl ActionItem {
         self.enabled = Some(enabled);
         self
     }
+
+    pub fn on_click(mut self, msg: Msg) -> Self {
+        self.on_click = Some(msg);
+        self
+    }
 }
 
-with_common!(ActionItem);
+with_common!(ActionItem<Msg>);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct EmptyState {
@@ -1345,6 +1541,12 @@ impl StatusDot {
     pub fn variant(mut self, variant: StatusVariant) -> Self {
         self.variant = Some(variant);
         self
+    }
+}
+
+impl Default for StatusDot {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1457,15 +1659,16 @@ pub enum PopoverSize {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct PopoverScaffold {
+#[serde(bound(serialize = ""))]
+pub struct PopoverScaffold<Msg> {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub hero: Option<Box<TreeNode>>,
-    pub body: Box<TreeNode>,
+    pub hero: Option<Box<TreeNode<Msg>>>,
+    pub body: Box<TreeNode<Msg>>,
     pub size: PopoverSize,
 }
 
-impl PopoverScaffold {
-    pub fn new(body: impl Into<TreeNode>) -> Self {
+impl<Msg> PopoverScaffold<Msg> {
+    pub fn new(body: impl Into<TreeNode<Msg>>) -> Self {
         Self {
             hero: None,
             body: Box::new(body.into()),
@@ -1473,7 +1676,7 @@ impl PopoverScaffold {
         }
     }
 
-    pub fn hero(mut self, hero: impl Into<TreeNode>) -> Self {
+    pub fn hero(mut self, hero: impl Into<TreeNode<Msg>>) -> Self {
         self.hero = Some(Box::new(hero.into()));
         self
     }
@@ -1486,25 +1689,26 @@ impl PopoverScaffold {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
-pub enum TreeNode {
-    Hero(Hero),
-    Card(Card),
-    Container(Container),
+#[serde(bound(serialize = ""))]
+pub enum TreeNode<Msg> {
+    Hero(Hero<Msg>),
+    Card(Card<Msg>),
+    Container(Container<Msg>),
     Meter(Meter),
     Copyable(Copyable),
     PropertyList(PropertyList),
-    Item(Item),
-    ActionItem(ActionItem),
+    Item(Item<Msg>),
+    ActionItem(ActionItem<Msg>),
     EmptyState(EmptyState),
     Badge(Badge),
     #[serde(rename = "status")]
     StatusDot(StatusDot),
     PagerItem(PagerItem),
     PagerStrip(PagerStrip),
-    Row(Row),
-    Column(Column),
-    Grid(Grid),
-    Scroll(Scroll),
+    Row(Row<Msg>),
+    Column(Column<Msg>),
+    Grid(Grid<Msg>),
+    Scroll(Scroll<Msg>),
     LevelBar(LevelBar),
     Progress(Progress),
     Separator(Separator),
@@ -1512,180 +1716,113 @@ pub enum TreeNode {
     Text(Text),
     Icon(Icon),
     Picture(Picture),
-    Button(Button),
+    Button(Button<Msg>),
     LinkButton(LinkButton),
-    Expander(Expander),
-    Switch(Switch),
-    ToggleButton(ToggleButton),
-    Slider(Slider),
-    Select(Select),
-    Checkbox(Checkbox),
-    PopoverScaffold(PopoverScaffold),
+    Expander(Expander<Msg>),
+    Switch(Switch<Msg>),
+    ToggleButton(ToggleButton<Msg>),
+    Slider(Slider<Msg>),
+    Select(Select<Msg>),
+    Checkbox(Checkbox<Msg>),
+    PopoverScaffold(PopoverScaffold<Msg>),
 }
 
-impl From<Hero> for TreeNode {
-    fn from(value: Hero) -> Self {
-        Self::Hero(value)
-    }
+impl<Msg> From<Hero<Msg>> for TreeNode<Msg> {
+    fn from(v: Hero<Msg>) -> Self { Self::Hero(v) }
 }
-impl From<Card> for TreeNode {
-    fn from(value: Card) -> Self {
-        Self::Card(value)
-    }
+impl<Msg> From<Card<Msg>> for TreeNode<Msg> {
+    fn from(v: Card<Msg>) -> Self { Self::Card(v) }
 }
-impl From<Container> for TreeNode {
-    fn from(value: Container) -> Self {
-        Self::Container(value)
-    }
+impl<Msg> From<Container<Msg>> for TreeNode<Msg> {
+    fn from(v: Container<Msg>) -> Self { Self::Container(v) }
 }
-impl From<Meter> for TreeNode {
-    fn from(value: Meter) -> Self {
-        Self::Meter(value)
-    }
+impl<Msg> From<Meter> for TreeNode<Msg> {
+    fn from(v: Meter) -> Self { Self::Meter(v) }
 }
-impl From<Copyable> for TreeNode {
-    fn from(value: Copyable) -> Self {
-        Self::Copyable(value)
-    }
+impl<Msg> From<Copyable> for TreeNode<Msg> {
+    fn from(v: Copyable) -> Self { Self::Copyable(v) }
 }
-impl From<Row> for TreeNode {
-    fn from(value: Row) -> Self {
-        Self::Row(value)
-    }
+impl<Msg> From<Row<Msg>> for TreeNode<Msg> {
+    fn from(v: Row<Msg>) -> Self { Self::Row(v) }
 }
-impl From<Column> for TreeNode {
-    fn from(value: Column) -> Self {
-        Self::Column(value)
-    }
+impl<Msg> From<Column<Msg>> for TreeNode<Msg> {
+    fn from(v: Column<Msg>) -> Self { Self::Column(v) }
 }
-impl From<Spinner> for TreeNode {
-    fn from(value: Spinner) -> Self {
-        Self::Spinner(value)
-    }
+impl<Msg> From<Spinner> for TreeNode<Msg> {
+    fn from(v: Spinner) -> Self { Self::Spinner(v) }
 }
-impl From<PropertyList> for TreeNode {
-    fn from(value: PropertyList) -> Self {
-        Self::PropertyList(value)
-    }
+impl<Msg> From<PropertyList> for TreeNode<Msg> {
+    fn from(v: PropertyList) -> Self { Self::PropertyList(v) }
 }
-impl From<Item> for TreeNode {
-    fn from(value: Item) -> Self {
-        Self::Item(value)
-    }
+impl<Msg> From<Item<Msg>> for TreeNode<Msg> {
+    fn from(v: Item<Msg>) -> Self { Self::Item(v) }
 }
-impl From<ActionItem> for TreeNode {
-    fn from(value: ActionItem) -> Self {
-        Self::ActionItem(value)
-    }
+impl<Msg> From<ActionItem<Msg>> for TreeNode<Msg> {
+    fn from(v: ActionItem<Msg>) -> Self { Self::ActionItem(v) }
 }
-impl From<EmptyState> for TreeNode {
-    fn from(value: EmptyState) -> Self {
-        Self::EmptyState(value)
-    }
+impl<Msg> From<EmptyState> for TreeNode<Msg> {
+    fn from(v: EmptyState) -> Self { Self::EmptyState(v) }
 }
-impl From<Badge> for TreeNode {
-    fn from(value: Badge) -> Self {
-        Self::Badge(value)
-    }
+impl<Msg> From<Badge> for TreeNode<Msg> {
+    fn from(v: Badge) -> Self { Self::Badge(v) }
 }
-impl From<StatusDot> for TreeNode {
-    fn from(value: StatusDot) -> Self {
-        Self::StatusDot(value)
-    }
+impl<Msg> From<StatusDot> for TreeNode<Msg> {
+    fn from(v: StatusDot) -> Self { Self::StatusDot(v) }
 }
-impl From<PagerItem> for TreeNode {
-    fn from(value: PagerItem) -> Self {
-        Self::PagerItem(value)
-    }
+impl<Msg> From<PagerItem> for TreeNode<Msg> {
+    fn from(v: PagerItem) -> Self { Self::PagerItem(v) }
 }
-impl From<PagerStrip> for TreeNode {
-    fn from(value: PagerStrip) -> Self {
-        Self::PagerStrip(value)
-    }
+impl<Msg> From<PagerStrip> for TreeNode<Msg> {
+    fn from(v: PagerStrip) -> Self { Self::PagerStrip(v) }
 }
-
-impl From<Grid> for TreeNode {
-    fn from(value: Grid) -> Self {
-        Self::Grid(value)
-    }
+impl<Msg> From<Grid<Msg>> for TreeNode<Msg> {
+    fn from(v: Grid<Msg>) -> Self { Self::Grid(v) }
 }
-impl From<Scroll> for TreeNode {
-    fn from(value: Scroll) -> Self {
-        Self::Scroll(value)
-    }
+impl<Msg> From<Scroll<Msg>> for TreeNode<Msg> {
+    fn from(v: Scroll<Msg>) -> Self { Self::Scroll(v) }
 }
-impl From<LevelBar> for TreeNode {
-    fn from(value: LevelBar) -> Self {
-        Self::LevelBar(value)
-    }
+impl<Msg> From<LevelBar> for TreeNode<Msg> {
+    fn from(v: LevelBar) -> Self { Self::LevelBar(v) }
 }
-impl From<Progress> for TreeNode {
-    fn from(value: Progress) -> Self {
-        Self::Progress(value)
-    }
+impl<Msg> From<Progress> for TreeNode<Msg> {
+    fn from(v: Progress) -> Self { Self::Progress(v) }
 }
-impl From<Separator> for TreeNode {
-    fn from(value: Separator) -> Self {
-        Self::Separator(value)
-    }
+impl<Msg> From<Separator> for TreeNode<Msg> {
+    fn from(v: Separator) -> Self { Self::Separator(v) }
 }
-impl From<Text> for TreeNode {
-    fn from(value: Text) -> Self {
-        Self::Text(value)
-    }
+impl<Msg> From<Text> for TreeNode<Msg> {
+    fn from(v: Text) -> Self { Self::Text(v) }
 }
-impl From<Icon> for TreeNode {
-    fn from(value: Icon) -> Self {
-        Self::Icon(value)
-    }
+impl<Msg> From<Icon> for TreeNode<Msg> {
+    fn from(v: Icon) -> Self { Self::Icon(v) }
 }
-impl From<Picture> for TreeNode {
-    fn from(value: Picture) -> Self {
-        Self::Picture(value)
-    }
+impl<Msg> From<Picture> for TreeNode<Msg> {
+    fn from(v: Picture) -> Self { Self::Picture(v) }
 }
-impl From<Button> for TreeNode {
-    fn from(value: Button) -> Self {
-        Self::Button(value)
-    }
+impl<Msg> From<Button<Msg>> for TreeNode<Msg> {
+    fn from(v: Button<Msg>) -> Self { Self::Button(v) }
 }
-impl From<LinkButton> for TreeNode {
-    fn from(value: LinkButton) -> Self {
-        Self::LinkButton(value)
-    }
+impl<Msg> From<LinkButton> for TreeNode<Msg> {
+    fn from(v: LinkButton) -> Self { Self::LinkButton(v) }
 }
-impl From<Expander> for TreeNode {
-    fn from(value: Expander) -> Self {
-        Self::Expander(value)
-    }
+impl<Msg> From<Expander<Msg>> for TreeNode<Msg> {
+    fn from(v: Expander<Msg>) -> Self { Self::Expander(v) }
 }
-impl From<Switch> for TreeNode {
-    fn from(value: Switch) -> Self {
-        Self::Switch(value)
-    }
+impl<Msg> From<Switch<Msg>> for TreeNode<Msg> {
+    fn from(v: Switch<Msg>) -> Self { Self::Switch(v) }
 }
-impl From<ToggleButton> for TreeNode {
-    fn from(value: ToggleButton) -> Self {
-        Self::ToggleButton(value)
-    }
+impl<Msg> From<ToggleButton<Msg>> for TreeNode<Msg> {
+    fn from(v: ToggleButton<Msg>) -> Self { Self::ToggleButton(v) }
 }
-impl From<Slider> for TreeNode {
-    fn from(value: Slider) -> Self {
-        Self::Slider(value)
-    }
+impl<Msg> From<Slider<Msg>> for TreeNode<Msg> {
+    fn from(v: Slider<Msg>) -> Self { Self::Slider(v) }
 }
-impl From<Select> for TreeNode {
-    fn from(value: Select) -> Self {
-        Self::Select(value)
-    }
+impl<Msg> From<Select<Msg>> for TreeNode<Msg> {
+    fn from(v: Select<Msg>) -> Self { Self::Select(v) }
 }
-impl From<Checkbox> for TreeNode {
-    fn from(value: Checkbox) -> Self {
-        Self::Checkbox(value)
-    }
+impl<Msg> From<Checkbox<Msg>> for TreeNode<Msg> {
+    fn from(v: Checkbox<Msg>) -> Self { Self::Checkbox(v) }
 }
-impl From<PopoverScaffold> for TreeNode {
-    fn from(value: PopoverScaffold) -> Self {
-        Self::PopoverScaffold(value)
-    }
+impl<Msg> From<PopoverScaffold<Msg>> for TreeNode<Msg> {
+    fn from(v: PopoverScaffold<Msg>) -> Self { Self::PopoverScaffold(v) }
 }

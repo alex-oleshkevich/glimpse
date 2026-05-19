@@ -1,5 +1,5 @@
 from .app import Applet, AppletState, CommandResult, run_command
-from .decorators import change, click, event, input, scroll, toggle
+from .decorators import change, click, event, input, popover, scroll, toggle
 from .events import (
     CallbackEvent,
     ChangeEvent,
@@ -131,6 +131,7 @@ __all__ = [
     "event",
     "input",
     "ipc",
+    "popover",
     "scroll",
     "toggle",
 ]
