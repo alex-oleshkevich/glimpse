@@ -3,6 +3,7 @@ _old/
 .claude/
 **/Cargo.lock
 !/Cargo.lock
+!/glimpse-applets/*/Cargo.lock
 
 # Beads / Dolt files (added by bd init)
 .dolt/
