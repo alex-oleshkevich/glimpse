@@ -28,6 +28,12 @@ interface ShowNotificationOptions {
   body?: string;
 }
 
+export interface CommandResult {
+  stdout: string;
+  stderr: string;
+  rc: number;
+}
+
 interface DismissNotificationArgs {
   id: number;
 }
@@ -116,6 +122,10 @@ export abstract class Applet<State extends object> {
     await this.runDesktopCommand("wl-copy", [], text);
   }
 
+  protected async runCommand(command: string[]): Promise<CommandResult> {
+    return await runCommand(command);
+  }
+
   protected dismissNotification(args: DismissNotificationArgs): void {
     this.emitAction("dismiss_notification", args);
   }
@@ -125,7 +135,7 @@ export abstract class Applet<State extends object> {
   }
 
   protected async runDesktopCommand(command: string, args: string[], input?: string): Promise<void> {
-    await runDesktopCommand(command, args, input);
+    await runDesktopCommand([command, ...args], input);
   }
 
   async run(): Promise<void> {
@@ -280,16 +290,34 @@ function isPopoverEvent(event: CallbackEvent): event is PopoverEvent {
   return event.event === "open" || event.event === "close";
 }
 
-async function runDesktopCommand(command: string, args: string[], input?: string): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["pipe", "ignore", "ignore"] });
+export async function runCommand(command: string[]): Promise<CommandResult> {
+  return await runCommandWithInput(command);
+}
+
+async function runDesktopCommand(command: string[], input?: string): Promise<void> {
+  const result = await runCommandWithInput(command, input);
+  if (result.rc !== 0) {
+    throw new Error(`${command[0]} exited with status ${result.rc}`);
+  }
+}
+
+async function runCommandWithInput(command: string[], input?: string): Promise<CommandResult> {
+  if (command.length === 0) {
+    throw new Error("command must not be empty");
+  }
+  return await new Promise<CommandResult>((resolve, reject) => {
+    const child = spawn(command[0], command.slice(1), { stdio: ["pipe", "pipe", "pipe"] });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
     child.on("error", reject);
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
     child.on("close", (code) => {
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(`${command} exited with status ${code}`));
+      resolve({
+        stdout: Buffer.concat(stdout).toString("utf8"),
+        stderr: Buffer.concat(stderr).toString("utf8"),
+        rc: code ?? -1,
+      });
     });
     if (input !== undefined) {
       child.stdin.end(input);

@@ -32,6 +32,7 @@ pub enum ChildCommand {
     Status(StatusPayload),
     Popover(PopoverPayload),
     Class(String),
+    ClosePopover,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -864,6 +865,11 @@ pub fn parse_child_line(line: &str) -> Result<ChildCommand, ProtocolError> {
     let line = line.trim();
     if line.is_empty() {
         return Err(ProtocolError::MissingCommand);
+    }
+
+    let command_word = line.split_ascii_whitespace().next().unwrap_or("");
+    if command_word == "close_popover" {
+        return Ok(ChildCommand::ClosePopover);
     }
 
     let (command, payload) = split_line(line)?;

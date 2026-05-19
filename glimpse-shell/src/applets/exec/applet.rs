@@ -108,6 +108,7 @@ pub enum Input {
     ShowContextMenu,
     RestartCommand,
     CssClass(String),
+    ClosePopover,
     StatusItemOutput(StatusItemOutput),
     PopoverOutput(PopoverOutput),
 }
@@ -243,6 +244,9 @@ impl SimpleComponent for Applet {
             Input::CssClass(class) => {
                 self.root.add_css_class(&format!("applet-{class}"));
                 self.popover.emit(PopoverInput::SetCssClass(class));
+            }
+            Input::ClosePopover => {
+                self.popover.emit(PopoverInput::Close);
             }
             Input::StatusItemOutput(output) => match output {
                 StatusItemOutput::TogglePopover => {

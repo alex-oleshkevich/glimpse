@@ -926,10 +926,6 @@ popover.popover-size-xlarge {
 
 .hero-row {
     color: var(--popover-fg);
-    margin-bottom: 12px;
-}
-
-.popover-shell__content>.hero-row {
     margin-bottom: var(--space-4);
 }
 
@@ -2033,8 +2029,8 @@ popover.mpris-popover {
 }
 
 .header {
-    font-weight: 600;
-    font-size: 120%;
+    font-weight: 500;
+    font-size: 100%;
     text-align: left;
     margin-bottom: var(--space-5);
 }

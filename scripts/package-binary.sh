@@ -89,6 +89,12 @@ if [[ -d packaged-applets ]]; then
         done
 fi
 
+# Build and ship Rust applets from the source-oriented glimpse-applets tree.
+# This is additive to packaged-applets: legacy packaged applets remain copied
+# exactly as above, while new Rust applet sources build into the same install
+# root under /usr/share/glimpse/applets/.
+scripts/build-glimpse-applets.sh glimpse-applets "$applets_dest"
+
 # Ship applet project templates under /usr/share/glimpse/applet-templates/.
 # `glimpse-shell applets new` reads these from disk (not embedded), so the
 # binary stays small and templates can be patched without a rebuild.

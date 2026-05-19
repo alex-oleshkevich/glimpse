@@ -48,7 +48,7 @@ glimpse-shell applets ls
 glimpse-shell applets doctor --strict
 ```
 
-## Rust Applet Development
+## Native Rust Applet Development
 
 - Decompose popovers into subcomponents.
 - Keep durable state in the applet; keep popover components focused on UI.
@@ -79,6 +79,12 @@ glimpse-shell applets doctor --strict
 
 ## Exec Applet Widget Rules
 
+### Developing exec applets
+
+- Always use rust
+- Initialize new applet in `glimpse-applets/$name` folder
+
+### SDK
 - The four SDKs share the same canonical widget protocol through `sdk/fixtures`.
 - `Row`, `Column`, and `Grid` default spacing is `4`.
 - `Row.spacing`, `Column.spacing`, `Grid.row_spacing`, and `Grid.column_spacing` must always serialize.
@@ -88,7 +94,7 @@ glimpse-shell applets doctor --strict
 - Keep widget JSON portable across Python, TypeScript, Go, and Rust. If a widget cannot be represented cleanly in all four SDKs, revisit the widget shape before implementing it.
 - Fixtures are canonical examples. Do not hand-edit generated fixture JSON without updating `sdk/fixtures/generate.py`.
 
-## Exec Applet Testing
+### Exec Applet Testing
 
 When changing exec widgets, events, common props, or SDK serialization:
 

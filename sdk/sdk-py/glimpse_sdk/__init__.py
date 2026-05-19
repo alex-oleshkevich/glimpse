@@ -1,4 +1,4 @@
-from .app import Applet, AppletState
+from .app import Applet, AppletState, CommandResult, run_command
 from .decorators import change, click, event, input, scroll, toggle
 from .events import (
     CallbackEvent,
@@ -70,6 +70,7 @@ __all__ = [
     "Badge",
     "Button",
     "ButtonVariant",
+    "CommandResult",
     "BorderWidth",
     "CallbackEvent",
     "Card",
@@ -104,6 +105,7 @@ __all__ = [
     "PropertyList",
     "Radius",
     "Row",
+    "run_command",
     "Scroll",
     "ScrollEvent",
     "Select",

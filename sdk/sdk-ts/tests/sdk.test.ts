@@ -83,6 +83,10 @@ class DemoApplet extends Applet<DemoState> {
     await this.showNotification(summary, { body });
   }
 
+  async runCommandForTest(command: string[]) {
+    return await this.runCommand(command);
+  }
+
   protected async runDesktopCommand(command: string, args: string[], input?: string): Promise<void> {
     this.commands.push({ command, args, input });
   }
@@ -205,4 +209,24 @@ test("desktop helpers run local commands", async () => {
     { command: "xdg-open", args: ["https://example.com"], input: undefined },
     { command: "notify-send", args: ["Build complete", "Tests passed"], input: undefined },
   ]);
+});
+
+test("runCommand returns stdout stderr and rc", async () => {
+  const applet = new DemoApplet();
+
+  const result = await applet.runCommandForTest([
+    process.execPath,
+    "-e",
+    "process.stdout.write('out\\n'); process.stderr.write('err\\n'); process.exit(7);",
+  ]);
+
+  assert.equal(result.stdout, "out\n");
+  assert.equal(result.stderr, "err\n");
+  assert.equal(result.rc, 7);
+});
+
+test("runCommand rejects empty command", async () => {
+  const applet = new DemoApplet();
+
+  await assert.rejects(() => applet.runCommandForTest([]), /command must not be empty/);
 });

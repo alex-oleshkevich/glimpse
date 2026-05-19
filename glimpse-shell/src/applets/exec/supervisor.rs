@@ -302,6 +302,7 @@ fn send_child_command(out: &relm4::Sender<Input>, command: ChildCommand) {
         ChildCommand::Status(payload) => Input::StatusChanged(payload),
         ChildCommand::Popover(payload) => Input::PopoverChanged(payload),
         ChildCommand::Class(name) => Input::CssClass(name),
+        ChildCommand::ClosePopover => Input::ClosePopover,
     });
 }
 

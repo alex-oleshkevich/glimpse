@@ -5,7 +5,6 @@
 
 import asyncio
 import shutil
-import subprocess
 from dataclasses import dataclass
 
 from glimpse_sdk import (
@@ -22,7 +21,6 @@ from glimpse_sdk import (
     Radius,
     StatusItem,
     Text,
-    click,
 )
 from glimpse_sdk.widgets import Align, Button
 
@@ -34,13 +32,7 @@ class ColorPickerState(AppletState):
 
 class ColorPickerApplet(Applet[ColorPickerState]):
     def initial_state(self) -> ColorPickerState:
-        return ColorPickerState(
-            items=[
-                "#ff0000",
-                "#00ff00",
-                "#0000ff",
-            ]
-        )
+        return ColorPickerState(items=[])
 
     @property
     def is_hyprpicker_installed(self) -> bool:
@@ -60,6 +52,35 @@ class ColorPickerApplet(Applet[ColorPickerState]):
                 title="Not installed", subtitle="hyprpicker is not installed"
             )
 
+        recent_colors = Text(text="No recent colors.")
+        if state.items:
+            recent_colors = Column(
+                spacing=0,
+                children=[
+                    Container(
+                        halign=Align.START,
+                        child=Text(text="Recent colors", css_classes=["header"]),
+                    ),
+                    *[
+                        ActionItem(
+                            id=f"pick_{color}",
+                            label=color,
+                            on_click=lambda _, _2, c=color: self.copy_to_clipboard(c),
+                            left=Container(
+                                min_width=20,
+                                min_height=20,
+                                border_color=Color.MUTED_FG,
+                                hexpand=True,
+                                vexpand=True,
+                                border_radius=Radius.PILL,
+                                styles={"background-color": color},
+                            ),
+                        )
+                        for color in state.items
+                    ],
+                ],
+            )
+
         return PopoverScaffold(
             hero=Hero(
                 title="Color picker",
@@ -71,45 +92,34 @@ class ColorPickerApplet(Applet[ColorPickerState]):
                 halign=Align.FILL,
                 children=[
                     Button(
-                        id="pick",
                         label="Pick color",
+                        on_click=self.pick_color,
                         variant=ButtonVariant.PRIMARY,
                         hexpand=True,
                     ),
-                    Column(
-                        spacing=4,
-                        children=[
-                            Text(text="Recent colors", css_classes=["header"]),
-                            *[
-                                ActionItem(
-                                    id=f"pick_{color}",
-                                    label=color,
-                                    left=Container(
-                                        min_width=20,
-                                        min_height=20,
-                                        border_color=Color.MUTED_FG,
-                                        hexpand=True,
-                                        vexpand=True,
-                                        border_radius=Radius.PILL,
-                                        styles={"background-color": color},
-                                    ),
-                                )
-                                for color in state.items
-                            ],
-                        ],
-                    ),
+                    recent_colors,
                 ],
             ),
         )
 
-    @click("pick")
-    async def on_pick(self, state: ColorPickerState):
-        process = await asyncio.create_subprocess_exec(
-            "hyprpicker", stdout=subprocess.PIPE
+    async def pick_color(self, state: ColorPickerState, _event: object):
+        import os
+
+        await self.close_popover()
+        await asyncio.sleep(0.3)
+
+        process = await asyncio.create_subprocess_exec(  # noqa: S603
+            "hyprpicker",
+            "--render-inactive",
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=os.environ,
         )
+        stdout, stderr = await process.communicate()
+        self.log(stderr.decode())
         if process.returncode == 0:
-            color = process.stdout.read().strip()
-            self.log(f"color picked {color}")
+            color = stdout.decode().strip()
             await self.set_state(items=[color, *state.items])
 
 

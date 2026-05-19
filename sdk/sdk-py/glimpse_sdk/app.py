@@ -20,6 +20,13 @@ class AppletState:
     pass
 
 
+@dataclass(slots=True)
+class CommandResult:
+    stdout: str
+    stderr: str
+    rc: int
+
+
 class _InlineHandlerRegistry:
     def __init__(self) -> None:
         self.handlers: dict[tuple[str, str], InlineHandler] = {}
@@ -82,6 +89,13 @@ class Applet(Generic[StateT, OptionsT]):
 
     def log(self, *args: object) -> None:
         print(*args, file=sys.stderr, flush=True)
+
+    async def run_command(self, command: list[str]) -> CommandResult:
+        return await run_command(command)
+
+    async def close_popover(self) -> None:
+        sys.stdout.write("close_popover {}\n")
+        sys.stdout.flush()
 
     async def copy_to_clipboard(self, text: str) -> None:
         await _run_desktop_command("wl-copy", [], text)
@@ -287,17 +301,32 @@ async def _run_desktop_command(
     args: list[str],
     stdin: str | None = None,
 ) -> None:
+    result = await _run_command([command, *args], stdin)
+    if result.rc != 0:
+        raise RuntimeError(f"{command} exited with status {result.rc}")
+
+
+async def run_command(command: list[str]) -> CommandResult:
+    return await _run_command(command)
+
+
+async def _run_command(command: list[str], stdin: str | None = None) -> CommandResult:
+    if not command:
+        raise ValueError("command must not be empty")
     process = await asyncio.create_subprocess_exec(
-        command,
-        *args,
+        command[0],
+        *command[1:],
         stdin=asyncio.subprocess.PIPE if stdin is not None else asyncio.subprocess.DEVNULL,
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
     input_bytes = stdin.encode() if stdin is not None else None
-    await process.communicate(input_bytes)
-    if process.returncode != 0:
-        raise RuntimeError(f"{command} exited with status {process.returncode}")
+    stdout, stderr = await process.communicate(input_bytes)
+    return CommandResult(
+        stdout=stdout.decode(errors="replace"),
+        stderr=stderr.decode(errors="replace"),
+        rc=process.returncode if process.returncode is not None else -1,
+    )
 
 
 def _log_render_exception(task: "asyncio.Task[None]") -> None:

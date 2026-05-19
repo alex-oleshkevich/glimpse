@@ -73,6 +73,14 @@ pub trait Applet: Send + Sync {
         eprintln!("{msg}");
     }
 
+    async fn run_command(&self, command: &[&str]) -> AppletResult<CommandResult> {
+        run_command(command).await
+    }
+
+    async fn close_popover(&self) -> AppletResult<()> {
+        close_popover().await
+    }
+
     async fn copy_to_clipboard(&self, text: &str) -> AppletResult<()> {
         copy_to_clipboard(text).await
     }
@@ -87,10 +95,24 @@ pub trait Applet: Send + Sync {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandResult {
+    pub stdout: String,
+    pub stderr: String,
+    pub rc: i32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct DesktopCommand {
     program: String,
     args: Vec<String>,
     stdin: Option<String>,
+}
+
+pub async fn close_popover() -> AppletResult<()> {
+    let mut stdout = io::stdout();
+    stdout.write_all(b"close_popover {}\n").await?;
+    stdout.flush().await?;
+    Ok(())
 }
 
 pub async fn copy_to_clipboard(text: &str) -> AppletResult<()> {
@@ -103,6 +125,18 @@ pub async fn open_uri(uri: &str) -> AppletResult<()> {
 
 pub async fn show_notification(summary: &str, body: Option<&str>) -> AppletResult<()> {
     run_desktop_command(desktop_command_for_show_notification(summary, body)).await
+}
+
+pub async fn run_command(command: &[&str]) -> AppletResult<CommandResult> {
+    if command.is_empty() {
+        return Err("command must not be empty".into());
+    }
+    let output = Command::new(command[0]).args(&command[1..]).output().await?;
+    Ok(CommandResult {
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        rc: output.status.code().unwrap_or(-1),
+    })
 }
 
 fn desktop_command_for_copy_to_clipboard(text: &str) -> DesktopCommand {
@@ -460,5 +494,27 @@ mod tests {
                 stdin: None,
             }
         );
+    }
+
+    #[tokio::test]
+    async fn run_command_returns_stdout_stderr_and_rc() {
+        let result = run_command(&[
+            "sh",
+            "-c",
+            "printf 'out\\n'; printf 'err\\n' >&2; exit 7",
+        ])
+        .await
+        .expect("command should run");
+
+        assert_eq!(result.stdout, "out\n");
+        assert_eq!(result.stderr, "err\n");
+        assert_eq!(result.rc, 7);
+    }
+
+    #[tokio::test]
+    async fn run_command_rejects_empty_command() {
+        let err = run_command(&[]).await.expect_err("empty command should fail");
+
+        assert!(err.to_string().contains("command must not be empty"));
     }
 }

@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -92,6 +93,16 @@ func (a *BaseApplet[S]) Log(args ...any) {
 	fmt.Fprintln(os.Stderr, args...)
 }
 
+type CommandResult struct {
+	Stdout string
+	Stderr string
+	RC     int
+}
+
+func (a *BaseApplet[S]) RunCommand(ctx context.Context, command []string) (CommandResult, error) {
+	return RunCommand(ctx, command)
+}
+
 func (a *BaseApplet[S]) CopyToClipboard(ctx context.Context, text string) error {
 	return CopyToClipboard(ctx, text)
 }
@@ -126,6 +137,40 @@ func ShowNotification(ctx context.Context, summary string, body ...string) error
 		args = append(args, body[0])
 	}
 	return runDesktopCommand(ctx, "notify-send", args, "")
+}
+
+func RunCommand(ctx context.Context, command []string) (CommandResult, error) {
+	return runCommandWithStdin(ctx, command, "")
+}
+
+func runCommandWithStdin(ctx context.Context, command []string, stdin string) (CommandResult, error) {
+	if len(command) == 0 {
+		return CommandResult{}, fmt.Errorf("command must not be empty")
+	}
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	result := CommandResult{
+		Stdout: stdout.String(),
+		Stderr: stderr.String(),
+		RC:     0,
+	}
+	if cmd.ProcessState != nil {
+		result.RC = cmd.ProcessState.ExitCode()
+	}
+	if err != nil {
+		if _, ok := err.(*exec.ExitError); ok {
+			return result, nil
+		}
+		return result, err
+	}
+	return result, nil
 }
 
 type treePayload struct {

@@ -258,6 +258,33 @@ func TestDesktopHelpersRunLocalCommands(t *testing.T) {
 	}
 }
 
+func TestRunCommandReturnsStdoutStderrAndRC(t *testing.T) {
+	result, err := RunCommand(context.Background(), []string{
+		"sh",
+		"-c",
+		"printf 'out\\n'; printf 'err\\n' >&2; exit 7",
+	})
+	if err != nil {
+		t.Fatalf("run command: %v", err)
+	}
+	if result.Stdout != "out\n" {
+		t.Fatalf("unexpected stdout: %q", result.Stdout)
+	}
+	if result.Stderr != "err\n" {
+		t.Fatalf("unexpected stderr: %q", result.Stderr)
+	}
+	if result.RC != 7 {
+		t.Fatalf("unexpected rc: %d", result.RC)
+	}
+}
+
+func TestRunCommandRejectsEmptyCommand(t *testing.T) {
+	_, err := RunCommand(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected empty command to fail")
+	}
+}
+
 func ptr[T any](value T) *T {
 	return &value
 }

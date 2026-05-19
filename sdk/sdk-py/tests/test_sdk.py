@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import sys
 import unittest
 from dataclasses import dataclass
 from unittest.mock import patch
@@ -138,6 +139,27 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
                 ("notify-send", ["Build complete", "Tests passed"], None),
             ],
         )
+
+    async def test_run_command_returns_stdout_stderr_and_rc(self) -> None:
+        applet = DemoApplet()
+
+        result = await applet.run_command(
+            [
+                sys.executable,
+                "-c",
+                "import sys; print('out'); print('err', file=sys.stderr); raise SystemExit(7)",
+            ]
+        )
+
+        self.assertEqual(result.stdout, "out\n")
+        self.assertEqual(result.stderr, "err\n")
+        self.assertEqual(result.rc, 7)
+
+    async def test_run_command_rejects_empty_command(self) -> None:
+        applet = DemoApplet()
+
+        with self.assertRaises(ValueError):
+            await applet.run_command([])
 
     async def test_init_event_rerenders_changed_state(self) -> None:
         applet = InitApplet()

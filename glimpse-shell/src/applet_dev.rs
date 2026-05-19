@@ -259,8 +259,9 @@ pub async fn run(args: &[String]) -> Result<()> {
         eprintln!("[applets dev] tailing {}", log_path.display());
         tokio::select! {
             _ = wait_for_shutdown() => {},
-            _ = tail_log_file(log_path) => {},
+            _ = tail_log_file(log_path.clone()) => {},
         }
+        remove_dev_log(&log_path);
         return Ok(());
     }
 
@@ -372,6 +373,20 @@ impl Drop for DevConfigGuard {
                 self.0.display()
             ),
         }
+    }
+}
+
+fn remove_dev_log(path: &Path) {
+    match std::fs::remove_file(path) {
+        Ok(()) => eprintln!(
+            "[glimpse-shell applets dev] removed dev log {}",
+            path.display()
+        ),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => eprintln!(
+            "[glimpse-shell applets dev] warning: could not remove dev log {}: {e}",
+            path.display()
+        ),
     }
 }
 
@@ -945,5 +960,18 @@ mod tests {
         assert_eq!(std::fs::read_link(&dest).unwrap(), src);
         std::fs::remove_dir_all(&proj).ok();
         std::fs::remove_dir_all(&dest_dir).ok();
+    }
+
+    #[test]
+    fn remove_dev_log_deletes_existing_file_and_ignores_missing() {
+        let dir = tmp("dev-log");
+        let log = dir.join("glimpse-dev-demo.log");
+        std::fs::write(&log, "old output\n").unwrap();
+
+        remove_dev_log(&log);
+
+        assert!(!log.exists());
+        remove_dev_log(&log);
+        std::fs::remove_dir_all(&dir).ok();
     }
 }
