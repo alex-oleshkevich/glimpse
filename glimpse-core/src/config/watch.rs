@@ -73,7 +73,7 @@ pub async fn watch_config_file<T, F>(
 
     let mut watched_any = false;
     for dir in watch_dirs(config_dir, target_dir) {
-        match debouncer.watch(&dir, notify::RecursiveMode::Recursive) {
+        match debouncer.watch(&dir, notify::RecursiveMode::NonRecursive) {
             Ok(()) => watched_any = true,
             Err(err) => {
                 tracing::error!(

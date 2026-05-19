@@ -1,7 +1,0 @@
-id = "me.aresa.glimpse.terminal"
-type = "command"
-
-[command]
-icon = "utilities-terminal-symbolic"
-tooltip = "Open terminal"
-on_click = ["/usr/share/glimpse/applets/me.aresa.glimpse.terminal/open-terminal"]

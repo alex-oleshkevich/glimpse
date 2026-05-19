@@ -67,32 +67,7 @@ for pack in rosepine; do
     fi
 done
 
-# Ship packaged applet descriptors and their helper files under
-# /usr/share/glimpse/applets/. The shell scans this directory before the user
-# applet dir so packaged applets are available by id without user setup.
 applets_dest="$pkgroot/usr/share/glimpse/applets"
-if [[ -d packaged-applets ]]; then
-    install -d "$applets_dest"
-    find packaged-applets -mindepth 1 -maxdepth 1 -type d -print0 \
-        | while IFS= read -r -d '' applet_dir; do
-            find "$applet_dir" -type f -print0 \
-                | while IFS= read -r -d '' file; do
-                    relative="${file#packaged-applets/}"
-                    if [[ "$(basename "$file")" == "applet.toml" ]]; then
-                        install -Dm644 "$file" "$applets_dest/$relative"
-                    elif [[ -x "$file" ]]; then
-                        install -Dm755 "$file" "$applets_dest/$relative"
-                    else
-                        install -Dm644 "$file" "$applets_dest/$relative"
-                    fi
-                done
-        done
-fi
-
-# Build and ship Rust applets from the source-oriented glimpse-applets tree.
-# This is additive to packaged-applets: legacy packaged applets remain copied
-# exactly as above, while new Rust applet sources build into the same install
-# root under /usr/share/glimpse/applets/.
 scripts/build-glimpse-applets.sh glimpse-applets "$applets_dest"
 
 # Ship applet project templates under /usr/share/glimpse/applet-templates/.
