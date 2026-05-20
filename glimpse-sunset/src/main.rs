@@ -23,7 +23,11 @@ fn main() -> Result<()> {
             }
             let json = rest.iter().any(|a| a == "--json");
             let patterns: Vec<String> = rest.into_iter().filter(|a| a != "--json").collect();
-            let patterns = if patterns.is_empty() { vec!["*".to_owned()] } else { patterns };
+            let patterns = if patterns.is_empty() {
+                vec!["*".to_owned()]
+            } else {
+                patterns
+            };
             return run_async(cli::watch(cli::WatchArgs { patterns, json }));
         }
         Some("dispatch") => {
@@ -33,7 +37,11 @@ fn main() -> Result<()> {
                 return Ok(());
             }
             let json = rest_raw.iter().any(|a| a == "--json");
-            let rest: Vec<String> = rest_raw.iter().filter(|a| a.as_str() != "--json").cloned().collect();
+            let rest: Vec<String> = rest_raw
+                .iter()
+                .filter(|a| a.as_str() != "--json")
+                .cloned()
+                .collect();
             let command = rest
                 .first()
                 .ok_or_else(|| anyhow::anyhow!("dispatch: command name required"))?
@@ -46,7 +54,11 @@ fn main() -> Result<()> {
                 std::process::exit(1);
             }
             let fields = rest[1..].to_vec();
-            return run_async(cli::dispatch(cli::DispatchArgs { command, fields, json }));
+            return run_async(cli::dispatch(cli::DispatchArgs {
+                command,
+                fields,
+                json,
+            }));
         }
         None => {}
         Some(unknown) => {
@@ -132,11 +144,15 @@ fn print_watch_help() {
     println!("    -h, --help  Print help");
     println!();
     println!("EVENTS:");
-    println!("    nightlight.phase_changed      phase=<disabled|day|transition_to_night|night|transition_to_day>");
+    println!(
+        "    nightlight.phase_changed      phase=<disabled|day|transition_to_night|night|transition_to_day>"
+    );
     println!("    nightlight.activated          temperature=<kelvin>");
     println!("    nightlight.deactivated");
     println!("    nightlight.temperature_changed  kelvin=<u32> phase=<phase>");
-    println!("    nightlight.health_changed     health=<ready|starting|unsupported|reconnecting|degraded>");
+    println!(
+        "    nightlight.health_changed     health=<ready|starting|unsupported|reconnecting|degraded>"
+    );
 }
 
 fn print_dispatch_help() {
@@ -154,7 +170,9 @@ fn print_dispatch_help() {
     println!("    status                                     Show current state");
     println!("    solar                                      Show solar/sunrise/sunset times");
     println!("    refresh                                    Refresh location and solar data");
-    println!("    activate                                   Activate night light immediately (overrides schedule)");
+    println!(
+        "    activate                                   Activate night light immediately (overrides schedule)"
+    );
     println!("    enable                                     Enable (set schedule=automatic)");
     println!("    disable                                    Disable (set schedule=off)");
     println!("    set_temperature kelvin=<u32>               Set colour temperature");

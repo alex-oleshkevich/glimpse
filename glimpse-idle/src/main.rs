@@ -22,7 +22,11 @@ fn main() -> anyhow::Result<()> {
             }
             let json = rest.iter().any(|a| a == "--json");
             let patterns: Vec<String> = rest.into_iter().filter(|a| a != "--json").collect();
-            let patterns = if patterns.is_empty() { vec!["*".to_owned()] } else { patterns };
+            let patterns = if patterns.is_empty() {
+                vec!["*".to_owned()]
+            } else {
+                patterns
+            };
             return run_async(cli::watch(cli::WatchArgs { patterns, json }));
         }
         Some("dispatch") => {
@@ -32,13 +36,21 @@ fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
             let json = rest_raw.iter().any(|a| a == "--json");
-            let rest: Vec<String> = rest_raw.iter().filter(|a| a.as_str() != "--json").cloned().collect();
+            let rest: Vec<String> = rest_raw
+                .iter()
+                .filter(|a| a.as_str() != "--json")
+                .cloned()
+                .collect();
             let command = rest
                 .first()
                 .ok_or_else(|| anyhow::anyhow!("dispatch: command name required"))?
                 .clone();
             let fields = rest[1..].to_vec();
-            return run_async(cli::dispatch(cli::DispatchArgs { command, fields, json }));
+            return run_async(cli::dispatch(cli::DispatchArgs {
+                command,
+                fields,
+                json,
+            }));
         }
         None => {}
         Some(unknown) => {
@@ -126,7 +138,9 @@ fn print_watch_help() {
     println!("EVENTS:");
     println!("    idle.inhibitor_added    New idle inhibitor registered");
     println!("    idle.inhibitor_removed  Idle inhibitor released");
-    println!("    idle.backend_health_changed  Backend health changed (screen_saver|portal|login1)");
+    println!(
+        "    idle.backend_health_changed  Backend health changed (screen_saver|portal|login1)"
+    );
 }
 
 fn print_dispatch_help() {

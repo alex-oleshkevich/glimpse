@@ -293,7 +293,11 @@ async fn wire_inhibitor_subsystem(
     }
 
     tracing::info!("inhibitor subsystem wired");
-    Ok(crate::ipc::start(state_rx, registry.clone(), on_change.clone()))
+    Ok(crate::ipc::start(
+        state_rx,
+        registry.clone(),
+        on_change.clone(),
+    ))
 }
 
 async fn emit_inhibitors_changed(session: &zbus::Connection) {

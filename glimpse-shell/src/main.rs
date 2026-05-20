@@ -1,6 +1,5 @@
 mod agents;
 mod app;
-mod widgets;
 mod applet_dev;
 mod applet_manage;
 mod applet_scaffold;
@@ -12,6 +11,7 @@ mod panels;
 mod prompts;
 pub mod services;
 mod theme;
+mod widgets;
 
 use anyhow::Result;
 use relm4::{RELM_THREADS, RelmApp};

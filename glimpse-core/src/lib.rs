@@ -1,8 +1,8 @@
 pub mod compositors;
-pub mod ipc;
 pub mod config;
 pub mod dbus;
 pub mod heic;
+pub mod ipc;
 pub mod night_light;
 pub mod services;
 

@@ -331,14 +331,8 @@ fn build_power_items(config: &Config, state: &State) -> Vec<ActionVisibility> {
     ]
 }
 
-fn action_visibility(
-    action: SessionAction,
-    visible: bool,
-) -> ActionVisibility {
-    ActionVisibility {
-        action,
-        visible,
-    }
+fn action_visibility(action: SessionAction, visible: bool) -> ActionVisibility {
+    ActionVisibility { action, visible }
 }
 
 fn action_available(availability: &SessionActionAvailability) -> bool {

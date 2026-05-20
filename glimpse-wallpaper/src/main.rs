@@ -221,14 +221,16 @@ fn print_dispatch_help() {
     println!("    -h, --help  Print help");
     println!();
     println!("COMMANDS:");
-    println!("    reload_config                              Reload config from disk (clears runtime overrides)");
+    println!(
+        "    reload_config                              Reload config from disk (clears runtime overrides)"
+    );
     println!("    set_image path=<abs file>                  Override the wallpaper image");
     println!("    set_color color=<css>                      Override the background colour");
     println!("    set_fit mode=<cover|contain|fill>          Override the image fit mode");
+    println!("    set_backdrop enabled=<bool> [path=<abs> blur=<u32>]  Override the backdrop");
     println!(
-        "    set_backdrop enabled=<bool> [path=<abs> blur=<u32>]  Override the backdrop"
+        "    set_theme_mode mode=<light|dark|auto>      Pin the theme (auto follows config/gsettings)"
     );
-    println!("    set_theme_mode mode=<light|dark|auto>      Pin the theme (auto follows config/gsettings)");
     println!();
     println!("Runtime overrides are in-memory only and survive unrelated config edits;");
     println!("'reload_config' clears them and re-reads disk.");

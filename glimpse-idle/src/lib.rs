@@ -1,10 +1,10 @@
 pub mod app;
 pub mod backend;
 pub mod cli;
-pub mod ipc;
 pub mod dbus_helpers;
 pub mod inhibitor_registry;
 pub mod inhibitors_api;
+pub mod ipc;
 pub mod login1_observer;
 pub mod portal_inhibit;
 pub mod runtime;

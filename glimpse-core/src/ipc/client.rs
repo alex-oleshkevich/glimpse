@@ -6,7 +6,9 @@ use tokio::{
     sync::broadcast,
 };
 
-use super::protocol::{ClientMsg, IpcEvent, ack_line, escape, hello_line, matches_pattern, parse_client_line};
+use super::protocol::{
+    ClientMsg, IpcEvent, ack_line, escape, hello_line, matches_pattern, parse_client_line,
+};
 
 const MAX_IPC_LINE: usize = 64 * 1024;
 
@@ -66,7 +68,8 @@ impl CommandHandler for NoopCommandHandler {
         &'a self,
         name: &'a str,
         _fields: &'a [(String, String)],
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<(String, String)>, String>> + Send + 'a>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<(String, String)>, String>> + Send + 'a>>
+    {
         let msg = format!("unknown command: {name}");
         Box::pin(async move { Err(msg) })
     }
@@ -84,7 +87,11 @@ impl<H: CommandHandler> IpcClientHandler<H> {
         events: broadcast::Receiver<Arc<IpcEvent>>,
         command_handler: H,
     ) -> Self {
-        Self { stream, events, command_handler }
+        Self {
+            stream,
+            events,
+            command_handler,
+        }
     }
 
     pub async fn run(mut self) {

@@ -1,29 +1,34 @@
 use relm4::{
-    Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
+    ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, prelude::*},
 };
 
-use crate::{
-    components::{animated_popover::AnimatedPopover, popover_shell::PopoverShell},
-    services::weather::model::State,
+use glimpse_core::services::weather::model::State;
+
+use crate::widgets::{
+    animated_popover::AnimatedPopover,
+    expander_tile::ExpanderTile,
+    key_value_grid::KeyValueGrid,
+    popover_shell::PopoverShell,
+    weather_forecast_list::{WeatherForecastItem, WeatherForecastList},
+    weather_hero::WeatherHero,
+    weather_hourly_strip::{WeatherHourlyItem, WeatherHourlyStrip},
 };
 
-use super::components::{
-    details::{Details, DetailsInput},
-    forecast::{Forecast, ForecastInput, has_forecast_items},
-    hero::{Hero, HeroInput},
-    hourly::{Hourly, HourlyInput},
-};
+use super::format::{self, build_detail_rows, forecast_items, hero_summary};
 
 pub struct Popover {
-    animation: AnimatedPopover,
-    hourly_separator: gtk::Separator,
-    details_separator: gtk::Separator,
-    forecast_separator: gtk::Separator,
-    hero: Controller<Hero>,
-    hourly: Controller<Hourly>,
-    details: Controller<Details>,
-    forecast: Controller<Forecast>,
+    popover: AnimatedPopover,
+    hourly: WeatherHourlyStrip,
+    details_grid: KeyValueGrid,
+    forecast_list: WeatherForecastList,
+    hero_icon: String,
+    hero_location: String,
+    hero_condition: String,
+    hero_temperature: String,
+    hourly_visible: bool,
+    forecast_visible: bool,
+    details_visible: bool,
 }
 
 pub struct PopoverInit {
@@ -42,7 +47,6 @@ pub enum PopoverOutput {
     Closed,
 }
 
-#[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Popover {
     type Init = PopoverInit;
@@ -50,40 +54,55 @@ impl SimpleComponent for Popover {
     type Output = PopoverOutput;
 
     view! {
-        root = gtk::Popover {
+        root = AnimatedPopover {
             add_css_class: "weather-popover",
             add_css_class: "popover-size-medium",
             set_hexpand: false,
+            set_autohide: true,
+            connect_show[sender] => move |_| {
+                let _ = sender.output(PopoverOutput::Opened);
+            },
+            connect_closed[sender] => move |_| {
+                let _ = sender.output(PopoverOutput::Closed);
+            },
 
-            #[template]
             PopoverShell {
-                #[template_child]
-                footer {
-                    set_visible: false,
+                set_footer_visible: false,
+
+                #[local_ref]
+                hero_widget -> WeatherHero {
+                    #[watch] set_icon: &model.hero_icon,
+                    #[watch] set_location: &model.hero_condition,
+                    #[watch] set_condition: &model.hero_location,
+                    #[watch] set_temperature: &model.hero_temperature,
                 },
 
-                #[template_child]
-                content {
-                    #[local_ref]
-                    hero_widget -> gtk::Box {},
+                gtk::Separator {
+                    set_orientation: gtk::Orientation::Horizontal,
+                },
 
-                    #[local_ref]
-                    hourly_separator -> gtk::Separator {},
+                #[local_ref]
+                hourly_widget -> WeatherHourlyStrip {
+                    #[watch] set_visible: model.hourly_visible,
+                },
 
-                    #[local_ref]
-                    hourly_widget -> gtk::Box {},
+                gtk::Separator {
+                    set_orientation: gtk::Orientation::Horizontal,
+                },
 
-                    #[local_ref]
-                    details_separator -> gtk::Separator {},
+                #[local_ref]
+                forecast_list_widget -> WeatherForecastList {
+                    #[watch] set_visible: model.forecast_visible,
+                },
 
-                    #[local_ref]
-                    details_widget -> gtk::Box {},
+                gtk::Separator {
+                    set_orientation: gtk::Orientation::Horizontal,
+                },
 
-                    #[local_ref]
-                    forecast_separator -> gtk::Separator {},
-
-                    #[local_ref]
-                    forecast_widget -> gtk::Box {},
+                #[name = "details_expander"]
+                ExpanderTile {
+                    set_primary: "Details",
+                    #[watch] set_visible: model.details_visible,
                 },
             },
         }
@@ -91,80 +110,115 @@ impl SimpleComponent for Popover {
 
     fn init(
         init: Self::Init,
-        _root: Self::Root,
+        root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let hero = Hero::builder().launch(()).detach();
-        let hourly = Hourly::builder().launch(()).detach();
-        let details = Details::builder().launch(()).detach();
-        let forecast = Forecast::builder().launch(()).detach();
+        let hero = WeatherHero::new();
+        let hourly = WeatherHourlyStrip::new();
+        let details_grid = KeyValueGrid::new();
+        let forecast_list = WeatherForecastList::new();
 
-        let hero_widget = hero.widget().clone();
-        let hourly_widget = hourly.widget().clone();
-        let details_widget = details.widget().clone();
-        let forecast_widget = forecast.widget().clone();
-        let hourly_separator = gtk::Separator::new(gtk::Orientation::Horizontal);
-        let details_separator = gtk::Separator::new(gtk::Orientation::Horizontal);
-        let forecast_separator = gtk::Separator::new(gtk::Orientation::Horizontal);
-        hourly_separator.set_visible(false);
-        details_separator.set_visible(false);
-        forecast_separator.set_visible(false);
-
-        let widgets = view_output!();
-        widgets.root.set_parent(&init.parent);
-        widgets.root.set_autohide(true);
-
-        let opened_sender = sender.clone();
-        widgets.root.connect_show(move |_| {
-            let _ = opened_sender.output(PopoverOutput::Opened);
-        });
-
-        let closed_sender = sender.clone();
-        widgets.root.connect_closed(move |_| {
-            let _ = closed_sender.output(PopoverOutput::Closed);
-        });
+        let hero_widget = &hero;
+        let hourly_widget = &hourly;
+        let forecast_list_widget = &forecast_list;
 
         let model = Popover {
-            animation: AnimatedPopover::new(&widgets.root),
-            hourly_separator,
-            details_separator,
-            forecast_separator,
-            hero,
-            hourly,
-            details,
-            forecast,
+            popover: root.clone(),
+            hourly: hourly.clone(),
+            details_grid: details_grid.clone(),
+            forecast_list: forecast_list.clone(),
+            hero_icon: "weather-overcast-symbolic".into(),
+            hero_location: String::new(),
+            hero_condition: String::new(),
+            hero_temperature: "—".into(),
+            hourly_visible: false,
+            forecast_visible: false,
+            details_visible: false,
         };
+
+        #[allow(unused_assignments)]
+        let widgets = view_output!();
+        widgets.root.set_parent(&init.parent);
+        widgets.details_expander.set_child(Some(details_grid));
 
         ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
-            PopoverInput::Toggle => self.animation.toggle(),
-            PopoverInput::Update(state) => {
-                let snapshot = ready_snapshot(&state);
-                let show_hourly = snapshot.is_some_and(|snapshot| !snapshot.hourly.is_empty());
-                let show_details = snapshot.is_some();
-                let show_forecast =
-                    snapshot.is_some_and(|snapshot| has_forecast_items(&snapshot.forecast));
-                self.hourly_separator
-                    .set_visible(show_hourly || show_details || show_forecast);
-                self.details_separator
-                    .set_visible(show_hourly && (show_details || show_forecast));
-                self.forecast_separator
-                    .set_visible(show_forecast && (show_hourly || show_details));
-                self.hero.emit(HeroInput::Update(state.clone()));
-                self.hourly.emit(HourlyInput::Update(state.clone()));
-                self.details.emit(DetailsInput::Update(state.clone()));
-                self.forecast.emit(ForecastInput::Update(state));
-            }
+            PopoverInput::Toggle => self.popover.toggle(),
+            PopoverInput::Update(state) => self.apply_state(&state),
         }
     }
 }
 
-fn ready_snapshot(state: &State) -> Option<&glimpse_core::services::weather::model::Snapshot> {
-    match state {
-        State::Ready(snapshot) => Some(snapshot),
-        State::Unknown | State::Loading | State::Unavailable(_) => None,
+impl Popover {
+    fn apply_state(&mut self, state: &State) {
+        match state {
+            State::Ready(snapshot) => {
+                self.hero_icon = snapshot.current.icon.clone();
+                self.hero_location = snapshot.location.city.clone();
+                self.hero_condition = hero_summary(&snapshot.current);
+                self.hero_temperature = format::temperature(snapshot.current.temperature);
+
+                let hourly: Vec<WeatherHourlyItem> = snapshot
+                    .hourly
+                    .iter()
+                    .map(|h| WeatherHourlyItem {
+                        time: h.time.clone(),
+                        icon: h.icon.clone(),
+                        temperature: format::temperature(h.temperature),
+                    })
+                    .collect();
+                self.hourly_visible = !hourly.is_empty();
+                self.hourly.set_items(&hourly);
+
+                let forecast_data: Vec<WeatherForecastItem> = forecast_items(&snapshot.forecast)
+                    .into_iter()
+                    .map(|d| WeatherForecastItem {
+                        day_name: d.day_name,
+                        icon: d.icon,
+                        condition: d.condition,
+                        temperatures: format!(
+                            "{} / {}",
+                            format::temperature(d.temperature_max),
+                            format::temperature(d.temperature_min),
+                        ),
+                        is_today: d.is_today,
+                    })
+                    .collect();
+                self.forecast_visible = !forecast_data.is_empty();
+                self.forecast_list.set_items(&forecast_data);
+
+                let today = snapshot
+                    .forecast
+                    .iter()
+                    .find(|d| d.is_today)
+                    .or_else(|| snapshot.forecast.first());
+                let detail_rows = build_detail_rows(&snapshot.current, today);
+                self.details_grid.clear();
+                for (key, value) in &detail_rows {
+                    self.details_grid.add_row(key, value);
+                }
+                self.details_visible = !detail_rows.is_empty();
+            }
+            State::Loading => self.set_unavailable("Loading weather"),
+            State::Unknown => self.set_unavailable("Weather unavailable"),
+            State::Unavailable(message) => self.set_unavailable(if message.is_empty() {
+                "Weather unavailable"
+            } else {
+                message
+            }),
+        }
+    }
+
+    fn set_unavailable(&mut self, message: &str) {
+        self.hero_icon = "weather-overcast-symbolic".into();
+        self.hero_location = String::new();
+        self.hero_condition = message.into();
+        self.hero_temperature = "—".into();
+        self.hourly_visible = false;
+        self.forecast_visible = false;
+        self.details_visible = false;
     }
 }

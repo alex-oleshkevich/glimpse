@@ -264,7 +264,8 @@ async fn apply_config(
         return Ok(());
     }
 
-    let (phase, effective_temperature) = resolve_effective_temperature(&config, solar, manual_override).await?;
+    let (phase, effective_temperature) =
+        resolve_effective_temperature(&config, solar, manual_override).await?;
 
     apply_temperature_transition(
         backend,

@@ -364,7 +364,7 @@ fn parse_daily(value: &Value, now: DateTime<Local>) -> Vec<DailyForecast> {
                 "Today".into()
             } else {
                 NaiveDate::parse_from_str(date, "%Y-%m-%d")
-                    .map(|date| date.format("%a").to_string())
+                    .map(|date| date.format("%A").to_string())
                     .unwrap_or_default()
             },
             is_today,

@@ -1,4 +1,64 @@
-use glimpse_core::services::weather::model::{CurrentWeather, Location, State};
+use glimpse_core::services::weather::model::{CurrentWeather, DailyForecast, Location, State};
+
+pub fn hero_summary(current: &CurrentWeather) -> String {
+    format!(
+        "{} · Feels like {}",
+        current.condition,
+        temperature(current.apparent_temperature)
+    )
+}
+
+pub fn build_detail_rows(
+    current: &CurrentWeather,
+    today: Option<&DailyForecast>,
+) -> Vec<(String, String)> {
+    let high = today
+        .map(|d| temperature(d.temperature_max))
+        .unwrap_or_else(|| "—".into());
+    let low = today
+        .map(|d| temperature(d.temperature_min))
+        .unwrap_or_else(|| "—".into());
+    let sunrise = today
+        .map(|d| display_time_or_dash(&d.sunrise))
+        .unwrap_or_else(|| "—".into());
+    let sunset = today
+        .map(|d| display_time_or_dash(&d.sunset))
+        .unwrap_or_else(|| "—".into());
+
+    vec![
+        ("High".into(), high),
+        ("Low".into(), low),
+        ("Humidity".into(), format!("{}%", current.humidity)),
+        (
+            "Wind".into(),
+            format!(
+                "{} {:.0} km/h",
+                current.wind_direction_label, current.wind_speed
+            ),
+        ),
+        ("Pressure".into(), format!("{:.0} hPa", current.pressure)),
+        ("UV".into(), format!("{:.0}", current.uv_index)),
+        ("Sunrise".into(), sunrise),
+        ("Sunset".into(), sunset),
+    ]
+}
+
+pub fn display_time_or_dash(value: &str) -> String {
+    value
+        .split('T')
+        .nth(1)
+        .filter(|v| !v.is_empty())
+        .unwrap_or("—")
+        .to_owned()
+}
+
+pub fn forecast_items(items: &[DailyForecast]) -> Vec<DailyForecast> {
+    items
+        .iter()
+        .filter(|item| !item.is_today)
+        .cloned()
+        .collect()
+}
 
 pub const DEFAULT_LABEL_FORMAT: &str = "{temp}";
 pub const DEFAULT_TOOLTIP_FORMAT: &str =
@@ -7,8 +67,9 @@ pub const DEFAULT_TOOLTIP_FORMAT: &str =
 pub fn icon_name(state: &State) -> String {
     match state {
         State::Ready(snapshot) => snapshot.current.icon.clone(),
-        State::Loading => "weather-overcast-symbolic".into(),
-        State::Unknown | State::Unavailable(_) => "weather-overcast-symbolic".into(),
+        State::Loading | State::Unknown | State::Unavailable(_) => {
+            "weather-overcast-symbolic".into()
+        }
     }
 }
 
@@ -69,5 +130,59 @@ mod tests {
             ),
             "Cloudy · 20° · 18° · Warsaw, PL"
         );
+    }
+
+    #[test]
+    fn hero_summary_formats_condition_and_feels_like() {
+        let current = CurrentWeather {
+            condition: "Overcast".into(),
+            apparent_temperature: 9.0,
+            ..CurrentWeather::default()
+        };
+        assert_eq!(hero_summary(&current), "Overcast · Feels like 9°");
+    }
+
+    #[test]
+    fn build_detail_rows_returns_eight_items() {
+        let current = CurrentWeather {
+            humidity: 82,
+            wind_speed: 18.0,
+            wind_direction_label: "NW".into(),
+            pressure: 1008.0,
+            uv_index: 1.0,
+            ..CurrentWeather::default()
+        };
+        let today = DailyForecast {
+            temperature_min: 8.0,
+            temperature_max: 14.0,
+            sunrise: "2099-01-01T06:12".into(),
+            sunset: "2099-01-01T19:48".into(),
+            ..DailyForecast::default()
+        };
+        let rows = build_detail_rows(&current, Some(&today));
+        assert_eq!(rows.len(), 8);
+        assert_eq!(rows[0].1, "14°");
+        assert_eq!(rows[1].1, "8°");
+        assert_eq!(rows[6].1, "06:12");
+        assert_eq!(rows[7].1, "19:48");
+    }
+
+    #[test]
+    fn display_time_or_dash_extracts_time_part() {
+        assert_eq!(display_time_or_dash("2099-01-01T06:12"), "06:12");
+        assert_eq!(display_time_or_dash(""), "—");
+    }
+
+    #[test]
+    fn forecast_items_start_after_today() {
+        let today = DailyForecast {
+            is_today: true,
+            ..DailyForecast::default()
+        };
+        let tomorrow = DailyForecast {
+            day_name: "Fri".into(),
+            ..DailyForecast::default()
+        };
+        assert_eq!(forecast_items(&[today, tomorrow.clone()]), vec![tomorrow]);
     }
 }

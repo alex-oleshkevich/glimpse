@@ -26,15 +26,39 @@ fn main() {
 
     compile_blueprints(&[
         ("src/widgets/tile/template.blp", "resources/widgets/tile.ui"),
-        ("src/widgets/switch_tile/template.blp", "resources/widgets/switch_tile.ui"),
-        ("src/widgets/expander_tile/template.blp", "resources/widgets/expander_tile.ui"),
-        ("src/widgets/choice_tile/template.blp", "resources/widgets/choice_tile.ui"),
-        ("src/widgets/battery_hero/template.blp", "resources/widgets/battery_hero.ui"),
+        (
+            "src/widgets/switch_tile/template.blp",
+            "resources/widgets/switch_tile.ui",
+        ),
+        (
+            "src/widgets/expander_tile/template.blp",
+            "resources/widgets/expander_tile.ui",
+        ),
+        (
+            "src/widgets/choice_tile/template.blp",
+            "resources/widgets/choice_tile.ui",
+        ),
+        (
+            "src/widgets/battery_hero/template.blp",
+            "resources/widgets/battery_hero.ui",
+        ),
         ("src/widgets/hero/template.blp", "resources/widgets/hero.ui"),
-        ("src/widgets/message/template.blp", "resources/widgets/message.ui"),
-        ("src/widgets/popover_shell/template.blp", "resources/widgets/popover_shell.ui"),
-        ("src/widgets/segmented_tile/template.blp", "resources/widgets/segmented_tile.ui"),
-        ("src/widgets/slider_tile/template.blp", "resources/widgets/slider_tile.ui"),
+        (
+            "src/widgets/message/template.blp",
+            "resources/widgets/message.ui",
+        ),
+        (
+            "src/widgets/popover_shell/template.blp",
+            "resources/widgets/popover_shell.ui",
+        ),
+        (
+            "src/widgets/segmented_tile/template.blp",
+            "resources/widgets/segmented_tile.ui",
+        ),
+        (
+            "src/widgets/slider_tile/template.blp",
+            "resources/widgets/slider_tile.ui",
+        ),
     ]);
 
     glib_build_tools::compile_resources(

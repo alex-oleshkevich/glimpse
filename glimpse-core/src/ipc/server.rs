@@ -6,7 +6,11 @@ use tokio_util::sync::CancellationToken;
 
 use crate::services::framework::Services;
 
-use super::{client::{CommandHandler, IpcClientHandler}, dispatcher, protocol::IpcEvent};
+use super::{
+    client::{CommandHandler, IpcClientHandler},
+    dispatcher,
+    protocol::IpcEvent,
+};
 
 const BROADCAST_CAPACITY: usize = 256;
 
@@ -24,10 +28,8 @@ impl Drop for IpcHandle {
 
 impl IpcHandle {
     pub fn emit(&self, name: &str, fields: Vec<(&str, String)>) {
-        let owned: Vec<(String, String)> = fields
-            .into_iter()
-            .map(|(k, v)| (k.to_owned(), v))
-            .collect();
+        let owned: Vec<(String, String)> =
+            fields.into_iter().map(|(k, v)| (k.to_owned(), v)).collect();
         let _ = self.event_tx.send(Arc::new(IpcEvent::new(name, owned)));
     }
 
@@ -175,13 +177,23 @@ fn runtime_dir() -> PathBuf {
     PathBuf::from(base).join("glimpse")
 }
 
-pub fn shell_socket_path() -> PathBuf   { runtime_dir().join("ipc.sock") }
-pub fn idle_socket_path() -> PathBuf    { runtime_dir().join("idle.sock") }
-pub fn sunset_socket_path() -> PathBuf  { runtime_dir().join("sunset.sock") }
-pub fn wallpaper_socket_path() -> PathBuf { runtime_dir().join("wallpaper.sock") }
+pub fn shell_socket_path() -> PathBuf {
+    runtime_dir().join("ipc.sock")
+}
+pub fn idle_socket_path() -> PathBuf {
+    runtime_dir().join("idle.sock")
+}
+pub fn sunset_socket_path() -> PathBuf {
+    runtime_dir().join("sunset.sock")
+}
+pub fn wallpaper_socket_path() -> PathBuf {
+    runtime_dir().join("wallpaper.sock")
+}
 
 /// Kept for backwards compatibility — same as `shell_socket_path()`.
-pub fn resolve_socket_path() -> PathBuf { shell_socket_path() }
+pub fn resolve_socket_path() -> PathBuf {
+    shell_socket_path()
+}
 
 /// Create a new broadcast channel suitable for use with `IpcServer::launch_at`.
 pub fn new_event_channel() -> broadcast::Sender<Arc<IpcEvent>> {

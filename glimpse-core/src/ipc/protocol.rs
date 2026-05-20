@@ -14,7 +14,11 @@ impl IpcEvent {
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
-        Self { name: name.into(), ts, fields }
+        Self {
+            name: name.into(),
+            ts,
+            fields,
+        }
     }
 
     /// Encode to wire format: `name key=value key2=value2 ts=<epoch>`
@@ -37,7 +41,10 @@ impl IpcEvent {
 pub enum ClientMsg {
     Subscribe(Vec<String>),
     Unsubscribe(Vec<String>),
-    Command { name: String, fields: Vec<(String, String)> },
+    Command {
+        name: String,
+        fields: Vec<(String, String)>,
+    },
 }
 
 /// Parse a line sent by the client.
@@ -60,10 +67,11 @@ pub fn parse_client_line(line: &str) -> Result<ClientMsg, String> {
             Ok(ClientMsg::Unsubscribe(patterns))
         }
         name => {
-            let fields = tokens
-                .map(parse_field)
-                .collect::<Result<Vec<_>, _>>()?;
-            Ok(ClientMsg::Command { name: name.to_owned(), fields })
+            let fields = tokens.map(parse_field).collect::<Result<Vec<_>, _>>()?;
+            Ok(ClientMsg::Command {
+                name: name.to_owned(),
+                fields,
+            })
         }
     }
 }
@@ -99,7 +107,10 @@ pub fn unescape(s: &str) -> String {
                 Some('n') => out.push('\n'),
                 Some('t') => out.push('\t'),
                 Some('\\') => out.push('\\'),
-                Some(x) => { out.push('\\'); out.push(x); }
+                Some(x) => {
+                    out.push('\\');
+                    out.push(x);
+                }
                 None => out.push('\\'),
             }
         } else {
@@ -117,8 +128,7 @@ pub fn matches_pattern(pattern: &str, name: &str) -> bool {
         return true;
     }
     if let Some(prefix) = pattern.strip_suffix(".*") {
-        return name.starts_with(prefix)
-            && name[prefix.len()..].starts_with('.');
+        return name.starts_with(prefix) && name[prefix.len()..].starts_with('.');
     }
     pattern == name
 }
@@ -133,7 +143,10 @@ pub fn ack_line(ok: bool, error: Option<&str>) -> String {
     if ok {
         "ack ok=true".to_owned()
     } else {
-        format!("ack ok=false error={}", escape(error.unwrap_or("unknown error")))
+        format!(
+            "ack ok=false error={}",
+            escape(error.unwrap_or("unknown error"))
+        )
     }
 }
 
@@ -159,7 +172,10 @@ mod tests {
 
     #[test]
     fn matches_exact() {
-        assert!(matches_pattern("audio.volume_changed", "audio.volume_changed"));
+        assert!(matches_pattern(
+            "audio.volume_changed",
+            "audio.volume_changed"
+        ));
         assert!(!matches_pattern("audio.volume_changed", "audio.muted"));
     }
 
@@ -209,7 +225,11 @@ mod tests {
 
     #[test]
     fn event_encode() {
-        let ev = IpcEvent { name: "audio.volume_changed".into(), ts: 0, fields: vec![("volume".into(), "80".into())] };
+        let ev = IpcEvent {
+            name: "audio.volume_changed".into(),
+            ts: 0,
+            fields: vec![("volume".into(), "80".into())],
+        };
         let line = ev.encode();
         assert!(line.starts_with("audio.volume_changed volume=80 ts="));
     }

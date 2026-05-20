@@ -56,7 +56,9 @@ fn parse_fit(value: &str) -> Result<FitMode, String> {
         "cover" => Ok(FitMode::Cover),
         "contain" => Ok(FitMode::Contain),
         "fill" => Ok(FitMode::Fill),
-        other => Err(format!("mode must be cover, contain, or fill, got '{other}'")),
+        other => Err(format!(
+            "mode must be cover, contain, or fill, got '{other}'"
+        )),
     }
 }
 
@@ -69,7 +71,9 @@ async fn validate_file(path: &str) -> Result<(), String> {
     }
     let probe = candidate.clone();
     let is_file = tokio::task::spawn_blocking(move || {
-        std::fs::metadata(&probe).map(|m| m.is_file()).unwrap_or(false)
+        std::fs::metadata(&probe)
+            .map(|m| m.is_file())
+            .unwrap_or(false)
     })
     .await
     .map_err(|e| format!("path check failed: {e}"))?;
@@ -124,9 +128,7 @@ impl CommandHandler for WallpaperCommandHandler {
                         "true" => true,
                         "false" => false,
                         other => {
-                            return Err(format!(
-                                "enabled must be true or false, got '{other}'"
-                            ));
+                            return Err(format!("enabled must be true or false, got '{other}'"));
                         }
                     };
                     let path = match get("path") {
@@ -206,5 +208,9 @@ pub fn emit_theme_changed(tx: &broadcast::Sender<Arc<IpcEvent>>, mode: Effective
         EffectiveThemeMode::Light => "light",
         EffectiveThemeMode::Dark => "dark",
     };
-    ipc::emit(tx, "wallpaper.theme_changed", vec![("mode", name.to_owned())]);
+    ipc::emit(
+        tx,
+        "wallpaper.theme_changed",
+        vec![("mode", name.to_owned())],
+    );
 }

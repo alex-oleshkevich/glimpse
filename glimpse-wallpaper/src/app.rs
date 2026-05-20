@@ -13,7 +13,6 @@ use glimpse_core::{
     Config, ConfigEvent, FitMode, ResolvedBackdropSpec, ResolvedImageSpec, ResolvedWallpaperSpec,
     heic, ipc::protocol::IpcEvent, services::theme::EffectiveThemeMode, watch_for_config_changes,
 };
-use tokio::sync::broadcast;
 use gtk4::prelude::ListModelExt;
 use gtk4::{
     ContentFit,
@@ -30,6 +29,7 @@ use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
     gtk,
 };
+use tokio::sync::broadcast;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -329,8 +329,7 @@ impl WallpaperAppModel {
                 blur,
             } => {
                 let backdrop = if enabled {
-                    let blur_radius =
-                        blur.unwrap_or_else(|| Config::load().backdrop.blur_radius);
+                    let blur_radius = blur.unwrap_or_else(|| Config::load().backdrop.blur_radius);
                     ResolvedBackdropSpec::Enabled { path, blur_radius }
                 } else {
                     ResolvedBackdropSpec::Disabled

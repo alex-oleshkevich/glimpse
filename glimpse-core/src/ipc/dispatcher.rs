@@ -1,4 +1,7 @@
-use std::{collections::{HashMap, HashSet}, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use tokio::sync::{broadcast, watch};
 
@@ -37,10 +40,7 @@ pub fn start(services: &Services) -> broadcast::Sender<Arc<IpcEvent>> {
 }
 
 fn emit(tx: &broadcast::Sender<Arc<IpcEvent>>, name: &str, fields: Vec<(&str, String)>) {
-    let owned: Vec<(String, String)> = fields
-        .into_iter()
-        .map(|(k, v)| (k.to_owned(), v))
-        .collect();
+    let owned: Vec<(String, String)> = fields.into_iter().map(|(k, v)| (k.to_owned(), v)).collect();
     let _ = tx.send(Arc::new(IpcEvent::new(name, owned)));
 }
 
@@ -125,7 +125,10 @@ fn spawn_bluetooth_watcher(
                     emit(
                         &tx,
                         "bluetooth.device_added",
-                        vec![("address", dev.address.clone()), ("name", dev.alias.clone())],
+                        vec![
+                            ("address", dev.address.clone()),
+                            ("name", dev.alias.clone()),
+                        ],
                     );
                     continue;
                 }
@@ -134,27 +137,39 @@ fn spawn_bluetooth_watcher(
                     emit(
                         &tx,
                         "bluetooth.device_connected",
-                        vec![("address", dev.address.clone()), ("name", dev.alias.clone())],
+                        vec![
+                            ("address", dev.address.clone()),
+                            ("name", dev.alias.clone()),
+                        ],
                     );
                 } else if prev_dev.connected && !dev.connected {
                     emit(
                         &tx,
                         "bluetooth.device_disconnected",
-                        vec![("address", dev.address.clone()), ("name", dev.alias.clone())],
+                        vec![
+                            ("address", dev.address.clone()),
+                            ("name", dev.alias.clone()),
+                        ],
                     );
                 }
                 if !prev_dev.paired && dev.paired {
                     emit(
                         &tx,
                         "bluetooth.device_paired",
-                        vec![("address", dev.address.clone()), ("name", dev.alias.clone())],
+                        vec![
+                            ("address", dev.address.clone()),
+                            ("name", dev.alias.clone()),
+                        ],
                     );
                 }
                 if !prev_dev.trusted && dev.trusted {
                     emit(
                         &tx,
                         "bluetooth.device_trusted",
-                        vec![("address", dev.address.clone()), ("name", dev.alias.clone())],
+                        vec![
+                            ("address", dev.address.clone()),
+                            ("name", dev.alias.clone()),
+                        ],
                     );
                 }
                 if prev_dev.battery != dev.battery {
@@ -181,7 +196,10 @@ fn spawn_bluetooth_watcher(
                     emit(
                         &tx,
                         event,
-                        vec![("address", dev.address.clone()), ("name", dev.alias.clone())],
+                        vec![
+                            ("address", dev.address.clone()),
+                            ("name", dev.alias.clone()),
+                        ],
                     );
                 }
             }
@@ -206,10 +224,8 @@ fn spawn_network_watcher(
             let prev_connectivity = &prev.snapshot.status.connectivity;
             let next_connectivity = &next.snapshot.status.connectivity;
             if prev_connectivity != next_connectivity {
-                let was_connected =
-                    prev_connectivity == "full" || prev_connectivity == "limited";
-                let is_connected =
-                    next_connectivity == "full" || next_connectivity == "limited";
+                let was_connected = prev_connectivity == "full" || prev_connectivity == "limited";
+                let is_connected = next_connectivity == "full" || next_connectivity == "limited";
                 if !was_connected && is_connected {
                     emit(
                         &tx,
@@ -487,7 +503,10 @@ fn spawn_audio_watcher(
                     emit(
                         &tx,
                         "audio.volume_changed",
-                        vec![("volume", next_out.map(|d| d.volume).unwrap_or(0).to_string())],
+                        vec![(
+                            "volume",
+                            next_out.map(|d| d.volume).unwrap_or(0).to_string(),
+                        )],
                     );
                 }
 
@@ -495,12 +514,18 @@ fn spawn_audio_watcher(
                     (Some(false) | None, Some(true)) => emit(
                         &tx,
                         "audio.muted",
-                        vec![("volume", next_out.map(|d| d.volume).unwrap_or(0).to_string())],
+                        vec![(
+                            "volume",
+                            next_out.map(|d| d.volume).unwrap_or(0).to_string(),
+                        )],
                     ),
                     (Some(true), Some(false)) => emit(
                         &tx,
                         "audio.unmuted",
-                        vec![("volume", next_out.map(|d| d.volume).unwrap_or(0).to_string())],
+                        vec![(
+                            "volume",
+                            next_out.map(|d| d.volume).unwrap_or(0).to_string(),
+                        )],
                     ),
                     _ => {}
                 }
@@ -762,10 +787,7 @@ fn spawn_battery_watcher(
                     emit(
                         &tx,
                         "battery.device_removed",
-                        vec![
-                            ("path", dev.path.clone()),
-                            ("model", dev.model.clone()),
-                        ],
+                        vec![("path", dev.path.clone()), ("model", dev.model.clone())],
                     );
                 }
             }
@@ -779,7 +801,7 @@ fn spawn_compositor_watcher(
     mut rx: watch::Receiver<crate::services::compositor::State>,
     tx: broadcast::Sender<Arc<IpcEvent>>,
 ) {
-    use crate::compositors::{ScreencastTarget, ScreencastStateCapability};
+    use crate::compositors::{ScreencastStateCapability, ScreencastTarget};
 
     tokio::spawn(async move {
         let mut prev = rx.borrow_and_update().clone();
@@ -791,15 +813,21 @@ fn spawn_compositor_watcher(
 
             // --- compositor.workspace_changed ---
             if prev.current_workspace != next.current_workspace {
-                let ws = next
-                    .current_workspace
-                    .and_then(|i| next.workspaces.get(i));
+                let ws = next.current_workspace.and_then(|i| next.workspaces.get(i));
                 emit(
                     &tx,
                     "compositor.workspace_changed",
                     vec![
-                        ("workspace", ws.and_then(|w| w.name.as_deref()).unwrap_or("").to_owned()),
-                        ("monitor", ws.and_then(|w| w.monitor.as_deref()).unwrap_or("").to_owned()),
+                        (
+                            "workspace",
+                            ws.and_then(|w| w.name.as_deref()).unwrap_or("").to_owned(),
+                        ),
+                        (
+                            "monitor",
+                            ws.and_then(|w| w.monitor.as_deref())
+                                .unwrap_or("")
+                                .to_owned(),
+                        ),
                     ],
                 );
             }
@@ -837,8 +865,14 @@ fn spawn_compositor_watcher(
                     &tx,
                     "window.focused",
                     vec![
-                        ("title", w.and_then(|w| w.title.as_deref()).unwrap_or("").to_owned()),
-                        ("app_id", w.and_then(|w| w.app_id.as_deref()).unwrap_or("").to_owned()),
+                        (
+                            "title",
+                            w.and_then(|w| w.title.as_deref()).unwrap_or("").to_owned(),
+                        ),
+                        (
+                            "app_id",
+                            w.and_then(|w| w.app_id.as_deref()).unwrap_or("").to_owned(),
+                        ),
                     ],
                 );
             }
@@ -855,7 +889,10 @@ fn spawn_compositor_watcher(
                         "monitor.added",
                         vec![
                             ("name", m.name.clone()),
-                            ("description", m.description.as_deref().unwrap_or("").to_owned()),
+                            (
+                                "description",
+                                m.description.as_deref().unwrap_or("").to_owned(),
+                            ),
                         ],
                     );
                 } else {
@@ -874,7 +911,10 @@ fn spawn_compositor_watcher(
                         "monitor.removed",
                         vec![
                             ("name", m.name.clone()),
-                            ("description", m.description.as_deref().unwrap_or("").to_owned()),
+                            (
+                                "description",
+                                m.description.as_deref().unwrap_or("").to_owned(),
+                            ),
                         ],
                     );
                 }
@@ -882,10 +922,16 @@ fn spawn_compositor_watcher(
 
             // --- screencast.* ---
             if next.capabilities.screencast_state != ScreencastStateCapability::None {
-                let prev_casts: HashMap<&str, _> =
-                    prev.screencasts.iter().map(|s| (s.id.as_str(), s)).collect();
-                let next_casts: HashMap<&str, _> =
-                    next.screencasts.iter().map(|s| (s.id.as_str(), s)).collect();
+                let prev_casts: HashMap<&str, _> = prev
+                    .screencasts
+                    .iter()
+                    .map(|s| (s.id.as_str(), s))
+                    .collect();
+                let next_casts: HashMap<&str, _> = next
+                    .screencasts
+                    .iter()
+                    .map(|s| (s.id.as_str(), s))
+                    .collect();
                 for (id, s) in &next_casts {
                     if !prev_casts.contains_key(id) {
                         let target = match s.target {
@@ -1026,11 +1072,32 @@ fn spawn_mpris_watcher(
                     &tx,
                     event,
                     vec![
-                        ("player", next_cur.map(|p| p.identity.as_str()).unwrap_or("").to_owned()),
-                        ("player_id", next_cur.map(|p| p.player_id.as_str()).unwrap_or("").to_owned()),
-                        ("title", next_cur.map(|p| p.title.as_str()).unwrap_or("").to_owned()),
-                        ("artist", next_cur.map(|p| p.artist.as_str()).unwrap_or("").to_owned()),
-                        ("album", next_cur.map(|p| p.album.as_str()).unwrap_or("").to_owned()),
+                        (
+                            "player",
+                            next_cur
+                                .map(|p| p.identity.as_str())
+                                .unwrap_or("")
+                                .to_owned(),
+                        ),
+                        (
+                            "player_id",
+                            next_cur
+                                .map(|p| p.player_id.as_str())
+                                .unwrap_or("")
+                                .to_owned(),
+                        ),
+                        (
+                            "title",
+                            next_cur.map(|p| p.title.as_str()).unwrap_or("").to_owned(),
+                        ),
+                        (
+                            "artist",
+                            next_cur.map(|p| p.artist.as_str()).unwrap_or("").to_owned(),
+                        ),
+                        (
+                            "album",
+                            next_cur.map(|p| p.album.as_str()).unwrap_or("").to_owned(),
+                        ),
                     ],
                 );
             }
@@ -1073,18 +1140,36 @@ fn spawn_idle_watcher(
             let prev_fired: HashSet<usize> = prev.fired_listeners.iter().copied().collect();
             let next_fired: HashSet<usize> = next.fired_listeners.iter().copied().collect();
             for &id in next_fired.difference(&prev_fired) {
-                let timeout = next.listeners.iter().find(|l| l.id == id).map(|l| l.timeout).unwrap_or(0);
-                emit(&tx, "idle.triggered", vec![
-                    ("listener", id.to_string()),
-                    ("timeout", timeout.to_string()),
-                ]);
+                let timeout = next
+                    .listeners
+                    .iter()
+                    .find(|l| l.id == id)
+                    .map(|l| l.timeout)
+                    .unwrap_or(0);
+                emit(
+                    &tx,
+                    "idle.triggered",
+                    vec![
+                        ("listener", id.to_string()),
+                        ("timeout", timeout.to_string()),
+                    ],
+                );
             }
             for &id in prev_fired.difference(&next_fired) {
-                let timeout = prev.listeners.iter().find(|l| l.id == id).map(|l| l.timeout).unwrap_or(0);
-                emit(&tx, "idle.resumed", vec![
-                    ("listener", id.to_string()),
-                    ("timeout", timeout.to_string()),
-                ]);
+                let timeout = prev
+                    .listeners
+                    .iter()
+                    .find(|l| l.id == id)
+                    .map(|l| l.timeout)
+                    .unwrap_or(0);
+                emit(
+                    &tx,
+                    "idle.resumed",
+                    vec![
+                        ("listener", id.to_string()),
+                        ("timeout", timeout.to_string()),
+                    ],
+                );
             }
 
             prev = next;
@@ -1270,11 +1355,27 @@ fn spawn_microphone_watcher(
 
             let prev_indices: HashSet<u64> = prev.usages.iter().map(|u| u.index).collect();
             let next_indices: HashSet<u64> = next.usages.iter().map(|u| u.index).collect();
-            for usage in next.usages.iter().filter(|u| !prev_indices.contains(&u.index)) {
-                emit(&tx, "mic.app_started", vec![("app_name", usage.app_name.clone())]);
+            for usage in next
+                .usages
+                .iter()
+                .filter(|u| !prev_indices.contains(&u.index))
+            {
+                emit(
+                    &tx,
+                    "mic.app_started",
+                    vec![("app_name", usage.app_name.clone())],
+                );
             }
-            for usage in prev.usages.iter().filter(|u| !next_indices.contains(&u.index)) {
-                emit(&tx, "mic.app_stopped", vec![("app_name", usage.app_name.clone())]);
+            for usage in prev
+                .usages
+                .iter()
+                .filter(|u| !next_indices.contains(&u.index))
+            {
+                emit(
+                    &tx,
+                    "mic.app_stopped",
+                    vec![("app_name", usage.app_name.clone())],
+                );
             }
 
             prev = next;
@@ -1374,7 +1475,11 @@ fn spawn_session_watcher(
                         SessionAction::Reboot => "reboot",
                         SessionAction::PowerOff => "power-off",
                     };
-                    emit(&tx, "session.action", vec![("action", action_str.to_owned())]);
+                    emit(
+                        &tx,
+                        "session.action",
+                        vec![("action", action_str.to_owned())],
+                    );
                 }
             }
 
@@ -1398,7 +1503,11 @@ fn spawn_storage_watcher(
             let prev_ids: HashSet<&str> = prev.devices.iter().map(|d| d.id.as_str()).collect();
             let next_ids: HashSet<&str> = next.devices.iter().map(|d| d.id.as_str()).collect();
 
-            for device in next.devices.iter().filter(|d| !prev_ids.contains(d.id.as_str())) {
+            for device in next
+                .devices
+                .iter()
+                .filter(|d| !prev_ids.contains(d.id.as_str()))
+            {
                 use crate::services::storage::StorageKind;
                 let kind_str = match device.kind {
                     StorageKind::Drive => "drive",
@@ -1416,18 +1525,23 @@ fn spawn_storage_watcher(
                     ],
                 );
             }
-            for device in prev.devices.iter().filter(|d| !next_ids.contains(d.id.as_str())) {
+            for device in prev
+                .devices
+                .iter()
+                .filter(|d| !next_ids.contains(d.id.as_str()))
+            {
                 emit(
                     &tx,
                     "storage.device_removed",
-                    vec![
-                        ("id", device.id.clone()),
-                        ("name", device.name.clone()),
-                    ],
+                    vec![("id", device.id.clone()), ("name", device.name.clone())],
                 );
             }
 
-            for next_dev in next.devices.iter().filter(|d| prev_ids.contains(d.id.as_str())) {
+            for next_dev in next
+                .devices
+                .iter()
+                .filter(|d| prev_ids.contains(d.id.as_str()))
+            {
                 if let Some(prev_dev) = prev.devices.iter().find(|d| d.id == next_dev.id) {
                     if prev_dev.mounted_at != next_dev.mounted_at {
                         match &next_dev.mounted_at {
@@ -1443,10 +1557,7 @@ fn spawn_storage_watcher(
                             None => emit(
                                 &tx,
                                 "storage.device_unmounted",
-                                vec![
-                                    ("id", next_dev.id.clone()),
-                                    ("name", next_dev.name.clone()),
-                                ],
+                                vec![("id", next_dev.id.clone()), ("name", next_dev.name.clone())],
                             ),
                         }
                     }
@@ -1478,7 +1589,11 @@ fn spawn_webcam_watcher(
 
             let prev_ids: HashSet<&str> = prev.usages.iter().map(|u| u.id.as_str()).collect();
             let next_ids: HashSet<&str> = next.usages.iter().map(|u| u.id.as_str()).collect();
-            for usage in next.usages.iter().filter(|u| !prev_ids.contains(u.id.as_str())) {
+            for usage in next
+                .usages
+                .iter()
+                .filter(|u| !prev_ids.contains(u.id.as_str()))
+            {
                 emit(
                     &tx,
                     "webcam.app_started",
@@ -1488,7 +1603,11 @@ fn spawn_webcam_watcher(
                     ],
                 );
             }
-            for usage in prev.usages.iter().filter(|u| !next_ids.contains(u.id.as_str())) {
+            for usage in prev
+                .usages
+                .iter()
+                .filter(|u| !next_ids.contains(u.id.as_str()))
+            {
                 emit(
                     &tx,
                     "webcam.app_stopped",
@@ -1516,10 +1635,18 @@ fn spawn_tray_watcher(
             }
             let next = rx.borrow_and_update().clone();
 
-            let prev_addrs: HashSet<&str> =
-                prev.snapshot.items.iter().map(|i| i.address.as_str()).collect();
-            let next_addrs: HashSet<&str> =
-                next.snapshot.items.iter().map(|i| i.address.as_str()).collect();
+            let prev_addrs: HashSet<&str> = prev
+                .snapshot
+                .items
+                .iter()
+                .map(|i| i.address.as_str())
+                .collect();
+            let next_addrs: HashSet<&str> = next
+                .snapshot
+                .items
+                .iter()
+                .map(|i| i.address.as_str())
+                .collect();
 
             for item in next
                 .snapshot
@@ -1621,8 +1748,16 @@ fn spawn_solar_watcher(
             }
             let next = rx.borrow_and_update().clone();
 
-            let prev_snap = if let SolarState::Ready(s) = &prev { Some(s) } else { None };
-            let next_snap = if let SolarState::Ready(s) = &next { Some(s) } else { None };
+            let prev_snap = if let SolarState::Ready(s) = &prev {
+                Some(s)
+            } else {
+                None
+            };
+            let next_snap = if let SolarState::Ready(s) = &next {
+                Some(s)
+            } else {
+                None
+            };
 
             if prev_snap.map(|s| (&s.date, &s.times)) != next_snap.map(|s| (&s.date, &s.times)) {
                 if let Some(s) = next_snap {

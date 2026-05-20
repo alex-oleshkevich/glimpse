@@ -22,7 +22,11 @@ pub fn start(
     IpcServer::launch_at(
         tx,
         sunset_socket_path(),
-        SunsetCommandHandler { night_light, location, solar },
+        SunsetCommandHandler {
+            night_light,
+            location,
+            solar,
+        },
     )
 }
 
@@ -39,7 +43,11 @@ fn spawn_watcher(
             let next = rx.borrow_and_update().clone();
 
             if prev.phase != next.phase {
-                ipc::emit(&tx, "nightlight.phase_changed", vec![("phase", phase_name(next.phase).to_owned())]);
+                ipc::emit(
+                    &tx,
+                    "nightlight.phase_changed",
+                    vec![("phase", phase_name(next.phase).to_owned())],
+                );
                 if next.phase == NightLightPhase::Night {
                     ipc::emit(
                         &tx,
@@ -108,7 +116,9 @@ fn parse_schedule(s: &str) -> Result<NightLightSchedule, String> {
         "off" => Ok(NightLightSchedule::Off),
         "automatic" => Ok(NightLightSchedule::Automatic),
         "schedule" => Ok(NightLightSchedule::Schedule),
-        other => Err(format!("unknown schedule '{other}': expected off, automatic, or schedule")),
+        other => Err(format!(
+            "unknown schedule '{other}': expected off, automatic, or schedule"
+        )),
     }
 }
 
@@ -124,20 +134,32 @@ impl CommandHandler for SunsetCommandHandler {
         &'a self,
         name: &'a str,
         fields: &'a [(String, String)],
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<(String, String)>, String>> + Send + 'a>> {
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<(String, String)>, String>> + Send + 'a>>
+    {
         Box::pin(async move {
-            let get = |key: &str| fields.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str());
+            let get = |key: &str| {
+                fields
+                    .iter()
+                    .find(|(k, _)| k == key)
+                    .map(|(_, v)| v.as_str())
+            };
 
             match name {
                 "refresh" => {
                     self.location.try_send_command(
-                        "location", location::Command::Refresh, "failed to send location refresh",
+                        "location",
+                        location::Command::Refresh,
+                        "failed to send location refresh",
                     );
                     self.solar.try_send_command(
-                        "solar", solar::Command::Refresh, "failed to send solar refresh",
+                        "solar",
+                        solar::Command::Refresh,
+                        "failed to send solar refresh",
                     );
                     self.night_light.try_send_command(
-                        "night-light", night_light::Command::Refresh, "failed to send night-light refresh",
+                        "night-light",
+                        night_light::Command::Refresh,
+                        "failed to send night-light refresh",
                     );
                     Ok(vec![])
                 }
@@ -146,9 +168,18 @@ impl CommandHandler for SunsetCommandHandler {
                     let state = self.night_light.snapshot();
                     let mut fields = vec![
                         ("phase".into(), phase_name(state.phase).into()),
-                        ("kelvin".into(), state.effective_temperature_kelvin.to_string()),
-                        ("target_kelvin".into(), state.target_temperature_kelvin.to_string()),
-                        ("schedule".into(), schedule_name(state.config.schedule).into()),
+                        (
+                            "kelvin".into(),
+                            state.effective_temperature_kelvin.to_string(),
+                        ),
+                        (
+                            "target_kelvin".into(),
+                            state.target_temperature_kelvin.to_string(),
+                        ),
+                        (
+                            "schedule".into(),
+                            schedule_name(state.config.schedule).into(),
+                        ),
                         ("health".into(), health_name(&state.health).into()),
                     ];
                     if let Some(forced) = state.manual_override {
@@ -157,26 +188,22 @@ impl CommandHandler for SunsetCommandHandler {
                     Ok(fields)
                 }
 
-                "solar" => {
-                    match self.solar.snapshot() {
-                        solar::State::Ready(snapshot) => Ok(vec![
-                            ("state".into(), "ready".into()),
-                            ("sunrise".into(), snapshot.times.sunrise.clone()),
-                            ("sunset".into(), snapshot.times.sunset.clone()),
-                            ("date".into(), snapshot.date.to_string()),
-                        ]),
-                        solar::State::Unknown => Ok(vec![
-                            ("state".into(), "unknown".into()),
-                        ]),
-                        solar::State::Degraded { .. } => Ok(vec![
-                            ("state".into(), "degraded".into()),
-                        ]),
-                    }
-                }
+                "solar" => match self.solar.snapshot() {
+                    solar::State::Ready(snapshot) => Ok(vec![
+                        ("state".into(), "ready".into()),
+                        ("sunrise".into(), snapshot.times.sunrise.clone()),
+                        ("sunset".into(), snapshot.times.sunset.clone()),
+                        ("date".into(), snapshot.date.to_string()),
+                    ]),
+                    solar::State::Unknown => Ok(vec![("state".into(), "unknown".into())]),
+                    solar::State::Degraded { .. } => Ok(vec![("state".into(), "degraded".into())]),
+                },
 
                 "activate" => {
                     self.night_light.try_send_command(
-                        "night-light", night_light::Command::Manual(true), "failed to activate night light",
+                        "night-light",
+                        night_light::Command::Manual(true),
+                        "failed to activate night light",
                     );
                     Ok(vec![])
                 }
@@ -184,12 +211,16 @@ impl CommandHandler for SunsetCommandHandler {
                 "enable" => {
                     // Clear any manual override first so the automatic schedule takes effect.
                     self.night_light.try_send_command(
-                        "night-light", night_light::Command::Manual(false), "failed to clear manual override",
+                        "night-light",
+                        night_light::Command::Manual(false),
+                        "failed to clear manual override",
                     );
                     let mut config = self.night_light.snapshot().config;
                     config.schedule = NightLightSchedule::Automatic;
                     self.night_light.try_send_command(
-                        "night-light", night_light::Command::ApplyConfig(config), "failed to enable night light",
+                        "night-light",
+                        night_light::Command::ApplyConfig(config),
+                        "failed to enable night light",
                     );
                     Ok(vec![])
                 }
@@ -198,12 +229,16 @@ impl CommandHandler for SunsetCommandHandler {
                     // Clear the manual override too, otherwise a later set_schedule
                     // would resurrect forced Night because ApplyConfig preserves it.
                     self.night_light.try_send_command(
-                        "night-light", night_light::Command::Manual(false), "failed to clear manual override",
+                        "night-light",
+                        night_light::Command::Manual(false),
+                        "failed to clear manual override",
                     );
                     let mut config = self.night_light.snapshot().config;
                     config.schedule = NightLightSchedule::Off;
                     self.night_light.try_send_command(
-                        "night-light", night_light::Command::ApplyConfig(config), "failed to disable night light",
+                        "night-light",
+                        night_light::Command::ApplyConfig(config),
+                        "failed to disable night light",
                     );
                     Ok(vec![])
                 }
@@ -221,7 +256,9 @@ impl CommandHandler for SunsetCommandHandler {
                     let mut config = self.night_light.snapshot().config;
                     config.temperature = kelvin;
                     self.night_light.try_send_command(
-                        "night-light", night_light::Command::ApplyConfig(config), "failed to set temperature",
+                        "night-light",
+                        night_light::Command::ApplyConfig(config),
+                        "failed to set temperature",
                     );
                     Ok(vec![])
                 }
@@ -231,7 +268,9 @@ impl CommandHandler for SunsetCommandHandler {
                     let mut config = self.night_light.snapshot().config;
                     config.schedule = schedule;
                     self.night_light.try_send_command(
-                        "night-light", night_light::Command::ApplyConfig(config), "failed to set schedule",
+                        "night-light",
+                        night_light::Command::ApplyConfig(config),
+                        "failed to set schedule",
                     );
                     Ok(vec![])
                 }
@@ -246,7 +285,9 @@ impl CommandHandler for SunsetCommandHandler {
                     // so the command has a visible effect instead of silently no-op'ing.
                     config.schedule = NightLightSchedule::Schedule;
                     self.night_light.try_send_command(
-                        "night-light", night_light::Command::ApplyConfig(config), "failed to set times",
+                        "night-light",
+                        night_light::Command::ApplyConfig(config),
+                        "failed to set times",
                     );
                     Ok(vec![])
                 }
@@ -267,24 +308,29 @@ impl CommandHandler for SunsetCommandHandler {
                         return Err("lon must be between -180 and 180".into());
                     }
                     self.location.try_send_command(
-                        "location", location::Command::SetManual(lat, lon), "failed to set location",
+                        "location",
+                        location::Command::SetManual(lat, lon),
+                        "failed to set location",
                     );
                     Ok(vec![])
                 }
 
                 "reset" => {
                     self.night_light.try_send_command(
-                        "night-light", night_light::Command::Manual(false), "failed to deactivate night light",
+                        "night-light",
+                        night_light::Command::Manual(false),
+                        "failed to deactivate night light",
                     );
-                    let default_temperature = tokio::task::spawn_blocking(|| {
-                        Config::load().night_light.temperature
-                    })
-                    .await
-                    .map_err(|e| format!("failed to load config: {e}"))?;
+                    let default_temperature =
+                        tokio::task::spawn_blocking(|| Config::load().night_light.temperature)
+                            .await
+                            .map_err(|e| format!("failed to load config: {e}"))?;
                     let mut config = self.night_light.snapshot().config;
                     config.temperature = default_temperature;
                     self.night_light.try_send_command(
-                        "night-light", night_light::Command::ApplyConfig(config), "failed to reset temperature",
+                        "night-light",
+                        night_light::Command::ApplyConfig(config),
+                        "failed to reset temperature",
                     );
                     Ok(vec![])
                 }

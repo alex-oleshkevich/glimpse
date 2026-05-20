@@ -23,6 +23,9 @@ pub mod status_dot;
 pub mod switch_tile;
 pub mod text;
 pub mod tile;
+pub mod weather_forecast_list;
+pub mod weather_hero;
+pub mod weather_hourly_strip;
 
 #[allow(unused_imports)]
 pub use gtk4::Button;

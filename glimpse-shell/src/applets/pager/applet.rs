@@ -152,7 +152,6 @@ impl SimpleComponent for Applet {
         _root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-
         let mut state = PagerState::from(&init.service.snapshot());
         state.panel_monitor = init.panel_monitor.clone();
         let view = view_from_state(&init.config, &state);
@@ -279,7 +278,6 @@ impl Applet {
             }
         });
     }
-
 }
 
 impl Drop for Applet {
@@ -976,7 +974,11 @@ mod tests {
 
         let view = view_from_state(&config, &PagerState::from(&state));
 
-        assert!(view.items.iter().all(|item| item.appearance == PagerAppearance::Numbers));
+        assert!(
+            view.items
+                .iter()
+                .all(|item| item.appearance == PagerAppearance::Numbers)
+        );
         assert_eq!(
             view.items
                 .iter()
