@@ -8,6 +8,7 @@ pub mod expander_tile;
 pub mod header;
 pub mod hero;
 pub mod key_value_grid;
+pub mod popover_shell;
 pub mod row;
 pub mod segmented_tile;
 pub mod slider_tile;

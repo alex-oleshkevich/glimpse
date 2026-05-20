@@ -4,13 +4,13 @@ use relm4::{
 };
 
 use crate::{
-    components::{animated_popover::AnimatedPopover, popover_shell::PopoverShell},
+    components::animated_popover::AnimatedPopover,
     widgets::{
         badge::{Badge, BadgeKind}, boxed_list::BoxedList, button_row::ButtonRow,
         choice_list::ChoiceList, column::Column, expander_tile::ExpanderTile, header::Header,
-        hero::Hero, key_value_grid::KeyValueGrid, row::Row, segmented_tile::SegmentedTile,
-        slider_tile::SliderTile, status_dot::{StatusDot, StatusDotStatus}, switch_tile::SwitchTile,
-        tile::Tile,
+        hero::Hero, key_value_grid::KeyValueGrid, popover_shell::PopoverShell, row::Row,
+        segmented_tile::SegmentedTile, slider_tile::SliderTile,
+        status_dot::{StatusDot, StatusDotStatus}, switch_tile::SwitchTile, tile::Tile,
     },
 };
 
@@ -46,16 +46,10 @@ impl SimpleComponent for Popover {
             add_css_class: "popover-size-medium",
             set_hexpand: false,
 
-            #[template]
             PopoverShell {
-                #[template_child]
-                footer {
-                    set_visible: false,
-                },
+                set_footer_visible: false,
 
-                #[template_child]
-                content {
-                    Column {
+                Column {
 
                         Header {
                             set_label: "Tile",
@@ -280,7 +274,6 @@ impl SimpleComponent for Popover {
                             set_toggle_active: true,
                             connect_toggled => move |_, _| {},
                         },
-                    },
                 },
             },
         }
