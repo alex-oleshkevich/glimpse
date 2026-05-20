@@ -1,7 +1,6 @@
 pub mod animated_popover;
 pub mod badge;
 pub mod battery_hero;
-pub mod message;
 pub mod boxed_list;
 pub mod button_row;
 pub mod choice_list;
@@ -13,6 +12,9 @@ pub mod expander_tile;
 pub mod header;
 pub mod hero;
 pub mod key_value_grid;
+pub mod message;
+pub mod pager_item;
+pub mod pager_strip;
 pub mod popover_shell;
 pub mod row;
 pub mod segmented_tile;

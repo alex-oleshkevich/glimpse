@@ -5,10 +5,14 @@ use std::{cell::Cell, sync::OnceLock};
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/tile.ui")]
 pub struct Tile {
-    #[template_child] pub left_slot:       TemplateChild<gtk4::Box>,
-    #[template_child] pub primary_label:   TemplateChild<gtk4::Label>,
-    #[template_child] pub secondary_label: TemplateChild<gtk4::Label>,
-    #[template_child] pub right_slot:      TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub left_slot: TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub primary_label: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub secondary_label: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub right_slot: TemplateChild<gtk4::Box>,
 
     pub(super) activatable: Cell<bool>,
 }
@@ -44,7 +48,8 @@ impl ObjectImpl for Tile {
         });
         self.obj().add_controller(gesture);
 
-        self.obj().add_controller(gtk4::EventControllerMotion::new());
+        self.obj()
+            .add_controller(gtk4::EventControllerMotion::new());
     }
 
     fn signals() -> &'static [Signal] {

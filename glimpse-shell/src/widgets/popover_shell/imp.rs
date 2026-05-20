@@ -3,8 +3,10 @@ use gtk4::{CompositeTemplate, TemplateChild, glib, subclass::prelude::*};
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/popover_shell.ui")]
 pub struct PopoverShell {
-    #[template_child] pub content: TemplateChild<gtk4::Box>,
-    #[template_child] pub footer:  TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub content: TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub footer: TemplateChild<gtk4::Box>,
 }
 
 #[glib::object_subclass]

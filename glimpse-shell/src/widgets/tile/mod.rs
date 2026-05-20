@@ -66,7 +66,11 @@ impl Tile {
 
     pub fn connect_activated(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
         self.set_activatable(true);
-        self.connect_closure("activated", false, closure_local!(move |tile: &Self| f(tile)))
+        self.connect_closure(
+            "activated",
+            false,
+            closure_local!(move |tile: &Self| f(tile)),
+        )
     }
 }
 

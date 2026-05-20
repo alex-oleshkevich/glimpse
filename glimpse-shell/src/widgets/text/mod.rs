@@ -23,11 +23,11 @@ impl FontSize {
     fn css_class(self) -> &'static str {
         match self {
             Self::Xxs => "text-xxs",
-            Self::Xs  => "text-xs",
-            Self::Sm  => "text-sm",
-            Self::Md  => "text-md",
-            Self::Lg  => "text-lg",
-            Self::Xl  => "text-xl",
+            Self::Xs => "text-xs",
+            Self::Sm => "text-sm",
+            Self::Md => "text-md",
+            Self::Lg => "text-lg",
+            Self::Xl => "text-xl",
         }
     }
 }
@@ -44,10 +44,10 @@ pub enum FontWeight {
 impl FontWeight {
     fn css_class(self) -> &'static str {
         match self {
-            Self::Normal   => "text-normal",
-            Self::Medium   => "text-medium",
+            Self::Normal => "text-normal",
+            Self::Medium => "text-medium",
             Self::Semibold => "text-semibold",
-            Self::Bold     => "text-bold",
+            Self::Bold => "text-bold",
         }
     }
 }
@@ -67,11 +67,11 @@ impl TextColor {
     fn css_class(self) -> Option<&'static str> {
         match self {
             Self::Default => None,
-            Self::Muted   => Some("dim-label"),
-            Self::Accent  => Some("text-accent"),
+            Self::Muted => Some("dim-label"),
+            Self::Accent => Some("text-accent"),
             Self::Success => Some("text-success"),
             Self::Warning => Some("text-warning"),
-            Self::Error   => Some("text-error"),
+            Self::Error => Some("text-error"),
         }
     }
 }
@@ -87,7 +87,9 @@ impl Text {
 
     pub fn set_size(&self, size: FontSize) {
         let label = &self.imp().label;
-        for class in ["text-xxs", "text-xs", "text-sm", "text-md", "text-lg", "text-xl"] {
+        for class in [
+            "text-xxs", "text-xs", "text-sm", "text-md", "text-lg", "text-xl",
+        ] {
             label.remove_css_class(class);
         }
         label.add_css_class(size.css_class());
@@ -103,7 +105,13 @@ impl Text {
 
     pub fn set_color(&self, color: TextColor) {
         let label = &self.imp().label;
-        for class in ["dim-label", "text-accent", "text-success", "text-warning", "text-error"] {
+        for class in [
+            "dim-label",
+            "text-accent",
+            "text-success",
+            "text-warning",
+            "text-error",
+        ] {
             label.remove_css_class(class);
         }
         if let Some(class) = color.css_class() {

@@ -11,15 +11,31 @@ glib::wrapper! {
 
 #[derive(Clone, Copy)]
 pub enum Space {
-    S1, S2, S3, S4, S5, S6, S7, S8, S9, S10,
+    S1,
+    S2,
+    S3,
+    S4,
+    S5,
+    S6,
+    S7,
+    S8,
+    S9,
+    S10,
 }
 
 impl Space {
     fn n(self) -> u8 {
         match self {
-            Self::S1  => 1,  Self::S2  => 2,  Self::S3  => 3,  Self::S4  => 4,
-            Self::S5  => 5,  Self::S6  => 6,  Self::S7  => 7,  Self::S8  => 8,
-            Self::S9  => 9,  Self::S10 => 10,
+            Self::S1 => 1,
+            Self::S2 => 2,
+            Self::S3 => 3,
+            Self::S4 => 4,
+            Self::S5 => 5,
+            Self::S6 => 6,
+            Self::S7 => 7,
+            Self::S8 => 8,
+            Self::S9 => 9,
+            Self::S10 => 10,
         }
     }
 }
@@ -38,9 +54,9 @@ impl Radius {
     fn css_class(self) -> Option<&'static str> {
         match self {
             Self::None => None,
-            Self::Sm   => Some("rounded-sm"),
-            Self::Md   => Some("rounded-md"),
-            Self::Lg   => Some("rounded-lg"),
+            Self::Sm => Some("rounded-sm"),
+            Self::Md => Some("rounded-md"),
+            Self::Lg => Some("rounded-lg"),
             Self::Pill => Some("rounded-pill"),
         }
     }
@@ -57,9 +73,9 @@ pub enum ContainerBg {
 impl ContainerBg {
     fn css_class(self) -> Option<&'static str> {
         match self {
-            Self::None    => None,
+            Self::None => None,
             Self::Surface => Some("bg-surface"),
-            Self::Raised  => Some("bg-raised"),
+            Self::Raised => Some("bg-raised"),
         }
     }
 }
@@ -70,32 +86,44 @@ impl Container {
     }
 
     pub fn set_padding(&self, space: Space) {
-        for n in 1u8..=10 { self.remove_css_class(&format!("p-{n}")); }
+        for n in 1u8..=10 {
+            self.remove_css_class(&format!("p-{n}"));
+        }
         self.add_css_class(&format!("p-{}", space.n()));
     }
 
     pub fn set_padding_x(&self, space: Space) {
-        for n in 1u8..=10 { self.remove_css_class(&format!("px-{n}")); }
+        for n in 1u8..=10 {
+            self.remove_css_class(&format!("px-{n}"));
+        }
         self.add_css_class(&format!("px-{}", space.n()));
     }
 
     pub fn set_padding_y(&self, space: Space) {
-        for n in 1u8..=10 { self.remove_css_class(&format!("py-{n}")); }
+        for n in 1u8..=10 {
+            self.remove_css_class(&format!("py-{n}"));
+        }
         self.add_css_class(&format!("py-{}", space.n()));
     }
 
     pub fn set_margin(&self, space: Space) {
-        for n in 1u8..=10 { self.remove_css_class(&format!("m-{n}")); }
+        for n in 1u8..=10 {
+            self.remove_css_class(&format!("m-{n}"));
+        }
         self.add_css_class(&format!("m-{}", space.n()));
     }
 
     pub fn set_margin_x(&self, space: Space) {
-        for n in 1u8..=10 { self.remove_css_class(&format!("mx-{n}")); }
+        for n in 1u8..=10 {
+            self.remove_css_class(&format!("mx-{n}"));
+        }
         self.add_css_class(&format!("mx-{}", space.n()));
     }
 
     pub fn set_margin_y(&self, space: Space) {
-        for n in 1u8..=10 { self.remove_css_class(&format!("my-{n}")); }
+        for n in 1u8..=10 {
+            self.remove_css_class(&format!("my-{n}"));
+        }
         self.add_css_class(&format!("my-{}", space.n()));
     }
 
@@ -118,19 +146,25 @@ impl Container {
     }
 
     pub fn set_border_width(&self, width: u32) {
-        for n in 1u32..=4 { self.remove_css_class(&format!("border-{n}")); }
+        for n in 1u32..=4 {
+            self.remove_css_class(&format!("border-{n}"));
+        }
         if width > 0 {
             self.add_css_class(&format!("border-{width}"));
         }
     }
 
     pub fn set_min_width(&self, space: Space) {
-        for n in 1u8..=10 { self.remove_css_class(&format!("min-w-{n}")); }
+        for n in 1u8..=10 {
+            self.remove_css_class(&format!("min-w-{n}"));
+        }
         self.add_css_class(&format!("min-w-{}", space.n()));
     }
 
     pub fn set_min_height(&self, space: Space) {
-        for n in 1u8..=10 { self.remove_css_class(&format!("min-h-{n}")); }
+        for n in 1u8..=10 {
+            self.remove_css_class(&format!("min-h-{n}"));
+        }
         self.add_css_class(&format!("min-h-{}", space.n()));
     }
 }

@@ -23,8 +23,8 @@ impl StatusDotStatus {
             Self::Neutral => "neutral",
             Self::Success => "success",
             Self::Warning => "warning",
-            Self::Error   => "error",
-            Self::Accent  => "accent",
+            Self::Error => "error",
+            Self::Accent => "accent",
         }
     }
 }

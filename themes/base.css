@@ -2401,7 +2401,8 @@ popover.mpris-popover {
 }
 
 .tile {
-    padding: var(--space-1) var(--space-2);
+    min-height: var(--space-9);
+    padding: var(--space-1) var(--space-4);
     border-radius: var(--radius-sm);
 }
 
@@ -2428,7 +2429,7 @@ popover.mpris-popover {
 .tile__left,
 .tile__right {
     min-height: var(--space-9);
-    min-width: var(--space-9);
+    min-width: var(--space-8);
 }
 
 .tile__chevron {
@@ -2441,6 +2442,10 @@ popover.mpris-popover {
 
 .tile__content {
     padding: var(--space-3);
+}
+
+.choice-list>.choice-tile {
+    margin-bottom: 1px;
 }
 
 .choice-tile.selected {

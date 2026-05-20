@@ -71,23 +71,27 @@ impl Message {
     }
 
     pub fn connect_closed(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure("closed", false,
-            closure_local!(move |w: &Self| f(w)))
+        self.connect_closure("closed", false, closure_local!(move |w: &Self| f(w)))
     }
 
     pub fn connect_clicked(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure("clicked", false,
-            closure_local!(move |w: &Self| f(w)))
+        self.connect_closure("clicked", false, closure_local!(move |w: &Self| f(w)))
     }
 
     pub fn connect_secondary_clicked(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure("secondary-clicked", false,
-            closure_local!(move |w: &Self| f(w)))
+        self.connect_closure(
+            "secondary-clicked",
+            false,
+            closure_local!(move |w: &Self| f(w)),
+        )
     }
 
     pub fn connect_action(&self, f: impl Fn(&Self, &str) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure("action", false,
-            closure_local!(move |w: &Self, id: String| f(w, &id)))
+        self.connect_closure(
+            "action",
+            false,
+            closure_local!(move |w: &Self, id: String| f(w, &id)),
+        )
     }
 }
 

@@ -1,25 +1,49 @@
 use std::collections::HashSet;
 
 use relm4::{
-    Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
+    ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, prelude::*},
 };
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
+    components::pager::{PagerAppearance, PagerItemView},
     compositors::{CompositorType, Monitor, Window, Workspace},
     panels::applets::AppletConfig,
     services::{
         compositor::{Command, CompositorHandle, State},
         framework::ServiceCommand,
     },
+    widgets::pager_strip::{PagerStrip, PagerStripEntry},
 };
 
-use super::components::strip::{
-    Input as StripInput, Output as StripOutput, PagerAppearance, PagerItem, PagerTarget, Strip,
-    View,
-};
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PagerTarget {
+    Workspace(usize),
+    Window(usize),
+    Placeholder,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PagerItemData {
+    id: usize,
+    target: PagerTarget,
+    appearance: PagerAppearance,
+    label: String,
+    focused: bool,
+    monitor_focused: bool,
+    occupied: bool,
+    urgent: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct View {
+    visible: bool,
+    tooltip: String,
+    items: Vec<PagerItemData>,
+    placeholder: bool,
+}
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -71,7 +95,7 @@ pub struct Applet {
     state: PagerState,
     view: View,
     service: CompositorHandle,
-    strip: Controller<Strip>,
+    strip: PagerStrip,
     subscription_cancel: CancellationToken,
     panel_monitor: Option<String>,
 }
@@ -87,7 +111,7 @@ pub struct Init {
 pub enum Input {
     ServiceStateChanged(State),
     Reconfigure(Config),
-    StripOutput(StripOutput),
+    StripActivated(usize),
     Scroll { next: bool, horizontal: bool },
 }
 
@@ -101,30 +125,46 @@ impl SimpleComponent for Applet {
     view! {
         root = gtk::Box {
             set_orientation: gtk::Orientation::Horizontal,
+
+            add_controller = gtk::EventControllerScroll {
+                set_flags: gtk::EventControllerScrollFlags::VERTICAL
+                    | gtk::EventControllerScrollFlags::HORIZONTAL
+                    | gtk::EventControllerScrollFlags::DISCRETE,
+                connect_scroll[sender] => move |_, dx, dy| {
+                    if let Some((next, horizontal)) = scroll_direction(dx, dy) {
+                        sender.input(Input::Scroll { next, horizontal });
+                    }
+                    gtk::glib::Propagation::Stop
+                },
+            },
+
+            #[name = "strip"]
+            PagerStrip {
+                connect_activated[sender] => move |_, id| {
+                    sender.input(Input::StripActivated(id as usize));
+                },
+            },
         }
     }
 
     fn init(
         init: Self::Init,
-        root: Self::Root,
+        _root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        install_scroll_controller(&root, &sender);
 
-        let strip = Strip::builder()
-            .launch(())
-            .forward(sender.input_sender(), Input::StripOutput);
-        let strip_widget = strip.widget().clone();
         let mut state = PagerState::from(&init.service.snapshot());
         state.panel_monitor = init.panel_monitor.clone();
         let view = view_from_state(&init.config, &state);
+
+        let widgets = view_output!();
 
         let model = Applet {
             config: init.config,
             state,
             view,
             service: init.service,
-            strip,
+            strip: widgets.strip.clone(),
             subscription_cancel: CancellationToken::new(),
             panel_monitor: init.panel_monitor,
         };
@@ -160,8 +200,6 @@ impl SimpleComponent for Applet {
             }
         });
 
-        let widgets = view_output!();
-        widgets.root.append(&strip_widget);
         model.render();
         ComponentParts { model, widgets }
     }
@@ -180,13 +218,20 @@ impl SimpleComponent for Applet {
                 self.config = config;
                 self.sync_view();
             }
-            Input::StripOutput(StripOutput::Activate(target)) => {
+            Input::StripActivated(id) => {
+                let target = self
+                    .view
+                    .items
+                    .iter()
+                    .find(|item| item.id == id)
+                    .map(|item| item.target)
+                    .unwrap_or(PagerTarget::Placeholder);
                 if let Some(command) = command_for_target(target) {
                     self.send_command(command);
                 }
             }
             Input::Scroll { next, horizontal } => {
-                self.send_command(self.scroll_command(next, horizontal));
+                self.send_command(scroll_command(&self.config, &self.state, next, horizontal));
             }
         }
     }
@@ -194,7 +239,28 @@ impl SimpleComponent for Applet {
 
 impl Applet {
     fn render(&self) {
-        self.strip.emit(StripInput::Render(self.view.clone()));
+        self.strip.set_visible(self.view.visible);
+        self.strip.set_tooltip_text(
+            (!self.view.tooltip.is_empty()).then_some(self.view.tooltip.as_str()),
+        );
+        self.strip.set_placeholder(self.view.placeholder);
+        let entries = self
+            .view
+            .items
+            .iter()
+            .map(|item| PagerStripEntry {
+                id: item.id,
+                view: PagerItemView {
+                    appearance: item.appearance,
+                    label: item.label.clone(),
+                    active: item.focused && item.monitor_focused,
+                    inactive: item.focused && !item.monitor_focused,
+                    occupied: item.occupied && !item.focused,
+                    urgent: item.urgent,
+                },
+            })
+            .collect::<Vec<_>>();
+        self.strip.set_items(&entries);
     }
 
     fn sync_view(&mut self) {
@@ -214,9 +280,6 @@ impl Applet {
         });
     }
 
-    fn scroll_command(&self, next: bool, horizontal: bool) -> Command {
-        scroll_command(&self.config, &self.state, next, horizontal)
-    }
 }
 
 impl Drop for Applet {
@@ -308,7 +371,6 @@ fn view_from_state(config: &Config, state: &PagerState) -> View {
         return View {
             visible: false,
             tooltip: "Workspaces unavailable".into(),
-            appearance: config.appearance,
             items: Vec::new(),
             placeholder: false,
         };
@@ -353,7 +415,6 @@ fn view_from_state(config: &Config, state: &PagerState) -> View {
     View {
         visible: true,
         tooltip,
-        appearance: config.appearance,
         items,
         placeholder,
     }
@@ -377,7 +438,7 @@ fn workspace_items(
     appearance: PagerAppearance,
     active_label_format: &str,
     inactive_label_format: &str,
-) -> Vec<PagerItem> {
+) -> Vec<PagerItemData> {
     let occupied = occupied_workspaces(windows);
     let urgent = urgent_workspaces(windows);
     let scoped_workspaces =
@@ -404,7 +465,7 @@ fn workspace_items(
             let workspace = workspace_for_slot(compositor, slot, &scoped_workspaces);
             let target = workspace_command_target(compositor, slot, workspace);
             let focused = current_slot == Some(slot);
-            PagerItem {
+            PagerItemData {
                 id: target,
                 target: PagerTarget::Workspace(target),
                 appearance,
@@ -462,7 +523,7 @@ fn window_items(
     workspaces: &[Workspace],
     windows: &[PagerWindow],
     appearance: PagerAppearance,
-) -> Vec<PagerItem> {
+) -> Vec<PagerItemData> {
     let Some(current_workspace) = current_workspace else {
         return vec![window_placeholder_item(appearance, monitor_focused)];
     };
@@ -480,7 +541,7 @@ fn window_items(
     let items = windows
         .into_iter()
         .enumerate()
-        .map(|(index, window)| PagerItem {
+        .map(|(index, window)| PagerItemData {
             id: window.id,
             target: PagerTarget::Window(window.id),
             appearance,
@@ -498,8 +559,8 @@ fn window_items(
     }
 }
 
-fn window_placeholder_item(appearance: PagerAppearance, monitor_focused: bool) -> PagerItem {
-    PagerItem {
+fn window_placeholder_item(appearance: PagerAppearance, monitor_focused: bool) -> PagerItemData {
+    PagerItemData {
         id: 0,
         target: PagerTarget::Placeholder,
         appearance,
@@ -743,23 +804,6 @@ fn command_for_target(target: PagerTarget) -> Option<Command> {
     }
 }
 
-fn install_scroll_controller(root: &gtk::Box, sender: &ComponentSender<Applet>) {
-    let scroll = gtk::EventControllerScroll::new(
-        gtk::EventControllerScrollFlags::VERTICAL
-            | gtk::EventControllerScrollFlags::HORIZONTAL
-            | gtk::EventControllerScrollFlags::DISCRETE,
-    );
-    let scroll_sender = sender.clone();
-    scroll.connect_scroll(move |_ctrl, dx, dy| {
-        if let Some((next, horizontal)) = scroll_direction(dx, dy) {
-            scroll_sender.input(Input::Scroll { next, horizontal });
-        }
-
-        gtk::glib::Propagation::Stop
-    });
-    root.add_controller(scroll);
-}
-
 fn scroll_direction(dx: f64, dy: f64) -> Option<(bool, bool)> {
     if dx == 0.0 && dy == 0.0 {
         return None;
@@ -932,7 +976,7 @@ mod tests {
 
         let view = view_from_state(&config, &PagerState::from(&state));
 
-        assert_eq!(view.appearance, PagerAppearance::Numbers);
+        assert!(view.items.iter().all(|item| item.appearance == PagerAppearance::Numbers));
         assert_eq!(
             view.items
                 .iter()

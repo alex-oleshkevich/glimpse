@@ -5,9 +5,12 @@ use std::sync::OnceLock;
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/slider_tile.ui")]
 pub struct SliderTile {
-    #[template_child] pub label:     TemplateChild<gtk4::Label>,
-    #[template_child] pub left_slot: TemplateChild<gtk4::Box>,
-    #[template_child] pub slider:    TemplateChild<gtk4::Scale>,
+    #[template_child]
+    pub label: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub left_slot: TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub slider: TemplateChild<gtk4::Scale>,
 }
 
 #[glib::object_subclass]
@@ -40,9 +43,11 @@ impl ObjectImpl for SliderTile {
     fn signals() -> &'static [Signal] {
         static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
         SIGNALS.get_or_init(|| {
-            vec![Signal::builder("changed")
-                .param_types([f64::static_type()])
-                .build()]
+            vec![
+                Signal::builder("changed")
+                    .param_types([f64::static_type()])
+                    .build(),
+            ]
         })
     }
 }

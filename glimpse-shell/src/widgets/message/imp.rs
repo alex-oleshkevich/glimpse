@@ -5,14 +5,22 @@ use std::sync::OnceLock;
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/message.ui")]
 pub struct Message {
-    #[template_child] pub icon:         TemplateChild<gtk4::Image>,
-    #[template_child] pub app_name:     TemplateChild<gtk4::Label>,
-    #[template_child] pub time_label:   TemplateChild<gtk4::Label>,
-    #[template_child] pub dismiss:      TemplateChild<gtk4::Button>,
-    #[template_child] pub content_icon: TemplateChild<gtk4::Image>,
-    #[template_child] pub title:        TemplateChild<gtk4::Label>,
-    #[template_child] pub body_label:   TemplateChild<gtk4::Label>,
-    #[template_child] pub actions:      TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub icon: TemplateChild<gtk4::Image>,
+    #[template_child]
+    pub app_name: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub time_label: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub dismiss: TemplateChild<gtk4::Button>,
+    #[template_child]
+    pub content_icon: TemplateChild<gtk4::Image>,
+    #[template_child]
+    pub title: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub body_label: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub actions: TemplateChild<gtk4::Box>,
 }
 
 #[glib::object_subclass]

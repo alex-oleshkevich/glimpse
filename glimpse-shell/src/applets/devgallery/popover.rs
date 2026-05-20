@@ -1,11 +1,10 @@
-use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, prelude::*},
 };
 
 use crate::widgets::{
-    Button, Meter, Scroll, Spinner, ToggleButton,
+    Meter, Scroll, Spinner,
     animated_popover::AnimatedPopover,
     badge::{Badge, BadgeKind},
     battery_hero::BatteryHero,
@@ -18,7 +17,6 @@ use crate::widgets::{
     header::Header,
     hero::Hero,
     key_value_grid::KeyValueGrid,
-    message::Message,
     popover_shell::PopoverShell,
     row::Row,
     segmented_tile::SegmentedTile,
@@ -30,8 +28,7 @@ use crate::widgets::{
 };
 
 pub struct Popover {
-    popover: AnimatedPopover,
-    preview_window: Option<gtk::Window>,
+    animation: AnimatedPopover,
 }
 
 pub struct PopoverInit {
@@ -61,7 +58,6 @@ impl SimpleComponent for Popover {
             add_css_class: "devgallery-popover",
             add_css_class: "popover-size-large",
             set_hexpand: false,
-            set_autohide: false,
 
             PopoverShell {
                 set_footer_visible: false,
@@ -443,7 +439,7 @@ impl SimpleComponent for Popover {
     ) -> ComponentParts<Self> {
         let widgets = view_output!();
         widgets.root.set_parent(&init.parent);
-        // widgets.root.set_autohide(true);
+        widgets.root.set_autohide(true);
 
         let opened_sender = sender.clone();
         widgets.root.connect_show(move |_| {
@@ -460,8 +456,7 @@ impl SimpleComponent for Popover {
         });
 
         let model = Popover {
-            popover: widgets.root.clone(),
-            preview_window: None,
+            animation: widgets.root.clone(),
         };
 
         ComponentParts { model, widgets }
@@ -470,7 +465,7 @@ impl SimpleComponent for Popover {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             PopoverInput::Toggle => {
-                self.popover.toggle();
+                self.animation.toggle();
             }
         }
     }

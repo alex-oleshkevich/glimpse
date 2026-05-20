@@ -41,12 +41,12 @@ impl AnimatedPopover {
         self.set_can_target(true);
         self.remove_css_class(OPEN_CLASS);
         self.remove_css_class(CLOSING_CLASS);
+        self.popup();
 
-        // Defer popup() to the next idle so the triggering press event is fully
-        // dispatched before the xdg_popup grab is installed. Calling popup()
-        // synchronously inside a connect_pressed handler causes Wayland compositors
-        // to immediately send popup_done (the press was "outside" the just-created
-        // popup), closing the popover one tick after it opens.
+        if !self.is_visible() {
+            tracing::warn!("AnimatedPopover: not visible after popup()");
+        }
+
         let weak = self.downgrade();
         glib::idle_add_local_once(move || {
             let Some(w) = weak.upgrade() else { return };
@@ -55,45 +55,20 @@ impl AnimatedPopover {
                 tracing::warn!(
                     expected = epoch,
                     actual = imp.generation.get(),
-                    "AnimatedPopover: popup idle skipped — generation changed"
+                    "AnimatedPopover: idle skipped — generation changed"
                 );
                 return;
             }
             if imp.state.get() != AnimationState::Opening {
                 tracing::warn!(
                     state = ?imp.state.get(),
-                    "AnimatedPopover: popup idle skipped — state changed from Opening"
+                    "AnimatedPopover: idle skipped — state changed from Opening"
                 );
                 return;
             }
-            w.popup();
-            if !w.is_visible() {
-                tracing::warn!("AnimatedPopover: not visible after popup()");
-            }
-
-            let weak2 = w.downgrade();
-            glib::idle_add_local_once(move || {
-                let Some(w2) = weak2.upgrade() else { return };
-                let imp2 = w2.imp();
-                if imp2.generation.get() != epoch {
-                    tracing::warn!(
-                        expected = epoch,
-                        actual = imp2.generation.get(),
-                        "AnimatedPopover: open-class idle skipped — generation changed"
-                    );
-                    return;
-                }
-                if imp2.state.get() != AnimationState::Opening {
-                    tracing::warn!(
-                        state = ?imp2.state.get(),
-                        "AnimatedPopover: open-class idle skipped — state changed from Opening"
-                    );
-                    return;
-                }
-                w2.add_css_class(OPEN_CLASS);
-                imp2.state.set(AnimationState::Open);
-                tracing::debug!("AnimatedPopover: open class applied");
-            });
+            w.add_css_class(OPEN_CLASS);
+            imp.state.set(AnimationState::Open);
+            tracing::debug!("AnimatedPopover: open class applied");
         });
     }
 

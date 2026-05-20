@@ -5,10 +5,14 @@ use std::sync::OnceLock;
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/switch_tile.ui")]
 pub struct SwitchTile {
-    #[template_child] pub left_slot:       TemplateChild<gtk4::Box>,
-    #[template_child] pub primary_label:   TemplateChild<gtk4::Label>,
-    #[template_child] pub secondary_label: TemplateChild<gtk4::Label>,
-    #[template_child] pub toggle:          TemplateChild<gtk4::Switch>,
+    #[template_child]
+    pub left_slot: TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub primary_label: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub secondary_label: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub toggle: TemplateChild<gtk4::Switch>,
 }
 
 #[glib::object_subclass]
@@ -42,9 +46,11 @@ impl ObjectImpl for SwitchTile {
     fn signals() -> &'static [Signal] {
         static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
         SIGNALS.get_or_init(|| {
-            vec![Signal::builder("toggled")
-                .param_types([bool::static_type()])
-                .build()]
+            vec![
+                Signal::builder("toggled")
+                    .param_types([bool::static_type()])
+                    .build(),
+            ]
         })
     }
 }

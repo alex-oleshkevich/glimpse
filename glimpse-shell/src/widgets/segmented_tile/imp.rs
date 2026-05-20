@@ -5,14 +5,22 @@ use std::{cell::Cell, sync::OnceLock};
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/segmented_tile.ui")]
 pub struct SegmentedTile {
-    #[template_child] pub main:            TemplateChild<gtk4::Box>,
-    #[template_child] pub left_slot:       TemplateChild<gtk4::Box>,
-    #[template_child] pub primary_label:   TemplateChild<gtk4::Label>,
-    #[template_child] pub secondary_label: TemplateChild<gtk4::Label>,
-    #[template_child] pub expander:        TemplateChild<gtk4::Box>,
-    #[template_child] pub chevron:         TemplateChild<gtk4::Image>,
-    #[template_child] pub revealer:        TemplateChild<gtk4::Revealer>,
-    #[template_child] pub child_slot:      TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub main: TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub left_slot: TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub primary_label: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub secondary_label: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub expander: TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub chevron: TemplateChild<gtk4::Image>,
+    #[template_child]
+    pub revealer: TemplateChild<gtk4::Revealer>,
+    #[template_child]
+    pub child_slot: TemplateChild<gtk4::Box>,
 
     pub(super) expanded: Cell<bool>,
 }
@@ -58,7 +66,8 @@ impl ObjectImpl for SegmentedTile {
             }
         });
         self.expander.add_controller(gesture);
-        self.expander.add_controller(gtk4::EventControllerMotion::new());
+        self.expander
+            .add_controller(gtk4::EventControllerMotion::new());
     }
 
     fn signals() -> &'static [Signal] {

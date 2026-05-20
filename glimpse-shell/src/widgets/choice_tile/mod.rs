@@ -57,7 +57,11 @@ impl ChoiceTile {
     }
 
     pub fn connect_activated(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure("activated", false, closure_local!(move |tile: &Self| f(tile)))
+        self.connect_closure(
+            "activated",
+            false,
+            closure_local!(move |tile: &Self| f(tile)),
+        )
     }
 }
 

@@ -23,8 +23,8 @@ impl BadgeKind {
             Self::Default => "default",
             Self::Success => "success",
             Self::Warning => "warning",
-            Self::Error   => "error",
-            Self::Accent  => "accent",
+            Self::Error => "error",
+            Self::Accent => "accent",
         }
     }
 }

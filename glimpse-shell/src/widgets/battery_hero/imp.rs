@@ -1,4 +1,4 @@
-use gtk4::{glib, subclass::prelude::*, CompositeTemplate, TemplateChild};
+use gtk4::{CompositeTemplate, TemplateChild, glib, subclass::prelude::*};
 
 #[derive(CompositeTemplate, Default)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/battery_hero.ui")]
