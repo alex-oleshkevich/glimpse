@@ -1,0 +1,61 @@
+using Gtk 4.0;
+
+template $GlimpseRow: Box {
+  orientation: horizontal;
+  spacing: 8;
+
+  styles [
+    "row",
+  ]
+
+  Box left_slot {
+    valign: center;
+    visible: false;
+
+    styles [
+      "row__left",
+    ]
+  }
+
+  Box labels {
+    orientation: vertical;
+    hexpand: true;
+    valign: center;
+
+    styles [
+      "row__labels",
+    ]
+
+    Label primary_label {
+      xalign: 0;
+      ellipsize: end;
+      hexpand: true;
+
+      styles [
+        "row__label_primary",
+      ]
+    }
+
+    Label secondary_label {
+      xalign: 0;
+      ellipsize: end;
+      visible: false;
+
+      styles [
+        "dim-label",
+        "caption",
+        "row__label_secondary",
+      ]
+    }
+  }
+
+  Box right_slot {
+    halign: end;
+    valign: center;
+    visible: false;
+
+    styles [
+      "row__right",
+    ]
+  }
+}

@@ -3,5 +3,6 @@
   <gresource prefix="/me/aresa/GlimpseShell">
     <file alias="themes/base.css" compressed="true">../../themes/base.css</file>
     <file alias="themes/base-remap.css" compressed="true">../../themes/base-remap.css</file>
+    <file>widgets/row.ui</file>
   </gresource>
 </gresources>

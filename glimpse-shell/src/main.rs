@@ -1,5 +1,6 @@
 mod agents;
 mod app;
+mod widgets;
 mod applet_dev;
 mod applet_manage;
 mod applet_scaffold;

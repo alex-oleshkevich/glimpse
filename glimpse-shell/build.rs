@@ -1,3 +1,17 @@
+fn compile_blueprints(pairs: &[(&str, &str)]) {
+    for (src, out) in pairs {
+        println!("cargo:rerun-if-changed={src}");
+        if let Some(parent) = std::path::Path::new(out).parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        let status = std::process::Command::new("blueprint-compiler")
+            .args(["compile", "--output", out, src])
+            .status()
+            .expect("blueprint-compiler not found");
+        assert!(status.success(), "blueprint-compiler failed for {src}");
+    }
+}
+
 fn main() {
     // gtk4-layer-shell MUST appear before libwayland-client in the link line,
     // otherwise the layer-shell hook into libwayland's display init runs too
@@ -9,6 +23,8 @@ fn main() {
     //
     // See: https://github.com/wmww/gtk4-layer-shell/blob/main/linking.md
     println!("cargo:rustc-link-lib=gtk4-layer-shell");
+
+    compile_blueprints(&[("src/widgets/row/template.blp", "resources/widgets/row.ui")]);
 
     glib_build_tools::compile_resources(
         &["resources"],                          // source dirs (relative to build.rs)
