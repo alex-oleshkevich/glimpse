@@ -46,13 +46,16 @@ impl AnimatedPopover {
     }
 
     pub fn toggle(&mut self) {
-        match self.state.get() {
+        let current = self.state.get();
+        tracing::debug!(?current, "AnimatedPopover::toggle");
+        match current {
             AnimationState::Closed | AnimationState::Closing => self.open(),
             AnimationState::Opening | AnimationState::Open => self.close(),
         }
     }
 
     pub fn open(&mut self) {
+        tracing::debug!("AnimatedPopover::open");
         self.bump_generation();
         self.state.set(AnimationState::Opening);
         self.popover.set_can_target(true);
@@ -60,17 +63,34 @@ impl AnimatedPopover {
         self.popover.remove_css_class(CLOSING_CLASS);
         self.popover.popup();
 
+        if !self.popover.is_visible() {
+            tracing::warn!("AnimatedPopover: popover not visible after popup()");
+        }
+
         let popover = self.popover.clone();
         let state = self.state.clone();
         let generation = self.generation.clone();
         let current_generation = generation.get();
         glib::idle_add_local_once(move || {
-            if generation.get() != current_generation || state.get() != AnimationState::Opening {
+            if generation.get() != current_generation {
+                tracing::warn!(
+                    gen_expected = current_generation,
+                    gen_actual = generation.get(),
+                    "AnimatedPopover: idle skipped — generation changed"
+                );
+                return;
+            }
+            if state.get() != AnimationState::Opening {
+                tracing::warn!(
+                    state = ?state.get(),
+                    "AnimatedPopover: idle skipped — state changed from Opening"
+                );
                 return;
             }
 
             popover.add_css_class(OPEN_CLASS);
             state.set(AnimationState::Open);
+            tracing::debug!("AnimatedPopover: open class applied");
         });
     }
 
@@ -79,6 +99,7 @@ impl AnimatedPopover {
             return;
         }
 
+        tracing::debug!("AnimatedPopover::close");
         self.bump_generation();
         self.state.set(AnimationState::Closing);
         self.popover.set_can_target(false);
@@ -98,6 +119,7 @@ impl AnimatedPopover {
             popover.set_can_target(true);
             popover.remove_css_class(CLOSING_CLASS);
             state.set(AnimationState::Closed);
+            tracing::debug!("AnimatedPopover: popdown complete");
         });
     }
 

@@ -34,9 +34,10 @@ impl ObjectImpl for Tile {
 
         let gesture = gtk4::GestureClick::new();
         let obj = self.obj().downgrade();
-        gesture.connect_released(move |_, _, _, _| {
+        gesture.connect_released(move |gesture, _, _, _| {
             if let Some(tile) = obj.upgrade() {
                 if tile.imp().activatable.get() {
+                    gesture.set_state(gtk4::EventSequenceState::Claimed);
                     tile.emit_by_name::<()>("activated", &[]);
                 }
             }

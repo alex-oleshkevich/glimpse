@@ -1,3 +1,4 @@
+pub mod animated_popover;
 pub mod badge;
 pub mod battery_hero;
 pub mod message;

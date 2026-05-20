@@ -1,34 +1,27 @@
 use relm4::{
-    Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
+    ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, prelude::*},
 };
 
 use crate::{
-    components::{
-        action_menu::{
-            ActionMenu, ActionMenuItem, Init as ActionMenuInit, Input as ActionMenuInput,
-        },
-        animated_popover::AnimatedPopover,
-        hero::HeroView,
-        popover_shell::PopoverShell,
-    },
     services::session::{
         SessionAction, SessionActionAvailability, SessionBackendState, SessionServiceHealth, State,
+    },
+    widgets::{
+        animated_popover::AnimatedPopover, header::Header, hero::Hero, popover_shell::PopoverShell,
+        tile::Tile,
     },
 };
 
 use super::{Config, format};
 
 pub struct Popover {
-    animation: AnimatedPopover,
+    popover: AnimatedPopover,
     config: Config,
     state: State,
     hero_icon_name: &'static str,
     hero_subtitle: String,
-    session_actions_visible: bool,
-    power_actions_visible: bool,
-    session_actions: Controller<ActionMenu<SessionAction>>,
-    power_actions: Controller<ActionMenu<SessionAction>>,
+    sections: ActionSections,
 }
 
 pub struct Init {
@@ -59,39 +52,133 @@ impl SimpleComponent for Popover {
     type Output = Output;
 
     view! {
-        root = gtk::Popover {
+        root = AnimatedPopover {
             add_css_class: "session-popover",
             add_css_class: "popover-size-small",
             set_hexpand: false,
+            set_autohide: true,
 
-            #[template]
             PopoverShell {
-                #[template_child]
-                footer {
-                    set_visible: false,
+                set_footer_visible: false,
+
+                Hero {
+                    #[watch]
+                    set_icon: Some(model.hero_icon_name),
+                    #[watch]
+                    set_title: &model.state.snapshot.user_name,
+                    #[watch]
+                    set_subtitle: &model.hero_subtitle,
                 },
 
-                #[template_child]
-                content {
-                    #[name = "hero"]
-                    #[template]
-                    HeroView,
+                #[name = "session_header"]
+                Header {
+                    set_label: "Session",
+                    #[watch]
+                    set_visible: model.sections.session_visible,
+                },
 
-                    #[name = "hero_separator"]
-                    gtk::Separator {
-                        set_orientation: gtk::Orientation::Horizontal,
+                #[name = "lock_tile"]
+                Tile {
+                    set_primary: "Lock Screen",
+                    #[watch]
+                    set_visible: model.sections.action_visible(SessionAction::Lock),
+                    #[wrap(Some)]
+                    set_left = gtk::Image {
+                        set_icon_name: Some("system-lock-screen-symbolic"),
+                        set_pixel_size: 16,
                     },
-
-                    #[local_ref]
-                    session_actions_widget -> gtk::Box {},
-
-                    #[name = "action_separator"]
-                    gtk::Separator {
-                        set_orientation: gtk::Orientation::Horizontal,
+                    connect_activated[sender] => move |_| {
+                        let _ = sender.output(Output::ActionRequested(SessionAction::Lock));
                     },
+                },
 
-                    #[local_ref]
-                    power_actions_widget -> gtk::Box {},
+                #[name = "logout_tile"]
+                Tile {
+                    set_primary: "Log Out",
+                    #[watch]
+                    set_visible: model.sections.action_visible(SessionAction::Logout),
+                    #[wrap(Some)]
+                    set_left = gtk::Image {
+                        set_icon_name: Some("system-log-out-symbolic"),
+                        set_pixel_size: 16,
+                    },
+                    connect_activated[sender] => move |_| {
+                        let _ = sender.output(Output::ActionRequested(SessionAction::Logout));
+                    },
+                },
+
+                #[name = "action_separator"]
+                gtk::Separator {
+                    set_orientation: gtk::Orientation::Horizontal,
+                    #[watch]
+                    set_visible: model.sections.session_visible && model.sections.power_visible,
+                },
+
+                #[name = "power_header"]
+                Header {
+                    set_label: "Power",
+                    #[watch]
+                    set_visible: model.sections.power_visible,
+                },
+
+                #[name = "suspend_tile"]
+                Tile {
+                    set_primary: "Suspend",
+                    #[watch]
+                    set_visible: model.sections.action_visible(SessionAction::Suspend),
+                    #[wrap(Some)]
+                    set_left = gtk::Image {
+                        set_icon_name: Some("media-playback-pause-symbolic"),
+                        set_pixel_size: 16,
+                    },
+                    connect_activated[sender] => move |_| {
+                        let _ = sender.output(Output::ActionRequested(SessionAction::Suspend));
+                    },
+                },
+
+                #[name = "hibernate_tile"]
+                Tile {
+                    set_primary: "Hibernate",
+                    #[watch]
+                    set_visible: model.sections.action_visible(SessionAction::Hibernate),
+                    #[wrap(Some)]
+                    set_left = gtk::Image {
+                        set_icon_name: Some("document-save-symbolic"),
+                        set_pixel_size: 16,
+                    },
+                    connect_activated[sender] => move |_| {
+                        let _ = sender.output(Output::ActionRequested(SessionAction::Hibernate));
+                    },
+                },
+
+                #[name = "reboot_tile"]
+                Tile {
+                    set_primary: "Restart",
+                    #[watch]
+                    set_visible: model.sections.action_visible(SessionAction::Reboot),
+                    #[wrap(Some)]
+                    set_left = gtk::Image {
+                        set_icon_name: Some("system-reboot-symbolic"),
+                        set_pixel_size: 16,
+                    },
+                    connect_activated[sender] => move |_| {
+                        let _ = sender.output(Output::ActionRequested(SessionAction::Reboot));
+                    },
+                },
+
+                #[name = "power_off_tile"]
+                Tile {
+                    set_primary: "Shut Down",
+                    #[watch]
+                    set_visible: model.sections.action_visible(SessionAction::PowerOff),
+                    #[wrap(Some)]
+                    set_left = gtk::Image {
+                        set_icon_name: Some("system-shutdown-symbolic"),
+                        set_pixel_size: 16,
+                    },
+                    connect_activated[sender] => move |_| {
+                        let _ = sender.output(Output::ActionRequested(SessionAction::PowerOff));
+                    },
                 },
             },
         }
@@ -103,24 +190,19 @@ impl SimpleComponent for Popover {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let state = State::default();
-        let session_actions = ActionMenu::builder()
-            .launch(ActionMenuInit {
-                header: Some("Session".into()),
-                items: build_session_items(&init.config, &state),
-            })
-            .forward(sender.output_sender(), Output::ActionRequested);
-        let power_actions = ActionMenu::builder()
-            .launch(ActionMenuInit {
-                header: Some("Power".into()),
-                items: build_power_items(&init.config, &state),
-            })
-            .forward(sender.output_sender(), Output::ActionRequested);
-        let session_actions_widget = session_actions.widget().clone();
-        let power_actions_widget = power_actions.widget().clone();
+        let sections = action_sections(&init.config, &state);
+        let mut model = Popover {
+            popover: AnimatedPopover::new(),
+            config: init.config,
+            sections,
+            hero_icon_name: "avatar-default-symbolic",
+            hero_subtitle: String::new(),
+            state,
+        };
 
         let widgets = view_output!();
+        model.popover = widgets.root.clone();
         widgets.root.set_parent(&init.parent);
-        widgets.root.set_autohide(true);
 
         let opened_sender = sender.clone();
         widgets.root.connect_show(move |_| {
@@ -132,25 +214,13 @@ impl SimpleComponent for Popover {
             let _ = closed_sender.output(Output::Closed);
         });
 
-        let model = Popover {
-            animation: AnimatedPopover::new(&widgets.root),
-            config: init.config,
-            state,
-            hero_icon_name: "avatar-default-symbolic",
-            hero_subtitle: String::new(),
-            session_actions_visible: false,
-            power_actions_visible: false,
-            session_actions,
-            power_actions,
-        };
-
         ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
-            Input::Toggle => self.animation.toggle(),
-            Input::Close => self.animation.close(),
+            Input::Toggle => self.popover.toggle(),
+            Input::Close => self.popover.close(),
             Input::UpdateState(state) => {
                 self.hero_icon_name = hero_icon_name(&state);
                 self.hero_subtitle = hero_subtitle(&state);
@@ -163,99 +233,111 @@ impl SimpleComponent for Popover {
             }
         }
     }
-
-    fn post_view() {
-        hero.icon.set_icon_name(Some(model.hero_icon_name));
-        hero.title.set_label(&model.state.snapshot.user_name);
-        hero.subtitle.set_label(&model.hero_subtitle);
-
-        hero_separator.set_visible(model.session_actions_visible || model.power_actions_visible);
-        action_separator.set_visible(model.session_actions_visible && model.power_actions_visible);
-    }
 }
 
 impl Popover {
     fn update_actions(&mut self) {
-        let session_items = build_session_items(&self.config, &self.state);
-        let power_items = build_power_items(&self.config, &self.state);
-
-        self.session_actions_visible = has_visible_items(&session_items);
-        self.power_actions_visible = has_visible_items(&power_items);
-        self.session_actions
-            .emit(ActionMenuInput::Update(session_items));
-        self.power_actions
-            .emit(ActionMenuInput::Update(power_items));
+        self.sections = action_sections(&self.config, &self.state);
     }
 }
 
-fn has_visible_items(items: &[ActionMenuItem<SessionAction>]) -> bool {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ActionSections {
+    session: Vec<ActionVisibility>,
+    power: Vec<ActionVisibility>,
+    session_visible: bool,
+    power_visible: bool,
+}
+
+impl ActionSections {
+    fn action_visible(&self, action: SessionAction) -> bool {
+        self.session
+            .iter()
+            .chain(self.power.iter())
+            .any(|item| item.action == action && item.visible)
+    }
+
+    #[cfg(test)]
+    fn visible_actions(&self) -> Vec<SessionAction> {
+        self.session
+            .iter()
+            .chain(self.power.iter())
+            .filter(|item| item.visible)
+            .map(|item| item.action)
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ActionVisibility {
+    action: SessionAction,
+    visible: bool,
+}
+
+fn action_sections(config: &Config, state: &State) -> ActionSections {
+    let session = build_session_items(config, state);
+    let power = build_power_items(config, state);
+    let session_visible = has_visible_items(&session);
+    let power_visible = has_visible_items(&power);
+
+    ActionSections {
+        session,
+        power,
+        session_visible,
+        power_visible,
+    }
+}
+
+fn has_visible_items(items: &[ActionVisibility]) -> bool {
     items.iter().any(|item| item.visible)
 }
 
-fn build_session_items(config: &Config, state: &State) -> Vec<ActionMenuItem<SessionAction>> {
+fn build_session_items(config: &Config, state: &State) -> Vec<ActionVisibility> {
     vec![
-        action_item(
-            "Lock Screen",
-            "system-lock-screen-symbolic",
-            config.show_lock && action_available(&state.snapshot.capabilities.lock),
+        action_visibility(
             SessionAction::Lock,
+            config.show_lock && action_available(&state.snapshot.capabilities.lock),
         ),
-        action_item(
-            "Log Out",
-            "system-log-out-symbolic",
+        action_visibility(
+            SessionAction::Logout,
             config.show_logout
                 && matches!(
                     state.snapshot.capabilities.backend,
                     SessionBackendState::Available
                 ),
-            SessionAction::Logout,
         ),
     ]
 }
 
-fn build_power_items(config: &Config, state: &State) -> Vec<ActionMenuItem<SessionAction>> {
+fn build_power_items(config: &Config, state: &State) -> Vec<ActionVisibility> {
     let capabilities = &state.snapshot.capabilities;
     vec![
-        action_item(
-            "Suspend",
-            "media-playback-pause-symbolic",
-            config.show_suspend && action_available(&capabilities.suspend),
+        action_visibility(
             SessionAction::Suspend,
+            config.show_suspend && action_available(&capabilities.suspend),
         ),
-        action_item(
-            "Hibernate",
-            "document-save-symbolic",
-            config.show_hibernate && action_available(&capabilities.hibernate),
+        action_visibility(
             SessionAction::Hibernate,
+            config.show_hibernate && action_available(&capabilities.hibernate),
         ),
-        action_item(
-            "Restart",
-            "system-reboot-symbolic",
-            config.show_reboot && action_available(&capabilities.reboot),
+        action_visibility(
             SessionAction::Reboot,
+            config.show_reboot && action_available(&capabilities.reboot),
         ),
-        action_item(
-            "Shut Down",
-            "system-shutdown-symbolic",
-            config.show_shutdown && action_available(&capabilities.power_off),
+        action_visibility(
             SessionAction::PowerOff,
+            config.show_shutdown && action_available(&capabilities.power_off),
         ),
     ]
 }
 
-fn action_item(
-    label: &str,
-    icon: &str,
+fn action_visibility(
+    action: SessionAction,
     visible: bool,
-    command: SessionAction,
-) -> ActionMenuItem<SessionAction> {
-    ActionMenuItem {
-        label: label.into(),
-        icon: Some(icon.into()),
+) -> ActionVisibility {
+    ActionVisibility {
+        action,
         visible,
-        checked: None,
-        selectable: None,
-        command,
     }
 }
 
@@ -338,27 +420,27 @@ mod tests {
         assert!(
             session_items
                 .iter()
-                .any(|item| item.command == SessionAction::Lock && item.visible)
+                .any(|item| item.action == SessionAction::Lock && item.visible)
         );
         assert!(
             power_items
                 .iter()
-                .any(|item| item.command == SessionAction::Suspend && item.visible)
+                .any(|item| item.action == SessionAction::Suspend && item.visible)
         );
         assert!(
             power_items
                 .iter()
-                .any(|item| item.command == SessionAction::Hibernate && item.visible)
+                .any(|item| item.action == SessionAction::Hibernate && item.visible)
         );
         assert!(
             power_items
                 .iter()
-                .any(|item| item.command == SessionAction::PowerOff && item.visible)
+                .any(|item| item.action == SessionAction::PowerOff && item.visible)
         );
         assert!(
             power_items
                 .iter()
-                .any(|item| item.command == SessionAction::Reboot && !item.visible)
+                .any(|item| item.action == SessionAction::Reboot && !item.visible)
         );
     }
 
@@ -386,5 +468,42 @@ mod tests {
         let items = build_session_items(&Config::default(), &state);
 
         assert!(has_visible_items(&items));
+    }
+
+    #[test]
+    fn action_sections_preserve_flat_session_and_power_rows() {
+        let state = State {
+            snapshot: SessionSnapshot {
+                capabilities: SessionActionCapabilities {
+                    backend: SessionBackendState::Available,
+                    lock: SessionActionAvailability::Available,
+                    suspend: SessionActionAvailability::Challenge,
+                    hibernate: SessionActionAvailability::Available,
+                    reboot: SessionActionAvailability::Unavailable,
+                    power_off: SessionActionAvailability::Available,
+                },
+                ..SessionSnapshot::default()
+            },
+            ..State::default()
+        };
+        let config = Config {
+            show_hibernate: true,
+            ..Config::default()
+        };
+
+        let sections = action_sections(&config, &state);
+
+        assert!(sections.session_visible);
+        assert!(sections.power_visible);
+        assert_eq!(
+            sections.visible_actions(),
+            vec![
+                SessionAction::Lock,
+                SessionAction::Logout,
+                SessionAction::Suspend,
+                SessionAction::Hibernate,
+                SessionAction::PowerOff,
+            ]
+        );
     }
 }

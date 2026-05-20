@@ -4,24 +4,33 @@ use relm4::{
     gtk::{self, prelude::*},
 };
 
-use crate::{
-    components::animated_popover::AnimatedPopover,
-    widgets::{
-        badge::{Badge, BadgeKind}, battery_hero::BatteryHero, boxed_list::BoxedList,
-        button_row::ButtonRow, choice_list::ChoiceList, column::Column,
-        container::{Container, ContainerBg, Radius, Space}, expander_tile::ExpanderTile,
-        header::Header, hero::Hero, key_value_grid::KeyValueGrid,
-        message::Message,
-        popover_shell::PopoverShell,
-        row::Row, segmented_tile::SegmentedTile, slider_tile::SliderTile,
-        status_dot::{StatusDot, StatusDotStatus}, switch_tile::SwitchTile,
-        text::{FontSize, FontWeight, Text, TextColor}, tile::Tile,
-        Button, Meter, Scroll, Spinner, ToggleButton,
-    },
+use crate::widgets::{
+    Button, Meter, Scroll, Spinner, ToggleButton,
+    animated_popover::AnimatedPopover,
+    badge::{Badge, BadgeKind},
+    battery_hero::BatteryHero,
+    boxed_list::BoxedList,
+    button_row::ButtonRow,
+    choice_list::ChoiceList,
+    column::Column,
+    container::{Container, ContainerBg, Radius, Space},
+    expander_tile::ExpanderTile,
+    header::Header,
+    hero::Hero,
+    key_value_grid::KeyValueGrid,
+    message::Message,
+    popover_shell::PopoverShell,
+    row::Row,
+    segmented_tile::SegmentedTile,
+    slider_tile::SliderTile,
+    status_dot::{StatusDot, StatusDotStatus},
+    switch_tile::SwitchTile,
+    text::{FontSize, FontWeight, Text, TextColor},
+    tile::Tile,
 };
 
 pub struct Popover {
-    animation: AnimatedPopover,
+    popover: AnimatedPopover,
     preview_window: Option<gtk::Window>,
 }
 
@@ -32,7 +41,6 @@ pub struct PopoverInit {
 #[derive(Debug)]
 pub enum PopoverInput {
     Toggle,
-    ShowMessagePreview,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -49,10 +57,11 @@ impl SimpleComponent for Popover {
     type Output = PopoverOutput;
 
     view! {
-        root = gtk::Popover {
+        root = AnimatedPopover {
             add_css_class: "devgallery-popover",
-            add_css_class: "popover-size-medium",
+            add_css_class: "popover-size-large",
             set_hexpand: false,
+            set_autohide: false,
 
             PopoverShell {
                 set_footer_visible: false,
@@ -398,52 +407,30 @@ impl SimpleComponent for Popover {
                             set_label: "Button",
                         },
 
-                        Row {
-                            Button {
-                                set_label: "Default",
-                            },
-                            Button {
-                                set_label: "Suggested",
-                                add_css_class: "suggested-action",
-                            },
-                            Button {
-                                set_label: "Destructive",
-                                add_css_class: "destructive-action",
-                            },
-                            Button {
-                                set_label: "Flat",
-                                add_css_class: "flat",
-                            },
-                        },
-
-                        Row {
-                            ToggleButton {
-                                set_label: "Off",
-                            },
-                            ToggleButton {
-                                set_label: "On",
-                                set_active: true,
-                            },
-                            Button {
-                                set_icon_name: "starred-symbolic",
-                                add_css_class: "flat",
-                                add_css_class: "circular",
-                            },
-                            Button {
-                                set_icon_name: "list-add-symbolic",
-                                add_css_class: "circular",
-                            },
-                        },
-
                         Header {
                             set_label: "Message",
                         },
 
-                        gtk::Button {
-                            set_label: "Preview Message widget",
-                            add_css_class: "flat",
-                            connect_clicked => PopoverInput::ShowMessagePreview,
-                        },
+                        // Message {
+                        //     set_icon: Some("org.gnome.Calendar-symbolic"),
+                        //     set_app_name: "Calendar",
+                        //     set_time: "2 min ago",
+                        //     set_content_icon: Some("x-office-calendar-symbolic"),
+                        //     set_title: "Team meeting in 10 minutes",
+                        //     set_body: "Daily standup at 10:00 in Room B.",
+                        //     // add_action: ("reply", "Reply"),
+                        //     // add_action: ("dismiss", "Dismiss"),
+                        //     connect_closed => move |_| {
+                        //         tracing::debug!("Message: closed");
+                        //     },
+                        //     connect_clicked => move |_| {
+                        //         tracing::debug!("Message: clicked");
+                        //     },
+                        //     connect_action => move |_, id| {
+                        //         tracing::debug!("Message: action = {id}");
+                        //     },
+                        // },
+
                 },
             },
         }
@@ -456,20 +443,24 @@ impl SimpleComponent for Popover {
     ) -> ComponentParts<Self> {
         let widgets = view_output!();
         widgets.root.set_parent(&init.parent);
-        widgets.root.set_autohide(true);
+        // widgets.root.set_autohide(true);
 
         let opened_sender = sender.clone();
         widgets.root.connect_show(move |_| {
-            let _ = opened_sender.output(PopoverOutput::Opened);
+            if let Err(msg) = opened_sender.output(PopoverOutput::Opened) {
+                tracing::warn!(?msg, "devgallery popover: Opened output dropped");
+            }
         });
 
         let closed_sender = sender.clone();
         widgets.root.connect_closed(move |_| {
-            let _ = closed_sender.output(PopoverOutput::Closed);
+            if let Err(msg) = closed_sender.output(PopoverOutput::Closed) {
+                tracing::warn!(?msg, "devgallery popover: Closed output dropped");
+            }
         });
 
         let model = Popover {
-            animation: AnimatedPopover::new(&widgets.root),
+            popover: widgets.root.clone(),
             preview_window: None,
         };
 
@@ -478,41 +469,9 @@ impl SimpleComponent for Popover {
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
-            PopoverInput::Toggle => self.animation.toggle(),
-            PopoverInput::ShowMessagePreview => {
-                let window = self.preview_window
-                    .get_or_insert_with(build_message_preview_window);
-                window.present();
+            PopoverInput::Toggle => {
+                self.popover.toggle();
             }
         }
     }
-}
-
-fn build_message_preview_window() -> gtk::Window {
-    let window = gtk::Window::new();
-    window.set_decorated(false);
-    window.set_resizable(false);
-    window.init_layer_shell();
-    window.set_layer(Layer::Overlay);
-    window.set_anchor(Edge::Top, true);
-    window.set_margin(Edge::Top, 48);
-
-    let msg = Message::new();
-    msg.set_icon(Some("dialog-information-symbolic"));
-    msg.set_app_name("Glimpse");
-    msg.set_time("now");
-    msg.set_title("Preview notification");
-    msg.set_body("This is how a Message card looks floating above the desktop.");
-    msg.add_action("ok", "OK");
-
-    let window_weak = window.downgrade();
-    msg.connect_closed(move |_| {
-        if let Some(w) = window_weak.upgrade() {
-            w.set_visible(false);
-        }
-    });
-    msg.connect_clicked(move |_| {});
-
-    window.set_child(Some(&msg));
-    window
 }

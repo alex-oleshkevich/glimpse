@@ -38,7 +38,8 @@ impl ObjectImpl for SegmentedTile {
 
         let obj = self.obj().downgrade();
         let gesture = gtk4::GestureClick::new();
-        gesture.connect_released(move |_, _, _, _| {
+        gesture.connect_released(move |gesture, _, _, _| {
+            gesture.set_state(gtk4::EventSequenceState::Claimed);
             if let Some(tile) = obj.upgrade() {
                 tile.emit_by_name::<()>("activated", &[]);
             }
@@ -48,7 +49,8 @@ impl ObjectImpl for SegmentedTile {
 
         let obj = self.obj().downgrade();
         let gesture = gtk4::GestureClick::new();
-        gesture.connect_released(move |_, _, _, _| {
+        gesture.connect_released(move |gesture, _, _, _| {
+            gesture.set_state(gtk4::EventSequenceState::Claimed);
             if let Some(tile) = obj.upgrade() {
                 let new_state = !tile.imp().expanded.get();
                 tile.apply_expanded(new_state);

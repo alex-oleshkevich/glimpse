@@ -29,7 +29,8 @@ impl SimpleComponent for Applet {
 
             add_controller = gtk::GestureClick {
                 set_button: 1,
-                connect_pressed[sender] => move |_, _, _, _| {
+                connect_pressed[sender] => move |gesture, _, _, _| {
+                    gesture.set_state(gtk::EventSequenceState::Claimed);
                     sender.input(Input::TogglePopover);
                 },
             },
@@ -48,7 +49,9 @@ impl SimpleComponent for Applet {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let popover = Popover::builder()
-            .launch(PopoverInit { parent: root.clone() })
+            .launch(PopoverInit {
+                parent: root.clone(),
+            })
             .detach();
 
         let model = Applet { popover };

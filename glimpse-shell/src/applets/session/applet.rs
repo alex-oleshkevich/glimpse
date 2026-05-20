@@ -85,7 +85,6 @@ pub struct Applet {
     state: State,
     service: SessionHandle,
     popover: Controller<Popover>,
-    popover_open: bool,
     subscription_cancel: CancellationToken,
     theme_mode: ThemeMode,
 }
@@ -170,7 +169,6 @@ impl SimpleComponent for Applet {
             state,
             service: init.service,
             popover,
-            popover_open: false,
             subscription_cancel: CancellationToken::new(),
             theme_mode: init.theme_mode,
         };
@@ -213,40 +211,24 @@ impl SimpleComponent for Applet {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
             Input::ServiceStateChanged(state) => {
-                self.icon_name = icon_name_for_state(&state);
-                self.label = format::label(&self.config.label_format, &state);
-                self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
-                self.state = state.clone();
-                if self.popover_open {
-                    self.popover.emit(PopoverInput::UpdateState(state));
-                }
+                self.apply_state(state);
+                self.send_popover_state();
             }
             Input::Reconfigure { config, theme_mode } => {
                 self.config = config.clone();
                 self.theme_mode = theme_mode;
                 let state = self.service.snapshot();
-                self.icon_name = icon_name_for_state(&state);
-                self.label = format::label(&self.config.label_format, &state);
-                self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
-                self.state = state;
-                if self.popover_open {
-                    self.popover.emit(PopoverInput::Reconfigure(config));
-                    self.sync_popover();
-                }
+                self.apply_state(state);
+                self.popover.emit(PopoverInput::Reconfigure(config));
+                self.send_popover_state();
             }
             Input::TogglePopover => {
                 self.popover.emit(PopoverInput::Toggle);
             }
             Input::PopoverOutput(PopoverOutput::Opened) => {
-                self.popover_open = true;
-                self.popover
-                    .emit(PopoverInput::Reconfigure(self.config.clone()));
-                self.sync_popover();
                 self.send_command(Command::Refresh);
             }
-            Input::PopoverOutput(PopoverOutput::Closed) => {
-                self.popover_open = false;
-            }
+            Input::PopoverOutput(PopoverOutput::Closed) => {}
             Input::PopoverOutput(PopoverOutput::ActionRequested(action)) => {
                 self.popover.emit(PopoverInput::Close);
                 if let Some(spec) = dialogs::confirmation_spec(action, &self.config) {
@@ -266,7 +248,14 @@ impl SimpleComponent for Applet {
 }
 
 impl Applet {
-    fn sync_popover(&self) {
+    fn apply_state(&mut self, state: State) {
+        self.icon_name = icon_name_for_state(&state);
+        self.label = format::label(&self.config.label_format, &state);
+        self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
+        self.state = state;
+    }
+
+    fn send_popover_state(&self) {
         self.popover
             .emit(PopoverInput::UpdateState(self.state.clone()));
     }
