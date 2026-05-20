@@ -4,34 +4,40 @@ use glib::closure_local;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 glib::wrapper! {
-    pub struct NotificationPopup(ObjectSubclass<imp::NotificationPopup>)
+    pub struct Message(ObjectSubclass<imp::Message>)
         @extends gtk4::Box, gtk4::Widget,
         @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Orientable;
 }
 
-impl NotificationPopup {
+impl Message {
     pub fn new() -> Self {
         glib::Object::builder().build()
     }
 
-    pub fn set_app_icon(&self, icon: Option<&str>) {
+    pub fn set_icon(&self, icon: Option<&str>) {
         let imp = self.imp();
         imp.icon.set_icon_name(icon);
         imp.icon.set_visible(icon.is_some());
     }
 
+    pub fn set_content_icon(&self, icon: Option<&str>) {
+        let imp = self.imp();
+        imp.content_icon.set_icon_name(icon);
+        imp.content_icon.set_visible(icon.is_some());
+    }
+
     pub fn set_app_name(&self, name: &str) {
-        self.imp().app_name.set_text(name);
+        let imp = self.imp();
+        imp.app_name.set_text(name);
+        imp.app_name.set_visible(!name.is_empty());
     }
 
     pub fn set_time(&self, time: &str) {
-        let imp = self.imp();
-        imp.time_label.set_text(time);
-        imp.time_label.set_visible(!time.is_empty());
+        self.imp().time_label.set_text(time);
     }
 
     pub fn set_title(&self, title: &str) {
-        self.imp().summary.set_text(title);
+        self.imp().title.set_text(title);
     }
 
     pub fn set_body(&self, body: &str) {
@@ -43,13 +49,13 @@ impl NotificationPopup {
     pub fn add_action(&self, id: &str, label: &str) {
         let imp = self.imp();
         let btn = gtk4::Button::with_label(label);
-        btn.add_css_class("notif-card__action");
+        btn.add_css_class("message__action");
         btn.add_css_class("flat");
         let obj = self.downgrade();
         let id = id.to_owned();
         btn.connect_clicked(move |_| {
-            if let Some(popup) = obj.upgrade() {
-                popup.emit_by_name::<()>("action", &[&id]);
+            if let Some(w) = obj.upgrade() {
+                w.emit_by_name::<()>("action", &[&id]);
             }
         });
         imp.actions.append(&btn);
@@ -65,23 +71,27 @@ impl NotificationPopup {
     }
 
     pub fn connect_closed(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "closed",
-            false,
-            closure_local!(move |popup: &Self| f(popup)),
-        )
+        self.connect_closure("closed", false,
+            closure_local!(move |w: &Self| f(w)))
+    }
+
+    pub fn connect_clicked(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
+        self.connect_closure("clicked", false,
+            closure_local!(move |w: &Self| f(w)))
+    }
+
+    pub fn connect_secondary_clicked(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
+        self.connect_closure("secondary-clicked", false,
+            closure_local!(move |w: &Self| f(w)))
     }
 
     pub fn connect_action(&self, f: impl Fn(&Self, &str) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "action",
-            false,
-            closure_local!(move |popup: &Self, id: String| f(popup, &id)),
-        )
+        self.connect_closure("action", false,
+            closure_local!(move |w: &Self, id: String| f(w, &id)))
     }
 }
 
-impl Default for NotificationPopup {
+impl Default for Message {
     fn default() -> Self {
         Self::new()
     }

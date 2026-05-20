@@ -1,6 +1,6 @@
 pub mod badge;
 pub mod battery_hero;
-pub mod notification_popup;
+pub mod message;
 pub mod boxed_list;
 pub mod button_row;
 pub mod choice_list;

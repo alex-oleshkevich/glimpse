@@ -41,6 +41,7 @@
         --popover-bg: var(--dark-popover-bg);
         --popover-fg: var(--dark-popover-fg);
         --popover-border: var(--dark-popover-border);
+        --popover-shadow: var(--dark-popover-shadow);
 
         --row-fg: var(--dark-row-fg);
         --row-muted-fg: var(--dark-row-muted-fg);
@@ -49,6 +50,11 @@
         --card-border: var(--dark-card-border);
         --badge-bg: var(--dark-badge-bg);
         --badge-fg: var(--dark-badge-fg);
+
+        --message-bg:         var(--dark-message-bg);
+        --message-bg-second:  var(--dark-message-bg-second);
+        --message-bg-lower:   var(--dark-message-bg-lower);
+        --message-header-fg:  var(--dark-message-header-fg);
 
         --sys-accent: var(--dark-sys-accent);
         --sys-accent-fg: var(--dark-sys-accent-fg);
@@ -79,6 +85,7 @@ popover.theme-dark {
     --popover-bg: var(--dark-popover-bg);
     --popover-fg: var(--dark-popover-fg);
     --popover-border: var(--dark-popover-border);
+    --popover-shadow: var(--dark-popover-shadow);
     --row-fg: var(--dark-row-fg);
     --row-muted-fg: var(--dark-row-muted-fg);
     --card-bg: var(--dark-card-bg);
@@ -86,6 +93,12 @@ popover.theme-dark {
     --card-border: var(--dark-card-border);
     --badge-bg: var(--dark-badge-bg);
     --badge-fg: var(--dark-badge-fg);
+
+    --message-bg:         var(--dark-message-bg);
+    --message-bg-second:  var(--dark-message-bg-second);
+    --message-bg-lower:   var(--dark-message-bg-lower);
+    --message-header-fg:  var(--dark-message-header-fg);
+
     --panel-bg: var(--dark-panel-bg);
     --panel-fg: var(--dark-panel-fg);
     --indicator-hover-bg: var(--dark-indicator-hover-bg);
