@@ -5,6 +5,7 @@ use std::process::Stdio;
 use tokio::{
     io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader},
     process::Command,
+    sync::mpsc,
 };
 
 use crate::{
@@ -37,7 +38,11 @@ pub trait Applet: Send + Sync {
         Ok(())
     }
 
-    async fn on_start(&mut self, _state: &mut Self::State) -> AppletResult<()> {
+    async fn on_start(
+        &mut self,
+        _state: &mut Self::State,
+        _tx: mpsc::Sender<Self::Msg>,
+    ) -> AppletResult<()> {
         Ok(())
     }
 
@@ -222,6 +227,7 @@ struct MsgMap<Msg> {
         String,
         std::sync::Arc<dyn Fn(Option<serde_json::Value>) -> Msg + Send + Sync>,
     >,
+    status_ids: std::collections::HashSet<String>,
 }
 
 impl<Msg> MsgMap<Msg> {
@@ -230,6 +236,7 @@ impl<Msg> MsgMap<Msg> {
             click: HashMap::new(),
             toggle: HashMap::new(),
             change: HashMap::new(),
+            status_ids: std::collections::HashSet::new(),
         }
     }
 }
@@ -368,7 +375,9 @@ async fn dispatch_msg<A: Applet>(
         CallbackEvent::Input(e) => applet.on_input(state, e).await?,
         CallbackEvent::Popover(e) => applet.on_popover(state, e).await?,
         CallbackEvent::Click(e) => {
-            eprintln!("glimpse-sdk: unhandled click event for id {:?}", e.id);
+            if !map.status_ids.contains(&e.id) {
+                eprintln!("glimpse-sdk: unhandled click event for id {:?}", e.id);
+            }
         }
         CallbackEvent::Toggle(e) => {
             eprintln!("glimpse-sdk: unhandled toggle event for id {:?}", e.id);
@@ -388,7 +397,8 @@ where
     let stdin = BufReader::new(io::stdin());
     let mut lines = stdin.lines();
     let mut last = LastSeen::new();
-    applet.on_start(&mut state).await?;
+    let (tx, mut rx) = mpsc::channel::<A::Msg>(32);
+    applet.on_start(&mut state, tx).await?;
     if let Some(class) = applet.css_class() {
         stdout
             .write_all(format!("class {class}\n").as_bytes())
@@ -397,37 +407,43 @@ where
     }
     let mut msg_map = flush(&mut stdout, &applet, &state, &mut last).await?;
 
-    while let Some(line) = lines.next_line().await? {
-        if line.trim().is_empty() {
-            continue;
-        }
-
-        let incoming = match parse_incoming_line(&line) {
-            Ok(msg) => msg,
-            Err(err) => {
-                eprintln!("glimpse-sdk: ignoring malformed input: {err}");
-                continue;
+    loop {
+        let result: AppletResult<Option<()>> = tokio::select! {
+            line = lines.next_line() => {
+                let Some(line) = line? else { break };
+                if line.trim().is_empty() {
+                    continue;
+                }
+                let incoming = match parse_incoming_line(&line) {
+                    Ok(msg) => msg,
+                    Err(err) => {
+                        eprintln!("glimpse-sdk: ignoring malformed input: {err}");
+                        continue;
+                    }
+                };
+                match incoming.kind.as_str() {
+                    "init" => match parse_init_event(incoming.data) {
+                        Ok(evt) => applet.on_init(&mut state, evt).await.map(Some),
+                        Err(err) => {
+                            eprintln!("glimpse-sdk: ignoring malformed init: {err}");
+                            continue;
+                        }
+                    },
+                    "event" => match parse_callback_event(incoming.data) {
+                        Ok(event) => dispatch_msg(&msg_map, &mut applet, &mut state, event).await.map(Some),
+                        Err(err) => {
+                            eprintln!("glimpse-sdk: ignoring malformed event: {err}");
+                            continue;
+                        }
+                    },
+                    _ => continue,
+                }
+            }
+            Some(msg) = rx.recv() => {
+                applet.update(&mut state, msg).await.map(Some)
             }
         };
-        let result: AppletResult<()> = match incoming.kind.as_str() {
-            "init" => match parse_init_event(incoming.data) {
-                Ok(evt) => applet.on_init(&mut state, evt).await,
-                Err(err) => {
-                    eprintln!("glimpse-sdk: ignoring malformed init: {err}");
-                    continue;
-                }
-            },
-            "event" => match parse_callback_event(incoming.data) {
-                Ok(event) => dispatch_msg(&msg_map, &mut applet, &mut state, event).await,
-                Err(err) => {
-                    eprintln!("glimpse-sdk: ignoring malformed event: {err}");
-                    continue;
-                }
-            },
-            _ => continue,
-        };
         result?;
-
         msg_map = flush(&mut stdout, &applet, &state, &mut last).await?;
     }
 
@@ -456,6 +472,11 @@ where
 
     let next_tree = applet.popover(state).await?;
     let mut map = MsgMap::new();
+    for item in &last.status {
+        if let Some(id) = &item.id {
+            map.status_ids.insert(id.clone());
+        }
+    }
     if let Some(ref tree) = next_tree {
         collect_messages(tree, &mut map);
     }

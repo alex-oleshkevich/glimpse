@@ -5,11 +5,12 @@ use std::sync::OnceLock;
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/hero.ui")]
 pub struct Hero {
-    #[template_child] pub icon:     TemplateChild<gtk4::Image>,
-    #[template_child] pub title:    TemplateChild<gtk4::Label>,
-    #[template_child] pub subtitle: TemplateChild<gtk4::Label>,
-    #[template_child] pub trailing: TemplateChild<gtk4::Box>,
-    #[template_child] pub toggle:   TemplateChild<gtk4::Switch>,
+    #[template_child] pub icon:      TemplateChild<gtk4::Image>,
+    #[template_child] pub title:     TemplateChild<gtk4::Label>,
+    #[template_child] pub subtitle:  TemplateChild<gtk4::Label>,
+    #[template_child] pub trailing:  TemplateChild<gtk4::Box>,
+    #[template_child] pub toggle:    TemplateChild<gtk4::Switch>,
+    #[template_child] pub separator: TemplateChild<gtk4::Separator>,
 }
 
 #[glib::object_subclass]

@@ -6,11 +6,14 @@ use relm4::{
 use crate::{
     components::animated_popover::AnimatedPopover,
     widgets::{
-        badge::{Badge, BadgeKind}, boxed_list::BoxedList, button_row::ButtonRow,
-        choice_list::ChoiceList, column::Column, expander_tile::ExpanderTile, header::Header,
-        hero::Hero, key_value_grid::KeyValueGrid, popover_shell::PopoverShell, row::Row,
-        segmented_tile::SegmentedTile, slider_tile::SliderTile,
-        status_dot::{StatusDot, StatusDotStatus}, switch_tile::SwitchTile, tile::Tile,
+        badge::{Badge, BadgeKind}, battery_hero::BatteryHero, boxed_list::BoxedList,
+        button_row::ButtonRow, choice_list::ChoiceList, column::Column,
+        container::{Container, ContainerBg, Radius, Space}, expander_tile::ExpanderTile,
+        header::Header, hero::Hero, key_value_grid::KeyValueGrid,
+        popover_shell::PopoverShell,
+        row::Row, segmented_tile::SegmentedTile, slider_tile::SliderTile,
+        status_dot::{StatusDot, StatusDotStatus}, switch_tile::SwitchTile,
+        text::{FontSize, FontWeight, Text, TextColor}, tile::Tile, Meter, Scroll, Spinner,
     },
 };
 
@@ -58,7 +61,9 @@ impl SimpleComponent for Popover {
                         Tile {
                             set_primary: "Activatable row",
                             set_secondary: Some("Click me"),
-                            connect_activated => move |_| {},
+                            connect_activated => move |_| {
+                                tracing::debug!("Tile: activated");
+                            },
                         },
 
                         Header {
@@ -68,7 +73,9 @@ impl SimpleComponent for Popover {
                         SwitchTile {
                             set_primary: "Toggle setting",
                             set_secondary: Some("Enable or disable"),
-                            connect_toggled => move |_, _| {},
+                            connect_toggled => move |_, value| {
+                                tracing::debug!("SwitchTile: toggled = {value}");
+                            },
                         },
 
                         Header {
@@ -89,6 +96,9 @@ impl SimpleComponent for Popover {
                                     set_secondary: Some("Value B"),
                                 },
                             },
+                            connect_expanded => move |_, value| {
+                                tracing::debug!("ExpanderTile: expanded = {value}");
+                            },
                         },
 
                         Header {
@@ -100,7 +110,9 @@ impl SimpleComponent for Popover {
                             add_choice: ("two",   "Option two",   Some("Second choice"), None),
                             add_choice: ("three", "Option three", Some("Third choice"),  None),
                             set_active: "two",
-                            connect_changed => move |_, _| {},
+                            connect_changed => move |_, value| {
+                                tracing::debug!("ChoiceList: changed = {value}");
+                            },
                         },
 
                         Header {
@@ -121,8 +133,12 @@ impl SimpleComponent for Popover {
                                     set_secondary: Some("WPA2"),
                                 },
                             },
-                            connect_activated => move |_| {},
-                            connect_expanded => move |_, _| {},
+                            connect_activated => move |_| {
+                                tracing::debug!("SegmentedTile: activated");
+                            },
+                            connect_expanded => move |_, value| {
+                                tracing::debug!("SegmentedTile: expanded = {value}");
+                            },
                         },
 
                         Header {
@@ -167,7 +183,9 @@ impl SimpleComponent for Popover {
 
                         SliderTile {
                             set_value: 0.5,
-                            connect_changed => move |_, _| {},
+                            connect_changed => move |_, value| {
+                                tracing::debug!("SliderTile: changed = {value:.2}");
+                            },
                         },
 
                         SliderTile {
@@ -178,7 +196,9 @@ impl SimpleComponent for Popover {
                                 set_pixel_size: 16,
                             },
                             set_value: 0.7,
-                            connect_changed => move |_, _| {},
+                            connect_changed => move |_, value| {
+                                tracing::debug!("SliderTile: changed = {value:.2}");
+                            },
                         },
 
                         Header {
@@ -272,7 +292,101 @@ impl SimpleComponent for Popover {
                             set_subtitle: "Home Network",
                             set_trailing_visible: true,
                             set_toggle_active: true,
-                            connect_toggled => move |_, _| {},
+                            connect_toggled => move |_, value| {
+                                tracing::debug!("Hero: toggled = {value}");
+                            },
+                        },
+
+                        Header {
+                            set_label: "Spinner",
+                        },
+
+                        Spinner {
+                            set_spinning: true,
+                            set_halign: gtk::Align::Center,
+                        },
+
+                        Header {
+                            set_label: "Text",
+                        },
+
+                        Text {
+                            set_text: "Default text",
+                        },
+                        Text {
+                            set_text: "Large semibold",
+                            set_size: FontSize::Lg,
+                            set_weight: FontWeight::Semibold,
+                        },
+                        Text {
+                            set_text: "Small muted",
+                            set_size: FontSize::Sm,
+                            set_color: TextColor::Muted,
+                        },
+                        Text {
+                            set_text: "Accent bold",
+                            set_weight: FontWeight::Bold,
+                            set_color: TextColor::Accent,
+                        },
+                        Text {
+                            set_text: "Warning",
+                            set_color: TextColor::Warning,
+                        },
+                        Text {
+                            set_text: "Error",
+                            set_color: TextColor::Error,
+                        },
+
+                        Header {
+                            set_label: "BatteryHero",
+                        },
+
+                        BatteryHero {
+                            set_icon_name: "battery-good-symbolic",
+                            set_percentage: "72%",
+                            set_fraction: 0.72,
+                            set_state: "Discharging · 3h 14m left",
+                        },
+
+                        Header {
+                            set_label: "Meter",
+                        },
+
+                        Meter {
+                            set_fraction: 0.4,
+                        },
+
+                        Header {
+                            set_label: "Scroll",
+                        },
+
+                        Scroll {
+                            set_min_content_height: 80,
+
+                            Column {
+                                gtk::Label { set_label: "Item one", set_xalign: 0.0 },
+                                gtk::Label { set_label: "Item two", set_xalign: 0.0 },
+                                gtk::Label { set_label: "Item three", set_xalign: 0.0 },
+                                gtk::Label { set_label: "Item four", set_xalign: 0.0 },
+                                gtk::Label { set_label: "Item five", set_xalign: 0.0 },
+                                gtk::Label { set_label: "Item six", set_xalign: 0.0 },
+                            },
+                        },
+
+                        Header {
+                            set_label: "Container",
+                        },
+
+                        Container {
+                            set_padding: Space::S4,
+                            set_radius: Radius::Md,
+                            set_bg: ContainerBg::Raised,
+                            set_border_width: 1,
+
+                            gtk::Label {
+                                set_label: "Padded raised container",
+                                set_xalign: 0.0,
+                            },
                         },
                 },
             },

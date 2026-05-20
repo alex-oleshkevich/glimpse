@@ -46,6 +46,10 @@ impl Hero {
         self.imp().toggle.set_sensitive(sensitive);
     }
 
+    pub fn set_separator_visible(&self, visible: bool) {
+        self.imp().separator.set_visible(visible);
+    }
+
     pub fn connect_toggled(&self, f: impl Fn(&Self, bool) + 'static) -> glib::SignalHandlerId {
         self.connect_closure(
             "toggled",

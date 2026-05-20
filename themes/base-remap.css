@@ -58,6 +58,8 @@
         --color-warning-fg: var(--dark-color-warning-fg);
         --color-danger: var(--dark-color-danger);
         --color-danger-fg: var(--dark-color-danger-fg);
+        --color-warning-text: var(--dark-color-warning-text);
+        --color-danger-text: var(--dark-color-danger-text);
     }
 }
 
@@ -97,4 +99,6 @@ popover.theme-dark {
     --color-warning-fg: var(--dark-color-warning-fg);
     --color-danger: var(--dark-color-danger);
     --color-danger-fg: var(--dark-color-danger-fg);
+    --color-warning-text: var(--dark-color-warning-text);
+    --color-danger-text: var(--dark-color-danger-text);
 }

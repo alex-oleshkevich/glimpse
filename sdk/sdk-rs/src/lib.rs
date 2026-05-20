@@ -19,6 +19,7 @@ pub use app::{
     Applet, CommandResult, close_popover, copy_to_clipboard, open_uri, run, run_command,
     show_notification,
 };
+pub use tokio::sync::mpsc;
 pub use events::{
     CallbackEvent, ChangeEvent, ClickEvent, InitEvent, InputEvent, PopoverEvent, ScrollEvent,
     ToggleEvent, parse_callback_event, parse_init_event,
