@@ -1,3 +1,4 @@
+use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, prelude::*},
@@ -10,6 +11,7 @@ use crate::{
         button_row::ButtonRow, choice_list::ChoiceList, column::Column,
         container::{Container, ContainerBg, Radius, Space}, expander_tile::ExpanderTile,
         header::Header, hero::Hero, key_value_grid::KeyValueGrid,
+        message::Message,
         popover_shell::PopoverShell,
         row::Row, segmented_tile::SegmentedTile, slider_tile::SliderTile,
         status_dot::{StatusDot, StatusDotStatus}, switch_tile::SwitchTile,
@@ -19,6 +21,7 @@ use crate::{
 
 pub struct Popover {
     animation: AnimatedPopover,
+    preview_window: gtk::Window,
 }
 
 pub struct PopoverInit {
@@ -28,6 +31,7 @@ pub struct PopoverInit {
 #[derive(Debug)]
 pub enum PopoverInput {
     Toggle,
+    ShowMessagePreview,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -388,6 +392,16 @@ impl SimpleComponent for Popover {
                                 set_xalign: 0.0,
                             },
                         },
+
+                        Header {
+                            set_label: "Message",
+                        },
+
+                        gtk::Button {
+                            set_label: "Preview Message widget",
+                            add_css_class: "flat",
+                            connect_clicked => PopoverInput::ShowMessagePreview,
+                        },
                 },
             },
         }
@@ -412,8 +426,11 @@ impl SimpleComponent for Popover {
             let _ = closed_sender.output(PopoverOutput::Closed);
         });
 
+        let preview_window = build_message_preview_window();
+
         let model = Popover {
             animation: AnimatedPopover::new(&widgets.root),
+            preview_window,
         };
 
         ComponentParts { model, widgets }
@@ -422,6 +439,36 @@ impl SimpleComponent for Popover {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             PopoverInput::Toggle => self.animation.toggle(),
+            PopoverInput::ShowMessagePreview => self.preview_window.present(),
         }
     }
+}
+
+fn build_message_preview_window() -> gtk::Window {
+    let window = gtk::Window::new();
+    window.set_decorated(false);
+    window.set_resizable(false);
+    window.init_layer_shell();
+    window.set_layer(Layer::Overlay);
+    window.set_anchor(Edge::Top, true);
+    window.set_margin(Edge::Top, 48);
+
+    let msg = Message::new();
+    msg.set_icon(Some("dialog-information-symbolic"));
+    msg.set_app_name("Glimpse");
+    msg.set_time("now");
+    msg.set_title("Preview notification");
+    msg.set_body("This is how a Message card looks floating above the desktop.");
+    msg.add_action("ok", "OK");
+
+    let window_weak = window.downgrade();
+    msg.connect_closed(move |_| {
+        if let Some(w) = window_weak.upgrade() {
+            w.set_visible(false);
+        }
+    });
+    msg.connect_clicked(move |_| {});
+
+    window.set_child(Some(&msg));
+    window
 }
