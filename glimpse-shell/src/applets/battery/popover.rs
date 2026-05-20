@@ -1,31 +1,28 @@
 use relm4::{
-    Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
+    ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, prelude::*},
 };
 
 use crate::{
-    components::{
-        action_menu::{
-            ActionMenu, ActionMenuItem, Init as ActionMenuInit, Input as ActionMenuInput,
-        },
-        animated_popover::AnimatedPopover,
-        key_value_grid::{KeyValueGrid, KeyValueGridInit, KeyValueGridInput, KeyValueItem},
-        popover_shell::PopoverShell,
-    },
     services::{battery::BatteryStatus, power::PowerProfiles},
+    widgets::{
+        animated_popover::AnimatedPopover, battery_hero::BatteryHero, choice_list::ChoiceList,
+        header::Header, key_value_grid::KeyValueGrid, popover_shell::PopoverShell,
+    },
 };
 
-use super::components::degraded::DegradedWarningView;
-use super::components::hero::BatteryHeroView;
 use super::format;
+
 pub struct Popover {
-    animation: AnimatedPopover,
+    popover: AnimatedPopover,
+    details_grid: KeyValueGrid,
+    profiles_list: ChoiceList,
     hero_icon_name: String,
     hero_percentage: String,
     hero_progress: f64,
     hero_state: String,
-    details: Controller<KeyValueGrid>,
-    profiles: Controller<ActionMenu<String>>,
+    details: Vec<DetailRow>,
+    profiles: PowerProfiles,
     degraded_visible: bool,
     degraded_text: String,
 }
@@ -56,41 +53,76 @@ impl SimpleComponent for Popover {
     type Output = PopoverOutput;
 
     view! {
-        root = gtk::Popover {
+        root = AnimatedPopover {
             add_css_class: "battery-popover",
             add_css_class: "popover-size-small",
             set_hexpand: false,
+            set_autohide: true,
 
-            #[template]
             PopoverShell {
-                #[template_child]
-                footer {
-                    set_visible: false,
+                set_footer_visible: false,
+
+                BatteryHero {
+                    #[watch]
+                    set_icon_name: &model.hero_icon_name,
+                    #[watch]
+                    set_percentage: &model.hero_percentage,
+                    #[watch]
+                    set_fraction: model.hero_progress,
+                    #[watch]
+                    set_state: &model.hero_state,
                 },
 
-                #[template_child]
-                content {
-                    #[name = "hero"]
-                    #[template]
-                    BatteryHeroView,
+                gtk::Separator {
+                    set_orientation: gtk::Orientation::Horizontal,
+                },
 
-                    gtk::Separator {
-                        set_orientation: gtk::Orientation::Horizontal,
+                #[name = "details_grid"]
+                KeyValueGrid {},
+
+                #[name = "profiles_separator"]
+                gtk::Separator {
+                    set_orientation: gtk::Orientation::Horizontal,
+                    #[watch]
+                    set_visible: model.profiles_visible(),
+                },
+
+                Header {
+                    set_label: "Power profile",
+                    #[watch]
+                    set_visible: model.profiles_visible(),
+                },
+
+                #[name = "profiles_list"]
+                ChoiceList {
+                    #[watch]
+                    set_visible: model.profiles_visible(),
+                    connect_changed[sender] => move |_, profile| {
+                        let _ = sender.output(PopoverOutput::SetProfile(profile.to_owned()));
+                    },
+                },
+
+                #[name = "degraded"]
+                gtk::Box {
+                    add_css_class: "profile-degraded-row",
+                    add_css_class: "is-warning",
+                    set_orientation: gtk::Orientation::Horizontal,
+                    set_spacing: 6,
+                    #[watch]
+                    set_visible: model.degraded_visible,
+
+                    gtk::Image {
+                        set_icon_name: Some("dialog-warning-symbolic"),
+                        set_pixel_size: 14,
                     },
 
-                    #[local_ref]
-                    details_widget -> gtk::Box {},
-
-                    gtk::Separator {
-                        set_orientation: gtk::Orientation::Horizontal,
+                    gtk::Label {
+                        add_css_class: "profile-degraded",
+                        set_halign: gtk::Align::Start,
+                        set_wrap: true,
+                        #[watch]
+                        set_label: &model.degraded_text,
                     },
-
-                    #[local_ref]
-                    profiles_widget -> gtk::Box {},
-
-                    #[name = "degraded"]
-                    #[template]
-                    DegradedWarningView,
                 },
             },
         }
@@ -101,44 +133,26 @@ impl SimpleComponent for Popover {
         _root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let details = KeyValueGrid::builder()
-            .launch(KeyValueGridInit {
-                values: vec![
-                    KeyValueItem {
-                        label: "Health".into(),
-                        value: "".into(),
-                        visible: true,
-                    },
-                    KeyValueItem {
-                        label: "Model".into(),
-                        value: "".into(),
-                        visible: true,
-                    },
-                    KeyValueItem {
-                        label: "Charge limit".into(),
-                        value: "".into(),
-                        visible: false,
-                    },
-                    KeyValueItem {
-                        label: "Rate".into(),
-                        value: "".into(),
-                        visible: false,
-                    },
-                ],
-            })
-            .detach();
-        let profiles = ActionMenu::builder()
-            .launch(ActionMenuInit {
-                header: Some("Power profile".into()),
-                items: Vec::new(),
-            })
-            .forward(sender.output_sender(), PopoverOutput::SetProfile);
-        let details_widget = details.widget().clone();
-        let profiles_widget = profiles.widget().clone();
+        let status = BatteryStatus::default();
+        let mut model = Popover {
+            popover: AnimatedPopover::new(),
+            details_grid: KeyValueGrid::new(),
+            profiles_list: ChoiceList::new(),
+            hero_icon_name: status.icon_name.clone(),
+            hero_percentage: format::percent(status.percentage),
+            hero_progress: battery_fraction(&status),
+            hero_state: format::state_text(&status),
+            details: detail_rows(status),
+            profiles: PowerProfiles::default(),
+            degraded_visible: false,
+            degraded_text: String::new(),
+        };
 
         let widgets = view_output!();
+        model.popover = widgets.root.clone();
+        model.details_grid = widgets.details_grid.clone();
+        model.profiles_list = widgets.profiles_list.clone();
         widgets.root.set_parent(&init.parent);
-        widgets.root.set_autohide(true);
 
         let opened_sender = sender.clone();
         widgets.root.connect_show(move |_| {
@@ -150,17 +164,8 @@ impl SimpleComponent for Popover {
             let _ = closed_sender.output(PopoverOutput::Closed);
         });
 
-        let model = Popover {
-            animation: AnimatedPopover::new(&widgets.root),
-            hero_icon_name: "battery-missing-symbolic".into(),
-            hero_percentage: "\u{2014}".into(),
-            hero_progress: 0.0,
-            hero_state: String::new(),
-            details,
-            profiles,
-            degraded_visible: false,
-            degraded_text: String::new(),
-        };
+        model.sync_details();
+        model.sync_profiles();
 
         ComponentParts { model, widgets }
     }
@@ -168,68 +173,128 @@ impl SimpleComponent for Popover {
     fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
         match msg {
             PopoverInput::Toggle => {
-                self.animation.toggle();
+                self.popover.toggle();
             }
             PopoverInput::UpdateStatus(status) => {
                 self.hero_icon_name = status.icon_name.clone();
                 self.hero_percentage = format::percent(status.percentage);
-                self.hero_progress = status.percentage as f64 / 100.0;
+                self.hero_progress = battery_fraction(&status);
                 self.hero_state = format::state_text(&status);
-                self.details.emit(KeyValueGridInput::Update(vec![
-                    KeyValueItem {
-                        label: "Health".into(),
-                        value: format::percent(status.capacity),
-                        visible: true,
-                    },
-                    KeyValueItem {
-                        label: "Model".into(),
-                        value: format::optional_model(status.model),
-                        visible: true,
-                    },
-                    KeyValueItem {
-                        label: "Charge limit".into(),
-                        value: format::percent(status.charge_threshold),
-                        visible: status.charge_threshold > 0,
-                    },
-                    KeyValueItem {
-                        label: "Rate".into(),
-                        value: format::power_rate(status.energy_rate),
-                        visible: status.energy_rate > 0.0,
-                    },
-                ]));
+                self.details = detail_rows(status);
+                self.sync_details();
             }
             PopoverInput::UpdateProfiles(profiles) => {
                 self.degraded_visible = !profiles.performance_degraded.is_empty();
                 self.degraded_text = format::degraded_warning(&profiles.performance_degraded);
-                self.profiles
-                    .emit(ActionMenuInput::Update(build_profile_items(&profiles)));
+                self.profiles = profiles;
+                self.sync_profiles();
             }
         }
     }
+}
 
-    fn post_view() {
-        hero.icon.set_icon_name(Some(&model.hero_icon_name));
-        hero.percentage.set_label(&model.hero_percentage);
-        hero.progress.set_fraction(model.hero_progress);
-        hero.state.set_label(&model.hero_state);
+impl Popover {
+    fn profiles_visible(&self) -> bool {
+        self.profiles
+            .available
+            .iter()
+            .any(|profile| !profile.is_empty())
+    }
 
-        degraded.as_ref().set_visible(model.degraded_visible);
-        degraded.label.set_label(&model.degraded_text);
+    fn sync_details(&self) {
+        self.details_grid.clear();
+        for row in self.details.iter().filter(|row| row.visible) {
+            self.details_grid.add_row(row.label, &row.value);
+        }
+    }
+
+    fn sync_profiles(&self) {
+        self.profiles_list.clear_choices();
+        for profile in self
+            .profiles
+            .available
+            .iter()
+            .filter(|profile| !profile.is_empty())
+        {
+            self.profiles_list.add_choice(
+                profile,
+                format::profile_label(profile),
+                None,
+                Some(format::profile_icon(profile)),
+            );
+        }
+        if !self.profiles.active.is_empty() {
+            self.profiles_list.set_active(&self.profiles.active);
+        }
     }
 }
 
-fn build_profile_items(profiles: &PowerProfiles) -> Vec<ActionMenuItem<String>> {
-    profiles
-        .available
-        .iter()
-        .filter(|profile| !profile.is_empty())
-        .map(|profile| ActionMenuItem {
-            label: format::profile_label(profile).into(),
-            icon: Some(format::profile_icon(profile).into()),
+#[derive(Debug, Clone, PartialEq)]
+struct DetailRow {
+    label: &'static str,
+    value: String,
+    visible: bool,
+}
+
+fn detail_rows(status: BatteryStatus) -> Vec<DetailRow> {
+    vec![
+        DetailRow {
+            label: "Health",
+            value: format::percent(status.capacity),
             visible: true,
-            checked: Some(profile == &profiles.active),
-            selectable: Some(true),
-            command: profile.clone(),
-        })
-        .collect()
+        },
+        DetailRow {
+            label: "Model",
+            value: format::optional_model(status.model),
+            visible: true,
+        },
+        DetailRow {
+            label: "Charge limit",
+            value: format::percent(status.charge_threshold),
+            visible: status.charge_threshold > 0,
+        },
+        DetailRow {
+            label: "Rate",
+            value: format::power_rate(status.energy_rate),
+            visible: status.energy_rate > 0.0,
+        },
+    ]
+}
+
+fn battery_fraction(status: &BatteryStatus) -> f64 {
+    status.percentage as f64 / 100.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detail_rows_hide_empty_optional_values() {
+        let rows = detail_rows(BatteryStatus {
+            capacity: 92.0,
+            model: String::new(),
+            charge_threshold: 0,
+            energy_rate: 0.0,
+            ..BatteryStatus::default()
+        });
+
+        assert!(rows.iter().any(|row| row.label == "Health" && row.visible));
+        assert!(rows.iter().any(|row| row.label == "Model" && row.visible));
+        assert!(
+            rows.iter()
+                .any(|row| row.label == "Charge limit" && !row.visible)
+        );
+        assert!(rows.iter().any(|row| row.label == "Rate" && !row.visible));
+    }
+
+    #[test]
+    fn battery_fraction_uses_percentage_ratio() {
+        let status = BatteryStatus {
+            percentage: 73,
+            ..BatteryStatus::default()
+        };
+
+        assert_eq!(battery_fraction(&status), 0.73);
+    }
 }

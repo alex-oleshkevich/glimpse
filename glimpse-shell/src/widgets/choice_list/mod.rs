@@ -16,8 +16,13 @@ impl ChoiceList {
         glib::Object::builder().build()
     }
 
-    pub fn add_choice(&self, id: &str, primary: &str, secondary: Option<&str>, icon_name: Option<&str>) {
-
+    pub fn add_choice(
+        &self,
+        id: &str,
+        primary: &str,
+        secondary: Option<&str>,
+        icon_name: Option<&str>,
+    ) {
         let row = ChoiceTile::new();
         row.set_primary(primary);
         row.set_secondary(secondary);
@@ -44,6 +49,14 @@ impl ChoiceList {
         *self.imp().active.borrow_mut() = Some(id.to_owned());
     }
 
+    pub fn clear_choices(&self) {
+        while let Some(child) = self.first_child() {
+            self.remove(&child);
+        }
+        self.imp().rows.borrow_mut().clear();
+        *self.imp().active.borrow_mut() = None;
+    }
+
     pub fn active(&self) -> Option<String> {
         self.imp().active.borrow().clone()
     }
@@ -57,7 +70,6 @@ impl ChoiceList {
     }
 
     fn activate_choice(&self, id: &str) {
-        self.set_active(id);
         self.emit_by_name::<()>("changed", &[&id.to_owned()]);
     }
 }
