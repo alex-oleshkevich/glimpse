@@ -10,8 +10,8 @@ use std::collections::HashMap;
 
 use crate::{
     applets::{
-        audio, battery, bluetooth, brightness, clipboard, clock, command, exec, idle, keyboard,
-        mpris, network, notifications, pager, privacy, removable, session, tray, weather,
+        audio, battery, bluetooth, brightness, clipboard, clock, command, devgallery, exec, idle,
+        keyboard, mpris, network, notifications, pager, privacy, removable, session, tray, weather,
     },
     panels::PanelSection,
     services::{framework::Services, wayland_idle_inhibit::SHELL_EXTENSIONS},
@@ -75,6 +75,7 @@ pub enum AppletController {
     Clipboard(Controller<clipboard::Applet>),
     Clock(Controller<clock::Applet>),
     Command(Controller<command::Applet>),
+    DevGallery(Controller<devgallery::Applet>),
     Exec(Controller<exec::Applet>),
     Idle(Controller<idle::applet::Applet>),
     Keyboard(Controller<keyboard::Applet>),
@@ -99,6 +100,7 @@ impl AppletController {
             Self::Clipboard(_) => AppletType::Clipboard,
             Self::Clock(_) => AppletType::Clock,
             Self::Command(_) => AppletType::Command,
+            Self::DevGallery(_) => AppletType::DevGallery,
             Self::Exec(_) => AppletType::Exec,
             Self::Idle(_) => AppletType::Idle,
             Self::Keyboard(_) => AppletType::Keyboard,
@@ -123,6 +125,7 @@ impl AppletController {
             Self::Clipboard(controller) => controller.widget().clone().upcast(),
             Self::Clock(controller) => controller.widget().clone().upcast(),
             Self::Command(controller) => controller.widget().clone().upcast(),
+            Self::DevGallery(controller) => controller.widget().clone().upcast(),
             Self::Exec(controller) => controller.widget().clone().upcast(),
             Self::Idle(controller) => controller.widget().clone().upcast(),
             Self::Keyboard(controller) => controller.widget().clone().upcast(),
@@ -180,6 +183,7 @@ impl AppletController {
                     &config.cloned(),
                 )));
             }
+            Self::DevGallery(_) => {}
             Self::Idle(_) => {}
             Self::Keyboard(controller) => {
                 controller.emit(keyboard::Input::Reconfigure(keyboard::Config::from_raw(
@@ -312,6 +316,11 @@ pub fn create_applet(
                     .detach(),
             ))
         }
+        AppletType::DevGallery => Some(AppletController::DevGallery(
+            devgallery::Applet::builder()
+                .launch(devgallery::Init)
+                .detach(),
+        )),
         AppletType::Exec => {
             let config = exec::Config::from_raw(&blueprint.config);
             if !exec::Applet::can_launch(&config) {

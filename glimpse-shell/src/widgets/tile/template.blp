@@ -1,11 +1,11 @@
 using Gtk 4.0;
 
-template $GlimpseRow: Box {
+template $GlimpseTile: Box {
   orientation: horizontal;
   spacing: 8;
 
   styles [
-    "row",
+    "tile",
   ]
 
   Box left_slot {
@@ -13,7 +13,7 @@ template $GlimpseRow: Box {
     visible: false;
 
     styles [
-      "row__left",
+      "tile__left",
     ]
   }
 
@@ -23,7 +23,7 @@ template $GlimpseRow: Box {
     valign: center;
 
     styles [
-      "row__labels",
+      "tile__labels",
     ]
 
     Label primary_label {
@@ -32,7 +32,7 @@ template $GlimpseRow: Box {
       hexpand: true;
 
       styles [
-        "row__label_primary",
+        "tile__label_primary",
       ]
     }
 
@@ -44,7 +44,7 @@ template $GlimpseRow: Box {
       styles [
         "dim-label",
         "caption",
-        "row__label_secondary",
+        "tile__label_secondary",
       ]
     }
   }
@@ -55,7 +55,7 @@ template $GlimpseRow: Box {
     visible: false;
 
     styles [
-      "row__right",
+      "tile__right",
     ]
   }
 }

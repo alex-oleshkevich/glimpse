@@ -1,0 +1,57 @@
+using Gtk 4.0;
+
+template $GlimpseSliderTile: Box {
+  orientation: horizontal;
+  spacing: 8;
+
+  styles [
+    "tile",
+    "slider-tile",
+  ]
+
+  Box left_slot {
+    valign: center;
+    visible: false;
+
+    styles [
+      "tile__left",
+    ]
+  }
+
+  Box content {
+    orientation: vertical;
+    hexpand: true;
+    valign: center;
+
+    styles [
+      "slider-tile__content",
+    ]
+
+    Label label {
+      xalign: 0;
+      ellipsize: end;
+      visible: false;
+
+      styles [
+        "tile__label_primary",
+      ]
+    }
+
+    Scale slider {
+      hexpand: true;
+      orientation: horizontal;
+      draw-value: false;
+
+      styles [
+        "slider-tile__slider",
+      ]
+
+      adjustment: Adjustment {
+        lower: 0;
+        upper: 1;
+        step-increment: 0.01;
+        page-increment: 0.1;
+      };
+    }
+  }
+}

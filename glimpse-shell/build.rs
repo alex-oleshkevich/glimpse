@@ -24,7 +24,14 @@ fn main() {
     // See: https://github.com/wmww/gtk4-layer-shell/blob/main/linking.md
     println!("cargo:rustc-link-lib=gtk4-layer-shell");
 
-    compile_blueprints(&[("src/widgets/row/template.blp", "resources/widgets/row.ui")]);
+    compile_blueprints(&[
+        ("src/widgets/tile/template.blp", "resources/widgets/tile.ui"),
+        ("src/widgets/switch_tile/template.blp", "resources/widgets/switch_tile.ui"),
+        ("src/widgets/expander_tile/template.blp", "resources/widgets/expander_tile.ui"),
+        ("src/widgets/choice_tile/template.blp", "resources/widgets/choice_tile.ui"),
+        ("src/widgets/segmented_tile/template.blp", "resources/widgets/segmented_tile.ui"),
+        ("src/widgets/slider_tile/template.blp", "resources/widgets/slider_tile.ui"),
+    ]);
 
     glib_build_tools::compile_resources(
         &["resources"],                          // source dirs (relative to build.rs)
