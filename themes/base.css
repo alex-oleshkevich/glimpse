@@ -2599,11 +2599,10 @@ label.text-error {
     border-radius: var(--message-radius);
     padding: var(--message-padding);
     box-shadow: var(--message-shadow);
-    width: var(--message-width);
+    min-width: var(--message-width);
 }
 
 .message__header {
-    spacing: 6px;
     color: var(--message-header-fg);
     margin-bottom: var(--space-2);
 }

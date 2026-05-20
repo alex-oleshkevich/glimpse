@@ -21,6 +21,8 @@ pub mod text;
 pub mod tile;
 
 #[allow(unused_imports)]
+pub use gtk4::Button;
+#[allow(unused_imports)]
 pub use gtk4::ProgressBar as Meter;
 #[allow(unused_imports)]
 pub use gtk4::ScrolledWindow as Scroll;
@@ -28,3 +30,5 @@ pub use gtk4::ScrolledWindow as Scroll;
 pub use gtk4::Separator;
 #[allow(unused_imports)]
 pub use gtk4::Spinner;
+#[allow(unused_imports)]
+pub use gtk4::ToggleButton;

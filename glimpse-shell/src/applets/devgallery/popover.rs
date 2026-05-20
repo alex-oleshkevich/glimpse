@@ -15,13 +15,14 @@ use crate::{
         popover_shell::PopoverShell,
         row::Row, segmented_tile::SegmentedTile, slider_tile::SliderTile,
         status_dot::{StatusDot, StatusDotStatus}, switch_tile::SwitchTile,
-        text::{FontSize, FontWeight, Text, TextColor}, tile::Tile, Meter, Scroll, Spinner,
+        text::{FontSize, FontWeight, Text, TextColor}, tile::Tile,
+        Button, Meter, Scroll, Spinner, ToggleButton,
     },
 };
 
 pub struct Popover {
     animation: AnimatedPopover,
-    preview_window: gtk::Window,
+    preview_window: Option<gtk::Window>,
 }
 
 pub struct PopoverInit {
@@ -394,6 +395,47 @@ impl SimpleComponent for Popover {
                         },
 
                         Header {
+                            set_label: "Button",
+                        },
+
+                        Row {
+                            Button {
+                                set_label: "Default",
+                            },
+                            Button {
+                                set_label: "Suggested",
+                                add_css_class: "suggested-action",
+                            },
+                            Button {
+                                set_label: "Destructive",
+                                add_css_class: "destructive-action",
+                            },
+                            Button {
+                                set_label: "Flat",
+                                add_css_class: "flat",
+                            },
+                        },
+
+                        Row {
+                            ToggleButton {
+                                set_label: "Off",
+                            },
+                            ToggleButton {
+                                set_label: "On",
+                                set_active: true,
+                            },
+                            Button {
+                                set_icon_name: "starred-symbolic",
+                                add_css_class: "flat",
+                                add_css_class: "circular",
+                            },
+                            Button {
+                                set_icon_name: "list-add-symbolic",
+                                add_css_class: "circular",
+                            },
+                        },
+
+                        Header {
                             set_label: "Message",
                         },
 
@@ -426,11 +468,9 @@ impl SimpleComponent for Popover {
             let _ = closed_sender.output(PopoverOutput::Closed);
         });
 
-        let preview_window = build_message_preview_window();
-
         let model = Popover {
             animation: AnimatedPopover::new(&widgets.root),
-            preview_window,
+            preview_window: None,
         };
 
         ComponentParts { model, widgets }
@@ -439,7 +479,11 @@ impl SimpleComponent for Popover {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             PopoverInput::Toggle => self.animation.toggle(),
-            PopoverInput::ShowMessagePreview => self.preview_window.present(),
+            PopoverInput::ShowMessagePreview => {
+                let window = self.preview_window
+                    .get_or_insert_with(build_message_preview_window);
+                window.present();
+            }
         }
     }
 }
