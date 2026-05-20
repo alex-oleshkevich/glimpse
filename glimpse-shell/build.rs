@@ -29,6 +29,7 @@ fn main() {
         ("src/widgets/switch_tile/template.blp", "resources/widgets/switch_tile.ui"),
         ("src/widgets/expander_tile/template.blp", "resources/widgets/expander_tile.ui"),
         ("src/widgets/choice_tile/template.blp", "resources/widgets/choice_tile.ui"),
+        ("src/widgets/hero/template.blp", "resources/widgets/hero.ui"),
         ("src/widgets/segmented_tile/template.blp", "resources/widgets/segmented_tile.ui"),
         ("src/widgets/slider_tile/template.blp", "resources/widgets/slider_tile.ui"),
     ]);

@@ -6,9 +6,10 @@ use relm4::{
 use crate::{
     components::{animated_popover::AnimatedPopover, popover_shell::PopoverShell},
     widgets::{
-        boxed_list::BoxedList, choice_list::ChoiceList, column::Column,
-        expander_tile::ExpanderTile, header::Header, key_value_grid::KeyValueGrid, row::Row,
-        segmented_tile::SegmentedTile, slider_tile::SliderTile, switch_tile::SwitchTile,
+        badge::{Badge, BadgeKind}, boxed_list::BoxedList, button_row::ButtonRow,
+        choice_list::ChoiceList, column::Column, expander_tile::ExpanderTile, header::Header,
+        hero::Hero, key_value_grid::KeyValueGrid, row::Row, segmented_tile::SegmentedTile,
+        slider_tile::SliderTile, status_dot::{StatusDot, StatusDotStatus}, switch_tile::SwitchTile,
         tile::Tile,
     },
 };
@@ -195,6 +196,89 @@ impl SimpleComponent for Popover {
                             add_row: ("Kernel",   "6.8.0-lts"),
                             add_row: ("Uptime",   "3h 42m"),
                             add_row: ("IP",       "192.168.1.42"),
+                        },
+
+                        Header {
+                            set_label: "ButtonRow",
+                        },
+
+                        ButtonRow {
+                            gtk::Button {
+                                set_icon_name: "media-skip-backward-symbolic",
+                            },
+                            gtk::Button {
+                                set_icon_name: "media-playback-start-symbolic",
+                            },
+                            gtk::Button {
+                                set_icon_name: "media-skip-forward-symbolic",
+                            },
+                        },
+
+                        Header {
+                            set_label: "StatusDot",
+                        },
+
+                        Row {
+                            StatusDot {
+                                set_status: StatusDotStatus::Success,
+                            },
+                            StatusDot {
+                                set_status: StatusDotStatus::Warning,
+                            },
+                            StatusDot {
+                                set_status: StatusDotStatus::Error,
+                            },
+                            StatusDot {
+                                set_status: StatusDotStatus::Accent,
+                            },
+                            StatusDot {
+                                set_status: StatusDotStatus::Neutral,
+                            },
+                        },
+
+                        Header {
+                            set_label: "Badge",
+                        },
+
+                        Row {
+                            Badge {
+                                set_label: "Default",
+                            },
+                            Badge {
+                                set_label: "Success",
+                                set_kind: BadgeKind::Success,
+                            },
+                            Badge {
+                                set_label: "Warning",
+                                set_kind: BadgeKind::Warning,
+                            },
+                            Badge {
+                                set_label: "Error",
+                                set_kind: BadgeKind::Error,
+                            },
+                            Badge {
+                                set_label: "Accent",
+                                set_kind: BadgeKind::Accent,
+                            },
+                        },
+
+                        Header {
+                            set_label: "Hero",
+                        },
+
+                        Hero {
+                            set_icon: Some("weather-clear-symbolic"),
+                            set_title: "Clear Sky",
+                            set_subtitle: "24°C · Feels like 22°C",
+                        },
+
+                        Hero {
+                            set_icon: Some("network-wireless-symbolic"),
+                            set_title: "Wi-Fi",
+                            set_subtitle: "Home Network",
+                            set_trailing_visible: true,
+                            set_toggle_active: true,
+                            connect_toggled => move |_, _| {},
                         },
                     },
                 },
