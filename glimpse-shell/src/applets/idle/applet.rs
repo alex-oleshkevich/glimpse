@@ -23,7 +23,6 @@ pub struct Applet {
     own_unique_name: String,
     service: IdleInhibitorHandle,
     popover: Controller<Popover>,
-    popover_open: bool,
     subscription_cancel: CancellationToken,
 }
 
@@ -38,7 +37,7 @@ pub enum Input {
     ServiceStateChanged(State),
     WaylandHealthChanged(WaylandHealth),
     TogglePopover,
-    PopoverOutput(PopoverOutput),
+    PopoverCommand(Command),
 }
 
 #[relm4::component(pub)]
@@ -83,7 +82,9 @@ impl SimpleComponent for Applet {
                 parent: root.clone(),
                 own_unique_name: init.own_unique_name,
             })
-            .forward(sender.input_sender(), Input::PopoverOutput);
+            .forward(sender.input_sender(), |output| match output {
+                PopoverOutput::Command(command) => Input::PopoverCommand(command),
+            });
 
         let state = init.service.snapshot();
         let wayland_health = init.wayland_health.borrow().clone();
@@ -96,7 +97,6 @@ impl SimpleComponent for Applet {
             own_unique_name,
             service: init.service,
             popover,
-            popover_open: false,
             subscription_cancel: CancellationToken::new(),
         };
 
@@ -152,23 +152,16 @@ impl SimpleComponent for Applet {
             Input::ServiceStateChanged(state) => {
                 self.icon_name = icon_name_for_state(&state, &self.own_unique_name);
                 self.state = state;
-                self.sync_popover();
+                self.send_popover_state();
             }
             Input::WaylandHealthChanged(h) => {
                 self.wayland_health = h;
-                self.sync_popover();
+                self.send_popover_state();
             }
             Input::TogglePopover => {
                 self.popover.emit(PopoverInput::Toggle);
             }
-            Input::PopoverOutput(PopoverOutput::Opened) => {
-                self.popover_open = true;
-                self.sync_popover();
-            }
-            Input::PopoverOutput(PopoverOutput::Closed) => {
-                self.popover_open = false;
-            }
-            Input::PopoverOutput(PopoverOutput::Command(command)) => {
+            Input::PopoverCommand(command) => {
                 self.send_command(command);
             }
         }
@@ -176,10 +169,7 @@ impl SimpleComponent for Applet {
 }
 
 impl Applet {
-    fn sync_popover(&self) {
-        if !self.popover_open {
-            return;
-        }
+    fn send_popover_state(&self) {
         self.popover.emit(PopoverInput::UpdateState {
             state: self.state.clone(),
             wayland: self.wayland_health.clone(),

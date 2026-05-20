@@ -66,8 +66,21 @@ impl SegmentedTile {
         self.imp().expanded.get()
     }
 
+    pub fn set_activatable(&self, v: bool) {
+        if v {
+            self.imp().main.add_css_class("activatable");
+        } else {
+            self.imp().main.remove_css_class("activatable");
+        }
+    }
+
     pub fn connect_activated(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure("activated", false, closure_local!(move |tile: &Self| f(tile)))
+        self.set_activatable(true);
+        self.connect_closure(
+            "activated",
+            false,
+            closure_local!(move |tile: &Self| f(tile)),
+        )
     }
 
     pub fn connect_expanded(&self, f: impl Fn(&Self, bool) + 'static) -> glib::SignalHandlerId {

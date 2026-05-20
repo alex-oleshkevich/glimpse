@@ -24,7 +24,6 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
             <property name="spacing">8</property>
             <property name="hexpand">true</property>
             <style>
-              <class name="activatable"/>
               <class name="segmented-tile__main"/>
             </style>
             <child>
