@@ -1,21 +1,21 @@
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::{
+    cell::{Cell, RefCell},
+    collections::{HashMap, HashSet},
+    rc::Rc,
+    time::{Duration, Instant},
+};
 
 use relm4::{
-    Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
+    ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, glib, prelude::*},
 };
 
 use crate::{
-    components::{
-        animated_popover::AnimatedPopover,
-        collapsible_section::CollapsibleSectionView,
-        device_list::{DeviceList, DeviceListInit, DeviceListInput, DeviceListItem},
-        hero::HeroView,
-        popover_shell::PopoverShell,
-    },
     services::audio::{AudioDevice, AudioStream, Command, State, volume_icon},
+    widgets::{
+        animated_popover::AnimatedPopover, choice_tile::ChoiceTile, expander_tile::ExpanderTile,
+        hero::Hero, popover_shell::PopoverShell, slider_tile::SliderTile, tile::Tile,
+    },
 };
 
 const VOLUME_ECHO_GRACE: Duration = Duration::from_secs(2);
@@ -23,7 +23,7 @@ const VOLUME_COMMAND_INTERVAL: Duration = Duration::from_millis(50);
 const DEVICE_LABEL_MAX_CHARS: usize = 30;
 
 pub struct Popover {
-    animation: AnimatedPopover,
+    popover: AnimatedPopover,
     state: State,
     max_volume: u32,
     show_streams: bool,
@@ -34,9 +34,16 @@ pub struct Popover {
     pending_input_volume: Rc<RefCell<Option<PendingVolume>>>,
     updating_output_scale: Rc<Cell<bool>>,
     updating_input_scale: Rc<Cell<bool>>,
-    outputs: Controller<DeviceList<Command>>,
-    inputs: Controller<DeviceList<Command>>,
-    streams: Controller<DeviceList<Command>>,
+    output_mute: gtk::Button,
+    input_mute: gtk::Button,
+    output_volume: SliderTile,
+    input_volume: SliderTile,
+    outputs_list: gtk::Box,
+    inputs_list: gtk::Box,
+    streams_list: gtk::Box,
+    output_rows: HashMap<String, DeviceRow>,
+    input_rows: HashMap<String, DeviceRow>,
+    stream_rows: HashMap<u64, StreamRow>,
 }
 
 #[derive(Debug, Clone)]
@@ -65,16 +72,14 @@ pub enum PopoverInput {
     Toggle,
     UpdateState(State),
     Reconfigure { max_volume: u32, show_streams: bool },
-    ToggleOutputs,
-    ToggleInputs,
-    ToggleStreams,
+    SetOutputsExpanded(bool),
+    SetInputsExpanded(bool),
+    SetStreamsExpanded(bool),
     Command(Command),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PopoverOutput {
-    Opened,
-    Closed,
     Command(Command),
 }
 
@@ -86,143 +91,81 @@ impl SimpleComponent for Popover {
     type Output = PopoverOutput;
 
     view! {
-        root = gtk::Popover {
+        root = AnimatedPopover {
             add_css_class: "audio-popover",
             add_css_class: "popover-size-medium",
             set_hexpand: false,
+            set_autohide: true,
 
-            #[template]
             PopoverShell {
-                #[template_child]
-                footer {
-                    set_visible: false,
+                set_footer_visible: false,
+
+                #[name = "hero"]
+                Hero {
+                    #[watch]
+                    set_icon: Some(output_icon_name(&model.state)),
+                    set_title: "Audio",
+                    #[watch]
+                    set_subtitle: &hero_subtitle(&model.state),
                 },
 
-                #[template_child]
-                content {
-                    #[name = "hero"]
-                    #[template]
-                    HeroView {},
+                #[name = "output_volume"]
+                SliderTile {
+                    #[watch]
+                    set_range: (0.0, model.max_volume as f64),
+                    #[watch]
+                    set_sensitive: model.state.default_output().is_some(),
+                },
 
-                    gtk::Separator {
-                        set_orientation: gtk::Orientation::Horizontal,
+                #[name = "input_volume"]
+                SliderTile {
+                    #[watch]
+                    set_range: (0.0, model.max_volume as f64),
+                    #[watch]
+                    set_sensitive: model.state.default_input().is_some(),
+                },
+
+                gtk::Separator {
+                    set_orientation: gtk::Orientation::Horizontal,
+                },
+
+                #[name = "outputs_section"]
+                ExpanderTile {
+                    add_css_class: "audio-device-section",
+                    #[watch]
+                    set_primary: "Output devices",
+                    #[watch]
+                    set_expanded: model.outputs_expanded,
+
+                    connect_expanded[sender] => move |_, expanded| {
+                        sender.input(PopoverInput::SetOutputsExpanded(expanded));
                     },
+                },
 
-                    gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_spacing: 8,
+                #[name = "inputs_section"]
+                ExpanderTile {
+                    add_css_class: "audio-device-section",
+                    #[watch]
+                    set_primary: "Input devices",
+                    #[watch]
+                    set_expanded: model.inputs_expanded,
 
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Horizontal,
-                            set_spacing: 8,
-
-                            #[name = "output_mute"]
-                            gtk::Button {
-                                add_css_class: "flat",
-                                set_icon_name: "audio-volume-high-symbolic",
-                                connect_clicked => PopoverInput::Command(Command::ToggleOutputMute),
-                            },
-
-                            #[name = "output_scale"]
-                            gtk::Scale {
-                                set_orientation: gtk::Orientation::Horizontal,
-                                set_draw_value: false,
-                                set_hexpand: true,
-                                set_range: (0.0, init.max_volume as f64),
-                                set_increments: (1.0, 5.0),
-                            },
-                        },
-
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Horizontal,
-                            set_spacing: 8,
-
-                            #[name = "input_mute"]
-                            gtk::Button {
-                                add_css_class: "flat",
-                                set_icon_name: "audio-input-microphone-symbolic",
-                                connect_clicked => PopoverInput::Command(Command::ToggleInputMute),
-                            },
-
-                            #[name = "input_scale"]
-                            gtk::Scale {
-                                set_orientation: gtk::Orientation::Horizontal,
-                                set_draw_value: false,
-                                set_hexpand: true,
-                                set_range: (0.0, init.max_volume as f64),
-                                set_increments: (1.0, 5.0),
-                            },
-                        },
+                    connect_expanded[sender] => move |_, expanded| {
+                        sender.input(PopoverInput::SetInputsExpanded(expanded));
                     },
+                },
 
-                    gtk::Separator {
-                        set_orientation: gtk::Orientation::Horizontal,
-                    },
+                #[name = "streams_section"]
+                ExpanderTile {
+                    add_css_class: "audio-device-section",
+                    set_primary: "Apps",
+                    #[watch]
+                    set_visible: model.show_streams,
+                    #[watch]
+                    set_expanded: model.streams_expanded,
 
-                    #[name = "outputs_section"]
-                    #[template]
-                    CollapsibleSectionView {
-                        add_css_class: "audio-device-section",
-
-                        #[template_child]
-                        title {
-                            set_label: "Output devices",
-                        },
-
-                        #[template_child]
-                        button {
-                            connect_clicked => PopoverInput::ToggleOutputs,
-                        },
-
-                        #[template_child]
-                        content {
-                            #[local_ref]
-                            outputs_widget -> gtk::Box {},
-                        },
-                    },
-
-                    #[name = "inputs_section"]
-                    #[template]
-                    CollapsibleSectionView {
-                        add_css_class: "audio-device-section",
-
-                        #[template_child]
-                        title {
-                            set_label: "Input devices",
-                        },
-
-                        #[template_child]
-                        button {
-                            connect_clicked => PopoverInput::ToggleInputs,
-                        },
-
-                        #[template_child]
-                        content {
-                            #[local_ref]
-                            inputs_widget -> gtk::Box {},
-                        },
-                    },
-
-                    #[name = "streams_section"]
-                    #[template]
-                    CollapsibleSectionView {
-                        add_css_class: "audio-device-section",
-
-                        #[template_child]
-                        title {
-                            set_label: "Apps",
-                        },
-
-                        #[template_child]
-                        button {
-                            connect_clicked => PopoverInput::ToggleStreams,
-                        },
-
-                        #[template_child]
-                        content {
-                            #[local_ref]
-                            streams_widget -> gtk::Box {},
-                        },
+                    connect_expanded[sender] => move |_, expanded| {
+                        sender.input(PopoverInput::SetStreamsExpanded(expanded));
                     },
                 },
             },
@@ -234,89 +177,85 @@ impl SimpleComponent for Popover {
         _root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let outputs = DeviceList::builder()
-            .launch(DeviceListInit {
-                header: None,
-                items: Vec::new(),
-            })
-            .forward(sender.input_sender(), PopoverInput::Command);
-        let outputs_widget = outputs.widget().clone();
-
-        let inputs = DeviceList::builder()
-            .launch(DeviceListInit {
-                header: None,
-                items: Vec::new(),
-            })
-            .forward(sender.input_sender(), PopoverInput::Command);
-        let inputs_widget = inputs.widget().clone();
-
-        let streams = DeviceList::builder()
-            .launch(DeviceListInit {
-                header: None,
-                items: Vec::new(),
-            })
-            .forward(sender.input_sender(), PopoverInput::Command);
-        let streams_widget = streams.widget().clone();
-
         let updating_output_scale = Rc::new(Cell::new(false));
         let updating_input_scale = Rc::new(Cell::new(false));
-        let widgets = view_output!();
-        widgets.root.set_parent(&init.parent);
-        widgets.root.set_autohide(true);
-
-        let opened_sender = sender.clone();
-        widgets.root.connect_show(move |_| {
-            let _ = opened_sender.output(PopoverOutput::Opened);
-        });
-
-        let closed_sender = sender.clone();
-        widgets.root.connect_closed(move |_| {
-            let _ = closed_sender.output(PopoverOutput::Closed);
-        });
-
-        if init.max_volume > 100 {
-            widgets
-                .output_scale
-                .add_mark(100.0, gtk::PositionType::Bottom, None);
-            widgets
-                .input_scale
-                .add_mark(100.0, gtk::PositionType::Bottom, None);
-        }
-
-        let pending_output_volume = Rc::new(RefCell::new(None));
-        let pending_input_volume = Rc::new(RefCell::new(None));
-
-        connect_throttled_scale(
-            &widgets.output_scale,
-            updating_output_scale.clone(),
-            pending_output_volume.clone(),
-            sender.clone(),
-            Command::SetOutputVolume,
-        );
-        connect_throttled_scale(
-            &widgets.input_scale,
-            updating_input_scale.clone(),
-            pending_input_volume.clone(),
-            sender.clone(),
-            Command::SetInputVolume,
-        );
-
-        let model = Popover {
-            animation: AnimatedPopover::new(&widgets.root),
+        let mut model = Popover {
+            popover: AnimatedPopover::new(),
             state: State::default(),
             max_volume: init.max_volume,
             show_streams: init.show_streams,
             outputs_expanded: false,
             inputs_expanded: false,
             streams_expanded: false,
-            pending_output_volume,
-            pending_input_volume,
+            pending_output_volume: Rc::new(RefCell::new(None)),
+            pending_input_volume: Rc::new(RefCell::new(None)),
             updating_output_scale,
             updating_input_scale,
-            outputs,
-            inputs,
-            streams,
+            output_mute: gtk::Button::new(),
+            input_mute: gtk::Button::new(),
+            output_volume: SliderTile::new(),
+            input_volume: SliderTile::new(),
+            outputs_list: gtk::Box::new(gtk::Orientation::Vertical, 2),
+            inputs_list: gtk::Box::new(gtk::Orientation::Vertical, 2),
+            streams_list: gtk::Box::new(gtk::Orientation::Vertical, 2),
+            output_rows: HashMap::new(),
+            input_rows: HashMap::new(),
+            stream_rows: HashMap::new(),
         };
+
+        let widgets = view_output!();
+        model.popover = widgets.root.clone();
+        model.output_volume = widgets.output_volume.clone();
+        model.input_volume = widgets.input_volume.clone();
+
+        widgets.root.set_parent(&init.parent);
+        model.output_mute.add_css_class("flat");
+        model.output_mute.set_focusable(false);
+        model.output_mute.connect_clicked({
+            let sender = sender.clone();
+            move |_| sender.input(PopoverInput::Command(Command::ToggleOutputMute))
+        });
+        widgets
+            .output_volume
+            .set_left(Some(model.output_mute.clone()));
+
+        model.input_mute.add_css_class("flat");
+        model.input_mute.set_focusable(false);
+        model.input_mute.connect_clicked({
+            let sender = sender.clone();
+            move |_| sender.input(PopoverInput::Command(Command::ToggleInputMute))
+        });
+        widgets
+            .input_volume
+            .set_left(Some(model.input_mute.clone()));
+
+        widgets
+            .outputs_section
+            .set_child(Some(model.outputs_list.clone()));
+        widgets
+            .inputs_section
+            .set_child(Some(model.inputs_list.clone()));
+        widgets
+            .streams_section
+            .set_child(Some(model.streams_list.clone()));
+
+        connect_throttled_slider(
+            &widgets.output_volume,
+            model.updating_output_scale.clone(),
+            model.pending_output_volume.clone(),
+            sender.clone(),
+            Command::SetOutputVolume,
+        );
+        connect_throttled_slider(
+            &widgets.input_volume,
+            model.updating_input_scale.clone(),
+            model.pending_input_volume.clone(),
+            sender.clone(),
+            Command::SetInputVolume,
+        );
+
+        model.sync_volume_values();
+        model.sync_rows(&sender);
 
         ComponentParts { model, widgets }
     }
@@ -324,16 +263,12 @@ impl SimpleComponent for Popover {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
             PopoverInput::Toggle => {
-                self.animation.toggle();
+                self.popover.toggle();
             }
             PopoverInput::UpdateState(state) => {
-                self.outputs
-                    .emit(DeviceListInput::Update(output_items(&state.outputs)));
-                self.inputs
-                    .emit(DeviceListInput::Update(input_items(&state.inputs)));
-                self.streams
-                    .emit(DeviceListInput::Update(stream_items(&state.streams)));
                 self.state = state;
+                self.sync_volume_values();
+                self.sync_rows(&sender);
             }
             PopoverInput::Reconfigure {
                 max_volume,
@@ -342,14 +277,14 @@ impl SimpleComponent for Popover {
                 self.max_volume = max_volume;
                 self.show_streams = show_streams;
             }
-            PopoverInput::ToggleOutputs => {
-                self.outputs_expanded = !self.outputs_expanded;
+            PopoverInput::SetOutputsExpanded(expanded) => {
+                self.outputs_expanded = expanded;
             }
-            PopoverInput::ToggleInputs => {
-                self.inputs_expanded = !self.inputs_expanded;
+            PopoverInput::SetInputsExpanded(expanded) => {
+                self.inputs_expanded = expanded;
             }
-            PopoverInput::ToggleStreams => {
-                self.streams_expanded = !self.streams_expanded;
+            PopoverInput::SetStreamsExpanded(expanded) => {
+                self.streams_expanded = expanded;
             }
             PopoverInput::Command(command) => {
                 match &command {
@@ -367,83 +302,65 @@ impl SimpleComponent for Popover {
             }
         }
     }
+}
 
-    fn post_view() {
-        let output = model.state.default_output();
-        let input = model.state.default_input();
+impl Popover {
+    fn sync_volume_values(&self) {
+        let output = self.state.default_output();
+        let input = self.state.default_input();
 
-        hero.icon.set_icon_name(Some(
-            output
-                .map(|device| volume_icon(device.volume, device.muted))
-                .unwrap_or("audio-volume-muted-symbolic"),
-        ));
-        hero.title.set_label("Audio");
-        hero.subtitle.set_label(&hero_subtitle(&model.state));
-
-        output_mute.set_icon_name(
-            output
-                .map(|device| volume_icon(device.volume, device.muted))
-                .unwrap_or("audio-volume-high-symbolic"),
-        );
-        output_mute.set_sensitive(output.is_some());
-        input_mute.set_icon_name(input_icon_name(input));
-        input_mute.set_sensitive(input.is_some());
-
-        output_scale.set_range(0.0, model.max_volume as f64);
-        output_scale.set_sensitive(output.is_some());
-        input_scale.set_range(0.0, model.max_volume as f64);
-        input_scale.set_sensitive(input.is_some());
+        self.output_mute
+            .set_icon_name(output_icon_name(&self.state));
+        self.output_mute.set_sensitive(output.is_some());
+        self.input_mute.set_icon_name(input_icon_name(input));
+        self.input_mute.set_sensitive(input.is_some());
 
         let now = Instant::now();
-        if let Some(device) = output
-            && !scale_is_dragging(&output_scale)
-        {
+        if let Some(device) = output {
             let should_apply = {
-                let mut pending = model.pending_output_volume.borrow_mut();
+                let mut pending = self.pending_output_volume.borrow_mut();
                 should_apply_service_volume(&mut pending, device.volume, now)
             };
             if should_apply {
-                model.updating_output_scale.set(true);
-                output_scale.set_value(device.volume as f64);
-                model.updating_output_scale.set(false);
+                self.updating_output_scale.set(true);
+                self.output_volume.set_value(device.volume as f64);
+                self.updating_output_scale.set(false);
             }
         }
 
-        if let Some(device) = input
-            && !scale_is_dragging(&input_scale)
-        {
+        if let Some(device) = input {
             let should_apply = {
-                let mut pending = model.pending_input_volume.borrow_mut();
+                let mut pending = self.pending_input_volume.borrow_mut();
                 should_apply_service_volume(&mut pending, device.volume, now)
             };
             if should_apply {
-                model.updating_input_scale.set(true);
-                input_scale.set_value(device.volume as f64);
-                model.updating_input_scale.set(false);
+                self.updating_input_scale.set(true);
+                self.input_volume.set_value(device.volume as f64);
+                self.updating_input_scale.set(false);
             }
         }
-
-        sync_collapsible_section(&outputs_section, model.outputs_expanded);
-        sync_collapsible_section(&inputs_section, model.inputs_expanded);
-        streams_section.set_visible(model.show_streams);
-        sync_collapsible_section(&streams_section, model.streams_expanded);
-        streams_section
-            .title
-            .set_label(&format!("Apps ({})", model.state.streams.len()));
     }
-}
 
-fn scale_is_dragging(scale: &gtk::Scale) -> bool {
-    scale.state_flags().contains(gtk::StateFlags::ACTIVE)
-}
-
-fn sync_collapsible_section(section: &CollapsibleSectionView, expanded: bool) {
-    section.content.set_visible(expanded);
-    section.chevron.set_icon_name(Some(if expanded {
-        "pan-down-symbolic"
-    } else {
-        "pan-end-symbolic"
-    }));
+    fn sync_rows(&mut self, sender: &ComponentSender<Self>) {
+        sync_device_rows(
+            &mut self.output_rows,
+            &self.outputs_list,
+            output_row_models(&self.state.outputs),
+            sender,
+        );
+        sync_device_rows(
+            &mut self.input_rows,
+            &self.inputs_list,
+            input_row_models(&self.state.inputs),
+            sender,
+        );
+        sync_stream_rows(
+            &mut self.stream_rows,
+            &self.streams_list,
+            stream_row_models(&self.state.streams),
+            sender,
+        );
+    }
 }
 
 fn should_apply_service_volume(
@@ -468,8 +385,8 @@ fn should_apply_service_volume(
     true
 }
 
-fn connect_throttled_scale(
-    scale: &gtk::Scale,
+fn connect_throttled_slider(
+    slider: &SliderTile,
     updating: Rc<Cell<bool>>,
     pending_volume: Rc<RefCell<Option<PendingVolume>>>,
     sender: ComponentSender<Popover>,
@@ -479,9 +396,9 @@ fn connect_throttled_scale(
     let pending = Rc::new(Cell::new(false));
     let pending_value = Rc::new(Cell::new(0));
 
-    scale.connect_change_value(move |_, _, value| {
+    slider.connect_changed(move |_, value| {
         if updating.get() {
-            return glib::Propagation::Stop;
+            return;
         }
 
         let volume = volume_from_scale_value(value);
@@ -510,8 +427,6 @@ fn connect_throttled_scale(
                 }
             });
         }
-
-        glib::Propagation::Proceed
     });
 }
 
@@ -519,79 +434,227 @@ fn volume_from_scale_value(value: f64) -> u32 {
     value.round().clamp(0.0, u32::MAX as f64) as u32
 }
 
-fn output_items(devices: &[AudioDevice]) -> Vec<DeviceListItem<Command>> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DeviceRowModel {
+    id: String,
+    icon: String,
+    label: String,
+    tooltip: String,
+    selected: bool,
+    command: Command,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct StreamRowModel {
+    id: u64,
+    icon: String,
+    label: String,
+    status: String,
+    tooltip: String,
+    command: Command,
+}
+
+fn output_row_models(devices: &[AudioDevice]) -> Vec<DeviceRowModel> {
+    device_row_models(devices, |device| {
+        Command::SetDefaultOutput(device.name.clone())
+    })
+}
+
+fn input_row_models(devices: &[AudioDevice]) -> Vec<DeviceRowModel> {
+    device_row_models(devices, |device| {
+        Command::SetDefaultInput(device.name.clone())
+    })
+}
+
+fn device_row_models(
+    devices: &[AudioDevice],
+    make_command: impl Fn(&AudioDevice) -> Command,
+) -> Vec<DeviceRowModel> {
     devices
         .iter()
-        .map(|device| DeviceListItem {
+        .map(|device| DeviceRowModel {
             id: device.name.clone(),
             icon: device.icon_name.clone(),
             label: device_label(&device.description),
-            status: if device.muted {
-                "Muted".into()
-            } else {
-                format!("{}%", device.volume)
-            },
-            busy: false,
-            tooltip: Some(device_tooltip(device)),
-            chips: Vec::new(),
-            secondary_status: None,
-            active: device.is_default,
-            visible: true,
-            command: Some(Command::SetDefaultOutput(device.name.clone())),
-            actions: Vec::new(),
-            primary_action: None,
+            tooltip: device_tooltip(device),
+            selected: device.is_default,
+            command: make_command(device),
         })
         .collect()
 }
 
-fn input_items(devices: &[AudioDevice]) -> Vec<DeviceListItem<Command>> {
-    devices
-        .iter()
-        .map(|device| DeviceListItem {
-            id: device.name.clone(),
-            icon: device.icon_name.clone(),
-            label: device_label(&device.description),
-            status: if device.muted {
-                "Muted".into()
-            } else {
-                format!("{}%", device.volume)
-            },
-            busy: false,
-            tooltip: Some(device_tooltip(device)),
-            chips: Vec::new(),
-            secondary_status: None,
-            active: device.is_default,
-            visible: true,
-            command: Some(Command::SetDefaultInput(device.name.clone())),
-            actions: Vec::new(),
-            primary_action: None,
-        })
-        .collect()
-}
-
-fn stream_items(streams: &[AudioStream]) -> Vec<DeviceListItem<Command>> {
+fn stream_row_models(streams: &[AudioStream]) -> Vec<StreamRowModel> {
     streams
         .iter()
-        .map(|stream| DeviceListItem {
-            id: stream.index.to_string(),
+        .map(|stream| StreamRowModel {
+            id: stream.index,
             icon: stream.app_icon.clone(),
             label: stream.app_name.clone(),
-            status: if stream.muted {
-                "Muted".into()
-            } else {
-                format!("{}%", stream.volume)
-            },
-            busy: false,
-            tooltip: Some(format!("{}%", stream.volume)),
-            chips: Vec::new(),
-            secondary_status: None,
-            active: false,
-            visible: true,
-            command: Some(Command::ToggleStreamMute(stream.index)),
-            actions: Vec::new(),
-            primary_action: None,
+            status: stream_status(stream),
+            tooltip: format!("{}%", stream.volume),
+            command: Command::ToggleStreamMute(stream.index),
         })
         .collect()
+}
+
+struct DeviceRow {
+    root: ChoiceTile,
+    icon: gtk::Image,
+}
+
+impl DeviceRow {
+    fn new(model: &DeviceRowModel, sender: &ComponentSender<Popover>) -> Self {
+        let root = ChoiceTile::new();
+        root.add_css_class("audio-device-row");
+
+        let icon = gtk::Image::from_icon_name(&model.icon);
+        icon.add_css_class("audio-device-row__icon");
+        icon.set_pixel_size(16);
+        root.set_left(Some(icon.clone()));
+        root.set_secondary(None);
+
+        root.connect_activated({
+            let sender = sender.clone();
+            let command = model.command.clone();
+            move |_| sender.input(PopoverInput::Command(command.clone()))
+        });
+
+        let row = Self { root, icon };
+        row.update(model);
+        row
+    }
+
+    fn update(&self, model: &DeviceRowModel) {
+        self.icon.set_icon_name(Some(&model.icon));
+        self.root.set_primary(&model.label);
+        self.root.set_selected(model.selected);
+        self.root.set_tooltip_text(Some(&model.tooltip));
+    }
+
+    fn widget(&self) -> &gtk::Widget {
+        self.root.upcast_ref()
+    }
+}
+
+struct StreamRow {
+    root: Tile,
+    icon: gtk::Image,
+    status: gtk::Label,
+}
+
+impl StreamRow {
+    fn new(model: &StreamRowModel, sender: &ComponentSender<Popover>) -> Self {
+        let root = Tile::new();
+        root.add_css_class("audio-stream-row");
+
+        let icon = gtk::Image::from_icon_name(&model.icon);
+        icon.add_css_class("audio-stream-row__icon");
+        icon.set_pixel_size(16);
+        root.set_left(Some(icon.clone()));
+        root.set_secondary(None);
+
+        let status = gtk::Label::new(None);
+        status.add_css_class("dim-label");
+        status.add_css_class("caption");
+        status.set_valign(gtk::Align::Center);
+        root.set_right(Some(status.clone()));
+
+        root.connect_activated({
+            let sender = sender.clone();
+            let command = model.command.clone();
+            move |_| sender.input(PopoverInput::Command(command.clone()))
+        });
+
+        let row = Self { root, icon, status };
+        row.update(model);
+        row
+    }
+
+    fn update(&self, model: &StreamRowModel) {
+        self.icon.set_icon_name(Some(&model.icon));
+        self.root.set_primary(&model.label);
+        self.status.set_label(&model.status);
+        self.root.set_tooltip_text(Some(&model.tooltip));
+    }
+
+    fn widget(&self) -> &gtk::Widget {
+        self.root.upcast_ref()
+    }
+}
+
+fn sync_device_rows(
+    rows: &mut HashMap<String, DeviceRow>,
+    container: &gtk::Box,
+    models: Vec<DeviceRowModel>,
+    sender: &ComponentSender<Popover>,
+) {
+    let mut seen = HashSet::new();
+    let mut previous: Option<gtk::Widget> = None;
+
+    for model in models {
+        seen.insert(model.id.clone());
+        let row = rows
+            .entry(model.id.clone())
+            .or_insert_with(|| DeviceRow::new(&model, sender));
+        row.update(&model);
+        place_row(row.widget(), container, previous.as_ref());
+        previous = Some(row.widget().clone());
+    }
+
+    rows.retain(|id, row| {
+        let keep = seen.contains(id);
+        if !keep {
+            remove_row(row.widget());
+        }
+        keep
+    });
+}
+
+fn sync_stream_rows(
+    rows: &mut HashMap<u64, StreamRow>,
+    container: &gtk::Box,
+    models: Vec<StreamRowModel>,
+    sender: &ComponentSender<Popover>,
+) {
+    let mut seen = HashSet::new();
+    let mut previous: Option<gtk::Widget> = None;
+
+    for model in models {
+        seen.insert(model.id);
+        let row = rows
+            .entry(model.id)
+            .or_insert_with(|| StreamRow::new(&model, sender));
+        row.update(&model);
+        place_row(row.widget(), container, previous.as_ref());
+        previous = Some(row.widget().clone());
+    }
+
+    rows.retain(|id, row| {
+        let keep = seen.contains(id);
+        if !keep {
+            remove_row(row.widget());
+        }
+        keep
+    });
+}
+
+fn place_row(row_widget: &gtk::Widget, container: &gtk::Box, previous: Option<&gtk::Widget>) {
+    let target = container.clone().upcast::<gtk::Widget>();
+    let already_in_container = row_widget.parent().is_some_and(|parent| parent == target);
+
+    if !already_in_container {
+        remove_row(row_widget);
+        container.append(row_widget);
+    }
+    container.reorder_child_after(row_widget, previous);
+}
+
+fn remove_row(row_widget: &gtk::Widget) {
+    if let Some(parent) = row_widget.parent()
+        && let Ok(parent) = parent.downcast::<gtk::Box>()
+    {
+        parent.remove(row_widget);
+    }
 }
 
 fn hero_subtitle(state: &State) -> String {
@@ -603,6 +666,13 @@ fn hero_subtitle(state: &State) -> String {
         .default_output()
         .map(|device| device.description.clone())
         .unwrap_or_else(|| "No output device".into())
+}
+
+fn output_icon_name(state: &State) -> &'static str {
+    state
+        .default_output()
+        .map(|device| volume_icon(device.volume, device.muted))
+        .unwrap_or("audio-volume-muted-symbolic")
 }
 
 fn device_label(description: &str) -> String {
@@ -624,13 +694,21 @@ fn device_tooltip(device: &AudioDevice) -> String {
     }
 }
 
+fn stream_status(stream: &AudioStream) -> String {
+    if stream.muted {
+        "Muted".into()
+    } else {
+        format!("{}%", stream.volume)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn output_items_map_devices_to_device_list_commands() {
-        let items = output_items(&[AudioDevice {
+    fn output_rows_map_devices_to_default_output_commands() {
+        let rows = output_row_models(&[AudioDevice {
             index: 1,
             name: "sink".into(),
             description: "Speakers".into(),
@@ -640,19 +718,16 @@ mod tests {
             icon_name: "audio-speakers-symbolic".into(),
         }]);
 
-        assert_eq!(items.len(), 1);
-        assert_eq!(items[0].label, "Speakers");
-        assert_eq!(items[0].status, "70%");
-        assert_eq!(
-            items[0].command,
-            Some(Command::SetDefaultOutput("sink".into()))
-        );
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].label, "Speakers");
+        assert!(rows[0].selected);
+        assert_eq!(rows[0].command, Command::SetDefaultOutput("sink".into()));
     }
 
     #[test]
     fn output_and_input_device_labels_are_limited_to_30_chars() {
         let long_description = "123456789012345678901234567890EXTRA";
-        let output_items = output_items(&[AudioDevice {
+        let output_rows = output_row_models(&[AudioDevice {
             index: 1,
             name: "sink".into(),
             description: long_description.into(),
@@ -661,7 +736,7 @@ mod tests {
             is_default: true,
             icon_name: "audio-speakers-symbolic".into(),
         }]);
-        let input_items = input_items(&[AudioDevice {
+        let input_rows = input_row_models(&[AudioDevice {
             index: 2,
             name: "source".into(),
             description: long_description.into(),
@@ -671,13 +746,26 @@ mod tests {
             icon_name: "audio-input-microphone-symbolic".into(),
         }]);
 
-        assert_eq!(
-            output_items[0].label.chars().count(),
-            DEVICE_LABEL_MAX_CHARS
-        );
-        assert_eq!(input_items[0].label.chars().count(), DEVICE_LABEL_MAX_CHARS);
-        assert_eq!(output_items[0].label, "123456789012345678901234567890");
-        assert_eq!(input_items[0].label, "123456789012345678901234567890");
+        assert_eq!(output_rows[0].label.chars().count(), DEVICE_LABEL_MAX_CHARS);
+        assert_eq!(input_rows[0].label.chars().count(), DEVICE_LABEL_MAX_CHARS);
+        assert_eq!(output_rows[0].label, "123456789012345678901234567890");
+        assert_eq!(input_rows[0].label, "123456789012345678901234567890");
+    }
+
+    #[test]
+    fn stream_rows_toggle_stream_mute_on_click() {
+        let rows = stream_row_models(&[AudioStream {
+            index: 7,
+            app_name: "Firefox".into(),
+            app_icon: "firefox-symbolic".into(),
+            volume: 43,
+            muted: false,
+        }]);
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].label, "Firefox");
+        assert_eq!(rows[0].status, "43%");
+        assert_eq!(rows[0].command, Command::ToggleStreamMute(7));
     }
 
     #[test]
