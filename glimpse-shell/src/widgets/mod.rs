@@ -4,6 +4,7 @@ pub mod choice_tile;
 pub mod column;
 pub mod expander_tile;
 pub mod header;
+pub mod key_value_grid;
 pub mod row;
 pub mod segmented_tile;
 pub mod slider_tile;

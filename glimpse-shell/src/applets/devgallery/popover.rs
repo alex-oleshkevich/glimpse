@@ -7,8 +7,9 @@ use crate::{
     components::{animated_popover::AnimatedPopover, popover_shell::PopoverShell},
     widgets::{
         boxed_list::BoxedList, choice_list::ChoiceList, column::Column,
-        expander_tile::ExpanderTile, header::Header, row::Row, segmented_tile::SegmentedTile,
-        slider_tile::SliderTile, switch_tile::SwitchTile, tile::Tile,
+        expander_tile::ExpanderTile, header::Header, key_value_grid::KeyValueGrid, row::Row,
+        segmented_tile::SegmentedTile, slider_tile::SliderTile, switch_tile::SwitchTile,
+        tile::Tile,
     },
 };
 
@@ -183,6 +184,17 @@ impl SimpleComponent for Popover {
                             },
                             set_value: 0.7,
                             connect_changed => move |_, _| {},
+                        },
+
+                        Header {
+                            set_label: "KeyValueGrid",
+                        },
+
+                        KeyValueGrid {
+                            add_row: ("Hostname", "arch-laptop"),
+                            add_row: ("Kernel",   "6.8.0-lts"),
+                            add_row: ("Uptime",   "3h 42m"),
+                            add_row: ("IP",       "192.168.1.42"),
                         },
                     },
                 },
