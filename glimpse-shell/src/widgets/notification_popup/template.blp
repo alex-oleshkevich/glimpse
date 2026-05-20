@@ -1,0 +1,94 @@
+using Gtk 4.0;
+
+template $NotificationPopup: Box {
+  orientation: vertical;
+  spacing: 2;
+
+  styles [
+    "notif-card",
+  ]
+
+  Box header {
+    orientation: horizontal;
+    spacing: 6;
+
+    styles [
+      "notif-card__header",
+    ]
+
+    Image icon {
+      pixel-size: 16;
+      valign: center;
+      visible: false;
+
+      styles [
+        "notif-card__icon",
+      ]
+    }
+
+    Label app_name {
+      hexpand: true;
+      xalign: 0;
+      ellipsize: end;
+
+      styles [
+        "notif-card__app",
+      ]
+    }
+
+    Label time_label {
+      xalign: 1;
+      visible: false;
+
+      styles [
+        "notif-card__time",
+      ]
+    }
+
+    Button dismiss {
+      valign: center;
+
+      styles [
+        "notif-card__close",
+        "flat",
+        "circular",
+      ]
+
+      Image {
+        icon-name: "window-close-symbolic";
+        pixel-size: 12;
+      }
+    }
+  }
+
+  Label summary {
+    xalign: 0;
+    wrap: true;
+
+    styles [
+      "notif-card__title",
+    ]
+  }
+
+  Label body_label {
+    xalign: 0;
+    wrap: true;
+    lines: 3;
+    ellipsize: end;
+    visible: false;
+
+    styles [
+      "notif-card__body",
+    ]
+  }
+
+  Box actions {
+    orientation: horizontal;
+    spacing: 6;
+    visible: false;
+
+    styles [
+      "notif-card__actions",
+    ]
+  }
+}

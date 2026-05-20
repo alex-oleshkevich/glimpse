@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Battery Applet Mockup</title>
+    <link rel="stylesheet" href="../base.css">
+    <script src="../interactive.js" defer></script>
+  </head>
+  <body>
+    <main class="catalog-page">
+      <nav class="top-nav" aria-label="Redesign navigation">
+        <a class="nav-link" href="../index.html">Index</a>
+        <a class="nav-link" href="../components.html">Components</a>
+        <a class="nav-link" href="./design-spec.md">Spec source</a>
+      </nav>
+
+      <h1 class="catalog-title">Battery Applet Mockup</h1>
+      <p class="catalog-subtitle">A compact Battery popover composed from the shared applet shell structure.</p>
+
+      <div class="page-grid">
+        <section class="popover popover-shell battery-popover popover-size-medium" aria-label="Battery popover mockup">
+          <div class="popover-shell__content">
+            <div class="hero-row">
+              <div class="hero-row__media" aria-hidden="true"></div>
+              <div class="hero-row__content">
+                <div class="hero-row__title">Battery</div>
+                <div class="hero-row__subtitle">76%, charging</div>
+              </div>
+            </div>
+
+            <hr class="separator">
+
+            <div class="section-header">Power</div>
+
+            <div class="action-row">
+              <button class="flat action-row__button" type="button">
+                <span class="action-row__content-shell">
+                  <span class="action-row__leading" aria-hidden="true"></span>
+                  <span class="action-row__content">
+                    <span class="action-row__title">Battery</span>
+                  </span>
+                  <span class="action-row__meta">
+                    <span class="meter tiny" aria-hidden="true">
+                      <span class="meter-fill fill-76"></span>
+                    </span>
+                    <span>76%</span>
+                  </span>
+                </span>
+              </button>
+            </div>
+
+            <div class="property-list">
+              <div class="property-row">
+                <div class="property-name">Power Source</div>
+                <div class="property-value">Power Adapter</div>
+              </div>
+              <div class="property-row">
+                <div class="property-name">Time Until Full</div>
+                <div class="property-value">34 min</div>
+              </div>
+              <div class="property-row">
+                <div class="property-name">Health</div>
+                <div class="property-value">Normal</div>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <div class="flat action-row__button">
+                <span class="action-row__content-shell">
+                  <span class="action-row__leading" aria-hidden="true"></span>
+                  <span class="action-row__content">
+                    <span class="action-row__title">Low Power Mode</span>
+                  </span>
+                  <span class="action-row__meta">
+                    <button class="switch gtk-switch" type="button" role="switch" aria-checked="false" aria-label="Low Power Mode"></button>
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            <hr class="separator">
+
+            <div class="section-header">Power Profile</div>
+
+            <div class="list-view">
+              <div class="list-item">
+                <button class="flat list-item__button" type="button" data-select-group="power-profile" data-select-value="Power Saver">
+                  <span class="list-item__content">
+                    <span class="list-item__left" aria-hidden="true"></span>
+                    <span class="list-item__text">
+                      <span class="list-item__label">Power Saver</span>
+                      <span class="list-item__secondary_label">Longer battery life</span>
+                    </span>
+                    <span class="list-item__right"></span>
+                  </span>
+                </button>
+              </div>
+              <div class="list-item is-selected">
+                <button class="flat list-item__button" type="button" data-select-group="power-profile" data-select-value="Balanced">
+                  <span class="list-item__content">
+                    <span class="list-item__left" aria-hidden="true"></span>
+                    <span class="list-item__text">
+                      <span class="list-item__label">Balanced</span>
+                      <span class="list-item__secondary_label">Recommended</span>
+                    </span>
+                    <span class="list-item__right" aria-label="Selected">&#10003;</span>
+                  </span>
+                </button>
+              </div>
+              <div class="list-item">
+                <button class="flat list-item__button" type="button" data-select-group="power-profile" data-select-value="Performance">
+                  <span class="list-item__content">
+                    <span class="list-item__left" aria-hidden="true"></span>
+                    <span class="list-item__text">
+                      <span class="list-item__label">Performance</span>
+                      <span class="list-item__secondary_label">Higher power use</span>
+                    </span>
+                    <span class="list-item__right"></span>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <hr class="separator">
+
+            <div class="section-header">Devices</div>
+
+            <div class="list-view">
+              <div class="list-item">
+                <button class="flat list-item__button" type="button">
+                  <span class="list-item__content">
+                    <span class="list-item__left device-type-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+                        <rect x="8" y="3" width="8" height="18" rx="4"></rect>
+                        <path d="M12 7v4"></path>
+                      </svg>
+                    </span>
+                    <span class="list-item__text">
+                      <span class="list-item__label">MX Master 3S</span>
+                      <span class="list-item__secondary_label">Mouse</span>
+                    </span>
+                    <span class="list-item__right">
+                      <span class="meter tiny" aria-hidden="true">
+                        <span class="meter-fill fill-68"></span>
+                      </span>
+                      <span>68%</span>
+                    </span>
+                  </span>
+                </button>
+              </div>
+
+              <div class="list-item">
+                <button class="flat list-item__button" type="button">
+                  <span class="list-item__content">
+                    <span class="list-item__left device-type-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+                        <rect x="3" y="6" width="18" height="12" rx="2"></rect>
+                        <path d="M7 10h.01M10 10h.01M13 10h.01M16 10h.01M8 14h8"></path>
+                      </svg>
+                    </span>
+                    <span class="list-item__text">
+                      <span class="list-item__label">Keychron K3</span>
+                      <span class="list-item__secondary_label">Keyboard</span>
+                    </span>
+                    <span class="list-item__right">
+                      <span class="meter tiny" aria-hidden="true">
+                        <span class="meter-fill fill-54"></span>
+                      </span>
+                      <span>54%</span>
+                    </span>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <hr class="separator">
+
+            <div class="action-row">
+              <button class="flat action-row__button" type="button">
+                <span class="action-row__content-shell">
+                  <span class="action-row__leading" aria-hidden="true"></span>
+                  <span class="action-row__content">
+                    <span class="action-row__title">Battery Settings</span>
+                  </span>
+                  <span class="action-row__meta">&gt;</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="spec-panel" aria-label="Battery design spec">
+          <h2>Design Spec</h2>
+
+          <h3>Goal</h3>
+          <p>The Battery popover should be a compact control menu for battery state, power source, power mode, and nearby device batteries. It should use the same applet structure as Audio, Network, and Bluetooth.</p>
+
+          <h3>Constraints</h3>
+          <ul>
+            <li>Use the shared HTML mockup components from <code>../components.html</code> and <code>../base.css</code>.</li>
+            <li>Follow the common applet structure: hero, separator, section headers, rows/meters/switches, and a settings action.</li>
+            <li>Keep the hero subtitle to current battery state, such as <code>76%, charging</code>.</li>
+            <li>Use <code>PropertyList</code> for static power details.</li>
+            <li>Expose switchable power profiles as selectable rows.</li>
+            <li>Avoid charts, history graphs, cards, and diagnostics in the compact popover.</li>
+          </ul>
+
+          <h3>ASCII Mockup</h3>
+          <pre>+--------------------------------------+
+| Battery                              |
+| 76%, charging                        |
+| ------------------------------------ |
+| Power                                |
+| Battery                    meter 76% |
+| Power Source          Power Adapter  |
+| Time Until Full              34 min  |
+| Health                      Normal   |
+| Low Power Mode             switch    |
+| ------------------------------------ |
+| Power Profile                        |
+| Power Saver                          |
+| Balanced                         ✓   |
+| Performance                          |
+| ------------------------------------ |
+| Devices                              |
+| [mouse] MX Master 3S       meter 68% |
+| [keys]  Keychron K3        meter 54% |
+| ------------------------------------ |
+| Battery Settings                 >   |
++--------------------------------------+</pre>
+
+          <h3>Interaction Notes</h3>
+          <ul>
+            <li>Low Power Mode switch toggles <code>aria-checked</code>.</li>
+            <li>Power Profile rows update the selected row checkmark.</li>
+            <li>Device rows are informational and use compact meters.</li>
+            <li><code>Battery Settings</code> is a simple action row with pressed feedback.</li>
+            <li>If no external devices have battery data, omit the <code>Devices</code> section.</li>
+          </ul>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

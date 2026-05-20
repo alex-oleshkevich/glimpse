@@ -1,0 +1,88 @@
+mod imp;
+
+use glib::closure_local;
+use gtk4::{glib, prelude::*, subclass::prelude::*};
+
+glib::wrapper! {
+    pub struct NotificationPopup(ObjectSubclass<imp::NotificationPopup>)
+        @extends gtk4::Box, gtk4::Widget,
+        @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Orientable;
+}
+
+impl NotificationPopup {
+    pub fn new() -> Self {
+        glib::Object::builder().build()
+    }
+
+    pub fn set_app_icon(&self, icon: Option<&str>) {
+        let imp = self.imp();
+        imp.icon.set_icon_name(icon);
+        imp.icon.set_visible(icon.is_some());
+    }
+
+    pub fn set_app_name(&self, name: &str) {
+        self.imp().app_name.set_text(name);
+    }
+
+    pub fn set_time(&self, time: &str) {
+        let imp = self.imp();
+        imp.time_label.set_text(time);
+        imp.time_label.set_visible(!time.is_empty());
+    }
+
+    pub fn set_title(&self, title: &str) {
+        self.imp().summary.set_text(title);
+    }
+
+    pub fn set_body(&self, body: &str) {
+        let imp = self.imp();
+        imp.body_label.set_text(body);
+        imp.body_label.set_visible(!body.is_empty());
+    }
+
+    pub fn add_action(&self, id: &str, label: &str) {
+        let imp = self.imp();
+        let btn = gtk4::Button::with_label(label);
+        btn.add_css_class("notif-card__action");
+        btn.add_css_class("flat");
+        let obj = self.downgrade();
+        let id = id.to_owned();
+        btn.connect_clicked(move |_| {
+            if let Some(popup) = obj.upgrade() {
+                popup.emit_by_name::<()>("action", &[&id]);
+            }
+        });
+        imp.actions.append(&btn);
+        imp.actions.set_visible(true);
+    }
+
+    pub fn clear_actions(&self) {
+        let imp = self.imp();
+        while let Some(child) = imp.actions.first_child() {
+            imp.actions.remove(&child);
+        }
+        imp.actions.set_visible(false);
+    }
+
+    pub fn connect_closed(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "closed",
+            false,
+            closure_local!(move |popup: &Self| f(popup)),
+        )
+    }
+
+    pub fn connect_action(&self, f: impl Fn(&Self, &str) + 'static) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "action",
+            false,
+            closure_local!(move |popup: &Self, id: String| f(popup, &id)),
+        )
+    }
+}
+
+impl Default for NotificationPopup {
+    fn default() -> Self {
+        Self::new()
+    }
+}
