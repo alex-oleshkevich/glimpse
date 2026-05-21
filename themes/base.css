@@ -769,7 +769,8 @@ popover,
     margin-right: var(--island-gap);
 }
 
-.applet {
+.applet,
+.panel-indicator {
     color: var(--indicator-fg);
     border-radius: var(--indicator-radius);
     font-weight: var(--indicator-font-weight);
@@ -785,7 +786,8 @@ popover,
         transform var(--motion-fast) var(--ease-standard);
 }
 
-.applet image {
+.applet image,
+.panel-indicator image {
     min-height: var(--indicator-icon-size);
     min-width: var(--indicator-icon-size);
 }
@@ -796,26 +798,13 @@ popover,
     color: inherit;
 }
 
+.panel-indicator:hover,
+.panel-indicator:active,
 .applet:hover,
 .applet:active {
     background: var(--indicator-hover-bg);
     transform: none;
 }
-
-/*.applet.is-active,
-.applet.is-checked {
-    background: var(--indicator-active-bg);
-    transform: scale(var(--press-scale));
-}
-*/
-/*.applet:focus-visible {
-    outline: 2px solid var(--overlay-focus);
-    outline-offset: 2px;
-}
-*/
-/*.applet.needs-attention {
-    color: var(--accent-bg);
-}*/
 
 .pager {
     padding: 0 var(--space-2);
@@ -1659,71 +1648,6 @@ popover.clipboard-app-menu .action-menu {
     font-size: 130%;
     font-weight: var(--font-weight-semibold);
 }
-
-.clock-popover .calendar-header {
-    margin-bottom: var(--space-4);
-}
-
-.clock-popover .calendar-month-label {
-    font-weight: var(--font-weight-medium);
-}
-
-.clock-popover .calendar-weekdays {
-    margin-bottom: var(--space-3);
-}
-
-.clock-popover .calendar-weekday {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-normal);
-    color: var(--color-muted-fg);
-}
-
-.clock-popover .calendar-day {
-    min-width: 40px;
-    min-height: 40px;
-    padding: var(--space-2) 0 3px;
-    border-radius: var(--row-radius);
-    background: transparent;
-}
-
-.clock-popover .calendar-day.other-month {
-    opacity: var(--opacity-disabled);
-}
-
-.clock-popover .calendar-day.today {
-    color: var(--color-accent);
-    box-shadow: inset 0 0 0 var(--border-width) var(--color-accent);
-}
-
-.clock-popover .calendar-day.selected {
-    background: var(--color-accent);
-    color: var(--color-accent-fg);
-    box-shadow: none;
-}
-
-.clock-popover .calendar-day.today.selected {
-    background: var(--color-accent);
-    color: var(--color-accent-fg);
-    box-shadow: inset 0 0 0 var(--border-width) var(--color-accent);
-}
-
-.clock-popover .calendar-day-number {
-    font-size: var(--font-size-md);
-    font-weight: var(--font-weight-normal);
-    font-variant-numeric: tabular-nums;
-}
-
-.clock-popover .calendar-day.selected .calendar-day-number {
-    font-weight: var(--font-weight-medium);
-}
-
-.clock-popover .calendar-day-dots {
-    min-height: 10px;
-    margin-top: 1px;
-    font-size: 10px;
-}
-
-/* New Calendar widget (widgets/calendar) — BEM, unprefixed */
 
 .calendar__header {
     margin-bottom: var(--space-4);

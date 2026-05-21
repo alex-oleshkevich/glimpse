@@ -1,13 +1,11 @@
 use std::collections::HashMap;
 
-use relm4::{
-    ComponentParts, ComponentSender, SimpleComponent,
-    gtk::{self, prelude::*},
-};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, gtk::prelude::*};
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 
 use crate::panels::applets::AppletConfig;
+use crate::widgets::panel_indicator::PanelIndicator;
 use glimpse_core::services::{
     framework::ServiceCommand,
     keyboard::{Command, KeyboardHandle, KeyboardLayout, State},
@@ -66,9 +64,7 @@ impl SimpleComponent for Applet {
     type Output = ();
 
     view! {
-        root = gtk::Box {
-            add_css_class: "applet",
-            set_orientation: gtk::Orientation::Horizontal,
+        root = PanelIndicator {
             #[watch]
             set_visible: model.view.visible,
             #[watch]
@@ -77,18 +73,20 @@ impl SimpleComponent for Applet {
             } else {
                 Some(&model.view.tooltip)
             },
-
-            add_controller = gtk::GestureClick {
-                set_button: 1,
-                connect_pressed[sender] => move |_, _, _, _| {
-                    sender.input(Input::ActivateNext);
-                },
+            #[watch]
+            set_label: if model.view.label.is_empty() {
+                None
+            } else {
+                Some(model.view.label.as_str())
             },
-
-            gtk::Label {
-                #[watch]
-                set_label: &model.view.label,
+            connect_activated[sender] => move |_| {
+                sender.input(Input::ActivateNext);
             },
+            connect_scrolled[sender] => move |_, dx, dy| {
+                if let Some(next) = scroll_direction(dx, dy) {
+                    sender.input(Input::Scroll { next });
+                }
+            }
         }
     }
 
@@ -97,8 +95,6 @@ impl SimpleComponent for Applet {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        install_scroll_controller(&root, &sender);
-
         let Init {
             service,
             config: _config,
@@ -227,23 +223,6 @@ fn view_from_state(state: &KeyboardState) -> View {
         label: format::layout_label(layout),
         tooltip: format::layout_tooltip(layout),
     }
-}
-
-fn install_scroll_controller(root: &gtk::Box, sender: &ComponentSender<Applet>) {
-    let scroll = gtk::EventControllerScroll::new(
-        gtk::EventControllerScrollFlags::VERTICAL
-            | gtk::EventControllerScrollFlags::HORIZONTAL
-            | gtk::EventControllerScrollFlags::DISCRETE,
-    );
-    let sender = sender.clone();
-    scroll.connect_scroll(move |_, dx, dy| {
-        if let Some(next) = scroll_direction(dx, dy) {
-            sender.input(Input::Scroll { next });
-        }
-
-        gtk::glib::Propagation::Stop
-    });
-    root.add_controller(scroll);
 }
 
 fn scroll_direction(dx: f64, dy: f64) -> Option<bool> {

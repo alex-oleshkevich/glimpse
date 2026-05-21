@@ -60,7 +60,10 @@ impl ObjectImpl for PanelIndicator {
         install_click_signal(&obj, gdk::BUTTON_MIDDLE, "middle-clicked");
         install_click_signal(&obj, gdk::BUTTON_SECONDARY, "secondary-clicked");
 
-        let scroll = gtk4::EventControllerScroll::new(gtk4::EventControllerScrollFlags::BOTH_AXES);
+        let scroll = gtk4::EventControllerScroll::new(
+            gtk4::EventControllerScrollFlags::BOTH_AXES
+                | gtk4::EventControllerScrollFlags::DISCRETE,
+        );
         let weak = obj.downgrade();
         scroll.connect_scroll(move |_, dx, dy| {
             if dx == 0.0 && dy == 0.0 {
