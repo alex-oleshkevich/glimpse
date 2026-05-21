@@ -97,12 +97,19 @@ impl SimpleComponent for Popover {
                     #[name = "empty"]
                     gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
-                        set_spacing: 4,
+                        set_spacing: 12,
                         set_halign: gtk::Align::Center,
                         set_valign: gtk::Align::Center,
                         set_vexpand: true,
                         set_hexpand: true,
                         add_css_class: "empty-state",
+                        add_css_class: "empty-state--notifications",
+
+                        gtk::Image {
+                            add_css_class: "empty-state__icon",
+                            set_icon_name: Some("preferences-system-notifications-symbolic"),
+                            set_pixel_size: 64,
+                        },
 
                         gtk::Label {
                             add_css_class: "empty-state__title",

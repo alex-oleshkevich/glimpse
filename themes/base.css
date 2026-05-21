@@ -1478,6 +1478,12 @@ popover.clipboard-app-menu .action-menu {
     padding: var(--space-6) 0;
 }
 
+.empty-state__icon {
+    color: var(--color-muted-fg);
+    opacity: 0.5;
+    margin-bottom: var(--space-2);
+}
+
 .empty-state__title {
     color: var(--row-fg);
     font-weight: var(--font-weight-medium);
@@ -2119,12 +2125,9 @@ popover.mpris-popover {
     margin-left: 2px;
 }
 
-.notifications-popover {
-    --popover-min-width: var(--popover-large-width);
-    --popover-min-height: 0px;
-    --card-shell-padding: var(--notification-card-padding);
-    --card-padding: 0px;
-    --card-radius: var(--notification-card-radius);
+popover.notifications-popover {
+    --popover-min-width: var(--popover-xxlarge-width);
+    --popover-min-height: 600px;
 }
 
 .notifications-popover .notif-list,
@@ -2551,6 +2554,9 @@ label.text-error {
     background: var(--message-bg);
     border-radius: var(--message-radius);
     padding: var(--message-padding);
+}
+
+.notification-popup .message {
     box-shadow: var(--message-shadow);
     min-width: var(--message-width);
     min-height: var(--message-height);
