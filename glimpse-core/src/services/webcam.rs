@@ -175,6 +175,7 @@ fn run_pipewire_monitor(
     state_tx: mpsc::UnboundedSender<MonitorMessage>,
     control_rx: pw::channel::Receiver<MonitorControl>,
 ) -> anyhow::Result<()> {
+    tracing::info!("webcam: pipewire monitor starting");
     let main_loop = pw::main_loop::MainLoopRc::new(None)?;
     let context = pw::context::ContextRc::new(&main_loop, None)?;
     let core = context.connect_rc(None)?;
@@ -227,6 +228,9 @@ fn run_pipewire_monitor(
                         tracing::debug!(object_id, "failed to bind pipewire node");
                         return;
                     };
+                    graph_ref
+                        .borrow_mut()
+                        .update_node(object_id, props_from_dict(object.props), false);
                     let graph = Rc::clone(&graph_ref);
                     let tx = state_tx_ref.clone();
                     let listener = node
@@ -289,10 +293,19 @@ fn publish_graph(
     graph: &Rc<RefCell<PipeWireGraph>>,
     state_tx: &mpsc::UnboundedSender<MonitorMessage>,
 ) {
+    let (usages, screencasts) = {
+        let graph = graph.borrow();
+        (graph.usages(), graph.screencasts())
+    };
+    tracing::debug!(
+        usages = usages.len(),
+        screencasts = screencasts.len(),
+        "webcam: publish"
+    );
     let _ = state_tx.send(MonitorMessage::State(State {
         available: true,
-        usages: graph.borrow().usages(),
-        screencasts: graph.borrow().screencasts(),
+        usages,
+        screencasts,
     }));
 }
 
@@ -359,7 +372,11 @@ impl PipeWireGraph {
     }
 
     fn update_node(&mut self, id: u32, props: Props, running: bool) {
-        self.nodes.insert(id, NodeInfo { props, running });
+        let entry = self.nodes.entry(id).or_default();
+        if !props.is_empty() {
+            entry.props.extend(props);
+        }
+        entry.running = running;
     }
 
     fn update_link(&mut self, id: u32, output_node: u32, input_node: u32, active: bool) {

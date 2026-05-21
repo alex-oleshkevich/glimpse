@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+#
+# Verify that the privacy applet detects PipeWire camera usage.
+#
+# Subscribes to glimpse-shell's IPC for webcam.* events, opens a PipeWire
+# video source via gst-launch, and waits for `webcam.in_use` /
+# `webcam.app_started`. Exits 0 on success, non-zero on failure.
+#
+# Usage: ./scripts/privacy-test-verify-camera [DURATION_SECONDS]
+
+set -uo pipefail
+
+duration="${1:-5}"
+xdg_runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+socket="${xdg_runtime}/glimpse/ipc.sock"
+
+step() { printf '\n[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
+fail() { printf '\nFAIL: %s\n' "$*" >&2; exit 1; }
+
+# --- preflight ---------------------------------------------------------------
+
+step "preflight"
+command -v gst-launch-1.0 >/dev/null || fail "gst-launch-1.0 not installed"
+command -v glimpse-shell  >/dev/null || \
+    command -v "$(dirname "$0")/../target/debug/glimpse-shell" >/dev/null || \
+    fail "glimpse-shell binary not found in PATH or target/debug"
+[[ -S "$socket" ]] || fail "glimpse IPC socket missing: $socket (is glimpse-shell running?)"
+
+shell_bin="$(command -v glimpse-shell || echo "$(dirname "$0")/../target/debug/glimpse-shell")"
+echo "  socket:      $socket"
+echo "  shell:       $shell_bin"
+echo "  duration:    ${duration}s"
+
+# Confirm a PipeWire camera node exists.
+if command -v pw-dump >/dev/null; then
+    camera_count=$(pw-dump 2>/dev/null \
+        | jq '[.[] | select(.type == "PipeWire:Interface:Node"
+                            and .info.props["media.class"] == "Video/Source"
+                            and (.info.props["media.role"] == "Camera"
+                                 or (.info.props["device.api"] // "" | test("v4l2|libcamera"))
+                                 or (.info.props["object.path"] // "" | startswith("v4l2:"))))] | length' 2>/dev/null \
+        || echo 0)
+    echo "  camera nodes: $camera_count"
+    [[ "$camera_count" -gt 0 ]] || fail "no PipeWire camera Video/Source node present"
+fi
+
+# --- subscribe ---------------------------------------------------------------
+
+step "subscribing to webcam.* events"
+events_log=$(mktemp -t glimpse-webcam-events.XXXXXX)
+trap 'rm -f "$events_log"; [[ -n "${watcher_pid:-}" ]] && kill "$watcher_pid" 2>/dev/null; [[ -n "${gst_pid:-}" ]] && kill -INT "$gst_pid" 2>/dev/null; exit' EXIT INT TERM
+
+"$shell_bin" watch 'webcam.*' >"$events_log" 2>&1 &
+watcher_pid=$!
+sleep 0.5
+if ! kill -0 "$watcher_pid" 2>/dev/null; then
+    echo "  watcher output:"; sed 's/^/    /' "$events_log"
+    fail "glimpse-shell watch exited immediately"
+fi
+echo "  watcher pid: $watcher_pid"
+
+# --- run camera client -------------------------------------------------------
+
+step "opening PipeWire video source via gst-launch (${duration}s)"
+gst-launch-1.0 -q pipewiresrc ! videoconvert ! fakesink &
+gst_pid=$!
+
+# Poll for event with timeout.
+deadline=$((SECONDS + duration + 2))
+detected_event=""
+while [[ $SECONDS -lt $deadline ]]; do
+    if grep -m1 -E '^(webcam\.in_use|webcam\.app_started)' "$events_log" >/dev/null 2>&1; then
+        detected_event=$(grep -m1 -E '^(webcam\.in_use|webcam\.app_started)' "$events_log")
+        break
+    fi
+    sleep 0.2
+done
+
+# Let the gst-launch keep running through its full duration so we can also
+# verify the released event fires when we stop it.
+wait_remaining=$(( SECONDS < deadline ? deadline - SECONDS : 0 ))
+sleep "$wait_remaining" 2>/dev/null || true
+
+kill -INT "$gst_pid" 2>/dev/null
+wait "$gst_pid" 2>/dev/null
+
+# --- verdict -----------------------------------------------------------------
+
+step "events observed"
+if [[ -s "$events_log" ]]; then
+    sed 's/^/  /' "$events_log"
+else
+    echo "  (no events)"
+fi
+
+if [[ -z "$detected_event" ]]; then
+    fail "no webcam.in_use or webcam.app_started event observed within ${duration}s"
+fi
+
+# Check we also saw the released event.
+released=""
+if grep -m1 -E '^webcam\.released' "$events_log" >/dev/null 2>&1; then
+    released=" + webcam.released observed"
+fi
+
+echo
+echo "PASS: detected '${detected_event%% *}'${released}"
+exit 0
