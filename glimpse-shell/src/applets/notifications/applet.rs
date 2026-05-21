@@ -1,3 +1,4 @@
+use regex::Regex;
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
     gtk::{self, prelude::*},
@@ -18,6 +19,7 @@ use crate::{
             model::{Command, NotificationEntry, State},
         },
     },
+    widgets::status_dot::StatusDotStatus,
 };
 
 use super::{
@@ -26,6 +28,40 @@ use super::{
     popup::{Popup, PopupInit, PopupInput, PopupPosition},
 };
 
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BadgeStyle {
+    None,
+    Count,
+    #[default]
+    Dot,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum UrgencyLevel {
+    Low,
+    Normal,
+    Critical,
+}
+
+impl UrgencyLevel {
+    fn as_u8(self) -> u8 {
+        match self {
+            Self::Low => 0,
+            Self::Normal => 1,
+            Self::Critical => 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct UrgencyRemap {
+    pub app_pattern: String,
+    pub urgency: UrgencyLevel,
+}
+
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
@@ -33,7 +69,7 @@ pub struct Config {
     pub label_format: String,
     #[serde(alias = "tooltip")]
     pub tooltip_format: String,
-    pub badge_style: String,
+    pub badge_style: BadgeStyle,
     pub popup_timeout_ms: u32,
     pub popup_visible_limit: usize,
     pub popup_position: PopupPosition,
@@ -42,6 +78,7 @@ pub struct Config {
     pub popup_monitor: Option<String>,
     pub max_history: usize,
     pub filter_regex: Vec<String>,
+    pub urgency_remap: Vec<UrgencyRemap>,
 }
 
 impl Config {
@@ -68,7 +105,7 @@ impl Default for Config {
         Self {
             label_format: format::DEFAULT_LABEL_FORMAT.into(),
             tooltip_format: format::DEFAULT_TOOLTIP_FORMAT.into(),
-            badge_style: "count".into(),
+            badge_style: BadgeStyle::default(),
             popup_timeout_ms: 5000,
             popup_visible_limit: 8,
             popup_position: PopupPosition::TopRight,
@@ -77,6 +114,7 @@ impl Default for Config {
             popup_monitor: None,
             max_history: 100,
             filter_regex: Vec::new(),
+            urgency_remap: Vec::new(),
         }
     }
 }
@@ -94,10 +132,10 @@ pub struct Applet {
     badge_visible: bool,
     badge_classes: Vec<&'static str>,
     popover: Controller<Popover>,
-    popover_open: bool,
     popup: Option<Controller<Popup>>,
     subscription_cancel: CancellationToken,
     theme_mode: ThemeMode,
+    urgency_remaps: Vec<(Regex, u8)>,
 }
 
 pub struct Init {
@@ -221,6 +259,7 @@ impl SimpleComponent for Applet {
 
         let state = init.service.snapshot();
         let compositor_state = init.compositor.snapshot();
+        let urgency_remaps = compile_urgency_remaps(&init.config.urgency_remap);
         let mut model = Applet {
             icon_name: format::icon_name(&state).into(),
             label: format::label(&init.config.label_format, &state),
@@ -234,10 +273,10 @@ impl SimpleComponent for Applet {
             service: init.service,
             compositor: init.compositor,
             popover,
-            popover_open: false,
             popup,
             subscription_cancel: CancellationToken::new(),
             theme_mode: init.theme_mode,
+            urgency_remaps,
         };
         model.apply_state(model.state.clone());
         model.send_notification(Command::SetMaxHistory(model.config.max_history));
@@ -278,14 +317,17 @@ impl SimpleComponent for Applet {
 }
 
 impl Applet {
-    fn apply_state(&mut self, state: State) {
+    fn apply_state(&mut self, mut state: State) {
+        for notification in &mut state.notifications {
+            if let Some(level) = self.urgency_for(&notification.app_name) {
+                notification.urgency = level;
+            }
+        }
         self.icon_name = format::icon_name(&state).into();
         self.label = format::label(&self.config.label_format, &state);
         self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
-        self.sync_badge(state.notifications.len(), state.dnd);
-        if self.popover_open {
-            self.sync_popover(&state);
-        }
+        self.sync_badge(&state.notifications, state.dnd);
+        self.sync_popover(&state);
         if let Some(popup) = &self.popup {
             popup.emit(PopupInput::Update {
                 notifications: state.notifications.clone(),
@@ -295,22 +337,38 @@ impl Applet {
         self.state = state;
     }
 
-    fn sync_badge(&mut self, count: usize, dnd: bool) {
-        self.badge_visible = count > 0 && !dnd && self.config.badge_style != "none";
+    /// Find the first remap rule whose pattern matches `app_name`; returns
+    /// the urgency u8 to apply.
+    fn urgency_for(&self, app_name: &str) -> Option<u8> {
+        self.urgency_remaps
+            .iter()
+            .find(|(rx, _)| rx.is_match(app_name))
+            .map(|(_, level)| *level)
+    }
+
+    fn sync_badge(&mut self, notifications: &[NotificationEntry], dnd: bool) {
+        let count = notifications.len();
+        self.badge_visible = count > 0 && !dnd && self.config.badge_style != BadgeStyle::None;
         self.badge_label = if count > 9 {
             "9+".into()
         } else {
             count.to_string()
         };
-        self.badge_classes = if self.config.badge_style == "count" {
-            vec!["notification-badge-anchor", "badge", "is-accent"]
-        } else {
-            vec!["notification-badge-anchor", "status-dot", "is-accent"]
+        self.badge_classes = match self.config.badge_style {
+            BadgeStyle::Count => vec!["notification-badge-anchor", "badge", "is-accent"],
+            BadgeStyle::Dot | BadgeStyle::None => {
+                let status = if notifications.iter().any(|n| n.urgency == 2) {
+                    StatusDotStatus::Warning
+                } else {
+                    StatusDotStatus::Neutral
+                };
+                vec!["notification-badge-anchor", "status-dot", status.css_class()]
+            }
         };
     }
 
     fn badge_style_uses_label(&self) -> bool {
-        self.config.badge_style == "count"
+        matches!(self.config.badge_style, BadgeStyle::Count)
     }
 
     fn sync_popover(&self, state: &State) {
@@ -322,13 +380,6 @@ impl Applet {
 
     fn handle_output(&mut self, output: PopoverOutput) {
         match output {
-            PopoverOutput::Opened => {
-                self.popover_open = true;
-                self.sync_popover(&self.state);
-            }
-            PopoverOutput::Closed => {
-                self.popover_open = false;
-            }
             PopoverOutput::Dismiss(id) => self.send_notification(Command::Dismiss { id }),
             PopoverOutput::DismissAll => self.send_notification(Command::DismissAll),
             PopoverOutput::SetDnd(enabled) => self.send_notification(Command::SetDnd(enabled)),
@@ -433,6 +484,26 @@ impl Drop for Applet {
 ///   currently-connected connector. Deterministic single-popup default, no extra config required.
 /// - `panel_monitor = None`: never own, because an unbound applet cannot prove it is the singleton
 ///   popup owner.
+/// Compile the list of urgency-remap rules into `(regex, urgency u8)` pairs.
+/// Invalid regexes are skipped with a warning so a single bad rule doesn't
+/// disable the whole feature.
+fn compile_urgency_remaps(rules: &[UrgencyRemap]) -> Vec<(Regex, u8)> {
+    rules
+        .iter()
+        .filter_map(|rule| match Regex::new(&rule.app_pattern) {
+            Ok(rx) => Some((rx, rule.urgency.as_u8())),
+            Err(error) => {
+                tracing::warn!(
+                    pattern = rule.app_pattern,
+                    %error,
+                    "invalid urgency_remap regex; skipping rule"
+                );
+                None
+            }
+        })
+        .collect()
+}
+
 fn applet_owns_popup(popup_monitor: Option<&str>, panel_monitor: Option<&str>) -> bool {
     match (popup_monitor, panel_monitor) {
         (Some(target), Some(panel)) => target == panel,

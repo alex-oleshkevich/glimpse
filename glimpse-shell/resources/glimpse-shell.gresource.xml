@@ -6,6 +6,7 @@
     <file>widgets/battery_hero.ui</file>
     <file>widgets/hero.ui</file>
     <file>widgets/message.ui</file>
+    <file>widgets/message_group.ui</file>
     <file>widgets/popover_shell.ui</file>
     <file>widgets/tile.ui</file>
     <file>widgets/switch_tile.ui</file>

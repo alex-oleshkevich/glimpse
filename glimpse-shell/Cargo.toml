@@ -19,6 +19,7 @@ gio.workspace = true
 gio-unix.workspace = true
 relm4.workspace = true
 glimpse-core = { path = "../glimpse-core" }
+regex.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 secret-service = { version = "5", features = ["rt-tokio-crypto-rust"] }

@@ -1,0 +1,78 @@
+using Gtk 4.0;
+
+template $MessageGroup: Box {
+  orientation: vertical;
+  spacing: 4;
+
+  styles [
+    "message-group",
+  ]
+
+  Box header {
+    orientation: horizontal;
+    spacing: 6;
+    valign: center;
+    visible: false;
+
+    styles [
+      "message-group__header",
+    ]
+
+    Image icon {
+      pixel-size: 16;
+      valign: center;
+      visible: false;
+
+      styles [
+        "message-group__icon",
+      ]
+    }
+
+    Label app_name {
+      xalign: 0;
+      valign: center;
+      visible: false;
+
+      styles [
+        "message-group__app-name",
+      ]
+    }
+
+    Box {
+      hexpand: true;
+    }
+
+    Button expand {
+      valign: center;
+
+      styles [
+        "message-group__expand",
+        "flat",
+        "circular",
+      ]
+
+      Image {
+        icon-name: "pan-up-symbolic";
+        pixel-size: 16;
+      }
+    }
+  }
+
+  Box lead_slot {
+    orientation: vertical;
+
+    styles [
+      "message-group__lead",
+    ]
+  }
+
+  Box messages_container {
+    orientation: vertical;
+    spacing: 4;
+    visible: false;
+
+    styles [
+      "message-group__body",
+    ]
+  }
+}

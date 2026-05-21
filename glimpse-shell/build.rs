@@ -48,6 +48,10 @@ fn main() {
             "resources/widgets/message.ui",
         ),
         (
+            "src/widgets/message_group/template.blp",
+            "resources/widgets/message_group.ui",
+        ),
+        (
             "src/widgets/popover_shell/template.blp",
             "resources/widgets/popover_shell.ui",
         ),

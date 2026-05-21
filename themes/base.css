@@ -202,32 +202,14 @@ popover {
     --badge-padding-x: 8px;
     --badge-padding-y: 2px;
 
+    --status-neutral: var(--color-muted-fg);
     --status-success: var(--color-success);
     --status-warning: var(--color-warning);
     --status-danger: var(--color-danger);
     --status-accent: var(--color-accent);
 
-    /* notifications-popover component vars (panel notification list) */
-    --notification-inline-image-size: 48px;
-    --notification-control-size: 24px;
-    --notification-card-padding: 12px;
-    --notification-card-radius: 12px;
-    --notification-group-radius: 14px;
-    --notification-action-radius: 8px;
-    --notification-group-gap: 4px;
-    --notification-group-header-padding: 4px 12px 0px 12px;
-    --notification-stack-offset: 2px;
-    --notification-stack-second-height: 4px;
-    --notification-stack-third-height: 3px;
-    --notification-inline-image-radius: 10px;
-    --notification-summary-size: 14px;
-    --notification-title-size: 15px;
+    /* Notification popup overflow label */
     --notification-app-name-size: 13px;
-    --notification-body-size: 13px;
-    --notification-time-size: 11px;
-    --notification-surface-bg: color-mix(in srgb, var(--color-fg) 6%, transparent);
-    --notification-inline-image-bg: color-mix(in srgb, var(--color-fg) 4%, transparent);
-    --notification-dismiss-hover-bg: color-mix(in srgb, currentColor 10%, transparent);
 
     /* Message widget */
     --message-bg: var(--color-surface);
@@ -818,12 +800,9 @@ popover.theme-light {
         background-color var(--motion-fast) var(--ease-standard),
         color var(--motion-fast) var(--ease-standard),
         transform var(--motion-fast) var(--ease-standard);
-
-    /*background-color: blue;*/
 }
 
 .applet image {
-    /*background-color: red;*/
     min-height: var(--indicator-icon-size);
     min-width: var(--indicator-icon-size);
 }
@@ -1567,6 +1546,10 @@ popover.clipboard-app-menu .action-menu {
     color: var(--color-danger-fg);
 }
 
+.status-dot.is-neutral {
+    color: var(--status-neutral);
+}
+
 .status-dot.is-accent {
     color: var(--status-accent);
 }
@@ -2120,164 +2103,16 @@ popover.mpris-popover {
 /* Notifications */
 
 .notification-badge-anchor {
-    min-width: 0;
-    min-height: 0;
     margin-left: 2px;
 }
 
 popover.notifications-popover {
-    --popover-min-width: var(--popover-xxlarge-width);
+    --popover-min-width: var(--popover-xlarge-width);
     --popover-min-height: 600px;
 }
 
-.notifications-popover .notif-list,
 .notifications-popover .notification-list {
     padding: var(--space-4);
-}
-
-.notifications-popover .notif-group {
-    margin-bottom: var(--notification-group-gap);
-    padding: 0;
-    border-radius: var(--notification-group-radius);
-    background: transparent;
-}
-
-.notifications-popover .notif-group-expanded {
-    padding: 0;
-}
-
-.notifications-popover .notif-group-lead {
-    margin-bottom: 0;
-}
-
-.notifications-popover .notif-group-collapsed .notif-group-lead.card-surface {
-    background: var(--notification-surface-bg);
-    border-color: transparent;
-    box-shadow: var(--shadow-md);
-}
-
-.notifications-popover .notif-group-header {
-    padding: var(--notification-group-header-padding);
-}
-
-.notifications-popover .notif-group-title {
-    font-weight: 600;
-}
-
-.notifications-popover .notif-group-cards {
-    padding: 0;
-}
-
-.notifications-popover .notif-group-collapsed-body {
-    margin-top: 0;
-    background: transparent;
-}
-
-.notifications-popover .notif-stack-backplates {
-    background: transparent;
-    padding-bottom: 1px;
-}
-
-.notifications-popover .notif-stack-backplate {
-    margin: 0 6px;
-    padding: 0;
-    border-radius: 0 0 var(--notification-card-radius) var(--notification-card-radius);
-    background: var(--notification-surface-bg);
-    border: 1px solid transparent;
-}
-
-.notifications-popover .notif-stack-backplate-second {
-    min-height: var(--notification-stack-second-height);
-    margin-top: var(--notification-stack-offset);
-    box-shadow: var(--shadow-sm);
-    opacity: var(--opacity-muted);
-}
-
-.notifications-popover .notif-stack-backplate-lower {
-    min-height: var(--notification-stack-third-height);
-    margin-left: 12px;
-    margin-right: 12px;
-    margin-top: var(--notification-stack-offset);
-    opacity: var(--opacity-disabled);
-}
-
-.notifications-popover .notif-expand-btn {
-    min-width: var(--notification-control-size);
-    min-height: var(--notification-control-size);
-    padding: 0;
-    border-radius: 50%;
-    opacity: var(--opacity-disabled);
-}
-
-.notifications-popover .notif-expand-btn:hover {
-    opacity: 1;
-}
-
-.notifications-popover .notif-app-name {
-    font-size: var(--notification-app-name-size);
-    font-weight: 600;
-    opacity: var(--opacity-muted);
-}
-
-.notifications-popover .notif-icon {
-    opacity: var(--opacity-muted);
-}
-
-.notifications-popover .notif-header-icon {
-    -gtk-icon-size: 16px;
-}
-
-.notifications-popover .notif-card-icon {
-    -gtk-icon-size: 20px;
-}
-
-.notifications-popover .notif-summary {
-    font-weight: 600;
-    font-size: var(--notification-summary-size);
-}
-
-.notifications-popover .notif-inline-image {
-    min-width: var(--notification-inline-image-size);
-    min-height: var(--notification-inline-image-size);
-}
-
-.notifications-popover .notif-body {
-    font-size: var(--notification-body-size);
-    opacity: var(--opacity-muted);
-}
-
-.notifications-popover .notif-time {
-    font-size: var(--notification-time-size);
-    opacity: var(--notification-empty-opacity);
-    font-variant-numeric: tabular-nums;
-}
-
-.notifications-popover .notif-dismiss {
-    min-width: var(--notification-control-size);
-    min-height: var(--notification-control-size);
-    padding: 0;
-    opacity: var(--opacity-disabled);
-    border-radius: 50%;
-}
-
-.notifications-popover .notif-dismiss:hover {
-    opacity: 1;
-    background: var(--notification-dismiss-hover-bg);
-}
-
-.notifications-popover .notif-actions {
-    margin-top: 6px;
-}
-
-.notifications-popover .notif-action-btn {
-    font-size: var(--notification-app-name-size);
-    padding: 4px 12px;
-    font-weight: normal;
-    border-radius: var(--notification-action-radius);
-}
-
-.notifications-popover .notif-action-btn label {
-    font-weight: normal;
 }
 
 /* Notification popup */
@@ -2332,10 +2167,6 @@ popover.notifications-popover {
 .notification-popup .message--visible {
     opacity: 1;
     transform: translateY(0);
-}
-
-.notification-popup .message--critical {
-    border-left: 4px solid var(--color-danger);
 }
 
 .popup-overflow {
@@ -2433,29 +2264,6 @@ popover.notifications-popover {
     padding: var(--space-2);
     min-width: var(--space-9);
     min-height: var(--space-9);
-}
-
-.status-dot {
-    min-width: 8px;
-    min-height: 8px;
-    border-radius: var(--radius-pill);
-    background: var(--color-muted-fg);
-}
-
-.status-dot.success {
-    background: var(--color-success);
-}
-
-.status-dot.warning {
-    background: var(--color-warning);
-}
-
-.status-dot.error {
-    background: var(--color-danger);
-}
-
-.status-dot.accent {
-    background: var(--color-accent);
 }
 
 .badge {
@@ -2606,6 +2414,34 @@ label.text-error {
     font-weight: var(--font-weight-bold);
     padding: var(--space-3) var(--space-5);
     border-radius: var(--radius-md);
+}
+
+/* ── MessageGroup widget ───────────────────────────────── */
+
+.message-group__lead .message {
+    box-shadow:
+        0 17px 0 -7px color-mix(in srgb, var(--message-bg) 11%, var(--color-fg) 7%),
+        0 9px 0 -4px color-mix(in srgb, var(--message-bg) 34%, var(--color-fg) 7%);
+}
+
+.message-group__body {
+    margin-top: var(--space-2);
+}
+
+.message-group__header {
+    margin-bottom: var(--space-2);
+    padding: 0 var(--space-2);
+}
+
+.message-group__app-name {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+}
+
+.message-group__expand {
+    padding: var(--space-1);
+    min-width: var(--space-9);
+    min-height: var(--space-9);
 }
 
 /* ── Container utility classes ─────────────────────────── */

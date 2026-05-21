@@ -414,7 +414,7 @@ Shows notification state, a notification center, and popups.
 [applets.notifications]
 label_format = "{count}"
 tooltip_format = "{count} notifications"
-badge_style = "count"
+badge_style = "dot"
 max_history = 100
 popup_timeout_ms = 5000
 popup_visible_limit = 8
@@ -432,7 +432,7 @@ filter_regex = [
 |---|---|---|
 | `label_format` | `""` | Panel text. |
 | `tooltip_format` | `"{count} notifications"` | Hover text. |
-| `badge_style` | `"count"` | Badge style. Use `"none"` to hide the badge. |
+| `badge_style` | `"dot"` | Badge style: `"dot"` (accent-coloured indicator), `"count"` (numeric badge with `1`–`9`/`9+`), or `"none"` to hide. |
 | `max_history` | `100` | Maximum notifications kept in memory. When the limit is exceeded, the oldest non-critical notifications are evicted first. Set to `0` for unlimited. |
 | `popup_timeout_ms` | `5000` | How long popups stay visible. |
 | `popup_visible_limit` | `8` | Maximum popups visible at once. Clamped from 1 to 20. |

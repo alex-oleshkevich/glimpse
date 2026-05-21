@@ -8,7 +8,7 @@ glib::wrapper! {
         @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Orientable;
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StatusDotStatus {
     Neutral,
     Success,
@@ -18,15 +18,23 @@ pub enum StatusDotStatus {
 }
 
 impl StatusDotStatus {
-    fn css_class(self) -> &'static str {
+    pub fn css_class(self) -> &'static str {
         match self {
-            Self::Neutral => "neutral",
-            Self::Success => "success",
-            Self::Warning => "warning",
-            Self::Error => "error",
-            Self::Accent => "accent",
+            Self::Neutral => "is-neutral",
+            Self::Success => "is-success",
+            Self::Warning => "is-warning",
+            Self::Error => "is-danger",
+            Self::Accent => "is-accent",
         }
     }
+
+    const ALL_CLASSES: &'static [&'static str] = &[
+        "is-neutral",
+        "is-success",
+        "is-warning",
+        "is-danger",
+        "is-accent",
+    ];
 }
 
 impl StatusDot {
@@ -35,7 +43,7 @@ impl StatusDot {
     }
 
     pub fn set_status(&self, status: StatusDotStatus) {
-        for class in ["neutral", "success", "warning", "error", "accent"] {
+        for class in StatusDotStatus::ALL_CLASSES {
             self.remove_css_class(class);
         }
         self.add_css_class(status.css_class());

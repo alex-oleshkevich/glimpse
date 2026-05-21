@@ -1,8 +1,4 @@
-use std::{
-    cell::Cell,
-    collections::{HashMap, HashSet},
-    rc::Rc,
-};
+use std::collections::{HashMap, HashSet};
 
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
@@ -10,30 +6,31 @@ use relm4::{
 };
 
 use crate::{
-    components::{
-        animated_popover::AnimatedPopover, hero::HeroView, popover_scroll,
-        popover_shell::PopoverShell,
-    },
+    components::{popover_scroll, popover_shell::PopoverShell},
     services::notifications::model::NotificationEntry,
-    widgets::message::Message,
+    widgets::{
+        animated_popover::AnimatedPopover,
+        hero::Hero,
+        message::Message,
+        message_group::{MessageGroup, MessageGroupState},
+    },
 };
 use glimpse_core::services::notifications::model::State as NotificationState;
 
-use super::format;
+use super::{
+    components::{NotificationListItem, notification_items},
+    format,
+};
 
 pub struct Popover {
-    animation: AnimatedPopover,
+    popover: AnimatedPopover,
     refresh_timer: Option<glib::SourceId>,
     notifications: Vec<NotificationEntry>,
     dnd: bool,
+    subtitle: String,
     rows: HashMap<u32, Message>,
+    groups: HashMap<String, MessageGroup>,
     list: gtk::Box,
-    scroller: gtk::ScrolledWindow,
-    empty: gtk::Box,
-    hero_icon: gtk::Image,
-    hero_subtitle: gtk::Label,
-    hero_toggle: gtk::Switch,
-    updating_dnd: Rc<Cell<bool>>,
 }
 
 pub struct PopoverInit {
@@ -60,8 +57,6 @@ pub enum PopoverInput {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PopoverOutput {
-    Opened,
-    Closed,
     Dismiss(u32),
     DismissAll,
     SetDnd(bool),
@@ -77,24 +72,30 @@ impl SimpleComponent for Popover {
     type Output = PopoverOutput;
 
     view! {
-        root = gtk::Popover {
+        root = AnimatedPopover {
             add_css_class: "notifications-popover",
-            add_css_class: "popover-size-xxlarge",
+            add_css_class: "popover-size-xlarge",
             set_hexpand: false,
+            set_autohide: true,
 
             #[template]
             PopoverShell {
                 #[template_child]
                 content {
-                    #[name = "hero"]
-                    #[template]
-                    HeroView {},
-
-                    gtk::Separator {
-                        set_orientation: gtk::Orientation::Horizontal,
+                    Hero {
+                        set_title: "Notifications",
+                        set_trailing_visible: true,
+                        #[watch]
+                        set_icon: Some(notification_popover_icon_name(model.dnd)),
+                        #[watch]
+                        set_subtitle: &model.subtitle,
+                        #[watch]
+                        set_toggle_active: !model.dnd,
+                        connect_toggled[sender] => move |_, state| {
+                            sender.input(PopoverInput::SetDnd(!state));
+                        },
                     },
 
-                    #[name = "empty"]
                     gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
                         set_spacing: 12,
@@ -104,6 +105,8 @@ impl SimpleComponent for Popover {
                         set_hexpand: true,
                         add_css_class: "empty-state",
                         add_css_class: "empty-state--notifications",
+                        #[watch]
+                        set_visible: model.notifications.is_empty(),
 
                         gtk::Image {
                             add_css_class: "empty-state__icon",
@@ -127,11 +130,13 @@ impl SimpleComponent for Popover {
                         set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
                         set_vexpand: true,
                         set_propagate_natural_height: true,
+                        #[watch]
+                        set_visible: !model.notifications.is_empty(),
 
                         #[name = "list"]
                         gtk::Box {
                             set_orientation: gtk::Orientation::Vertical,
-                            set_spacing: 4,
+                            set_spacing: 12,
                             add_css_class: "notification-list",
                         }
                     },
@@ -153,75 +158,47 @@ impl SimpleComponent for Popover {
     fn init(
         init: Self::Init,
         _root: Self::Root,
-        _sender: ComponentSender<Self>,
+        sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
+        let mut model = Popover {
+            popover: AnimatedPopover::new(),
+            refresh_timer: None,
+            notifications: Vec::new(),
+            dnd: false,
+            subtitle: format::count_label(0),
+            rows: HashMap::new(),
+            groups: HashMap::new(),
+            list: gtk::Box::new(gtk::Orientation::Vertical, 0),
+        };
+
         let widgets = view_output!();
+        model.popover = widgets.root.clone();
+        model.list = widgets.list.clone();
+
         widgets.root.set_parent(&init.parent);
-        widgets.root.set_autohide(true);
-        popover_scroll::install_half_monitor_limit(&widgets.root, &widgets.scroller, &init.parent);
+        popover_scroll::install_half_monitor_limit(
+            widgets.root.upcast_ref::<gtk::Popover>(),
+            &widgets.scroller,
+            &init.parent,
+        );
 
-        let opened_sender = _sender.clone();
-        widgets.root.connect_show(move |_| {
-            let _ = opened_sender.output(PopoverOutput::Opened);
-        });
-
-        let closed_sender = _sender.clone();
-        widgets.root.connect_closed(move |_| {
-            let _ = closed_sender.output(PopoverOutput::Closed);
-        });
-
-        widgets
-            .hero
-            .icon
-            .set_icon_name(Some(notification_popover_icon_name(false)));
-        widgets.hero.title.set_label("Notifications");
-        widgets.hero.subtitle.set_label("No notifications");
-        widgets.hero.trailing.set_visible(true);
-
-        let updating_dnd = Rc::new(Cell::new(false));
-        widgets.hero.toggle.connect_state_set({
-            let sender = _sender.clone();
-            let updating_dnd = updating_dnd.clone();
-            move |_, active| {
-                if !updating_dnd.get() {
-                    sender.input(PopoverInput::SetDnd(!active));
-                }
-                glib::Propagation::Proceed
-            }
-        });
-
-        let refresh_timer = glib::timeout_add_seconds_local(60, {
-            let sender = _sender.input_sender().clone();
+        model.refresh_timer = Some(glib::timeout_add_seconds_local(60, {
+            let input_sender = sender.input_sender().clone();
             let root = widgets.root.clone();
             move || {
                 if root.is_visible() {
-                    let _ = sender.send(PopoverInput::RefreshTimes);
+                    let _ = input_sender.send(PopoverInput::RefreshTimes);
                 }
                 glib::ControlFlow::Continue
             }
-        });
-
-        let model = Popover {
-            animation: AnimatedPopover::new(&widgets.root),
-            refresh_timer: Some(refresh_timer),
-            notifications: Vec::new(),
-            dnd: false,
-            rows: HashMap::new(),
-            list: widgets.list.clone(),
-            scroller: widgets.scroller.clone(),
-            empty: widgets.empty.clone(),
-            hero_icon: widgets.hero.icon.clone(),
-            hero_subtitle: widgets.hero.subtitle.clone(),
-            hero_toggle: widgets.hero.toggle.clone(),
-            updating_dnd,
-        };
+        }));
 
         ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
-            PopoverInput::Toggle => self.animation.toggle(),
+            PopoverInput::Toggle => self.popover.toggle(),
             PopoverInput::Update { notifications, dnd } => {
                 self.notifications = notifications;
                 self.dnd = dnd;
@@ -237,7 +214,11 @@ impl SimpleComponent for Popover {
                 let _ = sender.output(PopoverOutput::SetDnd(enabled));
             }
             PopoverInput::FocusAndDismiss(id) => {
-                let _ = sender.output(PopoverOutput::FocusAndDismiss(id));
+                if let Some(group) = self.collapsed_group_with_lead(id) {
+                    group.set_state(MessageGroupState::Expanded);
+                } else {
+                    let _ = sender.output(PopoverOutput::FocusAndDismiss(id));
+                }
             }
             PopoverInput::RefreshTimes => self.refresh_times(),
             PopoverInput::InvokeAction { id, action_key } => {
@@ -250,48 +231,89 @@ impl SimpleComponent for Popover {
 impl Popover {
     fn sync(&mut self, sender: &ComponentSender<Self>) {
         let now = format::now_ms();
-        self.empty.set_visible(self.notifications.is_empty());
-        self.scroller.set_visible(!self.notifications.is_empty());
-        self.hero_icon
-            .set_icon_name(Some(notification_popover_icon_name(self.dnd)));
-        let subtitle = if self.dnd {
+        self.subtitle = if self.dnd {
             "Do Not Disturb".into()
         } else {
             format::count_label(self.notifications.len())
         };
-        self.hero_subtitle.set_label(&subtitle);
-        self.updating_dnd.set(true);
-        self.hero_toggle.set_active(!self.dnd);
-        self.updating_dnd.set(false);
 
-        let rows = &mut self.rows;
-        let list = &self.list;
-        let mut seen: HashSet<u32> = HashSet::new();
+        let items = notification_items(&self.notifications);
+        let mut seen_rows: HashSet<u32> = HashSet::new();
+        let mut seen_groups: HashSet<String> = HashSet::new();
         let mut previous: Option<gtk::Widget> = None;
-        for notification in &self.notifications {
-            let id = notification.id;
-            seen.insert(id);
-            let msg = rows
-                .entry(id)
-                .or_insert_with(|| {
-                    let msg = Message::new();
-                    wire_signals(&msg, id, sender);
-                    list.append(&msg);
-                    msg
-                })
-                .clone();
-            update_row(&msg, notification, now);
-            list.reorder_child_after(&msg, previous.as_ref());
-            previous = Some(msg.upcast());
+
+        for item in &items {
+            match item {
+                NotificationListItem::Notification(notification) => {
+                    let id = notification.id;
+                    seen_rows.insert(id);
+                    let msg = self.ensure_row(id, sender);
+                    update_row(&msg, notification, now);
+                    reparent_into(&msg, &self.list);
+                    self.list.reorder_child_after(&msg, previous.as_ref());
+                    previous = Some(msg.upcast());
+                }
+                NotificationListItem::Group(group_model) => {
+                    seen_groups.insert(group_model.key.clone());
+                    let mut member_msgs: Vec<Message> =
+                        Vec::with_capacity(group_model.notifications.len());
+                    for notification in &group_model.notifications {
+                        seen_rows.insert(notification.id);
+                        let msg = self.ensure_row(notification.id, sender);
+                        update_row(&msg, notification, now);
+                        member_msgs.push(msg);
+                    }
+
+                    let group_widget = self.ensure_group(&group_model.key).clone();
+                    group_widget.set_app_icon(Some(&group_model.icon));
+                    group_widget.set_app_name(&group_model.app_name);
+                    group_widget.set_messages(member_msgs);
+
+                    reparent_into(&group_widget, &self.list);
+                    self.list
+                        .reorder_child_after(&group_widget, previous.as_ref());
+                    previous = Some(group_widget.upcast());
+                }
+            }
         }
 
+        let list = &self.list;
         self.rows.retain(|id, msg| {
-            let keep = seen.contains(id);
-            if !keep {
-                list.remove(msg);
+            let keep = seen_rows.contains(id);
+            if !keep
+                && let Some(parent) = msg.parent()
+                && let Some(parent_box) = parent.downcast_ref::<gtk::Box>()
+            {
+                parent_box.remove(msg);
             }
             keep
         });
+        self.groups.retain(|key, widget| {
+            let keep = seen_groups.contains(key);
+            if !keep {
+                list.remove(widget);
+            }
+            keep
+        });
+    }
+
+    fn ensure_row(&mut self, id: u32, sender: &ComponentSender<Self>) -> Message {
+        if let Some(msg) = self.rows.get(&id) {
+            return msg.clone();
+        }
+        let msg = Message::new();
+        wire_signals(&msg, id, sender);
+        self.rows.insert(id, msg.clone());
+        msg
+    }
+
+    fn ensure_group(&mut self, key: &str) -> &MessageGroup {
+        if !self.groups.contains_key(key) {
+            let widget = MessageGroup::new();
+            self.list.append(&widget);
+            self.groups.insert(key.to_owned(), widget);
+        }
+        self.groups.get(key).expect("just inserted")
     }
 
     fn refresh_times(&self) {
@@ -301,6 +323,20 @@ impl Popover {
                 msg.set_time(&format::relative_time(now, notification.timestamp));
             }
         }
+    }
+
+    /// Find a collapsed MessageGroup whose lead notification id matches `id`.
+    fn collapsed_group_with_lead(&self, id: u32) -> Option<MessageGroup> {
+        for item in notification_items(&self.notifications) {
+            if let NotificationListItem::Group(group_model) = item
+                && group_model.lead.id == id
+                && let Some(widget) = self.groups.get(&group_model.key)
+                && widget.state() == MessageGroupState::Collapsed
+            {
+                return Some(widget.clone());
+            }
+        }
+        None
     }
 }
 
@@ -345,6 +381,21 @@ fn update_row(msg: &Message, notification: &NotificationEntry, now: u64) {
     for (action_key, label) in format::visible_actions(notification) {
         msg.add_action(action_key, label);
     }
+}
+
+/// Re-parent a widget into `target`. If it already lives in `target`, no-op.
+/// If it lives in another Box, detach first.
+fn reparent_into(widget: &impl IsA<gtk::Widget>, target: &gtk::Box) {
+    let widget_ref = widget.as_ref();
+    if let Some(parent) = widget_ref.parent() {
+        if parent == *target.upcast_ref::<gtk::Widget>() {
+            return;
+        }
+        if let Some(parent_box) = parent.downcast_ref::<gtk::Box>() {
+            parent_box.remove(widget_ref);
+        }
+    }
+    target.append(widget_ref);
 }
 
 fn notification_popover_icon_name(dnd: bool) -> &'static str {

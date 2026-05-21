@@ -13,6 +13,7 @@ pub mod header;
 pub mod hero;
 pub mod key_value_grid;
 pub mod message;
+pub mod message_group;
 pub mod pager_item;
 pub mod pager_strip;
 pub mod popover_shell;
@@ -24,7 +25,6 @@ pub mod switch_tile;
 pub mod text;
 pub mod tile;
 pub mod weather_forecast_list;
-pub mod weather_hero;
 pub mod weather_hourly_strip;
 
 #[allow(unused_imports)]

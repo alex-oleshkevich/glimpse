@@ -1269,6 +1269,7 @@ dependencies = [
  "libadwaita",
  "notify",
  "notify-debouncer-full",
+ "regex",
  "relm4",
  "secret-service",
  "serde",
