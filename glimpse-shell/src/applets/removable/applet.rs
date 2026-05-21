@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
     gtk::{self, gio, prelude::*},
@@ -235,6 +237,9 @@ impl SimpleComponent for Applet {
             Input::PopoverOutput(PopoverOutput::Command(command)) => {
                 self.send_command(command);
             }
+            Input::PopoverOutput(PopoverOutput::OpenPath(path)) => {
+                open_path(path);
+            }
         }
     }
 }
@@ -286,11 +291,29 @@ impl Applet {
     }
 }
 
+fn open_path(path: PathBuf) {
+    let file = file_for_path(&path);
+    let uri = file.uri().to_string();
+    gtk::FileLauncher::new(Some(&file)).launch(
+        None::<&gtk::Window>,
+        None::<&gio::Cancellable>,
+        move |result| {
+            if let Err(error) = result {
+                tracing::warn!(%error, %uri, "failed to open removable mount point");
+            }
+        },
+    );
+}
+
+fn file_for_path(path: &Path) -> gio::File {
+    gio::File::for_path(path)
+}
+
 fn removable_context_commands(state: &State) -> Vec<Command> {
     let mut commands = vec![Command::Refresh];
     for device in &state.devices {
         commands.extend(
-            popover::device_actions(device)
+            popover::storage_device_actions(device)
                 .into_iter()
                 .filter(|action| action.visible)
                 .map(|action| action.command),
@@ -317,7 +340,7 @@ fn removable_context_items(state: &State) -> Vec<RemovableContextItem> {
         label: "Refresh".into(),
     }];
     for device in &state.devices {
-        for action in popover::device_actions(device)
+        for action in popover::storage_device_actions(device)
             .into_iter()
             .filter(|action| action.visible)
         {
@@ -415,9 +438,6 @@ mod tests {
                 RemovableContextItem {
                     label: "USB Drive: Eject".into(),
                 },
-                RemovableContextItem {
-                    label: "USB Drive: Power Off".into(),
-                },
             ]
         );
         assert_eq!(
@@ -430,10 +450,15 @@ mod tests {
                 Command::Eject {
                     id: "device".into(),
                 },
-                Command::PowerOff {
-                    id: "device".into(),
-                },
             ]
+        );
+    }
+
+    #[test]
+    fn file_for_path_uses_file_uri() {
+        assert_eq!(
+            file_for_path(Path::new("/run/media/alex/USB Drive")).uri(),
+            "file:///run/media/alex/USB%20Drive"
         );
     }
 }

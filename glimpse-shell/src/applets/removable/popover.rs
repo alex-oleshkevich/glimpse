@@ -1,25 +1,29 @@
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    rc::Rc,
+};
+
 use relm4::{
-    Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
+    ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, prelude::*},
 };
 
 use crate::{
-    components::{
-        animated_popover::AnimatedPopover,
-        device_list::{
-            DeviceList, DeviceListAction, DeviceListInit, DeviceListInput, DeviceListItem,
-        },
-        popover_scroll,
-        popover_shell::PopoverShell,
-    },
+    components::popover_scroll,
     services::storage::{Command, State, StorageDevice},
+    widgets::{
+        animated_popover::AnimatedPopover, hero::Hero, popover_shell::PopoverShell,
+        segmented_tile::SegmentedTile, tile::Tile,
+    },
 };
 
 pub struct Popover {
-    animation: AnimatedPopover,
-    devices: Controller<DeviceList<Command>>,
-    device_items: Vec<DeviceListItem<Command>>,
-    empty_label: gtk::Label,
+    popover: AnimatedPopover,
+    rows: HashMap<String, DeviceRow>,
+    list: gtk::Box,
+    hero_subtitle: String,
 }
 
 #[derive(Debug)]
@@ -31,14 +35,50 @@ pub struct PopoverInit {
 pub enum PopoverInput {
     Toggle,
     UpdateState(State),
-    DeviceCommand(Command),
+    DeviceCommand(RowCommand),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PopoverOutput {
     Opened,
     Closed,
     Command(Command),
+    OpenPath(PathBuf),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum RowCommand {
+    Storage(Command),
+    OpenPath(PathBuf),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct DeviceAction<Command> {
+    pub(super) id: String,
+    pub(super) label: String,
+    pub(super) destructive: bool,
+    pub(super) enabled: bool,
+    pub(super) visible: bool,
+    pub(super) command: Command,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DeviceRowModel {
+    id: String,
+    icon: String,
+    label: String,
+    status: DeviceStatus,
+    busy: bool,
+    tooltip: String,
+    active: bool,
+    command: Option<RowCommand>,
+    actions: Vec<DeviceAction<RowCommand>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DeviceStatus {
+    text: Option<String>,
+    busy: bool,
 }
 
 #[allow(unused_assignments)]
@@ -49,44 +89,30 @@ impl SimpleComponent for Popover {
     type Output = PopoverOutput;
 
     view! {
-        root = gtk::Popover {
+        root = AnimatedPopover {
             add_css_class: "removable-popover",
             add_css_class: "popover-size-medium",
             set_hexpand: false,
+            set_autohide: true,
 
-            #[template]
             PopoverShell {
-                #[template_child]
-                footer {
-                    set_visible: false,
+                set_footer_visible: false,
+
+                Hero {
+                    set_icon: Some("drive-removable-media-symbolic"),
+                    set_title: "Removable devices",
+                    #[watch]
+                    set_subtitle: &model.hero_subtitle,
                 },
 
-                #[template_child]
-                content {
-                    #[name = "scroller"]
-                    gtk::ScrolledWindow {
-                        set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
-                        set_vexpand: false,
-                        set_propagate_natural_height: true,
+                #[name = "scroller"]
+                gtk::ScrolledWindow {
+                    set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
+                    set_vexpand: false,
+                    set_propagate_natural_height: true,
 
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Vertical,
-                            set_spacing: 0,
-
-                            #[name = "empty_label"]
-                            gtk::Label {
-                                add_css_class: "dim-label",
-                                set_label: "No removable devices",
-                                set_margin_top: 12,
-                                set_margin_bottom: 12,
-                                set_xalign: 0.0,
-                                set_visible: true,
-                            },
-
-                            #[local_ref]
-                            devices_widget -> gtk::Box {},
-                        },
-                    },
+                    #[local_ref]
+                    list -> gtk::Box {},
                 },
             },
         }
@@ -97,19 +123,24 @@ impl SimpleComponent for Popover {
         _root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let devices = DeviceList::builder()
-            .launch(DeviceListInit {
-                header: Some("Removable devices".into()),
-                items: Vec::new(),
-            })
-            .forward(sender.input_sender(), PopoverInput::DeviceCommand);
-        let devices_widget = devices.widget().clone();
+        let list = gtk::Box::new(gtk::Orientation::Vertical, 2);
+
+        let mut model = Popover {
+            popover: AnimatedPopover::new(),
+            rows: HashMap::new(),
+            list: list.clone(),
+            hero_subtitle: hero_subtitle(&State::default()),
+        };
 
         let widgets = view_output!();
+        model.popover = widgets.root.clone();
         widgets.root.set_parent(&init.parent);
-        widgets.root.set_autohide(true);
-        popover_scroll::install_half_monitor_limit(&widgets.root, &widgets.scroller, &init.parent);
-        devices.widget().set_visible(false);
+        popover_scroll::install_half_monitor_limit(
+            widgets.root.upcast_ref(),
+            &widgets.scroller,
+            &init.parent,
+        );
+        model.list.set_visible(false);
 
         let opened_sender = sender.clone();
         widgets.root.connect_show(move |_| {
@@ -121,86 +152,275 @@ impl SimpleComponent for Popover {
             let _ = closed_sender.output(PopoverOutput::Closed);
         });
 
-        let model = Popover {
-            animation: AnimatedPopover::new(&widgets.root),
-            devices,
-            device_items: Vec::new(),
-            empty_label: widgets.empty_label.clone(),
-        };
-
         ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
             PopoverInput::Toggle => {
-                self.animation.toggle();
+                self.popover.toggle();
             }
             PopoverInput::UpdateState(state) => {
-                let items = build_device_items(&state);
-                self.empty_label.set_visible(items.is_empty());
-                self.devices.widget().set_visible(!items.is_empty());
-                if self.device_items != items {
-                    self.devices.emit(DeviceListInput::Update(items.clone()));
-                    self.device_items = items;
-                }
+                let rows = build_device_rows(&state);
+                self.hero_subtitle = hero_subtitle(&state);
+                self.list.set_visible(!rows.is_empty());
+                sync_device_rows(&mut self.rows, &self.list, rows, &sender);
             }
             PopoverInput::DeviceCommand(command) => {
-                let _ = sender.output(PopoverOutput::Command(command));
+                let _ = sender.output(popover_output_for_row_command(command));
             }
         }
     }
 }
 
-fn build_device_items(state: &State) -> Vec<DeviceListItem<Command>> {
+struct DeviceRow {
+    root: SegmentedTile,
+    icon: gtk::Image,
+    status_box: gtk::Box,
+    status_spinner: gtk::Spinner,
+    status_label: gtk::Label,
+    actions: gtk::Box,
+    command: Rc<RefCell<Option<RowCommand>>>,
+}
+
+impl DeviceRow {
+    fn new(model: &DeviceRowModel, sender: &ComponentSender<Popover>) -> Self {
+        let root = SegmentedTile::new();
+        root.add_css_class("removable-device-row");
+        root.set_secondary(None);
+
+        let icon = gtk::Image::from_icon_name(&model.icon);
+        icon.add_css_class("removable-device-row__icon");
+        icon.set_pixel_size(16);
+        icon.set_valign(gtk::Align::Center);
+        root.set_left(Some(icon.clone()));
+
+        let status_box = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        status_box.set_valign(gtk::Align::Center);
+
+        let status_spinner = gtk::Spinner::new();
+        status_spinner.add_css_class("removable-device-row__spinner");
+        status_spinner.set_visible(false);
+        status_box.append(&status_spinner);
+
+        let status_label = gtk::Label::new(None);
+        status_label.add_css_class("dim-label");
+        status_label.add_css_class("caption");
+        status_label.set_visible(false);
+        status_box.append(&status_label);
+
+        let actions = gtk::Box::new(gtk::Orientation::Vertical, 2);
+        actions.add_css_class("removable-device-row__actions");
+
+        let command = Rc::new(RefCell::new(model.command.clone()));
+        root.connect_activated({
+            let sender = sender.clone();
+            let command = command.clone();
+            move |_| {
+                if let Some(command) = command.borrow().clone() {
+                    sender.input(PopoverInput::DeviceCommand(command));
+                }
+            }
+        });
+
+        let row = Self {
+            root,
+            icon,
+            status_box,
+            status_spinner,
+            status_label,
+            actions,
+            command,
+        };
+        row.update(model, sender);
+        row
+    }
+
+    fn update(&self, model: &DeviceRowModel, sender: &ComponentSender<Popover>) {
+        self.root.set_primary(&model.label);
+        self.root.set_tooltip_text(Some(&model.tooltip));
+        self.root
+            .set_activatable(model.command.is_some() && !model.busy);
+        self.root.set_sensitive(true);
+        self.command.replace(model.command.clone());
+        self.icon.set_icon_name(Some(&model.icon));
+
+        if model.active {
+            self.root.add_css_class("is-active");
+            self.root.add_css_class("is-selected");
+        } else {
+            self.root.remove_css_class("is-active");
+            self.root.remove_css_class("is-selected");
+        }
+
+        self.sync_status(&model.status);
+        self.sync_actions(&model.actions, sender);
+    }
+
+    fn sync_status(&self, status: &DeviceStatus) {
+        self.status_spinner.set_visible(status.busy);
+        self.status_spinner.set_spinning(status.busy);
+
+        match &status.text {
+            Some(text) if !status.busy => {
+                self.status_label.set_label(text);
+                self.status_label.set_visible(true);
+            }
+            _ => {
+                self.status_label.set_visible(false);
+            }
+        }
+
+        if status.busy || status.text.is_some() {
+            self.root.set_right(Some(self.status_box.clone()));
+        } else {
+            self.root.set_right(None::<gtk::Widget>);
+        }
+    }
+
+    fn sync_actions(
+        &self,
+        actions: &[DeviceAction<RowCommand>],
+        sender: &ComponentSender<Popover>,
+    ) {
+        while let Some(child) = self.actions.first_child() {
+            self.actions.remove(&child);
+        }
+
+        let visible_actions: Vec<_> = actions.iter().filter(|action| action.visible).collect();
+        for action in &visible_actions {
+            let tile = Tile::new();
+            tile.add_css_class("removable-device-action");
+            tile.set_primary(&action.label);
+            tile.set_secondary(None);
+            tile.set_sensitive(action.enabled);
+            if action.destructive {
+                tile.add_css_class("destructive-action");
+            }
+            tile.connect_activated({
+                let sender = sender.clone();
+                let command = action.command.clone();
+                move |_| sender.input(PopoverInput::DeviceCommand(command.clone()))
+            });
+            self.actions.append(&tile);
+        }
+
+        if visible_actions.is_empty() {
+            self.root.set_child(None::<gtk::Widget>);
+        } else {
+            self.root.set_child(Some(self.actions.clone()));
+        }
+    }
+
+    fn widget(&self) -> &gtk::Widget {
+        self.root.upcast_ref()
+    }
+}
+
+fn build_device_rows(state: &State) -> Vec<DeviceRowModel> {
     state
         .devices
         .iter()
-        .map(|device| DeviceListItem {
+        .map(|device| DeviceRowModel {
             id: device.id.clone(),
             icon: device.icon.clone(),
             label: device.name.clone(),
             status: device_status(device),
             busy: device.busy,
-            tooltip: Some(device_tooltip(device)),
-            chips: Vec::new(),
-            secondary_status: None,
+            tooltip: device_tooltip(device),
             active: device.mounted_at.is_some(),
-            visible: true,
             command: primary_device_command(device),
             actions: device_actions(device),
-            primary_action: None,
         })
         .collect()
 }
 
-fn primary_device_command(device: &StorageDevice) -> Option<Command> {
+fn sync_device_rows(
+    rows: &mut HashMap<String, DeviceRow>,
+    container: &gtk::Box,
+    models: Vec<DeviceRowModel>,
+    sender: &ComponentSender<Popover>,
+) {
+    let mut seen = HashSet::new();
+    let mut previous: Option<gtk::Widget> = None;
+
+    for model in models {
+        seen.insert(model.id.clone());
+        let row = rows
+            .entry(model.id.clone())
+            .or_insert_with(|| DeviceRow::new(&model, sender));
+        row.update(&model, sender);
+        place_row(row.widget(), container, previous.as_ref());
+        previous = Some(row.widget().clone());
+    }
+
+    rows.retain(|id, row| {
+        let keep = seen.contains(id);
+        if !keep {
+            remove_row(row.widget());
+        }
+        keep
+    });
+}
+
+fn place_row(row_widget: &gtk::Widget, container: &gtk::Box, previous: Option<&gtk::Widget>) {
+    let target = container.clone().upcast::<gtk::Widget>();
+    let already_in_container = row_widget.parent().is_some_and(|parent| parent == target);
+
+    if !already_in_container {
+        remove_row(row_widget);
+        container.append(row_widget);
+    }
+    container.reorder_child_after(row_widget, previous);
+}
+
+fn remove_row(row_widget: &gtk::Widget) {
+    if let Some(parent) = row_widget.parent()
+        && let Ok(parent) = parent.downcast::<gtk::Box>()
+    {
+        parent.remove(row_widget);
+    }
+}
+
+fn hero_subtitle(state: &State) -> String {
+    match state.devices.len() {
+        0 => "No devices connected".into(),
+        1 => "1 device".into(),
+        count => format!("{count} devices"),
+    }
+}
+
+fn primary_device_command(device: &StorageDevice) -> Option<RowCommand> {
     if device.busy {
         return None;
     }
 
-    if device.mounted_at.is_some() && device.can_unmount {
-        Some(Command::Unmount {
-            id: device.id.clone(),
-        })
-    } else if device.can_power_off {
-        Some(Command::PowerOff {
-            id: device.id.clone(),
-        })
-    } else if device.can_eject {
-        Some(Command::Eject {
-            id: device.id.clone(),
-        })
+    if let Some(path) = &device.mounted_at {
+        Some(RowCommand::OpenPath(path.clone()))
     } else if device.can_mount {
-        Some(Command::Mount {
+        Some(RowCommand::Storage(Command::Mount {
             id: device.id.clone(),
-        })
+        }))
     } else {
         None
     }
 }
 
-pub(super) fn device_actions(device: &StorageDevice) -> Vec<DeviceListAction<Command>> {
+fn device_actions(device: &StorageDevice) -> Vec<DeviceAction<RowCommand>> {
+    storage_device_actions(device)
+        .into_iter()
+        .map(|action| DeviceAction {
+            id: action.id,
+            label: action.label,
+            destructive: action.destructive,
+            enabled: action.enabled,
+            visible: action.visible,
+            command: RowCommand::Storage(action.command),
+        })
+        .collect()
+}
+
+pub(super) fn storage_device_actions(device: &StorageDevice) -> Vec<DeviceAction<Command>> {
     if device.busy {
         return Vec::new();
     }
@@ -208,7 +428,7 @@ pub(super) fn device_actions(device: &StorageDevice) -> Vec<DeviceListAction<Com
     let mut actions = Vec::new();
 
     if device.mounted_at.is_some() && device.can_unmount {
-        actions.push(DeviceListAction {
+        actions.push(DeviceAction {
             id: "unmount".into(),
             label: "Unmount".into(),
             destructive: false,
@@ -219,7 +439,7 @@ pub(super) fn device_actions(device: &StorageDevice) -> Vec<DeviceListAction<Com
             },
         });
     } else if device.can_mount {
-        actions.push(DeviceListAction {
+        actions.push(DeviceAction {
             id: "mount".into(),
             label: "Mount".into(),
             destructive: false,
@@ -232,7 +452,7 @@ pub(super) fn device_actions(device: &StorageDevice) -> Vec<DeviceListAction<Com
     }
 
     if device.can_eject {
-        actions.push(DeviceListAction {
+        actions.push(DeviceAction {
             id: "eject".into(),
             label: "Eject".into(),
             destructive: false,
@@ -244,35 +464,46 @@ pub(super) fn device_actions(device: &StorageDevice) -> Vec<DeviceListAction<Com
         });
     }
 
-    if device.can_power_off {
-        actions.push(DeviceListAction {
-            id: "power-off".into(),
-            label: "Power Off".into(),
-            destructive: false,
-            enabled: true,
-            visible: true,
-            command: Command::PowerOff {
-                id: device.id.clone(),
-            },
-        });
-    }
-
     actions
 }
 
-fn device_status(device: &StorageDevice) -> String {
+fn popover_output_for_row_command(command: RowCommand) -> PopoverOutput {
+    match command {
+        RowCommand::Storage(command) => PopoverOutput::Command(command),
+        RowCommand::OpenPath(path) => PopoverOutput::OpenPath(path),
+    }
+}
+
+fn device_status(device: &StorageDevice) -> DeviceStatus {
     if device.busy {
-        "Working".into()
+        DeviceStatus {
+            text: None,
+            busy: true,
+        }
     } else if device.mounted_at.is_some() {
-        "Mounted".into()
-    } else if device.can_power_off {
-        "Safe to remove".into()
-    } else if device.can_eject {
-        "Safe to remove".into()
+        DeviceStatus::text("Mounted")
+    } else if device.can_power_off || device.can_eject {
+        DeviceStatus::empty()
     } else if device.can_mount {
-        "Available".into()
+        DeviceStatus::text("Available")
     } else {
-        "Not mounted".into()
+        DeviceStatus::text("Not mounted")
+    }
+}
+
+impl DeviceStatus {
+    fn text(text: impl Into<String>) -> Self {
+        Self {
+            text: Some(text.into()),
+            busy: false,
+        }
+    }
+
+    fn empty() -> Self {
+        Self {
+            text: None,
+            busy: false,
+        }
     }
 }
 
@@ -329,7 +560,7 @@ mod tests {
     }
 
     #[test]
-    fn mounted_device_primary_action_is_unmount() {
+    fn mounted_device_primary_action_opens_mount_point() {
         let device = StorageDevice {
             mounted_at: Some("/run/media/alex/USB".into()),
             ..device()
@@ -337,29 +568,18 @@ mod tests {
 
         assert_eq!(
             primary_device_command(&device),
-            Some(Command::Unmount {
-                id: "device".into()
-            })
+            Some(RowCommand::OpenPath("/run/media/alex/USB".into()))
         );
     }
 
     #[test]
-    fn unmounted_device_prefers_safe_removal_then_mount() {
-        let mut device = device();
+    fn unmounted_mountable_device_primary_action_is_mount() {
+        let device = device();
         assert_eq!(
             primary_device_command(&device),
-            Some(Command::PowerOff {
+            Some(RowCommand::Storage(Command::Mount {
                 id: "device".into()
-            })
-        );
-
-        device.can_power_off = false;
-        device.can_eject = false;
-        assert_eq!(
-            primary_device_command(&device),
-            Some(Command::Mount {
-                id: "device".into()
-            })
+            }))
         );
     }
 
@@ -375,21 +595,67 @@ mod tests {
     }
 
     #[test]
+    fn hero_subtitle_summarizes_device_count() {
+        assert_eq!(hero_subtitle(&State::default()), "No devices connected");
+
+        let one = State {
+            devices: vec![device()],
+            ..State::default()
+        };
+        assert_eq!(hero_subtitle(&one), "1 device");
+
+        let two = State {
+            devices: vec![
+                device(),
+                StorageDevice {
+                    id: "other".into(),
+                    ..device()
+                },
+            ],
+            ..State::default()
+        };
+        assert_eq!(hero_subtitle(&two), "2 devices");
+    }
+
+    #[test]
+    fn safe_to_remove_device_has_no_status_and_still_uses_mount_primary_action() {
+        let row = build_device_rows(&State {
+            devices: vec![device()],
+            ..State::default()
+        })
+        .remove(0);
+
+        assert_eq!(row.status.text, None);
+        assert_eq!(
+            row.command,
+            Some(RowCommand::Storage(Command::Mount {
+                id: "device".into()
+            }))
+        );
+    }
+
+    #[test]
     fn device_status_uses_user_facing_states() {
-        assert_eq!(device_status(&device()), "Safe to remove");
+        assert_eq!(
+            device_status(&device()),
+            DeviceStatus {
+                text: None,
+                busy: false,
+            }
+        );
 
         let mounted = StorageDevice {
             mounted_at: Some("/run/media/alex/USB".into()),
             ..device()
         };
-        assert_eq!(device_status(&mounted), "Mounted");
+        assert_eq!(device_status(&mounted), DeviceStatus::text("Mounted"));
 
         let mountable = StorageDevice {
             can_power_off: false,
             can_eject: false,
             ..device()
         };
-        assert_eq!(device_status(&mountable), "Available");
+        assert_eq!(device_status(&mountable), DeviceStatus::text("Available"));
     }
 
     #[test]
@@ -401,7 +667,7 @@ mod tests {
                 .iter()
                 .map(|action| action.id.as_str())
                 .collect::<Vec<_>>(),
-            vec!["mount", "eject", "power-off"]
+            vec!["mount", "eject"]
         );
 
         let mounted = StorageDevice {
@@ -411,5 +677,24 @@ mod tests {
         let actions = device_actions(&mounted);
 
         assert_eq!(actions[0].id, "unmount");
+        assert!(actions.iter().all(|action| action.enabled));
+        assert_eq!(
+            actions[0].command,
+            RowCommand::Storage(Command::Unmount {
+                id: "device".into()
+            })
+        );
+    }
+
+    #[test]
+    fn popover_output_maps_row_commands() {
+        assert_eq!(
+            popover_output_for_row_command(RowCommand::OpenPath("/run/media/alex/USB".into())),
+            PopoverOutput::OpenPath("/run/media/alex/USB".into())
+        );
+        assert_eq!(
+            popover_output_for_row_command(RowCommand::Storage(Command::Refresh)),
+            PopoverOutput::Command(Command::Refresh)
+        );
     }
 }
