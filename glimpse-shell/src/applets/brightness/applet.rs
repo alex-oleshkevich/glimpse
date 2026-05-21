@@ -9,7 +9,7 @@ use crate::{
     panels::applets::AppletConfig,
     services::{
         brightness::{BrightnessHandle, Command, State},
-        compositor::{CompositorHandle, State as CompositorState},
+        compositor::{Command as CompositorCommand, CompositorHandle, State as CompositorState},
         framework::ServiceCommand,
     },
 };
@@ -246,6 +246,9 @@ impl SimpleComponent for Applet {
             Input::CompositorStateChanged(state) => {
                 self.compositor_state = state;
                 self.apply_filtered_state();
+                if self.popover_open {
+                    self.sync_popover_monitors();
+                }
             }
             Input::Reconfigure(config) => {
                 self.config = config;
@@ -274,17 +277,24 @@ impl SimpleComponent for Applet {
             Input::TogglePopover => {
                 self.popover.emit(PopoverInput::Toggle);
             }
-            Input::PopoverOutput(PopoverOutput::Opened) => {
-                self.popover_open = true;
-                self.sync_popover_state();
-                self.send_command(Command::Refresh);
-            }
-            Input::PopoverOutput(PopoverOutput::Closed) => {
-                self.popover_open = false;
-            }
-            Input::PopoverOutput(PopoverOutput::Command(command)) => {
-                self.send_command(command);
-            }
+            Input::PopoverOutput(output) => match output {
+                PopoverOutput::Opened => {
+                    self.popover_open = true;
+                    self.sync_popover_state();
+                    self.send_command(Command::Refresh);
+                }
+                PopoverOutput::Closed => {
+                    self.popover_open = false;
+                }
+                PopoverOutput::Command(command) => {
+                    self.send_command(command);
+                }
+                output => {
+                    if let Some(command) = compositor_command_for_popover_output(&output) {
+                        self.send_compositor_command(command);
+                    }
+                }
+            },
         }
     }
 }
@@ -304,6 +314,13 @@ impl Applet {
     fn sync_popover_state(&self) {
         self.popover
             .emit(PopoverInput::UpdateState(self.state.clone()));
+        self.sync_popover_monitors();
+    }
+
+    fn sync_popover_monitors(&self) {
+        self.popover.emit(PopoverInput::UpdateMonitors(
+            self.compositor_state.monitors.clone(),
+        ));
     }
 
     fn send_command(&self, command: Command) {
@@ -311,6 +328,15 @@ impl Applet {
         relm4::spawn(async move {
             if let Err(error) = service.send(ServiceCommand::Command(command)).await {
                 tracing::warn!(%error, "failed to send brightness command");
+            }
+        });
+    }
+
+    fn send_compositor_command(&self, command: CompositorCommand) {
+        let compositor = self.compositor.clone();
+        relm4::spawn(async move {
+            if let Err(error) = compositor.send(ServiceCommand::Command(command)).await {
+                tracing::warn!(%error, "failed to send compositor command");
             }
         });
     }
@@ -400,6 +426,18 @@ fn source_for_connector<'a>(
                 .as_deref()
                 .is_some_and(|source_connector| source_connector.eq_ignore_ascii_case(connector))
     })
+}
+
+fn compositor_command_for_popover_output(output: &PopoverOutput) -> Option<CompositorCommand> {
+    match output {
+        PopoverOutput::SetMonitorEnabled { name, on } => {
+            Some(CompositorCommand::SetMonitorEnabled {
+                name: name.clone(),
+                on: *on,
+            })
+        }
+        PopoverOutput::Opened | PopoverOutput::Closed | PopoverOutput::Command(_) => None,
+    }
 }
 
 #[cfg(test)]
@@ -533,6 +571,24 @@ mod tests {
         let source = scroll_source(&state, Some("HDMI-A-1"), &CompositorState::default()).unwrap();
 
         assert_eq!(source.id, "backlight:intel_backlight");
+    }
+
+    #[test]
+    fn monitor_toggle_popover_output_maps_to_compositor_command() {
+        let command = compositor_command_for_popover_output(&PopoverOutput::SetMonitorEnabled {
+            name: "DP-2".into(),
+            on: false,
+        });
+
+        assert!(matches!(
+            command,
+            Some(CompositorCommand::SetMonitorEnabled { name, on })
+                if name == "DP-2" && !on
+        ));
+        assert!(
+            compositor_command_for_popover_output(&PopoverOutput::Command(Command::Refresh))
+                .is_none()
+        );
     }
 
     fn source(id: &str, kind: BrightnessSourceKind, primary: bool) -> BrightnessSource {

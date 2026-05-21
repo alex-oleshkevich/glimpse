@@ -1,5 +1,4 @@
 pub mod applet;
-mod components;
 mod format;
 mod popover;
 

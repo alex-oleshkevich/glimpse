@@ -1,4 +1,3 @@
-pub mod action_menu;
 pub mod action_row;
 pub mod animated_popover;
 pub mod badge;

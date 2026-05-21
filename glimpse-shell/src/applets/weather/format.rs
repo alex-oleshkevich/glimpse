@@ -1,11 +1,7 @@
 use glimpse_core::services::weather::model::{CurrentWeather, DailyForecast, Location, State};
 
 pub fn hero_summary(current: &CurrentWeather) -> String {
-    format!(
-        "{} · Feels like {}",
-        current.condition,
-        temperature(current.apparent_temperature)
-    )
+    current.condition.clone()
 }
 
 pub fn build_detail_rows(
@@ -28,6 +24,10 @@ pub fn build_detail_rows(
     vec![
         ("High".into(), high),
         ("Low".into(), low),
+        (
+            "Feels like".into(),
+            temperature(current.apparent_temperature),
+        ),
         ("Humidity".into(), format!("{}%", current.humidity)),
         (
             "Wind".into(),
@@ -139,7 +139,7 @@ mod tests {
             apparent_temperature: 9.0,
             ..CurrentWeather::default()
         };
-        assert_eq!(hero_summary(&current), "Overcast · Feels like 9°");
+        assert_eq!(hero_summary(&current), "Overcast");
     }
 
     #[test]
@@ -160,11 +160,11 @@ mod tests {
             ..DailyForecast::default()
         };
         let rows = build_detail_rows(&current, Some(&today));
-        assert_eq!(rows.len(), 8);
+        assert_eq!(rows.len(), 9);
         assert_eq!(rows[0].1, "14°");
         assert_eq!(rows[1].1, "8°");
-        assert_eq!(rows[6].1, "06:12");
-        assert_eq!(rows[7].1, "19:48");
+        assert_eq!(rows[7].1, "06:12");
+        assert_eq!(rows[8].1, "19:48");
     }
 
     #[test]

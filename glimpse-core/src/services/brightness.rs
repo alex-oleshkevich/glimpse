@@ -449,7 +449,9 @@ fn schedule_apply(queue: &mut ApplyQueue, apply_tx: mpsc::Sender<ApplyMessage>, 
 }
 
 fn normalize_sources(sources: &mut Vec<BrightnessSource>) {
+    log_keyboard_sources("before normalize", sources);
     remove_led_keyboard_fallback_if_upower_keyboard_exists(sources);
+    log_keyboard_sources("after keyboard dedupe", sources);
 
     sources.sort_by(|left, right| {
         (
@@ -478,7 +480,7 @@ fn normalize_sources(sources: &mut Vec<BrightnessSource>) {
 
     if has_primary {
         let mut primary_seen = false;
-        for source in sources {
+        for source in sources.iter_mut() {
             if source.primary && source.is_usable() && !primary_seen {
                 primary_seen = true;
             } else {
@@ -486,6 +488,7 @@ fn normalize_sources(sources: &mut Vec<BrightnessSource>) {
             }
         }
     }
+    log_keyboard_sources("after normalize", sources);
 }
 
 fn remove_led_keyboard_fallback_if_upower_keyboard_exists(sources: &mut Vec<BrightnessSource>) {
@@ -499,6 +502,26 @@ fn remove_led_keyboard_fallback_if_upower_keyboard_exists(sources: &mut Vec<Brig
     sources.retain(|source| {
         !(source.kind == BrightnessSourceKind::Keyboard && source.id.starts_with("led:"))
     });
+}
+
+fn log_keyboard_sources(stage: &'static str, sources: &[BrightnessSource]) {
+    for source in sources
+        .iter()
+        .filter(|source| source.kind == BrightnessSourceKind::Keyboard)
+    {
+        tracing::debug!(
+            stage,
+            id = %source.id,
+            name = %source.name,
+            current = source.current,
+            max = source.max,
+            percent = source.percent,
+            writable = source.writable,
+            available = source.available,
+            primary = source.primary,
+            "keyboard brightness source"
+        );
+    }
 }
 
 fn overlay_targets(sources: &mut [BrightnessSource], targets: &HashMap<String, u8>) {

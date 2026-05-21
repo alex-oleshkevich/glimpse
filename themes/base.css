@@ -2420,8 +2420,8 @@ label.text-error {
 
 .message-group__lead .message {
     box-shadow:
-        0 17px 0 -7px color-mix(in srgb, var(--message-bg) 11%, var(--color-fg) 7%),
-        0 9px 0 -4px color-mix(in srgb, var(--message-bg) 34%, var(--color-fg) 7%);
+        0 17px 0 -7px color-mix(in srgb, var(--message-bg) 9%, var(--color-fg) 8%),
+        0 9px 0 -4px color-mix(in srgb, var(--message-bg) 78%, var(--color-fg) 8%);
 }
 
 .message-group__body {

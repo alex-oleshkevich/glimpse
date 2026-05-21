@@ -67,6 +67,10 @@ pub trait Device {
     fn managed(&self) -> zbus::Result<bool>;
     #[zbus(property, name = "Mtu")]
     fn mtu(&self) -> zbus::Result<u32>;
+    #[zbus(property, name = "Ip4Config")]
+    fn ip4_config(&self) -> zbus::Result<OwnedObjectPath>;
+    #[zbus(property, name = "Ip6Config")]
+    fn ip6_config(&self) -> zbus::Result<OwnedObjectPath>;
 }
 
 #[zbus::proxy(
@@ -134,6 +138,28 @@ pub trait ActiveConnection {
     fn vpn(&self) -> zbus::Result<bool>;
     #[zbus(property)]
     fn devices(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
+    #[zbus(property, name = "Ip4Config")]
+    fn ip4_config(&self) -> zbus::Result<OwnedObjectPath>;
+    #[zbus(property, name = "Ip6Config")]
+    fn ip6_config(&self) -> zbus::Result<OwnedObjectPath>;
+}
+
+#[zbus::proxy(
+    interface = "org.freedesktop.NetworkManager.IP4Config",
+    default_service = "org.freedesktop.NetworkManager"
+)]
+pub trait Ip4Config {
+    #[zbus(property, name = "AddressData")]
+    fn address_data(&self) -> zbus::Result<Vec<HashMap<String, OwnedValue>>>;
+}
+
+#[zbus::proxy(
+    interface = "org.freedesktop.NetworkManager.IP6Config",
+    default_service = "org.freedesktop.NetworkManager"
+)]
+pub trait Ip6Config {
+    #[zbus(property, name = "AddressData")]
+    fn address_data(&self) -> zbus::Result<Vec<HashMap<String, OwnedValue>>>;
 }
 
 #[zbus::proxy(

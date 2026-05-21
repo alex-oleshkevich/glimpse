@@ -1,36 +1,51 @@
-use std::cell::Cell;
-use std::collections::HashSet;
-use std::rc::Rc;
+use std::{
+    cell::{Cell, RefCell},
+    collections::{HashMap, HashSet},
+    rc::Rc,
+    time::Duration,
+};
 
 use relm4::{
-    Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
-    gtk::{self, glib, prelude::*},
+    ComponentParts, ComponentSender, SimpleComponent,
+    gtk::{self, prelude::*},
 };
 
 use crate::{
-    components::{
-        animated_popover::AnimatedPopover,
-        device_list::{
-            DeviceList, DeviceListAction, DeviceListInit, DeviceListInput, DeviceListItem,
-        },
-        hero::HeroView,
-        popover_scroll,
-        popover_shell::PopoverShell,
-    },
+    components::popover_scroll,
     services::bluetooth::{
-        BluetoothActiveAction, BluetoothDevice, BluetoothServiceHealth, BluetoothSnapshot, Command,
-        State,
+        BluetoothActiveAction, BluetoothAdapter, BluetoothDevice, BluetoothServiceHealth,
+        BluetoothSnapshot, Command, State,
+    },
+    widgets::{
+        animated_popover::AnimatedPopover, expander_tile::ExpanderTile, hero::Hero,
+        key_value_grid::KeyValueGrid, popover_shell::PopoverShell, segmented_tile::SegmentedTile,
+        switch_tile::SwitchTile, tile::Tile,
     },
 };
 
+const DISCOVERABLE_DEBOUNCE: Duration = Duration::from_millis(1200);
+
 pub struct Popover {
-    animation: AnimatedPopover,
-    hero_icon_name: String,
-    hero_subtitle: String,
+    popover: AnimatedPopover,
+    state: State,
+    sections: DeviceSections,
     powered: bool,
+    discoverable: bool,
+    pending_discoverable: Option<PendingDiscoverable>,
+    discoverable_generation: u64,
+    has_adapter: bool,
+    paired_expanded: bool,
+    nearby_expanded: bool,
     updating_power: Rc<Cell<bool>>,
-    devices: Controller<DeviceList<Command>>,
-    device_items: Vec<DeviceListItem<Command>>,
+    updating_discoverable: Rc<Cell<bool>>,
+    hero: Hero,
+    discoverable_tile: SwitchTile,
+    connected_list: gtk::Box,
+    paired_list: gtk::Box,
+    nearby_list: gtk::Box,
+    connected_rows: HashMap<String, SegmentedDeviceRow>,
+    paired_rows: HashMap<String, SimpleDeviceRow>,
+    nearby_rows: HashMap<String, SimpleDeviceRow>,
 }
 
 pub struct PopoverInit {
@@ -42,6 +57,10 @@ pub enum PopoverInput {
     Toggle,
     UpdateState(State),
     SetPowered(bool),
+    SetDiscoverable(bool),
+    ExpirePendingDiscoverable(u64),
+    SetPairedExpanded(bool),
+    SetNearbyExpanded(bool),
     DeviceCommand(Command),
 }
 
@@ -60,41 +79,87 @@ impl SimpleComponent for Popover {
     type Output = PopoverOutput;
 
     view! {
-        root = gtk::Popover {
+        root = AnimatedPopover {
             add_css_class: "bluetooth-popover",
             add_css_class: "popover-size-medium",
             set_hexpand: false,
+            set_autohide: true,
 
-            #[template]
             PopoverShell {
-                #[template_child]
-                footer {
-                    set_visible: false,
+                set_footer_visible: false,
+
+                #[name = "hero"]
+                Hero {
+                    #[watch]
+                    set_icon: Some(hero_icon_name_for_state(&model.state)),
+                    set_title: "Bluetooth",
+                    #[watch]
+                    set_subtitle: &hero_subtitle_text(&model.state),
                 },
 
-                #[template_child]
-                content {
-                    #[name = "hero"]
-                    #[template]
-                    HeroView {
-                        #[template_child]
-                        trailing {
-                            set_visible: true,
+                #[name = "scroller"]
+                gtk::ScrolledWindow {
+                    set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
+                    set_vexpand: false,
+                    set_propagate_natural_height: true,
+
+                    #[name = "content"]
+                    gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+                        set_spacing: 2,
+
+                        #[name = "connected_list"]
+                        gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
+                            set_spacing: 2,
+                            #[watch]
+                            set_visible: model.sections.connected_visible(),
                         },
-                    },
 
-                    gtk::Separator {
-                        set_orientation: gtk::Orientation::Horizontal,
-                    },
+                        gtk::Separator {
+                            set_orientation: gtk::Orientation::Horizontal,
+                            #[watch]
+                            set_visible: model.sections.connected_visible() && model.sections.lower_visible(),
+                        },
 
-                    #[name = "scroller"]
-                    gtk::ScrolledWindow {
-                        set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
-                        set_vexpand: false,
-                        set_propagate_natural_height: true,
+                        #[name = "paired_section"]
+                        ExpanderTile {
+                            add_css_class: "bluetooth-paired-section",
+                            set_primary: "Paired devices",
+                            set_secondary: None,
+                            #[watch]
+                            set_visible: model.sections.paired_visible(),
+                            #[watch]
+                            set_expanded: model.paired_expanded,
 
-                        #[local_ref]
-                        devices_widget -> gtk::Box {},
+                            connect_expanded[sender] => move |_, expanded| {
+                                sender.input(PopoverInput::SetPairedExpanded(expanded));
+                            },
+                        },
+
+                        #[name = "nearby_section"]
+                        ExpanderTile {
+                            add_css_class: "bluetooth-nearby-section",
+                            set_primary: "Nearby devices",
+                            set_secondary: None,
+                            #[watch]
+                            set_visible: model.sections.nearby_visible(),
+                            #[watch]
+                            set_expanded: model.nearby_expanded,
+
+                            connect_expanded[sender] => move |_, expanded| {
+                                sender.input(PopoverInput::SetNearbyExpanded(expanded));
+                            },
+                        },
+
+                        #[name = "discoverable_tile"]
+                        SwitchTile {
+                            set_primary: "Make discoverable",
+                            #[watch]
+                            set_visible: model.has_adapter,
+                            #[watch]
+                            set_sensitive: model.powered,
+                        },
                     },
                 },
             },
@@ -106,31 +171,80 @@ impl SimpleComponent for Popover {
         _root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let devices = DeviceList::builder()
-            .launch(DeviceListInit {
-                header: None,
-                items: Vec::new(),
-            })
-            .forward(sender.input_sender(), PopoverInput::DeviceCommand);
-        let devices_widget = devices.widget().clone();
-
         let updating_power = Rc::new(Cell::new(false));
+        let updating_discoverable = Rc::new(Cell::new(false));
+        let state = State::default();
+        let sections = device_sections(&state);
+        let mut model = Popover {
+            popover: AnimatedPopover::new(),
+            state,
+            sections,
+            powered: false,
+            discoverable: false,
+            pending_discoverable: None,
+            discoverable_generation: 0,
+            has_adapter: false,
+            paired_expanded: false,
+            nearby_expanded: false,
+            updating_power,
+            updating_discoverable,
+            hero: Hero::new(),
+            discoverable_tile: SwitchTile::new(),
+            connected_list: gtk::Box::new(gtk::Orientation::Vertical, 2),
+            paired_list: gtk::Box::new(gtk::Orientation::Vertical, 2),
+            nearby_list: gtk::Box::new(gtk::Orientation::Vertical, 2),
+            connected_rows: HashMap::new(),
+            paired_rows: HashMap::new(),
+            nearby_rows: HashMap::new(),
+        };
+
         let widgets = view_output!();
+        model.popover = widgets.root.clone();
+        model.hero = widgets.hero.clone();
+        model.discoverable_tile = widgets.discoverable_tile.clone();
+        model.connected_list = widgets.connected_list.clone();
+
         widgets.root.set_parent(&init.parent);
-        widgets.root.set_autohide(true);
-        popover_scroll::install_half_monitor_limit(&widgets.root, &widgets.scroller, &init.parent);
-        devices.widget().set_visible(false);
+        popover_scroll::install_half_monitor_limit(
+            widgets.root.upcast_ref(),
+            &widgets.scroller,
+            &init.parent,
+        );
 
-        let toggle_guard = updating_power.clone();
-        let toggle_sender = sender.clone();
-        widgets.hero.toggle.connect_state_set(move |_, active| {
-            if toggle_guard.get() {
-                return glib::Propagation::Stop;
+        widgets.hero.set_trailing_visible(true);
+        widgets.hero.connect_toggled({
+            let guard = model.updating_power.clone();
+            let sender = sender.clone();
+            move |_, active| {
+                if !guard.get() {
+                    sender.input(PopoverInput::SetPowered(active));
+                }
             }
-
-            toggle_sender.input(PopoverInput::SetPowered(active));
-            glib::Propagation::Stop
         });
+
+        widgets.discoverable_tile.set_secondary(None);
+        widgets.discoverable_tile.connect_toggled({
+            let guard = model.updating_discoverable.clone();
+            let sender = sender.clone();
+            move |_, active| {
+                if !guard.get() {
+                    sender.input(PopoverInput::SetDiscoverable(active));
+                }
+            }
+        });
+
+        widgets
+            .paired_section
+            .set_child(Some(model.paired_list.clone()));
+
+        let nearby_scroller = gtk::ScrolledWindow::new();
+        nearby_scroller.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+        nearby_scroller.set_vexpand(false);
+        nearby_scroller.set_propagate_natural_height(true);
+        nearby_scroller.set_min_content_height(80);
+        nearby_scroller.set_max_content_height(220);
+        nearby_scroller.set_child(Some(&model.nearby_list));
+        widgets.nearby_section.set_child(Some(nearby_scroller));
 
         let opened_sender = sender.clone();
         widgets.root.connect_show(move |_| {
@@ -142,15 +256,8 @@ impl SimpleComponent for Popover {
             let _ = closed_sender.output(PopoverOutput::Closed);
         });
 
-        let model = Popover {
-            animation: AnimatedPopover::new(&widgets.root),
-            hero_icon_name: "bluetooth-disabled-symbolic".into(),
-            hero_subtitle: "Off".into(),
-            powered: false,
-            updating_power,
-            devices,
-            device_items: Vec::new(),
-        };
+        model.sync_toggles();
+        model.sync_rows(&sender);
 
         ComponentParts { model, widgets }
     }
@@ -158,46 +265,645 @@ impl SimpleComponent for Popover {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
             PopoverInput::Toggle => {
-                self.animation.toggle();
+                self.popover.toggle();
             }
             PopoverInput::UpdateState(state) => {
                 self.powered = state.snapshot.status.powered;
-                self.hero_icon_name = hero_icon_name_for_state(&state).into();
-                self.hero_subtitle = hero_subtitle_text(&state);
-
-                let items = build_device_items(&state);
-                if self.device_items != items {
-                    self.devices.widget().set_visible(!items.is_empty());
-                    self.devices.emit(DeviceListInput::Update(items.clone()));
-                    self.device_items = items;
-                }
+                self.discoverable = reconcile_pending_discoverable(
+                    &mut self.pending_discoverable,
+                    adapter_discoverable(&state),
+                );
+                self.has_adapter = primary_adapter(&state).is_some();
+                self.sections = device_sections(&state);
+                self.state = state;
+                self.sync_toggles();
+                self.sync_rows(&sender);
             }
             PopoverInput::SetPowered(powered) => {
                 let _ = sender.output(PopoverOutput::Command(Command::SetPowered(powered)));
             }
-            PopoverInput::DeviceCommand(command) => {
-                if let Some(address) = optimistic_busy_address(&command).map(str::to_owned) {
-                    if mark_device_busy(&mut self.device_items, &address) {
-                        self.devices
-                            .emit(DeviceListInput::Update(self.device_items.clone()));
-                    }
+            PopoverInput::SetDiscoverable(discoverable) => {
+                if let Some(command) = discoverable_command(&self.state, discoverable) {
+                    self.discoverable_generation = self.discoverable_generation.wrapping_add(1);
+                    let generation = self.discoverable_generation;
+                    self.pending_discoverable =
+                        Some(PendingDiscoverable::new(discoverable, generation));
+                    self.discoverable = discoverable;
+                    self.sync_toggles();
+                    let _ = sender.output(PopoverOutput::Command(command));
+                    let sender = sender.clone();
+                    gtk::glib::timeout_add_local_once(DISCOVERABLE_DEBOUNCE, move || {
+                        sender.input(PopoverInput::ExpirePendingDiscoverable(generation));
+                    });
                 }
+            }
+            PopoverInput::ExpirePendingDiscoverable(generation) => {
+                if expire_pending_discoverable(&mut self.pending_discoverable, generation) {
+                    self.discoverable = adapter_discoverable(&self.state);
+                    self.sync_toggles();
+                }
+            }
+            PopoverInput::SetPairedExpanded(expanded) => {
+                self.paired_expanded = expanded;
+            }
+            PopoverInput::SetNearbyExpanded(expanded) => {
+                self.nearby_expanded = expanded;
+            }
+            PopoverInput::DeviceCommand(command) => {
                 let _ = sender.output(PopoverOutput::Command(command));
             }
         }
     }
+}
 
-    fn post_view() {
-        hero.icon.set_icon_name(Some(&model.hero_icon_name));
-        hero.title.set_label("Bluetooth");
-        hero.subtitle.set_label(&model.hero_subtitle);
+impl Popover {
+    fn sync_toggles(&self) {
+        self.updating_power.set(true);
+        self.hero.set_toggle_active(self.powered);
+        self.updating_power.set(false);
 
-        if hero.toggle.is_active() != model.powered {
-            model.updating_power.set(true);
-            hero.toggle.set_active(model.powered);
-            hero.toggle.set_state(model.powered);
-            model.updating_power.set(false);
+        self.updating_discoverable.set(true);
+        self.discoverable_tile.set_active(self.discoverable);
+        self.updating_discoverable.set(false);
+    }
+
+    fn sync_rows(&mut self, sender: &ComponentSender<Self>) {
+        sync_segmented_device_rows(
+            &mut self.connected_rows,
+            &self.connected_list,
+            self.sections.connected.clone(),
+            sender,
+        );
+        sync_simple_device_rows(
+            &mut self.paired_rows,
+            &self.paired_list,
+            self.sections.paired.clone(),
+            sender,
+        );
+        sync_simple_device_rows(
+            &mut self.nearby_rows,
+            &self.nearby_list,
+            self.sections.nearby.clone(),
+            sender,
+        );
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct PendingDiscoverable {
+    value: bool,
+    generation: u64,
+}
+
+impl PendingDiscoverable {
+    fn new(value: bool, generation: u64) -> Self {
+        Self { value, generation }
+    }
+}
+
+fn reconcile_pending_discoverable(pending: &mut Option<PendingDiscoverable>, actual: bool) -> bool {
+    let Some(pending_value) = pending.as_mut() else {
+        return actual;
+    };
+
+    if actual == pending_value.value {
+        *pending = None;
+        return actual;
+    }
+
+    pending_value.value
+}
+
+fn expire_pending_discoverable(pending: &mut Option<PendingDiscoverable>, generation: u64) -> bool {
+    if pending
+        .as_ref()
+        .is_some_and(|pending_value| pending_value.generation == generation)
+    {
+        *pending = None;
+        true
+    } else {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DeviceSection {
+    Connected,
+    Paired,
+    Nearby,
+}
+
+impl DeviceSection {
+    fn has_expanded_content(self) -> bool {
+        matches!(self, Self::Connected)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+struct DeviceSections {
+    connected: Vec<DeviceRowModel>,
+    paired: Vec<DeviceRowModel>,
+    nearby: Vec<DeviceRowModel>,
+}
+
+impl DeviceSections {
+    fn connected_visible(&self) -> bool {
+        !self.connected.is_empty()
+    }
+
+    fn paired_visible(&self) -> bool {
+        !self.paired.is_empty()
+    }
+
+    fn nearby_visible(&self) -> bool {
+        !self.nearby.is_empty()
+    }
+
+    fn lower_visible(&self) -> bool {
+        self.paired_visible() || self.nearby_visible()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DeviceRowModel {
+    id: String,
+    label: String,
+    icon: String,
+    status: Option<String>,
+    tooltip: String,
+    busy: bool,
+    active: bool,
+    command: Command,
+    details: Vec<DetailRow>,
+    actions: Vec<DeviceAction>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DetailRow {
+    key: &'static str,
+    value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DeviceAction {
+    id: &'static str,
+    label: &'static str,
+    destructive: bool,
+    command: Command,
+}
+
+fn device_sections(state: &State) -> DeviceSections {
+    let busy_address = busy_device_address(state);
+    let mut sections = DeviceSections::default();
+
+    for device in visible_devices(&state.snapshot) {
+        let section = device_section(device);
+        let model = device_row_model(device, section, busy_address);
+        match section {
+            DeviceSection::Connected => sections.connected.push(model),
+            DeviceSection::Paired => sections.paired.push(model),
+            DeviceSection::Nearby => sections.nearby.push(model),
         }
+    }
+
+    sections
+}
+
+fn device_row_model(
+    device: &BluetoothDevice,
+    section: DeviceSection,
+    busy_address: Option<&str>,
+) -> DeviceRowModel {
+    DeviceRowModel {
+        id: device.address.clone(),
+        label: device.name.clone(),
+        icon: device.device_type.icon(device.connected).into(),
+        status: device_status(device),
+        tooltip: device_tooltip(device, section),
+        busy: busy_address == Some(device.address.as_str()),
+        active: device.connected,
+        command: primary_device_command(device, section),
+        details: if section.has_expanded_content() {
+            device_details(device, section)
+        } else {
+            Vec::new()
+        },
+        actions: if section.has_expanded_content() {
+            device_actions(device, section)
+        } else {
+            Vec::new()
+        },
+    }
+}
+
+fn device_section(device: &BluetoothDevice) -> DeviceSection {
+    if device.connected {
+        DeviceSection::Connected
+    } else if device.paired || device.trusted {
+        DeviceSection::Paired
+    } else {
+        DeviceSection::Nearby
+    }
+}
+
+fn busy_device_address(state: &State) -> Option<&str> {
+    match state.active_action.as_ref()? {
+        BluetoothActiveAction::Connect { address } | BluetoothActiveAction::Pair { address } => {
+            Some(address.as_str())
+        }
+        _ => None,
+    }
+}
+
+fn visible_devices(snapshot: &BluetoothSnapshot) -> Vec<&BluetoothDevice> {
+    let mut devices = snapshot
+        .devices
+        .iter()
+        .filter(|device| is_visible_device(device))
+        .collect::<Vec<_>>();
+    devices.sort_by(|left, right| {
+        right
+            .connected
+            .cmp(&left.connected)
+            .then(right.paired.cmp(&left.paired))
+            .then(right.trusted.cmp(&left.trusted))
+            .then(
+                right
+                    .rssi
+                    .unwrap_or(i16::MIN)
+                    .cmp(&left.rssi.unwrap_or(i16::MIN)),
+            )
+            .then(left.name.cmp(&right.name))
+    });
+    let mut seen: HashSet<&str> = HashSet::new();
+    devices.retain(|device| seen.insert(device.address.as_str()));
+    devices
+}
+
+fn is_visible_device(device: &BluetoothDevice) -> bool {
+    if device.address.is_empty() {
+        return false;
+    }
+
+    if device.name.is_empty() || looks_like_mac(&device.name) {
+        return device.connected || device.paired || device.trusted;
+    }
+
+    device.connected || device.paired || device.trusted || device.rssi.is_some()
+}
+
+fn primary_device_command(device: &BluetoothDevice, section: DeviceSection) -> Command {
+    if device.connected {
+        Command::Disconnect {
+            address: device.address.clone(),
+        }
+    } else if matches!(section, DeviceSection::Paired) {
+        Command::Connect {
+            address: device.address.clone(),
+        }
+    } else {
+        Command::Pair {
+            address: device.address.clone(),
+        }
+    }
+}
+
+fn device_actions(device: &BluetoothDevice, section: DeviceSection) -> Vec<DeviceAction> {
+    let mut actions = vec![DeviceAction {
+        id: if device.trusted { "untrust" } else { "trust" },
+        label: if device.trusted { "Untrust" } else { "Trust" },
+        destructive: false,
+        command: Command::Trust {
+            address: device.address.clone(),
+            trusted: !device.trusted,
+        },
+    }];
+
+    if matches!(section, DeviceSection::Connected | DeviceSection::Paired) {
+        actions.push(DeviceAction {
+            id: "forget",
+            label: "Forget",
+            destructive: true,
+            command: Command::Forget {
+                address: device.address.clone(),
+            },
+        });
+    }
+
+    actions
+}
+
+fn device_details(device: &BluetoothDevice, section: DeviceSection) -> Vec<DetailRow> {
+    let mut rows = Vec::new();
+    let device_type = device.device_type.label();
+    if !device_type.is_empty() {
+        rows.push(detail("Type", device_type));
+    }
+    rows.push(detail("Status", device_state_label(device, section)));
+    if let Some(battery) = device.battery {
+        rows.push(detail("Battery", format!("{battery}%")));
+    }
+    if let Some(rssi) = device.rssi {
+        rows.push(detail("Signal", format!("{rssi} dBm")));
+    }
+    rows.push(detail("Address", device.address.clone()));
+    if matches!(section, DeviceSection::Connected | DeviceSection::Paired) {
+        rows.push(detail("Trusted", yes_no(device.trusted)));
+    }
+    rows
+}
+
+fn detail(key: &'static str, value: impl Into<String>) -> DetailRow {
+    DetailRow {
+        key,
+        value: value.into(),
+    }
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value { "Yes" } else { "No" }
+}
+
+fn device_status(device: &BluetoothDevice) -> Option<String> {
+    device.battery.map(|percentage| format!("{percentage}%"))
+}
+
+fn device_tooltip(device: &BluetoothDevice, section: DeviceSection) -> String {
+    let mut parts = Vec::new();
+    let device_type = device.device_type.label();
+    if !device_type.is_empty() {
+        parts.push(device_type.to_owned());
+    }
+    parts.push(device_state_label(device, section));
+    parts.join(" · ")
+}
+
+fn device_state_label(device: &BluetoothDevice, section: DeviceSection) -> String {
+    if device.connected {
+        "Connected".into()
+    } else if device.paired {
+        "Paired".into()
+    } else if device.trusted {
+        "Trusted".into()
+    } else if matches!(section, DeviceSection::Nearby) {
+        "Nearby".into()
+    } else {
+        "Available".into()
+    }
+}
+
+fn discoverable_command(state: &State, discoverable: bool) -> Option<Command> {
+    primary_adapter(state).map(|adapter| Command::SetAdapterDiscoverable {
+        adapter_path: adapter.path.clone(),
+        discoverable,
+    })
+}
+
+fn primary_adapter(state: &State) -> Option<&BluetoothAdapter> {
+    state
+        .snapshot
+        .adapters
+        .iter()
+        .find(|adapter| adapter.powered)
+        .or_else(|| state.snapshot.adapters.first())
+}
+
+fn adapter_discoverable(state: &State) -> bool {
+    primary_adapter(state).is_some_and(|adapter| adapter.discoverable)
+}
+
+struct SegmentedDeviceRow {
+    root: SegmentedTile,
+    icon: gtk::Image,
+    status: gtk::Label,
+    command: Rc<RefCell<Command>>,
+    details: KeyValueGrid,
+    actions: gtk::Box,
+}
+
+impl SegmentedDeviceRow {
+    fn new(model: &DeviceRowModel, sender: &ComponentSender<Popover>) -> Self {
+        let root = SegmentedTile::new();
+        root.add_css_class("bluetooth-device-row");
+
+        let icon = gtk::Image::from_icon_name(&model.icon);
+        icon.set_pixel_size(16);
+        icon.add_css_class("bluetooth-device-row__icon");
+        root.set_left(Some(icon.clone()));
+        root.set_secondary(None);
+
+        let status = gtk::Label::new(None);
+        status.add_css_class("dim-label");
+        status.add_css_class("caption");
+        status.add_css_class("numeric");
+        status.set_valign(gtk::Align::Center);
+
+        let details = KeyValueGrid::new();
+        let actions = gtk::Box::new(gtk::Orientation::Vertical, 2);
+        let content = gtk::Box::new(gtk::Orientation::Vertical, 4);
+        content.append(&actions);
+        content.append(&details);
+        root.set_child(Some(content));
+
+        let command = Rc::new(RefCell::new(model.command.clone()));
+        root.connect_activated({
+            let sender = sender.clone();
+            let command = command.clone();
+            move |_| sender.input(PopoverInput::DeviceCommand(command.borrow().clone()))
+        });
+
+        let row = Self {
+            root,
+            icon,
+            status,
+            command,
+            details,
+            actions,
+        };
+        row.update(model, sender);
+        row
+    }
+
+    fn update(&self, model: &DeviceRowModel, sender: &ComponentSender<Popover>) {
+        self.root.set_primary(&model.label);
+        self.root.set_tooltip_text(Some(&model.tooltip));
+        self.icon.set_icon_name(Some(&model.icon));
+        self.command.replace(model.command.clone());
+        self.root.set_activatable(!model.busy);
+        self.root.set_sensitive(!model.busy);
+
+        if let Some(status) = &model.status {
+            self.status.set_label(status);
+            self.root.set_right(Some(self.status.clone()));
+        } else {
+            self.root.set_right(None::<gtk::Widget>);
+        }
+
+        self.details.clear();
+        for row in &model.details {
+            self.details.add_row(row.key, &row.value);
+        }
+
+        while let Some(child) = self.actions.first_child() {
+            self.actions.remove(&child);
+        }
+        self.actions.set_visible(!model.actions.is_empty());
+        for action in &model.actions {
+            let tile = Tile::new();
+            tile.set_primary(action.label);
+            tile.set_secondary(None);
+            tile.add_css_class("bluetooth-device-action");
+            if action.destructive {
+                tile.add_css_class("destructive-action");
+            }
+            tile.connect_activated({
+                let sender = sender.clone();
+                let command = action.command.clone();
+                move |_| sender.input(PopoverInput::DeviceCommand(command.clone()))
+            });
+            self.actions.append(&tile);
+        }
+    }
+
+    fn widget(&self) -> &gtk::Widget {
+        self.root.upcast_ref()
+    }
+}
+
+struct SimpleDeviceRow {
+    root: Tile,
+    icon: gtk::Image,
+    status: gtk::Label,
+    command: Rc<RefCell<Command>>,
+}
+
+impl SimpleDeviceRow {
+    fn new(model: &DeviceRowModel, sender: &ComponentSender<Popover>) -> Self {
+        let root = Tile::new();
+        root.add_css_class("bluetooth-device-row");
+
+        let icon = gtk::Image::from_icon_name(&model.icon);
+        icon.set_pixel_size(16);
+        icon.add_css_class("bluetooth-device-row__icon");
+        root.set_left(Some(icon.clone()));
+        root.set_secondary(None);
+
+        let status = gtk::Label::new(None);
+        status.add_css_class("dim-label");
+        status.add_css_class("caption");
+        status.add_css_class("numeric");
+        status.set_valign(gtk::Align::Center);
+
+        let command = Rc::new(RefCell::new(model.command.clone()));
+        root.connect_activated({
+            let sender = sender.clone();
+            let command = command.clone();
+            move |_| sender.input(PopoverInput::DeviceCommand(command.borrow().clone()))
+        });
+
+        let row = Self {
+            root,
+            icon,
+            status,
+            command,
+        };
+        row.update(model);
+        row
+    }
+
+    fn update(&self, model: &DeviceRowModel) {
+        self.root.set_primary(&model.label);
+        self.root.set_tooltip_text(Some(&model.tooltip));
+        self.icon.set_icon_name(Some(&model.icon));
+        self.command.replace(model.command.clone());
+        self.root.set_activatable(!model.busy);
+        self.root.set_sensitive(!model.busy);
+
+        if let Some(status) = &model.status {
+            self.status.set_label(status);
+            self.root.set_right(Some(self.status.clone()));
+        } else {
+            self.root.set_right(None::<gtk::Widget>);
+        }
+    }
+
+    fn widget(&self) -> &gtk::Widget {
+        self.root.upcast_ref()
+    }
+}
+
+fn sync_segmented_device_rows(
+    rows: &mut HashMap<String, SegmentedDeviceRow>,
+    container: &gtk::Box,
+    models: Vec<DeviceRowModel>,
+    sender: &ComponentSender<Popover>,
+) {
+    let mut seen = HashSet::new();
+    let mut previous: Option<gtk::Widget> = None;
+
+    for model in models {
+        seen.insert(model.id.clone());
+        let row = rows
+            .entry(model.id.clone())
+            .or_insert_with(|| SegmentedDeviceRow::new(&model, sender));
+        row.update(&model, sender);
+        place_row(row.widget(), container, previous.as_ref());
+        previous = Some(row.widget().clone());
+    }
+
+    rows.retain(|id, row| {
+        let keep = seen.contains(id);
+        if !keep {
+            remove_row(row.widget());
+        }
+        keep
+    });
+}
+
+fn sync_simple_device_rows(
+    rows: &mut HashMap<String, SimpleDeviceRow>,
+    container: &gtk::Box,
+    models: Vec<DeviceRowModel>,
+    sender: &ComponentSender<Popover>,
+) {
+    let mut seen = HashSet::new();
+    let mut previous: Option<gtk::Widget> = None;
+
+    for model in models {
+        seen.insert(model.id.clone());
+        let row = rows
+            .entry(model.id.clone())
+            .or_insert_with(|| SimpleDeviceRow::new(&model, sender));
+        row.update(&model);
+        place_row(row.widget(), container, previous.as_ref());
+        previous = Some(row.widget().clone());
+    }
+
+    rows.retain(|id, row| {
+        let keep = seen.contains(id);
+        if !keep {
+            remove_row(row.widget());
+        }
+        keep
+    });
+}
+
+fn place_row(row_widget: &gtk::Widget, container: &gtk::Box, previous: Option<&gtk::Widget>) {
+    let target = container.clone().upcast::<gtk::Widget>();
+    let already_in_container = row_widget.parent().is_some_and(|parent| parent == target);
+
+    if !already_in_container {
+        remove_row(row_widget);
+        container.append(row_widget);
+    }
+    container.reorder_child_after(row_widget, previous);
+}
+
+fn remove_row(row_widget: &gtk::Widget) {
+    if let Some(parent) = row_widget.parent()
+        && let Ok(parent) = parent.downcast::<gtk::Box>()
+    {
+        parent.remove(row_widget);
     }
 }
 
@@ -283,199 +989,6 @@ fn active_action_text(state: &State) -> Option<String> {
     }
 }
 
-fn build_device_items(state: &State) -> Vec<DeviceListItem<Command>> {
-    let busy_address = busy_device_address(state);
-
-    visible_devices(&state.snapshot)
-        .into_iter()
-        .map(|device| DeviceListItem {
-            id: device.address.clone(),
-            label: device.name.clone(),
-            icon: device.device_type.icon(device.connected).into(),
-            status: device_status(device),
-            busy: busy_address == Some(device.address.as_str()),
-            tooltip: Some(device_tooltip(device)),
-            chips: Vec::new(),
-            secondary_status: None,
-            active: device.connected,
-            visible: true,
-            command: Some(primary_device_command(device)),
-            actions: device_actions(device),
-            primary_action: None,
-        })
-        .collect()
-}
-
-fn busy_device_address(state: &State) -> Option<&str> {
-    match state.active_action.as_ref()? {
-        BluetoothActiveAction::Connect { address } => Some(address.as_str()),
-        BluetoothActiveAction::Pair { address } => Some(address.as_str()),
-        _ => None,
-    }
-}
-
-fn optimistic_busy_address(command: &Command) -> Option<&str> {
-    match command {
-        Command::Connect { address } | Command::Pair { address } => Some(address.as_str()),
-        _ => None,
-    }
-}
-
-fn mark_device_busy(items: &mut [DeviceListItem<Command>], address: &str) -> bool {
-    let mut changed = false;
-    for item in items {
-        let busy = item.id == address;
-        if item.busy != busy {
-            item.busy = busy;
-            changed = true;
-        }
-    }
-    changed
-}
-
-fn visible_devices(snapshot: &BluetoothSnapshot) -> Vec<&BluetoothDevice> {
-    let mut devices = snapshot
-        .devices
-        .iter()
-        .filter(|device| is_visible_device(device))
-        .collect::<Vec<_>>();
-    devices.sort_by(|left, right| {
-        right
-            .connected
-            .cmp(&left.connected)
-            .then(right.paired.cmp(&left.paired))
-            .then(
-                right
-                    .rssi
-                    .unwrap_or(i16::MIN)
-                    .cmp(&left.rssi.unwrap_or(i16::MIN)),
-            )
-            .then(left.name.cmp(&right.name))
-    });
-    let mut seen: HashSet<&str> = HashSet::new();
-    devices.retain(|device| seen.insert(device.address.as_str()));
-    devices
-}
-
-fn is_visible_device(device: &BluetoothDevice) -> bool {
-    if device.address.is_empty() {
-        return false;
-    }
-
-    if device.name.is_empty() || looks_like_mac(&device.name) {
-        return device.connected || device.paired || device.trusted;
-    }
-
-    device.connected || device.paired || device.trusted || device.rssi.is_some()
-}
-
-fn primary_device_command(device: &BluetoothDevice) -> Command {
-    if device.connected {
-        Command::Disconnect {
-            address: device.address.clone(),
-        }
-    } else if device.paired {
-        Command::Connect {
-            address: device.address.clone(),
-        }
-    } else {
-        Command::Pair {
-            address: device.address.clone(),
-        }
-    }
-}
-
-fn device_actions(device: &BluetoothDevice) -> Vec<DeviceListAction<Command>> {
-    let mut actions = Vec::new();
-
-    if device.connected {
-        actions.push(DeviceListAction {
-            id: "disconnect".into(),
-            label: "Disconnect".into(),
-            destructive: false,
-            enabled: true,
-            visible: true,
-            command: Command::Disconnect {
-                address: device.address.clone(),
-            },
-        });
-    } else if device.paired {
-        actions.push(DeviceListAction {
-            id: "connect".into(),
-            label: "Connect".into(),
-            destructive: false,
-            enabled: true,
-            visible: true,
-            command: Command::Connect {
-                address: device.address.clone(),
-            },
-        });
-    } else {
-        actions.push(DeviceListAction {
-            id: "pair".into(),
-            label: "Pair".into(),
-            destructive: false,
-            enabled: true,
-            visible: true,
-            command: Command::Pair {
-                address: device.address.clone(),
-            },
-        });
-    }
-
-    actions.push(DeviceListAction {
-        id: if device.trusted { "untrust" } else { "trust" }.into(),
-        label: if device.trusted { "Untrust" } else { "Trust" }.into(),
-        destructive: false,
-        enabled: true,
-        visible: true,
-        command: Command::Trust {
-            address: device.address.clone(),
-            trusted: !device.trusted,
-        },
-    });
-
-    if device.connected || device.paired || device.trusted {
-        actions.push(DeviceListAction {
-            id: "forget".into(),
-            label: "Forget Device".into(),
-            destructive: true,
-            enabled: true,
-            visible: true,
-            command: Command::Forget {
-                address: device.address.clone(),
-            },
-        });
-    }
-
-    actions
-}
-
-fn device_status(device: &BluetoothDevice) -> String {
-    device
-        .battery
-        .map(|percentage| format!("{percentage}%"))
-        .unwrap_or_default()
-}
-
-fn device_tooltip(device: &BluetoothDevice) -> String {
-    let mut parts = Vec::new();
-    let device_type = device.device_type.label();
-    if !device_type.is_empty() {
-        parts.push(device_type.to_owned());
-    }
-    if device.connected {
-        parts.push("Connected".into());
-    } else if device.paired {
-        parts.push("Paired".into());
-    }
-    if parts.is_empty() {
-        device.name.clone()
-    } else {
-        parts.join(" \u{b7} ")
-    }
-}
-
 fn device_name(snapshot: &BluetoothSnapshot, address: &str) -> String {
     snapshot
         .devices
@@ -498,7 +1011,6 @@ fn looks_like_mac(value: &str) -> bool {
     } else {
         return false;
     };
-
     let parts = value.split(separator).collect::<Vec<_>>();
     parts.len() == 6
         && parts
@@ -509,7 +1021,9 @@ fn looks_like_mac(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use glimpse_core::services::bluetooth::{BluetoothDeviceType, BluetoothStatus};
+    use glimpse_core::services::bluetooth::{
+        BluetoothAdapter, BluetoothDeviceType, BluetoothStatus,
+    };
 
     fn device(address: &str, name: &str, connected: bool, paired: bool) -> BluetoothDevice {
         BluetoothDevice {
@@ -529,24 +1043,65 @@ mod tests {
         }
     }
 
+    fn adapter(path: &str) -> BluetoothAdapter {
+        BluetoothAdapter {
+            path: path.into(),
+            name: String::new(),
+            address: String::new(),
+            powered: false,
+            discovering: false,
+            discoverable: false,
+            pairable: false,
+            address_type: String::new(),
+            class: 0,
+            discoverable_timeout: 0,
+            pairable_timeout: 0,
+            modalias: String::new(),
+            roles: Vec::new(),
+            uuids: Vec::new(),
+        }
+    }
+
     #[test]
     fn primary_device_command_matches_device_state() {
         assert_eq!(
-            primary_device_command(&device("AA:BB", "Headphones", true, true)),
+            primary_device_command(
+                &device("AA:BB", "Headphones", true, true),
+                DeviceSection::Connected
+            ),
             Command::Disconnect {
                 address: "AA:BB".into()
             }
         );
         assert_eq!(
-            primary_device_command(&device("AA:BB", "Headphones", false, true)),
+            primary_device_command(
+                &device("AA:BB", "Headphones", false, true),
+                DeviceSection::Paired
+            ),
             Command::Connect {
                 address: "AA:BB".into()
             }
         );
         assert_eq!(
-            primary_device_command(&device("AA:BB", "Headphones", false, false)),
+            primary_device_command(
+                &device("AA:BB", "Headphones", false, false),
+                DeviceSection::Nearby
+            ),
             Command::Pair {
                 address: "AA:BB".into()
+            }
+        );
+    }
+
+    #[test]
+    fn trusted_paired_device_primary_command_connects() {
+        let mut device = device("AA:BB:CC:DD:EE:01", "Keyboard", false, false);
+        device.trusted = true;
+
+        assert_eq!(
+            primary_device_command(&device, DeviceSection::Paired),
+            Command::Connect {
+                address: "AA:BB:CC:DD:EE:01".into()
             }
         );
     }
@@ -577,7 +1132,7 @@ mod tests {
     }
 
     #[test]
-    fn device_items_hide_raw_uninteresting_addresses() {
+    fn device_sections_hide_raw_uninteresting_addresses() {
         let state = State {
             health: BluetoothServiceHealth::Ready,
             snapshot: BluetoothSnapshot {
@@ -591,14 +1146,41 @@ mod tests {
             active_action: None,
         };
 
-        let items = build_device_items(&state);
+        let sections = device_sections(&state);
 
-        assert_eq!(items.len(), 1);
-        assert_eq!(items[0].label, "Mouse");
+        assert!(sections.connected.is_empty());
+        assert!(sections.paired.is_empty());
+        assert_eq!(sections.nearby.len(), 1);
+        assert_eq!(sections.nearby[0].label, "Mouse");
     }
 
     #[test]
-    fn device_item_status_is_battery_percentage_when_available() {
+    fn device_sections_split_connected_paired_and_nearby() {
+        let connected = device("AA:BB:CC:DD:EE:00", "Speaker", true, true);
+        let paired = device("AA:BB:CC:DD:EE:01", "Headphones", false, true);
+        let nearby = device("AA:BB:CC:DD:EE:02", "Keyboard", false, false);
+        let state = State {
+            health: BluetoothServiceHealth::Ready,
+            snapshot: BluetoothSnapshot {
+                status: BluetoothStatus::default(),
+                adapters: vec![],
+                devices: vec![nearby, paired, connected],
+            },
+            active_action: None,
+        };
+
+        let sections = device_sections(&state);
+
+        assert_eq!(sections.connected.len(), 1);
+        assert_eq!(sections.connected[0].label, "Speaker");
+        assert_eq!(sections.paired.len(), 1);
+        assert_eq!(sections.paired[0].label, "Headphones");
+        assert_eq!(sections.nearby.len(), 1);
+        assert_eq!(sections.nearby[0].label, "Keyboard");
+    }
+
+    #[test]
+    fn device_row_status_is_battery_percentage_when_available() {
         let mut device = device("AA:BB:CC:DD:EE:02", "Mouse", true, true);
         device.battery = Some(75);
         let state = State {
@@ -611,15 +1193,15 @@ mod tests {
             active_action: None,
         };
 
-        let items = build_device_items(&state);
+        let sections = device_sections(&state);
 
-        assert_eq!(items[0].status, "75%");
-        assert!(!items[0].busy);
-        assert!(items[0].active);
+        assert_eq!(sections.connected[0].status.as_deref(), Some("75%"));
+        assert!(!sections.connected[0].busy);
+        assert!(sections.connected[0].active);
     }
 
     #[test]
-    fn connecting_device_item_sets_busy_status_slot() {
+    fn connecting_device_row_sets_busy_status() {
         let device = device("AA:BB:CC:DD:EE:02", "Mouse", false, true);
         let state = State {
             health: BluetoothServiceHealth::Ready,
@@ -633,13 +1215,13 @@ mod tests {
             }),
         };
 
-        let items = build_device_items(&state);
+        let sections = device_sections(&state);
 
-        assert!(items[0].busy);
+        assert!(sections.paired[0].busy);
     }
 
     #[test]
-    fn pairing_device_item_sets_busy_status_slot() {
+    fn pairing_device_row_sets_busy_status() {
         let device = device("AA:BB:CC:DD:EE:02", "Mouse", false, false);
         let state = State {
             health: BluetoothServiceHealth::Ready,
@@ -653,77 +1235,121 @@ mod tests {
             }),
         };
 
-        let items = build_device_items(&state);
+        let sections = device_sections(&state);
 
-        assert!(items[0].busy);
+        assert!(sections.nearby[0].busy);
     }
 
     #[test]
-    fn optimistic_busy_marks_clicked_pair_or_connect_device() {
-        assert_eq!(
-            optimistic_busy_address(&Command::Pair {
-                address: "AA:BB".into()
-            }),
-            Some("AA:BB")
-        );
-        assert_eq!(
-            optimistic_busy_address(&Command::Connect {
-                address: "AA:BB".into()
-            }),
-            Some("AA:BB")
-        );
-        assert_eq!(optimistic_busy_address(&Command::SetPowered(true)), None);
+    fn connected_device_exposes_expanded_actions() {
+        let device = device("AA:BB:CC:DD:EE:02", "Mouse", true, true);
+        let actions = device_actions(&device, DeviceSection::Connected);
 
-        let mut items = vec![
-            DeviceListItem {
-                id: "AA:BB".into(),
-                icon: String::new(),
-                label: "Headphones".into(),
-                status: String::new(),
-                busy: false,
-                tooltip: None,
-                chips: Vec::new(),
-                secondary_status: None,
-                active: false,
-                visible: true,
-                command: Some(Command::Pair {
-                    address: "AA:BB".into(),
-                }),
-                actions: Vec::new(),
-                primary_action: None,
-            },
-            DeviceListItem {
-                id: "CC:DD".into(),
-                icon: String::new(),
-                label: "Mouse".into(),
-                status: String::new(),
-                busy: true,
-                tooltip: None,
-                chips: Vec::new(),
-                secondary_status: None,
-                active: false,
-                visible: true,
-                command: Some(Command::Pair {
-                    address: "CC:DD".into(),
-                }),
-                actions: Vec::new(),
-                primary_action: None,
-            },
-        ];
-
-        assert!(mark_device_busy(&mut items, "AA:BB"));
-        assert!(items[0].busy);
-        assert!(!items[1].busy);
+        assert_eq!(actions[0].id, "trust");
+        assert_eq!(actions[1].id, "forget");
+        assert!(actions[1].destructive);
     }
 
     #[test]
-    fn paired_device_exposes_connect_trust_and_forget_actions() {
-        let device = device("AA:BB:CC:DD:EE:02", "Mouse", false, true);
-        let actions = device_actions(&device);
+    fn paired_and_nearby_rows_have_no_expanded_payload() {
+        let state = State {
+            health: BluetoothServiceHealth::Ready,
+            snapshot: BluetoothSnapshot {
+                status: BluetoothStatus::default(),
+                adapters: vec![],
+                devices: vec![
+                    device("AA:BB:CC:DD:EE:01", "Mouse", false, true),
+                    device("AA:BB:CC:DD:EE:02", "Keyboard", false, false),
+                ],
+            },
+            active_action: None,
+        };
 
-        assert_eq!(actions[0].id, "connect");
-        assert_eq!(actions[1].id, "trust");
-        assert_eq!(actions[2].id, "forget");
-        assert!(actions[2].destructive);
+        let sections = device_sections(&state);
+
+        assert!(sections.paired[0].details.is_empty());
+        assert!(sections.paired[0].actions.is_empty());
+        assert!(sections.nearby[0].details.is_empty());
+        assert!(sections.nearby[0].actions.is_empty());
+    }
+
+    #[test]
+    fn discoverable_command_targets_powered_adapter() {
+        let state = State {
+            health: BluetoothServiceHealth::Ready,
+            snapshot: BluetoothSnapshot {
+                status: BluetoothStatus::default(),
+                adapters: vec![
+                    BluetoothAdapter {
+                        path: "/org/bluez/hci0".into(),
+                        powered: false,
+                        ..adapter("/org/bluez/hci0")
+                    },
+                    BluetoothAdapter {
+                        path: "/org/bluez/hci1".into(),
+                        powered: true,
+                        ..adapter("/org/bluez/hci1")
+                    },
+                ],
+                devices: vec![],
+            },
+            active_action: None,
+        };
+
+        assert_eq!(
+            discoverable_command(&state, true),
+            Some(Command::SetAdapterDiscoverable {
+                adapter_path: "/org/bluez/hci1".into(),
+                discoverable: true,
+            })
+        );
+    }
+
+    #[test]
+    fn pending_discoverable_keeps_optimistic_value_until_snapshot_matches() {
+        let mut pending = Some(PendingDiscoverable::new(true, 7));
+
+        assert!(reconcile_pending_discoverable(&mut pending, false));
+        assert_eq!(
+            pending,
+            Some(PendingDiscoverable {
+                value: true,
+                generation: 7,
+            })
+        );
+
+        assert!(reconcile_pending_discoverable(&mut pending, false));
+        assert_eq!(
+            pending,
+            Some(PendingDiscoverable {
+                value: true,
+                generation: 7,
+            })
+        );
+
+        assert!(reconcile_pending_discoverable(&mut pending, true));
+        assert_eq!(pending, None);
+    }
+
+    #[test]
+    fn pending_discoverable_expires_only_matching_generation() {
+        let mut pending = Some(PendingDiscoverable::new(true, 7));
+
+        assert!(!expire_pending_discoverable(&mut pending, 6));
+        assert_eq!(pending, Some(PendingDiscoverable::new(true, 7)));
+
+        assert!(expire_pending_discoverable(&mut pending, 7));
+        assert_eq!(pending, None);
+    }
+
+    #[test]
+    fn expired_pending_discoverable_reveals_actual_snapshot_value() {
+        let mut pending = Some(PendingDiscoverable::new(true, 7));
+
+        assert!(reconcile_pending_discoverable(&mut pending, false));
+        assert!(expire_pending_discoverable(&mut pending, 7));
+
+        assert_eq!(pending, None);
+        assert!(!reconcile_pending_discoverable(&mut pending, false));
     }
 }

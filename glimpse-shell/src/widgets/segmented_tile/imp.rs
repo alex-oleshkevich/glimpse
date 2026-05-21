@@ -14,6 +14,8 @@ pub struct SegmentedTile {
     #[template_child]
     pub secondary_label: TemplateChild<gtk4::Label>,
     #[template_child]
+    pub right_slot: TemplateChild<gtk4::Box>,
+    #[template_child]
     pub expander: TemplateChild<gtk4::Box>,
     #[template_child]
     pub chevron: TemplateChild<gtk4::Image>,

@@ -42,6 +42,19 @@ impl SegmentedTile {
         }
     }
 
+    pub fn set_right(&self, child: Option<impl IsA<gtk4::Widget>>) {
+        let slot = &self.imp().right_slot;
+        if let Some(w) = slot.first_child() {
+            slot.remove(&w);
+        }
+        if let Some(w) = child {
+            slot.append(&w);
+            slot.set_visible(true);
+        } else {
+            slot.set_visible(false);
+        }
+    }
+
     pub fn set_child(&self, child: Option<impl IsA<gtk4::Widget>>) {
         let slot = &self.imp().child_slot;
         if let Some(w) = slot.first_child() {

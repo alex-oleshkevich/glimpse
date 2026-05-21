@@ -43,7 +43,13 @@ impl SwitchTile {
     }
 
     pub fn set_active(&self, active: bool) {
-        self.imp().toggle.set_active(active);
+        let toggle = &self.imp().toggle;
+        if toggle.is_active() != active {
+            toggle.set_active(active);
+        }
+        if toggle.state() != active {
+            toggle.set_state(active);
+        }
     }
 
     pub fn is_active(&self) -> bool {
@@ -105,7 +111,9 @@ mod tests {
         }
         let tile = SwitchTile::new();
         assert!(!tile.is_active());
+        assert!(!tile.imp().toggle.state());
         tile.set_active(true);
         assert!(tile.is_active());
+        assert!(tile.imp().toggle.state());
     }
 }

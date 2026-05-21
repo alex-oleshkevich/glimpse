@@ -39,7 +39,7 @@ impl SliderTile {
     }
 
     pub fn set_value(&self, value: f64) {
-        self.imp().slider.set_value(value);
+        self.imp().slider.set_value(self.snapped_value(value));
     }
 
     pub fn value(&self) -> f64 {
@@ -50,6 +50,20 @@ impl SliderTile {
         self.imp().slider.set_range(min, max);
     }
 
+    pub fn set_increments(&self, step: f64, page: f64) {
+        self.imp().slider.set_increments(step, page);
+    }
+
+    pub fn set_digits(&self, digits: i32) {
+        self.imp().slider.set_digits(digits);
+    }
+
+    pub fn set_snap_step(&self, step: Option<f64>) {
+        let step = step.filter(|step| step.is_finite() && *step > 0.0);
+        self.imp().snap_step.set(step);
+        self.set_value(self.value());
+    }
+
     pub fn connect_changed(&self, f: impl Fn(&Self, f64) + 'static) -> glib::SignalHandlerId {
         self.connect_closure(
             "changed",
@@ -57,6 +71,19 @@ impl SliderTile {
             closure_local!(move |tile: &Self, value: f64| f(tile, value)),
         )
     }
+
+    pub(super) fn snapped_value(&self, value: f64) -> f64 {
+        let Some(step) = self.imp().snap_step.get() else {
+            return value;
+        };
+        let adjustment = self.imp().slider.adjustment();
+        snap_value(value, adjustment.lower(), adjustment.upper(), step)
+    }
+}
+
+fn snap_value(value: f64, lower: f64, upper: f64, step: f64) -> f64 {
+    let snapped = lower + ((value - lower) / step).round() * step;
+    snapped.clamp(lower, upper)
 }
 
 impl Default for SliderTile {
@@ -96,5 +123,13 @@ mod tests {
         let tile = SliderTile::new();
         tile.set_value(0.75);
         assert_eq!(tile.value(), 0.75);
+    }
+
+    #[test]
+    fn snap_value_rounds_to_step_and_clamps_to_range() {
+        assert_eq!(snap_value(1.4, 0.0, 3.0, 1.0), 1.0);
+        assert_eq!(snap_value(1.6, 0.0, 3.0, 1.0), 2.0);
+        assert_eq!(snap_value(3.6, 0.0, 3.0, 1.0), 3.0);
+        assert_eq!(snap_value(-0.6, 0.0, 3.0, 1.0), 0.0);
     }
 }

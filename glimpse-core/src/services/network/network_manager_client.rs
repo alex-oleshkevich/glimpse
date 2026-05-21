@@ -9,12 +9,12 @@ use tokio_util::sync::CancellationToken;
 use zbus::{
     MatchRule, MessageStream,
     message::Type,
-    zvariant::{ObjectPath, OwnedValue, Value},
+    zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value},
 };
 
 use crate::dbus::network_manager::{
     AccessPointProxy, ActiveConnectionProxy, DeviceProxy, DeviceWiredProxy, DeviceWirelessProxy,
-    NetworkManagerProxy, SettingsConnectionProxy, SettingsProxy,
+    Ip4ConfigProxy, Ip6ConfigProxy, NetworkManagerProxy, SettingsConnectionProxy, SettingsProxy,
 };
 
 use super::{
@@ -374,6 +374,22 @@ impl NetworkManagerClient {
             } else {
                 false
             };
+            let ip4_addresses = self
+                .read_ip4_addresses(device.ip4_config().await.ok())
+                .await;
+            let ip6_addresses = self
+                .read_ip6_addresses(device.ip6_config().await.ok())
+                .await;
+
+            tracing::debug!(
+                path = %path,
+                interface = %interface,
+                device_type = device_type,
+                state = device_state_text(state),
+                speed,
+                carrier = ?carrier,
+                "network: device discovered"
+            );
 
             devices.push(NetworkDevice {
                 path: path.to_string(),
@@ -392,6 +408,8 @@ impl NetworkManagerClient {
                 managed: device.managed().await.unwrap_or(true),
                 mtu: device.mtu().await.ok().filter(|value| *value > 0),
                 hotspot_supported,
+                ip4_addresses,
+                ip6_addresses,
             });
         }
         Ok(devices)
@@ -437,6 +455,27 @@ impl NetworkManagerClient {
                     _ => 0,
                 };
             }
+            let mut ip4_addresses = self
+                .read_ip4_addresses(active.ip4_config().await.ok())
+                .await;
+            let mut ip6_addresses = self
+                .read_ip6_addresses(active.ip6_config().await.ok())
+                .await;
+            if (ip4_addresses.is_empty() || ip6_addresses.is_empty())
+                && is_real_path(&device_path)
+                && let Ok(device) = self.device_proxy(&device_path).await
+            {
+                if ip4_addresses.is_empty() {
+                    ip4_addresses = self
+                        .read_ip4_addresses(device.ip4_config().await.ok())
+                        .await;
+                }
+                if ip6_addresses.is_empty() {
+                    ip6_addresses = self
+                        .read_ip6_addresses(device.ip6_config().await.ok())
+                        .await;
+                }
+            }
 
             let connection_type = connection_type_text(&raw_type);
             if (connection_type == "wifi" || connection_type == "ethernet") && state == 2 {
@@ -455,6 +494,8 @@ impl NetworkManagerClient {
                 failure: active_connection_failure_classification(state, state_reason),
                 vpn,
                 speed,
+                ip4_addresses,
+                ip6_addresses,
             });
         }
         Ok(connections)
@@ -496,6 +537,11 @@ impl NetworkManagerClient {
                     access_point_path.as_str(),
                 );
                 let connected = connected_uuid.is_some();
+                let connected_connection = connected_uuid.as_ref().and_then(|uuid| {
+                    connections
+                        .iter()
+                        .find(|connection| connection.uuid == *uuid)
+                });
                 let saved_profiles = saved_wifi.get(&ssid);
                 let saved_uuid = preferred_saved_wifi_profile(
                     saved_profiles.map(|profiles| profiles.as_slice()),
@@ -513,6 +559,12 @@ impl NetworkManagerClient {
                     connected,
                     saved: saved_profiles.is_some() || connected,
                     uuid: connected_uuid.or(saved_uuid),
+                    ip4_addresses: connected_connection
+                        .map(|connection| connection.ip4_addresses.clone())
+                        .unwrap_or_default(),
+                    ip6_addresses: connected_connection
+                        .map(|connection| connection.ip6_addresses.clone())
+                        .unwrap_or_default(),
                 });
             }
         }
@@ -613,14 +665,14 @@ impl NetworkManagerClient {
         &self,
         connections: &[NetworkConnection],
     ) -> anyhow::Result<Vec<SavedVpn>> {
-        let active_vpns: HashMap<String, String> = connections
+        let active_vpns: HashMap<String, &NetworkConnection> = connections
             .iter()
             .filter(|connection| {
                 connection.vpn
                     || connection.connection_type == "vpn"
                     || connection.connection_type == "wireguard"
             })
-            .map(|connection| (connection.uuid.clone(), connection.state.clone()))
+            .map(|connection| (connection.uuid.clone(), connection))
             .collect();
 
         let mut saved_vpns = Vec::new();
@@ -646,7 +698,7 @@ impl NetworkManagerClient {
                 .get("uuid")
                 .and_then(owned_value_to_string)
                 .unwrap_or_default();
-            let active_state = active_vpns.get(&uuid);
+            let active_connection = active_vpns.get(&uuid);
             saved_vpns.push(SavedVpn {
                 id: connection_section
                     .get("id")
@@ -655,8 +707,14 @@ impl NetworkManagerClient {
                 uuid,
                 settings_path: path.to_string(),
                 connection_type: connection_type_text(&connection_type).into(),
-                active: active_state.is_some(),
-                state: active_state.cloned(),
+                active: active_connection.is_some(),
+                state: active_connection.map(|connection| connection.state.clone()),
+                ip4_addresses: active_connection
+                    .map(|connection| connection.ip4_addresses.clone())
+                    .unwrap_or_default(),
+                ip6_addresses: active_connection
+                    .map(|connection| connection.ip6_addresses.clone())
+                    .unwrap_or_default(),
             });
         }
         Ok(saved_vpns)
@@ -815,6 +873,64 @@ impl NetworkManagerClient {
             .build()
             .await
             .map_err(Into::into)
+    }
+
+    async fn ip4_config_proxy<'a>(&'a self, path: &'a str) -> anyhow::Result<Ip4ConfigProxy<'a>> {
+        Ip4ConfigProxy::builder(&self.conn)
+            .path(path)?
+            .build()
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn ip6_config_proxy<'a>(&'a self, path: &'a str) -> anyhow::Result<Ip6ConfigProxy<'a>> {
+        Ip6ConfigProxy::builder(&self.conn)
+            .path(path)?
+            .build()
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn read_ip4_addresses(&self, config_path: Option<OwnedObjectPath>) -> Vec<String> {
+        let Some(config_path) = config_path else {
+            return Vec::new();
+        };
+        if !is_real_path(config_path.as_str()) {
+            return Vec::new();
+        }
+
+        match self.ip4_config_proxy(config_path.as_str()).await {
+            Ok(config) => config
+                .address_data()
+                .await
+                .map(|address_data| address_data_text(&address_data))
+                .unwrap_or_default(),
+            Err(error) => {
+                tracing::debug!(%config_path, %error, "network: failed to read IPv4 config");
+                Vec::new()
+            }
+        }
+    }
+
+    async fn read_ip6_addresses(&self, config_path: Option<OwnedObjectPath>) -> Vec<String> {
+        let Some(config_path) = config_path else {
+            return Vec::new();
+        };
+        if !is_real_path(config_path.as_str()) {
+            return Vec::new();
+        }
+
+        match self.ip6_config_proxy(config_path.as_str()).await {
+            Ok(config) => config
+                .address_data()
+                .await
+                .map(|address_data| address_data_text(&address_data))
+                .unwrap_or_default(),
+            Err(error) => {
+                tracing::debug!(%config_path, %error, "network: failed to read IPv6 config");
+                Vec::new()
+            }
+        }
     }
 
     async fn match_stream(&self, member: &'static str) -> anyhow::Result<MessageStream> {
@@ -1116,10 +1232,31 @@ fn owned_value_to_string(value: &OwnedValue) -> Option<String> {
     String::try_from(value.clone()).ok()
 }
 
+fn owned_value_to_u32(value: &OwnedValue) -> Option<u32> {
+    u32::try_from(value.clone()).ok()
+}
+
 fn owned_value_to_ssid(value: &OwnedValue) -> Option<String> {
     Vec::<u8>::try_from(value.clone())
         .ok()
         .map(|bytes| String::from_utf8_lossy(&bytes).to_string())
+}
+
+fn address_data_text(address_data: &[HashMap<String, OwnedValue>]) -> Vec<String> {
+    address_data
+        .iter()
+        .filter_map(|entry| {
+            let address = entry
+                .get("address")
+                .and_then(owned_value_to_string)
+                .filter(|address| !address.is_empty())?;
+            let prefix = entry.get("prefix").and_then(owned_value_to_u32);
+            Some(match prefix {
+                Some(prefix) => format!("{address}/{prefix}"),
+                None => address,
+            })
+        })
+        .collect()
 }
 
 #[cfg(test)]

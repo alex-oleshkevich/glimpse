@@ -1,6 +1,6 @@
 mod imp;
 
-use std::time::Duration;
+use std::{cell::Cell, rc::Rc, time::Duration};
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 use relm4::{ContainerChild, RelmContainerExt};
@@ -48,8 +48,14 @@ impl AnimatedPopover {
         }
 
         let weak = self.downgrade();
-        glib::idle_add_local_once(move || {
-            let Some(w) = weak.upgrade() else { return };
+        let frame_seen = Rc::new(Cell::new(false));
+        self.add_tick_callback(move |_, _| {
+            if !frame_seen.replace(true) {
+                return glib::ControlFlow::Continue;
+            }
+            let Some(w) = weak.upgrade() else {
+                return glib::ControlFlow::Break;
+            };
             let imp = w.imp();
             if imp.generation.get() != epoch {
                 tracing::warn!(
@@ -57,18 +63,19 @@ impl AnimatedPopover {
                     actual = imp.generation.get(),
                     "AnimatedPopover: idle skipped — generation changed"
                 );
-                return;
+                return glib::ControlFlow::Break;
             }
             if imp.state.get() != AnimationState::Opening {
                 tracing::warn!(
                     state = ?imp.state.get(),
                     "AnimatedPopover: idle skipped — state changed from Opening"
                 );
-                return;
+                return glib::ControlFlow::Break;
             }
             w.add_css_class(OPEN_CLASS);
             imp.state.set(AnimationState::Open);
             tracing::debug!("AnimatedPopover: open class applied");
+            glib::ControlFlow::Break
         });
     }
 

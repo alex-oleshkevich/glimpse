@@ -50,6 +50,14 @@ impl Hero {
         self.imp().separator.set_visible(visible);
     }
 
+    pub fn append_trailing(&self, widget: &impl gtk4::prelude::IsA<gtk4::Widget>) {
+        self.imp().trailing.append(widget);
+    }
+
+    pub fn set_toggle_visible(&self, visible: bool) {
+        self.imp().toggle.set_visible(visible);
+    }
+
     pub fn connect_toggled(&self, f: impl Fn(&Self, bool) + 'static) -> glib::SignalHandlerId {
         self.connect_closure(
             "toggled",

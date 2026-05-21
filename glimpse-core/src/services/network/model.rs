@@ -24,6 +24,8 @@ pub struct WifiAccessPoint {
     pub connected: bool,
     pub saved: bool,
     pub uuid: Option<String>,
+    pub ip4_addresses: Vec<String>,
+    pub ip6_addresses: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -39,6 +41,8 @@ pub struct NetworkConnection {
     pub failure: Option<NetworkFailureClassification>,
     pub vpn: bool,
     pub speed: u32,
+    pub ip4_addresses: Vec<String>,
+    pub ip6_addresses: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -55,6 +59,8 @@ pub struct NetworkDevice {
     pub managed: bool,
     pub mtu: Option<u32>,
     pub hotspot_supported: bool,
+    pub ip4_addresses: Vec<String>,
+    pub ip6_addresses: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -65,6 +71,8 @@ pub struct SavedVpn {
     pub connection_type: String,
     pub active: bool,
     pub state: Option<String>,
+    pub ip4_addresses: Vec<String>,
+    pub ip6_addresses: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

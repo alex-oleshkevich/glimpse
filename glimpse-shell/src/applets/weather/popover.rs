@@ -8,10 +8,10 @@ use glimpse_core::services::weather::model::State;
 use crate::widgets::{
     animated_popover::AnimatedPopover,
     expander_tile::ExpanderTile,
+    hero::Hero,
     key_value_grid::KeyValueGrid,
     popover_shell::PopoverShell,
     weather_forecast_list::{WeatherForecastItem, WeatherForecastList},
-    weather_hero::WeatherHero,
     weather_hourly_strip::{WeatherHourlyItem, WeatherHourlyStrip},
 };
 
@@ -19,13 +19,13 @@ use super::format::{self, build_detail_rows, forecast_items, hero_summary};
 
 pub struct Popover {
     popover: AnimatedPopover,
+    hero: Hero,
+    hero_temp_label: gtk::Label,
     hourly: WeatherHourlyStrip,
     details_grid: KeyValueGrid,
     forecast_list: WeatherForecastList,
-    hero_icon: String,
-    hero_location: String,
-    hero_condition: String,
-    hero_temperature: String,
+    hero_title: String,
+    hero_subtitle: String,
     hourly_visible: bool,
     forecast_visible: bool,
     details_visible: bool,
@@ -70,11 +70,9 @@ impl SimpleComponent for Popover {
                 set_footer_visible: false,
 
                 #[local_ref]
-                hero_widget -> WeatherHero {
-                    #[watch] set_icon: &model.hero_icon,
-                    #[watch] set_location: &model.hero_condition,
-                    #[watch] set_condition: &model.hero_location,
-                    #[watch] set_temperature: &model.hero_temperature,
+                hero_widget -> Hero {
+                    #[watch] set_title: &model.hero_title,
+                    #[watch] set_subtitle: &model.hero_subtitle,
                 },
 
                 gtk::Separator {
@@ -113,7 +111,16 @@ impl SimpleComponent for Popover {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        let hero = WeatherHero::new();
+        let hero = Hero::new();
+        hero.set_icon_size(32);
+        hero.set_trailing_visible(true);
+        hero.set_toggle_visible(false);
+        hero.set_separator_visible(false);
+
+        let hero_temp_label = gtk::Label::new(Some("—"));
+        hero_temp_label.add_css_class("weather-hero-temp");
+        hero.append_trailing(&hero_temp_label);
+
         let hourly = WeatherHourlyStrip::new();
         let details_grid = KeyValueGrid::new();
         let forecast_list = WeatherForecastList::new();
@@ -124,13 +131,13 @@ impl SimpleComponent for Popover {
 
         let model = Popover {
             popover: root.clone(),
+            hero: hero.clone(),
+            hero_temp_label,
             hourly: hourly.clone(),
             details_grid: details_grid.clone(),
             forecast_list: forecast_list.clone(),
-            hero_icon: "weather-overcast-symbolic".into(),
-            hero_location: String::new(),
-            hero_condition: String::new(),
-            hero_temperature: "—".into(),
+            hero_title: String::new(),
+            hero_subtitle: String::new(),
             hourly_visible: false,
             forecast_visible: false,
             details_visible: false,
@@ -156,10 +163,11 @@ impl Popover {
     fn apply_state(&mut self, state: &State) {
         match state {
             State::Ready(snapshot) => {
-                self.hero_icon = snapshot.current.icon.clone();
-                self.hero_location = snapshot.location.city.clone();
-                self.hero_condition = hero_summary(&snapshot.current);
-                self.hero_temperature = format::temperature(snapshot.current.temperature);
+                self.hero.set_icon(Some(&snapshot.current.icon));
+                self.hero_temp_label
+                    .set_text(&format::temperature(snapshot.current.temperature));
+                self.hero_title = hero_summary(&snapshot.current);
+                self.hero_subtitle = snapshot.location.city.clone();
 
                 let hourly: Vec<WeatherHourlyItem> = snapshot
                     .hourly
@@ -213,10 +221,10 @@ impl Popover {
     }
 
     fn set_unavailable(&mut self, message: &str) {
-        self.hero_icon = "weather-overcast-symbolic".into();
-        self.hero_location = String::new();
-        self.hero_condition = message.into();
-        self.hero_temperature = "—".into();
+        self.hero.set_icon(Some("weather-overcast-symbolic"));
+        self.hero_temp_label.set_text("—");
+        self.hero_title = message.into();
+        self.hero_subtitle = String::new();
         self.hourly_visible = false;
         self.forecast_visible = false;
         self.details_visible = false;

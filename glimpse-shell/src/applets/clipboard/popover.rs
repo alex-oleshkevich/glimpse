@@ -5,8 +5,9 @@ use relm4::{
     gtk::{self, gio, prelude::*},
 };
 
-use crate::components::{
-    animated_popover::AnimatedPopover, hero::HeroView, popover_scroll, popover_shell::PopoverShell,
+use crate::{
+    components::popover_scroll,
+    widgets::{animated_popover::AnimatedPopover, hero::Hero, popover_shell::PopoverShell},
 };
 use glimpse_core::services::clipboard::{ClipboardEntry, Command, State};
 
@@ -16,14 +17,12 @@ use super::{
 };
 
 pub struct Popover {
-    animation: AnimatedPopover,
+    popover: AnimatedPopover,
     state: State,
     rows: HashMap<u64, ClipboardHistoryRow>,
     list: gtk::Box,
     scroller: gtk::ScrolledWindow,
     empty: gtk::Box,
-    hero_icon: gtk::Image,
-    hero_subtitle: gtk::Label,
 }
 
 pub struct PopoverInit {
@@ -52,62 +51,56 @@ impl SimpleComponent for Popover {
     type Output = PopoverOutput;
 
     view! {
-        root = gtk::Popover {
+        root = AnimatedPopover {
             add_css_class: "clipboard-popover",
             add_css_class: "popover-size-medium",
             set_hexpand: false,
+            set_autohide: true,
 
-            #[template]
             PopoverShell {
-                #[template_child]
-                content {
-                    #[name = "hero"]
-                    #[template]
-                    HeroView {},
+                set_footer_visible: false,
 
-                    gtk::Separator {
-                        set_orientation: gtk::Orientation::Horizontal,
+                Hero {
+                    #[watch]
+                    set_icon: Some(format::icon_name(&model.state)),
+                    set_title: "Clipboard",
+                    #[watch]
+                    set_subtitle: &format::hero_subtitle(&model.state),
+                },
+
+                #[name = "empty"]
+                gtk::Box {
+                    set_orientation: gtk::Orientation::Vertical,
+                    set_spacing: 4,
+                    set_halign: gtk::Align::Center,
+                    set_valign: gtk::Align::Center,
+                    set_vexpand: true,
+                    set_hexpand: true,
+                    add_css_class: "empty-state",
+
+                    gtk::Label {
+                        add_css_class: "empty-state__title",
+                        set_label: "No clipboard items",
                     },
 
-                    #[name = "empty"]
-                    gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_spacing: 4,
-                        set_halign: gtk::Align::Center,
-                        set_valign: gtk::Align::Center,
-                        set_vexpand: true,
-                        set_hexpand: true,
-                        add_css_class: "empty-state",
-
-                        gtk::Label {
-                            add_css_class: "empty-state__title",
-                            set_label: "No clipboard items",
-                        },
-
-                        gtk::Label {
-                            add_css_class: "empty-state__subtitle",
-                            set_label: "Copy something to start history.",
-                        },
-                    },
-
-                    #[name = "scroller"]
-                    gtk::ScrolledWindow {
-                        set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
-                        set_vexpand: true,
-                        set_propagate_natural_height: true,
-
-                        #[name = "list"]
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Vertical,
-                            set_spacing: 2,
-                            add_css_class: "clipboard-list",
-                        },
+                    gtk::Label {
+                        add_css_class: "empty-state__subtitle",
+                        set_label: "Copy something to start history.",
                     },
                 },
 
-                #[template_child]
-                footer {
-                    set_visible: false,
+                #[name = "scroller"]
+                gtk::ScrolledWindow {
+                    set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
+                    set_vexpand: true,
+                    set_propagate_natural_height: true,
+
+                    #[name = "list"]
+                    gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+                        set_spacing: 2,
+                        add_css_class: "clipboard-list",
+                    },
                 },
             },
         }
@@ -118,10 +111,27 @@ impl SimpleComponent for Popover {
         _root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
+        let mut model = Popover {
+            popover: AnimatedPopover::new(),
+            state: State::default(),
+            rows: HashMap::new(),
+            list: gtk::Box::new(gtk::Orientation::Vertical, 2),
+            scroller: gtk::ScrolledWindow::new(),
+            empty: gtk::Box::new(gtk::Orientation::Vertical, 4),
+        };
+
         let widgets = view_output!();
+        model.popover = widgets.root.clone();
+        model.list = widgets.list.clone();
+        model.scroller = widgets.scroller.clone();
+        model.empty = widgets.empty.clone();
+
         widgets.root.set_parent(&init.parent);
-        widgets.root.set_autohide(true);
-        popover_scroll::install_half_monitor_limit(&widgets.root, &widgets.scroller, &init.parent);
+        popover_scroll::install_half_monitor_limit(
+            widgets.root.upcast_ref(),
+            &widgets.scroller,
+            &init.parent,
+        );
 
         let opened_sender = sender.clone();
         widgets.root.connect_show(move |_| {
@@ -133,27 +143,12 @@ impl SimpleComponent for Popover {
             let _ = closed_sender.output(PopoverOutput::Closed);
         });
 
-        widgets.hero.icon.set_icon_name(Some("edit-paste-symbolic"));
-        widgets.hero.title.set_label("Clipboard");
-        widgets.hero.subtitle.set_label("No items");
-
-        let model = Popover {
-            animation: AnimatedPopover::new(&widgets.root),
-            state: State::default(),
-            rows: HashMap::new(),
-            list: widgets.list.clone(),
-            scroller: widgets.scroller.clone(),
-            empty: widgets.empty.clone(),
-            hero_icon: widgets.hero.icon.clone(),
-            hero_subtitle: widgets.hero.subtitle.clone(),
-        };
-
         ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
-            PopoverInput::Toggle => self.animation.toggle(),
+            PopoverInput::Toggle => self.popover.toggle(),
             PopoverInput::UpdateState(state) => {
                 self.state = state;
                 self.sync(&sender);
@@ -169,11 +164,6 @@ impl Popover {
     fn sync(&mut self, sender: &ComponentSender<Self>) {
         let mut seen = HashSet::new();
         let mut previous: Option<gtk::Widget> = None;
-
-        self.hero_icon
-            .set_icon_name(Some(format::icon_name(&self.state)));
-        self.hero_subtitle
-            .set_label(&format::hero_subtitle(&self.state));
 
         for entry in &self.state.history {
             seen.insert(entry.id);

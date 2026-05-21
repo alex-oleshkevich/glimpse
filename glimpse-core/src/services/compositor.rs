@@ -471,6 +471,13 @@ impl CompositorService {
 
     fn check_all_off_and_schedule_recovery(&mut self, compositor: Compositor) {
         let monitors = self.state_tx.borrow().monitors.clone();
+        if let Some(target) =
+            pick_immediate_builtin_recovery_target(&monitors, self.builtin_override.as_deref())
+        {
+            self.recover_monitor_now(compositor, target.to_owned());
+            return;
+        }
+
         if !should_schedule_recovery(&monitors) {
             self.cancel_recovery();
             return;
@@ -517,10 +524,56 @@ impl CompositorService {
         });
         self.recovery_handle = Some(handle);
     }
+
+    fn recover_monitor_now(&mut self, compositor: Compositor, target: String) {
+        if self.recovery_handle.is_some() {
+            return;
+        }
+        if self
+            .recovery_cooldown_until
+            .is_some_and(|deadline| Instant::now() < deadline)
+        {
+            return;
+        }
+
+        let outcome_tx = self.recovery_outcome_tx.clone();
+        let handle = tokio::spawn(async move {
+            tracing::warn!(
+                monitor = %target,
+                "only connected display is disabled; enabling built-in display"
+            );
+            match compositor.set_monitor_enabled(&target, true).await {
+                Ok(()) => {
+                    let _ = outcome_tx.send(RecoveryOutcome::Succeeded);
+                }
+                Err(error) => {
+                    tracing::warn!(error = %error, monitor = %target, "immediate recovery failed");
+                    let _ = outcome_tx.send(RecoveryOutcome::Failed);
+                }
+            }
+        });
+        self.recovery_handle = Some(handle);
+    }
 }
 
 fn should_schedule_recovery(monitors: &[Monitor]) -> bool {
     !monitors.is_empty() && monitors.iter().all(|m| !m.enabled)
+}
+
+fn pick_immediate_builtin_recovery_target<'a>(
+    monitors: &'a [Monitor],
+    builtin_override: Option<&str>,
+) -> Option<&'a str> {
+    let [monitor] = monitors else {
+        return None;
+    };
+    if monitor.enabled {
+        return None;
+    }
+    if monitor.built_in || builtin_override == Some(monitor.name.as_str()) {
+        return Some(monitor.name.as_str());
+    }
+    None
 }
 
 /// Priority order: explicit override -> first `built_in==true` by name -> first by name alphabetical.
@@ -1116,6 +1169,53 @@ mod tests {
     #[test]
     fn pick_recovery_target_returns_none_for_empty() {
         assert_eq!(pick_recovery_target(&[], None), None);
+    }
+
+    #[test]
+    fn pick_immediate_builtin_recovery_target_selects_disabled_only_connected_builtin() {
+        let mut builtin = monitor("eDP-1", None, false);
+        builtin.enabled = false;
+        builtin.built_in = true;
+
+        assert_eq!(
+            pick_immediate_builtin_recovery_target(&[builtin], None),
+            Some("eDP-1")
+        );
+    }
+
+    #[test]
+    fn pick_immediate_builtin_recovery_target_waits_when_external_is_still_connected() {
+        let mut builtin = monitor("eDP-1", None, false);
+        builtin.enabled = false;
+        builtin.built_in = true;
+        let external = monitor("DP-2", None, false);
+
+        assert_eq!(
+            pick_immediate_builtin_recovery_target(&[builtin, external], None),
+            None
+        );
+    }
+
+    #[test]
+    fn pick_immediate_builtin_recovery_target_honours_explicit_builtin_override() {
+        let mut builtin = monitor("DP-3", None, false);
+        builtin.enabled = false;
+
+        assert_eq!(
+            pick_immediate_builtin_recovery_target(&[builtin], Some("DP-3")),
+            Some("DP-3")
+        );
+    }
+
+    #[test]
+    fn pick_immediate_builtin_recovery_target_ignores_enabled_builtin() {
+        let mut builtin = monitor("eDP-1", None, false);
+        builtin.built_in = true;
+
+        assert_eq!(
+            pick_immediate_builtin_recovery_target(&[builtin], None),
+            None
+        );
     }
 
     fn window(id: usize, focused: bool, workspace: Option<usize>) -> Window {

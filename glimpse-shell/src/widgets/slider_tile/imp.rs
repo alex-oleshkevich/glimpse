@@ -1,5 +1,6 @@
 use glib::subclass::Signal;
 use gtk4::{CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*};
+use std::cell::Cell;
 use std::sync::OnceLock;
 
 #[derive(Default, CompositeTemplate)]
@@ -11,6 +12,7 @@ pub struct SliderTile {
     pub left_slot: TemplateChild<gtk4::Box>,
     #[template_child]
     pub slider: TemplateChild<gtk4::Scale>,
+    pub snap_step: Cell<Option<f64>>,
 }
 
 #[glib::object_subclass]
@@ -35,7 +37,12 @@ impl ObjectImpl for SliderTile {
         let obj = self.obj().downgrade();
         self.slider.connect_value_changed(move |scale| {
             if let Some(tile) = obj.upgrade() {
-                tile.emit_by_name::<()>("changed", &[&scale.value()]);
+                let value = tile.snapped_value(scale.value());
+                if (scale.value() - value).abs() > f64::EPSILON {
+                    scale.set_value(value);
+                    return;
+                }
+                tile.emit_by_name::<()>("changed", &[&value]);
             }
         });
     }

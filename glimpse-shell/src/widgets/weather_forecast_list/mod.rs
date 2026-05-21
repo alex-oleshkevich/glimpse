@@ -32,10 +32,10 @@ impl WeatherForecastList {
             day.set_xalign(0.0);
             day.set_hexpand(true);
             day.add_css_class("weather-forecast-day");
-            day.set_tooltip_text(Some(&item.condition));
 
             let icon = gtk4::Image::from_icon_name(&item.icon);
             icon.set_pixel_size(18);
+            icon.set_tooltip_text(Some(&item.condition));
             icon.set_halign(gtk4::Align::Center);
             icon.set_valign(gtk4::Align::Center);
 

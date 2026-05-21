@@ -67,6 +67,16 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 </child>
               </object>
             </child>
+            <child>
+              <object class="GtkBox" id="right_slot">
+                <property name="halign">2</property>
+                <property name="valign">3</property>
+                <property name="visible">false</property>
+                <style>
+                  <class name="tile__right"/>
+                </style>
+              </object>
+            </child>
           </object>
         </child>
         <child>
