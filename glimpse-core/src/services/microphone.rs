@@ -9,7 +9,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 use crate::services::{
-    audio_events::{self, Event as AudioEvent},
+    audio_events,
     framework::{Control, ServiceCommand, ServiceHandle},
 };
 
@@ -119,15 +119,13 @@ impl MicrophoneService {
                 },
                 changed = events.changed() => match changed {
                     Ok(()) => {
-                        let event_state = events.borrow().clone();
-                        if !event_state.available {
+                        let available = events.borrow().available;
+                        if !available {
                             refresh_pending = false;
                             self.change_state(State::default());
-                        } else if event_state.event.is_none() || should_refresh(event_state.event) {
-                            if !refresh_pending {
-                                refresh_pending = true;
-                                refresh_timer.as_mut().reset(Instant::now() + REFRESH_DEBOUNCE);
-                            }
+                        } else if !refresh_pending {
+                            refresh_pending = true;
+                            refresh_timer.as_mut().reset(Instant::now() + REFRESH_DEBOUNCE);
                         }
                     }
                     Err(_) => return Ok(RunOutcome::RetryAfterDelay),
@@ -173,10 +171,6 @@ impl MicrophoneClient {
             usages: parse_microphone_usages(&data["source_outputs"]),
         })
     }
-}
-
-fn should_refresh(event: Option<AudioEvent>) -> bool {
-    matches!(event, Some(AudioEvent::SourceOutput))
 }
 
 async fn pactl_json(args: &[&str]) -> anyhow::Result<serde_json::Value> {
@@ -327,11 +321,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn should_refresh_only_for_source_output_events() {
-        assert!(should_refresh(Some(AudioEvent::SourceOutput)));
-        assert!(!should_refresh(Some(AudioEvent::Source)));
-        assert!(!should_refresh(Some(AudioEvent::Sink)));
-        assert!(!should_refresh(None));
-    }
 }

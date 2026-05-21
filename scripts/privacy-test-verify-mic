@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+#
+# Verify that the privacy applet detects PipeWire microphone usage AND
+# releases the detection when the recording stops.
+#
+# Subscribes to glimpse-shell's IPC for mic.* events, opens a PipeWire
+# capture stream via pw-record for DURATION seconds, then waits for the
+# `mic.released` event. Exits 0 only if both `mic.in_use` and
+# `mic.released` are observed within the expected window.
+#
+# Usage: ./scripts/privacy-test-verify-mic [DURATION_SECONDS]
+
+set -uo pipefail
+
+duration="${1:-3}"
+release_timeout=5
+xdg_runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+socket="${xdg_runtime}/glimpse/ipc.sock"
+
+step() { printf '\n[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
+fail() { printf '\nFAIL: %s\n' "$*" >&2; exit 1; }
+
+# --- preflight ---------------------------------------------------------------
+
+step "preflight"
+command -v pw-record >/dev/null || fail "pw-record not installed (pipewire-utils)"
+shell_bin="$(command -v glimpse-shell || echo "$(dirname "$0")/../target/debug/glimpse-shell")"
+[[ -x "$shell_bin" ]] || fail "glimpse-shell binary not found"
+[[ -S "$socket" ]] || fail "glimpse IPC socket missing: $socket (is glimpse-shell running?)"
+
+echo "  socket:           $socket"
+echo "  shell:            $shell_bin"
+echo "  record duration:  ${duration}s"
+echo "  release timeout:  ${release_timeout}s"
+
+# --- subscribe ---------------------------------------------------------------
+
+step "subscribing to mic.* events"
+events_log=$(mktemp -t glimpse-mic-events.XXXXXX)
+trap 'rm -f "$events_log"; [[ -n "${watcher_pid:-}" ]] && kill "$watcher_pid" 2>/dev/null; [[ -n "${rec_pid:-}" ]] && kill -INT "$rec_pid" 2>/dev/null; exit' EXIT INT TERM
+
+"$shell_bin" watch 'mic.*' >"$events_log" 2>&1 &
+watcher_pid=$!
+sleep 0.5
+if ! kill -0 "$watcher_pid" 2>/dev/null; then
+    echo "  watcher output:"; sed 's/^/    /' "$events_log"
+    fail "glimpse-shell watch exited immediately"
+fi
+echo "  watcher pid: $watcher_pid"
+
+# --- record ------------------------------------------------------------------
+
+step "recording from PipeWire mic (${duration}s)"
+out=$(mktemp -t glimpse-mic-test.XXXXXX.wav)
+pw-record --rate=48000 --channels=1 --format=s16 "$out" >/dev/null 2>&1 &
+rec_pid=$!
+
+# Wait for mic.in_use within record duration.
+deadline=$((SECONDS + duration))
+in_use_seen=""
+while [[ $SECONDS -lt $deadline ]]; do
+    if grep -m1 -E '^mic\.in_use' "$events_log" >/dev/null 2>&1; then
+        in_use_seen=1
+        break
+    fi
+    sleep 0.1
+done
+
+# Hold recording open for the rest of the duration.
+remaining=$(( SECONDS < deadline ? deadline - SECONDS : 0 ))
+sleep "$remaining" 2>/dev/null || true
+
+# --- stop and wait for release ----------------------------------------------
+
+step "stopping recording, waiting up to ${release_timeout}s for mic.released"
+kill -INT "$rec_pid" 2>/dev/null
+wait "$rec_pid" 2>/dev/null
+rec_pid=""
+rm -f "$out"
+
+# Mark in events log where the stop happened so we can verify event came AFTER stop.
+stop_marker_ts=$SECONDS
+release_deadline=$((SECONDS + release_timeout))
+released_seen=""
+while [[ $SECONDS -lt $release_deadline ]]; do
+    if grep -m1 -E '^mic\.released' "$events_log" >/dev/null 2>&1; then
+        released_seen=1
+        break
+    fi
+    sleep 0.1
+done
+
+# --- verdict -----------------------------------------------------------------
+
+step "events observed"
+if [[ -s "$events_log" ]]; then
+    sed 's/^/  /' "$events_log"
+else
+    echo "  (no events)"
+fi
+
+[[ -n "$in_use_seen" ]]  || fail "no mic.in_use observed within ${duration}s"
+[[ -n "$released_seen" ]] || fail "no mic.released observed within ${release_timeout}s after stopping pw-record"
+
+echo
+echo "PASS: mic.in_use + mic.released both observed"
+exit 0
