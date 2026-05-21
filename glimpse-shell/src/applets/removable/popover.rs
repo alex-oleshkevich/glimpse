@@ -40,8 +40,6 @@ pub enum PopoverInput {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PopoverOutput {
-    Opened,
-    Closed,
     Command(Command),
     OpenPath(PathBuf),
 }
@@ -121,7 +119,7 @@ impl SimpleComponent for Popover {
     fn init(
         init: Self::Init,
         _root: Self::Root,
-        sender: ComponentSender<Self>,
+        _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let list = gtk::Box::new(gtk::Orientation::Vertical, 2);
 
@@ -141,16 +139,6 @@ impl SimpleComponent for Popover {
             &init.parent,
         );
         model.list.set_visible(false);
-
-        let opened_sender = sender.clone();
-        widgets.root.connect_show(move |_| {
-            let _ = opened_sender.output(PopoverOutput::Opened);
-        });
-
-        let closed_sender = sender.clone();
-        widgets.root.connect_closed(move |_| {
-            let _ = closed_sender.output(PopoverOutput::Closed);
-        });
 
         ComponentParts { model, widgets }
     }

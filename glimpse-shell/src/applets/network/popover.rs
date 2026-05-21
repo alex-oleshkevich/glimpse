@@ -69,8 +69,6 @@ pub enum PopoverInput {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PopoverOutput {
-    Opened,
-    Closed,
     Command(Command),
 }
 
@@ -240,16 +238,6 @@ impl SimpleComponent for Popover {
             .wired_section
             .set_child(Some(model.wired_list.clone()));
         widgets.vpn_section.set_child(Some(model.vpn_list.clone()));
-
-        let opened_sender = sender.clone();
-        widgets.root.connect_show(move |_| {
-            let _ = opened_sender.output(PopoverOutput::Opened);
-        });
-
-        let closed_sender = sender.clone();
-        widgets.root.connect_closed(move |_| {
-            let _ = closed_sender.output(PopoverOutput::Closed);
-        });
 
         model.sync_toggles();
         model.sync_rows(&sender);

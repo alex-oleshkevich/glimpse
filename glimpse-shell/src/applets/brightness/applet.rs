@@ -67,7 +67,6 @@ pub struct Applet {
     service: BrightnessHandle,
     compositor: CompositorHandle,
     popover: Controller<Popover>,
-    popover_open: bool,
     brightness_cancel: CancellationToken,
     compositor_cancel: CancellationToken,
 }
@@ -166,7 +165,6 @@ impl SimpleComponent for Applet {
             service: init.service,
             compositor: init.compositor,
             popover,
-            popover_open: false,
             brightness_cancel: CancellationToken::new(),
             compositor_cancel: CancellationToken::new(),
         };
@@ -246,9 +244,7 @@ impl SimpleComponent for Applet {
             Input::CompositorStateChanged(state) => {
                 self.compositor_state = state;
                 self.apply_filtered_state();
-                if self.popover_open {
-                    self.sync_popover_monitors();
-                }
+                self.sync_popover_monitors();
             }
             Input::Reconfigure(config) => {
                 self.config = config;
@@ -275,17 +271,11 @@ impl SimpleComponent for Applet {
                 });
             }
             Input::TogglePopover => {
+                self.sync_popover_state();
+                self.send_command(Command::Refresh);
                 self.popover.emit(PopoverInput::Toggle);
             }
             Input::PopoverOutput(output) => match output {
-                PopoverOutput::Opened => {
-                    self.popover_open = true;
-                    self.sync_popover_state();
-                    self.send_command(Command::Refresh);
-                }
-                PopoverOutput::Closed => {
-                    self.popover_open = false;
-                }
                 PopoverOutput::Command(command) => {
                     self.send_command(command);
                 }
@@ -306,9 +296,7 @@ impl Applet {
         self.label = format::label(&self.config.label_format, &state);
         self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
         self.state = state.clone();
-        if self.popover_open {
-            self.popover.emit(PopoverInput::UpdateState(state));
-        }
+        self.popover.emit(PopoverInput::UpdateState(state));
     }
 
     fn sync_popover_state(&self) {
@@ -436,7 +424,7 @@ fn compositor_command_for_popover_output(output: &PopoverOutput) -> Option<Compo
                 on: *on,
             })
         }
-        PopoverOutput::Opened | PopoverOutput::Closed | PopoverOutput::Command(_) => None,
+        PopoverOutput::Command(_) => None,
     }
 }
 

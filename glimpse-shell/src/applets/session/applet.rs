@@ -223,12 +223,9 @@ impl SimpleComponent for Applet {
                 self.send_popover_state();
             }
             Input::TogglePopover => {
+                self.send_command(Command::Refresh);
                 self.popover.emit(PopoverInput::Toggle);
             }
-            Input::PopoverOutput(PopoverOutput::Opened) => {
-                self.send_command(Command::Refresh);
-            }
-            Input::PopoverOutput(PopoverOutput::Closed) => {}
             Input::PopoverOutput(PopoverOutput::ActionRequested(action)) => {
                 self.popover.emit(PopoverInput::Close);
                 if let Some(spec) = dialogs::confirmation_spec(action, &self.config) {

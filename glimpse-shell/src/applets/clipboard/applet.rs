@@ -66,7 +66,6 @@ pub struct Applet {
     refresh_action: gio::SimpleAction,
     clear_history_action: gio::SimpleAction,
     clear_clipboard_action: gio::SimpleAction,
-    popover_open: bool,
     subscription_cancel: CancellationToken,
 }
 
@@ -168,7 +167,6 @@ impl SimpleComponent for Applet {
             refresh_action,
             clear_history_action,
             clear_clipboard_action,
-            popover_open: false,
             subscription_cancel: CancellationToken::new(),
         };
 
@@ -217,6 +215,8 @@ impl SimpleComponent for Applet {
                 self.sync();
             }
             Input::TogglePopover => {
+                self.sync_popover_state();
+                self.send_command(Command::Refresh);
                 self.popover.emit(PopoverInput::Toggle);
             }
             Input::OpenActions => {
@@ -235,14 +235,6 @@ impl SimpleComponent for Applet {
                 self.action_popover.popdown();
                 self.send_command(Command::ClearClipboard);
             }
-            Input::PopoverOutput(PopoverOutput::Opened) => {
-                self.popover_open = true;
-                self.sync_popover_state();
-                self.send_command(Command::Refresh);
-            }
-            Input::PopoverOutput(PopoverOutput::Closed) => {
-                self.popover_open = false;
-            }
             Input::PopoverOutput(PopoverOutput::Command(command)) => {
                 self.send_command(command);
             }
@@ -259,9 +251,7 @@ impl Applet {
         self.icon_name = format::icon_name(&self.state).into();
         self.label = format::label(&self.config.label_format, &self.state);
         self.tooltip = format::tooltip(&self.config.tooltip_format, &self.state);
-        if self.popover_open {
-            self.sync_popover_state();
-        }
+        self.sync_popover_state();
         self.sync_action_menu();
     }
 

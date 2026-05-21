@@ -110,7 +110,6 @@ pub enum Input {
     PowerStateChanged(power::State),
     Reconfigure(Config),
     TogglePopover,
-    PopoverOutput(PopoverOutput),
     SetPowerProfile(String),
 }
 
@@ -166,7 +165,6 @@ impl SimpleComponent for Applet {
                 parent: root.clone(),
             })
             .forward(sender.input_sender(), |output| match output {
-                PopoverOutput::Opened | PopoverOutput::Closed => Input::PopoverOutput(output),
                 PopoverOutput::SetProfile(profile) => Input::SetPowerProfile(profile),
             });
 
@@ -269,9 +267,6 @@ impl SimpleComponent for Applet {
             Input::TogglePopover => {
                 self.popover.emit(PopoverInput::Toggle);
             }
-            Input::PopoverOutput(PopoverOutput::Opened) => {}
-            Input::PopoverOutput(PopoverOutput::Closed) => {}
-            Input::PopoverOutput(PopoverOutput::SetProfile(_)) => {}
             Input::SetPowerProfile(profile) => {
                 let service = self.power_service.clone();
                 relm4::spawn(async move {

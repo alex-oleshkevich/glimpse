@@ -65,7 +65,6 @@ pub struct Applet {
     popover: Controller<Popover>,
     action_popover: gtk::PopoverMenu,
     action_group: gio::SimpleActionGroup,
-    popover_open: bool,
     subscription_cancel: CancellationToken,
 }
 
@@ -167,7 +166,6 @@ impl SimpleComponent for Applet {
             popover,
             action_popover,
             action_group,
-            popover_open: false,
             subscription_cancel: CancellationToken::new(),
         };
 
@@ -216,6 +214,8 @@ impl SimpleComponent for Applet {
                 self.apply_state(self.service.snapshot());
             }
             Input::TogglePopover => {
+                self.sync_popover();
+                self.send_command(Command::Refresh);
                 self.popover.emit(PopoverInput::Toggle);
             }
             Input::OpenActions => {
@@ -225,14 +225,6 @@ impl SimpleComponent for Applet {
             Input::MenuCommand(command) => {
                 self.action_popover.popdown();
                 self.send_command(command);
-            }
-            Input::PopoverOutput(PopoverOutput::Opened) => {
-                self.popover_open = true;
-                self.sync_popover();
-                self.send_command(Command::Refresh);
-            }
-            Input::PopoverOutput(PopoverOutput::Closed) => {
-                self.popover_open = false;
             }
             Input::PopoverOutput(PopoverOutput::Command(command)) => {
                 self.send_command(command);
@@ -251,9 +243,7 @@ impl Applet {
         self.label = format::label(&self.config.label_format, &state);
         self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
         self.state = state.clone();
-        if self.popover_open {
-            self.popover.emit(PopoverInput::UpdateState(state));
-        }
+        self.popover.emit(PopoverInput::UpdateState(state));
     }
 
     fn sync_popover(&self) {

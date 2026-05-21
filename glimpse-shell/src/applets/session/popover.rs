@@ -39,8 +39,6 @@ pub enum Input {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Output {
-    Opened,
-    Closed,
     ActionRequested(SessionAction),
 }
 
@@ -203,16 +201,6 @@ impl SimpleComponent for Popover {
         let widgets = view_output!();
         model.popover = widgets.root.clone();
         widgets.root.set_parent(&init.parent);
-
-        let opened_sender = sender.clone();
-        widgets.root.connect_show(move |_| {
-            let _ = opened_sender.output(Output::Opened);
-        });
-
-        let closed_sender = sender.clone();
-        widgets.root.connect_closed(move |_| {
-            let _ = closed_sender.output(Output::Closed);
-        });
 
         ComponentParts { model, widgets }
     }

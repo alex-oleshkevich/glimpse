@@ -60,7 +60,6 @@ pub struct Applet {
     state: State,
     service: NetworkHandle,
     popover: Controller<Popover>,
-    popover_open: bool,
     subscription_cancel: CancellationToken,
 }
 
@@ -137,7 +136,6 @@ impl SimpleComponent for Applet {
             state,
             service: init.service,
             popover,
-            popover_open: false,
             subscription_cancel: CancellationToken::new(),
         };
 
@@ -183,9 +181,7 @@ impl SimpleComponent for Applet {
                 self.label = format::label(&self.config.label_format, &state);
                 self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
                 self.state = state.clone();
-                if self.popover_open {
-                    self.popover.emit(PopoverInput::UpdateState(state));
-                }
+                self.popover.emit(PopoverInput::UpdateState(state));
             }
             Input::Reconfigure(config) => {
                 self.config = config;
@@ -194,21 +190,12 @@ impl SimpleComponent for Applet {
                 self.label = format::label(&self.config.label_format, &state);
                 self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
                 self.state = state;
-                if self.popover_open {
-                    self.sync_popover();
-                }
+                self.sync_popover();
             }
             Input::TogglePopover => {
-                self.popover.emit(PopoverInput::Toggle);
-            }
-            Input::PopoverOutput(PopoverOutput::Opened) => {
-                self.popover_open = true;
                 self.sync_popover();
                 self.send_command(Command::StartScanning { interval_secs: 10 });
-            }
-            Input::PopoverOutput(PopoverOutput::Closed) => {
-                self.popover_open = false;
-                self.send_command(Command::StopScanning);
+                self.popover.emit(PopoverInput::Toggle);
             }
             Input::PopoverOutput(PopoverOutput::Command(command)) => {
                 self.send_command(command);
