@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use relm4::{
     WidgetTemplate,
     gtk::{self, prelude::*},
@@ -11,14 +13,12 @@ pub(crate) struct NotificationActionButtonInit {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum NotificationActionButtonStyle {
     Popover,
-    Popup,
 }
 
 impl NotificationActionButtonStyle {
     fn class_name(self) -> &'static str {
         match self {
             Self::Popover => "notification-action-button",
-            Self::Popup => "popup-action-btn",
         }
     }
 }
@@ -49,10 +49,10 @@ mod tests {
 
         let button = NotificationActionButton::init(NotificationActionButtonInit {
             label: "Open".into(),
-            style: NotificationActionButtonStyle::Popup,
+            style: NotificationActionButtonStyle::Popover,
         });
 
         assert!(button.as_ref().has_css_class("flat"));
-        assert!(button.as_ref().has_css_class("popup-action-btn"));
+        assert!(button.as_ref().has_css_class("notification-action-button"));
     }
 }

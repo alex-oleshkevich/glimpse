@@ -1,7 +1,7 @@
 mod imp;
 
 use glib::closure_local;
-use gtk4::{glib, prelude::*, subclass::prelude::*};
+use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 glib::wrapper! {
     pub struct Message(ObjectSubclass<imp::Message>)
@@ -20,10 +20,10 @@ impl Message {
         imp.icon.set_visible(icon.is_some());
     }
 
-    pub fn set_content_icon(&self, icon: Option<&str>) {
+    pub fn set_content_paintable(&self, paintable: Option<&impl IsA<gdk::Paintable>>) {
         let imp = self.imp();
-        imp.content_icon.set_icon_name(icon);
-        imp.content_icon.set_visible(icon.is_some());
+        imp.content_icon.set_paintable(paintable);
+        imp.content_icon.set_visible(paintable.is_some());
     }
 
     pub fn set_app_name(&self, name: &str) {

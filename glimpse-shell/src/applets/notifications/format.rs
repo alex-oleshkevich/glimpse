@@ -1,4 +1,5 @@
 use glimpse_core::services::notifications::model::{NotificationEntry, State};
+use relm4::gtk::gdk;
 
 pub const DEFAULT_LABEL_FORMAT: &str = "";
 pub const DEFAULT_TOOLTIP_FORMAT: &str = "{count} notifications";
@@ -55,6 +56,38 @@ pub fn visible_actions(notification: &NotificationEntry) -> impl Iterator<Item =
         .iter()
         .filter(|action| action.key != "default")
         .map(|action| (action.key.as_str(), action.label.as_str()))
+}
+
+pub fn app_icon(notification: &NotificationEntry) -> &str {
+    if notification.app_icon.is_empty() {
+        "dialog-information-symbolic"
+    } else {
+        notification.app_icon.as_str()
+    }
+}
+
+pub fn load_image(notification: &NotificationEntry) -> Option<gdk::Texture> {
+    let image = notification.image.as_deref()?.trim();
+    if image.is_empty() {
+        return None;
+    }
+
+    if let Some(path) = image.strip_prefix("file://") {
+        return gdk::Texture::from_filename(path).ok();
+    }
+
+    if image.starts_with('/') {
+        return gdk::Texture::from_filename(image).ok();
+    }
+
+    None
+}
+
+pub fn now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
 }
 
 fn render(format: &str, count: usize, dnd: bool) -> String {

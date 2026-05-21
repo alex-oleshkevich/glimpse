@@ -4,20 +4,27 @@ template $Message: Box {
   orientation: vertical;
   spacing: 4;
 
-  styles ["message"]
+  styles [
+    "message",
+  ]
 
   Box header {
     orientation: horizontal;
     spacing: 6;
+    valign: center;
 
-    styles ["message__header"]
+    styles [
+      "message__header",
+    ]
 
     Image icon {
       pixel-size: 16;
       valign: center;
       visible: false;
 
-      styles ["message__source-icon"]
+      styles [
+        "message__source-icon",
+      ]
     }
 
     Label app_name {
@@ -25,28 +32,36 @@ template $Message: Box {
       valign: center;
       visible: false;
 
-      styles ["message__app-name"]
-    }
-
-    Label time_label {
-      xalign: 0;
-      valign: center;
-
-      styles ["message__time"]
+      styles [
+        "message__app-name",
+      ]
     }
 
     Box {
       hexpand: true;
     }
 
+    Label time_label {
+      xalign: 1;
+      valign: center;
+
+      styles [
+        "message__time",
+      ]
+    }
+
     Button dismiss {
       valign: center;
 
-      styles ["message__close", "flat", "circular"]
+      styles [
+        "message__close",
+        "flat",
+        "circular",
+      ]
 
       Image {
         icon-name: "window-close-symbolic";
-        pixel-size: 12;
+        pixel-size: 16;
       }
     }
   }
@@ -56,11 +71,13 @@ template $Message: Box {
     spacing: 6;
 
     Image content_icon {
-      pixel-size: 48;
+      pixel-size: 64;
       valign: start;
       visible: false;
 
-      styles ["message__icon"]
+      styles [
+        "message__icon",
+      ]
     }
 
     Box {
@@ -72,7 +89,9 @@ template $Message: Box {
         xalign: 0;
         wrap: true;
 
-        styles ["message__title"]
+        styles [
+          "message__title",
+        ]
       }
 
       Label body_label {
@@ -82,7 +101,9 @@ template $Message: Box {
         ellipsize: end;
         visible: false;
 
-        styles ["message__body"]
+        styles [
+          "message__body",
+        ]
       }
     }
   }
@@ -92,6 +113,8 @@ template $Message: Box {
     spacing: 6;
     visible: false;
 
-    styles ["message__actions"]
+    styles [
+      "message__actions",
+    ]
   }
 }

@@ -7,23 +7,21 @@ use std::{
 
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use relm4::{
-    ComponentParts, ComponentSender, SimpleComponent, WidgetTemplate,
-    gtk::{self, gdk, glib, prelude::*},
+    ComponentParts, ComponentSender, SimpleComponent,
+    gtk::{self, glib, prelude::*},
 };
 use serde::Deserialize;
 
 use glimpse_core::{ThemeMode, services::notifications::model::NotificationEntry};
 
-use super::{
-    components::{
-        NotificationActionButton, NotificationActionButtonInit, NotificationActionButtonStyle,
-    },
-    format, popover,
-};
+use super::{format, popover};
 use crate::theme;
+use crate::widgets::message::Message;
 
 const MAX_TRACKED_POPUPS: usize = 20;
 const POPUP_LEAVE_ANIMATION_MS: u64 = 180;
+
+const TIME_TICK_INTERVAL_SECS: u64 = 10;
 
 pub struct Popup {
     window: gtk::Window,
@@ -36,10 +34,11 @@ pub struct Popup {
     started_at: u64,
     surfaced: HashMap<u32, u64>,
     cards: Rc<RefCell<HashMap<u32, PopupCard>>>,
+    time_tick: Option<Rc<Cell<bool>>>,
 }
 
 struct PopupCard {
-    widget: gtk::Box,
+    widget: Message,
     timeout_cancelled: Option<Rc<Cell<bool>>>,
     removal_cancelled: Option<Rc<Cell<bool>>>,
     order: u64,
@@ -160,9 +159,10 @@ impl SimpleComponent for Popup {
             visible_limit: normalize_visible_limit(init.visible_limit),
             popup_monitor: init.popup_monitor,
             theme_mode: init.theme_mode,
-            started_at: now_ms(),
+            started_at: format::now_ms(),
             surfaced: HashMap::new(),
             cards: Rc::new(RefCell::new(HashMap::new())),
+            time_tick: None,
         };
 
         let window = widgets.root.clone();
@@ -250,6 +250,9 @@ impl SimpleComponent for Popup {
 
 impl Drop for Popup {
     fn drop(&mut self) {
+        if let Some(cancelled) = self.time_tick.take() {
+            cancelled.set(true);
+        }
         for (_, card) in self.cards.borrow_mut().drain() {
             if let Some(timeout_cancelled) = card.timeout_cancelled {
                 timeout_cancelled.set(true);
@@ -311,6 +314,34 @@ impl Popup {
         );
         self.update_overflow();
         self.window.set_visible(true);
+        self.start_time_tick();
+    }
+
+    fn start_time_tick(&mut self) {
+        if self.time_tick.is_some() {
+            return;
+        }
+        let cards = self.cards.clone();
+        let cancelled = Rc::new(Cell::new(false));
+        let cb_cancelled = cancelled.clone();
+        glib::timeout_add_local(Duration::from_secs(TIME_TICK_INTERVAL_SECS), move || {
+            if cb_cancelled.get() {
+                return glib::ControlFlow::Break;
+            }
+            let now = format::now_ms();
+            for card in cards.borrow().values() {
+                card.widget
+                    .set_time(&format::relative_time(now, card.order));
+            }
+            glib::ControlFlow::Continue
+        });
+        self.time_tick = Some(cancelled);
+    }
+
+    fn stop_time_tick(&mut self) {
+        if let Some(cancelled) = self.time_tick.take() {
+            cancelled.set(true);
+        }
     }
 
     fn remove_card(&mut self, id: u32, sender: &ComponentSender<Self>) {
@@ -370,6 +401,7 @@ impl Popup {
         self.update_overflow();
         if self.cards.borrow().is_empty() {
             self.window.set_visible(false);
+            self.stop_time_tick();
         }
     }
 
@@ -431,256 +463,63 @@ fn active_visible_slots(visible_limit: usize, leaving_visible: usize) -> usize {
     visible_limit.saturating_sub(leaving_visible)
 }
 
-struct PopupCardInit {
-    icon_name: String,
-    app_name: String,
-    summary: String,
-    body: String,
-}
-
-#[allow(unused_assignments)]
-#[relm4::widget_template]
-impl WidgetTemplate for PopupCardView {
-    type Init = PopupCardInit;
-
-    view! {
-        gtk::Box {
-            add_css_class: "popup-card",
-            add_css_class: "card-surface",
-            set_orientation: gtk::Orientation::Vertical,
-            set_spacing: 6,
-
-            gtk::Box {
-                add_css_class: "card-surface__header",
-                set_orientation: gtk::Orientation::Horizontal,
-                set_spacing: 8,
-
-                gtk::Image {
-                    add_css_class: "popup-card-icon",
-                    set_icon_name: Some(&init.icon_name),
-                },
-
-                gtk::Label {
-                    add_css_class: "popup-card-app",
-                    set_label: &init.app_name,
-                    set_hexpand: true,
-                    set_halign: gtk::Align::Start,
-                },
-
-                #[name = "dismiss"]
-                gtk::Button {
-                    add_css_class: "flat",
-                    add_css_class: "popup-dismiss",
-                    set_icon_name: "window-close-symbolic",
-                },
-            },
-
-            gtk::Box {
-                add_css_class: "popup-card-content",
-                add_css_class: "card-surface__body",
-                set_orientation: gtk::Orientation::Horizontal,
-                set_spacing: 12,
-
-                #[name = "image"]
-                gtk::Picture {
-                    add_css_class: "notification-inline-image",
-                    add_css_class: "popup-inline-image",
-                    set_can_shrink: true,
-                    set_content_fit: gtk::ContentFit::Contain,
-                    set_valign: gtk::Align::Start,
-                    set_visible: false,
-                },
-
-                gtk::Box {
-                    add_css_class: "popup-card-copy",
-                    set_orientation: gtk::Orientation::Vertical,
-                    set_spacing: 4,
-                    set_hexpand: true,
-
-                    gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_spacing: 4,
-
-                        gtk::Label {
-                            add_css_class: "popup-card-summary",
-                            set_label: &init.summary,
-                            set_halign: gtk::Align::Start,
-                            set_xalign: 0.0,
-                            set_ellipsize: gtk::pango::EllipsizeMode::End,
-                            set_max_width_chars: 50,
-                        },
-
-                        gtk::Label {
-                            add_css_class: "popup-card-body",
-                            set_label: &init.body,
-                            set_halign: gtk::Align::Start,
-                            set_xalign: 0.0,
-                            set_ellipsize: gtk::pango::EllipsizeMode::End,
-                            set_max_width_chars: 55,
-                            set_lines: 2,
-                            set_wrap: true,
-                            set_wrap_mode: gtk::pango::WrapMode::WordChar,
-                            set_visible: !init.body.is_empty(),
-                        },
-                    },
-
-                    #[name = "actions_box"]
-                    gtk::Box {
-                        add_css_class: "popup-actions",
-                        set_orientation: gtk::Orientation::Horizontal,
-                        set_spacing: 4,
-                        set_visible: false,
-                    },
-                },
-            },
-        }
-    }
-}
-
-fn build_card(notification: &NotificationEntry, sender: &ComponentSender<Popup>) -> gtk::Box {
-    let card = PopupCardView::init(PopupCardInit {
-        icon_name: popup_icon_name(notification).into(),
-        app_name: format::source_name(notification).into(),
-        summary: notification.summary.clone(),
-        body: notification.body.clone(),
-    });
+fn build_card(notification: &NotificationEntry, sender: &ComponentSender<Popup>) -> Message {
+    let msg = Message::new();
     if notification.urgency == 2 {
-        card.as_ref().add_css_class("popup-card-critical");
+        msg.add_css_class("message--critical");
+    }
+    msg.set_icon(Some(format::app_icon(notification)));
+    msg.set_app_name(format::source_name(notification));
+    msg.set_time(&format::relative_time(
+        format::now_ms(),
+        notification.timestamp,
+    ));
+    msg.set_title(&notification.summary);
+    msg.set_body(&notification.body);
+    msg.set_content_paintable(format::load_image(notification).as_ref());
+
+    for (action_key, label) in format::visible_actions(notification) {
+        msg.add_action(action_key, label);
     }
 
     let id = notification.id;
-    let sender_clone = sender.clone();
-    card.dismiss
-        .connect_clicked(move |_| sender_clone.input(PopupInput::Dismiss(id)));
-
-    let root_click = gtk::GestureClick::new();
-    root_click.set_button(1);
-    root_click.set_propagation_phase(gtk::PropagationPhase::Bubble);
-    let id = notification.id;
-    let sender_clone = sender.clone();
-    let card_widget = card.as_ref().clone();
-    let dismiss = card.dismiss.clone();
-    let actions_box = card.actions_box.clone();
-    root_click.connect_pressed(move |gesture, _, x, y| {
-        if point_inside_widget(&card_widget, &dismiss, x, y)
-            || point_inside_widget(&card_widget, &actions_box, x, y)
-        {
-            gesture.set_state(gtk::EventSequenceState::Denied);
-            return;
-        }
-        gesture.set_state(gtk::EventSequenceState::Claimed);
-        sender_clone.input(PopupInput::FocusAndDismiss(id));
-    });
-    card.as_ref().add_controller(root_click);
-
-    if let Some(texture) = load_notification_image(notification) {
-        card.image.set_paintable(Some(&texture));
-        card.image.set_visible(true);
-    } else {
-        card.image.set_paintable(None::<&gdk::Texture>);
-        card.image.set_visible(false);
-    }
-
-    let actions = format::visible_actions(notification).collect::<Vec<_>>();
-    for (action_key, label) in actions {
-        let button = NotificationActionButton::init(NotificationActionButtonInit {
-            label: label.into(),
-            style: NotificationActionButtonStyle::Popup,
+    let s = sender.clone();
+    msg.connect_closed(move |_| s.input(PopupInput::Dismiss(id)));
+    let s = sender.clone();
+    msg.connect_clicked(move |_| s.input(PopupInput::FocusAndDismiss(id)));
+    let s = sender.clone();
+    msg.connect_secondary_clicked(move |_| s.input(PopupInput::Cancel(id)));
+    let s = sender.clone();
+    msg.connect_action(move |_, action_key| {
+        s.input(PopupInput::InvokeAction {
+            id,
+            action_key: action_key.to_owned(),
         });
-        let id = notification.id;
-        let action_key = action_key.to_string();
-        let sender_clone = sender.clone();
-        button.as_ref().connect_clicked(move |_| {
-            sender_clone.input(PopupInput::InvokeAction {
-                id,
-                action_key: action_key.clone(),
-            });
-        });
-        card.actions_box.append(button.as_ref());
-    }
-    card.actions_box
-        .set_visible(card.actions_box.first_child().is_some());
-
-    let right_click = gtk::GestureClick::new();
-    right_click.set_button(3);
-    right_click.set_propagation_phase(gtk::PropagationPhase::Bubble);
-    let id = notification.id;
-    let sender_clone = sender.clone();
-    let card_widget = card.as_ref().clone();
-    let dismiss = card.dismiss.clone();
-    let actions_box = card.actions_box.clone();
-    right_click.connect_pressed(move |gesture, _, x, y| {
-        if point_inside_widget(&card_widget, &dismiss, x, y)
-            || point_inside_widget(&card_widget, &actions_box, x, y)
-        {
-            gesture.set_state(gtk::EventSequenceState::Denied);
-            return;
-        }
-        gesture.set_state(gtk::EventSequenceState::Claimed);
-        sender_clone.input(PopupInput::Cancel(id));
     });
-    card.as_ref().add_controller(right_click);
 
-    card.as_ref().clone()
+    msg
 }
 
-fn prepare_enter_animation(card: &gtk::Box) {
-    card.add_css_class("popup-card-enter");
+fn prepare_enter_animation(card: &impl IsA<gtk::Widget>) {
+    card.add_css_class("message--entering");
 }
 
-fn start_enter_animation(id: u32, card: &gtk::Box, sender: &ComponentSender<Popup>) {
-    let card = card.clone();
+fn start_enter_animation(id: u32, card: &impl IsA<gtk::Widget>, sender: &ComponentSender<Popup>) {
+    let card = card.clone().upcast::<gtk::Widget>();
     let input_sender = sender.input_sender().clone();
     glib::idle_add_local_once(move || {
-        if card.has_css_class("popup-card-enter") {
-            card.remove_css_class("popup-card-enter");
-            card.add_css_class("popup-card-visible");
+        if card.has_css_class("message--entering") {
+            card.remove_css_class("message--entering");
+            card.add_css_class("message--visible");
             let _ = input_sender.send(PopupInput::EnterAnimationFinished(id));
         }
     });
 }
 
-fn start_leave_animation(card: &gtk::Box) {
-    card.remove_css_class("popup-card-enter");
-    card.remove_css_class("popup-card-visible");
-    card.add_css_class("popup-card-leave");
-}
-
-fn popup_icon_name(notification: &NotificationEntry) -> &str {
-    if notification.app_icon.is_empty() {
-        "dialog-information-symbolic"
-    } else {
-        notification.app_icon.as_str()
-    }
-}
-
-fn load_notification_image(notification: &NotificationEntry) -> Option<gdk::Texture> {
-    let image = notification.image.as_deref()?.trim();
-    if image.is_empty() {
-        return None;
-    }
-
-    if let Some(path) = image.strip_prefix("file://") {
-        return gdk::Texture::from_filename(path).ok();
-    }
-
-    if image.starts_with('/') {
-        return gdk::Texture::from_filename(image).ok();
-    }
-
-    None
-}
-
-fn point_inside_widget(
-    source: &impl IsA<gtk::Widget>,
-    target: &impl IsA<gtk::Widget>,
-    x: f64,
-    y: f64,
-) -> bool {
-    source
-        .compute_point(target, &gtk::graphene::Point::new(x as f32, y as f32))
-        .map(|point| target.contains(point.x() as f64, point.y() as f64))
-        .unwrap_or(false)
+fn start_leave_animation(card: &impl IsA<gtk::Widget>) {
+    card.remove_css_class("message--entering");
+    card.remove_css_class("message--visible");
+    card.add_css_class("message--leaving");
 }
 
 fn configure_window(
@@ -795,39 +634,9 @@ fn popup_origin_class(position: PopupPosition) -> &'static str {
     }
 }
 
-fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::test_support::gtk_available_on_this_thread;
-
-    #[test]
-    fn popup_card_view_exposes_stable_class_contract() {
-        if !gtk_available_on_this_thread() {
-            return;
-        }
-
-        let card = PopupCardView::init(PopupCardInit {
-            icon_name: "dialog-information-symbolic".into(),
-            app_name: "App".into(),
-            summary: "Summary".into(),
-            body: String::new(),
-        });
-
-        assert!(card.as_ref().has_css_class("popup-card"));
-        assert!(card.as_ref().has_css_class("card-surface"));
-        assert!(card.dismiss.has_css_class("popup-dismiss"));
-        assert!(card.image.has_css_class("notification-inline-image"));
-        assert!(card.image.has_css_class("popup-inline-image"));
-        assert!(card.actions_box.has_css_class("popup-actions"));
-        assert!(!card.actions_box.is_visible());
-    }
 
     #[test]
     fn visible_limit_is_bounded_by_tracked_limit() {

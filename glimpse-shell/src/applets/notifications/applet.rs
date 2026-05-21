@@ -71,7 +71,7 @@ impl Default for Config {
             badge_style: "count".into(),
             popup_timeout_ms: 5000,
             popup_visible_limit: 8,
-            popup_position: PopupPosition::TopCenter,
+            popup_position: PopupPosition::TopRight,
             popup_margin_x: 12,
             popup_margin_y: 32,
             popup_monitor: None,
@@ -192,7 +192,7 @@ impl SimpleComponent for Applet {
             init.panel_monitor.as_deref(),
         );
         let popup = if owns_popup {
-            tracing::debug!(
+            tracing::info!(
                 panel_monitor = ?init.panel_monitor,
                 popup_monitor = ?init.config.popup_monitor,
                 "creating notifications popup window"
@@ -211,7 +211,7 @@ impl SimpleComponent for Applet {
                     .forward(sender.input_sender(), Input::PopoverOutput),
             )
         } else {
-            tracing::debug!(
+            tracing::info!(
                 panel_monitor = ?init.panel_monitor,
                 popup_monitor = ?init.config.popup_monitor,
                 "skipping notifications popup window (another panel owns it)"
@@ -330,11 +330,6 @@ impl Applet {
                 self.popover_open = false;
             }
             PopoverOutput::Dismiss(id) => self.send_notification(Command::Dismiss { id }),
-            PopoverOutput::DismissMany(ids) => {
-                for id in ids {
-                    self.send_notification(Command::Dismiss { id });
-                }
-            }
             PopoverOutput::DismissAll => self.send_notification(Command::DismissAll),
             PopoverOutput::SetDnd(enabled) => self.send_notification(Command::SetDnd(enabled)),
             PopoverOutput::FocusAndDismiss(id) => self.focus_and_dismiss_notification(id),

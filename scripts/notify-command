@@ -1,18 +1,90 @@
 #!/usr/bin/env bash
+#
+# Send the most complete notification possible by default: summary, body, app
+# name, source icon, rich body image, category/hints, multiple actions.
+#
+# Use --no-<part> flags to selectively strip pieces.
+#
+# Flags:
+#   --no-app-name      omit the app-name (defaults to "Telegram")
+#   --no-icon          omit the source/app icon (small, in header)
+#   --no-image         omit the rich body image (image-path hint)
+#   --no-body          send an empty body
+#   --no-actions       omit action buttons (default/reply/mark-read)
+#   --no-hints         omit category/desktop-entry hints
+#   --urgency=LEVEL    pass through to notify-send (low|normal|critical)
+#   -- ARGS...         everything after -- becomes positional summary/body
+#
+# Positional args (after flag parsing): SUMMARY [BODY]
+
 set -euo pipefail
 
-summary="${1:-Telegram}"
-body="${2:-$(printf 'Alex\nTest message from Telegram')}"
+no_app_name=0
+no_icon=0
+no_image=0
+no_body=0
+no_actions=0
+no_hints=0
+urgency=normal
 
-exec notify-send \
-  --app-name="Telegram" \
-  --icon="org.telegram.desktop" \
-  --app-icon="org.telegram.desktop" \
-  --category="im.received" \
-  --hint=string:desktop-entry:org.telegram.desktop \
-  --urgency=normal \
-  --print-id \
-  --action=default=Open \
-  --action=reply=Reply \
-  "$summary" \
-  "$body"
+positional=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --no-app-name) no_app_name=1; shift ;;
+        --no-icon) no_icon=1; shift ;;
+        --no-image) no_image=1; shift ;;
+        --no-body) no_body=1; shift ;;
+        --no-actions) no_actions=1; shift ;;
+        --no-hints) no_hints=1; shift ;;
+        --urgency=*) urgency="${1#--urgency=}"; shift ;;
+        -u|--urgency) urgency="$2"; shift 2 ;;
+        --) shift; positional+=("$@"); break ;;
+        -*) echo "unknown flag: $1" >&2; exit 1 ;;
+        *) positional+=("$1"); shift ;;
+    esac
+done
+
+summary="${positional[0]:-New message}"
+if [[ $no_body -eq 1 ]]; then
+    body=""
+else
+    body="${positional[1]:-$(printf 'Alex Petrov\nHey — are you free for a quick call?')}"
+fi
+
+# Locate a rich image to attach. The daemon parses the `image-path` hint
+# (see glimpse-core/src/dbus/notifications.rs). The first existing path wins;
+# if nothing is found, the rich image is silently omitted.
+image_path=""
+for candidate in \
+    "${HOME}/.face" \
+    "/usr/share/icons/hicolor/512x512/apps/telegram.png" \
+    "/usr/share/icons/hicolor/256x256/apps/telegram.png" \
+    "/usr/share/icons/hicolor/128x128/apps/telegram.png" \
+    "/usr/share/pixmaps/faces/koala.jpg" \
+    "/usr/share/pixmaps/faces/sunset.jpg"; do
+    if [[ -f "$candidate" ]]; then
+        image_path="$candidate"
+        break
+    fi
+done
+
+args=()
+[[ $no_app_name -eq 0 ]] && args+=(--app-name="Telegram")
+[[ $no_icon -eq 0 ]] && args+=(--icon="org.telegram.desktop")
+[[ $no_image -eq 0 && -n "$image_path" ]] && args+=(--hint="string:image-path:$image_path")
+if [[ $no_hints -eq 0 ]]; then
+    args+=(
+        --category="im.received"
+        --hint=string:desktop-entry:org.telegram.desktop
+    )
+fi
+args+=(--urgency="$urgency" --print-id)
+if [[ $no_actions -eq 0 ]]; then
+    args+=(
+        --action=default=Open
+        --action=reply=Reply
+        --action=mark-read="Mark read"
+    )
+fi
+
+exec notify-send "${args[@]}" "$summary" "$body"

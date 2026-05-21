@@ -16,6 +16,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
       <object class="GtkBox" id="header">
         <property name="orientation">0</property>
         <property name="spacing">6</property>
+        <property name="valign">3</property>
         <style>
           <class name="message__header"/>
         </style>
@@ -40,17 +41,17 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
           </object>
         </child>
         <child>
+          <object class="GtkBox">
+            <property name="hexpand">true</property>
+          </object>
+        </child>
+        <child>
           <object class="GtkLabel" id="time_label">
-            <property name="xalign">0</property>
+            <property name="xalign">1</property>
             <property name="valign">3</property>
             <style>
               <class name="message__time"/>
             </style>
-          </object>
-        </child>
-        <child>
-          <object class="GtkBox">
-            <property name="hexpand">true</property>
           </object>
         </child>
         <child>
@@ -64,7 +65,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
             <child>
               <object class="GtkImage">
                 <property name="icon-name">window-close-symbolic</property>
-                <property name="pixel-size">12</property>
+                <property name="pixel-size">16</property>
               </object>
             </child>
           </object>
@@ -77,7 +78,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
         <property name="spacing">6</property>
         <child>
           <object class="GtkImage" id="content_icon">
-            <property name="pixel-size">48</property>
+            <property name="pixel-size">64</property>
             <property name="valign">1</property>
             <property name="visible">false</property>
             <style>
