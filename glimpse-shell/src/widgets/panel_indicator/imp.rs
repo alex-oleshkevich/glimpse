@@ -47,7 +47,9 @@ impl ObjectImpl for PanelIndicator {
         obj.append(&self.icon);
 
         self.label.add_css_class("panel-indicator__label");
+        self.label.set_halign(gtk4::Align::Fill);
         self.label.set_valign(gtk4::Align::Center);
+        self.label.set_xalign(0.5);
         self.label.set_visible(false);
         obj.append(&self.label);
 

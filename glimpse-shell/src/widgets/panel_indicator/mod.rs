@@ -186,6 +186,19 @@ mod tests {
     }
 
     #[test]
+    fn label_expands_and_centers_text() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let indicator = PanelIndicator::new();
+
+        assert!(indicator.imp().label.hexpands());
+        assert_eq!(indicator.imp().label.halign(), gtk4::Align::Fill);
+        assert_eq!(indicator.imp().label.xalign(), 0.5);
+    }
+
+    #[test]
     fn extra_slot_visibility_tracks_children_and_override() {
         if !gtk_available_on_this_thread() {
             return;

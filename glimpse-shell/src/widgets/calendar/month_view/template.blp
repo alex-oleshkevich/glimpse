@@ -1,0 +1,17 @@
+using Gtk 4.0;
+
+template $MonthView: Box {
+  orientation: vertical;
+
+  styles [
+    "calendar__month-view",
+  ]
+
+  Grid grid {
+    column-homogeneous: true;
+
+    styles [
+      "calendar__grid",
+    ]
+  }
+}

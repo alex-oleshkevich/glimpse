@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use chrono::{Local, NaiveDate};
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
@@ -10,12 +12,11 @@ use crate::{
         calendar_events::{CalendarDaySnapshot, MonthKey, State as CalendarState},
         clock::State as ClockState,
     },
-    widgets::date_hero::DateHero,
+    widgets::{calendar::Calendar, date_hero::DateHero},
 };
 
 use super::{
     components::{
-        calendar::{Calendar, CalendarInput, CalendarOutput},
         events::{Events, EventsInput},
         world_clock::{WorldClock, WorldClockInput},
     },
@@ -29,7 +30,7 @@ pub struct Popover {
     clock: ClockState,
     calendar: CalendarState,
     date: DateHero,
-    calendar_view: Controller<Calendar>,
+    calendar_view: Calendar,
     world_clock: Controller<WorldClock>,
     events: Controller<Events>,
 }
@@ -45,7 +46,8 @@ pub enum PopoverInput {
     Toggle,
     UpdateClock(ClockState),
     UpdateCalendar(CalendarState),
-    CalendarOutput(CalendarOutput),
+    CalendarSelectedDate(NaiveDate),
+    CalendarMonthChanged(MonthKey),
 }
 
 #[derive(Debug, Clone)]
@@ -115,16 +117,27 @@ impl SimpleComponent for Popover {
         let selected_date = Local::now().date_naive();
         let visible_month = MonthKey::from_date(selected_date);
         let date = DateHero::new();
-        let calendar_view = Calendar::builder()
-            .launch(selected_date)
-            .forward(sender.input_sender(), PopoverInput::CalendarOutput);
+        let calendar_view = Calendar::new();
+        calendar_view.set_selected_date(selected_date);
+        {
+            let input = sender.input_sender().clone();
+            calendar_view.connect_day_selected(move |cal| {
+                let _ = input.send(PopoverInput::CalendarSelectedDate(cal.selected_date()));
+            });
+        }
+        {
+            let input = sender.input_sender().clone();
+            calendar_view.connect_month_changed(move |cal| {
+                let _ = input.send(PopoverInput::CalendarMonthChanged(cal.visible_month()));
+            });
+        }
         let world_clock = WorldClock::builder()
             .launch(init.clock.world.clone())
             .detach();
         let events = Events::builder().launch(selected_date).detach();
 
         let date_widget: gtk::Box = date.clone().upcast();
-        let calendar_widget = calendar_view.widget().clone();
+        let calendar_widget: gtk::Box = calendar_view.clone().upcast();
         let world_clock_widget = world_clock.widget().clone();
         let events_widget = events.widget().clone();
 
@@ -161,17 +174,15 @@ impl SimpleComponent for Popover {
                 self.calendar = calendar;
                 self.sync_calendar_state();
             }
-            PopoverInput::CalendarOutput(output) => match output {
-                CalendarOutput::SelectedDate(date) => {
-                    self.selected_date = date;
-                    self.sync_selected_date();
-                }
-                CalendarOutput::VisibleMonthChanged(month) => {
-                    self.visible_month = month;
-                    self.sync_calendar_state();
-                    let _ = sender.output(PopoverOutput::VisibleMonthChanged(month));
-                }
-            },
+            PopoverInput::CalendarSelectedDate(date) => {
+                self.selected_date = date;
+                self.sync_selected_date();
+            }
+            PopoverInput::CalendarMonthChanged(month) => {
+                self.visible_month = month;
+                self.sync_calendar_state();
+                let _ = sender.output(PopoverOutput::VisibleMonthChanged(month));
+            }
         }
     }
 }
@@ -194,14 +205,24 @@ impl Popover {
         self.date.set_weekday(&weekday);
         self.date
             .set_date(&format::selected_date(self.selected_date));
-        self.calendar_view
-            .emit(CalendarInput::SetDate(self.selected_date));
+        self.calendar_view.set_selected_date(self.selected_date);
         self.sync_events();
     }
 
     fn sync_calendar_state(&mut self) {
-        let month = self.calendar.month_cache.get(&self.visible_month).cloned();
-        self.calendar_view.emit(CalendarInput::SetMonth(month));
+        let event_days: HashSet<NaiveDate> = self
+            .calendar
+            .month_cache
+            .get(&self.visible_month)
+            .map(|m| {
+                m.day_snapshots
+                    .values()
+                    .filter(|d| !d.events.is_empty())
+                    .filter_map(|d| d.date.to_naive_date())
+                    .collect()
+            })
+            .unwrap_or_default();
+        self.calendar_view.set_event_days(&event_days);
         self.sync_events();
     }
 

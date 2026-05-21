@@ -1,0 +1,44 @@
+using Gtk 4.0;
+
+template $CalendarControls: Box {
+  spacing: 4;
+
+  styles [
+    "calendar__header",
+  ]
+
+  Button prev {
+    icon-name: "go-previous-symbolic";
+    tooltip-text: "Previous";
+
+    styles [
+      "flat",
+    ]
+  }
+
+  Button title {
+    hexpand: true;
+
+    styles [
+      "flat",
+      "calendar__title-button",
+    ]
+  }
+
+  Button today {
+    label: "Today";
+
+    styles [
+      "flat",
+    ]
+  }
+
+  Button next {
+    icon-name: "go-next-symbolic";
+    tooltip-text: "Next";
+
+    styles [
+      "flat",
+    ]
+  }
+}
