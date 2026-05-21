@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+#
+# Open the default webcam (/dev/video0) via V4L2 directly (bypassing
+# PipeWire). Reads raw frames into /dev/null for DURATION seconds.
+# Requires ffmpeg.
+#
+# Usage: ./scripts/privacy-test-camera-v4l2 [SECONDS] [DEVICE]
+
+set -euo pipefail
+
+duration="${1:-10}"
+device="${2:-/dev/video0}"
+
+command -v ffmpeg >/dev/null || { echo "ffmpeg not found" >&2; exit 1; }
+[[ -c "$device" ]] || { echo "$device is not a character device" >&2; exit 1; }
+
+echo "Opening $device via V4L2 for ${duration}s"
+exec ffmpeg -hide_banner -loglevel error \
+    -f v4l2 -i "$device" -t "$duration" -f null /dev/null

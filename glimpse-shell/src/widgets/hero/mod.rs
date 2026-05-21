@@ -36,9 +36,20 @@ impl Hero {
 
     pub fn set_toggle_active(&self, active: bool) {
         let toggle = &self.imp().toggle;
-        if toggle.is_active() != active {
-            toggle.set_active(active);
-            toggle.set_state(active);
+        if toggle.is_active() == active {
+            return;
+        }
+        // Programmatic toggle changes must not re-emit `toggled` — that would
+        // round-trip the change back to the controller and cancel the user's
+        // intent before the upstream state had a chance to propagate.
+        let handler = self.imp().state_set_handler.borrow();
+        if let Some(handler_id) = handler.as_ref() {
+            toggle.block_signal(handler_id);
+        }
+        toggle.set_active(active);
+        toggle.set_state(active);
+        if let Some(handler_id) = handler.as_ref() {
+            toggle.unblock_signal(handler_id);
         }
     }
 

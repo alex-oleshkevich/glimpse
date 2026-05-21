@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#
+# Start a desktop screencast via the PipeWire-backed xdg-desktop-portal
+# (org.freedesktop.portal.ScreenCast). Captures for DURATION seconds via
+# gst-launch through pipewiresrc; the compositor + glimpse-shell should
+# both see an active screencast session, lighting up the privacy applet.
+#
+# Usage: ./scripts/privacy-test-screencast-pipewire [SECONDS]
+
+set -euo pipefail
+
+duration="${1:-10}"
+
+command -v gst-launch-1.0 >/dev/null || { echo "gst-launch-1.0 not found" >&2; exit 1; }
+
+# The proper way is via the portal; here we use wf-recorder if available
+# (Wayland-native, talks to wlr-screencopy or the portal) as a quick proxy.
+if command -v wf-recorder >/dev/null; then
+    out="/tmp/glimpse-screencast.mkv"
+    echo "Recording screen via wf-recorder for ${duration}s to ${out}"
+    wf-recorder -f "$out" &
+    rec_pid=$!
+    sleep "$duration"
+    kill -INT "$rec_pid" 2>/dev/null || true
+    wait "$rec_pid" 2>/dev/null || true
+    echo "done: $out"
+else
+    echo "wf-recorder not found." >&2
+    echo "Install wf-recorder (Wayland) for the portal/screencopy path," >&2
+    echo "or trigger a screencast manually from your screensharing app." >&2
+    exit 1
+fi

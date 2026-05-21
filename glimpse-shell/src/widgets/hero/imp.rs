@@ -1,6 +1,6 @@
 use glib::subclass::Signal;
 use gtk4::{CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*};
-use std::sync::OnceLock;
+use std::{cell::RefCell, sync::OnceLock};
 
 #[derive(Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/hero.ui")]
@@ -17,6 +17,7 @@ pub struct Hero {
     pub toggle: TemplateChild<gtk4::Switch>,
     #[template_child]
     pub separator: TemplateChild<gtk4::Separator>,
+    pub state_set_handler: RefCell<Option<glib::SignalHandlerId>>,
 }
 
 #[glib::object_subclass]
@@ -39,12 +40,13 @@ impl ObjectImpl for Hero {
         self.parent_constructed();
 
         let obj = self.obj().downgrade();
-        self.toggle.connect_state_set(move |_, state| {
+        let handler = self.toggle.connect_state_set(move |_, state| {
             if let Some(hero) = obj.upgrade() {
                 hero.emit_by_name::<()>("toggled", &[&state]);
             }
             glib::Propagation::Proceed
         });
+        self.state_set_handler.replace(Some(handler));
     }
 
     fn signals() -> &'static [Signal] {

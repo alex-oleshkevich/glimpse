@@ -193,6 +193,93 @@ for c in "forget_wifi uuid=x" "forget_bluetooth address=x" "eject id=x" \
 done
 pass "destructive guarded (NOT executed)"
 
+# ── Tier A: privacy detection (real hardware/services, reversible) ──────────
+#
+# Drives real triggers (gst-launch, pw-record, wf-recorder, where-am-i) and
+# asserts the corresponding *.in_use / *.released IPC events. Each block is
+# skipped if its trigger tool or hardware is unavailable. All triggers are
+# brief and reversed before the next block runs.
+
+where_am_i_bin=""
+for c in "$(command -v where-am-i 2>/dev/null || true)" \
+         /usr/lib/geoclue-2.0/demos/where-am-i \
+         /usr/libexec/geoclue-2.0/demos/where-am-i \
+         /usr/lib64/geoclue-2.0/demos/where-am-i; do
+    [[ -n "$c" && -x "$c" ]] && { where_am_i_bin="$c"; break; }
+done
+
+has_pipewire_camera() {
+    command -v pw-dump >/dev/null || return 1
+    pw-dump 2>/dev/null \
+        | python3 -c 'import sys,json
+n=0
+for o in json.load(sys.stdin):
+    if o.get("type")!="PipeWire:Interface:Node": continue
+    p=o.get("info",{}).get("props",{}) or {}
+    if p.get("media.class")!="Video/Source": continue
+    if (p.get("media.role")=="Camera"
+        or (p.get("object.path") or "").startswith("v4l2:")
+        or p.get("device.api") in ("v4l2","libcamera")):
+        n+=1
+print(n)' 2>/dev/null | grep -qv '^0$'
+}
+
+if command -v pw-record >/dev/null; then
+    echo ""; echo "=== Tier A: privacy/mic (pw-record) ==="
+    B=$(wlc)
+    out=$(mktemp -t glimpse-e2e-mic.XXXXXX.wav)
+    pw-record --rate=48000 --channels=1 --format=s16 "$out" >/dev/null 2>&1 &
+    REC_PID=$!
+    ev_from "$((B+1))" "mic.in_use" 6
+    kill -INT "$REC_PID" 2>/dev/null || true; wait "$REC_PID" 2>/dev/null || true
+    ev_from "$((B+1))" "mic.released" 6
+    rm -f "$out"
+    pass "mic in_use/released"
+else
+    echo ""; echo "=== Tier A: privacy/mic SKIPPED (pw-record not installed) ==="
+fi
+
+if command -v gst-launch-1.0 >/dev/null && has_pipewire_camera; then
+    echo ""; echo "=== Tier A: privacy/webcam (gst-launch pipewiresrc) ==="
+    B=$(wlc)
+    gst-launch-1.0 -q pipewiresrc ! videoconvert ! fakesink >/dev/null 2>&1 &
+    GST_PID=$!
+    ev_from "$((B+1))" "webcam.in_use" 6
+    kill -INT "$GST_PID" 2>/dev/null || true; wait "$GST_PID" 2>/dev/null || true
+    ev_from "$((B+1))" "webcam.released" 6
+    pass "webcam in_use/released"
+else
+    echo ""; echo "=== Tier A: privacy/webcam SKIPPED (gst-launch or PipeWire camera unavailable) ==="
+fi
+
+if command -v wf-recorder >/dev/null && [[ "${XDG_SESSION_TYPE:-}" == "wayland" ]]; then
+    echo ""; echo "=== Tier A: privacy/screencast (wf-recorder) ==="
+    B=$(wlc)
+    out=$(mktemp -t glimpse-e2e-scr.XXXXXX.mkv)
+    wf-recorder -f "$out" >/dev/null 2>&1 &
+    REC_PID=$!
+    ev_from "$((B+1))" "screencast.in_use" 6
+    kill -INT "$REC_PID" 2>/dev/null || true; wait "$REC_PID" 2>/dev/null || true
+    ev_from "$((B+1))" "screencast.released" 6
+    rm -f "$out"
+    pass "screencast in_use/released"
+else
+    echo ""; echo "=== Tier A: privacy/screencast SKIPPED (wf-recorder or Wayland unavailable) ==="
+fi
+
+if [[ -n "$where_am_i_bin" ]]; then
+    echo ""; echo "=== Tier A: privacy/location (geoclue where-am-i) ==="
+    B=$(wlc)
+    "$where_am_i_bin" -t 2 >/dev/null 2>&1 &
+    LOC_PID=$!
+    ev_from "$((B+1))" "location.in_use" 6
+    wait "$LOC_PID" 2>/dev/null || true
+    ev_from "$((B+1))" "location.released" 6
+    pass "location in_use/released"
+else
+    echo ""; echo "=== Tier A: privacy/location SKIPPED (geoclue where-am-i demo not found) ==="
+fi
+
 # ── watch --json ─────────────────────────────────────────────────────────────
 
 echo ""; echo "=== watch --json ==="

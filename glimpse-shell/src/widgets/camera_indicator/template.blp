@@ -1,0 +1,18 @@
+using Gtk 4.0;
+
+template $CameraIndicator: Box {
+  visible: false;
+
+  styles [
+    "camera-indicator",
+  ]
+
+  Image icon {
+    icon-name: "camera-web-symbolic";
+    pixel-size: 16;
+
+    styles [
+      "camera-indicator__icon",
+    ]
+  }
+}

@@ -110,18 +110,25 @@ impl SimpleComponent for Popover {
 
                         gtk::Image {
                             add_css_class: "empty-state__icon",
-                            set_icon_name: Some("preferences-system-notifications-symbolic"),
+                            #[watch]
+                            set_icon_name: Some(notification_popover_icon_name(model.dnd)),
                             set_pixel_size: 64,
                         },
 
                         gtk::Label {
                             add_css_class: "empty-state__title",
-                            set_label: "No notifications",
+                            #[watch]
+                            set_label: if model.dnd { "Do Not Disturb" } else { "No notifications" },
                         },
 
                         gtk::Label {
                             add_css_class: "empty-state__subtitle",
-                            set_label: "You're caught up.",
+                            #[watch]
+                            set_label: if model.dnd {
+                                "Notifications are silenced."
+                            } else {
+                                "You're caught up."
+                            },
                         },
                     },
 

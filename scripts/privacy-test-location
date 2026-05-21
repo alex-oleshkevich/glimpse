@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+# Hold a GeoClue client open for DURATION seconds (default 10) using the
+# geoclue-2.0 demo binary `where-am-i`. While it runs the privacy applet's
+# location indicator should light up.
+#
+# Usage: ./scripts/privacy-test-location [SECONDS]
+
+set -euo pipefail
+
+duration="${1:-10}"
+
+bin=""
+for candidate in \
+    "$(command -v where-am-i 2>/dev/null || true)" \
+    /usr/lib/geoclue-2.0/demos/where-am-i \
+    /usr/libexec/geoclue-2.0/demos/where-am-i \
+    /usr/lib64/geoclue-2.0/demos/where-am-i
+do
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+        bin="$candidate"
+        break
+    fi
+done
+
+if [[ -z "$bin" ]]; then
+    echo "geoclue 'where-am-i' demo binary not found." >&2
+    echo "Install geoclue-2.0 (Arch: geoclue) which ships the demo at" >&2
+    echo "/usr/lib/geoclue-2.0/demos/where-am-i, or expose it on PATH." >&2
+    exit 1
+fi
+
+echo "Holding GeoClue client open via $bin for ${duration}s"
+"$bin" -t "$duration"
+echo "done"

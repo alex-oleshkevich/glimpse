@@ -426,13 +426,23 @@ filter_regex = [
   "(?i)^discord$",
   "(?i)build succeeded",
 ]
+
+# Promote / demote urgency for specific apps.
+# Rules are evaluated in order; first regex match wins.
+[[applets.notifications.urgency_remap]]
+app_pattern = "(?i)^slack$"
+urgency = "critical"
+
+[[applets.notifications.urgency_remap]]
+app_pattern = "(?i)^telegram"
+urgency = "low"
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
 | `label_format` | `""` | Panel text. |
 | `tooltip_format` | `"{count} notifications"` | Hover text. |
-| `badge_style` | `"dot"` | Badge style: `"dot"` (accent-coloured indicator), `"count"` (numeric badge with `1`–`9`/`9+`), or `"none"` to hide. |
+| `badge_style` | `"dot"` | Badge style: `"dot"` (small status indicator — gray at rest, warning-coloured when any critical notification is present), `"count"` (numeric badge with `1`–`9`/`9+`), or `"none"` to hide. |
 | `max_history` | `100` | Maximum notifications kept in memory. When the limit is exceeded, the oldest non-critical notifications are evicted first. Set to `0` for unlimited. |
 | `popup_timeout_ms` | `5000` | How long popups stay visible. |
 | `popup_visible_limit` | `8` | Maximum popups visible at once. Clamped from 1 to 20. |
@@ -441,8 +451,20 @@ filter_regex = [
 | `popup_margin_y` | `32` | Vertical popup margin. |
 | `popup_monitor` | unset | Pin popups to a specific output by connector name (e.g. `"eDP-1"`, `"DP-2"`). When unset, Glimpse chooses a default monitor automatically. |
 | `filter_regex` | `[]` | Regex rules matched against app name, title, and body. If any rule matches, non-critical notifications are hidden from popups, history, badge count, and the notification center. Critical notifications are never filtered. |
+| `urgency_remap` | `[]` | List of `{ app_pattern, urgency }` rules that override a notification's urgency level when `app_pattern` (regex) matches the sending app name. `urgency` is one of `"low"`, `"normal"`, `"critical"`. First match wins. Useful for forcing important apps (Slack, on-call tooling) to behave as critical, or silencing chatty apps to `low`. The remap is applied before the notification reaches the badge / popover / popup, so a remapped-critical notification will, e.g., flip the dot to warning color. (Note: remapped urgency does **not** bypass the daemon's DND filter — that still checks the original urgency the app sent.) |
 
 Placeholders: `{count}`, `{state}`.
+
+### Notification center
+
+Clicking the panel icon opens the notification center popover with all currently-active notifications, newest first. When 3 or more notifications from the same app accumulate, they collapse into a **group**:
+
+- **Collapsed group**: shows only the most recent notification, with two darker "card edges" peeking out beneath it as a stacked-deck visual. Clicking anywhere on the lead card expands the group.
+- **Expanded group**: shows an inline header (app icon + name + collapse chevron) followed by every notification in the group. Click the chevron to collapse again.
+
+Each notification in the popover has its own dismiss button (×). Single notifications and group members behave identically — there is no group-wide dismiss; dismissing the lead in a collapsed group dismisses just that one and the next-most-recent advances to the front of the stack.
+
+The "Clear All" button in the footer dismisses every notification at once.
 
 ### Popups on multi-monitor setups
 

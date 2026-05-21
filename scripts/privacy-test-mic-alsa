@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#
+# Record audio via ALSA (bypassing PipeWire) for DURATION seconds (default
+# 10). Tests the privacy applet's mic detection path when PipeWire is not
+# the recorder. Requires `arecord` from alsa-utils.
+#
+# Usage: ./scripts/privacy-test-mic-alsa [SECONDS]
+
+set -euo pipefail
+
+duration="${1:-10}"
+out="/tmp/glimpse-mic-alsa.wav"
+
+command -v arecord >/dev/null || { echo "arecord not found (install alsa-utils)" >&2; exit 1; }
+
+echo "Recording mic via ALSA for ${duration}s to ${out}"
+exec arecord -q -f cd -d "$duration" "$out"

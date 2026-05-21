@@ -52,6 +52,22 @@ fn main() {
             "resources/widgets/message_group.ui",
         ),
         (
+            "src/widgets/mic_indicator/template.blp",
+            "resources/widgets/mic_indicator.ui",
+        ),
+        (
+            "src/widgets/camera_indicator/template.blp",
+            "resources/widgets/camera_indicator.ui",
+        ),
+        (
+            "src/widgets/location_indicator/template.blp",
+            "resources/widgets/location_indicator.ui",
+        ),
+        (
+            "src/widgets/screencast_indicator/template.blp",
+            "resources/widgets/screencast_indicator.ui",
+        ),
+        (
             "src/widgets/popover_shell/template.blp",
             "resources/widgets/popover_shell.ui",
         ),

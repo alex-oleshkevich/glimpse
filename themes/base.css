@@ -725,46 +725,6 @@ popover.theme-light {
     margin-bottom: var(--space-10);
 }
 
-.gap-1 {
-    -gtk-box-gap: var(--space-1);
-}
-
-.gap-2 {
-    -gtk-box-gap: var(--space-2);
-}
-
-.gap-3 {
-    -gtk-box-gap: var(--space-3);
-}
-
-.gap-4 {
-    -gtk-box-gap: var(--space-4);
-}
-
-.gap-5 {
-    -gtk-box-gap: var(--space-5);
-}
-
-.gap-6 {
-    -gtk-box-gap: var(--space-6);
-}
-
-.gap-7 {
-    -gtk-box-gap: var(--space-7);
-}
-
-.gap-8 {
-    -gtk-box-gap: var(--space-8);
-}
-
-.gap-9 {
-    -gtk-box-gap: var(--space-9);
-}
-
-.gap-10 {
-    -gtk-box-gap: var(--space-10);
-}
-
 .panel {
     font-family: var(--font-family-ui);
     font-size: var(--font-size-md);
@@ -1120,22 +1080,19 @@ popover.popover-size-xxlarge {
 
 .section-header,
 .section-block__header,
-.action-menu__header,
 .device-list__header {
     margin-bottom: var(--space-3);
 }
 
 .section-header__title,
 .section-block__title,
-.action-menu__title,
 .device-list__title {
     color: var(--row-fg);
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-semibold);
 }
 
-.section-block__subtitle,
-.action-menu__subtitle {
+.section-block__subtitle {
     color: var(--color-muted-fg);
     font-size: var(--font-size-sm);
 }
@@ -1163,9 +1120,7 @@ popover.popover-size-xxlarge {
 }
 
 .item__left,
-.item__right,
-.list-item_left,
-.list-item_right {
+.item__right {
     color: var(--row-muted-fg);
 }
 
@@ -1188,7 +1143,6 @@ popover.popover-size-xxlarge {
     font-weight: var(--font-weight-normal);
 }
 
-.item__secondary_label,
 .list-item__secondary_label {
     color: var(--color-muted-fg);
     font-size: var(--font-size-xxs);
@@ -1213,12 +1167,6 @@ popover.popover-size-xxlarge {
 .toast__action:active {
     background: var(--row-active-bg);
     transform: scale(var(--press-scale));
-}
-
-.item__button--static:hover,
-.item__button--static:active {
-    background: transparent;
-    transform: none;
 }
 
 .meter,
@@ -1414,13 +1362,10 @@ popover.clipboard-app-menu .action-menu {
         var(--shadow-sm);
 }
 
-.card-surface__header,
-.card-surface__body,
-.card-surface__footer {
+.card-surface__body {
     padding: var(--card-padding);
 }
 
-.card-surface__header,
 .card-surface__body {
     padding-bottom: 0;
 }
@@ -1471,12 +1416,6 @@ popover.clipboard-app-menu .action-menu {
 .empty-state__subtitle {
     color: var(--color-muted-fg);
     font-size: var(--font-size-sm);
-}
-
-.section-title {
-    color: var(--row-fg);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
 }
 
 .dim-label {
@@ -1619,56 +1558,8 @@ popover.clipboard-app-menu .action-menu {
 
 /* Network popover */
 
-.network-popover .section-block__header,
-.network-popover .net-section-header {
+.network-popover .section-block__header {
     padding: var(--space-2) 0;
-}
-
-.network-popover .net-empty {
-    font-size: var(--font-size-sm);
-    color: var(--color-muted-fg);
-    padding: var(--space-2) 0;
-}
-
-.network-popover .net-ap-btn,
-.network-popover .net-device-btn,
-.network-popover .net-vpn-btn {
-    padding: var(--row-padding-y) calc(var(--row-padding-x) - var(--space-1));
-}
-
-.network-popover .net-ap-icon,
-.network-popover .net-lock-icon {
-    opacity: var(--opacity-muted);
-}
-
-.network-popover .net-lock-icon {
-    margin-right: var(--space-4);
-}
-
-.network-popover .net-ap-icon-active {
-    color: var(--color-accent);
-}
-
-@keyframes net-pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.3;
-    }
-}
-
-.net-connecting {
-    animation: net-pulse 1.5s ease-in-out infinite;
-}
-
-.network-popover .net-dim {
-    opacity: var(--opacity-disabled);
-    font-size: var(--font-size-sm);
-    font-variant-numeric: tabular-nums;
 }
 
 /* Brightness */
@@ -1681,23 +1572,10 @@ popover.clipboard-app-menu .action-menu {
     --popover-min-width: var(--popover-medium-width);
 }
 
-.brightness-popover .brightness-source-section {
-    padding: 0;
-}
-
-.brightness-popover .brightness-control__icon-ghost {
-    min-width: 28px;
-}
-
 .brightness-popover .brightness-control__icon-slot {
     min-width: 16px;
 }
 
-.brightness-popover .brightness-control__name {
-    font-weight: var(--font-weight-medium);
-}
-
-.brightness-popover .brightness-control__scale,
 .brightness-popover .brightness-control scale {
     min-width: 220px;
 }
@@ -1867,41 +1745,16 @@ popover.clipboard-app-menu .action-menu {
     font-variant-numeric: tabular-nums;
 }
 
-.exec-progress {
-    min-width: 140px;
-}
-
-.exec-icon {
-    color: currentColor;
-}
-
 /* Weather */
-
-.weather-label {
-    font-variant-numeric: tabular-nums;
-}
 
 .weather-popover {
     --popover-min-width: var(--popover-medium-width);
-}
-
-.weather-popover .weather-hero {
-    margin-bottom: var(--space-1);
 }
 
 .weather-popover .weather-hero-temp {
     font-size: 24px;
     font-weight: var(--font-weight-semibold);
     font-variant-numeric: tabular-nums;
-}
-
-.weather-popover .weather-hero-row2 {
-    margin-bottom: var(--space-2);
-}
-
-.weather-popover .weather-hero-condition {
-    font-size: var(--font-size-md);
-    color: var(--color-muted-fg);
 }
 
 .weather-popover .weather-hourly {
@@ -1912,46 +1765,10 @@ popover.clipboard-app-menu .action-menu {
     padding: var(--space-3) var(--space-1);
 }
 
-.weather-popover .weather-hourly-time {
-    font-size: var(--font-size-xs);
-    color: var(--color-muted-fg);
-}
-
 .weather-popover .weather-hourly-temp {
     font-size: var(--font-size-md);
     font-weight: var(--font-weight-semibold);
     font-variant-numeric: tabular-nums;
-}
-
-.weather-popover .weather-stats {
-    padding: var(--space-1) 0;
-}
-
-.weather-popover .weather-detail-row {
-    margin-bottom: var(--space-2);
-}
-
-.weather-popover .weather-detail-row:last-child {
-    margin-bottom: 0;
-}
-
-.weather-popover .weather-detail-pair {
-    padding: var(--space-2) var(--space-5);
-}
-
-.weather-popover .weather-detail-key {
-    font-size: var(--font-size-xs);
-    color: var(--color-muted-fg);
-}
-
-.weather-popover .weather-detail-val {
-    font-size: 14px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-}
-
-.weather-popover .weather-forecast-row {
-    padding: var(--space-3) 0;
 }
 
 .weather-popover .weather-forecast-today .weather-forecast-day {
@@ -1968,24 +1785,6 @@ popover.clipboard-app-menu .action-menu {
     font-variant-numeric: tabular-nums;
     font-weight: var(--font-weight-semibold);
     min-width: 68px;
-}
-
-.weather-popover .weather-forecast-cond {
-    font-size: var(--font-size-sm);
-    color: var(--color-muted-fg);
-}
-
-.weather-popover .weather-forecast-condition {
-    min-height: 20px;
-}
-
-.weather-popover .weather-forecast-icon-slot {
-    min-width: 20px;
-    min-height: 20px;
-}
-
-.weather-popover .weather-forecast-icon {
-    color: var(--color-muted-fg);
 }
 
 /* MPRIS */
@@ -2842,4 +2641,26 @@ label.text-error {
     padding-left: 0;
     margin-bottom: var(--space-2);
     font-size: var(--font-size-lg);
+}
+
+/* ── Privacy indicators (location / camera / mic / screencast) ── */
+
+.location-indicator.is-active,
+.camera-indicator.is-active,
+.mic-indicator.is-active {
+    color: #ffa733;
+}
+
+.screencast-indicator {
+    padding: 0 var(--space-2);
+}
+
+.screencast-indicator__rec {
+    color: var(--color-danger);
+}
+
+.screencast-indicator__timer {
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+    font-size: var(--font-size-xs);
 }

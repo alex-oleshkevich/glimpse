@@ -35,6 +35,7 @@ pub fn start(services: &Services) -> broadcast::Sender<Arc<IpcEvent>> {
     spawn_webcam_watcher(services.webcam.subscribe(), tx.clone());
     spawn_tray_watcher(services.tray.subscribe(), tx.clone());
     spawn_location_watcher(services.location.subscribe(), tx.clone());
+    spawn_geoclue_watcher(services.geoclue.subscribe(), tx.clone());
 
     tx
 }
@@ -922,6 +923,14 @@ fn spawn_compositor_watcher(
 
             // --- screencast.* ---
             if next.capabilities.screencast_state != ScreencastStateCapability::None {
+                let prev_active = prev.screencasts.iter().any(|s| s.active);
+                let next_active = next.screencasts.iter().any(|s| s.active);
+                if !prev_active && next_active {
+                    emit(&tx, "screencast.in_use", vec![]);
+                } else if prev_active && !next_active {
+                    emit(&tx, "screencast.released", vec![]);
+                }
+
                 let prev_casts: HashMap<&str, _> = prev
                     .screencasts
                     .iter()
@@ -1716,6 +1725,27 @@ fn spawn_location_watcher(
                 }
             }
 
+            prev = next;
+        }
+    });
+}
+
+fn spawn_geoclue_watcher(
+    mut rx: watch::Receiver<crate::services::geoclue::State>,
+    tx: broadcast::Sender<Arc<IpcEvent>>,
+) {
+    tokio::spawn(async move {
+        let mut prev = rx.borrow_and_update().clone();
+        loop {
+            if rx.changed().await.is_err() {
+                break;
+            }
+            let next = rx.borrow_and_update().clone();
+            if !prev.in_use && next.in_use {
+                emit(&tx, "location.in_use", vec![]);
+            } else if prev.in_use && !next.in_use {
+                emit(&tx, "location.released", vec![]);
+            }
             prev = next;
         }
     });

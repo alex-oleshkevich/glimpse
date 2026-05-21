@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+#
+# Open the default PipeWire video source for DURATION seconds (default 10).
+# Useful for the privacy applet's camera indicator.
+#
+# Caveat: a plain webcam usually shows up as a V4L2 device, not as a
+# PipeWire video source — PipeWire exposes cameras via libcamera / the
+# xdg-desktop-portal camera portal. If neither is configured, no PipeWire
+# video source exists and this script will error out. Use
+# `privacy-test-camera-v4l2` to test the V4L2 path directly.
+#
+# Usage: ./scripts/privacy-test-camera-pipewire [SECONDS]
+
+set -euo pipefail
+
+duration="${1:-10}"
+
+command -v gst-launch-1.0 >/dev/null || { echo "gst-launch-1.0 not found (install gstreamer-tools)" >&2; exit 1; }
+
+# List available PipeWire video nodes for diagnostics.
+if command -v pw-cli >/dev/null; then
+    video_nodes=$(pw-cli ls Node 2>/dev/null \
+        | awk '/^\s+id |media\.class.*Video\/Source/ {print}' \
+        | grep -B1 'Video/Source' \
+        | grep 'id ' || true)
+    if [[ -z "$video_nodes" ]]; then
+        echo "No PipeWire Video/Source nodes present." >&2
+        echo "Cameras typically appear here only when libcamera support is" >&2
+        echo "enabled in PipeWire/Wireplumber, or via the camera portal." >&2
+        echo "Use privacy-test-camera-v4l2 to test the V4L2 detection path." >&2
+        exit 1
+    fi
+fi
+
+echo "Opening default PipeWire video source for ${duration}s"
+gst-launch-1.0 -q pipewiresrc ! videoconvert ! fakesink &
+gst_pid=$!
+sleep "$duration"
+kill -INT "$gst_pid" 2>/dev/null || true
+wait "$gst_pid" 2>/dev/null || true
+echo "done"

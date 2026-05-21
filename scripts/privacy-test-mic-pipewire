@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+#
+# Record audio via the default PipeWire source for DURATION seconds (default
+# 10). Useful for exercising the privacy applet's mic indicator end-to-end:
+# while this runs, the panel should show the mic glyph in warning color, and
+# `pw-top` / `wpctl status` will list `pw-record` as an active source client.
+#
+# Usage:   ./scripts/privacy-test-mic-pipewire [SECONDS]
+# Cleanup: SIGINT (^C) at any time; output is /tmp/glimpse-mic.wav.
+
+set -euo pipefail
+
+duration="${1:-10}"
+out="/tmp/glimpse-mic.wav"
+
+command -v pw-record >/dev/null || { echo "pw-record not found (install pipewire-utils)" >&2; exit 1; }
+
+echo "Recording mic via PipeWire for ${duration}s to ${out}"
+exec pw-record --rate=48000 --channels=1 --format=s16 "$out" &
+pw_pid=$!
+sleep "$duration"
+kill -INT "$pw_pid" 2>/dev/null || true
+wait "$pw_pid" 2>/dev/null || true
+echo "done: $out"

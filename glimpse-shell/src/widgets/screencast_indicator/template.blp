@@ -1,0 +1,30 @@
+using Gtk 4.0;
+
+template $ScreenCastIndicator: Box {
+  orientation: horizontal;
+  spacing: 4;
+  valign: center;
+  visible: false;
+
+  styles [
+    "screencast-indicator",
+  ]
+
+  Image rec_icon {
+    icon-name: "media-record-symbolic";
+    pixel-size: 12;
+    valign: center;
+
+    styles [
+      "screencast-indicator__rec",
+    ]
+  }
+
+  Label timer_label {
+    valign: center;
+
+    styles [
+      "screencast-indicator__timer",
+    ]
+  }
+}

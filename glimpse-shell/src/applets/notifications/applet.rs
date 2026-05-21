@@ -362,7 +362,11 @@ impl Applet {
                 } else {
                     StatusDotStatus::Neutral
                 };
-                vec!["notification-badge-anchor", "status-dot", status.css_class()]
+                vec![
+                    "notification-badge-anchor",
+                    "status-dot",
+                    status.css_class(),
+                ]
             }
         };
     }

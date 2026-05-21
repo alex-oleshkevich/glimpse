@@ -7,6 +7,10 @@
     <file>widgets/hero.ui</file>
     <file>widgets/message.ui</file>
     <file>widgets/message_group.ui</file>
+    <file>widgets/mic_indicator.ui</file>
+    <file>widgets/camera_indicator.ui</file>
+    <file>widgets/location_indicator.ui</file>
+    <file>widgets/screencast_indicator.ui</file>
     <file>widgets/popover_shell.ui</file>
     <file>widgets/tile.ui</file>
     <file>widgets/switch_tile.ui</file>

@@ -18,7 +18,11 @@ use crate::{
     },
 };
 
-use super::{components::indicators::PrivacyIndicators, format};
+use super::format;
+use crate::widgets::{
+    camera_indicator::CameraIndicator, location_indicator::LocationIndicator,
+    mic_indicator::MicIndicator, screencast_indicator::ScreenCastIndicator,
+};
 
 const SCREEN_RECORDING_TICK: Duration = Duration::from_secs(1);
 
@@ -86,6 +90,7 @@ impl SimpleComponent for Applet {
         root = gtk::Box {
             add_css_class: "applet",
             set_orientation: gtk::Orientation::Horizontal,
+            set_spacing: 6,
             set_valign: gtk::Align::Center,
             #[watch]
             set_visible: model.view.visible,
@@ -103,37 +108,26 @@ impl SimpleComponent for Applet {
                 },
             },
 
-            #[template]
-            PrivacyIndicators {
-                #[template_child]
-                microphone {
-                    #[watch]
-                    set_visible: model.view.microphone_visible,
-                },
+            LocationIndicator {
+                #[watch]
+                set_active: model.view.location_visible,
+            },
 
-                #[template_child]
-                camera {
-                    #[watch]
-                    set_visible: model.view.camera_visible,
-                },
+            CameraIndicator {
+                #[watch]
+                set_active: model.view.camera_visible,
+            },
 
-                #[template_child]
-                screen {
-                    #[watch]
-                    set_visible: model.view.screen_visible,
-                },
+            MicIndicator {
+                #[watch]
+                set_active: model.view.microphone_visible,
+            },
 
-                #[template_child]
-                screen_elapsed {
-                    #[watch]
-                    set_label: &model.view.screen_elapsed,
-                },
-
-                #[template_child]
-                location {
-                    #[watch]
-                    set_visible: model.view.location_visible,
-                },
+            ScreenCastIndicator {
+                #[watch]
+                set_active: model.view.screen_visible,
+                #[watch]
+                set_timer_text: &model.view.screen_elapsed,
             },
         }
     }

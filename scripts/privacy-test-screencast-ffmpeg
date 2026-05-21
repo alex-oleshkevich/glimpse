@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#
+# X11-based screen capture via ffmpeg + x11grab (no PipeWire). Captures
+# the default display for DURATION seconds (default 10) into a temp file.
+# Useful only on X11 / XWayland sessions.
+#
+# Usage: ./scripts/privacy-test-screencast-ffmpeg [SECONDS]
+
+set -euo pipefail
+
+duration="${1:-10}"
+out="/tmp/glimpse-screencast-x11.mp4"
+
+command -v ffmpeg >/dev/null || { echo "ffmpeg not found" >&2; exit 1; }
+
+# Skip on pure Wayland sessions: x11grab against Xwayland's DISPLAY only sees
+# X11 client windows, not the Wayland compositor — and the compositor does not
+# treat it as a screencast either, so this test is a no-op for privacy
+# detection. Use scripts/privacy-test-screencast-pipewire instead.
+if [[ "${XDG_SESSION_TYPE:-}" == "wayland" ]]; then
+    echo "Wayland session detected; x11grab cannot capture the compositor." >&2
+    echo "Use ./scripts/privacy-test-screencast-pipewire instead." >&2
+    exit 1
+fi
+
+[[ -n "${DISPLAY:-}" ]] || { echo "DISPLAY not set; x11grab requires an X session" >&2; exit 1; }
+
+echo "Capturing X11 display ${DISPLAY} for ${duration}s to ${out}"
+exec ffmpeg -hide_banner -loglevel error \
+    -f x11grab -framerate 30 -i "$DISPLAY" \
+    -t "$duration" -y "$out"
