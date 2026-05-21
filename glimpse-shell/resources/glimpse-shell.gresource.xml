@@ -4,11 +4,15 @@
     <file alias="themes/base.css" compressed="true">../../themes/base.css</file>
     <file alias="themes/base-remap.css" compressed="true">../../themes/base-remap.css</file>
     <file>widgets/battery_hero.ui</file>
+    <file>widgets/calendar_controls.ui</file>
+    <file>widgets/calendar_month_view.ui</file>
+    <file>widgets/calendar_year_view.ui</file>
     <file>widgets/date_hero.ui</file>
     <file>widgets/hero.ui</file>
     <file>widgets/message.ui</file>
     <file>widgets/message_group.ui</file>
     <file>widgets/mic_indicator.ui</file>
+    <file>widgets/muted_indicator.ui</file>
     <file>widgets/camera_indicator.ui</file>
     <file>widgets/location_indicator.ui</file>
     <file>widgets/screencast_indicator.ui</file>

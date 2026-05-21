@@ -80,7 +80,7 @@ popover {
     --color-accent-fg: var(--sys-accent-fg);
     --color-success: #2b7a4b;
     --color-success-fg: #ffffff;
-    --color-warning: #b26400;
+    --color-warning: #ffa733;
     --color-warning-fg: #ffffff;
     --color-danger: #c01c28;
     --color-danger-fg: #ffffff;
@@ -144,7 +144,7 @@ popover {
     --panel-fg: #030712;
     --panel-opacity: 1;
     --panel-padding-y: 0;
-    --panel-padding-x: var(--space-4);
+    --panel-padding-x: var(--space-3);
     --panel-margin: 0;
     --panel-radius: 0;
 
@@ -751,6 +751,7 @@ popover,
     color: var(--panel-fg);
     font-variant-numeric: tabular-nums;
     padding: var(--panel-padding-y) var(--panel-padding-x);
+    min-height: 2.2em;
     border-radius: var(--panel-radius);
     box-shadow: var(--shadow-sm);
     background: var(--panel-bg);
@@ -787,6 +788,12 @@ popover,
 .applet image {
     min-height: var(--indicator-icon-size);
     min-width: var(--indicator-icon-size);
+}
+
+.panel-indicator__icon,
+.panel-indicator__label,
+.panel-indicator__extra {
+    color: inherit;
 }
 
 .applet:hover,
@@ -841,14 +848,14 @@ popover,
 }
 
 .pager-dot.urgent {
-    background: var(--color-accent);
+    background: var(--color-warning);
 }
 
 .pager-num {
     min-width: 22px;
     min-height: 22px;
     margin: 0 var(--space-1);
-    padding: 0 4px 0 4px;
+    padding: 0 2px 0 2px;
     border-radius: var(--radius-pill);
     background: color-mix(in srgb, currentColor 1%, transparent);
     color: var(--panel-fg);
@@ -862,7 +869,7 @@ popover,
     min-width: 22px;
     min-height: 22px;
     font-weight: 500;
-    font-size: 0.78rem;
+    font-size: 0.825rem;
     font-variant-numeric: tabular-nums;
 }
 
@@ -1714,6 +1721,142 @@ popover.clipboard-app-menu .action-menu {
     min-height: 10px;
     margin-top: 1px;
     font-size: 10px;
+}
+
+/* New Calendar widget (widgets/calendar) — BEM, unprefixed */
+
+.calendar__header {
+    margin-bottom: var(--space-4);
+}
+
+.calendar__title-button {
+    padding: 0 var(--space-3);
+    font-weight: var(--font-weight-medium);
+}
+
+.calendar__title-button:hover {
+    background: var(--row-hover-bg);
+}
+
+.calendar__weekday {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-muted-fg);
+}
+
+.calendar__week-number {
+    font-size: var(--font-size-sm);
+    color: var(--color-muted-fg);
+    font-variant-numeric: tabular-nums;
+    padding: 0 var(--space-2);
+}
+
+.calendar__week-number--header {
+    color: var(--color-muted-fg);
+    font-weight: var(--font-weight-normal);
+}
+
+.calendar__day {
+    min-width: 40px;
+    min-height: 40px;
+    padding: var(--space-2) 0 3px;
+    border-radius: var(--row-radius);
+    background: transparent;
+}
+
+.calendar__day:hover {
+    background: var(--row-hover-bg);
+}
+
+.calendar__day.other-month {
+    opacity: var(--opacity-disabled);
+}
+
+.calendar__day.today {
+    color: var(--color-accent);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-accent);
+}
+
+.calendar__day.today:hover {
+    background: var(--row-hover-bg);
+}
+
+.calendar__day.selected {
+    background: var(--color-accent);
+    color: var(--color-accent-fg);
+    box-shadow: none;
+}
+
+.calendar__day.selected:hover {
+    background: var(--color-accent);
+}
+
+.calendar__day.today.selected {
+    background: var(--color-accent);
+    color: var(--color-accent-fg);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-accent-fg);
+}
+
+.calendar__day.today.selected:hover {
+    background: var(--color-accent);
+}
+
+.calendar__day-number {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-normal);
+    font-variant-numeric: tabular-nums;
+}
+
+.calendar__day.selected .calendar__day-number {
+    font-weight: var(--font-weight-medium);
+}
+
+.calendar__day-dot {
+    min-width: 4px;
+    min-height: 4px;
+    border-radius: 50%;
+    background: transparent;
+    margin-top: 2px;
+}
+
+.calendar__day.has-events .calendar__day-dot {
+    background: var(--color-accent);
+}
+
+.calendar__day.selected.has-events .calendar__day-dot {
+    background: var(--color-accent-fg);
+}
+
+.calendar__month {
+    min-width: 64px;
+    padding: var(--space-4) var(--space-5);
+    border-radius: var(--row-radius);
+    font-variant-numeric: tabular-nums;
+}
+
+.calendar__month:hover {
+    background: var(--row-hover-bg);
+}
+
+.calendar__month.today-month {
+    color: var(--color-accent);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-accent);
+}
+
+.calendar__month.current {
+    background: var(--color-accent);
+    color: var(--color-accent-fg);
+    box-shadow: none;
+}
+
+.calendar__month.current:hover {
+    background: var(--color-accent);
+}
+
+.calendar__month.current.today-month {
+    background: var(--color-accent);
+    color: var(--color-accent-fg);
+    box-shadow: inset 0 0 0 var(--border-width) var(--color-accent-fg);
 }
 
 .clock-popover .events-list {
@@ -2667,8 +2810,9 @@ label.text-error {
 
 .location-indicator.is-active,
 .camera-indicator.is-active,
-.mic-indicator.is-active {
-    color: #ffa733;
+.mic-indicator.is-active,
+.muted-indicator.is-active {
+    color: var(--color-warning);
 }
 
 .screencast-indicator {

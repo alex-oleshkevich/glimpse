@@ -43,6 +43,18 @@ fn main() {
             "resources/widgets/battery_hero.ui",
         ),
         (
+            "src/widgets/calendar/controls/template.blp",
+            "resources/widgets/calendar_controls.ui",
+        ),
+        (
+            "src/widgets/calendar/month_view/template.blp",
+            "resources/widgets/calendar_month_view.ui",
+        ),
+        (
+            "src/widgets/calendar/year_view/template.blp",
+            "resources/widgets/calendar_year_view.ui",
+        ),
+        (
             "src/widgets/date_hero/template.blp",
             "resources/widgets/date_hero.ui",
         ),
@@ -58,6 +70,10 @@ fn main() {
         (
             "src/widgets/mic_indicator/template.blp",
             "resources/widgets/mic_indicator.ui",
+        ),
+        (
+            "src/widgets/muted_indicator/template.blp",
+            "resources/widgets/muted_indicator.ui",
         ),
         (
             "src/widgets/camera_indicator/template.blp",

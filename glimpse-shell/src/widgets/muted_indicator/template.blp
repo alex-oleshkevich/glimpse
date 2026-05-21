@@ -1,0 +1,18 @@
+using Gtk 4.0;
+
+template $MutedIndicator: Box {
+  visible: false;
+
+  styles [
+    "muted-indicator",
+  ]
+
+  Image icon {
+    icon-name: "microphone-sensitivity-muted-symbolic";
+    pixel-size: 16;
+
+    styles [
+      "muted-indicator__icon",
+    ]
+  }
+}

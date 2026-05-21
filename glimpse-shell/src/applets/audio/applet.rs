@@ -1,6 +1,6 @@
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
-    gtk::{self, glib, prelude::*},
+    gtk::{self, prelude::*},
 };
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
@@ -11,6 +11,7 @@ use crate::{
         audio::{AudioHandle, Command, State, volume_icon},
         framework::ServiceCommand,
     },
+    widgets::{muted_indicator::MutedIndicator, panel_indicator::PanelIndicator},
 };
 
 use super::{
@@ -96,62 +97,30 @@ impl SimpleComponent for Applet {
     type Output = ();
 
     view! {
-        root = gtk::Box {
-            add_css_class: "applet",
-            set_orientation: gtk::Orientation::Horizontal,
-            set_spacing: 4,
+        root = PanelIndicator {
             #[watch]
             set_visible: model.state.available,
             #[watch]
             set_tooltip_text: if model.tooltip.is_empty() { None } else { Some(&model.tooltip) },
-
-            add_controller = gtk::GestureClick {
-                set_button: 1,
-                connect_pressed[sender] => move |_, _, _, _| {
-                    sender.input(Input::TogglePopover);
-                },
+            #[watch]
+            set_icon: if model.config.show_icon { Some(model.icon_name.as_str()) } else { None },
+            #[watch]
+            set_label: if model.label.is_empty() { None } else { Some(model.label.as_str()) },
+            #[watch]
+            set_extra_visible: model.config.show_mic_indicator && input_muted(&model.state),
+            connect_activated[sender] => move |_| {
+                sender.input(Input::TogglePopover);
+            },
+            connect_middle_clicked[sender] => move |_| {
+                sender.input(Input::ToggleMute);
+            },
+            connect_scrolled[sender] => move |_, _dx, dy| {
+                sender.input(Input::Scroll(dy));
             },
 
-            add_controller = gtk::GestureClick {
-                set_button: 2,
-                connect_pressed[sender] => move |_, _, _, _| {
-                    sender.input(Input::ToggleMute);
-                },
-            },
-
-            add_controller = gtk::EventControllerScroll::new(
-                gtk::EventControllerScrollFlags::VERTICAL
-            ) {
-                connect_scroll[sender] => move |_, _dx, dy| {
-                    sender.input(Input::Scroll(dy));
-                    glib::Propagation::Stop
-                },
-            },
-
-            gtk::Image {
-                set_pixel_size: 16,
-                set_valign: gtk::Align::Center,
+            MutedIndicator {
                 #[watch]
-                set_icon_name: Some(&model.icon_name),
-                #[watch]
-                set_visible: model.config.show_icon,
-            },
-
-            gtk::Image {
-                set_icon_name: Some("microphone-sensitivity-muted-symbolic"),
-                set_pixel_size: 16,
-                set_valign: gtk::Align::Center,
-                add_css_class: "is-warning",
-                #[watch]
-                set_visible: model.config.show_mic_indicator && input_muted(&model.state),
-            },
-
-            gtk::Label {
-                set_valign: gtk::Align::Center,
-                #[watch]
-                set_label: &model.label,
-                #[watch]
-                set_visible: !model.label.is_empty(),
+                set_active: model.config.show_mic_indicator && input_muted(&model.state),
             }
         }
     }
@@ -163,7 +132,7 @@ impl SimpleComponent for Applet {
     ) -> ComponentParts<Self> {
         let popover = Popover::builder()
             .launch(PopoverInit {
-                parent: root.clone(),
+                parent: root.clone().upcast::<gtk::Box>(),
                 max_volume: init.config.max_volume,
                 show_streams: init.config.show_streams,
             })
