@@ -33,6 +33,17 @@ popover {
 
     /* Typography */
     --font-family-ui: "Adwaita Sans", system-ui, sans-serif;
+    --font-size-base: 11pt;
+    --font-size-ui: var(--font-size-base);
+
+    --font-size-large-title: 24pt;
+    --font-size-title-1: 20pt;
+    --font-size-title-2: 15pt;
+    --font-size-title-3: 15pt;
+    --font-size-title-4: 13pt;
+    --font-size-heading: 11pt;
+    --font-size-caption: 9pt;
+
     --font-size-xxs: 10px;
     --font-size-xs: 11px;
     --font-size-sm: 12px;
@@ -727,8 +738,18 @@ popover.theme-light {
 
 .panel {
     font-family: var(--font-family-ui);
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-base);
+}
+
+popover,
+.notification-popup {
+    font-family: var(--font-family-ui);
+    font-size: var(--font-size-ui);
+}
+
+.panel {
     color: var(--panel-fg);
+    font-variant-numeric: tabular-nums;
     padding: var(--panel-padding-y) var(--panel-padding-x);
     border-radius: var(--panel-radius);
     box-shadow: var(--shadow-sm);
@@ -751,6 +772,7 @@ popover.theme-light {
     color: var(--indicator-fg);
     border-radius: var(--indicator-radius);
     font-weight: var(--indicator-font-weight);
+    font-variant-numeric: tabular-nums;
     line-height: 1;
     min-height: var(--indicator-size);
     min-width: var(--indicator-size);
@@ -767,28 +789,26 @@ popover.theme-light {
     min-width: var(--indicator-icon-size);
 }
 
-button.applet:hover,
-button.applet:active,
 .applet:hover,
 .applet:active {
     background: var(--indicator-hover-bg);
     transform: none;
 }
 
-.applet.is-active,
+/*.applet.is-active,
 .applet.is-checked {
     background: var(--indicator-active-bg);
     transform: scale(var(--press-scale));
 }
-
-.applet:focus-visible {
+*/
+/*.applet:focus-visible {
     outline: 2px solid var(--overlay-focus);
     outline-offset: 2px;
 }
-
-.applet.needs-attention {
+*/
+/*.applet.needs-attention {
     color: var(--accent-bg);
-}
+}*/
 
 .pager {
     padding: 0 var(--space-2);
@@ -1618,17 +1638,17 @@ popover.clipboard-app-menu .action-menu {
     min-width: 250px;
 }
 
-.clock-popover .date {
+.date-hero {
     padding-top: 0;
     padding-left: 0;
     margin-bottom: var(--space-6);
 }
 
-.clock-popover .date-day-of-week {
+.date-hero__weekday {
     font-weight: var(--font-weight-medium);
 }
 
-.clock-popover .date-date {
+.date-hero__date {
     font-size: 130%;
     font-weight: var(--font-weight-semibold);
 }

@@ -179,6 +179,9 @@ Below are the variables that the bundled CSS actually consumes. Setting any othe
 | Variable | Default |
 |---|---|
 | `--font-family-ui` | `"Adwaita Sans", system-ui, sans-serif` |
+| `--font-size-base` | `15px` |
+| `--font-size-ui` | `var(--font-size-base)` |
+| `--font-size-panel` | `calc(var(--font-size-base) * 1)` |
 | `--font-size-xs` / `-sm` / `-md` / `-lg` | `11px`, `12px`, `13px`, `15px` |
 | `--font-weight-normal` / `-medium` / `-semibold` | `400`, `500`, `600` |
 
@@ -239,7 +242,7 @@ State overlays painted over surfaces.
 | `--indicator-active-bg` | `rgb(255 255 255 / 0.16)` |
 | `--indicator-padding-x` / `-y` | `6px`, `4px` |
 | `--indicator-size` / `--indicator-icon-size` | `22px` |
-| `--indicator-font-weight` | `600` |
+| `--indicator-font-weight` | `700` |
 | `--indicator-radius` | `var(--radius-pill)` |
 
 ### Popovers

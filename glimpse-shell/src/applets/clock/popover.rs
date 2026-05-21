@@ -10,13 +10,16 @@ use crate::{
         calendar_events::{CalendarDaySnapshot, MonthKey, State as CalendarState},
         clock::State as ClockState,
     },
+    widgets::date_hero::DateHero,
 };
 
-use super::components::{
-    calendar::{Calendar, CalendarInput, CalendarOutput},
-    date::{Date, DateInput},
-    events::{Events, EventsInput},
-    world_clock::{WorldClock, WorldClockInput},
+use super::{
+    components::{
+        calendar::{Calendar, CalendarInput, CalendarOutput},
+        events::{Events, EventsInput},
+        world_clock::{WorldClock, WorldClockInput},
+    },
+    format,
 };
 
 pub struct Popover {
@@ -25,7 +28,7 @@ pub struct Popover {
     visible_month: MonthKey,
     clock: ClockState,
     calendar: CalendarState,
-    date: Controller<Date>,
+    date: DateHero,
     calendar_view: Controller<Calendar>,
     world_clock: Controller<WorldClock>,
     events: Controller<Events>,
@@ -111,7 +114,7 @@ impl SimpleComponent for Popover {
     ) -> ComponentParts<Self> {
         let selected_date = Local::now().date_naive();
         let visible_month = MonthKey::from_date(selected_date);
-        let date = Date::builder().launch(selected_date).detach();
+        let date = DateHero::new();
         let calendar_view = Calendar::builder()
             .launch(selected_date)
             .forward(sender.input_sender(), PopoverInput::CalendarOutput);
@@ -120,7 +123,7 @@ impl SimpleComponent for Popover {
             .detach();
         let events = Events::builder().launch(selected_date).detach();
 
-        let date_widget = date.widget().clone();
+        let date_widget: gtk::Box = date.clone().upcast();
         let calendar_widget = calendar_view.widget().clone();
         let world_clock_widget = world_clock.widget().clone();
         let events_widget = events.widget().clone();
@@ -182,7 +185,15 @@ impl Popover {
     }
 
     fn sync_selected_date(&mut self) {
-        self.date.emit(DateInput::SetDate(self.selected_date));
+        let today = Local::now().date_naive();
+        let weekday = if self.selected_date == today {
+            "Today".into()
+        } else {
+            format::selected_weekday(self.selected_date)
+        };
+        self.date.set_weekday(&weekday);
+        self.date
+            .set_date(&format::selected_date(self.selected_date));
         self.calendar_view
             .emit(CalendarInput::SetDate(self.selected_date));
         self.sync_events();

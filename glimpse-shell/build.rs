@@ -42,6 +42,10 @@ fn main() {
             "src/widgets/battery_hero/template.blp",
             "resources/widgets/battery_hero.ui",
         ),
+        (
+            "src/widgets/date_hero/template.blp",
+            "resources/widgets/date_hero.ui",
+        ),
         ("src/widgets/hero/template.blp", "resources/widgets/hero.ui"),
         (
             "src/widgets/message/template.blp",

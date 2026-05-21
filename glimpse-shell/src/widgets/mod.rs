@@ -7,6 +7,7 @@ pub mod choice_list;
 pub mod choice_tile;
 pub mod column;
 pub mod container;
+pub mod date_hero;
 pub mod empty_state;
 pub mod expander_tile;
 pub mod header;
