@@ -86,7 +86,7 @@ impl Default for PanelConfig {
                 "keyboard".into(),
                 "bluetooth".into(),
                 "network".into(),
-                "brightness".into(),
+                "display".into(),
                 "audio".into(),
                 "idle".into(),
                 "battery".into(),
@@ -102,7 +102,7 @@ pub enum AppletType {
     Audio,
     Battery,
     Bluetooth,
-    Brightness,
+    Display,
     Clipboard,
     Clock,
     Command,
@@ -126,7 +126,7 @@ impl AppletType {
             "audio" => Some(Self::Audio),
             "battery" => Some(Self::Battery),
             "bluetooth" => Some(Self::Bluetooth),
-            "brightness" => Some(Self::Brightness),
+            "display" => Some(Self::Display),
             "clipboard" => Some(Self::Clipboard),
             "clock" => Some(Self::Clock),
             "idle" => Some(Self::Idle),
@@ -212,5 +212,14 @@ mod tests {
     #[test]
     fn removable_applet_type_is_available_from_config_name() {
         assert!(AppletType::from_config_name("removable").is_some());
+    }
+
+    #[test]
+    fn display_replaces_brightness_config_name() {
+        assert_eq!(
+            AppletType::from_config_name("display"),
+            Some(AppletType::Display)
+        );
+        assert_eq!(AppletType::from_config_name("brightness"), None);
     }
 }

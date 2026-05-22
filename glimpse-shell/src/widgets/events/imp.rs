@@ -16,7 +16,7 @@ pub struct Events {
     #[template_child]
     empty: TemplateChild<gtk4::Label>,
     rows: RefCell<Vec<EventRow>>,
-    events: RefCell<Vec<CalendarEvent>>,
+    cached_events: RefCell<Vec<CalendarEvent>>,
     selected_date: Cell<NaiveDate>,
 }
 
@@ -25,8 +25,8 @@ impl Default for Events {
         Self {
             list: TemplateChild::default(),
             empty: TemplateChild::default(),
-            rows: RefCell::new(Vec::new()),
-            events: RefCell::new(Vec::new()),
+            rows: RefCell::default(),
+            cached_events: RefCell::default(),
             selected_date: Cell::new(Local::now().date_naive()),
         }
     }
@@ -54,7 +54,7 @@ impl BoxImpl for Events {}
 impl Events {
     pub(super) fn set_data(&self, date: NaiveDate, events: &[CalendarEvent], loading: bool) {
         self.selected_date.set(date);
-        *self.events.borrow_mut() = events.to_vec();
+        *self.cached_events.borrow_mut() = events.to_vec();
 
         let mut rows = self.rows.borrow_mut();
         while rows.len() < events.len() {
@@ -85,7 +85,7 @@ impl Events {
 
     pub(super) fn tick(&self) {
         let date = self.selected_date.get();
-        let events = self.events.borrow();
+        let events = self.cached_events.borrow();
         let rows = self.rows.borrow();
         let now = Local::now();
         for (row, event) in rows.iter().zip(events.iter()) {

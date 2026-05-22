@@ -34,7 +34,7 @@ pub fn tooltip_with_monitors(format: &str, state: &State, monitors: &[Monitor]) 
 pub fn hero_subtitle(state: &State) -> String {
     primary_source(state)
         .map(|source| source.name.clone())
-        .unwrap_or_else(|| "No brightness controls".into())
+        .unwrap_or_else(|| "No display controls".into())
 }
 
 pub fn hero_subtitle_with_monitors(state: &State, monitors: &[Monitor]) -> String {
@@ -44,7 +44,7 @@ pub fn hero_subtitle_with_monitors(state: &State, monitors: &[Monitor]) -> Strin
 
     primary_source(state)
         .map(|source| source_display_name(source, monitors))
-        .unwrap_or_else(|| "No brightness controls".into())
+        .unwrap_or_else(|| "No display controls".into())
 }
 
 pub fn icon_name(_state: &State) -> &str {
@@ -74,7 +74,7 @@ fn render_with_source_name(
         return String::new();
     }
 
-    let source_name = source_name.unwrap_or("Brightness");
+    let source_name = source_name.unwrap_or("Display");
     let percent = source
         .map(|source| source.percent.to_string())
         .unwrap_or_else(|| "0".into());

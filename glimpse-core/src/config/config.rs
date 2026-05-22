@@ -276,7 +276,7 @@ right = ["...", "custom"]
                 "keyboard",
                 "bluetooth",
                 "network",
-                "brightness",
+                "display",
                 "audio",
                 "idle",
                 "battery",

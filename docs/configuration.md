@@ -37,7 +37,7 @@ The special name `"..."` means "keep the default applets for this section here."
 | `audio` | Volume status and controls. |
 | `battery` | Battery percentage and charging status. |
 | `bluetooth` | Bluetooth status and devices. |
-| `brightness` | Screen brightness. |
+| `display` | Display brightness. |
 | `clipboard` | Clipboard history. |
 | `clock` | Time and calendar. |
 | `keyboard` | Current keyboard layout. |

@@ -43,7 +43,7 @@ An empty label means the applet shows only its icon.
 | [`audio`](#audio) | Volume, mute state, output device, muted microphone indicator. |
 | [`battery`](#battery) | Battery state, charge, time left, power profile. |
 | [`bluetooth`](#bluetooth) | Bluetooth state and connected devices. |
-| [`brightness`](#brightness) | Screen brightness with scroll control. |
+| [`display`](#display) | Display brightness with scroll control. |
 | [`clipboard`](#clipboard) | Clipboard history. |
 | [`clock`](#clock) | Time, date, calendar, and optional world clocks. |
 | [`command`](#command) | A button or menu that runs commands. |
@@ -128,15 +128,15 @@ tooltip_format = "{devices} connected devices"
 
 Placeholders: `{devices}`, `{state}`.
 
-## Brightness
+## Display
 
-Shows brightness. Scroll on the applet to change brightness. On multi-monitor
+Shows display brightness. Scroll on the applet to change brightness. On multi-monitor
 setups, scrolling adjusts the display attached to the panel first, then the
 focused monitor, then the primary brightness source. Display brightness is
 clamped to at least 1%.
 
 ```toml
-[applets.brightness]
+[applets.display]
 label_format = "{percent}%"
 tooltip_format = "{source}: {percent}%"
 scroll_step = 5

@@ -11,7 +11,7 @@ use relm4::{
 };
 
 use crate::{
-    applets::brightness::format,
+    applets::display::format,
     components::popover_scroll,
     widgets::{
         animated_popover::AnimatedPopover, empty_state::EmptyState, expander_tile::ExpanderTile,
@@ -69,7 +69,7 @@ impl SimpleComponent for Popover {
 
     view! {
         root = AnimatedPopover {
-            add_css_class: "brightness-popover",
+            add_css_class: "display-popover",
             add_css_class: "popover-size-medium",
             set_hexpand: false,
             set_autohide: true,
@@ -81,14 +81,14 @@ impl SimpleComponent for Popover {
                 Hero {
                     #[watch]
                     set_icon: Some(format::icon_name(&model.state)),
-                    set_title: "Brightness",
+                    set_title: "Display",
                     #[watch]
                     set_subtitle: &format::hero_subtitle_with_monitors(&model.state, &model.monitors),
                 },
 
                 EmptyState {
-                    set_title: "No brightness controls",
-                    set_subtitle: Some("No writable brightness sources available"),
+                    set_title: "No display controls",
+                    set_subtitle: Some("No writable display brightness sources available"),
                     #[watch]
                     set_visible: model.sources.is_empty() && !model.displays_visible,
                 },
@@ -148,7 +148,7 @@ impl SimpleComponent for Popover {
         model.display_separator = display_separator;
 
         let display_expander = ExpanderTile::new();
-        display_expander.add_css_class("brightness-displays");
+        display_expander.add_css_class("display-displays");
         display_expander.set_primary("Displays");
         display_expander.set_secondary(None);
 
@@ -275,7 +275,7 @@ struct MonitorRow {
 impl MonitorRow {
     fn new(model: &MonitorRowModel, sender: &ComponentSender<Popover>) -> Self {
         let root = SwitchTile::new();
-        root.add_css_class("brightness-display-row");
+        root.add_css_class("display-row");
 
         let icon = gtk::Image::from_icon_name(model.icon);
         icon.set_pixel_size(16);
@@ -341,11 +341,11 @@ impl MonitorRow {
 impl SourceRow {
     fn new(source: &BrightnessSource, sender: &ComponentSender<Popover>) -> Self {
         let root = SliderTile::new();
-        root.add_css_class("brightness-control");
+        root.add_css_class("display-control");
 
         let icon = gtk::Image::from_icon_name(&source.icon);
-        icon.add_css_class("brightness-control__icon");
-        icon.add_css_class("brightness-control__icon-slot");
+        icon.add_css_class("display-control__icon");
+        icon.add_css_class("display-control__icon-slot");
         icon.set_pixel_size(16);
         icon.set_halign(gtk::Align::Center);
         icon.set_valign(gtk::Align::Center);

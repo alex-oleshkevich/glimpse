@@ -39,7 +39,7 @@ impl Config {
         match raw.settings.clone().try_into() {
             Ok(config) => config,
             Err(error) => {
-                tracing::warn!(?error, "invalid brightness applet config, using defaults");
+                tracing::warn!(?error, "invalid display applet config, using defaults");
                 Self::default()
             }
         }
@@ -68,7 +68,7 @@ pub struct Applet {
     service: BrightnessHandle,
     compositor: CompositorHandle,
     popover: Controller<Popover>,
-    brightness_cancel: CancellationToken,
+    display_cancel: CancellationToken,
     compositor_cancel: CancellationToken,
 }
 
@@ -151,12 +151,12 @@ impl SimpleComponent for Applet {
             service: init.service,
             compositor: init.compositor,
             popover,
-            brightness_cancel: CancellationToken::new(),
+            display_cancel: CancellationToken::new(),
             compositor_cancel: CancellationToken::new(),
         };
 
         let service = model.service.clone();
-        let cancel = model.brightness_cancel.clone();
+        let cancel = model.display_cancel.clone();
         let subscription_sender = sender.input_sender().clone();
         relm4::spawn(async move {
             let mut sub = service.subscribe();
@@ -326,7 +326,7 @@ impl Applet {
 
 impl Drop for Applet {
     fn drop(&mut self) {
-        self.brightness_cancel.cancel();
+        self.display_cancel.cancel();
         self.compositor_cancel.cancel();
     }
 }

@@ -35,6 +35,8 @@ impl ObjectImpl for CalendarControls {
         self.parent_constructed();
         let obj = self.obj();
 
+        self.today.set_label("Today");
+
         let weak = obj.downgrade();
         self.prev.connect_clicked(move |_| {
             if let Some(o) = weak.upgrade() {

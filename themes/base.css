@@ -1575,21 +1575,21 @@ popover.clipboard-app-menu .action-menu {
     padding: var(--space-2) 0;
 }
 
-/* Brightness */
+/* Display */
 
-.brightness-label {
+.display-label {
     font-variant-numeric: tabular-nums;
 }
 
-.brightness-popover {
+.display-popover {
     --popover-min-width: var(--popover-medium-width);
 }
 
-.brightness-popover .brightness-control__icon-slot {
+.display-popover .display-control__icon-slot {
     min-width: 16px;
 }
 
-.brightness-popover .brightness-control scale {
+.display-popover .display-control scale {
     min-width: 220px;
 }
 

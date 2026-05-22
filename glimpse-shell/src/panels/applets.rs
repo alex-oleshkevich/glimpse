@@ -10,8 +10,8 @@ use std::collections::HashMap;
 
 use crate::{
     applets::{
-        audio, battery, bluetooth, brightness, clipboard, clock, command, exec, idle, keyboard,
-        mpris, network, notifications, pager, privacy, removable, session, tray, weather,
+        audio, battery, bluetooth, clipboard, clock, command, display, exec, idle, keyboard, mpris,
+        network, notifications, pager, privacy, removable, session, tray, weather,
     },
     panels::PanelSection,
     services::{framework::Services, wayland_idle_inhibit::SHELL_EXTENSIONS},
@@ -71,7 +71,7 @@ pub enum AppletController {
     Audio(Controller<audio::Applet>),
     Battery(Controller<battery::Applet>),
     Bluetooth(Controller<bluetooth::Applet>),
-    Brightness(Controller<brightness::Applet>),
+    Display(Controller<display::Applet>),
     Clipboard(Controller<clipboard::Applet>),
     Clock(Controller<clock::Applet>),
     Command(Controller<command::Applet>),
@@ -95,7 +95,7 @@ impl AppletController {
             Self::Audio(_) => AppletType::Audio,
             Self::Battery(_) => AppletType::Battery,
             Self::Bluetooth(_) => AppletType::Bluetooth,
-            Self::Brightness(_) => AppletType::Brightness,
+            Self::Display(_) => AppletType::Display,
             Self::Clipboard(_) => AppletType::Clipboard,
             Self::Clock(_) => AppletType::Clock,
             Self::Command(_) => AppletType::Command,
@@ -119,7 +119,7 @@ impl AppletController {
             Self::Audio(controller) => controller.widget().clone().upcast(),
             Self::Battery(controller) => controller.widget().clone().upcast(),
             Self::Bluetooth(controller) => controller.widget().clone().upcast(),
-            Self::Brightness(controller) => controller.widget().clone().upcast(),
+            Self::Display(controller) => controller.widget().clone().upcast(),
             Self::Clipboard(controller) => controller.widget().clone().upcast(),
             Self::Clock(controller) => controller.widget().clone().upcast(),
             Self::Command(controller) => controller.widget().clone().upcast(),
@@ -155,10 +155,10 @@ impl AppletController {
                     &config.cloned(),
                 )));
             }
-            Self::Brightness(controller) => {
-                controller.emit(brightness::Input::Reconfigure(
-                    brightness::Config::from_raw(&config.cloned()),
-                ));
+            Self::Display(controller) => {
+                controller.emit(display::Input::Reconfigure(display::Config::from_raw(
+                    &config.cloned(),
+                )));
             }
             Self::Clipboard(controller) => {
                 controller.emit(clipboard::Input::Reconfigure(clipboard::Config::from_raw(
@@ -270,12 +270,12 @@ pub fn create_applet(
                 })
                 .detach(),
         )),
-        AppletType::Brightness => Some(AppletController::Brightness(
-            brightness::Applet::builder()
-                .launch(brightness::Init {
+        AppletType::Display => Some(AppletController::Display(
+            display::Applet::builder()
+                .launch(display::Init {
                     service: services.brightness.clone(),
                     compositor: services.compositor.clone(),
-                    config: brightness::Config::from_raw(&blueprint.config),
+                    config: display::Config::from_raw(&blueprint.config),
                     panel_monitor: monitor_connector.map(str::to_owned),
                 })
                 .detach(),
@@ -808,12 +808,12 @@ mod tests {
     }
 
     #[test]
-    fn collect_applets_falls_back_to_brightness_builtin_name() {
-        let entries = collect_applets(PanelSection::Left, &["brightness".into()], &HashMap::new());
+    fn collect_applets_falls_back_to_display_builtin_name() {
+        let entries = collect_applets(PanelSection::Left, &["display".into()], &HashMap::new());
 
         assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].name, "brightness");
-        assert_eq!(entries[0].applet_type, AppletType::Brightness);
+        assert_eq!(entries[0].name, "display");
+        assert_eq!(entries[0].applet_type, AppletType::Display);
         assert!(entries[0].config.is_none());
     }
 

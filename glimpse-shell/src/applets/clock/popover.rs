@@ -219,7 +219,7 @@ impl Popover {
             .map(|m| {
                 m.day_snapshots
                     .values()
-                    .filter(|d| d.events.iter().any(|e| !hide_all_day || !e.all_day))
+                    .filter(|d| d.events.iter().any(|e| !(hide_all_day && e.all_day)))
                     .filter_map(|d| d.date.to_naive_date())
                     .collect()
             })
@@ -235,10 +235,9 @@ impl Popover {
             .loading_months
             .contains(&MonthKey::from_date(self.selected_date))
             && day.is_none();
+        let hide_all_day = self.hide_all_day_events;
         let mut events = day.map(|d| d.events).unwrap_or_default();
-        if self.hide_all_day_events {
-            events.retain(|e| !e.all_day);
-        }
+        events.retain(|e| !(hide_all_day && e.all_day));
         self.events.set_data(self.selected_date, &events, loading);
     }
 }
