@@ -1796,26 +1796,12 @@ popover.clipboard-app-menu .action-menu {
     font-weight: var(--font-weight-semibold);
 }
 
-.clock-popover .event-time,
-.clock-popover .world-clock-time,
-.clock-popover .world-clock-tz {
+.clock-popover .event-time {
     font-variant-numeric: tabular-nums;
 }
 
 .clock-popover .events-empty {
     font-weight: var(--font-weight-medium);
-}
-
-.clock-popover .world-clock-list .world-clock-timezone:not(:last-child) {
-    padding-bottom: var(--space-2);
-}
-
-.clock-popover .world-clock-time {
-    font-weight: var(--font-weight-semibold);
-}
-
-.clock-popover .world-clock-tz {
-    padding-left: var(--space-4);
 }
 
 /* Exec */

@@ -23,5 +23,7 @@
     <file>widgets/choice_tile.ui</file>
     <file>widgets/segmented_tile.ui</file>
     <file>widgets/slider_tile.ui</file>
+    <file>widgets/world_clock.ui</file>
+    <file>widgets/world_clock_row.ui</file>
   </gresource>
 </gresources>

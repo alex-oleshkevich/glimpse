@@ -99,6 +99,14 @@ fn main() {
             "src/widgets/slider_tile/template.blp",
             "resources/widgets/slider_tile.ui",
         ),
+        (
+            "src/widgets/world_clock/template.blp",
+            "resources/widgets/world_clock.ui",
+        ),
+        (
+            "src/widgets/world_clock/row/template.blp",
+            "resources/widgets/world_clock_row.ui",
+        ),
     ]);
 
     glib_build_tools::compile_resources(

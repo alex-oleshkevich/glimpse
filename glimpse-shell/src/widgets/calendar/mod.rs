@@ -40,19 +40,11 @@ impl Calendar {
     }
 
     pub fn connect_day_selected(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "day-selected",
-            false,
-            closure_local!(move |s: &Self| f(s)),
-        )
+        self.connect_closure("day-selected", false, closure_local!(move |s: &Self| f(s)))
     }
 
     pub fn connect_month_changed(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "month-changed",
-            false,
-            closure_local!(move |s: &Self| f(s)),
-        )
+        self.connect_closure("month-changed", false, closure_local!(move |s: &Self| f(s)))
     }
 }
 

@@ -154,13 +154,15 @@ impl MonthView {
 
             for col in 0..7 {
                 let i = row * 7 + col;
-                let date = start
-                    .checked_add_days(Days::new(i as u64))
-                    .unwrap_or(start);
+                let date = start.checked_add_days(Days::new(i as u64)).unwrap_or(start);
                 let cell = &cells[i];
                 cell.number.set_label(&date.day().to_string());
 
-                set_class(&cell.button, "other-month", date.month() != visible_month.month());
+                set_class(
+                    &cell.button,
+                    "other-month",
+                    date.month() != visible_month.month(),
+                );
                 set_class(&cell.button, "today", date == today);
                 set_class(&cell.button, "selected", date == selected);
                 set_class(&cell.button, "has-events", event_days.contains(&date));

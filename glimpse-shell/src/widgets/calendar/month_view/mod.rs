@@ -36,11 +36,7 @@ impl MonthView {
     }
 
     pub fn connect_day_selected(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "day-selected",
-            false,
-            closure_local!(move |s: &Self| f(s)),
-        )
+        self.connect_closure("day-selected", false, closure_local!(move |s: &Self| f(s)))
     }
 }
 

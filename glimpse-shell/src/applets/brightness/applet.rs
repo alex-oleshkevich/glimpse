@@ -1,6 +1,6 @@
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
-    gtk::{self, glib, prelude::*},
+    gtk::{self, prelude::*},
 };
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
@@ -12,6 +12,7 @@ use crate::{
         compositor::{Command as CompositorCommand, CompositorHandle, State as CompositorState},
         framework::ServiceCommand,
     },
+    widgets::panel_indicator::PanelIndicator,
 };
 
 use super::{
@@ -96,45 +97,22 @@ impl SimpleComponent for Applet {
     type Output = ();
 
     view! {
-        root = gtk::Box {
-            add_css_class: "applet",
-            set_orientation: gtk::Orientation::Horizontal,
-            set_spacing: 4,
+        root = PanelIndicator {
             #[watch]
             set_visible: model.state.available,
             #[watch]
             set_tooltip_text: if model.tooltip.is_empty() { None } else { Some(&model.tooltip) },
-
-            add_controller = gtk::GestureClick {
-                set_button: 1,
-                connect_pressed[sender] => move |_, _, _, _| {
-                    sender.input(Input::TogglePopover);
-                },
+            #[watch]
+            set_icon: Some(model.icon_name.as_str()),
+            #[watch]
+            set_label: if model.label.is_empty() { None } else { Some(model.label.as_str()) },
+            connect_activated[sender] => move |_| {
+                sender.input(Input::TogglePopover);
             },
-
-            add_controller = gtk::EventControllerScroll::new(
-                gtk::EventControllerScrollFlags::VERTICAL
-            ) {
-                connect_scroll[sender] => move |_, _dx, dy| {
+            connect_scrolled[sender] => move |_, _dx, dy| {
+                if dy != 0.0 {
                     sender.input(Input::Scroll(dy));
-                    glib::Propagation::Stop
-                },
-            },
-
-            gtk::Image {
-                set_pixel_size: 16,
-                set_valign: gtk::Align::Center,
-                #[watch]
-                set_icon_name: Some(&model.icon_name),
-            },
-
-            gtk::Label {
-                add_css_class: "brightness-label",
-                set_valign: gtk::Align::Center,
-                #[watch]
-                set_label: &model.label,
-                #[watch]
-                set_visible: !model.label.is_empty(),
+                }
             }
         }
     }
@@ -146,7 +124,7 @@ impl SimpleComponent for Applet {
     ) -> ComponentParts<Self> {
         let popover = Popover::builder()
             .launch(PopoverInit {
-                parent: root.clone(),
+                parent: root.clone().upcast::<gtk::Box>(),
             })
             .forward(sender.input_sender(), Input::PopoverOutput);
 
@@ -155,8 +133,16 @@ impl SimpleComponent for Applet {
         let state = visible_state(&service_state, &compositor_state);
         let model = Applet {
             icon_name: format::icon_name(&state).into(),
-            label: format::label(&init.config.label_format, &state),
-            tooltip: format::tooltip(&init.config.tooltip_format, &state),
+            label: format::label_with_monitors(
+                &init.config.label_format,
+                &state,
+                &compositor_state.monitors,
+            ),
+            tooltip: format::tooltip_with_monitors(
+                &init.config.tooltip_format,
+                &state,
+                &compositor_state.monitors,
+            ),
             config: init.config,
             panel_monitor: init.panel_monitor,
             service_state,
@@ -293,8 +279,16 @@ impl Applet {
     fn apply_filtered_state(&mut self) {
         let state = visible_state(&self.service_state, &self.compositor_state);
         self.icon_name = format::icon_name(&state).into();
-        self.label = format::label(&self.config.label_format, &state);
-        self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
+        self.label = format::label_with_monitors(
+            &self.config.label_format,
+            &state,
+            &self.compositor_state.monitors,
+        );
+        self.tooltip = format::tooltip_with_monitors(
+            &self.config.tooltip_format,
+            &state,
+            &self.compositor_state.monitors,
+        );
         self.state = state.clone();
         self.popover.emit(PopoverInput::UpdateState(state));
     }

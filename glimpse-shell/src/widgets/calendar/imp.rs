@@ -87,18 +87,34 @@ impl ObjectImpl for Calendar {
         });
         obj.add_controller(scroll);
 
-        wire(&obj, |imp| imp.step(-1), |f| {
-            controls.connect_prev_clicked(f);
-        });
-        wire(&obj, |imp| imp.step(1), |f| {
-            controls.connect_next_clicked(f);
-        });
-        wire(&obj, |imp| imp.go_to_today(), |f| {
-            controls.connect_today_clicked(f);
-        });
-        wire(&obj, |imp| imp.toggle_view(), |f| {
-            controls.connect_title_clicked(f);
-        });
+        wire(
+            &obj,
+            |imp| imp.step(-1),
+            |f| {
+                controls.connect_prev_clicked(f);
+            },
+        );
+        wire(
+            &obj,
+            |imp| imp.step(1),
+            |f| {
+                controls.connect_next_clicked(f);
+            },
+        );
+        wire(
+            &obj,
+            |imp| imp.go_to_today(),
+            |f| {
+                controls.connect_today_clicked(f);
+            },
+        );
+        wire(
+            &obj,
+            |imp| imp.toggle_view(),
+            |f| {
+                controls.connect_title_clicked(f);
+            },
+        );
 
         {
             let weak = obj.downgrade();
@@ -186,8 +202,8 @@ impl Calendar {
 
     fn step_year(&self, delta: i32) {
         let current = self.visible_month.get();
-        let new_month = NaiveDate::from_ymd_opt(current.year() + delta, current.month(), 1)
-            .unwrap_or(current);
+        let new_month =
+            NaiveDate::from_ymd_opt(current.year() + delta, current.month(), 1).unwrap_or(current);
         self.visible_month.set(new_month);
         self.sync_children();
     }
@@ -228,8 +244,7 @@ impl Calendar {
     }
 
     fn on_year_view_month_picked(&self, year: i32, month: u32) {
-        let new_month =
-            NaiveDate::from_ymd_opt(year, month, 1).unwrap_or(self.visible_month.get());
+        let new_month = NaiveDate::from_ymd_opt(year, month, 1).unwrap_or(self.visible_month.get());
         let changed = new_month != self.visible_month.get();
         self.visible_month.set(new_month);
         self.view.set(View::Days);

@@ -19,35 +19,19 @@ impl CalendarControls {
     }
 
     pub fn connect_prev_clicked(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "prev-clicked",
-            false,
-            closure_local!(move |s: &Self| f(s)),
-        )
+        self.connect_closure("prev-clicked", false, closure_local!(move |s: &Self| f(s)))
     }
 
     pub fn connect_next_clicked(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "next-clicked",
-            false,
-            closure_local!(move |s: &Self| f(s)),
-        )
+        self.connect_closure("next-clicked", false, closure_local!(move |s: &Self| f(s)))
     }
 
     pub fn connect_today_clicked(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "today-clicked",
-            false,
-            closure_local!(move |s: &Self| f(s)),
-        )
+        self.connect_closure("today-clicked", false, closure_local!(move |s: &Self| f(s)))
     }
 
     pub fn connect_title_clicked(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "title-clicked",
-            false,
-            closure_local!(move |s: &Self| f(s)),
-        )
+        self.connect_closure("title-clicked", false, closure_local!(move |s: &Self| f(s)))
     }
 }
 

@@ -10,6 +10,7 @@ use crate::services::{
     idle_inhibitor::{Command, IdleInhibitorHandle, State},
     wayland_idle_inhibit::WaylandHealth,
 };
+use crate::widgets::panel_indicator::PanelIndicator;
 
 use super::popover::{
     Init as PopoverInit, Input as PopoverInput, Output as PopoverOutput, Popover,
@@ -47,26 +48,14 @@ impl SimpleComponent for Applet {
     type Output = ();
 
     view! {
-        root = gtk::Box {
-            add_css_class: "applet",
+        root = PanelIndicator {
             add_css_class: "idle-applet",
-            set_orientation: gtk::Orientation::Horizontal,
-            set_spacing: 4,
             #[watch]
             set_tooltip_text: Some("Idle Inhibitor"),
-
-            add_controller = gtk::GestureClick {
-                set_button: 1,
-                connect_pressed[sender] => move |_, _, _, _| {
-                    sender.input(Input::TogglePopover);
-                },
-            },
-
-            gtk::Image {
-                set_pixel_size: 16,
-                set_valign: gtk::Align::Center,
-                #[watch]
-                set_icon_name: Some(model.icon_name),
+            #[watch]
+            set_icon: Some(model.icon_name),
+            connect_activated[sender] => move |_| {
+                sender.input(Input::TogglePopover);
             },
         }
     }
@@ -79,7 +68,7 @@ impl SimpleComponent for Applet {
         let own_unique_name = init.own_unique_name.clone();
         let popover = Popover::builder()
             .launch(PopoverInit {
-                parent: root.clone(),
+                parent: root.clone().upcast::<gtk::Box>(),
                 own_unique_name: init.own_unique_name,
             })
             .forward(sender.input_sender(), |output| match output {

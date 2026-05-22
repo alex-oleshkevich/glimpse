@@ -228,9 +228,11 @@ fn run_pipewire_monitor(
                         tracing::debug!(object_id, "failed to bind pipewire node");
                         return;
                     };
-                    graph_ref
-                        .borrow_mut()
-                        .update_node(object_id, props_from_dict(object.props), false);
+                    graph_ref.borrow_mut().update_node(
+                        object_id,
+                        props_from_dict(object.props),
+                        false,
+                    );
                     let graph = Rc::clone(&graph_ref);
                     let tx = state_tx_ref.clone();
                     let listener = node

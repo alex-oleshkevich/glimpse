@@ -22,10 +22,7 @@ impl YearView {
         self.imp().set_current_month(year, month);
     }
 
-    pub fn connect_month_picked(
-        &self,
-        f: impl Fn(&Self, u32) + 'static,
-    ) -> glib::SignalHandlerId {
+    pub fn connect_month_picked(&self, f: impl Fn(&Self, u32) + 'static) -> glib::SignalHandlerId {
         self.connect_closure(
             "month-picked",
             false,

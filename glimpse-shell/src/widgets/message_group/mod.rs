@@ -83,7 +83,8 @@ impl MessageGroup {
         imp.messages_container.set_visible(expanded);
         // Reserve room for the lead's box-shadow deck (10px below) when
         // collapsed so the peeks don't overlap into the next group.
-        imp.lead_slot.set_margin_bottom(if expanded { 0 } else { 12 });
+        imp.lead_slot
+            .set_margin_bottom(if expanded { 0 } else { 12 });
 
         if messages.is_empty() {
             return;

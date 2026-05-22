@@ -12,14 +12,11 @@ use crate::{
         calendar_events::{CalendarDaySnapshot, MonthKey, State as CalendarState},
         clock::State as ClockState,
     },
-    widgets::{calendar::Calendar, date_hero::DateHero},
+    widgets::{calendar::Calendar, date_hero::DateHero, world_clock::WorldClock},
 };
 
 use super::{
-    components::{
-        events::{Events, EventsInput},
-        world_clock::{WorldClock, WorldClockInput},
-    },
+    components::events::{Events, EventsInput},
     format,
 };
 
@@ -31,7 +28,7 @@ pub struct Popover {
     calendar: CalendarState,
     date: DateHero,
     calendar_view: Calendar,
-    world_clock: Controller<WorldClock>,
+    world_clock: WorldClock,
     events: Controller<Events>,
 }
 
@@ -131,14 +128,13 @@ impl SimpleComponent for Popover {
                 let _ = input.send(PopoverInput::CalendarMonthChanged(cal.visible_month()));
             });
         }
-        let world_clock = WorldClock::builder()
-            .launch(init.clock.world.clone())
-            .detach();
+        let world_clock = WorldClock::new();
+        world_clock.set_rows(&init.clock.world);
         let events = Events::builder().launch(selected_date).detach();
 
         let date_widget: gtk::Box = date.clone().upcast();
         let calendar_widget: gtk::Box = calendar_view.clone().upcast();
-        let world_clock_widget = world_clock.widget().clone();
+        let world_clock_widget: gtk::Box = world_clock.clone().upcast();
         let events_widget = events.widget().clone();
 
         let widgets = view_output!();
@@ -166,8 +162,7 @@ impl SimpleComponent for Popover {
             PopoverInput::Toggle => self.animation.toggle(),
             PopoverInput::UpdateClock(clock) => {
                 self.clock = clock;
-                self.world_clock
-                    .emit(WorldClockInput::Update(self.clock.world.clone()));
+                self.world_clock.set_rows(&self.clock.world);
                 self.events.emit(EventsInput::Tick);
             }
             PopoverInput::UpdateCalendar(calendar) => {
@@ -191,8 +186,7 @@ impl Popover {
     fn sync_all(&mut self) {
         self.sync_selected_date();
         self.sync_calendar_state();
-        self.world_clock
-            .emit(WorldClockInput::Update(self.clock.world.clone()));
+        self.world_clock.set_rows(&self.clock.world);
     }
 
     fn sync_selected_date(&mut self) {

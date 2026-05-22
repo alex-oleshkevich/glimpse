@@ -83,7 +83,7 @@ impl SimpleComponent for Popover {
                     set_icon: Some(format::icon_name(&model.state)),
                     set_title: "Brightness",
                     #[watch]
-                    set_subtitle: &hero_subtitle(&model.state, &model.monitors),
+                    set_subtitle: &format::hero_subtitle_with_monitors(&model.state, &model.monitors),
                 },
 
                 EmptyState {
@@ -194,7 +194,7 @@ impl Popover {
             .iter()
             .map(|source| {
                 let mut source = source.clone();
-                source.name = source_display_name(&source, &self.monitors);
+                source.name = format::source_display_name(&source, &self.monitors);
                 source
             })
             .collect();
@@ -601,7 +601,7 @@ fn monitor_row_models(monitors: &[Monitor]) -> Vec<MonitorRowModel> {
         .iter()
         .map(|monitor| MonitorRowModel {
             name: monitor.name.clone(),
-            label: monitor_display_name(monitor),
+            label: format::monitor_display_name(monitor),
             secondary: monitor_secondary(monitor),
             icon: monitor_icon(monitor),
             active: monitor.enabled,
@@ -612,64 +612,6 @@ fn monitor_row_models(monitors: &[Monitor]) -> Vec<MonitorRowModel> {
 
 fn display_separator_visible(source_count: usize, displays_visible: bool) -> bool {
     source_count > 0 && displays_visible
-}
-
-fn hero_subtitle(state: &State, monitors: &[Monitor]) -> String {
-    format::primary_source(state)
-        .map(|source| source_display_name(source, monitors))
-        .unwrap_or_else(|| "No brightness controls".into())
-}
-
-fn source_display_name(source: &BrightnessSource, monitors: &[Monitor]) -> String {
-    source
-        .connector
-        .as_deref()
-        .and_then(|connector| {
-            monitors
-                .iter()
-                .find(|monitor| monitor.name.eq_ignore_ascii_case(connector))
-        })
-        .map(monitor_display_name)
-        .unwrap_or_else(|| source.name.clone())
-}
-
-fn monitor_display_name(monitor: &Monitor) -> String {
-    if monitor.built_in {
-        return "Built-in display".into();
-    }
-
-    if let Some(label) = make_model_label(monitor) {
-        return label;
-    }
-
-    monitor
-        .description
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or(&monitor.name)
-        .to_owned()
-}
-
-fn make_model_label(monitor: &Monitor) -> Option<String> {
-    let make = monitor.make.as_deref().map(str::trim).unwrap_or_default();
-    let model = monitor.model.as_deref().map(str::trim).unwrap_or_default();
-    if make.is_empty() && model.is_empty() {
-        return None;
-    }
-    if make.is_empty() {
-        return Some(model.to_owned());
-    }
-    if model.is_empty() {
-        return Some(make.to_owned());
-    }
-    if model
-        .to_ascii_lowercase()
-        .starts_with(&make.to_ascii_lowercase())
-    {
-        return Some(model.to_owned());
-    }
-    Some(format!("{make} {model}"))
 }
 
 fn monitor_secondary(monitor: &Monitor) -> String {
@@ -983,12 +925,12 @@ mod tests {
         external.model = Some("AW2725Q".into());
 
         assert_eq!(
-            monitor_display_name(&monitor("eDP-1", true, true)),
+            format::monitor_display_name(&monitor("eDP-1", true, true)),
             "Built-in display"
         );
-        assert_eq!(monitor_display_name(&external), "Dell Inc. AW2725Q");
+        assert_eq!(format::monitor_display_name(&external), "Dell Inc. AW2725Q");
         assert_eq!(
-            monitor_display_name(&monitor("HDMI-A-1", true, false)),
+            format::monitor_display_name(&monitor("HDMI-A-1", true, false)),
             "HDMI-A-1"
         );
     }
@@ -999,7 +941,7 @@ mod tests {
         external.make = Some("Dell Inc.".into());
         external.model = Some("Dell Inc. U2723QE".into());
 
-        assert_eq!(monitor_display_name(&external), "Dell Inc. U2723QE");
+        assert_eq!(format::monitor_display_name(&external), "Dell Inc. U2723QE");
     }
 
     #[test]
@@ -1017,7 +959,7 @@ mod tests {
         );
 
         assert_eq!(
-            source_display_name(&source, &[external]),
+            format::source_display_name(&source, &[external]),
             "Dell Inc. AW2725Q"
         );
     }
@@ -1042,7 +984,10 @@ mod tests {
             active: None,
         };
 
-        assert_eq!(hero_subtitle(&state, &[external]), "Dell Inc. AW2725Q");
+        assert_eq!(
+            format::hero_subtitle_with_monitors(&state, &[external]),
+            "Dell Inc. AW2725Q"
+        );
     }
 
     fn source(
