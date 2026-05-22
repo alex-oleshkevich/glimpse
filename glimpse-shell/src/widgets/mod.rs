@@ -26,6 +26,7 @@ pub mod message_group;
 pub mod mic_indicator;
 pub mod muted_indicator;
 pub mod now_playing_card;
+pub mod pager;
 pub mod pager_item;
 pub mod pager_strip;
 pub mod panel_indicator;

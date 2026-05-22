@@ -3,7 +3,7 @@ mod imp;
 use glib::closure_local;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::components::pager::PagerItemView;
+use crate::widgets::pager::PagerItemView;
 use crate::widgets::pager_item::PagerItem;
 
 glib::wrapper! {

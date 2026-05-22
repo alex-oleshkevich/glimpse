@@ -4,13 +4,13 @@ mod applet_dev;
 mod applet_manage;
 mod applet_scaffold;
 mod applets;
-mod components;
 mod dbus;
 mod ipc;
 mod panels;
 mod prompts;
 pub mod services;
 mod theme;
+mod utils;
 mod widgets;
 
 use anyhow::Result;

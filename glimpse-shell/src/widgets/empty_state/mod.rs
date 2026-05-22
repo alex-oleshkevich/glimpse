@@ -41,7 +41,7 @@ impl Default for EmptyState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::test_support::gtk_available_on_this_thread;
+    use crate::utils::test_support::gtk_available_on_this_thread;
 
     #[test]
     fn empty_state_centers_content_and_expands_horizontally() {

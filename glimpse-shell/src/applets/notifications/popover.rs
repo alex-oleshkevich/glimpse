@@ -6,13 +6,14 @@ use relm4::{
 };
 
 use crate::{
-    components::{popover_scroll, popover_shell::PopoverShell},
     services::notifications::model::NotificationEntry,
+    utils::popover_scroll,
     widgets::{
         animated_popover::AnimatedPopover,
         hero::Hero,
         message::Message,
         message_group::{MessageGroup, MessageGroupState},
+        popover_shell::PopoverShell,
     },
 };
 use glimpse_core::services::notifications::model::State as NotificationState;
@@ -78,11 +79,9 @@ impl SimpleComponent for Popover {
             set_hexpand: false,
             set_autohide: true,
 
-            #[template]
+            #[name = "shell"]
             PopoverShell {
-                #[template_child]
-                content {
-                    Hero {
+                Hero {
                         set_title: "Notifications",
                         set_trailing_visible: true,
                         #[watch]
@@ -132,30 +131,19 @@ impl SimpleComponent for Popover {
                         },
                     },
 
-                    #[name = "scroller"]
-                    gtk::ScrolledWindow {
-                        set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
-                        set_vexpand: true,
-                        set_propagate_natural_height: true,
-                        #[watch]
-                        set_visible: !model.notifications.is_empty(),
+                #[name = "scroller"]
+                gtk::ScrolledWindow {
+                    set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
+                    set_vexpand: true,
+                    set_propagate_natural_height: true,
+                    #[watch]
+                    set_visible: !model.notifications.is_empty(),
 
-                        #[name = "list"]
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Vertical,
-                            set_spacing: 12,
-                            add_css_class: "notification-list",
-                        }
-                    },
-                },
-
-                #[template_child]
-                footer {
-                    gtk::Button {
-                        add_css_class: "flat",
-                        add_css_class: "footer-action",
-                        set_label: "Clear All",
-                        connect_clicked => PopoverInput::DismissAll,
+                    #[name = "list"]
+                    gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+                        set_spacing: 12,
+                        add_css_class: "notification-list",
                     }
                 },
             },
@@ -181,6 +169,18 @@ impl SimpleComponent for Popover {
         let widgets = view_output!();
         model.popover = widgets.root.clone();
         model.list = widgets.list.clone();
+
+        let clear_all = gtk::Button::new();
+        clear_all.add_css_class("flat");
+        clear_all.add_css_class("footer-action");
+        clear_all.set_label("Clear All");
+        {
+            let input = sender.input_sender().clone();
+            clear_all.connect_clicked(move |_| {
+                let _ = input.send(PopoverInput::DismissAll);
+            });
+        }
+        widgets.shell.footer().append(&clear_all);
 
         widgets.root.set_parent(&init.parent);
         popover_scroll::install_half_monitor_limit(

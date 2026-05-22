@@ -3,7 +3,7 @@ mod imp;
 use glib::closure_local;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::components::pager::{PagerAppearance, PagerItemView};
+use crate::widgets::pager::{PagerAppearance, PagerItemView};
 
 glib::wrapper! {
     pub struct PagerItem(ObjectSubclass<imp::PagerItem>)

@@ -11,7 +11,7 @@ use relm4::{
 };
 
 use crate::{
-    components::popover_scroll,
+    utils::popover_scroll,
     services::storage::{Command, State, StorageDevice},
     widgets::{
         animated_popover::AnimatedPopover, hero::Hero, popover_shell::PopoverShell,

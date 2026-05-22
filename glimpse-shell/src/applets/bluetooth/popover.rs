@@ -11,7 +11,7 @@ use relm4::{
 };
 
 use crate::{
-    components::popover_scroll,
+    utils::popover_scroll,
     services::bluetooth::{
         BluetoothActiveAction, BluetoothAdapter, BluetoothDevice, BluetoothServiceHealth,
         BluetoothSnapshot, Command, State,

@@ -65,7 +65,7 @@ impl Default for WeatherForecastList {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::test_support::gtk_available_on_this_thread;
+    use crate::utils::test_support::gtk_available_on_this_thread;
 
     fn item(day: &str, is_today: bool) -> WeatherForecastItem {
         WeatherForecastItem {

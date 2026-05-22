@@ -1,22 +1,23 @@
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
+    factory::FactoryVecDeque,
     gtk::{self, gdk, gio, prelude::*},
 };
 
 use crate::{
     applets::mpris::format,
-    components::{popover_scroll, popover_shell::PopoverShell, section_header::SectionHeader},
     services::mpris::{Artwork, PlaybackStatus, Player, State, model::visible_players},
     widgets::{
-        animated_popover::AnimatedPopover, media_transport::PlayState,
-        now_playing_card::NowPlayingCard, secondary_player_row::SecondaryPlayerRow,
+        animated_popover::AnimatedPopover, header::Header, media_transport::PlayState,
+        now_playing_card::NowPlayingCard, popover_shell::PopoverShell,
     },
 };
+
+use self::row::RowItem;
 
 #[derive(Default)]
 struct CardPlayer {
@@ -28,12 +29,12 @@ pub struct Popover {
     popover: AnimatedPopover,
     card: NowPlayingCard,
     card_player: Rc<RefCell<CardPlayer>>,
-    rows_box: gtk::Box,
-    rows: HashMap<String, SecondaryPlayerRow>,
+    rows: FactoryVecDeque<RowItem>,
+    current: Option<Player>,
+    current_texture: Option<gdk::Texture>,
     max_rows: usize,
     show_artwork: bool,
     state: State,
-    other_visible: bool,
 }
 
 pub struct PopoverInit {
@@ -51,11 +52,22 @@ pub enum PopoverInput {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PopoverOutput {
-    Previous { player_id: String },
-    PlayPause { player_id: String },
-    Next { player_id: String },
-    Seek { player_id: String, offset_micros: i64 },
-    Raise { player_id: String },
+    Previous {
+        player_id: String,
+    },
+    PlayPause {
+        player_id: String,
+    },
+    Next {
+        player_id: String,
+    },
+    Seek {
+        player_id: String,
+        offset_micros: i64,
+    },
+    Raise {
+        player_id: String,
+    },
 }
 
 #[allow(unused_assignments)]
@@ -71,56 +83,84 @@ impl SimpleComponent for Popover {
             set_hexpand: false,
             set_autohide: true,
 
-            #[template]
             PopoverShell {
-                #[template_child]
-                footer {
-                    set_visible: false,
-                },
+                set_footer_visible: false,
 
-                #[template_child]
-                content {
-                    #[local_ref]
-                    card_widget -> NowPlayingCard {},
-
-                    #[name = "other_section"]
-                    gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_spacing: 6,
-                        add_css_class: "mpris-other",
-
-                        #[name = "other_header"]
-                        #[template]
-                        SectionHeader {},
-
-                        #[name = "scroller"]
-                        gtk::ScrolledWindow {
-                            set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
-                            set_vexpand: false,
-                            set_propagate_natural_height: true,
-
-                            #[local_ref]
-                            rows_widget -> gtk::Box {
-                                set_orientation: gtk::Orientation::Vertical,
-                                set_spacing: 6,
-                            },
-                        },
+                #[local_ref]
+                card_widget -> NowPlayingCard {
+                        #[watch]
+                        set_visible: model.current.is_some(),
+                        #[watch]
+                        set_title: &model.current.as_ref().map(format::title).unwrap_or_default(),
+                        #[watch]
+                        set_subtitle: &model.current.as_ref().map(format::subtitle).unwrap_or_default(),
+                        #[watch]
+                        set_artwork: model.current_texture.as_ref(),
+                        #[watch]
+                        set_progress: (
+                            model.current.as_ref()
+                                .and_then(|p| p.position).map(micros_to_seconds).unwrap_or(0.0),
+                            model.current.as_ref()
+                                .and_then(|p| p.length).map(micros_to_seconds).unwrap_or(0.0),
+                        ),
+                        #[watch]
+                        set_seekable: model.current.as_ref()
+                            .is_some_and(|p| p.can_seek && p.length.unwrap_or(0) > 0),
+                        #[watch]
+                        set_position_text: &model.current.as_ref()
+                            .and_then(|p| p.position).map(format::duration).unwrap_or_default(),
+                        #[watch]
+                        set_length_text: &model.current.as_ref()
+                            .and_then(|p| p.length).map(format::duration).unwrap_or_default(),
+                        #[watch]
+                        set_play_state: model.current.as_ref()
+                            .map(|p| play_state(p.playback_status)).unwrap_or(PlayState::Paused),
+                        #[watch]
+                        set_can_previous: model.current.as_ref().is_some_and(|p| p.can_go_previous),
+                        #[watch]
+                        set_can_play_pause: model.current.as_ref().is_some_and(|p| p.can_play_pause),
+                        #[watch]
+                        set_can_next: model.current.as_ref().is_some_and(|p| p.can_go_next),
                     },
 
-                    #[name = "empty_state"]
-                    gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        add_css_class: "empty-state",
+                gtk::Box {
+                    set_orientation: gtk::Orientation::Vertical,
+                    set_spacing: 6,
+                    add_css_class: "mpris-other",
+                    #[watch]
+                    set_visible: !model.rows.is_empty(),
 
-                        gtk::Label {
-                            add_css_class: "empty-state__title",
-                            set_label: "No media playing",
-                        },
+                    Header {
+                        set_label: "Other players",
+                    },
 
-                        gtk::Label {
-                            add_css_class: "empty-state__subtitle",
-                            set_label: "Start playback in any MPRIS-compatible player",
+                    gtk::ScrolledWindow {
+                        set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
+                        set_vexpand: false,
+                        set_propagate_natural_height: true,
+
+                        #[local_ref]
+                        rows_widget -> gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
+                            set_spacing: 6,
                         },
+                    },
+                },
+
+                gtk::Box {
+                    set_orientation: gtk::Orientation::Vertical,
+                    add_css_class: "empty-state",
+                    #[watch]
+                    set_visible: model.current.is_none() && model.rows.is_empty(),
+
+                    gtk::Label {
+                        add_css_class: "empty-state__title",
+                        set_label: "No media playing",
+                    },
+
+                    gtk::Label {
+                        add_css_class: "empty-state__subtitle",
+                        set_label: "Start playback in any MPRIS-compatible player",
                     },
                 },
             },
@@ -134,41 +174,40 @@ impl SimpleComponent for Popover {
     ) -> ComponentParts<Self> {
         let card = NowPlayingCard::new();
         let card_widget = card.clone();
+
         let rows_box = gtk::Box::new(gtk::Orientation::Vertical, 6);
+        let rows = FactoryVecDeque::builder()
+            .launch(rows_box.clone())
+            .forward(sender.output_sender(), |output| output);
         let rows_widget = rows_box.clone();
+
         let card_player: Rc<RefCell<CardPlayer>> = Rc::new(RefCell::new(CardPlayer::default()));
 
         let mut model = Popover {
             popover: AnimatedPopover::new(),
             card,
             card_player,
-            rows_box,
-            rows: HashMap::new(),
+            rows,
+            current: None,
+            current_texture: None,
             max_rows: init.max_rows,
             show_artwork: init.show_artwork,
             state: State::default(),
-            other_visible: false,
         };
 
         let widgets = view_output!();
         model.popover = widgets.root.clone();
         widgets.root.set_parent(&init.parent);
-        widgets.other_header.title.set_label("Other players");
-        popover_scroll::install_half_monitor_limit(
-            widgets.root.upcast_ref::<gtk::Popover>(),
-            &widgets.scroller,
-            &init.parent,
-        );
 
         wire_card(&model.card, model.card_player.clone(), sender);
 
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
+    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             PopoverInput::Toggle => self.popover.toggle(),
-            PopoverInput::Update(state) => self.sync_state(state, &sender),
+            PopoverInput::Update(state) => self.sync_state(state),
             PopoverInput::Reconfigure {
                 max_rows,
                 show_artwork,
@@ -176,21 +215,14 @@ impl SimpleComponent for Popover {
                 self.max_rows = max_rows;
                 self.show_artwork = show_artwork;
                 let state = self.state.clone();
-                self.sync_state(state, &sender);
+                self.sync_state(state);
             }
         }
-    }
-
-    fn post_view() {
-        let has_card = model.card_player.borrow().player_id.is_some();
-        model.card.set_visible(has_card);
-        other_section.set_visible(model.other_visible);
-        empty_state.set_visible(!has_card && !model.other_visible);
     }
 }
 
 impl Popover {
-    fn sync_state(&mut self, state: State, sender: &ComponentSender<Self>) {
+    fn sync_state(&mut self, state: State) {
         let visible = visible_players(&state.snapshot.players);
         let current = state
             .snapshot
@@ -209,39 +241,33 @@ impl Popover {
             .take(self.max_rows)
             .collect();
 
-        match current.as_ref() {
-            Some(player) => {
-                self.card_player.replace(CardPlayer {
-                    player_id: Some(player.player_id.clone()),
-                    position_micros: player.position.unwrap_or(0) as i64,
-                });
-                apply_player_to_card(&self.card, player, self.show_artwork);
-            }
-            None => {
-                self.card_player.replace(CardPlayer::default());
-            }
+        // Mirror the current player into the Rc cell the transport/seek
+        // signal handlers read at click-time.
+        self.card_player.replace(CardPlayer {
+            player_id: current.as_ref().map(|p| p.player_id.clone()),
+            position_micros: current.as_ref().and_then(|p| p.position).unwrap_or(0) as i64,
+        });
+
+        // Reload the texture only when the artwork URI actually changes,
+        // not on every position tick.
+        let next_artwork = current.as_ref().map(|p| &p.artwork);
+        let prev_artwork = self.current.as_ref().map(|p| &p.artwork);
+        if next_artwork != prev_artwork {
+            self.current_texture = current
+                .as_ref()
+                .and_then(|p| load_texture(p, self.show_artwork));
         }
 
-        self.sync_rows(&others, sender);
+        self.current = current;
+
+        let mut guard = self.rows.guard();
+        guard.clear();
+        for player in others {
+            guard.push_back((player, self.show_artwork));
+        }
+        drop(guard);
+
         self.state = state;
-    }
-
-    fn sync_rows(&mut self, players: &[Player], sender: &ComponentSender<Self>) {
-        while let Some(child) = self.rows_box.first_child() {
-            self.rows_box.remove(&child);
-        }
-        let mut next: HashMap<String, SecondaryPlayerRow> = HashMap::new();
-        for player in players {
-            let row = self
-                .rows
-                .remove(&player.player_id)
-                .unwrap_or_else(|| build_row(player.player_id.clone(), sender.clone()));
-            apply_player_to_row(&row, player, self.show_artwork);
-            self.rows_box.append(&row);
-            next.insert(player.player_id.clone(), row);
-        }
-        self.rows = next;
-        self.other_visible = !players.is_empty();
     }
 }
 
@@ -298,57 +324,7 @@ fn wire_card(
     });
 }
 
-fn build_row(player_id: String, sender: ComponentSender<Popover>) -> SecondaryPlayerRow {
-    let row = SecondaryPlayerRow::new();
-    let emit = |make: fn(String) -> PopoverOutput| {
-        let player_id = player_id.clone();
-        let sender = sender.clone();
-        move || {
-            let _ = sender.output(make(player_id.clone()));
-        }
-    };
-
-    let play_pause = emit(|player_id| PopoverOutput::PlayPause { player_id });
-    row.connect_play_pause(move |_| play_pause());
-    let next = emit(|player_id| PopoverOutput::Next { player_id });
-    row.connect_next(move |_| next());
-    let activated = emit(|player_id| PopoverOutput::Raise { player_id });
-    row.connect_activated(move |_| activated());
-    row
-}
-
-fn apply_player_to_card(card: &NowPlayingCard, player: &Player, show_artwork: bool) {
-    card.set_title(&format::title(player));
-    card.set_subtitle(&format::subtitle(player));
-    card.set_artwork(load_texture(player, show_artwork).as_ref());
-
-    let position_s = player.position.map(micros_to_seconds).unwrap_or(0.0);
-    let length_s = player.length.map(micros_to_seconds).unwrap_or(0.0);
-    card.scrubber().set_progress(position_s, length_s);
-    card.scrubber().set_seekable(player.can_seek);
-
-    card.times()
-        .set_position_text(&player.position.map(format::duration).unwrap_or_default());
-    card.times()
-        .set_length_text(&player.length.map(format::duration).unwrap_or_default());
-
-    card.transport()
-        .set_play_state(play_state(player.playback_status));
-    card.transport().set_can_previous(player.can_go_previous);
-    card.transport().set_can_play_pause(player.can_play_pause);
-    card.transport().set_can_next(player.can_go_next);
-}
-
-fn apply_player_to_row(row: &SecondaryPlayerRow, player: &Player, show_artwork: bool) {
-    row.set_title(&format::title(player));
-    row.set_subtitle(&format::subtitle(player));
-    row.set_artwork(load_texture(player, show_artwork).as_ref());
-    row.set_play_state(play_state(player.playback_status));
-    row.set_can_play_pause(player.can_play_pause);
-    row.set_can_next(player.can_go_next);
-}
-
-fn play_state(status: PlaybackStatus) -> PlayState {
+pub(crate) fn play_state(status: PlaybackStatus) -> PlayState {
     match status {
         PlaybackStatus::Playing => PlayState::Playing,
         PlaybackStatus::Paused | PlaybackStatus::Stopped => PlayState::Paused,
@@ -359,7 +335,7 @@ fn micros_to_seconds(value: u64) -> f64 {
     value as f64 / 1_000_000.0
 }
 
-fn load_texture(player: &Player, show_artwork: bool) -> Option<gdk::Texture> {
+pub(crate) fn load_texture(player: &Player, show_artwork: bool) -> Option<gdk::Texture> {
     if !show_artwork {
         return None;
     }
@@ -369,5 +345,89 @@ fn load_texture(player: &Player, show_artwork: bool) -> Option<gdk::Texture> {
             .path()
             .and_then(|path| gdk::Texture::from_filename(path).ok()),
         Artwork::RemoteUrl(_) | Artwork::None => None,
+    }
+}
+
+mod row {
+    use relm4::{
+        factory::{DynamicIndex, FactoryComponent, FactorySender},
+        gtk::{self, gdk},
+    };
+
+    use crate::{
+        applets::mpris::{
+            format,
+            popover::{PopoverOutput, load_texture, play_state},
+        },
+        services::mpris::Player,
+        widgets::secondary_player_row::SecondaryPlayerRow,
+    };
+
+    pub struct RowItem {
+        player: Player,
+        artwork: Option<gdk::Texture>,
+    }
+
+    #[derive(Debug)]
+    pub enum RowInput {
+        PlayPausePressed,
+        NextPressed,
+        Activated,
+    }
+
+    #[relm4::factory(pub)]
+    impl FactoryComponent for RowItem {
+        type Init = (Player, bool);
+        type Input = RowInput;
+        type Output = PopoverOutput;
+        type CommandOutput = ();
+        type ParentWidget = gtk::Box;
+
+        view! {
+            #[root]
+            SecondaryPlayerRow {
+                #[watch]
+                set_title: &format::title(&self.player),
+                #[watch]
+                set_subtitle: &format::subtitle(&self.player),
+                #[watch]
+                set_artwork: self.artwork.as_ref(),
+                #[watch]
+                set_play_state: play_state(self.player.playback_status),
+                #[watch]
+                set_can_play_pause: self.player.can_play_pause,
+                #[watch]
+                set_can_next: self.player.can_go_next,
+
+                connect_play_pause => RowInput::PlayPausePressed,
+                connect_next => RowInput::NextPressed,
+                connect_activated => RowInput::Activated,
+            }
+        }
+
+        fn init_model(
+            init: Self::Init,
+            _index: &DynamicIndex,
+            _sender: FactorySender<Self>,
+        ) -> Self {
+            let (player, show_artwork) = init;
+            let artwork = load_texture(&player, show_artwork);
+            Self { player, artwork }
+        }
+
+        fn update(&mut self, message: Self::Input, sender: FactorySender<Self>) {
+            let player_id = self.player.player_id.clone();
+            match message {
+                RowInput::PlayPausePressed => {
+                    let _ = sender.output(PopoverOutput::PlayPause { player_id });
+                }
+                RowInput::NextPressed => {
+                    let _ = sender.output(PopoverOutput::Next { player_id });
+                }
+                RowInput::Activated => {
+                    let _ = sender.output(PopoverOutput::Raise { player_id });
+                }
+            }
+        }
     }
 }

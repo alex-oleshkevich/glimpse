@@ -6,8 +6,8 @@ use relm4::{
 };
 
 use crate::{
-    components::{popover_scroll, popover_shell::PopoverShell},
-    widgets::animated_popover::AnimatedPopover,
+    utils::popover_scroll,
+    widgets::{animated_popover::AnimatedPopover, popover_shell::PopoverShell},
 };
 
 use super::{
@@ -54,26 +54,19 @@ impl SimpleComponent for Popover {
             add_css_class: "popover-size-medium",
             set_hexpand: false,
 
-            #[template]
             PopoverShell {
-                #[template_child]
-                footer {
-                    set_visible: false,
-                },
+                set_footer_visible: false,
 
-                #[template_child]
-                content {
-                    #[name = "scroller"]
-                    gtk::ScrolledWindow {
-                        set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
-                        set_vexpand: false,
-                        set_propagate_natural_height: true,
+                #[name = "scroller"]
+                gtk::ScrolledWindow {
+                    set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
+                    set_vexpand: false,
+                    set_propagate_natural_height: true,
 
-                        #[name = "content_box"]
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Vertical,
-                            set_spacing: 0,
-                        },
+                    #[name = "content_box"]
+                    gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+                        set_spacing: 0,
                     },
                 },
             },
@@ -160,24 +153,12 @@ impl Popover {
             output_sender.emit(Output::Event(event));
         }));
 
-        if let TreeNode::PopoverScaffold(scaffold) = root {
-            self.size_class = scaffold.size.class_name();
+        if let TreeNode::PopoverShell(shell) = root {
+            self.size_class = shell.size.class_name();
             self.popover.add_css_class(self.size_class);
-            if let Some(hero) = &scaffold.hero {
-                match renderer.render(hero) {
-                    Ok(widget) => {
-                        self.content_box.append(&widget);
-                        let sep = gtk::Separator::new(gtk::Orientation::Horizontal);
-                        self.content_box.append(&sep);
-                    }
-                    Err(error) => {
-                        tracing::warn!(%error, "exec popover scaffold hero render failed")
-                    }
-                }
-            }
-            match renderer.render(&scaffold.body) {
+            match renderer.render(root) {
                 Ok(widget) => self.content_box.append(&widget),
-                Err(error) => tracing::warn!(%error, "exec popover scaffold body render failed"),
+                Err(error) => tracing::warn!(%error, "exec popover shell render failed"),
             }
         } else {
             self.size_class = DEFAULT_SIZE_CLASS;

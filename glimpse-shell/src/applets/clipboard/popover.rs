@@ -6,7 +6,7 @@ use relm4::{
 };
 
 use crate::{
-    components::popover_scroll,
+    utils::popover_scroll,
     widgets::{animated_popover::AnimatedPopover, hero::Hero, popover_shell::PopoverShell},
 };
 use glimpse_core::services::clipboard::{ClipboardEntry, Command, State};

@@ -7,12 +7,14 @@ use relm4::{
 };
 
 use crate::{
-    components::{animated_popover::AnimatedPopover, popover_shell::PopoverShell},
     services::{
         calendar_events::{CalendarDaySnapshot, MonthKey, State as CalendarState},
         clock::State as ClockState,
     },
-    widgets::{calendar::Calendar, date_hero::DateHero, events::Events, world_clock::WorldClock},
+    widgets::{
+        animated_popover::AnimatedPopover, calendar::Calendar, date_hero::DateHero,
+        events::Events, popover_shell::PopoverShell, world_clock::WorldClock,
+    },
 };
 
 use super::format;
@@ -60,46 +62,40 @@ impl SimpleComponent for Popover {
     type Output = PopoverOutput;
 
     view! {
-        root = gtk::Popover {
+        root = AnimatedPopover {
             add_css_class: "clock-popover",
             add_css_class: "popover-size-xlarge",
             set_hexpand: false,
+            set_autohide: true,
 
-            #[template]
             PopoverShell {
-                #[template_child]
-                footer {
-                    set_visible: false,
-                },
+                set_footer_visible: false,
 
-                #[template_child]
-                content {
+                gtk::Box {
+                    set_orientation: gtk::Orientation::Horizontal,
+                    set_spacing: 0,
+                    add_css_class: "clock-popover-layout",
+
                     gtk::Box {
-                        set_orientation: gtk::Orientation::Horizontal,
-                        set_spacing: 0,
-                        add_css_class: "clock-popover-layout",
+                        set_orientation: gtk::Orientation::Vertical,
+                        add_css_class: "clock-popover-left",
 
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Vertical,
-                            add_css_class: "clock-popover-left",
+                        #[local_ref]
+                        date_widget -> gtk::Box {},
 
-                            #[local_ref]
-                            date_widget -> gtk::Box {},
+                        #[local_ref]
+                        calendar_widget -> gtk::Box {},
 
-                            #[local_ref]
-                            calendar_widget -> gtk::Box {},
+                        #[local_ref]
+                        world_clock_widget -> gtk::Box {},
+                    },
 
-                            #[local_ref]
-                            world_clock_widget -> gtk::Box {},
-                        },
+                    gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
+                        add_css_class: "clock-popover-right",
 
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Vertical,
-                            add_css_class: "clock-popover-right",
-
-                            #[local_ref]
-                            events_widget -> gtk::Box {},
-                        },
+                        #[local_ref]
+                        events_widget -> gtk::Box {},
                     },
                 },
             },
@@ -139,10 +135,9 @@ impl SimpleComponent for Popover {
 
         let widgets = view_output!();
         widgets.root.set_parent(&init.parent);
-        widgets.root.set_autohide(true);
 
         let mut model = Popover {
-            animation: AnimatedPopover::new(&widgets.root),
+            animation: widgets.root.clone(),
             selected_date,
             visible_month,
             clock: init.clock,

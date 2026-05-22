@@ -32,7 +32,7 @@ impl Default for MutedIndicator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::test_support::gtk_available_on_this_thread;
+    use crate::utils::test_support::gtk_available_on_this_thread;
 
     #[test]
     fn muted_indicator_has_css_class() {

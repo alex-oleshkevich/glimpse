@@ -199,7 +199,7 @@ fn set_class(widget: &impl WidgetExt, class: &str, active: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::test_support::gtk_available_on_this_thread;
+    use crate::utils::test_support::gtk_available_on_this_thread;
 
     #[test]
     fn panel_indicator_has_shell_classes() {

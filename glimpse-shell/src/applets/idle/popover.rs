@@ -8,7 +8,7 @@ use relm4::{
 };
 
 use crate::{
-    components::popover_scroll,
+    utils::popover_scroll,
     services::wayland_idle_inhibit::WaylandHealth,
     widgets::{
         animated_popover::AnimatedPopover, empty_state::EmptyState, hero::Hero,

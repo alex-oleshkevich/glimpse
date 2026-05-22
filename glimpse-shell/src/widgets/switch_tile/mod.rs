@@ -74,7 +74,7 @@ impl Default for SwitchTile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::test_support::gtk_available_on_this_thread;
+    use crate::utils::test_support::gtk_available_on_this_thread;
 
     #[test]
     fn switch_tile_has_css_classes() {

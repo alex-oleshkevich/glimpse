@@ -12,7 +12,7 @@ use relm4::{
 
 use crate::{
     applets::display::format,
-    components::popover_scroll,
+    utils::popover_scroll,
     widgets::{
         animated_popover::AnimatedPopover, empty_state::EmptyState, expander_tile::ExpanderTile,
         hero::Hero, popover_shell::PopoverShell, slider_tile::SliderTile, switch_tile::SwitchTile,

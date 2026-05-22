@@ -59,7 +59,7 @@ impl WidgetTemplate for HistoryRow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::test_support::gtk_available_on_this_thread;
+    use crate::utils::test_support::gtk_available_on_this_thread;
 
     #[test]
     fn history_row_exposes_stable_class_contract() {

@@ -59,7 +59,7 @@ fn make_slot(item: &WeatherHourlyItem) -> gtk4::Box {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::test_support::gtk_available_on_this_thread;
+    use crate::utils::test_support::gtk_available_on_this_thread;
 
     fn item(time: &str) -> WeatherHourlyItem {
         WeatherHourlyItem {
