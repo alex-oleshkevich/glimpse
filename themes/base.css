@@ -1094,13 +1094,11 @@ popover.popover-size-xxlarge {
     margin-bottom: var(--popover-section-gap);
 }
 
-.section-header,
 .section-block__header,
 .device-list__header {
     margin-bottom: var(--space-3);
 }
 
-.section-header__title,
 .section-block__title,
 .device-list__title {
     color: var(--row-fg);
@@ -1250,7 +1248,6 @@ popover.popover-size-xxlarge {
 .hero-row__media {
     min-width: var(--hero-icon-size);
     min-height: var(--hero-icon-size);
-    -gtk-icon-size: var(--hero-icon-size);
 }
 
 .hero-row__title {
@@ -1631,7 +1628,7 @@ popover.clipboard-app-menu .action-menu {
 }
 
 .clock-popover .clock-popover-right {
-    min-width: 250px;
+    min-width: 320px;
 }
 
 .date-hero {
@@ -1781,27 +1778,6 @@ popover.clipboard-app-menu .action-menu {
     background: var(--color-accent);
     color: var(--color-accent-fg);
     box-shadow: inset 0 0 0 var(--border-width) var(--color-accent-fg);
-}
-
-.clock-popover .events-list {
-    margin-bottom: 0;
-}
-
-.clock-popover .event-row:not(:last-child) {
-    margin-bottom: var(--space-5);
-}
-
-.clock-popover .event-title {
-    font-size: 14px;
-    font-weight: var(--font-weight-semibold);
-}
-
-.clock-popover .event-time {
-    font-variant-numeric: tabular-nums;
-}
-
-.clock-popover .events-empty {
-    font-weight: var(--font-weight-medium);
 }
 
 /* Exec */

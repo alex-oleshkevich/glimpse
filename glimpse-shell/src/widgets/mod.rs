@@ -11,6 +11,7 @@ pub mod column;
 pub mod container;
 pub mod date_hero;
 pub mod empty_state;
+pub mod events;
 pub mod expander_tile;
 pub mod header;
 pub mod hero;

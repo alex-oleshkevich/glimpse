@@ -1,0 +1,29 @@
+using Gtk 4.0;
+
+template $EventRow: Box {
+  orientation: vertical;
+  spacing: 2;
+
+  styles [
+    "events__row",
+  ]
+
+  Label title {
+    xalign: 0;
+    wrap: true;
+
+    styles [
+      "heading",
+    ]
+  }
+
+  Label time {
+    xalign: 0;
+    visible: false;
+
+    styles [
+      "dim-label",
+      "numeric",
+    ]
+  }
+}

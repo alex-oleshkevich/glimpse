@@ -30,6 +30,7 @@ pub struct Config {
     pub tooltip_format: String,
     pub timezones: Vec<TimezoneConfig>,
     pub tick_interval: u64,
+    pub hide_all_day_events: bool,
 }
 
 impl Config {
@@ -62,6 +63,7 @@ impl Default for Config {
             tooltip_format: format::DEFAULT_TOOLTIP_FORMAT.into(),
             timezones: Vec::new(),
             tick_interval: clock::Config::default().tick_interval,
+            hide_all_day_events: false,
         }
     }
 }
@@ -125,6 +127,7 @@ impl SimpleComponent for Applet {
                 parent: root.clone().upcast::<gtk::Box>(),
                 clock: clock_state.clone(),
                 calendar: calendar_state.clone(),
+                hide_all_day_events: init.config.hide_all_day_events,
             })
             .forward(sender.input_sender(), Input::PopoverOutput);
 
@@ -156,6 +159,9 @@ impl SimpleComponent for Applet {
             Input::CalendarStateChanged(state) => self.apply_calendar_state(state),
             Input::Reconfigure(config) => {
                 self.config = config;
+                self.popover.emit(PopoverInput::SetHideAllDayEvents(
+                    self.config.hide_all_day_events,
+                ));
                 self.configure_clock();
                 self.apply_clock_state(self.clock.snapshot());
             }

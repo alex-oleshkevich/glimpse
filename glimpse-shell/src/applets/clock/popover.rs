@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use chrono::{Local, NaiveDate};
 use relm4::{
-    Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
+    ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, prelude::*},
 };
 
@@ -12,13 +12,10 @@ use crate::{
         calendar_events::{CalendarDaySnapshot, MonthKey, State as CalendarState},
         clock::State as ClockState,
     },
-    widgets::{calendar::Calendar, date_hero::DateHero, world_clock::WorldClock},
+    widgets::{calendar::Calendar, date_hero::DateHero, events::Events, world_clock::WorldClock},
 };
 
-use super::{
-    components::events::{Events, EventsInput},
-    format,
-};
+use super::format;
 
 pub struct Popover {
     animation: AnimatedPopover,
@@ -26,16 +23,18 @@ pub struct Popover {
     visible_month: MonthKey,
     clock: ClockState,
     calendar: CalendarState,
+    hide_all_day_events: bool,
     date: DateHero,
     calendar_view: Calendar,
     world_clock: WorldClock,
-    events: Controller<Events>,
+    events: Events,
 }
 
 pub struct PopoverInit {
     pub parent: gtk::Box,
     pub clock: ClockState,
     pub calendar: CalendarState,
+    pub hide_all_day_events: bool,
 }
 
 #[derive(Debug)]
@@ -45,6 +44,7 @@ pub enum PopoverInput {
     UpdateCalendar(CalendarState),
     CalendarSelectedDate(NaiveDate),
     CalendarMonthChanged(MonthKey),
+    SetHideAllDayEvents(bool),
 }
 
 #[derive(Debug, Clone)]
@@ -130,12 +130,12 @@ impl SimpleComponent for Popover {
         }
         let world_clock = WorldClock::new();
         world_clock.set_rows(&init.clock.world);
-        let events = Events::builder().launch(selected_date).detach();
+        let events = Events::new();
 
         let date_widget: gtk::Box = date.clone().upcast();
         let calendar_widget: gtk::Box = calendar_view.clone().upcast();
         let world_clock_widget: gtk::Box = world_clock.clone().upcast();
-        let events_widget = events.widget().clone();
+        let events_widget: gtk::Box = events.clone().upcast();
 
         let widgets = view_output!();
         widgets.root.set_parent(&init.parent);
@@ -147,6 +147,7 @@ impl SimpleComponent for Popover {
             visible_month,
             clock: init.clock,
             calendar: init.calendar,
+            hide_all_day_events: init.hide_all_day_events,
             date,
             calendar_view,
             world_clock,
@@ -163,7 +164,7 @@ impl SimpleComponent for Popover {
             PopoverInput::UpdateClock(clock) => {
                 self.clock = clock;
                 self.world_clock.set_rows(&self.clock.world);
-                self.events.emit(EventsInput::Tick);
+                self.events.tick();
             }
             PopoverInput::UpdateCalendar(calendar) => {
                 self.calendar = calendar;
@@ -177,6 +178,12 @@ impl SimpleComponent for Popover {
                 self.visible_month = month;
                 self.sync_calendar_state();
                 let _ = sender.output(PopoverOutput::VisibleMonthChanged(month));
+            }
+            PopoverInput::SetHideAllDayEvents(hide) => {
+                if self.hide_all_day_events != hide {
+                    self.hide_all_day_events = hide;
+                    self.sync_calendar_state();
+                }
             }
         }
     }
@@ -204,6 +211,7 @@ impl Popover {
     }
 
     fn sync_calendar_state(&mut self) {
+        let hide_all_day = self.hide_all_day_events;
         let event_days: HashSet<NaiveDate> = self
             .calendar
             .month_cache
@@ -211,7 +219,7 @@ impl Popover {
             .map(|m| {
                 m.day_snapshots
                     .values()
-                    .filter(|d| !d.events.is_empty())
+                    .filter(|d| d.events.iter().any(|e| !hide_all_day || !e.all_day))
                     .filter_map(|d| d.date.to_naive_date())
                     .collect()
             })
@@ -221,14 +229,17 @@ impl Popover {
     }
 
     fn sync_events(&mut self) {
-        self.events.emit(EventsInput::SetDate {
-            date: self.selected_date,
-            day: selected_day(&self.calendar, self.selected_date),
-            loading: self
-                .calendar
-                .loading_months
-                .contains(&MonthKey::from_date(self.selected_date)),
-        });
+        let day = selected_day(&self.calendar, self.selected_date);
+        let loading = self
+            .calendar
+            .loading_months
+            .contains(&MonthKey::from_date(self.selected_date))
+            && day.is_none();
+        let mut events = day.map(|d| d.events).unwrap_or_default();
+        if self.hide_all_day_events {
+            events.retain(|e| !e.all_day);
+        }
+        self.events.set_data(self.selected_date, &events, loading);
     }
 }
 

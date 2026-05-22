@@ -1,0 +1,34 @@
+using Gtk 4.0;
+
+template $Events: Box {
+  orientation: vertical;
+  spacing: 8;
+
+  styles [
+    "events",
+  ]
+
+  Label {
+    xalign: 0;
+    label: "Events";
+
+    styles [
+      "heading",
+    ]
+  }
+
+  Box list {
+    orientation: vertical;
+    spacing: 12;
+    visible: false;
+  }
+
+  Label empty {
+    xalign: 0;
+    visible: false;
+
+    styles [
+      "dim-label",
+    ]
+  }
+}

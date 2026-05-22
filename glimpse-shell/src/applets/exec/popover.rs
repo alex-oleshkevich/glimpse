@@ -10,17 +10,16 @@ use crate::components::{
 };
 
 use super::{
-    protocol::{EventPayload, TreeNode},
+    protocol::{EventKind, EventPayload, EventSource, TreeNode},
     renderer::RenderCatalog,
 };
 
 const DEFAULT_SIZE_CLASS: &str = "popover-size-medium";
 
 pub struct Popover {
-    animation: AnimatedPopover,
     root_node: Option<TreeNode>,
     content_box: gtk::Box,
-    root: gtk::Popover,
+    popover: AnimatedPopover,
     size_class: &'static str,
 }
 
@@ -38,8 +37,6 @@ pub enum Input {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Output {
-    Opened,
-    Closed,
     Event(EventPayload),
 }
 
@@ -51,7 +48,7 @@ impl SimpleComponent for Popover {
     type Output = Output;
 
     view! {
-        root = gtk::Popover {
+        root = AnimatedPopover {
             add_css_class: "exec-popover",
             add_css_class: "popover-size-medium",
             set_hexpand: false,
@@ -94,19 +91,18 @@ impl SimpleComponent for Popover {
 
         let opened_sender = sender.clone();
         widgets.root.connect_show(move |_| {
-            let _ = opened_sender.output(Output::Opened);
+            let _ = opened_sender.output(Output::Event(popover_lifecycle_event(EventKind::Open)));
         });
 
         let closed_sender = sender.clone();
         widgets.root.connect_closed(move |_| {
-            let _ = closed_sender.output(Output::Closed);
+            let _ = closed_sender.output(Output::Event(popover_lifecycle_event(EventKind::Close)));
         });
 
         let model = Popover {
-            animation: AnimatedPopover::new(&widgets.root),
             root_node: None,
             content_box: widgets.content_box.clone(),
-            root: widgets.root.clone(),
+            popover: widgets.root.clone(),
             size_class: DEFAULT_SIZE_CLASS,
         };
 
@@ -115,22 +111,34 @@ impl SimpleComponent for Popover {
 
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
-            Input::Toggle => self.animation.toggle(),
-            Input::Close => self.animation.close(),
+            Input::Toggle => self.popover.toggle(),
+            Input::Close => self.popover.close(),
             Input::SetRoot(root) => {
                 self.root_node = root;
                 self.rebuild(&sender);
             }
             Input::SetCssClass(class) => {
-                self.root.add_css_class(&format!("applet-{class}"));
+                self.popover.add_css_class(&format!("applet-{class}"));
             }
         }
     }
 }
 
+fn popover_lifecycle_event(kind: EventKind) -> EventPayload {
+    EventPayload {
+        id: "popover".into(),
+        kind,
+        source: EventSource::Popover,
+        button: None,
+        active: None,
+        value: None,
+        delta_y: None,
+    }
+}
+
 impl Popover {
     fn rebuild(&mut self, sender: &ComponentSender<Self>) {
-        self.root.remove_css_class(self.size_class);
+        self.popover.remove_css_class(self.size_class);
 
         while let Some(child) = self.content_box.first_child() {
             self.content_box.remove(&child);
@@ -138,7 +146,7 @@ impl Popover {
 
         let Some(root) = &self.root_node else {
             self.size_class = DEFAULT_SIZE_CLASS;
-            self.root.add_css_class(self.size_class);
+            self.popover.add_css_class(self.size_class);
             return;
         };
 
@@ -149,7 +157,7 @@ impl Popover {
 
         if let TreeNode::PopoverScaffold(scaffold) = root {
             self.size_class = scaffold.size.class_name();
-            self.root.add_css_class(self.size_class);
+            self.popover.add_css_class(self.size_class);
             if let Some(hero) = &scaffold.hero {
                 match renderer.render(hero) {
                     Ok(widget) => {
@@ -168,7 +176,7 @@ impl Popover {
             }
         } else {
             self.size_class = DEFAULT_SIZE_CLASS;
-            self.root.add_css_class(self.size_class);
+            self.popover.add_css_class(self.size_class);
             match renderer.render(root) {
                 Ok(widget) => self.content_box.append(&widget),
                 Err(error) => tracing::warn!(%error, "exec popover render failed"),

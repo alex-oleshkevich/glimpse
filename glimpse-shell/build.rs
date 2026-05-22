@@ -58,6 +58,14 @@ fn main() {
             "src/widgets/date_hero/template.blp",
             "resources/widgets/date_hero.ui",
         ),
+        (
+            "src/widgets/events/template.blp",
+            "resources/widgets/events.ui",
+        ),
+        (
+            "src/widgets/events/row/template.blp",
+            "resources/widgets/events_row.ui",
+        ),
         ("src/widgets/hero/template.blp", "resources/widgets/hero.ui"),
         (
             "src/widgets/message/template.blp",

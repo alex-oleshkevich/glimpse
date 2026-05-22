@@ -12,8 +12,8 @@ use super::{
     components::{StatusItem, StatusItemInit, StatusItemInput, StatusItemOutput},
     popover::{Input as PopoverInput, Output as PopoverOutput, Popover},
     protocol::{
-        EventKind, EventPayload, EventSource, PanelCommand, PopoverPayload,
-        StatusItem as StatusItemModel, StatusPayload, TreeNode,
+        EventPayload, PanelCommand, PopoverPayload, StatusItem as StatusItemModel, StatusPayload,
+        TreeNode,
     },
     supervisor::{self, Control},
 };
@@ -82,7 +82,6 @@ pub struct Applet {
     rendered_status: Vec<StatusItemModel>,
     root_node: Option<TreeNode>,
     rendered_has_popover: bool,
-    popover_open: bool,
     root: gtk::Box,
     popover: Controller<Popover>,
     status_box: gtk::Box,
@@ -182,7 +181,6 @@ impl SimpleComponent for Applet {
             rendered_status: Vec::new(),
             root_node: None,
             rendered_has_popover: false,
-            popover_open: false,
             root: widgets.root.clone(),
             popover,
             status_box: widgets.status_box.clone(),
@@ -203,9 +201,9 @@ impl SimpleComponent for Applet {
             }
             Input::PopoverChanged(payload) => {
                 self.root_node = payload.root;
-                if self.popover_open {
-                    self.sync_popover();
-                }
+                self.popover
+                    .emit(PopoverInput::SetRoot(self.root_node.clone()));
+                self.rebuild_status_if_needed(&sender);
             }
             Input::ChildExited => {
                 self.status.clear();
@@ -250,7 +248,7 @@ impl SimpleComponent for Applet {
             }
             Input::StatusItemOutput(output) => match output {
                 StatusItemOutput::TogglePopover => {
-                    self.open_popover_if_available();
+                    self.toggle_popover_if_available();
                 }
                 StatusItemOutput::ContextMenu => {
                     self.context_menu.popup();
@@ -260,26 +258,9 @@ impl SimpleComponent for Applet {
                     if let Some(event) = event {
                         self.send_event(event);
                     }
-                    // if self.has_popover_content() && !self.popover_open {
-                    self.open_popover_if_available();
-                    // }
+                    self.toggle_popover_if_available();
                 }
             },
-            Input::PopoverOutput(PopoverOutput::Opened) => {
-                if self.popover_open {
-                    return;
-                }
-                self.popover_open = true;
-                self.sync_popover();
-                self.send_popover_lifecycle_event(EventKind::Open);
-            }
-            Input::PopoverOutput(PopoverOutput::Closed) => {
-                if !self.popover_open {
-                    return;
-                }
-                self.popover_open = false;
-                self.send_popover_lifecycle_event(EventKind::Close);
-            }
             Input::PopoverOutput(PopoverOutput::Event(event)) => self.send_event(event),
         }
     }

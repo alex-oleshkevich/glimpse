@@ -8,6 +8,8 @@
     <file>widgets/calendar_month_view.ui</file>
     <file>widgets/calendar_year_view.ui</file>
     <file>widgets/date_hero.ui</file>
+    <file>widgets/events.ui</file>
+    <file>widgets/events_row.ui</file>
     <file>widgets/hero.ui</file>
     <file>widgets/message.ui</file>
     <file>widgets/message_group.ui</file>
