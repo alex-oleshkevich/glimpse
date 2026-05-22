@@ -1,16 +1,13 @@
-use relm4::{
-    ComponentParts, ComponentSender, SimpleComponent,
-    gtk::{self, glib, prelude::*},
-};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, gtk::prelude::*};
 
 use crate::applets::exec::protocol::{
     EventKind, EventPayload, EventSource, MouseButton, StatusItem as StatusItemModel,
 };
+use crate::widgets::panel_indicator::PanelIndicator;
 
 pub struct StatusItem {
     item: StatusItemModel,
     has_popover: bool,
-    image: gtk::Image,
 }
 
 #[derive(Debug, Clone)]
@@ -45,47 +42,25 @@ impl SimpleComponent for StatusItem {
     type Output = Output;
 
     view! {
-        gtk::Box {
+        PanelIndicator {
             add_css_class: "exec-status-item",
-            set_orientation: gtk::Orientation::Horizontal,
-            set_spacing: 4,
-            set_valign: gtk::Align::Center,
             #[watch]
             set_tooltip_text: model.item.tooltip.as_deref(),
-
-            add_controller = gtk::GestureClick {
-                set_button: 0,
-                connect_pressed[sender] => move |gesture, _, _, _| {
-                    gesture.set_state(gtk::EventSequenceState::Claimed);
-                    sender.input(Input::Click(gesture.current_button()));
-                }
+            #[watch]
+            set_icon: model.item.icon.as_deref(),
+            #[watch]
+            set_label: model.item.label.as_deref(),
+            connect_activated[sender] => move |_| {
+                sender.input(Input::Click(1));
             },
-
-            add_controller = gtk::EventControllerScroll {
-                set_flags: gtk::EventControllerScrollFlags::VERTICAL | gtk::EventControllerScrollFlags::DISCRETE,
-                connect_scroll[sender] => move |_, _, delta_y| {
-                    sender.input(Input::Scroll(delta_y));
-                    glib::Propagation::Proceed
-                }
+            connect_middle_clicked[sender] => move |_| {
+                sender.input(Input::Click(2));
             },
-
-            #[name = "image"]
-            gtk::Image {
-                set_pixel_size: 16,
-                set_valign: gtk::Align::Center,
-                #[watch]
-                set_visible: model.item.icon.is_some(),
+            connect_secondary_clicked[sender] => move |_| {
+                sender.input(Input::Click(3));
             },
-
-            gtk::Label {
-                add_css_class: "exec-status-label",
-                set_valign: gtk::Align::Center,
-                set_single_line_mode: true,
-                set_ellipsize: gtk::pango::EllipsizeMode::End,
-                #[watch]
-                set_label: model.item.label.as_deref().unwrap_or_default(),
-                #[watch]
-                set_visible: model.item.label.is_some(),
+            connect_scrolled[sender] => move |_, _dx, dy| {
+                sender.input(Input::Scroll(dy));
             }
         }
     }
@@ -98,12 +73,8 @@ impl SimpleComponent for StatusItem {
         let model = StatusItem {
             item: init.item,
             has_popover: init.has_popover,
-            image: gtk::Image::new(),
         };
         let widgets = view_output!();
-        let mut model = model;
-        model.image = widgets.image.clone();
-        model.apply_icon();
         ComponentParts { model, widgets }
     }
 
@@ -153,17 +124,7 @@ impl SimpleComponent for StatusItem {
             Input::Reconfigure { item, has_popover } => {
                 self.item = item;
                 self.has_popover = has_popover;
-                self.apply_icon();
             }
-        }
-    }
-}
-
-impl StatusItem {
-    fn apply_icon(&self) {
-        match &self.item.icon {
-            Some(icon) => self.image.set_icon_name(Some(icon)),
-            None => self.image.clear(),
         }
     }
 }

@@ -1,9 +1,6 @@
 use std::collections::HashSet;
 
-use relm4::{
-    ComponentParts, ComponentSender, SimpleComponent,
-    gtk::{self, prelude::*},
-};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, gtk::prelude::*};
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 
@@ -15,7 +12,10 @@ use crate::{
         compositor::{Command, CompositorHandle, State},
         framework::ServiceCommand,
     },
-    widgets::pager_strip::{PagerStrip, PagerStripEntry},
+    widgets::{
+        pager_strip::{PagerStrip, PagerStripEntry},
+        panel_indicator::PanelIndicator,
+    },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,6 +95,7 @@ pub struct Applet {
     state: PagerState,
     view: View,
     service: CompositorHandle,
+    root: PanelIndicator,
     strip: PagerStrip,
     subscription_cancel: CancellationToken,
     panel_monitor: Option<String>,
@@ -123,19 +124,11 @@ impl SimpleComponent for Applet {
     type Output = ();
 
     view! {
-        root = gtk::Box {
-            set_orientation: gtk::Orientation::Horizontal,
-
-            add_controller = gtk::EventControllerScroll {
-                set_flags: gtk::EventControllerScrollFlags::VERTICAL
-                    | gtk::EventControllerScrollFlags::HORIZONTAL
-                    | gtk::EventControllerScrollFlags::DISCRETE,
-                connect_scroll[sender] => move |_, dx, dy| {
-                    if let Some((next, horizontal)) = scroll_direction(dx, dy) {
-                        sender.input(Input::Scroll { next, horizontal });
-                    }
-                    gtk::glib::Propagation::Stop
-                },
+        root = PanelIndicator {
+            connect_scrolled[sender] => move |_, dx, dy| {
+                if let Some((next, horizontal)) = scroll_direction(dx, dy) {
+                    sender.input(Input::Scroll { next, horizontal });
+                }
             },
 
             #[name = "strip"]
@@ -163,10 +156,12 @@ impl SimpleComponent for Applet {
             state,
             view,
             service: init.service,
+            root: widgets.root.clone(),
             strip: widgets.strip.clone(),
             subscription_cancel: CancellationToken::new(),
             panel_monitor: init.panel_monitor,
         };
+        model.render();
 
         let service = model.service.clone();
         let cancel = model.subscription_cancel.clone();
@@ -238,7 +233,7 @@ impl SimpleComponent for Applet {
 
 impl Applet {
     fn render(&self) {
-        self.strip.set_visible(self.view.visible);
+        self.root.set_visible(self.view.visible);
         self.strip.set_tooltip_text(
             (!self.view.tooltip.is_empty()).then_some(self.view.tooltip.as_str()),
         );

@@ -1,9 +1,6 @@
 use std::time::{Duration, Instant};
 
-use relm4::{
-    ComponentParts, ComponentSender, SimpleComponent,
-    gtk::{self, prelude::*},
-};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, gtk::prelude::*};
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 
@@ -21,7 +18,8 @@ use crate::{
 use super::format;
 use crate::widgets::{
     camera_indicator::CameraIndicator, location_indicator::LocationIndicator,
-    mic_indicator::MicIndicator, screencast_indicator::ScreenCastIndicator,
+    mic_indicator::MicIndicator, panel_indicator::PanelIndicator,
+    screencast_indicator::ScreenCastIndicator,
 };
 
 const SCREEN_RECORDING_TICK: Duration = Duration::from_secs(1);
@@ -87,11 +85,7 @@ impl SimpleComponent for Applet {
     type Output = ();
 
     view! {
-        root = gtk::Box {
-            add_css_class: "applet",
-            set_orientation: gtk::Orientation::Horizontal,
-            set_spacing: 6,
-            set_valign: gtk::Align::Center,
+        root = PanelIndicator {
             #[watch]
             set_visible: model.view.visible,
             #[watch]
@@ -101,11 +95,8 @@ impl SimpleComponent for Applet {
                 Some(&model.view.tooltip)
             },
 
-            add_controller = gtk::GestureClick {
-                set_button: 1,
-                connect_pressed[sender] => move |_, _, _, _| {
-                    sender.input(Input::Activate);
-                },
+            connect_activated[sender] => move |_| {
+                sender.input(Input::Activate);
             },
 
             LocationIndicator {

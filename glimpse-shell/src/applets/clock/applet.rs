@@ -13,6 +13,7 @@ use crate::{
         clock::{self, State as ClockState, TimezoneConfig},
         framework::ServiceCommand,
     },
+    widgets::panel_indicator::PanelIndicator,
 };
 
 use super::{
@@ -101,24 +102,13 @@ impl SimpleComponent for Applet {
     type Output = ();
 
     view! {
-        root = gtk::Box {
-            add_css_class: "applet",
-            set_orientation: gtk::Orientation::Horizontal,
-            set_spacing: 4,
+        root = PanelIndicator {
             #[watch]
             set_tooltip_text: if model.tooltip.is_empty() { None } else { Some(&model.tooltip) },
-
-            add_controller = gtk::GestureClick {
-                set_button: 1,
-                connect_pressed[sender] => move |_, _, _, _| {
-                    sender.input(Input::TogglePopover);
-                },
-            },
-
-            gtk::Label {
-                set_valign: gtk::Align::Center,
-                #[watch]
-                set_label: &model.label,
+            #[watch]
+            set_label: if model.label.is_empty() { None } else { Some(model.label.as_str()) },
+            connect_activated[sender] => move |_| {
+                sender.input(Input::TogglePopover);
             },
         }
     }
@@ -132,7 +122,7 @@ impl SimpleComponent for Applet {
         let calendar_state = init.calendar.snapshot();
         let popover = Popover::builder()
             .launch(PopoverInit {
-                parent: root.clone(),
+                parent: root.clone().upcast::<gtk::Box>(),
                 clock: clock_state.clone(),
                 calendar: calendar_state.clone(),
             })

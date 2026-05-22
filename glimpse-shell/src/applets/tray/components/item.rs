@@ -10,6 +10,8 @@ use glimpse_core::services::tray::{
     protocol::ScrollOrientation,
 };
 
+use crate::widgets::panel_indicator::PanelIndicator;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ViewModel {
     pub tooltip: Option<String>,
@@ -80,54 +82,37 @@ impl SimpleComponent for TrayItem {
     type Output = Output;
 
     view! {
-        gtk::Button {
-            add_css_class: "flat",
-            add_css_class: "applet",
+        PanelIndicator {
+            add_css_class: "tray-item",
             set_valign: gtk::Align::Center,
             #[watch]
             set_tooltip_text: model.view.tooltip.as_deref(),
             #[watch]
             set_has_tooltip: model.view.tooltip.is_some(),
             #[watch]
-            set_css_classes: tray_item_classes(model.view.status),
+            set_needs_attention: model.view.status == Status::NeedsAttention,
 
-            add_controller = gtk::GestureClick {
-                set_button: 1,
-                connect_pressed[sender] => move |_, _, x, y| {
-                    let _ = sender.output(Output::PrimaryClick {
-                        x: x as i32,
-                        y: y as i32,
-                    });
-                }
+            connect_activated_at[sender] => move |_, x, y| {
+                let _ = sender.output(Output::PrimaryClick {
+                    x: x as i32,
+                    y: y as i32,
+                });
             },
-
-            add_controller = gtk::GestureClick {
-                set_button: 3,
-                connect_pressed[sender] => move |_, _, x, y| {
-                    let _ = sender.output(Output::ContextClick {
-                        x: x as i32,
-                        y: y as i32,
-                    });
-                }
+            connect_secondary_clicked_at[sender] => move |_, x, y| {
+                let _ = sender.output(Output::ContextClick {
+                    x: x as i32,
+                    y: y as i32,
+                });
             },
-
-            add_controller = gtk::GestureClick {
-                set_button: 2,
-                connect_pressed[sender] => move |_, _, x, y| {
-                    let _ = sender.output(Output::MiddleClick {
-                        x: x as i32,
-                        y: y as i32,
-                    });
-                }
+            connect_middle_clicked_at[sender] => move |_, x, y| {
+                let _ = sender.output(Output::MiddleClick {
+                    x: x as i32,
+                    y: y as i32,
+                });
             },
-
-            add_controller = gtk::EventControllerScroll {
-                set_flags: gtk::EventControllerScrollFlags::BOTH_AXES,
-                connect_scroll[sender] => move |_, dx, dy| {
-                    if let Some((delta, orientation)) = scroll_event(dx, dy) {
-                        let _ = sender.output(Output::Scroll { delta, orientation });
-                    }
-                    glib::Propagation::Proceed
+            connect_scrolled[sender] => move |_, dx, dy| {
+                if let Some((delta, orientation)) = scroll_event(dx, dy) {
+                    let _ = sender.output(Output::Scroll { delta, orientation });
                 }
             },
 
@@ -261,13 +246,6 @@ pub fn icon_to_gicon(icon: &Icon) -> Option<gio::Icon> {
                 .ok()
                 .map(|texture| texture.upcast())
         }
-    }
-}
-
-fn tray_item_classes(status: Status) -> &'static [&'static str] {
-    match status {
-        Status::NeedsAttention => &["flat", "applet", "needs-attention"],
-        _ => &["flat", "applet"],
     }
 }
 

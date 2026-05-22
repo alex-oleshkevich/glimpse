@@ -11,6 +11,7 @@ use crate::{
         framework::ServiceCommand,
         mpris::{Command, MprisHandle, State},
     },
+    widgets::panel_indicator::PanelIndicator,
 };
 
 use super::{
@@ -100,31 +101,19 @@ impl SimpleComponent for Applet {
     type Output = ();
 
     view! {
-        root = gtk::Box {
-            add_css_class: "applet",
-            set_orientation: gtk::Orientation::Horizontal,
+        root = PanelIndicator {
+            set_label_max_width_chars: PANEL_LABEL_MAX_WIDTH_CHARS,
+            set_label_ellipsize: gtk::pango::EllipsizeMode::End,
+            set_label_single_line_mode: true,
+            set_label_xalign: 0.0,
             #[watch]
             set_visible: !model.hidden,
             #[watch]
             set_tooltip_text: if model.tooltip.is_empty() { None } else { Some(&model.tooltip) },
-
-            add_controller = gtk::GestureClick {
-                set_button: 1,
-                connect_pressed[sender] => move |_, _, _, _| {
-                    sender.input(Input::TogglePopover);
-                },
-            },
-
-            gtk::Label {
-                add_css_class: "mpris-label",
-                set_max_width_chars: PANEL_LABEL_MAX_WIDTH_CHARS,
-                set_ellipsize: gtk::pango::EllipsizeMode::End,
-                set_single_line_mode: true,
-                set_xalign: 0.0,
-                #[watch]
-                set_label: &model.label,
-                #[watch]
-                set_visible: !model.label.is_empty(),
+            #[watch]
+            set_label: if model.label.is_empty() { None } else { Some(model.label.as_str()) },
+            connect_activated[sender] => move |_| {
+                sender.input(Input::TogglePopover);
             },
         }
     }
@@ -136,7 +125,7 @@ impl SimpleComponent for Applet {
     ) -> ComponentParts<Self> {
         let popover = Popover::builder()
             .launch(PopoverInit {
-                parent: root.clone(),
+                parent: root.clone().upcast::<gtk::Box>(),
                 max_rows: init.config.normalized_max_rows(),
                 show_artwork: init.config.show_artwork,
             })

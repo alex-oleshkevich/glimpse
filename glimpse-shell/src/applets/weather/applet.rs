@@ -14,6 +14,7 @@ use crate::{
             model::{Command, Config as ServiceConfig, State},
         },
     },
+    widgets::panel_indicator::PanelIndicator,
 };
 
 use super::{
@@ -108,34 +109,15 @@ impl SimpleComponent for Applet {
     type Output = ();
 
     view! {
-        root = gtk::Box {
-            add_css_class: "applet",
-            set_orientation: gtk::Orientation::Horizontal,
-            set_spacing: 4,
+        root = PanelIndicator {
             #[watch]
             set_tooltip_text: if model.tooltip.is_empty() { None } else { Some(&model.tooltip) },
-
-            add_controller = gtk::GestureClick {
-                set_button: 1,
-                connect_pressed[sender] => move |gesture, _, _, _| {
-                    gesture.set_state(gtk::EventSequenceState::Claimed);
-                    sender.input(Input::TogglePopover);
-                },
-            },
-
-            gtk::Image {
-                set_pixel_size: 16,
-                set_valign: gtk::Align::Center,
-                #[watch]
-                set_icon_name: Some(&model.icon_name),
-            },
-
-            gtk::Label {
-                set_valign: gtk::Align::Center,
-                #[watch]
-                set_label: &model.label,
-                #[watch]
-                set_visible: !model.label.is_empty(),
+            #[watch]
+            set_icon: Some(model.icon_name.as_str()),
+            #[watch]
+            set_label: if model.label.is_empty() { None } else { Some(model.label.as_str()) },
+            connect_activated[sender] => move |_| {
+                sender.input(Input::TogglePopover);
             },
         }
     }
@@ -147,7 +129,7 @@ impl SimpleComponent for Applet {
     ) -> ComponentParts<Self> {
         let popover = Popover::builder()
             .launch(PopoverInit {
-                parent: root.clone(),
+                parent: root.clone().upcast::<gtk::Box>(),
             })
             .forward(sender.input_sender(), Input::PopoverOutput);
 

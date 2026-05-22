@@ -50,6 +50,22 @@ impl PanelIndicator {
         }
     }
 
+    pub fn set_label_max_width_chars(&self, max_width_chars: i32) {
+        self.imp().label.set_max_width_chars(max_width_chars);
+    }
+
+    pub fn set_label_ellipsize(&self, mode: gtk4::pango::EllipsizeMode) {
+        self.imp().label.set_ellipsize(mode);
+    }
+
+    pub fn set_label_single_line_mode(&self, single_line_mode: bool) {
+        self.imp().label.set_single_line_mode(single_line_mode);
+    }
+
+    pub fn set_label_xalign(&self, xalign: f32) {
+        self.imp().label.set_xalign(xalign);
+    }
+
     pub fn append_extra(&self, child: &impl IsA<gtk4::Widget>) {
         self.imp().extra_slot.append(child);
         self.sync_extra_visibility();
@@ -88,6 +104,17 @@ impl PanelIndicator {
         )
     }
 
+    pub fn connect_activated_at(
+        &self,
+        f: impl Fn(&Self, f64, f64) + 'static,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "activated-at",
+            false,
+            closure_local!(move |indicator: &Self, x: f64, y: f64| f(indicator, x, y)),
+        )
+    }
+
     pub fn connect_middle_clicked(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
         self.connect_closure(
             "middle-clicked",
@@ -96,11 +123,33 @@ impl PanelIndicator {
         )
     }
 
+    pub fn connect_middle_clicked_at(
+        &self,
+        f: impl Fn(&Self, f64, f64) + 'static,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "middle-clicked-at",
+            false,
+            closure_local!(move |indicator: &Self, x: f64, y: f64| f(indicator, x, y)),
+        )
+    }
+
     pub fn connect_secondary_clicked(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
         self.connect_closure(
             "secondary-clicked",
             false,
             closure_local!(move |indicator: &Self| f(indicator)),
+        )
+    }
+
+    pub fn connect_secondary_clicked_at(
+        &self,
+        f: impl Fn(&Self, f64, f64) + 'static,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "secondary-clicked-at",
+            false,
+            closure_local!(move |indicator: &Self, x: f64, y: f64| f(indicator, x, y)),
         )
     }
 

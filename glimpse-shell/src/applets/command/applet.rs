@@ -8,7 +8,7 @@ use relm4::{
 use serde::Deserialize;
 use tokio::process::Command as TokioCommand;
 
-use crate::panels::applets::AppletConfig;
+use crate::{panels::applets::AppletConfig, widgets::panel_indicator::PanelIndicator};
 
 const SCROLL_DEBOUNCE_MS: u64 = 100;
 
@@ -62,7 +62,7 @@ pub struct Applet {
     name: String,
     config: Config,
     view: View,
-    root: gtk::Box,
+    root: PanelIndicator,
     context_menu: gtk::PopoverMenu,
     scroll_v: Option<tokio::task::JoinHandle<()>>,
     scroll_h: Option<tokio::task::JoinHandle<()>>,
@@ -107,77 +107,29 @@ impl SimpleComponent for Applet {
     type Output = ();
 
     view! {
-        root = gtk::Box {
-            add_css_class: "applet",
-            set_orientation: gtk::Orientation::Horizontal,
-            set_spacing: 4,
-            set_valign: gtk::Align::Center,
+        root = PanelIndicator {
             #[watch]
             set_visible: model.view.visible,
             #[watch]
             set_tooltip_text: model.view.tooltip.as_deref(),
-
-            add_controller = gtk::GestureClick {
-                set_button: 1,
-                connect_pressed[sender] => move |gesture, _, _, _| {
-                    gesture.set_state(gtk::EventSequenceState::Claimed);
-                    sender.input(Input::Activate);
-                },
+            #[watch]
+            set_icon: model.view.icon_name.as_deref().or(model.view.icon_path.as_deref()),
+            #[watch]
+            set_label: if model.view.has_label { Some(model.view.label.as_str()) } else { None },
+            connect_activated[sender] => move |_| {
+                sender.input(Input::Activate);
             },
-
-            add_controller = gtk::GestureClick {
-                set_button: 2,
-                connect_pressed[sender] => move |gesture, _, _, _| {
-                    gesture.set_state(gtk::EventSequenceState::Claimed);
-                    sender.input(Input::MiddleClick);
-                },
+            connect_middle_clicked[sender] => move |_| {
+                sender.input(Input::MiddleClick);
             },
-
-            add_controller = gtk::GestureClick {
-                set_button: 3,
-                connect_pressed[sender] => move |gesture, _, _, _| {
-                    gesture.set_state(gtk::EventSequenceState::Claimed);
-                    sender.input(Input::ShowContextMenu);
-                },
+            connect_secondary_clicked[sender] => move |_| {
+                sender.input(Input::ShowContextMenu);
             },
-
-            add_controller = gtk::EventControllerScroll {
-                set_flags: gtk::EventControllerScrollFlags::BOTH_AXES,
-                connect_scroll[sender] => move |_, dx, dy| {
-                    let mut consumed = false;
-                    if dy < 0.0 { sender.input(Input::ScrollUp); consumed = true; }
-                    else if dy > 0.0 { sender.input(Input::ScrollDown); consumed = true; }
-                    if dx < 0.0 { sender.input(Input::HScrollLeft); consumed = true; }
-                    else if dx > 0.0 { sender.input(Input::HScrollRight); consumed = true; }
-                    if consumed { gtk::glib::Propagation::Stop } else { gtk::glib::Propagation::Proceed }
-                },
-            },
-
-            #[name = "named_icon"]
-            gtk::Image {
-                #[watch]
-                set_visible: model.view.has_named_icon,
-                #[watch]
-                set_icon_name: model.view.icon_name.as_deref(),
-                set_pixel_size: 16,
-            },
-
-            #[name = "path_icon"]
-            gtk::Image {
-                #[watch]
-                set_visible: model.view.has_path_icon,
-                #[watch]
-                set_from_file: model.view.icon_path.as_deref(),
-                set_pixel_size: 16,
-            },
-
-            #[name = "label"]
-            gtk::Label {
-                #[watch]
-                set_visible: model.view.has_label,
-                #[watch]
-                set_label: &model.view.label,
-                set_valign: gtk::Align::Center,
+            connect_scrolled[sender] => move |_, dx, dy| {
+                if dy < 0.0 { sender.input(Input::ScrollUp); }
+                else if dy > 0.0 { sender.input(Input::ScrollDown); }
+                if dx < 0.0 { sender.input(Input::HScrollLeft); }
+                else if dx > 0.0 { sender.input(Input::HScrollRight); }
             },
         }
     }
@@ -352,7 +304,7 @@ fn has_visible_menu_items(menu: &[MenuItemConfig]) -> bool {
 }
 
 fn build_context_menu(
-    root: &gtk::Box,
+    root: &PanelIndicator,
     config: &Config,
     sender: &ComponentSender<Applet>,
 ) -> gtk::PopoverMenu {

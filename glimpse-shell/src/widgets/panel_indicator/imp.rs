@@ -58,9 +58,19 @@ impl ObjectImpl for PanelIndicator {
         self.extra_slot.set_visible(false);
         obj.append(&self.extra_slot);
 
-        install_click_signal(&obj, gdk::BUTTON_PRIMARY, "activated");
-        install_click_signal(&obj, gdk::BUTTON_MIDDLE, "middle-clicked");
-        install_click_signal(&obj, gdk::BUTTON_SECONDARY, "secondary-clicked");
+        install_click_signal(&obj, gdk::BUTTON_PRIMARY, "activated", "activated-at");
+        install_click_signal(
+            &obj,
+            gdk::BUTTON_MIDDLE,
+            "middle-clicked",
+            "middle-clicked-at",
+        );
+        install_click_signal(
+            &obj,
+            gdk::BUTTON_SECONDARY,
+            "secondary-clicked",
+            "secondary-clicked-at",
+        );
 
         let scroll = gtk4::EventControllerScroll::new(
             gtk4::EventControllerScrollFlags::BOTH_AXES
@@ -85,8 +95,17 @@ impl ObjectImpl for PanelIndicator {
         SIGNALS.get_or_init(|| {
             vec![
                 Signal::builder("activated").build(),
+                Signal::builder("activated-at")
+                    .param_types([f64::static_type(), f64::static_type()])
+                    .build(),
                 Signal::builder("middle-clicked").build(),
+                Signal::builder("middle-clicked-at")
+                    .param_types([f64::static_type(), f64::static_type()])
+                    .build(),
                 Signal::builder("secondary-clicked").build(),
+                Signal::builder("secondary-clicked-at")
+                    .param_types([f64::static_type(), f64::static_type()])
+                    .build(),
                 Signal::builder("scrolled")
                     .param_types([f64::static_type(), f64::static_type()])
                     .build(),
@@ -98,14 +117,20 @@ impl ObjectImpl for PanelIndicator {
 impl WidgetImpl for PanelIndicator {}
 impl BoxImpl for PanelIndicator {}
 
-fn install_click_signal(obj: &super::PanelIndicator, button: u32, signal_name: &'static str) {
+fn install_click_signal(
+    obj: &super::PanelIndicator,
+    button: u32,
+    signal_name: &'static str,
+    position_signal_name: &'static str,
+) {
     let gesture = gtk4::GestureClick::new();
     gesture.set_button(button);
     let weak = obj.downgrade();
-    gesture.connect_pressed(move |gesture, _, _, _| {
+    gesture.connect_pressed(move |gesture, _, x, y| {
         gesture.set_state(gtk4::EventSequenceState::Claimed);
         if let Some(indicator) = weak.upgrade() {
             indicator.emit_by_name::<()>(signal_name, &[]);
+            indicator.emit_by_name::<()>(position_signal_name, &[&x, &y]);
         }
     });
     obj.add_controller(gesture);
