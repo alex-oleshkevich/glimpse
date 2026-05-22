@@ -1,0 +1,28 @@
+{
+  "data": {
+    "children": [
+      {
+        "data": {
+          "color": "muted",
+          "size": "sm",
+          "text": "Ready",
+          "weight": "medium",
+          "wrap": true
+        },
+        "type": "text"
+      }
+    ],
+    "footer": [
+      {
+        "data": {
+          "kind": "success",
+          "label": "OK"
+        },
+        "type": "badge"
+      }
+    ],
+    "footer_visible": true,
+    "size": "medium"
+  },
+  "type": "popover_shell"
+}

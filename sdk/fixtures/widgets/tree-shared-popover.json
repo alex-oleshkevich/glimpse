@@ -1,0 +1,30 @@
+{
+  "data": {
+    "children": [
+      {
+        "data": {
+          "subtitle": "Shared widgets",
+          "title": "System"
+        },
+        "type": "hero"
+      },
+      {
+        "data": {
+          "children": [
+            {
+              "data": {
+                "active": true,
+                "id": "wifi",
+                "primary": "Wi-Fi"
+              },
+              "type": "switch_tile"
+            }
+          ]
+        },
+        "type": "boxed_list"
+      }
+    ],
+    "size": "large"
+  },
+  "type": "popover_shell"
+}

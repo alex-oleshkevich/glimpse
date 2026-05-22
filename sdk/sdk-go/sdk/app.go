@@ -30,12 +30,24 @@ type Applet[S any] interface {
 // Optional typed handler interfaces. Implement any of these on your applet
 // struct instead of OnCallback and the runtime will route to them directly.
 // OnCallback is still called for event types that have no matching interface.
-type ClickHandler interface{ OnClick(context.Context, ClickEvent) error }
-type ScrollHandler interface{ OnScroll(context.Context, ScrollEvent) error }
-type InputHandler interface{ OnInput(context.Context, InputEvent) error }
-type ChangeHandler interface{ OnChange(context.Context, ChangeEvent) error }
-type ToggleHandler interface{ OnToggle(context.Context, ToggleEvent) error }
-type PopoverHandler interface{ OnPopover(context.Context, PopoverEvent) error }
+type ClickHandler interface {
+	OnClick(context.Context, ClickEvent) error
+}
+type ScrollHandler interface {
+	OnScroll(context.Context, ScrollEvent) error
+}
+type InputHandler interface {
+	OnInput(context.Context, InputEvent) error
+}
+type ChangeHandler interface {
+	OnChange(context.Context, ChangeEvent) error
+}
+type ToggleHandler interface {
+	OnToggle(context.Context, ToggleEvent) error
+}
+type PopoverHandler interface {
+	OnPopover(context.Context, PopoverEvent) error
+}
 
 type inlineHandler func(context.Context, CallbackEvent) error
 
@@ -328,65 +340,95 @@ func collectHandlers(w Widget, out map[string]inlineHandler) {
 		return
 	}
 	switch v := w.(type) {
-	case Button:
+	case Tile:
 		if v.OnClick != nil {
 			fn := v.OnClick
-			out["click:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
-				return fn(ctx, e.(ClickEvent))
-			}
-		}
-	case ActionItem:
-		if v.OnClick != nil {
-			fn := v.OnClick
-			out["click:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
-				return fn(ctx, e.(ClickEvent))
+			out["click:"+v.ID] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
 			}
 		}
 		collectHandlers(v.Left, out)
 		collectHandlers(v.Right, out)
-	case Switch:
-		if v.OnToggle != nil {
-			fn := v.OnToggle
-			out["toggle:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
-				return fn(ctx, e.(ToggleEvent))
+	case SegmentedTile:
+		if v.OnClick != nil {
+			fn := v.OnClick
+			out["click:"+v.ID] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
 			}
 		}
-	case ToggleButton:
 		if v.OnToggle != nil {
 			fn := v.OnToggle
-			out["toggle:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
-				return fn(ctx, e.(ToggleEvent))
+			out["toggle:"+v.ID] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
 			}
 		}
-	case Checkbox:
+		collectHandlers(v.Left, out)
+		collectHandlers(v.Right, out)
+		collectHandlers(v.Child, out)
+	case PanelIndicator:
+		if v.OnClick != nil {
+			fn := v.OnClick
+			out["click:"+v.ID] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
+			}
+		}
+		collectHandlers(v.Extra, out)
+	case SwitchTile:
 		if v.OnToggle != nil {
 			fn := v.OnToggle
-			out["toggle:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
-				return fn(ctx, e.(ToggleEvent))
+			out["toggle:"+v.ID] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
 			}
 		}
-	case Slider:
+		collectHandlers(v.Left, out)
+	case ExpanderTile:
+		if v.OnToggle != nil {
+			fn := v.OnToggle
+			out["toggle:"+v.ID] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
+			}
+		}
+		collectHandlers(v.Left, out)
+		collectHandlers(v.Child, out)
+	case SliderTile:
 		if v.OnChange != nil {
 			fn := v.OnChange
-			out["change:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
-				return fn(ctx, e.(ChangeEvent))
+			out["change:"+v.ID] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
 			}
 		}
-	case Select:
+		collectHandlers(v.Left, out)
+	case Meter:
+		if v.OnChange != nil && v.ID != "" {
+			fn := v.OnChange
+			out["change:"+v.ID] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
+			}
+		}
+	case ChoiceTile:
+		if v.OnClick != nil {
+			fn := v.OnClick
+			out["click:"+v.ID] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
+			}
+		}
+		collectHandlers(v.Left, out)
+	case ChoiceList:
 		if v.OnChange != nil {
 			fn := v.OnChange
-			out["change:"+v.ID] = func(ctx context.Context, e CallbackEvent) error {
-				return fn(ctx, e.(ChangeEvent))
+			out["change:"+v.ID] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
 			}
 		}
 	case Hero:
 		if v.OnToggle != nil && v.ID != "" {
 			fn := v.OnToggle
 			id := v.ID
-			out["toggle:"+id] = func(ctx context.Context, e CallbackEvent) error {
-				return fn(ctx, e.(ToggleEvent))
+			out["toggle:"+id] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
 			}
 		}
+		collectHandlers(v.Trailing, out)
 	case Row:
 		for _, child := range v.Children {
 			collectHandlers(child, out)
@@ -395,24 +437,51 @@ func collectHandlers(w Widget, out map[string]inlineHandler) {
 		for _, child := range v.Children {
 			collectHandlers(child, out)
 		}
-	case Grid:
-		for _, gc := range v.Children {
-			collectHandlers(gc.Child, out)
-		}
-	case Card:
-		collectHandlers(v.Child, out)
 	case Container:
-		collectHandlers(v.Child, out)
+		for _, child := range v.Children {
+			collectHandlers(child, out)
+		}
+	case BoxedList:
+		for _, child := range v.Children {
+			collectHandlers(child, out)
+		}
+	case ButtonRow:
+		for _, child := range v.Children {
+			collectHandlers(child, out)
+		}
+	case PopoverShell:
+		for _, child := range v.Children {
+			collectHandlers(child, out)
+		}
+		for _, child := range v.Footer {
+			collectHandlers(child, out)
+		}
 	case Scroll:
 		collectHandlers(v.Child, out)
-	case Expander:
-		collectHandlers(v.Child, out)
-	case PopoverScaffold:
-		collectHandlers(v.Hero, out)
-		collectHandlers(v.Body, out)
-	case Item:
-		collectHandlers(v.Left, out)
-		collectHandlers(v.Right, out)
+	case PagerItem:
+		if v.OnClick != nil {
+			fn := v.OnClick
+			out["click:"+fmt.Sprint(v.ID)] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
+			}
+		}
+	case PagerStrip:
+		if v.OnChange != nil {
+			fn := v.OnChange
+			out["change:"+v.ID] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
+			}
+		}
+		for _, item := range v.Items {
+			collectHandlers(item, out)
+		}
+	case Calendar:
+		if v.OnChange != nil {
+			fn := v.OnChange
+			out["change:"+v.ID] = func(_ context.Context, e CallbackEvent) error {
+				return fn(e)
+			}
+		}
 	}
 }
 

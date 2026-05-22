@@ -1,0 +1,29 @@
+{
+  "data": {
+    "activatable": true,
+    "child": {
+      "data": {
+        "rows": [
+          {
+            "key": "Size",
+            "value": "1 TB"
+          }
+        ]
+      },
+      "type": "key_value_grid"
+    },
+    "expanded": true,
+    "id": "drive",
+    "left_icon": "drive-harddisk-symbolic",
+    "primary": "Backup",
+    "right": {
+      "data": {
+        "kind": "success",
+        "label": "OK"
+      },
+      "type": "badge"
+    },
+    "secondary": "Mounted"
+  },
+  "type": "segmented_tile"
+}

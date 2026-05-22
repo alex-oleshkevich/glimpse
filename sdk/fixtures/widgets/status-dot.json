@@ -1,4 +1,6 @@
 {
-  "data": {},
-  "type": "status"
+  "data": {
+    "status": "warning"
+  },
+  "type": "status_dot"
 }

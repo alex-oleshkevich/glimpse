@@ -1,13 +1,13 @@
 {
   "incoming": {
     "button": "left",
-    "id": "submit",
+    "id": "refresh",
     "source": "popover",
     "type": "click"
   },
   "parsed": {
     "button": "left",
-    "id": "submit",
-    "kind": "click"
+    "event": "click",
+    "id": "refresh"
   }
 }

@@ -1,0 +1,17 @@
+{
+  "data": {
+    "activatable": true,
+    "id": "wifi",
+    "left_icon": "network-wireless-symbolic",
+    "primary": "Wi-Fi",
+    "right": {
+      "data": {
+        "kind": "success",
+        "label": "OK"
+      },
+      "type": "badge"
+    },
+    "secondary": "Connected"
+  },
+  "type": "tile"
+}

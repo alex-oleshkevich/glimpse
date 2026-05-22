@@ -19,18 +19,20 @@ pub use app::{
     Applet, CommandResult, close_popover, copy_to_clipboard, open_uri, run, run_command,
     show_notification,
 };
-pub use tokio::sync::mpsc;
 pub use events::{
     CallbackEvent, ChangeEvent, ClickEvent, InitEvent, InputEvent, PopoverEvent, ScrollEvent,
     ToggleEvent, parse_callback_event, parse_init_event,
 };
 pub use ipc::{Event, EventStream, Subscriber, ipc};
 pub use protocol::StatusItem;
+pub use tokio::sync::mpsc;
 pub use widgets::{
-    ActionItem, Align, Badge, BorderWidth, Button, ButtonVariant, Card, Checkbox, Color, Column,
-    Container, ContentFit, Copyable, EmptyState, Expander, FontSize, FontWeight, Grid, GridChild,
-    Hero, Icon, Item, LevelBar, LevelBarMode, LinkButton, Meter, MsgMapper, Orientation,
-    PagerAppearance, PagerItem, PagerStrip, Picture, PopoverScaffold, PopoverSize, Progress,
-    PropertyList, Radius, Row, Scroll, Select, Separator, Slider, Space, Spinner, StatusDot,
-    StatusVariant, Switch, Text, TextAlign, ToggleButton, TreeNode, Variant,
+    ActiveIndicator, Badge, BadgeKind, BatteryHero, BoxedList, ButtonRow, Calendar,
+    CameraIndicator, Choice, ChoiceList, ChoiceTile, Column, CommonProps, Container, ContainerBg,
+    DateHero, EmptyState, EventItem, Events, ExpanderTile, FontSize, FontWeight, Header, Hero,
+    KeyValueGrid, KeyValueRow, LocationIndicator, Meter, MicIndicator, MsgMapper, MutedIndicator,
+    PagerAppearance, PagerItem, PagerStrip, PanelIndicator, PopoverShell, PopoverSize, Radius, Row,
+    ScreenCastIndicator, Scroll, SegmentedTile, Separator, SliderTile, Space, Spinner, StatusDot,
+    StatusDotStatus, SwitchTile, Text, TextColor, Tile, TreeNode, WeatherForecastItem,
+    WeatherForecastList, WeatherHourlyItem, WeatherHourlyStrip, WorldClock, WorldClockRow,
 };

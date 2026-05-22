@@ -5,12 +5,11 @@ from dataclasses import dataclass
 from glimpse_sdk import (
     Applet,
     AppletState,
-    Button,
-    ButtonVariant,
     Column,
     Hero,
     StatusItem,
     Text,
+    Tile,
 )
 
 
@@ -41,15 +40,14 @@ class CounterApplet(Applet[CounterState]):
                     subtitle=f"Value: {state.count}",
                 ),
                 Text(text=f"Count = {state.count}"),
-                Button(
+                Tile(
                     id="increment",
-                    label="Increment",
+                    primary="Increment",
                     on_click=self.on_increment,
-                    icon="list-add-symbolic",
-                    variant=ButtonVariant.PRIMARY,
+                    left_icon="list-add-symbolic",
+                    activatable=True,
                 ),
             ],
-            spacing=8,
         )
 
     async def on_increment(self, state: CounterState, _event) -> None:

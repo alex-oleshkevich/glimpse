@@ -1,0 +1,10 @@
+{
+  "data": {
+    "active": true,
+    "id": "bluetooth",
+    "left_icon": "bluetooth-active-symbolic",
+    "primary": "Bluetooth",
+    "secondary": "On"
+  },
+  "type": "switch_tile"
+}

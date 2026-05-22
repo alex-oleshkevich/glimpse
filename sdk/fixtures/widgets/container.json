@@ -1,0 +1,24 @@
+{
+  "data": {
+    "bg": "surface",
+    "border_width": 1,
+    "children": [
+      {
+        "data": {
+          "color": "muted",
+          "size": "sm",
+          "text": "Ready",
+          "weight": "medium",
+          "wrap": true
+        },
+        "type": "text"
+      }
+    ],
+    "margin": "s2",
+    "min_height": "s4",
+    "min_width": "s8",
+    "padding": "s4",
+    "radius": "md"
+  },
+  "type": "container"
+}

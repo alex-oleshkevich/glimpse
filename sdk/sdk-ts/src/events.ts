@@ -10,7 +10,7 @@ interface CallbackEventBase {
 
 export interface ClickEvent extends CallbackEventBase {
   event: "click";
-  button?: string;
+  button?: string | null;
 }
 
 export interface ScrollEvent extends CallbackEventBase {
@@ -57,7 +57,7 @@ export function parseCallbackEvent(payload: Record<string, unknown>): CallbackEv
   const event = String(payload.type ?? payload.event ?? "");
   const id = String(payload.id ?? "");
   if (event === "click") {
-    return { id, event, button: payload.button === undefined ? undefined : String(payload.button) };
+    return { id, event, button: payload.button === undefined ? null : String(payload.button) };
   }
   if (event === "scroll") {
     return {

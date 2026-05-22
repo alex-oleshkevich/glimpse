@@ -1,0 +1,12 @@
+{
+  "data": {
+    "items": [
+      {
+        "icon": "weather-clear-symbolic",
+        "temperature": "18",
+        "time": "12:00"
+      }
+    ]
+  },
+  "type": "weather_hourly_strip"
+}

@@ -1,9 +1,0 @@
-{
-  "data": {
-    "id": "vpn-toggle",
-    "subtitle": "Connected",
-    "switch": true,
-    "title": "VPN"
-  },
-  "type": "hero"
-}

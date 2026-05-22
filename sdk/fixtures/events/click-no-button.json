@@ -1,12 +1,12 @@
 {
   "incoming": {
-    "id": "submit",
+    "id": "refresh",
     "source": "popover",
     "type": "click"
   },
   "parsed": {
     "button": null,
-    "id": "submit",
-    "kind": "click"
+    "event": "click",
+    "id": "refresh"
   }
 }

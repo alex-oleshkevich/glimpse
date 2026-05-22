@@ -5,7 +5,8 @@
     "type": "close"
   },
   "parsed": {
-    "kind": "popover",
+    "event": "close",
+    "id": "popover",
     "open": false
   }
 }

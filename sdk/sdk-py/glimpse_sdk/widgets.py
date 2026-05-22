@@ -1,57 +1,24 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Protocol, TypeAlias
+from typing import Any, Awaitable, Callable, TypeAlias
 
-
-class Align(StrEnum):
-    FILL = "fill"
-    START = "start"
-    END = "end"
-    CENTER = "center"
-    BASELINE = "baseline"
-
-
-class Orientation(StrEnum):
-    HORIZONTAL = "horizontal"
-    VERTICAL = "vertical"
-
-
-class Variant(StrEnum):
-    NORMAL = "normal"
-    MUTED = "muted"
-    ACCENT = "accent"
-    SUCCESS = "success"
-    WARNING = "warning"
-    DANGER = "danger"
+InlineHandler: TypeAlias = Callable[[Any, Any], Awaitable[None] | None]
+HandlerRegistry: TypeAlias = Any
 
 
 class Space(StrEnum):
-    NONE = "none"
-    XXS = "xxs"
-    XS = "xs"
-    SM = "sm"
-    MD = "md"
-    LG = "lg"
-
-
-class Color(StrEnum):
-    BG = "bg"
-    FG = "fg"
-    SURFACE = "surface"
-    SURFACE_RAISED = "surface_raised"
-    BORDER = "border"
-    MUTED_FG = "muted_fg"
-    ACCENT = "accent"
-    ACCENT_FG = "accent_fg"
-    SUCCESS = "success"
-    SUCCESS_FG = "success_fg"
-    WARNING = "warning"
-    WARNING_FG = "warning_fg"
-    DANGER = "danger"
-    DANGER_FG = "danger_fg"
+    S1 = "s1"
+    S2 = "s2"
+    S3 = "s3"
+    S4 = "s4"
+    S5 = "s5"
+    S6 = "s6"
+    S7 = "s7"
+    S8 = "s8"
+    S9 = "s9"
+    S10 = "s10"
 
 
 class Radius(StrEnum):
@@ -62,11 +29,15 @@ class Radius(StrEnum):
     PILL = "pill"
 
 
+class ContainerBg(StrEnum):
+    NONE = "none"
+    SURFACE = "surface"
+    RAISED = "raised"
+
+
 class FontSize(StrEnum):
-    XXS = "xxs"
     XS = "xs"
     SM = "sm"
-    MD = "md"
     BASE = "base"
     LG = "lg"
     XL = "xl"
@@ -79,76 +50,55 @@ class FontWeight(StrEnum):
     BOLD = "bold"
 
 
-class TextAlign(StrEnum):
-    LEFT = "left"
-    CENTER = "center"
-    RIGHT = "right"
-
-
-class BorderWidth(StrEnum):
-    NONE = "none"
-    THIN = "thin"
-    MEDIUM = "medium"
-    THICK = "thick"
-
-
-class ButtonVariant(StrEnum):
-    PRIMARY = "primary"
-    SECONDARY = "secondary"
-    COMPACT = "compact"
-    FLAT = "flat"
-    DANGER = "danger"
-
-
-class ContentFit(StrEnum):
-    FILL = "fill"
-    CONTAIN = "contain"
-    COVER = "cover"
-    SCALE_DOWN = "scale_down"
-
-
-class LevelBarMode(StrEnum):
-    CONTINUOUS = "continuous"
-    DISCRETE = "discrete"
-
-
-class StatusVariant(StrEnum):
+class TextColor(StrEnum):
+    NORMAL = "normal"
+    MUTED = "muted"
+    ACCENT = "accent"
     SUCCESS = "success"
     WARNING = "warning"
-    DANGER = "danger"
+    ERROR = "error"
 
 
-InlineHandler = Callable[[object, object], object]
+class BadgeKind(StrEnum):
+    DEFAULT = "default"
+    SUCCESS = "success"
+    WARNING = "warning"
+    ERROR = "error"
+    ACCENT = "accent"
 
 
-class HandlerRegistry(Protocol):
-    def generated_id(self, event: str, path: tuple[int, ...]) -> str: ...
+class StatusDotStatus(StrEnum):
+    NEUTRAL = "neutral"
+    SUCCESS = "success"
+    WARNING = "warning"
+    ERROR = "error"
+    ACCENT = "accent"
 
-    def add(self, event: str, target_id: str, handler: InlineHandler) -> None: ...
+
+class PagerAppearance(StrEnum):
+    DOTS = "dots"
+    NUMBERS = "numbers"
 
 
-@dataclass(slots=True)
-class CommonProps:
+class PopoverSize(StrEnum):
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+    WIDE = "wide"
+
+
+@dataclass
+class Widget:
+    widget_type: str = field(init=False, default="")
     visible: bool | None = None
-    hexpand: bool | None = None
-    vexpand: bool | None = None
-    halign: Align | None = None
-    valign: Align | None = None
     tooltip: str | None = None
     css_classes: list[str] = field(default_factory=list)
     styles: dict[str, str] = field(default_factory=dict)
 
-    def apply_common(self, payload: dict[str, object]) -> dict[str, object]:
+    def data(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
         if self.visible is not None:
             payload["visible"] = self.visible
-        if self.hexpand is not None:
-            payload["hexpand"] = self.hexpand
-        if self.vexpand is not None:
-            payload["vexpand"] = self.vexpand
-        if self.halign is not None:
-            payload["halign"] = self.halign.value
-        if self.valign is not None:
-            payload["valign"] = self.valign.value
         if self.tooltip is not None:
             payload["tooltip"] = self.tooltip
         if self.css_classes:
@@ -157,740 +107,849 @@ class CommonProps:
             payload["styles"] = self.styles
         return payload
 
-
-class Widget(CommonProps):
-    widget_type: str = ""
-
-    def to_protocol(self) -> dict[str, object]:
-        raise NotImplementedError
+    def to_protocol(self) -> dict[str, Any]:
+        return {"type": self.widget_type, "data": self.data()}
 
     def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
         return None
 
 
-@dataclass(slots=True)
-class Hero(Widget):
-    title: str = ""
-    subtitle: str = ""
-    icon: str | None = None
-    id: str | None = None
-    switch: bool | None = None
-    on_toggle: InlineHandler | None = None
-    widget_type: str = "hero"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common(
-            {
-                "title": self.title,
-                "subtitle": self.subtitle,
-            }
-        )
-        if self.icon is not None:
-            payload["icon"] = self.icon
-        if self.id is not None:
-            payload["id"] = self.id
-        if self.switch is not None:
-            payload["switch"] = self.switch
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.on_toggle is None:
-            return
-        if not self.id:
-            self.id = registry.generated_id("toggle", path)
-        registry.add("toggle", self.id, self.on_toggle)
+def _node(value: TreeNode | None) -> dict[str, Any] | None:
+    return None if value is None else value.to_protocol()
 
 
-@dataclass(slots=True)
-class Progress(Widget):
-    value: float = 0.0
-    max: float = 1.0
-    show_text: bool = False
-    text: str | None = None
-    widget_type: str = "progress"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"value": self.value, "max": self.max})
-        if self.show_text:
-            payload["show_text"] = self.show_text
-        if self.text is not None:
-            payload["text"] = self.text
-        return {"type": self.widget_type, "data": payload}
+def _children(values: list[TreeNode]) -> list[dict[str, Any]]:
+    return [child.to_protocol() for child in values]
 
 
-@dataclass(slots=True)
-class LevelBar(Widget):
-    value: float = 0.0
-    min: float = 0.0
-    max: float = 1.0
-    mode: LevelBarMode | str = LevelBarMode.CONTINUOUS
-    widget_type: str = "level_bar"
-
-    def to_protocol(self) -> dict[str, object]:
-        mode = self.mode.value if isinstance(self.mode, LevelBarMode) else self.mode
-        payload = self.apply_common(
-            {"value": self.value, "min": self.min, "max": self.max, "mode": mode}
-        )
-        return {"type": self.widget_type, "data": payload}
+def _target_id(registry: HandlerRegistry, event: str, widget_id: str | None, path: tuple[int, ...]) -> str:
+    return widget_id if widget_id else registry.generated_id(event, path)
 
 
-@dataclass(slots=True)
+@dataclass
 class Text(Widget):
     text: str = ""
-    color: Color | None = None
     size: FontSize | None = None
     weight: FontWeight | None = None
-    align: TextAlign | None = None
-    widget_type: str = "text"
+    color: TextColor | None = None
+    xalign: float | None = None
+    wrap: bool | None = None
+    widget_type: str = field(init=False, default="text")
 
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"text": self.text})
-        if self.color is not None:
-            payload["color"] = self.color.value
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["text"] = self.text
         if self.size is not None:
             payload["size"] = self.size.value
         if self.weight is not None:
             payload["weight"] = self.weight.value
-        if self.align is not None:
-            payload["align"] = self.align.value
-        return {"type": self.widget_type, "data": payload}
+        if self.color is not None:
+            payload["color"] = self.color.value
+        if self.xalign is not None:
+            payload["xalign"] = self.xalign
+        if self.wrap is not None:
+            payload["wrap"] = self.wrap
+        return payload
 
 
-@dataclass(slots=True)
-class Icon(Widget):
-    icon: str | None = None
-    pixel_size: int | None = None
-    widget_type: str = "icon"
-
-    def to_protocol(self) -> dict[str, object]:
-        if self.icon is None:
-            raise ValueError("Icon requires an icon")
-        payload = self.apply_common({"icon": self.icon})
-        if self.pixel_size is not None:
-            payload["pixel_size"] = self.pixel_size
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
-class Picture(Widget):
-    path: str = ""
-    content_fit: ContentFit | str | None = None
-    widget_type: str = "picture"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"path": self.path})
-        if self.content_fit is not None:
-            payload["content_fit"] = (
-                self.content_fit.value
-                if isinstance(self.content_fit, ContentFit)
-                else self.content_fit
-            )
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
-class Button(Widget):
-    label: str | None = None
-    on_click: InlineHandler | None = None
-    id: str = ""
-    icon: str | None = None
-    enabled: bool | None = None
-    variant: ButtonVariant | None = None
-    widget_type: str = "button"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"id": self.id})
-        if self.label is not None:
-            payload["label"] = self.label
-        if self.icon is not None:
-            payload["icon"] = self.icon
-        if self.enabled is not None:
-            payload["enabled"] = self.enabled
-        if self.variant is not None:
-            payload["variant"] = self.variant.value
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.on_click is None:
-            return
-        if not self.id:
-            self.id = registry.generated_id("click", path)
-        registry.add("click", self.id, self.on_click)
-
-
-@dataclass(slots=True)
-class Expander(Widget):
+@dataclass
+class Header(Widget):
     label: str = ""
-    child: "TreeNode | None" = None
-    expanded: bool = False
-    widget_type: str = "expander"
+    widget_type: str = field(init=False, default="header")
 
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"label": self.label, "expanded": self.expanded})
-        if self.child is not None:
-            payload["child"] = self.child.to_protocol()
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.child is not None:
-            self.child.bind_handlers(registry, (*path, 0))
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["label"] = self.label
+        return payload
 
 
-@dataclass(slots=True)
-class Switch(Widget):
-    id: str = ""
-    label: str | None = None
-    active: bool = False
-    on_toggle: InlineHandler | None = None
-    widget_type: str = "switch"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"id": self.id, "active": self.active})
-        if self.label is not None:
-            payload["label"] = self.label
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.on_toggle is None:
-            return
-        if not self.id:
-            self.id = registry.generated_id("toggle", path)
-        registry.add("toggle", self.id, self.on_toggle)
-
-
-@dataclass(slots=True)
-class ToggleButton(Widget):
-    id: str = ""
-    label: str | None = None
-    icon: str | None = None
-    active: bool = False
-    on_toggle: InlineHandler | None = None
-    widget_type: str = "toggle_button"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"id": self.id, "active": self.active})
-        if self.label is not None:
-            payload["label"] = self.label
-        if self.icon is not None:
-            payload["icon"] = self.icon
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.on_toggle is None:
-            return
-        if not self.id:
-            self.id = registry.generated_id("toggle", path)
-        registry.add("toggle", self.id, self.on_toggle)
-
-
-@dataclass(slots=True)
-class Slider(Widget):
-    id: str = ""
-    min: float = 0.0
-    max: float = 1.0
-    step: float = 0.1
-    value: float = 0.0
-    orientation: Orientation | None = None
-    draw_value: bool = False
-    on_change: InlineHandler | None = None
-    widget_type: str = "slider"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common(
-            {
-                "id": self.id,
-                "min": self.min,
-                "max": self.max,
-                "step": self.step,
-                "value": self.value,
-            }
-        )
-        if self.orientation is not None:
-            payload["orientation"] = self.orientation.value
-        if self.draw_value:
-            payload["draw_value"] = self.draw_value
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.on_change is None:
-            return
-        if not self.id:
-            self.id = registry.generated_id("change", path)
-        registry.add("change", self.id, self.on_change)
-
-
-@dataclass(slots=True)
-class Checkbox(Widget):
-    id: str = ""
-    label: str | None = None
-    active: bool = False
-    on_toggle: InlineHandler | None = None
-    widget_type: str = "checkbox"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"id": self.id, "active": self.active})
-        if self.label is not None:
-            payload["label"] = self.label
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.on_toggle is None:
-            return
-        if not self.id:
-            self.id = registry.generated_id("toggle", path)
-        registry.add("toggle", self.id, self.on_toggle)
-
-
-@dataclass(slots=True)
-class Select(Widget):
-    id: str = ""
-    items: list[dict[str, str]] = field(default_factory=list)
-    selected: int | None = None
-    on_change: InlineHandler | None = None
-    widget_type: str = "select"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"id": self.id, "items": self.items})
-        if self.selected is not None:
-            payload["selected"] = self.selected
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.on_change is None:
-            return
-        if not self.id:
-            self.id = registry.generated_id("change", path)
-        registry.add("change", self.id, self.on_change)
-
-
-@dataclass(slots=True)
-class Separator(Widget):
-    orientation: Orientation | None = None
-    widget_type: str = "separator"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({})
-        if self.orientation is not None:
-            payload["orientation"] = self.orientation.value
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
-class Scroll(Widget):
-    child: "TreeNode | None" = None
-    widget_type: str = "scroll"
-
-    def to_protocol(self) -> dict[str, object]:
-        if self.child is None:
-            raise ValueError("Scroll requires a child")
-        payload = self.apply_common({"child": self.child.to_protocol()})
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.child is not None:
-            self.child.bind_handlers(registry, (*path, 0))
-
-
-@dataclass(slots=True)
-class GridChild:
-    row: int
-    column: int
-    child: "TreeNode"
-    width: int = 1
-    height: int = 1
-
-    def to_protocol(self) -> dict[str, object]:
-        return {
-            "row": self.row,
-            "column": self.column,
-            "width": self.width,
-            "height": self.height,
-            "child": self.child.to_protocol(),
-        }
-
-
-@dataclass(slots=True)
-class Grid(Widget):
-    children: list[GridChild] = field(default_factory=list)
-    row_spacing: int = 4
-    column_spacing: int = 4
-    widget_type: str = "grid"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common(
-            {
-                "row_spacing": self.row_spacing,
-                "column_spacing": self.column_spacing,
-                "children": [child.to_protocol() for child in self.children],
-            }
-        )
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        for index, child in enumerate(self.children):
-            child.child.bind_handlers(registry, (*path, index))
-
-
-@dataclass(slots=True)
-class Card(Widget):
-    child: "TreeNode | None" = None
-    widget_type: str = "card"
-
-    def to_protocol(self) -> dict[str, object]:
-        data: dict[str, object] = {}
-        if self.child is not None:
-            data["child"] = self.child.to_protocol()
-        payload = self.apply_common(data)
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.child is not None:
-            self.child.bind_handlers(registry, (*path, 0))
-
-
-@dataclass(slots=True)
-class Container(Widget):
-    child: "TreeNode | None" = None
-    width: int | None = None
-    height: int | None = None
-    min_width: int | None = None
-    min_height: int | None = None
-    margin: Space | None = None
-    margin_top: Space | None = None
-    margin_right: Space | None = None
-    margin_bottom: Space | None = None
-    margin_left: Space | None = None
-    padding: Space | None = None
-    padding_top: Space | None = None
-    padding_right: Space | None = None
-    padding_bottom: Space | None = None
-    padding_left: Space | None = None
-    background: Color | None = None
-    color: Color | None = None
-    border_radius: Radius | None = None
-    border_width: BorderWidth | None = None
-    border_color: Color | None = None
-    font_size: FontSize | None = None
-    font_weight: FontWeight | None = None
-    widget_type: str = "container"
-
-    def to_protocol(self) -> dict[str, object]:
-        data: dict[str, object] = {}
-        if self.child is not None:
-            data["child"] = self.child.to_protocol()
-        for key in ("width", "height", "min_width", "min_height"):
-            value = getattr(self, key)
-            if value is not None:
-                data[key] = value
-        for key in (
-            "margin",
-            "margin_top",
-            "margin_right",
-            "margin_bottom",
-            "margin_left",
-            "padding",
-            "padding_top",
-            "padding_right",
-            "padding_bottom",
-            "padding_left",
-            "background",
-            "color",
-            "border_radius",
-            "border_width",
-            "border_color",
-            "font_size",
-            "font_weight",
-        ):
-            value = getattr(self, key)
-            if value is not None:
-                data[key] = value.value
-        payload = self.apply_common(data)
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.child is not None:
-            self.child.bind_handlers(registry, (*path, 0))
-
-
-@dataclass(slots=True)
-class Meter(Widget):
+@dataclass
+class Hero(Widget):
+    title: str = ""
+    subtitle: str = ""
     id: str | None = None
     icon: str | None = None
+    icon_size: int | None = None
+    toggle: bool | None = None
+    toggle_sensitive: bool | None = None
+    separator: bool | None = None
+    trailing: TreeNode | None = None
+    on_toggle: InlineHandler | None = None
+    widget_type: str = field(init=False, default="hero")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        if self.id is not None:
+            payload["id"] = self.id
+        payload["title"] = self.title
+        payload["subtitle"] = self.subtitle
+        if self.icon is not None:
+            payload["icon"] = self.icon
+        if self.icon_size is not None:
+            payload["icon_size"] = self.icon_size
+        if self.toggle is not None:
+            payload["toggle"] = self.toggle
+        if self.toggle_sensitive is not None:
+            payload["toggle_sensitive"] = self.toggle_sensitive
+        if self.separator is not None:
+            payload["separator"] = self.separator
+        if self.trailing is not None:
+            payload["trailing"] = self.trailing.to_protocol()
+        return payload
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.id and self.on_toggle:
+            registry.add("toggle", self.id, self.on_toggle)
+        if self.trailing:
+            self.trailing.bind_handlers(registry, (*path, 0))
+
+
+@dataclass
+class Badge(Widget):
+    label: str = ""
+    kind: BadgeKind = BadgeKind.DEFAULT
+    widget_type: str = field(init=False, default="badge")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["label"] = self.label
+        payload["kind"] = self.kind.value
+        return payload
+
+
+@dataclass
+class StatusDot(Widget):
+    status: StatusDotStatus = StatusDotStatus.NEUTRAL
+    widget_type: str = field(init=False, default="status_dot")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["status"] = self.status.value
+        return payload
+
+
+@dataclass
+class PanelIndicator(Widget):
+    id: str | None = None
+    icon: str | None = None
+    label: str | None = None
+    active: bool = False
+    checked: bool = False
+    needs_attention: bool = False
+    extra: TreeNode | None = None
+    on_click: InlineHandler | None = None
+    widget_type: str = field(init=False, default="panel_indicator")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        if self.id is not None:
+            payload["id"] = self.id
+        if self.icon is not None:
+            payload["icon"] = self.icon
+        if self.label is not None:
+            payload["label"] = self.label
+        payload["active"] = self.active
+        payload["checked"] = self.checked
+        payload["needs_attention"] = self.needs_attention
+        if self.extra is not None:
+            payload["extra"] = self.extra.to_protocol()
+        return payload
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.id and self.on_click:
+            registry.add("click", self.id, self.on_click)
+        if self.extra:
+            self.extra.bind_handlers(registry, (*path, 0))
+
+
+@dataclass
+class EmptyState(Widget):
+    title: str = ""
+    subtitle: str | None = None
+    widget_type: str = field(init=False, default="empty_state")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["title"] = self.title
+        if self.subtitle is not None:
+            payload["subtitle"] = self.subtitle
+        return payload
+
+
+@dataclass
+class Spinner(Widget):
+    spinning: bool = True
+    widget_type: str = field(init=False, default="spinner")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["spinning"] = self.spinning
+        return payload
+
+
+@dataclass
+class Meter(Widget):
     label: str = ""
     value: float = 0.0
     min: float = 0.0
     max: float = 1.0
     step: float = 0.01
+    id: str | None = None
+    icon: str | None = None
     text: str | None = None
     interactive: bool = False
     on_change: InlineHandler | None = None
-    widget_type: str = "meter"
+    widget_type: str = field(init=False, default="meter")
 
-    def to_protocol(self) -> dict[str, object]:
-        interactive = self.interactive or self.on_change is not None
-        payload = self.apply_common(
-            {
-                "label": self.label,
-                "value": self.value,
-                "min": self.min,
-                "max": self.max,
-                "step": self.step,
-                "interactive": interactive,
-            }
-        )
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
         if self.id is not None:
             payload["id"] = self.id
         if self.icon is not None:
             payload["icon"] = self.icon
+        payload["label"] = self.label
+        payload["value"] = self.value
+        payload["min"] = self.min
+        payload["max"] = self.max
+        payload["step"] = self.step
         if self.text is not None:
             payload["text"] = self.text
-        return {"type": self.widget_type, "data": payload}
+        payload["interactive"] = self.interactive or self.on_change is not None
+        return payload
 
     def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.on_change is None:
-            return
-        if not self.id:
-            self.id = registry.generated_id("change", path)
-        registry.add("change", self.id, self.on_change)
+        if self.on_change:
+            self.id = _target_id(registry, "change", self.id, path)
+            registry.add("change", self.id, self.on_change)
 
 
-@dataclass(slots=True)
-class Row(Widget):
-    spacing: int = 4
-    children: list["TreeNode"] = field(default_factory=list)
-    widget_type: str = "row"
+@dataclass
+class Separator(Widget):
+    widget_type: str = field(init=False, default="separator")
 
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common(
-            {
-                "spacing": self.spacing,
-                "children": [child.to_protocol() for child in self.children],
-            }
-        )
-        return {"type": self.widget_type, "data": payload}
+
+@dataclass
+class Scroll(Widget):
+    child: TreeNode | None = None
+    widget_type: str = field(init=False, default="scroll")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        if self.child is None:
+            raise ValueError("Scroll requires a child")
+        payload["child"] = self.child.to_protocol()
+        return payload
 
     def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        for index, child in enumerate(self.children):
-            child.bind_handlers(registry, (*path, index))
+        if self.child:
+            self.child.bind_handlers(registry, (*path, 0))
 
 
-@dataclass(slots=True)
-class Column(Widget):
-    spacing: int = 4
-    children: list["TreeNode"] = field(default_factory=list)
-    widget_type: str = "column"
+@dataclass
+class ChildrenWidget(Widget):
+    children: list[TreeNode] = field(default_factory=list)
 
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common(
-            {
-                "spacing": self.spacing,
-                "children": [child.to_protocol() for child in self.children],
-            }
-        )
-        return {"type": self.widget_type, "data": payload}
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["children"] = _children(self.children)
+        return payload
 
     def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
         for index, child in enumerate(self.children):
             child.bind_handlers(registry, (*path, index))
 
 
-@dataclass(slots=True)
-class Spinner(Widget):
-    spinning: bool = True
-    widget_type: str = "spinner"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"spinning": self.spinning})
-        return {"type": self.widget_type, "data": payload}
+@dataclass
+class Row(ChildrenWidget):
+    widget_type: str = field(init=False, default="row")
 
 
-@dataclass(slots=True, init=False)
-class PropertyList(Widget):
-    rows: Mapping[str, str] | Iterable[tuple[str, str]] = field(default_factory=dict)
-    title: str = ""
-    widget_type: str = "property_list"
-
-    def __init__(
-        self,
-        rows: Mapping[str, str] | Iterable[tuple[str, str]] | None = None,
-        title: str = "",
-        **common: object,
-    ) -> None:
-        unknown = sorted(set(common) - set(CommonProps.__dataclass_fields__))
-        if unknown:
-            raise TypeError(f"unexpected keyword argument: {unknown[0]}")
-        for name in CommonProps.__dataclass_fields__:
-            setattr(self, name, common.get(name))
-        self.rows = {} if rows is None else rows
-        self.title = title
-        self.widget_type = "property_list"
-
-    def to_protocol(self) -> dict[str, object]:
-        rows = self.rows.items() if isinstance(self.rows, Mapping) else self.rows
-        payload = self.apply_common(
-            {
-                "rows": [{"key": key, "value": value} for key, value in rows],
-            }
-        )
-        if self.title:
-            payload["title"] = self.title
-        return {"type": self.widget_type, "data": payload}
+@dataclass
+class Column(ChildrenWidget):
+    widget_type: str = field(init=False, default="column")
 
 
-@dataclass(slots=True)
-class Item(Widget):
-    label: str = ""
-    sublabel: str = ""
-    icon: str = ""
-    left: "TreeNode | None" = None
-    right: "TreeNode | None" = None
-    widget_type: str = "item"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"label": self.label})
-        left = self.left or (Icon(icon=self.icon, pixel_size=16) if self.icon else None)
-        if left is not None:
-            payload["left"] = left.to_protocol()
-        if self.sublabel:
-            payload["sublabel"] = self.sublabel
-        if self.right is not None:
-            payload["right"] = self.right.to_protocol()
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        for index, child in enumerate((self.left, self.right)):
-            if child is not None:
-                child.bind_handlers(registry, (*path, index))
+@dataclass
+class BoxedList(ChildrenWidget):
+    widget_type: str = field(init=False, default="boxed_list")
 
 
-@dataclass(slots=True)
-class ActionItem(Widget):
-    id: str = ""
-    label: str = ""
-    sublabel: str = ""
-    icon: str = ""
-    left: "TreeNode | None" = None
-    right: "TreeNode | None" = None
-    enabled: bool | None = None
-    on_click: InlineHandler | None = None
-    widget_type: str = "action_item"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"id": self.id, "label": self.label})
-        left = self.left or (Icon(icon=self.icon, pixel_size=16) if self.icon else None)
-        if left is not None:
-            payload["left"] = left.to_protocol()
-        if self.sublabel:
-            payload["sublabel"] = self.sublabel
-        if self.right is not None:
-            payload["right"] = self.right.to_protocol()
-        if self.enabled is not None:
-            payload["enabled"] = self.enabled
-        return {"type": self.widget_type, "data": payload}
-
-    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.on_click is not None:
-            if not self.id:
-                self.id = registry.generated_id("click", path)
-            registry.add("click", self.id, self.on_click)
-        for index, child in enumerate((self.left, self.right)):
-            if child is not None:
-                child.bind_handlers(registry, (*path, index))
+@dataclass
+class ButtonRow(ChildrenWidget):
+    widget_type: str = field(init=False, default="button_row")
 
 
-@dataclass(slots=True)
-class EmptyState(Widget):
-    title: str = ""
-    subtitle: str = ""
-    widget_type: str = "empty_state"
+@dataclass
+class Container(ChildrenWidget):
+    padding: Space | None = None
+    padding_x: Space | None = None
+    padding_y: Space | None = None
+    margin: Space | None = None
+    margin_x: Space | None = None
+    margin_y: Space | None = None
+    radius: Radius = Radius.NONE
+    bg: ContainerBg = ContainerBg.NONE
+    border_width: int = 0
+    min_width: Space | None = None
+    min_height: Space | None = None
+    widget_type: str = field(init=False, default="container")
 
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"title": self.title, "subtitle": self.subtitle})
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
-class Badge(Widget):
-    label: str = ""
-    variant: Variant | None = None
-    widget_type: str = "badge"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({"label": self.label})
-        if self.variant is not None:
-            payload["variant"] = self.variant.value
-        return {"type": self.widget_type, "data": payload}
-
-
-@dataclass(slots=True)
-class StatusDot(Widget):
-    variant: StatusVariant | None = None
-    widget_type: str = "status"
-
-    def to_protocol(self) -> dict[str, object]:
-        payload = self.apply_common({})
-        if self.variant is not None:
-            payload["variant"] = self.variant.value
-        return {"type": self.widget_type, "data": payload}
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        for name in ("padding", "padding_x", "padding_y", "margin", "margin_x", "margin_y", "min_width", "min_height"):
+            value = getattr(self, name)
+            if value is not None:
+                payload[name] = value.value
+        payload["radius"] = self.radius.value
+        payload["bg"] = self.bg.value
+        payload["border_width"] = self.border_width
+        return payload
 
 
-class PopoverSize(StrEnum):
-    SMALL = "small"
-    MEDIUM = "medium"
-    LARGE = "large"
-    XLARGE = "xlarge"
-
-
-@dataclass(slots=True)
-class PopoverScaffold(Widget):
-    body: Widget = field(default_factory=lambda: Column())
-    hero: Hero | None = None
+@dataclass
+class PopoverShell(ChildrenWidget):
     size: PopoverSize = PopoverSize.MEDIUM
-    widget_type: str = "popover_scaffold"
+    footer: list[TreeNode] = field(default_factory=list)
+    footer_visible: bool = False
+    widget_type: str = field(init=False, default="popover_shell")
 
-    def to_protocol(self) -> dict[str, object]:
-        data: dict[str, object] = {
-            "size": self.size.value,
-            "body": self.body.to_protocol(),
-        }
-        if self.hero is not None:
-            data["hero"] = self.hero.to_protocol()
-        return {"type": "popover_scaffold", "data": data}
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["size"] = self.size.value
+        if self.footer:
+            payload["footer"] = _children(self.footer)
+        if self.footer_visible:
+            payload["footer_visible"] = self.footer_visible
+        return payload
 
     def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
-        if self.hero is not None:
-            self.hero.bind_handlers(registry, (*path, 0))
-        self.body.bind_handlers(registry, (*path, 1))
+        super().bind_handlers(registry, path)
+        for index, child in enumerate(self.footer):
+            child.bind_handlers(registry, (*path, len(self.children) + index))
+
+
+@dataclass
+class Tile(Widget):
+    primary: str = ""
+    id: str | None = None
+    secondary: str | None = None
+    left_icon: str | None = None
+    left: TreeNode | None = None
+    right: TreeNode | None = None
+    activatable: bool = False
+    on_click: InlineHandler | None = None
+    widget_type: str = field(init=False, default="tile")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        if self.id is not None:
+            payload["id"] = self.id
+        payload["primary"] = self.primary
+        if self.secondary is not None:
+            payload["secondary"] = self.secondary
+        if self.left_icon is not None:
+            payload["left_icon"] = self.left_icon
+        if self.left is not None:
+            payload["left"] = self.left.to_protocol()
+        if self.right is not None:
+            payload["right"] = self.right.to_protocol()
+        payload["activatable"] = self.activatable
+        return payload
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_click:
+            self.id = _target_id(registry, "click", self.id, path)
+            registry.add("click", self.id, self.on_click)
+        for index, child in enumerate(c for c in (self.left, self.right) if c is not None):
+            child.bind_handlers(registry, (*path, index))
+
+
+@dataclass
+class SegmentedTile(Tile):
+    child: TreeNode | None = None
+    expanded: bool = False
+    on_toggle: InlineHandler | None = None
+    widget_type: str = field(init=False, default="segmented_tile")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        if self.child is not None:
+            payload["child"] = self.child.to_protocol()
+        payload["expanded"] = self.expanded
+        return payload
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        super().bind_handlers(registry, path)
+        if self.on_toggle:
+            self.id = _target_id(registry, "toggle", self.id, path)
+            registry.add("toggle", self.id, self.on_toggle)
+        if self.child:
+            self.child.bind_handlers(registry, (*path, 2))
+
+
+@dataclass
+class SwitchTile(Widget):
+    id: str = ""
+    primary: str = ""
+    secondary: str | None = None
+    left_icon: str | None = None
+    left: TreeNode | None = None
+    active: bool = False
+    on_toggle: InlineHandler | None = None
+    widget_type: str = field(init=False, default="switch_tile")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["id"] = self.id
+        payload["primary"] = self.primary
+        if self.secondary is not None:
+            payload["secondary"] = self.secondary
+        if self.left_icon is not None:
+            payload["left_icon"] = self.left_icon
+        if self.left is not None:
+            payload["left"] = self.left.to_protocol()
+        payload["active"] = self.active
+        return payload
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_toggle:
+            registry.add("toggle", self.id, self.on_toggle)
+        if self.left:
+            self.left.bind_handlers(registry, (*path, 0))
+
+
+@dataclass
+class ExpanderTile(Widget):
+    primary: str = ""
+    id: str | None = None
+    secondary: str | None = None
+    left_icon: str | None = None
+    left: TreeNode | None = None
+    child: TreeNode | None = None
+    expanded: bool = False
+    on_toggle: InlineHandler | None = None
+    widget_type: str = field(init=False, default="expander_tile")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        if self.id is not None:
+            payload["id"] = self.id
+        payload["primary"] = self.primary
+        if self.secondary is not None:
+            payload["secondary"] = self.secondary
+        if self.left_icon is not None:
+            payload["left_icon"] = self.left_icon
+        if self.left is not None:
+            payload["left"] = self.left.to_protocol()
+        if self.child is not None:
+            payload["child"] = self.child.to_protocol()
+        payload["expanded"] = self.expanded
+        return payload
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_toggle:
+            self.id = _target_id(registry, "toggle", self.id, path)
+            registry.add("toggle", self.id, self.on_toggle)
+        for index, child in enumerate(c for c in (self.left, self.child) if c is not None):
+            child.bind_handlers(registry, (*path, index))
+
+
+@dataclass
+class SliderTile(Widget):
+    id: str = ""
+    label: str | None = None
+    left_icon: str | None = None
+    left: TreeNode | None = None
+    value: float = 0.0
+    min: float = 0.0
+    max: float = 1.0
+    step: float = 0.01
+    page: float = 0.1
+    digits: int = 0
+    snap_step: float | None = None
+    on_change: InlineHandler | None = None
+    widget_type: str = field(init=False, default="slider_tile")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload.update({"id": self.id, "value": self.value, "min": self.min, "max": self.max, "step": self.step, "page": self.page, "digits": self.digits})
+        if self.label is not None:
+            payload["label"] = self.label
+        if self.left_icon is not None:
+            payload["left_icon"] = self.left_icon
+        if self.left is not None:
+            payload["left"] = self.left.to_protocol()
+        if self.snap_step is not None:
+            payload["snap_step"] = self.snap_step
+        return payload
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_change:
+            registry.add("change", self.id, self.on_change)
+        if self.left:
+            self.left.bind_handlers(registry, (*path, 0))
+
+
+@dataclass
+class ChoiceTile(Widget):
+    primary: str = ""
+    id: str | None = None
+    secondary: str | None = None
+    left_icon: str | None = None
+    left: TreeNode | None = None
+    selected: bool = False
+    on_click: InlineHandler | None = None
+    widget_type: str = field(init=False, default="choice_tile")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        if self.id is not None:
+            payload["id"] = self.id
+        payload["primary"] = self.primary
+        if self.secondary is not None:
+            payload["secondary"] = self.secondary
+        if self.left_icon is not None:
+            payload["left_icon"] = self.left_icon
+        if self.left is not None:
+            payload["left"] = self.left.to_protocol()
+        payload["selected"] = self.selected
+        return payload
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_click:
+            self.id = _target_id(registry, "click", self.id, path)
+            registry.add("click", self.id, self.on_click)
+        if self.left:
+            self.left.bind_handlers(registry, (*path, 0))
+
+
+@dataclass
+class Choice:
+    id: str
+    primary: str
+    secondary: str | None = None
+    icon: str | None = None
+
+    def to_protocol(self) -> dict[str, Any]:
+        payload = {"id": self.id, "primary": self.primary}
+        if self.secondary is not None:
+            payload["secondary"] = self.secondary
+        if self.icon is not None:
+            payload["icon"] = self.icon
+        return payload
+
+
+@dataclass
+class ChoiceList(Widget):
+    id: str = ""
+    choices: list[Choice] = field(default_factory=list)
+    active: str | None = None
+    on_change: InlineHandler | None = None
+    widget_type: str = field(init=False, default="choice_list")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["id"] = self.id
+        if self.active is not None:
+            payload["active"] = self.active
+        payload["choices"] = [choice.to_protocol() for choice in self.choices]
+        return payload
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_change:
+            registry.add("change", self.id, self.on_change)
+
+
+@dataclass
+class KeyValueGrid(Widget):
+    rows: list[tuple[str, str]] = field(default_factory=list)
+    widget_type: str = field(init=False, default="key_value_grid")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["rows"] = [{"key": key, "value": value} for key, value in self.rows]
+        return payload
+
+
+@dataclass
+class PagerItem(Widget):
+    id: int = 0
+    label: str = ""
+    appearance: PagerAppearance = PagerAppearance.DOTS
+    active: bool = False
+    inactive: bool = False
+    occupied: bool = False
+    urgent: bool = False
+    on_click: InlineHandler | None = None
+    widget_type: str = field(init=False, default="pager_item")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload.update({"id": self.id, "label": self.label, "appearance": self.appearance.value, "active": self.active, "inactive": self.inactive, "occupied": self.occupied, "urgent": self.urgent})
+        return payload
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.on_click:
+            registry.add("click", str(self.id), self.on_click)
+
+
+@dataclass
+class PagerStrip(Widget):
+    id: str | None = None
+    items: list[PagerItem] = field(default_factory=list)
+    placeholder: bool = False
+    on_change: InlineHandler | None = None
+    widget_type: str = field(init=False, default="pager_strip")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        if self.id is not None:
+            payload["id"] = self.id
+        payload["placeholder"] = self.placeholder
+        payload["items"] = [item.data() for item in self.items]
+        return payload
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.id and self.on_change:
+            registry.add("change", self.id, self.on_change)
+        for index, item in enumerate(self.items):
+            item.bind_handlers(registry, (*path, index))
+
+
+@dataclass
+class ActiveIndicator(Widget):
+    active: bool = False
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["active"] = self.active
+        return payload
+
+
+@dataclass
+class CameraIndicator(ActiveIndicator):
+    widget_type: str = field(init=False, default="camera_indicator")
+
+
+@dataclass
+class MicIndicator(ActiveIndicator):
+    widget_type: str = field(init=False, default="mic_indicator")
+
+
+@dataclass
+class MutedIndicator(ActiveIndicator):
+    widget_type: str = field(init=False, default="muted_indicator")
+
+
+@dataclass
+class LocationIndicator(ActiveIndicator):
+    widget_type: str = field(init=False, default="location_indicator")
+
+
+@dataclass
+class ScreenCastIndicator(ActiveIndicator):
+    timer_text: str | None = None
+    widget_type: str = field(init=False, default="screencast_indicator")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        if self.timer_text is not None:
+            payload["timer_text"] = self.timer_text
+        return payload
+
+
+@dataclass
+class Calendar(Widget):
+    selected_date: str = ""
+    id: str | None = None
+    event_days: list[str] = field(default_factory=list)
+    on_change: InlineHandler | None = None
+    widget_type: str = field(init=False, default="calendar")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        if self.id is not None:
+            payload["id"] = self.id
+        payload["selected_date"] = self.selected_date
+        payload["event_days"] = self.event_days
+        return payload
+
+    def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:
+        if self.id and self.on_change:
+            registry.add("change", self.id, self.on_change)
+
+
+@dataclass
+class BatteryHero(Widget):
+    icon: str = ""
+    percentage: str = ""
+    fraction: float = 0.0
+    state: str = ""
+    widget_type: str = field(init=False, default="battery_hero")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload.update({"icon": self.icon, "percentage": self.percentage, "fraction": self.fraction, "state": self.state})
+        return payload
+
+
+@dataclass
+class DateHero(Widget):
+    weekday: str = ""
+    date: str = ""
+    widget_type: str = field(init=False, default="date_hero")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload.update({"weekday": self.weekday, "date": self.date})
+        return payload
+
+
+@dataclass
+class EventItem:
+    id: str
+    title: str
+    start: str
+    end: str = ""
+    location: str | None = None
+    all_day: bool = False
+
+    def to_protocol(self) -> dict[str, Any]:
+        payload = {"id": self.id, "title": self.title, "start": self.start, "end": self.end, "all_day": self.all_day}
+        if self.location is not None:
+            payload["location"] = self.location
+        return payload
+
+
+@dataclass
+class Events(Widget):
+    date: str = ""
+    events: list[EventItem] = field(default_factory=list)
+    loading: bool = False
+    widget_type: str = field(init=False, default="events")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["date"] = self.date
+        payload["loading"] = self.loading
+        payload["events"] = [event.to_protocol() for event in self.events]
+        return payload
+
+
+@dataclass
+class WeatherForecastItem:
+    day_name: str
+    icon: str
+    condition: str
+    temperatures: str
+    is_today: bool = False
+
+    def to_protocol(self) -> dict[str, Any]:
+        return {
+            "day_name": self.day_name,
+            "icon": self.icon,
+            "condition": self.condition,
+            "temperatures": self.temperatures,
+            "is_today": self.is_today,
+        }
+
+
+@dataclass
+class WeatherForecastList(Widget):
+    items: list[WeatherForecastItem] = field(default_factory=list)
+    widget_type: str = field(init=False, default="weather_forecast_list")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["items"] = [item.to_protocol() for item in self.items]
+        return payload
+
+
+@dataclass
+class WeatherHourlyItem:
+    time: str
+    icon: str
+    temperature: str
+
+    def to_protocol(self) -> dict[str, Any]:
+        return {"time": self.time, "icon": self.icon, "temperature": self.temperature}
+
+
+@dataclass
+class WeatherHourlyStrip(Widget):
+    items: list[WeatherHourlyItem] = field(default_factory=list)
+    widget_type: str = field(init=False, default="weather_hourly_strip")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["items"] = [item.to_protocol() for item in self.items]
+        return payload
+
+
+@dataclass
+class WorldClockRow:
+    name: str
+    timezone: str
+    time: str
+    offset: str
+    day_label: str | None = None
+
+    def to_protocol(self) -> dict[str, Any]:
+        payload = {"name": self.name, "timezone": self.timezone, "time": self.time, "offset": self.offset}
+        if self.day_label is not None:
+            payload["day_label"] = self.day_label
+        return payload
+
+
+@dataclass
+class WorldClock(Widget):
+    rows: list[WorldClockRow] = field(default_factory=list)
+    widget_type: str = field(init=False, default="world_clock")
+
+    def data(self) -> dict[str, Any]:
+        payload = super().data()
+        payload["rows"] = [row.to_protocol() for row in self.rows]
+        return payload
 
 
 TreeNode: TypeAlias = (
-    Hero
-    | Card
+    Row
+    | Column
     | Container
-    | Meter
-    | PropertyList
-    | Item
-    | ActionItem
-    | EmptyState
+    | BoxedList
+    | PopoverShell
+    | Text
+    | Header
+    | Hero
     | Badge
     | StatusDot
-    | Row
-    | Column
-    | Grid
-    | Scroll
-    | LevelBar
-    | Progress
-    | Separator
+    | PanelIndicator
+    | EmptyState
     | Spinner
-    | Text
-    | Icon
-    | Picture
-    | Button
-    | Expander
-    | Switch
-    | ToggleButton
-    | Slider
-    | Select
-    | Checkbox
-    | PopoverScaffold
+    | Meter
+    | Separator
+    | Scroll
+    | Tile
+    | SegmentedTile
+    | ButtonRow
+    | SwitchTile
+    | ExpanderTile
+    | SliderTile
+    | ChoiceTile
+    | ChoiceList
+    | KeyValueGrid
+    | PagerItem
+    | PagerStrip
+    | CameraIndicator
+    | MicIndicator
+    | MutedIndicator
+    | ScreenCastIndicator
+    | LocationIndicator
+    | Calendar
+    | BatteryHero
+    | DateHero
+    | Events
+    | WeatherForecastList
+    | WeatherHourlyStrip
+    | WorldClock
 )

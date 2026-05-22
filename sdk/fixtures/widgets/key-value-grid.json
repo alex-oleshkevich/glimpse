@@ -1,0 +1,11 @@
+{
+  "data": {
+    "rows": [
+      {
+        "key": "IPv4",
+        "value": "10.0.0.42"
+      }
+    ]
+  },
+  "type": "key_value_grid"
+}

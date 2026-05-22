@@ -1,0 +1,21 @@
+{
+  "data": {
+    "active": "balanced",
+    "choices": [
+      {
+        "icon": "power-profile-balanced-symbolic",
+        "id": "balanced",
+        "primary": "Balanced",
+        "secondary": "Recommended"
+      },
+      {
+        "icon": "power-profile-performance-symbolic",
+        "id": "performance",
+        "primary": "Performance",
+        "secondary": "Fast"
+      }
+    ],
+    "id": "profile"
+  },
+  "type": "choice_list"
+}

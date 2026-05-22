@@ -1,34 +1,27 @@
 {
   "data": {
+    "id": "workspaces",
     "items": [
       {
         "active": true,
         "appearance": "numbers",
-        "id": "workspace-1",
+        "id": 1,
         "inactive": false,
         "label": "1",
-        "occupied": false,
-        "urgent": false
-      },
-      {
-        "active": false,
-        "appearance": "numbers",
-        "id": "workspace-2",
-        "inactive": false,
-        "label": "2",
         "occupied": true,
         "urgent": false
       },
       {
         "active": false,
-        "appearance": "dots",
-        "id": "workspace-3",
-        "inactive": false,
-        "label": "",
+        "appearance": "numbers",
+        "id": 2,
+        "inactive": true,
+        "label": "2",
         "occupied": false,
-        "urgent": true
+        "urgent": false
       }
-    ]
+    ],
+    "placeholder": false
   },
   "type": "pager_strip"
 }

@@ -6,8 +6,8 @@
     "type": "toggle"
   },
   "parsed": {
+    "event": "toggle",
     "id": "vpn",
-    "kind": "toggle",
     "value": true
   }
 }

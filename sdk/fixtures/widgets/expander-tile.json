@@ -1,0 +1,27 @@
+{
+  "data": {
+    "child": {
+      "data": {
+        "children": [
+          {
+            "data": {
+              "color": "muted",
+              "size": "sm",
+              "text": "Ready",
+              "weight": "medium",
+              "wrap": true
+            },
+            "type": "text"
+          }
+        ]
+      },
+      "type": "column"
+    },
+    "expanded": true,
+    "id": "details",
+    "left_icon": "view-list-symbolic",
+    "primary": "Details",
+    "secondary": "2 items"
+  },
+  "type": "expander_tile"
+}

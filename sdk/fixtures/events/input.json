@@ -1,13 +1,13 @@
 {
   "incoming": {
-    "id": "filter",
+    "id": "search",
     "source": "popover",
-    "text": "foo",
-    "type": "input"
+    "type": "change",
+    "value": "hello"
   },
   "parsed": {
-    "id": "filter",
-    "kind": "input",
-    "text": "foo"
+    "event": "change",
+    "id": "search",
+    "value": "hello"
   }
 }

@@ -1,22 +1,20 @@
 //! Golden cross-SDK fixture tests.
-//!
-//! Each test case builds a widget and asserts its JSON serialization equals
-//! the corresponding fixture file under ../fixtures/widgets/.
-//! Each event test parses the canonical incoming payload and asserts the
-//! parser returns the documented typed event.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
 use glimpse_sdk::{
-    ActionItem, Align, Badge, BorderWidth, Button, ButtonVariant, CallbackEvent, Card, Checkbox,
-    Color, Column, Container, ContentFit, Copyable, EmptyState, Expander, FontSize, FontWeight,
-    Grid, GridChild, Hero, Icon, Item, LevelBar, LevelBarMode, LinkButton, Meter, PagerItem,
-    PagerStrip, Picture, PopoverScaffold, PopoverSize, Progress, PropertyList, Radius, Row, Scroll,
-    Select, Separator, Slider, Space, Spinner, StatusDot, StatusVariant, Switch, Text, TextAlign,
-    ToggleButton, TreeNode, Variant, parse_callback_event,
+    ActiveIndicator, Badge, BadgeKind, BatteryHero, BoxedList, ButtonRow, Calendar, CallbackEvent,
+    CameraIndicator, Choice, ChoiceList, ChoiceTile, Column, Container, ContainerBg, DateHero,
+    EmptyState, EventItem, Events, ExpanderTile, FontSize, FontWeight, Header, Hero, KeyValueGrid,
+    KeyValueRow, LocationIndicator, Meter, MicIndicator, MutedIndicator, PagerAppearance,
+    PagerItem, PagerStrip, PopoverShell, PopoverSize, Radius, Row, ScreenCastIndicator, Scroll,
+    Separator, SliderTile, Space, Spinner, StatusDot, StatusDotStatus, SwitchTile, Text, TextColor,
+    Tile, TreeNode, WeatherForecastItem, WeatherForecastList, WeatherHourlyItem,
+    WeatherHourlyStrip, WorldClock, WorldClockRow, parse_callback_event,
 };
-use serde_json::Value;
+use serde_json::{Value, json};
 
 fn fixtures_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -31,658 +29,400 @@ fn load(rel: &str) -> Value {
     serde_json::from_str(&text).unwrap_or_else(|e| panic!("parse fixture {}: {e}", path.display()))
 }
 
-#[track_caller]
-fn assert_widget(name: &str, node: TreeNode<()>) {
-    let expected = load(&format!("widgets/{name}.json"));
-    let got = serde_json::to_value(&node).expect("serialize");
-    assert_eq!(got, expected, "fixture mismatch for widgets/{name}.json");
+fn text() -> Text {
+    let mut text = Text::new("Ready");
+    text.size = Some(FontSize::Sm);
+    text.weight = Some(FontWeight::Medium);
+    text.color = Some(TextColor::Muted);
+    text.wrap = Some(true);
+    text
 }
 
-#[test]
-fn widget_text_styled() {
-    assert_widget(
-        "text-styled",
-        Text::new("Aligned text")
-            .color(Color::Accent)
-            .size(FontSize::Lg)
-            .weight(FontWeight::Bold)
-            .align(TextAlign::Center)
-            .into(),
+fn badge() -> Badge {
+    let mut badge = Badge::new("OK");
+    badge.kind = BadgeKind::Success;
+    badge
+}
+
+fn key_value(key: &str, value: &str) -> KeyValueRow {
+    KeyValueRow {
+        key: key.into(),
+        value: value.into(),
+    }
+}
+
+fn widgets() -> BTreeMap<&'static str, TreeNode<()>> {
+    let mut out = BTreeMap::new();
+
+    out.insert("text", text().into());
+    out.insert("header", Header::new("Network").into());
+    let mut hero = Hero::new("VPN", "Disconnected");
+    hero.id = Some("vpn".into());
+    hero.icon = Some("network-vpn-symbolic".into());
+    hero.icon_size = Some(32);
+    hero.toggle = Some(false);
+    hero.toggle_sensitive = Some(true);
+    hero.separator = Some(true);
+    hero.trailing = Some(Box::new(badge().into()));
+    out.insert("hero", hero.into());
+    out.insert("badge", badge().into());
+    let mut dot = StatusDot::new();
+    dot.status = StatusDotStatus::Warning;
+    out.insert("status-dot", dot.clone().into());
+
+    let mut indicator = glimpse_sdk::PanelIndicator::new();
+    indicator.id = Some("net".into());
+    indicator.icon = Some("network-wireless-symbolic".into());
+    indicator.label = Some("Wi-Fi".into());
+    indicator.active = true;
+    indicator.extra = Some(Box::new(dot.into()));
+    out.insert("panel-indicator", indicator.into());
+    let mut empty = EmptyState::new("No devices");
+    empty.subtitle = Some("Connect a device to continue".into());
+    out.insert("empty-state", empty.into());
+
+    out.insert("spinner", Spinner::new().into());
+    out.insert("meter", Meter::new("Memory", 0.51).into());
+    out.insert("separator", Separator::new().into());
+    out.insert("scroll", Scroll::new(text().into()).into());
+    out.insert("row", Row::new(vec![text().into(), badge().into()]).into());
+    out.insert(
+        "column",
+        Column::new(vec![text().into(), badge().into()]).into(),
     );
-}
-
-#[test]
-fn widget_button_basic() {
-    assert_widget("button-basic", Button::new("go").label("Go").into());
-}
-
-#[test]
-fn widget_button_with_icon() {
-    let mut b = Button::new("go").label("Go");
-    b.icon = Some("go-symbolic".into());
-    assert_widget("button-with-icon", b.into());
-}
-
-#[test]
-fn widget_button_icon_only() {
-    let mut b = Button::new("go");
-    b.icon = Some("go-symbolic".into());
-    assert_widget("button-icon-only", b.into());
-}
-
-#[test]
-fn widget_button_primary() {
-    assert_widget(
-        "button-primary",
-        Button::new("go")
-            .label("Go")
-            .variant(ButtonVariant::Primary)
-            .into(),
+    out.insert(
+        "boxed-list",
+        BoxedList::new(vec![text().into(), badge().into()]).into(),
     );
-}
+    let mut refresh = Tile::new("Refresh");
+    refresh.activatable = true;
+    out.insert("button-row", ButtonRow::new(vec![refresh.into()]).into());
 
-#[test]
-fn widget_button_disabled() {
-    assert_widget(
-        "button-disabled",
-        Button::new("go").label("Go").enabled(false).into(),
-    );
-}
+    let mut container = Container::new(vec![text().into()]);
+    container.padding = Some(Space::S4);
+    container.margin = Some(Space::S2);
+    container.radius = Radius::Md;
+    container.bg = ContainerBg::Surface;
+    container.border_width = 1;
+    container.min_width = Some(Space::S8);
+    container.min_height = Some(Space::S4);
+    out.insert("container", container.into());
 
-#[test]
-fn widget_link_button() {
-    assert_widget("link-button", LinkButton::new("https://example.com").into());
-}
+    let mut shell = PopoverShell::new(vec![text().into()]);
+    shell.footer = vec![badge().into()];
+    shell.footer_visible = true;
+    out.insert("popover-shell", shell.into());
 
-#[test]
-fn widget_link_button_label() {
-    assert_widget(
-        "link-button-label",
-        LinkButton::new("https://example.com/docs")
-            .label("Docs")
-            .into(),
-    );
-}
+    let mut tile = Tile::new("Wi-Fi");
+    tile.id = Some("wifi".into());
+    tile.secondary = Some("Connected".into());
+    tile.left_icon = Some("network-wireless-symbolic".into());
+    tile.right = Some(Box::new(badge().into()));
+    tile.activatable = true;
+    out.insert("tile", tile.into());
 
-#[test]
-fn widget_expander() {
-    assert_widget(
-        "expander",
-        Expander::new("Details").child(Text::new("More")).into(),
-    );
-}
+    let mut segmented = glimpse_sdk::SegmentedTile::new("Backup");
+    segmented.id = Some("drive".into());
+    segmented.secondary = Some("Mounted".into());
+    segmented.left_icon = Some("drive-harddisk-symbolic".into());
+    segmented.right = Some(Box::new(badge().into()));
+    segmented.child = Some(Box::new(
+        KeyValueGrid::new(vec![key_value("Size", "1 TB")]).into(),
+    ));
+    segmented.expanded = true;
+    segmented.activatable = true;
+    out.insert("segmented-tile", segmented.into());
 
-#[test]
-fn widget_expander_expanded() {
-    assert_widget(
-        "expander-expanded",
-        Expander::new("Details")
-            .expanded(true)
-            .child(Text::new("More"))
-            .into(),
-    );
-}
+    let mut switch = SwitchTile::new("bluetooth", "Bluetooth");
+    switch.secondary = Some("On".into());
+    switch.left_icon = Some("bluetooth-active-symbolic".into());
+    switch.active = true;
+    out.insert("switch-tile", switch.into());
 
-#[test]
-fn widget_level_bar() {
-    assert_widget(
-        "level-bar",
-        LevelBar::new(0.7)
-            .min(0.0)
-            .max(1.0)
-            .mode(LevelBarMode::Continuous)
-            .into(),
-    );
-}
+    let mut expander = ExpanderTile::new("Details");
+    expander.id = Some("details".into());
+    expander.secondary = Some("2 items".into());
+    expander.left_icon = Some("view-list-symbolic".into());
+    expander.child = Some(Box::new(Column::new(vec![text().into()]).into()));
+    expander.expanded = true;
+    out.insert("expander-tile", expander.into());
 
-#[test]
-fn widget_switch_on() {
-    let mut s = Switch::new("vpn");
-    s.label = Some("VPN".into());
-    s.active = true;
-    assert_widget("switch-on", s.into());
-}
+    let mut slider = SliderTile::new("brightness");
+    slider.label = Some("Brightness".into());
+    slider.left_icon = Some("display-brightness-symbolic".into());
+    slider.value = 0.6;
+    slider.step = 0.05;
+    slider.snap_step = Some(0.05);
+    out.insert("slider-tile", slider.into());
 
-#[test]
-fn widget_switch_off() {
-    assert_widget("switch-off", Switch::new("vpn").into());
-}
+    let mut choice_tile = ChoiceTile::new("Balanced");
+    choice_tile.id = Some("balanced".into());
+    choice_tile.secondary = Some("Recommended".into());
+    choice_tile.left_icon = Some("power-profile-balanced-symbolic".into());
+    choice_tile.selected = true;
+    out.insert("choice-tile", choice_tile.into());
 
-#[test]
-fn widget_toggle_button_on() {
-    let mut toggle = ToggleButton::new("wifi");
-    toggle.label = Some("Wi-Fi".into());
-    toggle.active = true;
-    assert_widget("toggle-button-on", toggle.into());
-}
-
-#[test]
-fn widget_toggle_button_off() {
-    assert_widget("toggle-button-off", ToggleButton::new("wifi").into());
-}
-
-#[test]
-fn widget_toggle_button_with_icon() {
-    assert_widget(
-        "toggle-button-with-icon",
-        ToggleButton::new("wifi")
-            .icon("network-wireless-symbolic")
-            .into(),
-    );
-}
-
-#[test]
-fn widget_checkbox_on() {
-    let mut c = Checkbox::new("autostart");
-    c.label = Some("Run at login".into());
-    c.active = true;
-    assert_widget("checkbox-on", c.into());
-}
-
-#[test]
-fn widget_slider() {
-    let mut s = Slider::new("brightness");
-    s.min = 0.0;
-    s.max = 1.0;
-    s.step = 0.05;
-    s.value = 0.6;
-    assert_widget("slider", s.into());
-}
-
-#[test]
-fn widget_select() {
-    let mut d = Select::new(
-        "env",
-        vec![
-            ("prod".into(), "Production".into()),
-            ("stage".into(), "Staging".into()),
-        ],
-    );
-    d.selected = Some(0);
-    assert_widget("select", d.into());
-}
-
-#[test]
-fn widget_select_empty() {
-    assert_widget("select-empty", Select::new("env", vec![]).into());
-}
-
-#[test]
-fn widget_badge() {
-    assert_widget("badge", Badge::new("42%").into());
-}
-
-#[test]
-fn widget_badge_success_variant() {
-    assert_widget(
-        "badge-success-variant",
-        Badge::new("OK").variant(Variant::Success).into(),
-    );
-}
-
-#[test]
-fn widget_hero_basic() {
-    assert_widget("hero-basic", Hero::new("Counter", "Value: 0").into());
-}
-
-#[test]
-fn widget_hero_with_icon() {
-    assert_widget(
-        "hero-with-icon",
-        Hero::new("VPN", "Connected")
-            .icon("network-vpn-symbolic")
-            .into(),
-    );
-}
-
-#[test]
-fn widget_hero_with_switch() {
-    assert_widget(
-        "hero-with-switch",
-        Hero::new("VPN", "Connected")
-            .id("vpn-toggle")
-            .switch(true)
-            .into(),
-    );
-}
-
-#[test]
-fn widget_progress() {
-    assert_widget("progress", Progress::new(0.7).max(1.0).into());
-}
-
-#[test]
-fn widget_progress_with_text() {
-    assert_widget(
-        "progress-with-text",
-        Progress::new(0.7)
-            .max(1.0)
-            .show_text(true)
-            .text("70%")
-            .into(),
-    );
-}
-
-#[test]
-fn widget_spinner_default() {
-    assert_widget("spinner-default", Spinner::new().into());
-}
-
-#[test]
-fn widget_spinner_stopped() {
-    assert_widget("spinner-stopped", Spinner::new().spinning(false).into());
-}
-
-#[test]
-fn widget_status_dot() {
-    assert_widget("status-dot", StatusDot::new().into());
-}
-
-#[test]
-fn widget_status_dot_warning() {
-    assert_widget(
-        "status-dot-warning",
-        StatusDot::new().variant(StatusVariant::Warning).into(),
-    );
-}
-
-#[test]
-fn widget_pager_item_number_active() {
-    assert_widget(
-        "pager-item-number-active",
-        PagerItem::number("1").id("workspace-1").active(true).into(),
-    );
-}
-
-#[test]
-fn widget_pager_strip() {
-    assert_widget(
-        "pager-strip",
-        PagerStrip::new(vec![
-            PagerItem::number("1").id("workspace-1").active(true),
-            PagerItem::number("2").id("workspace-2").occupied(true),
-            PagerItem::dots().id("workspace-3").urgent(true),
-        ])
+    out.insert(
+        "choice-list",
+        ChoiceList::new(
+            "profile",
+            vec![
+                Choice {
+                    id: "balanced".into(),
+                    primary: "Balanced".into(),
+                    secondary: Some("Recommended".into()),
+                    icon: Some("power-profile-balanced-symbolic".into()),
+                },
+                Choice {
+                    id: "performance".into(),
+                    primary: "Performance".into(),
+                    secondary: Some("Fast".into()),
+                    icon: Some("power-profile-performance-symbolic".into()),
+                },
+            ],
+        )
+        .tap(|list| list.active = Some("balanced".into()))
         .into(),
     );
-}
-
-#[test]
-fn widget_icon_by_name() {
-    assert_widget("icon-by-name", Icon::new("user-info-symbolic").into());
-}
-
-#[test]
-fn widget_picture() {
-    assert_widget("picture", Picture::new("/home/me/photo.png").into());
-}
-
-#[test]
-fn widget_picture_content_fit() {
-    assert_widget(
-        "picture-content-fit",
-        Picture::new("/home/me/photo.png")
-            .content_fit(ContentFit::Cover)
-            .into(),
+    out.insert(
+        "key-value-grid",
+        KeyValueGrid::new(vec![key_value("IPv4", "10.0.0.42")]).into(),
     );
-}
 
-#[test]
-fn widget_separator() {
-    assert_widget("separator", Separator::new().into());
-}
+    let mut pager_item = PagerItem::new(1);
+    pager_item.label = "1".into();
+    pager_item.appearance = PagerAppearance::Numbers;
+    pager_item.active = true;
+    pager_item.occupied = true;
+    out.insert("pager-item", pager_item.clone().into());
+    let mut pager_two = PagerItem::new(2);
+    pager_two.label = "2".into();
+    pager_two.appearance = PagerAppearance::Numbers;
+    pager_two.inactive = true;
+    let mut pager = PagerStrip::new(vec![pager_item, pager_two]);
+    pager.id = Some("workspaces".into());
+    out.insert("pager-strip", pager.into());
 
-#[test]
-fn widget_row() {
-    assert_widget("row", Row::new(vec![]).into());
-}
-
-#[test]
-fn widget_column() {
-    assert_widget("column", Column::new(vec![]).into());
-}
-
-#[test]
-fn widget_grid() {
-    let grid = Grid::new(vec![GridChild::new(0, 0, Text::new("A").into()), {
-        let mut c = GridChild::new(0, 1, Text::new("B").into());
-        c.width = 2;
-        c
-    }]);
-    assert_widget("grid", grid.into());
-}
-
-#[test]
-fn widget_scroll() {
-    assert_widget("scroll", Scroll::new(Text::new("scrollable").into()).into());
-}
-
-#[test]
-fn widget_card() {
-    assert_widget("card", Card::new(Some(Text::new("in card").into())).into());
-}
-
-#[test]
-fn widget_card_empty() {
-    assert_widget("card-empty", Card::new(None).into());
-}
-
-#[test]
-fn widget_container_styled() {
-    assert_widget(
-        "container-styled",
-        Container::new(Some(Text::new("contained").into()))
-            .width(220)
-            .height(80)
-            .min_width(180)
-            .min_height(48)
-            .margin(Space::Xs)
-            .margin_top(Space::Sm)
-            .padding(Space::Md)
-            .padding_left(Space::Lg)
-            .background(Color::SurfaceRaised)
-            .color(Color::Fg)
-            .border_radius(Radius::Md)
-            .border_width(BorderWidth::Thin)
-            .border_color(Color::Border)
-            .font_size(FontSize::Sm)
-            .font_weight(FontWeight::Semibold)
-            .into(),
+    out.insert(
+        "camera-indicator",
+        CameraIndicator {
+            data: ActiveIndicator::active(),
+        }
+        .into(),
     );
-}
-
-#[test]
-fn widget_property_list() {
-    assert_widget(
-        "property-list",
-        PropertyList::new([("IPv4", "10.0.0.42"), ("SSID", "home-5G")]).into(),
+    out.insert(
+        "mic-indicator",
+        MicIndicator {
+            data: ActiveIndicator::active(),
+        }
+        .into(),
     );
-}
-
-#[test]
-fn widget_property_list_title() {
-    assert_widget(
-        "property-list-title",
-        PropertyList::new([("IPv4", "10.0.0.42"), ("SSID", "home-5G")])
-            .title("Network")
-            .into(),
+    out.insert(
+        "muted-indicator",
+        MutedIndicator {
+            data: ActiveIndicator::active(),
+        }
+        .into(),
     );
-}
-
-#[test]
-fn widget_property_list_empty() {
-    assert_widget("property-list-empty", PropertyList::default().into());
-}
-
-#[test]
-fn widget_item() {
-    assert_widget("item", Item::new("Wi-Fi").into());
-}
-
-#[test]
-fn widget_item_with_right() {
-    assert_widget(
-        "item-with-right",
-        Item::new("Wi-Fi")
-            .icon("network-wireless-symbolic")
-            .sublabel("Connected")
-            .right(Badge::new("home-5G"))
-            .into(),
+    out.insert(
+        "location-indicator",
+        LocationIndicator {
+            data: ActiveIndicator::active(),
+        }
+        .into(),
     );
-}
-
-#[test]
-fn widget_action_item() {
-    assert_widget("action-item", ActionItem::new("wifi", "Wi-Fi").into());
-}
-
-#[test]
-fn widget_action_item_with_right() {
-    assert_widget(
-        "action-item-with-right",
-        ActionItem::new("wifi", "Wi-Fi")
-            .icon("network-wireless-symbolic")
-            .sublabel("Connected")
-            .right(Badge::new("home-5G"))
-            .into(),
+    out.insert(
+        "screencast-indicator",
+        ScreenCastIndicator {
+            data: ActiveIndicator::active(),
+            timer_text: Some("01:23".into()),
+        }
+        .into(),
     );
-}
 
-#[test]
-fn widget_empty_state() {
-    assert_widget("empty-state", EmptyState::new("Nothing here").into());
-}
-
-#[test]
-fn widget_empty_state_with_subtitle() {
-    assert_widget(
-        "empty-state-with-subtitle",
-        EmptyState::new("Nothing here")
-            .subtitle("Plug in a device.")
-            .into(),
+    out.insert(
+        "calendar",
+        Calendar {
+            common: Default::default(),
+            id: Some("calendar".into()),
+            selected_date: "2026-05-22".into(),
+            event_days: vec!["2026-05-22".into(), "2026-05-24".into()],
+            on_change: None,
+        }
+        .into(),
     );
-}
+    out.insert(
+        "battery-hero",
+        BatteryHero {
+            common: Default::default(),
+            icon: "battery-good-symbolic".into(),
+            percentage: "82%".into(),
+            fraction: 0.82,
+            state: "Discharging".into(),
+        }
+        .into(),
+    );
+    out.insert(
+        "date-hero",
+        DateHero {
+            common: Default::default(),
+            weekday: "Friday".into(),
+            date: "May 22".into(),
+        }
+        .into(),
+    );
+    out.insert(
+        "events",
+        Events {
+            common: Default::default(),
+            date: "2026-05-22".into(),
+            events: vec![EventItem {
+                id: "standup".into(),
+                title: "Standup".into(),
+                start: "09:30".into(),
+                end: "09:45".into(),
+                location: None,
+                all_day: false,
+            }],
+            loading: false,
+        }
+        .into(),
+    );
+    out.insert(
+        "weather-forecast-list",
+        WeatherForecastList {
+            common: Default::default(),
+            items: vec![WeatherForecastItem {
+                day_name: "Today".into(),
+                icon: "weather-clear-symbolic".into(),
+                condition: "Clear".into(),
+                temperatures: "12 / 20".into(),
+                is_today: true,
+            }],
+        }
+        .into(),
+    );
+    out.insert(
+        "weather-hourly-strip",
+        WeatherHourlyStrip {
+            common: Default::default(),
+            items: vec![WeatherHourlyItem {
+                time: "12:00".into(),
+                icon: "weather-clear-symbolic".into(),
+                temperature: "18".into(),
+            }],
+        }
+        .into(),
+    );
+    out.insert(
+        "world-clock",
+        WorldClock {
+            common: Default::default(),
+            rows: vec![WorldClockRow {
+                name: "UTC".into(),
+                timezone: "UTC".into(),
+                time: "12:00".into(),
+                offset: "+00:00".into(),
+                day_label: Some("Today".into()),
+            }],
+        }
+        .into(),
+    );
 
-#[test]
-fn widget_meter() {
-    assert_widget("meter", Meter::new("Memory", 0.51, 1.0).into());
-}
-
-#[test]
-fn widget_meter_interactive() {
-    let mut m = Meter::new("Volume", 0.42, 1.0).id("volume");
-    m.icon = Some("audio-volume-medium-symbolic".into());
-    m.text = Some("42%".into());
-    m.interactive = true;
-    assert_widget("meter-interactive", m.into());
-}
-
-#[test]
-fn widget_copyable() {
-    assert_widget("copyable", Copyable::new("IPv4", "10.0.0.42").into());
-}
-
-#[test]
-fn widget_common_props_all() {
-    let mut text = Text::new("marked");
-    text.common.visible = Some(false);
-    text.common.hexpand = Some(true);
-    text.common.vexpand = Some(true);
-    text.common.halign = Some(Align::Center);
-    text.common.valign = Some(Align::End);
-    text.common.tooltip = Some("details".into());
-    text.common.css_classes.push("marked".into());
-    text.common
-        .styles
-        .insert("font-weight".into(), "600".into());
-    text.common.styles.insert("margin-top".into(), "2px".into());
-    assert_widget("common-props-all", text.into());
-}
-
-#[test]
-fn widget_tree_hero_column_card() {
-    use glimpse_sdk::tree;
-    let column = Column::new(tree![
-        Hero::new("Counter", "Value: 0"),
-        Card::new(Some(
-            Column::new(tree![
-                Text::new("Current"),
-                Button::new("increment").label("Increment"),
-            ])
-            .into(),
-        )),
+    let mut shared = PopoverShell::new(vec![
+        Hero::new("System", "Shared widgets").into(),
+        BoxedList::new(vec![{
+            let mut wifi = SwitchTile::new("wifi", "Wi-Fi");
+            wifi.active = true;
+            wifi.into()
+        }])
+        .into(),
     ]);
-    assert_widget("tree-hero-column-card", column.into());
+    shared.size = PopoverSize::Large;
+    out.insert("tree-shared-popover", shared.into());
+
+    out
+}
+
+trait Tap: Sized {
+    fn tap(mut self, f: impl FnOnce(&mut Self)) -> Self {
+        f(&mut self);
+        self
+    }
+}
+impl<T> Tap for T {}
+
+#[test]
+fn widgets_match_fixtures() {
+    for (name, node) in widgets() {
+        let expected = load(&format!("widgets/{name}.json"));
+        let got = serde_json::to_value(&node).expect("serialize");
+        assert_eq!(got, expected, "fixture mismatch for widgets/{name}.json");
+    }
 }
 
 #[test]
-fn widget_tree_card_with_grid() {
-    let grid = {
-        let mut g = Grid::new(vec![
-            GridChild::new(0, 0, Text::new("K").into()),
-            GridChild::new(0, 1, Badge::new("V").into()),
-        ]);
-        g.row_spacing = 4;
-        g.column_spacing = 8;
-        g
-    };
-    let card = Card::new(Some(grid.into()));
-    assert_widget("tree-card-with-grid", card.into());
+fn no_removed_widgets_are_exposed() {
+    let public = fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/lib.rs"))
+        .expect("read lib.rs");
+    let tokens: Vec<&str> = public
+        .split(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '_'))
+        .collect();
+    for removed in [
+        "Button",
+        "ActionItem",
+        "Card",
+        "PropertyList",
+        "Item",
+        "PopoverScaffold",
+        "AnimatedPopover",
+        "Message",
+        "MessageGroup",
+        "MediaArtwork",
+        "MediaMeta",
+        "MediaScrubber",
+        "MediaTransport",
+        "NowPlayingCard",
+        "SecondaryPlayerRow",
+    ] {
+        assert!(!tokens.contains(&removed), "{removed} must not be exported");
+    }
 }
-
-#[test]
-fn widget_popover_scaffold_basic() {
-    let scaffold = PopoverScaffold::new(Text::new("Content"));
-    assert_widget("popover-scaffold-basic", scaffold.into());
-}
-
-#[test]
-fn widget_popover_scaffold_with_hero() {
-    let scaffold = PopoverScaffold::new(Text::new("Content"))
-        .hero(Hero::new("VPN", "Connected"))
-        .size(PopoverSize::Large);
-    assert_widget("popover-scaffold-with-hero", scaffold.into());
-}
-
-// ---------- events ----------
 
 fn load_event(name: &str) -> (Value, Value) {
     let raw = load(&format!("events/{name}.json"));
     (raw["incoming"].clone(), raw["parsed"].clone())
 }
 
-#[track_caller]
-fn assert_event(name: &str, check: impl FnOnce(CallbackEvent, &Value)) {
-    let (incoming, parsed) = load_event(name);
-    let event = parse_callback_event(incoming).expect("parse");
-    check(event, &parsed);
-}
-
 #[test]
-fn event_click_left() {
-    assert_event("click-left", |e, parsed| {
-        let CallbackEvent::Click(c) = e else {
-            panic!("expected click event");
+fn events_match_fixtures() {
+    for name in [
+        "click-left",
+        "click-no-button",
+        "scroll-down",
+        "input",
+        "toggle-active-true",
+        "toggle-active-false",
+        "toggle-via-value-true",
+        "toggle-numeric-value-is-false",
+        "change-scale",
+        "change-dropdown",
+        "popover-open",
+        "popover-close",
+    ] {
+        let (incoming, parsed) = load_event(name);
+        let got = match parse_callback_event(incoming).expect("parse") {
+            CallbackEvent::Click(e) => json!({ "id": e.id, "event": "click", "button": e.button }),
+            CallbackEvent::Scroll(e) => {
+                json!({ "id": e.id, "event": "scroll", "delta_y": e.delta_y })
+            }
+            CallbackEvent::Input(e) => json!({ "id": e.id, "event": "input", "text": e.text }),
+            CallbackEvent::Toggle(e) => json!({ "id": e.id, "event": "toggle", "value": e.value }),
+            CallbackEvent::Change(e) => json!({ "id": e.id, "event": "change", "value": e.value }),
+            CallbackEvent::Popover(e) => {
+                json!({ "id": "popover", "event": if e.open { "open" } else { "close" }, "open": e.open })
+            }
         };
-        assert_eq!(c.id, parsed["id"].as_str().unwrap());
-        assert_eq!(
-            c.button.as_deref().unwrap(),
-            parsed["button"].as_str().unwrap()
-        );
-    });
-}
-
-#[test]
-fn event_click_no_button() {
-    assert_event("click-no-button", |e, parsed| {
-        let CallbackEvent::Click(c) = e else {
-            panic!("expected click event");
-        };
-        assert_eq!(c.id, parsed["id"].as_str().unwrap());
-        assert!(c.button.is_none());
-    });
-}
-
-#[test]
-fn event_scroll() {
-    assert_event("scroll-down", |e, parsed| {
-        let CallbackEvent::Scroll(s) = e else {
-            panic!("expected scroll");
-        };
-        assert_eq!(s.id, parsed["id"].as_str().unwrap());
-        assert_eq!(s.delta_y, Some(parsed["delta_y"].as_f64().unwrap()));
-    });
-}
-
-#[test]
-fn event_input() {
-    assert_event("input", |e, parsed| {
-        let CallbackEvent::Input(i) = e else {
-            panic!("expected input");
-        };
-        assert_eq!(i.id, parsed["id"].as_str().unwrap());
-        assert_eq!(i.text, parsed["text"].as_str().unwrap());
-    });
-}
-
-#[test]
-fn event_toggle_active_true() {
-    assert_event("toggle-active-true", |e, parsed| {
-        let CallbackEvent::Toggle(t) = e else {
-            panic!("expected toggle");
-        };
-        assert_eq!(t.value, parsed["value"].as_bool().unwrap());
-    });
-}
-
-#[test]
-fn event_toggle_active_false() {
-    assert_event("toggle-active-false", |e, parsed| {
-        let CallbackEvent::Toggle(t) = e else {
-            panic!("expected toggle");
-        };
-        assert_eq!(t.value, parsed["value"].as_bool().unwrap());
-    });
-}
-
-#[test]
-fn event_toggle_via_value_true() {
-    assert_event("toggle-via-value-true", |e, parsed| {
-        let CallbackEvent::Toggle(t) = e else {
-            panic!("expected toggle");
-        };
-        assert_eq!(t.value, parsed["value"].as_bool().unwrap());
-    });
-}
-
-#[test]
-fn event_toggle_numeric_value_is_false() {
-    assert_event("toggle-numeric-value-is-false", |e, _parsed| {
-        let CallbackEvent::Toggle(t) = e else {
-            panic!("expected toggle");
-        };
-        assert_eq!(t.value, false);
-    });
-}
-
-#[test]
-fn event_change_scale() {
-    assert_event("change-scale", |e, parsed| {
-        let CallbackEvent::Change(c) = e else {
-            panic!("expected change");
-        };
-        assert_eq!(c.id, parsed["id"].as_str().unwrap());
-        assert_eq!(c.value, Some(parsed["value"].clone()));
-    });
-}
-
-#[test]
-fn event_change_dropdown() {
-    assert_event("change-dropdown", |e, parsed| {
-        let CallbackEvent::Change(c) = e else {
-            panic!("expected change");
-        };
-        assert_eq!(c.id, parsed["id"].as_str().unwrap());
-        assert_eq!(c.value, Some(parsed["value"].clone()));
-    });
-}
-
-#[test]
-fn event_popover_open() {
-    assert_event("popover-open", |e, parsed| {
-        let CallbackEvent::Popover(p) = e else {
-            panic!("expected popover");
-        };
-        assert_eq!(p.open, parsed["open"].as_bool().unwrap());
-    });
-}
-
-#[test]
-fn event_popover_close() {
-    assert_event("popover-close", |e, parsed| {
-        let CallbackEvent::Popover(p) = e else {
-            panic!("expected popover");
-        };
-        assert_eq!(p.open, parsed["open"].as_bool().unwrap());
-    });
+        assert_eq!(got, parsed, "event fixture mismatch for events/{name}.json");
+    }
 }

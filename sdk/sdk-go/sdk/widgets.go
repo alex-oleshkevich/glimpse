@@ -1,630 +1,218 @@
-// Widget tree types. Each widget is a struct that implements Widget and
-// MarshalJSON so it can be composed via struct literals:
-//
-//	Column{
-//	    Spacing: 8,
-//	    Children: []Widget{
-//	        Hero{Title: "Counter"},
-//	        Button{ID: "go", Label: "Go"},
-//	    },
-//	}
-//
-// Each MarshalJSON emits the canonical {"type": "<name>", "data": {...}}
-// envelope. The inner data is the struct itself, marshaled via an
-// unexported alias type so json does not recurse into our MarshalJSON.
-
 package sdk
 
-import (
-	"context"
-	"encoding/json"
-	"sort"
-)
+import "encoding/json"
 
-// Widget is any component that can appear in a popover tree. All concrete
-// widget types implement this interface and json.Marshaler.
 type Widget interface {
 	isWidget()
+	json.Marshaler
 }
 
-func ensureSlice[T any](s []T) []T {
-	if s == nil {
-		return []T{}
-	}
-	return s
-}
+type InlineHandler func(CallbackEvent) error
 
-func Int(value int) *int {
-	return &value
-}
-
-func envelope(typeName string, data any) ([]byte, error) {
-	return json.Marshal(struct {
-		Type string `json:"type"`
-		Data any    `json:"data"`
-	}{Type: typeName, Data: data})
-}
-
-// ---- Enums -----------------------------------------------------------------
-
-type Align string
-type Orientation string
-type Variant string
-type StatusVariant string
-type ButtonVariant string
-type PagerAppearance string
-type ContentFit string
-type LevelBarMode string
 type Space string
-type Color string
 type Radius string
+type ContainerBg string
 type FontSize string
 type FontWeight string
-type TextAlign string
-type BorderWidth string
+type TextColor string
+type BadgeKind string
+type StatusDotStatus string
+type PagerAppearance string
+type PopoverSize string
 
 const (
-	AlignFill     Align = "fill"
-	AlignStart    Align = "start"
-	AlignEnd      Align = "end"
-	AlignCenter   Align = "center"
-	AlignBaseline Align = "baseline"
-
-	OrientationHorizontal Orientation = "horizontal"
-	OrientationVertical   Orientation = "vertical"
-
-	VariantNormal  Variant = "normal"
-	VariantMuted   Variant = "muted"
-	VariantAccent  Variant = "accent"
-	VariantSuccess Variant = "success"
-	VariantWarning Variant = "warning"
-	VariantDanger  Variant = "danger"
-
-	StatusVariantSuccess StatusVariant = "success"
-	StatusVariantWarning StatusVariant = "warning"
-	StatusVariantDanger  StatusVariant = "danger"
-
-	ButtonVariantPrimary   ButtonVariant = "primary"
-	ButtonVariantSecondary ButtonVariant = "secondary"
-	ButtonVariantCompact   ButtonVariant = "compact"
-	ButtonVariantFlat      ButtonVariant = "flat"
-	ButtonVariantDanger    ButtonVariant = "danger"
-
-	PagerAppearanceDots    PagerAppearance = "dots"
-	PagerAppearanceNumbers PagerAppearance = "numbers"
-
-	ContentFitFill      ContentFit = "fill"
-	ContentFitContain   ContentFit = "contain"
-	ContentFitCover     ContentFit = "cover"
-	ContentFitScaleDown ContentFit = "scale_down"
-
-	LevelBarModeContinuous LevelBarMode = "continuous"
-	LevelBarModeDiscrete   LevelBarMode = "discrete"
-
-	SpaceNone Space = "none"
-	SpaceXXS  Space = "xxs"
-	SpaceXS   Space = "xs"
-	SpaceSM   Space = "sm"
-	SpaceMD   Space = "md"
-	SpaceLG   Space = "lg"
-
-	ColorBG            Color = "bg"
-	ColorFG            Color = "fg"
-	ColorSurface       Color = "surface"
-	ColorSurfaceRaised Color = "surface_raised"
-	ColorBorder        Color = "border"
-	ColorMutedFG       Color = "muted_fg"
-	ColorAccent        Color = "accent"
-	ColorAccentFG      Color = "accent_fg"
-	ColorSuccess       Color = "success"
-	ColorSuccessFG     Color = "success_fg"
-	ColorWarning       Color = "warning"
-	ColorWarningFG     Color = "warning_fg"
-	ColorDanger        Color = "danger"
-	ColorDangerFG      Color = "danger_fg"
+	SpaceS1  Space = "s1"
+	SpaceS2  Space = "s2"
+	SpaceS3  Space = "s3"
+	SpaceS4  Space = "s4"
+	SpaceS5  Space = "s5"
+	SpaceS6  Space = "s6"
+	SpaceS7  Space = "s7"
+	SpaceS8  Space = "s8"
+	SpaceS9  Space = "s9"
+	SpaceS10 Space = "s10"
 
 	RadiusNone Radius = "none"
-	RadiusSM   Radius = "sm"
-	RadiusMD   Radius = "md"
-	RadiusLG   Radius = "lg"
+	RadiusSm   Radius = "sm"
+	RadiusMd   Radius = "md"
+	RadiusLg   Radius = "lg"
 	RadiusPill Radius = "pill"
 
-	FontSizeXXS  FontSize = "xxs"
-	FontSizeXS   FontSize = "xs"
-	FontSizeSM   FontSize = "sm"
-	FontSizeMD   FontSize = "md"
+	ContainerBgNone    ContainerBg = "none"
+	ContainerBgSurface ContainerBg = "surface"
+	ContainerBgRaised  ContainerBg = "raised"
+
+	FontSizeXs   FontSize = "xs"
+	FontSizeSm   FontSize = "sm"
 	FontSizeBase FontSize = "base"
-	FontSizeLG   FontSize = "lg"
-	FontSizeXL   FontSize = "xl"
+	FontSizeLg   FontSize = "lg"
+	FontSizeXl   FontSize = "xl"
 
 	FontWeightNormal   FontWeight = "normal"
 	FontWeightMedium   FontWeight = "medium"
 	FontWeightSemibold FontWeight = "semibold"
 	FontWeightBold     FontWeight = "bold"
 
-	TextAlignLeft   TextAlign = "left"
-	TextAlignCenter TextAlign = "center"
-	TextAlignRight  TextAlign = "right"
+	TextColorNormal  TextColor = "normal"
+	TextColorMuted   TextColor = "muted"
+	TextColorAccent  TextColor = "accent"
+	TextColorSuccess TextColor = "success"
+	TextColorWarning TextColor = "warning"
+	TextColorError   TextColor = "error"
 
-	BorderWidthNone   BorderWidth = "none"
-	BorderWidthThin   BorderWidth = "thin"
-	BorderWidthMedium BorderWidth = "medium"
-	BorderWidthThick  BorderWidth = "thick"
+	BadgeKindDefault BadgeKind = "default"
+	BadgeKindSuccess BadgeKind = "success"
+	BadgeKindWarning BadgeKind = "warning"
+	BadgeKindError   BadgeKind = "error"
+	BadgeKindAccent  BadgeKind = "accent"
+
+	StatusDotNeutral StatusDotStatus = "neutral"
+	StatusDotSuccess StatusDotStatus = "success"
+	StatusDotWarning StatusDotStatus = "warning"
+	StatusDotError   StatusDotStatus = "error"
+	StatusDotAccent  StatusDotStatus = "accent"
+
+	PagerAppearanceDots    PagerAppearance = "dots"
+	PagerAppearanceNumbers PagerAppearance = "numbers"
+
+	PopoverSizeSmall  PopoverSize = "small"
+	PopoverSizeMedium PopoverSize = "medium"
+	PopoverSizeLarge  PopoverSize = "large"
+	PopoverSizeWide   PopoverSize = "wide"
 )
 
-// CommonProps are the shared layout / accessibility fields every widget
-// accepts. Embed it as the first field of every widget struct.
 type CommonProps struct {
 	Visible    *bool             `json:"visible,omitempty"`
-	HExpand    *bool             `json:"hexpand,omitempty"`
-	VExpand    *bool             `json:"vexpand,omitempty"`
-	HAlign     Align             `json:"halign,omitempty"`
-	VAlign     Align             `json:"valign,omitempty"`
 	Tooltip    string            `json:"tooltip,omitempty"`
 	CssClasses []string          `json:"css_classes,omitempty"`
 	Styles     map[string]string `json:"styles,omitempty"`
 }
 
-// ---- Display widgets -------------------------------------------------------
-
-type Hero struct {
-	CommonProps
-	Title    string `json:"title"`
-	Subtitle string `json:"subtitle"`
-	Icon     string `json:"icon,omitempty"`
-	ID       string `json:"id,omitempty"`
-	SwitchOn *bool  `json:"switch,omitempty"`
-	OnToggle func(context.Context, ToggleEvent) error `json:"-"`
-}
-
-func (Hero) isWidget() {}
-func (h Hero) MarshalJSON() ([]byte, error) {
-	type alias Hero
-	return envelope("hero", alias(h))
-}
-
-type Icon struct {
-	CommonProps
-	Icon      string `json:"icon"`
-	PixelSize *int   `json:"pixel_size,omitempty"`
-}
-
-func (Icon) isWidget() {}
-func (w Icon) MarshalJSON() ([]byte, error) {
-	type alias Icon
-	return envelope("icon", alias(w))
-}
-
-type Picture struct {
-	CommonProps
-	Path       string     `json:"path"`
-	ContentFit ContentFit `json:"content_fit,omitempty"`
-}
-
-func (Picture) isWidget() {}
-func (w Picture) MarshalJSON() ([]byte, error) {
-	type alias Picture
-	return envelope("picture", alias(w))
+func envelope(kind string, data any) ([]byte, error) {
+	return json.Marshal(struct {
+		Type string `json:"type"`
+		Data any    `json:"data"`
+	}{kind, data})
 }
 
 type Text struct {
 	CommonProps
 	Text   string     `json:"text"`
-	Color  Color      `json:"color,omitempty"`
 	Size   FontSize   `json:"size,omitempty"`
 	Weight FontWeight `json:"weight,omitempty"`
-	Align  TextAlign  `json:"align,omitempty"`
+	Color  TextColor  `json:"color,omitempty"`
+	XAlign *float64   `json:"xalign,omitempty"`
+	Wrap   *bool      `json:"wrap,omitempty"`
 }
 
-func (Text) isWidget() {}
-func (t Text) MarshalJSON() ([]byte, error) {
-	type alias Text
-	return envelope("text", alias(t))
+func (Text) isWidget()                      {}
+func (w Text) MarshalJSON() ([]byte, error) { type alias Text; return envelope("text", alias(w)) }
+
+type Header struct {
+	CommonProps
+	Label string `json:"label"`
 }
+
+func (Header) isWidget()                      {}
+func (w Header) MarshalJSON() ([]byte, error) { type alias Header; return envelope("header", alias(w)) }
+
+type Hero struct {
+	CommonProps
+	ID              string        `json:"id,omitempty"`
+	Title           string        `json:"title"`
+	Subtitle        string        `json:"subtitle"`
+	Icon            string        `json:"icon,omitempty"`
+	IconSize        *int          `json:"icon_size,omitempty"`
+	Toggle          *bool         `json:"toggle,omitempty"`
+	ToggleSensitive *bool         `json:"toggle_sensitive,omitempty"`
+	Separator       *bool         `json:"separator,omitempty"`
+	Trailing        Widget        `json:"trailing,omitempty"`
+	OnToggle        InlineHandler `json:"-"`
+}
+
+func (Hero) isWidget()                      {}
+func (w Hero) MarshalJSON() ([]byte, error) { type alias Hero; return envelope("hero", alias(w)) }
 
 type Badge struct {
 	CommonProps
-	Label   string  `json:"label"`
-	Variant Variant `json:"variant,omitempty"`
+	Label string    `json:"label"`
+	Kind  BadgeKind `json:"kind"`
 }
 
 func (Badge) isWidget() {}
-func (b Badge) MarshalJSON() ([]byte, error) {
+func (w Badge) MarshalJSON() ([]byte, error) {
+	if w.Kind == "" {
+		w.Kind = BadgeKindDefault
+	}
 	type alias Badge
-	return envelope("badge", alias(b))
+	return envelope("badge", alias(w))
 }
 
 type StatusDot struct {
 	CommonProps
-	Variant StatusVariant `json:"variant,omitempty"`
+	Status StatusDotStatus `json:"status"`
 }
 
 func (StatusDot) isWidget() {}
-func (s StatusDot) MarshalJSON() ([]byte, error) {
+func (w StatusDot) MarshalJSON() ([]byte, error) {
+	if w.Status == "" {
+		w.Status = StatusDotNeutral
+	}
 	type alias StatusDot
-	return envelope("status", alias(s))
+	return envelope("status_dot", alias(w))
 }
 
-type PagerItem struct {
+type PanelIndicator struct {
 	CommonProps
-	ID         string          `json:"id,omitempty"`
-	Appearance PagerAppearance `json:"appearance"`
-	Label      string          `json:"label"`
-	Active     bool            `json:"active"`
-	Inactive   bool            `json:"inactive"`
-	Occupied   bool            `json:"occupied"`
-	Urgent     bool            `json:"urgent"`
+	ID             string        `json:"id,omitempty"`
+	Icon           string        `json:"icon,omitempty"`
+	Label          string        `json:"label,omitempty"`
+	Active         bool          `json:"active"`
+	Checked        bool          `json:"checked"`
+	NeedsAttention bool          `json:"needs_attention"`
+	Extra          Widget        `json:"extra,omitempty"`
+	OnClick        InlineHandler `json:"-"`
 }
 
-func (PagerItem) isWidget() {}
-func (p PagerItem) MarshalJSON() ([]byte, error) {
-	return envelope("pager_item", pagerItemData(p))
-}
-
-type PagerStrip struct {
-	CommonProps
-	ID    string      `json:"id,omitempty"`
-	Items []PagerItem `json:"items"`
-}
-
-func (PagerStrip) isWidget() {}
-func (p PagerStrip) MarshalJSON() ([]byte, error) {
-	items := make([]pagerItemAlias, 0, len(p.Items))
-	for _, item := range p.Items {
-		items = append(items, pagerItemData(item))
-	}
-	return envelope("pager_strip", struct {
-		CommonProps
-		ID    string           `json:"id,omitempty"`
-		Items []pagerItemAlias `json:"items"`
-	}{
-		CommonProps: p.CommonProps,
-		ID:          p.ID,
-		Items:       ensureSlice(items),
-	})
-}
-
-type pagerItemAlias PagerItem
-
-func pagerItemData(item PagerItem) pagerItemAlias {
-	if item.Appearance == "" {
-		item.Appearance = PagerAppearanceDots
-	}
-	return pagerItemAlias(item)
-}
-
-type Spinner struct {
-	CommonProps
-	Spinning bool `json:"spinning"`
-}
-
-func (Spinner) isWidget() {}
-func (s Spinner) MarshalJSON() ([]byte, error) {
-	type alias Spinner
-	return envelope("spinner", alias(s))
-}
-
-type Separator struct {
-	CommonProps
-	Orientation Orientation `json:"orientation,omitempty"`
-}
-
-func (Separator) isWidget() {}
-func (s Separator) MarshalJSON() ([]byte, error) {
-	type alias Separator
-	return envelope("separator", alias(s))
+func (PanelIndicator) isWidget() {}
+func (w PanelIndicator) MarshalJSON() ([]byte, error) {
+	type alias PanelIndicator
+	return envelope("panel_indicator", alias(w))
 }
 
 type EmptyState struct {
 	CommonProps
 	Title    string `json:"title"`
-	Subtitle string `json:"subtitle"`
+	Subtitle string `json:"subtitle,omitempty"`
 }
 
 func (EmptyState) isWidget() {}
-func (e EmptyState) MarshalJSON() ([]byte, error) {
+func (w EmptyState) MarshalJSON() ([]byte, error) {
 	type alias EmptyState
-	return envelope("empty_state", alias(e))
+	return envelope("empty_state", alias(w))
 }
 
-type Progress struct {
+type Spinner struct {
 	CommonProps
-	Value    float64 `json:"value"`
-	Max      float64 `json:"max"`
-	ShowText bool    `json:"show_text,omitempty"`
-	Text     string  `json:"text,omitempty"`
-}
-
-func (Progress) isWidget() {}
-func (p Progress) MarshalJSON() ([]byte, error) {
-	type alias Progress
-	return envelope("progress", alias(p))
-}
-
-type LevelBar struct {
-	CommonProps
-	Value float64      `json:"value"`
-	Min   float64      `json:"min"`
-	Max   float64      `json:"max"`
-	Mode  LevelBarMode `json:"mode"`
-}
-
-func (LevelBar) isWidget() {}
-func (l LevelBar) MarshalJSON() ([]byte, error) {
-	type alias LevelBar
-	out := l
-	if out.Max == 0 {
-		out.Max = 1
-	}
-	if out.Mode == "" {
-		out.Mode = LevelBarModeContinuous
-	}
-	return envelope("level_bar", alias(out))
+	Spinning *bool `json:"spinning,omitempty"`
 }
 
 type Meter struct {
 	CommonProps
-	ID          string  `json:"id,omitempty"`
-	Icon        string  `json:"icon,omitempty"`
-	Label       string  `json:"label"`
-	Value       float64 `json:"value"`
-	Min         float64 `json:"min"`
-	Max         float64 `json:"max"`
-	Step        float64 `json:"step"`
-	Text        string  `json:"text,omitempty"`
-	Interactive bool    `json:"interactive"`
+	ID          string        `json:"id,omitempty"`
+	Icon        string        `json:"icon,omitempty"`
+	Label       string        `json:"label"`
+	Value       float64       `json:"value"`
+	Min         float64       `json:"min"`
+	Max         float64       `json:"max"`
+	Step        float64       `json:"step"`
+	Text        string        `json:"text,omitempty"`
+	Interactive bool          `json:"interactive"`
+	OnChange    InlineHandler `json:"-"`
 }
 
-func (Meter) isWidget() {}
-func (m Meter) MarshalJSON() ([]byte, error) {
-	type alias Meter
-	return envelope("meter", alias(m))
-}
-
-type Copyable struct {
+type Separator struct {
 	CommonProps
-	Label string `json:"label,omitempty"`
-	Value string `json:"value"`
-}
-
-func (Copyable) isWidget() {}
-func (c Copyable) MarshalJSON() ([]byte, error) {
-	type alias Copyable
-	return envelope("copyable", alias(c))
-}
-
-// ---- Interactive widgets ---------------------------------------------------
-
-type Button struct {
-	ID string `json:"id"`
-	CommonProps
-	Label   string        `json:"label,omitempty"`
-	Icon    string        `json:"icon,omitempty"`
-	Enabled *bool         `json:"enabled,omitempty"`
-	Variant ButtonVariant `json:"variant,omitempty"`
-	OnClick func(context.Context, ClickEvent) error `json:"-"`
-}
-
-func (Button) isWidget() {}
-func (b Button) MarshalJSON() ([]byte, error) {
-	type alias Button
-	return envelope("button", alias(b))
-}
-
-type LinkButton struct {
-	CommonProps
-	URI   string `json:"uri"`
-	Label string `json:"label,omitempty"`
-}
-
-func (LinkButton) isWidget() {}
-func (l LinkButton) MarshalJSON() ([]byte, error) {
-	type alias LinkButton
-	return envelope("link_button", alias(l))
-}
-
-type Expander struct {
-	CommonProps
-	Label    string `json:"label"`
-	Expanded bool   `json:"expanded"`
-	Child    Widget `json:"child"`
-}
-
-func (Expander) isWidget() {}
-func (e Expander) MarshalJSON() ([]byte, error) {
-	type alias Expander
-	return envelope("expander", alias(e))
-}
-
-type Switch struct {
-	ID string `json:"id"`
-	CommonProps
-	Label    string `json:"label,omitempty"`
-	Active   bool   `json:"active"`
-	OnToggle func(context.Context, ToggleEvent) error `json:"-"`
-}
-
-func (Switch) isWidget() {}
-func (s Switch) MarshalJSON() ([]byte, error) {
-	type alias Switch
-	return envelope("switch", alias(s))
-}
-
-type ToggleButton struct {
-	ID string `json:"id"`
-	CommonProps
-	Label    string `json:"label,omitempty"`
-	Icon     string `json:"icon,omitempty"`
-	Active   bool   `json:"active"`
-	OnToggle func(context.Context, ToggleEvent) error `json:"-"`
-}
-
-func (ToggleButton) isWidget() {}
-func (t ToggleButton) MarshalJSON() ([]byte, error) {
-	type alias ToggleButton
-	return envelope("toggle_button", alias(t))
-}
-
-type Checkbox struct {
-	ID string `json:"id"`
-	CommonProps
-	Label    string `json:"label,omitempty"`
-	Active   bool   `json:"active"`
-	OnToggle func(context.Context, ToggleEvent) error `json:"-"`
-}
-
-func (Checkbox) isWidget() {}
-func (c Checkbox) MarshalJSON() ([]byte, error) {
-	type alias Checkbox
-	return envelope("checkbox", alias(c))
-}
-
-type Slider struct {
-	ID string `json:"id"`
-	CommonProps
-	Min         float64     `json:"min"`
-	Max         float64     `json:"max"`
-	Step        float64     `json:"step"`
-	Value       float64     `json:"value"`
-	Orientation Orientation `json:"orientation,omitempty"`
-	DrawValue   bool        `json:"draw_value,omitempty"`
-	OnChange    func(context.Context, ChangeEvent) error `json:"-"`
-}
-
-func (Slider) isWidget() {}
-func (s Slider) MarshalJSON() ([]byte, error) {
-	type alias Slider
-	return envelope("slider", alias(s))
-}
-
-type Select struct {
-	ID string `json:"id"`
-	CommonProps
-	Items    []map[string]string `json:"items"`
-	Selected  *uint32             `json:"selected,omitempty"`
-	OnChange  func(context.Context, ChangeEvent) error `json:"-"`
-}
-
-func (Select) isWidget() {}
-func (d Select) MarshalJSON() ([]byte, error) {
-	type alias Select
-	out := d
-	if out.Items == nil {
-		out.Items = []map[string]string{}
-	}
-	return envelope("select", alias(out))
-}
-
-// ---- Layouts ---------------------------------------------------------------
-
-type Row struct {
-	CommonProps
-	Spacing    int      `json:"spacing"`
-	SpacingSet bool     `json:"-"`
-	Children   []Widget `json:"children"`
-}
-
-func (Row) isWidget() {}
-func (r Row) MarshalJSON() ([]byte, error) {
-	type alias Row
-	out := r
-	if !out.SpacingSet && out.Spacing == 0 {
-		out.Spacing = 4
-	}
-	out.Children = ensureSlice(out.Children)
-	return envelope("row", alias(out))
-}
-
-type Column struct {
-	CommonProps
-	Spacing    int      `json:"spacing"`
-	SpacingSet bool     `json:"-"`
-	Children   []Widget `json:"children"`
-}
-
-func (Column) isWidget() {}
-func (c Column) MarshalJSON() ([]byte, error) {
-	type alias Column
-	out := c
-	if !out.SpacingSet && out.Spacing == 0 {
-		out.Spacing = 4
-	}
-	out.Children = ensureSlice(out.Children)
-	return envelope("column", alias(out))
-}
-
-type GridChild struct {
-	Row    int    `json:"row"`
-	Column int    `json:"column"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
-	Child  Widget `json:"child"`
-}
-
-type Grid struct {
-	CommonProps
-	Children         []GridChild `json:"children"`
-	RowSpacing       int         `json:"row_spacing"`
-	RowSpacingSet    bool        `json:"-"`
-	ColumnSpacing    int         `json:"column_spacing"`
-	ColumnSpacingSet bool        `json:"-"`
-}
-
-func (Grid) isWidget() {}
-func (g Grid) MarshalJSON() ([]byte, error) {
-	type alias Grid
-	out := g
-	if !out.RowSpacingSet && out.RowSpacing == 0 {
-		out.RowSpacing = 4
-	}
-	if !out.ColumnSpacingSet && out.ColumnSpacing == 0 {
-		out.ColumnSpacing = 4
-	}
-	out.Children = ensureSlice(out.Children)
-	return envelope("grid", alias(out))
-}
-
-type Card struct {
-	CommonProps
-	Child Widget `json:"child,omitempty"`
-}
-
-func (Card) isWidget() {}
-func (c Card) MarshalJSON() ([]byte, error) {
-	type alias Card
-	return envelope("card", alias(c))
-}
-
-type Container struct {
-	CommonProps
-	Child         Widget      `json:"child,omitempty"`
-	Width         *int        `json:"width,omitempty"`
-	Height        *int        `json:"height,omitempty"`
-	MinWidth      *int        `json:"min_width,omitempty"`
-	MinHeight     *int        `json:"min_height,omitempty"`
-	Margin        Space       `json:"margin,omitempty"`
-	MarginTop     Space       `json:"margin_top,omitempty"`
-	MarginRight   Space       `json:"margin_right,omitempty"`
-	MarginBottom  Space       `json:"margin_bottom,omitempty"`
-	MarginLeft    Space       `json:"margin_left,omitempty"`
-	Padding       Space       `json:"padding,omitempty"`
-	PaddingTop    Space       `json:"padding_top,omitempty"`
-	PaddingRight  Space       `json:"padding_right,omitempty"`
-	PaddingBottom Space       `json:"padding_bottom,omitempty"`
-	PaddingLeft   Space       `json:"padding_left,omitempty"`
-	Background    Color       `json:"background,omitempty"`
-	Color         Color       `json:"color,omitempty"`
-	BorderRadius  Radius      `json:"border_radius,omitempty"`
-	BorderWidth   BorderWidth `json:"border_width,omitempty"`
-	BorderColor   Color       `json:"border_color,omitempty"`
-	FontSize      FontSize    `json:"font_size,omitempty"`
-	FontWeight    FontWeight  `json:"font_weight,omitempty"`
-}
-
-func (Container) isWidget() {}
-func (c Container) MarshalJSON() ([]byte, error) {
-	type alias Container
-	return envelope("container", alias(c))
 }
 
 type Scroll struct {
@@ -632,108 +220,523 @@ type Scroll struct {
 	Child Widget `json:"child"`
 }
 
-func (Scroll) isWidget() {}
-func (s Scroll) MarshalJSON() ([]byte, error) {
-	type alias Scroll
-	return envelope("scroll", alias(s))
-}
+func (Spinner) isWidget()   {}
+func (Meter) isWidget()     {}
+func (Separator) isWidget() {}
+func (Scroll) isWidget()    {}
 
-type Properties map[string]string
-
-type PropertyList struct {
-	CommonProps
-	Title string     `json:"title,omitempty"`
-	Rows  Properties `json:"rows"`
-}
-
-func (PropertyList) isWidget() {}
-func (p PropertyList) MarshalJSON() ([]byte, error) {
-	type row struct {
-		Key   string `json:"key"`
-		Value string `json:"value"`
+func (w Spinner) MarshalJSON() ([]byte, error) {
+	spinning := true
+	if w.Spinning != nil {
+		spinning = *w.Spinning
 	}
 	type data struct {
 		CommonProps
-		Title string `json:"title,omitempty"`
-		Rows  []row  `json:"rows"`
+		Spinning bool `json:"spinning"`
 	}
-
-	keys := make([]string, 0, len(p.Rows))
-	for key := range p.Rows {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	rows := make([]row, 0, len(keys))
-	for _, key := range keys {
-		rows = append(rows, row{Key: key, Value: p.Rows[key]})
-	}
-
-	return envelope("property_list", data{
-		CommonProps: p.CommonProps,
-		Title:       p.Title,
-		Rows:        rows,
-	})
+	return envelope("spinner", data{CommonProps: w.CommonProps, Spinning: spinning})
 }
 
-type Item struct {
+func (w Meter) MarshalJSON() ([]byte, error) {
+	if w.Max == 0 {
+		w.Max = 1
+	}
+	if w.Step == 0 {
+		w.Step = 0.01
+	}
+	if w.OnChange != nil {
+		w.Interactive = true
+	}
+	type alias Meter
+	return envelope("meter", alias(w))
+}
+
+func (w Separator) MarshalJSON() ([]byte, error) {
+	type alias Separator
+	return envelope("separator", alias(w))
+}
+
+func (w Scroll) MarshalJSON() ([]byte, error) {
+	type alias Scroll
+	return envelope("scroll", alias(w))
+}
+
+type Row struct {
 	CommonProps
-	Icon     string `json:"-"`
-	Left     Widget `json:"left,omitempty"`
-	Label    string `json:"label"`
-	Sublabel string `json:"sublabel,omitempty"`
-	Right    Widget `json:"right,omitempty"`
+	Children []Widget `json:"children"`
 }
-
-func (Item) isWidget() {}
-func (i Item) MarshalJSON() ([]byte, error) {
-	if i.Left == nil && i.Icon != "" {
-		size := 16
-		i.Left = Icon{Icon: i.Icon, PixelSize: &size}
-	}
-	type alias Item
-	return envelope("item", alias(i))
-}
-
-type ActionItem struct {
-	ID string `json:"id"`
+type Column struct {
 	CommonProps
-	Icon     string `json:"-"`
-	Left     Widget `json:"left,omitempty"`
-	Label    string `json:"label"`
-	Sublabel string `json:"sublabel,omitempty"`
-	Right    Widget `json:"right,omitempty"`
-	Enabled  *bool  `json:"enabled,omitempty"`
-	OnClick  func(context.Context, ClickEvent) error `json:"-"`
+	Children []Widget `json:"children"`
+}
+type BoxedList struct {
+	CommonProps
+	Children []Widget `json:"children"`
+}
+type ButtonRow struct {
+	CommonProps
+	Children []Widget `json:"children"`
 }
 
-func (ActionItem) isWidget() {}
-func (i ActionItem) MarshalJSON() ([]byte, error) {
-	if i.Left == nil && i.Icon != "" {
-		size := 16
-		i.Left = Icon{Icon: i.Icon, PixelSize: &size}
+func (Row) isWidget()       {}
+func (Column) isWidget()    {}
+func (BoxedList) isWidget() {}
+func (ButtonRow) isWidget() {}
+func (w Row) MarshalJSON() ([]byte, error) {
+	type alias Row
+	if w.Children == nil {
+		w.Children = []Widget{}
 	}
-	type alias ActionItem
-	return envelope("action_item", alias(i))
+	return envelope("row", alias(w))
+}
+func (w Column) MarshalJSON() ([]byte, error) {
+	type alias Column
+	if w.Children == nil {
+		w.Children = []Widget{}
+	}
+	return envelope("column", alias(w))
+}
+func (w BoxedList) MarshalJSON() ([]byte, error) {
+	type alias BoxedList
+	if w.Children == nil {
+		w.Children = []Widget{}
+	}
+	return envelope("boxed_list", alias(w))
+}
+func (w ButtonRow) MarshalJSON() ([]byte, error) {
+	type alias ButtonRow
+	if w.Children == nil {
+		w.Children = []Widget{}
+	}
+	return envelope("button_row", alias(w))
 }
 
-type PopoverSize string
-
-const (
-	PopoverSizeSmall  PopoverSize = "small"
-	PopoverSizeMedium PopoverSize = "medium"
-	PopoverSizeLarge  PopoverSize = "large"
-	PopoverSizeXLarge PopoverSize = "xlarge"
-)
-
-type PopoverScaffold struct {
-	Hero Widget      `json:"hero,omitempty"`
-	Body Widget      `json:"body"`
-	Size PopoverSize `json:"size,omitempty"`
+type Container struct {
+	CommonProps
+	Children    []Widget    `json:"children"`
+	Padding     Space       `json:"padding,omitempty"`
+	PaddingX    Space       `json:"padding_x,omitempty"`
+	PaddingY    Space       `json:"padding_y,omitempty"`
+	Margin      Space       `json:"margin,omitempty"`
+	MarginX     Space       `json:"margin_x,omitempty"`
+	MarginY     Space       `json:"margin_y,omitempty"`
+	Radius      Radius      `json:"radius"`
+	Bg          ContainerBg `json:"bg"`
+	BorderWidth int         `json:"border_width"`
+	MinWidth    Space       `json:"min_width,omitempty"`
+	MinHeight   Space       `json:"min_height,omitempty"`
 }
 
-func (PopoverScaffold) isWidget() {}
-func (w PopoverScaffold) MarshalJSON() ([]byte, error) {
-	type alias PopoverScaffold
-	return envelope("popover_scaffold", alias(w))
+func (Container) isWidget() {}
+func (w Container) MarshalJSON() ([]byte, error) {
+	if w.Children == nil {
+		w.Children = []Widget{}
+	}
+	if w.Radius == "" {
+		w.Radius = RadiusNone
+	}
+	if w.Bg == "" {
+		w.Bg = ContainerBgNone
+	}
+	type alias Container
+	return envelope("container", alias(w))
+}
+
+type PopoverShell struct {
+	CommonProps
+	Size          PopoverSize `json:"size"`
+	Children      []Widget    `json:"children"`
+	Footer        []Widget    `json:"footer,omitempty"`
+	FooterVisible bool        `json:"footer_visible,omitempty"`
+}
+
+func (PopoverShell) isWidget() {}
+func (w PopoverShell) MarshalJSON() ([]byte, error) {
+	if w.Size == "" {
+		w.Size = PopoverSizeMedium
+	}
+	if w.Children == nil {
+		w.Children = []Widget{}
+	}
+	type alias PopoverShell
+	return envelope("popover_shell", alias(w))
+}
+
+type Tile struct {
+	CommonProps
+	ID          string        `json:"id,omitempty"`
+	Primary     string        `json:"primary"`
+	Secondary   string        `json:"secondary,omitempty"`
+	LeftIcon    string        `json:"left_icon,omitempty"`
+	Left        Widget        `json:"left,omitempty"`
+	Right       Widget        `json:"right,omitempty"`
+	Activatable bool          `json:"activatable"`
+	OnClick     InlineHandler `json:"-"`
+}
+
+func (Tile) isWidget()                      {}
+func (w Tile) MarshalJSON() ([]byte, error) { type alias Tile; return envelope("tile", alias(w)) }
+
+type SegmentedTile struct {
+	Tile
+	Child    Widget        `json:"child,omitempty"`
+	Expanded bool          `json:"expanded"`
+	OnToggle InlineHandler `json:"-"`
+}
+
+func (SegmentedTile) isWidget() {}
+func (w SegmentedTile) MarshalJSON() ([]byte, error) {
+	type data struct {
+		CommonProps
+		ID          string `json:"id,omitempty"`
+		Primary     string `json:"primary"`
+		Secondary   string `json:"secondary,omitempty"`
+		LeftIcon    string `json:"left_icon,omitempty"`
+		Left        Widget `json:"left,omitempty"`
+		Right       Widget `json:"right,omitempty"`
+		Activatable bool   `json:"activatable"`
+		Child       Widget `json:"child,omitempty"`
+		Expanded    bool   `json:"expanded"`
+	}
+	return envelope("segmented_tile", data{w.CommonProps, w.ID, w.Primary, w.Secondary, w.LeftIcon, w.Left, w.Right, w.Activatable, w.Child, w.Expanded})
+}
+
+type SwitchTile struct {
+	CommonProps
+	ID        string        `json:"id"`
+	Primary   string        `json:"primary"`
+	Secondary string        `json:"secondary,omitempty"`
+	LeftIcon  string        `json:"left_icon,omitempty"`
+	Left      Widget        `json:"left,omitempty"`
+	Active    bool          `json:"active"`
+	OnToggle  InlineHandler `json:"-"`
+}
+
+func (SwitchTile) isWidget() {}
+func (w SwitchTile) MarshalJSON() ([]byte, error) {
+	type alias SwitchTile
+	return envelope("switch_tile", alias(w))
+}
+
+type ExpanderTile struct {
+	CommonProps
+	ID        string        `json:"id,omitempty"`
+	Primary   string        `json:"primary"`
+	Secondary string        `json:"secondary,omitempty"`
+	LeftIcon  string        `json:"left_icon,omitempty"`
+	Left      Widget        `json:"left,omitempty"`
+	Child     Widget        `json:"child,omitempty"`
+	Expanded  bool          `json:"expanded"`
+	OnToggle  InlineHandler `json:"-"`
+}
+
+func (ExpanderTile) isWidget() {}
+func (w ExpanderTile) MarshalJSON() ([]byte, error) {
+	type alias ExpanderTile
+	return envelope("expander_tile", alias(w))
+}
+
+type SliderTile struct {
+	CommonProps
+	ID       string        `json:"id"`
+	Label    string        `json:"label,omitempty"`
+	LeftIcon string        `json:"left_icon,omitempty"`
+	Left     Widget        `json:"left,omitempty"`
+	Value    float64       `json:"value"`
+	Min      float64       `json:"min"`
+	Max      float64       `json:"max"`
+	Step     float64       `json:"step"`
+	Page     float64       `json:"page"`
+	Digits   int           `json:"digits"`
+	SnapStep *float64      `json:"snap_step,omitempty"`
+	OnChange InlineHandler `json:"-"`
+}
+
+func (SliderTile) isWidget() {}
+func (w SliderTile) MarshalJSON() ([]byte, error) {
+	if w.Max == 0 {
+		w.Max = 1
+	}
+	if w.Step == 0 {
+		w.Step = 0.01
+	}
+	if w.Page == 0 {
+		w.Page = 0.1
+	}
+	type alias SliderTile
+	return envelope("slider_tile", alias(w))
+}
+
+type ChoiceTile struct {
+	CommonProps
+	ID        string        `json:"id,omitempty"`
+	Primary   string        `json:"primary"`
+	Secondary string        `json:"secondary,omitempty"`
+	LeftIcon  string        `json:"left_icon,omitempty"`
+	Left      Widget        `json:"left,omitempty"`
+	Selected  bool          `json:"selected"`
+	OnClick   InlineHandler `json:"-"`
+}
+
+func (ChoiceTile) isWidget() {}
+func (w ChoiceTile) MarshalJSON() ([]byte, error) {
+	type alias ChoiceTile
+	return envelope("choice_tile", alias(w))
+}
+
+type Choice struct {
+	ID        string `json:"id"`
+	Primary   string `json:"primary"`
+	Secondary string `json:"secondary,omitempty"`
+	Icon      string `json:"icon,omitempty"`
+}
+type ChoiceList struct {
+	CommonProps
+	ID       string        `json:"id"`
+	Active   string        `json:"active,omitempty"`
+	Choices  []Choice      `json:"choices"`
+	OnChange InlineHandler `json:"-"`
+}
+
+func (ChoiceList) isWidget() {}
+func (w ChoiceList) MarshalJSON() ([]byte, error) {
+	if w.Choices == nil {
+		w.Choices = []Choice{}
+	}
+	type alias ChoiceList
+	return envelope("choice_list", alias(w))
+}
+
+type KeyValueRow struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+type KeyValueGrid struct {
+	CommonProps
+	Rows []KeyValueRow `json:"rows"`
+}
+
+func (KeyValueGrid) isWidget() {}
+func (w KeyValueGrid) MarshalJSON() ([]byte, error) {
+	if w.Rows == nil {
+		w.Rows = []KeyValueRow{}
+	}
+	type alias KeyValueGrid
+	return envelope("key_value_grid", alias(w))
+}
+
+type PagerItem struct {
+	CommonProps
+	ID         uint64          `json:"id"`
+	Label      string          `json:"label"`
+	Appearance PagerAppearance `json:"appearance"`
+	Active     bool            `json:"active"`
+	Inactive   bool            `json:"inactive"`
+	Occupied   bool            `json:"occupied"`
+	Urgent     bool            `json:"urgent"`
+	OnClick    InlineHandler   `json:"-"`
+}
+
+func (PagerItem) isWidget() {}
+
+type pagerItemPayload PagerItem
+
+func pagerItemData(w PagerItem) pagerItemPayload {
+	if w.Appearance == "" {
+		w.Appearance = PagerAppearanceDots
+	}
+	return pagerItemPayload(w)
+}
+func (w PagerItem) MarshalJSON() ([]byte, error) { return envelope("pager_item", pagerItemData(w)) }
+
+type PagerStrip struct {
+	CommonProps
+	ID          string        `json:"id,omitempty"`
+	Placeholder bool          `json:"placeholder"`
+	Items       []PagerItem   `json:"items"`
+	OnChange    InlineHandler `json:"-"`
+}
+
+func (PagerStrip) isWidget() {}
+func (w PagerStrip) MarshalJSON() ([]byte, error) {
+	items := make([]pagerItemPayload, 0, len(w.Items))
+	for _, item := range w.Items {
+		items = append(items, pagerItemData(item))
+	}
+	type data struct {
+		CommonProps
+		ID          string             `json:"id,omitempty"`
+		Placeholder bool               `json:"placeholder"`
+		Items       []pagerItemPayload `json:"items"`
+	}
+	return envelope("pager_strip", data{w.CommonProps, w.ID, w.Placeholder, items})
+}
+
+type ActiveIndicator struct {
+	CommonProps
+	Active bool `json:"active"`
+}
+type CameraIndicator struct{ ActiveIndicator }
+type MicIndicator struct{ ActiveIndicator }
+type MutedIndicator struct{ ActiveIndicator }
+type LocationIndicator struct{ ActiveIndicator }
+
+func (CameraIndicator) isWidget()   {}
+func (MicIndicator) isWidget()      {}
+func (MutedIndicator) isWidget()    {}
+func (LocationIndicator) isWidget() {}
+func (w CameraIndicator) MarshalJSON() ([]byte, error) {
+	return envelope("camera_indicator", w.ActiveIndicator)
+}
+func (w MicIndicator) MarshalJSON() ([]byte, error) {
+	return envelope("mic_indicator", w.ActiveIndicator)
+}
+func (w MutedIndicator) MarshalJSON() ([]byte, error) {
+	return envelope("muted_indicator", w.ActiveIndicator)
+}
+func (w LocationIndicator) MarshalJSON() ([]byte, error) {
+	return envelope("location_indicator", w.ActiveIndicator)
+}
+
+type ScreenCastIndicator struct {
+	ActiveIndicator
+	TimerText string `json:"timer_text,omitempty"`
+}
+
+func (ScreenCastIndicator) isWidget() {}
+func (w ScreenCastIndicator) MarshalJSON() ([]byte, error) {
+	type data struct {
+		CommonProps
+		Active    bool   `json:"active"`
+		TimerText string `json:"timer_text,omitempty"`
+	}
+	return envelope("screencast_indicator", data{w.CommonProps, w.Active, w.TimerText})
+}
+
+type Calendar struct {
+	CommonProps
+	ID           string        `json:"id,omitempty"`
+	SelectedDate string        `json:"selected_date"`
+	EventDays    []string      `json:"event_days"`
+	OnChange     InlineHandler `json:"-"`
+}
+
+func (Calendar) isWidget() {}
+func (w Calendar) MarshalJSON() ([]byte, error) {
+	if w.EventDays == nil {
+		w.EventDays = []string{}
+	}
+	type alias Calendar
+	return envelope("calendar", alias(w))
+}
+
+type BatteryHero struct {
+	CommonProps
+	Icon       string  `json:"icon"`
+	Percentage string  `json:"percentage"`
+	Fraction   float64 `json:"fraction"`
+	State      string  `json:"state"`
+}
+
+func (BatteryHero) isWidget() {}
+func (w BatteryHero) MarshalJSON() ([]byte, error) {
+	type alias BatteryHero
+	return envelope("battery_hero", alias(w))
+}
+
+type DateHero struct {
+	CommonProps
+	Weekday string `json:"weekday"`
+	Date    string `json:"date"`
+}
+
+func (DateHero) isWidget() {}
+func (w DateHero) MarshalJSON() ([]byte, error) {
+	type alias DateHero
+	return envelope("date_hero", alias(w))
+}
+
+type EventItem struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Start    string `json:"start"`
+	End      string `json:"end"`
+	Location string `json:"location,omitempty"`
+	AllDay   bool   `json:"all_day"`
+}
+type Events struct {
+	CommonProps
+	Date    string      `json:"date"`
+	Events  []EventItem `json:"events"`
+	Loading bool        `json:"loading"`
+}
+
+func (Events) isWidget() {}
+func (w Events) MarshalJSON() ([]byte, error) {
+	if w.Events == nil {
+		w.Events = []EventItem{}
+	}
+	type alias Events
+	return envelope("events", alias(w))
+}
+
+type WeatherForecastItem struct {
+	DayName      string `json:"day_name"`
+	Icon         string `json:"icon"`
+	Condition    string `json:"condition"`
+	Temperatures string `json:"temperatures"`
+	IsToday      bool   `json:"is_today"`
+}
+type WeatherForecastList struct {
+	CommonProps
+	Items []WeatherForecastItem `json:"items"`
+}
+
+func (WeatherForecastList) isWidget() {}
+func (w WeatherForecastList) MarshalJSON() ([]byte, error) {
+	if w.Items == nil {
+		w.Items = []WeatherForecastItem{}
+	}
+	type alias WeatherForecastList
+	return envelope("weather_forecast_list", alias(w))
+}
+
+type WeatherHourlyItem struct {
+	Time        string `json:"time"`
+	Icon        string `json:"icon"`
+	Temperature string `json:"temperature"`
+}
+type WeatherHourlyStrip struct {
+	CommonProps
+	Items []WeatherHourlyItem `json:"items"`
+}
+
+func (WeatherHourlyStrip) isWidget() {}
+func (w WeatherHourlyStrip) MarshalJSON() ([]byte, error) {
+	if w.Items == nil {
+		w.Items = []WeatherHourlyItem{}
+	}
+	type alias WeatherHourlyStrip
+	return envelope("weather_hourly_strip", alias(w))
+}
+
+type WorldClockRow struct {
+	Name     string `json:"name"`
+	Timezone string `json:"timezone"`
+	Time     string `json:"time"`
+	Offset   string `json:"offset"`
+	DayLabel string `json:"day_label,omitempty"`
+}
+type WorldClock struct {
+	CommonProps
+	Rows []WorldClockRow `json:"rows"`
+}
+
+func (WorldClock) isWidget() {}
+func (w WorldClock) MarshalJSON() ([]byte, error) {
+	if w.Rows == nil {
+		w.Rows = []WorldClockRow{}
+	}
+	type alias WorldClock
+	return envelope("world_clock", alias(w))
 }

@@ -1,6 +1,7 @@
 {
   "data": {
-    "label": "42%"
+    "kind": "success",
+    "label": "OK"
   },
   "type": "badge"
 }

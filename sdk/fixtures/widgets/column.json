@@ -1,7 +1,24 @@
 {
   "data": {
-    "children": [],
-    "spacing": 4
+    "children": [
+      {
+        "data": {
+          "color": "muted",
+          "size": "sm",
+          "text": "Ready",
+          "weight": "medium",
+          "wrap": true
+        },
+        "type": "text"
+      },
+      {
+        "data": {
+          "kind": "success",
+          "label": "OK"
+        },
+        "type": "badge"
+      }
+    ]
   },
   "type": "column"
 }

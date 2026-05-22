@@ -1,9 +1,9 @@
 import {
   Applet,
-  Button,
   Column,
   Hero,
   StatusItem,
+  Tile,
   Text,
   type TreeNode,
 } from "../src/index.js";
@@ -36,7 +36,6 @@ class CounterApplet extends Applet<CounterState> {
 
   protected async popover(state: CounterState): Promise<TreeNode | null> {
     return new Column({
-      spacing: 8,
       children: [
         new Hero({
           icon: "view-refresh-symbolic",
@@ -44,11 +43,11 @@ class CounterApplet extends Applet<CounterState> {
           subtitle: `Value: ${state.count}`,
         }),
         new Text(`Count = ${state.count}`),
-        new Button({
+        new Tile({
           id: "increment",
-          label: "Increment",
-          icon: "list-add-symbolic",
-          variant: "primary",
+          primary: "Increment",
+          left_icon: "list-add-symbolic",
+          activatable: true,
         }),
       ],
     });

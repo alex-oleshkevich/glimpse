@@ -58,7 +58,7 @@ func (a *demoApplet) Popover(_ context.Context, state *demoState) (Widget, error
 		Children: []Widget{
 			Hero{Title: "Demo", Subtitle: state.Version},
 			Text{Text: state.Version},
-			Button{ID: "submit", Label: "Submit"},
+			Tile{ID: "submit", Primary: "Submit", Activatable: true},
 		},
 	}, nil
 }
@@ -91,32 +91,32 @@ func TestParseCallbackEventReturnsTypedPopoverVariant(t *testing.T) {
 	}
 }
 
-func TestSelectSerializesItems(t *testing.T) {
-	widget := Select{
-		ID:    "env",
-		Items: []map[string]string{{"id": "prod", "label": "Production"}},
+func TestChoiceListSerializesChoices(t *testing.T) {
+	widget := ChoiceList{
+		ID:      "env",
+		Choices: []Choice{{ID: "prod", Primary: "Production"}},
 	}
 	payload, err := json.Marshal(widget)
 	if err != nil {
-		t.Fatalf("marshal select: %v", err)
+		t.Fatalf("marshal choice list: %v", err)
 	}
 	var decoded map[string]any
 	if err := json.Unmarshal(payload, &decoded); err != nil {
-		t.Fatalf("unmarshal select: %v", err)
+		t.Fatalf("unmarshal choice list: %v", err)
 	}
-	if decoded["type"] != "select" {
-		t.Fatalf("expected select type, got %v", decoded["type"])
+	if decoded["type"] != "choice_list" {
+		t.Fatalf("expected choice_list type, got %v", decoded["type"])
 	}
 }
 
 func TestVariantSerializesAsSemanticProtocolValue(t *testing.T) {
-	widget := Badge{Label: "Warning", Variant: VariantWarning}
+	widget := Badge{Label: "Warning", Kind: BadgeKindWarning}
 	payload, err := json.Marshal(widget)
 	if err != nil {
 		t.Fatalf("marshal badge: %v", err)
 	}
-	if !strings.Contains(string(payload), `"variant":"warning"`) {
-		t.Fatalf("expected warning variant, got %s", payload)
+	if !strings.Contains(string(payload), `"kind":"warning"`) {
+		t.Fatalf("expected warning kind, got %s", payload)
 	}
 }
 

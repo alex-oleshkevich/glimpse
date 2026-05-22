@@ -101,18 +101,10 @@ impl MouseButton {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct CommonProps {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hexpand: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub vexpand: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub halign: Option<AlignValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub valign: Option<AlignValue>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tooltip: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -123,140 +115,23 @@ pub struct CommonProps {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Variant {
-    Normal,
-    Muted,
-    Accent,
-    Success,
-    Warning,
-    Danger,
+pub enum SpaceValue {
+    S1,
+    S2,
+    S3,
+    S4,
+    S5,
+    S6,
+    S7,
+    S8,
+    S9,
+    S10,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ButtonVariant {
-    Primary,
-    Secondary,
-    Compact,
-    #[default]
-    Flat,
-    Danger,
-}
-
-impl Variant {
-    pub fn class_name(self) -> Option<&'static str> {
-        match self {
-            Self::Normal => None,
-            Self::Muted => Some("is-muted"),
-            Self::Accent => Some("is-accent"),
-            Self::Success => Some("is-success"),
-            Self::Warning => Some("is-warning"),
-            Self::Danger => Some("is-danger"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum StatusVariant {
-    Success,
-    Warning,
-    Danger,
-}
-
-impl StatusVariant {
-    pub fn class_name(self) -> &'static str {
-        match self {
-            Self::Success => "is-success",
-            Self::Warning => "is-warning",
-            Self::Danger => "is-danger",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AlignValue {
-    Fill,
-    Start,
-    End,
-    Center,
-    Baseline,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum OrientationValue {
-    Horizontal,
-    Vertical,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct HeroNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
-    pub title: String,
-    #[serde(default)]
-    pub subtitle: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub icon: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub switch: Option<bool>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct LayoutNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default)]
-    pub spacing: i32,
-    #[serde(default)]
-    pub children: Vec<TreeNode>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CardNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub child: Option<Box<TreeNode>>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SpaceValue {
-    None,
-    Xxs,
-    Xs,
-    Sm,
-    Md,
-    Lg,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ColorValue {
-    Bg,
-    Fg,
-    Surface,
-    SurfaceRaised,
-    Border,
-    MutedFg,
-    Accent,
-    AccentFg,
-    Success,
-    SuccessFg,
-    Warning,
-    WarningFg,
-    Danger,
-    DangerFg,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum RadiusValue {
+    #[default]
     None,
     Sm,
     Md,
@@ -264,13 +139,20 @@ pub enum RadiusValue {
     Pill,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContainerBgValue {
+    #[default]
+    None,
+    Surface,
+    Raised,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FontSizeValue {
-    Xxs,
     Xs,
     Sm,
-    Md,
     Base,
     Lg,
     Xl,
@@ -287,158 +169,39 @@ pub enum FontWeightValue {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum BorderWidthValue {
-    None,
-    Thin,
-    Medium,
-    Thick,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TextAlignValue {
-    Left,
-    Center,
-    Right,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ContainerNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub child: Option<Box<TreeNode>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub width: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub height: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub min_width: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub min_height: Option<i32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub margin: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub margin_top: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub margin_right: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub margin_bottom: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub margin_left: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub padding: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub padding_top: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub padding_right: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub padding_bottom: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub padding_left: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub background: Option<ColorValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub color: Option<ColorValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub border_radius: Option<RadiusValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub border_width: Option<BorderWidthValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub border_color: Option<ColorValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub font_size: Option<FontSizeValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub font_weight: Option<FontWeightValue>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct SectionNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default)]
-    pub title: String,
-    #[serde(default)]
-    pub subtitle: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub child: Option<Box<TreeNode>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PropertyListItem {
-    pub key: String,
-    pub value: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct PropertyListNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default)]
-    pub title: String,
-    #[serde(default)]
-    pub rows: Vec<PropertyListItem>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ItemNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default)]
-    pub left: Option<Box<TreeNode>>,
-    #[serde(default)]
-    pub label: String,
-    #[serde(default)]
-    pub sublabel: String,
-    #[serde(default)]
-    pub right: Option<Box<TreeNode>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ActionItemNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub id: String,
-    #[serde(default)]
-    pub left: Option<Box<TreeNode>>,
-    #[serde(default)]
-    pub label: String,
-    #[serde(default)]
-    pub sublabel: String,
-    #[serde(default)]
-    pub right: Option<Box<TreeNode>>,
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct EmptyStateNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub title: String,
-    #[serde(default)]
-    pub subtitle: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct BadgeNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub label: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub variant: Option<Variant>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct StatusNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub variant: Option<StatusVariant>,
+pub enum TextColorValue {
+    Normal,
+    Muted,
+    Accent,
+    Success,
+    Warning,
+    Error,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
+pub enum BadgeKindValue {
+    #[default]
+    Default,
+    Success,
+    Warning,
+    Error,
+    Accent,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StatusDotStatusValue {
+    #[default]
+    Neutral,
+    Success,
+    Warning,
+    Error,
+    Accent,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PagerAppearanceValue {
     #[default]
     Dots,
@@ -447,32 +210,404 @@ pub enum PagerAppearanceValue {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ContentFitValue {
-    Fill,
+pub enum PopoverSizeValue {
+    Small,
     #[default]
-    Contain,
-    Cover,
-    ScaleDown,
+    Medium,
+    Large,
+    Wide,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum LevelBarModeValue {
-    #[default]
-    Continuous,
-    Discrete,
+impl PopoverSizeValue {
+    pub fn class_name(self) -> &'static str {
+        match self {
+            Self::Small => "popover-size-small",
+            Self::Medium => "popover-size-medium",
+            Self::Large => "popover-size-large",
+            Self::Wide => "popover-size-wide",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TextNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<FontSizeValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weight: Option<FontWeightValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<TextColorValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub xalign: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wrap: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HeaderNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HeroNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub title: String,
+    #[serde(default)]
+    pub subtitle: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon_size: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub toggle: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub toggle_sensitive: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub separator: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trailing: Option<Box<TreeNode>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BadgeNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub label: String,
+    #[serde(default)]
+    pub kind: BadgeKindValue,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct StatusDotNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default)]
+    pub status: StatusDotStatusValue,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PanelIndicatorNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(default)]
+    pub active: bool,
+    #[serde(default)]
+    pub checked: bool,
+    #[serde(default)]
+    pub needs_attention: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extra: Option<Box<TreeNode>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EmptyStateNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subtitle: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SpinnerNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default = "default_true")]
+    pub spinning: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MeterNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub value: f64,
+    #[serde(default)]
+    pub min: f64,
+    #[serde(default = "default_meter_max")]
+    pub max: f64,
+    #[serde(default = "default_meter_step")]
+    pub step: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(default)]
+    pub interactive: bool,
+}
+
+fn default_meter_max() -> f64 {
+    1.0
+}
+
+fn default_meter_step() -> f64 {
+    0.01
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SeparatorNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ScrollNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub child: Box<TreeNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChildrenNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default)]
+    pub children: Vec<TreeNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContainerNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default)]
+    pub children: Vec<TreeNode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding_x: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding_y: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub margin: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub margin_x: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub margin_y: Option<SpaceValue>,
+    #[serde(default)]
+    pub radius: RadiusValue,
+    #[serde(default)]
+    pub bg: ContainerBgValue,
+    #[serde(default)]
+    pub border_width: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_width: Option<SpaceValue>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_height: Option<SpaceValue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PopoverShellNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default)]
+    pub size: PopoverSizeValue,
+    #[serde(default)]
+    pub children: Vec<TreeNode>,
+    #[serde(default)]
+    pub footer: Vec<TreeNode>,
+    #[serde(default)]
+    pub footer_visible: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TileNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub primary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secondary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left: Option<Box<TreeNode>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub right: Option<Box<TreeNode>>,
+    #[serde(default)]
+    pub activatable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SegmentedTileNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub primary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secondary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left: Option<Box<TreeNode>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub right: Option<Box<TreeNode>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub child: Option<Box<TreeNode>>,
+    #[serde(default)]
+    pub expanded: bool,
+    #[serde(default)]
+    pub activatable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SwitchTileNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub id: String,
+    pub primary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secondary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left: Option<Box<TreeNode>>,
+    #[serde(default)]
+    pub active: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExpanderTileNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub primary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secondary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left: Option<Box<TreeNode>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub child: Option<Box<TreeNode>>,
+    #[serde(default)]
+    pub expanded: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SliderTileNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left: Option<Box<TreeNode>>,
+    #[serde(default)]
+    pub value: f64,
+    #[serde(default)]
+    pub min: f64,
+    #[serde(default = "default_slider_max")]
+    pub max: f64,
+    #[serde(default = "default_slider_step")]
+    pub step: f64,
+    #[serde(default = "default_slider_page")]
+    pub page: f64,
+    #[serde(default)]
+    pub digits: i32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snap_step: Option<f64>,
+}
+
+fn default_slider_max() -> f64 {
+    1.0
+}
+
+fn default_slider_step() -> f64 {
+    0.01
+}
+
+fn default_slider_page() -> f64 {
+    0.1
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChoiceTileNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub primary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secondary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_icon: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left: Option<Box<TreeNode>>,
+    #[serde(default)]
+    pub selected: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChoiceListChoice {
+    pub id: String,
+    pub primary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secondary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChoiceListNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active: Option<String>,
+    #[serde(default)]
+    pub choices: Vec<ChoiceListChoice>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeyValueRow {
+    pub key: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyValueGridNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default)]
+    pub rows: Vec<KeyValueRow>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PagerItemNode {
     #[serde(flatten)]
     pub common: CommonProps,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
-    #[serde(default)]
-    pub appearance: PagerAppearanceValue,
+    pub id: u64,
     #[serde(default)]
     pub label: String,
+    #[serde(default)]
+    pub appearance: PagerAppearanceValue,
     #[serde(default)]
     pub active: bool,
     #[serde(default)]
@@ -490,370 +625,196 @@ pub struct PagerStripNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
     #[serde(default)]
+    pub placeholder: bool,
+    #[serde(default)]
     pub items: Vec<PagerItemNode>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct MeterNode {
+pub struct ActiveIndicatorNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default)]
+    pub active: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ScreenCastIndicatorNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    #[serde(default)]
+    pub active: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timer_text: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CalendarNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub icon: Option<String>,
+    pub selected_date: String,
     #[serde(default)]
-    pub label: String,
-    pub value: f64,
-    #[serde(default)]
-    pub min: f64,
-    #[serde(default = "default_progress_max")]
-    pub max: f64,
-    #[serde(default = "default_meter_step")]
-    pub step: f64,
-    #[serde(default)]
-    pub text: Option<String>,
-    #[serde(default)]
-    pub interactive: bool,
-}
-
-fn default_meter_step() -> f64 {
-    0.01
+    pub event_days: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CopyableNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default)]
-    pub label: String,
-    pub value: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct SpinnerNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    #[serde(default = "default_true")]
-    pub spinning: bool,
-}
-
-fn default_true() -> bool {
-    true
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct LabelNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub text: String,
-    #[serde(default)]
-    pub wrap: bool,
-    #[serde(default)]
-    pub xalign: Option<f32>,
-    #[serde(default)]
-    pub selectable: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub variant: Option<Variant>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TextNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub color: Option<ColorValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub size: Option<FontSizeValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub weight: Option<FontWeightValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub align: Option<TextAlignValue>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct IconNode {
+pub struct BatteryHeroNode {
     #[serde(flatten)]
     pub common: CommonProps,
     pub icon: String,
-    #[serde(default)]
-    pub pixel_size: Option<i32>,
+    pub percentage: String,
+    pub fraction: f64,
+    pub state: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct PictureNode {
+pub struct DateHeroNode {
     #[serde(flatten)]
     pub common: CommonProps,
-    pub path: String,
-    #[serde(default)]
-    pub content_fit: ContentFitValue,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ButtonNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub id: String,
-    #[serde(default)]
-    pub label: Option<String>,
-    #[serde(default)]
-    pub icon: Option<String>,
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-    #[serde(default)]
-    pub variant: ButtonVariant,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct LinkButtonNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub uri: String,
-    #[serde(default)]
-    pub label: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ExpanderNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub label: String,
-    #[serde(default)]
-    pub expanded: bool,
-    pub child: Box<TreeNode>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct SwitchNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub id: String,
-    #[serde(default)]
-    pub label: Option<String>,
-    #[serde(default)]
-    pub active: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ToggleButtonNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub id: String,
-    #[serde(default)]
-    pub label: Option<String>,
-    #[serde(default)]
-    pub icon: Option<String>,
-    #[serde(default)]
-    pub active: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CheckboxNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub id: String,
-    #[serde(default)]
-    pub label: Option<String>,
-    #[serde(default)]
-    pub active: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct SliderNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub id: String,
-    pub min: f64,
-    pub max: f64,
-    pub step: f64,
-    pub value: f64,
-    #[serde(default)]
-    pub orientation: Option<OrientationValue>,
-    #[serde(default)]
-    pub draw_value: bool,
+    pub weekday: String,
+    pub date: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SelectOption {
+pub struct EventItemNode {
     pub id: String,
-    pub label: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct SelectNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub id: String,
+    pub title: String,
+    pub start: String,
     #[serde(default)]
-    pub items: Vec<SelectOption>,
-    #[serde(default)]
-    pub selected: Option<u32>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ProgressNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub value: f64,
-    #[serde(default = "default_progress_max")]
-    pub max: f64,
-    #[serde(default)]
-    pub show_text: bool,
-    #[serde(default)]
-    pub text: Option<String>,
-}
-
-fn default_progress_max() -> f64 {
-    1.0
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct LevelBarNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub value: f64,
-    #[serde(default)]
-    pub min: f64,
-    #[serde(default = "default_level_bar_max")]
-    pub max: f64,
-    #[serde(default)]
-    pub mode: LevelBarModeValue,
-}
-
-fn default_level_bar_max() -> f64 {
-    1.0
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PopoverSizeValue {
-    Small,
-    #[default]
-    Medium,
-    Large,
-    XLarge,
-}
-
-impl PopoverSizeValue {
-    pub fn class_name(self) -> &'static str {
-        match self {
-            Self::Small => "popover-size-small",
-            Self::Medium => "popover-size-medium",
-            Self::Large => "popover-size-large",
-            Self::XLarge => "popover-size-xlarge",
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct PopoverScaffoldNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
+    pub end: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hero: Option<Box<TreeNode>>,
-    pub body: Box<TreeNode>,
+    pub location: Option<String>,
     #[serde(default)]
-    pub size: PopoverSizeValue,
+    pub all_day: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct SeparatorNode {
+pub struct EventsNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub date: String,
+    #[serde(default)]
+    pub events: Vec<EventItemNode>,
+    #[serde(default)]
+    pub loading: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WeatherForecastItemNode {
+    pub day_name: String,
+    pub icon: String,
+    pub condition: String,
+    pub temperatures: String,
+    #[serde(default)]
+    pub is_today: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WeatherForecastListNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default)]
-    pub orientation: Option<OrientationValue>,
+    pub items: Vec<WeatherForecastItemNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WeatherHourlyItemNode {
+    pub time: String,
+    pub icon: String,
+    pub temperature: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ScrollNode {
-    #[serde(flatten)]
-    pub common: CommonProps,
-    pub child: Box<TreeNode>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct GridChildNode {
-    pub row: i32,
-    pub column: i32,
-    #[serde(default = "default_grid_span")]
-    pub width: i32,
-    #[serde(default = "default_grid_span")]
-    pub height: i32,
-    pub child: TreeNode,
-}
-
-fn default_grid_span() -> i32 {
-    1
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct GridNode {
+pub struct WeatherHourlyStripNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default)]
-    pub row_spacing: i32,
+    pub items: Vec<WeatherHourlyItemNode>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorldClockRowNode {
+    pub name: String,
+    pub timezone: String,
+    pub time: String,
+    pub offset: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub day_label: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorldClockNode {
+    #[serde(flatten)]
+    pub common: CommonProps,
     #[serde(default)]
-    pub column_spacing: i32,
-    #[serde(default)]
-    pub children: Vec<GridChildNode>,
+    pub rows: Vec<WorldClockRowNode>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum TreeNode {
-    Hero(HeroNode),
-    Card(CardNode),
+    Row(ChildrenNode),
+    Column(ChildrenNode),
     Container(ContainerNode),
-    Section(SectionNode),
-    Meter(MeterNode),
-    Copyable(CopyableNode),
-    Column(LayoutNode),
-    Row(LayoutNode),
-    PropertyList(PropertyListNode),
-    Item(ItemNode),
-    ActionItem(ActionItemNode),
-    EmptyState(EmptyStateNode),
+    BoxedList(ChildrenNode),
+    PopoverShell(PopoverShellNode),
+    Text(TextNode),
+    Header(HeaderNode),
+    Hero(HeroNode),
     Badge(BadgeNode),
-    Status(StatusNode),
+    StatusDot(StatusDotNode),
+    PanelIndicator(PanelIndicatorNode),
+    EmptyState(EmptyStateNode),
+    Spinner(SpinnerNode),
+    Meter(MeterNode),
+    Separator(SeparatorNode),
+    Scroll(ScrollNode),
+    Tile(TileNode),
+    SegmentedTile(SegmentedTileNode),
+    ButtonRow(ChildrenNode),
+    SwitchTile(SwitchTileNode),
+    ExpanderTile(ExpanderTileNode),
+    SliderTile(SliderTileNode),
+    ChoiceTile(ChoiceTileNode),
+    ChoiceList(ChoiceListNode),
+    KeyValueGrid(KeyValueGridNode),
     PagerItem(PagerItemNode),
     PagerStrip(PagerStripNode),
-    Spinner(SpinnerNode),
-    Grid(GridNode),
-    Scroll(ScrollNode),
-    LevelBar(LevelBarNode),
-    Progress(ProgressNode),
-    Separator(SeparatorNode),
-    Label(LabelNode),
-    Text(TextNode),
-    Icon(IconNode),
-    Picture(PictureNode),
-    Button(ButtonNode),
-    LinkButton(LinkButtonNode),
-    Expander(ExpanderNode),
-    Switch(SwitchNode),
-    ToggleButton(ToggleButtonNode),
-    Checkbox(CheckboxNode),
-    Slider(SliderNode),
-    Select(SelectNode),
-    PopoverScaffold(PopoverScaffoldNode),
+    CameraIndicator(ActiveIndicatorNode),
+    MicIndicator(ActiveIndicatorNode),
+    MutedIndicator(ActiveIndicatorNode),
+    #[serde(rename = "screencast_indicator")]
+    ScreenCastIndicator(ScreenCastIndicatorNode),
+    LocationIndicator(ActiveIndicatorNode),
+    Calendar(CalendarNode),
+    BatteryHero(BatteryHeroNode),
+    DateHero(DateHeroNode),
+    Events(EventsNode),
+    WeatherForecastList(WeatherForecastListNode),
+    WeatherHourlyStrip(WeatherHourlyStripNode),
+    WorldClock(WorldClockNode),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProtocolError {
-    MissingCommand,
+    EmptyLine,
     MissingPayload { command: String },
-    UnknownCommand { command: String },
+    UnknownCommand(String),
     InvalidJson { command: String, message: String },
 }
 
 impl fmt::Display for ProtocolError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::MissingCommand => write!(f, "missing command"),
-            Self::MissingPayload { command } => write!(f, "{command}: missing JSON payload"),
-            Self::UnknownCommand { command } => write!(f, "unknown exec command {command}"),
+            Self::EmptyLine => write!(f, "empty protocol line"),
+            Self::MissingPayload { command } => {
+                write!(f, "{command} command requires JSON payload")
+            }
+            Self::UnknownCommand(command) => write!(f, "unknown exec protocol command: {command}"),
             Self::InvalidJson { command, message } => {
-                write!(f, "{command}: invalid JSON payload: {message}")
+                write!(f, "invalid JSON payload for {command}: {message}")
             }
         }
     }
@@ -864,50 +825,55 @@ impl std::error::Error for ProtocolError {}
 pub fn parse_child_line(line: &str) -> Result<ChildCommand, ProtocolError> {
     let line = line.trim();
     if line.is_empty() {
-        return Err(ProtocolError::MissingCommand);
+        return Err(ProtocolError::EmptyLine);
     }
 
-    let command_word = line.split_ascii_whitespace().next().unwrap_or("");
-    if command_word == "close_popover" {
+    if let Some(class) = line.strip_prefix("class ") {
+        return Ok(ChildCommand::Class(class.trim().to_string()));
+    }
+
+    if line == "close-popover" {
         return Ok(ChildCommand::ClosePopover);
     }
 
     let (command, payload) = split_line(line)?;
     match command {
-        "status" => decode_payload(command, payload).map(ChildCommand::Status),
-        "popover" => decode_payload(command, payload).map(ChildCommand::Popover),
-        "class" => Ok(ChildCommand::Class(payload.to_owned())),
-        other => Err(ProtocolError::UnknownCommand {
-            command: other.into(),
-        }),
+        "status" => Ok(ChildCommand::Status(decode_payload(command, payload)?)),
+        "popover" => Ok(ChildCommand::Popover(decode_payload(command, payload)?)),
+        other => Err(ProtocolError::UnknownCommand(other.to_string())),
     }
 }
 
 pub fn encode_panel_command(command: &PanelCommand) -> String {
-    let (name, payload) = match command {
-        PanelCommand::Init(payload) => (
-            "init",
-            serde_json::to_string(payload).expect("init payload should serialize"),
-        ),
-        PanelCommand::Event(payload) => (
-            "event",
-            serde_json::to_string(payload).expect("event payload should serialize"),
-        ),
-    };
-    format!("{name} {payload}")
+    match command {
+        PanelCommand::Init(payload) => {
+            format!(
+                "init {}",
+                serde_json::to_string(payload).expect("init payload should serialize")
+            )
+        }
+        PanelCommand::Event(payload) => {
+            format!(
+                "event {}",
+                serde_json::to_string(payload).expect("event payload should serialize")
+            )
+        }
+    }
 }
 
 fn split_line(line: &str) -> Result<(&str, &str), ProtocolError> {
-    let mut parts = line.splitn(2, char::is_whitespace);
-    let command = parts.next().filter(|command| !command.is_empty());
-    let payload = parts.next().map(str::trim_start);
-    match (command, payload) {
-        (Some(command), Some(payload)) if !payload.is_empty() => Ok((command, payload)),
-        (Some(command), _) => Err(ProtocolError::MissingPayload {
-            command: command.into(),
-        }),
-        _ => Err(ProtocolError::MissingCommand),
+    let Some((command, payload)) = line.split_once(' ') else {
+        return Err(ProtocolError::MissingPayload {
+            command: line.to_string(),
+        });
+    };
+    let payload = payload.trim();
+    if payload.is_empty() {
+        return Err(ProtocolError::MissingPayload {
+            command: command.to_string(),
+        });
     }
+    Ok((command, payload))
 }
 
 fn decode_payload<'de, T>(command: &str, payload: &'de str) -> Result<T, ProtocolError>
@@ -945,203 +911,28 @@ mod tests {
     }
 
     #[test]
-    fn parses_popover_line_with_root_node() {
+    fn parses_shared_widget_popover_line() {
         let command = parse_child_line(
-            r#"popover {"root":{"type":"section","data":{"title":"System","children":[{"type":"button","data":{"id":"refresh","label":"Refresh"}}]}}}"#,
+            r#"popover {"root":{"type":"popover_shell","data":{"children":[{"type":"tile","data":{"id":"wifi","primary":"Wi-Fi","activatable":true}}]}}}"#,
         )
         .expect("popover line should parse");
 
         assert!(matches!(
             command,
             ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::Section(_))
+                root: Some(TreeNode::PopoverShell(_))
             })
         ));
     }
 
     #[test]
-    fn parses_layer_two_nodes() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"section","data":{"title":"System","children":[{"type":"row","data":{"children":[{"type":"label","data":{"text":"Wi-Fi"}},{"type":"badge","data":{"label":"on"}}]}},{"type":"section","data":{"title":"Details","subtitle":"More","children":[{"type":"meter","data":{"id":"volume","label":"Volume","value":0.5,"interactive":true}},{"type":"copyable","data":{"label":"ID","value":"device-42"}},{"type":"button","data":{"id":"refresh","label":"Refresh","variant":"primary"}}]}}]}}}"#,
-        )
-        .expect("layer two nodes should parse");
-
-        assert!(matches!(
-            command,
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::Section(_))
-            })
-        ));
-    }
-
-    #[test]
-    fn parses_item_node_with_left_and_right_slots() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"item","data":{"left":{"type":"icon","data":{"icon":"network-wireless-symbolic","pixel_size":16}},"label":"Wi-Fi","sublabel":"Connected","right":{"type":"badge","data":{"label":"home-5G"}}}}}"#,
-        )
-        .expect("item node should parse");
-
-        match command {
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::Item(item)),
-            }) => {
-                assert!(matches!(item.left.as_deref(), Some(TreeNode::Icon(_))));
-                assert_eq!(item.label, "Wi-Fi");
-                assert_eq!(item.sublabel, "Connected");
-                assert!(matches!(item.right.as_deref(), Some(TreeNode::Badge(_))));
-            }
-            other => panic!("expected item popover, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parses_action_item_node_with_left_and_right_slots() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"action_item","data":{"id":"wifi","left":{"type":"icon","data":{"icon":"network-wireless-symbolic","pixel_size":16}},"label":"Wi-Fi","sublabel":"Connected","right":{"type":"badge","data":{"label":"home-5G"}}}}}"#,
-        )
-        .expect("action item node should parse");
-
-        match command {
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::ActionItem(item)),
-            }) => {
-                assert_eq!(item.id.as_str(), "wifi");
-                assert!(matches!(item.left.as_deref(), Some(TreeNode::Icon(_))));
-                assert_eq!(item.label, "Wi-Fi");
-                assert_eq!(item.sublabel, "Connected");
-                assert!(matches!(item.right.as_deref(), Some(TreeNode::Badge(_))));
-            }
-            other => panic!("expected action item popover, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parses_picture_node() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"picture","data":{"path":"/home/me/photo.png","content_fit":"cover"}}}"#,
-        )
-        .expect("picture node should parse");
-
-        match command {
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::Picture(picture)),
-            }) => {
-                assert_eq!(picture.path, "/home/me/photo.png");
-                assert_eq!(picture.content_fit, ContentFitValue::Cover);
-            }
-            other => panic!("expected picture popover, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parses_toggle_button_node() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"toggle_button","data":{"id":"wifi","label":"Wi-Fi","active":true}}}"#,
-        )
-        .expect("toggle button node should parse");
-
-        match command {
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::ToggleButton(toggle)),
-            }) => {
-                assert_eq!(toggle.id.as_str(), "wifi");
-                assert_eq!(toggle.label.as_deref(), Some("Wi-Fi"));
-                assert!(toggle.active);
-            }
-            other => panic!("expected toggle button popover, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parses_link_button_node() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"link_button","data":{"uri":"https://example.com/docs","label":"Docs"}}}"#,
-        )
-        .expect("link button node should parse");
-
-        match command {
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::LinkButton(link)),
-            }) => {
-                assert_eq!(link.uri, "https://example.com/docs");
-                assert_eq!(link.label.as_deref(), Some("Docs"));
-            }
-            other => panic!("expected link button popover, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parses_expander_node() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"expander","data":{"label":"Details","expanded":true,"child":{"type":"label","data":{"text":"More"}}}}}"#,
-        )
-        .expect("expander node should parse");
-
-        match command {
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::Expander(expander)),
-            }) => {
-                assert_eq!(expander.label, "Details");
-                assert!(expander.expanded);
-                assert!(matches!(expander.child.as_ref(), TreeNode::Label(_)));
-            }
-            other => panic!("expected expander popover, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parses_level_bar_node() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"level_bar","data":{"value":0.7,"min":0.0,"max":1.0,"mode":"continuous"}}}"#,
-        )
-        .expect("level bar node should parse");
-
-        match command {
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::LevelBar(level_bar)),
-            }) => {
-                assert_eq!(level_bar.value, 0.7);
-                assert_eq!(level_bar.min, 0.0);
-                assert_eq!(level_bar.max, 1.0);
-                assert_eq!(level_bar.mode, LevelBarModeValue::Continuous);
-            }
-            other => panic!("expected level bar popover, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn rejects_text_entry_nodes() {
+    fn rejects_removed_legacy_widget_nodes() {
         let error = parse_child_line(
-            r#"popover {"root":{"type":"entry","data":{"id":"name","text":"bad"}}}"#,
+            r#"popover {"root":{"type":"button","data":{"id":"refresh","label":"Refresh"}}}"#,
         )
-        .expect_err("text entry nodes should be unsupported");
+        .expect_err("legacy button nodes should be unsupported");
 
         assert!(error.to_string().contains("popover"));
-    }
-
-    #[test]
-    fn rejects_collapsible_nodes() {
-        let error = parse_child_line(
-            r#"popover {"root":{"type":"collapsible","data":{"title":"Details","expanded":false,"body":[]}}}"#,
-        )
-        .expect_err("collapsible nodes should be unsupported");
-
-        assert!(error.to_string().contains("popover"));
-    }
-
-    #[test]
-    fn parses_popover_scaffold_node() {
-        let command = parse_child_line(
-            r#"popover {"root":{"type":"popover_scaffold","data":{"body":{"type":"label","data":{"text":"Content"}},"hero":{"type":"hero","data":{"title":"VPN","subtitle":"Connected"}},"size":"large"}}}"#,
-        )
-        .expect("popover_scaffold line should parse");
-
-        assert!(matches!(
-            command,
-            ChildCommand::Popover(PopoverPayload {
-                root: Some(TreeNode::PopoverScaffold(_))
-            })
-        ));
     }
 
     #[test]
@@ -1172,19 +963,6 @@ mod tests {
             })),
             r#"event {"id":"refresh","type":"click","source":"popover","button":"left"}"#
                 .to_string()
-        );
-
-        assert_eq!(
-            encode_panel_command(&PanelCommand::Event(EventPayload {
-                id: "popover".into(),
-                kind: EventKind::Open,
-                source: EventSource::Popover,
-                button: None,
-                active: None,
-                value: None,
-                delta_y: None,
-            })),
-            r#"event {"id":"popover","type":"open","source":"popover"}"#.to_string()
         );
     }
 }

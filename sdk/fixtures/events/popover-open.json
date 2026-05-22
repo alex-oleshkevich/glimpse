@@ -5,7 +5,8 @@
     "type": "open"
   },
   "parsed": {
-    "kind": "popover",
+    "event": "open",
+    "id": "popover",
     "open": true
   }
 }

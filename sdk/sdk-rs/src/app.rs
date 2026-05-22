@@ -11,8 +11,8 @@ use tokio::{
 use crate::{
     AppletResult,
     events::{
-        CallbackEvent, InitEvent, InputEvent, PopoverEvent, ScrollEvent,
-        parse_callback_event, parse_incoming_line, parse_init_event,
+        CallbackEvent, InitEvent, InputEvent, PopoverEvent, ScrollEvent, parse_callback_event,
+        parse_incoming_line, parse_init_event,
     },
     protocol::StatusItem,
     widgets::TreeNode,
@@ -30,11 +30,7 @@ pub trait Applet: Send + Sync {
     }
 
     /// Called when a widget emits a message. All state mutation lives here.
-    async fn update(
-        &mut self,
-        _state: &mut Self::State,
-        _msg: Self::Msg,
-    ) -> AppletResult<()> {
+    async fn update(&mut self, _state: &mut Self::State, _msg: Self::Msg) -> AppletResult<()> {
         Ok(())
     }
 
@@ -136,7 +132,10 @@ pub async fn run_command(command: &[&str]) -> AppletResult<CommandResult> {
     if command.is_empty() {
         return Err("command must not be empty".into());
     }
-    let output = Command::new(command[0]).args(&command[1..]).output().await?;
+    let output = Command::new(command[0])
+        .args(&command[1..])
+        .output()
+        .await?;
     Ok(CommandResult {
         stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
         stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
@@ -223,10 +222,7 @@ impl<Msg> LastSeen<Msg> {
 struct MsgMap<Msg> {
     click: HashMap<String, Msg>,
     toggle: HashMap<String, std::sync::Arc<dyn Fn(bool) -> Msg + Send + Sync>>,
-    change: HashMap<
-        String,
-        std::sync::Arc<dyn Fn(Option<serde_json::Value>) -> Msg + Send + Sync>,
-    >,
+    change: HashMap<String, std::sync::Arc<dyn Fn(Option<serde_json::Value>) -> Msg + Send + Sync>>,
     status_ids: std::collections::HashSet<String>,
 }
 
@@ -241,70 +237,158 @@ impl<Msg> MsgMap<Msg> {
     }
 }
 
-fn collect_messages<Msg: Clone>(tree: &TreeNode<Msg>, map: &mut MsgMap<Msg>) {
+fn collect_messages<Msg: Clone + 'static>(tree: &TreeNode<Msg>, map: &mut MsgMap<Msg>) {
     use crate::widgets::TreeNode::*;
     match tree {
-        Button(btn) => {
-            if let Some(msg) = &btn.on_click {
-                map.click.insert(btn.id.clone(), msg.clone());
-            }
-        }
-        ActionItem(item) => {
-            if let Some(msg) = &item.on_click {
-                map.click.insert(item.id.clone(), msg.clone());
-            }
-            if let Some(left) = &item.left {
-                collect_messages(left, map);
-            }
-            if let Some(right) = &item.right {
-                collect_messages(right, map);
-            }
-        }
-        Switch(sw) => {
-            if let Some(mapper) = &sw.on_toggle {
-                map.toggle
-                    .insert(sw.id.clone(), std::sync::Arc::clone(&mapper.0));
-            }
-        }
-        ToggleButton(tb) => {
-            if let Some(mapper) = &tb.on_toggle {
-                map.toggle
-                    .insert(tb.id.clone(), std::sync::Arc::clone(&mapper.0));
-            }
-        }
-        Checkbox(cb) => {
-            if let Some(mapper) = &cb.on_toggle {
-                map.toggle
-                    .insert(cb.id.clone(), std::sync::Arc::clone(&mapper.0));
-            }
-        }
         Hero(hero) => {
             if let Some(mapper) = &hero.on_toggle {
-                debug_assert!(
-                    hero.id.is_some(),
-                    "Hero has on_toggle but no id — handler will never fire"
-                );
                 if let Some(id) = &hero.id {
                     map.toggle
                         .insert(id.clone(), std::sync::Arc::clone(&mapper.0));
                 }
             }
-        }
-        Slider(sl) => {
-            if let Some(mapper) = &sl.on_change {
-                map.change
-                    .insert(sl.id.clone(), std::sync::Arc::clone(&mapper.0));
+            if let Some(trailing) = &hero.trailing {
+                collect_messages(trailing, map);
             }
         }
-        Select(sel) => {
-            if let Some(mapper) = &sel.on_change {
-                map.change
-                    .insert(sel.id.clone(), std::sync::Arc::clone(&mapper.0));
+        PanelIndicator(indicator) => {
+            if let (Some(id), Some(mapper)) = (&indicator.id, &indicator.on_click) {
+                map.click.insert(id.clone(), mapper.map(()));
+            }
+            if let Some(extra) = &indicator.extra {
+                collect_messages(extra, map);
             }
         }
-        Column(col) => {
-            for child in &col.children {
+        Tile(tile) => {
+            if let (Some(id), Some(mapper)) = (&tile.id, &tile.on_click) {
+                map.click.insert(id.clone(), mapper.map(()));
+            }
+            if let Some(left) = &tile.left {
+                collect_messages(left, map);
+            }
+            if let Some(right) = &tile.right {
+                collect_messages(right, map);
+            }
+        }
+        SegmentedTile(tile) => {
+            if let (Some(id), Some(mapper)) = (&tile.id, &tile.on_click) {
+                map.click.insert(id.clone(), mapper.map(()));
+            }
+            if let (Some(id), Some(mapper)) = (&tile.id, &tile.on_toggle) {
+                map.toggle
+                    .insert(id.clone(), std::sync::Arc::clone(&mapper.0));
+            }
+            if let Some(left) = &tile.left {
+                collect_messages(left, map);
+            }
+            if let Some(right) = &tile.right {
+                collect_messages(right, map);
+            }
+            if let Some(child) = &tile.child {
                 collect_messages(child, map);
+            }
+        }
+        SwitchTile(tile) => {
+            if let Some(mapper) = &tile.on_toggle {
+                map.toggle
+                    .insert(tile.id.clone(), std::sync::Arc::clone(&mapper.0));
+            }
+            if let Some(left) = &tile.left {
+                collect_messages(left, map);
+            }
+        }
+        ExpanderTile(tile) => {
+            if let (Some(id), Some(mapper)) = (&tile.id, &tile.on_toggle) {
+                map.toggle
+                    .insert(id.clone(), std::sync::Arc::clone(&mapper.0));
+            }
+            if let Some(left) = &tile.left {
+                collect_messages(left, map);
+            }
+            if let Some(child) = &tile.child {
+                collect_messages(child, map);
+            }
+        }
+        SliderTile(tile) => {
+            if let Some(mapper) = &tile.on_change {
+                let mapper = mapper.clone();
+                map.change.insert(
+                    tile.id.clone(),
+                    std::sync::Arc::new(move |value| {
+                        mapper.map(value.and_then(|v| v.as_f64()).unwrap_or_default())
+                    }),
+                );
+            }
+            if let Some(left) = &tile.left {
+                collect_messages(left, map);
+            }
+        }
+        Meter(meter) => {
+            if let (Some(id), Some(mapper)) = (&meter.id, &meter.on_change) {
+                let mapper = mapper.clone();
+                map.change.insert(
+                    id.clone(),
+                    std::sync::Arc::new(move |value| {
+                        mapper.map(value.and_then(|v| v.as_f64()).unwrap_or_default())
+                    }),
+                );
+            }
+        }
+        ChoiceTile(tile) => {
+            if let (Some(id), Some(mapper)) = (&tile.id, &tile.on_click) {
+                map.click.insert(id.clone(), mapper.map(()));
+            }
+            if let Some(left) = &tile.left {
+                collect_messages(left, map);
+            }
+        }
+        ChoiceList(list) => {
+            if let Some(mapper) = &list.on_change {
+                let mapper = mapper.clone();
+                map.change.insert(
+                    list.id.clone(),
+                    std::sync::Arc::new(move |value| {
+                        mapper.map(
+                            value
+                                .and_then(|v| v.as_str().map(ToOwned::to_owned))
+                                .unwrap_or_default(),
+                        )
+                    }),
+                );
+            }
+        }
+        PagerItem(item) => {
+            if let Some(mapper) = &item.on_click {
+                map.click.insert(item.id.to_string(), mapper.map(()));
+            }
+        }
+        PagerStrip(strip) => {
+            if let (Some(id), Some(mapper)) = (&strip.id, &strip.on_change) {
+                let mapper = mapper.clone();
+                map.change.insert(
+                    id.clone(),
+                    std::sync::Arc::new(move |value| {
+                        mapper.map(value.and_then(|v| v.as_u64()).unwrap_or_default())
+                    }),
+                );
+            }
+            for item in &strip.items {
+                collect_messages(&TreeNode::PagerItem(item.clone()), map);
+            }
+        }
+        Calendar(calendar) => {
+            if let (Some(id), Some(mapper)) = (&calendar.id, &calendar.on_change) {
+                let mapper = mapper.clone();
+                map.change.insert(
+                    id.clone(),
+                    std::sync::Arc::new(move |value| {
+                        mapper.map(
+                            value
+                                .and_then(|v| v.as_str().map(ToOwned::to_owned))
+                                .unwrap_or_default(),
+                        )
+                    }),
+                );
             }
         }
         Row(row) => {
@@ -312,40 +396,36 @@ fn collect_messages<Msg: Clone>(tree: &TreeNode<Msg>, map: &mut MsgMap<Msg>) {
                 collect_messages(child, map);
             }
         }
-        Grid(grid) => {
-            for gc in &grid.children {
-                collect_messages(&gc.child, map);
-            }
-        }
-        Card(card) => {
-            if let Some(child) = &card.child {
+        Column(col) => {
+            for child in &col.children {
                 collect_messages(child, map);
             }
         }
         Container(c) => {
-            if let Some(child) = &c.child {
+            for child in &c.children {
                 collect_messages(child, map);
             }
         }
-        Scroll(s) => {
-            collect_messages(&s.child, map);
-        }
-        Expander(e) => {
-            collect_messages(&e.child, map);
-        }
-        PopoverScaffold(ps) => {
-            if let Some(hero) = &ps.hero {
-                collect_messages(hero, map);
+        BoxedList(list) => {
+            for child in &list.children {
+                collect_messages(child, map);
             }
-            collect_messages(&ps.body, map);
         }
-        Item(item) => {
-            if let Some(left) = &item.left {
-                collect_messages(left, map);
+        ButtonRow(row) => {
+            for child in &row.children {
+                collect_messages(child, map);
             }
-            if let Some(right) = &item.right {
-                collect_messages(right, map);
+        }
+        PopoverShell(shell) => {
+            for child in &shell.children {
+                collect_messages(child, map);
             }
+            for child in &shell.footer {
+                collect_messages(child, map);
+            }
+        }
+        Scroll(scroll) => {
+            collect_messages(&scroll.child, map);
         }
         _ => {}
     }
@@ -515,7 +595,9 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::{Badge, Button, Column, StatusItem, Text, TreeNode};
+    use crate::{
+        Badge, BadgeKind, Choice, ChoiceList, Column, MsgMapper, StatusItem, Text, Tile, TreeNode,
+    };
 
     // A minimal Msg type for tests that need interaction.
     #[derive(Debug, Clone, PartialEq)]
@@ -544,22 +626,21 @@ mod tests {
             ])
         }
 
-        async fn popover(
-            &self,
-            state: &Self::State,
-        ) -> AppletResult<Option<TreeNode<Self::Msg>>> {
+        async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode<Self::Msg>>> {
             Ok(Some(TreeNode::from(Column::new(vec![
                 TreeNode::from(crate::Hero::new("Demo", state.version.clone())),
                 TreeNode::from(Text::new(state.version.clone())),
-                TreeNode::from(Button::new("submit").label("Submit").on_click(DemoMsg::Submit)),
+                {
+                    let mut tile = Tile::new("Submit");
+                    tile.id = Some("submit".into());
+                    tile.activatable = true;
+                    tile.on_click = Some(MsgMapper::new(|()| DemoMsg::Submit));
+                    TreeNode::from(tile)
+                },
             ]))))
         }
 
-        async fn update(
-            &mut self,
-            state: &mut Self::State,
-            msg: Self::Msg,
-        ) -> AppletResult<()> {
+        async fn update(&mut self, state: &mut Self::State, msg: Self::Msg) -> AppletResult<()> {
             if msg == DemoMsg::Submit {
                 state.clicks += 1;
                 state.version = "v2".into();
@@ -602,19 +683,28 @@ mod tests {
     }
 
     #[test]
-    fn select_tree_nodes_serialize() {
-        let node = crate::Select::<()>::new("env", vec![("prod".into(), "Production".into())]);
+    fn choice_list_tree_nodes_serialize() {
+        let mut node = ChoiceList::<()>::new(
+            "env",
+            vec![Choice {
+                id: "prod".into(),
+                primary: "Production".into(),
+                secondary: None,
+                icon: None,
+            }],
+        );
+        node.active = Some("prod".into());
         let payload =
             serde_json::to_value(TreeNode::<()>::from(node)).expect("tree should serialize");
-        assert_eq!(payload["type"], "select");
-        assert_eq!(payload["data"]["items"][0]["id"], "prod");
+        assert_eq!(payload["type"], "choice_list");
+        assert_eq!(payload["data"]["choices"][0]["id"], "prod");
     }
 
     #[test]
     fn status_dot_serializes_as_status_protocol_name() {
         let payload = serde_json::to_value(TreeNode::<()>::from(crate::StatusDot::new()))
             .expect("status dot serializes");
-        assert_eq!(payload["type"], "status");
+        assert_eq!(payload["type"], "status_dot");
     }
 
     #[test]
@@ -629,20 +719,12 @@ mod tests {
     }
 
     #[test]
-    fn spinner_serializes_with_default_spinning() {
-        let payload = serde_json::to_value(TreeNode::<()>::from(crate::Spinner::new()))
-            .expect("spinner serializes");
-        assert_eq!(payload["type"], "spinner");
-        assert_eq!(payload["data"]["spinning"], true);
-    }
-
-    #[test]
     fn variant_serializes_as_semantic_protocol_value() {
         let mut badge = Badge::new("Warning");
-        badge.variant = Some(crate::Variant::Warning);
+        badge.kind = BadgeKind::Warning;
         let payload =
             serde_json::to_value(TreeNode::<()>::from(badge)).expect("tree should serialize");
-        assert_eq!(payload["data"]["variant"], "warning");
+        assert_eq!(payload["data"]["kind"], "warning");
     }
 
     #[tokio::test]
@@ -693,13 +775,9 @@ mod tests {
 
     #[tokio::test]
     async fn run_command_returns_stdout_stderr_and_rc() {
-        let result = run_command(&[
-            "sh",
-            "-c",
-            "printf 'out\\n'; printf 'err\\n' >&2; exit 7",
-        ])
-        .await
-        .expect("command should run");
+        let result = run_command(&["sh", "-c", "printf 'out\\n'; printf 'err\\n' >&2; exit 7"])
+            .await
+            .expect("command should run");
 
         assert_eq!(result.stdout, "out\n");
         assert_eq!(result.stderr, "err\n");
@@ -708,7 +786,9 @@ mod tests {
 
     #[tokio::test]
     async fn run_command_rejects_empty_command() {
-        let err = run_command(&[]).await.expect_err("empty command should fail");
+        let err = run_command(&[])
+            .await
+            .expect_err("empty command should fail");
         assert!(err.to_string().contains("command must not be empty"));
     }
 }

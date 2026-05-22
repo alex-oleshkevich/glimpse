@@ -1,0 +1,14 @@
+{
+  "data": {
+    "items": [
+      {
+        "condition": "Clear",
+        "day_name": "Today",
+        "icon": "weather-clear-symbolic",
+        "is_today": true,
+        "temperatures": "12 / 20"
+      }
+    ]
+  },
+  "type": "weather_forecast_list"
+}

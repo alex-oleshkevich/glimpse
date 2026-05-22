@@ -1,613 +1,224 @@
-// Golden cross-SDK fixture tests.
-//
-// Each case builds a widget and asserts its JSON serialization equals the
-// corresponding fixture under ../../fixtures/widgets/.
-// Event tests parse the canonical incoming payload and assert the documented
-// typed event is returned.
-
-import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import test from "node:test";
 
-import * as sdk from "../src/index.js";
+import { parseCallbackEvent } from "../src/events.js";
 import {
-  ActionItem,
   Badge,
-  BorderWidth,
-  Button,
-  Card,
-  Checkbox,
-  Color,
+  BatteryHero,
+  BoxedList,
+  ButtonRow,
+  Calendar,
+  CameraIndicator,
+  Choice,
+  ChoiceList,
+  ChoiceTile,
   Column,
   Container,
-  Copyable,
+  DateHero,
   EmptyState,
-  Expander,
-  FontSize,
-  FontWeight,
-  Grid,
-  GridChild,
+  EventItem,
+  Events,
+  ExpanderTile,
+  Header,
   Hero,
-  Icon,
-  Item,
-  LevelBar,
-  LinkButton,
+  KeyValueGrid,
+  LocationIndicator,
   Meter,
+  MicIndicator,
+  MutedIndicator,
   PagerItem,
   PagerStrip,
-  Picture,
-  PopoverScaffold,
-  parseCallbackEvent,
-  Progress,
-  PropertyList,
-  Radius,
+  PanelIndicator,
+  PopoverShell,
   Row,
+  ScreenCastIndicator,
   Scroll,
-  Select,
+  SegmentedTile,
   Separator,
-  Slider,
-  Space,
+  SliderTile,
   Spinner,
   StatusDot,
-  Switch,
+  SwitchTile,
   Text,
-  TextAlign,
-  ToggleButton,
-} from "../src/index.js";
+  Tile,
+  WeatherForecastItem,
+  WeatherForecastList,
+  WeatherHourlyItem,
+  WeatherHourlyStrip,
+  WorldClock,
+  WorldClockRow,
+  type TreeNode,
+} from "../src/widgets.js";
 
-// Compiled path is sdk-ts/dist/tests/golden.test.js -> 3 levels up to sdk/, then /fixtures.
-// Source path is sdk-ts/tests/golden.test.ts -> 2 levels up. We pick whichever exists.
-import { existsSync } from "node:fs";
-const here = import.meta.dirname ?? __dirname;
-const candidates = [
-  resolve(here, "..", "..", "..", "fixtures"),
-  resolve(here, "..", "..", "fixtures"),
-];
-const fixturesRoot =
-  candidates.find((p) => existsSync(p)) ?? candidates[0];
+const here = dirname(fileURLToPath(import.meta.url));
+const sourceFixtures = join(here, "..", "..", "fixtures");
+const compiledFixtures = join(here, "..", "..", "..", "fixtures");
+const fixturesRoot = existsSync(sourceFixtures) ? sourceFixtures : compiledFixtures;
 
-function load(rel: string): unknown {
-  const text = readFileSync(join(fixturesRoot, rel), "utf-8");
-  return JSON.parse(text);
+function load(rel: string): any {
+  return JSON.parse(readFileSync(join(fixturesRoot, rel), "utf-8"));
 }
 
-function assertWidget(name: string, widget: { toProtocol(): Record<string, unknown> }): void {
-  const expected = load(`widgets/${name}.json`);
-  const got = widget.toProtocol();
-  assert.deepEqual(got, expected, `fixture mismatch for widgets/${name}.json`);
-}
-
-test("widget text-styled", () => {
-  assertWidget(
-    "text-styled",
-    new Text("Aligned text", {
-      color: Color.ACCENT,
-      size: FontSize.LG,
-      weight: FontWeight.BOLD,
-      align: TextAlign.CENTER,
+function widgets(): Record<string, TreeNode> {
+  const text = new Text({ text: "Ready", size: "sm", weight: "medium", color: "muted", wrap: true });
+  const badge = new Badge({ label: "OK", kind: "success" });
+  const status = new StatusDot({ status: "warning" });
+  return {
+    text,
+    header: new Header({ label: "Network" }),
+    hero: new Hero({
+      id: "vpn",
+      icon: "network-vpn-symbolic",
+      icon_size: 32,
+      title: "VPN",
+      subtitle: "Disconnected",
+      toggle: false,
+      toggle_sensitive: true,
+      separator: true,
+      trailing: badge,
     }),
-  );
-});
-
-test("widget button-basic", () => {
-  assertWidget("button-basic", new Button({ id: "go", label: "Go" }));
-});
-
-test("widget button-with-icon", () => {
-  assertWidget(
-    "button-with-icon",
-    new Button({ id: "go", label: "Go", icon: "go-symbolic" }),
-  );
-});
-
-test("widget button-icon-only", () => {
-  assertWidget(
-    "button-icon-only",
-    new Button({ id: "go", icon: "go-symbolic" }),
-  );
-});
-
-test("widget button-primary", () => {
-  assertWidget("button-primary", new Button({ id: "go", label: "Go", variant: "primary" }));
-});
-
-test("widget button-disabled", () => {
-  assertWidget("button-disabled", new Button({ id: "go", label: "Go", enabled: false }));
-});
-
-test("widget link-button", () => {
-  assertWidget("link-button", new LinkButton({ uri: "https://example.com" }));
-});
-
-test("widget link-button-label", () => {
-  assertWidget("link-button-label", new LinkButton({ uri: "https://example.com/docs", label: "Docs" }));
-});
-
-test("widget expander", () => {
-  assertWidget("expander", new Expander({ label: "Details", child: new Text("More") }));
-});
-
-test("widget expander-expanded", () => {
-  assertWidget("expander-expanded", new Expander({ label: "Details", expanded: true, child: new Text("More") }));
-});
-
-test("widget level-bar", () => {
-  assertWidget("level-bar", new LevelBar({ value: 0.7, min: 0, max: 1, mode: "continuous" }));
-});
-
-test("widget switch-on", () => {
-  assertWidget("switch-on", new Switch({ id: "vpn", label: "VPN", active: true }));
-});
-
-test("widget switch-off", () => {
-  assertWidget("switch-off", new Switch({ id: "vpn" }));
-});
-
-test("widget toggle-button-on", () => {
-  assertWidget("toggle-button-on", new ToggleButton({ id: "wifi", label: "Wi-Fi", active: true }));
-});
-
-test("widget toggle-button-off", () => {
-  assertWidget("toggle-button-off", new ToggleButton({ id: "wifi" }));
-});
-
-test("widget toggle-button-with-icon", () => {
-  assertWidget("toggle-button-with-icon", new ToggleButton({ id: "wifi", icon: "network-wireless-symbolic" }));
-});
-
-test("widget checkbox-on", () => {
-  assertWidget("checkbox-on", new Checkbox({ id: "autostart", label: "Run at login", active: true }));
-});
-
-test("widget slider", () => {
-  assertWidget("slider", new Slider({ id: "brightness", min: 0, max: 1, step: 0.05, value: 0.6 }));
-});
-
-test("widget select", () => {
-  assertWidget(
-    "select",
-    new Select({
-      id: "env",
-      items: [{ id: "prod", label: "Production" }, { id: "stage", label: "Staging" }],
-      selected: 0,
-    }),
-  );
-});
-
-test("widget select-empty", () => {
-  assertWidget("select-empty", new Select({ id: "env" }));
-});
-
-test("widget badge", () => {
-  assertWidget("badge", new Badge({ label: "42%" }));
-});
-
-test("widget badge-success-variant", () => {
-  assertWidget("badge-success-variant", new Badge({ label: "OK", variant: "success" }));
-});
-
-test("widget hero-basic", () => {
-  assertWidget("hero-basic", new Hero({ title: "Counter", subtitle: "Value: 0" }));
-});
-
-test("widget hero-with-icon", () => {
-  assertWidget(
-    "hero-with-icon",
-    new Hero({ title: "VPN", subtitle: "Connected", icon: "network-vpn-symbolic" }),
-  );
-});
-
-test("widget hero-with-switch", () => {
-  assertWidget(
-    "hero-with-switch",
-    new Hero({ title: "VPN", subtitle: "Connected", id: "vpn-toggle", switch: true }),
-  );
-});
-
-test("widget progress", () => {
-  assertWidget("progress", new Progress({ value: 0.7, max: 1 }));
-});
-
-test("widget progress-with-text", () => {
-  assertWidget(
-    "progress-with-text",
-    new Progress({ value: 0.7, max: 1, show_text: true, text: "70%" }),
-  );
-});
-
-test("widget spinner-default", () => {
-  assertWidget("spinner-default", new Spinner());
-});
-
-test("widget spinner-stopped", () => {
-  assertWidget("spinner-stopped", new Spinner({ spinning: false }));
-});
-
-test("widget status-dot", () => {
-  assertWidget("status-dot", new StatusDot());
-});
-
-test("widget status-dot-warning", () => {
-  assertWidget("status-dot-warning", new StatusDot({ variant: "warning" }));
-});
-
-test("widget pager-item-number-active", () => {
-  assertWidget(
-    "pager-item-number-active",
-    new PagerItem({ id: "workspace-1", appearance: "numbers", label: "1", active: true }),
-  );
-});
-
-test("widget pager-strip", () => {
-  assertWidget(
-    "pager-strip",
-    new PagerStrip({
-      items: [
-        new PagerItem({ id: "workspace-1", appearance: "numbers", label: "1", active: true }),
-        new PagerItem({ id: "workspace-2", appearance: "numbers", label: "2", occupied: true }),
-        new PagerItem({ id: "workspace-3", appearance: "dots", urgent: true }),
-      ],
-    }),
-  );
-});
-
-test("widget icon-by-name", () => {
-  assertWidget("icon-by-name", new Icon("user-info-symbolic"));
-});
-
-test("widget picture", () => {
-  assertWidget("picture", new Picture({ path: "/home/me/photo.png" }));
-});
-
-test("widget picture-content-fit", () => {
-  assertWidget("picture-content-fit", new Picture({ path: "/home/me/photo.png", content_fit: "cover" }));
-});
-
-test("widget separator", () => {
-  assertWidget("separator", new Separator());
-});
-
-test("widget row", () => {
-  assertWidget("row", new Row());
-});
-
-test("widget column", () => {
-  assertWidget("column", new Column());
-});
-
-test("widget grid", () => {
-  assertWidget(
-    "grid",
-    new Grid({
-      children: [
-        new GridChild(0, 0, new Text("A")),
-        new GridChild(0, 1, new Text("B"), 2, 1),
-      ],
-    }),
-  );
-});
-
-test("widget scroll", () => {
-  assertWidget("scroll", new Scroll(new Text("scrollable")));
-});
-
-test("widget card", () => {
-  assertWidget("card", new Card({ child: new Text("in card") }));
-});
-
-test("widget card-empty", () => {
-  assertWidget("card-empty", new Card());
-});
-
-test("widget container-styled", () => {
-  assertWidget(
-    "container-styled",
-    new Container({
-      width: 220,
-      height: 80,
-      min_width: 180,
-      min_height: 48,
-      margin: Space.XS,
-      margin_top: Space.SM,
-      padding: Space.MD,
-      padding_left: Space.LG,
-      background: Color.SURFACE_RAISED,
-      color: Color.FG,
-      border_radius: Radius.MD,
-      border_width: BorderWidth.THIN,
-      border_color: Color.BORDER,
-      font_size: FontSize.SM,
-      font_weight: FontWeight.SEMIBOLD,
-      child: new Text("contained"),
-    }),
-  );
-});
-
-test("widget property-list", () => {
-  assertWidget(
-    "property-list",
-    new PropertyList({
-      rows: {
-        IPv4: "10.0.0.42",
-        SSID: "home-5G",
-      },
-    }),
-  );
-});
-
-test("widget property-list-title", () => {
-  assertWidget(
-    "property-list-title",
-    new PropertyList({
-      title: "Network",
-      rows: {
-        IPv4: "10.0.0.42",
-        SSID: "home-5G",
-      },
-    }),
-  );
-});
-
-test("widget property-list-empty", () => {
-  assertWidget("property-list-empty", new PropertyList());
-});
-
-test("widget item", () => {
-  assertWidget("item", new Item({ label: "Wi-Fi" }));
-});
-
-test("widget item-with-right", () => {
-  assertWidget(
-    "item-with-right",
-    new Item({
+    badge,
+    "status-dot": status,
+    "panel-indicator": new PanelIndicator({
+      id: "net",
       icon: "network-wireless-symbolic",
       label: "Wi-Fi",
-      sublabel: "Connected",
-      right: new Badge({ label: "home-5G" }),
+      active: true,
+      extra: status,
     }),
-  );
-});
-
-test("widget action-item", () => {
-  assertWidget("action-item", new ActionItem({ id: "wifi", label: "Wi-Fi" }));
-});
-
-test("widget action-item-with-right", () => {
-  assertWidget(
-    "action-item-with-right",
-    new ActionItem({
+    "empty-state": new EmptyState({ title: "No devices", subtitle: "Connect a device to continue" }),
+    spinner: new Spinner(),
+    meter: new Meter({ label: "Memory", value: 0.51 }),
+    separator: new Separator(),
+    scroll: new Scroll({ child: text }),
+    row: new Row({ children: [text, badge] }),
+    column: new Column({ children: [text, badge] }),
+    container: new Container({
+      children: [text],
+      padding: "s4",
+      margin: "s2",
+      radius: "md",
+      bg: "surface",
+      border_width: 1,
+      min_width: "s8",
+      min_height: "s4",
+    }),
+    "boxed-list": new BoxedList({ children: [text, badge] }),
+    "popover-shell": new PopoverShell({ size: "medium", children: [text], footer: [badge], footer_visible: true }),
+    tile: new Tile({
       id: "wifi",
-      icon: "network-wireless-symbolic",
-      label: "Wi-Fi",
-      sublabel: "Connected",
-      right: new Badge({ label: "home-5G" }),
+      primary: "Wi-Fi",
+      secondary: "Connected",
+      left_icon: "network-wireless-symbolic",
+      right: badge,
+      activatable: true,
     }),
-  );
-});
-
-test("widget empty-state", () => {
-  assertWidget("empty-state", new EmptyState({ title: "Nothing here" }));
-});
-
-test("widget empty-state-with-subtitle", () => {
-  assertWidget(
-    "empty-state-with-subtitle",
-    new EmptyState({ title: "Nothing here", subtitle: "Plug in a device." }),
-  );
-});
-
-test("widget meter", () => {
-  assertWidget("meter", new Meter({ label: "Memory", value: 0.51, min: 0, max: 1, step: 0.01 }));
-});
-
-test("widget meter-interactive", () => {
-  assertWidget(
-    "meter-interactive",
-    new Meter({
-      id: "volume",
-      icon: "audio-volume-medium-symbolic",
-      label: "Volume",
-      value: 0.42,
+    "segmented-tile": new SegmentedTile({
+      id: "drive",
+      primary: "Backup",
+      secondary: "Mounted",
+      left_icon: "drive-harddisk-symbolic",
+      right: badge,
+      child: new KeyValueGrid({ rows: [{ key: "Size", value: "1 TB" }] }),
+      expanded: true,
+      activatable: true,
+    }),
+    "button-row": new ButtonRow({ children: [new Tile({ primary: "Refresh", activatable: true })] }),
+    "switch-tile": new SwitchTile({
+      id: "bluetooth",
+      primary: "Bluetooth",
+      secondary: "On",
+      left_icon: "bluetooth-active-symbolic",
+      active: true,
+    }),
+    "expander-tile": new ExpanderTile({
+      id: "details",
+      primary: "Details",
+      secondary: "2 items",
+      left_icon: "view-list-symbolic",
+      child: new Column({ children: [text] }),
+      expanded: true,
+    }),
+    "slider-tile": new SliderTile({
+      id: "brightness",
+      label: "Brightness",
+      left_icon: "display-brightness-symbolic",
+      value: 0.6,
       min: 0,
       max: 1,
-      step: 0.01,
-      text: "42%",
-      interactive: true,
+      step: 0.05,
+      page: 0.1,
+      digits: 0,
+      snap_step: 0.05,
     }),
-  );
-});
-
-test("widget copyable", () => {
-  assertWidget("copyable", new Copyable({ label: "IPv4", value: "10.0.0.42" }));
-});
-
-test("widget common-props-all", () => {
-  assertWidget(
-    "common-props-all",
-    new Text("marked", {
-      visible: false,
-      hexpand: true,
-      vexpand: true,
-      halign: "center",
-      valign: "end",
-      tooltip: "details",
-      css_classes: ["marked"],
-      styles: { "font-weight": "600", "margin-top": "2px" },
+    "choice-tile": new ChoiceTile({
+      id: "balanced",
+      primary: "Balanced",
+      secondary: "Recommended",
+      left_icon: "power-profile-balanced-symbolic",
+      selected: true,
     }),
-  );
-});
-
-test("widget tree-hero-column-card", () => {
-  assertWidget(
-    "tree-hero-column-card",
-    new Column({
-      children: [
-        new Hero({ title: "Counter", subtitle: "Value: 0" }),
-        new Card({
-          child: new Column({
-            children: [new Text("Current"), new Button({ id: "increment", label: "Increment" })],
-          }),
-        }),
+    "choice-list": new ChoiceList({
+      id: "profile",
+      active: "balanced",
+      choices: [
+        new Choice({ id: "balanced", primary: "Balanced", secondary: "Recommended", icon: "power-profile-balanced-symbolic" }),
+        new Choice({ id: "performance", primary: "Performance", secondary: "Fast", icon: "power-profile-performance-symbolic" }),
       ],
     }),
-  );
-});
-
-test("section is not a public SDK widget", () => {
-  assert.equal("Section" in sdk, false);
-});
-
-test("widget tree-card-with-grid", () => {
-  assertWidget(
-    "tree-card-with-grid",
-    new Card({
-      child: new Grid({
-        row_spacing: 4,
-        column_spacing: 8,
-        children: [
-          new GridChild(0, 0, new Text("K")),
-          new GridChild(0, 1, new Badge({ label: "V" })),
-        ],
-      }),
+    "key-value-grid": new KeyValueGrid({ rows: [{ key: "IPv4", value: "10.0.0.42" }] }),
+    "pager-item": new PagerItem({ id: 1, label: "1", appearance: "numbers", active: true, occupied: true }),
+    "pager-strip": new PagerStrip({
+      id: "workspaces",
+      items: [
+        new PagerItem({ id: 1, label: "1", appearance: "numbers", active: true, occupied: true }),
+        new PagerItem({ id: 2, label: "2", appearance: "numbers", inactive: true }),
+      ],
     }),
-  );
-});
-
-test("widget popover-scaffold-basic", () => {
-  assertWidget(
-    "popover-scaffold-basic",
-    new PopoverScaffold({ body: new Text("Content") }),
-  );
-});
-
-test("widget popover-scaffold-with-hero", () => {
-  assertWidget(
-    "popover-scaffold-with-hero",
-    new PopoverScaffold({
-      body: new Text("Content"),
-      hero: new Hero({ title: "VPN", subtitle: "Connected" }),
+    "camera-indicator": new CameraIndicator({ active: true }),
+    "mic-indicator": new MicIndicator({ active: true }),
+    "muted-indicator": new MutedIndicator({ active: true }),
+    "screencast-indicator": new ScreenCastIndicator({ active: true, timer_text: "01:23" }),
+    "location-indicator": new LocationIndicator({ active: true }),
+    calendar: new Calendar({ id: "calendar", selected_date: "2026-05-22", event_days: ["2026-05-22", "2026-05-24"] }),
+    "battery-hero": new BatteryHero({ icon: "battery-good-symbolic", percentage: "82%", fraction: 0.82, state: "Discharging" }),
+    "date-hero": new DateHero({ weekday: "Friday", date: "May 22" }),
+    events: new Events({
+      date: "2026-05-22",
+      events: [new EventItem({ id: "standup", title: "Standup", start: "09:30", end: "09:45" })],
+    }),
+    "weather-forecast-list": new WeatherForecastList({
+      items: [new WeatherForecastItem({ day_name: "Today", icon: "weather-clear-symbolic", condition: "Clear", temperatures: "12 / 20", is_today: true })],
+    }),
+    "weather-hourly-strip": new WeatherHourlyStrip({
+      items: [new WeatherHourlyItem({ time: "12:00", icon: "weather-clear-symbolic", temperature: "18" })],
+    }),
+    "world-clock": new WorldClock({
+      rows: [new WorldClockRow({ name: "UTC", timezone: "UTC", time: "12:00", offset: "+00:00", day_label: "Today" })],
+    }),
+    "tree-shared-popover": new PopoverShell({
       size: "large",
+      children: [
+        new Hero({ title: "System", subtitle: "Shared widgets" }),
+        new BoxedList({ children: [new SwitchTile({ id: "wifi", primary: "Wi-Fi", active: true })] }),
+      ],
     }),
-  );
-});
-
-// ---------- events ----------
-
-interface EventFixture {
-  incoming: Record<string, unknown>;
-  parsed: Record<string, unknown>;
+  };
 }
 
-function loadEvent(name: string): EventFixture {
-  return load(`events/${name}.json`) as EventFixture;
-}
-
-test("event click-left", () => {
-  const f = loadEvent("click-left");
-  const e = parseCallbackEvent(f.incoming);
-  assert.equal(e.event, "click");
-  assert.equal(e.id, f.parsed.id);
-  if (e.event === "click") {
-    assert.equal(e.button, f.parsed.button);
+test("widgets match golden fixtures", () => {
+  for (const [name, widget] of Object.entries(widgets())) {
+    assert.deepEqual(widget.toProtocol(), load(`widgets/${name}.json`), name);
   }
 });
 
-test("event click-no-button", () => {
-  const f = loadEvent("click-no-button");
-  const e = parseCallbackEvent(f.incoming);
-  assert.equal(e.event, "click");
-  if (e.event === "click") {
-    assert.equal(e.button, undefined);
-  }
-});
-
-test("event scroll-down", () => {
-  const f = loadEvent("scroll-down");
-  const e = parseCallbackEvent(f.incoming);
-  assert.equal(e.event, "scroll");
-  if (e.event === "scroll") {
-    assert.equal(e.delta_y, f.parsed.delta_y);
-  }
-});
-
-test("event input", () => {
-  const f = loadEvent("input");
-  const e = parseCallbackEvent(f.incoming);
-  assert.equal(e.event, "input");
-  if (e.event === "input") {
-    assert.equal(e.text, f.parsed.text);
-  }
-});
-
-test("event toggle-active-true", () => {
-  const f = loadEvent("toggle-active-true");
-  const e = parseCallbackEvent(f.incoming);
-  assert.equal(e.event, "toggle");
-  if (e.event === "toggle") {
-    assert.equal(e.value, true);
-  }
-});
-
-test("event toggle-active-false", () => {
-  const f = loadEvent("toggle-active-false");
-  const e = parseCallbackEvent(f.incoming);
-  assert.equal(e.event, "toggle");
-  if (e.event === "toggle") {
-    assert.equal(e.value, false);
-  }
-});
-
-test("event toggle-via-value-true", () => {
-  const f = loadEvent("toggle-via-value-true");
-  const e = parseCallbackEvent(f.incoming);
-  assert.equal(e.event, "toggle");
-  if (e.event === "toggle") {
-    assert.equal(e.value, true);
-  }
-});
-
-test("event toggle-numeric-value-is-false", () => {
-  const f = loadEvent("toggle-numeric-value-is-false");
-  const e = parseCallbackEvent(f.incoming);
-  assert.equal(e.event, "toggle");
-  if (e.event === "toggle") {
-    assert.equal(e.value, false);
-  }
-});
-
-test("event change-scale", () => {
-  const f = loadEvent("change-scale");
-  const e = parseCallbackEvent(f.incoming);
-  assert.equal(e.event, "change");
-  if (e.event === "change") {
-    assert.deepEqual(e.value, f.parsed.value);
-  }
-});
-
-test("event change-dropdown", () => {
-  const f = loadEvent("change-dropdown");
-  const e = parseCallbackEvent(f.incoming);
-  assert.equal(e.event, "change");
-  if (e.event === "change") {
-    assert.deepEqual(e.value, f.parsed.value);
-  }
-});
-
-test("event popover-open", () => {
-  const f = loadEvent("popover-open");
-  const e = parseCallbackEvent(f.incoming);
-  assert.equal(e.event, "open");
-  if (e.event === "open" || e.event === "close") {
-    assert.equal(e.open, true);
-  }
-});
-
-test("event popover-close", () => {
-  const f = loadEvent("popover-close");
-  const e = parseCallbackEvent(f.incoming);
-  assert.equal(e.event, "close");
-  if (e.event === "close") {
-    assert.equal(e.open, false);
+test("events match golden fixtures", () => {
+  const files = readdirSync(join(fixturesRoot, "events")).filter((name) => name.endsWith(".json")).sort();
+  for (const file of files) {
+    const fixture = load(`events/${file}`);
+    assert.deepEqual(parseCallbackEvent(fixture.incoming), fixture.parsed, file);
   }
 });

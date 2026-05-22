@@ -1,0 +1,10 @@
+{
+  "data": {
+    "id": "balanced",
+    "left_icon": "power-profile-balanced-symbolic",
+    "primary": "Balanced",
+    "secondary": "Recommended",
+    "selected": true
+  },
+  "type": "choice_tile"
+}

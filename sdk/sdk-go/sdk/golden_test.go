@@ -1,10 +1,3 @@
-// Golden cross-SDK fixture tests.
-//
-// Each case builds a widget and asserts its JSON serialization equals the
-// corresponding fixture under ../../fixtures/widgets/.
-// Event tests parse the canonical incoming payload and assert the documented
-// typed event is returned.
-
 package sdk
 
 import (
@@ -22,7 +15,6 @@ func fixturesRoot(t *testing.T) string {
 	if !ok {
 		t.Fatal("runtime.Caller failed")
 	}
-	// here = .../sdk/sdk-go/sdk/golden_test.go
 	return filepath.Join(filepath.Dir(here), "..", "..", "fixtures")
 }
 
@@ -39,17 +31,15 @@ func loadFixture(t *testing.T, rel string) any {
 	return value
 }
 
-// serialized turns a Widget into a generic any tree (mirrors the fixture
-// shape) for deep-equal comparison.
 func serialized(t *testing.T, widget Widget) any {
 	t.Helper()
 	data, err := json.Marshal(widget)
 	if err != nil {
-		t.Fatalf("marshal: %v", err)
+		t.Fatalf("marshal widget: %v", err)
 	}
 	var value any
 	if err := json.Unmarshal(data, &value); err != nil {
-		t.Fatalf("unmarshal: %v", err)
+		t.Fatalf("unmarshal widget: %v", err)
 	}
 	return value
 }
@@ -59,463 +49,122 @@ func assertWidget(t *testing.T, name string, widget Widget) {
 	expected := loadFixture(t, filepath.Join("widgets", name+".json"))
 	got := serialized(t, widget)
 	if !reflect.DeepEqual(got, expected) {
-		gotJSON, _ := json.MarshalIndent(got, "", "  ")
-		expJSON, _ := json.MarshalIndent(expected, "", "  ")
-		t.Errorf("fixture mismatch for widgets/%s.json:\ngot:\n%s\nexpected:\n%s",
-			name, gotJSON, expJSON)
+		t.Fatalf("fixture mismatch for widgets/%s.json:\ngot %#v\nexpected %#v", name, got, expected)
 	}
 }
 
-func TestGoldenTextStyled(t *testing.T) {
-	assertWidget(t, "text-styled", Text{
-		Text:   "Aligned text",
-		Color:  ColorAccent,
-		Size:   FontSizeLG,
-		Weight: FontWeightBold,
-		Align:  TextAlignCenter,
-	})
-}
+func f64ptr(v float64) *float64 { return &v }
+func boolptr(v bool) *bool      { return &v }
+func intptr(v int) *int         { return &v }
 
-func TestGoldenButtonBasic(t *testing.T) {
-	assertWidget(t, "button-basic", Button{ID: "go", Label: "Go"})
-}
-
-func TestGoldenButtonWithIcon(t *testing.T) {
-	assertWidget(t, "button-with-icon", Button{ID: "go", Label: "Go", Icon: "go-symbolic"})
-}
-
-func TestGoldenButtonIconOnly(t *testing.T) {
-	assertWidget(t, "button-icon-only", Button{ID: "go", Icon: "go-symbolic"})
-}
-
-func TestGoldenButtonPrimary(t *testing.T) {
-	assertWidget(t, "button-primary", Button{ID: "go", Label: "Go", Variant: ButtonVariantPrimary})
-}
-
-func TestGoldenButtonDisabled(t *testing.T) {
-	enabled := false
-	assertWidget(t, "button-disabled", Button{ID: "go", Label: "Go", Enabled: &enabled})
-}
-
-func TestGoldenLinkButton(t *testing.T) {
-	assertWidget(t, "link-button", LinkButton{URI: "https://example.com"})
-}
-
-func TestGoldenLinkButtonLabel(t *testing.T) {
-	assertWidget(t, "link-button-label", LinkButton{
-		URI:   "https://example.com/docs",
-		Label: "Docs",
-	})
-}
-
-func TestGoldenExpander(t *testing.T) {
-	assertWidget(t, "expander", Expander{
-		Label: "Details",
-		Child: Text{Text: "More"},
-	})
-}
-
-func TestGoldenExpanderExpanded(t *testing.T) {
-	assertWidget(t, "expander-expanded", Expander{
-		Label:    "Details",
-		Expanded: true,
-		Child:    Text{Text: "More"},
-	})
-}
-
-func TestGoldenLevelBar(t *testing.T) {
-	assertWidget(t, "level-bar", LevelBar{
-		Value: 0.7,
-		Min:   0.0,
-		Max:   1.0,
-		Mode:  LevelBarModeContinuous,
-	})
-}
-
-func TestGoldenSwitchOn(t *testing.T) {
-	assertWidget(t, "switch-on", Switch{ID: "vpn", Label: "VPN", Active: true})
-}
-
-func TestGoldenSwitchOff(t *testing.T) {
-	assertWidget(t, "switch-off", Switch{ID: "vpn"})
-}
-
-func TestGoldenToggleButtonOn(t *testing.T) {
-	assertWidget(t, "toggle-button-on", ToggleButton{ID: "wifi", Label: "Wi-Fi", Active: true})
-}
-
-func TestGoldenToggleButtonOff(t *testing.T) {
-	assertWidget(t, "toggle-button-off", ToggleButton{ID: "wifi"})
-}
-
-func TestGoldenToggleButtonWithIcon(t *testing.T) {
-	assertWidget(t, "toggle-button-with-icon", ToggleButton{ID: "wifi", Icon: "network-wireless-symbolic"})
-}
-
-func TestGoldenCheckboxOn(t *testing.T) {
-	assertWidget(t, "checkbox-on", Checkbox{ID: "autostart", Label: "Run at login", Active: true})
-}
-
-func TestGoldenSlider(t *testing.T) {
-	assertWidget(t, "slider", Slider{ID: "brightness", Min: 0.0, Max: 1.0, Step: 0.05, Value: 0.6})
-}
-
-func TestGoldenSelect(t *testing.T) {
-	selected := uint32(0)
-	assertWidget(t, "select", Select{
-		ID: "env",
-		Items: []map[string]string{
-			{"id": "prod", "label": "Production"},
-			{"id": "stage", "label": "Staging"},
+func sharedWidgets() map[string]Widget {
+	text := Text{Text: "Ready", Size: FontSizeSm, Weight: FontWeightMedium, Color: TextColorMuted, Wrap: boolptr(true)}
+	badge := Badge{Label: "OK", Kind: BadgeKindSuccess}
+	status := StatusDot{Status: StatusDotWarning}
+	return map[string]Widget{
+		"text":   text,
+		"header": Header{Label: "Network"},
+		"hero": Hero{
+			ID: "vpn", Icon: "network-vpn-symbolic", IconSize: intptr(32),
+			Title: "VPN", Subtitle: "Disconnected", Toggle: boolptr(false),
+			ToggleSensitive: boolptr(true), Separator: boolptr(true), Trailing: badge,
 		},
-		Selected: &selected,
-	})
-}
-
-func TestGoldenSelectEmpty(t *testing.T) {
-	assertWidget(t, "select-empty", Select{ID: "env"})
-}
-
-func TestGoldenBadge(t *testing.T) {
-	assertWidget(t, "badge", Badge{Label: "42%"})
-}
-
-func TestGoldenBadgeSuccessVariant(t *testing.T) {
-	assertWidget(t, "badge-success-variant", Badge{Label: "OK", Variant: VariantSuccess})
-}
-
-func TestGoldenHeroBasic(t *testing.T) {
-	assertWidget(t, "hero-basic", Hero{Title: "Counter", Subtitle: "Value: 0"})
-}
-
-func TestGoldenHeroWithIcon(t *testing.T) {
-	assertWidget(t, "hero-with-icon", Hero{
-		Title:    "VPN",
-		Subtitle: "Connected",
-		Icon:     "network-vpn-symbolic",
-	})
-}
-
-func TestGoldenHeroWithSwitch(t *testing.T) {
-	on := true
-	assertWidget(t, "hero-with-switch", Hero{
-		Title:    "VPN",
-		Subtitle: "Connected",
-		ID:       "vpn-toggle",
-		SwitchOn: &on,
-	})
-}
-
-func TestGoldenProgress(t *testing.T) {
-	assertWidget(t, "progress", Progress{Value: 0.7, Max: 1.0})
-}
-
-func TestGoldenProgressWithText(t *testing.T) {
-	assertWidget(t, "progress-with-text", Progress{
-		Value:    0.7,
-		Max:      1.0,
-		ShowText: true,
-		Text:     "70%",
-	})
-}
-
-func TestGoldenSpinnerDefault(t *testing.T) {
-	assertWidget(t, "spinner-default", Spinner{Spinning: true})
-}
-
-func TestGoldenSpinnerStopped(t *testing.T) {
-	assertWidget(t, "spinner-stopped", Spinner{Spinning: false})
-}
-
-func TestGoldenStatusDot(t *testing.T) {
-	assertWidget(t, "status-dot", StatusDot{})
-}
-
-func TestGoldenStatusDotWarning(t *testing.T) {
-	assertWidget(t, "status-dot-warning", StatusDot{Variant: StatusVariantWarning})
-}
-
-func TestGoldenPagerItemNumberActive(t *testing.T) {
-	assertWidget(t, "pager-item-number-active", PagerItem{
-		ID:         "workspace-1",
-		Appearance: PagerAppearanceNumbers,
-		Label:      "1",
-		Active:     true,
-	})
-}
-
-func TestGoldenPagerStrip(t *testing.T) {
-	assertWidget(t, "pager-strip", PagerStrip{Items: []PagerItem{
-		{ID: "workspace-1", Appearance: PagerAppearanceNumbers, Label: "1", Active: true},
-		{ID: "workspace-2", Appearance: PagerAppearanceNumbers, Label: "2", Occupied: true},
-		{ID: "workspace-3", Appearance: PagerAppearanceDots, Urgent: true},
-	}})
-}
-
-func TestGoldenIconByName(t *testing.T) {
-	assertWidget(t, "icon-by-name", Icon{Icon: "user-info-symbolic"})
-}
-
-func TestGoldenPicture(t *testing.T) {
-	assertWidget(t, "picture", Picture{Path: "/home/me/photo.png"})
-}
-
-func TestGoldenPictureContentFit(t *testing.T) {
-	assertWidget(t, "picture-content-fit", Picture{
-		Path:       "/home/me/photo.png",
-		ContentFit: ContentFitCover,
-	})
-}
-
-func TestGoldenSeparator(t *testing.T) {
-	assertWidget(t, "separator", Separator{})
-}
-
-func TestGoldenRow(t *testing.T) {
-	assertWidget(t, "row", Row{})
-}
-
-func TestGoldenColumn(t *testing.T) {
-	assertWidget(t, "column", Column{})
-}
-
-func TestGoldenGrid(t *testing.T) {
-	assertWidget(t, "grid", Grid{
-		Children: []GridChild{
-			{Row: 0, Column: 0, Width: 1, Height: 1, Child: Text{Text: "A"}},
-			{Row: 0, Column: 1, Width: 2, Height: 1, Child: Text{Text: "B"}},
+		"badge":      badge,
+		"status-dot": status,
+		"panel-indicator": PanelIndicator{
+			ID: "net", Icon: "network-wireless-symbolic", Label: "Wi-Fi",
+			Active: true, Extra: status,
 		},
-	})
-}
-
-func TestGoLayoutSpacingCanBeExplicitZero(t *testing.T) {
-	cases := []struct {
-		name string
-		node Widget
-	}{
-		{name: "row", node: Row{SpacingSet: true}},
-		{name: "column", node: Column{SpacingSet: true}},
-		{name: "grid", node: Grid{RowSpacingSet: true, ColumnSpacingSet: true}},
+		"empty-state": EmptyState{Title: "No devices", Subtitle: "Connect a device to continue"},
+		"spinner":     Spinner{},
+		"meter":       Meter{Label: "Memory", Value: 0.51},
+		"separator":   Separator{},
+		"scroll":      Scroll{Child: text},
+		"row":         Row{Children: []Widget{text, badge}},
+		"column":      Column{Children: []Widget{text, badge}},
+		"container": Container{
+			Children: []Widget{text}, Padding: SpaceS4, Margin: SpaceS2, Radius: RadiusMd,
+			Bg: ContainerBgSurface, BorderWidth: 1, MinWidth: SpaceS8, MinHeight: SpaceS4,
+		},
+		"boxed-list":    BoxedList{Children: []Widget{text, badge}},
+		"popover-shell": PopoverShell{Size: PopoverSizeMedium, Children: []Widget{text}, Footer: []Widget{badge}, FooterVisible: true},
+		"tile": Tile{
+			ID: "wifi", Primary: "Wi-Fi", Secondary: "Connected",
+			LeftIcon: "network-wireless-symbolic", Right: badge, Activatable: true,
+		},
+		"segmented-tile": SegmentedTile{
+			Tile: Tile{
+				ID: "drive", Primary: "Backup", Secondary: "Mounted",
+				LeftIcon: "drive-harddisk-symbolic", Right: badge, Activatable: true,
+			},
+			Child: KeyValueGrid{Rows: []KeyValueRow{{Key: "Size", Value: "1 TB"}}}, Expanded: true,
+		},
+		"button-row": ButtonRow{Children: []Widget{Tile{Primary: "Refresh", Activatable: true}}},
+		"switch-tile": SwitchTile{
+			ID: "bluetooth", Primary: "Bluetooth", Secondary: "On",
+			LeftIcon: "bluetooth-active-symbolic", Active: true,
+		},
+		"expander-tile": ExpanderTile{
+			ID: "details", Primary: "Details", Secondary: "2 items",
+			LeftIcon: "view-list-symbolic", Child: Column{Children: []Widget{text}}, Expanded: true,
+		},
+		"slider-tile": SliderTile{
+			ID: "brightness", Label: "Brightness", LeftIcon: "display-brightness-symbolic",
+			Value: 0.6, Min: 0, Max: 1, Step: 0.05, Page: 0.1, Digits: 0, SnapStep: f64ptr(0.05),
+		},
+		"choice-tile": ChoiceTile{
+			ID: "balanced", Primary: "Balanced", Secondary: "Recommended",
+			LeftIcon: "power-profile-balanced-symbolic", Selected: true,
+		},
+		"choice-list": ChoiceList{
+			ID: "profile", Active: "balanced",
+			Choices: []Choice{
+				{ID: "balanced", Primary: "Balanced", Secondary: "Recommended", Icon: "power-profile-balanced-symbolic"},
+				{ID: "performance", Primary: "Performance", Secondary: "Fast", Icon: "power-profile-performance-symbolic"},
+			},
+		},
+		"key-value-grid": KeyValueGrid{Rows: []KeyValueRow{{Key: "IPv4", Value: "10.0.0.42"}}},
+		"pager-item":     PagerItem{ID: 1, Label: "1", Appearance: PagerAppearanceNumbers, Active: true, Occupied: true},
+		"pager-strip": PagerStrip{
+			ID: "workspaces",
+			Items: []PagerItem{
+				{ID: 1, Label: "1", Appearance: PagerAppearanceNumbers, Active: true, Occupied: true},
+				{ID: 2, Label: "2", Appearance: PagerAppearanceNumbers, Inactive: true},
+			},
+		},
+		"camera-indicator":      CameraIndicator{ActiveIndicator: ActiveIndicator{Active: true}},
+		"mic-indicator":         MicIndicator{ActiveIndicator: ActiveIndicator{Active: true}},
+		"muted-indicator":       MutedIndicator{ActiveIndicator: ActiveIndicator{Active: true}},
+		"screencast-indicator":  ScreenCastIndicator{ActiveIndicator: ActiveIndicator{Active: true}, TimerText: "01:23"},
+		"location-indicator":    LocationIndicator{ActiveIndicator: ActiveIndicator{Active: true}},
+		"calendar":              Calendar{ID: "calendar", SelectedDate: "2026-05-22", EventDays: []string{"2026-05-22", "2026-05-24"}},
+		"battery-hero":          BatteryHero{Icon: "battery-good-symbolic", Percentage: "82%", Fraction: 0.82, State: "Discharging"},
+		"date-hero":             DateHero{Weekday: "Friday", Date: "May 22"},
+		"events":                Events{Date: "2026-05-22", Events: []EventItem{{ID: "standup", Title: "Standup", Start: "09:30", End: "09:45"}}},
+		"weather-forecast-list": WeatherForecastList{Items: []WeatherForecastItem{{DayName: "Today", Icon: "weather-clear-symbolic", Condition: "Clear", Temperatures: "12 / 20", IsToday: true}}},
+		"weather-hourly-strip":  WeatherHourlyStrip{Items: []WeatherHourlyItem{{Time: "12:00", Icon: "weather-clear-symbolic", Temperature: "18"}}},
+		"world-clock":           WorldClock{Rows: []WorldClockRow{{Name: "UTC", Timezone: "UTC", Time: "12:00", Offset: "+00:00", DayLabel: "Today"}}},
+		"tree-shared-popover": PopoverShell{
+			Size: PopoverSizeLarge,
+			Children: []Widget{
+				Hero{Title: "System", Subtitle: "Shared widgets"},
+				BoxedList{Children: []Widget{SwitchTile{ID: "wifi", Primary: "Wi-Fi", Active: true}}},
+			},
+		},
 	}
+}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			data := serialized(t, tc.node).(map[string]any)["data"].(map[string]any)
-			if tc.name == "grid" {
-				if data["row_spacing"] != float64(0) || data["column_spacing"] != float64(0) {
-					t.Fatalf("expected explicit zero grid spacing, got %#v", data)
-				}
-				return
-			}
-			if data["spacing"] != float64(0) {
-				t.Fatalf("expected explicit zero spacing, got %#v", data)
-			}
+func TestGoldenWidgets(t *testing.T) {
+	for name, widget := range sharedWidgets() {
+		t.Run(name, func(t *testing.T) {
+			assertWidget(t, name, widget)
 		})
 	}
 }
 
-func TestGoldenScroll(t *testing.T) {
-	assertWidget(t, "scroll", Scroll{Child: Text{Text: "scrollable"}})
-}
-
-func TestGoldenCard(t *testing.T) {
-	assertWidget(t, "card", Card{Child: Text{Text: "in card"}})
-}
-
-func TestGoldenCardEmpty(t *testing.T) {
-	assertWidget(t, "card-empty", Card{})
-}
-
-func TestGoldenContainerStyled(t *testing.T) {
-	assertWidget(t, "container-styled", Container{
-		Width:        Int(220),
-		Height:       Int(80),
-		MinWidth:     Int(180),
-		MinHeight:    Int(48),
-		Margin:       SpaceXS,
-		MarginTop:    SpaceSM,
-		Padding:      SpaceMD,
-		PaddingLeft:  SpaceLG,
-		Background:   ColorSurfaceRaised,
-		Color:        ColorFG,
-		BorderRadius: RadiusMD,
-		BorderWidth:  BorderWidthThin,
-		BorderColor:  ColorBorder,
-		FontSize:     FontSizeSM,
-		FontWeight:   FontWeightSemibold,
-		Child:        Text{Text: "contained"},
-	})
-}
-
-func TestGoldenPropertyList(t *testing.T) {
-	assertWidget(t, "property-list", PropertyList{Rows: Properties{
-		"SSID": "home-5G",
-		"IPv4": "10.0.0.42",
-	}})
-}
-
-func TestGoldenPropertyListTitle(t *testing.T) {
-	assertWidget(t, "property-list-title", PropertyList{
-		Title: "Network",
-		Rows: Properties{
-			"SSID": "home-5G",
-			"IPv4": "10.0.0.42",
-		},
-	})
-}
-
-func TestGoldenPropertyListEmpty(t *testing.T) {
-	assertWidget(t, "property-list-empty", PropertyList{})
-}
-
-func TestGoldenItem(t *testing.T) {
-	assertWidget(t, "item", Item{Label: "Wi-Fi"})
-}
-
-func TestGoldenItemWithRight(t *testing.T) {
-	assertWidget(t, "item-with-right", Item{
-		Icon:     "network-wireless-symbolic",
-		Label:    "Wi-Fi",
-		Sublabel: "Connected",
-		Right:    Badge{Label: "home-5G"},
-	})
-}
-
-func TestGoldenActionItem(t *testing.T) {
-	assertWidget(t, "action-item", ActionItem{ID: "wifi", Label: "Wi-Fi"})
-}
-
-func TestGoldenActionItemWithRight(t *testing.T) {
-	assertWidget(t, "action-item-with-right", ActionItem{
-		ID:       "wifi",
-		Icon:     "network-wireless-symbolic",
-		Label:    "Wi-Fi",
-		Sublabel: "Connected",
-		Right:    Badge{Label: "home-5G"},
-	})
-}
-
-func TestGoldenEmptyState(t *testing.T) {
-	assertWidget(t, "empty-state", EmptyState{Title: "Nothing here"})
-}
-
-func TestGoldenEmptyStateWithSubtitle(t *testing.T) {
-	assertWidget(t, "empty-state-with-subtitle", EmptyState{
-		Title:    "Nothing here",
-		Subtitle: "Plug in a device.",
-	})
-}
-
-func TestGoldenMeter(t *testing.T) {
-	assertWidget(t, "meter", Meter{
-		Label: "Memory",
-		Value: 0.51,
-		Min:   0.0,
-		Max:   1.0,
-		Step:  0.01,
-	})
-}
-
-func TestGoldenMeterInteractive(t *testing.T) {
-	assertWidget(t, "meter-interactive", Meter{
-		ID:          "volume",
-		Icon:        "audio-volume-medium-symbolic",
-		Label:       "Volume",
-		Value:       0.42,
-		Min:         0.0,
-		Max:         1.0,
-		Step:        0.01,
-		Text:        "42%",
-		Interactive: true,
-	})
-}
-
-func TestGoldenCopyable(t *testing.T) {
-	assertWidget(t, "copyable", Copyable{Label: "IPv4", Value: "10.0.0.42"})
-}
-
-func TestGoldenCommonPropsAll(t *testing.T) {
-	visible := false
-	hex := true
-	vex := true
-	assertWidget(t, "common-props-all", Text{
-		CommonProps: CommonProps{
-			Visible: &visible,
-			HExpand: &hex,
-			VExpand: &vex,
-			HAlign:  AlignCenter,
-			VAlign:  AlignEnd,
-			Tooltip: "details",
-			CssClasses: []string{
-				"marked",
-			},
-			Styles: map[string]string{
-				"font-weight": "600",
-				"margin-top":  "2px",
-			},
-		},
-		Text: "marked",
-	})
-}
-
-func TestGoldenTreeHeroColumnCard(t *testing.T) {
-	assertWidget(t, "tree-hero-column-card", Column{
-		Children: []Widget{
-			Hero{Title: "Counter", Subtitle: "Value: 0"},
-			Card{
-				Child: Column{
-					Children: []Widget{
-						Text{Text: "Current"},
-						Button{ID: "increment", Label: "Increment"},
-					},
-				},
-			},
-		},
-	})
-}
-
-func TestGoldenTreeCardWithGrid(t *testing.T) {
-	assertWidget(t, "tree-card-with-grid", Card{
-		Child: Grid{
-			Children: []GridChild{
-				{Row: 0, Column: 0, Width: 1, Height: 1, Child: Text{Text: "K"}},
-				{Row: 0, Column: 1, Width: 1, Height: 1, Child: Badge{Label: "V"}},
-			},
-			RowSpacing:    4,
-			ColumnSpacing: 8,
-		},
-	})
-}
-
-func TestGoldenPopoverScaffoldBasic(t *testing.T) {
-	assertWidget(t, "popover-scaffold-basic", PopoverScaffold{
-		Body: Text{Text: "Content"},
-		Size: PopoverSizeMedium,
-	})
-}
-
-func TestGoldenPopoverScaffoldWithHero(t *testing.T) {
-	assertWidget(t, "popover-scaffold-with-hero", PopoverScaffold{
-		Hero: Hero{Title: "VPN", Subtitle: "Connected"},
-		Body: Text{Text: "Content"},
-		Size: PopoverSizeLarge,
-	})
-}
-
-// ---------- events ----------
-
 type eventFixture struct {
 	Incoming map[string]any `json:"incoming"`
 	Parsed   map[string]any `json:"parsed"`
-}
-
-func parseCallbackEventFromMap(t *testing.T, data map[string]any) (CallbackEvent, error) {
-	t.Helper()
-	encoded, err := json.Marshal(data)
-	if err != nil {
-		t.Fatalf("marshal incoming: %v", err)
-	}
-	return parseCallbackEvent(encoded)
 }
 
 func loadEvent(t *testing.T, name string) eventFixture {
@@ -531,134 +180,54 @@ func loadEvent(t *testing.T, name string) eventFixture {
 	return f
 }
 
-func TestGoldenEventClickLeft(t *testing.T) {
-	f := loadEvent(t, "click-left")
-	event, err := parseCallbackEventFromMap(t, f.Incoming)
+func eventMap(event CallbackEvent) map[string]any {
+	switch e := event.(type) {
+	case ClickEvent:
+		var button any
+		if e.Button != "" {
+			button = e.Button
+		}
+		return map[string]any{"id": e.ID, "event": "click", "button": button}
+	case ScrollEvent:
+		return map[string]any{"id": e.ID, "event": "scroll", "delta_y": e.DeltaY}
+	case InputEvent:
+		return map[string]any{"id": e.ID, "event": "input", "text": e.Text}
+	case ToggleEvent:
+		return map[string]any{"id": e.ID, "event": "toggle", "value": e.Value}
+	case ChangeEvent:
+		return map[string]any{"id": e.ID, "event": "change", "value": e.Value}
+	case PopoverEvent:
+		eventName := "close"
+		if e.Open {
+			eventName = "open"
+		}
+		return map[string]any{"id": "popover", "event": eventName, "open": e.Open}
+	default:
+		return nil
+	}
+}
+
+func TestGoldenEvents(t *testing.T) {
+	files, err := os.ReadDir(filepath.Join(fixturesRoot(t), "events"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, ok := event.(ClickEvent)
-	if !ok {
-		t.Fatalf("expected ClickEvent, got %T", event)
-	}
-	if c.ID != f.Parsed["id"] {
-		t.Errorf("id mismatch: %q vs %v", c.ID, f.Parsed["id"])
-	}
-	if c.Button != f.Parsed["button"] {
-		t.Errorf("button mismatch: %q vs %v", c.Button, f.Parsed["button"])
-	}
-}
-
-func TestGoldenEventClickNoButton(t *testing.T) {
-	f := loadEvent(t, "click-no-button")
-	event, _ := parseCallbackEventFromMap(t, f.Incoming)
-	c, ok := event.(ClickEvent)
-	if !ok {
-		t.Fatalf("expected ClickEvent")
-	}
-	if c.Button != "" {
-		t.Errorf("button should be empty, got %q", c.Button)
-	}
-}
-
-func TestGoldenEventScrollDown(t *testing.T) {
-	f := loadEvent(t, "scroll-down")
-	event, _ := parseCallbackEventFromMap(t, f.Incoming)
-	s, ok := event.(ScrollEvent)
-	if !ok {
-		t.Fatalf("expected ScrollEvent")
-	}
-	if s.DeltaY != f.Parsed["delta_y"].(float64) {
-		t.Errorf("delta_y mismatch: %v vs %v", s.DeltaY, f.Parsed["delta_y"])
-	}
-}
-
-func TestGoldenEventInput(t *testing.T) {
-	f := loadEvent(t, "input")
-	event, _ := parseCallbackEventFromMap(t, f.Incoming)
-	i, ok := event.(InputEvent)
-	if !ok {
-		t.Fatalf("expected InputEvent")
-	}
-	if i.Text != f.Parsed["text"] {
-		t.Errorf("text mismatch")
-	}
-}
-
-func TestGoldenEventToggleActiveTrue(t *testing.T) {
-	f := loadEvent(t, "toggle-active-true")
-	event, _ := parseCallbackEventFromMap(t, f.Incoming)
-	tog, ok := event.(ToggleEvent)
-	if !ok || tog.Value != true {
-		t.Errorf("expected toggle true, got %v", event)
-	}
-}
-
-func TestGoldenEventToggleActiveFalse(t *testing.T) {
-	f := loadEvent(t, "toggle-active-false")
-	event, _ := parseCallbackEventFromMap(t, f.Incoming)
-	tog, ok := event.(ToggleEvent)
-	if !ok || tog.Value != false {
-		t.Errorf("expected toggle false, got %v", event)
-	}
-}
-
-func TestGoldenEventToggleViaValueTrue(t *testing.T) {
-	f := loadEvent(t, "toggle-via-value-true")
-	event, _ := parseCallbackEventFromMap(t, f.Incoming)
-	tog, ok := event.(ToggleEvent)
-	if !ok || tog.Value != true {
-		t.Errorf("expected toggle true, got %v", event)
-	}
-}
-
-func TestGoldenEventToggleNumericValueIsFalse(t *testing.T) {
-	f := loadEvent(t, "toggle-numeric-value-is-false")
-	event, _ := parseCallbackEventFromMap(t, f.Incoming)
-	tog, ok := event.(ToggleEvent)
-	if !ok || tog.Value != false {
-		t.Errorf("expected toggle false, got %v", event)
-	}
-}
-
-func TestGoldenEventChangeScale(t *testing.T) {
-	f := loadEvent(t, "change-scale")
-	event, _ := parseCallbackEventFromMap(t, f.Incoming)
-	c, ok := event.(ChangeEvent)
-	if !ok {
-		t.Fatalf("expected ChangeEvent")
-	}
-	if !reflect.DeepEqual(c.Value, f.Parsed["value"]) {
-		t.Errorf("value mismatch: got %v expected %v", c.Value, f.Parsed["value"])
-	}
-}
-
-func TestGoldenEventChangeDropdown(t *testing.T) {
-	f := loadEvent(t, "change-dropdown")
-	event, _ := parseCallbackEventFromMap(t, f.Incoming)
-	c, ok := event.(ChangeEvent)
-	if !ok {
-		t.Fatalf("expected ChangeEvent")
-	}
-	if !reflect.DeepEqual(c.Value, f.Parsed["value"]) {
-		t.Errorf("value mismatch: got %v expected %v", c.Value, f.Parsed["value"])
-	}
-}
-
-func TestGoldenEventPopoverOpen(t *testing.T) {
-	f := loadEvent(t, "popover-open")
-	event, _ := parseCallbackEventFromMap(t, f.Incoming)
-	p, ok := event.(PopoverEvent)
-	if !ok || !p.Open {
-		t.Errorf("expected popover open")
-	}
-}
-
-func TestGoldenEventPopoverClose(t *testing.T) {
-	f := loadEvent(t, "popover-close")
-	event, _ := parseCallbackEventFromMap(t, f.Incoming)
-	p, ok := event.(PopoverEvent)
-	if !ok || p.Open {
-		t.Errorf("expected popover close")
+	for _, file := range files {
+		if filepath.Ext(file.Name()) != ".json" {
+			continue
+		}
+		name := file.Name()[:len(file.Name())-len(".json")]
+		t.Run(name, func(t *testing.T) {
+			f := loadEvent(t, name)
+			raw, _ := json.Marshal(f.Incoming)
+			event, err := parseCallbackEvent(raw)
+			if err != nil {
+				t.Fatalf("parse event: %v", err)
+			}
+			gotMap := eventMap(event)
+			if !reflect.DeepEqual(gotMap, f.Parsed) {
+				t.Fatalf("event mismatch: got %#v expected %#v", gotMap, f.Parsed)
+			}
+		})
 	}
 }

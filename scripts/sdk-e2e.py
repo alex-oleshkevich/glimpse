@@ -162,8 +162,8 @@ async def run_counter_contract(applet: Applet) -> None:
         root = popover.data.get("root")
         if root is None:
             raise ProtocolError("initial popover root was null")
-        if not _tree_contains_button(root, "increment"):
-            raise ProtocolError(f"initial popover missing increment button: {root}")
+        if not _tree_contains_increment_tile(root, "increment"):
+            raise ProtocolError(f"initial popover missing increment tile: {root}")
     except ProtocolError as e:
         if "timed out" not in str(e):
             raise
@@ -180,7 +180,7 @@ async def run_counter_contract(applet: Applet) -> None:
     try:
         popover = await applet.expect("popover", timeout=3.0)
         root = popover.data.get("root")
-        if not root or not _tree_contains_button(root, "increment"):
+        if not root or not _tree_contains_increment_tile(root, "increment"):
             raise ProtocolError(f"popover after open missing increment: {root}")
     except ProtocolError as e:
         if "timed out" not in str(e):
@@ -215,26 +215,26 @@ async def run_counter_contract(applet: Applet) -> None:
     await applet.close()
 
 
-def _tree_contains_button(root: dict[str, Any], button_id: str) -> bool:
-    """Walk a popover tree and return True if a button with the given
-    id appears anywhere in it."""
+def _tree_contains_increment_tile(root: dict[str, Any], tile_id: str) -> bool:
+    """Walk a popover tree and return True if a tile with the given id appears."""
     if not isinstance(root, dict):
         return False
-    if root.get("type") == "button":
-        if root.get("data", {}).get("id") == button_id:
+    if root.get("type") == "tile":
+        data = root.get("data", {})
+        if data.get("id") == tile_id and data.get("activatable") is True:
             return True
     data = root.get("data", {})
     for key in ("children", "body"):
         for child in data.get(key, []) or []:
             if isinstance(child, dict):
-                if _tree_contains_button(child, button_id):
+                if _tree_contains_increment_tile(child, tile_id):
                     return True
                 # grid children are { row, column, child }
-                if "child" in child and _tree_contains_button(child["child"], button_id):
+                if "child" in child and _tree_contains_increment_tile(child["child"], tile_id):
                     return True
     for key in ("child", "left", "right"):
         node = data.get(key)
-        if isinstance(node, dict) and _tree_contains_button(node, button_id):
+        if isinstance(node, dict) and _tree_contains_increment_tile(node, tile_id):
             return True
     return False
 
@@ -285,7 +285,7 @@ def build_typescript() -> tuple[list[str], Path, dict[str, str]]:
 def build_go() -> tuple[list[str], Path, dict[str, str]]:
     print("  building Go example…", flush=True)
     cwd = ROOT / "sdk" / "sdk-go"
-    binary = cwd / "examples" / "stateful_counter" / "stateful_counter-e2e"
+    binary = Path(os.environ.get("TMPDIR", "/tmp")) / "glimpse-sdk-go-counter-e2e"
     subprocess.run(
         ["go", "build", "-o", str(binary), "./examples/stateful_counter"],
         cwd=cwd,
@@ -355,7 +355,7 @@ def build_ipc_typescript() -> tuple[list[str], Path, dict[str, str]]:
 def build_ipc_go() -> tuple[list[str], Path, dict[str, str]]:
     print("  building Go ipc example…", flush=True)
     cwd = ROOT / "sdk" / "sdk-go"
-    binary = cwd / "examples" / "ipc" / "ipc-e2e"
+    binary = Path(os.environ.get("TMPDIR", "/tmp")) / "glimpse-sdk-go-ipc-e2e"
     subprocess.run(
         ["go", "build", "-o", str(binary), "./examples/ipc"],
         cwd=cwd,

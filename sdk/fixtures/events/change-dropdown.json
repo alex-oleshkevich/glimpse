@@ -1,21 +1,13 @@
 {
   "incoming": {
-    "id": "env",
+    "id": "profile",
     "source": "popover",
     "type": "change",
-    "value": {
-      "id": "stage",
-      "index": 1,
-      "label": "Staging"
-    }
+    "value": "balanced"
   },
   "parsed": {
-    "id": "env",
-    "kind": "change",
-    "value": {
-      "id": "stage",
-      "index": 1,
-      "label": "Staging"
-    }
+    "event": "change",
+    "id": "profile",
+    "value": "balanced"
   }
 }

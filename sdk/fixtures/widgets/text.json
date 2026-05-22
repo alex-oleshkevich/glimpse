@@ -1,0 +1,10 @@
+{
+  "data": {
+    "color": "muted",
+    "size": "sm",
+    "text": "Ready",
+    "weight": "medium",
+    "wrap": true
+  },
+  "type": "text"
+}

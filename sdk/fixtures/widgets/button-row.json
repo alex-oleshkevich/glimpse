@@ -1,0 +1,14 @@
+{
+  "data": {
+    "children": [
+      {
+        "data": {
+          "activatable": true,
+          "primary": "Refresh"
+        },
+        "type": "tile"
+      }
+    ]
+  },
+  "type": "button_row"
+}

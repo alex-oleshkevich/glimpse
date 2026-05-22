@@ -2614,14 +2614,6 @@ label.text-error {
 .mpris-popover,
 popover.mpris-popover {
     --popover-min-width: var(--popover-large-width);
-    --popover-min-height: 0px;
-    --card-bg: color-mix(in srgb, var(--color-fg) 7%, transparent);
-    --card-hover-bg: color-mix(in srgb, var(--color-fg) 11%, transparent);
-    --card-border: transparent;
-    --card-radius: 14px;
-    --card-shell-padding: var(--space-4) var(--space-5);
-    --card-extra-shadow: 0 0 transparent;
-    --card-hover-extra-shadow: 0 0 transparent;
 }
 
 .mpris-card {
@@ -2637,6 +2629,7 @@ popover.mpris-popover {
     min-height: 32px;
     border-radius: 8px;
     background: color-mix(in srgb, var(--color-fg) 8%, transparent);
+    background-color: red;
 }
 
 .mpris-artwork__icon {
@@ -2644,6 +2637,7 @@ popover.mpris-popover {
 }
 
 .mpris-meta__title {
+    border: 1px solid red;
     font-size: var(--font-size-ui);
     font-weight: var(--font-weight-semibold);
     color: var(--color-fg);

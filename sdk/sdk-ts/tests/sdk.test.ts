@@ -5,15 +5,15 @@ import * as sdk from "../src/index.js";
 import {
   Applet,
   Badge,
-  Button,
+  Choice,
+  ChoiceList,
   Column,
   Hero,
   type InitEvent,
   Row,
-  Select,
-  Spinner,
   StatusDot,
   StatusItem,
+  Tile,
   Text,
   parseCallbackEvent,
 } from "../src/index.js";
@@ -51,7 +51,7 @@ class DemoApplet extends Applet<DemoState> {
     return new Column({ children: [
       new Hero({ title: "Demo", subtitle: state.version }),
       new Text(state.version),
-      new Button({ id: "submit", label: "Submit" }),
+      new Tile({ id: "submit", primary: "Submit", activatable: true }),
     ] });
   }
 
@@ -132,24 +132,22 @@ test("parseCallbackEvent returns typed popover event", () => {
   assert.equal(event.open, true);
 });
 
-test("select serializes items", () => {
-  const node = new Select({
+test("choice list serializes choices", () => {
+  const node = new ChoiceList({
     id: "env",
-    items: [{ id: "prod", label: "Production" }],
-    selected: 0,
+    choices: [new Choice({ id: "prod", primary: "Production" })],
+    active: "prod",
   });
   const payload = node.toProtocol();
-  assert.equal(payload.type, "select");
-  assert.equal((payload.data as any).items[0].id, "prod");
+  assert.equal(payload.type, "choice_list");
+  assert.equal((payload.data as any).choices[0].id, "prod");
 });
 
 test("row and column serialize as layout protocol types", () => {
   const row = new Row({ children: [] }).toProtocol();
   assert.equal(row.type, "row");
-  assert.equal((row.data as any).spacing, 4);
   const column = new Column({ children: [] }).toProtocol();
   assert.equal(column.type, "column");
-  assert.equal((column.data as any).spacing, 4);
 });
 
 test("section is not a public SDK widget", () => {
@@ -158,13 +156,7 @@ test("section is not a public SDK widget", () => {
 
 test("status dot serializes as status protocol type", () => {
   const payload = new StatusDot().toProtocol();
-  assert.equal(payload.type, "status");
-});
-
-test("spinner serializes with default spinning", () => {
-  const payload = new Spinner().toProtocol();
-  assert.equal(payload.type, "spinner");
-  assert.equal((payload.data as any).spinning, true);
+  assert.equal(payload.type, "status_dot");
 });
 
 test("popover updates are emitted when state changes", async () => {
@@ -193,8 +185,8 @@ test("init event rerenders changed state", async () => {
 });
 
 test("variant serializes as semantic protocol value", () => {
-  const payload = new Badge({ label: "Warning", variant: "warning" }).toProtocol();
-  assert.equal((payload.data as any).variant, "warning");
+  const payload = new Badge({ label: "Warning", kind: "warning" }).toProtocol();
+  assert.equal((payload.data as any).kind, "warning");
 });
 
 test("desktop helpers run local commands", async () => {

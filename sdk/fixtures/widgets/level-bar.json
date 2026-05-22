@@ -1,9 +1,0 @@
-{
-  "data": {
-    "max": 1.0,
-    "min": 0.0,
-    "mode": "continuous",
-    "value": 0.7
-  },
-  "type": "level_bar"
-}

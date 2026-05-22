@@ -1,0 +1,15 @@
+{
+  "data": {
+    "digits": 0,
+    "id": "brightness",
+    "label": "Brightness",
+    "left_icon": "display-brightness-symbolic",
+    "max": 1.0,
+    "min": 0.0,
+    "page": 0.1,
+    "snap_step": 0.05,
+    "step": 0.05,
+    "value": 0.6
+  },
+  "type": "slider_tile"
+}
