@@ -170,10 +170,11 @@ async fn resolve_forecast_location(
     }
 
     let mut subscription = location.subscribe();
-    if let Some(location) = location_from_state(&subscription.borrow()) {
-        return Ok(ForecastLocation::Coordinates(location));
-    }
-
+    // Always trigger a refresh so we don't paint weather with stale coordinates
+    // (e.g., after the user moved on a flight or train). The cached fix is
+    // used immediately as a fallback while the fresh refresh runs in the
+    // background; when fresh coords arrive, the outer weather loop re-fetches
+    // via the location-changed signal.
     request_location_refresh(location).await;
     if let Some(location) = location_from_state(&subscription.borrow()) {
         return Ok(ForecastLocation::Coordinates(location));

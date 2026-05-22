@@ -2,7 +2,6 @@ use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 
-use crate::LocationConfig;
 use crate::services::{
     framework::{Control, ServiceCommand, ServiceHandle},
     geoclue,
@@ -42,7 +41,6 @@ pub struct LocationService {
 }
 
 struct ActiveProvider {
-    config: LocationConfig,
     task: JoinHandle<()>,
     cancel: CancellationToken,
     command_tx: mpsc::Sender<ProviderCommand>,
@@ -61,28 +59,16 @@ impl ActiveProvider {
         }
     }
 
-    fn spawn(config: LocationConfig, geoclue: geoclue::GeoClueHandle) -> Self {
+    fn spawn(geoclue: geoclue::GeoClueHandle) -> Self {
         let (command_tx, command_rx) = mpsc::channel(1);
         let (message_tx, message_rx) = mpsc::channel(1);
         let cancel = CancellationToken::new();
         let task_cancel = cancel.clone();
-        let task = match config {
-            LocationConfig::Static {
-                latitude,
-                longitude,
-            } => tokio::spawn(async move {
-                static_provider(latitude, longitude, command_rx, message_tx, task_cancel).await;
-            }),
-            LocationConfig::GeoClue => tokio::spawn(async move {
-                geoclue_provider(geoclue, command_rx, message_tx, task_cancel).await;
-            }),
-            LocationConfig::IPAPI => tokio::spawn(async move {
-                task_cancel.cancelled().await;
-            }),
-        };
+        let task = tokio::spawn(async move {
+            geoclue_provider(geoclue, command_rx, message_tx, task_cancel).await;
+        });
         Self {
             cancel,
-            config,
             task,
             message_rx,
             command_tx,
@@ -150,29 +136,23 @@ impl LocationService {
                             lifecycle
                         },
                     },
-                    None => lifecycle
+                    None => {
+                        tracing::debug!("location provider stopped");
+                        self.change_state(State::Degraded(LocationError::Unavailable));
+                        Lifecycle::Idle
+                    }
                 },
                 command_message = self.command_rx.recv() => match command_message{
                     Some(command_message) => match command_message{
                         ServiceCommand::Control(control_command) => match control_command {
-                            Control::Start(config) => {
-                                tracing::debug!("start location provider: {}", config.location);
-                                shutdown_task(lifecycle).await;
-                                Lifecycle::Running(ActiveProvider::spawn(config.location.clone(), self.geoclue.clone()))
+                            Control::Start(_) => {
+                                tracing::debug!("start location provider: geoclue");
+                                match lifecycle {
+                                    Lifecycle::Running(_) => lifecycle,
+                                    Lifecycle::Idle => Lifecycle::Running(ActiveProvider::spawn(self.geoclue.clone())),
+                                }
                             },
-                            Control::Reconfigure(ref config) => match lifecycle {
-                                Lifecycle::Running(ref provider) =>  {
-                                    let new_config = config.location.clone();
-                                    if new_config != provider.config {
-                                        tracing::debug!("reconfiguring location service: {}", new_config);
-                                        shutdown_task(lifecycle).await;
-                                         Lifecycle::Running(ActiveProvider::spawn(new_config, self.geoclue.clone()))
-                                    } else {
-                                        lifecycle
-                                    }
-                                },
-                                _ => lifecycle,
-                            },
+                            Control::Reconfigure(_) => lifecycle,
                             Control::Shutdown => {
                                 tracing::debug!("location service shutting down");
                                 shutdown_task(lifecycle).await;
@@ -180,16 +160,19 @@ impl LocationService {
                             },
                         },
                         ServiceCommand::Command(service_command) => match service_command {
-                            Command::Refresh => match lifecycle {
-                                Lifecycle::Running(ref provider) => {
-                                    self.change_state(State::Refreshing);
-                                    provider.send(ProviderCommand::Refresh).await;
-                                    lifecycle
-                                },
-                                _ => {
-                                    tracing::debug!("refresh message dropped because the service is not running");
-                                    lifecycle
-                                },
+                            Command::Refresh => {
+                                self.change_state(State::Refreshing);
+                                match lifecycle {
+                                    Lifecycle::Running(ref provider) => {
+                                        provider.send(ProviderCommand::Refresh).await;
+                                        lifecycle
+                                    },
+                                    Lifecycle::Idle => {
+                                        // After SetManual the provider was shut down. Refresh restores
+                                        // the GeoClue provider so the user can go back to live coords.
+                                        Lifecycle::Running(ActiveProvider::spawn(self.geoclue.clone()))
+                                    },
+                                }
                             },
                             Command::SetManual(lat, lon) => {
                                 tracing::info!(lat, lon, "location overridden via IPC");
@@ -231,38 +214,6 @@ enum ProviderMessage {
     Unavailable(LocationError),
 }
 
-async fn static_provider(
-    latitude: f64,
-    longitude: f64,
-    mut command_receiver: mpsc::Receiver<ProviderCommand>,
-    value_sender: mpsc::Sender<ProviderMessage>,
-    cancel: CancellationToken,
-) {
-    tracing::debug!("static location provider started");
-    let _ = value_sender
-        .send(ProviderMessage::Value(Coordinates {
-            latitude,
-            longitude,
-        }))
-        .await;
-
-    loop {
-        tokio::select! {
-            _ = cancel.cancelled() => break,
-            command = command_receiver.recv() => match command {
-                Some(command) => match command {
-                    ProviderCommand::Refresh => {
-                        if let Err(e) = value_sender.send(ProviderMessage::Value(Coordinates { latitude, longitude })).await {
-                            tracing::error!("failed to send result from location provider: {:?}", e);
-                        }
-                    }
-                },
-                None => break,
-            }
-        }
-    }
-}
-
 async fn geoclue_provider(
     geoclue: geoclue::GeoClueHandle,
     mut command_rx: mpsc::Receiver<ProviderCommand>,
@@ -271,23 +222,36 @@ async fn geoclue_provider(
 ) {
     let mut state_rx = geoclue.subscribe();
     let state = { state_rx.borrow().clone() };
-    publish_geoclue_location(state, &message_tx).await;
+    if !publish_geoclue_location(state, &message_tx, &cancel).await {
+        return;
+    }
 
     loop {
         tokio::select! {
             _ = cancel.cancelled() => break,
             changed = state_rx.changed() => {
                 if changed.is_err() {
-                    let _ = message_tx.send(ProviderMessage::Unavailable(LocationError::Unavailable)).await;
+                    let _ = send_provider_message(
+                        &message_tx,
+                        ProviderMessage::Unavailable(LocationError::Unavailable),
+                        &cancel,
+                    )
+                    .await;
                     break;
                 }
                 let state = { state_rx.borrow().clone() };
-                publish_geoclue_location(state, &message_tx).await;
+                if !publish_geoclue_location(state, &message_tx, &cancel).await {
+                    break;
+                }
             }
             command = command_rx.recv() => match command {
                 Some(ProviderCommand::Refresh) => {
-                    let state = { state_rx.borrow().clone() };
-                    publish_geoclue_location(state, &message_tx).await;
+                    // Forward to GeoClueService so it starts a new client and
+                    // fetches a fresh fix. The new state arrives via
+                    // state_rx.changed() and is published from the arm above.
+                    let _ = geoclue
+                        .send(ServiceCommand::Command(geoclue::Command::Refresh))
+                        .await;
                 }
                 None => break,
             }
@@ -298,18 +262,38 @@ async fn geoclue_provider(
 async fn publish_geoclue_location(
     state: geoclue::State,
     message_tx: &mpsc::Sender<ProviderMessage>,
-) {
+    cancel: &CancellationToken,
+) -> bool {
     if let Some(coordinates) = &state.coordinates {
-        let _ = message_tx
-            .send(ProviderMessage::Value(Coordinates {
+        send_provider_message(
+            message_tx,
+            ProviderMessage::Value(Coordinates {
                 latitude: coordinates.latitude,
                 longitude: coordinates.longitude,
-            }))
-            .await;
+            }),
+            cancel,
+        )
+        .await
     } else if !state.available || state.error.is_some() {
-        let _ = message_tx
-            .send(ProviderMessage::Unavailable(LocationError::Unavailable))
-            .await;
+        send_provider_message(
+            message_tx,
+            ProviderMessage::Unavailable(LocationError::Unavailable),
+            cancel,
+        )
+        .await
+    } else {
+        true
+    }
+}
+
+async fn send_provider_message(
+    message_tx: &mpsc::Sender<ProviderMessage>,
+    message: ProviderMessage,
+    cancel: &CancellationToken,
+) -> bool {
+    tokio::select! {
+        _ = cancel.cancelled() => false,
+        result = message_tx.send(message) => result.is_ok(),
     }
 }
 
@@ -317,5 +301,78 @@ async fn recv_from_provider(state: &mut Lifecycle) -> Option<ProviderMessage> {
     match state {
         Lifecycle::Running(provider) => provider.message_rx.recv().await,
         _ => std::future::pending().await,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Command, LocationService, State};
+    use crate::{
+        Config,
+        services::framework::{Control, ServiceCommand},
+    };
+    use tokio::time::{Duration, timeout};
+    use tokio_util::sync::CancellationToken;
+
+    async fn wait_for_state(
+        rx: &mut tokio::sync::watch::Receiver<State>,
+        matches: impl Fn(&State) -> bool,
+    ) -> State {
+        timeout(Duration::from_secs(1), async {
+            loop {
+                if matches(&rx.borrow()) {
+                    return rx.borrow().clone();
+                }
+                rx.changed().await.expect("location service should run");
+            }
+        })
+        .await
+        .expect("timed out waiting for location state")
+    }
+
+    #[tokio::test]
+    async fn refresh_recovers_after_standalone_provider_stops() {
+        let (service, handle) = LocationService::new_standalone();
+        let cancel = CancellationToken::new();
+        let task_cancel = cancel.clone();
+        let task = tokio::spawn(async move {
+            service.run(task_cancel).await;
+        });
+        let mut rx = handle.subscribe();
+
+        handle
+            .send(ServiceCommand::Control(Control::Start(Config::default())))
+            .await
+            .expect("start location service");
+
+        wait_for_state(&mut rx, |state| matches!(state, State::Degraded(_))).await;
+
+        handle
+            .send(ServiceCommand::Command(Command::SetManual(52.0, 21.0)))
+            .await
+            .expect("set manual location");
+        wait_for_state(&mut rx, |state| matches!(state, State::Ready(_))).await;
+
+        handle
+            .send(ServiceCommand::Command(Command::Refresh))
+            .await
+            .expect("refresh location service");
+
+        timeout(Duration::from_secs(1), async {
+            loop {
+                if matches!(handle.snapshot(), State::Degraded(_)) {
+                    break;
+                }
+                rx.changed().await.expect("location service should run");
+            }
+        })
+        .await
+        .expect("refresh should settle back to degraded");
+
+        cancel.cancel();
+        timeout(Duration::from_secs(1), task)
+            .await
+            .expect("location task should exit after cancellation")
+            .expect("location task should not panic");
     }
 }

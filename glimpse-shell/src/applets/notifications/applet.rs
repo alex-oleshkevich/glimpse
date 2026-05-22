@@ -110,7 +110,7 @@ impl Default for Config {
             popup_visible_limit: 8,
             popup_position: PopupPosition::TopRight,
             popup_margin_x: 12,
-            popup_margin_y: 32,
+            popup_margin_y: 12,
             popup_monitor: None,
             max_history: 100,
             filter_regex: Vec::new(),

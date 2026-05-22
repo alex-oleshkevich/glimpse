@@ -745,6 +745,7 @@ popover,
 .notification-popup {
     font-family: var(--font-family-ui);
     font-size: var(--font-size-ui);
+    font-weight: 500;
 }
 
 .panel {
@@ -1424,11 +1425,12 @@ popover.clipboard-app-menu .action-menu {
 .empty-state__title {
     color: var(--row-fg);
     font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-lg);
 }
 
 .empty-state__subtitle {
     color: var(--color-muted-fg);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
 }
 
 .dim-label {
@@ -1801,7 +1803,7 @@ popover.clipboard-app-menu .action-menu {
 }
 
 .weather-popover .weather-hero-temp {
-    font-size: 24px;
+    font-size: 20pt;
     font-weight: var(--font-weight-semibold);
     font-variant-numeric: tabular-nums;
 }
@@ -1812,6 +1814,11 @@ popover.clipboard-app-menu .action-menu {
 
 .weather-popover .weather-hourly-col {
     padding: var(--space-3) var(--space-1);
+    font-size: var(--font-size-sm);
+}
+
+.weather-popover .weather-hourly-col>*:not(:last-child) {
+    margin-bottom: 5px;
 }
 
 .weather-popover .weather-hourly-temp {
@@ -1971,7 +1978,18 @@ popover.notifications-popover {
 }
 
 .popup-card-list {
-    padding: var(--space-5);
+    /* Uniform padding so every anchored edge (TopLeft / TopRight / BottomLeft
+     * / BottomRight + the center variants) gets the same visible gap to the
+     * screen edge. The shadow below is sized to render inside this padding —
+     * a heavier shadow (`--shadow-float`, 24px extent) would get clipped at
+     * the layer-shell window edge and look like a hard black line. */
+    padding: var(--space-6);
+    /* Override the inherited `--message-shadow: var(--shadow-float)` for the
+     * popup specifically. Constraint: max extent (blur + |y_offset|) ≤ 16px
+     * so the shadow fades fully inside `padding: var(--space-6)`. */
+    --message-shadow:
+        0 4px 12px rgb(0 0 0 / 0.45),
+        0 1px 3px rgb(0 0 0 / 0.25);
     --card-shell-padding: var(--space-6);
     --card-padding: 0px;
     --card-radius: var(--message-radius);
@@ -2096,11 +2114,11 @@ popover.notifications-popover {
 }
 
 .key-value-grid__key {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-ui);
 }
 
 .key-value-grid__value {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-ui);
 }
 
 .button-row {
@@ -2219,12 +2237,12 @@ label.text-error {
 }
 
 .message__app-name {
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-ui);
     font-weight: var(--font-weight-semibold);
 }
 
 .message__time {
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-sm);
     font-variant-numeric: tabular-nums;
 }
 
@@ -2243,12 +2261,12 @@ label.text-error {
 }
 
 .message__title {
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-ui);
     font-weight: var(--font-weight-bold);
 }
 
 .message__body {
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-ui);
     margin-top: var(--space-1);
     margin-bottom: var(--space-4);
 }
@@ -2282,7 +2300,7 @@ label.text-error {
 }
 
 .message-group__app-name {
-    font-size: var(--font-size-md);
+    font-size: var(--font-size-ui);
     font-weight: var(--font-weight-semibold);
 }
 
@@ -2712,5 +2730,5 @@ label.text-error {
 .screencast-indicator__timer {
     color: #ffffff;
     font-variant-numeric: tabular-nums;
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-md);
 }

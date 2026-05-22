@@ -7,7 +7,6 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use zbus::zvariant::OwnedObjectPath;
 
-use crate::{Config, LocationConfig};
 use crate::{
     dbus::geoclue::{GeoClueClientProxy, GeoClueLocationProxy, GeoClueManagerProxy},
     services::framework::{Control, ServiceCommand, ServiceHandle},
@@ -124,6 +123,14 @@ impl GeoClueService {
                 location = self.location_rx.recv() => {
                     if location.is_some() {
                         self.publish_manager_state(&manager, &active).await;
+                        // Got a fix — release our client so we don't pin
+                        // Manager.InUse=true forever (which would keep the
+                        // privacy indicator stuck on). Subsequent refreshes
+                        // restart the client transiently.
+                        if self.state_tx.borrow().coordinates.is_some() && active.is_some() {
+                            self.stop_client(active.take()).await;
+                            self.publish_manager_state(&manager, &active).await;
+                        }
                     }
                 }
                 command = self.command_rx.recv() => match command {
@@ -131,15 +138,12 @@ impl GeoClueService {
                         self.stop_client(active.take()).await;
                         return Ok(RunOutcome::Cancelled);
                     }
-                    Some(ServiceCommand::Control(Control::Start(config)))
-                    | Some(ServiceCommand::Control(Control::Reconfigure(config))) => {
-                        let should_run = geoclue_location_enabled(&config);
-                        if self.reconcile_client(&manager, &mut active, should_run).await {
+                    Some(ServiceCommand::Control(Control::Start(_)))
+                    | Some(ServiceCommand::Control(Control::Reconfigure(_)))
+                    | Some(ServiceCommand::Command(Command::Refresh)) => {
+                        if self.reconcile_client(&manager, &mut active, true).await {
                             self.publish_manager_state(&manager, &active).await;
                         }
-                    }
-                    Some(ServiceCommand::Command(Command::Refresh)) => {
-                        self.publish_manager_state(&manager, &active).await;
                     }
                 }
             }
@@ -232,9 +236,12 @@ impl GeoClueService {
         active: &Option<ActiveClient>,
     ) {
         let in_use = manager.in_use().await.unwrap_or(false);
+        // When we don't have an active client, keep the last known coordinates
+        // around instead of clearing them — clients depend on the cached fix
+        // between transient client lifetimes.
         let coordinates = match active {
             Some(active) => self.read_coordinates(active).await,
-            None => None,
+            None => self.state_tx.borrow().coordinates.clone(),
         };
 
         self.change_state(State {
@@ -282,26 +289,5 @@ impl GeoClueService {
                 true
             }
         });
-    }
-}
-
-fn geoclue_location_enabled(config: &Config) -> bool {
-    matches!(config.location, LocationConfig::GeoClue)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn geoclue_location_is_enabled_only_for_geoclue_config() {
-        let mut config = Config::default();
-        assert!(geoclue_location_enabled(&config));
-
-        config.location = LocationConfig::Static {
-            latitude: 52.2298,
-            longitude: 21.0118,
-        };
-        assert!(!geoclue_location_enabled(&config));
     }
 }

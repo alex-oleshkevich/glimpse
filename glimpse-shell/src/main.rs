@@ -271,7 +271,10 @@ fn print_dispatch_help() {
     println!("    bluetooth_scan action=<start|stop>          Start/stop discovery");
     println!("    connect_bluetooth address=<a>               Connect a Bluetooth device");
     println!("    disconnect_bluetooth address=<a>            Disconnect a Bluetooth device");
-    println!("    refresh service=<battery|brightness|power|storage>  Re-poll a service");
+    println!("    refresh service=<battery|brightness|location|power|storage>  Re-poll a service");
+    println!(
+        "    set_location lat=<-90..90> lon=<-180..180>  Override location (manual; bypasses GeoClue)"
+    );
     println!("    forget_wifi uuid=<u> confirm=true           Forget a network (destructive)");
     println!("    forget_bluetooth address=<a> confirm=true   Unpair a device (destructive)");
     println!("    eject id=<id> confirm=true                  Eject media (destructive)");

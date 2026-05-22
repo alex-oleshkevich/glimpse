@@ -3,8 +3,8 @@ use std::pin::Pin;
 use glimpse_core::ThemeMode;
 use glimpse_core::ipc::client::CommandHandler;
 use glimpse_core::services::{
-    audio, battery, bluetooth, brightness, clipboard, keyboard, mpris, network, notifications,
-    power, storage, theme,
+    audio, battery, bluetooth, brightness, clipboard, keyboard, location, mpris, network,
+    notifications, power, storage, theme,
 };
 
 use crate::services::framework::Services;
@@ -466,12 +466,41 @@ impl CommandHandler for ShellCommandHandler {
                             storage::Command::Refresh,
                             "failed to refresh storage",
                         ),
+                        "location" => svc.location.try_send_command(
+                            "location",
+                            location::Command::Refresh,
+                            "failed to refresh location",
+                        ),
                         other => {
                             return Err(format!(
-                                "unknown service '{other}' (battery|brightness|power|storage)"
+                                "unknown service '{other}' (battery|brightness|location|power|storage)"
                             ));
                         }
                     }
+                    Ok(vec![])
+                }
+
+                // ── set_location ──────────────────────────────────────
+                // Manual override that bypasses GeoClue — useful for testing,
+                // travel scenarios where geolocation is wrong, or kiosk setups.
+                "set_location" => {
+                    let lat: f64 = require(fields, "lat")?
+                        .parse()
+                        .map_err(|_| "lat must be a number".to_string())?;
+                    let lon: f64 = require(fields, "lon")?
+                        .parse()
+                        .map_err(|_| "lon must be a number".to_string())?;
+                    if !(-90.0..=90.0).contains(&lat) {
+                        return Err("lat must be in [-90, 90]".to_string());
+                    }
+                    if !(-180.0..=180.0).contains(&lon) {
+                        return Err("lon must be in [-180, 180]".to_string());
+                    }
+                    svc.location.try_send_command(
+                        "location",
+                        location::Command::SetManual(lat, lon),
+                        "failed to set manual location",
+                    );
                     Ok(vec![])
                 }
 
