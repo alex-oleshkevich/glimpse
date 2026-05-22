@@ -98,7 +98,8 @@ impl SimpleComponent for StatusItem {
                 if button == 1 {
                     let output = match event {
                         Some(event) => Output::Activate(Some(event)),
-                        None => Output::TogglePopover,
+                        None if self.has_popover => Output::TogglePopover,
+                        None => return,
                     };
                     let _ = sender.output(output);
                     return;

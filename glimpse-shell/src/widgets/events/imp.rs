@@ -105,7 +105,11 @@ fn empty_label(date: NaiveDate, loading: bool) -> &'static str {
 }
 
 fn tooltip_for(event: &CalendarEvent) -> Option<String> {
-    let location = event.location.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let location = event
+        .location
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
     let source = Some(event.source.display_name.trim()).filter(|s| !s.is_empty());
     match (location, source) {
         (Some(loc), Some(src)) => Some(format!("{loc} · {src}")),

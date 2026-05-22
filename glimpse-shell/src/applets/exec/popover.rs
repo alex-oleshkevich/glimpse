@@ -5,8 +5,9 @@ use relm4::{
     gtk::{self, prelude::*},
 };
 
-use crate::components::{
-    animated_popover::AnimatedPopover, popover_scroll, popover_shell::PopoverShell,
+use crate::{
+    components::{popover_scroll, popover_shell::PopoverShell},
+    widgets::animated_popover::AnimatedPopover,
 };
 
 use super::{
@@ -87,7 +88,11 @@ impl SimpleComponent for Popover {
         let widgets = view_output!();
         widgets.root.set_parent(&init.parent);
         widgets.root.set_autohide(true);
-        popover_scroll::install_half_monitor_limit(&widgets.root, &widgets.scroller, &init.parent);
+        popover_scroll::install_half_monitor_limit(
+            widgets.root.upcast_ref(),
+            &widgets.scroller,
+            &init.parent,
+        );
 
         let opened_sender = sender.clone();
         widgets.root.connect_show(move |_| {

@@ -272,19 +272,13 @@ impl Applet {
     }
 
     fn has_popover_content(&self) -> bool {
-        true
+        self.root_node.is_some()
     }
 
-    fn sync_popover(&self) {
-        if self.popover_open {
-            self.popover
-                .emit(PopoverInput::SetRoot(self.root_node.clone()));
+    fn toggle_popover_if_available(&self) {
+        if !self.has_popover_content() {
+            return;
         }
-    }
-
-    fn open_popover_if_available(&self) {
-        self.popover
-            .emit(PopoverInput::SetRoot(self.root_node.clone()));
         self.popover.emit(PopoverInput::Toggle);
     }
 
@@ -334,18 +328,6 @@ impl Applet {
         if let Err(error) = self.outbound_tx.try_send(PanelCommand::Event(event)) {
             tracing::warn!(%error, applet = %self.name, "exec applet failed to queue event");
         }
-    }
-
-    fn send_popover_lifecycle_event(&self, kind: EventKind) {
-        self.send_event(EventPayload {
-            id: "popover".into(),
-            kind,
-            source: EventSource::Popover,
-            button: None,
-            active: None,
-            value: None,
-            delta_y: None,
-        });
     }
 }
 
