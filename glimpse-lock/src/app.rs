@@ -579,6 +579,7 @@ impl LockApp {
             return;
         }
         self.clear_lock_state();
+        refresh_user_info_for_lock_activation(&mut self.user, current_user_info);
 
         let instance = Instance::new();
         connect_lock_signals(&instance, &sender);
@@ -2302,6 +2303,13 @@ fn current_username() -> String {
     std::env::var("USER").unwrap_or_else(|_| "user".into())
 }
 
+fn refresh_user_info_for_lock_activation(
+    user: &mut UserInfo,
+    load_user_info: impl FnOnce() -> UserInfo,
+) {
+    *user = load_user_info();
+}
+
 fn current_user_info() -> UserInfo {
     let username = current_username();
     let (passwd_name, home_dir) = passwd_user_info(&username).unwrap_or_default();
@@ -2764,11 +2772,11 @@ mod tests {
     use notify::event::{AccessKind, AccessMode, DataChange};
 
     use super::{
-        DecodedTexture, ImageLoadState, LockMode, LockPowerAction, TextureCacheKey,
+        DecodedTexture, ImageLoadState, LockMode, LockPowerAction, TextureCacheKey, UserInfo,
         battery_control_status, file_watch_event_reloads, keyboard_control_status,
         load_cached_texture, network_control_status, power_confirmation_icon,
-        power_confirmation_title, resize_rgba_for_fit, should_run_power_action,
-        write_cached_texture,
+        power_confirmation_title, refresh_user_info_for_lock_activation, resize_rgba_for_fit,
+        should_run_power_action, write_cached_texture,
     };
 
     #[test]
@@ -2817,6 +2825,28 @@ mod tests {
             LockMode::Resident,
             LockPowerAction::Suspend
         ));
+    }
+
+    #[test]
+    fn lock_activation_refresh_replaces_cached_user_info() {
+        let mut user = UserInfo {
+            username: "alex".into(),
+            display_name: "Old Name".into(),
+            initials: "ON".into(),
+            icon_path: None,
+        };
+        let icon_path = PathBuf::from("/home/alex/.face");
+
+        refresh_user_info_for_lock_activation(&mut user, || UserInfo {
+            username: "alex".into(),
+            display_name: "Fresh Name".into(),
+            initials: "FN".into(),
+            icon_path: Some(icon_path.clone()),
+        });
+
+        assert_eq!(user.display_name, "Fresh Name");
+        assert_eq!(user.initials, "FN");
+        assert_eq!(user.icon_path, Some(icon_path));
     }
 
     #[test]
