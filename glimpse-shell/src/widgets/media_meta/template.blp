@@ -1,0 +1,39 @@
+using Gtk 4.0;
+
+template $MediaMeta: Box {
+  orientation: vertical;
+  spacing: 2;
+  hexpand: true;
+  valign: center;
+
+  styles [
+    "mpris-meta",
+  ]
+
+  Label title {
+    halign: start;
+    xalign: 0;
+    ellipsize: end;
+    single-line-mode: true;
+    max-width-chars: 28;
+    width-chars: 1;
+
+    styles [
+      "mpris-meta__title",
+    ]
+  }
+
+  Label subtitle {
+    halign: start;
+    xalign: 0;
+    ellipsize: end;
+    single-line-mode: true;
+    max-width-chars: 36;
+    width-chars: 1;
+    visible: false;
+
+    styles [
+      "mpris-meta__subtitle",
+    ]
+  }
+}

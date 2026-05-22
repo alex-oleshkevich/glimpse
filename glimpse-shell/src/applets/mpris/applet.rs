@@ -19,7 +19,7 @@ use super::{
     popover::{Popover, PopoverInit, PopoverInput, PopoverOutput},
 };
 
-const DEFAULT_MAX_ROWS: usize = 5;
+const DEFAULT_MAX_ROWS: usize = 12;
 const PANEL_LABEL_MAX_WIDTH_CHARS: i32 = 48;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -76,7 +76,6 @@ pub struct Applet {
     state: State,
     service: MprisHandle,
     popover: Controller<Popover>,
-    popover_open: bool,
     subscription_cancel: CancellationToken,
 }
 
@@ -143,7 +142,6 @@ impl SimpleComponent for Applet {
             state,
             service: init.service,
             popover,
-            popover_open: false,
             subscription_cancel: CancellationToken::new(),
         };
         model.send_command(Command::SetFilterRegex(model.config.filter_regex.clone()));
@@ -189,24 +187,15 @@ impl SimpleComponent for Applet {
             Input::Reconfigure(config) => {
                 self.config = config;
                 self.send_command(Command::SetFilterRegex(self.config.filter_regex.clone()));
-                if self.popover_open {
-                    self.sync_popover_config();
-                }
+                self.popover.emit(PopoverInput::Reconfigure {
+                    max_rows: self.config.normalized_max_rows(),
+                    show_artwork: self.config.show_artwork,
+                });
                 self.apply_state(self.service.snapshot());
             }
             Input::TogglePopover => self.popover.emit(PopoverInput::Toggle),
-            Input::PopoverOutput(PopoverOutput::Opened) => {
-                self.popover_open = true;
-                self.sync_popover_config();
-                self.sync_popover_state();
-            }
-            Input::PopoverOutput(PopoverOutput::Closed) => {
-                self.popover_open = false;
-            }
             Input::PopoverOutput(output) => {
-                if let Some(command) = command_for_popover_output(output) {
-                    self.send_command(command);
-                }
+                self.send_command(command_for_popover_output(output));
             }
         }
     }
@@ -218,20 +207,7 @@ impl Applet {
         self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
         self.hidden = self.config.hide_when_empty && self.label.is_empty();
         self.state = state.clone();
-        if self.popover_open {
-            self.popover.emit(PopoverInput::Update(state));
-        }
-    }
-
-    fn sync_popover_config(&self) {
-        self.popover.emit(PopoverInput::Reconfigure {
-            max_rows: self.config.normalized_max_rows(),
-            show_artwork: self.config.show_artwork,
-        });
-    }
-
-    fn sync_popover_state(&self) {
-        self.popover.emit(PopoverInput::Update(self.state.clone()));
+        self.popover.emit(PopoverInput::Update(state));
     }
 
     fn send_command(&self, command: Command) {
@@ -250,13 +226,19 @@ impl Drop for Applet {
     }
 }
 
-fn command_for_popover_output(output: PopoverOutput) -> Option<Command> {
+fn command_for_popover_output(output: PopoverOutput) -> Command {
     match output {
-        PopoverOutput::Opened | PopoverOutput::Closed => None,
-        PopoverOutput::Previous { player_id } => Some(Command::Previous { player_id }),
-        PopoverOutput::PlayPause { player_id } => Some(Command::PlayPause { player_id }),
-        PopoverOutput::Next { player_id } => Some(Command::Next { player_id }),
-        PopoverOutput::Raise { player_id } => Some(Command::Raise { player_id }),
+        PopoverOutput::Previous { player_id } => Command::Previous { player_id },
+        PopoverOutput::PlayPause { player_id } => Command::PlayPause { player_id },
+        PopoverOutput::Next { player_id } => Command::Next { player_id },
+        PopoverOutput::Seek {
+            player_id,
+            offset_micros,
+        } => Command::Seek {
+            player_id,
+            offset_micros,
+        },
+        PopoverOutput::Raise { player_id } => Command::Raise { player_id },
     }
 }
 
@@ -282,9 +264,19 @@ mod tests {
             command_for_popover_output(PopoverOutput::PlayPause {
                 player_id: "spotify".into()
             }),
-            Some(Command::PlayPause {
+            Command::PlayPause {
                 player_id: "spotify".into()
-            })
+            }
+        );
+        assert_eq!(
+            command_for_popover_output(PopoverOutput::Seek {
+                player_id: "spotify".into(),
+                offset_micros: -2_500_000,
+            }),
+            Command::Seek {
+                player_id: "spotify".into(),
+                offset_micros: -2_500_000,
+            }
         );
     }
 

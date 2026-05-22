@@ -1843,116 +1843,10 @@ popover.clipboard-app-menu .action-menu {
     min-width: 68px;
 }
 
-/* MPRIS */
+/* MPRIS panel label (styles for the popover live further down). */
 
 .mpris-label {
     font-variant-numeric: tabular-nums;
-}
-
-.mpris-popover,
-popover.mpris-popover {
-    --popover-min-width: var(--popover-xlarge-width);
-    --popover-min-height: 0px;
-    --card-bg: color-mix(in srgb, var(--color-fg) 7%, transparent);
-    --card-hover-bg: color-mix(in srgb, var(--color-fg) 11%, transparent);
-    --card-border: transparent;
-    --card-radius: 14px;
-    --card-shell-padding: var(--space-4) var(--space-5);
-    --card-extra-shadow: 0 0 transparent;
-    --card-hover-extra-shadow: 0 0 transparent;
-}
-
-.mpris-current-player {
-    padding: 14px;
-}
-
-.mpris-current-player__art {
-    min-width: 92px;
-    min-height: 92px;
-    border-radius: 12px;
-    background: var(--overlay-hover);
-}
-
-.mpris-current-player__art image {
-    color: var(--color-accent);
-}
-
-.mpris-current-player__meta,
-.mpris-current-player__copy,
-.mpris-player-row__copy {
-    min-width: 0;
-}
-
-.mpris-current-player__title {
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-semibold);
-}
-
-.mpris-current-player__subtitle,
-.mpris-player-row__subtitle,
-.mpris-player-row__status {
-    color: var(--color-muted-fg);
-}
-
-.mpris-current-player__progress {
-    color: var(--color-muted-fg);
-    font-size: var(--font-size-sm);
-    font-variant-numeric: tabular-nums;
-}
-
-.mpris-current-player__progress progressbar {
-    min-height: 6px;
-}
-
-.mpris-current-player__controls button,
-.mpris-player-row__play {
-    min-width: 30px;
-    min-height: 30px;
-    padding: 0;
-    border-radius: var(--radius-pill);
-}
-
-.mpris-current-player__play {
-    min-width: 36px;
-    min-height: 36px;
-}
-
-.mpris-current-player__controls button label,
-.mpris-player-row__play label {
-    font-weight: var(--font-weight-normal);
-}
-
-.mpris-other-players {
-    margin-top: var(--space-4);
-}
-
-.mpris-player-row {
-    min-height: 50px;
-    padding: 7px var(--space-2);
-    border-radius: 10px;
-}
-
-.mpris-player-row:hover {
-    background: var(--row-hover-bg);
-}
-
-.mpris-player-row__art {
-    min-width: 40px;
-    min-height: 40px;
-    border-radius: 9px;
-    background: color-mix(in srgb, var(--color-fg) 6%, transparent);
-}
-
-.mpris-player-row__art image {
-    color: var(--color-accent);
-}
-
-.mpris-player-row__title {
-    font-weight: var(--font-weight-semibold);
-}
-
-.mpris-player-row__status {
-    font-size: var(--font-size-sm);
 }
 
 /* Notifications */
@@ -1978,26 +1872,7 @@ popover.notifications-popover {
 }
 
 .popup-card-list {
-    /* Uniform padding so every anchored edge (TopLeft / TopRight / BottomLeft
-     * / BottomRight + the center variants) gets the same visible gap to the
-     * screen edge. The shadow below is sized to render inside this padding —
-     * a heavier shadow (`--shadow-float`, 24px extent) would get clipped at
-     * the layer-shell window edge and look like a hard black line. */
-    padding: var(--space-6);
-    /* Override the inherited `--message-shadow: var(--shadow-float)` for the
-     * popup specifically. Constraint: max extent (blur + |y_offset|) ≤ 16px
-     * so the shadow fades fully inside `padding: var(--space-6)`. */
-    --message-shadow:
-        0 4px 12px rgb(0 0 0 / 0.45),
-        0 1px 3px rgb(0 0 0 / 0.25);
-    --card-shell-padding: var(--space-6);
-    --card-padding: 0px;
-    --card-radius: var(--message-radius);
-    --card-bg: var(--message-bg);
-    --card-hover-bg: color-mix(in srgb, var(--message-bg) 95%, white);
-    --card-extra-shadow: var(--message-shadow);
-    --card-hover-extra-shadow: var(--message-shadow);
-    color: var(--card-fg);
+    padding: var(--space-7);
 }
 
 .notification-popup .message {
@@ -2115,6 +1990,7 @@ popover.notifications-popover {
 
 .key-value-grid__key {
     font-size: var(--font-size-ui);
+    padding-bottom: 2px;
 }
 
 .key-value-grid__value {
@@ -2242,7 +2118,7 @@ label.text-error {
 }
 
 .message__time {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-md);
     font-variant-numeric: tabular-nums;
 }
 
@@ -2731,4 +2607,132 @@ label.text-error {
     color: #ffffff;
     font-variant-numeric: tabular-nums;
     font-size: var(--font-size-md);
+}
+
+/* MPRIS popover (Now Playing) */
+
+.mpris-popover,
+popover.mpris-popover {
+    --popover-min-width: var(--popover-large-width);
+    --popover-min-height: 0px;
+    --card-bg: color-mix(in srgb, var(--color-fg) 7%, transparent);
+    --card-hover-bg: color-mix(in srgb, var(--color-fg) 11%, transparent);
+    --card-border: transparent;
+    --card-radius: 14px;
+    --card-shell-padding: var(--space-4) var(--space-5);
+    --card-extra-shadow: 0 0 transparent;
+    --card-hover-extra-shadow: 0 0 transparent;
+}
+
+.mpris-card {
+    /*padding: var(--space-4) var(--space-2);*/
+}
+
+.mpris-card__header {
+    padding-bottom: var(--space-1);
+}
+
+.mpris-artwork {
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-fg) 8%, transparent);
+}
+
+.mpris-artwork__icon {
+    color: var(--color-muted-fg);
+}
+
+.mpris-meta__title {
+    font-size: var(--font-size-ui);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-fg);
+}
+
+.mpris-meta__subtitle {
+    font-size: var(--font-size-ui);
+    color: var(--color-muted-fg);
+}
+
+.mpris-scrubber__scale {
+    min-height: 18px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.mpris-scrubber__scale trough {
+    min-height: 4px;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--color-fg) 10%, transparent);
+}
+
+.mpris-scrubber__scale highlight {
+    border-radius: var(--radius-pill);
+    background: var(--color-accent);
+}
+
+.mpris-scrubber__scale slider {
+    min-width: 12px;
+    min-height: 12px;
+    border-radius: var(--radius-pill);
+    background: var(--color-fg);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+.mpris-times {
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-muted-fg);
+    padding-top: 2px;
+}
+
+.mpris-times__position,
+.mpris-times__length {
+    color: var(--color-muted-fg);
+}
+
+.mpris-transport {
+    /*padding-top: var(--space-2);*/
+}
+
+.mpris-transport__button {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+}
+
+.mpris-transport__play {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.mpris-transport__play image {
+    /*-gtk-icon-size: 22px;*/
+}
+
+.mpris-other {
+    margin-top: var(--space-3);
+}
+
+.mpris-row {
+    min-height: 50px;
+    padding: 6px var(--space-2);
+    border-radius: 10px;
+}
+
+.mpris-row:hover {
+    background: color-mix(in srgb, var(--color-fg) 6%, transparent);
+}
+
+.mpris-row__artwork {
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--color-fg) 8%, transparent);
+}
+
+.mpris-row__button {
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0;
 }

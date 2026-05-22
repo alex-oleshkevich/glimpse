@@ -207,6 +207,10 @@ async fn execute_command(client: &MprisClient, command: Command) -> anyhow::Resu
         Command::PlayPause { player_id } => client.play_pause(&player_id).await,
         Command::Previous { player_id } => client.previous(&player_id).await,
         Command::Next { player_id } => client.next(&player_id).await,
+        Command::Seek {
+            player_id,
+            offset_micros,
+        } => client.seek(&player_id, offset_micros).await,
         Command::Raise { player_id } => client.raise(&player_id).await,
         Command::SetFilterRegex(_) => unreachable!("handled before execute_command"),
     }

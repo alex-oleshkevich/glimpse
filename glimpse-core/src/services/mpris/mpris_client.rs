@@ -229,6 +229,15 @@ impl MprisClient {
         Ok(())
     }
 
+    pub async fn seek(&self, player_id: &str, offset_micros: i64) -> anyhow::Result<()> {
+        player_proxy(&self.session, player_id)
+            .await?
+            .seek(offset_micros)
+            .await?;
+        self.mark_player_active(player_id);
+        Ok(())
+    }
+
     pub async fn raise(&self, player_id: &str) -> anyhow::Result<()> {
         root_proxy(&self.session, player_id).await?.raise().await?;
         self.mark_player_active(player_id);
@@ -413,6 +422,7 @@ async fn load_player(
             || player.can_pause().await.unwrap_or(false),
         can_go_previous: player.can_go_previous().await.unwrap_or(false),
         can_go_next: player.can_go_next().await.unwrap_or(false),
+        can_seek: player.can_seek().await.unwrap_or(false),
         can_raise: root.can_raise().await.unwrap_or(false),
         last_active: 0,
     };

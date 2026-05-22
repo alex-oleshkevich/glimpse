@@ -1,0 +1,29 @@
+using Gtk 4.0;
+
+template $ScrubberTimes: Box {
+  orientation: horizontal;
+  hexpand: true;
+
+  styles [
+    "mpris-times",
+  ]
+
+  Label position {
+    halign: start;
+    xalign: 0;
+    hexpand: true;
+
+    styles [
+      "mpris-times__position",
+    ]
+  }
+
+  Label length {
+    halign: end;
+    xalign: 1;
+
+    styles [
+      "mpris-times__length",
+    ]
+  }
+}

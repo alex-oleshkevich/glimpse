@@ -34,6 +34,7 @@ pub struct Player {
     pub can_play_pause: bool,
     pub can_go_previous: bool,
     pub can_go_next: bool,
+    pub can_seek: bool,
     pub can_raise: bool,
     pub last_active: u64,
 }
@@ -69,6 +70,7 @@ pub enum Command {
     PlayPause { player_id: String },
     Previous { player_id: String },
     Next { player_id: String },
+    Seek { player_id: String, offset_micros: i64 },
     Raise { player_id: String },
     SetFilterRegex(Vec<String>),
 }

@@ -68,6 +68,26 @@ fn main() {
         ),
         ("src/widgets/hero/template.blp", "resources/widgets/hero.ui"),
         (
+            "src/widgets/media_artwork/template.blp",
+            "resources/widgets/media_artwork.ui",
+        ),
+        (
+            "src/widgets/media_meta/template.blp",
+            "resources/widgets/media_meta.ui",
+        ),
+        (
+            "src/widgets/media_scrubber/template.blp",
+            "resources/widgets/media_scrubber.ui",
+        ),
+        (
+            "src/widgets/media_transport/template.blp",
+            "resources/widgets/media_transport.ui",
+        ),
+        (
+            "src/widgets/scrubber_times/template.blp",
+            "resources/widgets/scrubber_times.ui",
+        ),
+        (
             "src/widgets/message/template.blp",
             "resources/widgets/message.ui",
         ),

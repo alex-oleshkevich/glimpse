@@ -62,14 +62,6 @@ pub fn duration(value_micros: u64) -> String {
     format!("{minutes}:{seconds:02}")
 }
 
-pub fn progress_fraction(position: u64, length: u64) -> f64 {
-    if length == 0 {
-        0.0
-    } else {
-        (position as f64 / length as f64).clamp(0.0, 1.0)
-    }
-}
-
 fn current_visible_player(state: &State) -> Option<&Player> {
     state
         .snapshot

@@ -55,6 +55,7 @@ pub trait MprisPlayer {
     fn play_pause(&self) -> zbus::Result<()>;
     fn previous(&self) -> zbus::Result<()>;
     fn next(&self) -> zbus::Result<()>;
+    fn seek(&self, offset_microseconds: i64) -> zbus::Result<()>;
 }
 
 #[cfg(test)]

@@ -1,0 +1,47 @@
+using Gtk 4.0;
+
+template $MediaTransport: Box {
+  orientation: horizontal;
+  halign: center;
+  spacing: 16;
+
+  styles [
+    "mpris-transport",
+  ]
+
+  Button previous {
+    icon-name: "media-skip-backward-symbolic";
+    valign: center;
+
+    styles [
+      "flat",
+      "circular",
+      "mpris-transport__button",
+      "mpris-transport__prev",
+    ]
+  }
+
+  Button play_pause {
+    icon-name: "media-playback-start-symbolic";
+    valign: center;
+
+    styles [
+      "flat",
+      "circular",
+      "mpris-transport__button",
+      "mpris-transport__play",
+    ]
+  }
+
+  Button next {
+    icon-name: "media-skip-forward-symbolic";
+    valign: center;
+
+    styles [
+      "flat",
+      "circular",
+      "mpris-transport__button",
+      "mpris-transport__next",
+    ]
+  }
+}
