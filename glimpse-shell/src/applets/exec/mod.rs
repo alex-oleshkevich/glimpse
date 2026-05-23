@@ -1,6 +1,6 @@
 mod applet;
-mod components;
-mod popover;
+pub(crate) mod components;
+pub(crate) mod popover;
 pub(crate) mod protocol;
 mod renderer;
 mod supervisor;

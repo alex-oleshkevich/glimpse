@@ -5,19 +5,26 @@ use glimpse_core::dbus::login1::{
     select_session_candidate,
 };
 use tokio::sync::mpsc;
-use zbus::zvariant::{ObjectPath, OwnedObjectPath};
+use zbus::zvariant::{ObjectPath, OwnedFd, OwnedObjectPath};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum LogindLockEvent {
     Lock,
     Unlock,
+    SleepStarting(OwnedFd),
 }
+
+const SLEEP_INHIBIT_WHO: &str = "me.aresa.GlimpseLock";
+const SLEEP_INHIBIT_WHY: &str = "Lock screen before suspend";
 
 pub async fn watch_lock_signals(sender: mpsc::Sender<LogindLockEvent>) -> anyhow::Result<()> {
     let system = zbus::Connection::system()
         .await
         .context("connect to system D-Bus")?;
-    let session_path = current_session_path(&system).await?;
+    let manager = Login1ManagerProxy::new(&system)
+        .await
+        .context("create logind manager proxy")?;
+    let session_path = current_session_path_with_manager(&system, &manager).await?;
     let session = Login1SessionProxy::builder(&system)
         .path(session_path.clone())?
         .build()
@@ -25,8 +32,20 @@ pub async fn watch_lock_signals(sender: mpsc::Sender<LogindLockEvent>) -> anyhow
         .with_context(|| format!("create logind session proxy for {session_path}"))?;
     let mut lock_signals = session.receive_lock().await?;
     let mut unlock_signals = session.receive_unlock().await?;
+    let mut prepare_for_sleep_signals = manager.receive_prepare_for_sleep().await?;
 
-    tracing::info!(session = %session_path, "listening for logind lock requests");
+    let mut sleep_inhibitor = match take_sleep_inhibitor(&manager).await {
+        Ok(fd) => {
+            tracing::info!("acquired logind sleep delay inhibitor");
+            Some(fd)
+        }
+        Err(error) => {
+            tracing::warn!(%error, "failed to acquire logind sleep delay inhibitor; suspend will not be coordinated with lock");
+            None
+        }
+    };
+
+    tracing::info!(session = %session_path, "listening for logind lock and sleep signals");
 
     loop {
         tokio::select! {
@@ -46,15 +65,52 @@ pub async fn watch_lock_signals(sender: mpsc::Sender<LogindLockEvent>) -> anyhow
                     anyhow::bail!("lock app stopped receiving logind events");
                 }
             }
+            signal = prepare_for_sleep_signals.next() => {
+                let Some(signal) = signal else {
+                    anyhow::bail!("logind PrepareForSleep signal stream ended");
+                };
+                let starting = signal.args().map(|args| args.start).unwrap_or(false);
+                if starting {
+                    let Some(fd) = sleep_inhibitor.take() else {
+                        tracing::warn!("PrepareForSleep(true) received without an active inhibitor; suspend may proceed before lock");
+                        continue;
+                    };
+                    if sender.send(LogindLockEvent::SleepStarting(fd)).await.is_err() {
+                        anyhow::bail!("lock app stopped receiving logind events");
+                    }
+                } else {
+                    tracing::debug!("system resumed from sleep; re-acquiring inhibitor");
+                    sleep_inhibitor = match take_sleep_inhibitor(&manager).await {
+                        Ok(fd) => Some(fd),
+                        Err(error) => {
+                            tracing::warn!(%error, "failed to re-acquire sleep inhibitor after resume; next suspend will not be coordinated with lock");
+                            None
+                        }
+                    };
+                }
+            }
         }
     }
+}
+
+async fn take_sleep_inhibitor(manager: &Login1ManagerProxy<'_>) -> anyhow::Result<OwnedFd> {
+    manager
+        .inhibit("sleep", SLEEP_INHIBIT_WHO, SLEEP_INHIBIT_WHY, "delay")
+        .await
+        .context("acquire logind sleep delay inhibitor")
 }
 
 async fn current_session_path(system: &zbus::Connection) -> anyhow::Result<OwnedObjectPath> {
     let manager = Login1ManagerProxy::new(system)
         .await
         .context("create logind manager proxy")?;
+    current_session_path_with_manager(system, &manager).await
+}
 
+async fn current_session_path_with_manager(
+    system: &zbus::Connection,
+    manager: &Login1ManagerProxy<'_>,
+) -> anyhow::Result<OwnedObjectPath> {
     if let Ok(session_id) = std::env::var("XDG_SESSION_ID").map(|value| value.trim().to_owned()) {
         if session_id.is_empty() {
             tracing::debug!("ignoring empty XDG_SESSION_ID");
@@ -78,7 +134,7 @@ async fn current_session_path(system: &zbus::Connection) -> anyhow::Result<Owned
         }
         Err(error) => {
             tracing::debug!(%error, "failed to resolve logind session from current process pid");
-            current_user_session_path(system, &manager)
+            current_user_session_path(system, manager)
                 .await
                 .context("resolve current logind session")
         }
@@ -187,7 +243,8 @@ mod tests {
     use super::LogindLockEvent;
 
     #[test]
-    fn lock_events_are_distinct() {
-        assert_ne!(LogindLockEvent::Lock, LogindLockEvent::Unlock);
+    fn lock_event_variants_construct() {
+        assert!(matches!(LogindLockEvent::Lock, LogindLockEvent::Lock));
+        assert!(matches!(LogindLockEvent::Unlock, LogindLockEvent::Unlock));
     }
 }

@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
     rc::Rc,
     sync::Arc,
-    time::{Duration, UNIX_EPOCH},
+    time::{Duration, Instant, UNIX_EPOCH},
 };
 
 use css_color::Srgb;
@@ -74,7 +74,11 @@ pub enum AppCommand {
     ReloadAssets,
     ThemeModeChanged(EffectiveThemeMode),
     SubmitPassword(SecretString),
-    AuthFinished(AuthResult),
+    AuthFinished {
+        generation: u64,
+        result: AuthResult,
+    },
+    SleepStarting(zbus::zvariant::OwnedFd),
     RefreshControls,
     ControlStatus(LockControlStatus),
     WeatherState(weather_model::State),
@@ -234,6 +238,10 @@ pub struct LockApp {
     asset_watch_cancel: Option<CancellationToken>,
     user: UserInfo,
     authenticating: bool,
+    auth_generation: u64,
+    consecutive_failures: u32,
+    cooldown_expires: Option<Instant>,
+    pending_sleep_release: Option<zbus::zvariant::OwnedFd>,
     control_status: LockControlStatus,
     services: LockServices,
     api_state: LockApiState,
@@ -335,6 +343,9 @@ impl SimpleComponent for LockApp {
                     match event {
                         LogindLockEvent::Lock => logind_sender.input(AppCommand::RequestLock),
                         LogindLockEvent::Unlock => logind_sender.input(AppCommand::RequestUnlock),
+                        LogindLockEvent::SleepStarting(fd) => {
+                            logind_sender.input(AppCommand::SleepStarting(fd));
+                        }
                     }
                 }
             });
@@ -360,6 +371,10 @@ impl SimpleComponent for LockApp {
             asset_watch_cancel: None,
             user: current_user_info(),
             authenticating: false,
+            auth_generation: 0,
+            consecutive_failures: 0,
+            cooldown_expires: None,
+            pending_sleep_release: None,
             control_status: LockControlStatus::default(),
             services,
             api_state: init.api_state,
@@ -397,10 +412,30 @@ impl SimpleComponent for LockApp {
                 tracing::error!("failed to acquire session lock");
                 self.finish_unlock();
             }
+            AppCommand::SleepStarting(fd) => {
+                if self.instance.is_some() {
+                    tracing::info!(
+                        "system is preparing to sleep; lock already in place, releasing inhibitor"
+                    );
+                    drop(fd);
+                    return;
+                }
+                tracing::info!("system is preparing to sleep; locking before suspend");
+                self.request_lock(sender);
+                if self.instance.is_some() {
+                    self.pending_sleep_release = Some(fd);
+                } else {
+                    tracing::warn!(
+                        "lock could not be initiated for suspend; releasing inhibitor"
+                    );
+                    drop(fd);
+                }
+            }
             AppCommand::Locked => {
                 tracing::info!("session lock acquired");
                 self.runtime.mark_locked();
                 self.api_state.set_active(true);
+                self.pending_sleep_release.take();
                 relm4::spawn(async {
                     if let Err(error) = logind::set_current_session_locked_hint(true).await {
                         tracing::debug!(%error, "failed to set logind LockedHint=true");
@@ -409,6 +444,17 @@ impl SimpleComponent for LockApp {
                 self.try_unlock();
             }
             AppCommand::Unlocked => {
+                if !self.runtime.can_unlock() {
+                    tracing::error!(
+                        "compositor released the lock without authentication; re-acquiring"
+                    );
+                    // Force-clear the stale instance so request_lock's `instance.is_some()`
+                    // guard doesn't reject. clear_lock_state inside request_lock then handles
+                    // the rest of the reset.
+                    self.instance = None;
+                    self.request_lock(sender);
+                    return;
+                }
                 tracing::info!("session unlocked");
                 self.finish_unlock();
             }
@@ -460,12 +506,20 @@ impl SimpleComponent for LockApp {
                 if self.authenticating || password.is_empty() {
                     return;
                 }
+                if let Some(remaining) = self.cooldown_remaining() {
+                    self.emit_to_lock_windows(LockWindowInput::SetStatus(format!(
+                        "Try again in {}s",
+                        remaining.as_secs().max(1)
+                    )));
+                    return;
+                }
                 self.authenticating = true;
                 self.emit_to_lock_windows(LockWindowInput::SetStatus("Checking...".into()));
                 let authenticator = self.authenticator.clone();
                 let service = self.spec.pam_service.clone();
                 let username = self.user.username.clone();
                 let result_sender = sender.input_sender().clone();
+                let generation = self.auth_generation;
                 relm4::spawn_local(async move {
                     let result = tokio::task::spawn_blocking(move || {
                         authenticator.authenticate(&service, &username, password)
@@ -477,17 +531,30 @@ impl SimpleComponent for LockApp {
                         Ok(result) => result,
                         Err(error) => {
                             tracing::warn!(%error, "authentication failed");
-                            AuthResult::Failure
+                            AuthResult::Failure { pam_message: None }
                         }
                     };
-                    let _ = result_sender.send(AppCommand::AuthFinished(auth_result));
+                    let _ = result_sender.send(AppCommand::AuthFinished {
+                        generation,
+                        result: auth_result,
+                    });
                 });
             }
-            AppCommand::AuthFinished(result) => {
+            AppCommand::AuthFinished { generation, result } => {
+                if generation != self.auth_generation {
+                    tracing::debug!(
+                        stale_generation = generation,
+                        current_generation = self.auth_generation,
+                        "dropping AuthFinished from cancelled lock cycle"
+                    );
+                    return;
+                }
                 self.authenticating = false;
                 match result {
                     AuthResult::Success => {
                         tracing::info!("authentication succeeded");
+                        self.consecutive_failures = 0;
+                        self.cooldown_expires = None;
                         if self.mode.is_preview() {
                             self.emit_to_lock_windows(LockWindowInput::AuthSucceeded);
                             return;
@@ -495,22 +562,30 @@ impl SimpleComponent for LockApp {
                         self.runtime.mark_auth_success();
                         self.try_unlock();
                     }
-                    AuthResult::Failure => {
+                    AuthResult::Failure { pam_message } => {
                         tracing::warn!("authentication failed");
                         self.runtime.mark_auth_failure();
-                        self.emit_to_lock_windows(LockWindowInput::AuthFailed);
+                        self.bump_failure_counter();
+                        let status = pam_message.unwrap_or_else(|| self.failure_status_text());
+                        self.emit_to_lock_windows(LockWindowInput::SetStatus(status));
                     }
                     AuthResult::SecondFactorRequired => {
                         tracing::warn!(
                             "authentication requires a second factor; glimpse-lock does not support multi-prompt PAM stacks"
                         );
                         self.runtime.mark_auth_failure();
+                        self.bump_failure_counter();
                         self.emit_to_lock_windows(LockWindowInput::AuthSecondFactorUnsupported);
                     }
-                    AuthResult::AccountUnavailable(reason) => {
-                        tracing::warn!(reason, "PAM account unavailable");
+                    AuthResult::AccountUnavailable {
+                        reason,
+                        pam_message,
+                    } => {
+                        tracing::warn!(reason = %reason, "PAM account unavailable");
                         self.runtime.mark_auth_failure();
-                        self.emit_to_lock_windows(LockWindowInput::SetStatus(reason.into()));
+                        self.bump_failure_counter();
+                        let status = pam_message.unwrap_or(reason);
+                        self.emit_to_lock_windows(LockWindowInput::SetStatus(status));
                     }
                 }
             }
@@ -629,7 +704,34 @@ impl LockApp {
         self.instance = None;
         self.runtime.reset();
         self.authenticating = false;
+        self.auth_generation = self.auth_generation.wrapping_add(1);
+        self.consecutive_failures = 0;
+        self.cooldown_expires = None;
+        self.pending_sleep_release.take();
         self.api_state.set_active(false);
+    }
+
+    fn cooldown_remaining(&self) -> Option<Duration> {
+        let deadline = self.cooldown_expires?;
+        deadline.checked_duration_since(Instant::now())
+    }
+
+    fn bump_failure_counter(&mut self) {
+        self.consecutive_failures = self.consecutive_failures.saturating_add(1);
+        // Cooldowns ramp 1, 2, 4, 8, 16, 30 (capped) seconds on failures 2, 3, 4, 5, 6, 7+.
+        // The first failure has no cooldown so an honest typo doesn't punish the user.
+        if self.consecutive_failures >= 2 {
+            let exponent = (self.consecutive_failures - 2).min(5);
+            let seconds = (1u64 << exponent).min(30);
+            self.cooldown_expires = Some(Instant::now() + Duration::from_secs(seconds));
+        }
+    }
+
+    fn failure_status_text(&self) -> String {
+        match self.cooldown_remaining() {
+            Some(remaining) => format!("Try again in {}s", remaining.as_secs().max(1)),
+            None => "Authentication failed".to_string(),
+        }
     }
 
     fn emit_to_lock_windows(&self, input: LockWindowInput) {

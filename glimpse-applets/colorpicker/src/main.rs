@@ -83,7 +83,7 @@ fn popover_tree(state: &State, picker_installed: bool) -> TreeNode<Msg> {
     }
 
     let recent: TreeNode<Msg> = if state.items.is_empty() {
-        Text::new("No recent colors.").into()
+        Column::new(vec![]).into()
     } else {
         BoxedList::new(
             state

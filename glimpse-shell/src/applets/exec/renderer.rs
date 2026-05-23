@@ -53,13 +53,13 @@ use crate::{
 
 use super::protocol::{
     ActiveIndicatorNode, BadgeKindValue, BadgeNode, BatteryHeroNode, CalendarNode, ChildrenNode,
-    ChoiceListNode, ChoiceTileNode, CircleBoxNode, CommonProps, DateHeroNode, EmptyStateNode, EventItemNode, EventKind, EventPayload, EventSource, EventsNode,
-    ExpanderTileNode, FontSizeValue, FontWeightValue, HeaderNode, HeroNode, KeyValueGridNode,
-    MeterNode, MouseButton, PagerAppearanceValue, PagerItemNode, PagerStripNode,
-    PanelIndicatorNode, PopoverShellNode, ScreenCastIndicatorNode, ScrollNode,
-    SegmentedTileNode, SeparatorNode, SliderTileNode, SpinnerNode, StatusDotNode,
-    StatusDotStatusValue, SwitchTileNode, TextColorValue, TextNode, TileNode, TreeNode,
-    WeatherForecastListNode, WeatherHourlyStripNode, WorldClockNode,
+    ChoiceListNode, ChoiceTileNode, CircleBoxNode, CommonProps, DateHeroNode, EmptyStateNode,
+    EventItemNode, EventKind, EventPayload, EventSource, EventsNode, ExpanderTileNode,
+    FontSizeValue, FontWeightValue, HeaderNode, HeroNode, KeyValueGridNode, MeterNode, MouseButton,
+    PagerAppearanceValue, PagerItemNode, PagerStripNode, PanelIndicatorNode, PopoverShellNode,
+    ScreenCastIndicatorNode, ScrollNode, SegmentedTileNode, SeparatorNode, SliderTileNode,
+    SpinnerNode, StatusDotNode, StatusDotStatusValue, SwitchTileNode, TextColorValue, TextNode,
+    TileNode, TreeNode, WeatherForecastListNode, WeatherHourlyStripNode, WorldClockNode,
 };
 
 pub type EventSink = Rc<dyn Fn(EventPayload)>;
@@ -344,13 +344,15 @@ impl RenderCatalog {
         set_optional_slot(data.right.as_deref(), self, |child| tile.set_right(child))?;
         set_optional_slot(data.child.as_deref(), self, |child| tile.set_child(child))?;
         tile.set_expanded(data.expanded);
-        tile.set_activatable(data.activatable || data.id.is_some());
+        tile.set_activatable(data.activatable);
         if let Some(id) = data.id.clone() {
-            let click_id = id.clone();
-            let event = self.event.clone();
-            tile.connect_activated(move |_| {
-                event(click_event(click_id.clone(), None));
-            });
+            if data.activatable {
+                let click_id = id.clone();
+                let event = self.event.clone();
+                tile.connect_activated(move |_| {
+                    event(click_event(click_id.clone(), None));
+                });
+            }
             let event = self.event.clone();
             tile.connect_expanded(move |_, expanded| {
                 event(toggle_event(id.clone(), expanded));
@@ -774,7 +776,6 @@ fn change_event(id: String, value: serde_json::Value) -> EventPayload {
     }
 }
 
-
 fn to_font_size(value: FontSizeValue) -> FontSize {
     match value {
         FontSizeValue::Xs => FontSize::Xs,
@@ -877,6 +878,7 @@ mod tests {
 
     use super::*;
     use crate::utils::test_support::gtk_available_on_this_thread;
+    use gtk::subclass::prelude::ObjectSubclassIsExt;
 
     fn fixtures_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../sdk/fixtures")
@@ -953,5 +955,78 @@ mod tests {
         assert_eq!(events[0].id, "vpn");
         assert_eq!(events[0].kind, EventKind::Toggle);
         assert_eq!(events[0].active, Some(true));
+    }
+
+    #[test]
+    fn segmented_tile_with_id_is_not_activatable_without_primary_action() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let sink_events = events.clone();
+        let renderer = RenderCatalog::new(Rc::new(move |event| {
+            sink_events.borrow_mut().push(event);
+        }));
+
+        let widget = renderer
+            .render(&TreeNode::SegmentedTile(SegmentedTileNode {
+                common: CommonProps::default(),
+                id: Some("device".into()),
+                primary: "Pixel".into(),
+                secondary: None,
+                left_icon: None,
+                left: None,
+                right: None,
+                child: None,
+                expanded: false,
+                activatable: false,
+            }))
+            .expect("segmented tile should render")
+            .downcast::<SegmentedTile>()
+            .expect("root should be SegmentedTile");
+
+        assert!(!widget.imp().main.has_css_class("activatable"));
+
+        widget.emit_by_name::<()>("activated", &[]);
+        assert!(events.borrow().is_empty());
+    }
+
+    #[test]
+    fn segmented_tile_with_primary_action_is_activatable() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let sink_events = events.clone();
+        let renderer = RenderCatalog::new(Rc::new(move |event| {
+            sink_events.borrow_mut().push(event);
+        }));
+
+        let widget = renderer
+            .render(&TreeNode::SegmentedTile(SegmentedTileNode {
+                common: CommonProps::default(),
+                id: Some("device".into()),
+                primary: "Pixel".into(),
+                secondary: None,
+                left_icon: None,
+                left: None,
+                right: None,
+                child: None,
+                expanded: false,
+                activatable: true,
+            }))
+            .expect("segmented tile should render")
+            .downcast::<SegmentedTile>()
+            .expect("root should be SegmentedTile");
+
+        assert!(widget.imp().main.has_css_class("activatable"));
+
+        widget.emit_by_name::<()>("activated", &[]);
+        let events = events.borrow();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].id, "device");
+        assert_eq!(events[0].kind, EventKind::Click);
     }
 }

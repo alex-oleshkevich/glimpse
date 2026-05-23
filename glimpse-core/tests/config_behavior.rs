@@ -47,11 +47,6 @@ fn parses_shell_compatible_config_with_shared_wallpaper_settings() {
         theme = "adwaita"
         theme_mode = "dark"
 
-        [location]
-        provider = "static"
-        latitude = 52.23
-        longitude = 21.01
-
         [wallpaper]
         color = "#203040"
         path = "/tmp/wall.png"

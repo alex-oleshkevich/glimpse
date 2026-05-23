@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-backup=/etc/pam.d/glimpse-lock.glimpse-rescue.bak
+backup=data/pam.d/glimpse-lock
 target=/etc/pam.d/glimpse-lock
 
 if [[ ! -e "$backup" ]]; then

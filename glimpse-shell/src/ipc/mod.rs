@@ -1,7 +1,7 @@
 pub mod cli;
 mod handler;
 
-pub use glimpse_core::ipc::server::resolve_socket_path;
+pub use glimpse_core::ipc::server::{applets_socket_path, resolve_socket_path};
 pub use glimpse_core::ipc::{IpcEmitter, IpcHandle, IpcServer};
 
 use crate::services::framework::Services;

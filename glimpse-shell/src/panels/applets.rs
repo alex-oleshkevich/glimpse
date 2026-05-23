@@ -10,8 +10,9 @@ use std::collections::HashMap;
 
 use crate::{
     applets::{
-        audio, battery, bluetooth, clipboard, clock, command, display, exec, idle, keyboard, mpris,
-        network, next_event, notifications, pager, privacy, removable, session, tray, weather,
+        audio, battery, bluetooth, clipboard, clock, command, display, dynamic, exec, idle,
+        keyboard, mpris, network, next_event, notifications, pager, privacy, removable, session,
+        tray, weather,
     },
     panels::PanelSection,
     services::{framework::Services, wayland_idle_inhibit::SHELL_EXTENSIONS},
@@ -75,6 +76,7 @@ pub enum AppletController {
     Clipboard(Controller<clipboard::Applet>),
     Clock(Controller<clock::Applet>),
     Command(Controller<command::Applet>),
+    Dynamic(Controller<dynamic::Applet>),
     Exec(Controller<exec::Applet>),
     Idle(Controller<idle::applet::Applet>),
     Keyboard(Controller<keyboard::Applet>),
@@ -100,6 +102,7 @@ impl AppletController {
             Self::Clipboard(_) => AppletType::Clipboard,
             Self::Clock(_) => AppletType::Clock,
             Self::Command(_) => AppletType::Command,
+            Self::Dynamic(_) => AppletType::Dynamic,
             Self::Exec(_) => AppletType::Exec,
             Self::Idle(_) => AppletType::Idle,
             Self::Keyboard(_) => AppletType::Keyboard,
@@ -125,6 +128,7 @@ impl AppletController {
             Self::Clipboard(controller) => controller.widget().clone().upcast(),
             Self::Clock(controller) => controller.widget().clone().upcast(),
             Self::Command(controller) => controller.widget().clone().upcast(),
+            Self::Dynamic(controller) => controller.widget().clone().upcast(),
             Self::Exec(controller) => controller.widget().clone().upcast(),
             Self::Idle(controller) => controller.widget().clone().upcast(),
             Self::Keyboard(controller) => controller.widget().clone().upcast(),
@@ -143,6 +147,7 @@ impl AppletController {
 
     pub fn reconfigure(&self, config: Option<&AppletConfig>, theme_mode: ThemeMode) {
         match self {
+            Self::Dynamic(_) => {}
             Self::Audio(controller) => {
                 controller.emit(audio::Input::Reconfigure(audio::Config::from_raw(
                     &config.cloned(),
@@ -320,6 +325,9 @@ pub fn create_applet(
                     .detach(),
             ))
         }
+        AppletType::Dynamic => Some(AppletController::Dynamic(
+            dynamic::Applet::builder().launch(dynamic::Init).detach(),
+        )),
         AppletType::Exec => {
             let config = exec::Config::from_raw(&blueprint.config);
             if !exec::Applet::can_launch(&config) {
@@ -850,6 +858,20 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "clock");
         assert_eq!(entries[0].applet_type, AppletType::Clock);
+        assert!(entries[0].config.is_none());
+    }
+
+    #[test]
+    fn collect_applets_resolves_dynamic_slot() {
+        let entries = collect_applets(
+            PanelSection::Right,
+            &["__dynamic__".into()],
+            &HashMap::new(),
+        );
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name, "__dynamic__");
+        assert_eq!(entries[0].applet_type, AppletType::Dynamic);
         assert!(entries[0].config.is_none());
     }
 

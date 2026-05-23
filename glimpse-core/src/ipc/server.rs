@@ -180,6 +180,9 @@ fn runtime_dir() -> PathBuf {
 pub fn shell_socket_path() -> PathBuf {
     runtime_dir().join("ipc.sock")
 }
+pub fn applets_socket_path() -> PathBuf {
+    runtime_dir().join("applets.sock")
+}
 pub fn idle_socket_path() -> PathBuf {
     runtime_dir().join("idle.sock")
 }

@@ -1,9 +1,12 @@
 use async_trait::async_trait;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::env;
+use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::{
-    io::{self, AsyncBufReadExt, AsyncWriteExt, BufReader},
+    io::{self, AsyncBufRead, AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader},
+    net::UnixStream,
     process::Command,
     sync::mpsc,
 };
@@ -473,23 +476,85 @@ async fn dispatch_msg<A: Applet>(
     Ok(())
 }
 
-pub async fn run<A>(mut applet: A, mut state: A::State) -> AppletResult<()>
+enum IoMode {
+    Stdio,
+    Socket(PathBuf),
+}
+
+fn resolve_applets_socket_path() -> AppletResult<PathBuf> {
+    if let Some(p) = env::var_os("GLIMPSE_APPLETS_SOCKET") {
+        return Ok(PathBuf::from(p));
+    }
+    let dir = if let Some(d) = env::var_os("GLIMPSE_IPC_DIR") {
+        PathBuf::from(d)
+    } else if let Some(x) = env::var_os("XDG_RUNTIME_DIR") {
+        PathBuf::from(x).join("glimpse")
+    } else {
+        return Err(
+            "--socket: set GLIMPSE_APPLETS_SOCKET, GLIMPSE_IPC_DIR, or XDG_RUNTIME_DIR".into(),
+        );
+    };
+    Ok(dir.join("applets.sock"))
+}
+
+fn io_mode_from_args() -> AppletResult<IoMode> {
+    // Only inspect argv[1] (and argv[2] as the optional socket path).
+    // Scanning further would risk intercepting --socket flags that belong
+    // to the applet's own CLI argument parser.
+    let args: Vec<String> = std::env::args().collect();
+    match args.get(1).map(String::as_str) {
+        Some("--stdio") => Ok(IoMode::Stdio),
+        Some("--socket") => {
+            let path = match args.get(2) {
+                Some(p) if !p.starts_with('-') => PathBuf::from(p),
+                _ => resolve_applets_socket_path()?,
+            };
+            Ok(IoMode::Socket(path))
+        }
+        _ => Ok(IoMode::Stdio),
+    }
+}
+
+pub async fn run<A>(applet: A, state: A::State) -> AppletResult<()>
 where
     A: Applet,
 {
-    let mut stdout = io::stdout();
-    let stdin = BufReader::new(io::stdin());
-    let mut lines = stdin.lines();
+    match io_mode_from_args()? {
+        IoMode::Stdio => {
+            let writer = io::stdout();
+            let reader = BufReader::new(io::stdin());
+            run_inner(applet, state, reader, writer).await
+        }
+        IoMode::Socket(path) => {
+            let stream = UnixStream::connect(&path).await.map_err(|e| {
+                format!("cannot connect to applets socket at {}: {e}", path.display())
+            })?;
+            let (reader, writer) = stream.into_split();
+            run_inner(applet, state, BufReader::new(reader), writer).await
+        }
+    }
+}
+
+async fn run_inner<A>(
+    mut applet: A,
+    mut state: A::State,
+    reader: impl AsyncBufRead + Unpin,
+    mut writer: impl AsyncWrite + Unpin,
+) -> AppletResult<()>
+where
+    A: Applet,
+{
+    let mut lines = reader.lines();
     let mut last = LastSeen::new();
     let (tx, mut rx) = mpsc::channel::<A::Msg>(32);
     applet.on_start(&mut state, tx).await?;
     if let Some(class) = applet.css_class() {
-        stdout
+        writer
             .write_all(format!("class {class}\n").as_bytes())
             .await?;
-        stdout.flush().await?;
+        writer.flush().await?;
     }
-    let mut msg_map = flush(&mut stdout, &applet, &state, &mut last).await?;
+    let mut msg_map = flush(&mut writer, &applet, &state, &mut last).await?;
 
     loop {
         let result: AppletResult<Option<()>> = tokio::select! {
@@ -528,14 +593,14 @@ where
             }
         };
         result?;
-        msg_map = flush(&mut stdout, &applet, &state, &mut last).await?;
+        msg_map = flush(&mut writer, &applet, &state, &mut last).await?;
     }
 
     Ok(())
 }
 
 async fn flush<A>(
-    stdout: &mut io::Stdout,
+    writer: &mut (impl AsyncWrite + Unpin),
     applet: &A,
     state: &A::State,
     last: &mut LastSeen<A::Msg>,
@@ -546,7 +611,7 @@ where
     let next_status = applet.status(state).await?;
     if !last.initialized || last.status != next_status {
         write_message(
-            stdout,
+            writer,
             "status",
             &serde_json::json!({ "items": next_status }),
         )
@@ -566,7 +631,7 @@ where
     }
     if last.tree != next_tree {
         write_message(
-            stdout,
+            writer,
             "popover",
             &TreePayload {
                 root: next_tree.clone(),
@@ -581,16 +646,16 @@ where
 }
 
 async fn write_message<T: Serialize>(
-    stdout: &mut io::Stdout,
+    writer: &mut (impl AsyncWrite + Unpin),
     command: &str,
     payload: &T,
 ) -> AppletResult<()> {
     let encoded = serde_json::to_vec(payload)?;
-    stdout.write_all(command.as_bytes()).await?;
-    stdout.write_all(b" ").await?;
-    stdout.write_all(&encoded).await?;
-    stdout.write_all(b"\n").await?;
-    stdout.flush().await?;
+    writer.write_all(command.as_bytes()).await?;
+    writer.write_all(b" ").await?;
+    writer.write_all(&encoded).await?;
+    writer.write_all(b"\n").await?;
+    writer.flush().await?;
     Ok(())
 }
 

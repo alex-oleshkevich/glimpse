@@ -5,8 +5,8 @@ pub mod protocol;
 pub mod server;
 
 pub use server::{
-    IpcEmitter, IpcHandle, IpcServer, idle_socket_path, new_event_channel, resolve_socket_path,
-    shell_socket_path, sunset_socket_path, wallpaper_socket_path,
+    IpcEmitter, IpcHandle, IpcServer, applets_socket_path, idle_socket_path, new_event_channel,
+    resolve_socket_path, shell_socket_path, sunset_socket_path, wallpaper_socket_path,
 };
 
 use std::sync::Arc;

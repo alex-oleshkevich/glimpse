@@ -54,12 +54,17 @@ pub trait Authenticator: Send + Sync + 'static {
     ) -> anyhow::Result<AuthResult>;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthResult {
     Success,
-    Failure,
+    Failure {
+        pam_message: Option<String>,
+    },
     SecondFactorRequired,
-    AccountUnavailable(&'static str),
+    AccountUnavailable {
+        reason: String,
+        pam_message: Option<String>,
+    },
 }
 
 #[derive(Debug, Default)]
@@ -105,7 +110,7 @@ impl Authenticator for PreviewAuthenticator {
         if password.as_str() == self.valid_password {
             Ok(AuthResult::Success)
         } else {
-            Ok(AuthResult::Failure)
+            Ok(AuthResult::Failure { pam_message: None })
         }
     }
 }
@@ -116,7 +121,13 @@ fn authenticate_with_pam(
     password: SecretString,
 ) -> anyhow::Result<AuthResult> {
     let second_factor_seen = Rc::new(Cell::new(false));
-    let conversation = LockConversation::new(username, password, second_factor_seen.clone());
+    let last_message: Rc<Cell<Option<String>>> = Rc::new(Cell::new(None));
+    let conversation = LockConversation::new(
+        username,
+        Some(password),
+        second_factor_seen.clone(),
+        last_message.clone(),
+    );
     let mut context = Context::new(service, Some(username), conversation)?;
     match context.authenticate(Flag::DISALLOW_NULL_AUTHTOK) {
         Ok(()) => match context.acct_mgmt(Flag::NONE) {
@@ -124,7 +135,7 @@ fn authenticate_with_pam(
             Err(error) => {
                 let code = error.code();
                 tracing::warn!(%error, ?code, "PAM account validation failed");
-                Ok(account_failure_result(code))
+                Ok(account_failure_result(code, last_message.take()))
             }
         },
         Err(error) => {
@@ -136,59 +147,90 @@ fn authenticate_with_pam(
                 Ok(AuthResult::SecondFactorRequired)
             } else {
                 let code = error.code();
-                if let Some(unavailable) = authenticate_unavailable_result(code) {
+                if let Some(unavailable) =
+                    authenticate_unavailable_result(code, last_message.take())
+                {
                     tracing::warn!(%error, ?code, "PAM account unavailable");
                     Ok(unavailable)
                 } else {
                     tracing::warn!(%error, ?code, "PAM authentication failed");
-                    Ok(AuthResult::Failure)
+                    Ok(AuthResult::Failure {
+                        pam_message: last_message.take(),
+                    })
                 }
             }
         }
     }
 }
 
-fn account_failure_result(code: ErrorCode) -> AuthResult {
-    match code {
-        ErrorCode::ACCT_EXPIRED => AuthResult::AccountUnavailable("Account expired"),
+fn account_failure_result(code: ErrorCode, pam_message: Option<String>) -> AuthResult {
+    let reason = match code {
+        ErrorCode::ACCT_EXPIRED => "Account expired",
         ErrorCode::NEW_AUTHTOK_REQD | ErrorCode::CRED_EXPIRED | ErrorCode::AUTHTOK_EXPIRED => {
-            AuthResult::AccountUnavailable("Password change required to log in")
+            "Password change required to log in"
         }
-        ErrorCode::PERM_DENIED => AuthResult::AccountUnavailable("Account access denied"),
-        ErrorCode::USER_UNKNOWN => AuthResult::AccountUnavailable("Account not found"),
-        _ => AuthResult::Failure,
+        ErrorCode::PERM_DENIED => "Account access denied",
+        ErrorCode::USER_UNKNOWN => "Account not found",
+        _ => return AuthResult::Failure { pam_message },
+    };
+    AuthResult::AccountUnavailable {
+        reason: reason.into(),
+        pam_message,
     }
 }
 
-fn authenticate_unavailable_result(code: ErrorCode) -> Option<AuthResult> {
-    match code {
-        ErrorCode::ACCT_EXPIRED => Some(AuthResult::AccountUnavailable("Account expired")),
-        ErrorCode::USER_UNKNOWN => Some(AuthResult::AccountUnavailable("Account not found")),
-        ErrorCode::MAXTRIES => Some(AuthResult::AccountUnavailable(
-            "Too many attempts; try again later",
-        )),
-        ErrorCode::PERM_DENIED => Some(AuthResult::AccountUnavailable("Account access denied")),
-        ErrorCode::AUTHINFO_UNAVAIL => Some(AuthResult::AccountUnavailable(
-            "Authentication service unavailable",
-        )),
-        _ => None,
-    }
+fn authenticate_unavailable_result(
+    code: ErrorCode,
+    pam_message: Option<String>,
+) -> Option<AuthResult> {
+    let reason = match code {
+        ErrorCode::ACCT_EXPIRED => "Account expired",
+        ErrorCode::USER_UNKNOWN => "Account not found",
+        ErrorCode::MAXTRIES => "Too many attempts; try again later",
+        ErrorCode::PERM_DENIED => "Account access denied",
+        ErrorCode::AUTHINFO_UNAVAIL => "Authentication service unavailable",
+        _ => return None,
+    };
+    Some(AuthResult::AccountUnavailable {
+        reason: reason.into(),
+        pam_message,
+    })
 }
 
 struct LockConversation {
     username: String,
-    password: SecretString,
+    // Wrapped in Option so prompt_echo_off can `take()` it on the first prompt:
+    // the taken SecretString drops at the end of the callback and zeroes our
+    // source buffer. The plaintext still lives momentarily inside the CString
+    // we hand to pam_client2 (its Box<[u8]> is not zeroized on drop) and again
+    // inside libpam's `strdup`'d response buffer — those two copies are outside
+    // our control via the current pam_client2 API.
+    password: Option<SecretString>,
     password_prompt_count: u32,
     second_factor_seen: Rc<Cell<bool>>,
+    last_message: Rc<Cell<Option<String>>>,
 }
 
 impl LockConversation {
-    fn new(username: &str, password: SecretString, second_factor_seen: Rc<Cell<bool>>) -> Self {
+    fn new(
+        username: &str,
+        password: Option<SecretString>,
+        second_factor_seen: Rc<Cell<bool>>,
+        last_message: Rc<Cell<Option<String>>>,
+    ) -> Self {
         Self {
             username: username.to_owned(),
             password,
             password_prompt_count: 0,
             second_factor_seen,
+            last_message,
+        }
+    }
+
+    fn capture(&self, msg: &CStr) {
+        let text = msg.to_string_lossy().trim().to_owned();
+        if !text.is_empty() {
+            self.last_message.set(Some(text));
         }
     }
 }
@@ -201,7 +243,11 @@ impl ConversationHandler for LockConversation {
     fn prompt_echo_off(&mut self, _prompt: &CStr) -> Result<CString, ErrorCode> {
         self.password_prompt_count += 1;
         if self.password_prompt_count == 1 {
-            CString::new(self.password.as_str()).map_err(|_| ErrorCode::CONV_ERR)
+            // take() leaves None; the SecretString drops at the end of this
+            // scope, zeroing our copy of the password as soon as it's been
+            // copied into the CString that pam_client2 forwards to libpam.
+            let password = self.password.take().ok_or(ErrorCode::CONV_ERR)?;
+            CString::new(password.as_str()).map_err(|_| ErrorCode::CONV_ERR)
         } else {
             self.second_factor_seen.set(true);
             Err(ErrorCode::CONV_ERR)
@@ -210,10 +256,12 @@ impl ConversationHandler for LockConversation {
 
     fn text_info(&mut self, msg: &CStr) {
         tracing::debug!(message = %msg.to_string_lossy(), "PAM info");
+        self.capture(msg);
     }
 
     fn error_msg(&mut self, msg: &CStr) {
         tracing::debug!(message = %msg.to_string_lossy(), "PAM error");
+        self.capture(msg);
     }
 }
 
@@ -235,7 +283,7 @@ mod tests {
             authenticator
                 .authenticate("unused", "preview", SecretString::new("invalid"))
                 .expect("preview auth should not fail"),
-            AuthResult::Failure
+            AuthResult::Failure { pam_message: None }
         );
     }
 }

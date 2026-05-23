@@ -5,6 +5,7 @@ pub mod clipboard;
 pub mod clock;
 pub mod command;
 pub mod display;
+pub mod dynamic;
 pub mod exec;
 pub mod idle;
 pub mod keyboard;

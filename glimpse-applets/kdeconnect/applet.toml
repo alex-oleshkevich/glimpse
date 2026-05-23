@@ -1,0 +1,5 @@
+id   = "kdeconnect"
+type = "exec"
+
+[exec]
+command = ["/usr/share/glimpse/applets/kdeconnect/kdeconnect"]
