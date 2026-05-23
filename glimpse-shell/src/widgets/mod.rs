@@ -7,6 +7,7 @@ pub mod calendar;
 pub mod camera_indicator;
 pub mod choice_list;
 pub mod choice_tile;
+pub mod circle_box;
 pub mod column;
 pub mod container;
 pub mod date_hero;

@@ -7,9 +7,6 @@ export class InlineHandlerRegistry {
   }
 }
 
-export type Space = "s1" | "s2" | "s3" | "s4" | "s5" | "s6" | "s7" | "s8" | "s9" | "s10";
-export type Radius = "none" | "sm" | "md" | "lg" | "pill";
-export type ContainerBg = "none" | "surface" | "raised";
 export type FontSize = "xs" | "sm" | "base" | "lg" | "xl";
 export type FontWeight = "normal" | "medium" | "semibold" | "bold";
 export type TextColor = "normal" | "muted" | "accent" | "success" | "warning" | "error";
@@ -190,17 +187,18 @@ export class Column extends ChildrenWidget { readonly type = "column"; }
 export class BoxedList extends ChildrenWidget { readonly type = "boxed_list"; }
 export class ButtonRow extends ChildrenWidget { readonly type = "button_row"; }
 
-export class Container extends ChildrenWidget {
-  readonly type = "container";
-  constructor(private readonly options: CommonOptions & { children?: TreeNode[]; padding?: Space; padding_x?: Space; padding_y?: Space; margin?: Space; margin_x?: Space; margin_y?: Space; radius?: Radius; bg?: ContainerBg; border_width?: number; min_width?: Space; min_height?: Space } = {}) { super(options); }
+export class CircleBox extends WidgetBase {
+  readonly type = "circle_box";
+  constructor(private readonly options: CommonOptions & { color: string }) { super(options); }
   data(): Record<string, unknown> {
-    const out = super.data();
-    for (const key of ["padding", "padding_x", "padding_y", "margin", "margin_x", "margin_y", "min_width", "min_height"] as const) if (this.options[key] !== undefined) out[key] = this.options[key];
-    out.radius = this.options.radius ?? "none";
-    out.bg = this.options.bg ?? "none";
-    out.border_width = this.options.border_width ?? 0;
+    const out = this.commonData();
+    out.color = this.options.color;
     return out;
   }
+}
+
+export class Container extends ChildrenWidget {
+  readonly type = "container";
 }
 
 export class PopoverShell extends ChildrenWidget {
@@ -467,7 +465,7 @@ export class WorldClock extends WidgetBase {
 }
 
 export type TreeNode =
-  | Row | Column | Container | BoxedList | PopoverShell
+  | Row | Column | Container | CircleBox | BoxedList | PopoverShell
   | Text | Header | Hero | Badge | StatusDot | PanelIndicator | EmptyState | Spinner | Meter | Separator | Scroll
   | Tile | SegmentedTile | ButtonRow | SwitchTile | ExpanderTile | SliderTile | ChoiceTile | ChoiceList | KeyValueGrid
   | PagerItem | PagerStrip

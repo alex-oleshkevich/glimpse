@@ -115,41 +115,6 @@ pub struct CommonProps {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SpaceValue {
-    S1,
-    S2,
-    S3,
-    S4,
-    S5,
-    S6,
-    S7,
-    S8,
-    S9,
-    S10,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RadiusValue {
-    #[default]
-    None,
-    Sm,
-    Md,
-    Lg,
-    Pill,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ContainerBgValue {
-    #[default]
-    None,
-    Surface,
-    Raised,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum FontSizeValue {
     Xs,
     Sm,
@@ -388,33 +353,11 @@ pub struct ChildrenNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ContainerNode {
+pub struct CircleBoxNode {
     #[serde(flatten)]
     pub common: CommonProps,
     #[serde(default)]
-    pub children: Vec<TreeNode>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub padding: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub padding_x: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub padding_y: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub margin: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub margin_x: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub margin_y: Option<SpaceValue>,
-    #[serde(default)]
-    pub radius: RadiusValue,
-    #[serde(default)]
-    pub bg: ContainerBgValue,
-    #[serde(default)]
-    pub border_width: u32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub min_width: Option<SpaceValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub min_height: Option<SpaceValue>,
+    pub color: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -757,7 +700,8 @@ pub struct WorldClockNode {
 pub enum TreeNode {
     Row(ChildrenNode),
     Column(ChildrenNode),
-    Container(ContainerNode),
+    Container(ChildrenNode),
+    CircleBox(CircleBoxNode),
     BoxedList(ChildrenNode),
     PopoverShell(PopoverShellNode),
     Text(TextNode),

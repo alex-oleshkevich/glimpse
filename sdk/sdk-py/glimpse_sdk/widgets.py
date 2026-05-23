@@ -8,33 +8,6 @@ InlineHandler: TypeAlias = Callable[[Any, Any], Awaitable[None] | None]
 HandlerRegistry: TypeAlias = Any
 
 
-class Space(StrEnum):
-    S1 = "s1"
-    S2 = "s2"
-    S3 = "s3"
-    S4 = "s4"
-    S5 = "s5"
-    S6 = "s6"
-    S7 = "s7"
-    S8 = "s8"
-    S9 = "s9"
-    S10 = "s10"
-
-
-class Radius(StrEnum):
-    NONE = "none"
-    SM = "sm"
-    MD = "md"
-    LG = "lg"
-    PILL = "pill"
-
-
-class ContainerBg(StrEnum):
-    NONE = "none"
-    SURFACE = "surface"
-    RAISED = "raised"
-
-
 class FontSize(StrEnum):
     XS = "xs"
     SM = "sm"
@@ -380,30 +353,19 @@ class ButtonRow(ChildrenWidget):
 
 
 @dataclass
-class Container(ChildrenWidget):
-    padding: Space | None = None
-    padding_x: Space | None = None
-    padding_y: Space | None = None
-    margin: Space | None = None
-    margin_x: Space | None = None
-    margin_y: Space | None = None
-    radius: Radius = Radius.NONE
-    bg: ContainerBg = ContainerBg.NONE
-    border_width: int = 0
-    min_width: Space | None = None
-    min_height: Space | None = None
-    widget_type: str = field(init=False, default="container")
+class CircleBox(Widget):
+    color: str = ""
+    widget_type: str = field(init=False, default="circle_box")
 
     def data(self) -> dict[str, Any]:
         payload = super().data()
-        for name in ("padding", "padding_x", "padding_y", "margin", "margin_x", "margin_y", "min_width", "min_height"):
-            value = getattr(self, name)
-            if value is not None:
-                payload[name] = value.value
-        payload["radius"] = self.radius.value
-        payload["bg"] = self.bg.value
-        payload["border_width"] = self.border_width
+        payload["color"] = self.color
         return payload
+
+
+@dataclass
+class Container(ChildrenWidget):
+    widget_type: str = field(init=False, default="container")
 
 
 @dataclass
@@ -916,6 +878,7 @@ TreeNode: TypeAlias = (
     Row
     | Column
     | Container
+    | CircleBox
     | BoxedList
     | PopoverShell
     | Text

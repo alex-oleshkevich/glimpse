@@ -20,8 +20,9 @@ use crate::{
         camera_indicator::CameraIndicator,
         choice_list::ChoiceList,
         choice_tile::ChoiceTile,
+        circle_box::CircleBox,
         column::Column,
-        container::{Container, ContainerBg, Radius, Space},
+        container::Container,
         date_hero::DateHero,
         empty_state::EmptyState,
         events::Events,
@@ -52,12 +53,11 @@ use crate::{
 
 use super::protocol::{
     ActiveIndicatorNode, BadgeKindValue, BadgeNode, BatteryHeroNode, CalendarNode, ChildrenNode,
-    ChoiceListNode, ChoiceTileNode, CommonProps, ContainerBgValue, ContainerNode, DateHeroNode,
-    EmptyStateNode, EventItemNode, EventKind, EventPayload, EventSource, EventsNode,
+    ChoiceListNode, ChoiceTileNode, CircleBoxNode, CommonProps, DateHeroNode, EmptyStateNode, EventItemNode, EventKind, EventPayload, EventSource, EventsNode,
     ExpanderTileNode, FontSizeValue, FontWeightValue, HeaderNode, HeroNode, KeyValueGridNode,
     MeterNode, MouseButton, PagerAppearanceValue, PagerItemNode, PagerStripNode,
-    PanelIndicatorNode, PopoverShellNode, RadiusValue, ScreenCastIndicatorNode, ScrollNode,
-    SegmentedTileNode, SeparatorNode, SliderTileNode, SpaceValue, SpinnerNode, StatusDotNode,
+    PanelIndicatorNode, PopoverShellNode, ScreenCastIndicatorNode, ScrollNode,
+    SegmentedTileNode, SeparatorNode, SliderTileNode, SpinnerNode, StatusDotNode,
     StatusDotStatusValue, SwitchTileNode, TextColorValue, TextNode, TileNode, TreeNode,
     WeatherForecastListNode, WeatherHourlyStripNode, WorldClockNode,
 };
@@ -77,7 +77,8 @@ impl RenderCatalog {
         match node {
             TreeNode::Row(data) => self.render_children_box(Row::new(), data),
             TreeNode::Column(data) => self.render_children_box(Column::new(), data),
-            TreeNode::Container(data) => self.render_container(data),
+            TreeNode::Container(data) => self.render_children_box(Container::new(), data),
+            TreeNode::CircleBox(data) => Ok(self.render_circle_box(data).upcast()),
             TreeNode::BoxedList(data) => self.render_children_box(BoxedList::new(), data),
             TreeNode::PopoverShell(data) => self.render_popover_shell(data),
             TreeNode::Text(data) => Ok(self.render_text(data).upcast()),
@@ -146,40 +147,13 @@ impl RenderCatalog {
         Ok(root.upcast())
     }
 
-    fn render_container(&self, data: &ContainerNode) -> Result<gtk::Widget, RenderError> {
-        let root = Container::new();
-        for child in &data.children {
-            root.append(&self.render(child)?);
+    fn render_circle_box(&self, data: &CircleBoxNode) -> CircleBox {
+        let circle = CircleBox::new();
+        if !data.color.is_empty() {
+            circle.set_color(&data.color);
         }
-        if let Some(value) = data.padding {
-            root.set_padding(to_space(value));
-        }
-        if let Some(value) = data.padding_x {
-            root.set_padding_x(to_space(value));
-        }
-        if let Some(value) = data.padding_y {
-            root.set_padding_y(to_space(value));
-        }
-        if let Some(value) = data.margin {
-            root.set_margin(to_space(value));
-        }
-        if let Some(value) = data.margin_x {
-            root.set_margin_x(to_space(value));
-        }
-        if let Some(value) = data.margin_y {
-            root.set_margin_y(to_space(value));
-        }
-        root.set_radius(to_radius(data.radius));
-        root.set_bg(to_container_bg(data.bg));
-        root.set_border_width(data.border_width);
-        if let Some(value) = data.min_width {
-            root.set_min_width(to_space(value));
-        }
-        if let Some(value) = data.min_height {
-            root.set_min_height(to_space(value));
-        }
-        apply_common(&root, &data.common);
-        Ok(root.upcast())
+        apply_common(&circle, &data.common);
+        circle
     }
 
     fn render_popover_shell(&self, data: &PopoverShellNode) -> Result<gtk::Widget, RenderError> {
@@ -800,38 +774,6 @@ fn change_event(id: String, value: serde_json::Value) -> EventPayload {
     }
 }
 
-fn to_space(value: SpaceValue) -> Space {
-    match value {
-        SpaceValue::S1 => Space::S1,
-        SpaceValue::S2 => Space::S2,
-        SpaceValue::S3 => Space::S3,
-        SpaceValue::S4 => Space::S4,
-        SpaceValue::S5 => Space::S5,
-        SpaceValue::S6 => Space::S6,
-        SpaceValue::S7 => Space::S7,
-        SpaceValue::S8 => Space::S8,
-        SpaceValue::S9 => Space::S9,
-        SpaceValue::S10 => Space::S10,
-    }
-}
-
-fn to_radius(value: RadiusValue) -> Radius {
-    match value {
-        RadiusValue::None => Radius::None,
-        RadiusValue::Sm => Radius::Sm,
-        RadiusValue::Md => Radius::Md,
-        RadiusValue::Lg => Radius::Lg,
-        RadiusValue::Pill => Radius::Pill,
-    }
-}
-
-fn to_container_bg(value: ContainerBgValue) -> ContainerBg {
-    match value {
-        ContainerBgValue::None => ContainerBg::None,
-        ContainerBgValue::Surface => ContainerBg::Surface,
-        ContainerBgValue::Raised => ContainerBg::Raised,
-    }
-}
 
 fn to_font_size(value: FontSizeValue) -> FontSize {
     match value {

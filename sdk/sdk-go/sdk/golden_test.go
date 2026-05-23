@@ -82,10 +82,8 @@ func sharedWidgets() map[string]Widget {
 		"scroll":      Scroll{Child: text},
 		"row":         Row{Children: []Widget{text, badge}},
 		"column":      Column{Children: []Widget{text, badge}},
-		"container": Container{
-			Children: []Widget{text}, Padding: SpaceS4, Margin: SpaceS2, Radius: RadiusMd,
-			Bg: ContainerBgSurface, BorderWidth: 1, MinWidth: SpaceS8, MinHeight: SpaceS4,
-		},
+		"container":  Container{Children: []Widget{text}},
+		"circle-box": CircleBox{Color: "#336699"},
 		"boxed-list":    BoxedList{Children: []Widget{text, badge}},
 		"popover-shell": PopoverShell{Size: PopoverSizeMedium, Children: []Widget{text}, Footer: []Widget{badge}, FooterVisible: true},
 		"tile": Tile{

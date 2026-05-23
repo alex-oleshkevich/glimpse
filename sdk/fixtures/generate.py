@@ -80,19 +80,8 @@ def widgets() -> None:
         "scroll": node("scroll", {"child": text}),
         "row": node("row", {"children": [text, badge]}),
         "column": node("column", {"children": [text, badge]}),
-        "container": node(
-            "container",
-            {
-                "children": [text],
-                "padding": "s4",
-                "margin": "s2",
-                "radius": "md",
-                "bg": "surface",
-                "border_width": 1,
-                "min_width": "s8",
-                "min_height": "s4",
-            },
-        ),
+        "container": node("container", {"children": [text]}),
+        "circle-box": node("circle_box", {"color": "#336699"}),
         "boxed-list": node("boxed_list", {"children": [text, badge]}),
         "popover-shell": node(
             "popover_shell",

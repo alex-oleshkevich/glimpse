@@ -28,11 +28,11 @@ pub use protocol::StatusItem;
 pub use tokio::sync::mpsc;
 pub use widgets::{
     ActiveIndicator, Badge, BadgeKind, BatteryHero, BoxedList, ButtonRow, Calendar,
-    CameraIndicator, Choice, ChoiceList, ChoiceTile, Column, CommonProps, Container, ContainerBg,
+    CameraIndicator, Choice, ChoiceList, ChoiceTile, CircleBox, Column, CommonProps, Container,
     DateHero, EmptyState, EventItem, Events, ExpanderTile, FontSize, FontWeight, Header, Hero,
     KeyValueGrid, KeyValueRow, LocationIndicator, Meter, MicIndicator, MsgMapper, MutedIndicator,
-    PagerAppearance, PagerItem, PagerStrip, PanelIndicator, PopoverShell, PopoverSize, Radius, Row,
-    ScreenCastIndicator, Scroll, SegmentedTile, Separator, SliderTile, Space, Spinner, StatusDot,
+    PagerAppearance, PagerItem, PagerStrip, PanelIndicator, PopoverShell, PopoverSize, Row,
+    ScreenCastIndicator, Scroll, SegmentedTile, Separator, SliderTile, Spinner, StatusDot,
     StatusDotStatus, SwitchTile, Text, TextColor, Tile, TreeNode, WeatherForecastItem,
     WeatherForecastList, WeatherHourlyItem, WeatherHourlyStrip, WorldClock, WorldClockRow,
 };

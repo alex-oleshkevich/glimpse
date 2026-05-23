@@ -9,9 +9,6 @@ type Widget interface {
 
 type InlineHandler func(CallbackEvent) error
 
-type Space string
-type Radius string
-type ContainerBg string
 type FontSize string
 type FontWeight string
 type TextColor string
@@ -21,27 +18,6 @@ type PagerAppearance string
 type PopoverSize string
 
 const (
-	SpaceS1  Space = "s1"
-	SpaceS2  Space = "s2"
-	SpaceS3  Space = "s3"
-	SpaceS4  Space = "s4"
-	SpaceS5  Space = "s5"
-	SpaceS6  Space = "s6"
-	SpaceS7  Space = "s7"
-	SpaceS8  Space = "s8"
-	SpaceS9  Space = "s9"
-	SpaceS10 Space = "s10"
-
-	RadiusNone Radius = "none"
-	RadiusSm   Radius = "sm"
-	RadiusMd   Radius = "md"
-	RadiusLg   Radius = "lg"
-	RadiusPill Radius = "pill"
-
-	ContainerBgNone    ContainerBg = "none"
-	ContainerBgSurface ContainerBg = "surface"
-	ContainerBgRaised  ContainerBg = "raised"
-
 	FontSizeXs   FontSize = "xs"
 	FontSizeSm   FontSize = "sm"
 	FontSizeBase FontSize = "base"
@@ -313,18 +289,7 @@ func (w ButtonRow) MarshalJSON() ([]byte, error) {
 
 type Container struct {
 	CommonProps
-	Children    []Widget    `json:"children"`
-	Padding     Space       `json:"padding,omitempty"`
-	PaddingX    Space       `json:"padding_x,omitempty"`
-	PaddingY    Space       `json:"padding_y,omitempty"`
-	Margin      Space       `json:"margin,omitempty"`
-	MarginX     Space       `json:"margin_x,omitempty"`
-	MarginY     Space       `json:"margin_y,omitempty"`
-	Radius      Radius      `json:"radius"`
-	Bg          ContainerBg `json:"bg"`
-	BorderWidth int         `json:"border_width"`
-	MinWidth    Space       `json:"min_width,omitempty"`
-	MinHeight   Space       `json:"min_height,omitempty"`
+	Children []Widget `json:"children"`
 }
 
 func (Container) isWidget() {}
@@ -332,14 +297,19 @@ func (w Container) MarshalJSON() ([]byte, error) {
 	if w.Children == nil {
 		w.Children = []Widget{}
 	}
-	if w.Radius == "" {
-		w.Radius = RadiusNone
-	}
-	if w.Bg == "" {
-		w.Bg = ContainerBgNone
-	}
 	type alias Container
 	return envelope("container", alias(w))
+}
+
+type CircleBox struct {
+	CommonProps
+	Color string `json:"color"`
+}
+
+func (CircleBox) isWidget() {}
+func (w CircleBox) MarshalJSON() ([]byte, error) {
+	type alias CircleBox
+	return envelope("circle_box", alias(w))
 }
 
 type PopoverShell struct {

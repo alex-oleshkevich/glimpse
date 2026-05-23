@@ -28,41 +28,6 @@ impl<T, Msg> PartialEq for MsgMapper<T, Msg> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Space {
-    S1,
-    S2,
-    S3,
-    S4,
-    S5,
-    S6,
-    S7,
-    S8,
-    S9,
-    S10,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Radius {
-    #[default]
-    None,
-    Sm,
-    Md,
-    Lg,
-    Pill,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ContainerBg {
-    #[default]
-    None,
-    Surface,
-    Raised,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
 pub enum FontSize {
     Xs,
     Sm,
@@ -499,42 +464,27 @@ pub struct Container<Msg> {
     #[serde(flatten)]
     pub common: CommonProps,
     pub children: Vec<TreeNode<Msg>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub padding: Option<Space>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub padding_x: Option<Space>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub padding_y: Option<Space>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub margin: Option<Space>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub margin_x: Option<Space>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub margin_y: Option<Space>,
-    pub radius: Radius,
-    pub bg: ContainerBg,
-    pub border_width: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub min_width: Option<Space>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub min_height: Option<Space>,
 }
 impl<Msg> Container<Msg> {
     pub fn new(children: Vec<TreeNode<Msg>>) -> Self {
         Self {
             common: CommonProps::default(),
             children,
-            padding: None,
-            padding_x: None,
-            padding_y: None,
-            margin: None,
-            margin_x: None,
-            margin_y: None,
-            radius: Radius::None,
-            bg: ContainerBg::None,
-            border_width: 0,
-            min_width: None,
-            min_height: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct CircleBox {
+    #[serde(flatten)]
+    pub common: CommonProps,
+    pub color: String,
+}
+impl CircleBox {
+    pub fn new(color: impl Into<String>) -> Self {
+        Self {
+            common: CommonProps::default(),
+            color: color.into(),
         }
     }
 }
@@ -1037,6 +987,7 @@ pub enum TreeNode<Msg> {
     Row(Row<Msg>),
     Column(Column<Msg>),
     Container(Container<Msg>),
+    CircleBox(CircleBox),
     BoxedList(BoxedList<Msg>),
     PopoverShell(PopoverShell<Msg>),
     Text(Text),
@@ -1102,6 +1053,7 @@ macro_rules! from_static_node {
 }
 
 from_static_node!(
+    CircleBox => CircleBox,
     Text => Text, Header => Header, Badge => Badge, StatusDot => StatusDot, EmptyState => EmptyState,
     Spinner => Spinner, Separator => Separator,
     KeyValueGrid => KeyValueGrid, CameraIndicator => CameraIndicator, MicIndicator => MicIndicator,
