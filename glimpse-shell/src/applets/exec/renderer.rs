@@ -43,7 +43,6 @@ use crate::{
         slider_tile::SliderTile,
         status_dot::{StatusDot, StatusDotStatus},
         switch_tile::SwitchTile,
-        text::{FontSize, FontWeight, Text, TextColor},
         tile::Tile,
         weather_forecast_list::{WeatherForecastItem, WeatherForecastList},
         weather_hourly_strip::{WeatherHourlyItem, WeatherHourlyStrip},
@@ -54,12 +53,12 @@ use crate::{
 use super::protocol::{
     ActiveIndicatorNode, BadgeKindValue, BadgeNode, BatteryHeroNode, CalendarNode, ChildrenNode,
     ChoiceListNode, ChoiceTileNode, CircleBoxNode, CommonProps, DateHeroNode, EmptyStateNode,
-    EventItemNode, EventKind, EventPayload, EventSource, EventsNode, ExpanderTileNode,
-    FontSizeValue, FontWeightValue, HeaderNode, HeroNode, KeyValueGridNode, MeterNode, MouseButton,
-    PagerAppearanceValue, PagerItemNode, PagerStripNode, PanelIndicatorNode, PopoverShellNode,
-    ScreenCastIndicatorNode, ScrollNode, SegmentedTileNode, SeparatorNode, SliderTileNode,
-    SpinnerNode, StatusDotNode, StatusDotStatusValue, SwitchTileNode, TextColorValue, TextNode,
-    TileNode, TreeNode, WeatherForecastListNode, WeatherHourlyStripNode, WorldClockNode,
+    EventItemNode, EventKind, EventPayload, EventSource, EventsNode, ExpanderTileNode, HeaderNode,
+    HeroNode, KeyValueGridNode, LabelNode, MeterNode, MouseButton, PagerAppearanceValue,
+    PagerItemNode, PagerStripNode, PanelIndicatorNode, PopoverShellNode, ScreenCastIndicatorNode,
+    ScrollNode, SegmentedTileNode, SeparatorNode, SliderTileNode, SpinnerNode, StatusDotNode,
+    StatusDotStatusValue, SwitchTileNode, TileNode, TreeNode, WeatherForecastListNode,
+    WeatherHourlyStripNode, WorldClockNode,
 };
 
 pub type EventSink = Rc<dyn Fn(EventPayload)>;
@@ -81,7 +80,7 @@ impl RenderCatalog {
             TreeNode::CircleBox(data) => Ok(self.render_circle_box(data).upcast()),
             TreeNode::BoxedList(data) => self.render_children_box(BoxedList::new(), data),
             TreeNode::PopoverShell(data) => self.render_popover_shell(data),
-            TreeNode::Text(data) => Ok(self.render_text(data).upcast()),
+            TreeNode::Label(data) => Ok(self.render_label(data).upcast()),
             TreeNode::Header(data) => Ok(self.render_header(data).upcast()),
             TreeNode::Hero(data) => self.render_hero(data),
             TreeNode::Badge(data) => Ok(self.render_badge(data).upcast()),
@@ -169,26 +168,16 @@ impl RenderCatalog {
         Ok(shell.upcast())
     }
 
-    fn render_text(&self, data: &TextNode) -> Text {
-        let text = Text::new();
-        text.set_text(&data.text);
-        if let Some(value) = data.size {
-            text.set_size(to_font_size(value));
-        }
-        if let Some(value) = data.weight {
-            text.set_weight(to_font_weight(value));
-        }
-        if let Some(value) = data.color {
-            text.set_color(to_text_color(value));
-        }
+    fn render_label(&self, data: &LabelNode) -> gtk::Label {
+        let label = gtk::Label::new(Some(&data.label));
         if let Some(value) = data.xalign {
-            text.set_xalign(value);
+            label.set_xalign(value);
         }
         if let Some(value) = data.wrap {
-            text.set_wrap(value);
+            label.set_wrap(value);
         }
-        apply_common(&text, &data.common);
-        text
+        apply_common(&label, &data.common);
+        label
     }
 
     fn render_header(&self, data: &HeaderNode) -> Header {
@@ -773,36 +762,6 @@ fn change_event(id: String, value: serde_json::Value) -> EventPayload {
         active: None,
         value: Some(value),
         delta_y: None,
-    }
-}
-
-fn to_font_size(value: FontSizeValue) -> FontSize {
-    match value {
-        FontSizeValue::Xs => FontSize::Xs,
-        FontSizeValue::Sm => FontSize::Sm,
-        FontSizeValue::Base => FontSize::Md,
-        FontSizeValue::Lg => FontSize::Lg,
-        FontSizeValue::Xl => FontSize::Xl,
-    }
-}
-
-fn to_font_weight(value: FontWeightValue) -> FontWeight {
-    match value {
-        FontWeightValue::Normal => FontWeight::Normal,
-        FontWeightValue::Medium => FontWeight::Medium,
-        FontWeightValue::Semibold => FontWeight::Semibold,
-        FontWeightValue::Bold => FontWeight::Bold,
-    }
-}
-
-fn to_text_color(value: TextColorValue) -> TextColor {
-    match value {
-        TextColorValue::Normal => TextColor::Default,
-        TextColorValue::Muted => TextColor::Muted,
-        TextColorValue::Accent => TextColor::Accent,
-        TextColorValue::Success => TextColor::Success,
-        TextColorValue::Warning => TextColor::Warning,
-        TextColorValue::Error => TextColor::Error,
     }
 }
 

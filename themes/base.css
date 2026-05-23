@@ -301,44 +301,6 @@ popover.theme-light {
     }
 }
 
-/* Semantic utilities for exec/app SDK css_classes. */
-
-.text-muted {
-    color: var(--color-muted-fg);
-}
-
-.text-accent {
-    color: var(--color-accent);
-}
-
-.text-success {
-    color: var(--color-success);
-}
-
-.text-warning {
-    color: var(--color-warning);
-}
-
-.text-danger {
-    color: var(--color-danger);
-}
-
-.text-on-accent {
-    color: var(--color-accent-fg);
-}
-
-.text-on-success {
-    color: var(--color-success-fg);
-}
-
-.text-on-warning {
-    color: var(--color-warning-fg);
-}
-
-.text-on-danger {
-    color: var(--color-danger-fg);
-}
-
 .bg-surface {
     background: var(--color-surface);
 }
@@ -365,30 +327,6 @@ popover.theme-light {
 
 .bg-danger {
     background: var(--color-danger);
-}
-
-.text-xxs {
-    font-size: var(--font-size-xxs);
-}
-
-.text-xs {
-    font-size: var(--font-size-xs);
-}
-
-.text-sm {
-    font-size: var(--font-size-sm);
-}
-
-.text-md {
-    font-size: var(--font-size-md);
-}
-
-.text-lg {
-    font-size: var(--font-size-lg);
-}
-
-.text-xl {
-    font-size: var(--font-size-xl);
 }
 
 .radius-sm {
@@ -1456,62 +1394,6 @@ popover.notifications-popover {
 spinner {
     min-width: var(--space-9);
     min-height: var(--space-9);
-}
-
-.text-xxs {
-    font-size: var(--font-size-xxs);
-}
-
-.text-xs {
-    font-size: var(--font-size-xs);
-}
-
-.text-sm {
-    font-size: var(--font-size-sm);
-}
-
-.text-md {
-    font-size: var(--font-size-md);
-}
-
-.text-lg {
-    font-size: var(--font-size-lg);
-}
-
-.text-xl {
-    font-size: var(--font-size-xl);
-}
-
-.text-normal {
-    font-weight: var(--font-weight-normal);
-}
-
-.text-medium {
-    font-weight: var(--font-weight-medium);
-}
-
-.text-semibold {
-    font-weight: var(--font-weight-semibold);
-}
-
-.text-bold {
-    font-weight: var(--font-weight-bold);
-}
-
-label.text-accent {
-    color: var(--color-accent);
-}
-
-label.text-success {
-    color: var(--color-success);
-}
-
-label.text-warning {
-    color: var(--color-warning-text);
-}
-
-label.text-error {
-    color: var(--color-danger-text);
 }
 
 /* ── Message widget ────────────────────────────────────── */

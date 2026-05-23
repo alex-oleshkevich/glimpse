@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use glimpse_sdk::{
     Applet, AppletResult, BoxedList, CircleBox, Column, EmptyState, Hero, MsgMapper, PopoverShell,
-    PopoverSize, SegmentedTile, StatusItem, Text, Tile, TreeNode, close_popover, copy_to_clipboard,
-    run, tree,
+    PopoverSize, SegmentedTile, StatusItem, Tile, TreeNode, close_popover, copy_to_clipboard, run,
+    tree,
 };
 use std::collections::HashSet;
 use std::process::Stdio;

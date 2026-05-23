@@ -113,36 +113,6 @@ pub struct CommonProps {
     pub styles: BTreeMap<String, String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FontSizeValue {
-    Xs,
-    Sm,
-    Base,
-    Lg,
-    Xl,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FontWeightValue {
-    Normal,
-    Medium,
-    Semibold,
-    Bold,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TextColorValue {
-    Normal,
-    Muted,
-    Accent,
-    Success,
-    Warning,
-    Error,
-}
-
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BadgeKindValue {
@@ -195,16 +165,10 @@ impl PopoverSizeValue {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TextNode {
+pub struct LabelNode {
     #[serde(flatten)]
     pub common: CommonProps,
-    pub text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub size: Option<FontSizeValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub weight: Option<FontWeightValue>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub color: Option<TextColorValue>,
+    pub label: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub xalign: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -704,7 +668,7 @@ pub enum TreeNode {
     CircleBox(CircleBoxNode),
     BoxedList(ChildrenNode),
     PopoverShell(PopoverShellNode),
-    Text(TextNode),
+    Label(LabelNode),
     Header(HeaderNode),
     Hero(HeroNode),
     Badge(BadgeNode),

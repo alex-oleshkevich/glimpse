@@ -1402,13 +1402,21 @@ impl SimpleComponent for LockWindow {
                         gtk::Overlay {
                             add_css_class: "lock-user-avatar",
                             set_halign: gtk::Align::Center,
+                            set_valign: gtk::Align::Center,
+                            set_hexpand: false,
+                            set_vexpand: false,
                             set_size_request: (96, 96),
+                            // Clip the (rounded-border) avatar to a circle so the
+                            // face Picture doesn't render past the rounded mask.
+                            set_overflow: gtk::Overflow::Hidden,
 
                             #[name(user_picture)]
                             #[wrap(Some)]
                             set_child = &gtk::Picture {
                                 add_css_class: "lock-user-picture",
                                 set_size_request: (96, 96),
+                                set_halign: gtk::Align::Fill,
+                                set_valign: gtk::Align::Fill,
                                 set_can_shrink: true,
                                 set_content_fit: ContentFit::Cover,
                                 set_visible: false,
@@ -1799,17 +1807,22 @@ impl SimpleComponent for LockWindow {
         connect_lock_window_keys(&root, sender.input_sender().clone());
         connect_caps_lock_indicator(&widgets.password_entry, sender.input_sender().clone());
         if let Some(path) = &model.user.icon_path {
-            // Load the face icon scaled to the avatar's logical pixel size.
-            // gtk::Picture::set_filename loads the full-resolution texture and
-            // reports the file's pixel dimensions as the widget's natural size,
-            // which makes the avatar grow to whatever the file happens to be
-            // (e.g. 460x460 for a typical ~/.face). Loading a pre-scaled pixbuf
-            // pins the Picture's natural size to AVATAR_SIZE, so the layout
-            // honours our 96x96 constraint instead of the image's pixel size.
+            // gtk::Picture's natural size equals the paintable's intrinsic pixel
+            // dimensions. set_filename() uses the file's native resolution (e.g.
+            // 460x460 for a typical ~/.face), so the Picture's natural size --
+            // and therefore the avatar's allocated size -- ends up far larger
+            // than the 96-logical-pixel container we want. Load a pre-scaled
+            // pixbuf at AVATAR_SIZE so the Picture's natural size equals the
+            // avatar's footprint and matches the initials fallback. Slight
+            // softness on HiDPI is the trade-off for matching the layout
+            // without a custom paintable that lies about its intrinsic size.
             const AVATAR_SIZE: i32 = 96;
-            let scale = root.scale_factor().max(1);
-            let target = AVATAR_SIZE * scale;
-            match gtk::gdk_pixbuf::Pixbuf::from_file_at_scale(path, target, target, true) {
+            match gtk::gdk_pixbuf::Pixbuf::from_file_at_scale(
+                path,
+                AVATAR_SIZE,
+                AVATAR_SIZE,
+                true,
+            ) {
                 Ok(pixbuf) => {
                     // Texture::for_pixbuf is deprecated since GTK 4.20 in favour of
                     // gdk::MemoryTexture, but the replacement requires extracting the

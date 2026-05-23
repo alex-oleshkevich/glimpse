@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, BoxedList, Column, EmptyState, Hero, MsgMapper, PopoverShell,
-    PopoverSize, SegmentedTile, StatusItem, Text, Tile, TreeNode, run, tree,
+    Applet, AppletResult, BoxedList, Column, EmptyState, Hero, Label, MsgMapper, PopoverShell,
+    PopoverSize, SegmentedTile, StatusItem, Tile, TreeNode, run, tree,
 };
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -147,7 +147,7 @@ fn popover_tree(state: &State) -> TreeNode<Msg> {
         .collect();
     let mut body: Vec<TreeNode<Msg>> = vec![BoxedList::new(device_tiles).into()];
     if let Some(error) = &state.error {
-        body.push(Text::new(error.clone()).into());
+        body.push(Label::new(error.clone()).into());
     }
 
     let mut shell = PopoverShell::new(tree![
@@ -238,10 +238,10 @@ fn connected_summary(count: usize) -> String {
     }
 }
 
-fn battery_status_text(charge: u8) -> Text {
-    Text::new(format!("{charge}%"))
+fn battery_status_text(charge: u8) -> Label {
+    Label::new(format!("{charge}%"))
         .css_class("dim-label")
-        .css_class("caption")
+        .css_class("numeric")
         .css_class("numeric")
 }
 
@@ -506,11 +506,11 @@ mod tests {
         assert_eq!(tile["data"]["primary"], "Pixel 8 Pro");
         assert!(tile["data"]["secondary"].is_null());
         assert_eq!(tile["data"]["left_icon"], "phone-symbolic");
-        assert_eq!(tile["data"]["right"]["type"], "text");
-        assert_eq!(tile["data"]["right"]["data"]["text"], "87%");
+        assert_eq!(tile["data"]["right"]["type"], "label");
+        assert_eq!(tile["data"]["right"]["data"]["label"], "87%");
         assert_eq!(
             tile["data"]["right"]["data"]["css_classes"],
-            json!(["dim-label", "caption", "numeric"])
+            json!(["caption", "numeric"])
         );
         assert_eq!(tile["data"]["expanded"], true);
         assert_eq!(

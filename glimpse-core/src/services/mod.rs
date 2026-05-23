@@ -20,6 +20,7 @@ pub mod network;
 pub mod night_light;
 pub mod notifications;
 pub mod power;
+pub mod printing;
 pub mod session;
 pub mod solar;
 pub mod storage;
