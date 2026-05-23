@@ -1799,9 +1799,32 @@ impl SimpleComponent for LockWindow {
         connect_lock_window_keys(&root, sender.input_sender().clone());
         connect_caps_lock_indicator(&widgets.password_entry, sender.input_sender().clone());
         if let Some(path) = &model.user.icon_path {
-            widgets.user_picture.set_filename(Some(path));
-            widgets.user_picture.set_visible(true);
-            widgets.user_initials.set_visible(false);
+            // Load the face icon scaled to the avatar's logical pixel size.
+            // gtk::Picture::set_filename loads the full-resolution texture and
+            // reports the file's pixel dimensions as the widget's natural size,
+            // which makes the avatar grow to whatever the file happens to be
+            // (e.g. 460x460 for a typical ~/.face). Loading a pre-scaled pixbuf
+            // pins the Picture's natural size to AVATAR_SIZE, so the layout
+            // honours our 96x96 constraint instead of the image's pixel size.
+            const AVATAR_SIZE: i32 = 96;
+            let scale = root.scale_factor().max(1);
+            let target = AVATAR_SIZE * scale;
+            match gtk::gdk_pixbuf::Pixbuf::from_file_at_scale(path, target, target, true) {
+                Ok(pixbuf) => {
+                    // Texture::for_pixbuf is deprecated since GTK 4.20 in favour of
+                    // gdk::MemoryTexture, but the replacement requires extracting the
+                    // raw byte buffer and stride manually. For a single user-icon load
+                    // the legacy path is fine.
+                    #[allow(deprecated)]
+                    let texture = gtk::gdk::Texture::for_pixbuf(&pixbuf);
+                    widgets.user_picture.set_paintable(Some(&texture));
+                    widgets.user_picture.set_visible(true);
+                    widgets.user_initials.set_visible(false);
+                }
+                Err(error) => {
+                    tracing::debug!(%error, path = %path.display(), "failed to load user face icon");
+                }
+            }
         }
         if model.preview {
             root.set_decorated(true);
