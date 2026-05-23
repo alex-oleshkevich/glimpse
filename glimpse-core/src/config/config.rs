@@ -270,6 +270,7 @@ right = ["...", "custom"]
         assert_eq!(
             config.panels[0].right,
             vec![
+                "next_event",
                 "tray",
                 "removable",
                 "clipboard",
