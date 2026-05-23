@@ -27,8 +27,13 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
     </child>
     <child>
       <object class="GtkButton" id="play_pause">
-        <property name="icon-name">media-playback-start-symbolic</property>
         <property name="valign">3</property>
+        <child>
+          <object class="GtkImage" id="play_icon">
+            <property name="icon-name">media-playback-start-symbolic</property>
+            <property name="pixel-size">22</property>
+          </object>
+        </child>
         <style>
           <class name="flat"/>
           <class name="circular"/>

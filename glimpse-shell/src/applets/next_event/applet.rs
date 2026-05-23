@@ -242,4 +242,3 @@ mod tests {
         assert_eq!(cfg.normalized_threshold(), Duration::minutes(90));
     }
 }
-

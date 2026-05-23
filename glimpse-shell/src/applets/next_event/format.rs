@@ -5,7 +5,7 @@ use glimpse_core::services::calendar_events::{
     model::{CalendarSource, MonthKey},
 };
 
-pub const DEFAULT_LABEL_FORMAT: &str = "{name} in {remaining}";
+pub const DEFAULT_LABEL_FORMAT: &str = "{name} {remaining}";
 pub const DEFAULT_TOOLTIP_FORMAT: &str = "{name} ({time}) — {duration}";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -25,34 +25,22 @@ impl NextEvent {
 
 /// Find the soonest non-all-day event that is either currently in progress
 /// or starts within `threshold` of `now`. Returns `None` otherwise.
-pub fn next_event(
-    state: &State,
-    threshold: Duration,
-    now: DateTime<Local>,
-) -> Option<NextEvent> {
-    let mut best: Option<NextEvent> = None;
-    for snapshot in state.month_cache.values() {
-        for day in snapshot.day_snapshots.values() {
-            for event in &day.events {
-                let Some(candidate) = parse_event(event) else {
-                    continue;
-                };
-                if candidate.end <= now {
-                    continue;
-                }
-                let is_visible =
-                    candidate.is_in_progress(now) || candidate.start - now <= threshold;
-                if !is_visible {
-                    continue;
-                }
-                match &best {
-                    Some(current) if current.start <= candidate.start => {}
-                    _ => best = Some(candidate),
-                }
-            }
-        }
-    }
-    best
+pub fn next_event(state: &State, threshold: Duration, now: DateTime<Local>) -> Option<NextEvent> {
+    let current_month = MonthKey {
+        year: now.year(),
+        month: now.month(),
+    };
+    state
+        .month_cache
+        .iter()
+        // Past months can't contain events whose `end > now`; skip the scan.
+        .filter(|(key, _)| **key >= current_month)
+        .flat_map(|(_, snapshot)| snapshot.day_snapshots.values())
+        .flat_map(|day| &day.events)
+        .filter_map(parse_event)
+        .filter(|candidate| candidate.end > now)
+        .filter(|candidate| candidate.is_in_progress(now) || candidate.start - now <= threshold)
+        .min_by_key(|candidate| candidate.start)
 }
 
 pub fn label(format: &str, event: &NextEvent, now: DateTime<Local>) -> String {
@@ -85,7 +73,7 @@ fn parse_event(event: &CalendarEvent) -> Option<NextEvent> {
     let end = DateTime::parse_from_rfc3339(&event.end)
         .ok()?
         .with_timezone(&Local);
-    if event.title.trim().is_empty() {
+    if event.title.trim().is_empty() || end <= start {
         return None;
     }
     Some(NextEvent {
@@ -100,11 +88,14 @@ fn parse_event(event: &CalendarEvent) -> Option<NextEvent> {
 fn format_time(start: DateTime<Local>, now: DateTime<Local>) -> String {
     let today = now.date_naive();
     let start_date = start.date_naive();
-    if start_date == today {
+    let diff = days_between(today, start_date);
+    if diff == 0 {
         start.format("%H:%M").to_string()
-    } else if start_date == today.succ_opt().unwrap_or(today) {
+    } else if diff == 1 {
         format!("Tomorrow {}", start.format("%H:%M"))
-    } else if days_between(today, start_date).abs() < 7 {
+    } else if (2..7).contains(&diff) {
+        // Within the next 6 days — show weekday so it doesn't collide with
+        // the same weekday from last week.
         start.format("%a %H:%M").to_string()
     } else {
         start.format("%Y-%m-%d %H:%M").to_string()
@@ -201,25 +192,27 @@ mod tests {
     }
 
     fn state_with(events: Vec<CalendarEvent>) -> State {
-        let mut day = CalendarDaySnapshot::default();
-        day.date = CalendarDate {
+        let date = CalendarDate {
             year: 2026,
             month: 5,
             day: 22,
         };
-        day.events = events;
-        let mut snapshot = CalendarMonthSnapshot::default();
-        snapshot.key = MonthKey {
+        let key = MonthKey {
             year: 2026,
             month: 5,
         };
-        let mut day_snapshots = BTreeMap::new();
-        day_snapshots.insert(day.date, day);
-        snapshot.day_snapshots = day_snapshots;
-        let mut cache = BTreeMap::new();
-        cache.insert(snapshot.key, snapshot);
+        let day = CalendarDaySnapshot {
+            date,
+            events,
+            ..CalendarDaySnapshot::default()
+        };
+        let snapshot = CalendarMonthSnapshot {
+            key,
+            day_snapshots: BTreeMap::from([(date, day)]),
+            ..CalendarMonthSnapshot::default()
+        };
         State {
-            month_cache: cache,
+            month_cache: BTreeMap::from([(key, snapshot)]),
             ..State::default()
         }
     }
@@ -295,7 +288,7 @@ mod tests {
             },
             location: Some("Room A".into()),
         };
-        assert_eq!(label("{name} in {remaining}", &event, now), "Standup in 15m");
+        assert_eq!(label("{name} {remaining}", &event, now), "Standup in 15m");
         assert_eq!(
             tooltip("{name} ({time}) — {duration}", &event, now),
             "Standup (10:15) — 30m"
@@ -321,5 +314,50 @@ mod tests {
         assert_eq!(format_duration(Duration::minutes(45)), "45m");
         assert_eq!(format_duration(Duration::minutes(60)), "1h");
         assert_eq!(format_duration(Duration::minutes(75)), "1h15m");
+    }
+
+    #[test]
+    fn event_exactly_at_threshold_is_visible() {
+        let now = local(2026, 5, 22, 10, 0);
+        let state = state_with(vec![event(
+            "Edge",
+            local(2026, 5, 22, 10, 30),
+            local(2026, 5, 22, 11, 0),
+        )]);
+        let picked = next_event(&state, Duration::minutes(30), now).expect("boundary picked");
+        assert_eq!(picked.title, "Edge");
+    }
+
+    #[test]
+    fn rejects_event_with_end_before_start() {
+        let now = local(2026, 5, 22, 10, 0);
+        let state = state_with(vec![event(
+            "Broken",
+            local(2026, 5, 22, 12, 0),
+            local(2026, 5, 22, 11, 0),
+        )]);
+        assert!(next_event(&state, Duration::hours(6), now).is_none());
+    }
+
+    #[test]
+    fn format_time_uses_tomorrow_branch() {
+        let now = local(2026, 5, 22, 10, 0);
+        let start = local(2026, 5, 23, 9, 0);
+        assert_eq!(format_time(start, now), "Tomorrow 09:00");
+    }
+
+    #[test]
+    fn format_time_uses_weekday_within_week() {
+        let now = local(2026, 5, 22, 10, 0); // Friday
+        let start = local(2026, 5, 25, 14, 0); // Monday, 3 days out
+        assert!(format_time(start, now).ends_with("14:00"));
+        assert!(!format_time(start, now).contains("-"));
+    }
+
+    #[test]
+    fn format_time_uses_absolute_after_one_week() {
+        let now = local(2026, 5, 22, 10, 0);
+        let start = local(2026, 5, 29, 14, 0); // exactly 7 days out
+        assert_eq!(format_time(start, now), "2026-05-29 14:00");
     }
 }

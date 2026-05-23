@@ -75,6 +75,7 @@ impl SimpleComponent for Popover {
     view! {
         root = AnimatedPopover {
             add_css_class: "popover-size-xlarge",
+            add_css_class: "notifications-popover",
 
             #[name = "shell"]
             PopoverShell {

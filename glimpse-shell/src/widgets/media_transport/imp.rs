@@ -10,6 +10,8 @@ pub struct MediaTransport {
     #[template_child]
     pub play_pause: TemplateChild<gtk4::Button>,
     #[template_child]
+    pub play_icon: TemplateChild<gtk4::Image>,
+    #[template_child]
     pub next: TemplateChild<gtk4::Button>,
 }
 

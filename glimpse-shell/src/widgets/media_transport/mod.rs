@@ -25,7 +25,7 @@ impl MediaTransport {
             PlayState::Playing => "media-playback-pause-symbolic",
             PlayState::Paused => "media-playback-start-symbolic",
         };
-        self.imp().play_pause.set_icon_name(icon);
+        self.imp().play_icon.set_icon_name(Some(icon));
     }
 
     pub fn set_can_previous(&self, can: bool) {
@@ -106,5 +106,13 @@ mod tests {
             transport.imp().play_icon.icon_name().as_deref(),
             Some("media-playback-start-symbolic")
         );
+    }
+
+    #[test]
+    fn base_css_does_not_use_unsupported_icon_size_property() {
+        let css = include_str!("../../../../themes/base.css");
+
+        assert!(!css.contains("-gtk-icon-size"));
+        assert!(!css.contains(".mpris-transport__play image {}"));
     }
 }

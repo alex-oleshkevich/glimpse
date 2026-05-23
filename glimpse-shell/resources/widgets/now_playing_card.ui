@@ -14,6 +14,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
     <child>
       <object class="GtkBox" id="header">
         <property name="orientation">0</property>
+        <property name="spacing">0</property>
         <style>
           <class name="mpris-card__header"/>
         </style>
