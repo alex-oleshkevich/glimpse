@@ -8,7 +8,6 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
   <requires lib="gtk" version="4.0"/>
   <template class="MediaMeta" parent="GtkBox">
     <property name="orientation">1</property>
-    <property name="spacing">2</property>
     <property name="hexpand">true</property>
     <property name="valign">3</property>
     <style>
@@ -19,7 +18,10 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
         <property name="halign">1</property>
         <property name="xalign">0</property>
         <property name="ellipsize">3</property>
-        <property name="single-line-mode">true</property>
+        <property name="single-line-mode">false</property>
+        <property name="wrap">true</property>
+        <property name="wrap-mode">2</property>
+        <property name="lines">2</property>
         <property name="max-width-chars">28</property>
         <property name="width-chars">1</property>
         <style>

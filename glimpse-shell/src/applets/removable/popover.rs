@@ -11,8 +11,8 @@ use relm4::{
 };
 
 use crate::{
-    utils::popover_scroll,
     services::storage::{Command, State, StorageDevice},
+    utils::popover_scroll,
     widgets::{
         animated_popover::AnimatedPopover, hero::Hero, popover_shell::PopoverShell,
         segmented_tile::SegmentedTile, tile::Tile,
@@ -88,13 +88,9 @@ impl SimpleComponent for Popover {
 
     view! {
         root = AnimatedPopover {
-            add_css_class: "removable-popover",
             add_css_class: "popover-size-medium",
-            set_hexpand: false,
-            set_autohide: true,
 
             PopoverShell {
-                set_footer_visible: false,
 
                 Hero {
                     set_icon: Some("drive-removable-media-symbolic"),

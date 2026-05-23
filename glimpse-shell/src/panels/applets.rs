@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use crate::{
     applets::{
         audio, battery, bluetooth, clipboard, clock, command, display, exec, idle, keyboard, mpris,
-        network, notifications, pager, privacy, removable, session, tray, weather,
+        network, next_event, notifications, pager, privacy, removable, session, tray, weather,
     },
     panels::PanelSection,
     services::{framework::Services, wayland_idle_inhibit::SHELL_EXTENSIONS},
@@ -21,8 +21,8 @@ use glimpse_core::ThemeMode;
 use glimpse_core::ipc::IpcEmitter;
 pub use glimpse_core::{AppletConfig, AppletType};
 
-fn applet_type_name(applet_type: AppletType) -> String {
-    format!("{applet_type:?}").to_lowercase()
+fn applet_type_name(applet_type: AppletType) -> &'static str {
+    applet_type.as_config_name()
 }
 
 fn section_name(section: &PanelSection) -> &'static str {
@@ -46,7 +46,7 @@ fn emit_applet(
             ("monitor", monitor.to_owned()),
             ("section", section_name(&key.section).to_owned()),
             ("name", key.name.clone()),
-            ("type", applet_type_name(applet_type)),
+            ("type", applet_type_name(applet_type).to_owned()),
             ("occurrence", key.occurrence.to_string()),
         ],
     );
@@ -80,6 +80,7 @@ pub enum AppletController {
     Keyboard(Controller<keyboard::Applet>),
     Mpris(Controller<mpris::Applet>),
     Network(Controller<network::Applet>),
+    NextEvent(Controller<next_event::Applet>),
     Notifications(Controller<notifications::Applet>),
     Pager(Controller<pager::Applet>),
     Privacy(Controller<privacy::Applet>),
@@ -104,6 +105,7 @@ impl AppletController {
             Self::Keyboard(_) => AppletType::Keyboard,
             Self::Mpris(_) => AppletType::Mpris,
             Self::Network(_) => AppletType::Network,
+            Self::NextEvent(_) => AppletType::NextEvent,
             Self::Notifications(_) => AppletType::Notifications,
             Self::Pager(_) => AppletType::Pager,
             Self::Privacy(_) => AppletType::Privacy,
@@ -128,6 +130,7 @@ impl AppletController {
             Self::Keyboard(controller) => controller.widget().clone().upcast(),
             Self::Mpris(controller) => controller.widget().clone().upcast(),
             Self::Network(controller) => controller.widget().clone().upcast(),
+            Self::NextEvent(controller) => controller.widget().clone().upcast(),
             Self::Notifications(controller) => controller.widget().clone().upcast(),
             Self::Pager(controller) => controller.widget().clone().upcast(),
             Self::Privacy(controller) => controller.widget().clone().upcast(),
@@ -195,6 +198,11 @@ impl AppletController {
                 controller.emit(mpris::Input::Reconfigure(mpris::Config::from_raw(
                     &config.cloned(),
                 )));
+            }
+            Self::NextEvent(controller) => {
+                controller.emit(next_event::Input::Reconfigure(
+                    next_event::Config::from_raw(&config.cloned()),
+                ));
             }
             Self::Notifications(controller) => {
                 controller.emit(notifications::Input::Reconfigure {
@@ -367,6 +375,14 @@ pub fn create_applet(
                 .launch(mpris::Init {
                     service: services.mpris.clone(),
                     config: mpris::Config::from_raw(&blueprint.config),
+                })
+                .detach(),
+        )),
+        AppletType::NextEvent => Some(AppletController::NextEvent(
+            next_event::Applet::builder()
+                .launch(next_event::Init {
+                    service: services.calendar_events.clone(),
+                    config: next_event::Config::from_raw(&blueprint.config),
                 })
                 .detach(),
         )),

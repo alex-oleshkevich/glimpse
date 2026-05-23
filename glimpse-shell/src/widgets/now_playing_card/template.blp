@@ -1,0 +1,47 @@
+using Gtk 4.0;
+
+template $NowPlayingCard: Box {
+  orientation: vertical;
+
+  styles [
+    "mpris-card",
+  ]
+
+  Box header {
+    orientation: horizontal;
+
+    styles [
+      "mpris-card__header",
+    ]
+
+    $MediaArtwork artwork {
+      styles [
+        "mpris-card__artwork",
+      ]
+    }
+
+    $MediaMeta meta {
+      styles [
+        "mpris-card__meta",
+      ]
+    }
+  }
+
+  $MediaScrubber scrubber {
+    styles [
+      "mpris-card__scrubber",
+    ]
+  }
+
+  $ScrubberTimes times {
+    styles [
+      "mpris-card__times",
+    ]
+  }
+
+  $MediaTransport transport {
+    styles [
+      "mpris-card__transport",
+    ]
+  }
+}

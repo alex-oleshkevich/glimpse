@@ -55,10 +55,7 @@ impl SimpleComponent for Popover {
 
     view! {
         root = AnimatedPopover {
-            add_css_class: "weather-popover",
             add_css_class: "popover-size-medium",
-            set_hexpand: false,
-            set_autohide: true,
             connect_show[sender] => move |_| {
                 let _ = sender.output(PopoverOutput::Opened);
             },
@@ -67,7 +64,6 @@ impl SimpleComponent for Popover {
             },
 
             PopoverShell {
-                set_footer_visible: false,
 
                 #[local_ref]
                 hero_widget -> Hero {

@@ -74,10 +74,7 @@ impl SimpleComponent for Popover {
 
     view! {
         root = AnimatedPopover {
-            add_css_class: "notifications-popover",
             add_css_class: "popover-size-xlarge",
-            set_hexpand: false,
-            set_autohide: true,
 
             #[name = "shell"]
             PopoverShell {
@@ -181,6 +178,7 @@ impl SimpleComponent for Popover {
             });
         }
         widgets.shell.footer().append(&clear_all);
+        widgets.shell.set_footer_visible(true);
 
         widgets.root.set_parent(&init.parent);
         popover_scroll::install_half_monitor_limit(

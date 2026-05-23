@@ -70,3 +70,41 @@ impl Default for MediaTransport {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::test_support::gtk_available_on_this_thread;
+
+    #[test]
+    fn play_button_uses_explicit_larger_icon() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let transport = MediaTransport::new();
+
+        assert_eq!(transport.imp().play_icon.pixel_size(), 22);
+    }
+
+    #[test]
+    fn play_state_updates_explicit_play_icon() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let transport = MediaTransport::new();
+
+        transport.set_play_state(PlayState::Playing);
+        assert_eq!(
+            transport.imp().play_icon.icon_name().as_deref(),
+            Some("media-playback-pause-symbolic")
+        );
+
+        transport.set_play_state(PlayState::Paused);
+        assert_eq!(
+            transport.imp().play_icon.icon_name().as_deref(),
+            Some("media-playback-start-symbolic")
+        );
+    }
+}

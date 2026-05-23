@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -12,7 +11,7 @@ use crate::{
     applets::mpris::format,
     services::mpris::{Artwork, PlaybackStatus, Player, State, model::visible_players},
     widgets::{
-        animated_popover::AnimatedPopover, header::Header, media_transport::PlayState,
+        animated_popover::AnimatedPopover, media_transport::PlayState,
         now_playing_card::NowPlayingCard, popover_shell::PopoverShell,
     },
 };
@@ -79,17 +78,15 @@ impl SimpleComponent for Popover {
 
     view! {
         root = AnimatedPopover {
-            add_css_class: "mpris-popover",
-            set_hexpand: false,
-            set_autohide: true,
-
+            add_css_class: "popover-size-xlarge",
             PopoverShell {
-                set_footer_visible: false,
-
                 #[local_ref]
                 card_widget -> NowPlayingCard {
                         #[watch]
                         set_visible: model.current.is_some(),
+                        #[watch]
+                        set_tooltip_text: model.current.as_ref()
+                            .map(format::row_tooltip).as_deref(),
                         #[watch]
                         set_title: &model.current.as_ref().map(format::title).unwrap_or_default(),
                         #[watch]
@@ -123,27 +120,24 @@ impl SimpleComponent for Popover {
                         set_can_next: model.current.as_ref().is_some_and(|p| p.can_go_next),
                     },
 
-                gtk::Box {
-                    set_orientation: gtk::Orientation::Vertical,
-                    set_spacing: 6,
+                gtk::Separator {
+                    set_orientation: gtk::Orientation::Horizontal,
+                    add_css_class: "mpris-divider",
+                    #[watch]
+                    set_visible: model.current.is_some() && !model.rows.is_empty(),
+                },
+
+                gtk::ScrolledWindow {
                     add_css_class: "mpris-other",
+                    set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
+                    set_vexpand: false,
+                    set_propagate_natural_height: true,
                     #[watch]
                     set_visible: !model.rows.is_empty(),
 
-                    Header {
-                        set_label: "Other players",
-                    },
-
-                    gtk::ScrolledWindow {
-                        set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
-                        set_vexpand: false,
-                        set_propagate_natural_height: true,
-
-                        #[local_ref]
-                        rows_widget -> gtk::Box {
-                            set_orientation: gtk::Orientation::Vertical,
-                            set_spacing: 6,
-                        },
+                    #[local_ref]
+                    rows_widget -> gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
                     },
                 },
 
@@ -298,7 +292,8 @@ fn wire_card(
     let meta = id_emitter(|player_id| PopoverOutput::Raise { player_id });
     card.meta().connect_activated(move |_| meta());
 
-    let pending_seek: Rc<Cell<Option<i64>>> = Rc::new(Cell::new(None));
+    // MediaScrubber emits `seek-requested` once when the user releases the
+    // slider (drag) or after each keyboard step. No need to debounce here.
     card.scrubber().connect_seek_requested(move |_, seconds| {
         let player = card_player.borrow();
         let Some(id) = player.player_id.clone() else {
@@ -306,20 +301,9 @@ fn wire_card(
         };
         let target_micros = (seconds * 1_000_000.0) as i64;
         let offset_micros = target_micros - player.position_micros;
-        // Coalesce rapid drags by buffering the most-recent offset; the timeout
-        // 120 ms later picks it up. Later ticks overwrite the pending value, so
-        // we only ever emit one seek per gesture.
-        pending_seek.set(Some(offset_micros));
-        let sender = sender.clone();
-        let pending = pending_seek.clone();
-        glib::timeout_add_local_once(std::time::Duration::from_millis(120), move || {
-            let Some(offset) = pending.take() else {
-                return;
-            };
-            let _ = sender.output(PopoverOutput::Seek {
-                player_id: id,
-                offset_micros: offset,
-            });
+        let _ = sender.output(PopoverOutput::Seek {
+            player_id: id,
+            offset_micros,
         });
     });
 }
@@ -351,7 +335,7 @@ pub(crate) fn load_texture(player: &Player, show_artwork: bool) -> Option<gdk::T
 mod row {
     use relm4::{
         factory::{DynamicIndex, FactoryComponent, FactorySender},
-        gtk::{self, gdk},
+        gtk::{self, gdk, prelude::*},
     };
 
     use crate::{
@@ -389,7 +373,9 @@ mod row {
                 #[watch]
                 set_title: &format::title(&self.player),
                 #[watch]
-                set_subtitle: &format::subtitle(&self.player),
+                set_subtitle: &format::row_subtitle(&self.player),
+                #[watch]
+                set_tooltip_text: Some(&format::row_tooltip(&self.player)),
                 #[watch]
                 set_artwork: self.artwork.as_ref(),
                 #[watch]

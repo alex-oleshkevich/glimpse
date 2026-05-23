@@ -17,11 +17,11 @@ impl MediaScrubber {
     pub fn set_progress(&self, position_seconds: f64, length_seconds: f64) {
         let imp = self.imp();
         let upper = length_seconds.max(0.0).max(f64::EPSILON);
-        let value = position_seconds.clamp(0.0, upper);
         // Guard the whole transition: GTK can emit `value-changed` from
         // `set_upper` alone if the current value is clamped down.
         imp.updating.set(true);
         imp.scale.adjustment().set_upper(upper);
+        let value = position_seconds.clamp(0.0, upper);
         imp.scale.set_value(value);
         imp.updating.set(false);
     }
@@ -46,5 +46,71 @@ impl MediaScrubber {
 impl Default for MediaScrubber {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::test_support::gtk_available_on_this_thread;
+    use std::{cell::Cell, rc::Rc};
+
+    #[test]
+    fn active_drag_value_changes_emit_seek_requests() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let scrubber = MediaScrubber::new();
+        scrubber.set_seekable(true);
+        scrubber.set_progress(10.0, 120.0);
+
+        let emitted = Rc::new(Cell::new(None));
+        scrubber.connect_seek_requested({
+            let emitted = emitted.clone();
+            move |_, seconds| emitted.set(Some(seconds))
+        });
+
+        scrubber.imp().interacting.set(true);
+        scrubber.imp().scale.set_value(42.0);
+
+        assert_eq!(emitted.get(), Some(42.0));
+    }
+
+    #[test]
+    fn programmatic_progress_updates_do_not_emit_seek_requests() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let scrubber = MediaScrubber::new();
+        scrubber.set_seekable(true);
+
+        let emissions = Rc::new(Cell::new(0));
+        scrubber.connect_seek_requested({
+            let emissions = emissions.clone();
+            move |_, _| emissions.set(emissions.get() + 1)
+        });
+
+        scrubber.set_progress(10.0, 120.0);
+        scrubber.set_progress(20.0, 120.0);
+
+        assert_eq!(emissions.get(), 0);
+    }
+
+    #[test]
+    fn progress_updates_reset_value_even_while_interacting() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let scrubber = MediaScrubber::new();
+        scrubber.set_seekable(true);
+        scrubber.set_progress(40.0, 120.0);
+
+        scrubber.imp().interacting.set(true);
+        scrubber.set_progress(0.0, 180.0);
+
+        assert_eq!(scrubber.imp().scale.value(), 0.0);
     }
 }

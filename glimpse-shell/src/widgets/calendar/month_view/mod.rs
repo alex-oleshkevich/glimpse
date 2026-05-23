@@ -35,6 +35,10 @@ impl MonthView {
         self.imp().set_event_days(dates);
     }
 
+    pub fn set_show_week_numbers(&self, show: bool) {
+        self.imp().set_show_week_numbers(show);
+    }
+
     pub fn connect_day_selected(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
         self.connect_closure("day-selected", false, closure_local!(move |s: &Self| f(s)))
     }

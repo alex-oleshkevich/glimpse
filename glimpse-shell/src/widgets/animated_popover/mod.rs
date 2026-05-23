@@ -1,6 +1,6 @@
 mod imp;
 
-use std::{cell::Cell, rc::Rc, time::Duration};
+use std::time::Duration;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 use relm4::{ContainerChild, RelmContainerExt};
@@ -46,37 +46,14 @@ impl AnimatedPopover {
         if !self.is_visible() {
             tracing::warn!("AnimatedPopover: not visible after popup()");
         }
-
-        let weak = self.downgrade();
-        let frame_seen = Rc::new(Cell::new(false));
-        self.add_tick_callback(move |_, _| {
-            if !frame_seen.replace(true) {
-                return glib::ControlFlow::Continue;
-            }
-            let Some(w) = weak.upgrade() else {
-                return glib::ControlFlow::Break;
-            };
-            let imp = w.imp();
-            if imp.generation.get() != epoch {
-                tracing::warn!(
-                    expected = epoch,
-                    actual = imp.generation.get(),
-                    "AnimatedPopover: idle skipped — generation changed"
-                );
-                return glib::ControlFlow::Break;
-            }
-            if imp.state.get() != AnimationState::Opening {
-                tracing::warn!(
-                    state = ?imp.state.get(),
-                    "AnimatedPopover: idle skipped — state changed from Opening"
-                );
-                return glib::ControlFlow::Break;
-            }
-            w.add_css_class(OPEN_CLASS);
-            imp.state.set(AnimationState::Open);
-            tracing::debug!("AnimatedPopover: open class applied");
-            glib::ControlFlow::Break
-        });
+        // The actual `OPEN_CLASS` flip happens in the `connect_show` handler
+        // installed in `imp::AnimatedPopover::constructed`, deferred via
+        // `idle_add_local_once`. That sequence — show → idle → add class —
+        // guarantees one painted frame at the initial (opacity:0) state on
+        // every popover size, including the small ones used by
+        // battery/session. Tick / timeout heuristics aren't reliable across
+        // sizes because GTK collapses layout+paint into a single frame for
+        // small popovers.
     }
 
     pub fn close(&self) {

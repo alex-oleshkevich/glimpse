@@ -10,6 +10,7 @@ pub mod idle;
 pub mod keyboard;
 pub mod mpris;
 pub mod network;
+pub mod next_event;
 pub mod notifications;
 pub mod pager;
 pub mod privacy;

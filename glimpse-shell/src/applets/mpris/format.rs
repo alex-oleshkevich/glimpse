@@ -55,6 +55,30 @@ pub fn subtitle(player: &Player) -> String {
     }
 }
 
+/// Secondary-row subtitle: artist alone (or the bare subtitle / album), with
+/// the player identity stripped — that's surfaced via the row's tooltip
+/// instead. Empty string when no artist info is known.
+pub fn row_subtitle(player: &Player) -> String {
+    if !player.artist.is_empty() {
+        player.artist.clone()
+    } else if !player.subtitle.is_empty() && player.subtitle != player.identity {
+        player.subtitle.clone()
+    } else {
+        String::new()
+    }
+}
+
+/// Tooltip text for a secondary-row entry — "{artist} — {title}", or just
+/// title / artist / identity as fallbacks. Always non-empty.
+pub fn row_tooltip(player: &Player) -> String {
+    match (player.artist.as_str(), player.title.as_str()) {
+        ("", "") => player.identity.clone(),
+        ("", title) => title.to_string(),
+        (artist, "") => artist.to_string(),
+        (artist, title) => format!("{artist} — {title}"),
+    }
+}
+
 pub fn duration(value_micros: u64) -> String {
     let total_seconds = value_micros / 1_000_000;
     let minutes = total_seconds / 60;

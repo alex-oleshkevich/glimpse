@@ -265,6 +265,12 @@ impl Calendar {
             month_view.set_event_days(dates);
         }
     }
+
+    pub(super) fn set_show_week_numbers(&self, show: bool) {
+        if let Some(month_view) = self.month_view.get() {
+            month_view.set_show_week_numbers(show);
+        }
+    }
 }
 
 fn wire(

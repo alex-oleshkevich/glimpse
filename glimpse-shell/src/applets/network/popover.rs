@@ -10,11 +10,11 @@ use relm4::{
 };
 
 use crate::{
-    utils::popover_scroll,
     services::network::{
         Command, NetworkActiveAction, NetworkConnection, NetworkDevice, NetworkSnapshot, SavedVpn,
         State, WifiAccessPoint,
     },
+    utils::popover_scroll,
     widgets::{
         animated_popover::AnimatedPopover, expander_tile::ExpanderTile, hero::Hero,
         key_value_grid::KeyValueGrid, popover_shell::PopoverShell, segmented_tile::SegmentedTile,
@@ -81,13 +81,9 @@ impl SimpleComponent for Popover {
 
     view! {
         root = AnimatedPopover {
-            add_css_class: "network-popover",
             add_css_class: "popover-size-medium",
-            set_hexpand: false,
-            set_autohide: true,
 
             PopoverShell {
-                set_footer_visible: false,
 
                 #[name = "hero"]
                 Hero {

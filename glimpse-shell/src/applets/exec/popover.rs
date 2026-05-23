@@ -50,12 +50,9 @@ impl SimpleComponent for Popover {
 
     view! {
         root = AnimatedPopover {
-            add_css_class: "exec-popover",
             add_css_class: "popover-size-medium",
-            set_hexpand: false,
 
             PopoverShell {
-                set_footer_visible: false,
 
                 #[name = "scroller"]
                 gtk::ScrolledWindow {
@@ -80,7 +77,6 @@ impl SimpleComponent for Popover {
     ) -> ComponentParts<Self> {
         let widgets = view_output!();
         widgets.root.set_parent(&init.parent);
-        widgets.root.set_autohide(true);
         popover_scroll::install_half_monitor_limit(
             widgets.root.upcast_ref(),
             &widgets.scroller,

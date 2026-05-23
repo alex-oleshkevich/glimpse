@@ -3,7 +3,7 @@ use gtk4::{CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude
 use std::cell::Cell;
 use std::sync::OnceLock;
 
-const DEFAULT_ARTWORK_SIZE: i32 = 48;
+const DEFAULT_ARTWORK_SIZE: i32 = 42;
 
 #[derive(CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/media_artwork.ui")]
@@ -49,7 +49,8 @@ impl ObjectImpl for MediaArtwork {
         // `WidgetImpl::measure` override on a Box subclass is silently
         // bypassed. We need our own LayoutManager (defined below) that
         // reports a constant size regardless of the Picture's huge texture.
-        self.obj().set_layout_manager(Some(layout::FixedSizeLayout::new()));
+        self.obj()
+            .set_layout_manager(Some(layout::FixedSizeLayout::new()));
 
         let click = gtk4::GestureClick::new();
         click.set_button(1);
@@ -137,7 +138,10 @@ mod layout {
                     media.imp().picture.size_allocate(&allocation, baseline);
                 }
                 if media.imp().fallback_icon.is_visible() {
-                    media.imp().fallback_icon.size_allocate(&allocation, baseline);
+                    media
+                        .imp()
+                        .fallback_icon
+                        .size_allocate(&allocation, baseline);
                 }
             }
         }

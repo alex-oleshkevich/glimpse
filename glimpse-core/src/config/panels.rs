@@ -80,6 +80,7 @@ impl Default for PanelConfig {
                 "privacy".into(),
             ],
             right: vec![
+                "next_event".into(),
                 "tray".into(),
                 "removable".into(),
                 "clipboard".into(),
@@ -111,6 +112,7 @@ pub enum AppletType {
     Keyboard,
     Mpris,
     Network,
+    NextEvent,
     Notifications,
     Pager,
     Privacy,
@@ -133,6 +135,7 @@ impl AppletType {
             "keyboard" => Some(Self::Keyboard),
             "mpris" => Some(Self::Mpris),
             "network" => Some(Self::Network),
+            "next_event" => Some(Self::NextEvent),
             "notifications" => Some(Self::Notifications),
             "pager" => Some(Self::Pager),
             "privacy" => Some(Self::Privacy),
@@ -141,6 +144,31 @@ impl AppletType {
             "tray" => Some(Self::Tray),
             "weather" => Some(Self::Weather),
             _ => None,
+        }
+    }
+
+    pub fn as_config_name(self) -> &'static str {
+        match self {
+            Self::Audio => "audio",
+            Self::Battery => "battery",
+            Self::Bluetooth => "bluetooth",
+            Self::Display => "display",
+            Self::Clipboard => "clipboard",
+            Self::Clock => "clock",
+            Self::Command => "command",
+            Self::Exec => "exec",
+            Self::Idle => "idle",
+            Self::Keyboard => "keyboard",
+            Self::Mpris => "mpris",
+            Self::Network => "network",
+            Self::NextEvent => "next_event",
+            Self::Notifications => "notifications",
+            Self::Pager => "pager",
+            Self::Privacy => "privacy",
+            Self::Removable => "removable",
+            Self::Session => "session",
+            Self::Tray => "tray",
+            Self::Weather => "weather",
         }
     }
 }

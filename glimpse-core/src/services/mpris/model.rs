@@ -67,11 +67,22 @@ pub struct State {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
-    PlayPause { player_id: String },
-    Previous { player_id: String },
-    Next { player_id: String },
-    Seek { player_id: String, offset_micros: i64 },
-    Raise { player_id: String },
+    PlayPause {
+        player_id: String,
+    },
+    Previous {
+        player_id: String,
+    },
+    Next {
+        player_id: String,
+    },
+    Seek {
+        player_id: String,
+        offset_micros: i64,
+    },
+    Raise {
+        player_id: String,
+    },
     SetFilterRegex(Vec<String>),
 }
 

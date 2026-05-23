@@ -84,8 +84,16 @@ fn main() {
             "resources/widgets/media_transport.ui",
         ),
         (
+            "src/widgets/now_playing_card/template.blp",
+            "resources/widgets/now_playing_card.ui",
+        ),
+        (
             "src/widgets/scrubber_times/template.blp",
             "resources/widgets/scrubber_times.ui",
+        ),
+        (
+            "src/widgets/secondary_player_row/template.blp",
+            "resources/widgets/secondary_player_row.ui",
         ),
         (
             "src/widgets/message/template.blp",

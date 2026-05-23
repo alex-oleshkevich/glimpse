@@ -19,7 +19,7 @@ glib::wrapper! {
 impl NowPlayingCard {
     pub fn new() -> Self {
         let obj: Self = glib::Object::builder().build();
-        obj.imp().artwork.set_artwork_size(72);
+        obj.imp().artwork.set_artwork_size(48);
         obj.imp().artwork.set_fallback_icon_pixel_size(18);
         obj
     }
@@ -93,5 +93,30 @@ impl NowPlayingCard {
 impl Default for NowPlayingCard {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::test_support::gtk_available_on_this_thread;
+    use gtk4::prelude::*;
+
+    #[test]
+    fn template_wires_card_sections_and_spacing() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let card = NowPlayingCard::new();
+
+        assert!(card.has_css_class("mpris-card"));
+        assert!(card.imp().header.has_css_class("mpris-card__header"));
+        assert_eq!(card.imp().header.spacing(), 12);
+        assert!(card.artwork().has_css_class("mpris-card__artwork"));
+        assert!(card.meta().has_css_class("mpris-card__meta"));
+        assert!(card.scrubber().has_css_class("mpris-card__scrubber"));
+        assert!(card.times().has_css_class("mpris-card__times"));
+        assert!(card.transport().has_css_class("mpris-card__transport"));
     }
 }

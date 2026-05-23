@@ -24,8 +24,10 @@ pub struct MonthView {
     grid: TemplateChild<gtk4::Grid>,
     day_cells: RefCell<Vec<DayCell>>,
     week_numbers: RefCell<Vec<gtk4::Label>>,
+    week_header: RefCell<Option<gtk4::Label>>,
     pub(super) visible_month: Cell<NaiveDate>,
     pub(super) selected_date: Cell<NaiveDate>,
+    pub(super) show_week_numbers: Cell<bool>,
     event_days: RefCell<HashSet<NaiveDate>>,
 }
 
@@ -36,8 +38,10 @@ impl Default for MonthView {
             grid: TemplateChild::default(),
             day_cells: RefCell::new(Vec::new()),
             week_numbers: RefCell::new(Vec::new()),
+            week_header: RefCell::new(None),
             visible_month: Cell::new(geometry::first_of_month(today)),
             selected_date: Cell::new(today),
+            show_week_numbers: Cell::new(false),
             event_days: RefCell::new(HashSet::new()),
         }
     }
@@ -62,10 +66,19 @@ impl ObjectImpl for MonthView {
     fn constructed(&self) {
         self.parent_constructed();
 
+        // The Wk column should collapse to zero when hidden, so we can't use
+        // grid column-homogeneous (it would reserve 1/8 of the width even
+        // for an invisible column). A horizontal SizeGroup over all day
+        // cells gives them equal width without requiring grid homogeneity.
+        self.grid.set_column_homogeneous(false);
+        let day_size_group = gtk4::SizeGroup::new(gtk4::SizeGroupMode::Horizontal);
+
         let wk_header = gtk4::Label::new(Some("Wk"));
         wk_header.add_css_class("calendar__week-number");
         wk_header.add_css_class("calendar__week-number--header");
+        wk_header.set_visible(self.show_week_numbers.get());
         self.grid.attach(&wk_header, 0, 0, 1, 1);
+        *self.week_header.borrow_mut() = Some(wk_header);
 
         for (i, label) in WEEKDAYS.iter().enumerate() {
             let wd = gtk4::Label::new(Some(label));
@@ -79,6 +92,7 @@ impl ObjectImpl for MonthView {
         for row in 0..6 {
             let wk = gtk4::Label::new(None);
             wk.add_css_class("calendar__week-number");
+            wk.set_visible(self.show_week_numbers.get());
             self.grid.attach(&wk, 0, (row + 1) as i32, 1, 1);
             week_numbers.push(wk);
 
@@ -87,6 +101,7 @@ impl ObjectImpl for MonthView {
                 button.add_css_class("flat");
                 button.add_css_class("calendar__day");
                 button.set_hexpand(true);
+                day_size_group.add_widget(&button);
 
                 let inner = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
                 inner.set_valign(gtk4::Align::Center);
@@ -194,6 +209,18 @@ impl MonthView {
     pub(super) fn set_event_days(&self, dates: &HashSet<NaiveDate>) {
         *self.event_days.borrow_mut() = dates.clone();
         self.refresh();
+    }
+
+    pub(super) fn set_show_week_numbers(&self, show: bool) {
+        if self.show_week_numbers.replace(show) == show {
+            return;
+        }
+        if let Some(header) = self.week_header.borrow().as_ref() {
+            header.set_visible(show);
+        }
+        for label in self.week_numbers.borrow().iter() {
+            label.set_visible(show);
+        }
     }
 }
 

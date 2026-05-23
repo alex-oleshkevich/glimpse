@@ -3,6 +3,8 @@ mod imp;
 use glib::closure_local;
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
+use crate::utils::notification_markup::sanitize_notification_body;
+
 glib::wrapper! {
     pub struct Message(ObjectSubclass<imp::Message>)
         @extends gtk4::Box, gtk4::Widget,
@@ -42,7 +44,7 @@ impl Message {
 
     pub fn set_body(&self, body: &str) {
         let imp = self.imp();
-        imp.body_label.set_text(body);
+        imp.body_label.set_markup(&sanitize_notification_body(body));
         imp.body_label.set_visible(!body.is_empty());
     }
 

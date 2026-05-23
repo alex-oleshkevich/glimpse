@@ -1,15 +1,20 @@
 use glib::subclass::Signal;
-use gtk4::{glib, prelude::*, subclass::prelude::*};
+use gtk4::{CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*};
 use std::sync::OnceLock;
 
 use crate::widgets::{media_artwork::MediaArtwork, media_meta::MediaMeta};
 
-#[derive(Default)]
+#[derive(Default, CompositeTemplate)]
+#[template(resource = "/me/aresa/GlimpseShell/widgets/secondary_player_row.ui")]
 pub struct SecondaryPlayerRow {
-    pub artwork: MediaArtwork,
-    pub meta: MediaMeta,
-    pub play_pause: gtk4::Button,
-    pub next: gtk4::Button,
+    #[template_child]
+    pub artwork: TemplateChild<MediaArtwork>,
+    #[template_child]
+    pub meta: TemplateChild<MediaMeta>,
+    #[template_child]
+    pub play_pause: TemplateChild<gtk4::Button>,
+    #[template_child]
+    pub next: TemplateChild<gtk4::Button>,
 }
 
 #[glib::object_subclass]
@@ -17,43 +22,19 @@ impl ObjectSubclass for SecondaryPlayerRow {
     const NAME: &'static str = "SecondaryPlayerRow";
     type Type = super::SecondaryPlayerRow;
     type ParentType = gtk4::Box;
+
+    fn class_init(klass: &mut Self::Class) {
+        klass.bind_template();
+    }
+
+    fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
+        obj.init_template();
+    }
 }
 
 impl ObjectImpl for SecondaryPlayerRow {
     fn constructed(&self) {
         self.parent_constructed();
-
-        let obj = self.obj();
-        obj.set_orientation(gtk4::Orientation::Horizontal);
-        obj.set_spacing(10);
-        obj.add_css_class("mpris-row");
-
-        self.artwork.add_css_class("mpris-row__artwork");
-        obj.append(&self.artwork);
-
-        self.meta.add_css_class("mpris-row__meta");
-        obj.append(&self.meta);
-
-        let trailing = gtk4::Box::new(gtk4::Orientation::Horizontal, 4);
-        trailing.set_valign(gtk4::Align::Center);
-        trailing.add_css_class("mpris-row__trailing");
-
-        self.play_pause
-            .set_icon_name("media-playback-start-symbolic");
-        self.play_pause.add_css_class("flat");
-        self.play_pause.add_css_class("circular");
-        self.play_pause.add_css_class("mpris-row__button");
-        self.play_pause.add_css_class("mpris-row__play");
-        trailing.append(&self.play_pause);
-
-        self.next.set_icon_name("media-skip-forward-symbolic");
-        self.next.add_css_class("flat");
-        self.next.add_css_class("circular");
-        self.next.add_css_class("mpris-row__button");
-        self.next.add_css_class("mpris-row__next");
-        trailing.append(&self.next);
-
-        obj.append(&trailing);
 
         let obj_weak = self.obj().downgrade();
         self.play_pause.connect_clicked({

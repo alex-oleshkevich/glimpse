@@ -5,13 +5,13 @@ use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    widgets::pager::{PagerAppearance, PagerItemView},
     compositors::{CompositorType, Monitor, Window, Workspace},
     panels::applets::AppletConfig,
     services::{
         compositor::{Command, CompositorHandle, State},
         framework::ServiceCommand,
     },
+    widgets::pager::{PagerAppearance, PagerItemView},
     widgets::{
         pager_strip::{PagerStrip, PagerStripEntry},
         panel_indicator::PanelIndicator,

@@ -10,6 +10,7 @@ dev = ["glimpse-core/dev"]
 
 [dependencies]
 adw.workspace = true
+ammonia.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 futures-util.workspace = true

@@ -15,7 +15,9 @@
     <file>widgets/media_meta.ui</file>
     <file>widgets/media_scrubber.ui</file>
     <file>widgets/media_transport.ui</file>
+    <file>widgets/now_playing_card.ui</file>
     <file>widgets/scrubber_times.ui</file>
+    <file>widgets/secondary_player_row.ui</file>
     <file>widgets/message.ui</file>
     <file>widgets/message_group.ui</file>
     <file>widgets/mic_indicator.ui</file>

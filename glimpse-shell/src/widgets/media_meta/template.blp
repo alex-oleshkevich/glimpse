@@ -2,7 +2,6 @@ using Gtk 4.0;
 
 template $MediaMeta: Box {
   orientation: vertical;
-  spacing: 2;
   hexpand: true;
   valign: center;
 
@@ -14,7 +13,10 @@ template $MediaMeta: Box {
     halign: start;
     xalign: 0;
     ellipsize: end;
-    single-line-mode: true;
+    single-line-mode: false;
+    wrap: true;
+    wrap-mode: word_char;
+    lines: 2;
     max-width-chars: 28;
     width-chars: 1;
 

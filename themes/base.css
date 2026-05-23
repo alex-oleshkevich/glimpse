@@ -1668,15 +1668,23 @@ popover.clipboard-app-menu .action-menu {
 }
 
 .calendar__week-number {
-    font-size: var(--font-size-sm);
-    color: var(--color-muted-fg);
+    font-size: var(--font-size-xs);
+    color: color-mix(in srgb, var(--color-muted-fg) 35%, transparent);
     font-variant-numeric: tabular-nums;
+    font-weight: var(--font-weight-normal);
+    font-style: italic;
     padding: 0 var(--space-2);
+    /* The day-number label sits a few px above the cell's geometric center
+     * because the events dot below it shifts the inner box's centroid up.
+     * Match that offset so week numbers share the same baseline. */
+    margin-bottom: 6px;
 }
 
 .calendar__week-number--header {
-    color: var(--color-muted-fg);
+    color: color-mix(in srgb, var(--color-muted-fg) 35%, transparent);
     font-weight: var(--font-weight-normal);
+    font-style: italic;
+    margin-bottom: 0;
 }
 
 .calendar__day {
@@ -2621,29 +2629,34 @@ popover.mpris-popover {
 }
 
 .mpris-card__header {
-    padding-bottom: var(--space-1);
+    padding: var(--space-1);
+    /*border: 1px solid red;*/
 }
+
 
 .mpris-artwork {
     min-width: 32px;
     min-height: 32px;
     border-radius: 8px;
+    margin-right: 12px;
     background: color-mix(in srgb, var(--color-fg) 8%, transparent);
-    background-color: red;
 }
 
 .mpris-artwork__icon {
     color: var(--color-muted-fg);
 }
 
-.mpris-meta__title {
-    border: 1px solid red;
+.mpris-meta {
+    /*padding: var(--space-3);*/
+}
+
+label.mpris-meta__title {
     font-size: var(--font-size-ui);
     font-weight: var(--font-weight-semibold);
     color: var(--color-fg);
 }
 
-.mpris-meta__subtitle {
+label.mpris-meta__subtitle {
     font-size: var(--font-size-ui);
     color: var(--color-muted-fg);
 }
@@ -2662,7 +2675,6 @@ popover.mpris-popover {
 
 .mpris-scrubber__scale highlight {
     border-radius: var(--radius-pill);
-    background: var(--color-accent);
 }
 
 .mpris-scrubber__scale slider {
@@ -2700,33 +2712,32 @@ popover.mpris-popover {
     min-height: 44px;
 }
 
-.mpris-transport__play image {
-    /*-gtk-icon-size: 22px;*/
-}
+.mpris-transport__play image {}
 
 .mpris-other {
     margin-top: var(--space-3);
 }
 
 .mpris-row {
-    min-height: 50px;
-    padding: 6px var(--space-2);
-    border-radius: 10px;
+    padding: var(--space-3) var(--space-2);
 }
 
-.mpris-row:hover {
-    background: color-mix(in srgb, var(--color-fg) 6%, transparent);
+/* Thin divider between secondary players. `:first-child` has none — so a
+ * single-player popover shows no separator at all. */
+.mpris-row:not(:first-child) {
+    border-top: 1px solid color-mix(in srgb, var(--color-fg) 10%, transparent);
 }
 
 .mpris-row__artwork {
-    min-width: 40px;
-    min-height: 40px;
-    border-radius: 7px;
+    min-width: 48px;
+    min-height: 48px;
+    border-radius: 8px;
+    margin-right: 12px;
     background: color-mix(in srgb, var(--color-fg) 8%, transparent);
 }
 
 .mpris-row__button {
-    min-width: 28px;
-    min-height: 28px;
+    min-width: 36px;
+    min-height: 36px;
     padding: 0;
 }

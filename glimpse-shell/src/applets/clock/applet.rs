@@ -31,6 +31,7 @@ pub struct Config {
     pub timezones: Vec<TimezoneConfig>,
     pub tick_interval: u64,
     pub hide_all_day_events: bool,
+    pub show_week_numbers: bool,
 }
 
 impl Config {
@@ -64,6 +65,7 @@ impl Default for Config {
             timezones: Vec::new(),
             tick_interval: clock::Config::default().tick_interval,
             hide_all_day_events: false,
+            show_week_numbers: false,
         }
     }
 }
@@ -128,6 +130,7 @@ impl SimpleComponent for Applet {
                 clock: clock_state.clone(),
                 calendar: calendar_state.clone(),
                 hide_all_day_events: init.config.hide_all_day_events,
+                show_week_numbers: init.config.show_week_numbers,
             })
             .forward(sender.input_sender(), Input::PopoverOutput);
 

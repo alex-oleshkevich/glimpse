@@ -12,8 +12,8 @@ use crate::{
         clock::State as ClockState,
     },
     widgets::{
-        animated_popover::AnimatedPopover, calendar::Calendar, date_hero::DateHero,
-        events::Events, popover_shell::PopoverShell, world_clock::WorldClock,
+        animated_popover::AnimatedPopover, calendar::Calendar, date_hero::DateHero, events::Events,
+        popover_shell::PopoverShell, world_clock::WorldClock,
     },
 };
 
@@ -37,6 +37,7 @@ pub struct PopoverInit {
     pub clock: ClockState,
     pub calendar: CalendarState,
     pub hide_all_day_events: bool,
+    pub show_week_numbers: bool,
 }
 
 #[derive(Debug)]
@@ -65,11 +66,8 @@ impl SimpleComponent for Popover {
         root = AnimatedPopover {
             add_css_class: "clock-popover",
             add_css_class: "popover-size-xlarge",
-            set_hexpand: false,
-            set_autohide: true,
 
             PopoverShell {
-                set_footer_visible: false,
 
                 gtk::Box {
                     set_orientation: gtk::Orientation::Horizontal,
@@ -112,6 +110,7 @@ impl SimpleComponent for Popover {
         let date = DateHero::new();
         let calendar_view = Calendar::new();
         calendar_view.set_selected_date(selected_date);
+        calendar_view.set_show_week_numbers(init.show_week_numbers);
         {
             let input = sender.input_sender().clone();
             calendar_view.connect_day_selected(move |cal| {

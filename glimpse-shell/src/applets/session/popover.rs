@@ -51,13 +51,9 @@ impl SimpleComponent for Popover {
 
     view! {
         root = AnimatedPopover {
-            add_css_class: "session-popover",
             add_css_class: "popover-size-small",
-            set_hexpand: false,
-            set_autohide: true,
 
             PopoverShell {
-                set_footer_visible: false,
 
                 Hero {
                     #[watch]

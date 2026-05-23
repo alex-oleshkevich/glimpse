@@ -10,6 +10,7 @@ pub struct MediaScrubber {
     pub scale: TemplateChild<gtk4::Scale>,
     pub updating: Cell<bool>,
     pub seekable: Cell<bool>,
+    pub interacting: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -31,15 +32,39 @@ impl ObjectImpl for MediaScrubber {
     fn constructed(&self) {
         self.parent_constructed();
 
+        // Mark the scrubber as "interacting" while the user actively drags
+        // or holds the slider. While interacting, `set_progress()` stops
+        // overwriting the value (it still updates `upper`), but the scale's
+        // value changes still emit seek requests below.
+        let press = gtk4::GestureClick::new();
+        press.set_button(0); // any button
+        {
+            let weak = self.obj().downgrade();
+            press.connect_pressed(move |_, _, _, _| {
+                if let Some(scrubber) = weak.upgrade() {
+                    scrubber.imp().interacting.set(true);
+                }
+            });
+        }
+        {
+            let weak = self.obj().downgrade();
+            press.connect_released(move |_, _, _, _| {
+                if let Some(scrubber) = weak.upgrade() {
+                    scrubber.imp().interacting.set(false);
+                }
+            });
+        }
+        self.scale.add_controller(press);
+
+        // User-driven value changes emit on each step. Programmatic progress
+        // updates are guarded by `updating`.
         let obj = self.obj().downgrade();
         self.scale.connect_value_changed(move |scale| {
             let Some(scrubber) = obj.upgrade() else {
                 return;
             };
-            if scrubber.imp().updating.get() {
-                return;
-            }
-            if !scrubber.imp().seekable.get() {
+            let imp = scrubber.imp();
+            if imp.updating.get() || !imp.seekable.get() {
                 return;
             }
             scrubber.emit_by_name::<()>("seek-requested", &[&scale.value()]);

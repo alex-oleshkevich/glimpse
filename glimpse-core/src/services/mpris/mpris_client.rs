@@ -88,6 +88,7 @@ impl MprisClient {
             }
         }
 
+        let mut players = deduplicate_mirrored_proxy_players(players);
         sort_players(&mut players);
         let snapshot = Snapshot {
             current_player: select_current_player(&players),
@@ -315,6 +316,36 @@ fn sort_players(players: &mut [Player]) {
             .then_with(|| right.last_active.cmp(&left.last_active))
             .then_with(|| left.player_id.cmp(&right.player_id))
     });
+}
+
+fn deduplicate_mirrored_proxy_players(players: Vec<Player>) -> Vec<Player> {
+    players
+        .iter()
+        .filter(|player| {
+            player.player_id != "playerctld"
+                || !players.iter().any(|candidate| {
+                    candidate.player_id != "playerctld" && mirrors_same_media(candidate, player)
+                })
+        })
+        .cloned()
+        .collect()
+}
+
+fn mirrors_same_media(left: &Player, right: &Player) -> bool {
+    has_media_identity(left)
+        && left.identity == right.identity
+        && left.title == right.title
+        && left.artist == right.artist
+        && left.album == right.album
+        && left.length == right.length
+}
+
+fn has_media_identity(player: &Player) -> bool {
+    !player.identity.is_empty()
+        && (!player.title.is_empty()
+            || !player.artist.is_empty()
+            || !player.album.is_empty()
+            || player.length.is_some())
 }
 
 fn status_rank(status: PlaybackStatus) -> u8 {
@@ -689,5 +720,51 @@ mod tests {
     #[test]
     fn player_proxy_keeps_position_uncached_for_live_progress() {
         assert_eq!(uncached_player_properties(), &[POSITION_PROPERTY]);
+    }
+
+    #[test]
+    fn mirrored_playerctld_entry_is_removed_when_real_player_exists() {
+        let real = Player {
+            player_id: "chromium.instance6955".into(),
+            identity: "Chrome".into(),
+            playback_status: PlaybackStatus::Playing,
+            title: "same track".into(),
+            artist: "same artist".into(),
+            album: "same album".into(),
+            length: Some(143_181_000),
+            ..Default::default()
+        };
+        let proxy = Player {
+            player_id: "playerctld".into(),
+            identity: real.identity.clone(),
+            playback_status: real.playback_status,
+            title: real.title.clone(),
+            artist: real.artist.clone(),
+            album: real.album.clone(),
+            length: real.length,
+            ..Default::default()
+        };
+
+        let players = deduplicate_mirrored_proxy_players(vec![proxy, real.clone()]);
+
+        assert_eq!(players, vec![real]);
+    }
+
+    #[test]
+    fn playerctld_entry_is_kept_when_it_is_the_only_player() {
+        let proxy = Player {
+            player_id: "playerctld".into(),
+            identity: "Chrome".into(),
+            playback_status: PlaybackStatus::Playing,
+            title: "same track".into(),
+            artist: "same artist".into(),
+            album: "same album".into(),
+            length: Some(143_181_000),
+            ..Default::default()
+        };
+
+        let players = deduplicate_mirrored_proxy_players(vec![proxy.clone()]);
+
+        assert_eq!(players, vec![proxy]);
     }
 }

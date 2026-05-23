@@ -23,6 +23,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
     <child>
       <object class="GtkBox" id="footer">
         <property name="orientation">1</property>
+        <property name="visible">false</property>
         <style>
           <class name="popover-shell__footer"/>
         </style>
