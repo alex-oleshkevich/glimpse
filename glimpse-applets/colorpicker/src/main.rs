@@ -4,18 +4,21 @@ use glimpse_sdk::{
     PopoverSize, SegmentedTile, StatusItem, Text, Tile, TreeNode, close_popover, copy_to_clipboard,
     run, tree,
 };
+use std::collections::HashSet;
 use std::process::Stdio;
 use tokio::time::Duration;
 
 #[derive(Debug, Default, Clone)]
 struct State {
     items: Vec<String>,
+    expanded: HashSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 enum Msg {
     Pick,
     CopyColor(String),
+    ToggleColor(String, bool),
 }
 
 struct ColorPickerApplet;
@@ -56,6 +59,13 @@ impl Applet for ColorPickerApplet {
             Msg::CopyColor(color) => {
                 copy_to_clipboard(&color).await.ok();
             }
+            Msg::ToggleColor(color_id, expanded) => {
+                if expanded {
+                    state.expanded.insert(color_id);
+                } else {
+                    state.expanded.remove(&color_id);
+                }
+            }
         }
         Ok(())
     }
@@ -79,7 +89,10 @@ fn popover_tree(state: &State, picker_installed: bool) -> TreeNode<Msg> {
             state
                 .items
                 .iter()
-                .map(|color| color_segmented_tile(color).into())
+                .map(|color| {
+                    let id_suffix = color_id_suffix(color);
+                    color_segmented_tile(color, state.expanded.contains(&id_suffix)).into()
+                })
                 .collect(),
         )
         .into()
@@ -105,9 +118,9 @@ fn pick_color_tile() -> Tile<Msg> {
     tile
 }
 
-fn color_segmented_tile(color: &str) -> SegmentedTile<Msg> {
+fn color_segmented_tile(color: &str, expanded: bool) -> SegmentedTile<Msg> {
     let hex = color.to_owned();
-    let id_suffix = hex.trim_start_matches('#').to_ascii_lowercase();
+    let id_suffix = color_id_suffix(&hex);
     let formats = color_formats(&hex);
 
     let children: Vec<TreeNode<Msg>> = formats
@@ -127,9 +140,17 @@ fn color_segmented_tile(color: &str) -> SegmentedTile<Msg> {
         .into(),
     ));
     tile.child = Some(Box::new(BoxedList::new(children).into()));
+    tile.expanded = expanded;
     tile.activatable = true;
     tile.on_click = Some(MsgMapper::new(move |()| Msg::CopyColor(copy_value.clone())));
+    tile.on_toggle = Some(MsgMapper::new(move |expanded| {
+        Msg::ToggleColor(id_suffix.clone(), expanded)
+    }));
     tile
+}
+
+fn color_id_suffix(color: &str) -> String {
+    color.trim_start_matches('#').to_ascii_lowercase()
 }
 
 fn color_format_tile(id_suffix: &str, label: &'static str, value: String) -> Tile<Msg> {
@@ -282,6 +303,7 @@ mod tests {
     fn recent_color_segmented_tile_has_circle_left_copy_action_and_format_children() {
         let state = State {
             items: vec!["#336699".into()],
+            ..State::default()
         };
         let tree = serde_json::to_value(popover_tree(&state, true)).expect("serialize popover");
         let body_children = tree["data"]["children"][1]["data"]["children"]
@@ -333,5 +355,22 @@ mod tests {
         assert_eq!(hsl_string(rgb_to_hsl((0, 0, 0))), "hsl(0, 0%, 0%)");
         assert_eq!(hsl_string(rgb_to_hsl((255, 255, 255))), "hsl(0, 0%, 100%)");
         assert_eq!(hsl_string(rgb_to_hsl((255, 0, 0))), "hsl(0, 100%, 50%)");
+    }
+
+    #[tokio::test]
+    async fn expanded_color_row_serializes_expanded_state() {
+        let mut state = State {
+            items: vec!["#1c1b29".into()],
+            ..State::default()
+        };
+        ColorPickerApplet
+            .update(&mut state, Msg::ToggleColor("1c1b29".into(), true))
+            .await
+            .expect("toggle color");
+
+        let tree = serde_json::to_value(popover_tree(&state, true)).expect("serialize popover");
+        let entry = &tree["data"]["children"][1]["data"]["children"][1]["data"]["children"][0];
+
+        assert_eq!(entry["data"]["expanded"], true);
     }
 }

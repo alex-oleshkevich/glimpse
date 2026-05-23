@@ -111,9 +111,13 @@ struct DesktopCommand {
 
 pub async fn close_popover() -> AppletResult<()> {
     let mut stdout = io::stdout();
-    stdout.write_all(b"close_popover {}\n").await?;
+    stdout.write_all(close_popover_command()).await?;
     stdout.flush().await?;
     Ok(())
+}
+
+fn close_popover_command() -> &'static [u8] {
+    b"close-popover\n"
 }
 
 pub async fn copy_to_clipboard(text: &str) -> AppletResult<()> {
@@ -771,6 +775,11 @@ mod tests {
                 stdin: None,
             }
         );
+    }
+
+    #[test]
+    fn close_popover_command_matches_shell_protocol() {
+        assert_eq!(close_popover_command(), b"close-popover\n");
     }
 
     #[tokio::test]
