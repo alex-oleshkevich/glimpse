@@ -14,6 +14,7 @@ chrono.workspace = true
 chrono-tz.workspace = true
 futures-util.workspace = true
 image = "0.25"
+ipp = { version = "6", default-features = false, features = ["async-client-rustls"] }
 libheif-rs = "2.7.0"
 notify.workspace = true
 notify-debouncer-full.workspace = true
