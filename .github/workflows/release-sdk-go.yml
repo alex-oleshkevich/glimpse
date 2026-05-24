@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "sdk-go/v*"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -29,7 +30,7 @@ jobs:
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && 'sdk-go/v0.7.0' || github.ref_name }}
         run: |
           version="${TAG#sdk-go/}"
           notes_file="$(mktemp)"

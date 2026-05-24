@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'sdk-ts-v*'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -32,8 +33,10 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           version="$(node -p "require('./package.json').version")"
-          tag="${TAG#sdk-ts-v}"
-          test "$version" = "$tag"
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
+            tag="${TAG#sdk-ts-v}"
+            test "$version" = "$tag"
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Check whether this version is already published
         id: check

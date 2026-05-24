@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -22,8 +23,10 @@ jobs:
         id: version
         run: |
           version="$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)"
-          tag="${GITHUB_REF_NAME#v}"
-          test "$version" = "$tag"
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
+            tag="${GITHUB_REF_NAME#v}"
+            test "$version" = "$tag"
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
   test:
