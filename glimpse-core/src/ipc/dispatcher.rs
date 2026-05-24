@@ -27,6 +27,7 @@ pub fn start(services: &Services) -> broadcast::Sender<Arc<IpcEvent>> {
     spawn_idle_watcher(services.idle.subscribe(), tx.clone());
     spawn_theme_watcher(services.theme.subscribe(), tx.clone());
     spawn_solar_watcher(services.solar.subscribe(), tx.clone());
+    spawn_weather_watcher(services.weather.subscribe(), tx.clone());
     spawn_microphone_watcher(services.microphone.subscribe(), tx.clone());
     spawn_clipboard_watcher(services.clipboard.subscribe(), tx.clone());
     spawn_power_watcher(services.power.subscribe(), tx.clone());
@@ -1728,6 +1729,49 @@ fn spawn_location_watcher(
             prev = next;
         }
     });
+}
+
+fn spawn_weather_watcher(
+    mut rx: watch::Receiver<crate::services::weather::model::State>,
+    tx: broadcast::Sender<Arc<IpcEvent>>,
+) {
+    tokio::spawn(async move {
+        let mut prev = rx.borrow_and_update().clone();
+        loop {
+            if rx.changed().await.is_err() {
+                break;
+            }
+            let next = rx.borrow_and_update().clone();
+            if prev != next {
+                emit(&tx, "weather.updated", weather_event_fields(&next));
+            }
+            prev = next;
+        }
+    });
+}
+
+fn weather_event_fields(
+    state: &crate::services::weather::model::State,
+) -> Vec<(&'static str, String)> {
+    use crate::services::weather::model::State as WeatherState;
+
+    match state {
+        WeatherState::Ready(snapshot) => vec![
+            ("state", "ready".into()),
+            ("icon", snapshot.current.icon.clone()),
+            (
+                "temperature",
+                format!("{:.0}°C", snapshot.current.temperature),
+            ),
+            ("condition", snapshot.current.condition.clone()),
+            ("city", snapshot.location.city.clone()),
+        ],
+        WeatherState::Loading => vec![("state", "loading".into())],
+        WeatherState::Unavailable(error) => {
+            vec![("state", "unavailable".into()), ("error", error.clone())]
+        }
+        WeatherState::Unknown => vec![("state", "unknown".into())],
+    }
 }
 
 fn spawn_geoclue_watcher(

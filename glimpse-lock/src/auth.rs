@@ -138,9 +138,7 @@ fn authenticate_with_pam(
         },
         Err(error) => {
             let code = error.code();
-            if let Some(unavailable) =
-                authenticate_unavailable_result(code, last_message.take())
-            {
+            if let Some(unavailable) = authenticate_unavailable_result(code, last_message.take()) {
                 tracing::warn!(%error, ?code, "PAM account unavailable");
                 Ok(unavailable)
             } else {
@@ -417,8 +415,10 @@ mod tests {
 
     #[test]
     fn authenticate_unavailable_result_threads_pam_message_through() {
-        let result =
-            authenticate_unavailable_result(ErrorCode::MAXTRIES, Some("3 attempts remaining".into()));
+        let result = authenticate_unavailable_result(
+            ErrorCode::MAXTRIES,
+            Some("3 attempts remaining".into()),
+        );
         assert_eq!(
             result,
             Some(unavailable(

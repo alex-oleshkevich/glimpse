@@ -12,23 +12,20 @@ use std::{
 use css_color::Srgb;
 use gio::prelude::SettingsExt;
 use glimpse_core::{
-    Config, ConfigEvent, FitMode, KeyboardConfig, LocationConfig, LockConfig, LockControlButton,
-    ResolvedImageSpec, ResolvedLockSpec, ThemeMode, ThemePack, WallpaperConfig,
+    Config, ConfigEvent, FitMode, KeyboardConfig, LockConfig, LockControlButton, ResolvedImageSpec,
+    ResolvedLockSpec, ThemeMode, ThemePack, WallpaperConfig,
     dbus::Dbus,
     heic, resolve_lock_spec,
     services::{
         battery::{BatteryHandle, BatteryService, State as BatteryState},
         compositor::CompositorService,
         framework::{Control, ServiceCommand},
-        geoclue::GeoClueService,
         keyboard::{
             Command as KeyboardCommand, KeyboardHandle, KeyboardService, State as KeyboardState,
         },
-        location::{LocationHandle, LocationService},
         network::{NetworkHandle, NetworkService, State as NetworkState},
         session::{Command as SessionCommand, SessionAction, SessionHandle, SessionService},
         theme::EffectiveThemeMode,
-        weather::{WeatherHandle, WeatherService, model as weather_model},
     },
     watch_for_config_changes,
 };
@@ -56,6 +53,7 @@ use crate::{
     dbus::{LockApiState, register_lock_api},
     logind::{self, LogindLockEvent},
     runtime::{GTK_APPLICATION_ID, GTK_PREVIEW_APPLICATION_ID, LockRuntime},
+    shell_status,
 };
 
 const LOCK_CSS_RESOURCE: &str = "/me/aresa/GlimpseLock/lock.css";
@@ -74,14 +72,11 @@ pub enum AppCommand {
     ReloadAssets,
     ThemeModeChanged(EffectiveThemeMode),
     SubmitPassword(SecretString),
-    AuthFinished {
-        generation: u64,
-        result: AuthResult,
-    },
+    AuthFinished { generation: u64, result: AuthResult },
     SleepStarting(zbus::zvariant::OwnedFd),
     RefreshControls,
     ControlStatus(LockControlStatus),
-    WeatherState(weather_model::State),
+    WeatherState(Option<WeatherDisplay>),
     BatteryState(BatteryState),
     NetworkState(NetworkState),
     KeyboardState(KeyboardState),
@@ -108,7 +103,6 @@ pub struct AppInit {
 pub struct LockAppConfig {
     pub lock: LockConfig,
     pub wallpaper: WallpaperConfig,
-    pub location: LocationConfig,
     pub keyboard: KeyboardConfig,
     pub theme_pack: ThemePack,
     pub theme_mode: ThemeMode,
@@ -127,7 +121,6 @@ impl LockAppConfig {
             theme_mode: shared.theme_mode,
             lock: shared.lock,
             wallpaper: shared.wallpaper,
-            location: shared.location,
             keyboard: shared.keyboard,
             config_dir: Config::config_dir(),
         }
@@ -144,12 +137,11 @@ impl LockAppConfig {
     }
 
     fn services_changed(&self, next: &Self) -> bool {
-        self.location != next.location || self.keyboard != next.keyboard
+        self.keyboard != next.keyboard
     }
 
     fn service_config(&self) -> Config {
         Config {
-            location: self.location.clone(),
             keyboard: self.keyboard.clone(),
             ..Config::default()
         }
@@ -191,8 +183,6 @@ pub struct WeatherDisplay {
 }
 
 struct LockServices {
-    location: LocationHandle,
-    weather: WeatherHandle,
     battery: Option<BatteryHandle>,
     network: Option<NetworkHandle>,
     session: Option<SessionHandle>,
@@ -424,9 +414,7 @@ impl SimpleComponent for LockApp {
                 if self.instance.is_some() {
                     self.pending_sleep_release = Some(fd);
                 } else {
-                    tracing::warn!(
-                        "lock could not be initiated for suspend; releasing inhibitor"
-                    );
+                    tracing::warn!("lock could not be initiated for suspend; releasing inhibitor");
                     drop(fd);
                 }
             }
@@ -601,7 +589,7 @@ impl SimpleComponent for LockApp {
             }
             AppCommand::WeatherState(state) => {
                 let mut status = self.control_status.clone();
-                status.weather = weather_control_status(&state);
+                status.weather = state;
                 sender.input(AppCommand::ControlStatus(status));
             }
             AppCommand::BatteryState(state) => {
@@ -734,7 +722,6 @@ fn cooldown_seconds_after(failures: u32) -> Option<u64> {
 }
 
 impl LockApp {
-
     fn bump_failure_counter(&mut self) {
         self.consecutive_failures = self.consecutive_failures.saturating_add(1);
         if let Some(seconds) = cooldown_seconds_after(self.consecutive_failures) {
@@ -935,33 +922,21 @@ fn connect_monitor_changes(sender: &ComponentSender<LockApp>) {
 
 fn start_lock_services(config: &LockAppConfig, sender: &ComponentSender<LockApp>) -> LockServices {
     let cancel = CancellationToken::new();
+    shell_status::spawn(sender.input_sender().clone(), cancel.clone());
     let dbus = match Dbus::connect() {
         Ok(dbus) => dbus,
         Err(error) => {
             tracing::warn!(%error, "failed to connect to D-Bus for lock services");
-            let (service, handle) = LocationService::new_standalone();
-            return start_lock_services_without_dbus(config, sender, cancel, service, handle);
+            return start_lock_services_without_dbus(config, sender, cancel);
         }
     };
 
-    let (geoclue_service, geoclue) = GeoClueService::new(dbus.system.clone());
-    let (location_service, location) = LocationService::new(geoclue);
-    let (weather_service, weather) = WeatherService::new(location.clone());
     let (battery_service, battery) = BatteryService::new(dbus.system.clone());
     let (network_service, network) = NetworkService::new(dbus.system.clone());
     let (session_service, session) = SessionService::new(dbus.system);
     let (compositor_service, compositor) = CompositorService::new();
     let (keyboard_service, keyboard) = KeyboardService::new(compositor.clone());
 
-    spawn_cancellable_service(cancel.clone(), |task_cancel| {
-        geoclue_service.run(task_cancel)
-    });
-    spawn_cancellable_service(cancel.clone(), |task_cancel| {
-        location_service.run(task_cancel)
-    });
-    spawn_cancellable_service(cancel.clone(), |task_cancel| {
-        weather_service.run(task_cancel)
-    });
     spawn_cancellable_service(cancel.clone(), |task_cancel| {
         battery_service.run(task_cancel)
     });
@@ -978,19 +953,9 @@ fn start_lock_services(config: &LockAppConfig, sender: &ComponentSender<LockApp>
         keyboard_service.run(task_cancel)
     });
 
-    start_lock_service_inputs(
-        config,
-        sender,
-        &location,
-        &weather,
-        Some(&battery),
-        Some(&network),
-        &keyboard,
-    );
+    start_lock_service_inputs(config, sender, Some(&battery), Some(&network), &keyboard);
 
     LockServices {
-        location,
-        weather,
         battery: Some(battery),
         network: Some(network),
         session: Some(session),
@@ -1003,28 +968,17 @@ fn start_lock_services_without_dbus(
     config: &LockAppConfig,
     sender: &ComponentSender<LockApp>,
     cancel: CancellationToken,
-    location_service: LocationService,
-    location: LocationHandle,
 ) -> LockServices {
-    let (weather_service, weather) = WeatherService::new(location.clone());
     let (compositor_service, compositor) = CompositorService::new();
     let (keyboard_service, keyboard) = KeyboardService::new(compositor.clone());
-    spawn_cancellable_service(cancel.clone(), |task_cancel| {
-        location_service.run(task_cancel)
-    });
-    spawn_cancellable_service(cancel.clone(), |task_cancel| {
-        weather_service.run(task_cancel)
-    });
     spawn_cancellable_service(cancel.clone(), |task_cancel| {
         compositor_service.run(task_cancel)
     });
     spawn_cancellable_service(cancel.clone(), |task_cancel| {
         keyboard_service.run(task_cancel)
     });
-    start_lock_service_inputs(config, sender, &location, &weather, None, None, &keyboard);
+    start_lock_service_inputs(config, sender, None, None, &keyboard);
     LockServices {
-        location,
-        weather,
         battery: None,
         network: None,
         session: None,
@@ -1047,16 +1001,11 @@ where
 fn start_lock_service_inputs(
     config: &LockAppConfig,
     sender: &ComponentSender<LockApp>,
-    location: &LocationHandle,
-    weather: &WeatherHandle,
     battery: Option<&BatteryHandle>,
     network: Option<&NetworkHandle>,
     keyboard: &KeyboardHandle,
 ) {
-    start_location_service(location, config);
     start_keyboard_service(keyboard, config);
-    configure_weather_service(weather);
-    subscribe_weather_service(weather, sender);
     if let Some(battery) = battery {
         subscribe_battery_service(battery, sender);
     }
@@ -1067,9 +1016,7 @@ fn start_lock_service_inputs(
 }
 
 fn reconfigure_lock_services(services: &LockServices, config: &LockAppConfig) {
-    reconfigure_location_service(&services.location, config);
     reconfigure_keyboard_service(&services.keyboard, config);
-    configure_weather_service(&services.weather);
 }
 
 fn reconfigure_keyboard_service(keyboard: &KeyboardHandle, config: &LockAppConfig) {
@@ -1085,41 +1032,6 @@ fn reconfigure_keyboard_service(keyboard: &KeyboardHandle, config: &LockAppConfi
     });
 }
 
-fn reconfigure_location_service(location: &LocationHandle, config: &LockAppConfig) {
-    let location = location.clone();
-    let config = config.service_config();
-    relm4::spawn(async move {
-        if let Err(error) = location
-            .send(ServiceCommand::Control(Control::Reconfigure(config)))
-            .await
-        {
-            tracing::warn!(%error, "failed to reconfigure lock location service");
-        }
-    });
-}
-
-fn start_location_service(location: &LocationHandle, config: &LockAppConfig) {
-    let location = location.clone();
-    let config = config.service_config();
-    relm4::spawn(async move {
-        if let Err(error) = location
-            .send(ServiceCommand::Control(Control::Start(config)))
-            .await
-        {
-            tracing::warn!(%error, "failed to start lock location service");
-            return;
-        }
-        if let Err(error) = location
-            .send(ServiceCommand::Command(
-                glimpse_core::services::location::Command::Refresh,
-            ))
-            .await
-        {
-            tracing::debug!(%error, "failed to request lock location refresh");
-        }
-    });
-}
-
 fn start_keyboard_service(keyboard: &KeyboardHandle, config: &LockAppConfig) {
     let keyboard = keyboard.clone();
     let config = config.service_config();
@@ -1129,31 +1041,6 @@ fn start_keyboard_service(keyboard: &KeyboardHandle, config: &LockAppConfig) {
             .await
         {
             tracing::warn!(%error, "failed to start lock keyboard service");
-        }
-    });
-}
-
-fn configure_weather_service(weather: &WeatherHandle) {
-    let weather = weather.clone();
-    relm4::spawn(async move {
-        if let Err(error) = weather
-            .send(ServiceCommand::Command(weather_model::Command::Configure(
-                weather_model::Config::default(),
-            )))
-            .await
-        {
-            tracing::warn!(%error, "failed to configure lock weather service");
-        }
-    });
-}
-
-fn subscribe_weather_service(weather: &WeatherHandle, sender: &ComponentSender<LockApp>) {
-    let mut rx = weather.subscribe();
-    let input = sender.input_sender().clone();
-    let _ = input.send(AppCommand::WeatherState(rx.borrow().clone()));
-    relm4::spawn_local(async move {
-        while rx.changed().await.is_ok() {
-            let _ = input.send(AppCommand::WeatherState(rx.borrow().clone()));
         }
     });
 }
@@ -1209,35 +1096,6 @@ fn time_to_next_minute() -> Duration {
     let secs = u64::from(60 - now.second().min(59));
     let nanos = u64::from(now.nanosecond().min(999_999_999));
     Duration::from_nanos(secs * 1_000_000_000 - nanos).max(Duration::from_millis(100))
-}
-
-fn weather_control_status(state: &weather_model::State) -> Option<WeatherDisplay> {
-    match state {
-        weather_model::State::Ready(snapshot) => {
-            tracing::debug!(
-                city = %snapshot.location.city,
-                temperature = snapshot.current.temperature,
-                condition = %snapshot.current.condition,
-                "lock weather state ready"
-            );
-            Some(WeatherDisplay {
-                icon: snapshot.current.icon.clone(),
-                temperature: format!("{:.0}C", snapshot.current.temperature),
-            })
-        }
-        weather_model::State::Loading => {
-            tracing::debug!("lock weather state loading");
-            None
-        }
-        weather_model::State::Unavailable(error) => {
-            tracing::debug!(%error, "lock weather state unavailable");
-            None
-        }
-        weather_model::State::Unknown => {
-            tracing::debug!("lock weather state unknown");
-            None
-        }
-    }
 }
 
 fn battery_control_status(state: &BatteryState) -> Option<BatteryDisplay> {
@@ -1784,7 +1642,9 @@ impl SimpleComponent for LockWindow {
         let widgets = view_output!();
         connect_lock_window_keys(&root, sender.input_sender().clone());
         connect_caps_lock_indicator(&widgets.password_entry, sender.input_sender().clone());
-        widgets.user_avatar.set_path(model.user.icon_path.as_deref());
+        widgets
+            .user_avatar
+            .set_path(model.user.icon_path.as_deref());
         if model.preview {
             root.set_decorated(true);
             root.set_deletable(true);
@@ -2401,16 +2261,17 @@ fn current_username() -> String {
 }
 
 fn passwd_username_for_uid(uid: u32) -> Option<String> {
-    fs::read_to_string("/etc/passwd").ok()?.lines().find_map(|line| {
-        let mut fields = line.split(':');
-        let name = fields.next()?;
-        let _password = fields.next()?;
-        let entry_uid: u32 = fields.next()?.parse().ok()?;
-        (entry_uid == uid).then(|| name.to_owned())
-    })
+    fs::read_to_string("/etc/passwd")
+        .ok()?
+        .lines()
+        .find_map(|line| {
+            let mut fields = line.split(':');
+            let name = fields.next()?;
+            let _password = fields.next()?;
+            let entry_uid: u32 = fields.next()?.parse().ok()?;
+            (entry_uid == uid).then(|| name.to_owned())
+        })
 }
-
-
 
 fn current_user_info() -> UserInfo {
     let username = current_username();
@@ -2874,7 +2735,7 @@ mod tests {
     use notify::event::{AccessKind, AccessMode, DataChange};
 
     use super::{
-        DecodedTexture, ImageLoadState, LockMode, LockPowerAction, TextureCacheKey, UserInfo,
+        DecodedTexture, ImageLoadState, LockMode, LockPowerAction, TextureCacheKey,
         battery_control_status, cooldown_seconds_after, file_watch_event_reloads,
         keyboard_control_status, load_cached_texture, network_control_status,
         power_confirmation_icon, power_confirmation_title, resize_rgba_for_fit,

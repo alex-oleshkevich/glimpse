@@ -68,19 +68,31 @@ fn failed_auth_clears_pending_success() {
 #[test]
 fn can_unlock_requires_both_locked_and_auth_success() {
     let mut runtime = LockRuntime::default();
-    assert!(!runtime.can_unlock(), "fresh runtime should not be unlockable");
+    assert!(
+        !runtime.can_unlock(),
+        "fresh runtime should not be unlockable"
+    );
 
     runtime.mark_locked();
-    assert!(!runtime.can_unlock(), "locked-but-not-authed must not unlock");
+    assert!(
+        !runtime.can_unlock(),
+        "locked-but-not-authed must not unlock"
+    );
 
     runtime.clear_auth_success();
     runtime.mark_locked();
     runtime.mark_auth_success();
-    assert!(runtime.can_unlock(), "locked AND authed should be unlockable");
+    assert!(
+        runtime.can_unlock(),
+        "locked AND authed should be unlockable"
+    );
 
     runtime.reset();
     runtime.mark_auth_success();
-    assert!(!runtime.can_unlock(), "authed-but-not-locked must not unlock");
+    assert!(
+        !runtime.can_unlock(),
+        "authed-but-not-locked must not unlock"
+    );
 }
 
 /// `clear_auth_success` (called from the Failure / AccountUnavailable
@@ -98,7 +110,10 @@ fn clear_auth_success_preserves_locked_state() {
     // should stay up after a failed attempt.
     assert!(!runtime.can_unlock());
     runtime.mark_auth_success();
-    assert!(runtime.can_unlock(), "re-auth should restore unlock capability");
+    assert!(
+        runtime.can_unlock(),
+        "re-auth should restore unlock capability"
+    );
 }
 
 #[tokio::test]

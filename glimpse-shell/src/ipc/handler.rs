@@ -4,7 +4,7 @@ use glimpse_core::ThemeMode;
 use glimpse_core::ipc::client::CommandHandler;
 use glimpse_core::services::{
     audio, battery, bluetooth, brightness, clipboard, keyboard, location, mpris, network,
-    notifications, power, storage, theme,
+    notifications, power, storage, theme, weather,
 };
 
 use crate::services::framework::Services;
@@ -100,6 +100,7 @@ impl ShellCommandHandler {
             out.push(("mpris_player".into(), p.identity));
             out.push(("mpris_status".into(), format!("{:?}", p.playback_status)));
         }
+        append_weather_status(&mut out, &self.services.weather.snapshot());
         out
     }
 
@@ -120,6 +121,29 @@ impl ShellCommandHandler {
             .snapshot
             .current_player
             .map(|p| p.player_id)
+    }
+}
+
+fn append_weather_status(out: &mut Vec<(String, String)>, state: &weather::model::State) {
+    use weather::model::State as WeatherState;
+
+    match state {
+        WeatherState::Ready(snapshot) => {
+            out.push(("weather_state".into(), "ready".into()));
+            out.push(("weather_icon".into(), snapshot.current.icon.clone()));
+            out.push((
+                "weather_temperature".into(),
+                format!("{:.0}°C", snapshot.current.temperature),
+            ));
+            out.push(("weather_condition".into(), snapshot.current.condition.clone()));
+            out.push(("weather_city".into(), snapshot.location.city.clone()));
+        }
+        WeatherState::Loading => out.push(("weather_state".into(), "loading".into())),
+        WeatherState::Unavailable(error) => {
+            out.push(("weather_state".into(), "unavailable".into()));
+            out.push(("weather_error".into(), error.clone()));
+        }
+        WeatherState::Unknown => out.push(("weather_state".into(), "unknown".into())),
     }
 }
 
@@ -507,5 +531,46 @@ impl CommandHandler for ShellCommandHandler {
                 _ => Err(format!("unknown command: {name}")),
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::append_weather_status;
+    use glimpse_core::services::weather::model::{
+        CurrentWeather, Location as WeatherLocation, Snapshot, State as WeatherState,
+    };
+
+    #[test]
+    fn status_includes_ready_weather_summary() {
+        let mut fields = Vec::new();
+
+        append_weather_status(
+            &mut fields,
+            &WeatherState::Ready(Snapshot {
+                current: CurrentWeather {
+                    temperature: 21.4,
+                    condition: "Clear".into(),
+                    icon: "weather-clear-symbolic".into(),
+                    ..CurrentWeather::default()
+                },
+                location: WeatherLocation {
+                    city: "Warsaw".into(),
+                    ..WeatherLocation::default()
+                },
+                ..Snapshot::default()
+            }),
+        );
+
+        assert_eq!(
+            fields,
+            vec![
+                ("weather_state".into(), "ready".into()),
+                ("weather_icon".into(), "weather-clear-symbolic".into()),
+                ("weather_temperature".into(), "21°C".into()),
+                ("weather_condition".into(), "Clear".into()),
+                ("weather_city".into(), "Warsaw".into()),
+            ]
+        );
     }
 }
