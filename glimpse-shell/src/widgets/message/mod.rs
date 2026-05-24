@@ -1,7 +1,7 @@
 mod imp;
 
 use glib::closure_local;
-use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
+use gtk4::{Align, gdk, glib, prelude::*, subclass::prelude::*};
 
 use crate::utils::notification_markup::sanitize_notification_body;
 
@@ -9,6 +9,15 @@ glib::wrapper! {
     pub struct Message(ObjectSubclass<imp::Message>)
         @extends gtk4::Box, gtk4::Widget,
         @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Orientable;
+}
+
+const CONTENT_IMAGE_SIZE: i32 = 64;
+const APP_ICON_IMAGE_SIZE: i32 = 32;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContentImagePresentation {
+    Content,
+    AppIcon,
 }
 
 impl Message {
@@ -22,10 +31,31 @@ impl Message {
         imp.icon.set_visible(icon.is_some());
     }
 
-    pub fn set_content_paintable(&self, paintable: Option<&impl IsA<gdk::Paintable>>) {
+    pub fn set_content_paintable(
+        &self,
+        paintable: Option<&impl IsA<gdk::Paintable>>,
+        presentation: ContentImagePresentation,
+    ) {
         let imp = self.imp();
+        let visible = paintable.is_some();
         imp.content_icon.set_paintable(paintable);
-        imp.content_icon.set_visible(paintable.is_some());
+        imp.content_icon.set_visible(visible);
+
+        imp.content_icon
+            .set_size_request(CONTENT_IMAGE_SIZE, CONTENT_IMAGE_SIZE);
+
+        if !visible || presentation == ContentImagePresentation::Content {
+            imp.content_icon.remove_css_class("message__icon--app");
+            imp.content_icon.set_pixel_size(CONTENT_IMAGE_SIZE);
+            imp.content_icon.set_halign(Align::Start);
+            imp.content_icon.set_valign(Align::Start);
+            return;
+        }
+
+        imp.content_icon.add_css_class("message__icon--app");
+        imp.content_icon.set_pixel_size(APP_ICON_IMAGE_SIZE);
+        imp.content_icon.set_halign(Align::Center);
+        imp.content_icon.set_valign(Align::Center);
     }
 
     pub fn set_app_name(&self, name: &str) {
@@ -100,5 +130,16 @@ impl Message {
 impl Default for Message {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn app_icon_content_image_style_centers_smaller_icon() {
+        let css = include_str!("../../../../themes/base.css");
+
+        assert!(css.contains(".message__icon--app"));
+        assert!(css.contains("padding: 16px;"));
     }
 }

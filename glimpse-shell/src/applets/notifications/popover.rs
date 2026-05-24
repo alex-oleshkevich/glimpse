@@ -11,7 +11,7 @@ use crate::{
     widgets::{
         animated_popover::AnimatedPopover,
         hero::Hero,
-        message::Message,
+        message::{ContentImagePresentation, Message},
         message_group::{MessageGroup, MessageGroupState},
         popover_shell::PopoverShell,
     },
@@ -381,7 +381,16 @@ fn update_row(msg: &Message, notification: &NotificationEntry, now: u64) {
     msg.set_time(&format::relative_time(now, notification.timestamp));
     msg.set_title(&notification.summary);
     msg.set_body(&notification.body);
-    msg.set_content_paintable(format::load_image(notification).as_ref());
+    match format::load_image(notification) {
+        Some(image) => msg.set_content_paintable(
+            Some(&image.texture),
+            content_image_presentation(image.presentation),
+        ),
+        None => msg.set_content_paintable(
+            None::<&gtk::gdk::Texture>,
+            ContentImagePresentation::Content,
+        ),
+    }
 
     msg.clear_actions();
     for (action_key, label) in format::visible_actions(notification) {
@@ -409,6 +418,13 @@ fn notification_popover_icon_name(dnd: bool) -> &'static str {
         dnd,
         ..Default::default()
     })
+}
+
+fn content_image_presentation(presentation: format::ImagePresentation) -> ContentImagePresentation {
+    match presentation {
+        format::ImagePresentation::Content => ContentImagePresentation::Content,
+        format::ImagePresentation::AppIcon => ContentImagePresentation::AppIcon,
+    }
 }
 
 #[cfg(test)]

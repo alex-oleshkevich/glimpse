@@ -16,7 +16,7 @@ use glimpse_core::{ThemeMode, services::notifications::model::NotificationEntry}
 
 use super::{format, popover};
 use crate::theme;
-use crate::widgets::message::Message;
+use crate::widgets::message::{ContentImagePresentation, Message};
 
 const MAX_TRACKED_POPUPS: usize = 20;
 const POPUP_LEAVE_ANIMATION_MS: u64 = 180;
@@ -476,7 +476,16 @@ fn build_card(notification: &NotificationEntry, sender: &ComponentSender<Popup>)
     ));
     msg.set_title(&notification.summary);
     msg.set_body(&notification.body);
-    msg.set_content_paintable(format::load_image(notification).as_ref());
+    match format::load_image(notification) {
+        Some(image) => msg.set_content_paintable(
+            Some(&image.texture),
+            content_image_presentation(image.presentation),
+        ),
+        None => msg.set_content_paintable(
+            None::<&gtk::gdk::Texture>,
+            ContentImagePresentation::Content,
+        ),
+    }
 
     for (action_key, label) in format::visible_actions(notification) {
         msg.add_action(action_key, label);
@@ -631,6 +640,13 @@ fn popup_origin_class(position: PopupPosition) -> &'static str {
         PopupPosition::BottomLeft | PopupPosition::BottomCenter | PopupPosition::BottomRight => {
             "popup-from-bottom"
         }
+    }
+}
+
+fn content_image_presentation(presentation: format::ImagePresentation) -> ContentImagePresentation {
+    match presentation {
+        format::ImagePresentation::Content => ContentImagePresentation::Content,
+        format::ImagePresentation::AppIcon => ContentImagePresentation::AppIcon,
     }
 }
 
