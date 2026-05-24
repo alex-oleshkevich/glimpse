@@ -91,4 +91,4 @@ glimpse-idle --version
 | Wallpaper does not show | Do not run another wallpaper tool at the same time. |
 | Lock command does nothing | Enable `glimpse-lock.service`, then run `loginctl lock-session`. |
 | Night light does not change color | Check the schedule and location settings in [Sunset](./sunset.md). The default schedule is automatic. |
-| Idle does nothing | Add listeners in [Idle](./idle.md). The default has no idle actions. |
+| Idle does nothing | Check `glimpse-idle.service` and the listeners in [Idle](./idle.md). The default locks after 15 minutes. |

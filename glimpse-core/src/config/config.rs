@@ -207,13 +207,23 @@ mod idle_config_tests {
     use crate::Config;
 
     #[test]
-    fn default_config_includes_idle_without_listener_policies() {
+    fn default_config_includes_idle_lock_listeners() {
         let config = Config::default();
 
         assert!(config.idle.enabled);
         assert!(config.idle.respect_inhibitors);
-        assert!(config.idle.profiles.ac.listeners.is_empty());
-        assert!(config.idle.profiles.battery.listeners.is_empty());
+        assert_eq!(config.idle.profiles.ac.listeners.len(), 1);
+        assert_eq!(config.idle.profiles.battery.listeners.len(), 1);
+        assert_eq!(config.idle.profiles.ac.listeners[0].timeout, 900);
+        assert_eq!(
+            config.idle.profiles.ac.listeners[0].on_idle,
+            "loginctl lock-session"
+        );
+        assert_eq!(config.idle.profiles.battery.listeners[0].timeout, 900);
+        assert_eq!(
+            config.idle.profiles.battery.listeners[0].on_idle,
+            "loginctl lock-session"
+        );
     }
 
     #[test]

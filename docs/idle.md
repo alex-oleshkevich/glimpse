@@ -2,7 +2,7 @@
 
 Idle rules decide what happens when you stop using the computer.
 
-By default, Glimpse does nothing on idle. You choose the policy yourself.
+By default, Glimpse locks the session after 15 minutes of idle time on both AC and battery power.
 
 ## A Good Laptop Setup
 

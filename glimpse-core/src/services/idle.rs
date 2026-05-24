@@ -562,14 +562,16 @@ mod tests {
     }
 
     #[test]
-    fn default_state_uses_ac_profile_without_listener_policies() {
+    fn default_state_uses_ac_profile() {
         let (_battery_tx, battery) = battery_handle(false);
         let (_service, handle) = IdleService::new(battery);
 
         let state = handle.snapshot();
         assert_eq!(state.power_source, PowerSource::Ac);
         assert!(state.enabled);
-        assert!(state.listeners.is_empty());
+        assert_eq!(state.listeners.len(), 1);
+        assert_eq!(state.listeners[0].timeout, 900);
+        assert_eq!(state.listeners[0].on_idle, "loginctl lock-session");
     }
 
     #[test]

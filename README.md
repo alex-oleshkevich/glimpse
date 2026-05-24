@@ -394,6 +394,9 @@ Night-light schedule values:
 `glimpse-idle` runs commands after the session has been idle for configured
 timeouts. It supports separate AC and battery profiles.
 
+By default, Glimpse locks the session after 15 minutes of idle time on both AC
+and battery power.
+
 Example laptop config:
 
 ```toml

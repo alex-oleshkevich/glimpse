@@ -28,8 +28,8 @@ pub struct IdleProfilesConfig {
 impl Default for IdleProfilesConfig {
     fn default() -> Self {
         Self {
-            ac: IdleProfileConfig::default(),
-            battery: IdleProfileConfig::default(),
+            ac: IdleProfileConfig::with_default_lock_listener(),
+            battery: IdleProfileConfig::with_default_lock_listener(),
         }
     }
 }
@@ -43,6 +43,14 @@ pub struct IdleProfileConfig {
 impl Default for IdleProfileConfig {
     fn default() -> Self {
         Self { listeners: vec![] }
+    }
+}
+
+impl IdleProfileConfig {
+    fn with_default_lock_listener() -> Self {
+        Self {
+            listeners: vec![IdleListenerConfig::new(900, "loginctl lock-session", "")],
+        }
     }
 }
 
@@ -82,13 +90,25 @@ mod tests {
     use super::IdleConfig;
 
     #[test]
-    fn default_idle_config_has_no_listener_policies() {
+    fn default_idle_config_locks_after_fifteen_minutes() {
         let config = IdleConfig::default();
 
         assert!(config.enabled);
         assert!(config.respect_inhibitors);
-        assert!(config.profiles.ac.listeners.is_empty());
-        assert!(config.profiles.battery.listeners.is_empty());
+        assert_eq!(config.profiles.ac.listeners.len(), 1);
+        assert_eq!(config.profiles.battery.listeners.len(), 1);
+
+        let ac = &config.profiles.ac.listeners[0];
+        assert_eq!(ac.timeout, 900);
+        assert_eq!(ac.on_idle, "loginctl lock-session");
+        assert_eq!(ac.on_resume, "");
+        assert_eq!(ac.respect_inhibitors, None);
+
+        let battery = &config.profiles.battery.listeners[0];
+        assert_eq!(battery.timeout, 900);
+        assert_eq!(battery.on_idle, "loginctl lock-session");
+        assert_eq!(battery.on_resume, "");
+        assert_eq!(battery.respect_inhibitors, None);
     }
 
     #[test]
