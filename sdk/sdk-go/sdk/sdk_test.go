@@ -57,7 +57,7 @@ func (a *demoApplet) Popover(_ context.Context, state *demoState) (Widget, error
 	return Column{
 		Children: []Widget{
 			Hero{Title: "Demo", Subtitle: state.Version},
-			Text{Text: state.Version},
+			Label{Label: state.Version},
 			Tile{ID: "submit", Primary: "Submit", Activatable: true},
 		},
 	}, nil

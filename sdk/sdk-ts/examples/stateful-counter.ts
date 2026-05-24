@@ -4,7 +4,7 @@ import {
   Hero,
   StatusItem,
   Tile,
-  Text,
+  Label,
   type TreeNode,
 } from "../src/index.js";
 
@@ -42,7 +42,7 @@ class CounterApplet extends Applet<CounterState> {
           title: "Counter",
           subtitle: `Value: ${state.count}`,
         }),
-        new Text(`Count = ${state.count}`),
+        new Label(`Count = ${state.count}`),
         new Tile({
           id: "increment",
           primary: "Increment",

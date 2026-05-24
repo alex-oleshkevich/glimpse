@@ -28,12 +28,12 @@ def widgets() -> None:
     for fixture in WIDGETS.glob("*.json"):
         fixture.unlink()
 
-    text = node("text", {"text": "Ready", "size": "sm", "weight": "medium", "color": "muted", "wrap": True})
+    label = node("label", {"label": "Ready", "wrap": True})
     badge = node("badge", {"label": "OK", "kind": "success"})
     status = node("status_dot", {"status": "warning"})
 
     cases: dict[str, dict[str, object]] = {
-        "text": text,
+        "label": label,
         "header": node("header", {"label": "Network"}),
         "hero": node(
             "hero",
@@ -77,17 +77,17 @@ def widgets() -> None:
             },
         ),
         "separator": node("separator", {}),
-        "scroll": node("scroll", {"child": text}),
-        "row": node("row", {"children": [text, badge]}),
-        "column": node("column", {"children": [text, badge]}),
-        "container": node("container", {"children": [text]}),
+        "scroll": node("scroll", {"child": label}),
+        "row": node("row", {"children": [label, badge]}),
+        "column": node("column", {"children": [label, badge]}),
+        "container": node("container", {"children": [label]}),
         "circle-box": node("circle_box", {"color": "#336699"}),
-        "boxed-list": node("boxed_list", {"children": [text, badge]}),
+        "boxed-list": node("boxed_list", {"children": [label, badge]}),
         "popover-shell": node(
             "popover_shell",
             {
                 "size": "medium",
-                "children": [text],
+                "children": [label],
                 "footer": [badge],
                 "footer_visible": True,
             },
@@ -134,7 +134,7 @@ def widgets() -> None:
                 "primary": "Details",
                 "secondary": "2 items",
                 "left_icon": "view-list-symbolic",
-                "child": node("column", {"children": [text]}),
+                "child": node("column", {"children": [label]}),
                 "expanded": True,
             },
         ),

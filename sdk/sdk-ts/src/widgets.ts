@@ -7,9 +7,6 @@ export class InlineHandlerRegistry {
   }
 }
 
-export type FontSize = "xs" | "sm" | "base" | "lg" | "xl";
-export type FontWeight = "normal" | "medium" | "semibold" | "bold";
-export type TextColor = "normal" | "muted" | "accent" | "success" | "warning" | "error";
 export type BadgeKind = "default" | "success" | "warning" | "error" | "accent";
 export type StatusDotStatus = "neutral" | "success" | "warning" | "error" | "accent";
 export type PagerAppearance = "dots" | "numbers";
@@ -50,19 +47,16 @@ export abstract class WidgetBase {
 const child = (node?: TreeNode): ProtocolNode | undefined => node?.toProtocol();
 const children = (nodes: TreeNode[]): ProtocolNode[] => nodes.map((node) => node.toProtocol());
 
-export class Text extends WidgetBase {
-  readonly type = "text";
-  private readonly options: CommonOptions & { text: string; size?: FontSize; weight?: FontWeight; color?: TextColor; xalign?: number; wrap?: boolean };
-  constructor(options: string | CommonOptions & { text: string; size?: FontSize; weight?: FontWeight; color?: TextColor; xalign?: number; wrap?: boolean }) {
-    const normalized = typeof options === "string" ? { text: options } : options;
+export class Label extends WidgetBase {
+  readonly type = "label";
+  private readonly options: CommonOptions & { label: string; xalign?: number; wrap?: boolean };
+  constructor(options: string | CommonOptions & { label: string; xalign?: number; wrap?: boolean }) {
+    const normalized = typeof options === "string" ? { label: options } : options;
     super(normalized);
     this.options = normalized;
   }
   data(): Record<string, unknown> {
-    const out: Record<string, unknown> = { ...this.commonData(), text: this.options.text };
-    if (this.options.size !== undefined) out.size = this.options.size;
-    if (this.options.weight !== undefined) out.weight = this.options.weight;
-    if (this.options.color !== undefined) out.color = this.options.color;
+    const out: Record<string, unknown> = { ...this.commonData(), label: this.options.label };
     if (this.options.xalign !== undefined) out.xalign = this.options.xalign;
     if (this.options.wrap !== undefined) out.wrap = this.options.wrap;
     return out;
@@ -466,7 +460,7 @@ export class WorldClock extends WidgetBase {
 
 export type TreeNode =
   | Row | Column | Container | CircleBox | BoxedList | PopoverShell
-  | Text | Header | Hero | Badge | StatusDot | PanelIndicator | EmptyState | Spinner | Meter | Separator | Scroll
+  | Label | Header | Hero | Badge | StatusDot | PanelIndicator | EmptyState | Spinner | Meter | Separator | Scroll
   | Tile | SegmentedTile | ButtonRow | SwitchTile | ExpanderTile | SliderTile | ChoiceTile | ChoiceList | KeyValueGrid
   | PagerItem | PagerStrip
   | CameraIndicator | MicIndicator | MutedIndicator | ScreenCastIndicator | LocationIndicator

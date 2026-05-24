@@ -26,36 +26,6 @@ impl<T, Msg> PartialEq for MsgMapper<T, Msg> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FontSize {
-    Xs,
-    Sm,
-    Base,
-    Lg,
-    Xl,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FontWeight {
-    Normal,
-    Medium,
-    Semibold,
-    Bold,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TextColor {
-    Normal,
-    Muted,
-    Accent,
-    Success,
-    Warning,
-    Error,
-}
-
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BadgeKind {
@@ -124,35 +94,26 @@ macro_rules! common_methods {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Text {
+pub struct Label {
     #[serde(flatten)]
     pub common: CommonProps,
-    pub text: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub size: Option<FontSize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub weight: Option<FontWeight>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub color: Option<TextColor>,
+    pub label: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub xalign: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wrap: Option<bool>,
 }
-impl Text {
-    pub fn new(text: impl Into<String>) -> Self {
+impl Label {
+    pub fn new(label: impl Into<String>) -> Self {
         Self {
             common: CommonProps::default(),
-            text: text.into(),
-            size: None,
-            weight: None,
-            color: None,
+            label: label.into(),
             xalign: None,
             wrap: None,
         }
     }
 }
-common_methods!(Text);
+common_methods!(Label);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Header {
@@ -990,7 +951,7 @@ pub enum TreeNode<Msg> {
     CircleBox(CircleBox),
     BoxedList(BoxedList<Msg>),
     PopoverShell(PopoverShell<Msg>),
-    Text(Text),
+    Label(Label),
     Header(Header),
     Hero(Hero<Msg>),
     Badge(Badge),
@@ -1054,7 +1015,7 @@ macro_rules! from_static_node {
 
 from_static_node!(
     CircleBox => CircleBox,
-    Text => Text, Header => Header, Badge => Badge, StatusDot => StatusDot, EmptyState => EmptyState,
+    Label => Label, Header => Header, Badge => Badge, StatusDot => StatusDot, EmptyState => EmptyState,
     Spinner => Spinner, Separator => Separator,
     KeyValueGrid => KeyValueGrid, CameraIndicator => CameraIndicator, MicIndicator => MicIndicator,
     MutedIndicator => MutedIndicator, ScreenCastIndicator => ScreenCastIndicator,

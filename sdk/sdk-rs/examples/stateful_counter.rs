@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, Column, Hero, MsgMapper, StatusItem, Text, Tile, TreeNode, run, tree,
+    Applet, AppletResult, Column, Hero, Label, MsgMapper, StatusItem, Tile, TreeNode, run, tree,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -43,7 +43,7 @@ impl Applet for CounterApplet {
                     hero.icon = Some("view-refresh-symbolic".into());
                     hero
                 },
-                Text::new(format!("Count = {}", state.count)),
+                Label::new(format!("Count = {}", state.count)),
                 {
                     let mut tile = Tile::new("Increment");
                     tile.id = Some("increment".into());

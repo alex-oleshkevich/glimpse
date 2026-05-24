@@ -26,6 +26,7 @@ import {
   Header,
   Hero,
   KeyValueGrid,
+  Label,
   LocationIndicator,
   Meter,
   MicIndicator,
@@ -43,7 +44,6 @@ import {
   Spinner,
   StatusDot,
   SwitchTile,
-  Text,
   Tile,
   WeatherForecastItem,
   WeatherForecastList,
@@ -64,11 +64,11 @@ function load(rel: string): any {
 }
 
 function widgets(): Record<string, TreeNode> {
-  const text = new Text({ text: "Ready", size: "sm", weight: "medium", color: "muted", wrap: true });
+  const label = new Label({ label: "Ready", wrap: true });
   const badge = new Badge({ label: "OK", kind: "success" });
   const status = new StatusDot({ status: "warning" });
   return {
-    text,
+    label,
     header: new Header({ label: "Network" }),
     hero: new Hero({
       id: "vpn",
@@ -94,13 +94,13 @@ function widgets(): Record<string, TreeNode> {
     spinner: new Spinner(),
     meter: new Meter({ label: "Memory", value: 0.51 }),
     separator: new Separator(),
-    scroll: new Scroll({ child: text }),
-    row: new Row({ children: [text, badge] }),
-    column: new Column({ children: [text, badge] }),
-    container: new Container({ children: [text] }),
+    scroll: new Scroll({ child: label }),
+    row: new Row({ children: [label, badge] }),
+    column: new Column({ children: [label, badge] }),
+    container: new Container({ children: [label] }),
     "circle-box": new CircleBox({ color: "#336699" }),
-    "boxed-list": new BoxedList({ children: [text, badge] }),
-    "popover-shell": new PopoverShell({ size: "medium", children: [text], footer: [badge], footer_visible: true }),
+    "boxed-list": new BoxedList({ children: [label, badge] }),
+    "popover-shell": new PopoverShell({ size: "medium", children: [label], footer: [badge], footer_visible: true }),
     tile: new Tile({
       id: "wifi",
       primary: "Wi-Fi",
@@ -132,7 +132,7 @@ function widgets(): Record<string, TreeNode> {
       primary: "Details",
       secondary: "2 items",
       left_icon: "view-list-symbolic",
-      child: new Column({ children: [text] }),
+      child: new Column({ children: [label] }),
       expanded: true,
     }),
     "slider-tile": new SliderTile({

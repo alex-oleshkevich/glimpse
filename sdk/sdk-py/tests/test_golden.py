@@ -26,11 +26,10 @@ from glimpse_sdk import (
     EventItem,
     Events,
     ExpanderTile,
-    FontSize,
-    FontWeight,
     Header,
     Hero,
     KeyValueGrid,
+    Label,
     LocationIndicator,
     Meter,
     MicIndicator,
@@ -51,8 +50,6 @@ from glimpse_sdk import (
     StatusDot,
     StatusDotStatus,
     SwitchTile,
-    Text,
-    TextColor,
     Tile,
     WeatherForecastItem,
     WeatherForecastList,
@@ -71,11 +68,11 @@ def load(rel: str) -> dict:
 
 
 def widgets() -> dict[str, object]:
-    text = Text(text="Ready", size=FontSize.SM, weight=FontWeight.MEDIUM, color=TextColor.MUTED, wrap=True)
+    label = Label(label="Ready", wrap=True)
     badge = Badge(label="OK", kind=BadgeKind.SUCCESS)
     status = StatusDot(status=StatusDotStatus.WARNING)
     return {
-        "text": text,
+        "label": label,
         "header": Header(label="Network"),
         "hero": Hero(
             id="vpn",
@@ -101,13 +98,13 @@ def widgets() -> dict[str, object]:
         "spinner": Spinner(),
         "meter": Meter(label="Memory", value=0.51),
         "separator": Separator(),
-        "scroll": Scroll(child=text),
-        "row": Row(children=[text, badge]),
-        "column": Column(children=[text, badge]),
-        "container": Container(children=[text]),
+        "scroll": Scroll(child=label),
+        "row": Row(children=[label, badge]),
+        "column": Column(children=[label, badge]),
+        "container": Container(children=[label]),
         "circle-box": CircleBox(color="#336699"),
-        "boxed-list": BoxedList(children=[text, badge]),
-        "popover-shell": PopoverShell(size=PopoverSize.MEDIUM, children=[text], footer=[badge], footer_visible=True),
+        "boxed-list": BoxedList(children=[label, badge]),
+        "popover-shell": PopoverShell(size=PopoverSize.MEDIUM, children=[label], footer=[badge], footer_visible=True),
         "tile": Tile(
             id="wifi",
             primary="Wi-Fi",
@@ -139,7 +136,7 @@ def widgets() -> dict[str, object]:
             primary="Details",
             secondary="2 items",
             left_icon="view-list-symbolic",
-            child=Column(children=[text]),
+            child=Column(children=[label]),
             expanded=True,
         ),
         "slider-tile": SliderTile(

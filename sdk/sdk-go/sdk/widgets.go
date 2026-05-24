@@ -9,33 +9,12 @@ type Widget interface {
 
 type InlineHandler func(CallbackEvent) error
 
-type FontSize string
-type FontWeight string
-type TextColor string
 type BadgeKind string
 type StatusDotStatus string
 type PagerAppearance string
 type PopoverSize string
 
 const (
-	FontSizeXs   FontSize = "xs"
-	FontSizeSm   FontSize = "sm"
-	FontSizeBase FontSize = "base"
-	FontSizeLg   FontSize = "lg"
-	FontSizeXl   FontSize = "xl"
-
-	FontWeightNormal   FontWeight = "normal"
-	FontWeightMedium   FontWeight = "medium"
-	FontWeightSemibold FontWeight = "semibold"
-	FontWeightBold     FontWeight = "bold"
-
-	TextColorNormal  TextColor = "normal"
-	TextColorMuted   TextColor = "muted"
-	TextColorAccent  TextColor = "accent"
-	TextColorSuccess TextColor = "success"
-	TextColorWarning TextColor = "warning"
-	TextColorError   TextColor = "error"
-
 	BadgeKindDefault BadgeKind = "default"
 	BadgeKindSuccess BadgeKind = "success"
 	BadgeKindWarning BadgeKind = "warning"
@@ -71,18 +50,15 @@ func envelope(kind string, data any) ([]byte, error) {
 	}{kind, data})
 }
 
-type Text struct {
+type Label struct {
 	CommonProps
-	Text   string     `json:"text"`
-	Size   FontSize   `json:"size,omitempty"`
-	Weight FontWeight `json:"weight,omitempty"`
-	Color  TextColor  `json:"color,omitempty"`
-	XAlign *float64   `json:"xalign,omitempty"`
-	Wrap   *bool      `json:"wrap,omitempty"`
+	Label  string   `json:"label"`
+	XAlign *float64 `json:"xalign,omitempty"`
+	Wrap   *bool    `json:"wrap,omitempty"`
 }
 
-func (Text) isWidget()                      {}
-func (w Text) MarshalJSON() ([]byte, error) { type alias Text; return envelope("text", alias(w)) }
+func (Label) isWidget()                      {}
+func (w Label) MarshalJSON() ([]byte, error) { type alias Label; return envelope("label", alias(w)) }
 
 type Header struct {
 	CommonProps

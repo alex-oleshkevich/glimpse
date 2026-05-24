@@ -24,7 +24,7 @@ from glimpse_sdk import (
     Row,
     StatusDot,
     StatusItem,
-    Text,
+    Label,
     Tile,
     SwitchTile,
     SliderTile,
@@ -47,7 +47,7 @@ class DemoApplet(Applet[DemoState]):
         return [StatusItem(id="demo", icon="demo-symbolic", label=state.version)]
 
     async def popover(self, state: DemoState):
-        return Column(children=[Text(text=state.version), Tile(id="submit", primary="Submit", activatable=True)])
+        return Column(children=[Label(label=state.version), Tile(id="submit", primary="Submit", activatable=True)])
 
     @click("submit")
     async def handle_submit(self, _event) -> None:
@@ -179,7 +179,7 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status[0], "status")
         command, payload = await applet._outgoing.get()
         self.assertEqual(command, "popover")
-        self.assertEqual(payload["root"]["data"]["children"][0]["data"]["text"], "v2")
+        self.assertEqual(payload["root"]["data"]["children"][0]["data"]["label"], "v2")
 
     async def test_button_on_click_registers_generated_handler(self) -> None:
         hits: list[str] = []

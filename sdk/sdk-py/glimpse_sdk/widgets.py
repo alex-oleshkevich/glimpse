@@ -8,30 +8,6 @@ InlineHandler: TypeAlias = Callable[[Any, Any], Awaitable[None] | None]
 HandlerRegistry: TypeAlias = Any
 
 
-class FontSize(StrEnum):
-    XS = "xs"
-    SM = "sm"
-    BASE = "base"
-    LG = "lg"
-    XL = "xl"
-
-
-class FontWeight(StrEnum):
-    NORMAL = "normal"
-    MEDIUM = "medium"
-    SEMIBOLD = "semibold"
-    BOLD = "bold"
-
-
-class TextColor(StrEnum):
-    NORMAL = "normal"
-    MUTED = "muted"
-    ACCENT = "accent"
-    SUCCESS = "success"
-    WARNING = "warning"
-    ERROR = "error"
-
-
 class BadgeKind(StrEnum):
     DEFAULT = "default"
     SUCCESS = "success"
@@ -100,24 +76,15 @@ def _target_id(registry: HandlerRegistry, event: str, widget_id: str | None, pat
 
 
 @dataclass
-class Text(Widget):
-    text: str = ""
-    size: FontSize | None = None
-    weight: FontWeight | None = None
-    color: TextColor | None = None
+class Label(Widget):
+    label: str = ""
     xalign: float | None = None
     wrap: bool | None = None
-    widget_type: str = field(init=False, default="text")
+    widget_type: str = field(init=False, default="label")
 
     def data(self) -> dict[str, Any]:
         payload = super().data()
-        payload["text"] = self.text
-        if self.size is not None:
-            payload["size"] = self.size.value
-        if self.weight is not None:
-            payload["weight"] = self.weight.value
-        if self.color is not None:
-            payload["color"] = self.color.value
+        payload["label"] = self.label
         if self.xalign is not None:
             payload["xalign"] = self.xalign
         if self.wrap is not None:
@@ -881,7 +848,7 @@ TreeNode: TypeAlias = (
     | CircleBox
     | BoxedList
     | PopoverShell
-    | Text
+    | Label
     | Header
     | Hero
     | Badge

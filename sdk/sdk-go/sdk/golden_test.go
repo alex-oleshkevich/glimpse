@@ -58,11 +58,11 @@ func boolptr(v bool) *bool      { return &v }
 func intptr(v int) *int         { return &v }
 
 func sharedWidgets() map[string]Widget {
-	text := Text{Text: "Ready", Size: FontSizeSm, Weight: FontWeightMedium, Color: TextColorMuted, Wrap: boolptr(true)}
+	label := Label{Label: "Ready", Wrap: boolptr(true)}
 	badge := Badge{Label: "OK", Kind: BadgeKindSuccess}
 	status := StatusDot{Status: StatusDotWarning}
 	return map[string]Widget{
-		"text":   text,
+		"label":  label,
 		"header": Header{Label: "Network"},
 		"hero": Hero{
 			ID: "vpn", Icon: "network-vpn-symbolic", IconSize: intptr(32),
@@ -75,17 +75,17 @@ func sharedWidgets() map[string]Widget {
 			ID: "net", Icon: "network-wireless-symbolic", Label: "Wi-Fi",
 			Active: true, Extra: status,
 		},
-		"empty-state": EmptyState{Title: "No devices", Subtitle: "Connect a device to continue"},
-		"spinner":     Spinner{},
-		"meter":       Meter{Label: "Memory", Value: 0.51},
-		"separator":   Separator{},
-		"scroll":      Scroll{Child: text},
-		"row":         Row{Children: []Widget{text, badge}},
-		"column":      Column{Children: []Widget{text, badge}},
-		"container":  Container{Children: []Widget{text}},
-		"circle-box": CircleBox{Color: "#336699"},
-		"boxed-list":    BoxedList{Children: []Widget{text, badge}},
-		"popover-shell": PopoverShell{Size: PopoverSizeMedium, Children: []Widget{text}, Footer: []Widget{badge}, FooterVisible: true},
+		"empty-state":   EmptyState{Title: "No devices", Subtitle: "Connect a device to continue"},
+		"spinner":       Spinner{},
+		"meter":         Meter{Label: "Memory", Value: 0.51},
+		"separator":     Separator{},
+		"scroll":        Scroll{Child: label},
+		"row":           Row{Children: []Widget{label, badge}},
+		"column":        Column{Children: []Widget{label, badge}},
+		"container":     Container{Children: []Widget{label}},
+		"circle-box":    CircleBox{Color: "#336699"},
+		"boxed-list":    BoxedList{Children: []Widget{label, badge}},
+		"popover-shell": PopoverShell{Size: PopoverSizeMedium, Children: []Widget{label}, Footer: []Widget{badge}, FooterVisible: true},
 		"tile": Tile{
 			ID: "wifi", Primary: "Wi-Fi", Secondary: "Connected",
 			LeftIcon: "network-wireless-symbolic", Right: badge, Activatable: true,
@@ -104,7 +104,7 @@ func sharedWidgets() map[string]Widget {
 		},
 		"expander-tile": ExpanderTile{
 			ID: "details", Primary: "Details", Secondary: "2 items",
-			LeftIcon: "view-list-symbolic", Child: Column{Children: []Widget{text}}, Expanded: true,
+			LeftIcon: "view-list-symbolic", Child: Column{Children: []Widget{label}}, Expanded: true,
 		},
 		"slider-tile": SliderTile{
 			ID: "brightness", Label: "Brightness", LeftIcon: "display-brightness-symbolic",

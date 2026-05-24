@@ -8,7 +8,7 @@ from glimpse_sdk import (
     Column,
     Hero,
     StatusItem,
-    Text,
+    Label,
     Tile,
 )
 
@@ -39,7 +39,7 @@ class CounterApplet(Applet[CounterState]):
                     title="Counter",
                     subtitle=f"Value: {state.count}",
                 ),
-                Text(text=f"Count = {state.count}"),
+                Label(label=f"Count = {state.count}"),
                 Tile(
                     id="increment",
                     primary="Increment",

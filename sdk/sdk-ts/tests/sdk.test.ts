@@ -14,7 +14,7 @@ import {
   StatusDot,
   StatusItem,
   Tile,
-  Text,
+  Label,
   parseCallbackEvent,
 } from "../src/index.js";
 
@@ -50,7 +50,7 @@ class DemoApplet extends Applet<DemoState> {
   protected async popover(state: DemoState) {
     return new Column({ children: [
       new Hero({ title: "Demo", subtitle: state.version }),
-      new Text(state.version),
+      new Label(state.version),
       new Tile({ id: "submit", primary: "Submit", activatable: true }),
     ] });
   }

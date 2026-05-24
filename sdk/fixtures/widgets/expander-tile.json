@@ -5,13 +5,10 @@
         "children": [
           {
             "data": {
-              "color": "muted",
-              "size": "sm",
-              "text": "Ready",
-              "weight": "medium",
+              "label": "Ready",
               "wrap": true
             },
-            "type": "text"
+            "type": "label"
           }
         ]
       },

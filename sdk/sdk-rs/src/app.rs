@@ -527,7 +527,10 @@ where
         }
         IoMode::Socket(path) => {
             let stream = UnixStream::connect(&path).await.map_err(|e| {
-                format!("cannot connect to applets socket at {}: {e}", path.display())
+                format!(
+                    "cannot connect to applets socket at {}: {e}",
+                    path.display()
+                )
             })?;
             let (reader, writer) = stream.into_split();
             run_inner(applet, state, BufReader::new(reader), writer).await
@@ -665,7 +668,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        Badge, BadgeKind, Choice, ChoiceList, Column, MsgMapper, StatusItem, Text, Tile, TreeNode,
+        Badge, BadgeKind, Choice, ChoiceList, Column, Label, MsgMapper, StatusItem, Tile, TreeNode,
     };
 
     // A minimal Msg type for tests that need interaction.
@@ -698,7 +701,7 @@ mod tests {
         async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode<Self::Msg>>> {
             Ok(Some(TreeNode::from(Column::new(vec![
                 TreeNode::from(crate::Hero::new("Demo", state.version.clone())),
-                TreeNode::from(Text::new(state.version.clone())),
+                TreeNode::from(Label::new(state.version.clone())),
                 {
                     let mut tile = Tile::new("Submit");
                     tile.id = Some("submit".into());

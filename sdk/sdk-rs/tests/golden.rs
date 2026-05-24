@@ -6,13 +6,13 @@ use std::path::PathBuf;
 
 use glimpse_sdk::{
     ActiveIndicator, Badge, BadgeKind, BatteryHero, BoxedList, ButtonRow, Calendar, CallbackEvent,
-    CameraIndicator, Choice, ChoiceList, ChoiceTile, Column, Container, ContainerBg, DateHero,
-    EmptyState, EventItem, Events, ExpanderTile, FontSize, FontWeight, Header, Hero, KeyValueGrid,
-    KeyValueRow, LocationIndicator, Meter, MicIndicator, MutedIndicator, PagerAppearance,
-    PagerItem, PagerStrip, PopoverShell, PopoverSize, Radius, Row, ScreenCastIndicator, Scroll,
-    Separator, SliderTile, Space, Spinner, StatusDot, StatusDotStatus, SwitchTile, Text, TextColor,
-    Tile, TreeNode, WeatherForecastItem, WeatherForecastList, WeatherHourlyItem,
-    WeatherHourlyStrip, WorldClock, WorldClockRow, parse_callback_event,
+    CameraIndicator, Choice, ChoiceList, ChoiceTile, Column, Container, DateHero, EmptyState,
+    EventItem, Events, ExpanderTile, Header, Hero, KeyValueGrid, KeyValueRow, Label,
+    LocationIndicator, Meter, MicIndicator, MutedIndicator, PagerAppearance, PagerItem, PagerStrip,
+    PopoverShell, PopoverSize, Row, ScreenCastIndicator, Scroll, Separator, SliderTile, Spinner,
+    StatusDot, StatusDotStatus, SwitchTile, Tile, TreeNode, WeatherForecastItem,
+    WeatherForecastList, WeatherHourlyItem, WeatherHourlyStrip, WorldClock, WorldClockRow,
+    parse_callback_event,
 };
 use serde_json::{Value, json};
 
@@ -29,13 +29,10 @@ fn load(rel: &str) -> Value {
     serde_json::from_str(&text).unwrap_or_else(|e| panic!("parse fixture {}: {e}", path.display()))
 }
 
-fn text() -> Text {
-    let mut text = Text::new("Ready");
-    text.size = Some(FontSize::Sm);
-    text.weight = Some(FontWeight::Medium);
-    text.color = Some(TextColor::Muted);
-    text.wrap = Some(true);
-    text
+fn label() -> Label {
+    let mut label = Label::new("Ready");
+    label.wrap = Some(true);
+    label
 }
 
 fn badge() -> Badge {
@@ -54,7 +51,7 @@ fn key_value(key: &str, value: &str) -> KeyValueRow {
 fn widgets() -> BTreeMap<&'static str, TreeNode<()>> {
     let mut out = BTreeMap::new();
 
-    out.insert("text", text().into());
+    out.insert("label", label().into());
     out.insert("header", Header::new("Network").into());
     let mut hero = Hero::new("VPN", "Disconnected");
     hero.id = Some("vpn".into());
@@ -84,31 +81,23 @@ fn widgets() -> BTreeMap<&'static str, TreeNode<()>> {
     out.insert("spinner", Spinner::new().into());
     out.insert("meter", Meter::new("Memory", 0.51).into());
     out.insert("separator", Separator::new().into());
-    out.insert("scroll", Scroll::new(text().into()).into());
-    out.insert("row", Row::new(vec![text().into(), badge().into()]).into());
+    out.insert("scroll", Scroll::new(label().into()).into());
+    out.insert("row", Row::new(vec![label().into(), badge().into()]).into());
     out.insert(
         "column",
-        Column::new(vec![text().into(), badge().into()]).into(),
+        Column::new(vec![label().into(), badge().into()]).into(),
     );
     out.insert(
         "boxed-list",
-        BoxedList::new(vec![text().into(), badge().into()]).into(),
+        BoxedList::new(vec![label().into(), badge().into()]).into(),
     );
     let mut refresh = Tile::new("Refresh");
     refresh.activatable = true;
     out.insert("button-row", ButtonRow::new(vec![refresh.into()]).into());
 
-    let mut container = Container::new(vec![text().into()]);
-    container.padding = Some(Space::S4);
-    container.margin = Some(Space::S2);
-    container.radius = Radius::Md;
-    container.bg = ContainerBg::Surface;
-    container.border_width = 1;
-    container.min_width = Some(Space::S8);
-    container.min_height = Some(Space::S4);
-    out.insert("container", container.into());
+    out.insert("container", Container::new(vec![label().into()]).into());
 
-    let mut shell = PopoverShell::new(vec![text().into()]);
+    let mut shell = PopoverShell::new(vec![label().into()]);
     shell.footer = vec![badge().into()];
     shell.footer_visible = true;
     out.insert("popover-shell", shell.into());
@@ -143,7 +132,7 @@ fn widgets() -> BTreeMap<&'static str, TreeNode<()>> {
     expander.id = Some("details".into());
     expander.secondary = Some("2 items".into());
     expander.left_icon = Some("view-list-symbolic".into());
-    expander.child = Some(Box::new(Column::new(vec![text().into()]).into()));
+    expander.child = Some(Box::new(Column::new(vec![label().into()]).into()));
     expander.expanded = true;
     out.insert("expander-tile", expander.into());
 

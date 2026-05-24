@@ -48,7 +48,7 @@ from glimpse_sdk import (
     Hero,
     Icon,
     StatusItem,
-    Text,
+    Label,
 )
 
 
@@ -79,7 +79,7 @@ class DeployApplet(Applet[DeployState]):
                     title="Deploy",
                     subtitle=state.version,
                 ),
-                Text(text="Version"),
+                Label(label="Version"),
                 Button(
                     label="Deploy now",
                     on_click=self.on_deploy,
