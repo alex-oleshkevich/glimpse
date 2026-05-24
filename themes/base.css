@@ -1352,7 +1352,7 @@ popover.notifications-popover {
 }
 
 .slider-tile__slider {
-    padding: 0;
+    padding-top: 4px;
 }
 
 .key-value-grid__key {

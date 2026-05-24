@@ -794,10 +794,10 @@ impl LockApp {
     }
 
     fn try_unlock(&self) {
-        if self.runtime.can_unlock() {
-            if let Some(instance) = &self.instance {
-                instance.unlock();
-            }
+        if self.runtime.can_unlock()
+            && let Some(instance) = &self.instance
+        {
+            instance.unlock();
         }
     }
 
@@ -2120,7 +2120,7 @@ fn subscribe_color_scheme(sender: ComponentSender<LockApp>) -> gio::Settings {
     settings.connect_changed(Some(GNOME_COLOR_SCHEME_KEY), move |_, _| {
         let config = Config::load();
         let mode = read_effective_theme_mode(config.theme_mode);
-        let _ = sender.input(AppCommand::ThemeModeChanged(mode));
+        sender.input(AppCommand::ThemeModeChanged(mode));
     });
     settings
 }
@@ -2915,21 +2915,23 @@ mod tests {
 
     #[test]
     fn network_control_status_uses_network_service_state() {
-        let mut state = CoreNetworkState::default();
-        state.snapshot = NetworkSnapshot {
-            status: NetworkStatus {
-                enabled: true,
-                wifi_enabled: true,
-                wifi_hw_enabled: true,
-                icon: "network-wireless-signal-good-symbolic".into(),
-                ..NetworkStatus::default()
+        let state = CoreNetworkState {
+            snapshot: NetworkSnapshot {
+                status: NetworkStatus {
+                    enabled: true,
+                    wifi_enabled: true,
+                    wifi_hw_enabled: true,
+                    icon: "network-wireless-signal-good-symbolic".into(),
+                    ..NetworkStatus::default()
+                },
+                wifi_access_points: vec![WifiAccessPoint {
+                    ssid: "Studio".into(),
+                    connected: true,
+                    ..WifiAccessPoint::default()
+                }],
+                ..NetworkSnapshot::default()
             },
-            wifi_access_points: vec![WifiAccessPoint {
-                ssid: "Studio".into(),
-                connected: true,
-                ..WifiAccessPoint::default()
-            }],
-            ..NetworkSnapshot::default()
+            ..CoreNetworkState::default()
         };
 
         let icon = network_control_status(&state).expect("snapshot with icon yields Some");

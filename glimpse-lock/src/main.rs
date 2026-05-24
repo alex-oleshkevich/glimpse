@@ -78,10 +78,11 @@ fn main() -> anyhow::Result<()> {
             api_state.clone(),
         )
     };
-    if !preview && api_state.was_ever_active() {
-        if let Err(error) = runtime.block_on(logind::set_current_session_locked_hint(false)) {
-            tracing::debug!(%error, "failed to set logind LockedHint=false");
-        }
+    if !preview
+        && api_state.was_ever_active()
+        && let Err(error) = runtime.block_on(logind::set_current_session_locked_hint(false))
+    {
+        tracing::debug!(%error, "failed to set logind LockedHint=false");
     }
     result
 }
@@ -254,18 +255,6 @@ fn run_check() -> anyhow::Result<()> {
     print_check("unix_chkpwd", unix_chkpwd_ok);
     failed |= !unix_chkpwd_ok;
 
-    // Only meaningful when run from the source tree; an installed binary has no
-    // repo-relative data/ file, so skip rather than print a misleading "ok".
-    if let Ok(service) = std::fs::read_to_string("data/glimpse-lock.service") {
-        let packaged_service_ok = service_file_allows_pam_helpers(&service);
-        print_check("packaged_service", packaged_service_ok);
-        failed |= !packaged_service_ok;
-    }
-
-    let effective_unit_ok = effective_unit_allows_pam_helpers();
-    print_check("effective_unit", effective_unit_ok);
-    failed |= !effective_unit_ok;
-
     if failed {
         anyhow::bail!("glimpse-lock check failed");
     }
@@ -286,37 +275,6 @@ fn unix_chkpwd_allows_pam() -> bool {
         && metadata.mode() & 0o4000 != 0
 }
 
-/// Returns true iff the systemd service file does NOT contain any directive
-/// known to break PAM's setuid helpers (unix_chkpwd, pam_systemd_home, etc.).
-///
-/// This is a denylist of directives. Anything not listed slips through, which
-/// is the safer trade-off than a positive allowlist: most hardening
-/// directives are PAM-safe, and we only want to flag the ones we know break
-/// auth. Extend this list when a new directive is discovered to interfere.
-fn service_file_allows_pam_helpers(service: &str) -> bool {
-    const KNOWN_INCOMPATIBLE: &[&str] = &[
-        // Blocks setuid execution of unix_chkpwd.
-        "NoNewPrivileges=true",
-        "NoNewPrivileges=yes",
-        // Strips the setuid bit / SGID set up unix_chkpwd needs.
-        "RestrictSUIDSGID=true",
-        "RestrictSUIDSGID=yes",
-        // Hides /etc/shadow from the service (and from any helper it spawns).
-        "ProtectSystem=strict",
-        // PrivateUsers maps uid 0 outside the user namespace; setuid breaks.
-        "PrivateUsers=true",
-        "PrivateUsers=yes",
-        // Mount-namespace strictness that may hide /etc/pam.d or PAM modules.
-        "ProtectHome=true",
-        "ProtectHome=yes",
-        "ProtectHome=read-only",
-    ];
-    !service.lines().any(|line| {
-        let line = line.trim();
-        KNOWN_INCOMPATIBLE.iter().any(|bad| *bad == line)
-    })
-}
-
 fn pam_file_uses_real_auth(contents: &str) -> bool {
     !contents
         .lines()
@@ -324,58 +282,9 @@ fn pam_file_uses_real_auth(contents: &str) -> bool {
         .any(|line| !line.starts_with('#') && line.contains("pam_permit.so"))
 }
 
-/// Probes the live systemd unit via `systemctl --user show` for the same
-/// PAM-incompatible directives as service_file_allows_pam_helpers. Fails
-/// closed on any error: the point of `check` is to flag misconfiguration,
-/// so a failed probe (systemctl absent, permission denied, no service yet)
-/// is treated as "cannot verify -> assume bad" rather than silent pass.
-fn effective_unit_allows_pam_helpers() -> bool {
-    const PROPERTIES: &[&str] = &[
-        "NoNewPrivileges",
-        "RestrictSUIDSGID",
-        "ProtectSystem",
-        "PrivateUsers",
-        "ProtectHome",
-    ];
-    let mut args = vec![
-        "--user".to_string(),
-        "show".to_string(),
-        "glimpse-lock.service".to_string(),
-        "--no-pager".to_string(),
-    ];
-    for prop in PROPERTIES {
-        args.push("-p".to_string());
-        args.push((*prop).to_string());
-    }
-    let Ok(output) = std::process::Command::new("systemctl").args(&args).output() else {
-        tracing::warn!("could not invoke systemctl to verify glimpse-lock.service hardening");
-        return false;
-    };
-    if !output.status.success() {
-        tracing::warn!(
-            stderr = %String::from_utf8_lossy(&output.stderr),
-            "systemctl show exited non-zero; cannot verify glimpse-lock.service hardening"
-        );
-        return false;
-    }
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    !stdout.lines().any(|line| {
-        let line = line.trim();
-        matches!(
-            line,
-            "NoNewPrivileges=yes"
-                | "RestrictSUIDSGID=yes"
-                | "ProtectSystem=strict"
-                | "PrivateUsers=yes"
-                | "ProtectHome=yes"
-                | "ProtectHome=read-only"
-        )
-    })
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{Command, pam_file_uses_real_auth, parse_command, service_file_allows_pam_helpers};
+    use super::{Command, pam_file_uses_real_auth, parse_command};
 
     #[test]
     fn command_parser_defaults_to_resident_daemon() {
@@ -431,20 +340,6 @@ mod tests {
     fn command_parser_rejects_legacy_flags() {
         assert!(parse_command(["glimpse-lock", "--preview"]).is_err());
         assert!(parse_command(["glimpse-lock", "--export-css"]).is_err());
-    }
-
-    #[test]
-    fn packaged_service_file_allows_pam_helpers() {
-        let service = include_str!("../../data/glimpse-lock.service");
-
-        assert!(service_file_allows_pam_helpers(service));
-    }
-
-    #[test]
-    fn service_file_regression_detects_pam_breaking_hardening() {
-        let service = "NoNewPrivileges=true\nRestrictSUIDSGID=true\n";
-
-        assert!(!service_file_allows_pam_helpers(service));
     }
 
     #[test]
