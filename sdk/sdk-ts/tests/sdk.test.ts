@@ -159,6 +159,29 @@ test("status dot serializes as status protocol type", () => {
   assert.equal(payload.type, "status_dot");
 });
 
+test("status item omits empty cssClasses from wire payload", () => {
+  const payload = new StatusItem({ id: "cpu", label: "12%" }).toProtocol();
+  assert.equal("css_classes" in payload, false);
+});
+
+test("status item serializes populated cssClasses with snake_case key", () => {
+  const payload = new StatusItem({
+    id: "cpu",
+    label: "95%",
+    cssClasses: ["threshold-warn", "sysmonitor-cpu"],
+  }).toProtocol();
+  assert.deepEqual(payload.css_classes, ["threshold-warn", "sysmonitor-cpu"]);
+});
+
+test("status item withCssClass appends immutably", () => {
+  const base = new StatusItem({ id: "cpu", cssClasses: ["a"] });
+  const derived = base.withCssClass("b");
+  // Source is untouched...
+  assert.deepEqual(base.options.cssClasses, ["a"]);
+  // ...and the new instance has the appended class.
+  assert.deepEqual(derived.options.cssClasses, ["a", "b"]);
+});
+
 test("popover updates are emitted when state changes", async () => {
   const applet = new DemoApplet();
   await applet.drain();

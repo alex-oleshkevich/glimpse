@@ -109,6 +109,45 @@ func TestChoiceListSerializesChoices(t *testing.T) {
 	}
 }
 
+func TestStatusItemOmitsEmptyCSSClassesFromWirePayload(t *testing.T) {
+	payload, err := json.Marshal(StatusItem{ID: "cpu", Label: "12%"})
+	if err != nil {
+		t.Fatalf("marshal status item: %v", err)
+	}
+	if strings.Contains(string(payload), "css_classes") {
+		t.Fatalf("expected css_classes omitted from %s", payload)
+	}
+}
+
+func TestStatusItemSerializesPopulatedCSSClasses(t *testing.T) {
+	item := StatusItem{
+		ID:         "cpu",
+		Label:      "95%",
+		CSSClasses: []string{"threshold-warn", "sysmonitor-cpu"},
+	}
+	payload, err := json.Marshal(item)
+	if err != nil {
+		t.Fatalf("marshal status item: %v", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	classes, ok := decoded["css_classes"].([]any)
+	if !ok {
+		t.Fatalf("css_classes missing or wrong type: %v", decoded["css_classes"])
+	}
+	want := []string{"threshold-warn", "sysmonitor-cpu"}
+	if len(classes) != len(want) {
+		t.Fatalf("expected %d classes, got %d", len(want), len(classes))
+	}
+	for i, c := range classes {
+		if c.(string) != want[i] {
+			t.Fatalf("class %d = %q, want %q", i, c, want[i])
+		}
+	}
+}
+
 func TestVariantSerializesAsSemanticProtocolValue(t *testing.T) {
 	widget := Badge{Label: "Warning", Kind: BadgeKindWarning}
 	payload, err := json.Marshal(widget)

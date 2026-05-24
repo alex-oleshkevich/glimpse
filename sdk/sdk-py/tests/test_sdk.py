@@ -81,6 +81,26 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event.event, "click")
         self.assertEqual(getattr(event, "button"), "left")
 
+    def test_status_item_omits_empty_css_classes_from_wire_payload(self) -> None:
+        payload = StatusItem(id="cpu", label="12%").to_protocol()
+        self.assertNotIn("css_classes", payload)
+
+    def test_status_item_serializes_populated_css_classes(self) -> None:
+        payload = StatusItem(
+            id="cpu",
+            label="95%",
+            css_classes=["threshold-warn", "sysmonitor-cpu"],
+        ).to_protocol()
+        self.assertEqual(payload["css_classes"], ["threshold-warn", "sysmonitor-cpu"])
+
+    def test_status_item_with_css_class_appends_immutably(self) -> None:
+        base = StatusItem(id="cpu", css_classes=["a"])
+        derived = base.with_css_class("b")
+        # Source is untouched...
+        self.assertEqual(base.css_classes, ["a"])
+        # ...and the new instance has the appended class.
+        self.assertEqual(derived.css_classes, ["a", "b"])
+
     def test_parse_callback_event_returns_typed_popover_variant(self) -> None:
         event = parse_callback_event({"id": "popover", "type": "open", "source": "popover"})
         self.assertIsInstance(event, PopoverEvent)

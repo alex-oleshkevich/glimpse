@@ -1,4 +1,7 @@
-use std::{cell::Cell, sync::OnceLock};
+use std::{
+    cell::{Cell, RefCell},
+    sync::OnceLock,
+};
 
 use glib::subclass::Signal;
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
@@ -8,6 +11,11 @@ pub struct PanelIndicator {
     pub(super) label: gtk4::Label,
     pub(super) extra_slot: gtk4::Box,
     pub(super) extra_visible: Cell<bool>,
+    /// CSS classes installed by `PanelIndicator::set_extra_classes`. Tracked
+    /// separately so the diff-based updater can remove only the classes it
+    /// owns without touching foundational classes (`applet`, `panel-indicator`)
+    /// or runtime state classes (`is-active`, `is-checked`, `needs-attention`).
+    pub(super) extra_classes: RefCell<Vec<String>>,
 }
 
 impl Default for PanelIndicator {
@@ -17,6 +25,7 @@ impl Default for PanelIndicator {
             label: gtk4::Label::new(None),
             extra_slot: gtk4::Box::new(gtk4::Orientation::Horizontal, 4),
             extra_visible: Cell::new(true),
+            extra_classes: RefCell::new(Vec::new()),
         }
     }
 }

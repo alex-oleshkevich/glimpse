@@ -45,6 +45,8 @@ impl SimpleComponent for StatusItem {
         PanelIndicator {
             add_css_class: "exec-status-item",
             #[watch]
+            set_extra_classes: &applet_css_classes(&model.item),
+            #[watch]
             set_tooltip_text: model.item.tooltip.as_deref(),
             #[watch]
             set_icon: model.item.icon.as_deref(),
@@ -129,3 +131,54 @@ impl SimpleComponent for StatusItem {
         }
     }
 }
+
+/// Filters the applet-supplied class list before it reaches
+/// `PanelIndicator::set_extra_classes`. Two cases are stripped:
+///
+/// * Empty strings, which GTK rejects with a runtime warning.
+/// * The literal `"exec-status-item"` base class. If an applet emitted it,
+///   it would be added to the indicator's "extras" tracking set, and the
+///   next update with that class absent would remove it from the widget —
+///   wiping the base class the shell relies on to style the indicator.
+fn applet_css_classes(item: &StatusItemModel) -> Vec<&str> {
+    item.css_classes
+        .iter()
+        .map(String::as_str)
+        .filter(|class| !class.is_empty() && *class != "exec-status-item")
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{StatusItemModel, applet_css_classes};
+
+    #[test]
+    fn applet_css_classes_drops_base_class_and_empty_strings() {
+        let item = StatusItemModel {
+            css_classes: vec![
+                "threshold-warn".into(),
+                "".into(),
+                "exec-status-item".into(),
+                "sysmonitor-cpu".into(),
+            ],
+            ..StatusItemModel::default()
+        };
+        assert_eq!(
+            applet_css_classes(&item),
+            vec!["threshold-warn", "sysmonitor-cpu"]
+        );
+    }
+
+    #[test]
+    fn applet_css_classes_preserves_duplicates_for_widget_layer_dedup() {
+        // Duplicates pass through here; `set_extra_classes` dedupes when it
+        // applies them. That keeps the filter pure and pushes order/dedup
+        // policy to one place rather than splitting it across two layers.
+        let item = StatusItemModel {
+            css_classes: vec!["warn".into(), "warn".into(), "crit".into()],
+            ..StatusItemModel::default()
+        };
+        assert_eq!(applet_css_classes(&item), vec!["warn", "warn", "crit"]);
+    }
+}
+

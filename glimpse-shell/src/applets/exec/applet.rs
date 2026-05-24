@@ -359,6 +359,12 @@ struct RenderedStatusItem {
     controller: Controller<StatusItem>,
 }
 
+/// Key used to reuse a `StatusItem` relm4 controller across status updates
+/// when its `id` is stable. Intentionally derived from `id` only (not the
+/// rest of the wire model) — visual fields like `label`, `icon`, `tooltip`,
+/// and `css_classes` change on every tick and are picked up via the
+/// `Reconfigure` input, so including them here would needlessly tear down
+/// and re-create the underlying GTK widget on each update.
 fn status_item_key(index: usize, item: &StatusItemModel) -> String {
     item.id
         .as_ref()
@@ -417,6 +423,7 @@ mod tests {
             icon: None,
             label: Some("10%".into()),
             tooltip: None,
+            css_classes: vec![],
         };
 
         assert_eq!(status_item_key(3, &item), "id:cpu");
@@ -429,6 +436,7 @@ mod tests {
             icon: None,
             label: Some("10%".into()),
             tooltip: None,
+            css_classes: vec![],
         };
 
         assert_eq!(status_item_key(3, &item), "index:3");

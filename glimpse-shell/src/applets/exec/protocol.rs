@@ -13,6 +13,8 @@ pub struct StatusItem {
     pub label: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tooltip: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub css_classes: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -813,6 +815,46 @@ mod tests {
                     icon: Some("cpu-symbolic".into()),
                     label: Some("12%".into()),
                     tooltip: Some("CPU usage".into()),
+                    css_classes: vec![],
+                }]
+            })
+        );
+    }
+
+    /// Per-item css classes carry threshold tinting (warn/crit) from applets
+    /// like sysmonitor. They must round-trip through the wire format with
+    /// the field omitted defaulting to an empty list, so old applets that
+    /// don't emit it still parse.
+    #[test]
+    fn parses_status_line_with_per_item_css_classes() {
+        let with = parse_child_line(
+            r#"status {"items":[{"id":"cpu","label":"95%","css_classes":["threshold-crit"]}]}"#,
+        )
+        .expect("status line with css_classes should parse");
+        assert_eq!(
+            with,
+            ChildCommand::Status(StatusPayload {
+                items: vec![StatusItem {
+                    id: Some("cpu".into()),
+                    icon: None,
+                    label: Some("95%".into()),
+                    tooltip: None,
+                    css_classes: vec!["threshold-crit".into()],
+                }]
+            })
+        );
+
+        let without =
+            parse_child_line(r#"status {"items":[{"id":"cpu","label":"5%"}]}"#).expect("ok");
+        assert_eq!(
+            without,
+            ChildCommand::Status(StatusPayload {
+                items: vec![StatusItem {
+                    id: Some("cpu".into()),
+                    icon: None,
+                    label: Some("5%".into()),
+                    tooltip: None,
+                    css_classes: vec![],
                 }]
             })
         );

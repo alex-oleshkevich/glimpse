@@ -96,6 +96,33 @@ impl PanelIndicator {
         set_class(self, "needs-attention", attention);
     }
 
+    /// Replaces the set of applet-managed CSS classes on this indicator, while
+    /// leaving every other class on the widget untouched. The base classes
+    /// installed in `imp::constructed` (`applet`, `panel-indicator`) and any
+    /// runtime state classes toggled by `set_active` / `set_checked` /
+    /// `set_needs_attention` survive across updates.
+    ///
+    /// Used by the exec applet pipeline to thread per-item css_classes from
+    /// the wire protocol into the panel without clobbering shell-owned styling.
+    pub fn set_extra_classes(&self, classes: &[&str]) {
+        let imp = self.imp();
+        let mut current = imp.extra_classes.borrow_mut();
+        current.retain(|existing| {
+            if classes.contains(&existing.as_str()) {
+                true
+            } else {
+                self.remove_css_class(existing);
+                false
+            }
+        });
+        for next in classes {
+            if !current.iter().any(|existing| existing.as_str() == *next) {
+                self.add_css_class(next);
+                current.push((*next).to_owned());
+            }
+        }
+    }
+
     pub fn connect_activated(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
         self.connect_closure(
             "activated",
@@ -213,6 +240,63 @@ mod tests {
         assert!(indicator.has_css_class("panel-indicator"));
         assert_eq!(indicator.orientation(), gtk4::Orientation::Horizontal);
         assert_eq!(indicator.valign(), gtk4::Align::Center);
+    }
+
+    #[test]
+    fn set_extra_classes_dedupes_repeated_input_within_a_single_call() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let indicator = PanelIndicator::new();
+        indicator.set_extra_classes(&["warn", "warn", "crit", "warn"]);
+
+        assert!(indicator.has_css_class("warn"));
+        assert!(indicator.has_css_class("crit"));
+        // Round-tripping the same input must be idempotent (no spurious
+        // remove/add churn that could flicker styling).
+        indicator.set_extra_classes(&["warn", "warn", "crit", "warn"]);
+        assert!(indicator.has_css_class("warn"));
+        assert!(indicator.has_css_class("crit"));
+    }
+
+    #[test]
+    fn set_extra_classes_diffs_against_previous_set_only() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let indicator = PanelIndicator::new();
+        indicator.set_active(true);
+        indicator.set_extra_classes(&["exec-status-item", "threshold-warn"]);
+
+        // Base classes and externally-toggled state must coexist with extras.
+        assert!(indicator.has_css_class("applet"));
+        assert!(indicator.has_css_class("panel-indicator"));
+        assert!(indicator.has_css_class("is-active"));
+        assert!(indicator.has_css_class("exec-status-item"));
+        assert!(indicator.has_css_class("threshold-warn"));
+
+        // Swapping `warn` for `crit` removes only the prior extra; everything
+        // else — including the static base classes added in `constructed` and
+        // the `is-active` state class set by `set_active(true)` — must survive.
+        indicator.set_extra_classes(&["exec-status-item", "threshold-crit"]);
+        assert!(!indicator.has_css_class("threshold-warn"));
+        assert!(indicator.has_css_class("threshold-crit"));
+        assert!(indicator.has_css_class("exec-status-item"));
+        assert!(indicator.has_css_class("applet"));
+        assert!(indicator.has_css_class("panel-indicator"));
+        assert!(indicator.has_css_class("is-active"));
+
+        // Empty list clears every previously-installed extra but still spares
+        // base + state classes — i.e. an applet emitting no css_classes never
+        // accidentally removes shell styling.
+        indicator.set_extra_classes(&[]);
+        assert!(!indicator.has_css_class("threshold-crit"));
+        assert!(!indicator.has_css_class("exec-status-item"));
+        assert!(indicator.has_css_class("applet"));
+        assert!(indicator.has_css_class("panel-indicator"));
+        assert!(indicator.has_css_class("is-active"));
     }
 
     #[test]

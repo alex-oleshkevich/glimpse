@@ -453,6 +453,7 @@ mod tests {
                     icon: None,
                     label: Some("ok".into()),
                     tooltip: None,
+                    css_classes: vec![],
                 }]
             ));
         }
