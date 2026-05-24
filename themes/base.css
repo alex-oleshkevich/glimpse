@@ -171,8 +171,8 @@ popover {
     --popover-radius: var(--radius-2xl);
     --popover-padding: var(--space-3);
     --popover-section-gap: 12px;
-    --popover-small-width: 280px;
-    --popover-medium-width: 320px;
+    --popover-small-width: 320px;
+    --popover-medium-width: 420px;
     --popover-large-width: 540px;
     --popover-large-height: 600px;
     --popover-xlarge-width: 620px;
