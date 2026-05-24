@@ -502,7 +502,16 @@ impl SimpleComponent for LockApp {
                 self.emit_to_lock_windows(LockWindowInput::Reconfigure(self.spec.clone()));
             }
             AppCommand::SubmitPassword(password) => {
-                if self.authenticating || password.is_empty() {
+                if password.is_empty() {
+                    return;
+                }
+                if self.authenticating {
+                    // PAM call is already in flight (the user mashed Enter or
+                    // multiple LockWindow instances submitted concurrently).
+                    // Silently dropping makes the UI feel unresponsive; keep
+                    // the existing "Checking..." status visible so the user
+                    // knows something is happening.
+                    tracing::debug!("dropping concurrent SubmitPassword while authenticating");
                     return;
                 }
                 if let Some(remaining) = self.cooldown_remaining() {
@@ -676,6 +685,13 @@ impl LockApp {
     }
 
     fn finish_unlock(&mut self) {
+        // We are giving up on locking (LockFailed) or have completed a
+        // legitimate unlock. Either way the suspend coordinator should let
+        // suspend proceed -- drop the inhibitor fd BEFORE clear_lock_state.
+        // clear_lock_state deliberately does NOT touch pending_sleep_release
+        // so that the re-acquire path (compositor unsolicited release) can
+        // hand the same fd through to the new lock cycle without leaking it.
+        self.pending_sleep_release.take();
         self.clear_lock_state();
         relm4::spawn(async {
             if let Err(error) = logind::set_current_session_locked_hint(false).await {
@@ -685,6 +701,9 @@ impl LockApp {
     }
 
     fn clear_lock_state(&mut self) {
+        // NOTE: does NOT touch pending_sleep_release. See finish_unlock for
+        // why; the inhibitor fd is owned by the active sleep cycle, not by
+        // the lock-instance lifecycle.
         self.windows.clear();
         self.instance = None;
         self.runtime.reset();
@@ -692,7 +711,6 @@ impl LockApp {
         self.auth_generation = self.auth_generation.wrapping_add(1);
         self.consecutive_failures = 0;
         self.cooldown_expires = None;
-        self.pending_sleep_release.take();
         self.api_state.set_active(false);
     }
 
@@ -700,14 +718,26 @@ impl LockApp {
         let deadline = self.cooldown_expires?;
         deadline.checked_duration_since(Instant::now())
     }
+}
+
+/// Cooldown ladder applied between failed unlock attempts. The first
+/// failure has no cooldown so an honest typo isn't punished; failure 2
+/// gets 1s, then 2/4/8/16 doubling, capped at 30s for failure 7 and
+/// beyond. Pure function so the policy can be unit-tested without a
+/// `LockApp` test harness.
+fn cooldown_seconds_after(failures: u32) -> Option<u64> {
+    if failures < 2 {
+        return None;
+    }
+    let exponent = (failures - 2).min(5);
+    Some((1u64 << exponent).min(30))
+}
+
+impl LockApp {
 
     fn bump_failure_counter(&mut self) {
         self.consecutive_failures = self.consecutive_failures.saturating_add(1);
-        // Cooldowns ramp 1, 2, 4, 8, 16, 30 (capped) seconds on failures 2, 3, 4, 5, 6, 7+.
-        // The first failure has no cooldown so an honest typo doesn't punish the user.
-        if self.consecutive_failures >= 2 {
-            let exponent = (self.consecutive_failures - 2).min(5);
-            let seconds = (1u64 << exponent).min(30);
+        if let Some(seconds) = cooldown_seconds_after(self.consecutive_failures) {
             self.cooldown_expires = Some(Instant::now() + Duration::from_secs(seconds));
         }
     }
@@ -1360,7 +1390,7 @@ impl SimpleComponent for LockWindow {
                     set_halign: gtk::Align::Center,
                     set_valign: gtk::Align::Center,
                     set_orientation: gtk::Orientation::Vertical,
-                    set_spacing: 12,
+                    set_spacing: 8,
                     #[watch]
                     set_visible: model.show_auth,
 
@@ -2845,10 +2875,10 @@ mod tests {
 
     use super::{
         DecodedTexture, ImageLoadState, LockMode, LockPowerAction, TextureCacheKey, UserInfo,
-        battery_control_status, file_watch_event_reloads, keyboard_control_status,
-        load_cached_texture, network_control_status, power_confirmation_icon,
-        power_confirmation_title, resize_rgba_for_fit, should_run_power_action,
-        write_cached_texture,
+        battery_control_status, cooldown_seconds_after, file_watch_event_reloads,
+        keyboard_control_status, load_cached_texture, network_control_status,
+        power_confirmation_icon, power_confirmation_title, resize_rgba_for_fit,
+        should_run_power_action, write_cached_texture,
     };
 
     #[test]
@@ -2999,6 +3029,27 @@ mod tests {
     fn battery_control_status_returns_none_when_no_battery_present() {
         let state = CoreBatteryServiceState::default();
         assert!(battery_control_status(&state).is_none());
+    }
+
+    /// Pins the failure-cooldown ladder. This is security-relevant: the
+    /// cooldown bounds how fast an attacker (or a kid mashing keys) can
+    /// retry. Any change here should be deliberate.
+    #[test]
+    fn cooldown_ladder_matches_documented_spec() {
+        // First failure: no cooldown -- an honest typo shouldn't punish.
+        assert_eq!(cooldown_seconds_after(0), None);
+        assert_eq!(cooldown_seconds_after(1), None);
+        // Doubling ladder 1, 2, 4, 8, 16 for failures 2..6.
+        assert_eq!(cooldown_seconds_after(2), Some(1));
+        assert_eq!(cooldown_seconds_after(3), Some(2));
+        assert_eq!(cooldown_seconds_after(4), Some(4));
+        assert_eq!(cooldown_seconds_after(5), Some(8));
+        assert_eq!(cooldown_seconds_after(6), Some(16));
+        // Cap at 30s from failure 7 onward (32 would be the next double).
+        assert_eq!(cooldown_seconds_after(7), Some(30));
+        assert_eq!(cooldown_seconds_after(100), Some(30));
+        // Extreme inputs still saturate at the cap (no shift overflow).
+        assert_eq!(cooldown_seconds_after(u32::MAX), Some(30));
     }
 
     #[test]

@@ -44,12 +44,6 @@ impl LockRuntime {
         acquire_dbus_name(APP_ID).await
     }
 
-    pub async fn acquire_single_instance_with_name(
-        name: impl Into<String>,
-    ) -> anyhow::Result<InstanceGuard> {
-        acquire_dbus_name(name.into()).await
-    }
-
     /// Test-only equivalent of [`acquire_single_instance`]: uses a
     /// process-local registry rather than the session bus so integration
     /// tests can verify single-instance semantics without touching D-Bus.

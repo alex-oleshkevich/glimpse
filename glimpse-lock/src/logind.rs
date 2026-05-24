@@ -24,7 +24,7 @@ pub async fn watch_lock_signals(sender: mpsc::Sender<LogindLockEvent>) -> anyhow
     let manager = Login1ManagerProxy::new(&system)
         .await
         .context("create logind manager proxy")?;
-    let session_path = current_session_path_with_manager(&system, &manager).await?;
+    let session_path = current_session_path(&system, &manager).await?;
     let session = Login1SessionProxy::builder(&system)
         .path(session_path.clone())?
         .build()
@@ -100,14 +100,7 @@ async fn take_sleep_inhibitor(manager: &Login1ManagerProxy<'_>) -> anyhow::Resul
         .context("acquire logind sleep delay inhibitor")
 }
 
-async fn current_session_path(system: &zbus::Connection) -> anyhow::Result<OwnedObjectPath> {
-    let manager = Login1ManagerProxy::new(system)
-        .await
-        .context("create logind manager proxy")?;
-    current_session_path_with_manager(system, &manager).await
-}
-
-async fn current_session_path_with_manager(
+async fn current_session_path(
     system: &zbus::Connection,
     manager: &Login1ManagerProxy<'_>,
 ) -> anyhow::Result<OwnedObjectPath> {
@@ -259,7 +252,10 @@ pub async fn set_current_session_locked_hint(locked: bool) -> anyhow::Result<()>
     let system = zbus::Connection::system()
         .await
         .context("connect to system D-Bus")?;
-    let session_path = current_session_path(&system).await?;
+    let manager = Login1ManagerProxy::new(&system)
+        .await
+        .context("create logind manager proxy")?;
+    let session_path = current_session_path(&system, &manager).await?;
     set_session_locked_hint(&system, &session_path.as_ref(), locked).await
 }
 

@@ -37,7 +37,11 @@ impl Avatar {
         }
     }
 
-    /// Set the face image. None clears it and falls back to initials.
+    /// Set the face image. `None` clears it and falls back to initials.
+    /// Safe to call repeatedly: each call replaces the previous paintable
+    /// and re-toggles the initials/picture visibility, so callers can use
+    /// this to hot-swap the icon when the underlying user info changes.
+    ///
     /// The pixbuf is loaded at the widget's current size so the Picture's
     /// natural size matches the avatar's footprint (gtk::Picture reports
     /// the paintable's intrinsic pixel dimensions as its natural size).

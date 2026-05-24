@@ -153,6 +153,17 @@ fn authenticate_with_pam(
     }
 }
 
+/// Maps an `ErrorCode` returned by `pam_acct_mgmt()` into the user-visible
+/// `AuthResult`. This path is reached when `pam_authenticate` succeeded
+/// (the password was correct) but the account-management chain rejected
+/// the session.
+///
+/// The code set here is intentionally a subset of
+/// [`authenticate_unavailable_result`]: codes like `MAXTRIES` and
+/// `AUTHINFO_UNAVAIL` only flow out of `pam_authenticate`, never out of
+/// `pam_acct_mgmt`, so they have no entry here. Conversely
+/// `NEW_AUTHTOK_REQD` / `CRED_EXPIRED` / `AUTHTOK_EXPIRED` only surface
+/// at the account-management phase and so are unique to this side.
 fn account_failure_result(code: ErrorCode, pam_message: Option<String>) -> AuthResult {
     let reason = match code {
         ErrorCode::ACCT_EXPIRED => "Account expired",
@@ -169,6 +180,16 @@ fn account_failure_result(code: ErrorCode, pam_message: Option<String>) -> AuthR
     }
 }
 
+/// Maps an `ErrorCode` returned by `pam_authenticate()` into an optional
+/// "account is unavailable" `AuthResult`. Returns `None` for codes that
+/// should fall through to a plain `Failure { pam_message }` (most notably
+/// `AUTH_ERR`, which is just "wrong password").
+///
+/// The code set here is intentionally a subset of
+/// [`account_failure_result`]: see that function's docs for the rationale.
+/// Notable codes unique to this side:
+///   * `MAXTRIES`           — pam_faillock signalled too many recent failures
+///   * `AUTHINFO_UNAVAIL`   — backend (e.g. unix_chkpwd, SSSD) unreachable
 fn authenticate_unavailable_result(
     code: ErrorCode,
     pam_message: Option<String>,

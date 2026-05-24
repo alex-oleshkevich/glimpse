@@ -78,8 +78,9 @@
   padding: 18px;
 }
 
+/* No margin-bottom: spacing between the user block and the password entry
+   is set on the containing auth_panel Box via set_spacing. */
 .lock-user-block {
-  margin-bottom: 10px;
 }
 
 .avatar {
