@@ -2602,11 +2602,11 @@ name = "sunset"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "chrono",
  "glimpse-core",
  "glimpse-sdk",
  "serde_json",
  "tokio",
- "toml_edit 0.25.11+spec-1.1.0",
 ]
 
 [[package]]
@@ -2866,7 +2866,6 @@ dependencies = [
  "indexmap",
  "toml_datetime 1.1.1+spec-1.1.0",
  "toml_parser",
- "toml_writer",
  "winnow 1.0.3",
 ]
 

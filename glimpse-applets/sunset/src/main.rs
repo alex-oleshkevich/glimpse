@@ -1,17 +1,12 @@
-use std::{
-    collections::HashMap,
-    fs, io,
-    path::{Path, PathBuf},
-};
+use std::collections::HashMap;
 
 use async_trait::async_trait;
-use glimpse_core::Config;
+use chrono::NaiveTime;
 use glimpse_sdk::{
     Applet, AppletResult, BoxedList, Choice, ChoiceList, EmptyState, ExpanderTile, Hero, Label,
     MsgMapper, PopoverShell, PopoverSize, SliderTile, StatusItem, SwitchTile, TreeNode, ipc, run,
     tree,
 };
-use toml_edit::{DocumentMut, table, value};
 
 const DAYLIGHT_KELVIN: u32 = 6500;
 
@@ -22,6 +17,7 @@ struct SunsetState {
     schedule: String,
     effective_kelvin: u32,
     target_kelvin: u32,
+    next_sunset: Option<String>,
     last_error: Option<String>,
 }
 
@@ -33,6 +29,7 @@ impl Default for SunsetState {
             schedule: "off".into(),
             effective_kelvin: DAYLIGHT_KELVIN,
             target_kelvin: DAYLIGHT_KELVIN,
+            next_sunset: None,
             last_error: None,
         }
     }
@@ -60,6 +57,9 @@ impl SunsetState {
         });
         self.apply_kelvin(&fields, "target_kelvin", |state, kelvin| {
             state.target_kelvin = kelvin;
+        });
+        self.apply_string(&fields, "sunset", |state, value| {
+            state.next_sunset = Some(value);
         });
         self.last_error = None;
     }
@@ -117,12 +117,6 @@ impl SunsetState {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct NightLightConfigUpdate {
-    temperature: Option<u32>,
-    schedule: Option<&'static str>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct IpcCommandPlan {
     action: &'static str,
@@ -142,15 +136,7 @@ enum Msg {
     Error(String),
 }
 
-struct SunsetApplet {
-    config_path: PathBuf,
-}
-
-impl SunsetApplet {
-    fn new(config_path: PathBuf) -> Self {
-        Self { config_path }
-    }
-}
+struct SunsetApplet;
 
 #[async_trait]
 impl Applet for SunsetApplet {
@@ -185,7 +171,6 @@ impl Applet for SunsetApplet {
             Msg::Event { name, fields } => state.apply_event(&name, fields),
             Msg::Error(error) => state.last_error = Some(error),
             Msg::ToggleNightLight(enabled) => {
-                apply_config_update(&self.config_path, &msg, state);
                 dispatch_interactive_command(&msg, state).await;
                 state.schedule = if enabled { "automatic" } else { "off" }.into();
                 if enabled {
@@ -197,7 +182,6 @@ impl Applet for SunsetApplet {
                 }
             }
             Msg::SetTemperature(kelvin) => {
-                apply_config_update(&self.config_path, &msg, state);
                 dispatch_interactive_command(&msg, state).await;
                 state.target_kelvin = kelvin;
                 if state.active() {
@@ -206,7 +190,6 @@ impl Applet for SunsetApplet {
             }
             Msg::SetSchedule(schedule) => {
                 if let Some(schedule) = normalize_schedule(&schedule) {
-                    apply_config_update(&self.config_path, &msg, state);
                     dispatch_interactive_command(&msg, state).await;
                     state.schedule = schedule.into();
                     if schedule == "off" {
@@ -222,57 +205,6 @@ impl Applet for SunsetApplet {
             }
         }
         Ok(())
-    }
-}
-
-fn update_night_light_config(
-    source: &str,
-    update: NightLightConfigUpdate,
-) -> Result<String, toml_edit::TomlError> {
-    let mut document = source.parse::<DocumentMut>()?;
-    if !document.as_table().contains_key("night_light") {
-        document.as_table_mut().insert("night_light", table());
-    }
-    if let Some(temperature) = update.temperature {
-        document["night_light"]["temperature"] = value(i64::from(temperature));
-    }
-    if let Some(schedule) = update.schedule {
-        document["night_light"]["schedule"] = value(schedule);
-    }
-    Ok(document.to_string())
-}
-
-fn write_night_light_config_file(path: &Path, update: NightLightConfigUpdate) -> AppletResult<()> {
-    let source = match fs::read_to_string(path) {
-        Ok(source) => source,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => String::new(),
-        Err(error) => return Err(error.into()),
-    };
-    let output = update_night_light_config(&source, update)?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, output)?;
-    Ok(())
-}
-
-fn config_update_for_msg(msg: &Msg) -> Option<NightLightConfigUpdate> {
-    match msg {
-        Msg::ToggleNightLight(enabled) => Some(NightLightConfigUpdate {
-            temperature: None,
-            schedule: Some(if *enabled { "automatic" } else { "off" }),
-        }),
-        Msg::SetTemperature(kelvin) => Some(NightLightConfigUpdate {
-            temperature: Some(*kelvin),
-            schedule: None,
-        }),
-        Msg::SetSchedule(schedule) => {
-            normalize_schedule(schedule).map(|schedule| NightLightConfigUpdate {
-                temperature: None,
-                schedule: Some(schedule),
-            })
-        }
-        _ => None,
     }
 }
 
@@ -308,14 +240,6 @@ fn ipc_commands_for_msg(msg: &Msg) -> Vec<IpcCommandPlan> {
     }
 }
 
-fn apply_config_update(path: &Path, msg: &Msg, state: &mut SunsetState) {
-    if let Some(update) = config_update_for_msg(msg) {
-        if let Err(error) = write_night_light_config_file(path, update) {
-            state.last_error = Some(format!("failed to write config: {error}"));
-        }
-    }
-}
-
 async fn dispatch_interactive_command(msg: &Msg, state: &mut SunsetState) {
     let plans = ipc_commands_for_msg(msg);
     if plans.is_empty() {
@@ -342,7 +266,13 @@ fn spawn_status_refresh(tx: glimpse_sdk::mpsc::Sender<Msg>) {
                 .dispatch("status", Vec::<(&str, &str)>::new())
                 .await
             {
-                Ok(fields) => {
+                Ok(mut fields) => {
+                    if let Ok(solar) = subscriber
+                        .dispatch("solar", Vec::<(&str, &str)>::new())
+                        .await
+                    {
+                        fields.extend(solar);
+                    }
                     let _ = tx.send(Msg::Status(fields)).await;
                 }
                 Err(error) => {
@@ -431,7 +361,7 @@ fn popover_tree(state: &SunsetState) -> TreeNode<Msg> {
     switch.on_toggle = Some(MsgMapper::new(Msg::ToggleNightLight));
 
     let mut slider = SliderTile::new("temperature");
-    slider.label = Some(format!("Temperature: {} K", state.target_kelvin));
+    slider.label = Some(format!("{} K", state.target_kelvin));
     slider.left_icon = Some("preferences-color-symbolic".into());
     slider.min = 1000.0;
     slider.max = f64::from(DAYLIGHT_KELVIN);
@@ -500,18 +430,38 @@ fn normalize_schedule(schedule: &str) -> Option<&'static str> {
 }
 
 fn hero_subtitle(state: &SunsetState) -> String {
-    format!(
-        "{} · {} · target {} K",
-        state.phase, state.health, state.target_kelvin
-    )
+    if let Some(mins) = activation_minutes_remaining(state) {
+        if mins == 0 {
+            return "Activating".into();
+        }
+        return format!("Activates in {}m", mins);
+    }
+    human_phase(state)
+}
+
+fn human_phase(state: &SunsetState) -> String {
+    match state.phase.as_str() {
+        "night" | "transition_to_night" => "Night".into(),
+        "disabled" => "Off".into(),
+        _ => "Day".into(),
+    }
+}
+
+fn activation_minutes_remaining(state: &SunsetState) -> Option<i64> {
+    if state.phase != "day" {
+        return None;
+    }
+    let sunset = state.next_sunset.as_deref()?;
+    let now = chrono::Local::now().time();
+    let sunset_time = NaiveTime::parse_from_str(sunset, "%H:%M").ok()?;
+    let diff = sunset_time.signed_duration_since(now);
+    let mins = diff.num_minutes();
+    if (0..=60).contains(&mins) { Some(mins) } else { None }
 }
 
 #[tokio::main]
 async fn main() -> glimpse_sdk::AppletResult<()> {
-    run(
-        SunsetApplet::new(Config::detect_config_file()),
-        SunsetState::default(),
-    )
+    run(SunsetApplet, SunsetState::default())
     .await
 }
 
@@ -520,57 +470,6 @@ mod tests {
     use super::*;
     use serde_json::Value;
     use std::collections::HashMap;
-
-    #[test]
-    fn writes_night_light_values_without_reformatting_unrelated_toml() {
-        let input = r##"# Glimpse config
-theme = "rosepine"
-
-[night_light] # display warmth
-# lower is warmer
-temperature = 4200 # kelvin
-schedule = "off" # disabled
-transition_minutes = 15
-
-[wallpaper]
-color = "#101010"
-"##;
-
-        let output = update_night_light_config(
-            input,
-            NightLightConfigUpdate {
-                temperature: Some(3600),
-                schedule: Some("automatic"),
-            },
-        )
-        .expect("config should update");
-
-        assert!(output.contains("# Glimpse config"));
-        assert!(output.contains("theme = \"rosepine\""));
-        assert!(output.contains("[night_light] # display warmth"));
-        assert!(output.contains("# lower is warmer"));
-        assert!(output.contains("transition_minutes = 15"));
-        assert!(output.contains("[wallpaper]"));
-        assert!(output.contains("color = \"#101010\""));
-        assert!(output.contains("temperature = 3600"));
-        assert!(output.contains("schedule = \"automatic\""));
-    }
-
-    #[test]
-    fn creates_night_light_table_when_missing() {
-        let output = update_night_light_config(
-            "theme = \"rosepine\"\n",
-            NightLightConfigUpdate {
-                temperature: Some(3900),
-                schedule: Some("off"),
-            },
-        )
-        .expect("config should update");
-
-        assert!(output.contains("[night_light]"));
-        assert!(output.contains("temperature = 3900"));
-        assert!(output.contains("schedule = \"off\""));
-    }
 
     #[test]
     fn status_fields_update_state_snapshot() {
@@ -617,7 +516,7 @@ color = "#101010"
 
     #[tokio::test]
     async fn status_is_icon_only_and_uses_night_icon_when_enabled() {
-        let applet = SunsetApplet::new(std::path::PathBuf::from("/tmp/config.toml"));
+        let applet = SunsetApplet;
         let state = SunsetState {
             phase: "night".into(),
             health: "ready".into(),
@@ -643,7 +542,7 @@ color = "#101010"
 
     #[tokio::test]
     async fn status_is_icon_only_and_uses_day_icon_when_disabled() {
-        let applet = SunsetApplet::new(std::path::PathBuf::from("/tmp/config.toml"));
+        let applet = SunsetApplet;
 
         let status = applet
             .status(&SunsetState::default())
@@ -655,28 +554,7 @@ color = "#101010"
     }
 
     #[test]
-    fn interactive_messages_have_config_and_ipc_plans() {
-        assert_eq!(
-            config_update_for_msg(&Msg::ToggleNightLight(true)),
-            Some(NightLightConfigUpdate {
-                temperature: None,
-                schedule: Some("automatic"),
-            })
-        );
-        assert_eq!(
-            config_update_for_msg(&Msg::SetTemperature(3900)),
-            Some(NightLightConfigUpdate {
-                temperature: Some(3900),
-                schedule: None,
-            })
-        );
-        assert_eq!(
-            config_update_for_msg(&Msg::SetSchedule("schedule".into())),
-            Some(NightLightConfigUpdate {
-                temperature: None,
-                schedule: Some("schedule"),
-            })
-        );
+    fn interactive_messages_map_to_ipc_commands() {
         assert_eq!(
             ipc_commands_for_msg(&Msg::SetTemperature(3900)),
             vec![IpcCommandPlan {
@@ -747,7 +625,7 @@ color = "#101010"
         let value = serde_json::to_value(popover_tree(&state)).expect("popover should serialize");
         let hero = find_first_type(&value, "hero").expect("hero should exist");
 
-        assert_eq!(hero["data"]["subtitle"], "night · ready · target 3900 K");
+        assert_eq!(hero["data"]["subtitle"], "Night");
     }
 
     #[test]
@@ -761,7 +639,7 @@ color = "#101010"
         let value = serde_json::to_value(popover_tree(&state)).expect("popover should serialize");
 
         assert!(find_text(&value, "Night light"));
-        assert!(find_text(&value, "Temperature: 3900 K"));
+        assert!(find_text(&value, "3900 K"));
         assert!(find_text(&value, "Schedule"));
         assert!(!find_text(&value, "Refresh"));
         assert!(!find_text(&value, "Reset to config"));
@@ -805,7 +683,7 @@ color = "#101010"
 
     #[tokio::test]
     async fn update_applies_schedule_choice_locally() {
-        let mut applet = SunsetApplet::new(std::path::PathBuf::from("/tmp/config.toml"));
+        let mut applet = SunsetApplet;
         let mut state = SunsetState {
             phase: "night".into(),
             effective_kelvin: 3900,
