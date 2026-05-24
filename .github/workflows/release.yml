@@ -26,8 +26,12 @@ jobs:
           if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
             tag="${GITHUB_REF_NAME#v}"
             test "$version" = "$tag"
+            tag_ref="$GITHUB_REF_NAME"
+          else
+            tag_ref="v$version"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag_ref=$tag_ref" >> "$GITHUB_OUTPUT"
 
   test:
     name: Test release crates
@@ -191,13 +195,14 @@ jobs:
         if: env.ACT != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG_REF: ${{ needs.verify.outputs.tag_ref }}
         run: |
           asset="dist/${{ needs.package.outputs.asset_name }}"
-          gh release create "$GITHUB_REF_NAME" "$asset" \
+          gh release create "$TAG_REF" "$asset" \
             --verify-tag \
-            --title "$GITHUB_REF_NAME" \
+            --title "$TAG_REF" \
             --notes "Glimpse ${{ needs.verify.outputs.version }}" \
-          || gh release upload "$GITHUB_REF_NAME" "$asset" --clobber
+          || gh release upload "$TAG_REF" "$asset" --clobber
 
       - name: Configure AUR SSH
         if: env.ACT != 'true' && env.AUR_KEY_SET == 'true'
