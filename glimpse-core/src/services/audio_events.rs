@@ -88,6 +88,7 @@ impl AudioEventsService {
             .arg("subscribe")
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
+            .kill_on_drop(true)
             .spawn()?;
         self.publish_available();
 
@@ -101,11 +102,13 @@ impl AudioEventsService {
             tokio::select! {
                 _ = cancel.cancelled() => {
                     let _ = sub.kill().await;
+                    let _ = sub.wait().await;
                     return Ok(RunOutcome::Cancelled);
                 }
                 command = self.command_rx.recv() => match command {
                     Some(ServiceCommand::Control(Control::Shutdown)) | None => {
                         let _ = sub.kill().await;
+                        let _ = sub.wait().await;
                         return Ok(RunOutcome::Cancelled);
                     }
                     Some(ServiceCommand::Control(Control::Start(_) | Control::Reconfigure(_))) => {}
@@ -120,11 +123,13 @@ impl AudioEventsService {
                     Ok(None) => {
                         self.publish_unavailable();
                         let _ = sub.kill().await;
+                        let _ = sub.wait().await;
                         return Ok(RunOutcome::Restart);
                     }
                     Err(error) => {
                         self.publish_unavailable();
                         let _ = sub.kill().await;
+                        let _ = sub.wait().await;
                         return Err(error.into());
                     }
                 }
