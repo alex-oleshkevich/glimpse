@@ -8,8 +8,8 @@ use crate::{
     services::{
         applet_watcher::AppletWatcher, audio, audio_events, battery, bluetooth, brightness,
         calendar_events, clipboard, clock, compositor, geoclue, idle, keyboard, location,
-        microphone, mpris, network, notifications, power, session, solar, storage, theme, tray,
-        weather, webcam,
+        microphone, mpris, network, notifications, power, printing, session, solar, storage, theme,
+        tray, weather, webcam,
     },
 };
 
@@ -158,6 +158,7 @@ pub struct Services {
     pub keyboard: keyboard::KeyboardHandle,
     pub weather: weather::WeatherHandle,
     pub storage: storage::StorageHandle,
+    pub printing: printing::PrintingHandle,
     pub tray: tray::TrayHandle,
     pub webcam: webcam::WebcamHandle,
     pub idle: idle::IdleHandle,
@@ -194,6 +195,7 @@ impl Services {
                 keyboard,
                 weather,
                 storage,
+                printing,
                 tray,
                 webcam,
                 idle
@@ -282,6 +284,9 @@ impl ServiceRuntime {
         let (storage_service, storage) = storage::StorageService::new(system_dbus.clone());
         let storage_service = spawn_service(|cancel| storage_service.run(cancel));
 
+        let (printing_service, printing) = printing::PrintingService::new();
+        let printing_service = spawn_service(|cancel| printing_service.run(cancel));
+
         let (tray_service, tray) = tray::TrayService::new(session_dbus.clone());
         let tray_service = spawn_service(|cancel| tray_service.run(cancel));
 
@@ -316,6 +321,7 @@ impl ServiceRuntime {
             keyboard_service,
             weather_service,
             storage_service,
+            printing_service,
             tray_service,
             webcam_service,
             idle_service,
@@ -343,6 +349,7 @@ impl ServiceRuntime {
             keyboard,
             weather,
             storage,
+            printing,
             tray,
             webcam,
             idle,

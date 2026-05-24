@@ -270,11 +270,13 @@ right = ["...", "custom"]
         assert_eq!(
             config.panels[0].right,
             vec![
+                "__dynamic__",
                 "next_event",
                 "tray",
                 "removable",
                 "clipboard",
                 "keyboard",
+                "printing",
                 "bluetooth",
                 "network",
                 "display",

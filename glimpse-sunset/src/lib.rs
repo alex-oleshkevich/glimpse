@@ -4,3 +4,4 @@ pub mod cli;
 pub mod ipc;
 pub mod logind;
 pub mod runtime;
+pub mod shell_location;

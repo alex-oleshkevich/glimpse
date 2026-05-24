@@ -175,3 +175,22 @@ impl Drop for TestDir {
         let _ = fs::remove_dir_all(&self.root);
     }
 }
+
+#[test]
+fn printing_applet_type_is_available_from_config_name() {
+    use glimpse_core::AppletType;
+    assert_eq!(
+        AppletType::from_config_name("printing"),
+        Some(AppletType::Printing)
+    );
+    assert_eq!(AppletType::Printing.as_config_name(), "printing");
+}
+
+#[test]
+fn default_panel_includes_printing_after_keyboard() {
+    use glimpse_core::config::panels::PanelConfig;
+    let panel = PanelConfig::default();
+    let keyboard_pos = panel.right.iter().position(|s| s == "keyboard").unwrap();
+    let printing_pos = panel.right.iter().position(|s| s == "printing").unwrap();
+    assert_eq!(printing_pos, keyboard_pos + 1);
+}

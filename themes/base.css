@@ -1201,6 +1201,10 @@ popover.clipboard-app-menu .action-menu {
 
 /* Weather */
 
+.weather-hero-temp {
+    font-size: 22pt;
+}
+
 /* MPRIS panel label (styles for the popover live further down). */
 
 /* Notifications */
@@ -1342,6 +1346,15 @@ popover.notifications-popover {
     border-left: var(--border-width) solid var(--color-border);
 }
 
+.slider-tile__label_primary {
+    font-size: 9pt;
+    margin-left: 0px;
+}
+
+.slider-tile__slider {
+    padding: 0;
+}
+
 .key-value-grid__key {
     font-size: var(--font-size-ui);
     padding-bottom: 2px;
@@ -1432,6 +1445,10 @@ spinner {
     min-width: 64px;
     min-height: 64px;
     margin-right: var(--space-3);
+}
+
+.message__icon--app {
+    padding: 16px;
 }
 
 .message__title {

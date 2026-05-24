@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use crate::{
     applets::{
         audio, battery, bluetooth, clipboard, clock, command, display, dynamic, exec, idle,
-        keyboard, mpris, network, next_event, notifications, pager, privacy, removable, session,
-        tray, weather,
+        keyboard, mpris, network, next_event, notifications, pager, printing, privacy, removable,
+        session, tray, weather,
     },
     panels::PanelSection,
     services::{framework::Services, wayland_idle_inhibit::SHELL_EXTENSIONS},
@@ -86,6 +86,7 @@ pub enum AppletController {
     Notifications(Controller<notifications::Applet>),
     Pager(Controller<pager::Applet>),
     Privacy(Controller<privacy::Applet>),
+    Printing(Controller<printing::Applet>),
     Removable(Controller<removable::Applet>),
     Session(Controller<session::Applet>),
     Tray(Controller<tray::Applet>),
@@ -112,6 +113,7 @@ impl AppletController {
             Self::Notifications(_) => AppletType::Notifications,
             Self::Pager(_) => AppletType::Pager,
             Self::Privacy(_) => AppletType::Privacy,
+            Self::Printing(_) => AppletType::Printing,
             Self::Removable(_) => AppletType::Removable,
             Self::Session(_) => AppletType::Session,
             Self::Tray(_) => AppletType::Tray,
@@ -138,6 +140,7 @@ impl AppletController {
             Self::Notifications(controller) => controller.widget().clone().upcast(),
             Self::Pager(controller) => controller.widget().clone().upcast(),
             Self::Privacy(controller) => controller.widget().clone().upcast(),
+            Self::Printing(controller) => controller.widget().clone().upcast(),
             Self::Removable(controller) => controller.widget().clone().upcast(),
             Self::Session(controller) => controller.widget().clone().upcast(),
             Self::Tray(controller) => controller.widget().clone().upcast(),
@@ -222,6 +225,11 @@ impl AppletController {
             }
             Self::Privacy(controller) => {
                 controller.emit(privacy::Input::Reconfigure(privacy::Config::from_raw(
+                    &config.cloned(),
+                )));
+            }
+            Self::Printing(controller) => {
+                controller.emit(printing::Input::Reconfigure(printing::Config::from_raw(
                     &config.cloned(),
                 )));
             }
@@ -427,6 +435,14 @@ pub fn create_applet(
                     compositor: services.compositor.clone(),
                     geoclue: services.geoclue.clone(),
                     config: privacy::Config::from_raw(&blueprint.config),
+                })
+                .detach(),
+        )),
+        AppletType::Printing => Some(AppletController::Printing(
+            printing::Applet::builder()
+                .launch(printing::Init {
+                    service: services.printing.clone(),
+                    config: printing::Config::from_raw(&blueprint.config),
                 })
                 .detach(),
         )),

@@ -693,8 +693,8 @@ mod tests {
     }
 
     #[test]
-    fn config_defaults_popup_position_to_top_center() {
-        assert_eq!(Config::default().popup_position, PopupPosition::TopCenter);
+    fn config_defaults_popup_position_to_top_right() {
+        assert_eq!(Config::default().popup_position, PopupPosition::TopRight);
     }
 
     #[test]

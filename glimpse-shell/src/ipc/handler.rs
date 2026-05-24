@@ -100,6 +100,7 @@ impl ShellCommandHandler {
             out.push(("mpris_player".into(), p.identity));
             out.push(("mpris_status".into(), format!("{:?}", p.playback_status)));
         }
+        append_location_status(&mut out, &self.services.location.snapshot());
         append_weather_status(&mut out, &self.services.weather.snapshot());
         out
     }
@@ -121,6 +122,16 @@ impl ShellCommandHandler {
             .snapshot
             .current_player
             .map(|p| p.player_id)
+    }
+}
+
+fn append_location_status(out: &mut Vec<(String, String)>, state: &location::State) {
+    if let location::State::Ready(coordinates) = state {
+        out.push(("location_latitude".into(), coordinates.latitude.to_string()));
+        out.push((
+            "location_longitude".into(),
+            coordinates.longitude.to_string(),
+        ));
     }
 }
 
@@ -536,10 +547,43 @@ impl CommandHandler for ShellCommandHandler {
 
 #[cfg(test)]
 mod tests {
-    use super::append_weather_status;
-    use glimpse_core::services::weather::model::{
-        CurrentWeather, Location as WeatherLocation, Snapshot, State as WeatherState,
+    use super::{append_location_status, append_weather_status};
+    use glimpse_core::services::{
+        location::{Coordinates, State},
+        weather::model::{
+            CurrentWeather, Location as WeatherLocation, Snapshot, State as WeatherState,
+        },
     };
+
+    #[test]
+    fn status_includes_ready_location_coordinates() {
+        let mut fields = Vec::new();
+
+        append_location_status(
+            &mut fields,
+            &State::Ready(Coordinates {
+                latitude: 52.2297,
+                longitude: 21.0122,
+            }),
+        );
+
+        assert_eq!(
+            fields,
+            vec![
+                ("location_latitude".into(), "52.2297".into()),
+                ("location_longitude".into(), "21.0122".into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn status_omits_location_coordinates_when_unknown() {
+        let mut fields = Vec::new();
+
+        append_location_status(&mut fields, &State::Unknown);
+
+        assert!(fields.is_empty());
+    }
 
     #[test]
     fn status_includes_ready_weather_summary() {

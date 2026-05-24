@@ -37,6 +37,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
             <property name="visible">false</property>
             <style>
               <class name="tile__label_primary"/>
+              <class name="slider-tile__label_primary"/>
             </style>
           </object>
         </child>

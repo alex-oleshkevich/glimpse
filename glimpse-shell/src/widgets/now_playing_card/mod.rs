@@ -20,7 +20,7 @@ impl NowPlayingCard {
     pub fn new() -> Self {
         let obj: Self = glib::Object::builder().build();
         obj.imp().artwork.set_artwork_size(48);
-        obj.imp().artwork.set_fallback_icon_pixel_size(18);
+        obj.imp().artwork.set_fallback_icon_pixel_size(22);
         obj
     }
 

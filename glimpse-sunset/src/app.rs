@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use glimpse_core::{
-    Config, ConfigEvent, LocationConfig, NightLightConfig, NightLightSchedule,
+    Config, ConfigEvent, NightLightConfig, NightLightSchedule,
     services::{
         framework::Control,
         location,
@@ -16,6 +16,7 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     backend::create_backend,
     logind::{self, SleepEvent},
+    shell_location,
 };
 
 struct AppTask {
@@ -25,14 +26,12 @@ struct AppTask {
 
 #[derive(Debug, Clone, PartialEq)]
 struct SunsetAppConfig {
-    location: LocationConfig,
     night_light: NightLightConfig,
 }
 
 impl SunsetAppConfig {
     fn from_shared(config: &Config) -> Self {
         Self {
-            location: config.location.clone(),
             night_light: config.night_light.clone(),
         }
     }
@@ -65,8 +64,12 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         night_light_service.run(cancel)
     }));
 
-    let _ipc = crate::ipc::start(night_light.clone(), location.clone(), solar.clone());
-    start_services(&location, &solar, &night_light, config.clone());
+    let _ipc = crate::ipc::start(night_light.clone(), solar.clone());
+    running_services.push(spawn_service(cancel.clone(), {
+        let location = location.clone();
+        move |cancel| shell_location::run(location, cancel)
+    }));
+    start_services(&solar, &night_light, config.clone());
     running_services.push(spawn_night_light_subscription(
         night_light.clone(),
         solar.clone(),
@@ -99,7 +102,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
                         continue;
                     }
                     tracing::info!("sunset config changed");
-                    reconfigure_services(&location, &solar, &night_light, config.clone());
+                    reconfigure_services(&solar, &night_light, config.clone());
                     current_config = next_config;
                 }
                 None => break,
@@ -110,7 +113,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
                 }
                 Some(SleepEvent::Resumed) => {
                     tracing::info!("system resumed; refreshing sunset state");
-                    refresh_after_resume(&location, &solar, &night_light);
+                    refresh_after_resume(&solar, &night_light);
                 }
                 None => break,
             }
@@ -127,17 +130,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn start_services(
-    location: &location::LocationHandle,
-    solar: &solar::SolarHandle,
-    night_light: &NightLightHandle,
-    config: Config,
-) {
-    location.try_send_control(
-        "location",
-        Control::Start(config.clone()),
-        "failed to send service control",
-    );
+pub fn start_services(solar: &solar::SolarHandle, night_light: &NightLightHandle, config: Config) {
     solar.try_send_control(
         "solar",
         Control::Start(config.clone()),
@@ -151,16 +144,10 @@ pub fn start_services(
 }
 
 pub fn reconfigure_services(
-    location: &location::LocationHandle,
     solar: &solar::SolarHandle,
     night_light: &NightLightHandle,
     config: Config,
 ) {
-    location.try_send_control(
-        "location",
-        Control::Reconfigure(config.clone()),
-        "failed to send service control",
-    );
     solar.try_send_control(
         "solar",
         Control::Reconfigure(config.clone()),
@@ -173,16 +160,8 @@ pub fn reconfigure_services(
     );
 }
 
-pub fn refresh_after_resume(
-    location: &location::LocationHandle,
-    solar: &solar::SolarHandle,
-    night_light: &NightLightHandle,
-) {
-    location.try_send_command(
-        "location",
-        location::Command::Refresh,
-        "failed to send service command",
-    );
+pub fn refresh_after_resume(solar: &solar::SolarHandle, night_light: &NightLightHandle) {
+    shell_location::refresh_shell_location();
     solar.try_send_command(
         "solar",
         solar::Command::Refresh,
@@ -420,19 +399,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn start_services_sends_start_control_to_location_stack_and_night_light() {
-        let (location, mut location_rx) =
+    async fn start_services_sends_start_control_to_solar_and_night_light_only() {
+        let (_location, mut location_rx) =
             handle::<location::State, location::Command>(location::State::Unknown);
         let (solar, mut solar_rx) = handle::<solar::State, solar::Command>(solar::State::Unknown);
         let (night_light, mut night_light_rx) =
             handle::<night_light::State, night_light::Command>(night_light::State::default());
 
-        start_services(&location, &solar, &night_light, Config::default());
+        start_services(&solar, &night_light, Config::default());
 
-        assert!(matches!(
-            location_rx.recv().await,
-            Some(ServiceCommand::Control(Control::Start(_)))
-        ));
+        assert!(location_rx.try_recv().is_err());
         assert!(matches!(
             solar_rx.recv().await,
             Some(ServiceCommand::Control(Control::Start(_)))
@@ -444,8 +420,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reconfigure_services_updates_location_stack_and_night_light_config() {
-        let (location, mut location_rx) =
+    async fn reconfigure_services_updates_solar_and_night_light_config_only() {
+        let (_location, mut location_rx) =
             handle::<location::State, location::Command>(location::State::Unknown);
         let (solar, mut solar_rx) = handle::<solar::State, solar::Command>(solar::State::Unknown);
         let (night_light, mut night_light_rx) =
@@ -460,12 +436,9 @@ mod tests {
             ..Config::default()
         };
 
-        reconfigure_services(&location, &solar, &night_light, config);
+        reconfigure_services(&solar, &night_light, config);
 
-        assert!(matches!(
-            location_rx.recv().await,
-            Some(ServiceCommand::Control(Control::Reconfigure(_)))
-        ));
+        assert!(location_rx.try_recv().is_err());
         assert!(matches!(
             solar_rx.recv().await,
             Some(ServiceCommand::Control(Control::Reconfigure(_)))
@@ -478,19 +451,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn refresh_after_resume_refreshes_location_stack_and_night_light() {
-        let (location, mut location_rx) =
+    async fn refresh_after_resume_refreshes_solar_and_night_light_only() {
+        let (_location, mut location_rx) =
             handle::<location::State, location::Command>(location::State::Unknown);
         let (solar, mut solar_rx) = handle::<solar::State, solar::Command>(solar::State::Unknown);
         let (night_light, mut night_light_rx) =
             handle::<night_light::State, night_light::Command>(night_light::State::default());
 
-        refresh_after_resume(&location, &solar, &night_light);
+        refresh_after_resume(&solar, &night_light);
 
-        assert!(matches!(
-            location_rx.recv().await,
-            Some(ServiceCommand::Command(location::Command::Refresh))
-        ));
+        assert!(location_rx.try_recv().is_err());
         assert!(matches!(
             solar_rx.recv().await,
             Some(ServiceCommand::Command(solar::Command::Refresh))

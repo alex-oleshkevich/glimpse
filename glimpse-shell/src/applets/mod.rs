@@ -14,6 +14,7 @@ pub mod network;
 pub mod next_event;
 pub mod notifications;
 pub mod pager;
+pub mod printing;
 pub mod privacy;
 pub mod removable;
 pub mod session;

@@ -33,6 +33,7 @@ pub fn start(services: &Services) -> broadcast::Sender<Arc<IpcEvent>> {
     spawn_power_watcher(services.power.subscribe(), tx.clone());
     spawn_session_watcher(services.session.subscribe(), tx.clone());
     spawn_storage_watcher(services.storage.subscribe(), tx.clone());
+    spawn_printing_watcher(services.printing.subscribe(), tx.clone());
     spawn_webcam_watcher(services.webcam.subscribe(), tx.clone());
     spawn_tray_watcher(services.tray.subscribe(), tx.clone());
     spawn_location_watcher(services.location.subscribe(), tx.clone());
@@ -1846,6 +1847,83 @@ fn spawn_solar_watcher(
                             ("is_day", is_day.to_string()),
                         ],
                     );
+                }
+            }
+
+            prev = next;
+        }
+    });
+}
+
+fn spawn_printing_watcher(
+    mut rx: watch::Receiver<crate::services::printing::State>,
+    tx: broadcast::Sender<Arc<IpcEvent>>,
+) {
+    use std::collections::{HashMap, HashSet};
+
+    tokio::spawn(async move {
+        let mut prev = rx.borrow_and_update().clone();
+
+        loop {
+            if rx.changed().await.is_err() {
+                break;
+            }
+            let next = rx.borrow_and_update().clone();
+
+            let prev_job_ids: HashSet<u32> = prev.jobs.iter().map(|j| j.id).collect();
+            let next_job_ids: HashSet<u32> = next.jobs.iter().map(|j| j.id).collect();
+
+            for job in next.jobs.iter().filter(|j| !prev_job_ids.contains(&j.id)) {
+                emit(
+                    &tx,
+                    "printing.job_started",
+                    vec![
+                        ("id", job.id.to_string()),
+                        ("name", job.name.clone()),
+                        ("printer", job.printer_name.clone()),
+                    ],
+                );
+            }
+
+            // State::jobs only holds active jobs; when a job disappears it left the
+            // active queue (completed, cancelled, or failed). We can't distinguish the
+            // outcome without an extra IPP round-trip, so we emit job_finished for all.
+            for job in prev.jobs.iter().filter(|j| !next_job_ids.contains(&j.id)) {
+                emit(
+                    &tx,
+                    "printing.job_finished",
+                    vec![
+                        ("id", job.id.to_string()),
+                        ("name", job.name.clone()),
+                        ("printer", job.printer_name.clone()),
+                    ],
+                );
+            }
+
+            let prev_reasons: HashMap<&str, HashSet<&str>> = prev
+                .printers
+                .iter()
+                .map(|p| {
+                    (
+                        p.name.as_str(),
+                        p.state_reasons.iter().map(String::as_str).collect(),
+                    )
+                })
+                .collect();
+
+            for printer in &next.printers {
+                let prev_set = prev_reasons
+                    .get(printer.name.as_str())
+                    .cloned()
+                    .unwrap_or_default();
+                for reason in &printer.state_reasons {
+                    if !prev_set.contains(reason.as_str()) && reason != "none" {
+                        emit(
+                            &tx,
+                            "printing.printer_error",
+                            vec![("name", printer.name.clone()), ("reason", reason.clone())],
+                        );
+                    }
                 }
             }
 

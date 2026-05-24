@@ -6,27 +6,20 @@ use glimpse_core::{
     Config, DAYLIGHT_TEMPERATURE_KELVIN, NightLightHealth, NightLightPhase, NightLightSchedule,
     ipc::{self, IpcHandle, IpcServer, client::CommandHandler, sunset_socket_path},
     services::{
-        location::{self, LocationHandle},
         night_light::{self, NightLightHandle, State},
         solar::{self, SolarHandle},
     },
 };
 
-pub fn start(
-    night_light: NightLightHandle,
-    location: LocationHandle,
-    solar: SolarHandle,
-) -> IpcHandle {
+use crate::shell_location;
+
+pub fn start(night_light: NightLightHandle, solar: SolarHandle) -> IpcHandle {
     let tx = ipc::new_event_channel();
     spawn_watcher(night_light.subscribe(), tx.clone());
     IpcServer::launch_at(
         tx,
         sunset_socket_path(),
-        SunsetCommandHandler {
-            night_light,
-            location,
-            solar,
-        },
+        SunsetCommandHandler { night_light, solar },
     )
 }
 
@@ -125,7 +118,6 @@ fn parse_schedule(s: &str) -> Result<NightLightSchedule, String> {
 #[derive(Clone)]
 struct SunsetCommandHandler {
     night_light: NightLightHandle,
-    location: LocationHandle,
     solar: SolarHandle,
 }
 
@@ -146,11 +138,7 @@ impl CommandHandler for SunsetCommandHandler {
 
             match name {
                 "refresh" => {
-                    self.location.try_send_command(
-                        "location",
-                        location::Command::Refresh,
-                        "failed to send location refresh",
-                    );
+                    shell_location::refresh_shell_location();
                     self.solar.try_send_command(
                         "solar",
                         solar::Command::Refresh,
@@ -293,25 +281,10 @@ impl CommandHandler for SunsetCommandHandler {
                 }
 
                 "set_location" => {
-                    let lat: f64 = get("lat")
-                        .ok_or("missing lat")?
-                        .parse()
-                        .map_err(|_| "lat must be a float")?;
-                    let lon: f64 = get("lon")
-                        .ok_or("missing lon")?
-                        .parse()
-                        .map_err(|_| "lon must be a float")?;
-                    if !(-90.0..=90.0).contains(&lat) {
-                        return Err("lat must be between -90 and 90".into());
-                    }
-                    if !(-180.0..=180.0).contains(&lon) {
-                        return Err("lon must be between -180 and 180".into());
-                    }
-                    self.location.try_send_command(
-                        "location",
-                        location::Command::SetManual(lat, lon),
-                        "failed to set location",
-                    );
+                    let (lat, lon) = parse_location_fields(fields)?;
+                    shell_location::set_shell_location(lat, lon)
+                        .await
+                        .map_err(|error| format!("failed to set shell location: {error}"))?;
                     Ok(vec![])
                 }
 
@@ -338,5 +311,56 @@ impl CommandHandler for SunsetCommandHandler {
                 _ => Err(format!("unknown command: {name}")),
             }
         })
+    }
+}
+
+fn parse_location_fields(fields: &[(String, String)]) -> Result<(f64, f64), String> {
+    let get = |key: &str| {
+        fields
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+    };
+    let lat: f64 = get("lat")
+        .ok_or("missing lat")?
+        .parse()
+        .map_err(|_| "lat must be a float")?;
+    let lon: f64 = get("lon")
+        .ok_or("missing lon")?
+        .parse()
+        .map_err(|_| "lon must be a float")?;
+    if !(-90.0..=90.0).contains(&lat) {
+        return Err("lat must be between -90 and 90".into());
+    }
+    if !(-180.0..=180.0).contains(&lon) {
+        return Err("lon must be between -180 and 180".into());
+    }
+    Ok((lat, lon))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_location_fields;
+
+    #[test]
+    fn parse_location_fields_accepts_valid_coordinates() {
+        assert_eq!(
+            parse_location_fields(&[
+                ("lat".into(), "52.2297".into()),
+                ("lon".into(), "21.0122".into())
+            ]),
+            Ok((52.2297, 21.0122))
+        );
+    }
+
+    #[test]
+    fn parse_location_fields_rejects_invalid_coordinates() {
+        assert_eq!(
+            parse_location_fields(&[
+                ("lat".into(), "91".into()),
+                ("lon".into(), "21.0122".into())
+            ]),
+            Err("lat must be between -90 and 90".into())
+        );
     }
 }
