@@ -322,30 +322,54 @@ fn deduplicate_mirrored_proxy_players(players: Vec<Player>) -> Vec<Player> {
     players
         .iter()
         .filter(|player| {
-            player.player_id != "playerctld"
-                || !players.iter().any(|candidate| {
-                    candidate.player_id != "playerctld" && mirrors_same_media(candidate, player)
-                })
+            let Some(player_prio) = proxy_priority(&player.player_id) else {
+                return true;
+            };
+            !players.iter().any(|candidate| {
+                candidate.player_id != player.player_id
+                    && proxy_priority(&candidate.player_id).map_or(true, |cp| cp > player_prio)
+                    && mirrors_same_media(candidate, player)
+            })
         })
         .cloned()
         .collect()
 }
 
-fn mirrors_same_media(left: &Player, right: &Player) -> bool {
-    has_media_identity(left)
-        && left.identity == right.identity
-        && left.title == right.title
-        && left.artist == right.artist
-        && left.album == right.album
-        && left.length == right.length
+// Returns the proxy rank for well-known mirror players.
+// Higher value = more authoritative source. None = real local player (always wins).
+// playerctld (0) < kdeconnect.mpris_* (1) < real player (None)
+fn proxy_priority(player_id: &str) -> Option<u8> {
+    if player_id == "playerctld" {
+        Some(0)
+    } else if player_id.starts_with("kdeconnect.mpris_") {
+        Some(1)
+    } else {
+        None
+    }
 }
 
-fn has_media_identity(player: &Player) -> bool {
-    !player.identity.is_empty()
-        && (!player.title.is_empty()
-            || !player.artist.is_empty()
-            || !player.album.is_empty()
-            || player.length.is_some())
+fn mirrors_same_media(left: &Player, right: &Player) -> bool {
+    if left.identity.is_empty() || right.identity.is_empty() {
+        return false;
+    }
+    if left.identity != right.identity {
+        return false;
+    }
+    if has_track_metadata(left) || has_track_metadata(right) {
+        left.title == right.title
+            && left.artist == right.artist
+            && left.album == right.album
+            && left.length == right.length
+    } else {
+        true
+    }
+}
+
+fn has_track_metadata(player: &Player) -> bool {
+    !player.title.is_empty()
+        || !player.artist.is_empty()
+        || !player.album.is_empty()
+        || player.length.is_some()
 }
 
 fn status_rank(status: PlaybackStatus) -> u8 {
@@ -766,5 +790,129 @@ mod tests {
         let players = deduplicate_mirrored_proxy_players(vec![proxy.clone()]);
 
         assert_eq!(players, vec![proxy]);
+    }
+
+    #[test]
+    fn kdeconnect_mpris_entry_is_removed_when_real_player_mirrors_same_media() {
+        let real = Player {
+            player_id: "chromium.instance6955".into(),
+            identity: "Chrome".into(),
+            playback_status: PlaybackStatus::Playing,
+            title: "same track".into(),
+            artist: "same artist".into(),
+            album: "same album".into(),
+            length: Some(143_181_000),
+            ..Default::default()
+        };
+        let proxy = Player {
+            player_id: "kdeconnect.mpris_14353dabf27440c58ac1b395cb7b268f".into(),
+            identity: real.identity.clone(),
+            playback_status: real.playback_status,
+            title: real.title.clone(),
+            artist: real.artist.clone(),
+            album: real.album.clone(),
+            length: real.length,
+            ..Default::default()
+        };
+
+        let players = deduplicate_mirrored_proxy_players(vec![proxy, real.clone()]);
+
+        assert_eq!(players, vec![real]);
+    }
+
+    #[test]
+    fn kdeconnect_mpris_entry_is_kept_when_it_is_the_only_player() {
+        let proxy = Player {
+            player_id: "kdeconnect.mpris_14353dabf27440c58ac1b395cb7b268f".into(),
+            identity: "Spotify".into(),
+            playback_status: PlaybackStatus::Playing,
+            title: "phone track".into(),
+            artist: "phone artist".into(),
+            album: "phone album".into(),
+            length: Some(200_000_000),
+            ..Default::default()
+        };
+
+        let players = deduplicate_mirrored_proxy_players(vec![proxy.clone()]);
+
+        assert_eq!(players, vec![proxy]);
+    }
+
+    #[test]
+    fn kdeconnect_mpris_entry_is_kept_when_playing_different_media_than_real_player() {
+        let real = Player {
+            player_id: "chromium.instance6955".into(),
+            identity: "Chrome".into(),
+            playback_status: PlaybackStatus::Playing,
+            title: "pc track".into(),
+            artist: "pc artist".into(),
+            album: "pc album".into(),
+            length: Some(143_181_000),
+            ..Default::default()
+        };
+        let phone = Player {
+            player_id: "kdeconnect.mpris_14353dabf27440c58ac1b395cb7b268f".into(),
+            identity: "Spotify".into(),
+            playback_status: PlaybackStatus::Playing,
+            title: "phone track".into(),
+            artist: "phone artist".into(),
+            album: "phone album".into(),
+            length: Some(200_000_000),
+            ..Default::default()
+        };
+
+        let players = deduplicate_mirrored_proxy_players(vec![phone.clone(), real.clone()]);
+
+        assert_eq!(players, vec![phone, real]);
+    }
+
+    #[test]
+    fn playerctld_is_removed_when_kdeconnect_mirrors_same_media() {
+        let kdeconnect = Player {
+            player_id: "kdeconnect.mpris_14353dabf27440c58ac1b395cb7b268f".into(),
+            identity: "Spotify".into(),
+            playback_status: PlaybackStatus::Playing,
+            title: "phone track".into(),
+            artist: "phone artist".into(),
+            album: "phone album".into(),
+            length: Some(200_000_000),
+            ..Default::default()
+        };
+        let playerctld = Player {
+            player_id: "playerctld".into(),
+            identity: kdeconnect.identity.clone(),
+            playback_status: kdeconnect.playback_status,
+            title: kdeconnect.title.clone(),
+            artist: kdeconnect.artist.clone(),
+            album: kdeconnect.album.clone(),
+            length: kdeconnect.length,
+            ..Default::default()
+        };
+
+        let players = deduplicate_mirrored_proxy_players(vec![kdeconnect.clone(), playerctld]);
+
+        assert_eq!(players, vec![kdeconnect]);
+    }
+
+    #[test]
+    fn playerctld_is_removed_when_kdeconnect_has_same_identity_but_no_track_metadata() {
+        // Reproduces the real-world case: phone player paused with no track info exposed.
+        // Both entries carry only Identity ("Spotify - Pixel 10 Pro") and no metadata.
+        let kdeconnect = Player {
+            player_id: "kdeconnect.mpris_14353dabf27440c58ac1b395cb7b268f".into(),
+            identity: "Spotify - Pixel 10 Pro".into(),
+            playback_status: PlaybackStatus::Paused,
+            ..Default::default()
+        };
+        let playerctld = Player {
+            player_id: "playerctld".into(),
+            identity: "Spotify - Pixel 10 Pro".into(),
+            playback_status: PlaybackStatus::Paused,
+            ..Default::default()
+        };
+
+        let players = deduplicate_mirrored_proxy_players(vec![kdeconnect.clone(), playerctld]);
+
+        assert_eq!(players, vec![kdeconnect]);
     }
 }

@@ -141,9 +141,31 @@ impl PlayerFilters {
 pub fn visible_players(players: &[Player]) -> Vec<Player> {
     players
         .iter()
-        .filter(|player| player.playback_status != PlaybackStatus::Stopped)
+        .filter(|player| is_visible(player))
         .cloned()
         .collect()
+}
+
+fn is_visible(player: &Player) -> bool {
+    match player.playback_status {
+        PlaybackStatus::Playing => true,
+        PlaybackStatus::Paused => {
+            has_meaningful_metadata(player)
+                || player.can_play_pause
+                || player.can_go_next
+                || player.can_go_previous
+        }
+        PlaybackStatus::Stopped => false,
+    }
+}
+
+// Returns false when title/artist are just echoing the player identity — KDE Connect
+// does this when no track is loaded, leaving placeholder strings instead of empty fields.
+fn has_meaningful_metadata(player: &Player) -> bool {
+    (!player.title.is_empty() && player.title != player.identity)
+        || (!player.artist.is_empty() && player.artist != player.identity)
+        || !player.album.is_empty()
+        || player.length.is_some()
 }
 
 #[cfg(test)]
@@ -170,7 +192,7 @@ mod tests {
     fn visible_players_hide_stopped_players() {
         let players = vec![
             player("spotify", PlaybackStatus::Playing),
-            player("firefox", PlaybackStatus::Paused),
+            player("firefox", PlaybackStatus::Paused), // no metadata, no controls → hidden
             player("mpv", PlaybackStatus::Stopped),
         ];
 
@@ -179,7 +201,54 @@ mod tests {
             .map(|player| player.player_id)
             .collect::<Vec<_>>();
 
-        assert_eq!(ids, vec!["spotify", "firefox"]);
+        assert_eq!(ids, vec!["spotify"]);
+    }
+
+    #[test]
+    fn visible_players_show_paused_player_with_title() {
+        let p = Player {
+            player_id: "spotify".into(),
+            playback_status: PlaybackStatus::Paused,
+            title: "Some Song".into(),
+            ..Default::default()
+        };
+        assert_eq!(visible_players(&[p.clone()]), vec![p]);
+    }
+
+    #[test]
+    fn visible_players_show_paused_player_with_controls() {
+        let p = Player {
+            player_id: "spotify".into(),
+            playback_status: PlaybackStatus::Paused,
+            can_play_pause: true,
+            ..Default::default()
+        };
+        assert_eq!(visible_players(&[p.clone()]), vec![p]);
+    }
+
+    #[test]
+    fn visible_players_hide_paused_ghost_player_with_no_metadata_and_no_controls() {
+        let ghost = Player {
+            player_id: "kdeconnect.mpris_hash".into(),
+            identity: "Spotify - Pixel 10 Pro".into(),
+            playback_status: PlaybackStatus::Paused,
+            ..Default::default()
+        };
+        assert!(visible_players(&[ghost]).is_empty());
+    }
+
+    #[test]
+    fn visible_players_hide_paused_kdeconnect_placeholder_where_title_echoes_identity() {
+        // KDE Connect sets title and artist to the identity string when no track is loaded.
+        let ghost = Player {
+            player_id: "kdeconnect.mpris_hash".into(),
+            identity: "Spotify - Pixel 10 Pro".into(),
+            title: "Spotify - Pixel 10 Pro".into(),
+            artist: "Spotify - Pixel 10 Pro".into(),
+            playback_status: PlaybackStatus::Paused,
+            ..Default::default()
+        };
+        assert!(visible_players(&[ghost]).is_empty());
     }
 
     #[test]

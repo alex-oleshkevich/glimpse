@@ -1,4 +1,4 @@
-use glimpse_core::services::mpris::{PlaybackStatus, Player, State};
+use glimpse_core::services::mpris::{PlaybackStatus, Player, State, model::visible_players};
 
 pub const DEFAULT_LABEL_FORMAT: &str = "{artist} - {title}";
 pub const DEFAULT_TOOLTIP_FORMAT: &str = "{player}: {artist} - {title}";
@@ -87,18 +87,13 @@ pub fn duration(value_micros: u64) -> String {
 }
 
 fn current_visible_player(state: &State) -> Option<&Player> {
-    state
-        .snapshot
-        .current_player
-        .as_ref()
-        .filter(|player| player.playback_status != PlaybackStatus::Stopped)
-        .or_else(|| {
-            state
-                .snapshot
-                .players
-                .iter()
-                .find(|player| player.playback_status != PlaybackStatus::Stopped)
-        })
+    let visible = visible_players(&state.snapshot.players);
+    let current_id = state.snapshot.current_player.as_ref().map(|p| &p.player_id);
+    let found_id = current_id
+        .and_then(|id| visible.iter().find(|p| &p.player_id == id))
+        .or_else(|| visible.first())
+        .map(|p| p.player_id.clone())?;
+    state.snapshot.players.iter().find(|p| p.player_id == found_id)
 }
 
 fn replace_placeholders(format: &str, player: &Player) -> String {

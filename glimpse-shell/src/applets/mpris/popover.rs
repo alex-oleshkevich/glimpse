@@ -222,7 +222,7 @@ impl Popover {
             .snapshot
             .current_player
             .clone()
-            .filter(|player| player.playback_status != PlaybackStatus::Stopped)
+            .filter(|player| visible.iter().any(|v| v.player_id == player.player_id))
             .or_else(|| visible.first().cloned());
 
         let others: Vec<Player> = visible
