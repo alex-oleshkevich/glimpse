@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      tag_ref: ${{ steps.version.outputs.tag_ref }}
     steps:
       - name: Check out source
         uses: actions/checkout@v5
