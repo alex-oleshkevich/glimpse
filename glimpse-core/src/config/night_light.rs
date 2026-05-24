@@ -27,7 +27,7 @@ impl Default for NightLightConfig {
     fn default() -> Self {
         Self {
             temperature: DEFAULT_NIGHT_LIGHT_TEMPERATURE_KELVIN,
-            schedule: NightLightSchedule::Off,
+            schedule: NightLightSchedule::Automatic,
             start_time: None,
             end_time: None,
             transition_minutes: DEFAULT_TRANSITION_MINUTES,
@@ -40,11 +40,11 @@ mod tests {
     use super::{NightLightConfig, NightLightSchedule};
 
     #[test]
-    fn night_light_config_defaults_to_off() {
+    fn night_light_config_defaults_to_automatic() {
         let config = NightLightConfig::default();
 
         assert_eq!(config.temperature, 4200);
-        assert_eq!(config.schedule, NightLightSchedule::Off);
+        assert_eq!(config.schedule, NightLightSchedule::Automatic);
         assert_eq!(config.start_time, None);
         assert_eq!(config.end_time, None);
         assert_eq!(config.transition_minutes, 15);

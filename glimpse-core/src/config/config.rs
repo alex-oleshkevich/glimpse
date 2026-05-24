@@ -172,11 +172,11 @@ mod night_light_config_tests {
     use crate::{Config, NightLightSchedule};
 
     #[test]
-    fn default_config_includes_disabled_night_light() {
+    fn default_config_includes_automatic_night_light() {
         let config = Config::default();
 
         assert_eq!(config.night_light.temperature, 4200);
-        assert_eq!(config.night_light.schedule, NightLightSchedule::Off);
+        assert_eq!(config.night_light.schedule, NightLightSchedule::Automatic);
         assert_eq!(config.night_light.transition_minutes, 15);
     }
 

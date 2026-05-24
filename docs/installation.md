@@ -90,5 +90,5 @@ glimpse-idle --version
 | Panel does not appear | Make sure Niri is running and check `journalctl --user -u glimpse-shell.service -e`. |
 | Wallpaper does not show | Do not run another wallpaper tool at the same time. |
 | Lock command does nothing | Enable `glimpse-lock.service`, then run `loginctl lock-session`. |
-| Night light does not change color | Set a schedule in [Sunset](./sunset.md). The default is off. |
+| Night light does not change color | Check the schedule and location settings in [Sunset](./sunset.md). The default schedule is automatic. |
 | Idle does nothing | Add listeners in [Idle](./idle.md). The default has no idle actions. |

@@ -2,7 +2,7 @@
 
 Sunset warms your screen at night. It can follow sunrise and sunset for your location, or use fixed clock times.
 
-The default schedule is off, so enabling the service will not change your colors until you configure it.
+The default schedule is automatic, so enabling the service follows local sunrise and sunset once location is available.
 
 ## Automatic Sunset
 

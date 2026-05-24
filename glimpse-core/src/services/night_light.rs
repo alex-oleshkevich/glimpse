@@ -517,7 +517,7 @@ mod tests {
         transition_temperatures,
     };
     use crate::{
-        Config, NightLightConfig, NightLightHealth, NightLightPhase,
+        Config, NightLightConfig, NightLightHealth, NightLightPhase, NightLightSchedule,
         compositors::{CompositorCapabilities, CompositorType},
         services::{
             framework::{Control, ServiceCommand, ServiceHandle},
@@ -606,7 +606,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn service_accepts_start_control_config() {
+    async fn service_respects_disabled_start_control_config() {
         let log = Arc::new(Mutex::new(BackendLog::default()));
         let backend = Box::new(MockBackend { log: log.clone() });
         let (_solar_tx, solar) = solar_handle(solar::State::Ready(solar::Snapshot {
@@ -622,7 +622,10 @@ mod tests {
         }));
         let (service, handle) = super::NightLightService::new(backend, solar);
         let config = Config {
-            night_light: NightLightConfig::default(),
+            night_light: NightLightConfig {
+                schedule: NightLightSchedule::Off,
+                ..NightLightConfig::default()
+            },
             ..Config::default()
         };
 
