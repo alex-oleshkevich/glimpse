@@ -1,13 +1,15 @@
 use async_trait::async_trait;
+use futures_util::StreamExt;
 use glimpse_sdk::{
     Applet, AppletResult, BoxedList, Column, EmptyState, Hero, Label, MsgMapper, PopoverShell,
     PopoverSize, SegmentedTile, StatusItem, Tile, TreeNode, run, tree,
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::sync::mpsc;
 use tokio::time::Duration;
+use zbus::{MatchRule, MessageStream, message::Type};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Device {
@@ -16,11 +18,22 @@ struct Device {
     charge: Option<u8>,
 }
 
+impl Device {
+    fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            charge: None,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 struct State {
     devices: Vec<Device>,
     expanded: HashSet<String>,
     known_devices: HashSet<String>,
+    mirrored_notifications: HashMap<String, u32>,
     error: Option<String>,
 }
 
@@ -29,6 +42,9 @@ enum Msg {
     Refresh,
     ToggleDevice(String, bool),
     RunAction(String, DeviceAction),
+    MirrorNotification(KdeNotification),
+    RemoveNotification(String),
+    RemoveDeviceNotifications(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,6 +53,16 @@ enum DeviceAction {
     Ring,
     Browse,
     Clipboard,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct KdeNotification {
+    key: String,
+    device_name: String,
+    app_name: String,
+    summary: String,
+    body: String,
+    icon: Option<String>,
 }
 
 struct KdeConnectApplet;
@@ -61,12 +87,19 @@ impl Applet for KdeConnectApplet {
     async fn on_start(&mut self, state: &mut State, tx: mpsc::Sender<Msg>) -> AppletResult<()> {
         refresh_state(state).await;
 
+        let refresh_tx = tx.clone();
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(Duration::from_secs(15)).await;
-                if tx.send(Msg::Refresh).await.is_err() {
+                if refresh_tx.send(Msg::Refresh).await.is_err() {
                     break;
                 }
+            }
+        });
+
+        tokio::spawn(async move {
+            if let Err(err) = watch_phone_notifications(tx).await {
+                eprintln!("kdeconnect notification bridge failed: {err}");
             }
         });
 
@@ -92,6 +125,47 @@ impl Applet for KdeConnectApplet {
                     state.error = None;
                 }
             }
+            Msg::MirrorNotification(notification) => {
+                let replaces_id = state
+                    .mirrored_notifications
+                    .get(&notification.key)
+                    .copied()
+                    .unwrap_or_default();
+                match mirror_desktop_notification(&notification, replaces_id).await {
+                    Ok(local_id) => {
+                        state
+                            .mirrored_notifications
+                            .insert(notification.key, local_id);
+                        state.error = None;
+                    }
+                    Err(err) => {
+                        state.error = Some(err.to_string());
+                    }
+                }
+            }
+            Msg::RemoveNotification(key) => {
+                if let Some(local_id) = state.mirrored_notifications.remove(&key)
+                    && let Err(err) = close_desktop_notification(local_id).await
+                {
+                    state.error = Some(err.to_string());
+                }
+            }
+            Msg::RemoveDeviceNotifications(device_id) => {
+                let prefix = format!("{device_id}:");
+                let keys: Vec<String> = state
+                    .mirrored_notifications
+                    .keys()
+                    .filter(|key| key.starts_with(&prefix))
+                    .cloned()
+                    .collect();
+                for key in keys {
+                    if let Some(local_id) = state.mirrored_notifications.remove(&key)
+                        && let Err(err) = close_desktop_notification(local_id).await
+                    {
+                        state.error = Some(err.to_string());
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -101,22 +175,20 @@ impl Applet for KdeConnectApplet {
     }
 }
 
-fn parse_devices(ids_stdout: &str, names_stdout: &str) -> Vec<Device> {
-    ids_stdout
+fn parse_device_paths(output: &str) -> Vec<String> {
+    output
         .lines()
         .map(str::trim)
-        .filter(|id| !id.is_empty())
-        .zip(
-            names_stdout
-                .lines()
-                .map(str::trim)
-                .filter(|name| !name.is_empty()),
-        )
-        .map(|(id, name)| Device {
-            id: id.to_owned(),
-            name: name.to_owned(),
-            charge: None,
+        .filter_map(|line| line.rsplit_once(' ').map(|(_, path)| path).or(Some(line)))
+        .map(str::trim)
+        .filter(|path| path.starts_with("/modules/kdeconnect/devices/"))
+        .filter(|path| {
+            !path
+                .trim_start_matches("/modules/kdeconnect/devices/")
+                .contains('/')
         })
+        .map(|path| path.trim_start_matches("/modules/kdeconnect/devices/"))
+        .map(|segment| segment.replace('_', "-"))
         .collect()
 }
 
@@ -191,7 +263,7 @@ fn device_tile(device: &Device, expanded: bool) -> SegmentedTile<Msg> {
         action_tile(
             &device.id,
             "clipboard",
-            "Share clipboard",
+            "Send clipboard to phone",
             "edit-paste-symbolic",
             DeviceAction::Clipboard,
         )
@@ -240,8 +312,7 @@ fn connected_summary(count: usize) -> String {
 
 fn battery_status_text(charge: u8) -> Label {
     Label::new(format!("{charge}%"))
-        .css_class("dim-label")
-        .css_class("numeric")
+        .css_class("caption")
         .css_class("numeric")
 }
 
@@ -261,11 +332,32 @@ async fn refresh_state(state: &mut State) {
 }
 
 async fn connected_devices() -> AppletResult<Vec<Device>> {
-    let ids = kdeconnect_output(&["--list-available", "--id-only"]).await?;
-    let names = kdeconnect_output(&["--list-available", "--name-only"]).await?;
-    let mut devices = parse_devices(&ids, &names);
-    for device in &mut devices {
+    let tree = command_text(
+        "busctl",
+        &["--user", "tree", "org.kde.kdeconnect"],
+        Duration::from_secs(2),
+    )
+    .await?;
+    let mut devices = Vec::new();
+    for id in parse_device_paths(&tree) {
+        if !device_bool_property(&id, "isPaired")
+            .await?
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        if !device_bool_property(&id, "isReachable")
+            .await?
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        let Some(name) = device_string_property(&id, "name").await? else {
+            continue;
+        };
+        let mut device = Device::new(id, name);
         device.charge = device_charge(&device.id).await.unwrap_or(None);
+        devices.push(device);
     }
     Ok(devices)
 }
@@ -273,19 +365,53 @@ async fn connected_devices() -> AppletResult<Vec<Device>> {
 async fn run_device_action(device_id: &str, action: DeviceAction) -> AppletResult<()> {
     match action {
         DeviceAction::Ping => {
-            kdeconnect_output(&["--device", device_id, "--ping"]).await?;
+            dbus_call(
+                &format!("{}/ping", device_path(device_id)),
+                "org.kde.kdeconnect.device.ping",
+                "sendPing",
+                &[],
+            )
+            .await?
         }
         DeviceAction::Ring => {
-            kdeconnect_output(&["--device", device_id, "--ring"]).await?;
+            dbus_call(
+                &format!("{}/findmyphone", device_path(device_id)),
+                "org.kde.kdeconnect.device.findmyphone",
+                "ring",
+                &[],
+            )
+            .await?
         }
         DeviceAction::Clipboard => {
-            kdeconnect_output(&["--device", device_id, "--send-clipboard"]).await?;
+            dbus_call(
+                &format!("{}/clipboard", device_path(device_id)),
+                "org.kde.kdeconnect.device.clipboard",
+                "sendClipboard",
+                &[],
+            )
+            .await?
         }
         DeviceAction::Browse => {
-            kdeconnect_output(&["--device", device_id, "--mount"]).await?;
-            let mount = kdeconnect_output(&["--device", device_id, "--get-mount-point"]).await?;
-            let mount = mount.trim();
-            if mount.is_empty() {
+            let sftp_path = format!("{}/sftp", device_path(device_id));
+            let mounted = dbus_call_text(
+                &sftp_path,
+                "org.kde.kdeconnect.device.sftp",
+                "mountAndWait",
+                &[],
+            )
+            .await?;
+            if parse_busctl_bool(&mounted) != Some(true) {
+                return Err("KDE Connect could not mount the device filesystem".into());
+            }
+            let mount = dbus_call_text(
+                &sftp_path,
+                "org.kde.kdeconnect.device.sftp",
+                "mountPoint",
+                &[],
+            )
+            .await?;
+            let mount = parse_busctl_string(&mount).unwrap_or_default();
+            if mount.trim().is_empty() {
                 return Err("KDE Connect did not return a mount point".into());
             }
             open_path(PathBuf::from(mount)).await?;
@@ -295,10 +421,58 @@ async fn run_device_action(device_id: &str, action: DeviceAction) -> AppletResul
     Ok(())
 }
 
-async fn kdeconnect_output(args: &[&str]) -> AppletResult<String> {
-    let output = command_output("kdeconnect-cli", args, Duration::from_secs(5)).await?;
-
+async fn command_text(program: &str, args: &[&str], limit: Duration) -> AppletResult<String> {
+    let output = command_output(program, args, limit).await?;
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+async fn dbus_call(path: &str, interface: &str, method: &str, extra: &[&str]) -> AppletResult<()> {
+    dbus_call_text(path, interface, method, extra).await?;
+    Ok(())
+}
+
+async fn dbus_call_text(
+    path: &str,
+    interface: &str,
+    method: &str,
+    extra: &[&str],
+) -> AppletResult<String> {
+    let mut args = vec![
+        "--user",
+        "call",
+        "org.kde.kdeconnect",
+        path,
+        interface,
+        method,
+    ];
+    args.extend_from_slice(extra);
+    command_text("busctl", &args, Duration::from_secs(2)).await
+}
+
+async fn device_bool_property(device_id: &str, property: &str) -> AppletResult<Option<bool>> {
+    let output = device_property(device_id, property).await?;
+    Ok(parse_busctl_bool(&output))
+}
+
+async fn device_string_property(device_id: &str, property: &str) -> AppletResult<Option<String>> {
+    let output = device_property(device_id, property).await?;
+    Ok(parse_busctl_string(&output))
+}
+
+async fn device_property(device_id: &str, property: &str) -> AppletResult<String> {
+    command_text(
+        "busctl",
+        &[
+            "--user",
+            "get-property",
+            "org.kde.kdeconnect",
+            &device_path(device_id),
+            "org.kde.kdeconnect.device",
+            property,
+        ],
+        Duration::from_secs(2),
+    )
+    .await
 }
 
 async fn device_charge(device_id: &str) -> AppletResult<Option<u8>> {
@@ -323,9 +497,271 @@ async fn device_charge(device_id: &str) -> AppletResult<Option<u8>> {
     Ok(parse_charge(&String::from_utf8_lossy(&output.stdout)))
 }
 
+fn device_path(device_id: &str) -> String {
+    format!(
+        "/modules/kdeconnect/devices/{}",
+        device_id.replace('-', "_")
+    )
+}
+
 fn parse_charge(output: &str) -> Option<u8> {
     let value = output.split_whitespace().nth(1)?.parse::<u8>().ok()?;
     (value <= 100).then_some(value)
+}
+
+fn parse_busctl_bool(output: &str) -> Option<bool> {
+    let mut parts = output.split_whitespace();
+    if parts.next()? != "b" {
+        return None;
+    }
+    match parts.next()? {
+        "true" => Some(true),
+        "false" => Some(false),
+        _ => None,
+    }
+}
+
+async fn watch_phone_notifications(tx: mpsc::Sender<Msg>) -> AppletResult<()> {
+    let connection = zbus::Connection::session().await?;
+    let rule = MatchRule::builder()
+        .msg_type(Type::Signal)
+        .sender("org.kde.kdeconnect")?
+        .interface("org.kde.kdeconnect.device.notifications")?
+        .build()
+        .into_owned();
+    let mut stream = MessageStream::for_match_rule(rule, &connection, None).await?;
+
+    while let Some(message) = stream.next().await {
+        let message = message?;
+        let Some(member) = message.header().member().map(|member| member.to_string()) else {
+            continue;
+        };
+        let Some(path) = message.header().path().map(|path| path.to_string()) else {
+            continue;
+        };
+        let Some(device_id) = device_id_from_notifications_path(&path) else {
+            continue;
+        };
+
+        match member.as_str() {
+            "notificationPosted" | "notificationUpdated" => {
+                let Ok(remote_id) = notification_signal_id(&message) else {
+                    continue;
+                };
+                if let Some(notification) =
+                    phone_notification_by_device_id(&device_id, &remote_id).await
+                    && tx
+                        .send(Msg::MirrorNotification(notification))
+                        .await
+                        .is_err()
+                {
+                    break;
+                }
+            }
+            "notificationRemoved" => {
+                let Ok(remote_id) = notification_signal_id(&message) else {
+                    continue;
+                };
+                if tx
+                    .send(Msg::RemoveNotification(notification_key(
+                        &device_id, &remote_id,
+                    )))
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+            }
+            "allNotificationsRemoved" => {
+                let removed = tx.send(Msg::RemoveDeviceNotifications(device_id)).await;
+                if removed.is_err() {
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
+fn notification_signal_id(message: &zbus::Message) -> zbus::Result<String> {
+    message.body().deserialize::<String>()
+}
+
+fn device_id_from_notifications_path(path: &str) -> Option<String> {
+    let rest = path.strip_prefix("/modules/kdeconnect/devices/")?;
+    let (segment, tail) = rest.split_once("/")?;
+    (tail == "notifications").then(|| segment.replace("_", "-"))
+}
+
+async fn phone_notification_by_device_id(
+    device_id: &str,
+    remote_id: &str,
+) -> Option<KdeNotification> {
+    let name = device_string_property(device_id, "name")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "Phone".into());
+    let device = Device::new(device_id, name);
+    phone_notification(&device, remote_id).await
+}
+
+async fn phone_notification(device: &Device, remote_id: &str) -> Option<KdeNotification> {
+    let path = notification_path(&device.id, remote_id);
+    let app_name = kde_notification_property(&path, "appName")
+        .await
+        .unwrap_or_else(|| device.name.clone());
+    let ticker = kde_notification_property(&path, "ticker").await;
+    let summary = kde_notification_property(&path, "title")
+        .await
+        .or_else(|| ticker.clone())
+        .unwrap_or_else(|| "Phone notification".into());
+    let body = kde_notification_property(&path, "text")
+        .await
+        .or(ticker)
+        .unwrap_or_default();
+    let icon = kde_notification_property(&path, "iconPath").await;
+
+    Some(KdeNotification {
+        key: notification_key(&device.id, remote_id),
+        device_name: device.name.clone(),
+        app_name,
+        summary,
+        body,
+        icon,
+    })
+}
+
+async fn kde_notification_property(path: &str, property: &str) -> Option<String> {
+    let output = command_output(
+        "busctl",
+        &[
+            "--user",
+            "get-property",
+            "org.kde.kdeconnect",
+            path,
+            "org.kde.kdeconnect.device.notifications.notification",
+            property,
+        ],
+        Duration::from_secs(2),
+    )
+    .await
+    .ok()?;
+
+    parse_busctl_string(&String::from_utf8_lossy(&output.stdout))
+}
+
+async fn mirror_desktop_notification(
+    notification: &KdeNotification,
+    replaces_id: u32,
+) -> AppletResult<u32> {
+    let mut args = vec![
+        "--print-id".to_owned(),
+        "--app-name".to_owned(),
+        format!("KDE Connect - {}", notification.device_name),
+    ];
+    if replaces_id != 0 {
+        args.push("--replace-id".to_owned());
+        args.push(replaces_id.to_string());
+    }
+    if let Some(icon) = &notification.icon
+        && !icon.trim().is_empty()
+    {
+        args.push("--icon".to_owned());
+        args.push(icon.clone());
+    }
+
+    args.push(notification.summary.clone());
+    args.push(notification.body.clone());
+
+    let output = command_output_owned("notify-send", &args, Duration::from_secs(5)).await?;
+    let id = String::from_utf8_lossy(&output.stdout)
+        .trim()
+        .parse::<u32>()?;
+    Ok(id)
+}
+
+async fn close_desktop_notification(id: u32) -> AppletResult<()> {
+    let args = vec![
+        "--user".to_owned(),
+        "call".to_owned(),
+        "org.freedesktop.Notifications".to_owned(),
+        "/org/freedesktop/Notifications".to_owned(),
+        "org.freedesktop.Notifications".to_owned(),
+        "CloseNotification".to_owned(),
+        "u".to_owned(),
+        id.to_string(),
+    ];
+    command_output_owned("busctl", &args, Duration::from_secs(2)).await?;
+    Ok(())
+}
+
+fn notification_key(device_id: &str, remote_id: &str) -> String {
+    format!("{device_id}:{remote_id}")
+}
+
+fn notification_path(device_id: &str, remote_id: &str) -> String {
+    if remote_id.starts_with('/') {
+        return remote_id.to_owned();
+    }
+    format!(
+        "{}/notifications/{}",
+        device_path(device_id),
+        object_path_segment(remote_id)
+    )
+}
+
+fn object_path_segment(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '_' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
+fn parse_busctl_string(output: &str) -> Option<String> {
+    parse_quoted_strings(output).into_iter().next()
+}
+
+fn parse_quoted_strings(output: &str) -> Vec<String> {
+    let mut values = Vec::new();
+    let mut chars = output.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch != '"' {
+            continue;
+        }
+
+        let mut value = String::new();
+        let mut escaped = false;
+        for next in chars.by_ref() {
+            if escaped {
+                value.push(match next {
+                    'n' => '\n',
+                    'r' => '\r',
+                    't' => '\t',
+                    '"' => '"',
+                    '\\' => '\\',
+                    other => other,
+                });
+                escaped = false;
+            } else if next == '\\' {
+                escaped = true;
+            } else if next == '"' {
+                break;
+            } else {
+                value.push(next);
+            }
+        }
+        values.push(value);
+    }
+    values
 }
 
 async fn command_output(
@@ -333,14 +769,38 @@ async fn command_output(
     args: &[&str],
     limit: Duration,
 ) -> AppletResult<std::process::Output> {
+    let mut command = prepare_command(program);
+    command.args(args);
+
+    run_command_output(program, command, limit).await
+}
+
+async fn command_output_owned(
+    program: &str,
+    args: &[String],
+    limit: Duration,
+) -> AppletResult<std::process::Output> {
+    let mut command = prepare_command(program);
+    command.args(args);
+
+    run_command_output(program, command, limit).await
+}
+
+fn prepare_command(program: &str) -> tokio::process::Command {
     let mut command = tokio::process::Command::new(program);
     command
-        .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
+    command
+}
 
+async fn run_command_output(
+    program: &str,
+    mut command: tokio::process::Command,
+    limit: Duration,
+) -> AppletResult<std::process::Output> {
     let output = match tokio::time::timeout(limit, command.output()).await {
         Ok(output) => output?,
         Err(_) => return Err(format!("{program} timed out after {limit:?}").into()),
@@ -352,7 +812,7 @@ async fn command_output(
 
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
     if stderr.is_empty() {
-        Err(format!("kdeconnect-cli exited with {}", output.status).into())
+        Err(format!("{program} exited with {}", output.status).into())
     } else {
         Err(stderr.into())
     }
@@ -375,40 +835,20 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn parses_id_and_name_lists_without_splitting_device_names() {
-        let devices = parse_devices("id-1\nid-2\n", "Pixel 8 Pro\nSteam Deck\n");
-
-        assert_eq!(
-            devices,
-            vec![
-                Device {
-                    id: "id-1".into(),
-                    name: "Pixel 8 Pro".into(),
-                    charge: None,
-                },
-                Device {
-                    id: "id-2".into(),
-                    name: "Steam Deck".into(),
-                    charge: None,
-                },
-            ]
+    fn parses_device_paths_from_busctl_tree() {
+        let paths = parse_device_paths(
+            "├─ /modules/kdeconnect/devices/phone_one\n│ ├─ /modules/kdeconnect/devices/phone_one/battery\n└─ /modules/kdeconnect/devices/deck_two\n",
         );
+
+        assert_eq!(paths, vec!["phone-one".to_owned(), "deck-two".to_owned()]);
     }
 
     #[test]
     fn reconcile_expanded_prunes_missing_devices_without_expanding_by_default() {
         let mut state = State {
             devices: vec![
-                Device {
-                    id: "phone".into(),
-                    name: "Phone".into(),
-                    charge: None,
-                },
-                Device {
-                    id: "deck".into(),
-                    name: "Steam Deck".into(),
-                    charge: None,
-                },
+                Device::new("phone", "Phone"),
+                Device::new("deck", "Steam Deck"),
             ],
             expanded: HashSet::from(["missing".into()]),
             ..State::default()
@@ -426,11 +866,7 @@ mod tests {
     #[test]
     fn reconcile_expanded_preserves_user_collapsed_device_on_refresh() {
         let mut state = State {
-            devices: vec![Device {
-                id: "phone".into(),
-                name: "Phone".into(),
-                charge: None,
-            }],
+            devices: vec![Device::new("phone", "Phone")],
             expanded: HashSet::from(["phone".into()]),
             known_devices: HashSet::from(["phone".into()]),
             ..State::default()
@@ -459,6 +895,40 @@ mod tests {
         assert_eq!(parse_charge(""), None);
     }
 
+    #[test]
+    fn parses_busctl_bool_values() {
+        assert_eq!(parse_busctl_bool("b true\n"), Some(true));
+        assert_eq!(parse_busctl_bool("b false\n"), Some(false));
+        assert_eq!(parse_busctl_bool("s true\n"), None);
+    }
+
+    #[test]
+    fn parses_notification_signal_device_paths() {
+        assert_eq!(
+            device_id_from_notifications_path(
+                "/modules/kdeconnect/devices/phone_one/notifications"
+            ),
+            Some("phone-one".to_owned())
+        );
+        assert_eq!(
+            device_id_from_notifications_path("/modules/kdeconnect/devices/phone_one/battery"),
+            None
+        );
+        assert_eq!(device_id_from_notifications_path("/other"), None);
+    }
+
+    #[test]
+    fn notification_paths_sanitize_remote_ids() {
+        assert_eq!(
+            notification_path("phone-id", "app:42"),
+            "/modules/kdeconnect/devices/phone_id/notifications/app_42"
+        );
+        assert_eq!(
+            notification_path("phone-id", "/custom/path"),
+            "/custom/path"
+        );
+    }
+
     #[tokio::test]
     async fn status_is_only_visible_when_devices_are_connected() {
         let empty = KdeConnectApplet.status(&State::default()).await.unwrap();
@@ -466,11 +936,7 @@ mod tests {
 
         let connected = KdeConnectApplet
             .status(&State {
-                devices: vec![Device {
-                    id: "phone".into(),
-                    name: "Phone".into(),
-                    charge: None,
-                }],
+                devices: vec![Device::new("phone", "Phone")],
                 ..State::default()
             })
             .await
@@ -488,12 +954,10 @@ mod tests {
 
     #[test]
     fn popover_uses_segmented_device_tiles_with_action_children() {
+        let mut device = Device::new("phone", "Pixel 8 Pro");
+        device.charge = Some(87);
         let state = State {
-            devices: vec![Device {
-                id: "phone".into(),
-                name: "Pixel 8 Pro".into(),
-                charge: Some(87),
-            }],
+            devices: vec![device],
             expanded: HashSet::from(["phone".into()]),
             ..State::default()
         };
@@ -547,7 +1011,7 @@ mod tests {
                     "type": "tile",
                     "data": {
                         "id": "clipboard-phone",
-                        "primary": "Share clipboard",
+                        "primary": "Send clipboard to phone",
                         "left_icon": "edit-paste-symbolic",
                         "activatable": true
                     }
