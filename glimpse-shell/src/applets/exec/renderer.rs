@@ -1,4 +1,4 @@
-use std::{collections::HashSet, rc::Rc};
+use std::{cell::Cell, collections::HashSet, rc::Rc, time::Duration};
 
 use chrono::NaiveDate;
 use glimpse_core::services::{
@@ -394,8 +394,19 @@ impl RenderCatalog {
         tile.set_value(data.value);
         let id = data.id.clone();
         let event = self.event.clone();
+        let pending: Rc<Cell<Option<gtk::glib::SourceId>>> = Rc::new(Cell::new(None));
         tile.connect_changed(move |_, value| {
-            event(change_event(id.clone(), json!(value)));
+            if let Some(source_id) = pending.take() {
+                source_id.remove();
+            }
+            let id = id.clone();
+            let event = event.clone();
+            let pending2 = pending.clone();
+            let source_id = gtk::glib::timeout_add_local_once(Duration::from_millis(100), move || {
+                pending2.set(None);
+                event(change_event(id, json!(value)));
+            });
+            pending.set(Some(source_id));
         });
         apply_common(&tile, &data.common);
         Ok(tile.upcast())
