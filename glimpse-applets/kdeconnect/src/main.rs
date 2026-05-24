@@ -98,6 +98,7 @@ impl Applet for KdeConnectApplet {
         });
 
         tokio::spawn(async move {
+            eprintln!("kdeconnect notification bridge: starting");
             if let Err(err) = watch_phone_notifications(tx).await {
                 eprintln!("kdeconnect notification bridge failed: {err}");
             }
@@ -522,63 +523,146 @@ fn parse_busctl_bool(output: &str) -> Option<bool> {
 }
 
 async fn watch_phone_notifications(tx: mpsc::Sender<Msg>) -> AppletResult<()> {
-    let connection = zbus::Connection::session().await?;
+    eprintln!("kdeconnect notification bridge: connecting to session bus");
+    let connection = match zbus::Connection::session().await {
+        Ok(connection) => {
+            eprintln!("kdeconnect notification bridge: connected to session bus");
+            connection
+        }
+        Err(err) => {
+            eprintln!("kdeconnect notification bridge: session bus connection failed: {err}");
+            return Err(err.into());
+        }
+    };
+    eprintln!("kdeconnect notification bridge: creating notifications signal match rule");
     let rule = MatchRule::builder()
         .msg_type(Type::Signal)
         .sender("org.kde.kdeconnect")?
         .interface("org.kde.kdeconnect.device.notifications")?
         .build()
         .into_owned();
-    let mut stream = MessageStream::for_match_rule(rule, &connection, None).await?;
+    let mut stream = match MessageStream::for_match_rule(rule, &connection, None).await {
+        Ok(stream) => {
+            eprintln!("kdeconnect notification bridge: subscribed to notification signals");
+            stream
+        }
+        Err(err) => {
+            eprintln!("kdeconnect notification bridge: signal subscription failed: {err}");
+            return Err(err.into());
+        }
+    };
 
     while let Some(message) = stream.next().await {
-        let message = message?;
+        let message = match message {
+            Ok(message) => message,
+            Err(err) => {
+                eprintln!("kdeconnect notification bridge: failed to read signal message: {err}");
+                return Err(err.into());
+            }
+        };
         let Some(member) = message.header().member().map(|member| member.to_string()) else {
+            eprintln!("kdeconnect notification bridge: skipping signal without member");
             continue;
         };
         let Some(path) = message.header().path().map(|path| path.to_string()) else {
+            eprintln!(
+                "kdeconnect notification bridge: skipping signal {member} without object path"
+            );
             continue;
         };
+        eprintln!("kdeconnect notification bridge: signal member={member} path={path}");
         let Some(device_id) = device_id_from_notifications_path(&path) else {
+            eprintln!(
+                "kdeconnect notification bridge: skipping signal {member}; path does not match notifications object"
+            );
             continue;
         };
+        eprintln!("kdeconnect notification bridge: parsed device_id={device_id}");
 
         match member.as_str() {
             "notificationPosted" | "notificationUpdated" => {
-                let Ok(remote_id) = notification_signal_id(&message) else {
-                    continue;
+                let remote_id = match notification_signal_id(&message) {
+                    Ok(remote_id) => {
+                        eprintln!("kdeconnect notification bridge: parsed remote_id={remote_id}");
+                        remote_id
+                    }
+                    Err(err) => {
+                        eprintln!(
+                            "kdeconnect notification bridge: failed to parse {member} body: {err}"
+                        );
+                        continue;
+                    }
                 };
-                if let Some(notification) =
-                    phone_notification_by_device_id(&device_id, &remote_id).await
-                    && tx
-                        .send(Msg::MirrorNotification(notification))
-                        .await
-                        .is_err()
-                {
-                    break;
+                match phone_notification_by_device_id(&device_id, &remote_id).await {
+                    Some(notification) => {
+                        eprintln!(
+                            "kdeconnect notification bridge: loaded notification key={} app={} summary={}",
+                            notification.key, notification.app_name, notification.summary
+                        );
+                        if tx
+                            .send(Msg::MirrorNotification(notification))
+                            .await
+                            .is_err()
+                        {
+                            eprintln!(
+                                "kdeconnect notification bridge: applet channel closed while mirroring notification"
+                            );
+                            break;
+                        }
+                        eprintln!(
+                            "kdeconnect notification bridge: queued desktop notification mirror"
+                        );
+                    }
+                    None => {
+                        eprintln!(
+                            "kdeconnect notification bridge: notification properties unavailable for device_id={device_id} remote_id={remote_id}"
+                        );
+                    }
                 }
             }
             "notificationRemoved" => {
-                let Ok(remote_id) = notification_signal_id(&message) else {
-                    continue;
+                let remote_id = match notification_signal_id(&message) {
+                    Ok(remote_id) => {
+                        eprintln!(
+                            "kdeconnect notification bridge: parsed removed remote_id={remote_id}"
+                        );
+                        remote_id
+                    }
+                    Err(err) => {
+                        eprintln!(
+                            "kdeconnect notification bridge: failed to parse {member} body: {err}"
+                        );
+                        continue;
+                    }
                 };
-                if tx
-                    .send(Msg::RemoveNotification(notification_key(
-                        &device_id, &remote_id,
-                    )))
-                    .await
-                    .is_err()
-                {
+                let key = notification_key(&device_id, &remote_id);
+                eprintln!(
+                    "kdeconnect notification bridge: queued desktop notification removal key={key}"
+                );
+                if tx.send(Msg::RemoveNotification(key)).await.is_err() {
+                    eprintln!(
+                        "kdeconnect notification bridge: applet channel closed while removing notification"
+                    );
                     break;
                 }
             }
             "allNotificationsRemoved" => {
+                eprintln!(
+                    "kdeconnect notification bridge: queued removal for all device notifications device_id={device_id}"
+                );
                 let removed = tx.send(Msg::RemoveDeviceNotifications(device_id)).await;
                 if removed.is_err() {
+                    eprintln!(
+                        "kdeconnect notification bridge: applet channel closed while removing device notifications"
+                    );
                     break;
                 }
             }
-            _ => {}
+            _ => {
+                eprintln!(
+                    "kdeconnect notification bridge: ignoring notification signal member={member}"
+                );
+            }
         }
     }
 
@@ -599,20 +683,41 @@ async fn phone_notification_by_device_id(
     device_id: &str,
     remote_id: &str,
 ) -> Option<KdeNotification> {
-    let name = device_string_property(device_id, "name")
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| "Phone".into());
+    let name = match device_string_property(device_id, "name").await {
+        Ok(Some(name)) => {
+            eprintln!(
+                "kdeconnect notification bridge: loaded device name device_id={device_id} name={name}"
+            );
+            name
+        }
+        Ok(None) => {
+            eprintln!(
+                "kdeconnect notification bridge: device name unavailable for device_id={device_id}; using fallback"
+            );
+            "Phone".into()
+        }
+        Err(err) => {
+            eprintln!(
+                "kdeconnect notification bridge: failed to load device name device_id={device_id}: {err}; using fallback"
+            );
+            "Phone".into()
+        }
+    };
     let device = Device::new(device_id, name);
     phone_notification(&device, remote_id).await
 }
 
 async fn phone_notification(device: &Device, remote_id: &str) -> Option<KdeNotification> {
     let path = notification_path(&device.id, remote_id);
+    eprintln!("kdeconnect notification bridge: loading notification properties path={path}");
     let app_name = kde_notification_property(&path, "appName")
         .await
-        .unwrap_or_else(|| device.name.clone());
+        .unwrap_or_else(|| {
+            eprintln!(
+                "kdeconnect notification bridge: appName unavailable path={path}; using device name"
+            );
+            device.name.clone()
+        });
     let ticker = kde_notification_property(&path, "ticker").await;
     let summary = kde_notification_property(&path, "title")
         .await
@@ -647,10 +752,28 @@ async fn kde_notification_property(path: &str, property: &str) -> Option<String>
         ],
         Duration::from_secs(2),
     )
-    .await
-    .ok()?;
+    .await;
 
-    parse_busctl_string(&String::from_utf8_lossy(&output.stdout))
+    let output = match output {
+        Ok(output) => output,
+        Err(err) => {
+            eprintln!(
+                "kdeconnect notification bridge: failed to read notification property path={path} property={property}: {err}"
+            );
+            return None;
+        }
+    };
+
+    let value = parse_busctl_string(&String::from_utf8_lossy(&output.stdout));
+    match &value {
+        Some(value) => eprintln!(
+            "kdeconnect notification bridge: property path={path} property={property} value={value}"
+        ),
+        None => eprintln!(
+            "kdeconnect notification bridge: property path={path} property={property} empty or unparsable"
+        ),
+    }
+    value
 }
 
 async fn mirror_desktop_notification(
@@ -676,10 +799,15 @@ async fn mirror_desktop_notification(
     args.push(notification.summary.clone());
     args.push(notification.body.clone());
 
+    eprintln!(
+        "kdeconnect notification bridge: sending notify-send summary={} replaces_id={replaces_id}",
+        notification.summary
+    );
     let output = command_output_owned("notify-send", &args, Duration::from_secs(5)).await?;
     let id = String::from_utf8_lossy(&output.stdout)
         .trim()
         .parse::<u32>()?;
+    eprintln!("kdeconnect notification bridge: notify-send returned desktop_id={id}");
     Ok(id)
 }
 
