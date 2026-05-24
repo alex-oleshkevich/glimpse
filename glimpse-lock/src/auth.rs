@@ -27,6 +27,11 @@ impl SecretString {
     }
 }
 
+// Clone is required because LockWindowInput::Submit(SecretString) derives
+// Clone for relm4's message broadcasting machinery. The Submit variant is
+// emitted from LockWindow -> LockApp (single sender, single receiver), so
+// in practice clones never happen on the password path. If LockWindowInput
+// is ever split into separate inbound/outbound enums, drop this impl.
 impl Clone for SecretString {
     fn clone(&self) -> Self {
         Self::new(self.inner.as_str())
@@ -60,7 +65,6 @@ pub enum AuthResult {
     Failure {
         pam_message: Option<String>,
     },
-    SecondFactorRequired,
     AccountUnavailable {
         reason: String,
         pam_message: Option<String>,
@@ -120,14 +124,8 @@ fn authenticate_with_pam(
     username: &str,
     password: SecretString,
 ) -> anyhow::Result<AuthResult> {
-    let second_factor_seen = Rc::new(Cell::new(false));
     let last_message: Rc<Cell<Option<String>>> = Rc::new(Cell::new(None));
-    let conversation = LockConversation::new(
-        username,
-        Some(password),
-        second_factor_seen.clone(),
-        last_message.clone(),
-    );
+    let conversation = LockConversation::new(username, Some(password), last_message.clone());
     let mut context = Context::new(service, Some(username), conversation)?;
     match context.authenticate(Flag::DISALLOW_NULL_AUTHTOK) {
         Ok(()) => match context.acct_mgmt(Flag::NONE) {
@@ -139,25 +137,17 @@ fn authenticate_with_pam(
             }
         },
         Err(error) => {
-            if second_factor_seen.get() {
-                tracing::warn!(
-                    %error,
-                    "PAM stack requires a second factor; glimpse-lock does not support multi-prompt PAM stacks"
-                );
-                Ok(AuthResult::SecondFactorRequired)
+            let code = error.code();
+            if let Some(unavailable) =
+                authenticate_unavailable_result(code, last_message.take())
+            {
+                tracing::warn!(%error, ?code, "PAM account unavailable");
+                Ok(unavailable)
             } else {
-                let code = error.code();
-                if let Some(unavailable) =
-                    authenticate_unavailable_result(code, last_message.take())
-                {
-                    tracing::warn!(%error, ?code, "PAM account unavailable");
-                    Ok(unavailable)
-                } else {
-                    tracing::warn!(%error, ?code, "PAM authentication failed");
-                    Ok(AuthResult::Failure {
-                        pam_message: last_message.take(),
-                    })
-                }
+                tracing::warn!(%error, ?code, "PAM authentication failed");
+                Ok(AuthResult::Failure {
+                    pam_message: last_message.take(),
+                })
             }
         }
     }
@@ -207,7 +197,6 @@ struct LockConversation {
     // our control via the current pam_client2 API.
     password: Option<SecretString>,
     password_prompt_count: u32,
-    second_factor_seen: Rc<Cell<bool>>,
     last_message: Rc<Cell<Option<String>>>,
 }
 
@@ -215,14 +204,12 @@ impl LockConversation {
     fn new(
         username: &str,
         password: Option<SecretString>,
-        second_factor_seen: Rc<Cell<bool>>,
         last_message: Rc<Cell<Option<String>>>,
     ) -> Self {
         Self {
             username: username.to_owned(),
             password,
             password_prompt_count: 0,
-            second_factor_seen,
             last_message,
         }
     }
@@ -249,7 +236,17 @@ impl ConversationHandler for LockConversation {
             let password = self.password.take().ok_or(ErrorCode::CONV_ERR)?;
             CString::new(password.as_str()).map_err(|_| ErrorCode::CONV_ERR)
         } else {
-            self.second_factor_seen.set(true);
+            // Any second echo-off prompt is reported as a conversation error.
+            // We deliberately do NOT try to detect "second factor required"
+            // here: a PAM module retrying a single prompt (transient EINTR,
+            // SSSD reconnects, etc.) looks identical to a real MFA prompt.
+            // Surfacing it as plain failure keeps the message honest; any text
+            // PAM printed via text_info/error_msg before this point will be
+            // captured in last_message and shown to the user.
+            tracing::debug!(
+                count = self.password_prompt_count,
+                "PAM requested an additional echo-off prompt; treating as failure"
+            );
             Err(ErrorCode::CONV_ERR)
         }
     }
@@ -267,7 +264,10 @@ impl ConversationHandler for LockConversation {
 
 #[cfg(test)]
 mod tests {
-    use super::{AuthResult, Authenticator, PreviewAuthenticator, SecretString};
+    use super::{
+        AuthResult, Authenticator, ErrorCode, PreviewAuthenticator, SecretString,
+        account_failure_result, authenticate_unavailable_result,
+    };
 
     #[test]
     fn preview_authenticator_accepts_valid_password_only() {
@@ -284,6 +284,126 @@ mod tests {
                 .authenticate("unused", "preview", SecretString::new("invalid"))
                 .expect("preview auth should not fail"),
             AuthResult::Failure { pam_message: None }
+        );
+    }
+
+    fn unavailable(reason: &str, pam_message: Option<&str>) -> AuthResult {
+        AuthResult::AccountUnavailable {
+            reason: reason.into(),
+            pam_message: pam_message.map(str::to_owned),
+        }
+    }
+
+    fn failure(pam_message: Option<&str>) -> AuthResult {
+        AuthResult::Failure {
+            pam_message: pam_message.map(str::to_owned),
+        }
+    }
+
+    /// Table-driven test pinning the post-acct_mgmt mapping. These mappings
+    /// are user-visible (they drive the status message) so changes must be
+    /// deliberate.
+    #[test]
+    fn account_failure_result_maps_known_codes() {
+        let cases: &[(ErrorCode, AuthResult)] = &[
+            (
+                ErrorCode::ACCT_EXPIRED,
+                unavailable("Account expired", None),
+            ),
+            (
+                ErrorCode::NEW_AUTHTOK_REQD,
+                unavailable("Password change required to log in", None),
+            ),
+            (
+                ErrorCode::CRED_EXPIRED,
+                unavailable("Password change required to log in", None),
+            ),
+            (
+                ErrorCode::AUTHTOK_EXPIRED,
+                unavailable("Password change required to log in", None),
+            ),
+            (
+                ErrorCode::PERM_DENIED,
+                unavailable("Account access denied", None),
+            ),
+            (
+                ErrorCode::USER_UNKNOWN,
+                unavailable("Account not found", None),
+            ),
+            // Any other code falls through to Failure (e.g. pam_faillock
+            // returning AUTH_ERR from its account phase when the account is
+            // currently locked).
+            (ErrorCode::AUTH_ERR, failure(None)),
+            (ErrorCode::ABORT, failure(None)),
+        ];
+        for (code, expected) in cases {
+            assert_eq!(
+                account_failure_result(*code, None),
+                *expected,
+                "account_failure_result mapping mismatch for {code:?}"
+            );
+        }
+    }
+
+    /// Same table-driven approach for the authenticate() failure path. Note
+    /// the slightly different code set (e.g. MAXTRIES and AUTHINFO_UNAVAIL
+    /// are recognised here but not by account_failure_result).
+    #[test]
+    fn authenticate_unavailable_result_maps_known_codes() {
+        let cases: &[(ErrorCode, Option<AuthResult>)] = &[
+            (
+                ErrorCode::ACCT_EXPIRED,
+                Some(unavailable("Account expired", None)),
+            ),
+            (
+                ErrorCode::USER_UNKNOWN,
+                Some(unavailable("Account not found", None)),
+            ),
+            (
+                ErrorCode::MAXTRIES,
+                Some(unavailable("Too many attempts; try again later", None)),
+            ),
+            (
+                ErrorCode::PERM_DENIED,
+                Some(unavailable("Account access denied", None)),
+            ),
+            (
+                ErrorCode::AUTHINFO_UNAVAIL,
+                Some(unavailable("Authentication service unavailable", None)),
+            ),
+            // Unmapped codes return None so the caller can render a generic
+            // "Authentication failed" / cooldown message.
+            (ErrorCode::AUTH_ERR, None),
+            (ErrorCode::ABORT, None),
+        ];
+        for (code, expected) in cases {
+            assert_eq!(
+                authenticate_unavailable_result(*code, None),
+                *expected,
+                "authenticate_unavailable_result mapping mismatch for {code:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn account_failure_result_threads_pam_message_through() {
+        let result = account_failure_result(ErrorCode::ACCT_EXPIRED, Some("Custom reason".into()));
+        assert_eq!(
+            result,
+            unavailable("Account expired", Some("Custom reason"))
+        );
+    }
+
+    #[test]
+    fn authenticate_unavailable_result_threads_pam_message_through() {
+        let result =
+            authenticate_unavailable_result(ErrorCode::MAXTRIES, Some("3 attempts remaining".into()));
+        assert_eq!(
+            result,
+            Some(unavailable(
+                "Too many attempts; try again later",
+                Some("3 attempts remaining")
+            ))
         );
     }
 }

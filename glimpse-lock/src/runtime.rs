@@ -30,7 +30,9 @@ impl LockRuntime {
         self.auth_success = true;
     }
 
-    pub fn mark_auth_failure(&mut self) {
+    /// Clears the authenticated flag. Used after a failed unlock attempt or
+    /// when a stale auth result should be discarded.
+    pub fn clear_auth_success(&mut self) {
         self.auth_success = false;
     }
 
@@ -48,6 +50,13 @@ impl LockRuntime {
         acquire_dbus_name(name.into()).await
     }
 
+    /// Test-only equivalent of [`acquire_single_instance`]: uses a
+    /// process-local registry rather than the session bus so integration
+    /// tests can verify single-instance semantics without touching D-Bus.
+    /// Not gated behind `#[cfg(test)]` because the integration tests in
+    /// `tests/runtime_behavior.rs` live in a separate crate that
+    /// `#[cfg(test)]` does not include.
+    #[doc(hidden)]
     pub async fn acquire_single_instance_for_testing(
         name: &str,
     ) -> anyhow::Result<TestInstanceGuard> {
@@ -56,13 +65,12 @@ impl LockRuntime {
 }
 
 pub struct InstanceGuard {
-    _name: String,
-    _connection: zbus::Connection,
+    connection: zbus::Connection,
 }
 
 impl InstanceGuard {
     pub fn connection(&self) -> zbus::Connection {
-        self._connection.clone()
+        self.connection.clone()
     }
 }
 
@@ -85,10 +93,7 @@ async fn acquire_dbus_name(name: impl Into<String>) -> anyhow::Result<InstanceGu
     match reply {
         RequestNameReply::PrimaryOwner | RequestNameReply::AlreadyOwner => {
             tracing::debug!(name, reply = ?reply, "D-Bus name acquired");
-            Ok(InstanceGuard {
-                _name: name,
-                _connection: connection,
-            })
+            Ok(InstanceGuard { connection })
         }
         RequestNameReply::Exists | RequestNameReply::InQueue => {
             bail!("another glimpse-lock instance already owns {name}")
@@ -96,6 +101,7 @@ async fn acquire_dbus_name(name: impl Into<String>) -> anyhow::Result<InstanceGu
     }
 }
 
+#[doc(hidden)]
 #[derive(Debug)]
 pub struct TestInstanceGuard {
     name: String,

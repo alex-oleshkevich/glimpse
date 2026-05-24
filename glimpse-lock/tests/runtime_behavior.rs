@@ -56,9 +56,49 @@ fn failed_auth_clears_pending_success() {
 
     runtime.mark_locked();
     runtime.mark_auth_success();
-    runtime.mark_auth_failure();
+    runtime.clear_auth_success();
 
     assert!(!runtime.can_unlock());
+}
+
+/// The unlock invariant: `can_unlock()` requires BOTH the compositor's
+/// `Locked` event (via `mark_locked`) AND a successful PAM authentication
+/// (via `mark_auth_success`). The Unlocked handler in app.rs uses this to
+/// distinguish a legitimate unlock from an unsolicited compositor release.
+#[test]
+fn can_unlock_requires_both_locked_and_auth_success() {
+    let mut runtime = LockRuntime::default();
+    assert!(!runtime.can_unlock(), "fresh runtime should not be unlockable");
+
+    runtime.mark_locked();
+    assert!(!runtime.can_unlock(), "locked-but-not-authed must not unlock");
+
+    runtime.clear_auth_success();
+    runtime.mark_locked();
+    runtime.mark_auth_success();
+    assert!(runtime.can_unlock(), "locked AND authed should be unlockable");
+
+    runtime.reset();
+    runtime.mark_auth_success();
+    assert!(!runtime.can_unlock(), "authed-but-not-locked must not unlock");
+}
+
+/// `clear_auth_success` (called from the Failure / AccountUnavailable
+/// handlers) must NOT clear the `locked` flag: a wrong password attempt
+/// should leave the lock surface in place.
+#[test]
+fn clear_auth_success_preserves_locked_state() {
+    let mut runtime = LockRuntime::default();
+    runtime.mark_locked();
+    runtime.mark_auth_success();
+
+    runtime.clear_auth_success();
+
+    // Still locked from the compositor's perspective: the lock surface
+    // should stay up after a failed attempt.
+    assert!(!runtime.can_unlock());
+    runtime.mark_auth_success();
+    assert!(runtime.can_unlock(), "re-auth should restore unlock capability");
 }
 
 #[tokio::test]

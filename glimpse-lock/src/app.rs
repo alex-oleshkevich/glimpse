@@ -143,10 +143,6 @@ impl LockAppConfig {
         )
     }
 
-    fn with_shared(&self, shared: Config) -> Self {
-        Self::from_shared(shared)
-    }
-
     fn services_changed(&self, next: &Self) -> bool {
         self.location != next.location || self.keyboard != next.keyboard
     }
@@ -463,7 +459,7 @@ impl SimpleComponent for LockApp {
             }
             AppCommand::ReconcileMonitors => self.reconcile_monitor_windows(sender),
             AppCommand::ApplySharedConfig(config) => {
-                let next_config = self.config.with_shared(*config);
+                let next_config = LockAppConfig::from_shared(*config);
                 if self.config.services_changed(&next_config) {
                     reconfigure_lock_services(&self.services, &next_config);
                 }
@@ -567,25 +563,17 @@ impl SimpleComponent for LockApp {
                     }
                     AuthResult::Failure { pam_message } => {
                         tracing::warn!("authentication failed");
-                        self.runtime.mark_auth_failure();
+                        self.runtime.clear_auth_success();
                         self.bump_failure_counter();
                         let status = pam_message.unwrap_or_else(|| self.failure_status_text());
                         self.emit_to_lock_windows(LockWindowInput::SetStatus(status));
-                    }
-                    AuthResult::SecondFactorRequired => {
-                        tracing::warn!(
-                            "authentication requires a second factor; glimpse-lock does not support multi-prompt PAM stacks"
-                        );
-                        self.runtime.mark_auth_failure();
-                        self.bump_failure_counter();
-                        self.emit_to_lock_windows(LockWindowInput::AuthSecondFactorUnsupported);
                     }
                     AuthResult::AccountUnavailable {
                         reason,
                         pam_message,
                     } => {
                         tracing::warn!(reason = %reason, "PAM account unavailable");
-                        self.runtime.mark_auth_failure();
+                        self.runtime.clear_auth_success();
                         self.bump_failure_counter();
                         let status = pam_message.unwrap_or(reason);
                         self.emit_to_lock_windows(LockWindowInput::SetStatus(status));
@@ -651,7 +639,7 @@ impl LockApp {
             return;
         }
         self.clear_lock_state();
-        refresh_user_info_for_lock_activation(&mut self.user, current_user_info);
+        self.user = current_user_info();
 
         let instance = Instance::new();
         connect_lock_signals(&instance, &sender);
@@ -1306,7 +1294,6 @@ pub enum LockWindowInput {
     SetStatus(String),
     AuthSucceeded,
     AuthFailed,
-    AuthSecondFactorUnsupported,
     PowerAction(LockPowerAction),
     ControlStatus(LockControlStatus),
     CycleInput,
@@ -1815,9 +1802,6 @@ impl SimpleComponent for LockWindow {
             }
             LockWindowInput::AuthFailed => {
                 self.status = "Authentication failed".into();
-            }
-            LockWindowInput::AuthSecondFactorUnsupported => {
-                self.status = "Second-factor authentication is required but not supported".into();
             }
             LockWindowInput::PowerAction(action) => {
                 if action.requires_confirmation() && self.confirm_power_action != Some(action) {
@@ -2366,16 +2350,37 @@ fn file_watch_event_reloads(kind: &EventKind) -> bool {
     )
 }
 
+/// Best-effort username for the current process. Prefers $USER (cheap, works
+/// for the common path), falls back to a `/etc/passwd` lookup by current uid
+/// for the case where the env var is unset or empty. Last resort is the
+/// literal "user", which feeds PAM and will surface as USER_UNKNOWN -- still
+/// better than panicking but the caller should treat it as a degraded state.
 fn current_username() -> String {
-    std::env::var("USER").unwrap_or_else(|_| "user".into())
+    if let Ok(name) = std::env::var("USER") {
+        let trimmed = name.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_owned();
+        }
+    }
+    if let Ok(uid) = glimpse_core::dbus::login1::current_uid()
+        && let Some(name) = passwd_username_for_uid(uid)
+    {
+        return name;
+    }
+    "user".into()
 }
 
-fn refresh_user_info_for_lock_activation(
-    user: &mut UserInfo,
-    load_user_info: impl FnOnce() -> UserInfo,
-) {
-    *user = load_user_info();
+fn passwd_username_for_uid(uid: u32) -> Option<String> {
+    fs::read_to_string("/etc/passwd").ok()?.lines().find_map(|line| {
+        let mut fields = line.split(':');
+        let name = fields.next()?;
+        let _password = fields.next()?;
+        let entry_uid: u32 = fields.next()?.parse().ok()?;
+        (entry_uid == uid).then(|| name.to_owned())
+    })
 }
+
+
 
 fn current_user_info() -> UserInfo {
     let username = current_username();
@@ -2842,8 +2847,8 @@ mod tests {
         DecodedTexture, ImageLoadState, LockMode, LockPowerAction, TextureCacheKey, UserInfo,
         battery_control_status, file_watch_event_reloads, keyboard_control_status,
         load_cached_texture, network_control_status, power_confirmation_icon,
-        power_confirmation_title, refresh_user_info_for_lock_activation, resize_rgba_for_fit,
-        should_run_power_action, write_cached_texture,
+        power_confirmation_title, resize_rgba_for_fit, should_run_power_action,
+        write_cached_texture,
     };
 
     #[test]
@@ -2892,28 +2897,6 @@ mod tests {
             LockMode::Resident,
             LockPowerAction::Suspend
         ));
-    }
-
-    #[test]
-    fn lock_activation_refresh_replaces_cached_user_info() {
-        let mut user = UserInfo {
-            username: "alex".into(),
-            display_name: "Old Name".into(),
-            initials: "ON".into(),
-            icon_path: None,
-        };
-        let icon_path = PathBuf::from("/home/alex/.face");
-
-        refresh_user_info_for_lock_activation(&mut user, || UserInfo {
-            username: "alex".into(),
-            display_name: "Fresh Name".into(),
-            initials: "FN".into(),
-            icon_path: Some(icon_path.clone()),
-        });
-
-        assert_eq!(user.display_name, "Fresh Name");
-        assert_eq!(user.initials, "FN");
-        assert_eq!(user.icon_path, Some(icon_path));
     }
 
     #[test]
