@@ -168,27 +168,30 @@ pub struct UserInfo {
     icon_path: Option<PathBuf>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct LockControlStatus {
-    wifi_icon: String,
-    battery_icon: String,
-    battery_percent: String,
-    weather_icon: String,
-    weather_temperature: String,
-    input_label: String,
+    /// Wi-Fi/network icon (e.g. "network-wireless-signal-good-symbolic").
+    /// None when no network snapshot has arrived yet.
+    pub wifi_icon: Option<String>,
+    /// None when no battery is present (desktop) or no snapshot has arrived.
+    pub battery: Option<BatteryDisplay>,
+    /// None when weather is Loading / Unavailable / Unknown.
+    pub weather: Option<WeatherDisplay>,
+    /// Keyboard layout label. None when no layout is configured or the
+    /// keyboard service is unavailable.
+    pub input_label: Option<String>,
 }
 
-impl Default for LockControlStatus {
-    fn default() -> Self {
-        Self {
-            wifi_icon: "network-wireless-offline-symbolic".into(),
-            battery_icon: "battery-missing-symbolic".into(),
-            battery_percent: "--".into(),
-            weather_icon: "weather-overcast-symbolic".into(),
-            weather_temperature: "--".into(),
-            input_label: "--".into(),
-        }
-    }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BatteryDisplay {
+    pub icon: String,
+    pub percent: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WeatherDisplay {
+    pub icon: String,
+    pub temperature: String,
 }
 
 struct LockServices {
@@ -600,29 +603,23 @@ impl SimpleComponent for LockApp {
                 self.emit_to_lock_windows(LockWindowInput::ControlStatus(status));
             }
             AppCommand::WeatherState(state) => {
-                let (icon, temperature) = weather_control_status(&state);
                 let mut status = self.control_status.clone();
-                status.weather_icon = icon;
-                status.weather_temperature = temperature;
+                status.weather = weather_control_status(&state);
                 sender.input(AppCommand::ControlStatus(status));
             }
             AppCommand::BatteryState(state) => {
-                let (icon, percent) = battery_control_status(&state);
                 let mut status = self.control_status.clone();
-                status.battery_icon = icon;
-                status.battery_percent = percent;
+                status.battery = battery_control_status(&state);
                 sender.input(AppCommand::ControlStatus(status));
             }
             AppCommand::NetworkState(state) => {
-                let icon = network_control_status(&state);
                 let mut status = self.control_status.clone();
-                status.wifi_icon = icon;
+                status.wifi_icon = network_control_status(&state);
                 sender.input(AppCommand::ControlStatus(status));
             }
             AppCommand::KeyboardState(state) => {
-                let label = keyboard_control_status(&state);
                 let mut status = self.control_status.clone();
-                status.input_label = label;
+                status.input_label = keyboard_control_status(&state);
                 sender.input(AppCommand::ControlStatus(status));
             }
             AppCommand::CycleInput => {
@@ -1196,7 +1193,7 @@ fn time_to_next_minute() -> Duration {
     Duration::from_nanos(secs * 1_000_000_000 - nanos).max(Duration::from_millis(100))
 }
 
-fn weather_control_status(state: &weather_model::State) -> (String, String) {
+fn weather_control_status(state: &weather_model::State) -> Option<WeatherDisplay> {
     match state {
         weather_model::State::Ready(snapshot) => {
             tracing::debug!(
@@ -1205,29 +1202,29 @@ fn weather_control_status(state: &weather_model::State) -> (String, String) {
                 condition = %snapshot.current.condition,
                 "lock weather state ready"
             );
-            (
-                snapshot.current.icon.clone(),
-                format!("{:.0}C", snapshot.current.temperature),
-            )
+            Some(WeatherDisplay {
+                icon: snapshot.current.icon.clone(),
+                temperature: format!("{:.0}C", snapshot.current.temperature),
+            })
         }
         weather_model::State::Loading => {
             tracing::debug!("lock weather state loading");
-            ("weather-overcast-symbolic".into(), "--".into())
+            None
         }
         weather_model::State::Unavailable(error) => {
             tracing::debug!(%error, "lock weather state unavailable");
-            ("weather-overcast-symbolic".into(), "--".into())
+            None
         }
         weather_model::State::Unknown => {
             tracing::debug!("lock weather state unknown");
-            ("weather-overcast-symbolic".into(), "--".into())
+            None
         }
     }
 }
 
-fn battery_control_status(state: &BatteryState) -> (String, String) {
+fn battery_control_status(state: &BatteryState) -> Option<BatteryDisplay> {
     if !state.status.present {
-        return ("battery-missing-symbolic".into(), "--".into());
+        return None;
     }
 
     let icon = if state.status.icon_name.is_empty() {
@@ -1240,36 +1237,23 @@ fn battery_control_status(state: &BatteryState) -> (String, String) {
     } else {
         String::new()
     };
-    (icon, percent)
+    Some(BatteryDisplay { icon, percent })
 }
 
-fn network_control_status(state: &NetworkState) -> String {
+fn network_control_status(state: &NetworkState) -> Option<String> {
     let snapshot = &state.snapshot;
-    let icon = if snapshot.status.icon.is_empty() {
-        "network-offline-symbolic".into()
-    } else {
-        snapshot.status.icon.clone()
-    };
-
-    if !snapshot.status.enabled {
-        return icon;
+    if snapshot.status.icon.is_empty() {
+        return None;
     }
-    if !snapshot.status.wifi_hw_enabled {
-        return icon;
-    }
-    if !snapshot.status.wifi_enabled {
-        return icon;
-    }
-    icon
+    Some(snapshot.status.icon.clone())
 }
 
-fn keyboard_control_status(state: &KeyboardState) -> String {
+fn keyboard_control_status(state: &KeyboardState) -> Option<String> {
     state
         .current_layout
         .as_ref()
         .filter(|_| state.available)
         .map(|layout| layout.label.clone())
-        .unwrap_or_else(|| "--".into())
 }
 
 fn fallback_battery_icon_name(capacity: u8) -> &'static str {
@@ -1399,36 +1383,9 @@ impl SimpleComponent for LockWindow {
                         set_orientation: gtk::Orientation::Vertical,
                         set_spacing: 12,
 
-                        gtk::Overlay {
-                            add_css_class: "lock-user-avatar",
-                            set_halign: gtk::Align::Center,
-                            set_valign: gtk::Align::Center,
-                            set_hexpand: false,
-                            set_vexpand: false,
-                            set_size_request: (96, 96),
-                            // Clip the (rounded-border) avatar to a circle so the
-                            // face Picture doesn't render past the rounded mask.
-                            set_overflow: gtk::Overflow::Hidden,
-
-                            #[name(user_picture)]
-                            #[wrap(Some)]
-                            set_child = &gtk::Picture {
-                                add_css_class: "lock-user-picture",
-                                set_size_request: (96, 96),
-                                set_halign: gtk::Align::Fill,
-                                set_valign: gtk::Align::Fill,
-                                set_can_shrink: true,
-                                set_content_fit: ContentFit::Cover,
-                                set_visible: false,
-                            },
-
-                            #[name(user_initials)]
-                            add_overlay = &gtk::Label {
-                                add_css_class: "lock-user-initials",
-                                set_halign: gtk::Align::Center,
-                                set_valign: gtk::Align::Center,
-                                set_label: &model.user.initials,
-                            },
+                        #[name(user_avatar)]
+                        crate::widgets::Avatar {
+                            set_initials: &model.user.initials,
                         },
 
                         gtk::Label {
@@ -1681,7 +1638,8 @@ impl SimpleComponent for LockWindow {
                             set_focusable: false,
                             set_focus_on_click: false,
                             #[watch]
-                            set_visible: lock_control_enabled(&model.spec, LockControlButton::Weather),
+                            set_visible: lock_control_enabled(&model.spec, LockControlButton::Weather)
+                                && model.controls.weather.is_some(),
 
                             #[wrap(Some)]
                             set_child = &gtk::Box {
@@ -1690,13 +1648,13 @@ impl SimpleComponent for LockWindow {
 
                                 gtk::Image {
                                     #[watch]
-                                    set_icon_name: Some(&model.controls.weather_icon),
+                                    set_icon_name: model.controls.weather.as_ref().map(|w| w.icon.as_str()),
                                 },
 
                                 gtk::Label {
                                     add_css_class: "lock-control-value",
                                     #[watch]
-                                    set_label: &model.controls.weather_temperature,
+                                    set_label: model.controls.weather.as_ref().map(|w| w.temperature.as_str()).unwrap_or(""),
                                 },
                             },
                         },
@@ -1709,9 +1667,10 @@ impl SimpleComponent for LockWindow {
                             set_focusable: false,
                             set_focus_on_click: false,
                             #[watch]
-                            set_icon_name: &model.controls.wifi_icon,
+                            set_icon_name: model.controls.wifi_icon.as_deref().unwrap_or(""),
                             #[watch]
-                            set_visible: lock_control_enabled(&model.spec, LockControlButton::Wifi),
+                            set_visible: lock_control_enabled(&model.spec, LockControlButton::Wifi)
+                                && model.controls.wifi_icon.is_some(),
                         },
 
                         #[name(input_button)]
@@ -1723,9 +1682,10 @@ impl SimpleComponent for LockWindow {
                             set_focusable: false,
                             set_focus_on_click: false,
                             #[watch]
-                            set_label: &model.controls.input_label,
+                            set_label: model.controls.input_label.as_deref().unwrap_or(""),
                             #[watch]
-                            set_visible: lock_control_enabled(&model.spec, LockControlButton::Input),
+                            set_visible: lock_control_enabled(&model.spec, LockControlButton::Input)
+                                && model.controls.input_label.is_some(),
                             connect_clicked[sender] => move |_| {
                                 sender.input(LockWindowInput::CycleInput);
                             },
@@ -1739,7 +1699,8 @@ impl SimpleComponent for LockWindow {
                             set_focusable: false,
                             set_focus_on_click: false,
                             #[watch]
-                            set_visible: lock_control_enabled(&model.spec, LockControlButton::Battery),
+                            set_visible: lock_control_enabled(&model.spec, LockControlButton::Battery)
+                                && model.controls.battery.is_some(),
 
                             #[wrap(Some)]
                             set_child = &gtk::Box {
@@ -1748,13 +1709,13 @@ impl SimpleComponent for LockWindow {
 
                                 gtk::Image {
                                     #[watch]
-                                    set_icon_name: Some(&model.controls.battery_icon),
+                                    set_icon_name: model.controls.battery.as_ref().map(|b| b.icon.as_str()),
                                 },
 
                                 gtk::Label {
                                     add_css_class: "lock-control-value",
                                     #[watch]
-                                    set_label: &model.controls.battery_percent,
+                                    set_label: model.controls.battery.as_ref().map(|b| b.percent.as_str()).unwrap_or(""),
                                 },
                             },
                         },
@@ -1806,39 +1767,7 @@ impl SimpleComponent for LockWindow {
         let widgets = view_output!();
         connect_lock_window_keys(&root, sender.input_sender().clone());
         connect_caps_lock_indicator(&widgets.password_entry, sender.input_sender().clone());
-        if let Some(path) = &model.user.icon_path {
-            // gtk::Picture's natural size equals the paintable's intrinsic pixel
-            // dimensions. set_filename() uses the file's native resolution (e.g.
-            // 460x460 for a typical ~/.face), so the Picture's natural size --
-            // and therefore the avatar's allocated size -- ends up far larger
-            // than the 96-logical-pixel container we want. Load a pre-scaled
-            // pixbuf at AVATAR_SIZE so the Picture's natural size equals the
-            // avatar's footprint and matches the initials fallback. Slight
-            // softness on HiDPI is the trade-off for matching the layout
-            // without a custom paintable that lies about its intrinsic size.
-            const AVATAR_SIZE: i32 = 96;
-            match gtk::gdk_pixbuf::Pixbuf::from_file_at_scale(
-                path,
-                AVATAR_SIZE,
-                AVATAR_SIZE,
-                true,
-            ) {
-                Ok(pixbuf) => {
-                    // Texture::for_pixbuf is deprecated since GTK 4.20 in favour of
-                    // gdk::MemoryTexture, but the replacement requires extracting the
-                    // raw byte buffer and stride manually. For a single user-icon load
-                    // the legacy path is fine.
-                    #[allow(deprecated)]
-                    let texture = gtk::gdk::Texture::for_pixbuf(&pixbuf);
-                    widgets.user_picture.set_paintable(Some(&texture));
-                    widgets.user_picture.set_visible(true);
-                    widgets.user_initials.set_visible(false);
-                }
-                Err(error) => {
-                    tracing::debug!(%error, path = %path.display(), "failed to load user face icon");
-                }
-            }
-        }
+        widgets.user_avatar.set_path(model.user.icon_path.as_deref());
         if model.preview {
             root.set_decorated(true);
             root.set_deletable(true);
@@ -3059,10 +2988,10 @@ mod tests {
             ..BatteryStatus::default()
         };
 
-        let (icon, percent) = battery_control_status(&state);
+        let display = battery_control_status(&state).expect("present battery yields display");
 
-        assert_eq!(icon, "battery-good-charging-symbolic");
-        assert_eq!(percent, "57%");
+        assert_eq!(display.icon, "battery-good-charging-symbolic");
+        assert_eq!(display.percent, "57%");
     }
 
     #[test]
@@ -3077,10 +3006,16 @@ mod tests {
             ..BatteryStatus::default()
         };
 
-        let (icon, percent) = battery_control_status(&state);
+        let display = battery_control_status(&state).expect("present battery yields display");
 
-        assert_eq!(icon, "battery-good-charging-symbolic");
-        assert_eq!(percent, "");
+        assert_eq!(display.icon, "battery-good-charging-symbolic");
+        assert_eq!(display.percent, "");
+    }
+
+    #[test]
+    fn battery_control_status_returns_none_when_no_battery_present() {
+        let state = CoreBatteryServiceState::default();
+        assert!(battery_control_status(&state).is_none());
     }
 
     #[test]
@@ -3102,9 +3037,15 @@ mod tests {
             ..NetworkSnapshot::default()
         };
 
-        let icon = network_control_status(&state);
+        let icon = network_control_status(&state).expect("snapshot with icon yields Some");
 
         assert_eq!(icon, "network-wireless-signal-good-symbolic");
+    }
+
+    #[test]
+    fn network_control_status_returns_none_when_icon_empty() {
+        let state = CoreNetworkState::default();
+        assert!(network_control_status(&state).is_none());
     }
 
     #[test]
@@ -3121,9 +3062,18 @@ mod tests {
             ..CoreKeyboardState::default()
         };
 
-        let label = keyboard_control_status(&state);
+        let label = keyboard_control_status(&state).expect("layout present yields Some");
 
         assert_eq!(label, "US");
+    }
+
+    #[test]
+    fn keyboard_control_status_returns_none_when_unavailable() {
+        let state = CoreKeyboardState {
+            available: false,
+            ..CoreKeyboardState::default()
+        };
+        assert!(keyboard_control_status(&state).is_none());
     }
 
     #[test]

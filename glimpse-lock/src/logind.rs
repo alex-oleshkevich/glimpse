@@ -111,14 +111,24 @@ async fn current_session_path_with_manager(
     system: &zbus::Connection,
     manager: &Login1ManagerProxy<'_>,
 ) -> anyhow::Result<OwnedObjectPath> {
+    let own_uid = current_uid().context("read current uid")?;
+
     if let Ok(session_id) = std::env::var("XDG_SESSION_ID").map(|value| value.trim().to_owned()) {
         if session_id.is_empty() {
             tracing::debug!("ignoring empty XDG_SESSION_ID");
         } else {
             match manager.get_session(&session_id).await {
                 Ok(path) => {
-                    tracing::debug!(session_id, session = %path, "resolved logind session from XDG_SESSION_ID");
-                    return Ok(path);
+                    if session_path_belongs_to_uid(system, &path, own_uid).await {
+                        tracing::debug!(session_id, session = %path, "resolved logind session from XDG_SESSION_ID");
+                        return Ok(path);
+                    }
+                    tracing::warn!(
+                        session_id,
+                        session = %path,
+                        own_uid,
+                        "XDG_SESSION_ID points at a session owned by another uid; ignoring"
+                    );
                 }
                 Err(error) => {
                     tracing::debug!(%error, session_id, "failed to resolve logind session from XDG_SESSION_ID");
@@ -137,6 +147,37 @@ async fn current_session_path_with_manager(
             current_user_session_path(system, manager)
                 .await
                 .context("resolve current logind session")
+        }
+    }
+}
+
+/// Returns true iff the session at `path` is owned by `expected_uid`. On any
+/// error reading the session's User property, returns false (fail-closed): we
+/// would rather fall through to the pid-based resolution than trust a session
+/// whose ownership we cannot verify.
+async fn session_path_belongs_to_uid(
+    system: &zbus::Connection,
+    path: &OwnedObjectPath,
+    expected_uid: u32,
+) -> bool {
+    let session = match Login1SessionProxy::builder(system).path(path.clone()) {
+        Ok(builder) => match builder.build().await {
+            Ok(session) => session,
+            Err(error) => {
+                tracing::debug!(%error, session = %path, "failed to build session proxy for uid check");
+                return false;
+            }
+        },
+        Err(error) => {
+            tracing::debug!(%error, session = %path, "invalid session path for uid check");
+            return false;
+        }
+    };
+    match session.user().await {
+        Ok((session_uid, _user_path)) => session_uid == expected_uid,
+        Err(error) => {
+            tracing::debug!(%error, session = %path, "failed to read session User property");
+            false
         }
     }
 }

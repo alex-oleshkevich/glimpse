@@ -65,6 +65,9 @@ pub trait Login1Session {
     fn seat(&self) -> zbus::Result<(String, OwnedObjectPath)>;
     #[zbus(property, name = "Type")]
     fn kind(&self) -> zbus::Result<String>;
+    /// `(uid, user_object_path)` tuple identifying the session's owner.
+    #[zbus(property, name = "User")]
+    fn user(&self) -> zbus::Result<(u32, OwnedObjectPath)>;
 
     #[zbus(signal)]
     fn lock(&self) -> zbus::Result<()>;

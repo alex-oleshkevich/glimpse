@@ -82,18 +82,16 @@
   margin-bottom: 10px;
 }
 
-.lock-user-avatar {
+.avatar {
   background: var(--lock-avatar-bg);
-  border-radius: 48px;
-  min-height: 96px;
-  min-width: 96px;
+  border-radius: 9999px;
 }
 
-.lock-user-picture {
-  border-radius: 48px;
+.avatar__picture {
+  border-radius: 9999px;
 }
 
-.lock-user-initials {
+.avatar__initials {
   color: var(--lock-fg);
   font-size: 34px;
   font-weight: 600;
