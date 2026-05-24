@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use gtk4::gdk;
-use gtk4::prelude::{GtkWindowExt, OrientableExt, WidgetExt};
+use gtk4::prelude::{BoxExt, GtkWindowExt, OrientableExt, WidgetExt};
 use gtk4_layer_shell::LayerShell;
 use relm4::{Component, ComponentParts, ComponentSender, gtk};
 
@@ -54,6 +54,7 @@ pub struct Panel {
     monitor_connector: Option<String>,
     applet_configs: HashMap<String, AppletConfig>,
     ipc: IpcEmitter,
+    dynamic_container: gtk::Box,
     left: SectionState,
     center: SectionState,
     right: SectionState,
@@ -62,6 +63,33 @@ pub struct Panel {
 struct SectionState {
     container: gtk::Box,
     applets: HashMap<AppletKey, AppletController>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PanelEndChild {
+    Dynamic,
+    Right,
+}
+
+fn dynamic_island_css_classes() -> [&'static str; 2] {
+    ["island", "island-dynamic"]
+}
+
+fn dynamic_island_initially_visible() -> bool {
+    false
+}
+
+fn end_group_order() -> [PanelEndChild; 2] {
+    [PanelEndChild::Dynamic, PanelEndChild::Right]
+}
+
+fn append_end_group_children(end_box: &gtk::Box, dynamic_box: &gtk::Box, right_box: &gtk::Box) {
+    for child in end_group_order() {
+        match child {
+            PanelEndChild::Dynamic => end_box.append(dynamic_box),
+            PanelEndChild::Right => end_box.append(right_box),
+        }
+    }
 }
 
 #[relm4::component(pub)]
@@ -82,7 +110,7 @@ impl Component for Panel {
                 set_orientation: orientation_for_position(&init.config.position),
                 set_start_widget: Some(&left_box),
                 set_center_widget: Some(&center_box),
-                set_end_widget: Some(&right_box),
+                set_end_widget: Some(&end_box),
             }
         }
     }
@@ -120,6 +148,17 @@ impl Component for Panel {
             .orientation(layout_orientation)
             .valign(gtk::Align::Center)
             .build();
+        let dynamic_box = gtk::Box::builder()
+            .css_classes(dynamic_island_css_classes().to_vec())
+            .orientation(layout_orientation)
+            .valign(gtk::Align::Center)
+            .visible(dynamic_island_initially_visible())
+            .build();
+        let end_box = gtk::Box::builder()
+            .orientation(layout_orientation)
+            .valign(gtk::Align::Center)
+            .build();
+        append_end_group_children(&end_box, &dynamic_box, &right_box);
         let layout = gtk::CenterBox::new();
 
         let ipc = init.ipc;
@@ -128,6 +167,7 @@ impl Component for Panel {
             PanelSection::Left,
             &init.config.left,
             &left_box,
+            &dynamic_box,
             &init.applet_configs,
             init.services.clone(),
             init.monitor_connector.as_deref(),
@@ -139,6 +179,7 @@ impl Component for Panel {
             PanelSection::Center,
             &init.config.center,
             &center_box,
+            &dynamic_box,
             &init.applet_configs,
             init.services.clone(),
             init.monitor_connector.as_deref(),
@@ -150,6 +191,7 @@ impl Component for Panel {
             PanelSection::Right,
             &init.config.right,
             &right_box,
+            &dynamic_box,
             &init.applet_configs,
             init.services.clone(),
             init.monitor_connector.as_deref(),
@@ -163,6 +205,7 @@ impl Component for Panel {
             monitor_connector: init.monitor_connector,
             applet_configs: init.applet_configs,
             ipc,
+            dynamic_container: dynamic_box,
             left: SectionState {
                 container: left_box,
                 applets: left_applets,
@@ -194,6 +237,7 @@ impl Component for Panel {
                     PanelSection::Left,
                     &runtime.config.left,
                     &self.left.container,
+                    &self.dynamic_container,
                     &mut self.left.applets,
                     &self.applet_configs,
                     &runtime.applet_configs,
@@ -207,6 +251,7 @@ impl Component for Panel {
                     PanelSection::Center,
                     &runtime.config.center,
                     &self.center.container,
+                    &self.dynamic_container,
                     &mut self.center.applets,
                     &self.applet_configs,
                     &runtime.applet_configs,
@@ -220,6 +265,7 @@ impl Component for Panel {
                     PanelSection::Right,
                     &runtime.config.right,
                     &self.right.container,
+                    &self.dynamic_container,
                     &mut self.right.applets,
                     &self.applet_configs,
                     &runtime.applet_configs,
@@ -295,5 +341,24 @@ fn orientation_for_position(position: &Position) -> gtk::Orientation {
     match position {
         Position::Top | Position::Bottom => gtk::Orientation::Horizontal,
         Position::Left | Position::Right => gtk::Orientation::Vertical,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dynamic_island_uses_island_classes_and_starts_hidden() {
+        assert_eq!(dynamic_island_css_classes(), ["island", "island-dynamic"]);
+        assert!(!dynamic_island_initially_visible());
+    }
+
+    #[test]
+    fn end_group_orders_dynamic_island_before_right_island() {
+        assert_eq!(
+            end_group_order(),
+            [PanelEndChild::Dynamic, PanelEndChild::Right]
+        );
     }
 }

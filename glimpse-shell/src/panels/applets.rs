@@ -254,6 +254,7 @@ pub fn create_applet(
     blueprint: AppletBlueprint,
     services: Services,
     monitor_connector: Option<&str>,
+    dynamic_container: &gtk::Box,
     theme_mode: ThemeMode,
     ipc: &IpcEmitter,
 ) -> Option<AppletController> {
@@ -326,7 +327,11 @@ pub fn create_applet(
             ))
         }
         AppletType::Dynamic => Some(AppletController::Dynamic(
-            dynamic::Applet::builder().launch(dynamic::Init).detach(),
+            dynamic::Applet::builder()
+                .launch(dynamic::Init {
+                    runtime_container: dynamic_container.clone(),
+                })
+                .detach(),
         )),
         AppletType::Exec => {
             let config = exec::Config::from_raw(&blueprint.config);
@@ -465,6 +470,7 @@ pub fn build_applets(
     section: PanelSection,
     configured_applets: &[String],
     container: &gtk::Box,
+    dynamic_container: &gtk::Box,
     applet_configs: &HashMap<String, AppletConfig>,
     services: Services,
     monitor_connector: Option<&str>,
@@ -481,6 +487,7 @@ pub fn build_applets(
             entry.clone(),
             services.clone(),
             monitor_connector,
+            dynamic_container,
             theme_mode,
             ipc,
         ) {
@@ -505,6 +512,7 @@ pub fn reconcile_applets(
     section: PanelSection,
     configured_applets: &[String],
     container: &gtk::Box,
+    dynamic_container: &gtk::Box,
     current: &mut HashMap<AppletKey, AppletController>,
     previous_applet_configs: &HashMap<String, AppletConfig>,
     applet_configs: &HashMap<String, AppletConfig>,
@@ -552,6 +560,7 @@ pub fn reconcile_applets(
                     entry.clone(),
                     services.clone(),
                     monitor_connector,
+                    dynamic_container,
                     theme_mode,
                     ipc,
                 ) else {
@@ -565,6 +574,7 @@ pub fn reconcile_applets(
                     entry.clone(),
                     services.clone(),
                     monitor_connector,
+                    dynamic_container,
                     theme_mode,
                     ipc,
                 ) else {

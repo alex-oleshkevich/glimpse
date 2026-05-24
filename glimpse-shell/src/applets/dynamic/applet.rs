@@ -16,13 +16,17 @@ use tokio::{
     sync::mpsc,
 };
 
-use crate::applets::exec::{
-    components::{StatusItem, StatusItemInit, StatusItemInput, StatusItemOutput},
-    popover::{Input as PopoverInput, Output as PopoverOutput, Popover},
-    protocol::{
-        ChildCommand, EventPayload, PanelCommand, PopoverPayload, StatusItem as StatusItemModel,
-        StatusPayload, TreeNode, encode_panel_command, parse_child_line,
+use crate::{
+    applets::exec::{
+        components::StatusItemOutput,
+        popover::{Input as PopoverInput, Output as PopoverOutput, Popover},
+        protocol::{
+            ChildCommand, EventPayload, PanelCommand, PopoverPayload,
+            StatusItem as StatusItemModel, StatusPayload, TreeNode, encode_panel_command,
+            parse_child_line,
+        },
     },
+    widgets::panel_indicator::PanelIndicator,
 };
 
 type ConnectionId = u64;
@@ -36,9 +40,217 @@ fn next_id() -> ConnectionId {
 const OUTBOUND_BUFFER: usize = 64;
 const MAX_CONNECTIONS: usize = 32;
 
+struct ConnectionStatusItem {
+    item: StatusItemModel,
+    has_popover: bool,
+    icon: gtk::Image,
+    label: gtk::Label,
+}
+
+#[derive(Debug, Clone)]
+struct ConnectionStatusItemInit {
+    item: StatusItemModel,
+    has_popover: bool,
+}
+
+#[derive(Debug)]
+enum ConnectionStatusItemInput {
+    Click(u32),
+    Scroll(f64),
+    Reconfigure {
+        item: StatusItemModel,
+        has_popover: bool,
+    },
+}
+
+#[allow(unused_assignments)]
+#[relm4::component]
+impl SimpleComponent for ConnectionStatusItem {
+    type Init = ConnectionStatusItemInit;
+    type Input = ConnectionStatusItemInput;
+    type Output = StatusItemOutput;
+
+    view! {
+        root = gtk::Box {
+            add_css_class: "dynamic-status-item",
+            set_orientation: gtk::Orientation::Horizontal,
+            set_spacing: 4,
+            set_valign: gtk::Align::Center,
+            #[watch]
+            set_tooltip_text: model.item.tooltip.as_deref(),
+
+            add_controller = gtk::GestureClick {
+                set_button: 1,
+                connect_pressed[sender] => move |gesture, _, _, _| {
+                    gesture.set_state(gtk::EventSequenceState::Claimed);
+                    sender.input(ConnectionStatusItemInput::Click(1));
+                }
+            },
+            add_controller = gtk::GestureClick {
+                set_button: 2,
+                connect_pressed[sender] => move |gesture, _, _, _| {
+                    gesture.set_state(gtk::EventSequenceState::Claimed);
+                    sender.input(ConnectionStatusItemInput::Click(2));
+                }
+            },
+            add_controller = gtk::GestureClick {
+                set_button: 3,
+                connect_pressed[sender] => move |gesture, _, _, _| {
+                    gesture.set_state(gtk::EventSequenceState::Claimed);
+                    sender.input(ConnectionStatusItemInput::Click(3));
+                }
+            },
+
+            #[name = "icon"]
+            gtk::Image {
+                set_pixel_size: 16,
+                set_valign: gtk::Align::Center,
+                set_visible: false,
+            },
+
+            #[name = "label"]
+            gtk::Label {
+                set_valign: gtk::Align::Center,
+                set_xalign: 0.5,
+                set_visible: false,
+            },
+        }
+    }
+
+    fn init(
+        init: Self::Init,
+        _root: Self::Root,
+        sender: ComponentSender<Self>,
+    ) -> ComponentParts<Self> {
+        let model = ConnectionStatusItem {
+            item: init.item,
+            has_popover: init.has_popover,
+            icon: gtk::Image::new(),
+            label: gtk::Label::new(None),
+        };
+        let widgets = view_output!();
+
+        let scroll_sender = sender.input_sender().clone();
+        let scroll = gtk::EventControllerScroll::new(
+            gtk::EventControllerScrollFlags::BOTH_AXES | gtk::EventControllerScrollFlags::DISCRETE,
+        );
+        scroll.connect_scroll(move |_, _dx, dy| {
+            scroll_sender.emit(ConnectionStatusItemInput::Scroll(dy));
+            gtk::glib::Propagation::Stop
+        });
+        widgets.root.add_controller(scroll);
+
+        let mut model = model;
+        model.icon = widgets.icon.clone();
+        model.label = widgets.label.clone();
+        model.apply_view();
+        ComponentParts { model, widgets }
+    }
+
+    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
+        match message {
+            ConnectionStatusItemInput::Click(button) => {
+                if button == 3 {
+                    let _ = sender.output(StatusItemOutput::ContextMenu);
+                    return;
+                }
+
+                let event = self.item.id.as_ref().map(|id| click_event(id, button));
+                if button == 1 {
+                    let output = match event {
+                        Some(event) => StatusItemOutput::Activate(Some(event)),
+                        None if self.has_popover => StatusItemOutput::TogglePopover,
+                        None => return,
+                    };
+                    let _ = sender.output(output);
+                    return;
+                }
+
+                if let Some(event) = event {
+                    let _ = sender.output(StatusItemOutput::Event(event));
+                }
+            }
+            ConnectionStatusItemInput::Scroll(delta_y) => {
+                if let Some(id) = &self.item.id {
+                    let _ = sender.output(StatusItemOutput::Event(scroll_event(id, delta_y)));
+                }
+            }
+            ConnectionStatusItemInput::Reconfigure { item, has_popover } => {
+                self.item = item;
+                self.has_popover = has_popover;
+                self.apply_view();
+            }
+        }
+    }
+}
+
+impl ConnectionStatusItem {
+    fn apply_view(&self) {
+        apply_status_icon(&self.icon, self.item.icon.as_deref());
+        match self.item.label.as_deref().filter(|label| !label.is_empty()) {
+            Some(label) => {
+                self.label.set_label(label);
+                self.label.set_visible(true);
+            }
+            None => {
+                self.label.set_label("");
+                self.label.set_visible(false);
+            }
+        }
+    }
+}
+
+fn apply_status_icon(image: &gtk::Image, icon: Option<&str>) {
+    match icon.filter(|icon| !icon.is_empty()) {
+        Some(icon) if dynamic_icon_is_path(icon) => {
+            image.set_from_file(Some(std::path::Path::new(icon)));
+            image.set_visible(true);
+        }
+        Some(icon) => {
+            image.set_icon_name(Some(icon));
+            image.set_visible(true);
+        }
+        None => {
+            image.set_icon_name(None::<&str>);
+            image.set_visible(false);
+        }
+    }
+}
+
+fn dynamic_icon_is_path(icon: &str) -> bool {
+    icon.starts_with('/') || icon.starts_with("./") || icon.starts_with("../") || icon.contains('/')
+}
+
+fn click_event(id: &str, button: u32) -> EventPayload {
+    EventPayload {
+        id: id.into(),
+        kind: crate::applets::exec::protocol::EventKind::Click,
+        source: crate::applets::exec::protocol::EventSource::Status,
+        button: Some(crate::applets::exec::protocol::MouseButton::from_number(
+            button,
+        )),
+        active: None,
+        value: None,
+        delta_y: None,
+    }
+}
+
+fn scroll_event(id: &str, delta_y: f64) -> EventPayload {
+    EventPayload {
+        id: id.into(),
+        kind: crate::applets::exec::protocol::EventKind::Scroll,
+        source: crate::applets::exec::protocol::EventSource::Status,
+        button: None,
+        active: None,
+        value: None,
+        delta_y: Some(delta_y),
+    }
+}
+
 pub struct Applet {
     connections: HashMap<ConnectionId, ConnectionState>,
     root: gtk::Box,
+    runtime_container: gtk::Box,
 }
 
 struct ConnectionState {
@@ -46,7 +258,7 @@ struct ConnectionState {
     rendered_status: Vec<StatusItemModel>,
     root_node: Option<TreeNode>,
     rendered_has_popover: bool,
-    slot_box: gtk::Box,
+    indicator: PanelIndicator,
     status_items: Vec<RenderedStatusItem>,
     popover: Controller<Popover>,
     outbound_tx: mpsc::Sender<PanelCommand>,
@@ -54,10 +266,12 @@ struct ConnectionState {
 
 struct RenderedStatusItem {
     key: String,
-    controller: Controller<StatusItem>,
+    controller: Controller<ConnectionStatusItem>,
 }
 
-pub struct Init;
+pub struct Init {
+    pub runtime_container: gtk::Box,
+}
 
 #[derive(Debug)]
 pub enum Input {
@@ -102,14 +316,12 @@ impl SimpleComponent for Applet {
 
     view! {
         root = gtk::Box {
-            add_css_class: "applet",
-            set_orientation: gtk::Orientation::Horizontal,
             set_visible: false,
         }
     }
 
     fn init(
-        _init: Self::Init,
+        init: Self::Init,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
@@ -121,6 +333,7 @@ impl SimpleComponent for Applet {
         let model = Applet {
             connections: HashMap::new(),
             root: widgets.root.clone(),
+            runtime_container: init.runtime_container,
         };
         ComponentParts { model, widgets }
     }
@@ -128,18 +341,20 @@ impl SimpleComponent for Applet {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
             Input::NewConnection { id, outbound_tx } => {
-                let slot_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-                slot_box.set_visible(false);
-                slot_box.set_valign(gtk::Align::Center);
+                let indicator = PanelIndicator::new();
+                indicator.add_css_class("dynamic-connection");
+                indicator.set_visible(false);
+                indicator.set_valign(gtk::Align::Center);
+                let popover_parent = indicator.clone().upcast::<gtk::Box>();
                 let popover = Popover::builder()
                     .launch(crate::applets::exec::popover::Init {
-                        parent: slot_box.clone(),
+                        parent: popover_parent,
                     })
                     .forward(sender.input_sender(), move |output| Input::PopoverOutput {
                         id,
                         output,
                     });
-                self.root.append(&slot_box);
+                self.runtime_container.append(&indicator);
                 self.connections.insert(
                     id,
                     ConnectionState {
@@ -147,7 +362,7 @@ impl SimpleComponent for Applet {
                         rendered_status: Vec::new(),
                         root_node: None,
                         rendered_has_popover: false,
-                        slot_box,
+                        indicator,
                         status_items: Vec::new(),
                         popover,
                         outbound_tx,
@@ -169,7 +384,7 @@ impl SimpleComponent for Applet {
             }
             Input::CssClass { id, class } => {
                 if let Some(conn) = self.connections.get(&id) {
-                    conn.slot_box.add_css_class(&format!("applet-{class}"));
+                    conn.indicator.add_css_class(&format!("applet-{class}"));
                     conn.popover.emit(PopoverInput::SetCssClass(class));
                 }
             }
@@ -180,7 +395,7 @@ impl SimpleComponent for Applet {
             }
             Input::Disconnected { id } => {
                 if let Some(conn) = self.connections.remove(&id) {
-                    self.root.remove(&conn.slot_box);
+                    self.runtime_container.remove(&conn.indicator);
                     tracing::debug!(connection = id, "dynamic applet disconnected");
                     self.sync_root_visibility();
                 }
@@ -228,7 +443,8 @@ impl SimpleComponent for Applet {
 impl Applet {
     fn sync_root_visibility(&self) {
         let any_visible = self.connections.values().any(|c| !c.status.is_empty());
-        self.root.set_visible(any_visible);
+        self.runtime_container.set_visible(any_visible);
+        self.root.set_visible(false);
     }
 
     fn rebuild_if_needed(&mut self, id: ConnectionId, sender: &ComponentSender<Self>) {
@@ -242,20 +458,22 @@ impl Applet {
 
         let mut existing = std::mem::take(&mut conn.status_items);
         let mut next = Vec::with_capacity(conn.status.len());
-        let mut previous: Option<gtk::Widget> = None;
+        conn.indicator.clear_extra();
 
         for (index, item) in conn.status.iter().enumerate() {
             let key = status_item_key(index, item);
             let controller = if let Some(pos) = existing.iter().position(|r| r.key == key) {
                 let rendered = existing.remove(pos);
-                rendered.controller.emit(StatusItemInput::Reconfigure {
-                    item: item.clone(),
-                    has_popover,
-                });
+                rendered
+                    .controller
+                    .emit(ConnectionStatusItemInput::Reconfigure {
+                        item: item.clone(),
+                        has_popover,
+                    });
                 rendered.controller
             } else {
-                StatusItem::builder()
-                    .launch(StatusItemInit {
+                ConnectionStatusItem::builder()
+                    .launch(ConnectionStatusItemInit {
                         item: item.clone(),
                         has_popover,
                     })
@@ -264,8 +482,7 @@ impl Applet {
                     })
             };
             let widget = controller.widget().clone().upcast::<gtk::Widget>();
-            place_widget(&conn.slot_box, &widget, previous.as_ref());
-            previous = Some(widget);
+            conn.indicator.append_extra(&widget);
             next.push(RenderedStatusItem { key, controller });
         }
         for rendered in existing {
@@ -274,7 +491,7 @@ impl Applet {
         conn.status_items = next;
         conn.rendered_status = conn.status.clone();
         conn.rendered_has_popover = has_popover;
-        conn.slot_box.set_visible(!conn.status.is_empty());
+        conn.indicator.set_visible(!conn.status.is_empty());
         self.sync_root_visibility();
     }
 }
@@ -285,21 +502,6 @@ fn status_item_key(index: usize, item: &StatusItemModel) -> String {
         .filter(|id| !id.is_empty())
         .map(|id| format!("id:{id}"))
         .unwrap_or_else(|| format!("index:{index}"))
-}
-
-fn place_widget(container: &gtk::Box, widget: &gtk::Widget, sibling: Option<&gtk::Widget>) {
-    match widget.parent() {
-        Some(parent) if parent == container.clone().upcast::<gtk::Widget>() => {
-            container.reorder_child_after(widget, sibling);
-        }
-        Some(_) => {
-            detach_widget(widget);
-            container.insert_child_after(widget, sibling);
-        }
-        None => {
-            container.insert_child_after(widget, sibling);
-        }
-    }
 }
 
 fn detach_widget(widget: &impl IsA<gtk::Widget>) {
@@ -313,6 +515,15 @@ fn detach_widget(widget: &impl IsA<gtk::Widget>) {
 fn send_event(tx: &mpsc::Sender<PanelCommand>, id: ConnectionId, event: EventPayload) {
     if let Err(e) = tx.try_send(PanelCommand::Event(event)) {
         tracing::warn!(%e, connection = id, "dynamic applet failed to queue event");
+    }
+}
+
+impl Drop for Applet {
+    fn drop(&mut self) {
+        for (_, conn) in self.connections.drain() {
+            self.runtime_container.remove(&conn.indicator);
+        }
+        self.runtime_container.set_visible(false);
     }
 }
 
@@ -417,4 +628,41 @@ async fn run_connection(
     }
 
     let _ = sender.send(Input::Disconnected { id });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn click_event_targets_status_item() {
+        assert_eq!(
+            click_event("cpu", 1),
+            EventPayload {
+                id: "cpu".into(),
+                kind: crate::applets::exec::protocol::EventKind::Click,
+                source: crate::applets::exec::protocol::EventSource::Status,
+                button: Some(crate::applets::exec::protocol::MouseButton::Left),
+                active: None,
+                value: None,
+                delta_y: None,
+            }
+        );
+    }
+
+    #[test]
+    fn scroll_event_targets_status_item() {
+        assert_eq!(
+            scroll_event("cpu", -1.5),
+            EventPayload {
+                id: "cpu".into(),
+                kind: crate::applets::exec::protocol::EventKind::Scroll,
+                source: crate::applets::exec::protocol::EventSource::Status,
+                button: None,
+                active: None,
+                value: None,
+                delta_y: Some(-1.5),
+            }
+        );
+    }
 }
