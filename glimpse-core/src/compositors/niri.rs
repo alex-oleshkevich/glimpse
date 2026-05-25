@@ -1,4 +1,7 @@
-use std::{collections::HashMap, env};
+use std::{
+    collections::{HashMap, HashSet},
+    env,
+};
 
 use anyhow::{Context, bail};
 use serde_json::{Value, json};
@@ -9,9 +12,10 @@ use tokio::{
 };
 
 use crate::compositors::compositors::{
-    CompositorCapabilities, CompositorEvent, CompositorSnapshot, KeyboardLayout, Monitor,
-    MonitorMode, ScreencastControlCapability, ScreencastKind, ScreencastSession,
-    ScreencastStateCapability, ScreencastTarget, Window, Workspace, is_builtin_connector,
+    CompositorCapabilities, CompositorEvent, CompositorRefresh, CompositorSnapshot,
+    KeyboardLayout, Monitor, MonitorMode, ScreencastControlCapability, ScreencastKind,
+    ScreencastSession, ScreencastStateCapability, ScreencastTarget, Window, Workspace,
+    is_builtin_connector,
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -297,6 +301,16 @@ struct NiriEventState {
     focused_window: Option<usize>,
     layout_names: Vec<String>,
     window_workspaces: HashMap<usize, usize>,
+    /// Most recently observed set of monitor names referenced by the
+    /// workspace list. Niri's IPC has no dedicated output event, so we
+    /// detect monitor connect/disconnect by watching this set shift
+    /// across `WorkspacesChanged` events — workspaces get reassigned
+    /// to surviving monitors when one disappears (and a new monitor's
+    /// workspaces appear when one is plugged in), so this is a reliable
+    /// proxy. When the set changes we ask the compositor service to
+    /// re-snapshot, which refetches `Outputs` and drops the now-gone
+    /// monitor from `state.monitors`.
+    monitor_names: HashSet<String>,
 }
 
 fn parse_niri_event(line: &str, state: &mut NiriEventState) -> Vec<CompositorEvent> {
@@ -471,7 +485,28 @@ fn parse_workspaces_changed(
         state.current_workspace = Some(workspace.id);
     }
 
-    vec![CompositorEvent::WorkspacesChanged(next)]
+    // Detect monitor topology shifts: if the set of monitor names a
+    // workspace references has changed since the last event, output
+    // configuration likely changed too. Ask for a structure re-snapshot
+    // so `state.monitors` drops disconnected outputs (or picks up new
+    // ones). The first event has an empty prior set, so we don't fire
+    // a redundant refresh against the snapshot we just loaded at startup.
+    let next_monitor_names: HashSet<String> = next
+        .iter()
+        .filter_map(|workspace| workspace.monitor.clone())
+        .collect();
+    let topology_shifted =
+        !state.monitor_names.is_empty() && state.monitor_names != next_monitor_names;
+    state.monitor_names = next_monitor_names;
+
+    let mut events = Vec::new();
+    if topology_shifted {
+        events.push(CompositorEvent::RefreshRequested(
+            CompositorRefresh::STRUCTURE,
+        ));
+    }
+    events.push(CompositorEvent::WorkspacesChanged(next));
+    events
 }
 
 fn parse_workspace_activated(event: &Value, state: &mut NiriEventState) -> Vec<CompositorEvent> {
@@ -785,6 +820,92 @@ fn field_usize(value: &Value, field: &str) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Regression test for the "disconnected monitor still appears in
+    /// the display applet" bug on Niri. Niri's IPC has no dedicated
+    /// output event, so we use a shift in the workspace→monitor set as
+    /// the trigger to re-snapshot outputs. Sequence:
+    ///   1. WorkspacesChanged with workspaces on DP-1 + eDP-1 → no
+    ///      refresh (priming the prior set).
+    ///   2. WorkspacesChanged with workspaces only on eDP-1 (DP-1 has
+    ///      been physically disconnected) → must emit RefreshRequested
+    ///      *before* the workspace event so the compositor service
+    ///      re-fetches Outputs and drops DP-1 from `state.monitors`.
+    #[test]
+    fn workspaces_changed_emits_structure_refresh_when_monitor_set_shrinks() {
+        let mut state = NiriEventState::default();
+
+        // Priming event: two monitors visible. No refresh fires because
+        // we don't have a prior set to compare against.
+        let primed = parse_niri_event(
+            r#"{"WorkspacesChanged":{"workspaces":[
+                {"id":1,"output":"eDP-1","is_focused":true,"active_window_id":null},
+                {"id":2,"output":"DP-1","is_focused":false,"active_window_id":null}
+            ]}}"#,
+            &mut state,
+        );
+        assert!(
+            primed
+                .iter()
+                .all(|e| !matches!(e, CompositorEvent::RefreshRequested(_))),
+            "first event must not fire a refresh"
+        );
+
+        // DP-1 unplugged: its workspace either disappears or moves to
+        // eDP-1. Either way, the monitor set changes and the parser
+        // emits a structure refresh.
+        let after_unplug = parse_niri_event(
+            r#"{"WorkspacesChanged":{"workspaces":[
+                {"id":1,"output":"eDP-1","is_focused":true,"active_window_id":null}
+            ]}}"#,
+            &mut state,
+        );
+        assert!(
+            matches!(
+                after_unplug.first(),
+                Some(CompositorEvent::RefreshRequested(_))
+            ),
+            "expected RefreshRequested first, got {after_unplug:?}"
+        );
+        assert!(
+            matches!(
+                after_unplug.last(),
+                Some(CompositorEvent::WorkspacesChanged(_))
+            ),
+            "workspaces update must still be emitted"
+        );
+    }
+
+    /// Counterpart: when workspaces shuffle but the monitor set is
+    /// unchanged (e.g. user switches focus between workspaces on the
+    /// same two monitors), no structure refresh fires. Without this
+    /// check we'd refetch outputs on every workspace switch — wasteful
+    /// and noisy.
+    #[test]
+    fn workspaces_changed_no_refresh_when_monitor_set_unchanged() {
+        let mut state = NiriEventState::default();
+
+        let _ = parse_niri_event(
+            r#"{"WorkspacesChanged":{"workspaces":[
+                {"id":1,"output":"eDP-1","is_focused":true,"active_window_id":null},
+                {"id":2,"output":"DP-1","is_focused":false,"active_window_id":null}
+            ]}}"#,
+            &mut state,
+        );
+        let same_monitors = parse_niri_event(
+            r#"{"WorkspacesChanged":{"workspaces":[
+                {"id":1,"output":"eDP-1","is_focused":false,"active_window_id":null},
+                {"id":2,"output":"DP-1","is_focused":true,"active_window_id":null}
+            ]}}"#,
+            &mut state,
+        );
+        assert!(
+            same_monitors
+                .iter()
+                .all(|e| !matches!(e, CompositorEvent::RefreshRequested(_))),
+            "no topology change → no refresh: {same_monitors:?}"
+        );
+    }
 
     #[test]
     fn parses_workspace_and_focused_window_events() {

@@ -3,7 +3,7 @@ mod imp;
 use glib::closure_local;
 use gtk4::{Align, gdk, glib, prelude::*, subclass::prelude::*};
 
-use crate::utils::notification_markup::sanitize_notification_body;
+use crate::utils::notification_markup::{decode_text_entities, sanitize_notification_body};
 
 glib::wrapper! {
     pub struct Message(ObjectSubclass<imp::Message>)
@@ -60,7 +60,12 @@ impl Message {
 
     pub fn set_app_name(&self, name: &str) {
         let imp = self.imp();
-        imp.app_name.set_text(name);
+        // Decode `&#NN;` / `&amp;` etc. so apps that HTML-encode their
+        // app-name field (some bridges do, especially when piping from
+        // web sources) don't show literal numeric character references
+        // on the panel. `set_text` is plain — Pango isn't involved here,
+        // so it won't decode for us.
+        imp.app_name.set_text(&decode_text_entities(name));
         imp.app_name.set_visible(!name.is_empty());
     }
 
@@ -69,7 +74,11 @@ impl Message {
     }
 
     pub fn set_title(&self, title: &str) {
-        self.imp().title.set_text(title);
+        // Decode XML entities and numeric character references so a
+        // notification with summary `"Reminder &#9733;"` shows as
+        // `"Reminder ★"` rather than the literal NCR. See
+        // `decode_text_entities` for the supported reference set.
+        self.imp().title.set_text(&decode_text_entities(title));
     }
 
     pub fn set_body(&self, body: &str) {

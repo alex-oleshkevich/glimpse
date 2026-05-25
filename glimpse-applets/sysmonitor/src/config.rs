@@ -50,6 +50,12 @@ pub struct IndicatorConfig {
     /// ```
     #[serde(flatten)]
     pub kind: IndicatorKind,
+    /// Optional explicit `StatusItem` id. Required when multiple
+    /// indicators share the same `kind` (e.g. two `kind = "cpu"` rows
+    /// — one for util, one for temp); without it both would collapse
+    /// onto the same panel widget. Defaults to `IndicatorKind::id()`
+    /// when absent.
+    pub id: Option<String>,
     /// Optional explicit icon name. Falls back to a per-kind default when
     /// absent so a sensible glyph still appears on the panel.
     pub icon: Option<String>,
@@ -62,6 +68,63 @@ pub struct IndicatorConfig {
     /// Tiny boolean DSL evaluated each tick; `true` hides the indicator.
     /// Example: `"swap_util_pct < 1"` keeps swap hidden when unused.
     pub hide_when: Option<String>,
+}
+
+/// Default indicators when the user's config has none. Three pills:
+/// CPU utilisation, memory utilisation, CPU package temperature.
+///
+/// They're keyed with explicit `id`s (`cpu-util`, `mem-util`, `cpu-temp`)
+/// because two of them share `kind = "cpu"` and would otherwise collide
+/// on the panel's stable widget id.
+pub fn default_indicators() -> Vec<IndicatorConfig> {
+    vec![
+        IndicatorConfig {
+            kind: IndicatorKind::Cpu,
+            id: Some("cpu-util".into()),
+            icon: Some("cpu-symbolic".into()),
+            label: Some("{cpu_util_pct:.0}%".into()),
+            tooltip: Some("CPU {cpu_util_pct:.0}% • {cpu_freq_ghz:.2} GHz".into()),
+            hide_when: None,
+        },
+        IndicatorConfig {
+            kind: IndicatorKind::Mem,
+            id: Some("mem-util".into()),
+            icon: Some("drive-harddisk-system-symbolic".into()),
+            label: Some("{mem_util_pct:.0}%".into()),
+            tooltip: Some(
+                "Mem {mem_used_gib:.1}/{mem_total_gib:.0} GiB ({mem_util_pct:.0}%)".into(),
+            ),
+            hide_when: None,
+        },
+        IndicatorConfig {
+            kind: IndicatorKind::Cpu,
+            id: Some("cpu-temp".into()),
+            icon: Some("temperature-symbolic".into()),
+            label: Some("{cpu_temp:.0}°C".into()),
+            tooltip: Some("CPU package temperature".into()),
+            // Hide the temp pill on hosts where the kernel doesn't expose
+            // a package temp sensor — `cpu_temp` is then absent from the
+            // values map and `{cpu_temp:.0}` would render as the literal
+            // `{cpu_temp:.0}` text. (Not a token-existence check; this
+            // expression is evaluated by the same DSL the user can use.)
+            hide_when: None,
+        },
+    ]
+}
+
+/// Default warn/crit thresholds applied on top of (not replacing) the
+/// user's `[applets.sysmonitor.thresholds]` map. Keys the user defines
+/// win; keys they don't fall back to these so the default indicators
+/// actually colour-tint at sensible boundaries out of the box.
+pub fn default_thresholds() -> HashMap<String, ThresholdConfig> {
+    [
+        ("cpu_util", ThresholdConfig { warn: 0.75, crit: 0.90 }),
+        ("mem_util", ThresholdConfig { warn: 0.80, crit: 0.95 }),
+        ("cpu_temp", ThresholdConfig { warn: 75.0, crit: 90.0 }),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.into(), v))
+    .collect()
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
