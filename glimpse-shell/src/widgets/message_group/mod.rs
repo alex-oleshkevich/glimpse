@@ -3,6 +3,7 @@ mod imp;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use super::message::Message;
+use crate::utils::notification_markup::decode_text_entities;
 
 glib::wrapper! {
     pub struct MessageGroup(ObjectSubclass<imp::MessageGroup>)
@@ -30,7 +31,7 @@ impl MessageGroup {
 
     pub fn set_app_name(&self, name: &str) {
         let imp = self.imp();
-        imp.app_name.set_text(name);
+        imp.app_name.set_text(&decode_text_entities(name));
         imp.app_name.set_visible(!name.is_empty());
     }
 

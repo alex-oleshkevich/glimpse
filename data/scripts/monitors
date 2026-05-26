@@ -1,0 +1,32 @@
+#!/bin/sh
+# Power monitors on/off across niri and hyprland from a single entry point.
+# Used by glimpse-idle's default config and safe to call directly.
+set -eu
+
+usage() {
+    cat >&2 <<EOF
+Usage: monitors on|off
+
+Turns the session's monitors on or off, detecting the running Wayland
+compositor automatically. Supports niri (via NIRI_SOCKET) and hyprland
+(via HYPRLAND_INSTANCE_SIGNATURE).
+EOF
+    exit 2
+}
+
+action="${1:-}"
+case "$action" in
+    on|off) ;;
+    *) usage ;;
+esac
+
+if [ -n "${NIRI_SOCKET:-}" ]; then
+    exec niri msg action "power-${action}-monitors"
+fi
+
+if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]; then
+    exec hyprctl dispatch dpms "$action"
+fi
+
+echo "monitors: no supported compositor detected (set NIRI_SOCKET or HYPRLAND_INSTANCE_SIGNATURE)" >&2
+exit 1

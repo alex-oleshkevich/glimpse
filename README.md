@@ -394,10 +394,12 @@ Night-light schedule values:
 `glimpse-idle` runs commands after the session has been idle for configured
 timeouts. It supports separate AC and battery profiles.
 
-By default, Glimpse locks the session after 15 minutes of idle time on both AC
-and battery power.
+By default, Glimpse runs a three-step ladder: monitors off (10 min AC / 5 min
+battery), lock session (15 min on both), suspend (60 min AC / 30 min battery).
+Monitor power is dispatched through the bundled `/usr/share/glimpse/scripts/monitors` helper,
+which supports both niri and hyprland.
 
-Example laptop config:
+Example laptop config (matches the defaults):
 
 ```toml
 [idle]
@@ -406,16 +408,16 @@ respect_inhibitors = true
 
 [idle.profiles.ac]
 listeners = [
-  { timeout = 300, on_idle = "loginctl lock-session" },
-  { timeout = 600, on_idle = "niri msg action power-off-monitors", on_resume = "niri msg action power-on-monitors" },
-  { timeout = 1800, on_idle = "systemctl suspend" },
+  { timeout = 600, on_idle = "/usr/share/glimpse/scripts/monitors off", on_resume = "/usr/share/glimpse/scripts/monitors on" },
+  { timeout = 900, on_idle = "loginctl lock-session" },
+  { timeout = 3600, on_idle = "systemctl suspend" },
 ]
 
 [idle.profiles.battery]
 listeners = [
-  { timeout = 300, on_idle = "loginctl lock-session" },
-  { timeout = 600, on_idle = "niri msg action power-off-monitors", on_resume = "niri msg action power-on-monitors" },
-  { timeout = 900, on_idle = "systemctl suspend" },
+  { timeout = 300, on_idle = "/usr/share/glimpse/scripts/monitors off", on_resume = "/usr/share/glimpse/scripts/monitors on" },
+  { timeout = 900, on_idle = "loginctl lock-session" },
+  { timeout = 1800, on_idle = "systemctl suspend" },
 ]
 ```
 

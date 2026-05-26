@@ -28,8 +28,8 @@ pub struct IdleProfilesConfig {
 impl Default for IdleProfilesConfig {
     fn default() -> Self {
         Self {
-            ac: IdleProfileConfig::with_default_lock_listener(),
-            battery: IdleProfileConfig::with_default_lock_listener(),
+            ac: IdleProfileConfig::default_ac(),
+            battery: IdleProfileConfig::default_battery(),
         }
     }
 }
@@ -47,9 +47,31 @@ impl Default for IdleProfileConfig {
 }
 
 impl IdleProfileConfig {
-    fn with_default_lock_listener() -> Self {
+    fn default_ac() -> Self {
         Self {
-            listeners: vec![IdleListenerConfig::new(900, "loginctl lock-session", "")],
+            listeners: vec![
+                IdleListenerConfig::new(
+                    600,
+                    "/usr/share/glimpse/scripts/monitors off",
+                    "/usr/share/glimpse/scripts/monitors on",
+                ),
+                IdleListenerConfig::new(900, "loginctl lock-session", ""),
+                IdleListenerConfig::new(3600, "systemctl suspend", ""),
+            ],
+        }
+    }
+
+    fn default_battery() -> Self {
+        Self {
+            listeners: vec![
+                IdleListenerConfig::new(
+                    300,
+                    "/usr/share/glimpse/scripts/monitors off",
+                    "/usr/share/glimpse/scripts/monitors on",
+                ),
+                IdleListenerConfig::new(900, "loginctl lock-session", ""),
+                IdleListenerConfig::new(1800, "systemctl suspend", ""),
+            ],
         }
     }
 }
@@ -90,25 +112,51 @@ mod tests {
     use super::IdleConfig;
 
     #[test]
-    fn default_idle_config_locks_after_fifteen_minutes() {
+    fn default_idle_config_pins_the_ladder() {
         let config = IdleConfig::default();
 
         assert!(config.enabled);
         assert!(config.respect_inhibitors);
-        assert_eq!(config.profiles.ac.listeners.len(), 1);
-        assert_eq!(config.profiles.battery.listeners.len(), 1);
 
-        let ac = &config.profiles.ac.listeners[0];
-        assert_eq!(ac.timeout, 900);
-        assert_eq!(ac.on_idle, "loginctl lock-session");
-        assert_eq!(ac.on_resume, "");
-        assert_eq!(ac.respect_inhibitors, None);
+        let ac_steps: Vec<_> = config
+            .profiles
+            .ac
+            .listeners
+            .iter()
+            .map(|l| (l.timeout, l.on_idle.as_str(), l.on_resume.as_str()))
+            .collect();
+        assert_eq!(
+            ac_steps,
+            vec![
+                (
+                    600,
+                    "/usr/share/glimpse/scripts/monitors off",
+                    "/usr/share/glimpse/scripts/monitors on",
+                ),
+                (900, "loginctl lock-session", ""),
+                (3600, "systemctl suspend", ""),
+            ]
+        );
 
-        let battery = &config.profiles.battery.listeners[0];
-        assert_eq!(battery.timeout, 900);
-        assert_eq!(battery.on_idle, "loginctl lock-session");
-        assert_eq!(battery.on_resume, "");
-        assert_eq!(battery.respect_inhibitors, None);
+        let battery_steps: Vec<_> = config
+            .profiles
+            .battery
+            .listeners
+            .iter()
+            .map(|l| (l.timeout, l.on_idle.as_str(), l.on_resume.as_str()))
+            .collect();
+        assert_eq!(
+            battery_steps,
+            vec![
+                (
+                    300,
+                    "/usr/share/glimpse/scripts/monitors off",
+                    "/usr/share/glimpse/scripts/monitors on",
+                ),
+                (900, "loginctl lock-session", ""),
+                (1800, "systemctl suspend", ""),
+            ]
+        );
     }
 
     #[test]

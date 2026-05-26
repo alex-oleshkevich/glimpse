@@ -2,11 +2,19 @@
 
 Idle rules decide what happens when you stop using the computer.
 
-By default, Glimpse locks the session after 15 minutes of idle time on both AC and battery power.
+By default, Glimpse runs a three-step ladder on both profiles:
+
+| Step | AC | Battery |
+|---|---|---|
+| Turn monitors off | 10 minutes | 5 minutes |
+| Lock session | 15 minutes | 15 minutes |
+| Suspend | 60 minutes | 30 minutes |
+
+Monitors come back on automatically when input resumes. The `/usr/share/glimpse/scripts/monitors` helper is installed alongside the binaries and supports both niri and hyprland out of the box.
 
 ## A Good Laptop Setup
 
-Add this to `~/.config/glimpse/config.toml`:
+The defaults above are already tuned for laptops. To customise, drop a block in `~/.config/glimpse/config.toml`:
 
 ```toml
 [idle]
@@ -15,14 +23,16 @@ respect_inhibitors = true
 
 [idle.profiles.ac]
 listeners = [
-  { timeout = 300, on_idle = "loginctl lock-session" },
-  { timeout = 600, on_idle = "niri msg action power-off-monitors", on_resume = "niri msg action power-on-monitors" }
+  { timeout = 600, on_idle = "/usr/share/glimpse/scripts/monitors off", on_resume = "/usr/share/glimpse/scripts/monitors on" },
+  { timeout = 900, on_idle = "loginctl lock-session" },
+  { timeout = 3600, on_idle = "systemctl suspend" },
 ]
 
 [idle.profiles.battery]
 listeners = [
-  { timeout = 180, on_idle = "loginctl lock-session" },
-  { timeout = 300, on_idle = "niri msg action power-off-monitors", on_resume = "niri msg action power-on-monitors" }
+  { timeout = 300, on_idle = "/usr/share/glimpse/scripts/monitors off", on_resume = "/usr/share/glimpse/scripts/monitors on" },
+  { timeout = 900, on_idle = "loginctl lock-session" },
+  { timeout = 1800, on_idle = "systemctl suspend" },
 ]
 ```
 
@@ -57,9 +67,11 @@ When power state changes, Glimpse switches to the matching profile.
 | Goal | Command |
 |---|---|
 | Lock the session | `loginctl lock-session` |
-| Turn Niri monitors off | `niri msg action power-off-monitors` |
-| Turn Niri monitors on | `niri msg action power-on-monitors` |
+| Turn monitors off (niri or hyprland) | `/usr/share/glimpse/scripts/monitors off` |
+| Turn monitors on (niri or hyprland) | `/usr/share/glimpse/scripts/monitors on` |
 | Suspend | `systemctl suspend` |
+
+`/usr/share/glimpse/scripts/monitors` detects the running compositor from `$NIRI_SOCKET` or `$HYPRLAND_INSTANCE_SIGNATURE` and dispatches the right command. For other compositors, use their native command directly.
 
 ## Inhibitors
 
