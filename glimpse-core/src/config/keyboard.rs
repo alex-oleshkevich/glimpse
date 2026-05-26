@@ -7,9 +7,9 @@ use crate::{AppletConfig, AppletType, Config};
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum KeyboardRememberMode {
-    #[default]
     Global,
     App,
+    #[default]
     Window,
 }
 
@@ -78,10 +78,10 @@ mod tests {
     use crate::AppletConfig;
 
     #[test]
-    fn keyboard_config_defaults_to_global_without_labels() {
+    fn keyboard_config_defaults_to_window_without_labels() {
         assert_eq!(
             KeyboardConfig::default().remember,
-            KeyboardRememberMode::Global
+            KeyboardRememberMode::Window
         );
         assert!(KeyboardConfig::default().labels.is_empty());
     }
