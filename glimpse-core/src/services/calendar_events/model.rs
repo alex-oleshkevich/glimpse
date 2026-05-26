@@ -55,12 +55,35 @@ pub struct CalendarSource {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CalendarPerson {
+    pub name: Option<String>,
+    pub email: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CalendarAttendee {
+    pub person: CalendarPerson,
+    pub participation_status: Option<String>,
+    pub role: Option<String>,
+    pub rsvp: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CalendarEvent {
     pub event_id: String,
     pub title: String,
     pub start: String,
     pub end: String,
     pub location: Option<String>,
+    pub description: Option<String>,
+    pub url: Option<String>,
+    pub meeting_url: Option<String>,
+    pub status: Option<String>,
+    pub organizer: Option<CalendarPerson>,
+    pub attendees: Vec<CalendarAttendee>,
+    pub transparency: Option<String>,
+    pub last_modified: Option<String>,
+    pub sequence: Option<u32>,
     pub all_day: bool,
     pub source: CalendarSource,
 }

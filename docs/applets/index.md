@@ -52,6 +52,7 @@ An empty label means the applet shows only its icon.
 | [`keyboard`](#keyboard) | Current keyboard layout. |
 | [`mpris`](#mpris) | Media players and playback controls. |
 | [`network`](#network) | Wi-Fi, wired network, and VPN status. |
+| [`next_event`](#next-event) | Next upcoming calendar event from configured sources. |
 | [`notifications`](#notifications) | Notification center and popups. |
 | [`pager`](#pager) | Workspaces and windows. |
 | [`privacy`](#privacy) | Camera, microphone, screen sharing, and location indicators. |
@@ -194,6 +195,8 @@ format = "%H:%M"
 
 Clock formats use `strftime` style patterns.
 
+Calendar events in the popover come from shared [Calendar Sources](../calendar.md). Event rows show a colored dot beside the title when the source has `color` configured, keep ended events visible for the selected day, and wrap titles longer than 40 characters onto a second line.
+
 ### World clocks
 
 Add one `[[applets.clock.timezones]]` table per extra timezone. World clocks appear in the clock popover, below the local calendar.
@@ -228,6 +231,59 @@ Copy these into `label_format`, `tooltip_format`, or a world clock `format`.
 | `"%a %-d %b, %H:%M"` | `Mon 11 May, 23:07` | Matches the default panel label shape. |
 | `"%A, %-d %B %Y"` | `Monday, 11 May 2026` | Matches the default tooltip shape. |
 | `"%Y-%m-%d %H:%M"` | `2026-05-11 23:07` | Sortable date and time. |
+
+## Next Event
+
+Shows the next upcoming non-all-day calendar event from shared [Calendar Sources](../calendar.md). Use this applet when you want a compact panel reminder for meetings that are about to start or are already in progress.
+
+```toml
+[applets.next_event]
+label_format = "{name} {remaining}"
+tooltip_format = "{name} ({time}) — {duration}"
+threshold_minutes = 30
+```
+
+| Option | Default | Meaning |
+|---|---|---|
+| `label_format` | `"{name} {remaining}"` | Panel text. `{name}` renders with the source color dot when available. |
+| `tooltip_format` | `"{name} ({time}) — {duration}"` | Hover text. |
+| `threshold_minutes` | `30` | Future window for showing events. Values below 1 are clamped to 1. |
+
+### Placeholders
+
+Use these in `label_format` and `tooltip_format`.
+
+| Placeholder | Meaning |
+|---|---|
+| `{name}` | Event title. In panel markup it includes a colored dot when the source has `color`. |
+| `{time}` | Start time, using `HH:MM` for today, `Tomorrow HH:MM` for tomorrow, weekday for the next six days, then full date and time. |
+| `{duration}` | Event duration, such as `45m`, `1h`, or `1h15m`. |
+| `{source}` | Calendar display name. |
+| `{remaining}` | Relative timing, such as `in 15m` or `ends in 10m`. |
+| `{location}` | Event location, or empty when the event has no location. |
+
+### Display Rules
+
+| Rule | Behavior |
+|---|---|
+| Matching window | Shows events whose start is within `threshold_minutes`, plus in-progress events. |
+| Past events | Hidden once the event end time is before now. |
+| All-day events | Ignored. The clock popover is the better surface for all-day items. |
+| Multiple matches | Picks the earliest matching event by start time. |
+| No match | Hides the panel applet. |
+
+### Popover
+
+Click the applet to open the event popover. The popover uses the same shared popover widgets as other built-in applets: a hero row, metadata grid, and action rows.
+
+| Area | Contents |
+|---|---|
+| Hero | Event title, time range, remaining time, and the calendar color dot when available. |
+| Details | Calendar, duration, status, location, organizer, and attendee summary when present. |
+| Description | First description line, trimmed to a short preview when present. |
+| Actions | `Join meeting` for detected meeting links and `Open event` for event URLs. |
+
+Calendar data comes from shared [Calendar Sources](../calendar.md), including remote `.ics` URLs and local directory sources. If the applet is empty, check that the event is not all-day, has an end time after now, and starts within `threshold_minutes`.
 
 ## Command
 
@@ -462,7 +518,7 @@ Clicking the panel icon opens the notification center popover with all currently
 - **Collapsed group**: shows only the most recent notification, with two darker "card edges" peeking out beneath it as a stacked-deck visual. Clicking anywhere on the lead card expands the group.
 - **Expanded group**: shows an inline header (app icon + name + collapse chevron) followed by every notification in the group. Click the chevron to collapse again.
 
-Each notification in the popover has its own dismiss button (×). Single notifications and group members behave identically — there is no group-wide dismiss; dismissing the lead in a collapsed group dismisses just that one and the next-most-recent advances to the front of the stack.
+Each notification in the popover has its own dismiss button (×). Single notifications and group members behave identically — there is no group-wide dismiss; dismissing the lead in a collapsed group dismisses only that notification and the next-most-recent advances to the front of the stack.
 
 The "Clear All" button in the footer dismisses every notification at once.
 

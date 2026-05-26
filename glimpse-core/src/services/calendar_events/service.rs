@@ -1,9 +1,6 @@
-use std::{
-    collections::{BTreeSet, VecDeque},
-    time::Duration,
-};
+use std::collections::{BTreeSet, VecDeque};
 
-use chrono::{Datelike, Local, Months};
+use chrono::Local;
 use tokio::{
     sync::{mpsc, watch},
     task::JoinHandle,
@@ -19,19 +16,15 @@ use crate::{
 use super::{
     aggregate::CalendarAggregator,
     model::{CalendarMonthSnapshot, Command, Health, MonthKey, State},
-    provider::{CalendarClient, CalendarProviderEvent, LiveRange},
 };
 
 const COMMAND_QUEUE_SIZE: usize = 16;
-const PROVIDER_EVENT_QUEUE_SIZE: usize = 16;
-const SELF_LOAD_EVENT_SUPPRESSION: Duration = Duration::from_secs(3);
 
 pub type CalendarEventsHandle = ServiceHandle<State, Command>;
 
 pub struct CalendarEventsService {
     state_tx: watch::Sender<State>,
     command_rx: mpsc::Receiver<ServiceCommand<Command>>,
-    session: zbus::Connection,
 }
 
 #[derive(Debug)]
@@ -39,14 +32,8 @@ struct MonthLoad {
     result: anyhow::Result<CalendarMonthSnapshot>,
 }
 
-struct Listener {
-    events: mpsc::Receiver<CalendarProviderEvent>,
-    cancel: CancellationToken,
-    task: JoinHandle<()>,
-}
-
 impl CalendarEventsService {
-    pub fn new(session: zbus::Connection) -> (Self, CalendarEventsHandle) {
+    pub fn new(_session: zbus::Connection) -> (Self, CalendarEventsHandle) {
         let (state_tx, state_rx) = watch::channel(State::default());
         let (command_tx, command_rx) = mpsc::channel(COMMAND_QUEUE_SIZE);
 
@@ -54,71 +41,32 @@ impl CalendarEventsService {
             Self {
                 state_tx,
                 command_rx,
-                session,
             },
             ServiceHandle::new(state_rx, command_tx),
         )
     }
 
     pub async fn run(mut self, cancel: CancellationToken) {
-        let mut startup_preload = None;
-        let mut calendar_config = CalendarConfig::default();
-        let client = loop {
-            match CalendarClient::new(self.session.clone()).await {
-                Ok(client) => break client,
-                Err(error) => {
-                    self.publish_health(Health::Degraded(error.to_string()));
-                    tokio::select! {
-                        _ = cancel.cancelled() => return,
-                        command = self.command_rx.recv() => {
-                            match command {
-                                Some(ServiceCommand::Command(Command::PreloadAround(month))) => {
-                                    startup_preload = Some(month);
-                                }
-                                Some(ServiceCommand::Control(Control::Shutdown)) | None => return,
-                                Some(ServiceCommand::Command(Command::Refresh))
-                                => {}
-                                Some(ServiceCommand::Control(Control::Start(config)))
-                                | Some(ServiceCommand::Control(Control::Reconfigure(config))) => {
-                                    calendar_config = config.calendar;
-                                }
-                            }
-                        }
-                        _ = sleep(Duration::from_secs(5)) => {}
-                    }
-                }
-            }
-        };
-        let mut aggregator = CalendarAggregator::new(client.clone(), calendar_config);
-
-        let (live_range_tx, live_range_rx) = watch::channel(None);
-        let mut listener = Some(start_listener(&client, live_range_rx.clone()));
-        let listener_retry = sleep(Duration::MAX);
-        tokio::pin!(listener_retry);
-        let mut listener_retry_scheduled = false;
-
+        let mut aggregator = CalendarAggregator::new(CalendarConfig::default());
         let mut pending = VecDeque::new();
         let mut queued = BTreeSet::new();
         let mut inflight: Option<(MonthKey, JoinHandle<MonthLoad>)> = None;
         let mut active_months = BTreeSet::new();
-        let mut suppress_provider_events_until = None;
         let refresh = sleep(aggregator.poll_interval());
         tokio::pin!(refresh);
 
         self.set_preload_window(
-            startup_preload.unwrap_or_else(|| MonthKey::from_date(Local::now().date_naive())),
+            MonthKey::from_date(Local::now().date_naive()),
             &mut active_months,
             &mut pending,
             &mut queued,
         );
-        self.sync_live_range(&live_range_tx, &active_months);
         start_next_load(
             &aggregator,
             &mut pending,
             &mut queued,
             &mut inflight,
             &self.state_tx,
-            &mut suppress_provider_events_until,
         );
 
         loop {
@@ -128,12 +76,11 @@ impl CalendarEventsService {
                     Some(ServiceCommand::Command(Command::PreloadAround(month))) => {
                         self.set_preload_window(month, &mut active_months, &mut pending, &mut queued);
                         abort_inactive_load(&active_months, &mut inflight);
-                        self.sync_live_range(&live_range_tx, &active_months);
-                        start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
+                        start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx);
                     }
                     Some(ServiceCommand::Command(Command::Refresh)) => {
                         self.queue_active_months(&active_months, &mut pending, &mut queued);
-                        start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
+                        start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx);
                     }
                     Some(ServiceCommand::Control(Control::Shutdown)) | None => break,
                     Some(ServiceCommand::Control(Control::Start(config)))
@@ -142,41 +89,13 @@ impl CalendarEventsService {
                         refresh.as_mut().reset(Instant::now() + aggregator.poll_interval());
                         abort_load(&mut inflight, &self.state_tx);
                         self.queue_active_months(&active_months, &mut pending, &mut queued);
-                        start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
+                        start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx);
                     }
                 },
-                event = async {
-                    let Some(listener) = listener.as_mut() else {
-                        return None;
-                    };
-                    listener.events.recv().await
-                }, if listener.is_some() => {
-                    match event {
-                        Some(CalendarProviderEvent::Changed(reason)) => {
-                            if should_ignore_provider_event(&mut suppress_provider_events_until) {
-                                tracing::trace!(?reason, "ignored calendar provider event from local reload");
-                                continue;
-                            }
-                            tracing::trace!(?reason, "calendar provider changed, refreshing active months");
-                            self.queue_active_months(&active_months, &mut pending, &mut queued);
-                            start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
-                        }
-                        None => {
-                            self.publish_health(Health::Degraded("calendar events listener stopped".into()));
-                            stop_listener(listener.take());
-                            listener_retry.as_mut().reset(Instant::now() + Duration::from_secs(5));
-                            listener_retry_scheduled = true;
-                        }
-                    }
-                }
                 _ = &mut refresh => {
                     self.queue_active_months(&active_months, &mut pending, &mut queued);
-                    start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
+                    start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx);
                     refresh.as_mut().reset(Instant::now() + aggregator.poll_interval());
-                }
-                _ = &mut listener_retry, if listener_retry_scheduled => {
-                    listener = Some(start_listener(&client, live_range_rx.clone()));
-                    listener_retry_scheduled = false;
                 }
                 loaded = async {
                     let Some((_, task)) = inflight.as_mut() else {
@@ -204,8 +123,7 @@ impl CalendarEventsService {
                             None => {}
                         }
                     }
-                    self.sync_live_range(&live_range_tx, &active_months);
-                    start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
+                    start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx);
                 }
             }
         }
@@ -213,7 +131,6 @@ impl CalendarEventsService {
         if let Some((_, task)) = inflight {
             task.abort();
         }
-        stop_listener(listener);
     }
 
     fn set_preload_window(
@@ -243,20 +160,6 @@ impl CalendarEventsService {
         for key in active_months.iter().copied() {
             queue_month(&self.state_tx, pending, queued, key, true);
         }
-    }
-
-    fn sync_live_range(
-        &self,
-        live_range_tx: &watch::Sender<Option<LiveRange>>,
-        active_months: &BTreeSet<MonthKey>,
-    ) {
-        let Some(range) = live_range_for_months(active_months.iter().copied().collect()) else {
-            return;
-        };
-        if live_range_tx.borrow().as_ref() == Some(&range) {
-            return;
-        }
-        let _ = live_range_tx.send(Some(range));
     }
 
     fn evict_inactive_months(&self, active_months: &BTreeSet<MonthKey>) {
@@ -317,7 +220,6 @@ fn start_next_load(
     queued: &mut BTreeSet<MonthKey>,
     inflight: &mut Option<(MonthKey, JoinHandle<MonthLoad>)>,
     state_tx: &watch::Sender<State>,
-    suppress_provider_events_until: &mut Option<Instant>,
 ) {
     if inflight.is_some() {
         return;
@@ -330,8 +232,6 @@ fn start_next_load(
         state.health = Health::Loading;
         state.loading_months.insert(key)
     });
-    *suppress_provider_events_until = Some(Instant::now() + SELF_LOAD_EVENT_SUPPRESSION);
-
     let aggregator = aggregator.clone();
     *inflight = Some((
         key,
@@ -367,47 +267,6 @@ fn abort_load(
     state_tx.send_if_modified(|state| state.loading_months.remove(&key));
 }
 
-fn should_ignore_provider_event(suppress_provider_events_until: &mut Option<Instant>) -> bool {
-    let Some(until) = *suppress_provider_events_until else {
-        return false;
-    };
-    if Instant::now() < until {
-        return true;
-    }
-    *suppress_provider_events_until = None;
-    false
-}
-
-fn start_listener(
-    client: &CalendarClient,
-    live_range: watch::Receiver<Option<LiveRange>>,
-) -> Listener {
-    let (events, event_rx) = mpsc::channel(PROVIDER_EVENT_QUEUE_SIZE);
-    let cancel = CancellationToken::new();
-    let task = tokio::spawn({
-        let client = client.clone();
-        let cancel = cancel.clone();
-        async move {
-            if let Err(error) = client.listen(events, live_range, cancel).await {
-                tracing::warn!(%error, "calendar events listener failed");
-            }
-        }
-    });
-
-    Listener {
-        events: event_rx,
-        cancel,
-        task,
-    }
-}
-
-fn stop_listener(listener: Option<Listener>) {
-    if let Some(listener) = listener {
-        listener.cancel.cancel();
-        listener.task.abort();
-    }
-}
-
 fn preload_window(month: MonthKey) -> BTreeSet<MonthKey> {
     let mut months = BTreeSet::from([month]);
     if let Some(next) = month.next() {
@@ -416,50 +275,9 @@ fn preload_window(month: MonthKey) -> BTreeSet<MonthKey> {
     months
 }
 
-fn live_range_for_months(months: Vec<MonthKey>) -> Option<LiveRange> {
-    let min = months.iter().min()?.to_naive_date()?;
-    let max = months.iter().max()?.to_naive_date()?;
-    let end = max.checked_add_months(Months::new(1))?;
-    Some(LiveRange {
-        start: local_day_start(min)?,
-        end: local_day_start(end)?,
-    })
-}
-
-fn local_day_start(date: chrono::NaiveDate) -> Option<chrono::DateTime<Local>> {
-    use chrono::TimeZone;
-    Local
-        .with_ymd_and_hms(date.year(), date.month(), date.day(), 0, 0, 0)
-        .single()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn live_range_spans_loaded_months() {
-        let range = live_range_for_months(vec![
-            MonthKey {
-                year: 2026,
-                month: 5,
-            },
-            MonthKey {
-                year: 2026,
-                month: 4,
-            },
-        ])
-        .unwrap();
-
-        assert_eq!(
-            range.start.date_naive(),
-            chrono::NaiveDate::from_ymd_opt(2026, 4, 1).unwrap()
-        );
-        assert_eq!(
-            range.end.date_naive(),
-            chrono::NaiveDate::from_ymd_opt(2026, 6, 1).unwrap()
-        );
-    }
 
     #[test]
     fn preload_window_keeps_visible_month_and_next_only() {

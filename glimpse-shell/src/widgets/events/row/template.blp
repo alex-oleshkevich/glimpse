@@ -8,13 +8,24 @@ template $EventRow: Box {
     "events__row",
   ]
 
-  Label title {
-    xalign: 0;
-    wrap: true;
+  Box title_row {
+    orientation: horizontal;
+    spacing: 6;
 
-    styles [
-      "heading",
-    ]
+    $StatusDot color_dot {
+      visible: false;
+      valign: center;
+    }
+
+    Label title {
+      xalign: 0;
+      wrap: true;
+      hexpand: true;
+
+      styles [
+        "heading",
+      ]
+    }
   }
 
   Label time {

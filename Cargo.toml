@@ -39,6 +39,7 @@ system-tray = "0.8.5"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 regex = "1"
 ammonia = "4"
+rrule = "0.14"
 dirs = "5"
 anyhow = "1"
 async-trait = "0.1"

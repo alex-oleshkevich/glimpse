@@ -29,6 +29,7 @@ Glimpse is for people who like Niri but still want the comfortable parts of a co
 | Component | What it does |
 |---|---|
 | **Shell** | Shows workspaces, status applets, tray items, weather, battery, network, media, notifications, and custom commands. |
+| **Calendar events** | Reads configured online and local iCalendar sources for the clock popover and next-event applet. |
 | **Wallpaper** | Sets a color or image wallpaper, with an optional blurred backdrop. |
 | **Lock screen** | Shows a themed lock screen with your wallpaper, clock, user picture, status buttons, and PAM authentication. |
 | **Night light** | Warms the screen at sunset or on your chosen schedule. |
@@ -58,6 +59,7 @@ Then start with these pages:
 | Goal | Page |
 |---|---|
 | Put useful things in the panel | [Configuration](./configuration.md) |
+| Connect calendar feeds | [Calendar Sources](./calendar.md) |
 | Change colors and CSS | [Theming](./theming.md) |
 | Use commands and scripts as applets | [Custom Applets](./custom-applets/) |
 | Make the lock screen match your setup | [Lock](./lock.md) |

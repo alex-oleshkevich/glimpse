@@ -13,8 +13,8 @@ impl EventRow {
         glib::Object::builder().build()
     }
 
-    pub fn set_title(&self, text: &str) {
-        self.imp().set_title(text);
+    pub fn set_title(&self, text: &str, color: Option<&str>) {
+        self.imp().set_title(text, color);
     }
 
     pub fn set_time(&self, text: &str) {

@@ -4,21 +4,14 @@ use chrono::DateTime;
 
 use super::model::CalendarEvent;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum EventSourcePriority {
-    Weak,
-    Strong,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EventCandidate {
     pub event: CalendarEvent,
-    pub priority: EventSourcePriority,
 }
 
 impl EventCandidate {
-    pub fn new(event: CalendarEvent, priority: EventSourcePriority) -> Self {
-        Self { event, priority }
+    pub fn new(event: CalendarEvent) -> Self {
+        Self { event }
     }
 }
 
@@ -27,12 +20,7 @@ pub fn dedupe_events(events: Vec<EventCandidate>) -> Vec<CalendarEvent> {
 
     for candidate in events {
         let key = DedupeKey::from_event(&candidate.event);
-        match by_key.get(&key) {
-            Some(existing) if existing.priority >= candidate.priority => {}
-            _ => {
-                by_key.insert(key, candidate);
-            }
-        }
+        by_key.entry(key).or_insert(candidate);
     }
 
     let mut events: Vec<_> = by_key
@@ -100,32 +88,27 @@ mod tests {
                 display_name: source_id.into(),
                 color: None,
             },
+            ..CalendarEvent::default()
         }
     }
 
     #[test]
-    fn dedupe_events_prefers_strong_source_for_same_name_and_time() {
+    fn dedupe_events_keeps_first_source_for_same_name_and_time() {
         let events = vec![
-            EventCandidate::new(
-                event(
-                    "gnome-1",
-                    " Team Standup ",
-                    "2026-05-26T09:00:00+02:00",
-                    "2026-05-26T09:30:00+02:00",
-                    "gnome",
-                ),
-                EventSourcePriority::Weak,
-            ),
-            EventCandidate::new(
-                event(
-                    "google-1",
-                    "team  standup",
-                    "2026-05-26T09:00:00+02:00",
-                    "2026-05-26T09:30:00+02:00",
-                    "google",
-                ),
-                EventSourcePriority::Strong,
-            ),
+            EventCandidate::new(event(
+                "google-1",
+                " Team Standup ",
+                "2026-05-26T09:00:00+02:00",
+                "2026-05-26T09:30:00+02:00",
+                "google",
+            )),
+            EventCandidate::new(event(
+                "work-1",
+                "team  standup",
+                "2026-05-26T09:00:00+02:00",
+                "2026-05-26T09:30:00+02:00",
+                "work",
+            )),
         ];
 
         let deduped = dedupe_events(events);
@@ -137,26 +120,20 @@ mod tests {
     #[test]
     fn dedupe_events_keeps_same_name_at_different_times() {
         let events = vec![
-            EventCandidate::new(
-                event(
-                    "work-1",
-                    "Standup",
-                    "2026-05-26T09:00:00+02:00",
-                    "2026-05-26T09:30:00+02:00",
-                    "work",
-                ),
-                EventSourcePriority::Strong,
-            ),
-            EventCandidate::new(
-                event(
-                    "client-1",
-                    "standup",
-                    "2026-05-26T10:00:00+02:00",
-                    "2026-05-26T10:30:00+02:00",
-                    "client",
-                ),
-                EventSourcePriority::Strong,
-            ),
+            EventCandidate::new(event(
+                "work-1",
+                "Standup",
+                "2026-05-26T09:00:00+02:00",
+                "2026-05-26T09:30:00+02:00",
+                "work",
+            )),
+            EventCandidate::new(event(
+                "client-1",
+                "standup",
+                "2026-05-26T10:00:00+02:00",
+                "2026-05-26T10:30:00+02:00",
+                "client",
+            )),
         ];
 
         let deduped = dedupe_events(events);

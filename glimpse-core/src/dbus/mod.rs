@@ -1,5 +1,4 @@
 pub mod bluez;
-pub mod calendar;
 pub mod dbus;
 pub mod geoclue;
 pub mod glimpse_lock;

@@ -84,11 +84,47 @@ mod tests {
 
     use super::*;
 
+    fn calendar_event(title: &str, start: DateTime<Local>, end: DateTime<Local>) -> CalendarEvent {
+        CalendarEvent {
+            event_id: title.into(),
+            title: title.into(),
+            start: start.to_rfc3339(),
+            end: end.to_rfc3339(),
+            location: None,
+            all_day: false,
+            source: Default::default(),
+            ..CalendarEvent::default()
+        }
+    }
+
     #[test]
     fn duration_label_uses_hours_for_long_events() {
         let start = Local.with_ymd_and_hms(2026, 4, 30, 10, 0, 0).unwrap();
         let end = Local.with_ymd_and_hms(2026, 4, 30, 11, 30, 0).unwrap();
 
         assert_eq!(duration_label(start, end), "1 h 30 min");
+    }
+
+    #[test]
+    fn event_time_keeps_ended_today_event_visible_with_start_time() {
+        let now = Local.with_ymd_and_hms(2026, 5, 26, 12, 0, 0).unwrap();
+        let start = Local.with_ymd_and_hms(2026, 5, 26, 9, 0, 0).unwrap();
+        let end = Local.with_ymd_and_hms(2026, 5, 26, 10, 0, 0).unwrap();
+        let event = calendar_event("Past meeting", start, end);
+
+        assert_eq!(event_time(&event, now.date_naive(), now), "09:00 · 1 h");
+    }
+
+    #[test]
+    fn event_time_marks_current_event_as_now() {
+        let now = Local.with_ymd_and_hms(2026, 5, 26, 9, 30, 0).unwrap();
+        let start = Local.with_ymd_and_hms(2026, 5, 26, 9, 0, 0).unwrap();
+        let end = Local.with_ymd_and_hms(2026, 5, 26, 10, 0, 0).unwrap();
+        let event = calendar_event("Current meeting", start, end);
+
+        assert_eq!(
+            event_time(&event, now.date_naive(), now),
+            "now · ends 10:00"
+        );
     }
 }

@@ -14,6 +14,7 @@ defaults, and lets you replace the parts that should reflect your setup.
 - [What's Inside](#whats-inside)
 - [Installation](#installation)
 - [Configuration](#configuration)
+- [Calendar Sources](#calendar-sources)
 - [Wallpaper And Backdrop](#wallpaper-and-backdrop)
 - [Lock Screen](#lock-screen)
 - [Night Light](#night-light)
@@ -44,6 +45,7 @@ Glimpse optimizes for:
 | Component | Purpose |
 |---|---|
 | `glimpse-shell` | GTK4 layer-shell panel with built-in and custom applets. |
+| Calendar events | Configured online and local iCalendar feeds for the clock popover and next-event applet. |
 | `glimpse-wallpaper` | Wallpaper and blurred backdrop daemon. |
 | `glimpse-lock` | Session lock screen with PAM authentication and CSS theming. |
 | `glimpse-sunset` | Night-light daemon with fixed or automatic schedules. |
@@ -169,7 +171,7 @@ Default panel layout:
 
 - **Left:** `pager`, `mpris`
 - **Center:** `clock`, `weather`, `notifications`, `privacy`
-- **Right:** `tray`, `removable`, `clipboard`, `keyboard`, `bluetooth`,
+- **Right:** `next_event`, `tray`, `removable`, `clipboard`, `keyboard`, `bluetooth`,
   `network`, `brightness`, `audio`, `battery`, `session`
 
 Panel options:
@@ -208,6 +210,7 @@ right = ["network", "battery", "..."]
 | `keyboard` | Current keyboard layout. |
 | `mpris` | Media player status and controls. |
 | `network` | Wi-Fi, wired network, and VPN status. |
+| `next_event` | Next upcoming calendar event. |
 | `notifications` | Notification center and popups. |
 | `pager` | Workspaces and windows. |
 | `privacy` | Camera, microphone, screen sharing, and location indicators. |
@@ -262,6 +265,40 @@ right = ["terminal", "screenshot", "network", "battery"]
 
 `command` applets run a command on click and can expose a right-click menu.
 `exec` applets run an external process that speaks the Glimpse applet protocol.
+
+## Calendar Sources
+
+Calendar sources live in `[calendar]` and feed both the clock popover and the `next_event` applet. Use iCalendar subscription URLs from Google Calendar, Outlook, or another provider; Glimpse does not perform provider account login.
+
+```toml
+[calendar]
+poll_interval = 600
+
+[[calendar.sources]]
+id = "personal"
+type = "ical"
+name = "Personal"
+uri = "https://calendar.google.com/calendar/ical/example/basic.ics"
+color = "#4285f4"
+
+[[calendar.sources]]
+id = "private-url-file"
+type = "ical"
+name = "Private URL File"
+uri = "file:///home/alex/.config/glimpse/calendars/private.url"
+color = "#e01b24"
+
+[[calendar.sources]]
+id = "local"
+type = "directory"
+name = "Local"
+uri = "file:///home/alex/.config/glimpse/calendars"
+color = "#f6c343"
+```
+
+Supported source types are `ical` for one `.ics` feed and `directory` for local directories of `.ics` files. A `file://.../private.url` iCal source can hold a private remote URL outside the main config. Every configured source is active; remove a source block to disable that calendar.
+
+Source colors appear in calendar date markers, event rows, and the next-event panel label. Read [Calendar Sources](docs/calendar.md) for polling, dedupe, local test events, display rules, and debugging.
 
 ## Wallpaper And Backdrop
 

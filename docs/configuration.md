@@ -43,6 +43,7 @@ The special name `"..."` means "keep the default applets for this section here."
 | `keyboard` | Current keyboard layout. |
 | `mpris` | Media player status. |
 | `network` | Wi-Fi and wired network status. |
+| `next_event` | Next upcoming calendar event. |
 | `notifications` | Notification center. |
 | `pager` | Workspaces and windows. |
 | `privacy` | Camera, microphone, and screen sharing indicators. |
@@ -93,6 +94,38 @@ Then place the package id in a panel section:
 right = ["weather", "terminal", "network", "battery"]
 ```
 
+## Calendar Sources
+
+Calendar sources live in the shared `[calendar]` section. They are used by the clock popover and the `next_event` applet. Every configured source is active; remove a source block to disable that calendar.
+
+```toml
+[calendar]
+poll_interval = 600
+
+[[calendar.sources]]
+id = "personal"
+type = "ical"
+name = "Personal"
+uri = "https://calendar.google.com/calendar/ical/example/basic.ics"
+color = "#4285f4"
+
+[[calendar.sources]]
+id = "private-url-file"
+type = "ical"
+name = "Private URL File"
+uri = "file:///home/alex/.config/glimpse/calendars/private.url"
+color = "#e01b24"
+
+[[calendar.sources]]
+id = "local"
+type = "directory"
+name = "Local"
+uri = "file:///home/alex/.config/glimpse/calendars"
+color = "#f6c343"
+```
+
+Read [Calendar Sources](./calendar.md) for source types, polling, URL sidecar files, local test events, recurrence support, display rules, and debugging.
+
 ## Location
 
 Location is used by weather and automatic night light.
@@ -138,6 +171,16 @@ longitude = 21.0122
 [applets.clock]
 label_format = "%H:%M"
 
+[calendar]
+poll_interval = 600
+
+[[calendar.sources]]
+id = "personal"
+type = "ical"
+name = "Personal"
+uri = "file:///home/alex/.config/glimpse/calendars/personal.ics"
+color = "#4285f4"
+
 [wallpaper]
 path = "/home/alex/Pictures/wallpapers/coast.jpg"
 fit = "cover"
@@ -148,4 +191,4 @@ css_path = "themes/lock.css"
 
 `theme` and `theme_mode` are independent: `theme` selects the CSS file, and `theme_mode` selects automatic, dark, or light mode classes.
 
-Read [Applets](./applets/) for per-applet options, [Wallpaper](./wallpaper.md) for background settings, and [Lock](./lock.md) for lock screen settings.
+Read [Applets](./applets/) for per-applet options, [Calendar Sources](./calendar.md) for event feeds, [Wallpaper](./wallpaper.md) for background settings, and [Lock](./lock.md) for lock screen settings.

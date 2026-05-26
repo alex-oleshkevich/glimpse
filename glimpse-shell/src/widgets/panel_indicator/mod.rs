@@ -40,10 +40,27 @@ impl PanelIndicator {
         let label_widget = &self.imp().label;
         match label.filter(|label| !label.is_empty()) {
             Some(label) => {
+                label_widget.set_use_markup(false);
                 label_widget.set_label(label);
                 label_widget.set_visible(true);
             }
             None => {
+                label_widget.set_use_markup(false);
+                label_widget.set_label("");
+                label_widget.set_visible(false);
+            }
+        }
+    }
+
+    pub fn set_label_markup(&self, markup: Option<&str>) {
+        let label_widget = &self.imp().label;
+        match markup.filter(|markup| !markup.is_empty()) {
+            Some(markup) => {
+                label_widget.set_markup(markup);
+                label_widget.set_visible(true);
+            }
+            None => {
+                label_widget.set_use_markup(false);
                 label_widget.set_label("");
                 label_widget.set_visible(false);
             }
@@ -315,6 +332,22 @@ mod tests {
         indicator.set_icon(None);
         indicator.set_label(Some(""));
         assert!(!indicator.imp().icon.is_visible());
+        assert!(!indicator.imp().label.is_visible());
+    }
+
+    #[test]
+    fn label_markup_hides_when_empty() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let indicator = PanelIndicator::new();
+
+        indicator.set_label_markup(Some("<b>Power</b>"));
+        assert!(indicator.imp().label.is_visible());
+        assert!(indicator.imp().label.uses_markup());
+
+        indicator.set_label_markup(Some(""));
         assert!(!indicator.imp().label.is_visible());
     }
 

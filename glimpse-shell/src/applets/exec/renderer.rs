@@ -831,6 +831,7 @@ fn event_item(item: &EventItemNode) -> CalendarEvent {
         location: item.location.clone(),
         all_day: item.all_day,
         source: CalendarSource::default(),
+        ..CalendarEvent::default()
     }
 }
 

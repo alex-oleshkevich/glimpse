@@ -70,7 +70,7 @@ impl Events {
 
         let now = Local::now();
         for (row, event) in rows.iter().zip(events) {
-            row.set_title(&event.title);
+            row.set_title(&event.title, event.source.color.as_deref());
             row.set_time(&format::event_time(event, date, now));
             row.set_tooltip_text(tooltip_for(event).as_deref());
         }

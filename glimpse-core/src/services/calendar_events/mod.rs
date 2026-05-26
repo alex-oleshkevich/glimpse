@@ -3,7 +3,6 @@ mod dedupe;
 mod ical;
 mod local;
 pub mod model;
-mod provider;
 mod service;
 mod source;
 

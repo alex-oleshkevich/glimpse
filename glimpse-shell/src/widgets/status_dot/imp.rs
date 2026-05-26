@@ -1,7 +1,11 @@
-use gtk4::{glib, prelude::*, subclass::prelude::*};
+use std::cell::RefCell;
+
+use gtk4::{CssProvider, glib, prelude::*, subclass::prelude::*};
 
 #[derive(Default)]
-pub struct StatusDot;
+pub struct StatusDot {
+    pub(super) provider: RefCell<Option<CssProvider>>,
+}
 
 #[glib::object_subclass]
 impl ObjectSubclass for StatusDot {
@@ -15,7 +19,7 @@ impl ObjectImpl for StatusDot {
         self.parent_constructed();
         let obj = self.obj();
         obj.add_css_class("status-dot");
-        obj.add_css_class("neutral");
+        obj.add_css_class("is-neutral");
     }
 }
 

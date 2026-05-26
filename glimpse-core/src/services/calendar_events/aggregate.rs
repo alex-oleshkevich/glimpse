@@ -5,25 +5,23 @@ use chrono::{DateTime, Local, NaiveDate};
 use crate::{CalendarConfig, CalendarSourceType};
 
 use super::{
-    dedupe::{EventCandidate, EventSourcePriority, dedupe_events},
+    dedupe::{EventCandidate, dedupe_events},
     ical, local,
     model::{
         CalendarDate, CalendarDaySnapshot, CalendarEvent, CalendarMonthDay, CalendarMonthSnapshot,
         MonthKey,
     },
-    provider::CalendarClient,
     source::SourceSnapshot,
 };
 
 #[derive(Clone)]
 pub struct CalendarAggregator {
-    gnome: CalendarClient,
     config: CalendarConfig,
 }
 
 impl CalendarAggregator {
-    pub fn new(gnome: CalendarClient, config: CalendarConfig) -> Self {
-        Self { gnome, config }
+    pub fn new(config: CalendarConfig) -> Self {
+        Self { config }
     }
 
     pub fn reconfigure(&mut self, config: CalendarConfig) {
@@ -35,20 +33,11 @@ impl CalendarAggregator {
     }
 
     pub async fn load_month(&self, key: MonthKey) -> anyhow::Result<CalendarMonthSnapshot> {
-        let mut sources = self.load_configured_sources().await;
-        match self.gnome.load_month(key).await {
-            Ok(month) => {
-                sources.push((gnome_source_snapshot(month), EventSourcePriority::Weak));
-            }
-            Err(error) if sources.is_empty() => return Err(error),
-            Err(error) => {
-                tracing::warn!(%error, "failed to load GNOME calendar fallback");
-            }
-        }
+        let sources = self.load_configured_sources().await;
         build_month_snapshot(key, sources)
     }
 
-    async fn load_configured_sources(&self) -> Vec<(SourceSnapshot, EventSourcePriority)> {
+    async fn load_configured_sources(&self) -> Vec<SourceSnapshot> {
         let mut snapshots = Vec::new();
         for source in &self.config.sources {
             let result = match source.source_type {
@@ -56,7 +45,14 @@ impl CalendarAggregator {
                 CalendarSourceType::Directory => local::load_directory_source(source),
             };
             match result {
-                Ok(snapshot) => snapshots.push((snapshot, EventSourcePriority::Strong)),
+                Ok(snapshot) => {
+                    tracing::debug!(
+                        source = %source.id,
+                        event_count = snapshot.events.len(),
+                        "loaded configured calendar source"
+                    );
+                    snapshots.push(snapshot);
+                }
                 Err(error) => {
                     tracing::warn!(source = %source.id, %error, "failed to load configured calendar source");
                 }
@@ -78,29 +74,9 @@ pub fn effective_poll_interval(config: &CalendarConfig) -> std::time::Duration {
     std::time::Duration::from_secs(seconds)
 }
 
-fn gnome_source_snapshot(month: CalendarMonthSnapshot) -> SourceSnapshot {
-    let mut events = month
-        .day_snapshots
-        .into_values()
-        .flat_map(|day| day.events)
-        .collect::<Vec<_>>();
-    events.sort_by(|a, b| {
-        a.start
-            .cmp(&b.start)
-            .then_with(|| a.end.cmp(&b.end))
-            .then_with(|| a.title.cmp(&b.title))
-            .then_with(|| a.event_id.cmp(&b.event_id))
-    });
-    events.dedup_by(|a, b| a.event_id == b.event_id);
-    SourceSnapshot {
-        source: Default::default(),
-        events,
-    }
-}
-
 pub fn build_month_snapshot(
     key: MonthKey,
-    sources: Vec<(SourceSnapshot, EventSourcePriority)>,
+    sources: Vec<SourceSnapshot>,
 ) -> anyhow::Result<CalendarMonthSnapshot> {
     let month_start = key
         .to_naive_date()
@@ -110,10 +86,10 @@ pub fn build_month_snapshot(
         .ok_or_else(|| anyhow::anyhow!("month overflow"))?;
     let mut candidates = Vec::new();
 
-    for (snapshot, priority) in sources {
+    for snapshot in sources {
         for event in snapshot.events {
             if event_overlaps_month(&event, month_start, next_month) {
-                candidates.push(EventCandidate::new(event, priority));
+                candidates.push(EventCandidate::new(event));
             }
         }
     }
@@ -245,7 +221,6 @@ fn parse_event_time(value: &str) -> Option<DateTime<Local>> {
 mod tests {
     use super::*;
     use crate::services::calendar_events::{
-        dedupe::EventSourcePriority,
         model::{CalendarDate, CalendarEvent, CalendarSource, MonthKey},
         source::SourceSnapshot,
     };
@@ -265,6 +240,7 @@ mod tests {
                 display_name: source_id.into(),
                 color: Some("#4285f4".into()),
             },
+            ..CalendarEvent::default()
         }
     }
 
@@ -280,7 +256,7 @@ mod tests {
     }
 
     #[test]
-    fn build_month_snapshot_dedupes_weak_sources_behind_strong_sources() {
+    fn build_month_snapshot_dedupes_configured_sources_by_name_and_time() {
         let month = MonthKey {
             year: 2026,
             month: 5,
@@ -288,14 +264,8 @@ mod tests {
         let snapshot = build_month_snapshot(
             month,
             vec![
-                (
-                    snapshot("gnome", vec![event("gnome-1", "Team Standup", "gnome")]),
-                    EventSourcePriority::Weak,
-                ),
-                (
-                    snapshot("google", vec![event("google-1", "team  standup", "google")]),
-                    EventSourcePriority::Strong,
-                ),
+                snapshot("google", vec![event("google-1", "Team Standup", "google")]),
+                snapshot("work", vec![event("work-1", "team  standup", "work")]),
             ],
         )
         .expect("month snapshot should build");
@@ -361,11 +331,8 @@ mod tests {
         event.end = "2026-05-27T00:00:00+00:00".into();
         event.all_day = true;
 
-        let snapshot = build_month_snapshot(
-            month,
-            vec![(snapshot("local", vec![event]), EventSourcePriority::Strong)],
-        )
-        .expect("month snapshot should build");
+        let snapshot = build_month_snapshot(month, vec![snapshot("local", vec![event])])
+            .expect("month snapshot should build");
 
         assert!(snapshot.day_snapshots.contains_key(&CalendarDate {
             year: 2026,
@@ -377,5 +344,23 @@ mod tests {
             month: 5,
             day: 27
         }));
+    }
+
+    #[tokio::test]
+    async fn load_month_without_sources_returns_empty_snapshot() {
+        let aggregator = CalendarAggregator::new(CalendarConfig::default());
+        let month = MonthKey {
+            year: 2026,
+            month: 5,
+        };
+
+        let snapshot = aggregator
+            .load_month(month)
+            .await
+            .expect("empty calendar config should still load");
+
+        assert_eq!(snapshot.key, month);
+        assert_eq!(snapshot.days.len(), 31);
+        assert!(snapshot.day_snapshots.is_empty());
     }
 }
