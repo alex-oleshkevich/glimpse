@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 const DEFAULT_REFRESH_INTERVAL_MS: u64 = 2000;
-const DEFAULT_TOP_PROCESSES_COUNT: usize = 5;
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
@@ -12,8 +11,6 @@ pub struct Config {
     /// schedule the next refresh and to compute delta-based metrics (CPU%,
     /// network rates).
     pub refresh_interval_ms: Option<u64>,
-    /// How many rows to surface in the "Top CPU" / "Top RAM" expanders.
-    pub top_processes_count: Option<usize>,
     /// Ordered list of indicators. Order maps to panel order.
     pub indicators: Vec<IndicatorConfig>,
     /// Threshold map keyed by metric name (e.g. `"cpu_util"`, `"cpu_temp"`,
@@ -28,11 +25,6 @@ impl Config {
     pub fn refresh_interval_ms(&self) -> u64 {
         self.refresh_interval_ms
             .unwrap_or(DEFAULT_REFRESH_INTERVAL_MS)
-    }
-
-    pub fn top_processes_count(&self) -> usize {
-        self.top_processes_count
-            .unwrap_or(DEFAULT_TOP_PROCESSES_COUNT)
     }
 }
 
@@ -81,7 +73,7 @@ pub fn default_indicators() -> Vec<IndicatorConfig> {
         IndicatorConfig {
             kind: IndicatorKind::Cpu,
             id: Some("cpu-util".into()),
-            icon: Some("cpu-symbolic".into()),
+            icon: Some("applications-system-symbolic".into()),
             label: Some("{cpu_util_pct:.0}%".into()),
             tooltip: Some("CPU {cpu_util_pct:.0}% • {cpu_freq_ghz:.2} GHz".into()),
             hide_when: None,
@@ -181,7 +173,6 @@ mod tests {
     fn full_config_parses_round_trip() {
         let raw = r#"
 refresh_interval_ms = 2000
-top_processes_count = 5
 
 [[indicators]]
 kind = "cpu"
@@ -218,7 +209,6 @@ crit = 0.95
 "#;
         let config: Config = toml::from_str(raw).expect("config parses");
         assert_eq!(config.refresh_interval_ms(), 2000);
-        assert_eq!(config.top_processes_count(), 5);
         assert_eq!(config.indicators.len(), 5);
         assert_eq!(config.indicators[0].kind, IndicatorKind::Cpu);
         assert_eq!(
@@ -267,7 +257,6 @@ kind = "disk"
     fn empty_config_yields_defaults() {
         let config: Config = toml::from_str("").expect("empty config parses");
         assert_eq!(config.refresh_interval_ms(), DEFAULT_REFRESH_INTERVAL_MS);
-        assert_eq!(config.top_processes_count(), DEFAULT_TOP_PROCESSES_COUNT);
         assert!(config.indicators.is_empty());
         assert!(config.thresholds.is_empty());
     }

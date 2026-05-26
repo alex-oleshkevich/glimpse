@@ -49,6 +49,49 @@ impl TempSampler {
     }
 }
 
+/// Every hwmon temperature input on the host, encoded as the same
+/// `"<name>"` / `"<name>/<label>"` spec form the per-sample resolver
+/// accepts. Used to seed the popover's temperature grid when the user
+/// hasn't configured `kind = "temp"` indicators.
+pub fn discover_sensors() -> Vec<String> {
+    let dir = match fs::read_dir("/sys/class/hwmon") {
+        Ok(d) => d,
+        Err(_) => return Vec::new(),
+    };
+    let mut out = Vec::new();
+    for entry in dir.flatten() {
+        let path = entry.path();
+        let name = match fs::read_to_string(path.join("name")) {
+            Ok(s) => s.trim().to_owned(),
+            Err(_) => continue,
+        };
+        let mut found_any_label = false;
+        for n in 1..=64u32 {
+            let input = path.join(format!("temp{n}_input"));
+            if !input.exists() {
+                continue;
+            }
+            let label_path = path.join(format!("temp{n}_label"));
+            if let Ok(label) = fs::read_to_string(&label_path) {
+                let trimmed = label.trim();
+                if !trimmed.is_empty() {
+                    out.push(format!("{name}/{trimmed}"));
+                    found_any_label = true;
+                }
+            }
+        }
+        // hwmon nodes without labelled sub-sensors (e.g. nvme single-temp)
+        // still want a name-only spec so they appear in the popover.
+        if !found_any_label
+            && (1..=64u32).any(|n| path.join(format!("temp{n}_input")).exists())
+        {
+            out.push(name);
+        }
+    }
+    out.sort();
+    out
+}
+
 fn find_hwmon_dir(name: &str) -> Option<PathBuf> {
     for entry in fs::read_dir("/sys/class/hwmon").ok()?.flatten() {
         let path = entry.path();

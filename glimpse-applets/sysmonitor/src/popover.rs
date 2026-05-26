@@ -5,16 +5,13 @@
 
 
 use glimpse_sdk::{
-    BoxedList, Column, EmptyState, ExpanderTile, Hero, KeyValueGrid, KeyValueRow, MsgMapper,
-    PopoverShell, PopoverSize, Row, Tile, TreeNode, tree,
+    BoxedList, EmptyState, Hero, PopoverShell, PopoverSize, Tile, TreeNode, tree,
 };
 
 use crate::Msg;
-use crate::samplers::{
-    DiskSample, GpuSample, MemSample, NetSample, ProcessSample, Sample, TempSample,
-};
+use crate::samplers::{DiskSample, GpuSample, MemSample, NetSample, Sample, TempSample};
 
-pub fn build(sample: &Sample, current_uid: u32) -> TreeNode<Msg> {
+pub fn build(sample: &Sample) -> TreeNode<Msg> {
     let mut sections: Vec<TreeNode<Msg>> = Vec::new();
 
     sections.push(cpu_hero(sample));
@@ -39,29 +36,10 @@ pub fn build(sample: &Sample, current_uid: u32) -> TreeNode<Msg> {
         sections.push(temperature_grid(&sample.temps));
     }
     if let Some(gpu) = &sample.amdgpu {
-        sections.push(gpu_hero("AMD GPU", "video-display-symbolic", gpu));
+        sections.push(gpu_tile("AMD GPU", "video-display-symbolic", gpu));
     }
     if let Some(gpu) = &sample.nvidia {
-        sections.push(gpu_hero("NVIDIA GPU", "video-display-symbolic", gpu));
-    }
-
-    if !sample.procs.top_cpu.is_empty() {
-        sections.push(top_processes_expander(
-            "Top CPU",
-            "utilities-system-monitor-symbolic",
-            &sample.procs.top_cpu,
-            current_uid,
-            ProcessSortBy::Cpu,
-        ));
-    }
-    if !sample.procs.top_rss.is_empty() {
-        sections.push(top_processes_expander(
-            "Top Memory",
-            "drive-harddisk-system-symbolic",
-            &sample.procs.top_rss,
-            current_uid,
-            ProcessSortBy::Rss,
-        ));
+        sections.push(gpu_tile("NVIDIA GPU", "video-display-symbolic", gpu));
     }
 
     if sections.is_empty() {
@@ -94,7 +72,7 @@ fn cpu_hero(sample: &Sample) -> TreeNode<Msg> {
         ));
     }
     let mut hero = Hero::new("CPU", parts.join(" • "));
-    hero.icon = Some("cpu-symbolic".into());
+    hero.icon = Some("applications-system-symbolic".into());
     hero.into()
 }
 
@@ -162,17 +140,21 @@ fn network_section(nets: &std::collections::HashMap<String, NetSample>) -> TreeN
 fn temperature_grid(temps: &std::collections::HashMap<String, TempSample>) -> TreeNode<Msg> {
     let mut entries: Vec<(&String, &TempSample)> = temps.iter().collect();
     entries.sort_by_key(|(k, _)| (*k).clone());
-    let rows: Vec<KeyValueRow> = entries
+    let tiles: Vec<TreeNode<Msg>> = entries
         .into_iter()
-        .map(|(spec, t)| KeyValueRow {
-            key: t.sensor_label.clone().unwrap_or_else(|| spec.clone()),
-            value: format!("{:.0} °C", t.temp_c),
+        .map(|(spec, t)| {
+            let name = t.sensor_label.clone().unwrap_or_else(|| spec.clone());
+            let mut tile = Tile::new(name);
+            tile.activatable = false;
+            tile.left_icon = Some("temperature-symbolic".into());
+            tile.secondary = Some(format!("{:.0} °C", t.temp_c));
+            tile.into()
         })
         .collect();
-    KeyValueGrid::new(rows).into()
+    BoxedList::new(tiles).into()
 }
 
-fn gpu_hero(title: &str, icon: &str, gpu: &GpuSample) -> TreeNode<Msg> {
+fn gpu_tile(title: &str, icon: &str, gpu: &GpuSample) -> TreeNode<Msg> {
     let mut parts = Vec::new();
     if let Some(u) = gpu.util {
         parts.push(format!("{:.0}% util", u * 100.0));
@@ -199,83 +181,10 @@ fn gpu_hero(title: &str, icon: &str, gpu: &GpuSample) -> TreeNode<Msg> {
         (Some(n), _) => n.clone(),
         (None, t) => t.to_string(),
     };
-    let mut hero = Hero::new(label, subtitle);
-    hero.icon = Some(icon.into());
-    hero.into()
+    let mut tile = Tile::new(label);
+    tile.activatable = false;
+    tile.left_icon = Some(icon.into());
+    tile.secondary = Some(subtitle);
+    tile.into()
 }
 
-#[derive(Copy, Clone)]
-enum ProcessSortBy {
-    Cpu,
-    Rss,
-}
-
-fn top_processes_expander(
-    title: &str,
-    icon: &str,
-    procs: &[ProcessSample],
-    current_uid: u32,
-    sort_by: ProcessSortBy,
-) -> TreeNode<Msg> {
-    let rows: Vec<TreeNode<Msg>> = procs
-        .iter()
-        .map(|p| process_row(p, current_uid, sort_by))
-        .collect();
-    let list: TreeNode<Msg> = BoxedList::new(rows).into();
-    let mut expander = ExpanderTile::new(title);
-    expander.left_icon = Some(icon.into());
-    expander.child = Some(Box::new(list));
-    expander.into()
-}
-
-fn process_row(p: &ProcessSample, current_uid: u32, sort_by: ProcessSortBy) -> TreeNode<Msg> {
-    let comm = if p.comm.is_empty() {
-        format!("pid {}", p.pid)
-    } else {
-        p.comm.clone()
-    };
-    let mib = |b: u64| (b as f64) / (1024.0 * 1024.0);
-    let stats = match sort_by {
-        // Two views, same row shape — primary metric on the left, the
-        // other metric trailing, so users sorted by CPU still see the
-        // process's RAM footprint and vice versa.
-        ProcessSortBy::Cpu => format!(
-            "PID {} · {:.0}% CPU · {:.0} MiB",
-            p.pid,
-            p.cpu_pct * 100.0,
-            mib(p.rss_bytes),
-        ),
-        ProcessSortBy::Rss => format!(
-            "PID {} · {:.0} MiB · {:.0}% CPU",
-            p.pid,
-            mib(p.rss_bytes),
-            p.cpu_pct * 100.0,
-        ),
-    };
-    let mut info = Tile::new(comm);
-    info.activatable = false;
-    info.secondary = Some(stats);
-    info.left_icon = Some("application-x-executable-symbolic".into());
-
-    if p.uid != current_uid {
-        // Foreign-owned process — no actionable buttons; just the
-        // informational row. kill(2) would EPERM us anyway.
-        return info.into();
-    }
-
-    let pid = p.pid;
-    let mut term = Tile::new("Terminate");
-    term.activatable = true;
-    term.left_icon = Some("media-playback-stop-symbolic".into());
-    term.secondary = Some("SIGTERM".into());
-    term.on_click = Some(MsgMapper::new(move |()| Msg::TerminateProc(pid)));
-
-    let mut kill = Tile::new("Kill");
-    kill.activatable = true;
-    kill.left_icon = Some("process-stop-symbolic".into());
-    kill.secondary = Some("SIGKILL".into());
-    kill.on_click = Some(MsgMapper::new(move |()| Msg::KillProc(pid)));
-
-    let actions: TreeNode<Msg> = Row::new(tree![term, kill]).into();
-    Column::new(tree![info, actions]).into()
-}

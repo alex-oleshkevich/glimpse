@@ -1,6 +1,7 @@
 use std::ffi::CString;
+use std::fs;
 use std::mem::MaybeUninit;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Per-mountpoint filesystem usage. Populated from `statvfs(3)`.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -57,6 +58,103 @@ fn sample_from_statvfs(s: &libc::statvfs) -> DiskSample {
         total_bytes,
         util,
     }
+}
+
+/// Mountpoints of real, user-relevant filesystems on the host. Reads
+/// `/proc/mounts` once and:
+/// * whitelists by fstype so pseudo filesystems (proc, sysfs, tmpfs,
+///   cgroup, overlay layers, ...) don't pollute the popover;
+/// * dedupes by source block device, keeping the first occurrence — so
+///   a partition bind-mounted into `/var/lib/docker` or `/var/lib/snapd`
+///   doesn't show up twice with the same usage numbers as `/home`;
+/// * keeps only device-backed sources (`/dev/...`) so loopback images,
+///   network shares, and userspace fuse mounts stay out unless the
+///   user pins them via config.
+pub fn discover_mounts() -> Vec<PathBuf> {
+    let raw = match fs::read_to_string("/proc/mounts") {
+        Ok(s) => s,
+        Err(_) => return Vec::new(),
+    };
+    let mut out = Vec::new();
+    let mut seen_devices: std::collections::HashSet<String> = Default::default();
+    let mut seen_mounts: std::collections::HashSet<PathBuf> = Default::default();
+    for line in raw.lines() {
+        // Format: device mountpoint fstype options dumpfreq passno
+        let mut fields = line.split_whitespace();
+        let device = match fields.next() {
+            Some(d) => decode_mount_field(d),
+            None => continue,
+        };
+        let mountpoint = match fields.next() {
+            Some(m) => decode_mount_field(m),
+            None => continue,
+        };
+        let fstype = match fields.next() {
+            Some(t) => t,
+            None => continue,
+        };
+        if !is_real_filesystem(fstype) {
+            continue;
+        }
+        if !device.starts_with("/dev/") {
+            continue;
+        }
+        if !seen_devices.insert(device.clone()) {
+            // Same block device already surfaced under its canonical
+            // mountpoint earlier in the file — every later bind-mount of
+            // it reports identical usage, so showing both is noise.
+            continue;
+        }
+        let path = PathBuf::from(mountpoint);
+        if seen_mounts.insert(path.clone()) {
+            out.push(path);
+        }
+    }
+    out
+}
+
+/// `/proc/mounts` escapes spaces, tabs, newlines, and backslashes in
+/// the mountpoint field as `\040`, `\011`, `\012`, `\134`. Decode them so
+/// e.g. an SMB mount at `/mnt/Media Drive` resolves correctly.
+fn decode_mount_field(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'\\' && i + 3 < bytes.len() {
+            let oct = &bytes[i + 1..i + 4];
+            if oct.iter().all(|b| (b'0'..=b'7').contains(b)) {
+                let v = (oct[0] - b'0') * 64 + (oct[1] - b'0') * 8 + (oct[2] - b'0');
+                out.push(v as char);
+                i += 4;
+                continue;
+            }
+        }
+        out.push(bytes[i] as char);
+        i += 1;
+    }
+    out
+}
+
+fn is_real_filesystem(fstype: &str) -> bool {
+    matches!(
+        fstype,
+        "ext2"
+            | "ext3"
+            | "ext4"
+            | "xfs"
+            | "btrfs"
+            | "f2fs"
+            | "zfs"
+            | "reiserfs"
+            | "jfs"
+            | "ntfs"
+            | "ntfs3"
+            | "vfat"
+            | "exfat"
+            | "iso9660"
+            | "udf"
+    )
 }
 
 fn statvfs(path: &Path) -> Option<libc::statvfs> {

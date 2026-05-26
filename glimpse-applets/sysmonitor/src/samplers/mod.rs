@@ -23,12 +23,12 @@ mod temp;
 
 pub use amdgpu::AmdgpuSampler;
 pub use cpu::{CpuSample, CpuSampler};
-pub use disk::{DiskSample, DiskSampler};
+pub use disk::{DiskSample, DiskSampler, discover_mounts};
 pub use mem::{MemSample, MemSampler};
-pub use net::{NetSample, NetSampler};
+pub use net::{NetSample, NetSampler, discover_interfaces};
 pub use nvidia::NvidiaSampler;
-pub use procs::{ProcSampler, ProcTopN, ProcessSample};
-pub use temp::{TempSample, TempSampler};
+pub use procs::{ProcSampler, ProcTopN};
+pub use temp::{TempSample, TempSampler, discover_sensors};
 
 /// Vendor-neutral GPU snapshot. amdgpu fills it from sysfs, nvidia from
 /// the `nvidia-smi -lms` stream. Each field is `Option<_>` so the

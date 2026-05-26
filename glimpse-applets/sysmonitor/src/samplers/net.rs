@@ -70,6 +70,55 @@ fn sample_from_delta(prev: &PrevReading, rx: u64, tx: u64, now: Instant) -> NetS
     }
 }
 
+/// Interfaces that are currently up, not the loopback, and not a
+/// container/virtualisation artefact. Read once at startup to seed the
+/// popover's network section when the user hasn't listed any
+/// `kind = "net"` indicators.
+///
+/// `operstate` values per `Documentation/networking/operstates.txt`:
+/// "up", "dormant", "down", "unknown", "notpresent", "lowerlayerdown",
+/// "testing". We include "up", "dormant", and "unknown" — "unknown" is
+/// what virtual interfaces (tun/tap, wireguard) report when the driver
+/// doesn't track carrier state.
+///
+/// Name-prefix blacklist filters Docker (`docker0`, `br-*`, `veth*`),
+/// libvirt (`virbr*`), VMware/VBox (`vmnet*`, `vboxnet*`), and Cilium
+/// (`cilium_*`, `lxc*`). The remaining set is physical NICs, Wi-Fi,
+/// WireGuard, Tailscale, and standard PPP/USB-tether interfaces — the
+/// stuff a user typically cares about throughput for.
+pub fn discover_interfaces() -> Vec<String> {
+    let dir = match fs::read_dir("/sys/class/net") {
+        Ok(d) => d,
+        Err(_) => return Vec::new(),
+    };
+    let mut out = Vec::new();
+    for entry in dir.flatten() {
+        let name = match entry.file_name().into_string() {
+            Ok(n) if n != "lo" => n,
+            _ => continue,
+        };
+        if is_virtual_interface(&name) {
+            continue;
+        }
+        let state = fs::read_to_string(entry.path().join("operstate"))
+            .ok()
+            .map(|s| s.trim().to_owned())
+            .unwrap_or_default();
+        if matches!(state.as_str(), "up" | "dormant" | "unknown") {
+            out.push(name);
+        }
+    }
+    out.sort();
+    out
+}
+
+fn is_virtual_interface(name: &str) -> bool {
+    const PREFIXES: &[&str] = &[
+        "docker", "br-", "veth", "virbr", "vmnet", "vboxnet", "cilium_", "lxc", "tap",
+    ];
+    PREFIXES.iter().any(|p| name.starts_with(p))
+}
+
 fn read_counter(interface: &str, file: &str) -> Option<u64> {
     let path = format!("/sys/class/net/{interface}/statistics/{file}");
     let raw = fs::read_to_string(path).ok()?;

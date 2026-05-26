@@ -19,7 +19,9 @@ mod thresholds;
 
 use config::{Config, IndicatorConfig, IndicatorKind};
 use format::FormatValue;
-use samplers::{RequestedSensors, Sample, Samplers};
+use samplers::{
+    RequestedSensors, Sample, Samplers, discover_interfaces, discover_mounts, discover_sensors,
+};
 
 /// Held in the SDK's State channel. Clone-cheap (Sample is `Copy`-able
 /// numeric fields, Config is small).
@@ -27,10 +29,6 @@ use samplers::{RequestedSensors, Sample, Samplers};
 struct State {
     config: Config,
     sample: Option<Sample>,
-    /// Real UID of the applet process. Computed once at startup and
-    /// stashed so the popover renderer can hide kill buttons on
-    /// processes owned by other users (kill(2) would EPERM anyway).
-    current_uid: u32,
 }
 
 /// Inbound messages to the applet's update loop.
@@ -42,12 +40,6 @@ enum Msg {
     /// `large_enum_variant` catches the imbalance, and boxing keeps
     /// the channel queue items uniformly small.
     Tick(Box<Sample>),
-    /// SIGTERM the named PID. Wired to the "Terminate" tile in each
-    /// top-process row of the popover.
-    TerminateProc(u32),
-    /// SIGKILL the named PID. Wired to the "Kill" tile in each
-    /// top-process row of the popover.
-    KillProc(u32),
 }
 
 struct SysmonitorApplet;
@@ -75,8 +67,6 @@ impl Applet for SysmonitorApplet {
         for (key, threshold) in config::default_thresholds() {
             state.config.thresholds.entry(key).or_insert(threshold);
         }
-        // SAFETY: getuid is always safe — pure read, can't fail.
-        state.current_uid = unsafe { libc::getuid() };
         Ok(())
     }
 
@@ -115,8 +105,6 @@ impl Applet for SysmonitorApplet {
     async fn update(&mut self, state: &mut State, msg: Msg) -> AppletResult<()> {
         match msg {
             Msg::Tick(sample) => state.sample = Some(*sample),
-            Msg::TerminateProc(pid) => signal_process(pid, libc::SIGTERM),
-            Msg::KillProc(pid) => signal_process(pid, libc::SIGKILL),
         }
         Ok(())
     }
@@ -138,19 +126,7 @@ impl Applet for SysmonitorApplet {
         let Some(sample) = state.sample.as_ref() else {
             return Ok(None);
         };
-        Ok(Some(popover::build(sample, state.current_uid)))
-    }
-}
-
-/// Sends `sig` to `pid`. Logs failures (EPERM, ESRCH) and continues —
-/// the UI already hid the button for foreign-owned processes, but a
-/// race against `exit(2)` between sample and click is normal and not a
-/// reason to crash.
-fn signal_process(pid: u32, sig: libc::c_int) {
-    let rc = unsafe { libc::kill(pid as libc::pid_t, sig) };
-    if rc != 0 {
-        let err = std::io::Error::last_os_error();
-        eprintln!("sysmonitor: kill(pid={pid}, sig={sig}) failed: {err}");
+        Ok(Some(popover::build(sample)))
     }
 }
 
@@ -393,10 +369,16 @@ fn populate_temp_tokens(
     }
 }
 
-/// Builds the `RequestedSensors` list from the active indicator config so
-/// the sampler only touches mountpoints/ifaces/sensors that the panel will
-/// render. Avoids statvfs'ing the entire mount table just to display one
-/// disk indicator.
+/// Builds the `RequestedSensors` list.
+///
+/// Two layers:
+/// 1. User-named items from `config.indicators` go first so panel
+///    ordering matches config order.
+/// 2. Auto-discovered hardware (real-fs mountpoints, up interfaces,
+///    every hwmon temp input, both GPU vendors) is appended de-duped
+///    so the popover surfaces sections the user didn't pin to a panel
+///    pill. The samplers themselves gate on availability — `amdgpu` /
+///    `nvidia` short-circuit when the hardware isn't present.
 fn requested_sensors(config: &Config) -> RequestedSensors {
     let mut req = RequestedSensors::default();
     for indicator in &config.indicators {
@@ -422,9 +404,28 @@ fn requested_sensors(config: &Config) -> RequestedSensors {
             _ => {}
         }
     }
-    // Top-processes lists are popover-only data, not panel indicators —
-    // they're sampled only when the config asks for them (count > 0).
-    req.top_processes_count = config.top_processes_count();
+    for path in discover_mounts() {
+        if !req.mountpoints.iter().any(|p| p == &path) {
+            req.mountpoints.push(path);
+        }
+    }
+    for iface in discover_interfaces() {
+        if !req.interfaces.iter().any(|i| i == &iface) {
+            req.interfaces.push(iface);
+        }
+    }
+    for sensor in discover_sensors() {
+        if !req.temp_sensors.iter().any(|s| s == &sensor) {
+            req.temp_sensors.push(sensor);
+        }
+    }
+    // GPU samplers internally gate on hardware presence so requesting
+    // both is safe on machines that have neither.
+    req.amdgpu = true;
+    req.nvidia = true;
+    // Top-processes UI was removed from the popover; setting this to
+    // zero skips the per-tick `/proc` walk entirely.
+    req.top_processes_count = 0;
     req
 }
 
@@ -481,7 +482,7 @@ fn gpu_threshold(
 
 fn default_icon(kind: &IndicatorKind) -> &'static str {
     match kind {
-        IndicatorKind::Cpu => "cpu-symbolic",
+        IndicatorKind::Cpu => "applications-system-symbolic",
         IndicatorKind::Mem => "drive-harddisk-system-symbolic",
         IndicatorKind::Swap => "drive-harddisk-symbolic",
         IndicatorKind::Disk { .. } => "drive-harddisk-symbolic",
