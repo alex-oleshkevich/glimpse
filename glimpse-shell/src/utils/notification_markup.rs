@@ -22,10 +22,7 @@ static SANITIZER: LazyLock<Builder<'static>> = LazyLock::new(|| {
     let tags: HashSet<&'static str> = ["b", "i", "u"].into_iter().collect();
 
     let mut builder = Builder::default();
-    builder
-        .tags(tags)
-        .link_rel(None)
-        .strip_comments(true);
+    builder.tags(tags).link_rel(None).strip_comments(true);
     builder
 });
 
@@ -224,12 +221,18 @@ mod tests {
     /// in the plain-text title row.
     #[test]
     fn decode_text_entities_resolves_decimal_ncr() {
-        assert_eq!(decode_text_entities("Reminder &#9733;"), "Reminder \u{2605}");
+        assert_eq!(
+            decode_text_entities("Reminder &#9733;"),
+            "Reminder \u{2605}"
+        );
     }
 
     #[test]
     fn decode_text_entities_resolves_hex_ncr() {
-        assert_eq!(decode_text_entities("Star &#x2605; here"), "Star \u{2605} here");
+        assert_eq!(
+            decode_text_entities("Star &#x2605; here"),
+            "Star \u{2605} here"
+        );
     }
 
     #[test]
@@ -252,7 +255,10 @@ mod tests {
     /// user sees `&unknownname;` literally than silent text corruption.
     #[test]
     fn decode_text_entities_preserves_unknown_entity() {
-        assert_eq!(decode_text_entities("hello &whoops; world"), "hello &whoops; world");
+        assert_eq!(
+            decode_text_entities("hello &whoops; world"),
+            "hello &whoops; world"
+        );
     }
 
     /// A lone `&` with no closing `;` is preserved literally; it's not

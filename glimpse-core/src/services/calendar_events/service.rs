@@ -11,16 +11,19 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::services::framework::{Control, ServiceCommand, ServiceHandle};
+use crate::{
+    CalendarConfig,
+    services::framework::{Control, ServiceCommand, ServiceHandle},
+};
 
 use super::{
+    aggregate::CalendarAggregator,
     model::{CalendarMonthSnapshot, Command, Health, MonthKey, State},
     provider::{CalendarClient, CalendarProviderEvent, LiveRange},
 };
 
 const COMMAND_QUEUE_SIZE: usize = 16;
 const PROVIDER_EVENT_QUEUE_SIZE: usize = 16;
-const REFRESH_INTERVAL: Duration = Duration::from_secs(600);
 const SELF_LOAD_EVENT_SUPPRESSION: Duration = Duration::from_secs(3);
 
 pub type CalendarEventsHandle = ServiceHandle<State, Command>;
@@ -59,6 +62,7 @@ impl CalendarEventsService {
 
     pub async fn run(mut self, cancel: CancellationToken) {
         let mut startup_preload = None;
+        let mut calendar_config = CalendarConfig::default();
         let client = loop {
             match CalendarClient::new(self.session.clone()).await {
                 Ok(client) => break client,
@@ -73,8 +77,11 @@ impl CalendarEventsService {
                                 }
                                 Some(ServiceCommand::Control(Control::Shutdown)) | None => return,
                                 Some(ServiceCommand::Command(Command::Refresh))
-                                | Some(ServiceCommand::Control(Control::Start(_)))
-                                | Some(ServiceCommand::Control(Control::Reconfigure(_))) => {}
+                                => {}
+                                Some(ServiceCommand::Control(Control::Start(config)))
+                                | Some(ServiceCommand::Control(Control::Reconfigure(config))) => {
+                                    calendar_config = config.calendar;
+                                }
                             }
                         }
                         _ = sleep(Duration::from_secs(5)) => {}
@@ -82,6 +89,7 @@ impl CalendarEventsService {
                 }
             }
         };
+        let mut aggregator = CalendarAggregator::new(client.clone(), calendar_config);
 
         let (live_range_tx, live_range_rx) = watch::channel(None);
         let mut listener = Some(start_listener(&client, live_range_rx.clone()));
@@ -94,7 +102,7 @@ impl CalendarEventsService {
         let mut inflight: Option<(MonthKey, JoinHandle<MonthLoad>)> = None;
         let mut active_months = BTreeSet::new();
         let mut suppress_provider_events_until = None;
-        let refresh = sleep(REFRESH_INTERVAL);
+        let refresh = sleep(aggregator.poll_interval());
         tokio::pin!(refresh);
 
         self.set_preload_window(
@@ -105,7 +113,7 @@ impl CalendarEventsService {
         );
         self.sync_live_range(&live_range_tx, &active_months);
         start_next_load(
-            &client,
+            &aggregator,
             &mut pending,
             &mut queued,
             &mut inflight,
@@ -121,15 +129,21 @@ impl CalendarEventsService {
                         self.set_preload_window(month, &mut active_months, &mut pending, &mut queued);
                         abort_inactive_load(&active_months, &mut inflight);
                         self.sync_live_range(&live_range_tx, &active_months);
-                        start_next_load(&client, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
+                        start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
                     }
                     Some(ServiceCommand::Command(Command::Refresh)) => {
                         self.queue_active_months(&active_months, &mut pending, &mut queued);
-                        start_next_load(&client, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
+                        start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
                     }
                     Some(ServiceCommand::Control(Control::Shutdown)) | None => break,
-                    Some(ServiceCommand::Control(Control::Start(_)))
-                    | Some(ServiceCommand::Control(Control::Reconfigure(_))) => {}
+                    Some(ServiceCommand::Control(Control::Start(config)))
+                    | Some(ServiceCommand::Control(Control::Reconfigure(config))) => {
+                        aggregator.reconfigure(config.calendar);
+                        refresh.as_mut().reset(Instant::now() + aggregator.poll_interval());
+                        abort_load(&mut inflight, &self.state_tx);
+                        self.queue_active_months(&active_months, &mut pending, &mut queued);
+                        start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
+                    }
                 },
                 event = async {
                     let Some(listener) = listener.as_mut() else {
@@ -145,7 +159,7 @@ impl CalendarEventsService {
                             }
                             tracing::trace!(?reason, "calendar provider changed, refreshing active months");
                             self.queue_active_months(&active_months, &mut pending, &mut queued);
-                            start_next_load(&client, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
+                            start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
                         }
                         None => {
                             self.publish_health(Health::Degraded("calendar events listener stopped".into()));
@@ -157,8 +171,8 @@ impl CalendarEventsService {
                 }
                 _ = &mut refresh => {
                     self.queue_active_months(&active_months, &mut pending, &mut queued);
-                    start_next_load(&client, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
-                    refresh.as_mut().reset(Instant::now() + REFRESH_INTERVAL);
+                    start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
+                    refresh.as_mut().reset(Instant::now() + aggregator.poll_interval());
                 }
                 _ = &mut listener_retry, if listener_retry_scheduled => {
                     listener = Some(start_listener(&client, live_range_rx.clone()));
@@ -191,7 +205,7 @@ impl CalendarEventsService {
                         }
                     }
                     self.sync_live_range(&live_range_tx, &active_months);
-                    start_next_load(&client, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
+                    start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx, &mut suppress_provider_events_until);
                 }
             }
         }
@@ -298,7 +312,7 @@ fn queue_month(
 }
 
 fn start_next_load(
-    client: &CalendarClient,
+    aggregator: &CalendarAggregator,
     pending: &mut VecDeque<MonthKey>,
     queued: &mut BTreeSet<MonthKey>,
     inflight: &mut Option<(MonthKey, JoinHandle<MonthLoad>)>,
@@ -318,11 +332,11 @@ fn start_next_load(
     });
     *suppress_provider_events_until = Some(Instant::now() + SELF_LOAD_EVENT_SUPPRESSION);
 
-    let client = client.clone();
+    let aggregator = aggregator.clone();
     *inflight = Some((
         key,
         tokio::spawn(async move {
-            let result = client.load_month(key).await;
+            let result = aggregator.load_month(key).await;
             MonthLoad { result }
         }),
     ));
@@ -340,6 +354,17 @@ fn abort_inactive_load(
             task.abort();
         }
     }
+}
+
+fn abort_load(
+    inflight: &mut Option<(MonthKey, JoinHandle<MonthLoad>)>,
+    state_tx: &watch::Sender<State>,
+) {
+    let Some((key, task)) = inflight.take() else {
+        return;
+    };
+    task.abort();
+    state_tx.send_if_modified(|state| state.loading_months.remove(&key));
 }
 
 fn should_ignore_provider_event(suppress_provider_events_until: &mut Option<Instant>) -> bool {

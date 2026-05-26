@@ -402,10 +402,11 @@ impl RenderCatalog {
             let id = id.clone();
             let event = event.clone();
             let pending2 = pending.clone();
-            let source_id = gtk::glib::timeout_add_local_once(Duration::from_millis(100), move || {
-                pending2.set(None);
-                event(change_event(id, json!(value)));
-            });
+            let source_id =
+                gtk::glib::timeout_add_local_once(Duration::from_millis(100), move || {
+                    pending2.set(None);
+                    event(change_event(id, json!(value)));
+                });
             pending.set(Some(source_id));
         });
         apply_common(&tile, &data.common);

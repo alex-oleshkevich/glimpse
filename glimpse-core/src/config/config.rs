@@ -7,10 +7,10 @@ use std::{
 use tokio::sync::mpsc;
 
 use crate::{
-    AppletConfig, BackdropConfig, ConfigFileDiscovery, IdleConfig, KeyboardConfig, LocationConfig,
-    LockConfig, MonitorsConfig, NightLightConfig, PanelConfig, ResolvedWallpaperSpec, ThemeMode,
-    ThemePack, WallpaperConfig, resolve_wallpaper_spec, services::theme::EffectiveThemeMode,
-    watch_config_file,
+    AppletConfig, BackdropConfig, CalendarConfig, ConfigFileDiscovery, IdleConfig, KeyboardConfig,
+    LocationConfig, LockConfig, MonitorsConfig, NightLightConfig, PanelConfig,
+    ResolvedWallpaperSpec, ThemeMode, ThemePack, WallpaperConfig, resolve_wallpaper_spec,
+    services::theme::EffectiveThemeMode, watch_config_file,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -35,6 +35,8 @@ pub struct Config {
     pub lock: LockConfig,
     #[serde(default)]
     pub monitors: MonitorsConfig,
+    #[serde(default)]
+    pub calendar: CalendarConfig,
 }
 
 impl Config {
@@ -163,6 +165,7 @@ impl Default for Config {
             backdrop: BackdropConfig::default(),
             lock: LockConfig::default(),
             monitors: MonitorsConfig::default(),
+            calendar: CalendarConfig::default(),
         }
     }
 }
@@ -253,6 +256,67 @@ listeners = [
             config.idle.profiles.ac.listeners[0].respect_inhibitors,
             Some(true)
         );
+    }
+}
+
+#[cfg(test)]
+mod calendar_config_tests {
+    use crate::{CalendarSourceType, Config};
+
+    #[test]
+    fn default_config_includes_calendar_defaults_without_sources() {
+        let config = Config::default();
+
+        assert_eq!(config.calendar.poll_interval, 600);
+        assert!(config.calendar.sources.is_empty());
+    }
+
+    #[test]
+    fn calendar_config_parses_sources_and_numeric_intervals() {
+        let config = Config::from_toml_str(
+            r##"
+[calendar]
+poll_interval = 900
+
+[[calendar.sources]]
+id = "google-personal"
+type = "ical"
+name = "Google Personal"
+uri = "https://calendar.google.com/calendar/ical/example/basic.ics"
+poll_interval = 300
+color = "#4285f4"
+
+[[calendar.sources]]
+id = "local-calendars"
+type = "directory"
+name = "Local Calendars"
+uri = "file:///home/alex/.config/glimpse/calendars"
+"##,
+        )
+        .expect("calendar config should parse");
+
+        assert_eq!(config.calendar.poll_interval, 900);
+        assert_eq!(config.calendar.sources.len(), 2);
+        assert_eq!(config.calendar.sources[0].id, "google-personal");
+        assert_eq!(
+            config.calendar.sources[0].source_type,
+            CalendarSourceType::Ical
+        );
+        assert_eq!(
+            config.calendar.sources[0].name.as_deref(),
+            Some("Google Personal")
+        );
+        assert_eq!(
+            config.calendar.sources[0].uri,
+            "https://calendar.google.com/calendar/ical/example/basic.ics"
+        );
+        assert_eq!(config.calendar.sources[0].poll_interval, Some(300));
+        assert_eq!(config.calendar.sources[0].color.as_deref(), Some("#4285f4"));
+        assert_eq!(
+            config.calendar.sources[1].source_type,
+            CalendarSourceType::Directory
+        );
+        assert_eq!(config.calendar.sources[1].poll_interval, None);
     }
 }
 

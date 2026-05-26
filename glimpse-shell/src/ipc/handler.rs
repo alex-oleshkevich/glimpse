@@ -146,7 +146,10 @@ fn append_weather_status(out: &mut Vec<(String, String)>, state: &weather::model
                 "weather_temperature".into(),
                 format!("{:.0}°C", snapshot.current.temperature),
             ));
-            out.push(("weather_condition".into(), snapshot.current.condition.clone()));
+            out.push((
+                "weather_condition".into(),
+                snapshot.current.condition.clone(),
+            ));
             out.push(("weather_city".into(), snapshot.location.city.clone()));
         }
         WeatherState::Loading => out.push(("weather_state".into(), "loading".into())),

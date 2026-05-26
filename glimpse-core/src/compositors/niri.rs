@@ -12,10 +12,9 @@ use tokio::{
 };
 
 use crate::compositors::compositors::{
-    CompositorCapabilities, CompositorEvent, CompositorRefresh, CompositorSnapshot,
-    KeyboardLayout, Monitor, MonitorMode, ScreencastControlCapability, ScreencastKind,
-    ScreencastSession, ScreencastStateCapability, ScreencastTarget, Window, Workspace,
-    is_builtin_connector,
+    CompositorCapabilities, CompositorEvent, CompositorRefresh, CompositorSnapshot, KeyboardLayout,
+    Monitor, MonitorMode, ScreencastControlCapability, ScreencastKind, ScreencastSession,
+    ScreencastStateCapability, ScreencastTarget, Window, Workspace, is_builtin_connector,
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

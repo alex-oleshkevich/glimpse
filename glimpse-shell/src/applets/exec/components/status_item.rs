@@ -181,4 +181,3 @@ mod tests {
         assert_eq!(applet_css_classes(&item), vec!["warn", "warn", "crit"]);
     }
 }
-

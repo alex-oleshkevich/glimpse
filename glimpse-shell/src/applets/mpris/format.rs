@@ -93,7 +93,11 @@ fn current_visible_player(state: &State) -> Option<&Player> {
         .and_then(|id| visible.iter().find(|p| &p.player_id == id))
         .or_else(|| visible.first())
         .map(|p| p.player_id.clone())?;
-    state.snapshot.players.iter().find(|p| p.player_id == found_id)
+    state
+        .snapshot
+        .players
+        .iter()
+        .find(|p| p.player_id == found_id)
 }
 
 fn replace_placeholders(format: &str, player: &Player) -> String {

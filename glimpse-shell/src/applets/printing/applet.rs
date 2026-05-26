@@ -254,7 +254,6 @@ fn open_queue(printer_name: &str) {
     gtk::UriLauncher::new(&url).launch(None::<&gtk::Window>, None::<&gio::Cancellable>, |_| {});
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -304,7 +303,12 @@ mod tests {
             printers: vec![],
         };
         assert!(!applet_visible(&state, &Config::default()));
-        assert!(!applet_visible(&state, &Config { display: DisplayMode::Always }));
+        assert!(!applet_visible(
+            &state,
+            &Config {
+                display: DisplayMode::Always
+            }
+        ));
     }
 
     #[test]

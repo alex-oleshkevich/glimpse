@@ -10,13 +10,8 @@ use glimpse_core::services::printing::{Command, InkMarker, PrintJob, State};
 use crate::{
     utils::popover_scroll,
     widgets::{
-        animated_popover::AnimatedPopover,
-        empty_state::EmptyState,
-        expander_tile::ExpanderTile,
-        hero::Hero,
-        popover_shell::PopoverShell,
-        segmented_tile::SegmentedTile,
-        tile::Tile,
+        animated_popover::AnimatedPopover, empty_state::EmptyState, expander_tile::ExpanderTile,
+        hero::Hero, popover_shell::PopoverShell, segmented_tile::SegmentedTile, tile::Tile,
     },
 };
 
@@ -191,7 +186,8 @@ impl Popover {
                 self.error_box.append(&tile);
             }
         }
-        self.error_box.set_visible(self.error_box.first_child().is_some());
+        self.error_box
+            .set_visible(self.error_box.first_child().is_some());
     }
 
     fn sync_job_rows(&mut self, state: &State, sender: &ComponentSender<Self>) {
@@ -236,7 +232,8 @@ impl Popover {
             children.append(&tile);
         }
 
-        self.printers_expander.set_visible(!state.printers.is_empty());
+        self.printers_expander
+            .set_visible(!state.printers.is_empty());
         if state.printers.is_empty() {
             self.printers_expander.set_child(None::<gtk::Widget>);
         } else {
@@ -318,7 +315,13 @@ impl JobRow {
 
         let actions = gtk::Box::new(gtk::Orientation::Vertical, 2);
 
-        let row = Self { root, status_box, status_spinner, status_label, actions };
+        let row = Self {
+            root,
+            status_box,
+            status_spinner,
+            status_label,
+            actions,
+        };
         row.update(job, sender);
         row
     }

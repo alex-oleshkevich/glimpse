@@ -1,4 +1,5 @@
 pub mod applet_discovery;
+pub mod calendar;
 pub mod config;
 pub mod discovery;
 pub mod idle;
@@ -14,6 +15,7 @@ pub mod wallpaper;
 pub mod watch;
 
 pub use applet_discovery::*;
+pub use calendar::*;
 pub use config::*;
 pub use discovery::*;
 pub use idle::*;

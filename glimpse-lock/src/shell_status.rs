@@ -105,8 +105,8 @@ fn apply_shell_status_line(line: &str, sender: &relm4::Sender<AppCommand>) -> Re
 fn apply_shell_event_line(line: &str, sender: &relm4::Sender<AppCommand>) -> Result<()> {
     let (name, fields) = parse_ipc_line(line);
     if name == "weather.updated" {
-        let display =
-            weather_display_from_fields(&fields, "icon", "temperature").map_err(anyhow::Error::msg)?;
+        let display = weather_display_from_fields(&fields, "icon", "temperature")
+            .map_err(anyhow::Error::msg)?;
         let _ = sender.send(AppCommand::WeatherState(display));
     }
     Ok(())
@@ -219,8 +219,9 @@ mod tests {
 
     #[test]
     fn shell_status_line_parser_unescapes_fields() {
-        let (name, fields) =
-            parse_ipc_line("weather.updated state=ready icon=weather-clear-symbolic city=New\\sYork");
+        let (name, fields) = parse_ipc_line(
+            "weather.updated state=ready icon=weather-clear-symbolic city=New\\sYork",
+        );
 
         assert_eq!(name, "weather.updated");
         assert_eq!(
