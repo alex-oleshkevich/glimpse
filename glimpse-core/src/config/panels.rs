@@ -72,7 +72,7 @@ impl Default for PanelConfig {
             position: Position::Top,
             margin: Margin::default(),
             theme_mode: ThemeMode::Dark,
-            left: vec!["pager".into(), "mpris".into(), DEV_SLOT.into()],
+            left: vec!["pager".into(), "mpris".into()],
             center: vec![
                 "clock".into(),
                 "weather".into(),
