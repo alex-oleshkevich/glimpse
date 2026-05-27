@@ -110,6 +110,12 @@ func (a *BaseApplet[S]) Updates() <-chan struct{} {
 
 func (a *BaseApplet[S]) CssClass() string { return "" }
 
+func (a *BaseApplet[S]) OnStart(context.Context) error { return nil }
+
+func (a *BaseApplet[S]) OnInit(context.Context, InitEvent) error { return nil }
+
+func (a *BaseApplet[S]) OnCallback(context.Context, CallbackEvent) error { return nil }
+
 // Log writes a debug line to stderr. In applets dev mode the line appears
 // directly in the terminal; when running under the panel it is captured by
 // the shell's stderr logger.
@@ -335,6 +341,125 @@ func (r *Runtime[S]) scanInput(
 	}
 }
 
+func generatedInlineID(event string, path []int) string {
+	suffix := "root"
+	if len(path) > 0 {
+		parts := make([]string, len(path))
+		for i, part := range path {
+			parts[i] = fmt.Sprint(part)
+		}
+		suffix = strings.Join(parts, ".")
+	}
+	return "__glimpse:" + event + ":" + suffix
+}
+
+func childPath(path []int, index int) []int {
+	next := append([]int(nil), path...)
+	return append(next, index)
+}
+
+func assignGeneratedIDs(w Widget, path []int) Widget {
+	if w == nil {
+		return nil
+	}
+	switch v := w.(type) {
+	case Tile:
+		if v.OnClick != nil && v.ID == "" {
+			v.ID = generatedInlineID("click", path)
+		}
+		v.Left = assignGeneratedIDs(v.Left, childPath(path, 0))
+		v.Right = assignGeneratedIDs(v.Right, childPath(path, 1))
+		return v
+	case SegmentedTile:
+		if (v.OnClick != nil || v.OnToggle != nil) && v.ID == "" {
+			event := "toggle"
+			if v.OnClick != nil {
+				event = "click"
+			}
+			v.ID = generatedInlineID(event, path)
+		}
+		v.Left = assignGeneratedIDs(v.Left, childPath(path, 0))
+		v.Right = assignGeneratedIDs(v.Right, childPath(path, 1))
+		v.Child = assignGeneratedIDs(v.Child, childPath(path, 2))
+		return v
+	case PanelIndicator:
+		if v.OnClick != nil && v.ID == "" {
+			v.ID = generatedInlineID("click", path)
+		}
+		v.Extra = assignGeneratedIDs(v.Extra, childPath(path, 0))
+		return v
+	case ExpanderTile:
+		if v.OnToggle != nil && v.ID == "" {
+			v.ID = generatedInlineID("toggle", path)
+		}
+		v.Left = assignGeneratedIDs(v.Left, childPath(path, 0))
+		v.Child = assignGeneratedIDs(v.Child, childPath(path, 1))
+		return v
+	case Meter:
+		if v.OnChange != nil && v.ID == "" {
+			v.ID = generatedInlineID("change", path)
+		}
+		return v
+	case ChoiceTile:
+		if v.OnClick != nil && v.ID == "" {
+			v.ID = generatedInlineID("click", path)
+		}
+		v.Left = assignGeneratedIDs(v.Left, childPath(path, 0))
+		return v
+	case PagerStrip:
+		if v.OnChange != nil && v.ID == "" {
+			v.ID = generatedInlineID("change", path)
+		}
+		for i, item := range v.Items {
+			v.Items[i] = assignGeneratedIDs(item, childPath(path, i)).(PagerItem)
+		}
+		return v
+	case Calendar:
+		if v.OnChange != nil && v.ID == "" {
+			v.ID = generatedInlineID("change", path)
+		}
+		return v
+	case Row:
+		for i, child := range v.Children {
+			v.Children[i] = assignGeneratedIDs(child, childPath(path, i))
+		}
+		return v
+	case Column:
+		for i, child := range v.Children {
+			v.Children[i] = assignGeneratedIDs(child, childPath(path, i))
+		}
+		return v
+	case Container:
+		for i, child := range v.Children {
+			v.Children[i] = assignGeneratedIDs(child, childPath(path, i))
+		}
+		return v
+	case BoxedList:
+		for i, child := range v.Children {
+			v.Children[i] = assignGeneratedIDs(child, childPath(path, i))
+		}
+		return v
+	case ButtonRow:
+		for i, child := range v.Children {
+			v.Children[i] = assignGeneratedIDs(child, childPath(path, i))
+		}
+		return v
+	case PopoverShell:
+		for i, child := range v.Children {
+			v.Children[i] = assignGeneratedIDs(child, childPath(path, i))
+		}
+		for i, child := range v.Footer {
+			v.Footer[i] = assignGeneratedIDs(child, childPath(path, len(v.Children)+i))
+		}
+		return v
+	case Scroll:
+		v.Child = assignGeneratedIDs(v.Child, childPath(path, 0))
+		return v
+	default:
+		return w
+	}
+}
+
 func collectHandlers(w Widget, out map[string]inlineHandler) {
 	if w == nil {
 		return
@@ -505,6 +630,7 @@ func (r *Runtime[S]) flush(ctx context.Context) error {
 	}
 	r.inlineHandlers = make(map[string]inlineHandler)
 	if widget != nil {
+		widget = assignGeneratedIDs(widget, nil)
 		collectHandlers(widget, r.inlineHandlers)
 	}
 	tree := &treePayload{Root: widget}

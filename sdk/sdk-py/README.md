@@ -24,7 +24,7 @@ cd counter
 glimpse-applet dev
 ```
 
-Read `docs/custom-applets/tooling.md` for project layout, `applet.toml`, dev applets, linking, and diagnostics.
+Read `docs/custom-applets/tooling.md` for project layout, `applet.toml`, dev applets, local linking, distribution, and diagnostics.
 
 ## Goals
 

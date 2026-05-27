@@ -46,9 +46,7 @@ impl Applet for CounterApplet {
                 Label::new(format!("Count = {}", state.count)),
                 {
                     let mut tile = Tile::new("Increment");
-                    tile.id = Some("increment".into());
                     tile.left_icon = Some("list-add-symbolic".into());
-                    tile.activatable = true;
                     tile.on_click = Some(MsgMapper::new(|()| Msg::Increment));
                     tile
                 },

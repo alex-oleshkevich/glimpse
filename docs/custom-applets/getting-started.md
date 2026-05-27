@@ -1,219 +1,111 @@
 # Getting Started: Build Your First Applet
 
-This walkthrough takes you from an empty directory to a working
-**counter applet** in your panel. The counter shows a number; clicking
-"Increment" inside its popover bumps the number by one.
+This walkthrough builds a small **counter applet**. It shows a number in the
+panel; opening the popover and clicking **Increment** bumps the number.
 
-You can do this in any of four languages — Rust, Python, TypeScript,
-or Go. Pick the one you're comfortable with; the protocol underneath
-is identical, so applets behave the same regardless.
-
-If you only want a launcher button that runs a single command, you
-don't need an SDK at all — read [Command Applet](./command.md) first
-and come back here only if you need live state or custom controls.
+Use an exec applet when you need live state, a custom popover, or interaction
+that is more than "run this command". If you only need a launcher button, start
+with [Command Applet](./command.md).
 
 ## Prerequisites
 
-- A working Glimpse install (`glimpse-shell` running, your panel
-  visible). See [Installation](../installation.md).
-- A `~/.config/glimpse/config.toml` you can edit.
-- `glimpse-shell` in your PATH. Run `glimpse-shell applets doctor` to check your host and language toolchain.
-- One language toolchain installed:
-  - **Rust**: `rustc` 1.93+ and `cargo`.
+- A working Glimpse install and a visible panel. See [Installation](../installation.md).
+- `glimpse-shell` in your `PATH`.
+- One supported language toolchain:
   - **Python**: 3.14+.
   - **TypeScript**: Node.js 20+.
+  - **Rust**: `rustc` 1.93+ and `cargo`.
   - **Go**: 1.24+.
 
-## Fast Path With `glimpse-shell applets`
+Run the doctor before creating your first applet:
 
-Create a generated project:
+```sh
+glimpse-shell applets doctor
+```
+
+## Create The Project
+
+Create a generated Python applet:
 
 ```sh
 glimpse-shell applets new counter --lang python
 cd counter
 ```
 
-Run it in live development mode:
+Start it in development mode:
 
 ```sh
 glimpse-shell applets dev
 ```
 
-The default panel already includes `__dev__`, which shows active dev applets. If you use a custom panel layout, keep or add it:
+The default panel includes `__dev__`, which displays applets started by the dev
+tool. If you use a custom panel layout, keep it or add it to one panel section:
 
 ```toml
 [[panels]]
-right = ["network", "__dev__", "battery"]
+left = ["workspaces", "__dev__"]
 ```
 
-When the applet is ready for normal use, install it:
+Prefer another language? Use the same workflow:
+
+| Language | Create command |
+|---|---|
+| Python | `glimpse-shell applets new counter --lang python` |
+| TypeScript | `glimpse-shell applets new counter --lang typescript` |
+| Rust | `glimpse-shell applets new counter --lang rust` |
+| Go | `glimpse-shell applets new counter --lang go` |
+
+The generated project includes its manifest, dependencies, run command, and
+default applet code. Read [Applet Tooling](./tooling.md) for the full command
+reference.
+
+## Link For Local Use
+
+Development mode is temporary. When the applet is ready for local use, link the
+generated project:
 
 ```sh
 glimpse-shell applets link
 ```
 
-Then replace `__dev__` or add the applet id directly in a panel section:
+Then add the applet id to a panel section:
 
 ```toml
 [[panels]]
 right = ["counter", "network", "battery"]
 ```
 
-The rest of this page shows the code shape behind the generated project. Read [Applet Tooling](./tooling.md) for the full `glimpse-shell applets` command reference.
+`link` symlinks the project `applet.toml` into the applet search path, so
+the panel can reference the applet by id while you keep working in the project
+directory.
 
-## What you're building
+For sharing an applet with other users, ship `applet.toml` together with the
+executable or script. [Applet Tooling](./tooling.md) covers that distribution
+shape.
 
-Your applet is a separate program that Glimpse spawns. It reads JSON
-lines from stdin (events) and writes JSON lines to stdout (status
-items and popover content). The SDK hides the line protocol behind a
-small applet base class: you implement status, popover, and event
-handlers, and the SDK takes care of stdio and JSON.
+## What The Applet Does
 
-The final result, in your panel:
+The generated counter applet demonstrates the normal exec applet shape:
 
-- A status item with a refresh icon and the current count.
-- Left-click opens a popover with a hero, the value, and an
-  Increment button.
-- Clicking Increment updates the panel and the popover.
+- `status` returns the compact panel item.
+- `popover` returns a widget tree shown when the panel item opens.
+- Interactive widgets have stable ids.
+- Events mutate applet state.
+- The SDK re-renders status and popover output after state changes.
 
----
+The SDK handles stdin, stdout, JSON lines, and protocol details. Applet logs and
+diagnostics should go to stderr.
 
-## Path A — Rust
+## Python Shape
 
-Create a new binary crate:
-
-```sh
-cargo new --bin counter
-cd counter
-```
-
-Edit `Cargo.toml`:
-
-```toml
-[package]
-name = "counter"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-async-trait = "0.1"
-glimpse-sdk = "0.3"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-```
-
-Replace `src/main.rs` with:
-
-```rust
-use async_trait::async_trait;
-use glimpse_sdk::{
-    Applet, AppletResult, Button, ButtonVariant, CallbackEvent, Column, Hero, Icon, Label, Section,
-    StatusItem, TreeNode, run, tree,
-};
-
-#[derive(Debug, Clone, Default)]
-struct CounterState {
-    count: u32,
-}
-
-struct CounterApplet;
-
-#[async_trait]
-impl Applet for CounterApplet {
-    type State = CounterState;
-
-    async fn status(&self, state: &Self::State) -> AppletResult<Vec<StatusItem>> {
-        Ok(vec![
-            StatusItem::new("counter")
-                .icon(Icon::name("view-refresh-symbolic"))
-                .label(state.count.to_string()),
-        ])
-    }
-
-    async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode>> {
-        let count = state.count;
-        Ok(Some(
-            Column::new(tree![
-                Hero::new("Counter", format!("Value: {count}")),
-                Section::new(
-                    "Controls",
-                    tree![
-                        Label::new(format!("Current: {count}")),
-                        Button::new("increment")
-                            .label("Increment")
-                            .icon("list-add-symbolic")
-                            .variant(ButtonVariant::Primary),
-                    ],
-                ),
-            ])
-            .spacing(8)
-            .into(),
-        ))
-    }
-
-    async fn on_callback(
-        &mut self,
-        state: &mut Self::State,
-        event: CallbackEvent,
-    ) -> AppletResult<()> {
-        if let CallbackEvent::Click(click) = event {
-            if click.id == "increment" {
-                state.count += 1;
-            }
-        }
-        Ok(())
-    }
-}
-
-#[tokio::main]
-async fn main() -> AppletResult<()> {
-    run(CounterApplet, CounterState::default()).await
-}
-```
-
-Build a release binary:
-
-```sh
-cargo build --release
-```
-
-The binary is at `target/release/counter`. Skip to [Wire it into your
-panel](#wire-it-into-your-panel) and use that path as `command`.
-
----
-
-## Path B — Python
-
-Create a new project directory:
-
-```sh
-mkdir counter && cd counter
-```
-
-Install the SDK (uv recommended, but `pip install --user` works too):
-
-```sh
-uv init --bare
-uv add glimpse-applet-sdk
-```
-
-Create `main.py`:
+When you scaffold with `--lang python`, the applet shape looks like this:
 
 ```python
+from __future__ import annotations
+
 from dataclasses import dataclass
 
-from glimpse_sdk import (
-    Applet,
-    AppletState,
-    Button,
-    ButtonVariant,
-    Column,
-    Hero,
-    Icon,
-    Label,
-    Section,
-    StatusItem,
-    click,
-)
+from glimpse_sdk import Applet, AppletState, Column, Hero, Label, StatusItem, Tile
 
 
 @dataclass
@@ -229,94 +121,48 @@ class CounterApplet(Applet[CounterState]):
         return [
             StatusItem(
                 id="counter",
-                icon=Icon.name("view-refresh-symbolic"),
+                icon="view-refresh-symbolic",
                 label=str(state.count),
             )
         ]
 
     async def popover(self, state: CounterState):
         return Column(
-            spacing=8,
             children=[
-                Hero(title="Counter", subtitle=f"Value: {state.count}"),
-                Section(
-                    title="Controls",
-                    children=[
-                        Label(text=f"Current: {state.count}"),
-                        Button(
-                            id="increment",
-                            label="Increment",
-                            icon="list-add-symbolic",
-                            variant=ButtonVariant.PRIMARY,
-                        ),
-                    ],
+                Hero(
+                    icon="view-refresh-symbolic",
+                    title="Counter",
+                    subtitle=f"Value: {state.count}",
+                ),
+                Label(label=f"Count = {state.count}"),
+                Tile(
+                    primary="Increment",
+                    left_icon="list-add-symbolic",
+                    on_click=self.on_increment,
                 ),
             ],
         )
 
-    @click("increment")
-    async def on_increment(self, _event) -> None:
-        await self.set_state(count=self.state.count + 1)
+    async def on_increment(self, state: CounterState, _event) -> None:
+        await self.set_state(count=state.count + 1)
 
 
 if __name__ == "__main__":
     CounterApplet().run()
 ```
 
-Verify it runs (send EOF to exit):
+## TypeScript Shape
 
-```sh
-echo "" | uv run python main.py
-```
-
-You should see one `status {...}` line on stdout. Skip to [Wire it
-into your panel](#wire-it-into-your-panel) and use
-`["uv", "run", "--directory", "/path/to/counter", "python", "main.py"]`
-as `command`, or absolute paths to a venv interpreter.
-
----
-
-## Path C — TypeScript
-
-Create a new project:
-
-```sh
-mkdir counter && cd counter
-npm init -y
-npm pkg set type=module
-npm install glimpse-sdk
-npm install --save-dev typescript @types/node
-```
-
-Create `tsconfig.json`:
-
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "outDir": "dist",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*.ts"]
-}
-```
-
-Create `src/main.ts`:
+When you scaffold with `--lang typescript`, the applet shape looks like this:
 
 ```ts
 import {
   Applet,
-  Button,
   Column,
   Hero,
-  Icon,
   Label,
-  Section,
   StatusItem,
+  Tile,
   type TreeNode,
 } from "glimpse-sdk";
 
@@ -325,22 +171,19 @@ interface CounterState {
 }
 
 class CounterApplet extends Applet<CounterState> {
-  protected initialState(): CounterState {
-    return { count: 0 };
-  }
-
   constructor() {
     super();
-    this.onClick("increment", async () => {
-      await this.setState({ count: this.state.count + 1 });
-    });
+  }
+
+  protected initialState(): CounterState {
+    return { count: 0 };
   }
 
   protected async status(state: CounterState): Promise<StatusItem[]> {
     return [
       new StatusItem({
         id: "counter",
-        icon: Icon.name("view-refresh-symbolic"),
+        icon: "view-refresh-symbolic",
         label: String(state.count),
       }),
     ];
@@ -348,197 +191,193 @@ class CounterApplet extends Applet<CounterState> {
 
   protected async popover(state: CounterState): Promise<TreeNode | null> {
     return new Column({
-      spacing: 8,
       children: [
-        new Hero({ title: "Counter", subtitle: `Value: ${state.count}` }),
-        new Section({
-          title: "Controls",
-          children: [
-            new Label(`Current: ${state.count}`),
-            new Button({
-              id: "increment",
-              label: "Increment",
-              icon: "list-add-symbolic",
-              variant: "primary",
-            }),
-          ],
+        new Hero({
+          icon: "view-refresh-symbolic",
+          title: "Counter",
+          subtitle: `Value: ${state.count}`,
+        }),
+        new Label(`Count = ${state.count}`),
+        new Tile({
+          primary: "Increment",
+          left_icon: "list-add-symbolic",
+          on_click: async () => {
+            await this.setState({ count: this.state.count + 1 });
+          },
         }),
       ],
     });
   }
 }
 
-await new CounterApplet().run();
+void new CounterApplet().run();
 ```
 
-Build:
+## Rust Shape
 
-```sh
-npx tsc
+When you scaffold with `--lang rust`, the applet shape looks like this:
+
+```rust
+use async_trait::async_trait;
+use glimpse_sdk::{
+    Applet, AppletResult, Column, Hero, Label, MsgMapper, StatusItem, Tile, TreeNode, run, tree,
+};
+
+#[derive(Debug, Clone, Default)]
+struct CounterState {
+    count: u32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum Msg {
+    Increment,
+}
+
+struct CounterApplet;
+
+#[async_trait]
+impl Applet for CounterApplet {
+    type State = CounterState;
+    type Msg = Msg;
+
+    async fn status(&self, state: &Self::State) -> AppletResult<Vec<StatusItem>> {
+        Ok(vec![
+            StatusItem::new("counter")
+                .icon("view-refresh-symbolic")
+                .label(state.count.to_string()),
+        ])
+    }
+
+    async fn update(&mut self, state: &mut CounterState, msg: Msg) -> AppletResult<()> {
+        if msg == Msg::Increment {
+            state.count += 1;
+        }
+        Ok(())
+    }
+
+    async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode<Msg>>> {
+        Ok(Some(
+            Column::new(tree![
+                {
+                    let mut hero = Hero::new("Counter", format!("Value: {}", state.count));
+                    hero.icon = Some("view-refresh-symbolic".into());
+                    hero
+                },
+                Label::new(format!("Count = {}", state.count)),
+                {
+                    let mut tile = Tile::new("Increment");
+                    tile.left_icon = Some("list-add-symbolic".into());
+                    tile.on_click = Some(MsgMapper::new(|()| Msg::Increment));
+                    tile
+                },
+            ])
+            .into(),
+        ))
+    }
+}
+
+#[tokio::main]
+async fn main() -> AppletResult<()> {
+    run(CounterApplet, CounterState::default()).await
+}
 ```
 
-Skip to [Wire it into your panel](#wire-it-into-your-panel) and use
-`["node", "/path/to/counter/dist/main.js"]` as `command`.
+## Go Shape
 
----
-
-## Path D — Go
-
-Initialize a module:
-
-```sh
-mkdir counter && cd counter
-go mod init example.com/counter
-go get github.com/alex-oleshkevich/glimpse/sdk/sdk-go
-```
-
-Create `main.go`:
+When you scaffold with `--lang go`, the applet shape looks like this:
 
 ```go
 package main
 
 import (
-    "context"
-    "fmt"
+	"context"
+	"fmt"
 
-    sdk "github.com/alex-oleshkevich/glimpse/sdk/sdk-go/sdk"
+	sdk "github.com/alex-oleshkevich/glimpse/sdk/sdk-go/sdk"
 )
 
 type counterState struct {
-    Count int
+	Count int
 }
 
 type counterApplet struct {
-    sdk.BaseApplet[counterState]
+	sdk.BaseApplet[counterState]
 }
 
 func newCounterApplet() *counterApplet {
-    return &counterApplet{BaseApplet: sdk.NewBaseApplet(counterState{})}
-}
-
-func (a *counterApplet) OnStart(context.Context) error               { return nil }
-func (a *counterApplet) OnInit(context.Context, sdk.InitEvent) error { return nil }
-
-func (a *counterApplet) OnCallback(_ context.Context, event sdk.CallbackEvent) error {
-    if click, ok := event.(sdk.ClickEvent); ok && click.ID == "increment" {
-        a.SetState(func(s *counterState) { s.Count++ })
-    }
-    return nil
+	return &counterApplet{
+		BaseApplet: sdk.NewBaseApplet(counterState{}),
+	}
 }
 
 func (a *counterApplet) Status(_ context.Context, state *counterState) ([]sdk.StatusItem, error) {
-    return []sdk.StatusItem{
-        {
-            ID:    "counter",
-            Icon:  sdk.IconName("view-refresh-symbolic"),
-            Label: fmt.Sprintf("%d", state.Count),
-        },
-    }, nil
+	return []sdk.StatusItem{
+		{
+			ID:    "counter",
+			Icon:  "view-refresh-symbolic",
+			Label: fmt.Sprintf("%d", state.Count),
+		},
+	}, nil
 }
 
 func (a *counterApplet) Popover(_ context.Context, state *counterState) (sdk.Widget, error) {
-    return sdk.Column{
-        Spacing: 8,
-        Children: []sdk.Widget{
-            sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
-            sdk.Section{
-                Title: "Controls",
-                Children: []sdk.Widget{
-                    sdk.Label{Text: fmt.Sprintf("Current: %d", state.Count)},
-                    sdk.Button{
-                        CommonProps: sdk.CommonProps{ID: "increment"},
-                        Label:       "Increment",
-                        Icon:        "list-add-symbolic",
-                        Variant:     sdk.ButtonVariantPrimary,
-                    },
-                },
-            },
-        },
-    }, nil
+	return sdk.Column{
+		Children: []sdk.Widget{
+			sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
+			sdk.Label{Label: fmt.Sprintf("Count = %d", state.Count)},
+			sdk.Tile{
+				Primary:     "Increment",
+				LeftIcon:    "list-add-symbolic",
+				OnClick: func(sdk.CallbackEvent) error {
+					a.SetState(func(state *counterState) {
+						state.Count++
+					})
+					return nil
+				},
+			},
+		},
+	}, nil
 }
 
 func main() {
-    if err := sdk.Run[counterState](context.Background(), newCounterApplet()); err != nil {
-        panic(err)
-    }
+	if err := sdk.Run[counterState](context.Background(), newCounterApplet()); err != nil {
+		panic(err)
+	}
 }
 ```
 
-Build:
+## What Happened
 
-```sh
-go build -o counter
-```
+The applet tooling created an applet package and language project for you.
+During development, the dev runner starts the child process and exposes it
+through the `__dev__` panel slot. After linking, any panel section can
+load the applet by id.
 
-Skip to the next section and use `/path/to/counter/counter` as
-`command`.
+When Glimpse starts the applet, it sends an `init` message. The applet responds
+with `status` output for the panel. When the popover opens, the SDK renders the
+popover tree. When you click the `increment` tile, Glimpse sends an event back
+to the child; the SDK routes it to your handler and pushes fresh output after
+the state changes.
 
----
+## Common Follow-Ups
 
-## Wire it into your panel
+- **Pass per-applet config.** Add an `[exec.options]` table in the generated
+  applet package; the SDK exposes those values during initialization.
+- **Refresh on a timer.** Spawn a background task that updates state on an
+  interval; the SDK re-renders after state changes.
+- **Use richer widgets.** See [Components](./exec-components.md) for `tile`,
+  `switch_tile`, `slider_tile`, `choice_list`, `meter`, `key_value_grid`,
+  `badge`, and `popover_shell`.
+- **Debug startup.** Use `glimpse-shell applets doctor --strict` and write
+  applet diagnostics to stderr.
 
-If your project has an `applet.toml`, run `glimpse-shell applets link` from the project directory to symlink it into `~/.config/glimpse/applets/` automatically. Otherwise, create the applet package file manually:
-
-```toml
-# ~/.config/glimpse/applets/counter.toml
-id = "counter"
-type = "exec"
-
-[exec]
-command = ["/absolute/path/to/your/counter"]
-```
-
-Add the applet name to a panel section:
-
-```toml
-[[panels]]
-right = ["counter", "network", "battery"]
-```
-
-Save the config. Glimpse picks up changes on the next panel reload. Use your existing reload action or restart the shell.
-
-You should now see your counter in the panel. Left-click opens the
-popover; click **Increment** and the number updates in both places.
-
-## What happened
-
-When Glimpse started your applet it sent one `init` line on stdin
-with the applet's name and any `[exec.options]` from your applet package
-(we didn't set any). Your status handler then printed a `status` line
-and your popover handler printed a `popover` line. When you clicked
-Increment, Glimpse sent an `event` line back; the SDK routed it to
-your click handler; you mutated state; the SDK re-rendered and pushed
-fresh `status` + `popover` lines.
-
-You never wrote JSON or touched stdin/stdout. The SDK handles the line
-transport, while your applet provides status items, popover content,
-and event handlers.
-
-## Common follow-ups
-
-- **Pass per-applet config.** Add an `[exec.options]` table in the
-  applet package; the SDK exposes it to your applet during `init`.
-- **Refresh on a timer**, not only on events. Spawn a background task
-  that mutates state every N seconds — the SDK re-renders
-  automatically.
-- **Use richer widgets.** The full component reference is at
-  [Components](./exec-components.md). Useful popover building blocks
-  include `tile`, `switch_tile`, `slider_tile`, `choice_list`, `meter`,
-  `key_value_grid`, `badge`, and `popover_shell`.
-- **Restart on crash.** The `restart_delay_ms` config option controls
-  how soon Glimpse re-spawns your applet after it exits. The default
-  is 1 second.
-- **Debug.** Write to stderr from your applet — Glimpse logs it but
-  doesn't display it. Don't write non-protocol bytes to stdout; they
-  corrupt the line stream.
-
-## Where to go from here
+## Where To Go Next
 
 | Topic | Page |
 |---|---|
-| Scaffold, run, link, and remove applets with `glimpse-shell applets` | [Applet Tooling](./tooling.md) |
-| Configure the exec applet | [Exec Applet](./exec.md) |
+| Scaffold, run, link, and remove applets | [Applet Tooling](./tooling.md) |
+| Configure the exec applet host | [Exec Applet](./exec.md) |
 | Line protocol reference | [Line Protocol](./exec-protocol.md) |
-| Every widget with its fields | [Components](./exec-components.md) |
-| Single-page SDK reference per language | [Exec SDK](../applets/exec-sdk.md) |
-| LLM-friendly single-file reference | [LLM exec docs](../llms/exec.md) |
+| Every widget with fields | [Components](./exec-components.md) |
+| SDK reference per language | [Exec SDK](../applets/exec-sdk.md) |
+| LLM-friendly single-file reference | [LLM Exec Reference](../llms/exec.md) |

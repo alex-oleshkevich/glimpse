@@ -21,18 +21,6 @@ func newCounterApplet() *counterApplet {
 	}
 }
 
-func (a *counterApplet) OnStart(context.Context) error               { return nil }
-func (a *counterApplet) OnInit(context.Context, sdk.InitEvent) error { return nil }
-
-func (a *counterApplet) OnCallback(_ context.Context, event sdk.CallbackEvent) error {
-	if click, ok := event.(sdk.ClickEvent); ok && click.ID == "increment" {
-		a.SetState(func(state *counterState) {
-			state.Count++
-		})
-	}
-	return nil
-}
-
 func (a *counterApplet) Status(_ context.Context, state *counterState) ([]sdk.StatusItem, error) {
 	return []sdk.StatusItem{
 		{
@@ -49,10 +37,14 @@ func (a *counterApplet) Popover(_ context.Context, state *counterState) (sdk.Wid
 			sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
 			sdk.Label{Label: fmt.Sprintf("Count = %d", state.Count)},
 			sdk.Tile{
-				ID:          "increment",
-				Primary:     "Increment",
-				LeftIcon:    "list-add-symbolic",
-				Activatable: true,
+				Primary:  "Increment",
+				LeftIcon: "list-add-symbolic",
+				OnClick: func(sdk.CallbackEvent) error {
+					a.SetState(func(state *counterState) {
+						state.Count++
+					})
+					return nil
+				},
 			},
 		},
 	}, nil

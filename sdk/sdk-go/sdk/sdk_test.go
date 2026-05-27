@@ -28,22 +28,6 @@ func newDemoApplet() *demoApplet {
 	}
 }
 
-func (a *demoApplet) OnStart(context.Context) error           { return nil }
-func (a *demoApplet) OnInit(context.Context, InitEvent) error { return nil }
-
-func (a *demoApplet) OnCallback(_ context.Context, event CallbackEvent) error {
-	switch e := event.(type) {
-	case ClickEvent:
-		if e.ID == "submit" {
-			a.SetState(func(state *demoState) {
-				state.Clicks++
-				state.Version = "v2"
-			})
-		}
-	}
-	return nil
-}
-
 func (a *demoApplet) Status(_ context.Context, state *demoState) ([]StatusItem, error) {
 	return []StatusItem{
 		{ID: "demo", Icon: "demo-symbolic", Label: state.Version},
@@ -58,7 +42,16 @@ func (a *demoApplet) Popover(_ context.Context, state *demoState) (Widget, error
 		Children: []Widget{
 			Hero{Title: "Demo", Subtitle: state.Version},
 			Label{Label: state.Version},
-			Tile{ID: "submit", Primary: "Submit", Activatable: true},
+			Tile{
+				Primary: "Submit",
+				OnClick: func(CallbackEvent) error {
+					a.SetState(func(state *demoState) {
+						state.Clicks++
+						state.Version = "v2"
+					})
+					return nil
+				},
+			},
 		},
 	}, nil
 }
@@ -236,11 +229,21 @@ func TestRuntimeExposesPopoverOpenBeforeCallback(t *testing.T) {
 	}
 }
 
-func TestSetStateUpdatesRenderedStatus(t *testing.T) {
+func TestInlineTileCallbackUpdatesRenderedStatus(t *testing.T) {
 	applet := newDemoApplet()
-	if err := applet.OnCallback(context.Background(), ClickEvent{ID: "submit", Button: "left"}); err != nil {
+	runtime := NewRuntime[demoState](applet, bytes.NewBufferString(""), io.Discard)
+
+	if err := runtime.flush(context.Background()); err != nil {
+		t.Fatalf("initial flush render: %v", err)
+	}
+	tileID := runtime.lastTree.Root.(Column).Children[2].(Tile).ID
+	if !strings.HasPrefix(tileID, "__glimpse:click:") {
+		t.Fatalf("expected generated tile id, got %q", tileID)
+	}
+	if err := runtime.dispatchCallback(context.Background(), ClickEvent{ID: tileID, Button: "left"}); err != nil {
 		t.Fatalf("callback: %v", err)
 	}
+
 	status, err := applet.Status(context.Background(), applet.State())
 	if err != nil {
 		t.Fatalf("status: %v", err)
@@ -348,9 +351,6 @@ func (a *asyncDemoApplet) OnStart(context.Context) error {
 	return nil
 }
 
-func (a *asyncDemoApplet) OnInit(context.Context, InitEvent) error         { return nil }
-func (a *asyncDemoApplet) OnCallback(context.Context, CallbackEvent) error { return nil }
-
 func (a *asyncDemoApplet) Status(_ context.Context, state *demoState) ([]StatusItem, error) {
 	return []StatusItem{
 		{ID: "demo", Icon: "demo-symbolic", Label: state.Version},
@@ -358,6 +358,20 @@ func (a *asyncDemoApplet) Status(_ context.Context, state *demoState) ([]StatusI
 }
 
 func (a *asyncDemoApplet) Popover(_ context.Context, _ *demoState) (Widget, error) {
+	return nil, nil
+}
+
+type minimalApplet struct {
+	BaseApplet[demoState]
+}
+
+var _ Applet[demoState] = (*minimalApplet)(nil)
+
+func (a *minimalApplet) Status(context.Context, *demoState) ([]StatusItem, error) {
+	return nil, nil
+}
+
+func (a *minimalApplet) Popover(context.Context, *demoState) (Widget, error) {
 	return nil, nil
 }
 

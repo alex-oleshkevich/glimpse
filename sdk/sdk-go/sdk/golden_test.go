@@ -88,16 +88,16 @@ func sharedWidgets() map[string]Widget {
 		"popover-shell": PopoverShell{Size: PopoverSizeMedium, Children: []Widget{label}, Footer: []Widget{badge}, FooterVisible: true},
 		"tile": Tile{
 			ID: "wifi", Primary: "Wi-Fi", Secondary: "Connected",
-			LeftIcon: "network-wireless-symbolic", Right: badge, Activatable: true,
+			LeftIcon: "network-wireless-symbolic", Right: badge,
 		},
 		"segmented-tile": SegmentedTile{
 			Tile: Tile{
 				ID: "drive", Primary: "Backup", Secondary: "Mounted",
-				LeftIcon: "drive-harddisk-symbolic", Right: badge, Activatable: true,
+				LeftIcon: "drive-harddisk-symbolic", Right: badge,
 			},
 			Child: KeyValueGrid{Rows: []KeyValueRow{{Key: "Size", Value: "1 TB"}}}, Expanded: true,
 		},
-		"button-row": ButtonRow{Children: []Widget{Tile{Primary: "Refresh", Activatable: true}}},
+		"button-row": ButtonRow{Children: []Widget{Tile{Primary: "Refresh"}}},
 		"switch-tile": SwitchTile{
 			ID: "bluetooth", Primary: "Bluetooth", Secondary: "On",
 			LeftIcon: "bluetooth-active-symbolic", Active: true,

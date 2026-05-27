@@ -1,6 +1,5 @@
 {
   "data": {
-    "activatable": true,
     "id": "wifi",
     "left_icon": "network-wireless-symbolic",
     "primary": "Wi-Fi",

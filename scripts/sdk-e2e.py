@@ -156,13 +156,16 @@ async def run_counter_contract(applet: Applet) -> None:
     if items[0].get("label") != "0":
         raise ProtocolError(f"initial status label != '0': {items[0]}")
 
+    increment_id: str | None = None
+
     # 2. Initial popover (if the SDK sends it eagerly).
     try:
         popover = await applet.expect("popover", timeout=2.0)
         root = popover.data.get("root")
         if root is None:
             raise ProtocolError("initial popover root was null")
-        if not _tree_contains_increment_tile(root, "increment"):
+        increment_id = _find_increment_tile_id(root)
+        if increment_id is None:
             raise ProtocolError(f"initial popover missing increment tile: {root}")
     except ProtocolError as e:
         if "timed out" not in str(e):
@@ -180,20 +183,26 @@ async def run_counter_contract(applet: Applet) -> None:
     try:
         popover = await applet.expect("popover", timeout=3.0)
         root = popover.data.get("root")
-        if not root or not _tree_contains_increment_tile(root, "increment"):
+        if not root:
             raise ProtocolError(f"popover after open missing increment: {root}")
+        opened_increment_id = _find_increment_tile_id(root)
+        if opened_increment_id is None:
+            raise ProtocolError(f"popover after open missing increment: {root}")
+        increment_id = opened_increment_id
     except ProtocolError as e:
         if "timed out" not in str(e):
             raise
 
     # 5. Click increment three times; each click should bump the status
+    if increment_id is None:
+        raise ProtocolError("increment tile id was not discovered")
     # label by one. Filter for `status` lines since some SDKs also emit
     # popover updates.
     for expected in ("1", "2", "3"):
         await applet.send(
             "event",
             {
-                "id": "increment",
+                "id": increment_id,
                 "type": "click",
                 "source": "popover",
                 "button": "left",
@@ -215,28 +224,33 @@ async def run_counter_contract(applet: Applet) -> None:
     await applet.close()
 
 
-def _tree_contains_increment_tile(root: dict[str, Any], tile_id: str) -> bool:
-    """Walk a popover tree and return True if a tile with the given id appears."""
+def _find_increment_tile_id(root: dict[str, Any]) -> str | None:
+    """Walk a popover tree and return the id for the Increment tile."""
     if not isinstance(root, dict):
-        return False
+        return None
     if root.get("type") == "tile":
         data = root.get("data", {})
-        if data.get("id") == tile_id and data.get("activatable") is True:
-            return True
+        tile_id = data.get("id")
+        if data.get("primary") == "Increment" and isinstance(tile_id, str):
+            return tile_id
     data = root.get("data", {})
     for key in ("children", "body"):
         for child in data.get(key, []) or []:
             if isinstance(child, dict):
-                if _tree_contains_increment_tile(child, tile_id):
-                    return True
-                # grid children are { row, column, child }
-                if "child" in child and _tree_contains_increment_tile(child["child"], tile_id):
-                    return True
+                found = _find_increment_tile_id(child)
+                if found is not None:
+                    return found
+                if "child" in child:
+                    found = _find_increment_tile_id(child["child"])
+                    if found is not None:
+                        return found
     for key in ("child", "left", "right"):
         node = data.get(key)
-        if isinstance(node, dict) and _tree_contains_increment_tile(node, tile_id):
-            return True
-    return False
+        if isinstance(node, dict):
+            found = _find_increment_tile_id(node)
+            if found is not None:
+                return found
+    return None
 
 
 # ---------- per-SDK build + spawn ------------------------------------------

@@ -111,9 +111,15 @@ mod tests {
         external.make = Some("Dell Inc.".into());
         external.model = Some("AW2725Q".into());
 
-        assert_eq!(monitor_display_name(&monitor("eDP-1", true, true)), "Built-in display");
+        assert_eq!(
+            monitor_display_name(&monitor("eDP-1", true, true)),
+            "Built-in display"
+        );
         assert_eq!(monitor_display_name(&external), "Dell Inc. AW2725Q");
-        assert_eq!(monitor_display_name(&monitor("HDMI-A-1", true, false)), "HDMI-A-1");
+        assert_eq!(
+            monitor_display_name(&monitor("HDMI-A-1", true, false)),
+            "HDMI-A-1"
+        );
     }
 
     #[test]

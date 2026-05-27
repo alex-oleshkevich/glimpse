@@ -47,7 +47,7 @@ class DemoApplet(Applet[DemoState]):
         return [StatusItem(id="demo", icon="demo-symbolic", label=state.version)]
 
     async def popover(self, state: DemoState):
-        return Column(children=[Label(label=state.version), Tile(id="submit", primary="Submit", activatable=True)])
+        return Column(children=[Label(label=state.version), Tile(id="submit", primary="Submit")])
 
     @click("submit")
     async def handle_submit(self, _event) -> None:
@@ -213,7 +213,7 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
                 return S()
 
             async def popover(self, state: S):
-                return Column(children=[Tile(primary="Pick", activatable=True, on_click=self.pick)])
+                return Column(children=[Tile(primary="Pick", on_click=self.pick)])
 
             def pick(self, state: S, event) -> None:
                 state.seen = True
@@ -249,7 +249,7 @@ class GlimpseAppletTests(unittest.IsolatedAsyncioTestCase):
                 return PopoverShell(
                     children=[
                         Hero(title="VPN", id="hero-toggle", toggle=True, on_toggle=self.handle),
-                        Tile(primary="Open", activatable=True, on_click=self.handle),
+                        Tile(primary="Open", on_click=self.handle),
                         SwitchTile(id="vpn", primary="VPN", on_toggle=self.handle),
                         SliderTile(id="volume", label="Volume", on_change=self.handle),
                         ChoiceList(

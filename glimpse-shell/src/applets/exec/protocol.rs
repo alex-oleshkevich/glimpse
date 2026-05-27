@@ -355,8 +355,6 @@ pub struct TileNode {
     pub left: Option<Box<TreeNode>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub right: Option<Box<TreeNode>>,
-    #[serde(default)]
-    pub activatable: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -378,8 +376,6 @@ pub struct SegmentedTileNode {
     pub child: Option<Box<TreeNode>>,
     #[serde(default)]
     pub expanded: bool,
-    #[serde(default)]
-    pub activatable: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -863,7 +859,7 @@ mod tests {
     #[test]
     fn parses_shared_widget_popover_line() {
         let command = parse_child_line(
-            r#"popover {"root":{"type":"popover_shell","data":{"children":[{"type":"tile","data":{"id":"wifi","primary":"Wi-Fi","activatable":true}}]}}}"#,
+            r#"popover {"root":{"type":"popover_shell","data":{"children":[{"type":"tile","data":{"id":"wifi","primary":"Wi-Fi"}}]}}}"#,
         )
         .expect("popover line should parse");
 

@@ -244,6 +244,143 @@ impl<Msg> MsgMap<Msg> {
     }
 }
 
+fn generated_widget_id(event: &str, path: &[usize]) -> String {
+    let suffix = if path.is_empty() {
+        "root".to_string()
+    } else {
+        path.iter()
+            .map(|part| part.to_string())
+            .collect::<Vec<_>>()
+            .join(".")
+    };
+    format!("__glimpse:{event}:{suffix}")
+}
+
+fn assign_child_ids<Msg>(child: &mut TreeNode<Msg>, path: &mut Vec<usize>, index: usize) {
+    path.push(index);
+    assign_generated_ids(child, path);
+    path.pop();
+}
+
+fn assign_optional_child_ids<Msg>(
+    child: &mut Option<Box<TreeNode<Msg>>>,
+    path: &mut Vec<usize>,
+    index: usize,
+) {
+    if let Some(child) = child {
+        assign_child_ids(child, path, index);
+    }
+}
+
+fn assign_generated_ids<Msg>(tree: &mut TreeNode<Msg>, path: &mut Vec<usize>) {
+    match tree {
+        TreeNode::Hero(hero) => {
+            if hero.on_toggle.is_some() && hero.id.is_none() {
+                hero.id = Some(generated_widget_id("toggle", path));
+            }
+            assign_optional_child_ids(&mut hero.trailing, path, 0);
+        }
+        TreeNode::PanelIndicator(indicator) => {
+            if indicator.on_click.is_some() && indicator.id.is_none() {
+                indicator.id = Some(generated_widget_id("click", path));
+            }
+            assign_optional_child_ids(&mut indicator.extra, path, 0);
+        }
+        TreeNode::Meter(meter) => {
+            if meter.on_change.is_some() && meter.id.is_none() {
+                meter.id = Some(generated_widget_id("change", path));
+            }
+        }
+        TreeNode::Tile(tile) => {
+            if tile.on_click.is_some() && tile.id.is_none() {
+                tile.id = Some(generated_widget_id("click", path));
+            }
+            assign_optional_child_ids(&mut tile.left, path, 0);
+            assign_optional_child_ids(&mut tile.right, path, 1);
+        }
+        TreeNode::SegmentedTile(tile) => {
+            if (tile.on_click.is_some() || tile.on_toggle.is_some()) && tile.id.is_none() {
+                let event = if tile.on_click.is_some() {
+                    "click"
+                } else {
+                    "toggle"
+                };
+                tile.id = Some(generated_widget_id(event, path));
+            }
+            assign_optional_child_ids(&mut tile.left, path, 0);
+            assign_optional_child_ids(&mut tile.right, path, 1);
+            assign_optional_child_ids(&mut tile.child, path, 2);
+        }
+        TreeNode::SwitchTile(tile) => {
+            assign_optional_child_ids(&mut tile.left, path, 0);
+        }
+        TreeNode::ExpanderTile(tile) => {
+            if tile.on_toggle.is_some() && tile.id.is_none() {
+                tile.id = Some(generated_widget_id("toggle", path));
+            }
+            assign_optional_child_ids(&mut tile.left, path, 0);
+            assign_optional_child_ids(&mut tile.child, path, 1);
+        }
+        TreeNode::SliderTile(tile) => {
+            assign_optional_child_ids(&mut tile.left, path, 0);
+        }
+        TreeNode::ChoiceTile(tile) => {
+            if tile.on_click.is_some() && tile.id.is_none() {
+                tile.id = Some(generated_widget_id("click", path));
+            }
+            assign_optional_child_ids(&mut tile.left, path, 0);
+        }
+        TreeNode::PagerStrip(strip) => {
+            if strip.on_change.is_some() && strip.id.is_none() {
+                strip.id = Some(generated_widget_id("change", path));
+            }
+        }
+        TreeNode::Calendar(calendar) => {
+            if calendar.on_change.is_some() && calendar.id.is_none() {
+                calendar.id = Some(generated_widget_id("change", path));
+            }
+        }
+        TreeNode::Row(row) => {
+            for (index, child) in row.children.iter_mut().enumerate() {
+                assign_child_ids(child, path, index);
+            }
+        }
+        TreeNode::Column(column) => {
+            for (index, child) in column.children.iter_mut().enumerate() {
+                assign_child_ids(child, path, index);
+            }
+        }
+        TreeNode::Container(container) => {
+            for (index, child) in container.children.iter_mut().enumerate() {
+                assign_child_ids(child, path, index);
+            }
+        }
+        TreeNode::BoxedList(list) => {
+            for (index, child) in list.children.iter_mut().enumerate() {
+                assign_child_ids(child, path, index);
+            }
+        }
+        TreeNode::ButtonRow(row) => {
+            for (index, child) in row.children.iter_mut().enumerate() {
+                assign_child_ids(child, path, index);
+            }
+        }
+        TreeNode::PopoverShell(shell) => {
+            for (index, child) in shell.children.iter_mut().enumerate() {
+                assign_child_ids(child, path, index);
+            }
+            let offset = shell.children.len();
+            for (index, child) in shell.footer.iter_mut().enumerate() {
+                assign_child_ids(child, path, offset + index);
+            }
+        }
+        TreeNode::Scroll(scroll) => {
+            assign_child_ids(&mut scroll.child, path, 0);
+        }
+        _ => {}
+    }
+}
+
 fn collect_messages<Msg: Clone + 'static>(tree: &TreeNode<Msg>, map: &mut MsgMap<Msg>) {
     use crate::widgets::TreeNode::*;
     match tree {
@@ -622,7 +759,10 @@ where
         last.status = next_status;
     }
 
-    let next_tree = applet.popover(state).await?;
+    let mut next_tree = applet.popover(state).await?;
+    if let Some(ref mut tree) = next_tree {
+        assign_generated_ids(tree, &mut Vec::new());
+    }
     let mut map = MsgMap::new();
     for item in &last.status {
         if let Some(id) = &item.id {
@@ -704,8 +844,6 @@ mod tests {
                 TreeNode::from(Label::new(state.version.clone())),
                 {
                     let mut tile = Tile::new("Submit");
-                    tile.id = Some("submit".into());
-                    tile.activatable = true;
                     tile.on_click = Some(MsgMapper::new(|()| DemoMsg::Submit));
                     TreeNode::from(tile)
                 },
@@ -848,6 +986,47 @@ mod tests {
     #[test]
     fn close_popover_command_matches_shell_protocol() {
         assert_eq!(close_popover_command(), b"close-popover\n");
+    }
+
+    #[tokio::test]
+    async fn inline_tile_callback_generates_id_and_dispatches() {
+        let mut applet = DemoApplet;
+        let mut state = DemoState {
+            version: "v1".into(),
+            clicks: 0,
+        };
+        let mut last = LastSeen::new();
+        let mut writer = Vec::new();
+
+        let map = flush(&mut writer, &applet, &state, &mut last)
+            .await
+            .expect("flush should render");
+        let output = String::from_utf8(writer).expect("output should be utf8");
+        let popover_line = output
+            .lines()
+            .find(|line| line.starts_with("popover "))
+            .expect("popover line should be emitted");
+        let payload: serde_json::Value = serde_json::from_str(&popover_line["popover ".len()..])
+            .expect("popover payload should be json");
+        let generated_id = payload["root"]["data"]["children"][2]["data"]["id"]
+            .as_str()
+            .expect("tile id should be present");
+        assert!(generated_id.starts_with("__glimpse:click:"));
+
+        dispatch_msg(
+            &map,
+            &mut applet,
+            &mut state,
+            CallbackEvent::Click(crate::ClickEvent {
+                id: generated_id.into(),
+                button: Some("left".into()),
+            }),
+        )
+        .await
+        .expect("dispatch should update state");
+
+        assert_eq!(state.clicks, 1);
+        assert_eq!(state.version, "v2");
     }
 
     #[tokio::test]

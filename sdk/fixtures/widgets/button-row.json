@@ -3,7 +3,6 @@
     "children": [
       {
         "data": {
-          "activatable": true,
           "primary": "Refresh"
         },
         "type": "tile"

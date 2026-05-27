@@ -365,7 +365,6 @@ class Tile(Widget):
     left_icon: str | None = None
     left: TreeNode | None = None
     right: TreeNode | None = None
-    activatable: bool = False
     on_click: InlineHandler | None = None
     widget_type: str = field(init=False, default="tile")
 
@@ -382,7 +381,6 @@ class Tile(Widget):
             payload["left"] = self.left.to_protocol()
         if self.right is not None:
             payload["right"] = self.right.to_protocol()
-        payload["activatable"] = self.activatable
         return payload
 
     def bind_handlers(self, registry: HandlerRegistry, path: tuple[int, ...]) -> None:

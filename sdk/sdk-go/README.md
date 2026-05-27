@@ -17,12 +17,12 @@ The package import path is `github.com/alex-oleshkevich/glimpse/sdk/sdk-go/sdk`.
 Create and live-run a Go applet project with the Glimpse tooling:
 
 ```sh
-glimpse-applet new counter --lang go
+glimpse-shell applets new counter --lang go
 cd counter
-glimpse-applet dev
+glimpse-shell applets dev
 ```
 
-Read `docs/custom-applets/tooling.md` for project layout, `applet.toml`, dev applets, linking, and diagnostics.
+Read `docs/custom-applets/tooling.md` for project layout, `applet.toml`, dev applets, local linking, distribution, and diagnostics.
 
 ## Goals
 
@@ -47,7 +47,7 @@ func (a *CounterApplet) Status(_ context.Context, state *CounterState) ([]sdk.St
     return []sdk.StatusItem{
         {
             ID:    "counter",
-            Icon:  sdk.IconName("view-refresh-symbolic"),
+            Icon:  "view-refresh-symbolic",
             Label: fmt.Sprintf("%d", state.Count),
         },
     }, nil
@@ -59,11 +59,15 @@ func (a *CounterApplet) Popover(_ context.Context, state *CounterState) (sdk.Wid
         Children: []sdk.Widget{
             sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
             sdk.Label{Label: fmt.Sprintf("Count = %d", state.Count)},
-            sdk.Button{
-                CommonProps: sdk.CommonProps{ID: "increment"},
-                Label:       "Increment",
-                Icon:        "list-add-symbolic",
-                Variant:     sdk.ButtonVariantPrimary,
+            sdk.Tile{
+                Primary:     "Increment",
+                LeftIcon:    "list-add-symbolic",
+                OnClick: func(sdk.CallbackEvent) error {
+                    a.SetState(func(state *CounterState) {
+                        state.Count++
+                    })
+                    return nil
+                },
             },
         },
     }, nil

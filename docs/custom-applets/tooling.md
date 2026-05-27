@@ -9,8 +9,8 @@
 | Create a project | `glimpse-shell applets new counter --lang python` | Creates an applet directory with source files and `applet.toml`. |
 | Develop in place | `glimpse-shell applets dev counter` | Registers a temporary dev applet, watches source files, and restarts on changes. |
 | Show dev applets | Keep `__dev__` in a panel section | Displays every active `.dev.toml` applet in that panel section. The default panel already includes it. |
-| Install for normal use | `glimpse-shell applets link counter` | Symlinks `counter/applet.toml` into the Glimpse applets directory. |
-| Inspect or remove | `glimpse-shell applets ls`, `glimpse-shell applets unlink` | Shows installed applets or removes applet config entries. |
+| Link for local use | `glimpse-shell applets link counter` | Symlinks `counter/applet.toml` into the Glimpse applets directory so a panel can reference the applet by id. |
+| Inspect or remove | `glimpse-shell applets ls`, `glimpse-shell applets unlink` | Shows linked and dev applets or removes linked applet entries. |
 
 ```mermaid
 flowchart LR
@@ -28,7 +28,7 @@ An applet project is a directory with an `applet.toml` file at its root. Exec ap
 
 | File | Purpose |
 |---|---|
-| `applet.toml` | Package-style applet definition used by `glimpse-shell applets link` and `glimpse-shell applets dev`. |
+| `applet.toml` | Applet definition used by `glimpse-shell applets link`, `glimpse-shell applets dev`, and distributed applet packages. |
 | `src/main.rs` | Rust exec applet entry point, when scaffolded with `--lang rust`. |
 | `main.py` | Python exec applet entry point, when scaffolded with `--lang python`. |
 | `src/main.ts` | TypeScript exec applet source, when scaffolded with `--lang typescript`. |
@@ -55,12 +55,15 @@ cd counter
 
 Supported exec languages are:
 
-| Language flag | Generated files | Dev command |
-|---|---|---|
-| `--lang rust` | `Cargo.toml`, `src/main.rs` | `cargo build --quiet`, then `cargo run --quiet` |
-| `--lang python` | `main.py` | `uv run main.py` |
-| `--lang typescript` | `package.json`, `tsconfig.json`, `src/main.ts` | `npx tsc`, then `node dist/main.js` |
-| `--lang go` | `main.go` | `go build -o .dev-build`, then `.dev-build` |
+| Language flag | Generated files |
+|---|---|
+| `--lang rust` | `Cargo.toml`, `src/main.rs` |
+| `--lang python` | `main.py` |
+| `--lang typescript` | `package.json`, `tsconfig.json`, `src/main.ts` |
+| `--lang go` | `main.go` |
+
+Development mode runs the right build and launch steps for the selected
+language. You edit the generated project; the applet tooling handles the rest.
 
 Create a command applet instead of an exec applet when the applet only launches commands:
 
@@ -96,11 +99,11 @@ The default panel already includes `__dev__`. If you use a custom panel layout, 
 right = ["network", "__dev__", "battery"]
 ```
 
-If a normal linked applet and a dev applet use the same id, the normal linked applet wins. Rename one of them or unlink the normal applet while testing.
+If a linked applet and a dev applet use the same id, the linked applet wins. Rename one of them or unlink the linked applet while testing.
 
-## Link For Normal Use
+## Link For Local Use
 
-When the applet is ready, link the project into the applets directory:
+When the applet is ready for local use, link the project into the applets directory:
 
 ```sh
 glimpse-shell applets link
@@ -121,6 +124,36 @@ glimpse-shell applets unlink
 glimpse-shell applets unlink /path/to/counter
 glimpse-shell applets unlink counter
 ```
+
+## Distribute An Applet
+
+`glimpse-shell applets link` is for local project use. It links a development
+applet project into the applet search path so your panel can reference it by id.
+
+To distribute an applet, ship the executable or script together with an
+`applet.toml`. The user places that `applet.toml` in the applets directory:
+
+```text
+~/.config/glimpse/applets/
+`-- my-applet.toml
+
+~/.local/bin/
+`-- my-applet
+```
+
+The `applet.toml` describes the applet id, type, command path, environment, and
+applet-specific runtime options. The command must point to the shipped
+executable or script:
+
+```toml
+id = "my-applet"
+type = "exec"
+
+[exec]
+command = ["my-applet"]
+```
+
+Use an absolute command path if the executable is not in `PATH`.
 
 ## Inspect And Diagnose
 

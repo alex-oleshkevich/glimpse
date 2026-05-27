@@ -66,8 +66,8 @@ popover {"root":{"type":"column","data":{"children":[{"type":"header","data":{"l
 
 | Component | Key fields | Event behavior |
 | --- | --- | --- |
-| `tile` | `id`, `primary`, `secondary`, `left_icon`, `left`, `right`, `activatable` | Emits `click` when it has `id`. |
-| `segmented_tile` | `id`, `primary`, `secondary`, `left_icon`, `left`, `right`, `child`, `expanded`, `activatable` | Emits `toggle` on expand/collapse; emits `click` when `activatable = true`. |
+| `tile` | `id`, `primary`, `secondary`, `left_icon`, `left`, `right` | Emits `click` when it has `id`. |
+| `segmented_tile` | `id`, `primary`, `secondary`, `left_icon`, `left`, `right`, `child`, `expanded` | Emits `toggle` on expand/collapse; emits `click` when `id` is set. |
 | `switch_tile` | `id`, `primary`, `secondary`, `left_icon`, `left`, `active` | Emits `toggle`. |
 | `expander_tile` | `id`, `primary`, `secondary`, `left_icon`, `left`, `child`, `expanded` | Emits `toggle` when `id` is set. |
 | `slider_tile` | `id`, `label`, `left_icon`, `left`, `value`, `min`, `max`, `step`, `page`, `digits`, `snap_step` | Emits debounced `change` values. |

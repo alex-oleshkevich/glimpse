@@ -3,12 +3,11 @@ from dataclasses import dataclass
 from glimpse_sdk import (
     Applet,
     AppletState,
-    Button,
     Column,
     Hero,
-    Icon,
+    Label,
     StatusItem,
-    click,
+    Tile,
 )
 
 
@@ -25,23 +24,30 @@ class CounterApplet(Applet[CounterState]):
         return [
             StatusItem(
                 id="counter",
-                icon=Icon.name("view-refresh-symbolic"),
+                icon="view-refresh-symbolic",
                 label=str(state.count),
             )
         ]
 
     async def popover(self, state: CounterState):
         return Column(
-            spacing=8,
             children=[
-                Hero(title="__NAME__", subtitle=f"Value: {state.count}"),
-                Button(id="increment", label="Increment"),
+                Hero(
+                    icon="view-refresh-symbolic",
+                    title="__NAME__",
+                    subtitle=f"Value: {state.count}",
+                ),
+                Label(label=f"Count = {state.count}"),
+                Tile(
+                    primary="Increment",
+                    left_icon="list-add-symbolic",
+                    on_click=self.on_increment,
+                ),
             ],
         )
 
-    @click("increment")
-    async def on_increment(self, _event) -> None:
-        await self.set_state(count=self.state.count + 1)
+    async def on_increment(self, state: CounterState, _event) -> None:
+        await self.set_state(count=state.count + 1)
 
 
 if __name__ == "__main__":

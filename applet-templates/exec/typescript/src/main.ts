@@ -1,10 +1,10 @@
 import {
   Applet,
-  Button,
   Column,
   Hero,
-  Icon,
+  Label,
   StatusItem,
+  Tile,
   type TreeNode,
 } from "glimpse-sdk";
 
@@ -13,22 +13,19 @@ interface CounterState {
 }
 
 class CounterApplet extends Applet<CounterState> {
-  protected initialState(): CounterState {
-    return { count: 0 };
-  }
-
   constructor() {
     super();
-    this.onClick("increment", async () => {
-      await this.setState({ count: this.state.count + 1 });
-    });
+  }
+
+  protected initialState(): CounterState {
+    return { count: 0 };
   }
 
   protected async status(state: CounterState): Promise<StatusItem[]> {
     return [
       new StatusItem({
         id: "counter",
-        icon: Icon.name("view-refresh-symbolic"),
+        icon: "view-refresh-symbolic",
         label: String(state.count),
       }),
     ];
@@ -36,10 +33,20 @@ class CounterApplet extends Applet<CounterState> {
 
   protected async popover(state: CounterState): Promise<TreeNode | null> {
     return new Column({
-      spacing: 8,
       children: [
-        new Hero({ title: "__NAME__", subtitle: `Value: ${state.count}` }),
-        new Button({ id: "increment", label: "Increment" }),
+        new Hero({
+          icon: "view-refresh-symbolic",
+          title: "__NAME__",
+          subtitle: `Value: ${state.count}`,
+        }),
+        new Label(`Count = ${state.count}`),
+        new Tile({
+          primary: "Increment",
+          left_icon: "list-add-symbolic",
+          on_click: async () => {
+            await this.setState({ count: this.state.count + 1 });
+          },
+        }),
       ],
     });
   }

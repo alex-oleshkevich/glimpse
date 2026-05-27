@@ -13,15 +13,12 @@ interface CounterState {
 }
 
 class CounterApplet extends Applet<CounterState> {
-  protected initialState(): CounterState {
-    return { count: 0 };
-  }
-
   constructor() {
     super();
-    this.onClick("increment", async () => {
-      await this.setState({ count: this.state.count + 1 });
-    });
+  }
+
+  protected initialState(): CounterState {
+    return { count: 0 };
   }
 
   protected async status(state: CounterState): Promise<StatusItem[]> {
@@ -44,10 +41,11 @@ class CounterApplet extends Applet<CounterState> {
         }),
         new Label(`Count = ${state.count}`),
         new Tile({
-          id: "increment",
           primary: "Increment",
           left_icon: "list-add-symbolic",
-          activatable: true,
+          on_click: async () => {
+            await this.setState({ count: this.state.count + 1 });
+          },
         }),
       ],
     });

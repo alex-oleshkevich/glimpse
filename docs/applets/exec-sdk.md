@@ -1,8 +1,11 @@
 # Exec SDK
 
-The Exec SDKs wrap the raw exec applet protocol with typed applet classes, state, render methods, widget builders, and event handlers.
+The Exec SDKs wrap the raw exec applet protocol with typed applet classes,
+state, render methods, widget builders, events, and action helpers.
 
-Use this page when you want to build an applet with one of the SDK languages. For project scaffolding and live reload, read [Applet Tooling](../custom-applets/tooling.md). For config, protocol lines, component JSON, and event payloads, read [Exec Applet](../custom-applets/exec.md), [Line Protocol](../custom-applets/exec-protocol.md), and [Components](../custom-applets/exec-components.md).
+Use this page when you want to understand the SDK shape in each language. Use
+[Applet Tooling](../custom-applets/tooling.md) to create, run, and link applet
+projects.
 
 ## SDK Locations
 
@@ -13,28 +16,8 @@ Use this page when you want to build an applet with one of the SDK languages. Fo
 | Rust | `glimpse-sdk` | `sdk/sdk-rs` |
 | Go | `github.com/alex-oleshkevich/glimpse/sdk/sdk-go` | `sdk/sdk-go` |
 
-## Configure An SDK Applet
-
-SDK applets run through an `exec` applet package. Point `command` at your SDK
-program:
-
-```toml
-# ~/.config/glimpse/applets/counter.toml
-id = "counter"
-type = "exec"
-
-[exec]
-command = ["/home/me/.config/glimpse/applets/counter"]
-
-[exec.options]
-start = 0
-```
-
-The SDK receives `options` during initialization and handles the line transport for you.
-
-## Develop With `glimpse-shell applets`
-
-The SDKs are easiest to use from an applet project directory:
+Generated projects include the right language manifest and dependency entries.
+Do not start by hand-writing package files; start with the applet tooling:
 
 ```sh
 glimpse-shell applets new counter --lang python
@@ -42,20 +25,33 @@ cd counter
 glimpse-shell applets dev
 ```
 
-`glimpse-shell applets dev` writes a temporary `~/.config/glimpse/applets/<id>.dev.toml`, watches source files, rebuilds when needed, restarts the child process, and replays the cached `init` line. The default panel already includes `__dev__`; keep or add it in custom panel layouts to display active dev applets:
-
-```toml
-[[panels]]
-right = ["network", "__dev__", "battery"]
-```
-
-When the applet is ready for normal use, run:
+Then link the project when it is ready for local use:
 
 ```sh
 glimpse-shell applets link
 ```
 
-That symlinks the project's `applet.toml` into `~/.config/glimpse/applets`. Add the applet id to a panel section to keep it visible after the dev command exits.
+For distribution, share an `applet.toml` with the executable or script. See
+[Applet Tooling](../custom-applets/tooling.md) for the package shape.
+
+## Applet Package Shape
+
+The tooling creates an `applet.toml` package for the exec host. A typical
+generated package looks like this:
+
+```toml
+id = "counter"
+type = "exec"
+
+[exec]
+command = ["uv", "run", "main.py"]
+
+[exec.options]
+start = 0
+```
+
+`[exec.options]` is passed to the SDK during initialization. Keep local applet
+settings there instead of hardcoding them in your program.
 
 ## SDK Responsibilities
 
@@ -65,92 +61,20 @@ That symlinks the project's `applet.toml` into `~/.config/glimpse/applets`. Add 
 | Status | `status` returns the full list of panel items for the applet. |
 | Popover | `popover` returns the full widget tree or `None`/`null` when there is no content. |
 | Events | Interactive widgets route `click`, `toggle`, `change`, and lifecycle events to handlers. |
-| Actions | SDK action helpers emit `action` protocol lines for shell-side effects such as opening URIs, copying text, showing notifications, dismissing notifications, and closing the popover. |
+| Actions | SDK action helpers emit shell-side effects such as opening URIs, copying text, showing notifications, dismissing notifications, and closing the popover. |
 | Transport | SDK runtimes own stdin/stdout protocol parsing and serialization. Applet diagnostics should go to stderr. |
-
-## IPC Client
-
-The IPC client lets applets listen to shell events and dispatch commands over the Glimpse socket.
-
-`ipc()` / `IPC()` takes a service name (`"shell"` for the panel, the default). No connection is made until `listen` or `dispatch` is called. The socket path is `$GLIMPSE_IPC_DIR/<service>.sock`, or `$XDG_RUNTIME_DIR/glimpse/ipc.sock` for the shell.
-
-- **`listen(channel)`** — subscribes to events by exact name, prefix pattern (`"audio.*"`), or wildcard (`"*"`). Returns an async stream of `Event` objects with `.name`, `.ts`, and `.fields`.
-- **`dispatch(action, params)`** — sends a command and waits for acknowledgment, returning the ack fields.
-
-**Python**
-
-```python
-from glimpse_sdk import ipc
-
-async with app.background():
-    sub = ipc("shell")
-    async for event in await sub.listen("audio.*"):
-        volume = event.fields.get("volume")
-        await self.set_state(volume=int(volume or 0))
-```
-
-`ipc()` returns a `Subscriber`. `listen(channel)` is an async generator yielding `Event` objects. `dispatch(action, params)` sends a command and returns the ack fields.
-
-**TypeScript**
-
-```ts
-import { ipc } from "glimpse-sdk";
-
-const sub = ipc("shell"); // or ipc() — defaults to "shell"
-for await (const event of sub.listen("audio.*")) {
-  await this.setState({ volume: Number(event.fields.volume ?? 0) });
-}
-// Dispatch:
-await sub.dispatch("set_volume", { level: "50" });
-```
-
-**Rust**
-
-```rust
-use glimpse_sdk::ipc;
-
-let sub = ipc("shell")?;
-let mut stream = sub.listen("audio.*").await?;
-while let Some(event) = stream.next().await {
-    let event = event?;
-    // event.name, event.ts, event.fields
-}
-// Dispatch:
-let _ack = sub.dispatch("set_volume", [("level", "50")]).await?;
-```
-
-**Go**
-
-```go
-sub := sdk.IPC("shell") // or sdk.IPC("") — both resolve to shell
-ctx, cancel := context.WithCancel(ctx)
-defer cancel()
-events, err := sub.Listen(ctx, "audio.*")
-for event := range events {
-    // event.Name, event.Ts, event.Fields
-}
-// Dispatch:
-ack, err := sub.Dispatch(ctx, "set_volume", map[string]string{"level": "50"})
-```
 
 ## Python
 
-Requires Python 3.14+. Install from PyPI:
-
-```sh
-pip install glimpse-applet-sdk
-# or with uv:
-uv add glimpse-applet-sdk
-```
-
-The distribution name is `glimpse-applet-sdk`; the import name is `glimpse_sdk`.
-
-Minimal applet:
+The distribution name is `glimpse-applet-sdk`; the import name is
+`glimpse_sdk`. A generated Python counter applet uses this shape:
 
 ```python
+from __future__ import annotations
+
 from dataclasses import dataclass
 
-from glimpse_sdk import Applet, AppletState, Button, ButtonVariant, Icon, StatusItem, click
+from glimpse_sdk import Applet, AppletState, Column, Hero, Label, StatusItem, Tile
 
 
 @dataclass
@@ -166,22 +90,30 @@ class CounterApplet(Applet[CounterState]):
         return [
             StatusItem(
                 id="counter",
-                icon=Icon.name("view-refresh-symbolic"),
+                icon="view-refresh-symbolic",
                 label=str(state.count),
             )
         ]
 
     async def popover(self, state: CounterState):
-        return Button(
-            id="increment",
-            label="Increment",
-            icon="list-add-symbolic",
-            variant=ButtonVariant.PRIMARY,
+        return Column(
+            children=[
+                Hero(
+                    icon="view-refresh-symbolic",
+                    title="Counter",
+                    subtitle=f"Value: {state.count}",
+                ),
+                Label(label=f"Count = {state.count}"),
+                Tile(
+                    primary="Increment",
+                    left_icon="list-add-symbolic",
+                    on_click=self.on_increment,
+                ),
+            ],
         )
 
-    @click("increment")
-    async def on_increment(self, _event) -> None:
-        await self.set_state(count=self.state.count + 1)
+    async def on_increment(self, state: CounterState, _event) -> None:
+        await self.set_state(count=state.count + 1)
 
 
 if __name__ == "__main__":
@@ -190,73 +122,76 @@ if __name__ == "__main__":
 
 ## TypeScript
 
-Requires Node.js 20+. Install from npmjs.org:
-
-```sh
-npm install glimpse-sdk
-```
-
-Minimal applet:
+The package name is `glimpse-sdk`. A generated TypeScript counter applet uses
+this shape:
 
 ```ts
-import { Applet, Button, Icon, StatusItem, type TreeNode } from "glimpse-sdk";
+import {
+  Applet,
+  Column,
+  Hero,
+  Label,
+  StatusItem,
+  Tile,
+  type TreeNode,
+} from "glimpse-sdk";
 
 interface CounterState {
   count: number;
 }
 
 class CounterApplet extends Applet<CounterState> {
-  protected initialState(): CounterState {
-    return { count: 0 };
-  }
-
   constructor() {
     super();
-    this.onClick("increment", async () => {
-      await this.setState({ count: this.state.count + 1 });
-    });
+  }
+
+  protected initialState(): CounterState {
+    return { count: 0 };
   }
 
   protected async status(state: CounterState): Promise<StatusItem[]> {
     return [
       new StatusItem({
         id: "counter",
-        icon: Icon.name("view-refresh-symbolic"),
+        icon: "view-refresh-symbolic",
         label: String(state.count),
       }),
     ];
   }
 
-  protected async popover(_state: CounterState): Promise<TreeNode | null> {
-    return new Button({
-      id: "increment",
-      label: "Increment",
-      icon: "list-add-symbolic",
-      variant: "primary",
+  protected async popover(state: CounterState): Promise<TreeNode | null> {
+    return new Column({
+      children: [
+        new Hero({
+          icon: "view-refresh-symbolic",
+          title: "Counter",
+          subtitle: `Value: ${state.count}`,
+        }),
+        new Label(`Count = ${state.count}`),
+        new Tile({
+          primary: "Increment",
+          left_icon: "list-add-symbolic",
+          on_click: async () => {
+            await this.setState({ count: this.state.count + 1 });
+          },
+        }),
+      ],
     });
   }
 }
 
-await new CounterApplet().run();
+void new CounterApplet().run();
 ```
 
 ## Rust
 
-Add the SDK from crates.io:
-
-```toml
-[dependencies]
-async-trait = "0.1"
-glimpse-sdk = "0.3"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-```
-
-Minimal applet:
+The crate name is `glimpse-sdk`. A generated Rust counter applet uses typed
+messages for interaction:
 
 ```rust
 use async_trait::async_trait;
 use glimpse_sdk::{
-    Applet, AppletResult, Button, ButtonVariant, CallbackEvent, Icon, StatusItem, TreeNode, run,
+    Applet, AppletResult, Column, Hero, Label, MsgMapper, StatusItem, Tile, TreeNode, run, tree,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -264,41 +199,51 @@ struct CounterState {
     count: u32,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum Msg {
+    Increment,
+}
+
 struct CounterApplet;
 
 #[async_trait]
 impl Applet for CounterApplet {
     type State = CounterState;
+    type Msg = Msg;
 
     async fn status(&self, state: &Self::State) -> AppletResult<Vec<StatusItem>> {
         Ok(vec![
             StatusItem::new("counter")
-                .icon(Icon::name("view-refresh-symbolic"))
+                .icon("view-refresh-symbolic")
                 .label(state.count.to_string()),
         ])
     }
 
-    async fn popover(&self, _state: &Self::State) -> AppletResult<Option<TreeNode>> {
-        Ok(Some(
-            Button::new("increment")
-                .label("Increment")
-                .icon("list-add-symbolic")
-                .variant(ButtonVariant::Primary)
-                .into(),
-        ))
-    }
-
-    async fn on_callback(
-        &mut self,
-        state: &mut Self::State,
-        event: CallbackEvent,
-    ) -> AppletResult<()> {
-        if let CallbackEvent::Click(click) = event {
-            if click.id == "increment" {
-                state.count += 1;
-            }
+    async fn update(&mut self, state: &mut CounterState, msg: Msg) -> AppletResult<()> {
+        if msg == Msg::Increment {
+            state.count += 1;
         }
         Ok(())
+    }
+
+    async fn popover(&self, state: &Self::State) -> AppletResult<Option<TreeNode<Msg>>> {
+        Ok(Some(
+            Column::new(tree![
+                {
+                    let mut hero = Hero::new("Counter", format!("Value: {}", state.count));
+                    hero.icon = Some("view-refresh-symbolic".into());
+                    hero
+                },
+                Label::new(format!("Count = {}", state.count)),
+                {
+                    let mut tile = Tile::new("Increment");
+                    tile.left_icon = Some("list-add-symbolic".into());
+                    tile.on_click = Some(MsgMapper::new(|()| Msg::Increment));
+                    tile
+                },
+            ])
+            .into(),
+        ))
     }
 }
 
@@ -310,13 +255,9 @@ async fn main() -> AppletResult<()> {
 
 ## Go
 
-Add the SDK module:
-
-```sh
-go get github.com/alex-oleshkevich/glimpse/sdk/sdk-go
-```
-
-Minimal applet:
+The Go SDK module is `github.com/alex-oleshkevich/glimpse/sdk/sdk-go`. A
+generated Go counter applet embeds `BaseApplet` and implements `Status` and
+`Popover`.
 
 ```go
 package main
@@ -337,37 +278,37 @@ type counterApplet struct {
 }
 
 func newCounterApplet() *counterApplet {
-	return &counterApplet{BaseApplet: sdk.NewBaseApplet(counterState{})}
-}
-
-func (a *counterApplet) OnStart(context.Context) error               { return nil }
-func (a *counterApplet) OnInit(context.Context, sdk.InitEvent) error { return nil }
-
-func (a *counterApplet) OnCallback(_ context.Context, event sdk.CallbackEvent) error {
-	if click, ok := event.(sdk.ClickEvent); ok && click.ID == "increment" {
-		a.SetState(func(state *counterState) {
-			state.Count++
-		})
+	return &counterApplet{
+		BaseApplet: sdk.NewBaseApplet(counterState{}),
 	}
-	return nil
 }
 
 func (a *counterApplet) Status(_ context.Context, state *counterState) ([]sdk.StatusItem, error) {
 	return []sdk.StatusItem{
 		{
 			ID:    "counter",
-			Icon:  sdk.IconName("view-refresh-symbolic"),
+			Icon:  "view-refresh-symbolic",
 			Label: fmt.Sprintf("%d", state.Count),
 		},
 	}, nil
 }
 
-func (a *counterApplet) Popover(_ context.Context, _ *counterState) (sdk.Widget, error) {
-	return sdk.Button{
-		CommonProps: sdk.CommonProps{ID: "increment"},
-		Label:       "Increment",
-		Icon:        "list-add-symbolic",
-		Variant:     sdk.ButtonVariantPrimary,
+func (a *counterApplet) Popover(_ context.Context, state *counterState) (sdk.Widget, error) {
+	return sdk.Column{
+		Children: []sdk.Widget{
+			sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
+			sdk.Label{Label: fmt.Sprintf("Count = %d", state.Count)},
+			sdk.Tile{
+				Primary:     "Increment",
+				LeftIcon:    "list-add-symbolic",
+				OnClick: func(sdk.CallbackEvent) error {
+					a.SetState(func(state *counterState) {
+						state.Count++
+					})
+					return nil
+				},
+			},
+		},
 	}, nil
 }
 
@@ -378,32 +319,104 @@ func main() {
 }
 ```
 
+## IPC Client
+
+The IPC client lets applets listen to shell events and dispatch commands over
+the Glimpse socket.
+
+`ipc()` / `IPC()` takes a service name. Use `"shell"` for the panel. The socket
+path is `$GLIMPSE_IPC_DIR/<service>.sock`, or `$XDG_RUNTIME_DIR/glimpse/ipc.sock`
+for the shell.
+
+| Operation | Meaning |
+|---|---|
+| `listen(channel)` | Subscribe by exact name, prefix pattern such as `"audio.*"`, or wildcard `"*"`. |
+| `dispatch(action, params)` | Send a command and wait for acknowledgment. |
+
+### Python
+
+```python
+from glimpse_sdk import ipc
+
+async with app.background():
+    sub = ipc("shell")
+    async for event in await sub.listen("audio.*"):
+        volume = event.fields.get("volume")
+        await self.set_state(volume=int(volume or 0))
+```
+
+### TypeScript
+
+```ts
+import { ipc } from "glimpse-sdk";
+
+const sub = ipc("shell");
+for await (const event of sub.listen("audio.*")) {
+  await this.setState({ volume: Number(event.fields.volume ?? 0) });
+}
+
+await sub.dispatch("set_volume", { level: "50" });
+```
+
+### Rust
+
+```rust
+use glimpse_sdk::ipc;
+
+let sub = ipc("shell")?;
+let mut stream = sub.listen("audio.*").await?;
+while let Some(event) = stream.next().await {
+    let event = event?;
+    // event.name, event.ts, event.fields
+}
+
+let _ack = sub.dispatch("set_volume", [("level", "50")]).await?;
+```
+
+### Go
+
+```go
+sub := sdk.IPC("shell")
+ctx, cancel := context.WithCancel(ctx)
+defer cancel()
+
+events, err := sub.Listen(ctx, "audio.*")
+for event := range events {
+	// event.Name, event.Ts, event.Fields
+}
+
+ack, err := sub.Dispatch(ctx, "set_volume", map[string]string{"level": "50"})
+```
+
 ## Golden Fixture Workflow
 
-The four SDKs share canonical JSON fixtures under `sdk/fixtures`. Use them when adding widgets, events, common props, or action helpers.
+The four SDKs share canonical JSON fixtures under `sdk/fixtures`. Update them
+when adding widgets, events, common props, or action helpers.
 
 | Check | Command |
 |---|---|
 | Rust SDK fixture tests | `cargo test` in `sdk/sdk-rs` |
 | TypeScript SDK fixture tests | `npm test` in `sdk/sdk-ts` |
-| Python SDK fixture tests | `python -m pytest` in `sdk/sdk-py` |
-| Go SDK fixture tests | `go test ./sdk` in `sdk/sdk-go` |
+| Python SDK fixture tests | `python -m unittest discover -s tests` in `sdk/sdk-py` |
+| Go SDK fixture tests | `go test ./...` in `sdk/sdk-go` |
 | Rust renderer fixture test | `cargo test -p glimpse-shell golden_widget_fixtures_render_without_errors -- --nocapture` from the repo root |
 
 Fixture rules:
 
 - Widget fixtures must match every SDK serializer.
 - Event fixtures must match every SDK parser.
-- The Rust renderer fixture test must be able to deserialize and render every widget fixture without a renderer error.
-- If a fixture and an SDK disagree, fix the SDK unless the fixture violates the documented protocol.
+- The Rust renderer fixture test must deserialize and render every widget
+  fixture without a renderer error.
+- If a fixture and an SDK disagree, fix the SDK unless the fixture violates the
+  documented protocol.
 - Interactive renderer widgets that emit events require stable `id` fields.
 
 ## See Also
 
 | Page | Covers |
 |---|---|
-| [Exec Applet](../custom-applets/exec.md) | Applet config and options. |
-| [Applet Tooling](../custom-applets/tooling.md) | `glimpse-shell applets` project, dev, link, and diagnostics workflows. |
+| [Getting Started](../custom-applets/getting-started.md) | First applet walkthrough using the tooling. |
+| [Exec Applet](../custom-applets/exec.md) | Exec host config and options. |
+| [Applet Tooling](../custom-applets/tooling.md) | Project, dev, link, and diagnostics workflows. |
 | [Line Protocol](../custom-applets/exec-protocol.md) | Raw protocol commands, message shapes, and events. |
 | [Components](../custom-applets/exec-components.md) | Popover component fields and component types. |
-| [SDK Golden Fixtures](https://github.com/alex-oleshkevich/glimpse/blob/master/sdk/fixtures/README.md) | Cross-language fixture rules and validation commands. |

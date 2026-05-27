@@ -314,7 +314,7 @@ impl RenderCatalog {
         tile.set_secondary(data.secondary.as_deref());
         set_left_slot(&tile, data.left_icon.as_deref(), data.left.as_deref(), self)?;
         set_optional_slot(data.right.as_deref(), self, |child| tile.set_right(child))?;
-        tile.set_activatable(data.activatable || data.id.is_some());
+        tile.set_activatable(data.id.is_some());
         if let Some(id) = data.id.clone() {
             let event = self.event.clone();
             tile.connect_activated(move |_| {
@@ -333,15 +333,13 @@ impl RenderCatalog {
         set_optional_slot(data.right.as_deref(), self, |child| tile.set_right(child))?;
         set_optional_slot(data.child.as_deref(), self, |child| tile.set_child(child))?;
         tile.set_expanded(data.expanded);
-        tile.set_activatable(data.activatable);
+        tile.set_activatable(data.id.is_some());
         if let Some(id) = data.id.clone() {
-            if data.activatable {
-                let click_id = id.clone();
-                let event = self.event.clone();
-                tile.connect_activated(move |_| {
-                    event(click_event(click_id.clone(), None));
-                });
-            }
+            let click_id = id.clone();
+            let event = self.event.clone();
+            tile.connect_activated(move |_| {
+                event(click_event(click_id.clone(), None));
+            });
             let event = self.event.clone();
             tile.connect_expanded(move |_, expanded| {
                 event(toggle_event(id.clone(), expanded));
@@ -930,7 +928,7 @@ mod tests {
     }
 
     #[test]
-    fn segmented_tile_with_id_is_not_activatable_without_primary_action() {
+    fn segmented_tile_with_id_is_activatable() {
         if !gtk_available_on_this_thread() {
             return;
         }
@@ -941,54 +939,17 @@ mod tests {
             sink_events.borrow_mut().push(event);
         }));
 
-        let widget = renderer
-            .render(&TreeNode::SegmentedTile(SegmentedTileNode {
-                common: CommonProps::default(),
-                id: Some("device".into()),
-                primary: "Pixel".into(),
-                secondary: None,
-                left_icon: None,
-                left: None,
-                right: None,
-                child: None,
-                expanded: false,
-                activatable: false,
-            }))
-            .expect("segmented tile should render")
-            .downcast::<SegmentedTile>()
-            .expect("root should be SegmentedTile");
-
-        assert!(!widget.imp().main.has_css_class("activatable"));
-
-        widget.emit_by_name::<()>("activated", &[]);
-        assert!(events.borrow().is_empty());
-    }
-
-    #[test]
-    fn segmented_tile_with_primary_action_is_activatable() {
-        if !gtk_available_on_this_thread() {
-            return;
-        }
-
-        let events = Rc::new(RefCell::new(Vec::new()));
-        let sink_events = events.clone();
-        let renderer = RenderCatalog::new(Rc::new(move |event| {
-            sink_events.borrow_mut().push(event);
-        }));
+        let node: TreeNode = serde_json::from_value(json!({
+            "type": "segmented_tile",
+            "data": {
+                "id": "device",
+                "primary": "Pixel"
+            }
+        }))
+        .expect("segmented tile should deserialize without activatable");
 
         let widget = renderer
-            .render(&TreeNode::SegmentedTile(SegmentedTileNode {
-                common: CommonProps::default(),
-                id: Some("device".into()),
-                primary: "Pixel".into(),
-                secondary: None,
-                left_icon: None,
-                left: None,
-                right: None,
-                child: None,
-                expanded: false,
-                activatable: true,
-            }))
+            .render(&node)
             .expect("segmented tile should render")
             .downcast::<SegmentedTile>()
             .expect("root should be SegmentedTile");

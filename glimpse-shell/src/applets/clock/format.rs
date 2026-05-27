@@ -1,9 +1,6 @@
 use chrono::{DateTime, Local, NaiveDate};
 
-use glimpse_core::services::{
-    calendar_events::CalendarEvent,
-    clock::State as ClockState,
-};
+use glimpse_core::services::{calendar_events::CalendarEvent, clock::State as ClockState};
 
 pub const DEFAULT_LABEL_FORMAT: &str = "%a %-d %b, %H:%M";
 pub const DEFAULT_TOOLTIP_FORMAT: &str = "%A, %-d %B %Y";

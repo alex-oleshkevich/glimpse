@@ -243,8 +243,10 @@ impl MonitorRow {
         self.root.set_secondary(None);
         self.root.set_sensitive(model.sensitive);
         let status = if model.active { "Enabled" } else { "Disabled" };
-        self.root
-            .set_tooltip_text(Some(&format!("{} - {} - {status}", model.label, model.name)));
+        self.root.set_tooltip_text(Some(&format!(
+            "{} - {} - {status}",
+            model.label, model.name
+        )));
         let active = {
             let mut pending = self.pending_enabled.borrow_mut();
             monitor_enabled_for_update(&mut pending, model.active, Instant::now())
@@ -373,7 +375,10 @@ mod tests {
     #[test]
     fn pending_toggle_ignores_stale_compositor_value() {
         let now = Instant::now();
-        let mut pending = Some(PendingMonitorToggle { enabled: false, changed_at: now });
+        let mut pending = Some(PendingMonitorToggle {
+            enabled: false,
+            changed_at: now,
+        });
         assert!(!monitor_enabled_for_update(&mut pending, true, now));
         assert!(pending.is_some());
     }
@@ -381,7 +386,10 @@ mod tests {
     #[test]
     fn pending_toggle_clears_when_compositor_catches_up() {
         let now = Instant::now();
-        let mut pending = Some(PendingMonitorToggle { enabled: false, changed_at: now });
+        let mut pending = Some(PendingMonitorToggle {
+            enabled: false,
+            changed_at: now,
+        });
         assert!(!monitor_enabled_for_update(&mut pending, false, now));
         assert!(pending.is_none());
     }

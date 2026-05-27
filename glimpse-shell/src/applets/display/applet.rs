@@ -162,10 +162,7 @@ impl SimpleComponent for Applet {
             }
             Input::PopoverOutput(output) => match output {
                 PopoverOutput::SetMonitorEnabled { name, on } => {
-                    self.send_compositor_command(CompositorCommand::SetMonitorEnabled {
-                        name,
-                        on,
-                    });
+                    self.send_compositor_command(CompositorCommand::SetMonitorEnabled { name, on });
                 }
             },
         }

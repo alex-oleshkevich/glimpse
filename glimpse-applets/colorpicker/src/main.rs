@@ -113,7 +113,6 @@ fn popover_tree(state: &State, picker_installed: bool) -> TreeNode<Msg> {
 fn pick_color_tile() -> Tile<Msg> {
     let mut tile = Tile::new("Pick color");
     tile.id = Some("pick-color".into());
-    tile.activatable = true;
     tile.on_click = Some(MsgMapper::new(|()| Msg::Pick));
     tile
 }
@@ -141,7 +140,6 @@ fn color_segmented_tile(color: &str, expanded: bool) -> SegmentedTile<Msg> {
     ));
     tile.child = Some(Box::new(BoxedList::new(children).into()));
     tile.expanded = expanded;
-    tile.activatable = true;
     tile.on_click = Some(MsgMapper::new(move |()| Msg::CopyColor(copy_value.clone())));
     tile.on_toggle = Some(MsgMapper::new(move |expanded| {
         Msg::ToggleColor(id_suffix.clone(), expanded)
@@ -157,7 +155,6 @@ fn color_format_tile(id_suffix: &str, label: &'static str, value: String) -> Til
     let copy_value = value.clone();
     let mut tile = Tile::new(value);
     tile.id = Some(format!("copy-{label}-{id_suffix}"));
-    tile.activatable = true;
     tile.on_click = Some(MsgMapper::new(move |()| Msg::CopyColor(copy_value.clone())));
     tile
 }
@@ -293,7 +290,6 @@ mod tests {
                 "data": {
                     "id": "pick-color",
                     "primary": "Pick color",
-                    "activatable": true
                 }
             })
         );
@@ -321,7 +317,6 @@ mod tests {
             entry["data"]["left"]["data"]["css_classes"],
             serde_json::json!(["colorpicker-swatch"])
         );
-        assert_eq!(entry["data"]["activatable"], true);
 
         let children = entry["data"]["child"]["data"]["children"]
             .as_array()
@@ -335,9 +330,6 @@ mod tests {
         assert!(labels[1].starts_with("rgb("));
         assert!(labels[2].starts_with("hsl("));
         assert!(labels[3].starts_with("oklch("));
-        for child in children {
-            assert_eq!(child["data"]["activatable"], true);
-        }
     }
 
     #[test]

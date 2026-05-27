@@ -310,14 +310,13 @@ func (w PopoverShell) MarshalJSON() ([]byte, error) {
 
 type Tile struct {
 	CommonProps
-	ID          string        `json:"id,omitempty"`
-	Primary     string        `json:"primary"`
-	Secondary   string        `json:"secondary,omitempty"`
-	LeftIcon    string        `json:"left_icon,omitempty"`
-	Left        Widget        `json:"left,omitempty"`
-	Right       Widget        `json:"right,omitempty"`
-	Activatable bool          `json:"activatable"`
-	OnClick     InlineHandler `json:"-"`
+	ID        string        `json:"id,omitempty"`
+	Primary   string        `json:"primary"`
+	Secondary string        `json:"secondary,omitempty"`
+	LeftIcon  string        `json:"left_icon,omitempty"`
+	Left      Widget        `json:"left,omitempty"`
+	Right     Widget        `json:"right,omitempty"`
+	OnClick   InlineHandler `json:"-"`
 }
 
 func (Tile) isWidget()                      {}
@@ -334,17 +333,16 @@ func (SegmentedTile) isWidget() {}
 func (w SegmentedTile) MarshalJSON() ([]byte, error) {
 	type data struct {
 		CommonProps
-		ID          string `json:"id,omitempty"`
-		Primary     string `json:"primary"`
-		Secondary   string `json:"secondary,omitempty"`
-		LeftIcon    string `json:"left_icon,omitempty"`
-		Left        Widget `json:"left,omitempty"`
-		Right       Widget `json:"right,omitempty"`
-		Activatable bool   `json:"activatable"`
-		Child       Widget `json:"child,omitempty"`
-		Expanded    bool   `json:"expanded"`
+		ID        string `json:"id,omitempty"`
+		Primary   string `json:"primary"`
+		Secondary string `json:"secondary,omitempty"`
+		LeftIcon  string `json:"left_icon,omitempty"`
+		Left      Widget `json:"left,omitempty"`
+		Right     Widget `json:"right,omitempty"`
+		Child     Widget `json:"child,omitempty"`
+		Expanded  bool   `json:"expanded"`
 	}
-	return envelope("segmented_tile", data{w.CommonProps, w.ID, w.Primary, w.Secondary, w.LeftIcon, w.Left, w.Right, w.Activatable, w.Child, w.Expanded})
+	return envelope("segmented_tile", data{w.CommonProps, w.ID, w.Primary, w.Secondary, w.LeftIcon, w.Left, w.Right, w.Child, w.Expanded})
 }
 
 type SwitchTile struct {

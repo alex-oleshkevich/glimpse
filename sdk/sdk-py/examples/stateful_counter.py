@@ -41,11 +41,9 @@ class CounterApplet(Applet[CounterState]):
                 ),
                 Label(label=f"Count = {state.count}"),
                 Tile(
-                    id="increment",
                     primary="Increment",
                     on_click=self.on_increment,
                     left_icon="list-add-symbolic",
-                    activatable=True,
                 ),
             ],
         )

@@ -111,7 +111,6 @@ def widgets() -> dict[str, object]:
             secondary="Connected",
             left_icon="network-wireless-symbolic",
             right=badge,
-            activatable=True,
         ),
         "segmented-tile": SegmentedTile(
             id="drive",
@@ -121,9 +120,8 @@ def widgets() -> dict[str, object]:
             right=badge,
             child=KeyValueGrid(rows=[("Size", "1 TB")]),
             expanded=True,
-            activatable=True,
         ),
-        "button-row": ButtonRow(children=[Tile(primary="Refresh", activatable=True)]),
+        "button-row": ButtonRow(children=[Tile(primary="Refresh")]),
         "switch-tile": SwitchTile(
             id="bluetooth",
             primary="Bluetooth",

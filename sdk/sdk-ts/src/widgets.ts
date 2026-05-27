@@ -2,6 +2,15 @@ export type InlineHandler = (event: unknown) => void | Promise<void>;
 export class InlineHandlerRegistry {
   readonly handlers = new Map<string, InlineHandler>();
 
+  generatedId(event: "click" | "toggle" | "change", path: number[]): string {
+    const suffix = path.length === 0 ? "root" : path.join(".");
+    return `__glimpse:${event}:${suffix}`;
+  }
+
+  targetId(event: "click" | "toggle" | "change", id: string | undefined, path: number[]): string {
+    return id ?? this.generatedId(event, path);
+  }
+
   add(event: "click" | "toggle" | "change", id: string, handler: InlineHandler): void {
     this.handlers.set(`${event}:${id}`, handler);
   }
@@ -82,7 +91,10 @@ export class Hero extends WidgetBase {
     return out;
   }
   bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
-    if (this.options.id && this.options.on_toggle) registry.add("toggle", this.options.id, this.options.on_toggle);
+    if (this.options.on_toggle) {
+      this.options.id = registry.targetId("toggle", this.options.id, path);
+      registry.add("toggle", this.options.id, this.options.on_toggle);
+    }
     this.options.trailing?.bindHandlers(registry, [...path, 0]);
   }
 }
@@ -212,9 +224,9 @@ export class PopoverShell extends ChildrenWidget {
 
 export class Tile extends WidgetBase {
   readonly type: string = "tile";
-  constructor(protected readonly options: CommonOptions & { primary: string; id?: string; secondary?: string; left_icon?: string; left?: TreeNode; right?: TreeNode; activatable?: boolean; on_click?: InlineHandler }) { super(options); }
+  constructor(protected readonly options: CommonOptions & { primary: string; id?: string; secondary?: string; left_icon?: string; left?: TreeNode; right?: TreeNode; on_click?: InlineHandler }) { super(options); }
   data(): Record<string, unknown> {
-    const out: Record<string, unknown> = { ...this.commonData(), primary: this.options.primary, activatable: this.options.activatable ?? false };
+    const out: Record<string, unknown> = { ...this.commonData(), primary: this.options.primary };
     for (const key of ["id", "secondary", "left_icon"] as const) if (this.options[key] !== undefined) out[key] = this.options[key];
     const left = child(this.options.left);
     const right = child(this.options.right);
@@ -223,7 +235,10 @@ export class Tile extends WidgetBase {
     return out;
   }
   bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
-    if (this.options.id && this.options.on_click) registry.add("click", this.options.id, this.options.on_click);
+    if (this.options.on_click) {
+      this.options.id = registry.targetId("click", this.options.id, path);
+      registry.add("click", this.options.id, this.options.on_click);
+    }
     this.options.left?.bindHandlers(registry, [...path, 0]);
     this.options.right?.bindHandlers(registry, [...path, 1]);
   }
@@ -241,7 +256,10 @@ export class SegmentedTile extends Tile {
   }
   bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
     super.bindHandlers(registry, path);
-    if (this.options.id && this.options.on_toggle) registry.add("toggle", this.options.id, this.options.on_toggle);
+    if (this.options.on_toggle) {
+      this.options.id = registry.targetId("toggle", this.options.id, path);
+      registry.add("toggle", this.options.id, this.options.on_toggle);
+    }
     this.options.child?.bindHandlers(registry, [...path, 2]);
   }
 }
@@ -275,7 +293,10 @@ export class ExpanderTile extends WidgetBase {
     return out;
   }
   bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
-    if (this.options.id && this.options.on_toggle) registry.add("toggle", this.options.id, this.options.on_toggle);
+    if (this.options.on_toggle) {
+      this.options.id = registry.targetId("toggle", this.options.id, path);
+      registry.add("toggle", this.options.id, this.options.on_toggle);
+    }
     this.options.left?.bindHandlers(registry, [...path, 0]);
     this.options.child?.bindHandlers(registry, [...path, 1]);
   }
@@ -308,7 +329,10 @@ export class ChoiceTile extends WidgetBase {
     return out;
   }
   bindHandlers(registry: InlineHandlerRegistry, path: number[]): void {
-    if (this.options.id && this.options.on_click) registry.add("click", this.options.id, this.options.on_click);
+    if (this.options.on_click) {
+      this.options.id = registry.targetId("click", this.options.id, path);
+      registry.add("click", this.options.id, this.options.on_click);
+    }
     this.options.left?.bindHandlers(registry, [...path, 0]);
   }
 }

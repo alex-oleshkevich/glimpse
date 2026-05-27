@@ -495,7 +495,6 @@ macro_rules! slot_structs {
             pub left: Option<Box<TreeNode<Msg>>>,
             #[serde(skip_serializing_if = "Option::is_none")]
             pub right: Option<Box<TreeNode<Msg>>>,
-            pub activatable: bool,
             #[serde(skip)]
             pub on_click: Option<MsgMapper<(), Msg>>,
         }
@@ -518,7 +517,6 @@ macro_rules! slot_structs {
             #[serde(skip_serializing_if = "Option::is_none")]
             pub child: Option<Box<TreeNode<Msg>>>,
             pub expanded: bool,
-            pub activatable: bool,
             #[serde(skip)]
             pub on_click: Option<MsgMapper<(), Msg>>,
             #[serde(skip)]
@@ -592,7 +590,6 @@ impl<Msg> Tile<Msg> {
             left_icon: None,
             left: None,
             right: None,
-            activatable: false,
             on_click: None,
         }
     }
@@ -609,7 +606,6 @@ impl<Msg> SegmentedTile<Msg> {
             right: None,
             child: None,
             expanded: false,
-            activatable: false,
             on_click: None,
             on_toggle: None,
         }

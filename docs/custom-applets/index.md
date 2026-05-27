@@ -15,7 +15,7 @@ If the applet only needs to run something when you click it, start with a comman
 
 Custom applets are package files. A package file gives the applet an `id`, selects its `type`, and stores the applet-specific options.
 
-For normal use, package files live in:
+For linked and distributed applets, package files live in:
 
 ```text
 ~/.config/glimpse/applets
@@ -32,7 +32,7 @@ For exec applets, the usual flow is:
 1. Create a project with [Applet Tooling](./tooling.md).
 2. Run it in development mode.
 3. Use the `__dev__` panel slot while you iterate.
-4. Link the applet when it is ready for normal use.
+4. Link the applet when it is ready for local use.
 
 The dev slot shows applets started by the development command. The default panel keeps `__dev__` at the end of the left section:
 
@@ -49,7 +49,7 @@ If you replace the default panel layout, keep or add `__dev__` wherever you want
 | --- | --- |
 | [Command Applet](./command.md) | Launchers, menus, one-shot actions, and shell examples. |
 | [Getting Started](./getting-started.md) | Your first live exec applet. |
-| [Applet Tooling](./tooling.md) | Creating, running, linking, and diagnosing applet projects. |
+| [Applet Tooling](./tooling.md) | Creating, running, linking local projects, distribution shape, and diagnostics. |
 | [Exec Applet](./exec.md) | Exec package config, lifecycle, restart behavior, and environment handling. |
 | [Exec SDK](../applets/exec-sdk.md) | Building exec applets in supported languages. |
 | [Line Protocol](./exec-protocol.md) | The raw protocol used by exec applets. |

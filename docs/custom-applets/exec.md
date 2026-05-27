@@ -69,11 +69,13 @@ glimpse-shell applets dev
 
 The development command writes a temporary package under `~/.config/glimpse/applets` while it runs. The default panel already includes `__dev__`; keep or add that slot in custom panel layouts to show active development applets.
 
-When the applet is ready for normal use, link it:
+When the applet is ready for local use, link it:
 
 ```bash
 glimpse-shell applets link
 ```
+
+For sharing an applet with other users, distribute `applet.toml` together with the executable or script. [Applet Tooling](./tooling.md) covers the package handoff.
 
 ## Options
 
@@ -134,8 +136,9 @@ Use [Applet Tooling](./tooling.md) for the full workflow:
 1. Create a project.
 2. Run it in development mode.
 3. Show it through the `__dev__` panel slot.
-4. Link it for normal use.
-5. Diagnose package and runtime issues.
+4. Link it for local use.
+5. Distribute the applet by sharing `applet.toml` with the executable or script.
+6. Diagnose package and runtime issues.
 
 ## See Also
 

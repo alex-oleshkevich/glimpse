@@ -107,7 +107,6 @@ function widgets(): Record<string, TreeNode> {
       secondary: "Connected",
       left_icon: "network-wireless-symbolic",
       right: badge,
-      activatable: true,
     }),
     "segmented-tile": new SegmentedTile({
       id: "drive",
@@ -117,9 +116,8 @@ function widgets(): Record<string, TreeNode> {
       right: badge,
       child: new KeyValueGrid({ rows: [{ key: "Size", value: "1 TB" }] }),
       expanded: true,
-      activatable: true,
     }),
-    "button-row": new ButtonRow({ children: [new Tile({ primary: "Refresh", activatable: true })] }),
+    "button-row": new ButtonRow({ children: [new Tile({ primary: "Refresh" })] }),
     "switch-tile": new SwitchTile({
       id: "bluetooth",
       primary: "Bluetooth",

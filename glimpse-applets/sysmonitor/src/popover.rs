@@ -79,7 +79,6 @@ fn cpu_hero(sample: &Sample) -> TreeNode<Msg> {
 fn memory_tile(name: &str, icon: &str, mem: &MemSample) -> TreeNode<Msg> {
     let to_gib = |b: u64| (b as f64) / (1024.0 * 1024.0 * 1024.0);
     let mut tile = Tile::new(name);
-    tile.activatable = false;
     tile.left_icon = Some(icon.into());
     tile.secondary = Some(format!(
         "{:.1} / {:.1} GiB ({:.0}%)",
@@ -103,7 +102,6 @@ fn disks_section(disks: &std::collections::HashMap<String, DiskSample>) -> TreeN
         .map(|(mp, disk)| {
             let to_gib = |b: u64| (b as f64) / (1024.0 * 1024.0 * 1024.0);
             let mut tile = Tile::new(mp.clone());
-            tile.activatable = false;
             tile.left_icon = Some("drive-harddisk-symbolic".into());
             tile.secondary = Some(format!(
                 "{:.1} / {:.1} GiB ({:.0}%)",
@@ -124,7 +122,6 @@ fn network_section(nets: &std::collections::HashMap<String, NetSample>) -> TreeN
         .into_iter()
         .map(|(iface, net)| {
             let mut tile = Tile::new(iface.clone());
-            tile.activatable = false;
             tile.left_icon = Some("network-wired-symbolic".into());
             tile.secondary = Some(format!(
                 "↑ {:.1} KiB/s · ↓ {:.1} KiB/s",
@@ -145,7 +142,6 @@ fn temperature_grid(temps: &std::collections::HashMap<String, TempSample>) -> Tr
         .map(|(spec, t)| {
             let name = t.sensor_label.clone().unwrap_or_else(|| spec.clone());
             let mut tile = Tile::new(name);
-            tile.activatable = false;
             tile.left_icon = Some("temperature-symbolic".into());
             tile.secondary = Some(format!("{:.0} °C", t.temp_c));
             tile.into()
@@ -182,7 +178,6 @@ fn gpu_tile(title: &str, icon: &str, gpu: &GpuSample) -> TreeNode<Msg> {
         (None, t) => t.to_string(),
     };
     let mut tile = Tile::new(label);
-    tile.activatable = false;
     tile.left_icon = Some(icon.into());
     tile.secondary = Some(subtitle);
     tile.into()

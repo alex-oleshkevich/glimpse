@@ -297,7 +297,6 @@ fn action_tile(
     let mut tile = Tile::new(label);
     tile.id = Some(format!("{id}-{device_id}"));
     tile.left_icon = Some(icon.into());
-    tile.activatable = true;
     tile.on_click = Some(MsgMapper::new(move |()| {
         Msg::RunAction(device_id.clone(), action)
     }));
@@ -1114,7 +1113,6 @@ mod tests {
                         "id": "ping-phone",
                         "primary": "Ping device",
                         "left_icon": "network-transmit-receive-symbolic",
-                        "activatable": true
                     }
                 },
                 {
@@ -1123,7 +1121,6 @@ mod tests {
                         "id": "ring-phone",
                         "primary": "Find device",
                         "left_icon": "audio-volume-high-symbolic",
-                        "activatable": true
                     }
                 },
                 {
@@ -1132,7 +1129,6 @@ mod tests {
                         "id": "browse-phone",
                         "primary": "Browse files",
                         "left_icon": "folder-symbolic",
-                        "activatable": true
                     }
                 },
                 {
@@ -1141,7 +1137,6 @@ mod tests {
                         "id": "clipboard-phone",
                         "primary": "Send clipboard to phone",
                         "left_icon": "edit-paste-symbolic",
-                        "activatable": true
                     }
                 }
             ])

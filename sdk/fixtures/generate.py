@@ -100,7 +100,6 @@ def widgets() -> None:
                 "secondary": "Connected",
                 "left_icon": "network-wireless-symbolic",
                 "right": badge,
-                "activatable": True,
             },
         ),
         "segmented-tile": node(
@@ -113,10 +112,9 @@ def widgets() -> None:
                 "right": badge,
                 "child": node("key_value_grid", {"rows": [{"key": "Size", "value": "1 TB"}]}),
                 "expanded": True,
-                "activatable": True,
             },
         ),
-        "button-row": node("button_row", {"children": [node("tile", {"primary": "Refresh", "activatable": True})]}),
+        "button-row": node("button_row", {"children": [node("tile", {"primary": "Refresh"})]}),
         "switch-tile": node(
             "switch_tile",
             {

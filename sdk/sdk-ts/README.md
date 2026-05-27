@@ -15,19 +15,19 @@ npm install glimpse-sdk
 Create and live-run a TypeScript applet project with the Glimpse tooling:
 
 ```sh
-glimpse-applet new counter --lang typescript
+glimpse-shell applets new counter --lang typescript
 cd counter
-glimpse-applet dev
+glimpse-shell applets dev
 ```
 
-Read `docs/custom-applets/tooling.md` for project layout, `applet.toml`, dev applets, linking, and diagnostics.
+Read `docs/custom-applets/tooling.md` for project layout, `applet.toml`, dev applets, local linking, distribution, and diagnostics.
 
 ## Goals
 
 - typed protocol models
 - typed widget builders
 - async runtime
-- explicit typed handler registration
+- widget-local callbacks, with explicit typed handler registration available when needed
 - separate `status(state)` and `popover(state)` methods; state mutation via `await this.setState(...)`
 
 ## Example
@@ -35,12 +35,11 @@ Read `docs/custom-applets/tooling.md` for project layout, `applet.toml`, dev app
 ```ts
 import {
   Applet,
-  Box,
-  Button,
+  Column,
   Hero,
-  Icon,
-  StatusItem,
   Label,
+  StatusItem,
+  Tile,
   type TreeNode,
 } from "glimpse-sdk";
 
@@ -50,42 +49,43 @@ interface DeployState {
 }
 
 class DeployApplet extends Applet<DeployState> {
-  protected initialState(): DeployState {
-    return { version: "2026.04.07", status: "Ready" };
-  }
-
   constructor() {
     super();
-    this.onClick("deploy_now", async () => {
-      await this.setState({ status: "Deploying" });
-    });
+  }
+
+  protected initialState(): DeployState {
+    return { version: "2026.04.07", status: "Ready" };
   }
 
   protected async status(state: DeployState): Promise<StatusItem[]> {
     return [
       new StatusItem({
         id: "deploy",
-        icon: Icon.name("software-update-available-symbolic"),
+        icon: "software-update-available-symbolic",
         label: state.status,
       }),
     ];
   }
 
   protected async popover(state: DeployState): Promise<TreeNode | null> {
-    return Box.vertical([
-      new Hero({
-        icon: Icon.name("software-update-available-symbolic"),
-        title: "Deploy",
-        subtitle: state.version,
-      }),
-      new Label("Version"),
-      new Button({
-        id: "deploy_now",
-        label: "Deploy now",
-        icon: "media-playback-start-symbolic",
-        variant: "primary",
-      }),
-    ]);
+    return new Column({
+      children: [
+        new Hero({
+          icon: "software-update-available-symbolic",
+          title: "Deploy",
+          subtitle: state.version,
+        }),
+        new Label("Version"),
+        new Tile({
+          id: "deploy_now",
+          primary: "Deploy now",
+          left_icon: "media-playback-start-symbolic",
+          on_click: async () => {
+            await this.setState({ status: "Deploying" });
+          },
+        }),
+      ],
+    });
   }
 }
 
@@ -94,7 +94,9 @@ await new DeployApplet().run();
 
 ## Handler Registration
 
-Use explicit registration helpers instead of decorators:
+Prefer widget-local callbacks for controls rendered in `popover(state)`.
+Explicit registration helpers are still available when the handler should live
+outside the widget tree:
 
 - `this.onClick(id, handler)`
 - `this.onScroll(id, handler)`

@@ -91,9 +91,10 @@ fn widgets() -> BTreeMap<&'static str, TreeNode<()>> {
         "boxed-list",
         BoxedList::new(vec![label().into(), badge().into()]).into(),
     );
-    let mut refresh = Tile::new("Refresh");
-    refresh.activatable = true;
-    out.insert("button-row", ButtonRow::new(vec![refresh.into()]).into());
+    out.insert(
+        "button-row",
+        ButtonRow::new(vec![Tile::new("Refresh").into()]).into(),
+    );
 
     out.insert("container", Container::new(vec![label().into()]).into());
 
@@ -107,7 +108,6 @@ fn widgets() -> BTreeMap<&'static str, TreeNode<()>> {
     tile.secondary = Some("Connected".into());
     tile.left_icon = Some("network-wireless-symbolic".into());
     tile.right = Some(Box::new(badge().into()));
-    tile.activatable = true;
     out.insert("tile", tile.into());
 
     let mut segmented = glimpse_sdk::SegmentedTile::new("Backup");
@@ -119,7 +119,6 @@ fn widgets() -> BTreeMap<&'static str, TreeNode<()>> {
         KeyValueGrid::new(vec![key_value("Size", "1 TB")]).into(),
     ));
     segmented.expanded = true;
-    segmented.activatable = true;
     out.insert("segmented-tile", segmented.into());
 
     let mut switch = SwitchTile::new("bluetooth", "Bluetooth");

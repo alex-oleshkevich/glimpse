@@ -157,10 +157,10 @@ command = ["sh", "-c", "~/.config/glimpse/scripts/cpu-temp"]
 
 ## How-To: Toggle A Command
 
-Use an activatable tile and handle its click event:
+Use a tile with an id and handle its click event:
 
 ```txt
-popover {"root":{"type":"popover_shell","data":{"children":[{"type":"tile","data":{"id":"toggle-vpn","primary":"Toggle VPN","left_icon":"network-vpn-symbolic","activatable":true}}]}}}
+popover {"root":{"type":"popover_shell","data":{"children":[{"type":"tile","data":{"id":"toggle-vpn","primary":"Toggle VPN","left_icon":"network-vpn-symbolic"}}]}}}
 ```
 
 Your script receives:

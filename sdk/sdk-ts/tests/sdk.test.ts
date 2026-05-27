@@ -26,15 +26,12 @@ interface DemoState {
 class DemoApplet extends Applet<DemoState> {
   commands: Array<{ command: string; args: string[]; input?: string }> = [];
 
-  protected initialState(): DemoState {
-    return { version: "v1", clicks: 0 };
-  }
-
   constructor() {
     super();
-    this.onClick("submit", async () => {
-      await this.setState({ clicks: this.state.clicks + 1, version: "v2" });
-    });
+  }
+
+  protected initialState(): DemoState {
+    return { version: "v1", clicks: 0 };
   }
 
   protected async status(state: DemoState) {
@@ -51,7 +48,12 @@ class DemoApplet extends Applet<DemoState> {
     return new Column({ children: [
       new Hero({ title: "Demo", subtitle: state.version }),
       new Label(state.version),
-      new Tile({ id: "submit", primary: "Submit", activatable: true }),
+      new Tile({
+        primary: "Submit",
+        on_click: async () => {
+          await this.setState({ clicks: this.state.clicks + 1, version: "v2" });
+        },
+      }),
     ] });
   }
 
@@ -205,6 +207,26 @@ test("init event rerenders changed state", async () => {
   await applet.initForTest("v3");
   const drained = await applet.drain();
   assert.equal((drained[0] as any).data.items[0].label, "v3");
+});
+
+test("inline tile callback updates state and rerenders", async () => {
+  const applet = new DemoApplet();
+  const initial = await applet.drain();
+  const popover = initial.find((message: any) => message.command === "popover") as any;
+  const generatedId = popover.data.root.data.children[2].data.id;
+  assert.match(generatedId, new RegExp("^__glimpse:click:"));
+
+  await applet.eventForTest({ id: generatedId, type: "click", button: "left" });
+
+  const drained = await applet.drain();
+  assert.equal(applet.state.clicks, 1);
+  assert.ok(
+    drained.some(
+      (message: any) =>
+        message.command === "status" &&
+        message.data.items[0].label === "v2",
+    ),
+  );
 });
 
 test("variant serializes as semantic protocol value", () => {
