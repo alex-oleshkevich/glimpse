@@ -588,7 +588,7 @@ fn usable_sources(state: &State) -> Vec<BrightnessSource> {
 }
 
 fn monitor_row_models(monitors: &[Monitor]) -> Vec<MonitorRowModel> {
-    if monitors.len() <= 1 {
+    if monitors.is_empty() {
         return Vec::new();
     }
 
@@ -894,8 +894,16 @@ mod tests {
     }
 
     #[test]
-    fn monitor_rows_are_hidden_for_single_physical_monitor() {
-        assert!(monitor_row_models(&[monitor("eDP-1", true, true)]).is_empty());
+    fn monitor_rows_are_hidden_when_no_monitors_present() {
+        assert!(monitor_row_models(&[]).is_empty());
+    }
+
+    #[test]
+    fn monitor_rows_are_shown_for_single_physical_monitor_with_insensitive_toggle() {
+        let rows = monitor_row_models(&[monitor("eDP-1", true, true)]);
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0].active);
+        assert!(!rows[0].sensitive);
     }
 
     #[test]

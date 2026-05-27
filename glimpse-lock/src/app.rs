@@ -38,7 +38,7 @@ use gtk4::{
     prelude::*,
 };
 use gtk4_session_lock::Instance;
-use notify::{event::EventKind, event::ModifyKind};
+use notify::event::EventKind;
 use notify_debouncer_full::{DebounceEventResult, new_debouncer};
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, RelmApp,
@@ -57,6 +57,8 @@ use crate::{
 };
 
 const LOCK_CSS_RESOURCE: &str = "/me/aresa/GlimpseLock/lock.css";
+#[cfg(feature = "dev")]
+const DEV_LOCK_CSS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/resources/lock.css");
 
 #[derive(Debug)]
 pub enum AppCommand {
@@ -218,10 +220,11 @@ pub struct LockApp {
     authenticator: Arc<dyn Authenticator>,
     windows: Vec<MonitorWindow>,
     preview_window: Option<Controller<LockWindow>>,
-    _base_css_provider: CssProvider,
+    base_css_provider: CssProvider,
     pack_css_provider: CssProvider,
     custom_css_provider: CssProvider,
     _color_scheme_settings: Option<gio::Settings>,
+    base_css_watch_cancel: Option<CancellationToken>,
     css_watch_cancel: Option<CancellationToken>,
     pack_css_watch_cancel: Option<CancellationToken>,
     asset_watch_cancel: Option<CancellationToken>,
@@ -262,8 +265,7 @@ impl SimpleComponent for LockApp {
         install_css_provider(&base_css_provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
         install_css_provider(&pack_css_provider, gtk::STYLE_PROVIDER_PRIORITY_USER);
         install_css_provider(&custom_css_provider, gtk::STYLE_PROVIDER_PRIORITY_USER + 1);
-        base_css_provider.load_from_resource(LOCK_CSS_RESOURCE);
-        tracing::info!(source = %LOCK_CSS_RESOURCE, "lock: loaded bundled lock.css");
+        load_base_css(&base_css_provider);
         let effective_mode = read_effective_theme_mode(init.config.theme_mode);
         let spec = init.config.resolve(effective_mode);
         let color_scheme_settings = subscribe_color_scheme(sender.clone());
@@ -352,9 +354,10 @@ impl SimpleComponent for LockApp {
             authenticator: init.authenticator,
             windows: Vec::new(),
             preview_window: None,
-            _base_css_provider: base_css_provider,
+            base_css_provider,
             pack_css_provider,
             custom_css_provider,
+            base_css_watch_cancel: None,
             css_watch_cancel: None,
             pack_css_watch_cancel: None,
             asset_watch_cancel: None,
@@ -371,6 +374,7 @@ impl SimpleComponent for LockApp {
         if model.mode == LockMode::Resident {
             connect_monitor_changes(&sender);
         }
+        model.watch_base_css(sender.clone());
         model.watch_css(sender.clone());
         model.watch_pack_css(sender.clone());
         model.watch_assets(sender.clone());
@@ -461,14 +465,17 @@ impl SimpleComponent for LockApp {
                 self.config = next_config;
                 self.spec = next;
                 log_lock_sources(&self.config, &self.spec, self.effective_mode);
+                load_base_css(&self.base_css_provider);
                 load_pack_css(&self.pack_css_provider, self.spec.pack_css_path.as_deref());
                 load_custom_css(&self.custom_css_provider, &self.spec.css_path);
+                self.watch_base_css(sender.clone());
                 self.watch_css(sender.clone());
                 self.watch_pack_css(sender.clone());
                 self.watch_assets(sender.clone());
                 self.emit_to_lock_windows(LockWindowInput::Reconfigure(self.spec.clone()));
             }
             AppCommand::ReloadCss => {
+                load_base_css(&self.base_css_provider);
                 load_pack_css(&self.pack_css_provider, self.spec.pack_css_path.as_deref());
                 load_custom_css(&self.custom_css_provider, &self.spec.css_path);
             }
@@ -799,6 +806,22 @@ impl LockApp {
         {
             instance.unlock();
         }
+    }
+
+    fn watch_base_css(&mut self, sender: ComponentSender<Self>) {
+        if let Some(cancel) = self.base_css_watch_cancel.take() {
+            cancel.cancel();
+        }
+        let Some(path) = dev_lock_css_path() else {
+            return;
+        };
+        let cancel = CancellationToken::new();
+        let task_cancel = cancel.clone();
+        let input = sender.input_sender().clone();
+        relm4::spawn_local(async move {
+            watch_file(path, WatchCommand::ReloadCss, input, task_cancel).await;
+        });
+        self.base_css_watch_cancel = Some(cancel);
     }
 
     fn watch_css(&mut self, sender: ComponentSender<Self>) {
@@ -2131,51 +2154,63 @@ fn install_css_provider(provider: &CssProvider, priority: u32) {
     }
 }
 
+fn load_base_css(provider: &CssProvider) {
+    if let Some(path) = dev_lock_css_path()
+        && load_css_from_path(provider, &path, "lock dev base CSS")
+    {
+        return;
+    }
+
+    provider.load_from_resource(LOCK_CSS_RESOURCE);
+    tracing::info!(source = %LOCK_CSS_RESOURCE, "lock: loaded bundled lock.css");
+}
+
+#[cfg(feature = "dev")]
+fn dev_lock_css_path() -> Option<PathBuf> {
+    Some(PathBuf::from(DEV_LOCK_CSS))
+}
+
+#[cfg(not(feature = "dev"))]
+fn dev_lock_css_path() -> Option<PathBuf> {
+    None
+}
+
 fn load_pack_css(provider: &CssProvider, path: Option<&Path>) {
     let Some(path) = path else {
         provider.load_from_string("");
         return;
     };
-    match fs::read_to_string(path) {
-        Ok(css) => {
-            if css_has_parse_errors(&css) {
-                tracing::warn!(
-                    path = %path.display(),
-                    "lock pack CSS has parse errors; keeping previous valid CSS"
-                );
-            } else {
-                provider.load_from_string(&css);
-                tracing::info!(path = %path.display(), "loaded lock pack CSS");
-            }
-        }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            provider.load_from_string("");
-            tracing::debug!(path = %path.display(), "lock pack CSS not found");
-        }
-        Err(error) => {
-            tracing::warn!(path = %path.display(), %error, "failed to read lock pack CSS")
-        }
+    if !load_css_from_path(provider, path, "lock pack CSS") {
+        provider.load_from_string("");
     }
 }
 
 fn load_custom_css(provider: &CssProvider, path: &Path) {
+    let _ = load_css_from_path(provider, path, "lock CSS");
+}
+
+fn load_css_from_path(provider: &CssProvider, path: &Path, label: &str) -> bool {
     match fs::read_to_string(path) {
+        Ok(css) if css_has_parse_errors(&css) => {
+            tracing::warn!(
+                path = %path.display(),
+                "{label} has parse errors; keeping previous valid CSS"
+            );
+            true
+        }
         Ok(css) => {
-            if css_has_parse_errors(&css) {
-                tracing::warn!(
-                    path = %path.display(),
-                    "lock CSS has parse errors; keeping previous valid CSS"
-                );
-            } else {
-                provider.load_from_string(&css);
-                tracing::info!(path = %path.display(), "loaded lock CSS");
-            }
+            provider.load_from_string(&css);
+            tracing::info!(path = %path.display(), "loaded {label}");
+            true
         }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            provider.load_from_string("");
-            tracing::debug!(path = %path.display(), "lock CSS not found, using defaults");
+            tracing::debug!(path = %path.display(), "{label} not found");
+            false
         }
-        Err(error) => tracing::warn!(path = %path.display(), %error, "failed to read lock CSS"),
+        Err(error) => {
+            tracing::warn!(path = %path.display(), %error, "failed to read {label}");
+            true
+        }
     }
 }
 
@@ -2197,11 +2232,12 @@ async fn watch_file(
     sender: relm4::Sender<AppCommand>,
     cancel: CancellationToken,
 ) {
-    let Some(parent) = path.parent().map(Path::to_path_buf) else {
+    let watch_dirs = watch_dirs_for_file(&path);
+    if watch_dirs.is_empty() {
         cancel.cancelled().await;
         return;
     };
-    let watched_path = path.clone();
+    let watched_path = path.canonicalize().unwrap_or(path);
     let mut debouncer = match new_debouncer(
         Duration::from_millis(150),
         None,
@@ -2211,7 +2247,10 @@ async fn watch_file(
             };
             if events.iter().any(|event| {
                 file_watch_event_reloads(&event.kind)
-                    && event.paths.iter().any(|path| path == &watched_path)
+                    && event
+                        .paths
+                        .iter()
+                        .any(|path| file_watch_path_matches(path, &watched_path))
             }) {
                 let _ = sender.send(match command {
                     WatchCommand::ReloadCss => AppCommand::ReloadCss,
@@ -2226,8 +2265,19 @@ async fn watch_file(
             return;
         }
     };
-    if let Err(error) = debouncer.watch(&parent, notify::RecursiveMode::NonRecursive) {
-        tracing::warn!(path = %parent.display(), %error, "failed to watch lock file directory");
+    let mut watched_any = false;
+    for dir in watch_dirs {
+        match debouncer.watch(&dir, notify::RecursiveMode::NonRecursive) {
+            Ok(()) => {
+                tracing::info!(path = %dir.display(), "watching lock file directory");
+                watched_any = true;
+            }
+            Err(error) => {
+                tracing::warn!(path = %dir.display(), %error, "failed to watch lock file directory");
+            }
+        }
+    }
+    if !watched_any {
         return;
     }
     cancel.cancelled().await;
@@ -2236,8 +2286,30 @@ async fn watch_file(
 fn file_watch_event_reloads(kind: &EventKind) -> bool {
     matches!(
         kind,
-        EventKind::Create(_) | EventKind::Remove(_) | EventKind::Modify(ModifyKind::Data(_))
+        EventKind::Create(_) | EventKind::Remove(_) | EventKind::Modify(_)
     )
+}
+
+fn watch_dirs_for_file(path: &Path) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(parent) = path.parent() {
+        dirs.push(parent.to_path_buf());
+    }
+    if let Ok(resolved) = path.canonicalize()
+        && let Some(parent) = resolved.parent().map(Path::to_path_buf)
+        && !dirs.iter().any(|dir| dir == &parent)
+    {
+        dirs.push(parent);
+    }
+    dirs
+}
+
+fn file_watch_path_matches(path: &Path, expected: &Path) -> bool {
+    path == expected
+        || path
+            .canonicalize()
+            .map(|path| path == expected)
+            .unwrap_or(false)
 }
 
 /// Best-effort username for the current process. Prefers $USER (cheap, works
@@ -2732,14 +2804,14 @@ mod tests {
             network::{NetworkSnapshot, NetworkStatus, State as CoreNetworkState, WifiAccessPoint},
         },
     };
-    use notify::event::{AccessKind, AccessMode, DataChange};
+    use notify::event::{AccessKind, AccessMode, DataChange, ModifyKind, RenameMode};
 
     use super::{
         DecodedTexture, ImageLoadState, LockMode, LockPowerAction, TextureCacheKey,
         battery_control_status, cooldown_seconds_after, file_watch_event_reloads,
-        keyboard_control_status, load_cached_texture, network_control_status,
-        power_confirmation_icon, power_confirmation_title, resize_rgba_for_fit,
-        should_run_power_action, write_cached_texture,
+        file_watch_path_matches, keyboard_control_status, load_cached_texture,
+        network_control_status, power_confirmation_icon, power_confirmation_title,
+        resize_rgba_for_fit, should_run_power_action, watch_dirs_for_file, write_cached_texture,
     };
 
     #[test]
@@ -2824,6 +2896,37 @@ mod tests {
         assert!(file_watch_event_reloads(&notify::EventKind::Modify(
             notify::event::ModifyKind::Data(DataChange::Content)
         )));
+    }
+
+    #[test]
+    fn file_watch_reloads_on_editor_save_rename_events() {
+        assert!(file_watch_event_reloads(&notify::EventKind::Modify(
+            ModifyKind::Name(RenameMode::Both)
+        )));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn file_watch_handles_symlinked_css_paths() {
+        let root = temp_path("watch-symlink");
+        let link_dir = root.join("link");
+        let target_dir = root.join("target");
+        fs::create_dir_all(&link_dir).unwrap();
+        fs::create_dir_all(&target_dir).unwrap();
+        let target = target_dir.join("lock.css");
+        let link = link_dir.join("lock.css");
+        fs::write(&target, ".lock-window {}").unwrap();
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+
+        let dirs = watch_dirs_for_file(&link);
+        assert!(dirs.contains(&link_dir));
+        assert!(dirs.contains(&target_dir));
+        assert!(file_watch_path_matches(
+            &link,
+            &target.canonicalize().unwrap()
+        ));
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

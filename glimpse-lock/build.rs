@@ -13,6 +13,9 @@ fn compile_blueprints(pairs: &[(&str, &str)]) {
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=resources/lock.css");
+    println!("cargo:rerun-if-changed=resources/glimpse-lock.gresource.xml");
+
     compile_blueprints(&[(
         "src/widgets/avatar/template.blp",
         "resources/widgets/avatar.ui",

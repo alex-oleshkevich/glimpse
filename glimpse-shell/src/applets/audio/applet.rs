@@ -23,7 +23,8 @@ use super::{
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
     pub show_icon: bool,
-    pub show_mic_indicator: bool,
+    #[serde(alias = "show_mic_indicator")]
+    pub show_muted_indicator: bool,
     #[serde(alias = "label")]
     pub label_format: String,
     #[serde(alias = "tooltip")]
@@ -53,7 +54,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             show_icon: true,
-            show_mic_indicator: true,
+            show_muted_indicator: true,
             label_format: format::DEFAULT_LABEL_FORMAT.into(),
             tooltip_format: format::DEFAULT_TOOLTIP_FORMAT.into(),
             scroll_step: 10,
@@ -107,7 +108,7 @@ impl SimpleComponent for Applet {
             #[watch]
             set_label: if model.label.is_empty() { None } else { Some(model.label.as_str()) },
             #[watch]
-            set_extra_visible: model.config.show_mic_indicator && input_muted(&model.state),
+            set_extra_visible: model.config.show_muted_indicator && input_muted(&model.state),
             connect_activated[sender] => move |_| {
                 sender.input(Input::TogglePopover);
             },
@@ -120,7 +121,7 @@ impl SimpleComponent for Applet {
 
             MutedIndicator {
                 #[watch]
-                set_active: model.config.show_mic_indicator && input_muted(&model.state),
+                set_active: model.config.show_muted_indicator && input_muted(&model.state),
             }
         }
     }
@@ -287,6 +288,21 @@ mod tests {
             Config::from_raw(&Some(AppletConfig::default())),
             Config::default()
         );
+    }
+
+    #[test]
+    fn config_accepts_show_muted_indicator() {
+        let raw = AppletConfig {
+            settings: toml::toml! {
+                show_muted_indicator = false
+            }
+            .into(),
+            ..AppletConfig::default()
+        };
+
+        let config = Config::from_raw(&Some(raw));
+
+        assert!(!config.show_muted_indicator);
     }
 
     #[test]

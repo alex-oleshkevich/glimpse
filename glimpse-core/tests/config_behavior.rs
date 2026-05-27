@@ -6,7 +6,8 @@ use std::{
 };
 
 use glimpse_core::{
-    AppletConfig, AppletType, Config, ConfigDiscovery, KeyboardRememberMode, ThemeMode,
+    AppletConfig, AppletType, Config, ConfigDiscovery, KeyboardConfig, KeyboardRememberMode,
+    ThemeMode,
 };
 
 #[test]
@@ -99,19 +100,18 @@ fn parses_keyboard_service_config() {
         [keyboard]
         remember = "app"
 
-        [keyboard.labels]
+        [applets.keyboard.labels]
         us = "EN"
         "English (US)" = "🇺🇸"
         "#,
     )
     .unwrap();
 
-    assert_eq!(config.keyboard.remember, KeyboardRememberMode::App);
-    assert_eq!(config.keyboard.labels.get("us"), Some(&"EN".into()));
-    assert_eq!(
-        config.keyboard.labels.get("English (US)"),
-        Some(&"🇺🇸".into())
-    );
+    let keyboard = KeyboardConfig::from_config(&config);
+
+    assert_eq!(keyboard.remember, KeyboardRememberMode::App);
+    assert_eq!(keyboard.labels.get("us"), Some(&"EN".into()));
+    assert_eq!(keyboard.labels.get("English (US)"), Some(&"🇺🇸".into()));
 }
 
 #[test]

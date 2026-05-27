@@ -22,21 +22,21 @@ pub struct KeyboardConfig {
 
 #[derive(Default, Deserialize)]
 #[serde(default)]
-struct LegacyKeyboardConfig {
+struct KeyboardAppletConfig {
     labels: HashMap<String, String>,
 }
 
 impl KeyboardConfig {
     pub fn from_config(config: &Config) -> Self {
         let mut keyboard = config.keyboard.clone();
-        if keyboard.labels.is_empty() {
-            keyboard.labels = legacy_applet_labels(config);
+        if let Some(labels) = keyboard_applet_labels(config) {
+            keyboard.labels = labels;
         }
         keyboard
     }
 }
 
-fn legacy_applet_labels(config: &Config) -> HashMap<String, String> {
+fn keyboard_applet_labels(config: &Config) -> Option<HashMap<String, String>> {
     config
         .applets
         .get("keyboard")
@@ -55,7 +55,6 @@ fn legacy_applet_labels(config: &Config) -> HashMap<String, String> {
                 .into_iter()
                 .find_map(|(_, applet)| applet_label_config(Some(applet)))
         })
-        .unwrap_or_default()
 }
 
 fn is_keyboard_applet(name: &str, applet: &AppletConfig) -> bool {
@@ -66,7 +65,7 @@ fn applet_label_config(config: Option<&AppletConfig>) -> Option<HashMap<String, 
     config?
         .settings
         .clone()
-        .try_into::<LegacyKeyboardConfig>()
+        .try_into::<KeyboardAppletConfig>()
         .map(|config| config.labels)
         .ok()
         .filter(|labels| !labels.is_empty())
@@ -87,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn keyboard_config_falls_back_to_legacy_applet_labels() {
+    fn keyboard_config_uses_canonical_applet_labels() {
         let mut config = Config::default();
         config.applets.insert(
             "keyboard".into(),
@@ -127,7 +126,7 @@ mod tests {
     }
 
     #[test]
-    fn top_level_keyboard_labels_win_over_legacy_applet_labels() {
+    fn applet_keyboard_labels_win_over_top_level_labels() {
         let mut config = Config {
             keyboard: KeyboardConfig {
                 labels: HashMap::from([("us".into(), "US".into())]),
@@ -146,6 +145,21 @@ mod tests {
                 ..AppletConfig::default()
             },
         );
+
+        let keyboard = KeyboardConfig::from_config(&config);
+
+        assert_eq!(keyboard.labels.get("us"), Some(&"EN".into()));
+    }
+
+    #[test]
+    fn top_level_keyboard_labels_remain_compatibility_fallback() {
+        let config = Config {
+            keyboard: KeyboardConfig {
+                labels: HashMap::from([("us".into(), "US".into())]),
+                ..KeyboardConfig::default()
+            },
+            ..Config::default()
+        };
 
         let keyboard = KeyboardConfig::from_config(&config);
 

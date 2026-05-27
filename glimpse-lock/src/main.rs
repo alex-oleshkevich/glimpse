@@ -286,6 +286,8 @@ fn pam_file_uses_real_auth(contents: &str) -> bool {
 mod tests {
     use super::{Command, pam_file_uses_real_auth, parse_command};
 
+    const BUILD_RS: &str = include_str!("../build.rs");
+
     #[test]
     fn command_parser_defaults_to_resident_daemon() {
         assert_eq!(
@@ -315,6 +317,18 @@ mod tests {
         assert_eq!(
             parse_command(["glimpse-lock", "export-css"]).expect("export-css command should parse"),
             Command::ExportCss
+        );
+    }
+
+    #[test]
+    fn build_script_tracks_bundled_lock_css_inputs() {
+        assert!(
+            BUILD_RS.contains("cargo:rerun-if-changed=resources/lock.css"),
+            "changing lock.css should rebuild the bundled GResource"
+        );
+        assert!(
+            BUILD_RS.contains("cargo:rerun-if-changed=resources/glimpse-lock.gresource.xml"),
+            "changing the lock GResource manifest should rebuild the bundle"
         );
     }
 
