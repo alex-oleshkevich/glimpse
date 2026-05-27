@@ -313,10 +313,8 @@ pub fn create_applet(
         AppletType::Display => Some(AppletController::Display(
             display::Applet::builder()
                 .launch(display::Init {
-                    service: services.brightness.clone(),
                     compositor: services.compositor.clone(),
                     config: display::Config::from_raw(&blueprint.config),
-                    panel_monitor: monitor_connector.map(str::to_owned),
                 })
                 .detach(),
         )),

@@ -1,113 +1,25 @@
-use glimpse_core::{
-    compositors::Monitor,
-    services::brightness::{BrightnessSource, State},
-};
+use glimpse_core::compositors::Monitor;
 
-pub const DEFAULT_LABEL_FORMAT: &str = "";
-pub const DEFAULT_TOOLTIP_FORMAT: &str = "{source}: {percent}%";
-pub const ICON_NAME: &str = "display-brightness-symbolic";
+pub const DEFAULT_TOOLTIP_FORMAT: &str = "{active}/{total} monitors";
 
-pub fn label(format: &str, state: &State) -> String {
-    render(format, primary_source(state))
-}
-
-pub fn label_with_monitors(format: &str, state: &State, monitors: &[Monitor]) -> String {
-    if monitors.is_empty() {
-        return label(format, state);
+pub fn hero_subtitle(monitors: &[Monitor]) -> String {
+    let total = monitors.len();
+    if total == 0 {
+        return "No displays".into();
     }
-
-    render_with_monitors(format, primary_source(state), monitors)
+    let active = monitors.iter().filter(|m| m.enabled).count();
+    format!("{active} of {total} monitors")
 }
 
-pub fn tooltip(format: &str, state: &State) -> String {
-    render(format, primary_source(state))
-}
-
-pub fn tooltip_with_monitors(format: &str, state: &State, monitors: &[Monitor]) -> String {
-    if monitors.is_empty() {
-        return tooltip(format, state);
-    }
-
-    render_with_monitors(format, primary_source(state), monitors)
-}
-
-pub fn hero_subtitle(state: &State) -> String {
-    primary_source(state)
-        .map(|source| source.name.clone())
-        .unwrap_or_else(|| "No display controls".into())
-}
-
-pub fn hero_subtitle_with_monitors(state: &State, monitors: &[Monitor]) -> String {
-    if monitors.is_empty() {
-        return hero_subtitle(state);
-    }
-
-    primary_source(state)
-        .map(|source| source_display_name(source, monitors))
-        .unwrap_or_else(|| "No display controls".into())
-}
-
-pub fn icon_name(_state: &State) -> &str {
-    ICON_NAME
-}
-
-fn render(format: &str, source: Option<&BrightnessSource>) -> String {
-    let source_name = source.map(|source| source.name.as_str());
-    render_with_source_name(format, source, source_name)
-}
-
-fn render_with_monitors(
-    format: &str,
-    source: Option<&BrightnessSource>,
-    monitors: &[Monitor],
-) -> String {
-    let source_name = source.map(|source| source_display_name(source, monitors));
-    render_with_source_name(format, source, source_name.as_deref())
-}
-
-fn render_with_source_name(
-    format: &str,
-    source: Option<&BrightnessSource>,
-    source_name: Option<&str>,
-) -> String {
+pub fn tooltip(format: &str, monitors: &[Monitor]) -> String {
     if format.is_empty() {
         return String::new();
     }
-
-    let source_name = source_name.unwrap_or("Display");
-    let percent = source
-        .map(|source| source.percent.to_string())
-        .unwrap_or_else(|| "0".into());
-
+    let total = monitors.len();
+    let active = monitors.iter().filter(|m| m.enabled).count();
     format
-        .replace("{source}", source_name)
-        .replace("{percent}", &percent)
-}
-
-pub fn primary_source(state: &State) -> Option<&BrightnessSource> {
-    state
-        .sources
-        .iter()
-        .find(|source| source.primary && source.available && source.writable)
-        .or_else(|| {
-            state
-                .sources
-                .iter()
-                .find(|source| source.available && source.writable)
-        })
-}
-
-pub fn source_display_name(source: &BrightnessSource, monitors: &[Monitor]) -> String {
-    source
-        .connector
-        .as_deref()
-        .and_then(|connector| {
-            monitors
-                .iter()
-                .find(|monitor| monitor.name.eq_ignore_ascii_case(connector))
-        })
-        .map(monitor_display_name)
-        .unwrap_or_else(|| source.name.clone())
+        .replace("{active}", &active.to_string())
+        .replace("{total}", &total.to_string())
 }
 
 pub fn monitor_display_name(monitor: &Monitor) -> String {
@@ -152,176 +64,6 @@ fn make_model_label(monitor: &Monitor) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use glimpse_core::compositors::Monitor;
-    use glimpse_core::services::brightness::BrightnessSourceKind;
-
-    #[test]
-    fn default_label_is_empty() {
-        assert_eq!(DEFAULT_LABEL_FORMAT, "");
-    }
-
-    #[test]
-    fn tooltip_uses_primary_source() {
-        let state = State {
-            available: true,
-            sources: vec![BrightnessSource {
-                id: "backlight:intel_backlight".into(),
-                name: "Intel backlight".into(),
-                connector: None,
-                kind: BrightnessSourceKind::BuiltInDisplay,
-                icon: "display-brightness-symbolic".into(),
-                current: 50,
-                max: 100,
-                percent: 50,
-                writable: true,
-                primary: true,
-                available: true,
-            }],
-            active: None,
-        };
-
-        assert_eq!(
-            tooltip(DEFAULT_TOOLTIP_FORMAT, &state),
-            "Intel backlight: 50%"
-        );
-    }
-
-    #[test]
-    fn tooltip_with_monitors_uses_matching_monitor_name() {
-        let state = State {
-            available: true,
-            sources: vec![source_on_connector(
-                "ddcutil:1",
-                "Raw DDC display",
-                BrightnessSourceKind::ExternalDisplay,
-                50,
-                "DP-2",
-            )],
-            active: None,
-        };
-        let mut monitor = monitor("DP-2", true, false);
-        monitor.make = Some("Dell Inc.".into());
-        monitor.model = Some("AW2725Q".into());
-
-        assert_eq!(
-            tooltip_with_monitors(DEFAULT_TOOLTIP_FORMAT, &state, &[monitor]),
-            "Dell Inc. AW2725Q: 50%"
-        );
-    }
-
-    #[test]
-    fn hero_subtitle_never_includes_percent() {
-        let state = State {
-            available: true,
-            sources: vec![BrightnessSource {
-                id: "backlight:intel_backlight".into(),
-                name: "Built-in display".into(),
-                connector: None,
-                kind: BrightnessSourceKind::BuiltInDisplay,
-                icon: "input-keyboard-symbolic".into(),
-                current: 50,
-                max: 100,
-                percent: 50,
-                writable: true,
-                primary: true,
-                available: true,
-            }],
-            active: None,
-        };
-
-        assert_eq!(hero_subtitle(&state), "Built-in display");
-        assert!(!hero_subtitle(&state).contains('%'));
-    }
-
-    #[test]
-    fn icon_name_is_always_brightness_icon() {
-        let state = State {
-            available: true,
-            sources: vec![BrightnessSource {
-                id: "keyboard:upower".into(),
-                name: "Keyboard backlight".into(),
-                connector: None,
-                kind: BrightnessSourceKind::Keyboard,
-                icon: "input-keyboard-symbolic".into(),
-                current: 1,
-                max: 3,
-                percent: 33,
-                writable: true,
-                primary: true,
-                available: true,
-            }],
-            active: None,
-        };
-
-        assert_eq!(icon_name(&state), ICON_NAME);
-    }
-
-    #[test]
-    fn monitor_display_name_prefers_builtin_then_make_model_then_connector() {
-        let mut external = monitor("DP-2", true, false);
-        external.make = Some("Dell Inc.".into());
-        external.model = Some("AW2725Q".into());
-
-        assert_eq!(
-            monitor_display_name(&monitor("eDP-1", true, true)),
-            "Built-in display"
-        );
-        assert_eq!(monitor_display_name(&external), "Dell Inc. AW2725Q");
-        assert_eq!(
-            monitor_display_name(&monitor("HDMI-A-1", true, false)),
-            "HDMI-A-1"
-        );
-    }
-
-    #[test]
-    fn monitor_display_name_deduplicates_make_when_model_already_contains_it() {
-        let mut external = monitor("DP-2", true, false);
-        external.make = Some("Dell Inc.".into());
-        external.model = Some("Dell Inc. U2723QE".into());
-
-        assert_eq!(monitor_display_name(&external), "Dell Inc. U2723QE");
-    }
-
-    #[test]
-    fn source_display_name_uses_matching_monitor_name() {
-        let mut external = monitor("DP-2", true, false);
-        external.make = Some("Dell Inc.".into());
-        external.model = Some("AW2725Q".into());
-        let source = source_on_connector(
-            "ddcutil:1",
-            "Raw DDC display",
-            BrightnessSourceKind::ExternalDisplay,
-            50,
-            "DP-2",
-        );
-
-        assert_eq!(
-            source_display_name(&source, &[external]),
-            "Dell Inc. AW2725Q"
-        );
-    }
-
-    fn source_on_connector(
-        id: &str,
-        name: &str,
-        kind: BrightnessSourceKind,
-        percent: u8,
-        connector: &str,
-    ) -> BrightnessSource {
-        BrightnessSource {
-            id: id.into(),
-            name: name.into(),
-            connector: Some(connector.into()),
-            kind,
-            icon: "display-brightness-symbolic".into(),
-            current: percent.into(),
-            max: 100,
-            percent,
-            writable: true,
-            primary: true,
-            available: true,
-        }
-    }
 
     fn monitor(name: &str, enabled: bool, built_in: bool) -> Monitor {
         Monitor {
@@ -336,5 +78,49 @@ mod tests {
             built_in,
             current_mode: None,
         }
+    }
+
+    #[test]
+    fn hero_subtitle_shows_active_of_total() {
+        let monitors = vec![monitor("eDP-1", true, true), monitor("DP-2", false, false)];
+        assert_eq!(hero_subtitle(&monitors), "1 of 2 monitors");
+    }
+
+    #[test]
+    fn hero_subtitle_is_no_displays_when_empty() {
+        assert_eq!(hero_subtitle(&[]), "No displays");
+    }
+
+    #[test]
+    fn tooltip_replaces_active_and_total() {
+        let monitors = vec![monitor("eDP-1", true, true), monitor("DP-2", true, false)];
+        assert_eq!(
+            tooltip("{active}/{total} monitors", &monitors),
+            "2/2 monitors"
+        );
+    }
+
+    #[test]
+    fn tooltip_is_empty_when_format_is_empty() {
+        assert_eq!(tooltip("", &[monitor("eDP-1", true, true)]), "");
+    }
+
+    #[test]
+    fn monitor_display_name_prefers_builtin_then_make_model_then_name() {
+        let mut external = monitor("DP-2", true, false);
+        external.make = Some("Dell Inc.".into());
+        external.model = Some("AW2725Q".into());
+
+        assert_eq!(monitor_display_name(&monitor("eDP-1", true, true)), "Built-in display");
+        assert_eq!(monitor_display_name(&external), "Dell Inc. AW2725Q");
+        assert_eq!(monitor_display_name(&monitor("HDMI-A-1", true, false)), "HDMI-A-1");
+    }
+
+    #[test]
+    fn monitor_display_name_deduplicates_make_in_model() {
+        let mut external = monitor("DP-2", true, false);
+        external.make = Some("Dell Inc.".into());
+        external.model = Some("Dell Inc. U2723QE".into());
+        assert_eq!(monitor_display_name(&external), "Dell Inc. U2723QE");
     }
 }
