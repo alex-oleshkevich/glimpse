@@ -72,6 +72,8 @@ Use these names in a panel section:
 | `session` | User session actions |
 | `tray` | Status notifier tray |
 | `weather` | Current weather and forecast |
+| `window` | Focused window title |
+| `workspace` | Current workspace name or index |
 
 `command` and `exec` are package applets. They live in `~/.config/glimpse/applets` and are documented near the end of this page.
 
@@ -539,6 +541,58 @@ For automatic location, configure the shared location provider:
 [location]
 provider = "geo_clue"
 ```
+
+## Window
+
+Shows the title of the currently focused window. Hidden when no window is focused or the compositor does not support window tracking.
+
+```toml
+[applets.window]
+label_format = "{title}"
+max_chars = 80
+# icon = "app"
+```
+
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label_format` | `"{title}"` | Panel label. |
+| `max_chars` | `80` | Maximum characters shown from `{title}` before truncation with `…`. |
+| `icon` | unset | Icon source. `"app"` resolves the icon from the window's `.desktop` entry. Any other string is used as a literal icon name. Unset means no icon. |
+
+Placeholders: `{title}`, `{app_id}`, `{id}`, `{index}`.
+
+| Placeholder | Value |
+| --- | --- |
+| `{title}` | Window title, truncated to `max_chars`. |
+| `{app_id}` | Application identifier (e.g. `org.gnome.Nautilus`). |
+| `{id}` | Internal window ID assigned by the compositor. |
+| `{index}` | 1-based position in the window stack, when available. |
+
+Scroll is not supported on this applet.
+
+## Workspace
+
+Shows the name or index of the current workspace. Scroll up/down switches to the next or previous workspace.
+
+```toml
+[applets.workspace]
+label_format = "{name_or_index}"
+```
+
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label_format` | `"{name_or_index}"` | Panel label. |
+
+Placeholders: `{name_or_index}`, `{name}`, `{index}`, `{id}`.
+
+| Placeholder | Value |
+| --- | --- |
+| `{name_or_index}` | Workspace name when set, otherwise the compositor-appropriate index. |
+| `{name}` | Workspace name. Empty when the workspace has no name. |
+| `{index}` | Workspace index as reported by the compositor. |
+| `{id}` | Internal workspace ID assigned by the compositor. |
+
+On Niri, `{index}` and `{name_or_index}` use the workspace's logical index. On Hyprland they use the workspace ID.
 
 ## Package Applets
 

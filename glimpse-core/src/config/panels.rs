@@ -125,6 +125,8 @@ pub enum AppletType {
     Session,
     Tray,
     Weather,
+    Window,
+    Workspace,
 }
 
 impl AppletType {
@@ -151,6 +153,8 @@ impl AppletType {
             "session" => Some(Self::Session),
             "tray" => Some(Self::Tray),
             "weather" => Some(Self::Weather),
+            "window" => Some(Self::Window),
+            "workspace" => Some(Self::Workspace),
             _ => None,
         }
     }
@@ -180,6 +184,8 @@ impl AppletType {
             Self::Session => "session",
             Self::Tray => "tray",
             Self::Weather => "weather",
+            Self::Window => "window",
+            Self::Workspace => "workspace",
         }
     }
 }
@@ -259,5 +265,23 @@ mod tests {
             AppletType::from_config_name("brightness"),
             Some(AppletType::Brightness)
         );
+    }
+
+    #[test]
+    fn workspace_applet_type_round_trips_through_config_name() {
+        assert_eq!(
+            AppletType::from_config_name("workspace"),
+            Some(AppletType::Workspace)
+        );
+        assert_eq!(AppletType::Workspace.as_config_name(), "workspace");
+    }
+
+    #[test]
+    fn window_applet_type_round_trips_through_config_name() {
+        assert_eq!(
+            AppletType::from_config_name("window"),
+            Some(AppletType::Window)
+        );
+        assert_eq!(AppletType::Window.as_config_name(), "window");
     }
 }

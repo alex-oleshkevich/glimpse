@@ -10,9 +10,9 @@ use std::collections::HashMap;
 
 use crate::{
     applets::{
-        audio, battery, bluetooth, brightness, clipboard, clock, command, display, dynamic, exec, idle,
-        keyboard, mpris, network, next_event, notifications, pager, printing, privacy, removable,
-        session, tray, weather,
+        audio, battery, bluetooth, brightness, clipboard, clock, command, display, dynamic, exec,
+        idle, keyboard, mpris, network, next_event, notifications, pager, printing, privacy,
+        removable, session, tray, weather, window, workspace,
     },
     panels::PanelSection,
     services::{framework::Services, wayland_idle_inhibit::SHELL_EXTENSIONS},
@@ -92,6 +92,8 @@ pub enum AppletController {
     Session(Controller<session::Applet>),
     Tray(Controller<tray::Applet>),
     Weather(Controller<weather::Applet>),
+    Window(Controller<window::Applet>),
+    Workspace(Controller<workspace::Applet>),
 }
 
 impl AppletController {
@@ -120,6 +122,8 @@ impl AppletController {
             Self::Session(_) => AppletType::Session,
             Self::Tray(_) => AppletType::Tray,
             Self::Weather(_) => AppletType::Weather,
+            Self::Window(_) => AppletType::Window,
+            Self::Workspace(_) => AppletType::Workspace,
         }
     }
 
@@ -148,6 +152,8 @@ impl AppletController {
             Self::Session(controller) => controller.widget().clone().upcast(),
             Self::Tray(controller) => controller.widget().clone().upcast(),
             Self::Weather(controller) => controller.widget().clone().upcast(),
+            Self::Window(controller) => controller.widget().clone().upcast(),
+            Self::Workspace(controller) => controller.widget().clone().upcast(),
         }
     }
 
@@ -165,9 +171,9 @@ impl AppletController {
                 )));
             }
             Self::Brightness(controller) => {
-                controller.emit(brightness::Input::Reconfigure(brightness::Config::from_raw(
-                    &config.cloned(),
-                )));
+                controller.emit(brightness::Input::Reconfigure(
+                    brightness::Config::from_raw(&config.cloned()),
+                ));
             }
             Self::Bluetooth(controller) => {
                 controller.emit(bluetooth::Input::Reconfigure(bluetooth::Config::from_raw(
@@ -259,6 +265,16 @@ impl AppletController {
             }
             Self::Weather(controller) => {
                 controller.emit(weather::Input::Reconfigure(weather::Config::from_raw(
+                    &config.cloned(),
+                )));
+            }
+            Self::Window(controller) => {
+                controller.emit(window::Input::Reconfigure(window::Config::from_raw(
+                    &config.cloned(),
+                )));
+            }
+            Self::Workspace(controller) => {
+                controller.emit(workspace::Input::Reconfigure(workspace::Config::from_raw(
                     &config.cloned(),
                 )));
             }
@@ -492,6 +508,23 @@ pub fn create_applet(
                 .launch(weather::Init {
                     service: services.weather.clone(),
                     config: weather::Config::from_raw(&blueprint.config),
+                })
+                .detach(),
+        )),
+        AppletType::Window => Some(AppletController::Window(
+            window::Applet::builder()
+                .launch(window::Init {
+                    service: services.compositor.clone(),
+                    config: window::Config::from_raw(&blueprint.config),
+                })
+                .detach(),
+        )),
+        AppletType::Workspace => Some(AppletController::Workspace(
+            workspace::Applet::builder()
+                .launch(workspace::Init {
+                    service: services.compositor.clone(),
+                    config: workspace::Config::from_raw(&blueprint.config),
+                    panel_monitor: monitor_connector.map(str::to_owned),
                 })
                 .detach(),
         )),

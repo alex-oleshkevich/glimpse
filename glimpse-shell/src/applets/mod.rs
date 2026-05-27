@@ -1,7 +1,7 @@
 pub mod audio;
 pub mod battery;
-pub mod brightness;
 pub mod bluetooth;
+pub mod brightness;
 pub mod clipboard;
 pub mod clock;
 pub mod command;
@@ -21,3 +21,5 @@ pub mod removable;
 pub mod session;
 pub mod tray;
 pub mod weather;
+pub mod window;
+pub mod workspace;

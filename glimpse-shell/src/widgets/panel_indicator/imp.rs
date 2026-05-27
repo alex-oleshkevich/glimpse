@@ -48,6 +48,7 @@ impl ObjectImpl for PanelIndicator {
         obj.set_spacing(4);
         obj.set_valign(gtk4::Align::Center);
         obj.set_halign(gtk4::Align::Center);
+        obj.set_hexpand(false);
 
         self.icon.add_css_class("panel-indicator__icon");
         self.icon.set_pixel_size(16);
@@ -56,6 +57,7 @@ impl ObjectImpl for PanelIndicator {
         obj.append(&self.icon);
 
         self.label.add_css_class("panel-indicator__label");
+        self.label.set_hexpand(true);
         self.label.set_halign(gtk4::Align::Fill);
         self.label.set_valign(gtk4::Align::Center);
         self.label.set_xalign(0.5);
