@@ -198,7 +198,7 @@ Run your command, then print updated `status` and `popover` lines.
 | Use variants sparingly | `warning` and `danger` should mean something needs attention. |
 | Validate JSON before running | Bad JSON is ignored and logged. |
 | Keep stderr quiet | Use stderr for useful diagnostics, not a constant stream. |
-| Set only the environment you need | Use `env_clear` and `env` when a child process should not inherit the shell environment. |
+| Set only the environment you need | Keep `env_forward = false` and add only the `env` values the child process needs. |
 | Prefer one script per concern | A small CPU applet is easier to maintain than one giant script for everything. |
 
 ## See Also

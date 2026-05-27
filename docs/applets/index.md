@@ -253,13 +253,11 @@ The panel item itself only needs the applet name:
 end = ["keyboard"]
 ```
 
-Older configs may use `[keyboard.labels]`; it is still accepted, but new configs should put labels under `[applets.keyboard.labels]`.
-
 ## MPRIS
 
-MPRIS is the standard Linux desktop interface for media players. Apps such as Spotify, VLC, mpv, browsers, and music players can expose their playback state through it.
+Think of MPRIS as the "Now Playing" applet. It shows the current player and track, opens playback controls, and can hide noisy players with regex filters.
 
-The MPRIS applet shows the current player and track, opens playback controls, and can hide noisy players with regex filters.
+MPRIS is the Linux desktop media-player interface used by apps such as Spotify, VLC, mpv, browsers, and music players.
 
 ```toml
 [applets.mpris]
@@ -610,7 +608,7 @@ type = "exec"
 [exec]
 command = ["python", "/home/alex/.config/glimpse/scripts/weather-line.py"]
 restart_delay_ms = 1000
-env_forward = true
+env_forward = false
 env = {}
 
 # Optional working directory for the child process.
@@ -625,7 +623,7 @@ city = "Warsaw"
 | `command` | `[]` | Program and arguments. Required for a working applet. |
 | `restart_delay_ms` | `1000` | Delay before restart after exit. Minimum is `50`. |
 | `options` | `{}` | Applet-specific options passed to the child process. |
-| `env_forward` | `true` | Inherit the parent process environment. |
+| `env_forward` | `false` | Set `true` to inherit the parent process environment. |
 | `env` | `{}` | Extra environment variables for the child process. |
 | `work_dir` | unset | Working directory for the child process. |
 

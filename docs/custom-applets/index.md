@@ -25,7 +25,7 @@ glimpse-shell applets dev
 
 Each project has an `applet.toml` file. `glimpse-shell applets dev` creates a temporary `.dev.toml` entry while you work, and `glimpse-shell applets link` installs the applet for normal use by symlinking `applet.toml` into `~/.config/glimpse/applets`.
 
-Add `__dev__` to a panel section to show applets started with `glimpse-shell applets dev`:
+The default panel already includes `__dev__`, which shows applets started with `glimpse-shell applets dev`. If you use a custom panel layout, keep or add it:
 
 ```toml
 [[panels]]

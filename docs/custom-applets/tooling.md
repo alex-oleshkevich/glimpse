@@ -8,7 +8,7 @@
 |---|---|---|
 | Create a project | `glimpse-shell applets new counter --lang python` | Creates an applet directory with source files and `applet.toml`. |
 | Develop in place | `glimpse-shell applets dev counter` | Registers a temporary dev applet, watches source files, and restarts on changes. |
-| Show dev applets | Add `__dev__` to a panel section | Displays every active `.dev.toml` applet in that panel section. |
+| Show dev applets | Keep `__dev__` in a panel section | Displays every active `.dev.toml` applet in that panel section. The default panel already includes it. |
 | Install for normal use | `glimpse-shell applets link counter` | Symlinks `counter/applet.toml` into the Glimpse applets directory. |
 | Inspect or remove | `glimpse-shell applets ls`, `glimpse-shell applets unlink` | Shows installed applets or removes applet config entries. |
 
@@ -89,7 +89,7 @@ Development mode:
 | Replays startup data | The cached `init` line is sent to each restarted child. |
 | Removes dev config on exit | The generated `.dev.toml` file is removed when the interactive dev process exits. |
 
-Add `__dev__` to a panel section to show active dev applets:
+The default panel already includes `__dev__`. If you use a custom panel layout, keep or add `__dev__` to show active dev applets:
 
 ```toml
 [[panels]]

@@ -14,7 +14,7 @@ type = "exec"
 [exec]
 command = ["sh", "-c", "~/.config/glimpse/scripts/sysinfo"]
 restart_delay_ms = 1000
-env_clear = false
+env_forward = false
 
 [exec.env]
 PATH = "/usr/bin:/bin"
@@ -36,8 +36,8 @@ right = ["sysinfo", "network", "battery"]
 | `command` | `[]` | Program to run. Required. Use `["sh", "-c", "..."]` when you need shell syntax. |
 | `restart_delay_ms` | `1000` | Delay before the program restarts after exit. Minimum 50. |
 | `options` | `{}` | Custom data sent to the child process in the `init` message. |
-| `env_clear` | `false` | Clear the inherited environment before starting the child process. |
-| `env` | `{}` | Extra environment variables for the child process. Applied after `env_clear`. |
+| `env_forward` | `false` | Set `true` to inherit the parent process environment. |
+| `env` | `{}` | Extra environment variables for the child process. |
 
 ## Applet Directories
 
@@ -62,7 +62,7 @@ Development mode creates a temporary discovered applet instead:
 glimpse-shell applets dev /path/to/sysinfo
 ```
 
-That command writes `~/.config/glimpse/applets/sysinfo.dev.toml` while it runs. Add `__dev__` to a panel section to show active dev applets.
+That command writes `~/.config/glimpse/applets/sysinfo.dev.toml` while it runs. The default panel already includes `__dev__`; keep or add it in custom panel layouts to show active dev applets.
 
 If an applet id exists in both the normal applet directory and the dev applet
 set, the normal linked applet wins.

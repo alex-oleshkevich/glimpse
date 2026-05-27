@@ -42,7 +42,7 @@ cd counter
 glimpse-shell applets dev
 ```
 
-`glimpse-shell applets dev` writes a temporary `~/.config/glimpse/applets/<id>.dev.toml`, watches source files, rebuilds when needed, restarts the child process, and replays the cached `init` line. Add `__dev__` to a panel section to display active dev applets:
+`glimpse-shell applets dev` writes a temporary `~/.config/glimpse/applets/<id>.dev.toml`, watches source files, rebuilds when needed, restarts the child process, and replays the cached `init` line. The default panel already includes `__dev__`; keep or add it in custom panel layouts to display active dev applets:
 
 ```toml
 [[panels]]

@@ -135,6 +135,8 @@ Put these names in `left`, `center`, or `right`:
 
 `__dynamic__` is reserved for Glimpse's dynamic island area. Keep it in your panel if you want Glimpse to place dynamic status content automatically.
 
+`__dev__` shows applets started with `glimpse-shell applets dev`. The default panel keeps it at the end of the left section.
+
 ## Configure An Applet
 
 Settings for a built-in applet live under `[applets.name]`.
@@ -264,7 +266,7 @@ size = 36
 position = "top"
 margin = { left = 0, right = 0, top = 0, bottom = 0 }
 theme_mode = "dark"
-left = ["pager", "mpris"]
+left = ["pager", "mpris", "__dev__"]
 center = ["clock", "weather", "notifications", "privacy"]
 right = [
   "__dynamic__",

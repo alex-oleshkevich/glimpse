@@ -39,7 +39,7 @@ Run it in live development mode:
 glimpse-shell applets dev
 ```
 
-Make sure your panel includes `__dev__` so active dev applets are visible:
+The default panel already includes `__dev__`, which shows active dev applets. If you use a custom panel layout, keep or add it:
 
 ```toml
 [[panels]]

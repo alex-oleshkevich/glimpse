@@ -130,7 +130,7 @@ Add linked applets by id in a panel section:
 right = ["counter", "network", "battery"]
 ```
 
-Add active dev applets with `__dev__`:
+The default panel already includes `__dev__`. Keep or add it in custom panel layouts to show active dev applets:
 
 ```toml
 [[panels]]
@@ -228,7 +228,7 @@ type = "exec"
 [exec]
 command = ["sh", "-c", "~/.config/glimpse/scripts/sysinfo"]
 restart_delay_ms = 1000
-env_clear = false
+env_forward = false
 
 [exec.env]
 PATH = "/usr/bin:/bin"
@@ -244,8 +244,8 @@ unit = "celsius"
 | `type` | string | required | Must be `"exec"`. |
 | `command` | array of strings | required | Argv to spawn the child process. No shell expansion — wrap with `["sh", "-c", "..."]` for shell features. |
 | `restart_delay_ms` | int | `1000` | Delay before restarting a crashed/exited child. Minimum `50`. |
-| `env_clear` | bool | `false` | If `true`, the child's environment starts empty (only `env` entries are kept). |
-| `env` | table of strings | `{}` | Extra env vars set on the child. Applied after `env_clear`. |
+| `env_forward` | bool | `false` | If `true`, the child inherits the parent process environment. |
+| `env` | table of strings | `{}` | Extra env vars set on the child. |
 | `options` | TOML table | `{}` | Arbitrary per-instance configuration. Glimpse does not interpret it; it is forwarded verbatim in the first `init` line. Use it for polling intervals, units, thresholds, feature flags. |
 
 The applet `<name>` is the instance identifier and is sent to the child as
@@ -1042,7 +1042,7 @@ event {"id":"popover","type":"close","source":"popover"}
 | Throttle polling (5–30 s for most stats). | Sub-second polling wastes CPU. |
 | Use variants sparingly. | `warning`/`danger` should mean something needs attention. |
 | Treat stdin EOF as shutdown. | The child should exit cleanly so Glimpse does not restart it during teardown. |
-| Use `env_clear` + `env` when the child should not inherit the user env. | Reproducible behavior, smaller attack surface. |
+| Keep `env_forward = false` and set only needed `env` values. | Reproducible behavior, smaller attack surface. |
 | Log to stderr, not stdout. | stdout is the protocol channel. Anything non-protocol there is wasted. |
 | Validate your JSON before publishing. | Bad JSON is silently dropped. |
 | Prefer many small applets over one mega-script. | Easier to debug, easier to fail in isolation. |
