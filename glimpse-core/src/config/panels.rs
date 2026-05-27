@@ -72,7 +72,7 @@ impl Default for PanelConfig {
             position: Position::Top,
             margin: Margin::default(),
             theme_mode: ThemeMode::Dark,
-            left: vec!["pager".into(), "mpris".into()],
+            left: vec!["pager".into(), "mpris".into(), DEV_SLOT.into()],
             center: vec![
                 "clock".into(),
                 "weather".into(),
@@ -104,6 +104,7 @@ impl Default for PanelConfig {
 pub enum AppletType {
     Audio,
     Battery,
+    Brightness,
     Bluetooth,
     Display,
     Clipboard,
@@ -131,6 +132,7 @@ impl AppletType {
         match name {
             "audio" => Some(Self::Audio),
             "battery" => Some(Self::Battery),
+            "brightness" => Some(Self::Brightness),
             "bluetooth" => Some(Self::Bluetooth),
             "display" => Some(Self::Display),
             "clipboard" => Some(Self::Clipboard),
@@ -157,6 +159,7 @@ impl AppletType {
         match self {
             Self::Audio => "audio",
             Self::Battery => "battery",
+            Self::Brightness => "brightness",
             Self::Bluetooth => "bluetooth",
             Self::Display => "display",
             Self::Clipboard => "clipboard",
@@ -251,11 +254,10 @@ mod tests {
     }
 
     #[test]
-    fn display_replaces_brightness_config_name() {
+    fn brightness_applet_type_is_available_from_config_name() {
         assert_eq!(
-            AppletType::from_config_name("display"),
-            Some(AppletType::Display)
+            AppletType::from_config_name("brightness"),
+            Some(AppletType::Brightness)
         );
-        assert_eq!(AppletType::from_config_name("brightness"), None);
     }
 }
