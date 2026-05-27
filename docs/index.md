@@ -3,66 +3,50 @@ layout: home
 
 hero:
   name: "Glimpse"
-  text: "A polished desktop shell toolkit for Niri."
-  tagline: "Panel, wallpaper, lock screen, night light, and idle behavior that feel like one desktop."
+  text: "A cohesive desktop layer for Niri."
+  tagline: "Panel, wallpaper, lock screen, idle policy, night light, and custom applets built to feel like one Wayland desktop."
   actions:
     - theme: brand
-      text: "Install Glimpse"
+      text: "Install"
       link: /installation
     - theme: alt
-      text: "Configure Your Desktop"
+      text: "Configure"
       link: /configuration
 
 features:
-  - title: "Make Niri Feel Complete"
-    details: "Add the surrounding desktop pieces people expect from a daily Wayland session."
-  - title: "Configure With Plain Files"
-    details: "Keep panel layout, services, applets, wallpaper, and theme settings in readable TOML and CSS."
-  - title: "Built For Daily Use"
-    details: "Use calm defaults, focused controls, service integration, and custom themes for a desktop that feels finished."
+  - title: "One Desktop Surface"
+    details: "Panel, lock screen, wallpaper, notifications, and session controls share the same configuration and visual language."
+  - title: "Plain Files, Real Control"
+    details: "Configure layouts, applets, services, themes, calendars, and idle behavior with readable TOML and CSS."
+  - title: "Extensible By Design"
+    details: "Add launchers, menus, live widgets, and script-driven popovers without rebuilding the shell."
 ---
 
-## What You Get
+## Built Around The Session
 
-Glimpse is for people who like Niri but still want the comfortable parts of a cohesive desktop.
+Glimpse covers the parts of a desktop session that usually sit around the compositor: panel status, notifications, wallpaper, locking, idle behavior, night light, and session actions.
 
-| Component | What it does |
+| Surface | Role |
 |---|---|
-| **Shell** | Shows workspaces, status applets, tray items, weather, battery, network, media, notifications, and custom commands. |
-| **Calendar events** | Reads configured online and local iCalendar sources for the clock popover and next-event applet. |
-| **Wallpaper** | Sets a color or image wallpaper, with an optional blurred backdrop. |
-| **Lock screen** | Shows a themed lock screen with your wallpaper, clock, user picture, status buttons, and PAM authentication. |
-| **Night light** | Warms the screen at sunset or on your chosen schedule. |
-| **Idle rules** | Locks the session, turns displays off, suspends, or runs your own commands after inactivity. |
-| **Custom applets** | Add launchers, menus, scripts, and live status widgets without rebuilding Glimpse. |
+| **Panel** | Workspaces, applets, tray, media, network, battery, weather, notifications, and session controls. |
+| **Lock** | PAM-backed session locking with wallpaper integration, status buttons, and themeable CSS. |
+| **Wallpaper** | Solid colors, image backgrounds, fit modes, transitions, and blurred backdrop support. |
+| **Idle and sunset** | Automatic locking, monitor power commands, suspend rules, and night-light scheduling. |
+| **Custom applets** | Command launchers and long-running exec widgets with typed SDKs and popover components. |
 
-## Start Here
+## Designed For Daily Use
 
-1. Install the package from [Installation](./installation.md).
-2. Enable the shell, lock screen, night light, and idle services.
-3. Add your first panel layout in [Configuration](./configuration.md).
-4. Theme the [shell](./theming.md), [Lock Screen](./lock.md), and [Wallpaper](./wallpaper.md) for your setup.
+Glimpse keeps the desktop understandable. System services run as regular user units, configuration stays in plain files, and custom applets can be developed outside the main codebase.
 
-## Good First Setup
+The result is a desktop that remains hackable without feeling assembled from unrelated pieces.
 
-Enable the main pieces:
-
-```sh
-systemctl --user enable --now glimpse-shell.service
-systemctl --user enable --now glimpse-lock.service
-systemctl --user enable --now glimpse-sunset.service
-systemctl --user enable --now glimpse-idle.service
-```
-
-Then start with these pages:
+## Choose Your Path
 
 | Goal | Page |
 |---|---|
-| Put useful things in the panel | [Configuration](./configuration.md) |
-| Connect calendar feeds | [Calendar Sources](./calendar.md) |
-| Change colors and CSS | [Theming](./theming.md) |
-| Use commands and scripts as applets | [Custom Applets](./custom-applets/) |
-| Make the lock screen match your setup | [Lock](./lock.md) |
-| Set wallpaper and blurred backdrop | [Wallpaper](./wallpaper.md) |
-| Lock or blank displays after idle time | [Idle](./idle.md) |
-| Warm the screen at night | [Sunset](./sunset.md) |
+| Install the packaged desktop services | [Installation](./installation.md) |
+| Define panels and applets | [Configuration](./configuration.md) |
+| Tune built-in applets | [Applets](./applets/) |
+| Build custom panel widgets | [Custom Applets](./custom-applets/) |
+| Theme the shell and lock screen | [Theming](./theming.md) |
+| Configure wallpaper, lock, idle, or night light | [Wallpaper](./wallpaper.md), [Lock](./lock.md), [Idle](./idle.md), [Sunset](./sunset.md) |

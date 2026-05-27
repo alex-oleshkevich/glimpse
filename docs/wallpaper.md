@@ -1,30 +1,15 @@
 # Wallpaper
 
-Wallpaper sets the desktop background. It can show a solid color, an image, and a blurred backdrop that helps panels and lock screens feel softer.
-
-`glimpse-wallpaper` reads `[wallpaper]` and `[backdrop]` from `~/.config/glimpse/config.toml`.
-
-## Solid Color
-
-```toml
-[wallpaper]
-color = "#101010"
-fit = "cover"
-transition_ms = 800
-
-[backdrop]
-enabled = true
-blur_radius = 24
-```
-
-This is enough for a clean dark background.
+Wallpaper and backdrop settings live in `~/.config/glimpse/config.toml`.
 
 ## Image Wallpaper
 
+Use an absolute path for the image you want on the desktop:
+
 ```toml
 [wallpaper]
-color = "#101010"
 path = "/home/alex/Pictures/wallpapers/coast.jpg"
+color = "#101010"
 fit = "cover"
 transition_ms = 800
 
@@ -33,40 +18,76 @@ enabled = true
 blur_radius = 24
 ```
 
-Supported image formats include common wallpaper formats such as JPG, PNG, WebP, and HEIF/HEIC.
+`color` is the fallback behind the image. Keep it close to the wallpaper's dominant tone so startup, loading failures, and transparent edges still look intentional.
 
-## Fit Modes
+## Solid Color
+
+Leave `path` out when you want a plain background:
+
+```toml
+[wallpaper]
+color = "#101010"
+fit = "cover"
+transition_ms = 800
+
+[backdrop]
+enabled = false
+```
+
+This is useful for minimal setups or screenshots where the panel should be the focus.
+
+## Fit
 
 | Mode | Result |
 |---|---|
-| `cover` | Fill the screen and crop edges if needed. Best default. |
-| `contain` | Show the whole image with empty space if aspect ratios differ. |
-| `fill` | Stretch the image to the screen. |
+| `cover` | Fills the screen and crops edges when needed. Best default for screenshots. |
+| `contain` | Shows the whole image and leaves empty space if the aspect ratio differs. |
+| `fill` | Stretches the image to the screen. Use only when distortion is acceptable. |
 
 ## Backdrop
 
-The backdrop is a blurred background layer. It is enabled by default and uses the wallpaper image unless you give it a separate image.
+The backdrop is a softer image layer used behind translucent surfaces. By default it is enabled and uses the wallpaper image.
+
+Use a separate backdrop image when the wallpaper is too busy behind panels or popovers:
 
 ```toml
 [backdrop]
 enabled = true
-path = "/home/alex/Pictures/wallpapers/backdrop.jpg"
+path = "/home/alex/Pictures/wallpapers/coast-blurred.jpg"
 blur_radius = 24
 ```
 
-Use a separate backdrop if you want the lock screen and shell effects to feel calmer than the main wallpaper.
+Set `enabled = false` if you want no backdrop layer.
+
+## What Wins
+
+Explicit config paths win over theme-pack images.
+
+| Surface | Source order |
+|---|---|
+| Wallpaper | `[wallpaper].path`, then the active theme pack's wallpaper image, then `color` |
+| Backdrop | `[backdrop].path`, then the active theme pack's backdrop image, then the resolved wallpaper image |
+
+Theme-pack images can provide light and dark variants. The current `theme_mode` decides which variant is used. See [Theming](./theming.md#theme-packs) for theme-pack filenames.
 
 ## Reloading
 
-Glimpse watches the shared config and image files. When you change the file, the wallpaper updates without restarting the service.
+Glimpse watches the config and the currently used image files. Changing `config.toml` or replacing the current image updates the background without a restart.
 
-If a new image cannot be loaded, the previous image stays visible when possible. If no image is available, Glimpse falls back to the configured color.
+If a new image cannot be loaded, the previous image stays visible when possible. If no image is available, Glimpse falls back to `color`.
 
-## Tips For Pretty Setups
+## Practical Tips
 
 | Goal | Tip |
 |---|---|
-| Clean screenshot | Use `cover`, a high-resolution image, and a dark `color` fallback. |
-| Frosted lock screen | Enable backdrop and set `blur_radius = 24` or higher. |
-| Faster startup | Reuse the same wallpaper path instead of constantly renaming files. |
-| Multi-monitor | Use images that still look good when cropped differently per screen. |
+| Clean screenshot | Use `cover`, a high-resolution image, and a dark fallback color. |
+| Calm popovers | Keep backdrop enabled and use `blur_radius = 24` or higher. |
+| Faster iteration | Replace the image at the same path instead of renaming files every time. |
+| Multi-monitor | Choose images that still look good when cropped differently per output. |
+
+### See Also
+
+| Document | Purpose |
+|---|---|
+| [Lock Screen](./lock.md) | Use the same wallpaper or a separate lock background. |
+| [Theming](./theming.md) | Theme-pack image names and light/dark variants. |

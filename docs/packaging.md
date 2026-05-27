@@ -1,5 +1,9 @@
 # Packaging Guide
 
+Use this guide when you maintain a distribution package, release archive, or local system install for Glimpse. It covers the files that must be installed together, the privileged helper surfaces, and the service units expected by the user-facing installation docs.
+
+Most users should install `glimpse-desktop-bin` and follow [Installation](./installation.md). This page is for packagers and maintainers who need to verify what the package contains.
+
 ## Binaries
 
 | Binary | Description | Install to |
@@ -334,3 +338,12 @@ install -Dm644 data/glimpse-idle.service "$pkgdir/usr/lib/systemd/user/glimpse-i
 install -Dm644 data/glimpse-sunset.service "$pkgdir/usr/lib/systemd/user/glimpse-sunset.service"
 install -Dm644 data/glimpse-wallpaper.service "$pkgdir/usr/lib/systemd/user/glimpse-wallpaper.service"
 ```
+
+## See Also
+
+| Page | Use it for |
+|---|---|
+| [Installation](./installation.md) | User-facing package install and service enablement. |
+| [Configuration](./configuration.md) | Shared config file discovery and top-level settings. |
+| [Theming](./theming.md) | Theme pack search paths and CSS token contracts. |
+| [IPC Developer Specification](./ipc.md) | Adding daemon IPC commands and events. |

@@ -1,25 +1,30 @@
 # Applets
 
-Applets are the small things in your panel: clock, battery, network, media, weather, custom launchers, and status widgets.
+Applets are the small panel items that show status, open popovers, or run quick actions. Most people only need two steps:
 
-Place applets in a panel section:
+1. Put applets on a panel in `~/.config/glimpse/config.toml`.
+2. Override the applet sections you care about.
 
 ```toml
 [[panels]]
-left = ["pager", "mpris"]
+position = "top"
+height = 34
+start = ["pager", "mpris"]
 center = ["clock"]
-right = ["network", "battery", "session"]
-```
+end = ["tray", "network", "audio", "battery", "notifications", "session"]
 
-Configure an applet under `[applets.name]`:
-
-```toml
 [applets.clock]
-label_format = "%H:%M"
-tooltip_format = "%A, %B %-d"
+label_format = "%a %-d %b, %H:%M"
+
+[applets.audio]
+tooltip_format = "{device} - {volume}%"
 ```
 
-To create a second copy or a custom-named applet, use `extends`:
+For the full panel layout shape, see [Configuration](../configuration.md).
+
+## Second Copies
+
+To create a second copy of a built-in applet, give it your own name and point `extends` at the built-in type.
 
 ```toml
 [applets.short-battery]
@@ -27,569 +32,437 @@ extends = "battery"
 label_on_battery = "{percentage}%"
 
 [[panels]]
-right = ["short-battery", "session"]
+end = ["short-battery", "session"]
 ```
 
-## Common Format Fields
+## Format Strings
 
-Many applets support `label_format` and `tooltip_format`. Each applet section lists the formatting fields it supports.
+Many applets use format strings. Text is shown as-is, and placeholders are replaced at runtime.
 
-An empty label means the applet shows only its icon.
+```toml
+[applets.battery]
+label_on_battery = "{percentage}%"
+tooltip_on_battery = "{state}, {time_left}"
+```
+
+If a placeholder is unknown, it is left unchanged.
 
 ## Built-In Applets
 
-| Applet | What it shows |
-|---|---|
-| [`audio`](#audio) | Volume, mute state, output device, muted microphone indicator. |
-| [`battery`](#battery) | Battery state, charge, time left, power profile. |
-| [`bluetooth`](#bluetooth) | Bluetooth state and connected devices. |
-| [`display`](#display) | Display brightness with scroll control. |
-| [`clipboard`](#clipboard) | Clipboard history. |
-| [`clock`](#clock) | Time, date, calendar, and optional world clocks. |
-| [`command`](#command) | A button or menu that runs commands. |
-| [`exec`](#exec) | A live custom status widget from your script. |
-| [`idle`](#idle-inhibitor) | System idle inhibitors and a manual "keep awake" toggle. |
-| [`keyboard`](#keyboard) | Current keyboard layout. |
-| [`mpris`](#mpris) | Media players and playback controls. |
-| [`network`](#network) | Wi-Fi, wired network, and VPN status. |
-| [`next_event`](#next-event) | Next upcoming calendar event from configured sources. |
-| [`notifications`](#notifications) | Notification center and popups. |
-| [`pager`](#pager) | Workspaces and windows. |
-| [`privacy`](#privacy) | Camera, microphone, screen sharing, and location indicators. |
-| [`removable`](#removable) | USB drives and removable storage. |
-| [`session`](#session) | Lock, logout, suspend, restart, and shutdown. |
-| [`tray`](#tray) | App tray icons. |
-| [`weather`](#weather) | Current weather and forecast. |
+Use these names in a panel section:
+
+| Applet | Purpose |
+| --- | --- |
+| `audio` | Volume, mute state, devices, and streams |
+| `battery` | Battery level and charging state |
+| `bluetooth` | Bluetooth power state and connected devices |
+| `clipboard` | Clipboard history status |
+| `clock` | Time, calendar popover, and optional calendar sources |
+| `display` | Brightness status and brightness control |
+| `idle` | Idle inhibitor status |
+| `keyboard` | Keyboard layout indicator |
+| `mpris` | Media player controls |
+| `network` | Network state and connections |
+| `next_event` | Upcoming calendar event |
+| `notifications` | Notification history and popups |
+| `pager` | Workspaces or windows |
+| `privacy` | Camera, microphone, screen sharing, and location indicators |
+| `printing` | Print job status |
+| `removable` | Removable drives |
+| `session` | User session actions |
+| `tray` | Status notifier tray |
+| `weather` | Current weather and forecast |
+
+`command` and `exec` are package applets. They live in `~/.config/glimpse/applets` and are documented near the end of this page.
 
 ## Audio
 
-Shows the current output volume. Scroll on the applet to change volume.
-
 ```toml
 [applets.audio]
-label_format = "{volume}%"
+show_icon = true
+show_muted_indicator = true
+label_format = ""
 tooltip_format = "{device} - {volume}%"
-scroll_step = 5
-max_volume = 120
-show_mic_indicator = true
+scroll_step = 10
+max_volume = 100
 show_streams = true
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `show_icon` | `true` | Show the volume icon. |
-| `show_mic_indicator` | `true` | Show a muted microphone indicator when the default input is muted. |
-| `label_format` | `""` | Panel text. |
-| `tooltip_format` | `"{device} - {volume}%"` | Hover text. |
-| `scroll_step` | `10` | Volume change per scroll step. |
-| `max_volume` | `100` | Maximum volume allowed from scrolling and controls. |
-| `show_streams` | `true` | Show application streams in the popover. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `show_icon` | `true` | Shows the output volume icon. |
+| `show_muted_indicator` | `true` | Shows when input or output is muted. |
+| `label_format` | `""` | Optional text next to the icon. |
+| `tooltip_format` | `"{device} - {volume}%"` | Tooltip text. |
+| `scroll_step` | `10` | Volume step for mouse wheel changes. |
+| `max_volume` | `100` | Maximum volume set from the panel. |
+| `show_streams` | `true` | Shows application streams in the popover. |
 
 Placeholders: `{state}`, `{volume}`, `{device}`, `{input_volume}`, `{input_device}`.
 
 ## Battery
 
-Shows battery and charging state. The popover includes time left and power information when available.
-
 ```toml
 [applets.battery]
 show_icon = true
-label_on_battery = "{percentage}%"
+label_on_battery = ""
 label_on_ac = ""
 tooltip_on_battery = "{percentage}% {state}, {time_left}"
 tooltip_on_ac = "{percentage}% {state}"
-settings_command = "gnome-control-center power"
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `show_icon` | `true` | Show the battery icon. |
-| `label_on_battery` | `""` | Panel text while unplugged. |
-| `label_on_ac` | `""` | Panel text while plugged in. |
-| `tooltip_on_battery` | `"{percentage}% {state}, {time_left}"` | Hover text while unplugged. |
-| `tooltip_on_ac` | `"{percentage}% {state}"` | Hover text while plugged in. |
-| `settings_command` | `""` | Optional command for opening power settings. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `show_icon` | `true` | Shows the battery icon. |
+| `label_on_battery` | `""` | Label while running on battery. |
+| `label_on_ac` | `""` | Label while plugged in. |
+| `tooltip_on_battery` | `"{percentage}% {state}, {time_left}"` | Tooltip while running on battery. |
+| `tooltip_on_ac` | `"{percentage}% {state}"` | Tooltip while plugged in. |
 
 Placeholders: `{percentage}`, `{state}`, `{time_left}`.
 
 ## Bluetooth
 
-Shows Bluetooth status and connected device count.
-
 ```toml
 [applets.bluetooth]
-label_format = "{devices}"
+label_format = ""
 tooltip_format = "{devices} connected devices"
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `label_format` | `""` | Panel text. |
-| `tooltip_format` | `"{devices} connected devices"` | Hover text. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label_format` | `""` | Optional text next to the icon. |
+| `tooltip_format` | `"{devices} connected devices"` | Tooltip text. |
 
 Placeholders: `{devices}`, `{state}`.
 
-## Display
-
-Shows display brightness. Scroll on the applet to change brightness. On multi-monitor
-setups, scrolling adjusts the display attached to the panel first, then the
-focused monitor, then the primary brightness source. Display brightness is
-clamped to at least 1%.
-
-```toml
-[applets.display]
-label_format = "{percent}%"
-tooltip_format = "{source}: {percent}%"
-scroll_step = 5
-```
-
-| Option | Default | Meaning |
-|---|---|---|
-| `label_format` | `""` | Panel text. |
-| `tooltip_format` | `"{source}: {percent}%"` | Hover text. |
-| `scroll_step` | `10` | Brightness change per scroll step. |
-
-Placeholders: `{source}`, `{percent}`.
-
 ## Clipboard
-
-Shows clipboard history and opens a popover for copying older entries.
 
 ```toml
 [applets.clipboard]
-label_format = "{count}"
+label_format = ""
 tooltip_format = "{count} clipboard items"
 show_when_empty = false
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `label_format` | `""` | Panel text. |
-| `tooltip_format` | `"{count} clipboard items"` | Hover text. |
-| `show_when_empty` | `false` | Keep the applet visible with no history. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label_format` | `""` | Optional text next to the icon. |
+| `tooltip_format` | `"{count} clipboard items"` | Tooltip text. |
+| `show_when_empty` | `false` | Keeps the applet visible when history is empty. |
 
 Placeholders: `{count}`, `{state}`.
 
 ## Clock
 
-Shows time and opens a calendar popover.
-
 ```toml
 [applets.clock]
-label_format = "%H:%M"
-tooltip_format = "%A, %B %-d %Y"
-tick_interval = 1
+label_format = "%a %-d %b, %H:%M"
+tooltip_format = "%A, %-d %B %Y"
+hide_all_day_events = false
+show_week_numbers = false
 
-[[applets.clock.timezones]]
-name = "Tokyo"
-timezone = "Asia/Tokyo"
-format = "%H:%M"
+# Optional extra clocks in the popover.
+# [[applets.clock.timezones]]
+# name = "New York"
+# timezone = "America/New_York"
+# format = "%H:%M"
+#
+# [[applets.clock.timezones]]
+# name = "Tokyo"
+# timezone = "Asia/Tokyo"
+# format = "%H:%M"
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `label_format` | `"%a %-d %b, %H:%M"` | Panel time format. |
-| `tooltip_format` | `"%A, %-d %B %Y"` | Hover date format. |
-| `tick_interval` | `1` | Seconds between clock updates. Values are clamped from 1 to 60. |
-| `timezones` | `[]` | Optional world clocks shown in the popover. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label_format` | `"%a %-d %b, %H:%M"` | Panel label using `strftime`. |
+| `tooltip_format` | `"%A, %-d %B %Y"` | Tooltip using `strftime`. |
+| `timezones` | `[]` | Extra timezone rows in the popover. |
+| `hide_all_day_events` | `false` | Hides all-day events in the calendar popover. |
+| `show_week_numbers` | `false` | Shows ISO week numbers in the calendar popover. |
 
-Clock formats use `strftime` style patterns.
+Timezone fields:
 
-Calendar events in the popover come from shared [Calendar Sources](../calendar.md). Event rows show a colored dot beside the title when the source has `color` configured, keep ended events visible for the selected day, and wrap titles longer than 40 characters onto a second line.
+| Field | Default | Notes |
+| --- | --- | --- |
+| `name` | `""` | Display name in the popover. |
+| `timezone` | `"UTC"` | IANA timezone name. |
+| `format` | `"%H:%M"` | Time format for that row. |
 
-### World clocks
+Calendar sources are configured separately. See [Calendar Sources](../calendar.md).
 
-Add one `[[applets.clock.timezones]]` table per extra timezone. World clocks appear in the clock popover, below the local calendar.
+## Display
 
-| Field | Default | Meaning |
-|---|---|---|
-| `name` | `""` | Display name. When empty, the timezone name is shown. |
-| `timezone` | `"UTC"` | IANA timezone name, such as `"Europe/Warsaw"` or `"Asia/Tokyo"`. Invalid names are skipped. |
-| `format` | `"%H:%M"` | Time format for this world clock row. |
+The display applet shows brightness and can manage brightness from the panel.
 
 ```toml
-[[applets.clock.timezones]]
-name = "New York"
-timezone = "America/New_York"
-format = "%-I:%M %p"
-
-[[applets.clock.timezones]]
-name = "Tokyo"
-timezone = "Asia/Tokyo"
-format = "%H:%M"
+[applets.display]
+label_format = ""
+tooltip_format = "{source}: {percent}%"
+scroll_step = 10
 ```
 
-### Common time formats
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label_format` | `""` | Optional text next to the icon. |
+| `tooltip_format` | `"{source}: {percent}%"` | Tooltip text. |
+| `scroll_step` | `10` | Brightness step for mouse wheel changes. |
 
-Copy these into `label_format`, `tooltip_format`, or a world clock `format`.
+Placeholders: `{source}`, `{percent}`.
 
-| Format | Example output | Notes |
-|---|---|---|
-| `"%H:%M"` | `23:07` | 24-hour time. |
-| `"%H:%M:%S"` | `23:07:42` | 24-hour time with seconds. |
-| `"%-I:%M %p"` | `11:07 PM` | 12-hour time without leading zero. |
-| `"%a %-d %b, %H:%M"` | `Mon 11 May, 23:07` | Matches the default panel label shape. |
-| `"%A, %-d %B %Y"` | `Monday, 11 May 2026` | Matches the default tooltip shape. |
-| `"%Y-%m-%d %H:%M"` | `2026-05-11 23:07` | Sortable date and time. |
-
-## Next Event
-
-Shows the next upcoming non-all-day calendar event from shared [Calendar Sources](../calendar.md). Use this applet when you want a compact panel reminder for meetings that are about to start or are already in progress.
+## Idle
 
 ```toml
-[applets.next_event]
-label_format = "{name} {remaining}"
-tooltip_format = "{name} ({time}) — {duration}"
-threshold_minutes = 30
-```
-
-| Option | Default | Meaning |
-|---|---|---|
-| `label_format` | `"{name} {remaining}"` | Panel text. `{name}` renders with the source color dot when available. |
-| `tooltip_format` | `"{name} ({time}) — {duration}"` | Hover text. |
-| `threshold_minutes` | `30` | Future window for showing events. Values below 1 are clamped to 1. |
-
-### Placeholders
-
-Use these in `label_format` and `tooltip_format`.
-
-| Placeholder | Meaning |
-|---|---|
-| `{name}` | Event title. In panel markup it includes a colored dot when the source has `color`. |
-| `{time}` | Start time, using `HH:MM` for today, `Tomorrow HH:MM` for tomorrow, weekday for the next six days, then full date and time. |
-| `{duration}` | Event duration, such as `45m`, `1h`, or `1h15m`. |
-| `{source}` | Calendar display name. |
-| `{remaining}` | Relative timing, such as `in 15m` or `ends in 10m`. |
-| `{location}` | Event location, or empty when the event has no location. |
-
-### Display Rules
-
-| Rule | Behavior |
-|---|---|
-| Matching window | Shows events whose start is within `threshold_minutes`, plus in-progress events. |
-| Past events | Hidden once the event end time is before now. |
-| All-day events | Ignored. The clock popover is the better surface for all-day items. |
-| Multiple matches | Picks the earliest matching event by start time. |
-| No match | Hides the panel applet. |
-
-### Popover
-
-Click the applet to open the event popover. The popover uses the same shared popover widgets as other built-in applets: a hero row, metadata grid, and action rows.
-
-| Area | Contents |
-|---|---|
-| Hero | Event title, time range, remaining time, and the calendar color dot when available. |
-| Details | Calendar, duration, status, location, organizer, and attendee summary when present. |
-| Description | First description line, trimmed to a short preview when present. |
-| Actions | `Join meeting` for detected meeting links and `Open event` for event URLs. |
-
-Calendar data comes from shared [Calendar Sources](../calendar.md), including remote `.ics` URLs and local directory sources. If the applet is empty, check that the event is not all-day, has an end time after now, and starts within `threshold_minutes`.
-
-## Command
-
-Runs a command from a panel button or menu.
-
-```toml
-# ~/.config/glimpse/applets/terminal.toml
-id = "terminal"
-type = "command"
-
-[command]
-icon = "utilities-terminal-symbolic"
-label = "Terminal"
-tooltip = "Open terminal"
-command = ["ghostty"]
-```
-
-| Option | Default | Meaning |
-|---|---|---|
-| `type` | required | Use `"command"` in an applet package file. |
-| `icon` | unset | Symbolic icon name. |
-| `label` | unset | Optional button text. |
-| `tooltip` | unset | Hover text. |
-| `command` | `[]` | Command run when clicked. |
-| `menu` | `[]` | Optional menu items with `label` and `command`. |
-
-Read the full [Command Applet](../custom-applets/command.md) guide for menus and shell examples.
-
-## Exec
-
-Runs your own script and lets it draw status items and popovers.
-
-```toml
-# ~/.config/glimpse/applets/sysinfo.toml
-id = "sysinfo"
-type = "exec"
-
-[exec]
-command = ["sh", "-c", "~/.config/glimpse/scripts/sysinfo"]
-restart_delay_ms = 1000
-env_clear = false
-
-[exec.env]
-PATH = "/usr/bin:/bin"
-
-[exec.options]
-interval = 5
-```
-
-| Option | Default | Meaning |
-|---|---|---|
-| `type` | required | Use `"exec"` in an applet package file. |
-| `command` | `[]` | Script or program to run. Required. |
-| `restart_delay_ms` | `1000` | Delay before restarting the script after it exits. Minimum 50. |
-| `options` | `{}` | Custom data sent to your script on startup. |
-| `env_clear` | `false` | Clear the inherited environment before starting the script. |
-| `env` | `{}` | Extra environment variables for the script. Applied after `env_clear`. |
-
-Read [Exec Applet](../custom-applets/exec.md) for config and options, [Line Protocol](../custom-applets/exec-protocol.md) for raw protocol details, [Components](../custom-applets/exec-components.md) for popover component fields, and [Exec SDK](./exec-sdk.md) for SDK installation and language examples.
-
-## Idle Inhibitor
-
-Surfaces every active idle inhibitor on the session and lets you release the ones you own. The popover toggle is your manual "keep awake" — flipping it on holds both an `idle` and a `sleep` lock at the system level, so the screen won't blank *and* the machine won't auto-suspend.
-
-The panel icon (an eye) flips with the toggle: closed when your manual hold is off, open when it's on. External inhibitors are listed in the popover but don't affect the panel icon — otherwise systems with persistent background inhibitors (e.g. `niri`'s power-key handler) would never see the icon change.
-
-Four kinds of records appear in the popover:
-
-| Source | Where it comes from | Releasable from popover |
-|---|---|---|
-| Your manual hold | Toggle on `Idle Inhibitor` popover | yes |
-| `org.freedesktop.ScreenSaver` | Apps like Firefox, mpv, VLC, OBS, Steam | yes |
-| `org.freedesktop.impl.portal.Inhibit` | Flatpak / sandboxed apps via xdg-desktop-portal | yes |
-| `systemd-logind` | `systemd-inhibit`, package managers during upgrade, backup tools | no — we don't own the fd |
-
-Row UX is icon + app name. Click a releasable row (or right-click) to open a one-item menu with **Release** — releases the inhibit and removes the row. Read-only `logind` rows have no menu and clicking them does nothing. Targets (`idle`, `suspend`, `shutdown`, lid/key handlers) and the full `who`/`why` strings sit in each row's tooltip.
-
-```toml
+# Add `idle` to a panel section.
 [[panels]]
-right = ["...", "idle"]
+end = ["idle"]
 ```
 
-No per-instance configuration. The applet is added to the default right panel between `battery` and `session`; remove `"idle"` from the panel section if you don't want it visible.
-
-### Daemon-side surfaces
-
-`glimpse-idle` hosts three D-Bus services on the session bus:
-
-| Bus name | Path | Purpose |
-|---|---|---|
-| `org.freedesktop.ScreenSaver` | `/ScreenSaver`, `/org/freedesktop/ScreenSaver` | Public interface for external `Inhibit`/`UnInhibit` callers |
-| `me.aresa.GlimpseIdle.Portal` | `/org/freedesktop/portal/desktop` | xdg-desktop-portal backend for `org.freedesktop.impl.portal.Inhibit` |
-| `me.aresa.GlimpseIdle` | `/me/aresa/GlimpseIdle/Inhibitors` | Glimpse-private read + admin-release API the panel proxies through |
-
-If `org.freedesktop.ScreenSaver` is already owned by another process (`gsd-power` on GNOME, `kscreensaver` on KDE), our acquisition gracefully degrades — external screensaver-style apps will go to that other process, and only inhibitors arriving through the portal backend or logind will appear in the popover. The shell's own manual hold always reaches us via `me.aresa.GlimpseIdle` directly, regardless of who owns the public name.
-
-### Installing the portal backend
-
-The daemon ships an xdg-desktop-portal `.portal` file at `/usr/share/xdg-desktop-portal/portals/glimpse.portal` and a D-Bus session activation file. On the Glimpse desktop (`XDG_CURRENT_DESKTOP=glimpse`) the portal auto-routes to us. On other desktops, add the route in your `portals.conf`:
-
-```ini
-[preferred]
-org.freedesktop.impl.portal.Inhibit=glimpse;
-```
+The idle applet has no per-applet config. It reflects the current idle inhibition state and lets you toggle it from the panel.
 
 ## Keyboard
 
-Shows the current keyboard layout.
+Keyboard layout memory is configured globally because the same active layout state is shared across panels. Display labels belong to the keyboard applet.
 
 ```toml
 [keyboard]
-remember = "global"
+remember = "window"
 
-[keyboard.labels]
-"English (US)" = "EN"
-"Polish" = "PL"
+[applets.keyboard.labels]
+# "English (US)" = "EN"
+# "German" = "DE"
 ```
 
-| Setting | Default | Meaning |
-|---|---|---|
-| `[keyboard].remember` | `"global"` | How Glimpse remembers the active keyboard layout. |
-| `[keyboard.labels]` | `{}` | Replace long layout names with short labels. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `remember` | `"window"` | Scope used to remember the selected layout. |
 
-### Remember modes
+`remember` values:
 
-| Value | Behavior |
-|---|---|
-| `"global"` | Use one active layout everywhere. |
-| `"app"` | Restore the previous layout when focus returns to the same application. |
-| `"window"` | Restore the previous layout when focus returns to the same window. |
+| Value | Meaning |
+| --- | --- |
+| `window` | Remember layout per window. |
+| `app` | Remember layout per application. |
+| `global` | Use one layout everywhere. |
 
-Set labels globally under `[keyboard.labels]`. Applet-local `labels` are still accepted as a compatibility fallback when `[keyboard.labels]` is empty.
+The panel item itself only needs the applet name:
+
+```toml
+[[panels]]
+end = ["keyboard"]
+```
+
+Older configs may use `[keyboard.labels]`; it is still accepted, but new configs should put labels under `[applets.keyboard.labels]`.
 
 ## MPRIS
 
-Shows media player status and playback controls.
+MPRIS is the standard Linux desktop interface for media players. Apps such as Spotify, VLC, mpv, browsers, and music players can expose their playback state through it.
+
+The MPRIS applet shows the current player and track, opens playback controls, and can hide noisy players with regex filters.
 
 ```toml
 [applets.mpris]
 label_format = "{artist} - {title}"
 tooltip_format = "{player}: {artist} - {title}"
 hide_when_empty = true
-max_rows = 5
+max_rows = 12
 show_artwork = true
-filter_regex = [
-  "(?i)^firefox$",
-  "(?i)podcast",
-]
+
+# Optional filters. Each regex is matched against player identity,
+# title, artist, album, and player id.
+# filter_regex = ["(?i)firefox", "(?i)chromium"]
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `label_format` | `"{artist} - {title}"` | Panel text. |
-| `tooltip_format` | `"{player}: {artist} - {title}"` | Hover text. |
-| `hide_when_empty` | `true` | Hide when no player is active. |
-| `max_rows` | `5` | Maximum players shown in the popover. Clamped from 1 to 12. |
-| `show_artwork` | `true` | Show album art when available. |
-| `filter_regex` | `[]` | Regex rules matched against player identity, title, artist, album, and player id. If any rule matches, that player is hidden from the panel and popover. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label_format` | `"{artist} - {title}"` | Panel label. |
+| `tooltip_format` | `"{player}: {artist} - {title}"` | Tooltip text. |
+| `hide_when_empty` | `true` | Hides the applet when no player is active. |
+| `max_rows` | `12` | Maximum player rows in the popover, clamped from `1` to `12`. |
+| `show_artwork` | `true` | Shows track artwork when available. |
+| `filter_regex` | `[]` | Regex filters for players to hide. |
 
 Placeholders: `{player}`, `{artist}`, `{title}`, `{track}`, `{album}`, `{state}`, `{position}`, `{duration}`, `{remaining}`.
 
 ## Network
 
-Shows current network state and opens a popover for Wi-Fi, wired network, and VPN entries.
-
 ```toml
 [applets.network]
-label_format = "{network}"
+label_format = ""
 tooltip_format = "{state}"
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `label_format` | `""` | Panel text. |
-| `tooltip_format` | `"{state}"` | Hover text. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label_format` | `""` | Optional text next to the icon. |
+| `tooltip_format` | `"{state}"` | Tooltip text. |
 
 Placeholders: `{state}`, `{network}`, `{type}`, `{wifi}`, `{access_points}`, `{connections}`, `{vpns}`, `{speed}`.
 
-## Notifications
+## Next Event
 
-Shows notification state, a notification center, and popups.
+```toml
+[applets.next_event]
+label_format = "{name} {remaining}"
+tooltip_format = "{name} ({time}) - {duration}"
+threshold_minutes = 30
+```
+
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label_format` | `"{name} {remaining}"` | Panel label. |
+| `tooltip_format` | `"{name} ({time}) - {duration}"` | Tooltip text. |
+| `threshold_minutes` | `30` | Only shows events starting within this many minutes. Minimum is `1`. |
+
+Placeholders: `{name}`, `{time}`, `{duration}`, `{source}`, `{remaining}`, `{location}`.
+
+## Notifications
 
 ```toml
 [applets.notifications]
-label_format = "{count}"
+label_format = ""
 tooltip_format = "{count} notifications"
 badge_style = "dot"
-max_history = 100
 popup_timeout_ms = 5000
 popup_visible_limit = 8
-popup_position = "top_center"
+popup_position = "top_right"
 popup_margin_x = 12
-popup_margin_y = 32
-popup_monitor = "DP-2"   # optional
-filter_regex = [
-  "(?i)^discord$",
-  "(?i)build succeeded",
-]
+popup_margin_y = 12
+max_history = 100
 
-# Promote / demote urgency for specific apps.
-# Rules are evaluated in order; first regex match wins.
-[[applets.notifications.urgency_remap]]
-app_pattern = "(?i)^slack$"
-urgency = "critical"
-
-[[applets.notifications.urgency_remap]]
-app_pattern = "(?i)^telegram"
-urgency = "low"
+# Optional notification filters.
+# filter_regex = ["(?i)spotify", "(?i)build succeeded"]
+#
+# Optional urgency remapping.
+# [[applets.notifications.urgency_remap]]
+# app_pattern = "(?i)^slack$"
+# urgency = "critical"
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `label_format` | `""` | Panel text. |
-| `tooltip_format` | `"{count} notifications"` | Hover text. |
-| `badge_style` | `"dot"` | Badge style: `"dot"` (small status indicator — gray at rest, warning-coloured when any critical notification is present), `"count"` (numeric badge with `1`–`9`/`9+`), or `"none"` to hide. |
-| `max_history` | `100` | Maximum notifications kept in memory. When the limit is exceeded, the oldest non-critical notifications are evicted first. Set to `0` for unlimited. |
-| `popup_timeout_ms` | `5000` | How long popups stay visible. |
-| `popup_visible_limit` | `8` | Maximum popups visible at once. Clamped from 1 to 20. |
-| `popup_position` | `"top_center"` | Popup position: `"top_left"`, `"top_center"`, `"top_right"`, `"bottom_left"`, `"bottom_center"`, or `"bottom_right"`. |
-| `popup_margin_x` | `12` | Horizontal popup margin. |
-| `popup_margin_y` | `32` | Vertical popup margin. |
-| `popup_monitor` | unset | Pin popups to a specific output by connector name (e.g. `"eDP-1"`, `"DP-2"`). When unset, Glimpse chooses a default monitor automatically. |
-| `filter_regex` | `[]` | Regex rules matched against app name, title, and body. If any rule matches, non-critical notifications are hidden from popups, history, badge count, and the notification center. Critical notifications are never filtered. |
-| `urgency_remap` | `[]` | List of `{ app_pattern, urgency }` rules that override a notification's urgency level when `app_pattern` (regex) matches the sending app name. `urgency` is one of `"low"`, `"normal"`, `"critical"`. First match wins. Useful for forcing important apps (Slack, on-call tooling) to behave as critical, or silencing chatty apps to `low`. The remap is applied before the notification reaches the badge / popover / popup, so a remapped-critical notification will, e.g., flip the dot to warning color. (Note: remapped urgency does **not** bypass the daemon's DND filter — that still checks the original urgency the app sent.) |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label_format` | `""` | Optional text next to the icon. |
+| `tooltip_format` | `"{count} notifications"` | Tooltip text. |
+| `badge_style` | `"dot"` | Badge style for unread notifications. |
+| `popup_timeout_ms` | `5000` | Popup timeout in milliseconds. |
+| `popup_visible_limit` | `8` | Maximum visible popups, clamped from `1` to `20`. |
+| `popup_position` | `"top_right"` | Popup corner or edge position. |
+| `popup_margin_x` | `12` | Horizontal popup margin in pixels. |
+| `popup_margin_y` | `12` | Vertical popup margin in pixels. |
+| `popup_monitor` | unset | Optional monitor name for popups. |
+| `max_history` | `100` | Maximum stored notification history. Set `0` for unlimited. |
+| `filter_regex` | `[]` | Regex filters for non-critical notifications to hide. Rules match app name, title, and body. |
+| `urgency_remap` | `[]` | Rules that rewrite notification urgency by app name. |
+
+`badge_style` values:
+
+| Value | Meaning |
+| --- | --- |
+| `none` | No badge. |
+| `count` | Show unread count. |
+| `dot` | Show a small unread dot. |
+
+`popup_position` values:
+
+| Value |
+| --- |
+| `top_left` |
+| `top_center` |
+| `top_right` |
+| `bottom_left` |
+| `bottom_center` |
+| `bottom_right` |
+
+Urgency values:
+
+| Value |
+| --- |
+| `low` |
+| `normal` |
+| `critical` |
 
 Placeholders: `{count}`, `{state}`.
 
-### Notification center
-
-Clicking the panel icon opens the notification center popover with all currently-active notifications, newest first. When 3 or more notifications from the same app accumulate, they collapse into a **group**:
-
-- **Collapsed group**: shows only the most recent notification, with two darker "card edges" peeking out beneath it as a stacked-deck visual. Clicking anywhere on the lead card expands the group.
-- **Expanded group**: shows an inline header (app icon + name + collapse chevron) followed by every notification in the group. Click the chevron to collapse again.
-
-Each notification in the popover has its own dismiss button (×). Single notifications and group members behave identically — there is no group-wide dismiss; dismissing the lead in a collapsed group dismisses only that notification and the next-most-recent advances to the front of the stack.
-
-The "Clear All" button in the footer dismisses every notification at once.
-
-### Popups on multi-monitor setups
-
-By default Glimpse runs one panel per connected monitor, and the `notifications` applet on each of those panels would otherwise create its own popup window. To keep popups single, only one applet across the shell actually owns the popup window:
-
-- If `popup_monitor` is set, only the applet whose panel sits on that connector owns the popup. Popups always appear on that monitor regardless of which monitor currently has focus.
-- If `popup_monitor` is unset, Glimpse chooses a default monitor automatically.
-- If the configured `popup_monitor` is unavailable, Glimpse cannot pin popups to that output. Notifications are still available from the notifications applet popover.
-
-The `notifications` applet should be configured on at most one `[[panels]]` block — duplicates on the same connector are silently dropped (first one to initialize wins), but it's clearer to leave it in one place.
-
-### Popup interactions
-
-| Gesture | Behavior |
-|---|---|
-| Left-click on the card body | Focus the source application and dismiss the notification. |
-| Right-click on the card body | Hide the popup card only; the notification stays in the notification center. |
-| Close button (×) | Dismiss the notification fully. |
-| Action button | Invoke that action and dismiss the notification. |
-
 ## Pager
-
-Shows workspaces and windows.
 
 ```toml
 [applets.pager]
-display = "workspaces"
-appearance = "numbers"
-active_workspace_label = "{name}"
+display = "windows"
+appearance = "dots"
+active_workspace_label = "{index}"
 inactive_workspace_label = "{index}"
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `display` | `"windows"` | Indicator and scroll target: `"workspaces"` or `"windows"`. |
-| `appearance` | `"dots"` | Indicator style: `"dots"` or `"numbers"`. |
-| `active_workspace_label` | `"{index}"` | Label format for the current workspace when `appearance = "numbers"`. |
-| `inactive_workspace_label` | `"{index}"` | Label format for other workspaces when `appearance = "numbers"`. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `display` | `"windows"` | What the pager represents. |
+| `appearance` | `"dots"` | Visual style. |
+| `active_workspace_label` | `"{index}"` | Label for the active workspace. |
+| `inactive_workspace_label` | `"{index}"` | Label for inactive workspaces. |
 
-Workspace label placeholders: `{index}`, `{id}`, `{name}`. Unnamed workspaces render `{name}` as an empty string.
+`display` values:
+
+| Value | Meaning |
+| --- | --- |
+| `windows` | Show open windows. |
+| `workspaces` | Show workspaces. |
+
+`appearance` values:
+
+| Value | Meaning |
+| --- | --- |
+| `dots` | Compact dots. |
+| `numbers` | Workspace numbers or labels. |
+
+Workspace placeholders: `{index}`, `{id}`, `{name}`.
+
+## Printing
+
+```toml
+[applets.printing]
+display = "auto"
+```
+
+| Field | Default | Notes |
+| --- | --- | --- |
+| `display` | `"auto"` | Visibility mode for the panel item. |
+
+`display` values:
+
+| Value | Meaning |
+| --- | --- |
+| `auto` | Show when there are active jobs or printer errors. |
+| `always` | Keep the applet visible even when idle. |
 
 ## Privacy
 
-Shows privacy indicators such as microphone, camera, screen sharing, and location use.
+```toml
+# Add `privacy` to a panel section.
+[[panels]]
+end = ["privacy"]
+```
 
-The privacy applet has no config; add or remove `privacy` from a panel to show or hide it.
+The privacy applet has no config. It shows privacy-sensitive activity such as microphone, camera, screen sharing, and location usage.
 
 ## Removable
-
-Shows USB drives and removable storage.
 
 ```toml
 [applets.removable]
 show_when_empty = false
-label_format = "{mounted}/{count}"
+label_format = ""
 tooltip_format = "{count} removable device(s), {mounted} mounted"
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `show_when_empty` | `false` | Keep visible with no removable devices. |
-| `label_format` | `""` | Panel text. |
-| `tooltip_format` | `"{count} removable device(s), {mounted} mounted"` | Hover text. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `show_when_empty` | `false` | Keeps the applet visible when no removable device is present. |
+| `label_format` | `""` | Optional text next to the icon. |
+| `tooltip_format` | `"{count} removable device(s), {mounted} mounted"` | Tooltip text. |
 
 Placeholders: `{count}`, `{mounted}`.
 
 ## Session
-
-Shows the current user and opens session actions.
 
 ```toml
 [applets.session]
@@ -608,27 +481,25 @@ confirm_reboot = true
 confirm_shutdown = true
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `label_format` | `"{user}"` | Panel text. |
-| `tooltip_format` | `"{user} on {host}"` | Hover text. |
-| `show_lock` | `true` | Show lock action. |
-| `show_logout` | `true` | Show logout action. |
-| `show_suspend` | `true` | Show suspend action. |
-| `show_hibernate` | `false` | Show hibernate action. |
-| `show_reboot` | `true` | Show restart action. |
-| `show_shutdown` | `true` | Show shutdown action. |
-| `confirm_logout` | `true` | Ask before logout. |
-| `confirm_suspend` | `true` | Ask before suspend. |
-| `confirm_hibernate` | `true` | Ask before hibernate. |
-| `confirm_reboot` | `true` | Ask before restart. |
-| `confirm_shutdown` | `true` | Ask before shutdown. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label_format` | `"{user}"` | Panel label. |
+| `tooltip_format` | `"{user} on {host}"` | Tooltip text. |
+| `show_lock` | `true` | Shows the lock action. |
+| `show_logout` | `true` | Shows the logout action. |
+| `show_suspend` | `true` | Shows the suspend action. |
+| `show_hibernate` | `false` | Shows the hibernate action. |
+| `show_reboot` | `true` | Shows the reboot action. |
+| `show_shutdown` | `true` | Shows the shutdown action. |
+| `confirm_logout` | `true` | Confirms before logout. |
+| `confirm_suspend` | `true` | Confirms before suspend. |
+| `confirm_hibernate` | `true` | Confirms before hibernate. |
+| `confirm_reboot` | `true` | Confirms before reboot. |
+| `confirm_shutdown` | `true` | Confirms before shutdown. |
 
 Placeholders: `{user}`, `{host}`, `{uptime}`, `{state}`.
 
 ## Tray
-
-Shows app tray icons.
 
 ```toml
 [applets.tray]
@@ -636,18 +507,16 @@ icon_size = 16
 show_passive = false
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `icon_size` | `16` | Tray icon size. Clamped from 12 to 32. |
-| `show_passive` | `false` | Show passive tray items. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `icon_size` | `16` | Tray icon size, clamped from `12` to `32`. |
+| `show_passive` | `false` | Shows passive tray items. |
 
 ## Weather
 
-Shows current weather and a forecast popover.
-
 ```toml
 [applets.weather]
-city_name = "Warsaw, PL"
+city_name = ""
 hourly_slots = 5
 forecast_days = 5
 label_format = "{temp}"
@@ -655,25 +524,114 @@ tooltip_format = "{condition} · {temp} · feels like {feels_like} · {location}
 refresh_interval = 1800
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `city_name` | `""` | Place to fetch. When empty, weather uses the shared `[location]` settings. |
-| `hourly_slots` | `5` | Hourly entries in the popover. Clamped from 1 to 8. |
-| `forecast_days` | `5` | Forecast days in the popover. Clamped from 1 to 10. |
-| `label_format` | `"{temp}"` | Panel text. |
-| `tooltip_format` | `"{condition} · {temp} · feels like {feels_like} · {location}"` | Hover text. |
-| `refresh_interval` | `1800` | Seconds between updates. Minimum 60. |
+| Field | Default | Notes |
+| --- | --- | --- |
+| `city_name` | `""` | City to show. Empty uses the shared location provider when available. |
+| `hourly_slots` | `5` | Hourly forecast slots, clamped from `1` to `8`. |
+| `forecast_days` | `5` | Forecast days, clamped from `1` to `10`. |
+| `label_format` | `"{temp}"` | Panel label. |
+| `tooltip_format` | `"{condition} · {temp} · feels like {feels_like} · {location}"` | Tooltip text. |
+| `refresh_interval` | `1800` | Refresh interval in seconds. |
 
 Placeholders: `{temp}`, `{condition}`, `{feels_like}`, `{location}`.
 
-To use your shared location, configure `[location]` and leave `city_name` empty:
+For automatic location, configure the shared location provider:
 
 ```toml
 [location]
-provider = "static"
-latitude = 52.2297
-longitude = 21.0122
+provider = "geo_clue"
+```
 
-[applets.weather]
-city_name = ""
+## Package Applets
+
+Package applets are small TOML files under `~/.config/glimpse/applets`. Use them when you want a custom command button or a custom process-driven applet.
+
+### Command
+
+A command applet is a button with optional click, scroll, and menu actions.
+
+```toml
+# ~/.config/glimpse/applets/terminal.toml
+id = "terminal"
+type = "command"
+
+[command]
+icon = "utilities-terminal-symbolic"
+label = "Terminal"
+tooltip = "Open terminal"
+on_click = ["foot"]
+on_middle_click = []
+on_scroll_up = []
+on_scroll_down = []
+on_scroll_left = []
+on_scroll_right = []
+
+[[command.menu]]
+label = "Files"
+command = ["nautilus"]
+```
+
+| Field | Default | Notes |
+| --- | --- | --- |
+| `icon` | unset | Icon name. |
+| `label` | unset | Button label. |
+| `tooltip` | unset | Tooltip text. |
+| `on_click` | `[]` | Command run on left click. |
+| `on_middle_click` | `[]` | Command run on middle click. |
+| `on_scroll_up` | `[]` | Command run on scroll up. |
+| `on_scroll_down` | `[]` | Command run on scroll down. |
+| `on_scroll_left` | `[]` | Command run on horizontal scroll left. |
+| `on_scroll_right` | `[]` | Command run on horizontal scroll right. |
+| `menu` | `[]` | Right-click menu items. |
+
+Menu item fields:
+
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label` | `""` | Menu row label. |
+| `command` | `[]` | Command run when the row is clicked. |
+
+Add the package applet by its `id`:
+
+```toml
+[[panels]]
+end = ["terminal"]
+```
+
+### Exec
+
+An exec applet runs a long-lived program that sends widget updates to the panel. Use the SDKs for non-trivial applets. See [Custom Applets](../custom-applets/) and the [Exec SDK Reference](./exec-sdk.md).
+
+```toml
+# ~/.config/glimpse/applets/weather-line.toml
+id = "weather-line"
+type = "exec"
+
+[exec]
+command = ["python", "/home/alex/.config/glimpse/scripts/weather-line.py"]
+restart_delay_ms = 1000
+env_forward = true
+env = {}
+
+# Optional working directory for the child process.
+# work_dir = "/home/alex/.config/glimpse/scripts"
+
+[exec.options]
+city = "Warsaw"
+```
+
+| Field | Default | Notes |
+| --- | --- | --- |
+| `command` | `[]` | Program and arguments. Required for a working applet. |
+| `restart_delay_ms` | `1000` | Delay before restart after exit. Minimum is `50`. |
+| `options` | `{}` | Applet-specific options passed to the child process. |
+| `env_forward` | `true` | Inherit the parent process environment. |
+| `env` | `{}` | Extra environment variables for the child process. |
+| `work_dir` | unset | Working directory for the child process. |
+
+Add the package applet by its `id`:
+
+```toml
+[[panels]]
+end = ["weather-line"]
 ```

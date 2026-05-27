@@ -5,12 +5,16 @@ export default defineConfig({
   description: 'A polished desktop shell toolkit for Niri.',
   base: '/glimpse/',
   cleanUrls: true,
-  srcExclude: ['packaging.md', 'superpowers/**'],
+  head: [
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/glimpse/favicon.svg' }],
+    ['meta', { name: 'theme-color', content: '#3584e4' }]
+  ],
+  srcExclude: ['superpowers/**'],
   themeConfig: {
     nav: [
       { text: 'Motivation', link: '/motivation' },
       { text: 'Installation', link: '/installation' },
-      { text: 'Configuration', link: '/configuration' },
+      { text: 'Panels and Applets', link: '/configuration' },
       { text: 'Applets', link: '/applets/' },
       { text: 'Theming', link: '/theming' },
       { text: 'Wallpaper', link: '/wallpaper' },
@@ -24,7 +28,7 @@ export default defineConfig({
           { text: 'Introduction', link: '/' },
           { text: 'Motivation', link: '/motivation' },
           { text: 'Installation', link: '/installation' },
-          { text: 'Configuration', link: '/configuration' },
+          { text: 'Calendar Sources', link: '/calendar' },
           { text: 'Theming', link: '/theming' }
         ]
       },
@@ -40,6 +44,7 @@ export default defineConfig({
         text: 'Applets',
         items: [
           { text: 'Applet Reference', link: '/applets/' },
+          { text: 'Custom Applets', link: '/custom-applets/' },
           { text: 'Command Applet', link: '/custom-applets/command' }
         ]
       },
@@ -47,6 +52,7 @@ export default defineConfig({
         text: 'Exec',
         items: [
           { text: 'Getting Started', link: '/custom-applets/getting-started' },
+          { text: 'Tooling', link: '/custom-applets/tooling' },
           { text: 'Applet', link: '/custom-applets/exec' },
           { text: 'SDK', link: '/applets/exec-sdk' },
           { text: 'Line Protocol', link: '/custom-applets/exec-protocol' },
@@ -58,6 +64,14 @@ export default defineConfig({
         items: [
           { text: 'Idle', link: '/idle' },
           { text: 'Sunset', link: '/sunset' }
+        ]
+      },
+      {
+        text: 'References',
+        items: [
+          { text: 'IPC Developer Spec', link: '/ipc' },
+          { text: 'Packaging Guide', link: '/packaging' },
+          { text: 'LLM References', link: '/llms/' }
         ]
       }
     ],
