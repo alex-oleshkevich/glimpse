@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use crate::{
     applets::{
-        audio, battery, bluetooth, clipboard, clock, command, display, dynamic, exec, idle,
+        audio, battery, bluetooth, brightness, clipboard, clock, command, display, dynamic, exec, idle,
         keyboard, mpris, network, next_event, notifications, pager, printing, privacy, removable,
         session, tray, weather,
     },
@@ -71,6 +71,7 @@ pub struct AppletBlueprint {
 pub enum AppletController {
     Audio(Controller<audio::Applet>),
     Battery(Controller<battery::Applet>),
+    Brightness(Controller<brightness::Applet>),
     Bluetooth(Controller<bluetooth::Applet>),
     Display(Controller<display::Applet>),
     Clipboard(Controller<clipboard::Applet>),
@@ -98,6 +99,7 @@ impl AppletController {
         match self {
             Self::Audio(_) => AppletType::Audio,
             Self::Battery(_) => AppletType::Battery,
+            Self::Brightness(_) => AppletType::Brightness,
             Self::Bluetooth(_) => AppletType::Bluetooth,
             Self::Display(_) => AppletType::Display,
             Self::Clipboard(_) => AppletType::Clipboard,
@@ -125,6 +127,7 @@ impl AppletController {
         match self {
             Self::Audio(controller) => controller.widget().clone().upcast(),
             Self::Battery(controller) => controller.widget().clone().upcast(),
+            Self::Brightness(controller) => controller.widget().clone().upcast(),
             Self::Bluetooth(controller) => controller.widget().clone().upcast(),
             Self::Display(controller) => controller.widget().clone().upcast(),
             Self::Clipboard(controller) => controller.widget().clone().upcast(),
@@ -158,6 +161,11 @@ impl AppletController {
             }
             Self::Battery(controller) => {
                 controller.emit(battery::Input::Reconfigure(battery::Config::from_raw(
+                    &config.cloned(),
+                )));
+            }
+            Self::Brightness(controller) => {
+                controller.emit(brightness::Input::Reconfigure(brightness::Config::from_raw(
                     &config.cloned(),
                 )));
             }
@@ -289,6 +297,16 @@ pub fn create_applet(
                 .launch(bluetooth::Init {
                     service: services.bluetooth.clone(),
                     config: bluetooth::Config::from_raw(&blueprint.config),
+                })
+                .detach(),
+        )),
+        AppletType::Brightness => Some(AppletController::Brightness(
+            brightness::Applet::builder()
+                .launch(brightness::Init {
+                    service: services.brightness.clone(),
+                    compositor: services.compositor.clone(),
+                    config: brightness::Config::from_raw(&blueprint.config),
+                    panel_monitor: monitor_connector.map(str::to_owned),
                 })
                 .detach(),
         )),

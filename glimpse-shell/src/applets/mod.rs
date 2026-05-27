@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod battery;
+pub mod brightness;
 pub mod bluetooth;
 pub mod clipboard;
 pub mod clock;
