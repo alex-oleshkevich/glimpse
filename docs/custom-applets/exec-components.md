@@ -1,153 +1,117 @@
 # Exec Components
 
-Exec popovers are component trees. Raw protocol applets send them in `popover` messages, and SDK applets build the same tree through typed helpers.
+Exec popovers are component trees. Raw protocol applets send them in `popover` messages, and SDK applets serialize their helper objects to the same tree.
 
-Each node has this shape:
+Every node has this shape:
 
 ```json
-{"type":"section","data":{"title":"System","children":[]}}
+{"type":"label","data":{"label":"Ready"}}
 ```
 
-| Field | Meaning |
-|---|---|
-| `type` | Component name. |
-| `data` | Component fields. The expected fields depend on `type`. |
+The component names below are the names accepted by the current protocol. Names such as `section`, `button`, `link_button`, `grid`, `picture`, and `progress` are not exec protocol components.
 
-Only the component names listed below are valid exec protocol widgets. Internal GTK component names such as `action_row` and `action_menu` are not protocol types; use `action_item`, `section`, `button`, `menu_button`, `row`, or `column` instead.
+## Common Fields
 
-## Common Component Fields
+Most components accept these fields through `data`:
 
-Most popover components accept these fields:
-
-| Field | Default | Values | Meaning |
-|---|---|---|---|
-| `id` | unset | string | Required for interactive components. Used in events. |
-| `visible` | unset, treated as visible | boolean | Hide or show the component. |
-| `hexpand` / `vexpand` | unset, treated as `false` | boolean | Let the component take extra space. |
-| `halign` / `valign` | unset | `fill`, `start`, `end`, `center`, `baseline` | Alignment. |
-| `tooltip` | unset | string | Hover text. |
-| `variant` | unset, treated as `normal` | `normal`, `muted`, `accent`, `success`, `warning`, `danger` | Visual emphasis. |
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `visible` | visible | Hide the component when set to `false`. |
+| `tooltip` | unset | Hover text. |
+| `css_classes` | `[]` | Extra CSS classes for theme authors. |
+| `styles` | `{}` | Inline style values for supported renderer paths. Prefer CSS classes for normal theming. |
 
 ## Layout Components
 
-| Component | Default fields | Use it for |
-|---|---|---|
-| `section` | `title = ""`, `subtitle = ""`, `children = []` | A titled group. |
-| `card` | `children = []` | A framed group. |
-| `row` | `spacing = 0`, `children = []` | Horizontal layout. |
-| `column` | `spacing = 0`, `children = []` | Vertical layout. |
-| `box` | `spacing = 0`, `children = []` | Explicit horizontal or vertical layout. Requires `orientation`. |
-| `grid` | `row_spacing = 0`, `column_spacing = 0`, `children = []` | Two-dimensional layout. |
-| `scroll` | no default child | Scrollable content. Requires `child`. |
-| `overlay` | `overlays = []`; requires `child` | Stack render-only overlay nodes above a base child. |
-| `list_box` | `children = []` | GTK list with one row per child. |
-| `expander` | `expanded = false`; requires `label`, `child` | Collapsible disclosure container backed by `gtk::Expander`. |
-| `tree_expander` | `hide_expander = false`, `indent_for_depth = false`, `indent_for_icon = false`; requires `child` | GTK tree expander wrapper around one child. |
-| `separator` | `orientation = unset` | Visual divider. |
+| Component | Key fields | Use it for |
+| --- | --- | --- |
+| `popover_shell` | `size`, `children`, `footer`, `footer_visible` | Full popover layout with optional footer. Sizes: `small`, `medium`, `large`, `wide`. |
+| `row` | `children` | Horizontal grouping. |
+| `column` | `children` | Vertical grouping. |
+| `container` | `children` | Generic grouped content. |
+| `boxed_list` | `children` | List-style grouped rows. |
+| `button_row` | `children` | Row of compact controls. |
+| `scroll` | `child` | Scrollable child content. |
+| `separator` | common fields only | Divider. |
+| `circle_box` | `color` | Small color dot or swatch. |
 
-Grid children use:
+Example:
 
-```json
-{"row":0,"column":0,"width":1,"height":1,"child":{"type":"label","data":{"text":"CPU"}}}
+```txt
+popover {"root":{"type":"popover_shell","data":{"size":"medium","children":[{"type":"hero","data":{"title":"System","subtitle":"Live status","icon":"utilities-system-monitor-symbolic"}},{"type":"tile","data":{"id":"refresh","primary":"Refresh","secondary":"Run now","left_icon":"view-refresh-symbolic"}}]}}}
 ```
 
 ## Display Components
 
-| Component | Default fields | Use it for |
-|---|---|---|
-| `hero` | `subtitle = ""`, `icon = unset`; requires `title` | Big header for a popover. |
-| `property_list` | `title = ""`, `rows = []` | Key/value facts. |
-| `item` | `icon = ""`, `sublabel = ""`, `right = unset`; requires `label` | Display-only row with an optional right-side component. |
-| `action_item` | `icon = ""`, `sublabel = ""`, `right = unset`, `enabled = true`; requires `id`, `label` | Clickable row with an optional render-only right-side component. |
-| `empty_state` | `subtitle = ""`; requires `title` | Friendly empty message. |
-| `badge` | requires `label` | Small pill label. |
-| `status` | common fields only | Small status marker. |
-| `meter` | `icon = unset`, `label = ""`, `min = 0`, `max = 1`, `step = 0.01`, `text = unset`, `interactive = false`; requires `value` | Progress row or slider row. |
-| `progress` | `max = 1`, `show_text = false`, `text = unset`; requires `value` | Progress bar. |
-| `level_bar` | `min = 0`, `max = 1`, `mode = continuous`; requires `value` | Native GTK level indicator. Modes: `continuous`, `discrete`. |
-| `copyable` | `label = ""`; requires `value` | Text row with copy action. |
-| `spinner` | `spinning = true` | Loading indicator. |
-| `label` | `wrap = false`, `xalign = unset`, `selectable = false`; requires `text` | Text. |
-| `icon` | `pixel_size = unset`; requires `icon` | Symbolic icon. |
-| `image` | `pixel_size = unset`; requires `icon` | Image from icon name or path. |
-| `picture` | `content_fit = contain`; requires `path` | Image file rendered with `gtk::Picture`. Fits: `fill`, `contain`, `cover`, `scale_down`. |
-| `button` | `label = unset`, `icon = unset`, `enabled = true`, `variant = flat`; requires `id` for events | Button. `icon` is an icon-name string. Variants: `primary`, `secondary`, `compact`, `flat`, `danger`. |
-| `link_button` | `label = unset`; requires `uri` | Link-style button that opens a URI through GTK. Does not emit applet events. |
-| `menu_button` | `label = unset`, `icon = unset`; requires `popover` | Button that opens a rendered popover child. The button itself does not emit applet events. |
-| `switch` | `label = unset`, `active = false`; requires `id` | Toggle switch. |
-| `toggle_button` | `label = unset`, `active = false`; requires `id` | Button-like toggle that emits `toggle` events. |
-| `checkbox` | `label = unset`, `active = false`; requires `id` | Checkbox. |
-| `slider` | `orientation = unset`, `draw_value = false`; requires `id`, `min`, `max`, `step`, `value` | Slider. |
-| `select` | `items = []`, `selected = unset`; requires `id` | Select control. |
+| Component | Key fields | Use it for |
+| --- | --- | --- |
+| `label` | `label`, `xalign`, `wrap` | Plain text. |
+| `header` | `label` | Section heading. |
+| `hero` | `title`, `subtitle`, `icon`, `icon_size`, `toggle`, `toggle_sensitive`, `separator`, `trailing` | Popover header. |
+| `badge` | `label`, `kind` | Small status label. Kinds: `default`, `success`, `warning`, `error`, `accent`. |
+| `status_dot` | `status` | Small state dot. Statuses: `neutral`, `success`, `warning`, `error`, `accent`. |
+| `panel_indicator` | `id`, `icon`, `label`, `active`, `checked`, `needs_attention`, `extra` | Panel-like indicator inside a popover. |
+| `empty_state` | `title`, `subtitle` | Empty or unavailable state. |
+| `spinner` | `spinning` | Loading indicator. |
+| `meter` | `id`, `icon`, `label`, `value`, `min`, `max`, `step`, `text` | Read-only meter. |
+| `key_value_grid` | `rows` | Key/value facts. Each row has `key` and `value`. |
 
-## Button
-
-Use `button` for explicit commands. Buttons do not accept child widgets or menu actions.
+Example:
 
 ```txt
-popover {"root":{"type":"button","data":{"id":"refresh","label":"Refresh","icon":"view-refresh-symbolic","variant":"primary"}}}
+popover {"root":{"type":"column","data":{"children":[{"type":"header","data":{"label":"Network"}},{"type":"key_value_grid","data":{"rows":[{"key":"IPv4","value":"10.0.0.42"}]}},{"type":"badge","data":{"label":"Connected","kind":"success"}}]}}}
 ```
 
-## Link Button
+## Tile And Control Components
 
-Use `link_button` for external documentation or support links. It opens the URI directly through GTK and does not send an applet event.
+| Component | Key fields | Event behavior |
+| --- | --- | --- |
+| `tile` | `id`, `primary`, `secondary`, `left_icon`, `left`, `right`, `activatable` | Emits `click` when it has `id`. |
+| `segmented_tile` | `id`, `primary`, `secondary`, `left_icon`, `left`, `right`, `child`, `expanded`, `activatable` | Emits `toggle` on expand/collapse; emits `click` when `activatable = true`. |
+| `switch_tile` | `id`, `primary`, `secondary`, `left_icon`, `left`, `active` | Emits `toggle`. |
+| `expander_tile` | `id`, `primary`, `secondary`, `left_icon`, `left`, `child`, `expanded` | Emits `toggle` when `id` is set. |
+| `slider_tile` | `id`, `label`, `left_icon`, `left`, `value`, `min`, `max`, `step`, `page`, `digits`, `snap_step` | Emits debounced `change` values. |
+| `choice_tile` | `id`, `primary`, `secondary`, `left_icon`, `left`, `selected` | Emits `click` when `id` is set. |
+| `choice_list` | `id`, `active`, `choices` | Emits `change` with the selected choice id. |
+
+Example:
 
 ```txt
-popover {"root":{"type":"link_button","data":{"uri":"https://example.com/docs","label":"Docs"}}}
+popover {"root":{"type":"column","data":{"children":[{"type":"switch_tile","data":{"id":"vpn","primary":"VPN","secondary":"Disconnected","left_icon":"network-vpn-symbolic","active":false}},{"type":"slider_tile","data":{"id":"brightness","label":"Brightness","left_icon":"display-brightness-symbolic","value":0.6,"min":0.0,"max":1.0,"step":0.05}},{"type":"choice_list","data":{"id":"profile","active":"balanced","choices":[{"id":"balanced","primary":"Balanced","secondary":"Recommended"},{"id":"performance","primary":"Performance"}]}}]}}}
 ```
 
-## Expander
+## Specialized Components
 
-Use `expander` for optional detail content that should stay in the same popover.
+These components mirror shell UI patterns and are useful when a custom applet wants to feel native:
 
-```txt
-popover {"root":{"type":"expander","data":{"label":"Details","expanded":true,"child":{"type":"label","data":{"text":"More"}}}}}
-```
+| Component | Use it for |
+| --- | --- |
+| `pager_item`, `pager_strip` | Workspace or page indicators. |
+| `camera_indicator`, `mic_indicator`, `muted_indicator`, `screencast_indicator`, `location_indicator` | Privacy/status indicators. |
+| `calendar` | Calendar view with selected date and marked event days. |
+| `battery_hero` | Battery popover header. |
+| `date_hero` | Date popover header. |
+| `events` | Calendar event list. |
+| `weather_forecast_list`, `weather_hourly_strip` | Weather forecast rows. |
+| `world_clock` | Timezone rows. |
 
-## Tree Expander
+## Event Payloads
 
-Use `tree_expander` for a GTK tree expander wrapper around a child node.
+Interactive components send events back to the applet:
 
-```txt
-popover {"root":{"type":"tree_expander","data":{"child":{"type":"label","data":{"text":"Nested"}},"hide_expander":true,"indent_for_depth":true,"indent_for_icon":true}}}
-```
+| Event | Typical components | Payload detail |
+| --- | --- | --- |
+| `click` | `tile`, `choice_tile`, `panel_indicator`, `pager_item`, status items with `id` | Optional `button` for status clicks. |
+| `toggle` | `switch_tile`, `expander_tile`, `segmented_tile` | `active = true` or `false`. |
+| `change` | `slider_tile`, `choice_list`, `pager_strip`, `calendar` | `value` contains the new number, string, item id, or date. |
+| `open`, `close` | Popover lifecycle | `id = "popover"`. |
 
-## Menu Button
-
-Use `menu_button` for compact controls that open rendered popover content. Controls inside the nested `popover` node still emit their own events.
-
-```txt
-popover {"root":{"type":"menu_button","data":{"label":"More","icon":"open-menu-symbolic","popover":{"type":"label","data":{"text":"Menu content"}}}}}
-```
-
-## Overlay
-
-Use `overlay` to render badges or other status affordances above a base component.
-
-```txt
-popover {"root":{"type":"overlay","data":{"child":{"type":"picture","data":{"path":"/home/me/.cache/avatar.png","content_fit":"cover"}},"overlays":[{"type":"badge","data":{"label":"Live","halign":"end","valign":"start"}}]}}}
-```
-
-## List Box
-
-Use `list_box` for native GTK list rows. Each child is rendered inside its own row.
-
-```txt
-popover {"root":{"type":"list_box","data":{"children":[{"type":"label","data":{"text":"First"}},{"type":"badge","data":{"label":"Second"}}]}}}
-```
-
-## Level Bar
-
-Use `level_bar` for native GTK level indicators.
-
-```txt
-popover {"root":{"type":"level_bar","data":{"value":0.7,"min":0,"max":1,"mode":"continuous"}}}
-```
+Status item scroll events are documented in [Line Protocol](./exec-protocol.md).
 
 ## See Also
 
 | Page | Covers |
-|---|---|
+| --- | --- |
 | [Exec Applet](./exec.md) | Applet config and options. |
 | [Line Protocol](./exec-protocol.md) | Raw protocol commands, message shapes, and events. |
 | [Exec SDK](../applets/exec-sdk.md) | SDK installation and language examples. |

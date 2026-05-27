@@ -17,6 +17,7 @@ pub enum KeyboardRememberMode {
 #[serde(default)]
 pub struct KeyboardConfig {
     pub remember: KeyboardRememberMode,
+    #[serde(skip)]
     pub labels: HashMap<String, String>,
 }
 
@@ -29,9 +30,7 @@ struct KeyboardAppletConfig {
 impl KeyboardConfig {
     pub fn from_config(config: &Config) -> Self {
         let mut keyboard = config.keyboard.clone();
-        if let Some(labels) = keyboard_applet_labels(config) {
-            keyboard.labels = labels;
-        }
+        keyboard.labels = keyboard_applet_labels(config).unwrap_or_default();
         keyboard
     }
 }
@@ -106,7 +105,7 @@ mod tests {
     }
 
     #[test]
-    fn keyboard_config_falls_back_to_custom_legacy_keyboard_applet_labels() {
+    fn keyboard_config_uses_custom_keyboard_applet_labels() {
         let mut config = Config::default();
         config.applets.insert(
             "my_keyboard".into(),
@@ -152,7 +151,7 @@ mod tests {
     }
 
     #[test]
-    fn top_level_keyboard_labels_remain_compatibility_fallback() {
+    fn top_level_keyboard_labels_are_ignored() {
         let config = Config {
             keyboard: KeyboardConfig {
                 labels: HashMap::from([("us".into(), "US".into())]),
@@ -163,6 +162,6 @@ mod tests {
 
         let keyboard = KeyboardConfig::from_config(&config);
 
-        assert_eq!(keyboard.labels.get("us"), Some(&"US".into()));
+        assert!(keyboard.labels.is_empty());
     }
 }

@@ -39,7 +39,7 @@ impl Config {
         match raw.settings.clone().try_into() {
             Ok(config) => config,
             Err(error) => {
-                tracing::warn!(?error, "invalid display applet config, using defaults");
+                tracing::warn!(?error, "invalid brightness applet config, using defaults");
                 Self::default()
             }
         }
@@ -61,7 +61,7 @@ pub struct Applet {
     panel_monitor: Option<String>,
     service_state: State,
     compositor_state: CompositorState,
-    state: State,
+    visible_state: State,
     icon_name: String,
     label: String,
     tooltip: String,
@@ -99,7 +99,7 @@ impl SimpleComponent for Applet {
     view! {
         root = PanelIndicator {
             #[watch]
-            set_visible: model.state.available,
+            set_visible: model.visible_state.available,
             #[watch]
             set_tooltip_text: if model.tooltip.is_empty() { None } else { Some(&model.tooltip) },
             #[watch]
@@ -147,7 +147,7 @@ impl SimpleComponent for Applet {
             panel_monitor: init.panel_monitor,
             service_state,
             compositor_state,
-            state,
+            visible_state: state,
             service: init.service,
             compositor: init.compositor,
             popover,
@@ -239,7 +239,7 @@ impl SimpleComponent for Applet {
             }
             Input::Scroll(dy) => {
                 let Some(source) = scroll_source(
-                    &self.state,
+                    &self.visible_state,
                     self.panel_monitor.as_deref(),
                     &self.compositor_state,
                 ) else {
@@ -284,13 +284,13 @@ impl Applet {
             &state,
             &self.compositor_state.monitors,
         );
-        self.state = state.clone();
+        self.visible_state = state.clone();
         self.popover.emit(PopoverInput::UpdateState(state));
     }
 
     fn sync_popover_state(&self) {
         self.popover
-            .emit(PopoverInput::UpdateState(self.state.clone()));
+            .emit(PopoverInput::UpdateState(self.visible_state.clone()));
         self.sync_popover_monitors();
     }
 
@@ -407,6 +407,7 @@ mod tests {
         let config = Config::default();
 
         assert_eq!(config.label_format, "");
+        assert_eq!(config.tooltip_format, "{source}: {percent}%");
         assert_eq!(config.scroll_step, 10);
     }
 

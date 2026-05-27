@@ -164,7 +164,6 @@ impl Popover {
 struct MonitorRowModel {
     name: String,
     label: String,
-    secondary: String,
     icon: &'static str,
     active: bool,
     sensitive: bool,
@@ -243,8 +242,9 @@ impl MonitorRow {
         self.root.set_primary(&model.label);
         self.root.set_secondary(None);
         self.root.set_sensitive(model.sensitive);
+        let status = if model.active { "Enabled" } else { "Disabled" };
         self.root
-            .set_tooltip_text(Some(&format!("{} - {}", model.label, model.secondary)));
+            .set_tooltip_text(Some(&format!("{} - {} - {status}", model.label, model.name)));
         let active = {
             let mut pending = self.pending_enabled.borrow_mut();
             monitor_enabled_for_update(&mut pending, model.active, Instant::now())
@@ -269,17 +269,11 @@ fn monitor_row_models(monitors: &[Monitor]) -> Vec<MonitorRowModel> {
         .map(|monitor| MonitorRowModel {
             name: monitor.name.clone(),
             label: format::monitor_display_name(monitor),
-            secondary: monitor_secondary(monitor),
             icon: monitor_icon(monitor),
             active: monitor.enabled,
             sensitive: !monitor.enabled || enabled_count > 1,
         })
         .collect()
-}
-
-fn monitor_secondary(monitor: &Monitor) -> String {
-    let status = if monitor.enabled { "Enabled" } else { "Disabled" };
-    format!("{} - {status}", monitor.name)
 }
 
 fn monitor_icon(monitor: &Monitor) -> &'static str {

@@ -89,7 +89,7 @@ impl Default for PanelConfig {
                 "printing".into(),
                 "bluetooth".into(),
                 "network".into(),
-                "display".into(),
+                "brightness".into(),
                 "audio".into(),
                 "idle".into(),
                 "battery".into(),

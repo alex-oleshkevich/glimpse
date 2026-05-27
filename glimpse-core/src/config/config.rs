@@ -336,7 +336,10 @@ right = ["...", "custom"]
         )
         .unwrap();
 
-        assert_eq!(config.panels[0].left, vec!["custom", "pager", "mpris"]);
+        assert_eq!(
+            config.panels[0].left,
+            vec!["custom", "pager", "mpris", "__dev__"]
+        );
         assert_eq!(
             config.panels[0].center,
             vec!["clock", "weather", "notifications", "privacy"]

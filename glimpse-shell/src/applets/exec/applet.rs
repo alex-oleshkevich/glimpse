@@ -68,7 +68,7 @@ impl Default for Config {
             command: Vec::new(),
             restart_delay_ms: DEFAULT_RESTART_DELAY_MS,
             options: serde_json::json!({}),
-            env_forward: true,
+            env_forward: false,
             env: std::collections::HashMap::new(),
             work_dir: None,
         }
@@ -404,6 +404,26 @@ mod tests {
     #[test]
     fn empty_command_configs_do_not_launch() {
         assert!(!Applet::can_launch(&Config::default()));
+    }
+
+    #[test]
+    fn config_defaults_to_not_forwarding_environment() {
+        assert!(!Config::default().env_forward);
+    }
+
+    #[test]
+    fn config_accepts_env_forward_opt_in() {
+        let raw = AppletConfig {
+            settings: toml::toml! {
+                env_forward = true
+            }
+            .into(),
+            ..AppletConfig::default()
+        };
+
+        let config = Config::from_raw(&Some(raw));
+
+        assert!(config.env_forward);
     }
 
     #[test]

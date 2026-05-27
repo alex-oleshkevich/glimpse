@@ -7,7 +7,7 @@ pub const DEFAULT_LABEL_FORMAT: &str = "";
 pub const DEFAULT_TOOLTIP_FORMAT: &str = "{source}: {percent}%";
 pub const ICON_NAME: &str = "display-brightness-symbolic";
 
-pub fn label(format: &str, state: &State) -> String {
+fn label(format: &str, state: &State) -> String {
     render(format, primary_source(state))
 }
 
@@ -19,7 +19,7 @@ pub fn label_with_monitors(format: &str, state: &State, monitors: &[Monitor]) ->
     render_with_monitors(format, primary_source(state), monitors)
 }
 
-pub fn tooltip(format: &str, state: &State) -> String {
+fn tooltip(format: &str, state: &State) -> String {
     render(format, primary_source(state))
 }
 

@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local, NaiveDate};
 
 use glimpse_core::services::{
-    calendar_events::{CalendarEvent, MonthKey},
+    calendar_events::CalendarEvent,
     clock::State as ClockState,
 };
 
@@ -22,13 +22,6 @@ pub fn selected_weekday(date: NaiveDate) -> String {
 
 pub fn selected_date(date: NaiveDate) -> String {
     date.format("%-d %b, %Y").to_string()
-}
-
-pub fn month_label(month: MonthKey) -> String {
-    month
-        .to_naive_date()
-        .map(|date| date.format("%B %Y").to_string())
-        .unwrap_or_default()
 }
 
 pub fn event_time(event: &CalendarEvent, selected_date: NaiveDate, now: DateTime<Local>) -> String {

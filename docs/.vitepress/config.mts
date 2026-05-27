@@ -53,7 +53,7 @@ export default defineConfig({
         items: [
           { text: 'Getting Started', link: '/custom-applets/getting-started' },
           { text: 'Tooling', link: '/custom-applets/tooling' },
-          { text: 'Applet', link: '/custom-applets/exec' },
+          { text: 'Exec Applet', link: '/custom-applets/exec' },
           { text: 'SDK', link: '/applets/exec-sdk' },
           { text: 'Line Protocol', link: '/custom-applets/exec-protocol' },
           { text: 'Components', link: '/custom-applets/exec-components' }

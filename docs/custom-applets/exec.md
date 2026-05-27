@@ -1,8 +1,21 @@
 # Exec Applet
 
-The exec applet runs a child process and lets that process control panel status and popover content.
+Use an exec applet when a custom panel item needs to stay alive. It can update its status, show a custom popover, handle clicks and scroll events, and keep its own local state.
 
-Use it when you want a custom local widget without writing a built-in Rust applet. Raw exec applets use the [line protocol](./exec-protocol.md). If you prefer typed helpers instead of raw protocol lines, use the [Exec SDK](../applets/exec-sdk.md). For project creation and live reload, use [Applet Tooling](./tooling.md).
+For a simple launcher or menu, use a [command applet](./command.md) instead.
+
+## How It Runs
+
+| Step | What happens |
+| --- | --- |
+| Start | The shell reads the package file and starts the configured command. |
+| Init | The applet receives an `init` message with its instance name and `[exec.options]`. |
+| Status | The applet sends status updates for the panel item. |
+| Popover | The applet can send popover content when it has details to show. |
+| Events | Click, scroll, and open events are sent back to the applet. |
+| Restart | If the process exits, it restarts after `restart_delay_ms`. |
+
+Most users should start with [Getting Started](./getting-started.md), then come back to this page when they need the config reference.
 
 ## Basic Config
 
@@ -16,37 +29,31 @@ command = ["sh", "-c", "~/.config/glimpse/scripts/sysinfo"]
 restart_delay_ms = 1000
 env_forward = false
 
-[exec.env]
-PATH = "/usr/bin:/bin"
-
 [exec.options]
-interval = 5
-unit = "celsius"
+interval_seconds = 5
 ```
 
-Add the custom applet name to a panel section:
+Add the package id to a panel section:
 
 ```toml
+[[panels]]
 right = ["sysinfo", "network", "battery"]
 ```
 
-| Option | Default | Meaning |
-|---|---|---|
-| `type` | required | Use `"exec"` in an applet package file. |
-| `command` | `[]` | Program to run. Required. Use `["sh", "-c", "..."]` when you need shell syntax. |
-| `restart_delay_ms` | `1000` | Delay before the program restarts after exit. Minimum 50. |
-| `options` | `{}` | Custom data sent to the child process in the `init` message. |
-| `env_forward` | `false` | Set `true` to inherit the parent process environment. |
-| `env` | `{}` | Extra environment variables for the child process. |
+## Applet Project Directories
 
-## Applet Directories
+For a reusable applet project, keep the package file beside the applet code:
 
-Exec applets are declared as applet package files, either linked into
-`~/.config/glimpse/applets` or kept in project directories with an `applet.toml`
-file:
+```text
+my-applet/
+├── applet.toml
+└── main.py
+```
+
+Example `applet.toml`:
 
 ```toml
-id = "sysinfo"
+id = "my-applet"
 type = "exec"
 
 [exec]
@@ -54,54 +61,87 @@ command = ["uv", "run", "main.py"]
 restart_delay_ms = 1000
 ```
 
-Project directories are the preferred shape for SDK applets. They keep source code, package metadata, and `applet.toml` together. `glimpse-shell applets link` installs the project by symlinking `applet.toml` to `~/.config/glimpse/applets/<id>.toml`.
+Run it during development:
 
-Development mode creates a temporary discovered applet instead:
-
-```sh
-glimpse-shell applets dev /path/to/sysinfo
+```bash
+glimpse-shell applets dev
 ```
 
-That command writes `~/.config/glimpse/applets/sysinfo.dev.toml` while it runs. The default panel already includes `__dev__`; keep or add it in custom panel layouts to show active dev applets.
+The development command writes a temporary package under `~/.config/glimpse/applets` while it runs. The default panel already includes `__dev__`; keep or add that slot in custom panel layouts to show active development applets.
 
-If an applet id exists in both the normal applet directory and the dev applet
-set, the normal linked applet wins.
+When the applet is ready for normal use, link it:
+
+```bash
+glimpse-shell applets link
+```
 
 ## Options
 
-`[exec.options]` is arbitrary data for your applet instance. Glimpse does not interpret it.
+| Field | Default | Description |
+| --- | --- | --- |
+| `command` | required | Program and arguments to start. |
+| `restart_delay_ms` | `1000` | Delay before the program restarts after exit. Minimum `50`. |
+| `work_dir` | unset | Working directory for the command. |
+| `options` | `{}` | Custom JSON-like data sent to the applet in the `init` message. |
+| `env` | `{}` | Extra environment variables passed to the command. |
+| `env_forward` | `false` | Set `true` to inherit the parent process environment. |
 
-When the child process starts, Glimpse sends the options in the first `init` line:
+## Environment And Working Directory
 
-```txt
-init {"instance":"sysinfo","options":{"interval":5,"unit":"celsius"}}
+Use `work_dir` when the command needs to run from a specific directory:
+
+```toml
+[exec]
+command = ["./target/debug/my-applet"]
+work_dir = "/home/me/Projects/my-applet"
 ```
 
-Use this for script-specific settings such as polling intervals, units, paths, thresholds, or feature flags.
+Use `env` for values that should be explicit:
 
-## Raw Protocol Applets
+```toml
+[exec.env]
+RUST_LOG = "info"
+```
 
-A raw exec applet reads lines from stdin and writes lines to stdout. Glimpse sends `init` and `event` messages to the child process. The child process sends `status` and `popover` messages back.
+Set `env_forward = true` only when the applet needs the full parent environment. Keeping it `false` makes development and startup behavior easier to reason about.
 
-Read [Line Protocol](./exec-protocol.md) for the full message reference.
+The shell always adds its applet IPC socket environment variables for SDK helpers, even when `env_forward = false`.
 
-## Popover Components
+## Options In Init
 
-Popover content is a component tree. Each node has a `type` and `data`, and the available component types are shared by raw protocol applets and SDK applets.
+`[exec.options]` is applet-owned data. The shell does not interpret it; it sends the table to the child process in the first `init` line:
 
-Read [Components](./exec-components.md) for the component reference.
+```txt
+init {"instance":"sysinfo","options":{"interval_seconds":5}}
+```
 
-## SDK Applets
+Use this for applet-specific settings such as polling intervals, labels, thresholds, paths, or feature flags.
 
-SDK applets still run through `extends = "exec"`, but the SDK handles stdin, stdout, JSON encoding, events, and rendering.
+## Choose An Implementation
 
-Read [Exec SDK](../applets/exec-sdk.md) for installation and minimal examples in Python, TypeScript, Rust, and Go.
+| Option | Use it when |
+| --- | --- |
+| [Exec SDK](../applets/exec-sdk.md) | You want normal language APIs for status, popovers, and events. |
+| [Line Protocol](./exec-protocol.md) | You want a tiny script or need to understand the raw messages. |
+| [Components](./exec-components.md) | You need the exact status and popover component shapes. |
+
+SDK applets are the easiest path for most applets. Raw protocol applets are useful for short scripts or debugging.
+
+## Development Flow
+
+Use [Applet Tooling](./tooling.md) for the full workflow:
+
+1. Create a project.
+2. Run it in development mode.
+3. Show it through the `__dev__` panel slot.
+4. Link it for normal use.
+5. Diagnose package and runtime issues.
 
 ## See Also
 
-| Page | Covers |
-|---|---|
-| [Line Protocol](./exec-protocol.md) | Raw protocol commands, message shapes, events, and shell examples. |
-| [Components](./exec-components.md) | Popover component fields and component types. |
-| [Exec SDK](../applets/exec-sdk.md) | SDK installation and language examples. |
-| [Applet Tooling](./tooling.md) | Project scaffolding, live reload, linking, and diagnostics. |
+| Page | Use it for |
+| --- | --- |
+| [Getting Started](./getting-started.md) | Build your first exec applet. |
+| [Applet Tooling](./tooling.md) | Project commands and development workflow. |
+| [Command Applet](./command.md) | Simple launchers and menus. |
+| [Custom Applets](./index.md) | Overview and path selection. |

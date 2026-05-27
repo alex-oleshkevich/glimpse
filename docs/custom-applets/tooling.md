@@ -16,7 +16,7 @@
 flowchart LR
     New["glimpse-shell applets new"] --> Edit["Edit source and applet.toml"]
     Edit --> Dev["glimpse-shell applets dev"]
-    Dev --> Panel["Add __dev__ to a panel"]
+    Dev --> Panel["Keep __dev__ in a panel"]
     Dev --> Link["glimpse-shell applets link"]
     Link --> List["glimpse-shell applets ls"]
     List --> Remove["glimpse-shell applets unlink"]

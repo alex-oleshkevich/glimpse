@@ -2186,30 +2186,49 @@ fn load_pack_css(provider: &CssProvider, path: Option<&Path>) {
 }
 
 fn load_custom_css(provider: &CssProvider, path: &Path) {
-    let _ = load_css_from_path(provider, path, "lock CSS");
+    if !load_css_from_path(provider, path, "lock CSS") {
+        provider.load_from_string("");
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum CssLoadOutcome {
+    Applied(String),
+    KeptPrevious,
+    Missing,
 }
 
 fn load_css_from_path(provider: &CssProvider, path: &Path, label: &str) -> bool {
+    match css_load_outcome(path, label) {
+        CssLoadOutcome::Applied(css) => {
+            provider.load_from_string(&css);
+            true
+        }
+        CssLoadOutcome::KeptPrevious => true,
+        CssLoadOutcome::Missing => false,
+    }
+}
+
+fn css_load_outcome(path: &Path, label: &str) -> CssLoadOutcome {
     match fs::read_to_string(path) {
         Ok(css) if css_has_parse_errors(&css) => {
             tracing::warn!(
                 path = %path.display(),
                 "{label} has parse errors; keeping previous valid CSS"
             );
-            true
+            CssLoadOutcome::KeptPrevious
         }
         Ok(css) => {
-            provider.load_from_string(&css);
             tracing::info!(path = %path.display(), "loaded {label}");
-            true
+            CssLoadOutcome::Applied(css)
         }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             tracing::debug!(path = %path.display(), "{label} not found");
-            false
+            CssLoadOutcome::Missing
         }
         Err(error) => {
             tracing::warn!(path = %path.display(), %error, "failed to read {label}");
-            true
+            CssLoadOutcome::KeptPrevious
         }
     }
 }
@@ -2807,8 +2826,8 @@ mod tests {
     use notify::event::{AccessKind, AccessMode, DataChange, ModifyKind, RenameMode};
 
     use super::{
-        DecodedTexture, ImageLoadState, LockMode, LockPowerAction, TextureCacheKey,
-        battery_control_status, cooldown_seconds_after, file_watch_event_reloads,
+        CssLoadOutcome, DecodedTexture, ImageLoadState, LockMode, LockPowerAction, TextureCacheKey,
+        battery_control_status, cooldown_seconds_after, css_load_outcome, file_watch_event_reloads,
         file_watch_path_matches, keyboard_control_status, load_cached_texture,
         network_control_status, power_confirmation_icon, power_confirmation_title,
         resize_rgba_for_fit, should_run_power_action, watch_dirs_for_file, write_cached_texture,
@@ -2927,6 +2946,13 @@ mod tests {
         ));
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn css_load_outcome_marks_missing_files_for_provider_clear() {
+        let path = temp_path("missing-lock-css").join("lock.css");
+
+        assert_eq!(css_load_outcome(&path, "lock CSS"), CssLoadOutcome::Missing);
     }
 
     #[test]

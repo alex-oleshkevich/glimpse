@@ -115,6 +115,25 @@ fn parses_keyboard_service_config() {
 }
 
 #[test]
+fn ignores_old_top_level_keyboard_labels() {
+    let config = Config::from_toml_str(
+        r#"
+        [keyboard]
+        remember = "app"
+
+        [keyboard.labels]
+        us = "OLD"
+        "#,
+    )
+    .unwrap();
+
+    let keyboard = KeyboardConfig::from_config(&config);
+
+    assert_eq!(keyboard.remember, KeyboardRememberMode::App);
+    assert!(keyboard.labels.is_empty());
+}
+
+#[test]
 fn config_ignores_unknown_applet_extends_values() {
     let config = Config::from_toml_str(
         r#"
@@ -193,4 +212,13 @@ fn default_panel_includes_printing_after_keyboard() {
     let keyboard_pos = panel.right.iter().position(|s| s == "keyboard").unwrap();
     let printing_pos = panel.right.iter().position(|s| s == "printing").unwrap();
     assert_eq!(printing_pos, keyboard_pos + 1);
+}
+
+#[test]
+fn default_panel_includes_dev_slot_at_end_of_left_section() {
+    use glimpse_core::config::panels::{DEV_SLOT, PanelConfig};
+
+    let panel = PanelConfig::default();
+
+    assert_eq!(panel.left.last().map(String::as_str), Some(DEV_SLOT));
 }

@@ -1,6 +1,14 @@
 # Command Applet
 
-The command applet is the easiest way to add a launcher or small menu to your panel.
+Use a command applet when the panel item only needs to run commands. It is the right fit for app launchers, URL launchers, screenshot buttons, lock buttons, power menus, and small personal shortcuts.
+
+If the applet needs to show changing state, render custom popovers, or react to events while a process keeps running, use an [exec applet](./exec.md) instead.
+
+## Flow
+
+1. Create a package file in `~/.config/glimpse/applets`.
+2. Add the package `id` to a panel section in `config.toml`.
+3. Click the panel item to run the command.
 
 ## Button Example
 
@@ -11,15 +19,16 @@ type = "command"
 
 [command]
 icon = "utilities-terminal-symbolic"
-label = "Terminal"
 tooltip = "Open terminal"
 command = ["ghostty"]
 ```
 
-Add it to a panel:
+Add the package id to a panel:
 
 ```toml
-right = ["terminal", "network", "battery"]
+# ~/.config/glimpse/config.toml
+[[panels]]
+left = ["pager", "terminal", "mpris"]
 ```
 
 ## Menu Example
@@ -43,34 +52,55 @@ label = "Restart"
 command = ["systemctl", "reboot"]
 
 [[command.menu]]
-label = "Shutdown"
+label = "Power Off"
 command = ["systemctl", "poweroff"]
 ```
 
-The main button runs `command`. The menu items run their own commands.
+The main button runs `command`. Menu items run their own commands.
 
 ## Options
 
-| Option | What it does |
-|---|---|
-| `icon` | Symbolic icon name. |
-| `label` | Optional text beside the icon. |
-| `tooltip` | Text shown on hover. |
-| `command` | Command to run when clicked. |
-| `menu` | Optional right-click or popover menu items. |
+| Field | Description |
+| --- | --- |
+| `icon` | Icon name shown in the panel. |
+| `label` | Optional text label shown in the panel. |
+| `tooltip` | Tooltip shown on hover. |
+| `command` | Command run by the primary click. |
+| `on_click` | Same behavior as `command`; useful when you prefer explicit event names. |
+| `on_middle_click` | Command run by middle click. |
+| `on_scroll_up` | Command run when scrolling up over the applet. |
+| `on_scroll_down` | Command run when scrolling down over the applet. |
+| `on_scroll_left` | Command run when horizontal scrolling left over the applet. |
+| `on_scroll_right` | Command run when horizontal scrolling right over the applet. |
+| `menu` | Optional menu entries. Each entry has `label` and `command`. |
 
-## Shell Examples
+## Shell Syntax
 
-Open a web app:
+Commands are argument arrays, not shell strings. This avoids quoting surprises:
 
 ```toml
 command = ["xdg-open", "https://calendar.google.com"]
 ```
 
-Use shell features:
+Use a shell only when you need shell features like pipes, redirects, variables, or command substitution:
 
 ```toml
 command = ["sh", "-c", "grim ~/Pictures/Screenshots/$(date +%F-%H%M%S).png"]
 ```
 
-When in doubt, write the command exactly as you would run it in a terminal, then wrap it with `["sh", "-c", "..."]` if it needs shell syntax.
+## When To Use Exec Instead
+
+Use an [exec applet](./exec.md) when the panel item needs to:
+
+- update its label, icon, or state over time;
+- show a custom popover with live content;
+- react to panel events inside a running program;
+- keep state between clicks.
+
+## See Also
+
+| Page | Use it for |
+| --- | --- |
+| [Custom Applets](./index.md) | Choosing between command and exec applets. |
+| [Exec Applet](./exec.md) | Live applets and custom popovers. |
+| [Applet Reference](../applets/index.md) | Built-in applets shipped with the shell. |

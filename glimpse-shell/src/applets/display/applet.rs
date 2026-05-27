@@ -158,9 +158,6 @@ impl SimpleComponent for Applet {
                 self.apply_state();
             }
             Input::TogglePopover => {
-                self.popover.emit(PopoverInput::UpdateMonitors(
-                    self.compositor_state.monitors.clone(),
-                ));
                 self.popover.emit(PopoverInput::Toggle);
             }
             Input::PopoverOutput(output) => match output {
@@ -179,6 +176,9 @@ impl Applet {
     fn apply_state(&mut self) {
         self.tooltip =
             format::tooltip(&self.config.tooltip_format, &self.compositor_state.monitors);
+        // Keep popover in sync on every compositor change so TogglePopover never needs to
+        // pre-send UpdateMonitors before opening. The subscription also fires immediately on
+        // init, so the popover has data before any user click can arrive.
         self.popover.emit(PopoverInput::UpdateMonitors(
             self.compositor_state.monitors.clone(),
         ));

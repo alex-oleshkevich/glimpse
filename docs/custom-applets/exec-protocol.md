@@ -12,6 +12,8 @@ command {"field":"value"}
 |---|---|---|
 | Child to Glimpse | `status` | Replaces the panel status items for this applet. |
 | Child to Glimpse | `popover` | Replaces the popover content for this applet. |
+| Child to Glimpse | `class` | Replaces the applet-specific CSS class suffix for popover styling. |
+| Child to Glimpse | `close-popover` | Closes the applet popover. |
 | Glimpse to child | `init` | Announces the applet instance name and configured `options`. |
 | Glimpse to child | `event` | Reports clicks, scrolls, popover opens/closes, and control changes. |
 
@@ -32,13 +34,15 @@ Unknown commands and invalid JSON are ignored and logged.
 | `init` | Glimpse to child | Startup data for this applet instance. | `{"instance":"name","options":{...}}` |
 | `status` | Child to Glimpse | Current panel items. | `{"items":[...]}` |
 | `popover` | Child to Glimpse | Current popover tree. | `{"root":{...}}` |
+| `class` | Child to Glimpse | Popover CSS class suffix. | plain text after `class ` |
+| `close-popover` | Child to Glimpse | Close the popover. | no payload |
 | `event` | Glimpse to child | User interaction or popover lifecycle event. | `{"id":"...","type":"...","source":"...",...}` |
 
 Your child process sends:
 
 ```txt
-status {"items":[{"id":"cpu","label":"42%","icon":{"name":"cpu-symbolic"},"tooltip":"CPU usage"}]}
-popover {"root":{"type":"section","data":{"title":"System","children":[]}}}
+status {"items":[{"id":"cpu","label":"42%","icon":"cpu-symbolic","tooltip":"CPU usage"}]}
+popover {"root":{"type":"popover_shell","data":{"children":[{"type":"hero","data":{"title":"System","subtitle":"CPU 42%"}}]}}}
 ```
 
 Glimpse sends:
@@ -54,15 +58,15 @@ Status items are shown directly in the panel.
 
 ```txt
 status {"items":[
-  {"id":"cpu","icon":{"name":"cpu-symbolic"},"label":"12%","tooltip":"CPU"},
-  {"id":"mem","icon":{"name":"memory-symbolic"},"label":"51%","tooltip":"Memory"}
+  {"id":"cpu","icon":"cpu-symbolic","label":"12%","tooltip":"CPU"},
+  {"id":"mem","icon":"memory-symbolic","label":"51%","tooltip":"Memory"}
 ]}
 ```
 
 | Field | Default | Meaning |
 |---|---|---|
 | `id` | unset | Optional event id. Add it if you want clicks or scrolls. |
-| `icon` | unset | Optional icon, either `{"name":"icon-name"}` or `{"path":"/path/to/image.png"}`. |
+| `icon` | unset | Optional symbolic icon name. |
 | `label` | unset | Optional text in the panel. |
 | `tooltip` | unset | Optional hover text. |
 
@@ -73,29 +77,14 @@ Left-click opens the popover when the applet has popover content. Right-click op
 A `popover` message replaces this applet's popover content. The payload has a `root` field containing a component tree.
 
 ```txt
-popover {"root":{"type":"section","data":{
-  "title":"System",
-  "children":[
-    {"type":"row","data":{"spacing":8,"children":[{"type":"label","data":{"text":"CPU"}},{"type":"badge","data":{"label":"42%"}}]}},
-    {"type":"meter","data":{"label":"Memory","value":0.51,"text":"51%"}},
-    {"type":"level_bar","data":{"value":0.7,"min":0.0,"max":1.0,"mode":"continuous"}},
-    {"type":"toggle_button","data":{"id":"focus","label":"Focus","active":false}},
-    {"type":"picture","data":{"path":"/home/me/.cache/avatar.png","content_fit":"cover"}},
-    {"type":"overlay","data":{"child":{"type":"label","data":{"text":"Preview"}},"overlays":[{"type":"badge","data":{"label":"Live","halign":"end","valign":"start"}}]}},
-    {"type":"list_box","data":{"children":[{"type":"label","data":{"text":"First"}},{"type":"badge","data":{"label":"Second"}}]}},
-    {"type":"tree_expander","data":{"child":{"type":"label","data":{"text":"Nested"}},"hide_expander":true,"indent_for_depth":true,"indent_for_icon":true}},
-    {"type":"menu_button","data":{"label":"More","icon":"open-menu-symbolic","popover":{"type":"label","data":{"text":"Menu content"}}}},
-    {"type":"link_button","data":{"uri":"https://example.com/docs","label":"Docs"}},
-    {"type":"expander","data":{"label":"More","expanded":false,"child":{"type":"label","data":{"text":"Extra details"}}}}
-  ]
-}}}
+popover {"root":{"type":"popover_shell","data":{"children":[{"type":"hero","data":{"title":"System","subtitle":"Live status","icon":"utilities-system-monitor-symbolic"}},{"type":"tile","data":{"id":"refresh","primary":"Refresh","secondary":"Run now","left_icon":"view-refresh-symbolic"}},{"type":"meter","data":{"label":"Memory","value":0.51,"text":"51%"}}]}}}
 ```
 
 The `root` object uses this structure:
 
 | Field | Meaning |
 |---|---|
-| `type` | Component name, such as `section`, `row`, `button`, or `meter`. |
+| `type` | Component name, such as `popover_shell`, `row`, `tile`, or `meter`. |
 | `data` | Component fields. The expected fields depend on `type`. |
 
 Send a complete popover update whenever the content changes. Read [Components](./exec-components.md) for valid component types and fields.
@@ -107,16 +96,13 @@ Interactive status items and popover components send `event` lines back to the c
 | Source | Event | Payload |
 |---|---|---|
 | Status item with `id` | `click`, `scroll` | `button` or `delta_y`. |
-| Popover `button` | `click` | `button = "left"`. |
-| Popover `switch` | `toggle` | `active = true` or `false`. |
-| Popover `toggle_button` | `toggle` | `active = true` or `false`. |
-| Popover `checkbox` | `toggle` | `active = true` or `false`. |
-| Popover `slider` | `change` | numeric `value`. |
-| Interactive `meter` | `change` | numeric `value`. |
-| Popover `select` | `change` | selected item id, label, and index. |
+| `tile`, `choice_tile`, `panel_indicator`, `pager_item` | `click` | `id` identifies the component. |
+| `switch_tile`, `expander_tile`, `segmented_tile` | `toggle` | `active = true` or `false`. |
+| `slider_tile` | `change` | numeric `value`. |
+| `choice_list`, `pager_strip`, `calendar` | `change` | selected id, item id, or date string in `value`. |
 | Popover lifecycle | `open`, `close` | id `popover`. |
 
-`link_button` opens its URI through GTK and does not emit an applet event.
+Components without an `id` are display-only unless the component requires an id.
 
 Example event:
 
@@ -129,15 +115,15 @@ event {"id":"volume","type":"change","source":"popover","value":0.72}
 ```sh
 #!/bin/sh
 
-printf 'status {"items":[{"id":"load","label":"starting","icon":{"name":"utilities-system-monitor-symbolic"}}]}\n'
+printf 'status {"items":[{"id":"load","label":"starting","icon":"utilities-system-monitor-symbolic"}]}\n'
 
 while IFS= read -r line; do
   case "$line" in
     init\ *)
-      printf 'status {"items":[{"id":"load","label":"ready","icon":{"name":"utilities-system-monitor-symbolic"}}]}\n'
+      printf 'status {"items":[{"id":"load","label":"ready","icon":"utilities-system-monitor-symbolic"}]}\n'
       ;;
     event\ *)
-      printf 'popover {"root":{"type":"section","data":{"title":"System","children":[{"type":"row","data":{"spacing":8,"children":[{"type":"label","data":{"text":"Last event"}},{"type":"badge","data":{"label":"seen"}}]}}]}}}\n'
+      printf 'popover {"root":{"type":"popover_shell","data":{"children":[{"type":"hero","data":{"title":"System","subtitle":"Last event seen"}},{"type":"badge","data":{"label":"seen","kind":"success"}}]}}}\n'
       ;;
   esac
 done
@@ -153,7 +139,7 @@ This shape is event-driven. For polling, run a background loop and keep reading 
 while true; do
   temp="$(sensors | rg 'Package id 0' | rg -o '[0-9]+\\.[0-9]+°C' | head -n1)"
   [ -n "$temp" ] || temp="n/a"
-  printf 'status {"items":[{"id":"cpu","icon":{"name":"temperature-symbolic"},"label":"%s","tooltip":"CPU temperature"}]}\n' "$temp"
+  printf 'status {"items":[{"id":"cpu","icon":"temperature-symbolic","label":"%s","tooltip":"CPU temperature"}]}\n' "$temp"
   sleep 5
 done
 ```
@@ -171,16 +157,16 @@ command = ["sh", "-c", "~/.config/glimpse/scripts/cpu-temp"]
 
 ## How-To: Toggle A Command
 
-Use a button and handle its click event:
+Use an activatable tile and handle its click event:
 
 ```txt
-popover {"root":{"type":"section","data":{"title":"VPN","children":[{"type":"button","data":{"id":"toggle-vpn","label":"Toggle VPN","icon":"network-vpn-symbolic","variant":"primary"}}]}}}
+popover {"root":{"type":"popover_shell","data":{"children":[{"type":"tile","data":{"id":"toggle-vpn","primary":"Toggle VPN","left_icon":"network-vpn-symbolic","activatable":true}}]}}}
 ```
 
 Your script receives:
 
 ```txt
-event {"id":"toggle-vpn","type":"click","source":"popover","button":"left"}
+event {"id":"toggle-vpn","type":"click","source":"popover"}
 ```
 
 Run your command, then print updated `status` and `popover` lines.

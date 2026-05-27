@@ -24,7 +24,7 @@ id = "counter"
 type = "exec"
 
 [exec]
-command = ["/home/alex/.config/glimpse/applets/counter"]
+command = ["/home/me/.config/glimpse/applets/counter"]
 
 [exec.options]
 start = 0

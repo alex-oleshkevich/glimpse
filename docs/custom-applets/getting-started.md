@@ -495,9 +495,7 @@ Add the applet name to a panel section:
 right = ["counter", "network", "battery"]
 ```
 
-Save the config. Glimpse picks up changes on the next panel reload —
-either click your existing reload button or restart `glimpse-shell`
-(`systemctl --user restart glimpse-shell`).
+Save the config. Glimpse picks up changes on the next panel reload. Use your existing reload action or restart the shell.
 
 You should now see your counter in the panel. Left-click opens the
 popover; click **Increment** and the number updates in both places.
@@ -505,9 +503,9 @@ popover; click **Increment** and the number updates in both places.
 ## What happened
 
 When Glimpse started your applet it sent one `init` line on stdin
-with the applet's name and any `options` from your config (we didn't
-set any). Your `render()` then printed a `status` line and (because
-the popover opened later) a `popover` line. When you clicked
+with the applet's name and any `[exec.options]` from your applet package
+(we didn't set any). Your status handler then printed a `status` line
+and your popover handler printed a `popover` line. When you clicked
 Increment, Glimpse sent an `event` line back; the SDK routed it to
 your click handler; you mutated state; the SDK re-rendered and pushed
 fresh `status` + `popover` lines.
@@ -518,17 +516,15 @@ and event handlers.
 
 ## Common follow-ups
 
-- **Pass per-applet config.** Add a `[applets.counter.options]` table
-  in your TOML; the SDK exposes it to your applet during `init`.
+- **Pass per-applet config.** Add an `[exec.options]` table in the
+  applet package; the SDK exposes it to your applet during `init`.
 - **Refresh on a timer**, not only on events. Spawn a background task
   that mutates state every N seconds — the SDK re-renders
   automatically.
 - **Use richer widgets.** The full component reference is at
-  [Components](./exec-components.md). The most useful ones for live
-  state are `item` (display row with a right slot), `action_item`
-  (clickable row with a render-only right slot), `meter` (progress +
-  slider), `property_list` (key/value facts), `slider` (numeric control),
-  and `select` (mode switcher).
+  [Components](./exec-components.md). Useful popover building blocks
+  include `tile`, `switch_tile`, `slider_tile`, `choice_list`, `meter`,
+  `key_value_grid`, `badge`, and `popover_shell`.
 - **Restart on crash.** The `restart_delay_ms` config option controls
   how soon Glimpse re-spawns your applet after it exits. The default
   is 1 second.
