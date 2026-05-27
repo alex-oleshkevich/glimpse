@@ -569,9 +569,23 @@ mod tests {
         let state = handle.snapshot();
         assert_eq!(state.power_source, PowerSource::Ac);
         assert!(state.enabled);
-        assert_eq!(state.listeners.len(), 1);
-        assert_eq!(state.listeners[0].timeout, 900);
-        assert_eq!(state.listeners[0].on_idle, "loginctl lock-session");
+        let listeners: Vec<_> = state
+            .listeners
+            .iter()
+            .map(|l| (l.timeout, l.on_idle.as_str(), l.on_resume.as_str()))
+            .collect();
+        assert_eq!(
+            listeners,
+            vec![
+                (
+                    600,
+                    "/usr/share/glimpse/scripts/monitors off",
+                    "/usr/share/glimpse/scripts/monitors on",
+                ),
+                (900, "loginctl lock-session", ""),
+                (3600, "systemctl suspend", ""),
+            ]
+        );
     }
 
     #[test]

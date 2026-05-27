@@ -215,17 +215,46 @@ mod idle_config_tests {
 
         assert!(config.idle.enabled);
         assert!(config.idle.respect_inhibitors);
-        assert_eq!(config.idle.profiles.ac.listeners.len(), 1);
-        assert_eq!(config.idle.profiles.battery.listeners.len(), 1);
-        assert_eq!(config.idle.profiles.ac.listeners[0].timeout, 900);
+        let ac_steps: Vec<_> = config
+            .idle
+            .profiles
+            .ac
+            .listeners
+            .iter()
+            .map(|l| (l.timeout, l.on_idle.as_str(), l.on_resume.as_str()))
+            .collect();
         assert_eq!(
-            config.idle.profiles.ac.listeners[0].on_idle,
-            "loginctl lock-session"
+            ac_steps,
+            vec![
+                (
+                    600,
+                    "/usr/share/glimpse/scripts/monitors off",
+                    "/usr/share/glimpse/scripts/monitors on",
+                ),
+                (900, "loginctl lock-session", ""),
+                (3600, "systemctl suspend", ""),
+            ]
         );
-        assert_eq!(config.idle.profiles.battery.listeners[0].timeout, 900);
+
+        let battery_steps: Vec<_> = config
+            .idle
+            .profiles
+            .battery
+            .listeners
+            .iter()
+            .map(|l| (l.timeout, l.on_idle.as_str(), l.on_resume.as_str()))
+            .collect();
         assert_eq!(
-            config.idle.profiles.battery.listeners[0].on_idle,
-            "loginctl lock-session"
+            battery_steps,
+            vec![
+                (
+                    300,
+                    "/usr/share/glimpse/scripts/monitors off",
+                    "/usr/share/glimpse/scripts/monitors on",
+                ),
+                (900, "loginctl lock-session", ""),
+                (1800, "systemctl suspend", ""),
+            ]
         );
     }
 

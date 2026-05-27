@@ -72,7 +72,7 @@ impl Default for PanelConfig {
             position: Position::Top,
             margin: Margin::default(),
             theme_mode: ThemeMode::Dark,
-            left: vec!["pager".into(), "mpris".into()],
+            left: vec!["pager".into(), "mpris".into(), DEV_SLOT.into()],
             center: vec![
                 "clock".into(),
                 "weather".into(),
@@ -89,7 +89,7 @@ impl Default for PanelConfig {
                 "printing".into(),
                 "bluetooth".into(),
                 "network".into(),
-                "brightness".into(),
+                "display".into(),
                 "audio".into(),
                 "idle".into(),
                 "battery".into(),
