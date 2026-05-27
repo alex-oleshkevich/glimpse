@@ -1,21 +1,26 @@
 # Glimpse
 
 > Glimpse is a polished desktop shell toolkit for Niri on Wayland: panel,
-> idle, lock screen, wallpaper, and sunset daemons. Extension authors can
-> add panel widgets via `command` (declarative launchers) or `exec`
-> (long-running child processes that speak a line protocol).
+> idle policy, lock screen, wallpaper, night-light daemon, and custom applets.
+> Extension authors can add panel widgets via `command` applets or long-running
+> `exec` applets that speak a line protocol.
 
-The pages below are LLM-optimized: single-file, self-contained references
-that include every option, every JSON payload shape, and complete worked
-examples in TOML, shell, Python, TypeScript, Rust, and Go.
+The pages below are LLM-optimized, single-file references for generating or
+editing Glimpse config and applet code.
+
+## Configuration References
+
+- [Configuration Reference](https://alex-oleshkevich.github.io/glimpse/llms/configuration): Main `config.toml` reference: discovery order, panels, theme mode, services, wallpaper, lock, calendar, and custom applet package placement.
+- [Applet Configuration Reference](https://alex-oleshkevich.github.io/glimpse/llms/applets): Built-in applet config defaults, enums, placeholders, and commented optional examples.
 
 ## Extension References
 
-- [Command Applet — Full Reference](https://alex-oleshkevich.github.io/glimpse/llms/command): TOML-only launcher buttons and right-click menus. No script, no protocol.
-- [Exec Applet — Full Reference](https://alex-oleshkevich.github.io/glimpse/llms/exec): Long-running child processes driving panel status and popovers over a line protocol. Includes the protocol, every component type, every event, plus SDK starters for Python, TypeScript, Rust, and Go.
+- [Command Applet - Full Reference](https://alex-oleshkevich.github.io/glimpse/llms/command): Experimental TOML-only launcher buttons and right-click menus.
+- [Exec Applet - Full Reference](https://alex-oleshkevich.github.io/glimpse/llms/exec): Experimental long-running applet processes driving panel status and popovers over a line protocol. Includes protocol, component types, events, and SDK starters for Python, TypeScript, Rust, and Go.
 
 ## Human Documentation
 
 - [Glimpse Home](https://alex-oleshkevich.github.io/glimpse/): Overview, installation, configuration, theming.
-- [Applet Reference](https://alex-oleshkevich.github.io/glimpse/applets/): Built-in applets (clock, battery, network, etc.).
-- [Custom Applets Overview](https://alex-oleshkevich.github.io/glimpse/custom-applets/): Choosing between `command` and `exec`.
+- [Configuration](https://alex-oleshkevich.github.io/glimpse/configuration): Human-friendly panel, service, wallpaper, lock, and calendar config.
+- [Applet Reference](https://alex-oleshkevich.github.io/glimpse/applets/): Built-in applet reference.
+- [Custom Applets Overview](https://alex-oleshkevich.github.io/glimpse/custom-applets/): Choosing between `command` and `exec` applets.

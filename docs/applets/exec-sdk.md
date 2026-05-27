@@ -1,23 +1,21 @@
 # Exec SDK
 
-The Exec SDKs wrap the raw exec applet protocol with typed applet classes,
-state, render methods, widget builders, events, and action helpers.
+The Exec SDKs wrap the raw exec applet protocol with typed applet classes, state, render methods, widget builders, events, and desktop helpers.
 
-Use this page when you want to understand the SDK shape in each language. Use
-[Applet Tooling](../custom-applets/tooling.md) to create, run, and link applet
-projects.
+Use this page when you want to build an applet in Python, TypeScript, Rust, or Go. Use [Applet Tooling](../custom-applets/tooling.md) to create, run, and link applet projects. Use [Line Protocol](../custom-applets/exec-protocol.md) and [Components](../custom-applets/exec-components.md) when you need the raw wire format.
 
 ## SDK Locations
 
-| Language | Package | Source path |
-|---|---|---|
-| Python | `glimpse-applet-sdk` | `sdk/sdk-py` |
-| TypeScript | `glimpse-sdk` | `sdk/sdk-ts` |
-| Rust | `glimpse-sdk` | `sdk/sdk-rs` |
-| Go | `github.com/alex-oleshkevich/glimpse/sdk/sdk-go` | `sdk/sdk-go` |
+| Language | Package |
+|---|---|
+| Python | `glimpse-applet-sdk` |
+| TypeScript | `glimpse-sdk` |
+| Rust | `glimpse-sdk` |
+| Go | `github.com/alex-oleshkevich/glimpse/sdk/sdk-go` |
 
-Generated projects include the right language manifest and dependency entries.
-Do not start by hand-writing package files; start with the applet tooling:
+## Start With Tooling
+
+Generated projects include the right language manifest, dependency entries, run command, and `applet.toml`. Start with the applet tooling:
 
 ```sh
 glimpse-shell applets new counter --lang python
@@ -31,13 +29,11 @@ Then link the project when it is ready for local use:
 glimpse-shell applets link
 ```
 
-For distribution, share an `applet.toml` with the executable or script. See
-[Applet Tooling](../custom-applets/tooling.md) for the package shape.
+For distribution, share an `applet.toml` with the executable or script. See [Applet Tooling](../custom-applets/tooling.md) for the package shape.
 
 ## Applet Package Shape
 
-The tooling creates an `applet.toml` package for the exec host. A typical
-generated package looks like this:
+SDK applets run through an `exec` applet package. A generated package looks like this:
 
 ```toml
 id = "counter"
@@ -50,24 +46,39 @@ command = ["uv", "run", "main.py"]
 start = 0
 ```
 
-`[exec.options]` is passed to the SDK during initialization. Keep local applet
-settings there instead of hardcoding them in your program.
+`[exec.options]` is passed to the SDK during initialization. Keep applet settings there instead of hardcoding them in the program.
 
-## SDK Responsibilities
+## How SDK Applets Work
 
-| Responsibility | Detail |
+| Concept | Meaning |
 |---|---|
 | State | Each SDK owns applet state and re-renders after state changes. |
-| Status | `status` returns the full list of panel items for the applet. |
-| Popover | `popover` returns the full widget tree or `None`/`null` when there is no content. |
-| Events | Interactive widgets route `click`, `toggle`, `change`, and lifecycle events to handlers. |
-| Actions | SDK action helpers emit shell-side effects such as opening URIs, copying text, showing notifications, dismissing notifications, and closing the popover. |
-| Transport | SDK runtimes own stdin/stdout protocol parsing and serialization. Applet diagnostics should go to stderr. |
+| `status` | Returns the complete panel status item list for the applet. |
+| `popover` | Returns the complete widget tree, or no tree when there is no popover content. |
+| Lifecycle hooks | `on_start` or equivalent runs at process start; `on_init` receives instance and options. |
+| Events | Interactive widgets route `click`, `toggle`, `change`, `scroll`, and popover events to handlers. |
+| Desktop helpers | SDKs expose helpers for local commands, clipboard, URI opening, and notifications. |
+| Transport | SDK runtimes own stdin/stdout parsing and serialization. Applet diagnostics should go to stderr. |
+
+Every render is a full replacement. Return the current truth from `status` and `popover`; do not try to patch old widget trees.
+
+## Event Handling
+
+Prefer widget-local callbacks for controls rendered in `popover`. The SDK registers the callback and generates a private id when the raw protocol needs one.
+
+Use explicit handlers when a stable id is part of the public applet model, when status items need events, or when several widgets share one handler.
+
+| Style | Best for | Notes |
+|---|---|---|
+| Widget-local callback | One control owns one action | No hand-written id required in new configs. |
+| Explicit id handler | Status items, shared handlers, externally meaningful ids | You provide the id and register the handler. |
+| Lifecycle handler | Popover open or close, init options, startup work | Use for setup and background tasks. |
+
+Raw protocol applets must provide ids by hand. SDK-generated ids are private implementation details and should not be referenced from panel config.
 
 ## Python
 
-The distribution name is `glimpse-applet-sdk`; the import name is
-`glimpse_sdk`. A generated Python counter applet uses this shape:
+The distribution name is `glimpse-applet-sdk`; the import name is `glimpse_sdk`. A generated Python counter applet uses this shape:
 
 ```python
 from __future__ import annotations
@@ -120,10 +131,11 @@ if __name__ == "__main__":
     CounterApplet().run()
 ```
 
+Python applets can also define `css_class`, `on_start`, `parse_options`, `on_init`, `on_callback`, `status`, and `popover`. Use `self.log(...)` for diagnostics on stderr.
+
 ## TypeScript
 
-The package name is `glimpse-sdk`. A generated TypeScript counter applet uses
-this shape:
+The package name is `glimpse-sdk`. A generated TypeScript counter applet uses this shape:
 
 ```ts
 import {
@@ -183,10 +195,11 @@ class CounterApplet extends Applet<CounterState> {
 void new CounterApplet().run();
 ```
 
+TypeScript also supports explicit handlers with `onClick`, `onScroll`, `onChange`, `onToggle`, and `onPopover`. Use `this.log(...)` for diagnostics on stderr.
+
 ## Rust
 
-The crate name is `glimpse-sdk`. A generated Rust counter applet uses typed
-messages for interaction:
+The crate name is `glimpse-sdk`. A generated Rust counter applet uses typed messages for interaction:
 
 ```rust
 use async_trait::async_trait;
@@ -253,11 +266,11 @@ async fn main() -> AppletResult<()> {
 }
 ```
 
+Rust applets handle widget-local interaction through typed messages. Override lifecycle methods such as `on_start`, `on_init`, `on_scroll`, `on_input`, and `on_popover` when needed.
+
 ## Go
 
-The Go SDK module is `github.com/alex-oleshkevich/glimpse/sdk/sdk-go`. A
-generated Go counter applet embeds `BaseApplet` and implements `Status` and
-`Popover`.
+The Go SDK module is `github.com/alex-oleshkevich/glimpse/sdk/sdk-go`. A generated Go counter applet embeds `BaseApplet` and implements `Status` and `Popover`.
 
 ```go
 package main
@@ -299,8 +312,8 @@ func (a *counterApplet) Popover(_ context.Context, state *counterState) (sdk.Wid
 			sdk.Hero{Title: "Counter", Subtitle: fmt.Sprintf("Value: %d", state.Count)},
 			sdk.Label{Label: fmt.Sprintf("Count = %d", state.Count)},
 			sdk.Tile{
-				Primary:     "Increment",
-				LeftIcon:    "list-add-symbolic",
+				Primary:  "Increment",
+				LeftIcon: "list-add-symbolic",
 				OnClick: func(sdk.CallbackEvent) error {
 					a.SetState(func(state *counterState) {
 						state.Count++
@@ -319,14 +332,27 @@ func main() {
 }
 ```
 
+Go `BaseApplet` provides state storage, render notifications, lifecycle no-op defaults, logging, and desktop helpers. Implement typed handler interfaces such as `OnClick`, `OnToggle`, or `OnPopover` when explicit id handlers are a better fit than widget-local callbacks.
+
+## Desktop Helpers
+
+SDK helper names differ by language, but the concepts are shared:
+
+| Helper | Meaning |
+|---|---|
+| Run command | Start a local command and collect stdout, stderr, and return code. |
+| Copy to clipboard | Send text to `wl-copy`. |
+| Open URI | Launch `xdg-open` for a URI. |
+| Show notification | Launch `notify-send`. |
+| Log | Write diagnostics to stderr. |
+
+These helpers run local desktop commands. The raw line protocol only accepts the commands documented in [Line Protocol](../custom-applets/exec-protocol.md).
+
 ## IPC Client
 
-The IPC client lets applets listen to shell events and dispatch commands over
-the Glimpse socket.
+The IPC client lets applets listen to shell events and dispatch shell commands over the Glimpse socket.
 
-`ipc()` / `IPC()` takes a service name. Use `"shell"` for the panel. The socket
-path is `$GLIMPSE_IPC_DIR/<service>.sock`, or `$XDG_RUNTIME_DIR/glimpse/ipc.sock`
-for the shell.
+`ipc()` or `IPC()` takes a service name. Use `"shell"` for the panel. The socket path is `$GLIMPSE_IPC_DIR/<service>.sock`, or `$XDG_RUNTIME_DIR/glimpse/ipc.sock` for the shell.
 
 | Operation | Meaning |
 |---|---|
@@ -390,8 +416,7 @@ ack, err := sub.Dispatch(ctx, "set_volume", map[string]string{"level": "50"})
 
 ## Golden Fixture Workflow
 
-The four SDKs share canonical JSON fixtures under `sdk/fixtures`. Update them
-when adding widgets, events, common props, or action helpers.
+The four SDKs share canonical JSON fixtures under `sdk/fixtures`. Update them when adding widgets, events, common props, or desktop helpers.
 
 | Check | Command |
 |---|---|
@@ -405,11 +430,9 @@ Fixture rules:
 
 - Widget fixtures must match every SDK serializer.
 - Event fixtures must match every SDK parser.
-- The Rust renderer fixture test must deserialize and render every widget
-  fixture without a renderer error.
-- If a fixture and an SDK disagree, fix the SDK unless the fixture violates the
-  documented protocol.
-- Interactive renderer widgets that emit events require stable `id` fields.
+- The Rust renderer fixture test must deserialize and render every widget fixture without a renderer error.
+- If a fixture and an SDK disagree, fix the SDK unless the fixture violates the documented protocol.
+- Interactive renderer widgets that emit events require stable ids. Widget-local SDK callbacks can generate private ids during serialization.
 
 ## See Also
 
@@ -417,6 +440,6 @@ Fixture rules:
 |---|---|
 | [Getting Started](../custom-applets/getting-started.md) | First applet walkthrough using the tooling. |
 | [Exec Applet](../custom-applets/exec.md) | Exec host config and options. |
-| [Applet Tooling](../custom-applets/tooling.md) | Project, dev, link, and diagnostics workflows. |
+| [Applet Tooling](../custom-applets/tooling.md) | Project commands, dev mode, local linking, distribution shape, diagnostics. |
 | [Line Protocol](../custom-applets/exec-protocol.md) | Raw protocol commands, message shapes, and events. |
-| [Components](../custom-applets/exec-components.md) | Popover component fields and component types. |
+| [Components](../custom-applets/exec-components.md) | Component fields and component types. |

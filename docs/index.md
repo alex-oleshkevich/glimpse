@@ -31,7 +31,7 @@ Glimpse covers the parts of a desktop session that usually sit around the compos
 | **Panel** | Workspaces, applets, tray, media, network, battery, weather, notifications, and session controls. |
 | **Lock** | PAM-backed session locking with wallpaper integration, status buttons, and themeable CSS. |
 | **Wallpaper** | Solid colors, image backgrounds, fit modes, transitions, and blurred backdrop support. |
-| **Idle and sunset** | Automatic locking, monitor power commands, suspend rules, and night-light scheduling. |
+| **Idle and night light** | Automatic locking, monitor power commands, suspend rules, and night-light scheduling. |
 | **Custom applets** | Command launchers and long-running exec widgets with typed SDKs and popover components. |
 
 ## Designed For Daily Use
@@ -49,4 +49,4 @@ The result is a desktop that remains hackable without feeling assembled from unr
 | Tune built-in applets | [Applets](./applets/) |
 | Build custom panel widgets | [Custom Applets](./custom-applets/) |
 | Theme the shell and lock screen | [Theming](./theming.md) |
-| Configure wallpaper, lock, idle, or night light | [Wallpaper](./wallpaper.md), [Lock](./lock.md), [Idle](./idle.md), [Sunset](./sunset.md) |
+| Configure wallpaper, lock, idle, or night light | [Wallpaper](./wallpaper.md), [Lock](./lock.md), [Configuration](./configuration.md#services) |

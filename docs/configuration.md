@@ -230,6 +230,113 @@ city_name = "Warsaw, PL"
 
 Static shared coordinates are not a supported `[location]` provider in the current config format.
 
+## Services
+
+The same config file also controls the background services for night light and idle rules. Enable the services from [Installation](./installation.md), then tune their behavior here.
+
+### Night Light
+
+Night light warms the display after dark. The default config follows sunrise and sunset from the shared location provider:
+
+```toml
+[location]
+provider = "geo_clue"
+
+[night_light]
+schedule = "automatic"
+temperature = 4200
+transition_minutes = 15
+```
+
+| Option | Default | Values | What it does |
+|---|---|---|---|
+| `schedule` | `"automatic"` | `automatic`, `schedule`, `off` | Chooses automatic solar timing, fixed clock times, or no color change. |
+| `temperature` | `4200` | Kelvin value | Sets how warm the screen becomes. Lower values look warmer. |
+| `start_time` | unset | `HH:MM` | Start time for `schedule = "schedule"`. |
+| `end_time` | unset | `HH:MM` | End time for `schedule = "schedule"`. |
+| `transition_minutes` | `15` | Minutes | Fades between normal color and night-light color. |
+
+Use fixed hours when location is not available or you want the same schedule every day:
+
+```toml
+[night_light]
+schedule = "schedule"
+start_time = "20:30"
+end_time = "07:00"
+temperature = 4200
+transition_minutes = 15
+```
+
+Temperature is measured in Kelvin:
+
+| Value | Feel |
+|---|---|
+| `6500` | Normal daylight color. |
+| `5000` | Slightly warm. |
+| `4200` | Comfortable evening warmth. |
+| `3500` | Very warm late-night color. |
+
+If nothing changes, check that `schedule` is not `off`, that the background service is running, and that your compositor supports the Wayland gamma-control protocol.
+
+### Idle
+
+Idle rules decide what happens after no keyboard or mouse input. The default profile is a laptop-friendly ladder:
+
+| Step | AC | Battery |
+|---|---|---|
+| Turn monitors off | 10 minutes | 5 minutes |
+| Lock session | 15 minutes | 15 minutes |
+| Suspend | 60 minutes | 30 minutes |
+
+Monitors come back on automatically when input resumes. The packaged monitor helper supports niri and Hyprland.
+
+```toml
+[idle]
+enabled = true
+respect_inhibitors = true
+
+[idle.profiles.ac]
+listeners = [
+  { timeout = 600, on_idle = "/usr/share/glimpse/scripts/monitors off", on_resume = "/usr/share/glimpse/scripts/monitors on" },
+  { timeout = 900, on_idle = "loginctl lock-session" },
+  { timeout = 3600, on_idle = "systemctl suspend" },
+]
+
+[idle.profiles.battery]
+listeners = [
+  { timeout = 300, on_idle = "/usr/share/glimpse/scripts/monitors off", on_resume = "/usr/share/glimpse/scripts/monitors on" },
+  { timeout = 900, on_idle = "loginctl lock-session" },
+  { timeout = 1800, on_idle = "systemctl suspend" },
+]
+```
+
+| Option | Default | What it does |
+|---|---|---|
+| `enabled` | `true` | Turns idle rules on or off. |
+| `respect_inhibitors` | `true` | Honors apps that ask the desktop to stay awake. |
+| `profiles.ac.listeners` | Default AC ladder | Rules used while plugged in. |
+| `profiles.battery.listeners` | Default battery ladder | Rules used on battery. |
+
+Each listener has these fields:
+
+| Field | Required | What it does |
+|---|---|---|
+| `timeout` | Yes | Seconds of no keyboard or mouse input before the rule runs. |
+| `on_idle` | Yes | Shell command to run after the timeout. |
+| `on_resume` | No | Shell command to run when activity returns, but only after that listener has fired. |
+| `respect_inhibitors` | No | Overrides the global inhibitor setting for this listener. |
+
+Inhibitors are requests from apps such as video players, games, screen sharing tools, and presentation software. With `respect_inhibitors = true`, those apps can keep idle actions from firing while they need the screen awake.
+
+For one rule that should always run, override it on that listener:
+
+```toml
+[idle.profiles.ac]
+listeners = [
+  { timeout = 900, on_idle = "loginctl lock-session", respect_inhibitors = false },
+]
+```
+
 ## Wallpaper And Lock
 
 Wallpaper and lock screen settings can stay in the same file:

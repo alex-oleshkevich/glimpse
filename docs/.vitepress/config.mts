@@ -7,6 +7,7 @@ export default defineConfig({
   cleanUrls: true,
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/glimpse/favicon.svg' }],
+    ['link', { rel: 'alternate', type: 'text/plain', title: 'llms.txt', href: '/glimpse/llms.txt' }],
     ['meta', { name: 'theme-color', content: '#3584e4' }]
   ],
   srcExclude: ['superpowers/**'],
@@ -36,6 +37,9 @@ export default defineConfig({
         text: 'Configuration',
         items: [
           { text: 'Panels and Applets', link: '/configuration' },
+          { text: 'Services', link: '/configuration#services' },
+          { text: 'Night Light', link: '/configuration#night-light' },
+          { text: 'Idle', link: '/configuration#idle' },
           { text: 'Wallpaper', link: '/wallpaper' },
           { text: 'Lock Screen', link: '/lock' }
         ]
@@ -57,13 +61,6 @@ export default defineConfig({
           { text: 'SDK', link: '/applets/exec-sdk' },
           { text: 'Line Protocol', link: '/custom-applets/exec-protocol' },
           { text: 'Components', link: '/custom-applets/exec-components' }
-        ]
-      },
-      {
-        text: 'Services',
-        items: [
-          { text: 'Idle', link: '/idle' },
-          { text: 'Sunset', link: '/sunset' }
         ]
       },
       {

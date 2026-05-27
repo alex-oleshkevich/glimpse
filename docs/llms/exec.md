@@ -1,5 +1,7 @@
 # Exec Applet Reference
 
+The `exec` applet and SDK APIs are experimental and may change.
+
 This page is a compact reference for LLMs and maintainers working on Glimpse
 exec applets. It intentionally starts from the applet tooling, because generated
 projects contain the correct manifests, dependencies, commands, and SDK wiring.

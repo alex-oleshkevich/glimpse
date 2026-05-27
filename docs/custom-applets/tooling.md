@@ -137,23 +137,21 @@ To distribute an applet, ship the executable or script together with an
 ~/.config/glimpse/applets/
 `-- my-applet.toml
 
-~/.local/bin/
+/opt/my-applet/
 `-- my-applet
 ```
 
 The `applet.toml` describes the applet id, type, command path, environment, and
-applet-specific runtime options. The command must point to the shipped
-executable or script:
+applet-specific runtime options. Point `command` at the shipped executable or
+script:
 
 ```toml
 id = "my-applet"
 type = "exec"
 
 [exec]
-command = ["my-applet"]
+command = ["/opt/my-applet/my-applet"]
 ```
-
-Use an absolute command path if the executable is not in `PATH`.
 
 ## Inspect And Diagnose
 

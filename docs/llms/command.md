@@ -1,5 +1,7 @@
 # Command Applet — Full Reference
 
+The `command` applet is experimental; its package API may change.
+
 The `command` applet adds a clickable panel button (with optional context menu)
 that runs a shell command when activated. It is the simplest custom applet:
 purely declarative TOML, no script, no protocol.

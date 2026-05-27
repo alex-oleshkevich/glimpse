@@ -1,5 +1,7 @@
 # Exec Applet
 
+Exec applets and SDK APIs are experimental and may change.
+
 Use an exec applet when a custom panel item needs to stay alive. It can update its status, show a custom popover, handle clicks and scroll events, and keep its own local state.
 
 For a simple launcher or menu, use a [command applet](./command.md) instead.

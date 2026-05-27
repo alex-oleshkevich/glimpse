@@ -1,5 +1,7 @@
 # Command Applet
 
+Command applets are experimental; the package API may change.
+
 Use a command applet when the panel item only needs to run commands. It is the right fit for app launchers, URL launchers, screenshot buttons, lock buttons, power menus, and small personal shortcuts.
 
 If the applet needs to show changing state, render custom popovers, or react to events while a process keeps running, use an [exec applet](./exec.md) instead.

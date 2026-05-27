@@ -1,349 +1,226 @@
 # Packaging Guide
 
-Use this guide when you maintain a distribution package, release archive, or local system install for Glimpse. It covers the files that must be installed together, the privileged helper surfaces, and the service units expected by the user-facing installation docs.
+Use this guide when maintaining a distribution package, release archive, or local system install for Glimpse. It documents the files shipped by the current binary package and the service behavior expected by the user-facing installation docs.
 
-Most users should install `glimpse-desktop-bin` and follow [Installation](./installation.md). This page is for packagers and maintainers who need to verify what the package contains.
+Most users should install `glimpse-desktop-bin` and follow [Installation](./installation.md). This page is for packagers and maintainers.
+
+## Package Contents
+
+The binary release archive is produced by `scripts/package-binary.sh`. It installs this runtime tree:
+
+```text
+etc/geoclue/conf.d/glimpse.conf
+etc/pam.d/glimpse-lock
+usr/bin/glimpse-idle
+usr/bin/glimpse-lock
+usr/bin/glimpse-shell
+usr/bin/glimpse-sunset
+usr/bin/glimpse-wallpaper
+usr/lib/systemd/user/glimpse-idle.service
+usr/lib/systemd/user/glimpse-lock.service
+usr/lib/systemd/user/glimpse-shell.service
+usr/lib/systemd/user/glimpse-sunset.service
+usr/lib/systemd/user/glimpse-wallpaper.service
+usr/share/dbus-1/services/me.aresa.GlimpseIdle.Portal.service
+usr/share/glimpse/applets/<name>/applet.toml
+usr/share/glimpse/applets/<name>/<binary>
+usr/share/glimpse/applet-templates/<language>/...
+usr/share/glimpse/scripts/monitors
+usr/share/glimpse/themes/<name>/...
+usr/share/xdg-desktop-portal/portals/glimpse.portal
+```
+
+The archive may also include `LICENSE` at the archive root. A distro package should install that into its normal license location.
 
 ## Binaries
 
-| Binary | Description | Install to |
-|--------|-------------|------------|
-| `glimpse-shell` | Wayland shell | `/usr/bin/glimpse-shell` |
-| `glimpse-idle` | Wayland idle daemon | `/usr/bin/glimpse-idle` |
+| Binary | Purpose | Install to |
+|---|---|---|
+| `glimpse-shell` | GTK4 layer-shell panel and applet host | `/usr/bin/glimpse-shell` |
+| `glimpse-idle` | Wayland idle policy daemon and idle portal backend | `/usr/bin/glimpse-idle` |
 | `glimpse-lock` | Wayland session lock screen and logind lock listener | `/usr/bin/glimpse-lock` |
-| `glimpse-sunset` | Wayland night-light daemon | `/usr/bin/glimpse-sunset` |
-| `glimpse-wallpaper` | Wayland wallpaper and backdrop daemon | `/usr/bin/glimpse-wallpaper` |
+| `glimpse-sunset` | Night-light daemon | `/usr/bin/glimpse-sunset` |
+| `glimpse-wallpaper` | Wallpaper and backdrop daemon | `/usr/bin/glimpse-wallpaper` |
 
-## Polkit
-
-### Battery charge threshold
-
-The battery provider can set the charge end threshold via sysfs. This requires root, so it uses polkit for authorization.
-
-**Files:**
-
-| Source | Install to |
-|--------|------------|
-| `data/io.glimpse.battery.policy` | `/usr/share/polkit-1/actions/io.glimpse.battery.policy` |
-| `data/glimpse-battery-helper` | `/usr/lib/glimpse/glimpse-battery-helper` |
-
-**Permissions:**
-
-- `glimpse-battery-helper` must be owned by root and executable (`root:root 755`)
-- The polkit policy references the helper path via `org.freedesktop.policykit.exec.path`
-
-**Policy behavior:**
-
-- Active desktop session: allowed without password (`<allow_active>yes</allow_active>`)
-- Inactive session: requires admin password
-- Remote/non-session: requires admin password
-
-**Install commands:**
+Build all shipped binaries together:
 
 ```bash
-install -Dm755 data/glimpse-battery-helper /usr/lib/glimpse/glimpse-battery-helper
-install -Dm644 data/io.glimpse.battery.policy /usr/share/polkit-1/actions/io.glimpse.battery.policy
+cargo build --release \
+  -p glimpse-lock \
+  -p glimpse-shell \
+  -p glimpse-idle \
+  -p glimpse-sunset \
+  -p glimpse-wallpaper
 ```
 
-### Adding more polkit actions
-
-Future providers that need root (e.g. airplane mode via rfkill) should follow the same pattern:
-1. Add a policy XML to `data/` with action ID `io.glimpse.<provider>.<action>`
-2. Add a minimal helper script to `data/` that does the privileged operation
-3. Daemon tries direct access first, falls back to `pkexec` with the helper
-
-## PAM
-
-`glimpse-lock` authenticates through PAM. The default service name is `glimpse-lock`.
-
-| Source | Install to |
-|--------|------------|
-| `data/pam.d/glimpse-lock` | `/etc/pam.d/glimpse-lock` |
-
-## Systemd
-
-### User service for glimpse-shell
-
-```ini
-# ~/.config/systemd/user/glimpse-shell.service
-[Unit]
-Description=Glimpse shell
-PartOf=graphical-session.target
-After=graphical-session-pre.target glimpse-wallpaper.service
-Wants=glimpse-wallpaper.service
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/glimpse-shell
-Restart=on-failure
-RestartSec=2
-
-[Install]
-WantedBy=graphical-session.target
-```
-
-**Note:** The packaged unit is a user service installed to `/usr/lib/systemd/user/glimpse-shell.service`.
-It wants `glimpse-wallpaper.service` so starting the shell also starts the wallpaper daemon.
-
-### User service for glimpse-wallpaper
-
-```ini
-# ~/.config/systemd/user/glimpse-wallpaper.service
-[Unit]
-Description=Glimpse wallpaper
-PartOf=graphical-session.target
-After=graphical-session-pre.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/glimpse-wallpaper
-Restart=on-failure
-RestartSec=2
-
-[Install]
-WantedBy=graphical-session.target
-```
-
-**Note:** The packaged unit is a user service installed to `/usr/lib/systemd/user/glimpse-wallpaper.service`.
-Start it together with `glimpse-shell` for shell-based sessions. Do not run it alongside older panel-owned background surfaces because both processes would own background layer surfaces.
-
-### User service for glimpse-sunset
-
-```ini
-# ~/.config/systemd/user/glimpse-sunset.service
-[Unit]
-Description=Glimpse sunset
-PartOf=graphical-session.target
-After=graphical-session-pre.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/glimpse-sunset
-Restart=on-failure
-RestartSec=2
-
-[Install]
-WantedBy=graphical-session.target
-```
-
-**Note:** The packaged unit is a user service installed to `/usr/lib/systemd/user/glimpse-sunset.service`.
-It is standalone and is not wanted by `glimpse-shell.service`. Enable it explicitly:
+After building a release archive, verify each binary reports the release version:
 
 ```bash
+target/release/glimpse-lock --version
+target/release/glimpse-shell --version
+target/release/glimpse-idle --version
+target/release/glimpse-sunset --version
+target/release/glimpse-wallpaper --version
+```
+
+## Runtime Dependencies
+
+The Arch binary package currently depends on GTK4, libadwaita, gtk4-layer-shell, libheif, PAM, and GeoClue.
+
+Packagers should also preserve access to the session D-Bus bus, Wayland socket, fontconfig, icon themes, and GPU/image decoding paths. The shipped systemd units intentionally avoid sandboxing that would break those desktop integrations.
+
+## Systemd User Units
+
+Install the unit files from `data/` without rewriting them:
+
+| Source | Install to |
+|---|---|
+| `data/glimpse-shell.service` | `/usr/lib/systemd/user/glimpse-shell.service` |
+| `data/glimpse-wallpaper.service` | `/usr/lib/systemd/user/glimpse-wallpaper.service` |
+| `data/glimpse-lock.service` | `/usr/lib/systemd/user/glimpse-lock.service` |
+| `data/glimpse-idle.service` | `/usr/lib/systemd/user/glimpse-idle.service` |
+| `data/glimpse-sunset.service` | `/usr/lib/systemd/user/glimpse-sunset.service` |
+
+All shipped units are user services and are bound to `graphical-session.target` with `PartOf=` and `Requisite=`. They use `Type=exec`, restart on failure except for the lock screen, and include conservative hardening fields where compatible with the daemon.
+
+| Unit | Important behavior |
+|---|---|
+| `glimpse-shell.service` | Wants `glimpse-wallpaper.service`; starts after `graphical-session.target` and `glimpse-wallpaper.service`. |
+| `glimpse-wallpaper.service` | Starts after `graphical-session.target`; needs normal desktop/GPU access for image handling. |
+| `glimpse-lock.service` | Uses `Restart=always` so a clean exit while locked is treated as something to respawn. |
+| `glimpse-idle.service` | Starts after `graphical-session.target` so the compositor environment has been imported into the user manager. |
+| `glimpse-sunset.service` | Standalone night-light service; not wanted by the shell unit. |
+
+User-facing install docs ask users to enable:
+
+```bash
+systemctl --user enable --now glimpse-shell.service
+systemctl --user enable --now glimpse-lock.service
 systemctl --user enable --now glimpse-sunset.service
-```
-
-Do not run `glimpse-sunset` alongside the old panel-owned night-light service because Wayland gamma control has one owner per output.
-
-### User service for glimpse-idle
-
-```ini
-# ~/.config/systemd/user/glimpse-idle.service
-[Unit]
-Description=Glimpse idle
-PartOf=graphical-session.target
-After=graphical-session-pre.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/glimpse-idle
-Restart=on-failure
-RestartSec=2
-
-[Install]
-WantedBy=graphical-session.target
-```
-
-**Note:** The packaged unit is a user service installed to `/usr/lib/systemd/user/glimpse-idle.service`.
-It is standalone and is not wanted by `glimpse-shell.service`. Enable it explicitly:
-
-```bash
 systemctl --user enable --now glimpse-idle.service
 ```
 
-`glimpse-idle` consumes Wayland idle notifications and runs listener shell commands from `[idle]`.
-Do not run it alongside another idle policy daemon such as `hypridle` or `swayidle` unless their timeouts and commands are intentionally coordinated.
+`glimpse-wallpaper.service` starts through `glimpse-shell.service` but can also be enabled explicitly if a session wants wallpaper before the panel.
 
-### User service for glimpse-lock
+## PAM
 
-```ini
-# ~/.config/systemd/user/glimpse-lock.service
-[Unit]
-Description=Glimpse lock screen
-PartOf=graphical-session.target
-After=graphical-session-pre.target
+`glimpse-lock` authenticates through PAM service `glimpse-lock`. Install the shipped file:
 
-[Service]
-Type=simple
-ExecStart=/usr/bin/glimpse-lock
-Restart=on-failure
-RestartSec=2
+| Source | Install to |
+|---|---|
+| `data/pam.d/glimpse-lock` | `/etc/pam.d/glimpse-lock` |
 
-[Install]
-WantedBy=graphical-session.target
-```
+The file includes the system `auth` and `account` stacks and denies `password` and `session` phases. That matches the lock screen's current PAM usage: authenticate and check account status only.
 
-**Note:** The packaged unit is installed to `/usr/lib/systemd/user/glimpse-lock.service`.
-Enable it when you want logind integration:
+## GeoClue
 
-```bash
-systemctl --user enable --now glimpse-lock.service
-```
+Install the GeoClue config so the shell can request location for weather, automatic theme mode, and automatic night light:
 
-With this service running, `loginctl lock-session` asks logind to emit the current session's `Lock` signal, and the resident `glimpse-lock` process acquires the Wayland session lock in-process.
-`glimpse-lock` updates logind's `LockedHint` after the Wayland session lock is acquired and clears it after unlock.
-Compositor key bindings and idle policies should trigger `loginctl lock-session`; they should not start another `glimpse-lock` process while the service is running.
-For security, `glimpse-lock` ignores logind `Unlock` requests; unlocking requires successful local PAM authentication or a compositor-driven session-lock release.
+| Source | Install to |
+|---|---|
+| `data/geoclue/glimpse.conf` | `/etc/geoclue/conf.d/glimpse.conf` |
 
-## Configuration
+The file grants the `glimpse-shell` desktop id access through GeoClue. Shared location config currently supports GeoClue only; do not document static shared coordinates as a packaged feature.
 
-| File | Location |
-|------|----------|
-| Shell, wallpaper, sunset, idle, and lock config | `GLIMPSE_CONFIG`, `./config.toml`, or `$XDG_CONFIG_HOME/glimpse/config.toml` |
-| User theme CSS | `$XDG_CONFIG_HOME/glimpse/themes/<name>.css` |
-| Lock screen CSS | `$XDG_CONFIG_HOME/glimpse/themes/lock.css` |
-| Built-in structure/theme layers | embedded in `glimpse-shell` binary |
+## Idle Portal
 
-`glimpse-wallpaper` enables the optional backdrop by default. If `[backdrop]` is omitted, the daemon uses `wallpaper.path` for the backdrop image and applies the default `blur_radius = 24`.
+The idle daemon also ships an xdg-desktop-portal backend for inhibit requests:
 
-`glimpse-sunset` reads the shared `[night_light]` block. `schedule = "off"` disables gamma changes, `schedule = "schedule"` uses `start_time`/`end_time`, and `schedule = "automatic"` uses the shared location service. Configure static coordinates under `[location]` when GeoClue is unavailable or undesired.
+| Source | Install to |
+|---|---|
+| `data/portals/glimpse.portal` | `/usr/share/xdg-desktop-portal/portals/glimpse.portal` |
+| `data/dbus-1/me.aresa.GlimpseIdle.Portal.service` | `/usr/share/dbus-1/services/me.aresa.GlimpseIdle.Portal.service` |
 
-`glimpse-idle` reads the shared `[idle]` block. If it is omitted, the daemon starts with no listener policies, so it does not lock, blank displays, suspend, or run shell commands until listeners are configured:
+The portal descriptor exposes `org.freedesktop.impl.portal.Inhibit` for Glimpse sessions. The D-Bus service activates `glimpse-idle.service` through systemd.
 
-```toml
-[idle]
-enabled = true
-respect_inhibitors = true
+## Monitor Helper
 
-[idle.profiles.ac]
-listeners = []
+Install the monitor helper used by the default idle config:
 
-[idle.profiles.battery]
-listeners = []
-```
+| Source | Install to |
+|---|---|
+| `data/scripts/monitors` | `/usr/share/glimpse/scripts/monitors` |
 
-Example Niri policy:
+It supports:
 
-```toml
-[idle.profiles.ac]
-listeners = [
-  { timeout = 300, on_idle = "loginctl lock-session" },
-  { timeout = 600, on_idle = "niri msg action power-off-monitors", on_resume = "niri msg action power-on-monitors" },
-  { timeout = 1800, on_idle = "systemctl suspend" },
-]
+| Compositor | Detection | Command |
+|---|---|---|
+| niri | `NIRI_SOCKET` | `niri msg action power-on-monitors` / `power-off-monitors` |
+| Hyprland | `HYPRLAND_INSTANCE_SIGNATURE` | `hyprctl dispatch dpms on` / `off` |
 
-[idle.profiles.battery]
-listeners = [
-  { timeout = 300, on_idle = "loginctl lock-session" },
-  { timeout = 600, on_idle = "niri msg action power-off-monitors", on_resume = "niri msg action power-on-monitors" },
-  { timeout = 900, on_idle = "systemctl suspend" },
-]
-```
+If a package moves this helper, the default `[idle]` commands in the shared config must change too.
 
-Each listener command is executed through `/bin/sh -c`. `on_resume` runs only after that listener has fired `on_idle`.
-Set `respect_inhibitors` on a listener to override the global value.
+## Themes, Applets, And Templates
 
-`glimpse-lock` reads the shared `[lock]` block. It still uses the shared `[wallpaper]` block as a fallback when `[lock.background]` omits background color or path.
+Install packaged theme packs under `/usr/share/glimpse/themes/<name>/`. The current binary package ships the `rosepine` pack when present in `themes/rosepine`.
 
-```toml
-[lock]
-pam_service = "glimpse-lock"
-css_path = "themes/lock.css"
-
-[lock.background]
-color = "#101010"
-path = "/path/to/lock.png"
-fit = "cover"
-blur_radius = 0
-dim = 0.35
-```
-
-All `background` fields are optional. If `background.color` or `background.path` is absent, `glimpse-lock` falls back to `[wallpaper]` from the shared config. Custom CSS from `themes/lock.css` is watched and loaded over embedded defaults.
-
-The default `pam_service = "glimpse-lock"` expects `/etc/pam.d/glimpse-lock`, which the binary package installs. Override `pam_service` only if you intentionally want to use a different PAM stack.
-
-For lock theme work without taking a real session lock, run:
+Install bundled applets under `/usr/share/glimpse/applets/<name>/` with each applet's `applet.toml` and executable. The build helper is:
 
 ```bash
-GLIMPSE_CONFIG=/path/to/config.toml cargo run -p glimpse-lock -- --preview
+scripts/build-glimpse-applets.sh glimpse-applets "$pkgdir/usr/share/glimpse/applets"
 ```
 
-Preview mode opens a normal GTK window, uses the same lock background and CSS watchers, and simulates authentication. Password `valid` succeeds; any other non-empty password fails.
+Install applet project templates under `/usr/share/glimpse/applet-templates/`. `glimpse-shell applets new` reads templates from disk, so missing templates break applet scaffolding even when the shell binary works.
 
-## Arch Linux PKGBUILD notes
+## Configuration Files
 
-The AUR package is `glimpse-desktop-bin` and consumes GitHub release binaries. It does not compile Rust code on user machines. Release archives are named:
+| Config | Discovery or location |
+|---|---|
+| Shared desktop config | `GLIMPSE_CONFIG`, `./config.toml`, `$XDG_CONFIG_HOME/glimpse/config.toml`, then `$HOME/.config/glimpse/config.toml` when `XDG_CONFIG_HOME` is unset |
+| User theme packs | `$XDG_CONFIG_HOME/glimpse/themes/<name>/` |
+| System theme packs | `/usr/share/glimpse/themes/<name>/` |
+| User applet packages | `$XDG_CONFIG_HOME/glimpse/applets/*.toml` or linked project applets |
+| System applet packages | `/usr/share/glimpse/applets/<name>/applet.toml` |
 
-```text
-glimpse-<version>-x86_64.tar.zst
-```
+Do not duplicate full user config examples in packaging docs. Link to [Configuration](./configuration.md) and [Services](./configuration.md#services) so packager docs do not drift from the config reference.
 
-Each archive contains the final `/usr` tree and the default PAM service file:
+## Manual Install Commands
 
-```text
-etc/pam.d/glimpse-lock
-usr/bin/glimpse-lock
-usr/bin/glimpse-shell
-usr/bin/glimpse-idle
-usr/bin/glimpse-sunset
-usr/bin/glimpse-wallpaper
-usr/lib/systemd/user/glimpse-lock.service
-usr/lib/systemd/user/glimpse-shell.service
-usr/lib/systemd/user/glimpse-idle.service
-usr/lib/systemd/user/glimpse-sunset.service
-usr/lib/systemd/user/glimpse-wallpaper.service
-```
-
-Local release helpers:
+These commands mirror the release packaging script for the core files:
 
 ```bash
-just binary-package      # Build dist/glimpse-<version>-x86_64.tar.zst
-just github-release      # Upload the local archive to the matching GitHub release
-just aur-publish         # Publish PKGBUILD + .SRCINFO for the uploaded GitHub release asset
-just release-local       # Tag, push, upload release asset, then publish AUR metadata
-```
-
-The tag-push GitHub workflow performs the same binary build and AUR publish path. Configure the repository secret `AUR_SSH_PRIVATE_KEY` with an SSH key accepted by the AUR account before expecting automatic AUR publication.
-
-The source repository `PKGBUILD` keeps `b2sums_x86_64=('SKIP')` as a template. The local and GitHub release paths render the AUR copy with the actual BLAKE2 checksum for the uploaded binary archive.
-
-### Manual source build commands
-
-```bash
-# Build
-cargo build --release -p glimpse-lock
-cargo build --release -p glimpse-shell
-cargo build --release -p glimpse-idle
-cargo build --release -p glimpse-sunset
-cargo build --release -p glimpse-wallpaper
-
-# Install binary
 install -Dm755 target/release/glimpse-lock "$pkgdir/usr/bin/glimpse-lock"
 install -Dm755 target/release/glimpse-shell "$pkgdir/usr/bin/glimpse-shell"
 install -Dm755 target/release/glimpse-idle "$pkgdir/usr/bin/glimpse-idle"
 install -Dm755 target/release/glimpse-sunset "$pkgdir/usr/bin/glimpse-sunset"
 install -Dm755 target/release/glimpse-wallpaper "$pkgdir/usr/bin/glimpse-wallpaper"
+install -Dm755 data/scripts/monitors "$pkgdir/usr/share/glimpse/scripts/monitors"
 
-# Polkit
-install -Dm755 data/glimpse-battery-helper "$pkgdir/usr/lib/glimpse/glimpse-battery-helper"
-install -Dm644 data/io.glimpse.battery.policy "$pkgdir/usr/share/polkit-1/actions/io.glimpse.battery.policy"
-
-# PAM
-install -Dm644 data/pam.d/glimpse-lock "$pkgdir/etc/pam.d/glimpse-lock"
-
-# Systemd user service
 install -Dm644 data/glimpse-lock.service "$pkgdir/usr/lib/systemd/user/glimpse-lock.service"
 install -Dm644 data/glimpse-shell.service "$pkgdir/usr/lib/systemd/user/glimpse-shell.service"
 install -Dm644 data/glimpse-idle.service "$pkgdir/usr/lib/systemd/user/glimpse-idle.service"
 install -Dm644 data/glimpse-sunset.service "$pkgdir/usr/lib/systemd/user/glimpse-sunset.service"
 install -Dm644 data/glimpse-wallpaper.service "$pkgdir/usr/lib/systemd/user/glimpse-wallpaper.service"
+
+install -Dm644 data/pam.d/glimpse-lock "$pkgdir/etc/pam.d/glimpse-lock"
+install -Dm644 data/geoclue/glimpse.conf "$pkgdir/etc/geoclue/conf.d/glimpse.conf"
+install -Dm644 data/portals/glimpse.portal "$pkgdir/usr/share/xdg-desktop-portal/portals/glimpse.portal"
+install -Dm644 data/dbus-1/me.aresa.GlimpseIdle.Portal.service "$pkgdir/usr/share/dbus-1/services/me.aresa.GlimpseIdle.Portal.service"
 ```
+
+No polkit policy or battery helper is shipped in the current package tree.
+
+## Release Archive Notes
+
+The AUR package `glimpse-desktop-bin` consumes GitHub release archives named:
+
+```text
+glimpse-<version>-x86_64.tar.zst
+```
+
+The local release helper builds the archive and writes a BLAKE2 checksum:
+
+```bash
+scripts/package-binary.sh <version>
+```
+
+The source `PKGBUILD` keeps `b2sums_x86_64=('SKIP')` as a template. The release process renders the AUR copy with the checksum for the uploaded archive.
 
 ## See Also
 
 | Page | Use it for |
 |---|---|
 | [Installation](./installation.md) | User-facing package install and service enablement. |
-| [Configuration](./configuration.md) | Shared config file discovery and top-level settings. |
+| [Configuration](./configuration.md) | Shared config file discovery, services, and top-level settings. |
 | [Theming](./theming.md) | Theme pack search paths and CSS token contracts. |
 | [IPC Developer Specification](./ipc.md) | Adding daemon IPC commands and events. |
