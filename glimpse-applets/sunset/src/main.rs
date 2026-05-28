@@ -459,7 +459,7 @@ fn activation_minutes_remaining(state: &SunsetState) -> Option<i64> {
     if (0..=60).contains(&mins) { Some(mins) } else { None }
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> glimpse_sdk::AppletResult<()> {
     run(SunsetApplet, SunsetState::default())
     .await

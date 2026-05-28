@@ -268,7 +268,7 @@ fn is_hyprpicker_installed() -> bool {
         .unwrap_or(false)
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> AppletResult<()> {
     run(ColorPickerApplet, State::default()).await
 }

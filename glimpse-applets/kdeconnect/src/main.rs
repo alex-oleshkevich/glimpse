@@ -951,7 +951,7 @@ async fn open_path(path: PathBuf) -> AppletResult<()> {
     Ok(())
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> AppletResult<()> {
     run(KdeConnectApplet, State::default()).await
 }

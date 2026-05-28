@@ -9,7 +9,7 @@ edition = "2024"
 async-trait = "0.1"
 glimpse-core = { path = "../../glimpse-core" }
 glimpse-sdk = { path = "../../sdk/sdk-rs" }
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt"] }
 chrono = "0.4"
 
 [dev-dependencies]

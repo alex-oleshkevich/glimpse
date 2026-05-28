@@ -375,7 +375,11 @@ mod tests {
 
     #[test]
     fn view_hidden_when_windows_unavailable() {
-        let s = WindowState { windows_available: false, focused_window: None, windows: vec![] };
+        let s = WindowState {
+            windows_available: false,
+            focused_window: None,
+            windows: vec![],
+        };
         let v = view_from_state(&Config::default(), &s);
         assert!(!v.visible);
     }

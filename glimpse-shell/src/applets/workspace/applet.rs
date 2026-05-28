@@ -85,13 +85,19 @@ impl From<&State> for WorkspaceState {
 
 fn view_from_state(config: &Config, state: &WorkspaceState, panel_monitor: Option<&str>) -> View {
     if !state.workspaces_available {
-        return View { visible: false, label: String::new() };
+        return View {
+            visible: false,
+            label: String::new(),
+        };
     }
     let current = state.effective_current_workspace(panel_monitor);
     let workspace = current.and_then(|id| state.workspaces.iter().find(|w| w.id == id));
     let fallback = current.unwrap_or(1);
     let label = format_workspace_label(&config.label_format, state.compositor, workspace, fallback);
-    View { visible: true, label }
+    View {
+        visible: true,
+        label,
+    }
 }
 
 fn scroll_direction(dx: f64, dy: f64) -> Option<bool> {

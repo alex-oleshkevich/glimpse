@@ -1,8 +1,9 @@
-use std::time::Duration;
+use std::{future::pending, time::Duration};
 
 use chrono::{Local, NaiveDate};
 use sunrise::{Coordinates as SunriseCoordinates, SolarDay, SolarEvent};
 use tokio::sync::{mpsc, watch};
+use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
 use crate::services::{
@@ -12,6 +13,7 @@ use crate::services::{
 
 const COMMAND_QUEUE_SIZE: usize = 4;
 const REFRESH_INTERVAL: Duration = Duration::from_secs(60);
+const LOCATION_UNAVAILABLE_DEBOUNCE: Duration = Duration::from_millis(500);
 const LOCATION_UNAVAILABLE_MESSAGE: &str = "location coordinates are unavailable for solar service";
 
 #[derive(Debug, Clone, PartialEq)]
@@ -66,11 +68,16 @@ impl SolarService {
         tracing::debug!("solar service started");
         let mut interval = tokio::time::interval(REFRESH_INTERVAL);
         let mut location_rx = self.location.subscribe();
+        let mut unavailable_deadline: Option<Instant> = None;
 
         loop {
             tokio::select! {
                 _ = cancel.cancelled() => break,
-                _ = interval.tick() => self.refresh(),
+                _ = interval.tick() => self.refresh_or_debounce_unavailable(&mut unavailable_deadline),
+                _ = wait_for_unavailable_deadline(unavailable_deadline) => {
+                    unavailable_deadline = None;
+                    self.refresh();
+                }
                 changed = location_rx.changed() => {
                     if changed.is_err() {
                         self.publish(State::Degraded {
@@ -78,18 +85,37 @@ impl SolarService {
                         });
                         break;
                     }
-                    self.refresh();
+                    self.refresh_or_debounce_unavailable(&mut unavailable_deadline);
                 }
                 command = self.command_rx.recv() => match command {
                     Some(ServiceCommand::Control(Control::Start(_)))
                     | Some(ServiceCommand::Control(Control::Reconfigure(_)))
-                    | Some(ServiceCommand::Command(Command::Refresh)) => self.refresh(),
+                    | Some(ServiceCommand::Command(Command::Refresh)) => {
+                        self.refresh_or_debounce_unavailable(&mut unavailable_deadline);
+                    }
                     Some(ServiceCommand::Control(Control::Shutdown)) | None => break,
                 }
             }
         }
 
         tracing::debug!("solar service quit");
+    }
+
+    fn refresh_or_debounce_unavailable(&self, unavailable_deadline: &mut Option<Instant>) {
+        if matches!(self.location.snapshot(), location::State::Ready(_)) {
+            *unavailable_deadline = None;
+            self.refresh();
+        } else if matches!(*self.state_tx.borrow(), State::Ready(_)) {
+            if unavailable_deadline.is_none() {
+                *unavailable_deadline = Some(Instant::now() + LOCATION_UNAVAILABLE_DEBOUNCE);
+                tracing::debug!(
+                    debounce_ms = LOCATION_UNAVAILABLE_DEBOUNCE.as_millis(),
+                    "solar service: delaying unavailable location state"
+                );
+            }
+        } else {
+            self.refresh();
+        }
     }
 
     fn refresh(&self) {
@@ -132,6 +158,13 @@ impl SolarService {
                 true
             }
         })
+    }
+}
+
+async fn wait_for_unavailable_deadline(deadline: Option<Instant>) {
+    match deadline {
+        Some(deadline) => tokio::time::sleep_until(deadline).await,
+        None => pending().await,
     }
 }
 
@@ -183,7 +216,10 @@ pub fn unavailable_message() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{SolarService, State, solar_times_for_coordinates, validate_coordinates};
+    use super::{
+        LOCATION_UNAVAILABLE_DEBOUNCE, SolarService, State, solar_times_for_coordinates,
+        validate_coordinates,
+    };
     use crate::services::{
         framework::{Control, ServiceCommand, ServiceHandle},
         location,
@@ -260,5 +296,113 @@ mod tests {
         let _ = task.await;
 
         assert_eq!(handle.snapshot(), State::Unknown);
+    }
+
+    #[tokio::test]
+    async fn solar_service_debounces_transient_location_refreshing() {
+        let (location_tx, location) =
+            location_handle(location::State::Ready(location::Coordinates {
+                latitude: 52.2298,
+                longitude: 21.0118,
+            }));
+        let (service, handle) = SolarService::new(location);
+        let cancel = CancellationToken::new();
+        let service_cancel = cancel.clone();
+        let task = tokio::spawn(async move { service.run(service_cancel).await });
+        let mut solar_rx = handle.subscribe();
+
+        handle
+            .send(ServiceCommand::Control(Control::Start(
+                crate::Config::default(),
+            )))
+            .await
+            .expect("start solar service");
+        wait_for_solar_state(&mut solar_rx, |state| matches!(state, State::Ready(_))).await;
+
+        location_tx
+            .send(location::State::Refreshing)
+            .expect("publish refreshing location");
+
+        let unknown = tokio::time::timeout(std::time::Duration::from_millis(50), async {
+            wait_for_solar_state(&mut solar_rx, |state| matches!(state, State::Unknown)).await;
+        })
+        .await;
+        assert!(
+            unknown.is_err(),
+            "transient location refresh should not immediately clear solar data"
+        );
+
+        location_tx
+            .send(location::State::Ready(location::Coordinates {
+                latitude: 52.2298,
+                longitude: 21.0118,
+            }))
+            .expect("publish recovered location");
+
+        let unknown = tokio::time::timeout(LOCATION_UNAVAILABLE_DEBOUNCE, async {
+            wait_for_solar_state(&mut solar_rx, |state| matches!(state, State::Unknown)).await;
+        })
+        .await;
+        assert!(
+            unknown.is_err(),
+            "recovered location should cancel pending unavailable state"
+        );
+
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn solar_service_reports_sustained_location_unavailability_after_debounce() {
+        let (location_tx, location) =
+            location_handle(location::State::Ready(location::Coordinates {
+                latitude: 52.2298,
+                longitude: 21.0118,
+            }));
+        let (service, handle) = SolarService::new(location);
+        let cancel = CancellationToken::new();
+        let service_cancel = cancel.clone();
+        let task = tokio::spawn(async move { service.run(service_cancel).await });
+        let mut solar_rx = handle.subscribe();
+
+        handle
+            .send(ServiceCommand::Control(Control::Start(
+                crate::Config::default(),
+            )))
+            .await
+            .expect("start solar service");
+        wait_for_solar_state(&mut solar_rx, |state| matches!(state, State::Ready(_))).await;
+
+        location_tx
+            .send(location::State::Refreshing)
+            .expect("publish refreshing location");
+
+        tokio::time::timeout(
+            LOCATION_UNAVAILABLE_DEBOUNCE + std::time::Duration::from_millis(250),
+            async {
+                wait_for_solar_state(&mut solar_rx, |state| matches!(state, State::Unknown)).await;
+            },
+        )
+        .await
+        .expect("sustained location unavailability should clear solar data");
+
+        cancel.cancel();
+        let _ = task.await;
+    }
+
+    async fn wait_for_solar_state(
+        state_rx: &mut watch::Receiver<State>,
+        predicate: impl Fn(&State) -> bool,
+    ) {
+        if predicate(&state_rx.borrow()) {
+            return;
+        }
+
+        loop {
+            state_rx.changed().await.unwrap();
+            if predicate(&state_rx.borrow()) {
+                return;
+            }
+        }
     }
 }

@@ -492,7 +492,7 @@ fn default_icon(kind: &IndicatorKind) -> &'static str {
     }
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> glimpse_sdk::AppletResult<()> {
     run(SysmonitorApplet, State::default()).await
 }

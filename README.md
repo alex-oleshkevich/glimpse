@@ -282,10 +282,10 @@ uri = "https://calendar.google.com/calendar/ical/example/basic.ics"
 color = "#4285f4"
 
 [[calendar.sources]]
-id = "private-url-file"
+id = "work"
 type = "ical"
-name = "Private URL File"
-uri = "file:///home/alex/.config/glimpse/calendars/private.url"
+name = "Work"
+uri = "file:///home/alex/.config/glimpse/calendars/work.url"
 color = "#e01b24"
 
 [[calendar.sources]]
@@ -296,9 +296,9 @@ uri = "file:///home/alex/.config/glimpse/calendars"
 color = "#f6c343"
 ```
 
-Supported source types are `ical` for one `.ics` feed and `directory` for local directories of `.ics` files. A `file://.../private.url` iCal source can hold a private remote URL outside the main config. Every configured source is active; remove a source block to disable that calendar.
+Supported source types are `ical` for one provider `.ics` URL or local `.ics` file, and `directory` for local directories of `.ics` files. A `file://.../work.url` iCal source can point to a local file that contains a provider URL, keeping that URL outside the main config. Every configured source is active; remove a source block to disable that calendar.
 
-Source colors appear in calendar date markers, event rows, and the next-event panel label. Read [Calendar Sources](docs/calendar.md) for polling, dedupe, local test events, display rules, and debugging.
+Source colors appear in calendar date markers, event rows, and the next-event panel label. Read [Calendar Sources](docs/calendar.md) for Google Calendar and Outlook ICS links, polling, dedupe, local test events, display rules, and debugging.
 
 ## Wallpaper And Backdrop
 

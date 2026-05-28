@@ -210,7 +210,7 @@ uri = "file:///home/alex/.config/glimpse/calendars"
 color = "#f6c343"
 ```
 
-Use `type = "ical"` for `.ics` feeds and `type = "directory"` for a folder of local calendar files. Read [Calendar Sources](./calendar.md) for private URL files, recurrence support, display rules, and debugging.
+Use `type = "ical"` for provider `.ics` URLs or local `.ics` files, and `type = "directory"` for a folder of local calendar files. Read [Calendar Sources](./calendar.md) for Google Calendar and Outlook ICS links, optional sidecar URL files, recurrence support, display rules, and debugging.
 
 ## Location
 
