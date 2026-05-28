@@ -853,7 +853,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-core"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "anyhow",
  "async-trait",
