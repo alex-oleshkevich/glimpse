@@ -192,17 +192,21 @@ impl NetworkSecretAgent {
         (Self { registry, conn }, prompt_rx)
     }
 
+    // Registry ops are single-step (field/map updates, channel sends), so on a
+    // poisoned lock we recover the guard and continue rather than crashing the
+    // whole shell — a stale prompt is far cheaper than killing the panel. If a
+    // method ever mutates two fields that must stay consistent, revisit this.
     pub fn complete_prompt(&self, id: NetworkPromptId, reply: NetworkPromptReply) -> bool {
         self.registry
             .lock()
-            .expect("network prompt registry poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .complete(id, reply)
     }
 
     pub fn cancel_prompt(&self) -> bool {
         self.registry
             .lock()
-            .expect("network prompt registry poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .cancel_current()
     }
 
@@ -283,7 +287,7 @@ impl NetworkSecretAgent {
             let mut registry = self
                 .registry
                 .lock()
-                .expect("network prompt registry poisoned");
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             registry.request_prompt(ssid.clone()).ok_or_else(|| {
                 zbus::fdo::Error::Failed("a network prompt is already active".into())
             })?

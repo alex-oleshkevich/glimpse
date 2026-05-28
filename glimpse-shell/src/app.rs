@@ -42,6 +42,7 @@ pub enum Input {
     ThemeChanged(ThemeServiceState),
     MonitorsChanged,
     WaylandInstalled(panels::PanelKey),
+    WaylandInstallFailed,
 }
 
 pub struct App {
@@ -278,6 +279,13 @@ impl SimpleComponent for App {
                 self.wayland_installed = true;
                 self.wayland_host_key = Some(host_key);
             }
+            Input::WaylandInstallFailed => {
+                // The deferred install (on window map) failed. Clear the pending
+                // flag so the next reconcile retries instead of wedging the
+                // daemon on the Noop inhibitor backend forever.
+                self.wayland_pending = false;
+                self.wayland_host_key = None;
+            }
         }
     }
 }
@@ -296,7 +304,9 @@ fn spawn_idle_subsystem(
         .unique_name()
         .map(|n| n.to_string())
         .unwrap_or_default();
-    let (swap_tx, swap_rx) = tokio::sync::mpsc::channel::<Box<dyn WaylandIdleInhibitor + Send>>(1);
+    // Small buffer so a backend swap is not dropped if the inhibitor task is
+    // briefly busy; a dropped swap would strand the panel on the Noop backend.
+    let (swap_tx, swap_rx) = tokio::sync::mpsc::channel::<Box<dyn WaylandIdleInhibitor + Send>>(4);
     let backend: Box<dyn WaylandIdleInhibitor + Send> = Box::new(NoopWaylandInhibitor);
     let initial_health = backend.health();
     let (health_tx, health_rx) = tokio::sync::watch::channel(initial_health);
@@ -493,6 +503,8 @@ impl App {
                 if let Some(install) = install_once.take() {
                     if install(w).is_ok() {
                         let _ = input_sender.send(Input::WaylandInstalled(host_key.clone()));
+                    } else {
+                        let _ = input_sender.send(Input::WaylandInstallFailed);
                     }
                 }
             });

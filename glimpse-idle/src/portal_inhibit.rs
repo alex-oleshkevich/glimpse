@@ -8,7 +8,7 @@ use glimpse_core::services::idle_inhibitor::{
     IdleInhibitorRecord, IdleInhibitorSource, InhibitionTargets, now_unix,
 };
 
-use crate::inhibitor_registry::Registry;
+use crate::inhibitor_registry::{Registry, clamp_label};
 use crate::screen_saver::Login1InhibitTaker;
 
 pub struct PortalInhibit {
@@ -33,11 +33,14 @@ impl PortalInhibit {
         #[zbus(connection)] conn: &zbus::Connection,
     ) -> zbus::fdo::Result<()> {
         let targets = InhibitionTargets::from_portal_flags(flags);
-        let reason = options
-            .get("reason")
-            .and_then(|v| v.try_clone().ok())
-            .and_then(|v| String::try_from(v).ok())
-            .unwrap_or_default();
+        let app_id = clamp_label(app_id);
+        let reason = clamp_label(
+            options
+                .get("reason")
+                .and_then(|v| v.try_clone().ok())
+                .and_then(|v| String::try_from(v).ok())
+                .unwrap_or_default(),
+        );
 
         let logind_fd = if targets.suspend || targets.shutdown {
             let what = login1_what_for_portal(&targets);
@@ -52,6 +55,12 @@ impl PortalInhibit {
         let id;
         {
             let mut reg = self.registry.lock().await;
+            if let Err(reason) = reg.check_capacity("") {
+                drop(reg);
+                // `logind_fd` drops here, releasing any logind inhibit taken above.
+                tracing::warn!(%app_id, reason, "rejecting portal inhibit");
+                return Err(zbus::fdo::Error::LimitsExceeded(reason));
+            }
             id = reg.mint_id();
             let record = IdleInhibitorRecord {
                 id,

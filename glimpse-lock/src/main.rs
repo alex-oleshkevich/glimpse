@@ -14,6 +14,22 @@ use tracing_subscriber::EnvFilter;
 const EXPORTED_LOCK_CSS: &str = include_str!("../resources/export-lock.css");
 const EXPORTED_LOCK_CONFIG: &str = include_str!("../resources/export-config.toml");
 
+/// Make a panic in the resident locker loud and diagnosable. The compositor
+/// keeps the session locked at the protocol level (ext-session-lock) even if
+/// our process panics, so this is defense-in-depth: it surfaces the bug at
+/// error level rather than letting a panicked update loop fail quietly.
+fn install_lock_panic_hook() {
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        tracing::error!(
+            panic = %info,
+            "glimpse-lock panicked while holding the session lock; the compositor keeps the \
+             session locked via ext-session-lock, but this is a bug — restart the locker"
+        );
+        default_hook(info);
+    }));
+}
+
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let command = parse_command(&args)?;
@@ -57,6 +73,9 @@ fn main() -> anyhow::Result<()> {
         .with_env_filter(log_filter())
         .init();
     tracing::info!("glimpse-lock {}", env!("CARGO_PKG_VERSION"));
+    if !preview {
+        install_lock_panic_hook();
+    }
     let config = LockAppConfig::load();
     let runtime = tokio::runtime::Runtime::new()?;
     let instance_guard = if preview {

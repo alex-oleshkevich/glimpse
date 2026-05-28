@@ -35,10 +35,14 @@ struct WallpaperCommandHandler {
 }
 
 impl WallpaperCommandHandler {
-    fn send(&self, command: WallpaperCommand) -> Result<Vec<(String, String)>, String> {
+    /// Await on the bounded channel so legitimate command bursts (multi-monitor
+    /// reconcile, rapid theme toggles) queue instead of being dropped. Only a
+    /// closed channel (daemon shutting down) yields an error.
+    async fn send(&self, command: WallpaperCommand) -> Result<Vec<(String, String)>, String> {
         self.cmd_tx
-            .try_send(command)
-            .map_err(|_| "wallpaper daemon busy".to_owned())?;
+            .send(command)
+            .await
+            .map_err(|_| "wallpaper daemon unavailable".to_owned())?;
         Ok(vec![])
     }
 }
@@ -99,12 +103,13 @@ impl CommandHandler for WallpaperCommandHandler {
             };
 
             match name {
-                "reload_config" => self.send(WallpaperCommand::ReloadConfig),
+                "reload_config" => self.send(WallpaperCommand::ReloadConfig).await,
 
                 "set_image" => {
                     let path = require(fields, "path")?;
                     validate_file(path).await?;
                     self.send(WallpaperCommand::SetImage(PathBuf::from(path)))
+                        .await
                 }
 
                 "set_color" => {
@@ -115,12 +120,12 @@ impl CommandHandler for WallpaperCommandHandler {
                     color
                         .parse::<css_color::Srgb>()
                         .map_err(|_| format!("invalid color: {color}"))?;
-                    self.send(WallpaperCommand::SetColor(color.to_owned()))
+                    self.send(WallpaperCommand::SetColor(color.to_owned())).await
                 }
 
                 "set_fit" => {
                     let fit = parse_fit(require(fields, "mode")?)?;
-                    self.send(WallpaperCommand::SetFit(fit))
+                    self.send(WallpaperCommand::SetFit(fit)).await
                 }
 
                 "set_backdrop" => {
@@ -150,6 +155,7 @@ impl CommandHandler for WallpaperCommandHandler {
                         path,
                         blur,
                     })
+                    .await
                 }
 
                 "set_theme_mode" => {
@@ -163,7 +169,7 @@ impl CommandHandler for WallpaperCommandHandler {
                             ));
                         }
                     };
-                    self.send(WallpaperCommand::SetThemeMode(request))
+                    self.send(WallpaperCommand::SetThemeMode(request)).await
                 }
 
                 _ => Err(format!("unknown command: {name}")),
@@ -213,4 +219,41 @@ pub fn emit_theme_changed(tx: &broadcast::Sender<Arc<IpcEvent>>, mode: Effective
         "wallpaper.theme_changed",
         vec![("mode", name.to_owned())],
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn send_queues_bursts_without_dropping() {
+        let (cmd_tx, mut cmd_rx) = mpsc::channel::<WallpaperCommand>(16);
+        let handler = WallpaperCommandHandler { cmd_tx };
+        // Drain concurrently so the awaiting sender makes progress past the buffer.
+        let consumer = tokio::spawn(async move {
+            let mut count = 0usize;
+            while cmd_rx.recv().await.is_some() {
+                count += 1;
+                if count == 50 {
+                    break;
+                }
+            }
+            count
+        });
+        for _ in 0..50 {
+            handler
+                .send(WallpaperCommand::ReloadConfig)
+                .await
+                .expect("command should queue, not be dropped");
+        }
+        assert_eq!(consumer.await.unwrap(), 50);
+    }
+
+    #[tokio::test]
+    async fn send_errors_when_daemon_channel_closed() {
+        let (cmd_tx, cmd_rx) = mpsc::channel::<WallpaperCommand>(1);
+        drop(cmd_rx);
+        let handler = WallpaperCommandHandler { cmd_tx };
+        assert!(handler.send(WallpaperCommand::ReloadConfig).await.is_err());
+    }
 }

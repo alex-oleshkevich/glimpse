@@ -16,6 +16,7 @@ use wayland_protocols::ext::idle_notify::v1::client::{
 };
 
 const WAYLAND_RETRY_DELAY: Duration = Duration::from_secs(2);
+const WAYLAND_SETUP_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub async fn run(idle: IdleHandle, cancel: CancellationToken) {
     loop {
@@ -43,17 +44,17 @@ enum RunOutcome {
 }
 
 async fn run_inner(idle: IdleHandle, cancel: CancellationToken) -> anyhow::Result<RunOutcome> {
-    let conn = Connection::connect_to_env()?;
-    let (globals, mut event_queue) = registry_queue_init::<WaylandIdleState>(&conn)?;
-    let qh = event_queue.handle();
-    let notifier = globals.bind::<ext_idle_notifier_v1::ExtIdleNotifierV1, _, _>(&qh, 1..=2, ())?;
-    let seat = globals.bind::<wl_seat::WlSeat, _, _>(&qh, 1..=9, ())?;
-    let mut backend_state = WaylandIdleState {
-        idle: idle.clone(),
-        notifications: vec![],
-        registered_generation: None,
+    let WaylandSetup {
+        conn,
+        mut event_queue,
+        notifier,
+        seat,
+        qh,
+        mut backend_state,
+    } = tokio::select! {
+        _ = cancel.cancelled() => return Ok(RunOutcome::Cancelled),
+        setup = with_setup_timeout(connect_blocking(idle.clone())) => setup?,
     };
-    event_queue.roundtrip(&mut backend_state)?;
 
     tracing::info!("idle backend connected to Wayland idle notify");
     send_health(&idle, Health::Ready);
@@ -101,6 +102,69 @@ async fn run_inner(idle: IdleHandle, cancel: CancellationToken) -> anyhow::Resul
                 guard.clear_ready();
             }
         }
+    }
+}
+
+struct WaylandSetup {
+    conn: Connection,
+    event_queue: wayland_client::EventQueue<WaylandIdleState>,
+    notifier: ext_idle_notifier_v1::ExtIdleNotifierV1,
+    seat: wl_seat::WlSeat,
+    qh: QueueHandle<WaylandIdleState>,
+    backend_state: WaylandIdleState,
+}
+
+async fn connect_blocking(idle: IdleHandle) -> anyhow::Result<WaylandSetup> {
+    tokio::task::spawn_blocking(move || -> anyhow::Result<WaylandSetup> {
+        let conn = Connection::connect_to_env()?;
+        let (globals, mut event_queue) = registry_queue_init::<WaylandIdleState>(&conn)?;
+        let qh = event_queue.handle();
+        let notifier =
+            globals.bind::<ext_idle_notifier_v1::ExtIdleNotifierV1, _, _>(&qh, 1..=2, ())?;
+        let seat = globals.bind::<wl_seat::WlSeat, _, _>(&qh, 1..=9, ())?;
+        let mut backend_state = WaylandIdleState {
+            idle,
+            notifications: vec![],
+            registered_generation: None,
+        };
+        event_queue.roundtrip(&mut backend_state)?;
+        Ok(WaylandSetup {
+            conn,
+            event_queue,
+            notifier,
+            seat,
+            qh,
+            backend_state,
+        })
+    })
+    .await
+    .map_err(|error| anyhow::anyhow!("wayland setup worker failed: {error}"))?
+}
+
+// The Wayland setup above (connect, registry init, roundtrip) is a blocking
+// sequence that can stall indefinitely against a live-but-unresponsive
+// compositor. Running it on a blocking worker lets this timeout surface as a
+// `Degraded` health transition and reconnect, instead of wedging the backend.
+// Tradeoff: on a persistently wedged compositor the blocked worker thread is
+// not reclaimed and a fresh one is spawned each retry; acceptable for that
+// degenerate case, but if it becomes a problem, gate retries behind a single
+// outstanding-setup guard.
+async fn with_setup_timeout<F, T>(setup: F) -> anyhow::Result<T>
+where
+    F: std::future::Future<Output = anyhow::Result<T>>,
+{
+    bounded_setup(WAYLAND_SETUP_TIMEOUT, setup).await
+}
+
+async fn bounded_setup<F, T>(timeout: Duration, setup: F) -> anyhow::Result<T>
+where
+    F: std::future::Future<Output = anyhow::Result<T>>,
+{
+    match tokio::time::timeout(timeout, setup).await {
+        Ok(result) => result,
+        Err(_) => Err(anyhow::anyhow!(
+            "timed out connecting to Wayland idle notify after {timeout:?}"
+        )),
     }
 }
 
@@ -215,3 +279,25 @@ impl Dispatch<ext_idle_notification_v1::ExtIdleNotificationV1, usize> for Waylan
 
 delegate_noop!(WaylandIdleState: ignore wl_seat::WlSeat);
 delegate_noop!(WaylandIdleState: ignore ext_idle_notifier_v1::ExtIdleNotifierV1);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn setup_timeout_surfaces_error_for_stalled_connect() {
+        let stalled = std::future::pending::<anyhow::Result<()>>();
+        let result = bounded_setup(Duration::from_millis(10), stalled).await;
+        let error = result.expect_err("a never-completing setup must time out");
+        assert!(
+            error.to_string().contains("timed out"),
+            "unexpected error message: {error}"
+        );
+    }
+
+    #[tokio::test]
+    async fn setup_timeout_passes_through_immediate_success() {
+        let result = bounded_setup(Duration::from_millis(10), async { Ok(7u32) }).await;
+        assert_eq!(result.expect("immediate success should pass through"), 7);
+    }
+}

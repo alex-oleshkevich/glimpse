@@ -7,11 +7,29 @@ use glimpse_core::services::{
     notifications, power, storage, theme, weather,
 };
 
-use crate::services::framework::Services;
+use crate::services::framework::{ServiceCommand, ServiceHandle, Services};
 
 #[derive(Clone)]
 pub(crate) struct ShellCommandHandler {
     pub services: Services,
+}
+
+/// Dispatch a command to a service, surfacing a send failure to the IPC caller
+/// instead of silently dropping it. A full or closed service channel means the
+/// command did not take effect, so the client must see an error rather than a
+/// false success.
+fn dispatch<S: Clone, C: Send>(
+    handle: &ServiceHandle<S, C>,
+    service: &'static str,
+    command: C,
+) -> Result<Vec<(String, String)>, String> {
+    match handle.try_send(ServiceCommand::Command(command)) {
+        Ok(()) => Ok(Vec::new()),
+        Err(error) => {
+            tracing::warn!(service, %error, "ipc command dropped: service channel unavailable");
+            Err(format!("{service}: {error}"))
+        }
+    }
 }
 
 fn field<'a>(fields: &'a [(String, String)], key: &str) -> Option<&'a str> {
@@ -176,37 +194,15 @@ impl CommandHandler for ShellCommandHandler {
                 // ── audio ──────────────────────────────────────────────
                 "set_volume" => {
                     let level = parse_percent(require(fields, "level")?)?;
-                    svc.audio.try_send_command(
-                        "audio",
-                        audio::Command::SetOutputVolume(level),
-                        "failed to set volume",
-                    );
-                    Ok(vec![])
+                    dispatch(&svc.audio, "audio", audio::Command::SetOutputVolume(level))
                 }
-                "toggle_mute" => {
-                    svc.audio.try_send_command(
-                        "audio",
-                        audio::Command::ToggleOutputMute,
-                        "failed to toggle mute",
-                    );
-                    Ok(vec![])
-                }
+                "toggle_mute" => dispatch(&svc.audio, "audio", audio::Command::ToggleOutputMute),
                 "set_input_volume" => {
                     let level = parse_percent(require(fields, "level")?)?;
-                    svc.audio.try_send_command(
-                        "audio",
-                        audio::Command::SetInputVolume(level),
-                        "failed to set input volume",
-                    );
-                    Ok(vec![])
+                    dispatch(&svc.audio, "audio", audio::Command::SetInputVolume(level))
                 }
                 "toggle_input_mute" => {
-                    svc.audio.try_send_command(
-                        "audio",
-                        audio::Command::ToggleInputMute,
-                        "failed to toggle input mute",
-                    );
-                    Ok(vec![])
+                    dispatch(&svc.audio, "audio", audio::Command::ToggleInputMute)
                 }
 
                 // ── brightness ─────────────────────────────────────────
@@ -218,12 +214,11 @@ impl CommandHandler for ShellCommandHandler {
                             .primary_brightness_id()
                             .ok_or("no brightness source available")?,
                     };
-                    svc.brightness.try_send_command(
+                    dispatch(
+                        &svc.brightness,
                         "brightness",
                         brightness::Command::SetPercent { id, percent },
-                        "failed to set brightness",
-                    );
-                    Ok(vec![])
+                    )
                 }
                 "adjust_brightness" => {
                     let delta: i32 = require(fields, "delta")?
@@ -235,54 +230,43 @@ impl CommandHandler for ShellCommandHandler {
                             .primary_brightness_id()
                             .ok_or("no brightness source available")?,
                     };
-                    svc.brightness.try_send_command(
+                    dispatch(
+                        &svc.brightness,
                         "brightness",
                         brightness::Command::AdjustPercent { id, delta },
-                        "failed to adjust brightness",
-                    );
-                    Ok(vec![])
+                    )
                 }
 
                 // ── power ──────────────────────────────────────────────
                 "set_power_profile" => {
                     let profile = require(fields, "profile")?.to_owned();
-                    svc.power.try_send_command(
-                        "power",
-                        power::Command::SetProfile(profile),
-                        "failed to set power profile",
-                    );
-                    Ok(vec![])
+                    dispatch(&svc.power, "power", power::Command::SetProfile(profile))
                 }
 
                 // ── notifications ──────────────────────────────────────
                 "set_dnd" => {
                     let enabled = parse_bool(require(fields, "enabled")?)?;
-                    svc.notifications.try_send_command(
+                    dispatch(
+                        &svc.notifications,
                         "notifications",
                         notifications::model::Command::SetDnd(enabled),
-                        "failed to set dnd",
-                    );
-                    Ok(vec![])
+                    )
                 }
                 "dismiss_notification" => {
                     let id: u32 = require(fields, "id")?
                         .parse()
                         .map_err(|_| "id must be an integer".to_owned())?;
-                    svc.notifications.try_send_command(
+                    dispatch(
+                        &svc.notifications,
                         "notifications",
                         notifications::model::Command::Dismiss { id },
-                        "failed to dismiss notification",
-                    );
-                    Ok(vec![])
+                    )
                 }
-                "dismiss_all_notifications" => {
-                    svc.notifications.try_send_command(
-                        "notifications",
-                        notifications::model::Command::DismissAll,
-                        "failed to dismiss notifications",
-                    );
-                    Ok(vec![])
-                }
+                "dismiss_all_notifications" => dispatch(
+                    &svc.notifications,
+                    "notifications",
+                    notifications::model::Command::DismissAll,
+                ),
 
                 // ── media (mpris) ──────────────────────────────────────
                 "media_play_pause" | "media_next" | "media_previous" => {
@@ -295,9 +279,7 @@ impl CommandHandler for ShellCommandHandler {
                         "media_next" => mpris::Command::Next { player_id },
                         _ => mpris::Command::Previous { player_id },
                     };
-                    svc.mpris
-                        .try_send_command("mpris", cmd, "failed to control media");
-                    Ok(vec![])
+                    dispatch(&svc.mpris, "mpris", cmd)
                 }
 
                 // ── theme ──────────────────────────────────────────────
@@ -312,91 +294,62 @@ impl CommandHandler for ShellCommandHandler {
                             ));
                         }
                     };
-                    svc.theme.try_send_command(
-                        "theme",
-                        theme::Command::SetMode(mode),
-                        "failed to set theme",
-                    );
-                    Ok(vec![])
+                    dispatch(&svc.theme, "theme", theme::Command::SetMode(mode))
                 }
 
                 // ── keyboard ───────────────────────────────────────────
                 "next_keyboard_layout" => {
-                    svc.keyboard.try_send_command(
-                        "keyboard",
-                        keyboard::Command::NextLayout,
-                        "failed to switch layout",
-                    );
-                    Ok(vec![])
+                    dispatch(&svc.keyboard, "keyboard", keyboard::Command::NextLayout)
                 }
-                "prev_keyboard_layout" => {
-                    svc.keyboard.try_send_command(
-                        "keyboard",
-                        keyboard::Command::PreviousLayout,
-                        "failed to switch layout",
-                    );
-                    Ok(vec![])
-                }
+                "prev_keyboard_layout" => dispatch(
+                    &svc.keyboard,
+                    "keyboard",
+                    keyboard::Command::PreviousLayout,
+                ),
                 "set_keyboard_layout" => {
                     let index: usize = require(fields, "index")?
                         .parse()
                         .map_err(|_| "index must be a non-negative integer".to_owned())?;
-                    svc.keyboard.try_send_command(
+                    dispatch(
+                        &svc.keyboard,
                         "keyboard",
                         keyboard::Command::SetLayout(index),
-                        "failed to set layout",
-                    );
-                    Ok(vec![])
+                    )
                 }
 
                 // ── network ────────────────────────────────────────────
                 "set_wifi" => {
                     let enabled = parse_bool(require(fields, "enabled")?)?;
-                    svc.network.try_send_command(
+                    dispatch(
+                        &svc.network,
                         "network",
                         network::Command::SetWifiEnabled(enabled),
-                        "failed to toggle wifi",
-                    );
-                    Ok(vec![])
+                    )
                 }
-                "wifi_scan" => {
-                    svc.network.try_send_command(
-                        "network",
-                        network::Command::RequestScan,
-                        "failed to start wifi scan",
-                    );
-                    Ok(vec![])
-                }
+                "wifi_scan" => dispatch(&svc.network, "network", network::Command::RequestScan),
                 "connect_wifi" => {
                     let ssid = require(fields, "ssid")?.to_owned();
                     let path = require(fields, "path")?.to_owned();
-                    svc.network.try_send_command(
+                    dispatch(
+                        &svc.network,
                         "network",
                         network::Command::ConnectWifi { ssid, path },
-                        "failed to connect wifi",
-                    );
-                    Ok(vec![])
+                    )
                 }
                 "forget_wifi" => {
                     require_confirm(fields)?;
                     let uuid = require(fields, "uuid")?.to_owned();
-                    svc.network.try_send_command(
-                        "network",
-                        network::Command::Forget { uuid },
-                        "failed to forget wifi",
-                    );
-                    Ok(vec![])
+                    dispatch(&svc.network, "network", network::Command::Forget { uuid })
                 }
 
                 // ── bluetooth ──────────────────────────────────────────
                 "set_bluetooth" => {
                     let enabled = parse_bool(require(fields, "enabled")?)?;
-                    svc.bluetooth.try_send_command(
+                    dispatch(
+                        &svc.bluetooth,
                         "bluetooth",
                         bluetooth::Command::SetPowered(enabled),
-                        "failed to toggle bluetooth",
-                    );
-                    Ok(vec![])
+                    )
                 }
                 "bluetooth_scan" => {
                     let cmd = match require(fields, "action")? {
@@ -406,117 +359,77 @@ impl CommandHandler for ShellCommandHandler {
                             return Err(format!("action must be start or stop, got '{other}'"));
                         }
                     };
-                    svc.bluetooth
-                        .try_send_command("bluetooth", cmd, "failed to scan bluetooth");
-                    Ok(vec![])
+                    dispatch(&svc.bluetooth, "bluetooth", cmd)
                 }
                 "connect_bluetooth" => {
                     let address = require(fields, "address")?.to_owned();
-                    svc.bluetooth.try_send_command(
+                    dispatch(
+                        &svc.bluetooth,
                         "bluetooth",
                         bluetooth::Command::Connect { address },
-                        "failed to connect bluetooth",
-                    );
-                    Ok(vec![])
+                    )
                 }
                 "disconnect_bluetooth" => {
                     let address = require(fields, "address")?.to_owned();
-                    svc.bluetooth.try_send_command(
+                    dispatch(
+                        &svc.bluetooth,
                         "bluetooth",
                         bluetooth::Command::Disconnect { address },
-                        "failed to disconnect bluetooth",
-                    );
-                    Ok(vec![])
+                    )
                 }
                 "forget_bluetooth" => {
                     require_confirm(fields)?;
                     let address = require(fields, "address")?.to_owned();
-                    svc.bluetooth.try_send_command(
+                    dispatch(
+                        &svc.bluetooth,
                         "bluetooth",
                         bluetooth::Command::Forget { address },
-                        "failed to forget bluetooth device",
-                    );
-                    Ok(vec![])
+                    )
                 }
 
                 // ── clipboard (destructive) ────────────────────────────
                 "clear_clipboard" => {
                     require_confirm(fields)?;
-                    svc.clipboard.try_send_command(
+                    dispatch(
+                        &svc.clipboard,
                         "clipboard",
                         clipboard::Command::ClearClipboard,
-                        "failed to clear clipboard",
-                    );
-                    Ok(vec![])
+                    )
                 }
                 "clear_clipboard_history" => {
                     require_confirm(fields)?;
-                    svc.clipboard.try_send_command(
+                    dispatch(
+                        &svc.clipboard,
                         "clipboard",
                         clipboard::Command::ClearHistory,
-                        "failed to clear clipboard history",
-                    );
-                    Ok(vec![])
+                    )
                 }
 
                 // ── storage (destructive) ──────────────────────────────
                 "eject" => {
                     require_confirm(fields)?;
                     let id = require(fields, "id")?.to_owned();
-                    svc.storage.try_send_command(
-                        "storage",
-                        storage::Command::Eject { id },
-                        "failed to eject",
-                    );
-                    Ok(vec![])
+                    dispatch(&svc.storage, "storage", storage::Command::Eject { id })
                 }
                 "poweroff_drive" => {
                     require_confirm(fields)?;
                     let id = require(fields, "id")?.to_owned();
-                    svc.storage.try_send_command(
-                        "storage",
-                        storage::Command::PowerOff { id },
-                        "failed to power off drive",
-                    );
-                    Ok(vec![])
+                    dispatch(&svc.storage, "storage", storage::Command::PowerOff { id })
                 }
 
                 // ── refresh ────────────────────────────────────────────
-                "refresh" => {
-                    match require(fields, "service")? {
-                        "battery" => svc.battery.try_send_command(
-                            "battery",
-                            battery::Command::Refresh,
-                            "failed to refresh battery",
-                        ),
-                        "brightness" => svc.brightness.try_send_command(
-                            "brightness",
-                            brightness::Command::Refresh,
-                            "failed to refresh brightness",
-                        ),
-                        "power" => svc.power.try_send_command(
-                            "power",
-                            power::Command::Refresh,
-                            "failed to refresh power",
-                        ),
-                        "storage" => svc.storage.try_send_command(
-                            "storage",
-                            storage::Command::Refresh,
-                            "failed to refresh storage",
-                        ),
-                        "location" => svc.location.try_send_command(
-                            "location",
-                            location::Command::Refresh,
-                            "failed to refresh location",
-                        ),
-                        other => {
-                            return Err(format!(
-                                "unknown service '{other}' (battery|brightness|location|power|storage)"
-                            ));
-                        }
+                "refresh" => match require(fields, "service")? {
+                    "battery" => dispatch(&svc.battery, "battery", battery::Command::Refresh),
+                    "brightness" => {
+                        dispatch(&svc.brightness, "brightness", brightness::Command::Refresh)
                     }
-                    Ok(vec![])
-                }
+                    "power" => dispatch(&svc.power, "power", power::Command::Refresh),
+                    "storage" => dispatch(&svc.storage, "storage", storage::Command::Refresh),
+                    "location" => dispatch(&svc.location, "location", location::Command::Refresh),
+                    other => Err(format!(
+                        "unknown service '{other}' (battery|brightness|location|power|storage)"
+                    )),
+                },
 
                 // ── set_location ──────────────────────────────────────
                 // Manual override that bypasses GeoClue — useful for testing,
@@ -534,12 +447,11 @@ impl CommandHandler for ShellCommandHandler {
                     if !(-180.0..=180.0).contains(&lon) {
                         return Err("lon must be in [-180, 180]".to_string());
                     }
-                    svc.location.try_send_command(
+                    dispatch(
+                        &svc.location,
                         "location",
                         location::Command::SetManual(lat, lon),
-                        "failed to set manual location",
-                    );
-                    Ok(vec![])
+                    )
                 }
 
                 _ => Err(format!("unknown command: {name}")),
@@ -550,13 +462,44 @@ impl CommandHandler for ShellCommandHandler {
 
 #[cfg(test)]
 mod tests {
-    use super::{append_location_status, append_weather_status};
+    use super::{append_location_status, append_weather_status, dispatch};
     use glimpse_core::services::{
+        audio,
+        framework::ServiceHandle,
         location::{Coordinates, State},
         weather::model::{
             CurrentWeather, Location as WeatherLocation, Snapshot, State as WeatherState,
         },
     };
+    use tokio::sync::{mpsc, watch};
+
+    #[test]
+    fn dispatch_surfaces_error_when_service_channel_closed() {
+        let (_state_tx, state_rx) = watch::channel(audio::State::default());
+        let (cmd_tx, cmd_rx) = mpsc::channel(1);
+        drop(cmd_rx); // service task gone → sends must fail
+        let handle: ServiceHandle<audio::State, audio::Command> =
+            ServiceHandle::new(state_rx, cmd_tx);
+
+        let result = dispatch(&handle, "audio", audio::Command::ToggleOutputMute);
+
+        assert!(
+            result.is_err(),
+            "a closed service channel must surface as an IPC error, not a false success"
+        );
+    }
+
+    #[test]
+    fn dispatch_reports_success_when_command_is_accepted() {
+        let (_state_tx, state_rx) = watch::channel(audio::State::default());
+        let (cmd_tx, _cmd_rx) = mpsc::channel(1);
+        let handle: ServiceHandle<audio::State, audio::Command> =
+            ServiceHandle::new(state_rx, cmd_tx);
+
+        let result = dispatch(&handle, "audio", audio::Command::ToggleOutputMute);
+
+        assert_eq!(result, Ok(vec![]));
+    }
 
     #[test]
     fn status_includes_ready_location_coordinates() {

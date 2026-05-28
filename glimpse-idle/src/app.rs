@@ -146,10 +146,20 @@ async fn wire_inhibitor_subsystem(
             emit_inhibitors_changed(&session).await;
             let reg = registry.lock().await;
             let h = health.lock().await;
-            let _ = tx.send(idle_inhibitor::State {
-                health: h.clone(),
-                inhibitors: reg.snapshot(),
-            });
+            if tx
+                .send(idle_inhibitor::State {
+                    health: h.clone(),
+                    inhibitors: reg.snapshot(),
+                })
+                .is_err()
+            {
+                // Normal during shutdown (the IPC watcher is torn down while
+                // inhibitors are still releasing), so this is diagnostic, not a
+                // warning — it only means a change event went unobserved.
+                tracing::debug!(
+                    "inhibitor state channel has no receivers; IPC event watcher stopped"
+                );
+            }
         });
     });
 

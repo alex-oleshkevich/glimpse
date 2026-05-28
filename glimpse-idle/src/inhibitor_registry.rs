@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::os::fd::OwnedFd;
+use std::time::Instant;
 
 use glimpse_core::services::idle_inhibitor::{
     IdleInhibitorRecord, InhibitionTargets, SourceKind, now_unix,
@@ -13,6 +14,12 @@ pub struct InternalRecord {
     pub logind_fd: Option<OwnedFd>,
 }
 
+/// Token-bucket state for one client's Inhibit call rate.
+struct RateState {
+    tokens: f64,
+    last: Instant,
+}
+
 #[derive(Default)]
 pub struct Registry {
     next_id: u64,
@@ -21,6 +28,7 @@ pub struct Registry {
     cookie_to_id: HashMap<u32, u64>,
     portal_handle_to_id: HashMap<String, u64>,
     bus_name_to_ids: HashMap<String, Vec<u64>>,
+    inhibit_rate: HashMap<String, RateState>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -30,12 +38,70 @@ pub struct ReleaseOutcome {
 }
 
 impl Registry {
+    /// Max inhibitors a single bus name (D-Bus client) may hold at once.
+    pub const MAX_INHIBITORS_PER_BUS: usize = 64;
+    /// Global ceiling across all sources, as a backstop against clients that
+    /// register without a bus name (e.g. portal-backed records).
+    pub const MAX_INHIBITORS_TOTAL: usize = 4096;
+
+    /// Token-bucket burst size and refill rate for per-client Inhibit calls.
+    const RATE_BURST: f64 = 16.0;
+    const RATE_REFILL_PER_SEC: f64 = 8.0;
+
     pub fn new() -> Self {
         Self {
             next_id: 1,
             next_cookie: 1,
             ..Self::default()
         }
+    }
+
+    /// Reject a new *client* inhibitor that would exceed the per-client or
+    /// global cap. login1 observer inserts are observational mirrors of
+    /// logind's own list and intentionally bypass this.
+    pub fn check_capacity(&self, bus_name: &str) -> Result<(), String> {
+        if self.records.len() >= Self::MAX_INHIBITORS_TOTAL {
+            return Err(format!(
+                "global inhibitor limit ({}) reached",
+                Self::MAX_INHIBITORS_TOTAL
+            ));
+        }
+        if !bus_name.is_empty()
+            && self
+                .bus_name_to_ids
+                .get(bus_name)
+                .is_some_and(|ids| ids.len() >= Self::MAX_INHIBITORS_PER_BUS)
+        {
+            return Err(format!(
+                "per-client inhibitor limit ({}) reached",
+                Self::MAX_INHIBITORS_PER_BUS
+            ));
+        }
+        Ok(())
+    }
+
+    /// Token-bucket rate check for a client's Inhibit calls, damping
+    /// pathological inhibit/uninhibit churn. Records without a bus identity
+    /// (portal/login1) are not rate-limited. `now` is injected for testability.
+    pub fn check_rate(&mut self, bus_name: &str, now: Instant) -> Result<(), String> {
+        if bus_name.is_empty() {
+            return Ok(());
+        }
+        let state = self
+            .inhibit_rate
+            .entry(bus_name.to_owned())
+            .or_insert(RateState {
+                tokens: Self::RATE_BURST,
+                last: now,
+            });
+        let elapsed = now.saturating_duration_since(state.last).as_secs_f64();
+        state.tokens = (state.tokens + elapsed * Self::RATE_REFILL_PER_SEC).min(Self::RATE_BURST);
+        state.last = now;
+        if state.tokens < 1.0 {
+            return Err("inhibit rate limit exceeded".to_owned());
+        }
+        state.tokens -= 1.0;
+        Ok(())
     }
 
     pub fn mint_id(&mut self) -> u64 {
@@ -144,6 +210,7 @@ impl Registry {
         for id in &ids {
             self.release_record(*id);
         }
+        self.inhibit_rate.remove(bus_name);
         ids
     }
 
@@ -176,6 +243,23 @@ impl Registry {
     pub(crate) fn records_mut(&mut self) -> &mut HashMap<u64, InternalRecord> {
         &mut self.records
     }
+}
+
+/// Upper bound on caller-supplied label strings (`who`/`why`). Prevents a
+/// client from bloating registry memory with arbitrarily long strings.
+pub const MAX_LABEL_LEN: usize = 256;
+
+/// Truncate a caller-supplied label to `MAX_LABEL_LEN` bytes, respecting UTF-8
+/// char boundaries.
+pub fn clamp_label(mut label: String) -> String {
+    if label.len() > MAX_LABEL_LEN {
+        let mut end = MAX_LABEL_LEN;
+        while !label.is_char_boundary(end) {
+            end -= 1;
+        }
+        label.truncate(end);
+    }
+    label
 }
 
 /// Convenience constructor for a ScreenSaver-source record.
@@ -307,6 +391,66 @@ mod tests {
         let released = r.release_by_bus_name(":1.5");
         assert_eq!(released.len(), 2);
         assert_eq!(r.count(), 0);
+    }
+
+    #[test]
+    fn check_capacity_enforces_per_bus_limit() {
+        let mut r = Registry::new();
+        for _ in 0..Registry::MAX_INHIBITORS_PER_BUS {
+            let id = r.mint_id();
+            let cookie = r.mint_cookie();
+            r.insert(
+                rec(id, IdleInhibitorSource::screen_saver(cookie), ":1.9"),
+                None,
+            );
+        }
+        assert!(r.check_capacity(":1.9").is_err());
+        // A different client is unaffected by another client's count.
+        assert!(r.check_capacity(":1.10").is_ok());
+        // Records without a bus name (e.g. login1/portal) bypass the per-bus cap.
+        assert!(r.check_capacity("").is_ok());
+    }
+
+    #[test]
+    fn clamp_label_truncates_on_char_boundary() {
+        let long = "é".repeat(MAX_LABEL_LEN); // 2 bytes each → well over the byte cap
+        let clamped = clamp_label(long);
+        assert!(clamped.len() <= MAX_LABEL_LEN);
+        // Truncation landed on a char boundary (no panic, valid UTF-8).
+        assert!(clamped.chars().all(|c| c == 'é'));
+    }
+
+    #[test]
+    fn clamp_label_leaves_short_labels_untouched() {
+        assert_eq!(clamp_label("firefox".into()), "firefox");
+    }
+
+    #[test]
+    fn check_rate_throttles_burst_then_refills() {
+        use std::time::{Duration, Instant};
+        let mut r = Registry::new();
+        let now = Instant::now();
+        // Drain the burst allowance at a single instant.
+        let mut allowed = 0;
+        while r.check_rate(":1.3", now).is_ok() {
+            allowed += 1;
+            assert!(allowed <= 100, "rate limiter never throttled");
+        }
+        assert!(allowed >= 1, "first call must be allowed");
+        // Still throttled at the same instant.
+        assert!(r.check_rate(":1.3", now).is_err());
+        // After time passes, tokens refill and calls are allowed again.
+        assert!(r.check_rate(":1.3", now + Duration::from_secs(1)).is_ok());
+    }
+
+    #[test]
+    fn check_rate_ignores_records_without_bus_name() {
+        use std::time::Instant;
+        let mut r = Registry::new();
+        let now = Instant::now();
+        for _ in 0..1000 {
+            assert!(r.check_rate("", now).is_ok());
+        }
     }
 
     #[test]

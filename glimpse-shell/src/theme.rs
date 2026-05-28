@@ -42,10 +42,10 @@ impl ThemeState {
     pub fn install(config: &Config) -> Self {
         let display = gdk::Display::default().expect("no default display");
 
-        let base = CssProvider::new();
-        let pack = CssProvider::new();
-        let remap = CssProvider::new();
-        let overrides = CssProvider::new();
+        let base = logged_provider("base");
+        let pack = logged_provider("pack");
+        let remap = logged_provider("remap");
+        let overrides = logged_provider("overrides");
 
         gtk4::style_context_add_provider_for_display(
             &display,
@@ -190,6 +190,22 @@ fn gsettings_color_scheme_for_effective_mode(mode: EffectiveThemeMode) -> &'stat
         EffectiveThemeMode::Light => "prefer-light",
         EffectiveThemeMode::Dark => "prefer-dark",
     }
+}
+
+/// Build a CssProvider that logs CSS parse errors. In GTK4 `load_from_path`/
+/// `load_from_string` have no return value — parse errors are delivered via
+/// the `parsing-error` signal, so a malformed user theme would otherwise fail
+/// silently with no diagnostic.
+fn logged_provider(label: &'static str) -> CssProvider {
+    let provider = CssProvider::new();
+    provider.connect_parsing_error(move |_, section, error| {
+        tracing::warn!(
+            provider = label,
+            location = %section.to_str(),
+            "shell: CSS parse error: {error}"
+        );
+    });
+    provider
 }
 
 fn load_base_css(provider: &CssProvider) {

@@ -1172,6 +1172,7 @@ impl Component for ImageLayer {
                         image.fit,
                         next.blur_radius,
                         next.target_size,
+                        force_reload,
                         sender.input_sender().clone(),
                     );
                 }
@@ -1301,6 +1302,7 @@ fn spawn_image_load(
     fit: FitMode,
     blur_radius: Option<u32>,
     target_size: Option<(i32, i32)>,
+    force_reload: bool,
     sender: relm4::Sender<ImageLayerInput>,
 ) {
     relm4::spawn(async move {
@@ -1331,7 +1333,9 @@ fn spawn_image_load(
         });
 
         let result =
-            tokio::task::spawn_blocking(move || decode_image(&path, fit, blur_radius, target_size))
+            tokio::task::spawn_blocking(move || {
+                decode_image(&path, fit, blur_radius, target_size, force_reload)
+            })
                 .await
                 .map_err(|error| format!("wallpaper worker failed: {error}"))
                 .and_then(|result| result.map_err(|error| error.to_string()));
@@ -1413,30 +1417,37 @@ fn decode_image(
     fit: FitMode,
     blur_radius: Option<u32>,
     target_size: Option<(i32, i32)>,
+    force_reload: bool,
 ) -> anyhow::Result<DecodedImage> {
     if !path.exists() {
         anyhow::bail!("file not found: {}", path.display());
     }
 
     let cache_key = ImageCacheKey::new(path, fit, blur_radius, target_size)?;
-    if let Some(cache_key) = &cache_key {
-        if let Some(cached) = load_cached_image(cache_key)? {
-            tracing::info!(
-                path = %path.display(),
-                cache_path = %cache_key.path.display(),
-                width = cached.width,
-                height = cached.height,
-                stride = cached.stride,
-                pixel_bytes = cached.pixels.len(),
-                "loaded wallpaper image from cache"
-            );
-            return Ok(cached);
-        }
-        if blur_radius.unwrap_or_default() == 0 {
-            if let Some(migrated) =
-                load_legacy_unprocessed_cache(path, fit, target_size, cache_key)?
-            {
-                return Ok(migrated);
+    // Skip the cache read on a forced reload (asset watcher fired): the source
+    // file changed, and the mtime+size signature can collide on coarse-mtime
+    // filesystems, so trust the watcher and re-decode from disk. The fresh
+    // result is still written back to the cache below.
+    if !force_reload {
+        if let Some(cache_key) = &cache_key {
+            if let Some(cached) = load_cached_image(cache_key)? {
+                tracing::info!(
+                    path = %path.display(),
+                    cache_path = %cache_key.path.display(),
+                    width = cached.width,
+                    height = cached.height,
+                    stride = cached.stride,
+                    pixel_bytes = cached.pixels.len(),
+                    "loaded wallpaper image from cache"
+                );
+                return Ok(cached);
+            }
+            if blur_radius.unwrap_or_default() == 0 {
+                if let Some(migrated) =
+                    load_legacy_unprocessed_cache(path, fit, target_size, cache_key)?
+                {
+                    return Ok(migrated);
+                }
             }
         }
     }
@@ -1989,6 +2000,42 @@ mod tests {
     }
 
     #[test]
+    fn force_reload_bypasses_cached_image() {
+        let source = temp_path("force-reload-source.bin");
+        fs::write(&source, b"not a real image").unwrap();
+        let cache_key = ImageCacheKey::new(&source, FitMode::Cover, None, Some((10, 10)))
+            .unwrap()
+            .unwrap();
+        write_cached_image(
+            &cache_key,
+            &DecodedImage {
+                width: 10,
+                height: 10,
+                stride: 40,
+                pixels: vec![7; 10 * 10 * 4],
+            },
+        )
+        .unwrap();
+
+        // Without force_reload the cache hit is returned even though the source
+        // is not a decodable image.
+        let hit = decode_image(&source, FitMode::Cover, None, Some((10, 10)), false)
+            .expect("cache hit should succeed");
+        assert_eq!((hit.width, hit.height), (10, 10));
+
+        // With force_reload the cache is bypassed, so decoding the junk source
+        // fails instead of serving the stale cache.
+        let forced = decode_image(&source, FitMode::Cover, None, Some((10, 10)), true);
+        assert!(
+            forced.is_err(),
+            "force_reload must bypass the cache and re-decode from disk"
+        );
+
+        let _ = fs::remove_file(source);
+        let _ = fs::remove_file(cache_key.path);
+    }
+
+    #[test]
     fn decode_image_with_blur_does_not_migrate_unblurred_legacy_cache() {
         let source = temp_path("source-blur.heic");
         fs::write(&source, b"fake image bytes").unwrap();
@@ -2008,7 +2055,7 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        let result = decode_image(&source, FitMode::Cover, Some(24), Some((100, 100)));
+        let result = decode_image(&source, FitMode::Cover, Some(24), Some((100, 100)), false);
 
         assert!(
             result.is_err(),

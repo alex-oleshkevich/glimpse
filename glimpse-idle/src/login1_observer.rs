@@ -12,6 +12,12 @@ use glimpse_core::services::idle_inhibitor::{
 
 use crate::inhibitor_registry::Registry;
 
+// logind exposes no change signal for its inhibitor list, so we poll. A
+// logind inhibitor that is both taken and released within one interval is
+// never surfaced to watchers (a transient blind spot). This is acceptable:
+// real inhibitors (suspend blockers, media holds) live far longer than 5s,
+// and the net registry state is always reconciled against logind's live list
+// on the next poll regardless of missed transients.
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
