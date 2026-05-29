@@ -1,6 +1,6 @@
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
-    gtk::{self, gio, prelude::*},
+    gtk::{self, prelude::*},
 };
 use serde::Deserialize;
 use tokio::sync::mpsc;
@@ -88,7 +88,6 @@ pub struct Applet {
     status_items: Vec<RenderedStatusItem>,
     outbound_tx: mpsc::Sender<PanelCommand>,
     control_tx: mpsc::UnboundedSender<Control>,
-    context_menu: gtk::PopoverMenu,
 }
 
 #[derive(Debug)]
@@ -104,8 +103,6 @@ pub enum Input {
     PopoverChanged(PopoverPayload),
     ChildExited,
     Reconfigure(Config),
-    ShowContextMenu,
-    RestartCommand,
     CssClass(String),
     ClosePopover,
     StatusItemOutput(StatusItemOutput),
@@ -123,14 +120,6 @@ impl SimpleComponent for Applet {
         root = gtk::Box {
             add_css_class: "applet",
             set_orientation: gtk::Orientation::Horizontal,
-
-            add_controller = gtk::GestureClick {
-                set_button: 3,
-                connect_pressed[sender] => move |gesture, _, _, _| {
-                    gesture.set_state(gtk::EventSequenceState::Claimed);
-                    sender.input(Input::ShowContextMenu);
-                }
-            },
 
             #[name = "status_box"]
             gtk::Box {
@@ -170,7 +159,6 @@ impl SimpleComponent for Applet {
             .await;
         });
 
-        let context_menu = build_context_menu(&root, &sender);
         let widgets = view_output!();
         widgets.root.set_visible(false);
 
@@ -187,7 +175,6 @@ impl SimpleComponent for Applet {
             status_items: Vec::new(),
             outbound_tx,
             control_tx,
-            context_menu,
         };
 
         ComponentParts { model, widgets }
@@ -216,7 +203,6 @@ impl SimpleComponent for Applet {
                 self.status_items.clear();
                 self.root.set_visible(false);
                 self.popover.emit(PopoverInput::Close);
-                self.context_menu.popdown();
             }
             Input::Reconfigure(config) => {
                 if self.config == config {
@@ -224,19 +210,8 @@ impl SimpleComponent for Applet {
                 }
                 self.config = config.clone();
                 self.popover.emit(PopoverInput::Close);
-                self.context_menu.popdown();
                 if let Err(error) = self.control_tx.send(Control::Reconfigure(config)) {
                     tracing::warn!(%error, applet = %self.name, "exec applet failed to reconfigure");
-                }
-            }
-            Input::ShowContextMenu => {
-                self.context_menu.popup();
-            }
-            Input::RestartCommand => {
-                self.popover.emit(PopoverInput::Close);
-                self.context_menu.popdown();
-                if let Err(error) = self.control_tx.send(Control::Restart) {
-                    tracing::warn!(%error, applet = %self.name, "exec applet failed to restart");
                 }
             }
             Input::CssClass(class) => {
@@ -250,8 +225,10 @@ impl SimpleComponent for Applet {
                 StatusItemOutput::TogglePopover => {
                     self.toggle_popover_if_available();
                 }
-                StatusItemOutput::ContextMenu => {
-                    self.context_menu.popup();
+                StatusItemOutput::ContextMenu => {}
+                StatusItemOutput::RestartCommand => {
+                    self.popover.emit(PopoverInput::Close);
+                    self.restart_command();
                 }
                 StatusItemOutput::Event(event) => self.send_event(event),
                 StatusItemOutput::Activate(event) => {
@@ -329,6 +306,12 @@ impl Applet {
             tracing::warn!(%error, applet = %self.name, "exec applet failed to queue event");
         }
     }
+
+    fn restart_command(&self) {
+        if let Err(error) = self.control_tx.send(Control::Restart) {
+            tracing::warn!(%error, applet = %self.name, "exec applet failed to restart");
+        }
+    }
 }
 
 fn place_status_widget(container: &gtk::Box, widget: &gtk::Widget, sibling: Option<&gtk::Widget>) {
@@ -371,30 +354,6 @@ fn status_item_key(index: usize, item: &StatusItemModel) -> String {
         .filter(|id| !id.is_empty())
         .map(|id| format!("id:{id}"))
         .unwrap_or_else(|| format!("index:{index}"))
-}
-
-fn build_context_menu(root: &gtk::Box, sender: &ComponentSender<Applet>) -> gtk::PopoverMenu {
-    let action_group = gio::SimpleActionGroup::new();
-    let restart_action = gio::SimpleAction::new("restart", None);
-    restart_action.connect_activate({
-        let sender = sender.input_sender().clone();
-        move |_, _| {
-            sender.emit(Input::RestartCommand);
-        }
-    });
-    action_group.add_action(&restart_action);
-    root.insert_action_group("exec", Some(&action_group));
-
-    let menu = gio::Menu::new();
-    menu.append(Some("Restart"), Some("exec.restart"));
-    let popover = gtk::PopoverMenu::from_model(Some(&menu));
-    popover.set_parent(root);
-    popover.set_has_arrow(false);
-    root.connect_destroy({
-        let popover = popover.clone();
-        move |_| popover.unparent()
-    });
-    popover
 }
 
 #[cfg(test)]

@@ -37,13 +37,20 @@ pub struct State {
 pub enum Command {
     SetKeyboardLayout(usize),
     SetWorkspace(usize),
+    RenameWorkspace {
+        workspace: usize,
+        name: Option<String>,
+    },
     FocusNextWorkspace,
     FocusPreviousWorkspace,
     FocusWindow(usize),
     FocusNextWindow,
     FocusPreviousWindow,
     StopScreencast(String),
-    SetMonitorEnabled { name: String, on: bool },
+    SetMonitorEnabled {
+        name: String,
+        on: bool,
+    },
 }
 
 pub type CompositorHandle = ServiceHandle<State, Command>;
@@ -443,6 +450,11 @@ impl CompositorService {
         let result = match command {
             Command::SetKeyboardLayout(layout) => compositor.set_keyboard_layout(layout).await,
             Command::SetWorkspace(workspace) => compositor.set_workspace(workspace).await,
+            Command::RenameWorkspace { workspace, name } => {
+                compositor
+                    .rename_workspace(workspace, name.as_deref())
+                    .await
+            }
             Command::FocusNextWorkspace => compositor.focus_next_workspace().await,
             Command::FocusPreviousWorkspace => compositor.focus_previous_workspace().await,
             Command::FocusWindow(window) => compositor.focus_window(window).await,

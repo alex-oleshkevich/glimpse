@@ -410,7 +410,7 @@ impl SimpleComponent for Applet {
                             }
                         }
                     }
-                    StatusItemOutput::ContextMenu => {}
+                    StatusItemOutput::ContextMenu | StatusItemOutput::RestartCommand => {}
                     StatusItemOutput::Event(event) => {
                         if let Some(conn) = conn {
                             send_event(&conn.outbound_tx, id, event);

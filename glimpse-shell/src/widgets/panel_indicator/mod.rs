@@ -3,8 +3,25 @@ mod imp;
 use std::path::Path;
 
 use glib::closure_local;
-use gtk4::{glib, prelude::*, subclass::prelude::*};
+use gtk4::{gio, glib, prelude::*, subclass::prelude::*};
 use relm4::{ContainerChild, RelmContainerExt};
+
+const MENU_ACTION_NAMESPACE: &str = "panel-menu";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PanelMenu<I> {
+    pub items: Vec<PanelMenuItem<I>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PanelMenuItem<I> {
+    Action {
+        label: String,
+        input: I,
+        enabled: bool,
+    },
+    Separator,
+}
 
 glib::wrapper! {
     pub struct PanelIndicator(ObjectSubclass<imp::PanelIndicator>)
@@ -140,6 +157,52 @@ impl PanelIndicator {
         }
     }
 
+    pub fn set_context_menu<I>(&self, menu: PanelMenu<I>, sender: relm4::Sender<I>)
+    where
+        I: Clone + 'static,
+    {
+        self.clear_context_menu();
+
+        let actions = gio::SimpleActionGroup::new();
+        let menu_model = build_menu_model(menu, &actions, sender);
+        if actions.list_actions().is_empty() {
+            return;
+        }
+
+        self.insert_action_group(MENU_ACTION_NAMESPACE, Some(&actions));
+        let popover = gtk4::PopoverMenu::from_model(Some(&menu_model));
+        popover.set_parent(self);
+        popover.set_has_arrow(false);
+
+        let imp = self.imp();
+        *imp.context_actions.borrow_mut() = Some(actions);
+        *imp.context_menu.borrow_mut() = Some(popover);
+    }
+
+    pub fn clear_context_menu(&self) {
+        self.insert_action_group(
+            MENU_ACTION_NAMESPACE,
+            Option::<&gio::SimpleActionGroup>::None,
+        );
+        self.imp().context_actions.borrow_mut().take();
+        if let Some(popover) = self.imp().context_menu.borrow_mut().take() {
+            popover.popdown();
+            popover.unparent();
+        }
+    }
+
+    pub fn popup_context_menu(&self) {
+        if let Some(popover) = self.imp().context_menu.borrow().as_ref() {
+            popover.popup();
+        }
+    }
+
+    pub fn popdown_context_menu(&self) {
+        if let Some(popover) = self.imp().context_menu.borrow().as_ref() {
+            popover.popdown();
+        }
+    }
+
     pub fn connect_activated(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
         self.connect_closure(
             "activated",
@@ -240,10 +303,73 @@ fn set_class(widget: &impl WidgetExt, class: &str, active: bool) {
     }
 }
 
+fn build_menu_model<I>(
+    menu: PanelMenu<I>,
+    actions: &gio::SimpleActionGroup,
+    sender: relm4::Sender<I>,
+) -> gio::Menu
+where
+    I: Clone + 'static,
+{
+    let root = gio::Menu::new();
+    let mut section = gio::Menu::new();
+    let mut saw_separator = false;
+    let mut action_index = 0;
+
+    for item in menu.items {
+        match item {
+            PanelMenuItem::Action {
+                label,
+                input,
+                enabled,
+            } => {
+                if label.is_empty() {
+                    continue;
+                }
+                let action_name = format!("item-{action_index}");
+                let action = gio::SimpleAction::new(&action_name, None);
+                action.set_enabled(enabled);
+                let sender = sender.clone();
+                action.connect_activate(move |_, _| {
+                    sender.emit(input.clone());
+                });
+                actions.add_action(&action);
+                section.append(
+                    Some(&label),
+                    Some(&format!("{MENU_ACTION_NAMESPACE}.{action_name}")),
+                );
+                action_index += 1;
+            }
+            PanelMenuItem::Separator => {
+                if section.n_items() > 0 {
+                    root.append_section(None, &section);
+                    section = gio::Menu::new();
+                    saw_separator = true;
+                }
+            }
+        }
+    }
+
+    if saw_separator {
+        if section.n_items() > 0 {
+            root.append_section(None, &section);
+        }
+        root
+    } else {
+        section
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::utils::test_support::gtk_available_on_this_thread;
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    enum TestInput {
+        First,
+        Second,
+    }
 
     #[test]
     fn panel_indicator_has_shell_classes() {
@@ -257,6 +383,74 @@ mod tests {
         assert!(indicator.has_css_class("panel-indicator"));
         assert_eq!(indicator.orientation(), gtk4::Orientation::Horizontal);
         assert_eq!(indicator.valign(), gtk4::Align::Center);
+    }
+
+    #[test]
+    fn context_menu_builds_private_actions_and_respects_disabled_state() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let indicator = PanelIndicator::new();
+        let (sender, _receiver) = relm4::channel();
+
+        indicator.set_context_menu(
+            PanelMenu {
+                items: vec![
+                    PanelMenuItem::Action {
+                        label: "First".into(),
+                        input: TestInput::First,
+                        enabled: false,
+                    },
+                    PanelMenuItem::Separator,
+                    PanelMenuItem::Action {
+                        label: "Second".into(),
+                        input: TestInput::Second,
+                        enabled: true,
+                    },
+                ],
+            },
+            sender,
+        );
+
+        let actions = indicator.imp().context_actions.borrow();
+        let actions = actions.as_ref().expect("menu actions should be installed");
+        let first = actions
+            .lookup_action("item-0")
+            .expect("first action should exist");
+        let second = actions
+            .lookup_action("item-1")
+            .expect("second action should exist");
+
+        assert!(!first.is_enabled());
+        assert!(second.is_enabled());
+        assert!(indicator.imp().context_menu.borrow().is_some());
+    }
+
+    #[test]
+    fn clear_context_menu_unparents_popover_and_removes_actions() {
+        if !gtk_available_on_this_thread() {
+            return;
+        }
+
+        let indicator = PanelIndicator::new();
+        let (sender, _receiver) = relm4::channel();
+
+        indicator.set_context_menu(
+            PanelMenu {
+                items: vec![PanelMenuItem::Action {
+                    label: "First".into(),
+                    input: TestInput::First,
+                    enabled: true,
+                }],
+            },
+            sender,
+        );
+
+        indicator.clear_context_menu();
+
+        assert!(indicator.imp().context_actions.borrow().is_none());
+        assert!(indicator.imp().context_menu.borrow().is_none());
     }
 
     #[test]

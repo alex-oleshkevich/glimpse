@@ -4,13 +4,15 @@ use std::{
 };
 
 use glib::subclass::Signal;
-use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
+use gtk4::{gdk, gio, glib, prelude::*, subclass::prelude::*};
 
 pub struct PanelIndicator {
     pub(super) icon: gtk4::Image,
     pub(super) label: gtk4::Label,
     pub(super) extra_slot: gtk4::Box,
     pub(super) extra_visible: Cell<bool>,
+    pub(super) context_menu: RefCell<Option<gtk4::PopoverMenu>>,
+    pub(super) context_actions: RefCell<Option<gio::SimpleActionGroup>>,
     /// CSS classes installed by `PanelIndicator::set_extra_classes`. Tracked
     /// separately so the diff-based updater can remove only the classes it
     /// owns without touching foundational classes (`applet`, `panel-indicator`)
@@ -25,6 +27,8 @@ impl Default for PanelIndicator {
             label: gtk4::Label::new(None),
             extra_slot: gtk4::Box::new(gtk4::Orientation::Horizontal, 4),
             extra_visible: Cell::new(true),
+            context_menu: RefCell::new(None),
+            context_actions: RefCell::new(None),
             extra_classes: RefCell::new(Vec::new()),
         }
     }
@@ -142,6 +146,9 @@ fn install_click_signal(
         if let Some(indicator) = weak.upgrade() {
             indicator.emit_by_name::<()>(signal_name, &[]);
             indicator.emit_by_name::<()>(position_signal_name, &[&x, &y]);
+            if button == gdk::BUTTON_SECONDARY {
+                indicator.popup_context_menu();
+            }
         }
     });
     obj.add_controller(gesture);

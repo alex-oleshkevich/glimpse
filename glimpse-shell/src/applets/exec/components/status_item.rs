@@ -3,7 +3,7 @@ use relm4::{ComponentParts, ComponentSender, SimpleComponent, gtk::prelude::*};
 use crate::applets::exec::protocol::{
     EventKind, EventPayload, EventSource, MouseButton, StatusItem as StatusItemModel,
 };
-use crate::widgets::panel_indicator::PanelIndicator;
+use crate::widgets::panel_indicator::{PanelIndicator, PanelMenu, PanelMenuItem};
 
 pub struct StatusItem {
     item: StatusItemModel,
@@ -16,10 +16,11 @@ pub struct Init {
     pub has_popover: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Input {
     Click(u32),
     Scroll(f64),
+    RestartCommand,
     Reconfigure {
         item: StatusItemModel,
         has_popover: bool,
@@ -30,6 +31,7 @@ pub enum Input {
 pub enum Output {
     TogglePopover,
     ContextMenu,
+    RestartCommand,
     Event(EventPayload),
     Activate(Option<EventPayload>),
 }
@@ -58,9 +60,6 @@ impl SimpleComponent for StatusItem {
             connect_middle_clicked[sender] => move |_| {
                 sender.input(Input::Click(2));
             },
-            connect_secondary_clicked[sender] => move |_| {
-                sender.input(Input::Click(3));
-            },
             connect_scrolled[sender] => move |_, _dx, dy| {
                 sender.input(Input::Scroll(dy));
             }
@@ -77,17 +76,22 @@ impl SimpleComponent for StatusItem {
             has_popover: init.has_popover,
         };
         let widgets = view_output!();
+        root.set_context_menu(
+            PanelMenu {
+                items: vec![PanelMenuItem::Action {
+                    label: "Restart".into(),
+                    input: Input::RestartCommand,
+                    enabled: true,
+                }],
+            },
+            sender.input_sender().clone(),
+        );
         ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
             Input::Click(button) => {
-                if button == 3 {
-                    let _ = sender.output(Output::ContextMenu);
-                    return;
-                }
-
                 let event = self.item.id.as_ref().map(|id| EventPayload {
                     id: id.clone(),
                     kind: EventKind::Click,
@@ -110,6 +114,9 @@ impl SimpleComponent for StatusItem {
                 if let Some(event) = event {
                     let _ = sender.output(Output::Event(event));
                 }
+            }
+            Input::RestartCommand => {
+                let _ = sender.output(Output::RestartCommand);
             }
             Input::Scroll(delta_y) => {
                 if let Some(id) = &self.item.id {

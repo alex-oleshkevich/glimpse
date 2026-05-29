@@ -172,6 +172,14 @@ impl Niri {
         .await
     }
 
+    pub async fn rename_workspace(
+        &self,
+        workspace: usize,
+        name: Option<&str>,
+    ) -> anyhow::Result<()> {
+        send_action(rename_workspace_action(workspace, name)).await
+    }
+
     pub async fn focus_next_workspace(&self) -> anyhow::Result<()> {
         send_action(json!({ "FocusWorkspaceDown": {} })).await
     }
@@ -243,6 +251,26 @@ async fn send_action(action: Value) -> anyhow::Result<()> {
         .await?
         .context("niri action closed before reply")?;
     ensure_ok_reply(&reply)
+}
+
+fn rename_workspace_action(workspace: usize, name: Option<&str>) -> Value {
+    match name {
+        Some(name) => json!({
+            "SetWorkspaceName": {
+                "name": name,
+                "workspace": {
+                    "Id": workspace
+                }
+            }
+        }),
+        None => json!({
+            "UnsetWorkspaceName": {
+                "reference": {
+                    "Id": workspace
+                }
+            }
+        }),
+    }
 }
 
 async fn request_ok(request: Value) -> anyhow::Result<Value> {
@@ -927,6 +955,31 @@ mod tests {
                 urgent: false,
                 active_window: Some(9),
             }])]
+        );
+    }
+
+    #[test]
+    fn rename_workspace_action_sets_or_unsets_workspace_name_by_id() {
+        assert_eq!(
+            rename_workspace_action(4, Some("chat")),
+            json!({
+                "SetWorkspaceName": {
+                    "name": "chat",
+                    "workspace": {
+                        "Id": 4
+                    }
+                }
+            })
+        );
+        assert_eq!(
+            rename_workspace_action(4, None),
+            json!({
+                "UnsetWorkspaceName": {
+                    "reference": {
+                        "Id": 4
+                    }
+                }
+            })
         );
     }
 

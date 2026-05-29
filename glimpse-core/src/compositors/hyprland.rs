@@ -177,6 +177,19 @@ impl Hyprland {
         send_command(format!("dispatch workspace {workspace}")).await
     }
 
+    pub async fn rename_workspace(
+        &self,
+        workspace: usize,
+        name: Option<&str>,
+    ) -> anyhow::Result<()> {
+        ensure!(
+            workspace > 0 && workspace <= i32::MAX as usize,
+            "hyprland workspace id must be between 1 and {}",
+            i32::MAX
+        );
+        send_command(rename_workspace_command(workspace, name)).await
+    }
+
     pub async fn focus_next_workspace(&self) -> anyhow::Result<()> {
         send_command("dispatch workspace +1").await
     }
@@ -285,6 +298,13 @@ async fn send_command(command: impl AsRef<str>) -> anyhow::Result<()> {
         Ok(())
     } else {
         bail!("hyprland IPC command failed: {reply}");
+    }
+}
+
+fn rename_workspace_command(workspace: usize, name: Option<&str>) -> String {
+    match name {
+        Some(name) => format!("dispatch renameworkspace {workspace} {name}"),
+        None => format!("dispatch renameworkspace {workspace}"),
     }
 }
 
@@ -735,6 +755,18 @@ mod tests {
                     focused: true,
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn rename_workspace_command_sets_or_clears_workspace_name() {
+        assert_eq!(
+            rename_workspace_command(3, Some("chat")),
+            "dispatch renameworkspace 3 chat"
+        );
+        assert_eq!(
+            rename_workspace_command(3, None),
+            "dispatch renameworkspace 3"
         );
     }
 

@@ -1,14 +1,14 @@
 use std::process::Stdio;
 use std::time::Duration;
 
-use relm4::{
-    ComponentParts, ComponentSender, SimpleComponent,
-    gtk::{self, gio, prelude::*},
-};
+use relm4::{ComponentParts, ComponentSender, SimpleComponent, gtk::prelude::*};
 use serde::Deserialize;
 use tokio::process::Command as TokioCommand;
 
-use crate::{panels::applets::AppletConfig, widgets::panel_indicator::PanelIndicator};
+use crate::{
+    panels::applets::AppletConfig,
+    widgets::panel_indicator::{PanelIndicator, PanelMenu, PanelMenuItem},
+};
 
 const SCROLL_DEBOUNCE_MS: u64 = 100;
 
@@ -63,7 +63,6 @@ pub struct Applet {
     config: Config,
     view: View,
     root: PanelIndicator,
-    context_menu: gtk::PopoverMenu,
     scroll_v: Option<tokio::task::JoinHandle<()>>,
     scroll_h: Option<tokio::task::JoinHandle<()>>,
 }
@@ -74,7 +73,7 @@ pub struct Init {
     pub config: Config,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Input {
     Activate,
     MiddleClick,
@@ -83,7 +82,6 @@ pub enum Input {
     HScrollLeft,
     HScrollRight,
     MenuCommand(usize),
-    ShowContextMenu,
     Reconfigure(Config),
 }
 
@@ -122,9 +120,6 @@ impl SimpleComponent for Applet {
             connect_middle_clicked[sender] => move |_| {
                 sender.input(Input::MiddleClick);
             },
-            connect_secondary_clicked[sender] => move |_| {
-                sender.input(Input::ShowContextMenu);
-            },
             connect_scrolled[sender] => move |_, dx, dy| {
                 if dy < 0.0 { sender.input(Input::ScrollUp); }
                 else if dy > 0.0 { sender.input(Input::ScrollDown); }
@@ -140,13 +135,12 @@ impl SimpleComponent for Applet {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let view = view_from_config(&init.config);
-        let context_menu = build_context_menu(&root, &init.config, &sender);
+        sync_context_menu(&root, &init.config, &sender);
         let model = Applet {
             name: init.name,
             config: init.config,
             view,
             root: root.clone(),
-            context_menu,
             scroll_v: None,
             scroll_h: None,
         };
@@ -166,12 +160,7 @@ impl SimpleComponent for Applet {
             Input::MenuCommand(index) => {
                 if let Some(item) = self.config.menu.get(index) {
                     self.spawn_command(&item.command);
-                    self.context_menu.popdown();
-                }
-            }
-            Input::ShowContextMenu => {
-                if has_visible_menu_items(&self.config.menu) {
-                    self.context_menu.popup();
+                    self.root.popdown_context_menu();
                 }
             }
             Input::Reconfigure(config) => {
@@ -180,9 +169,7 @@ impl SimpleComponent for Applet {
                 }
                 self.scroll_v.take().map(|h| h.abort());
                 self.scroll_h.take().map(|h| h.abort());
-                self.context_menu.popdown();
-                self.context_menu.unparent();
-                self.context_menu = build_context_menu(&self.root, &config, &sender);
+                sync_context_menu(&self.root, &config, &sender);
                 self.view = view_from_config(&config);
                 self.config = config;
             }
@@ -194,8 +181,7 @@ impl Drop for Applet {
     fn drop(&mut self) {
         self.scroll_v.take().map(|h| h.abort());
         self.scroll_h.take().map(|h| h.abort());
-        self.context_menu.popdown();
-        self.context_menu.unparent();
+        self.root.clear_context_menu();
     }
 }
 
@@ -303,34 +289,25 @@ fn has_visible_menu_items(menu: &[MenuItemConfig]) -> bool {
         .any(|item| !item.label.is_empty() && !item.command.is_empty())
 }
 
-fn build_context_menu(
-    root: &PanelIndicator,
-    config: &Config,
-    sender: &ComponentSender<Applet>,
-) -> gtk::PopoverMenu {
-    let action_group = gio::SimpleActionGroup::new();
-    let menu = gio::Menu::new();
+fn sync_context_menu(root: &PanelIndicator, config: &Config, sender: &ComponentSender<Applet>) {
+    let items = config
+        .menu
+        .iter()
+        .enumerate()
+        .filter(|(_, item)| !item.label.is_empty() && !item.command.is_empty())
+        .map(|(index, item)| PanelMenuItem::Action {
+            label: item.label.clone(),
+            input: Input::MenuCommand(index),
+            enabled: true,
+        })
+        .collect::<Vec<_>>();
 
-    for (index, item) in config.menu.iter().enumerate() {
-        if item.label.is_empty() || item.command.is_empty() {
-            continue;
-        }
-
-        let action_name = format!("item-{index}");
-        let action = gio::SimpleAction::new(&action_name, None);
-        action.connect_activate({
-            let sender = sender.input_sender().clone();
-            move |_, _| sender.emit(Input::MenuCommand(index))
-        });
-        action_group.add_action(&action);
-        menu.append(Some(&item.label), Some(&format!("command.{action_name}")));
+    if items.is_empty() {
+        root.clear_context_menu();
+        return;
     }
 
-    root.insert_action_group("command", Some(&action_group));
-    let popover = gtk::PopoverMenu::from_model(Some(&menu));
-    popover.set_parent(root);
-    popover.set_has_arrow(false);
-    popover
+    root.set_context_menu(PanelMenu { items }, sender.input_sender().clone());
 }
 
 #[cfg(test)]

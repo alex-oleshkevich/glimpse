@@ -386,6 +386,17 @@ impl Compositor {
         }
     }
 
+    pub async fn rename_workspace(
+        &self,
+        workspace: usize,
+        name: Option<&str>,
+    ) -> anyhow::Result<()> {
+        match self {
+            Self::Niri(compositor) => compositor.rename_workspace(workspace, name).await,
+            Self::Hyprland(compositor) => compositor.rename_workspace(workspace, name).await,
+        }
+    }
+
     pub async fn focus_next_workspace(&self) -> anyhow::Result<()> {
         match self {
             Self::Niri(compositor) => compositor.focus_next_workspace().await,
