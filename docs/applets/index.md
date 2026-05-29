@@ -574,6 +574,8 @@ Scroll is not supported on this applet.
 
 Shows the name or index of the current workspace. Scroll up/down switches to the next or previous workspace.
 
+Right-click opens a context menu with `Rename`. The rename dialog is prefilled with the current workspace name. Submitting an empty value clears the workspace name. Workspace rename is sent to the compositor and is supported on Hyprland and Niri.
+
 ```toml
 [applets.workspace]
 label_format = "{name_or_index}"

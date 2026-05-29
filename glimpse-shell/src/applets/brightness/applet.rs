@@ -61,6 +61,8 @@ pub struct Applet {
     panel_monitor: Option<String>,
     service_state: State,
     compositor_state: CompositorState,
+    popover_state: State,
+    popover_monitors: Vec<glimpse_core::compositors::Monitor>,
     visible_state: State,
     icon_name: String,
     label: String,
@@ -147,6 +149,8 @@ impl SimpleComponent for Applet {
             panel_monitor: init.panel_monitor,
             service_state,
             compositor_state,
+            popover_state: state.clone(),
+            popover_monitors: Vec::new(),
             visible_state: state,
             service: init.service,
             compositor: init.compositor,
@@ -230,7 +234,7 @@ impl SimpleComponent for Applet {
             Input::CompositorStateChanged(state) => {
                 self.compositor_state = state;
                 self.apply_filtered_state();
-                self.sync_popover_monitors();
+                self.sync_popover_monitors_if_changed();
             }
             Input::Reconfigure(config) => {
                 self.config = config;
@@ -285,19 +289,26 @@ impl Applet {
             &self.compositor_state.monitors,
         );
         self.visible_state = state.clone();
-        self.popover.emit(PopoverInput::UpdateState(state));
+        if set_if_changed(&mut self.popover_state, state.clone()) {
+            self.popover.emit(PopoverInput::UpdateState(state));
+        }
     }
 
-    fn sync_popover_state(&self) {
+    fn sync_popover_state(&mut self) {
+        self.popover_state = self.visible_state.clone();
         self.popover
             .emit(PopoverInput::UpdateState(self.visible_state.clone()));
-        self.sync_popover_monitors();
-    }
-
-    fn sync_popover_monitors(&self) {
+        self.popover_monitors = self.compositor_state.monitors.clone();
         self.popover.emit(PopoverInput::UpdateMonitors(
             self.compositor_state.monitors.clone(),
         ));
+    }
+
+    fn sync_popover_monitors_if_changed(&mut self) {
+        let monitors = self.compositor_state.monitors.clone();
+        if set_if_changed(&mut self.popover_monitors, monitors.clone()) {
+            self.popover.emit(PopoverInput::UpdateMonitors(monitors));
+        }
     }
 
     fn send_command(&self, command: Command) {
@@ -359,6 +370,17 @@ fn normalize_visible_primary(state: &mut State) {
     {
         source.primary = true;
     }
+}
+
+fn set_if_changed<T>(slot: &mut T, value: T) -> bool
+where
+    T: PartialEq,
+{
+    if *slot == value {
+        return false;
+    }
+    *slot = value;
+    true
 }
 
 fn scroll_source<'a>(

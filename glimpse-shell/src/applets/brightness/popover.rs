@@ -287,20 +287,6 @@ impl SourceRow {
     fn sync_scale(&self, source: &BrightnessSource) {
         let config = scale_config(source);
         let value = scale_value(source);
-        if source.kind == BrightnessSourceKind::Keyboard {
-            tracing::debug!(
-                id = %source.id,
-                name = %source.name,
-                current = source.current,
-                max = source.max,
-                percent = source.percent,
-                slider_upper = config.upper,
-                slider_value = value,
-                step_increment = config.step_increment,
-                page_increment = config.page_increment,
-                "keyboard brightness slider range"
-            );
-        }
         self.updating.set(true);
         self.root.set_range(0.0, config.upper);
         self.root

@@ -21,6 +21,47 @@ Glimpse looks for config in this order:
 | **3** | `$XDG_CONFIG_HOME/glimpse/config.toml` |
 | **4** | `$HOME/.config/glimpse/config.toml` when `XDG_CONFIG_HOME` is unset |
 
+### Include Other Config Files
+
+Use top-level `include` to split shared settings into smaller TOML files:
+
+```toml
+include = ["common.toml", "laptop.toml"]
+
+theme = "rosepine"
+
+[[panels]]
+left = ["workspace", "..."]
+right = ["tray", "session"]
+```
+
+Included files load first, in list order, and the file that declares `include` loads last. That means the main `config.toml` remains the final override. Relative include paths resolve from the file that declares them, so an include inside `profiles/work.toml` is relative to `profiles/`. Glimpse watches included files for hot reload, so changing an included file reloads the merged config.
+
+Tables merge recursively. Arrays and scalar values replace earlier values instead of appending:
+
+```toml
+# common.toml
+[applets.clock]
+label_format = "%H:%M"
+tooltip_format = "%A"
+
+[[panels]]
+right = ["clock"]
+```
+
+```toml
+# config.toml
+include = ["common.toml"]
+
+[applets.clock]
+label_format = "%a %H:%M"
+
+[[panels]]
+right = ["tray", "session"]
+```
+
+The final clock config keeps `tooltip_format = "%A"` from `common.toml`, overrides `label_format`, and replaces the whole `panels` array with the panel from `config.toml`.
+
 ## Start With A Panel
 
 This is a compact top panel:

@@ -15,6 +15,27 @@ Glimpse reads the first config file found in this order:
 
 Custom command and exec applets are package files under `$XDG_CONFIG_HOME/glimpse/applets` or linked project applets created with applet tooling.
 
+## Includes
+
+The main config can include other TOML files with a top-level array:
+
+```toml
+include = ["common.toml", "laptop.toml"]
+```
+
+Included files load first, in list order. The file that declares `include` loads last and overrides included values. Relative include paths resolve relative to the file that declares them, not necessarily relative to the root `config.toml`. Included files are watched for hot reload.
+
+Merge rules:
+
+| Values | Result |
+|---|---|
+| table + table | Recursive merge |
+| array + array | Later array replaces earlier array |
+| scalar + scalar | Later scalar replaces earlier scalar |
+| mixed types | Later value replaces earlier value |
+
+Use includes for shared defaults. Keep machine-specific or final overrides in the main `config.toml`.
+
 ## Minimal Panel
 
 ```toml

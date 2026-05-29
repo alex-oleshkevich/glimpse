@@ -102,13 +102,24 @@ impl Config {
     }
 
     pub fn try_load_from_file(path: &Path) -> Result<Self, String> {
-        match fs::read_to_string(path) {
-            Ok(content) => match Self::from_toml_str(&content) {
-                Ok(config) => Ok(config),
-                Err(err) => Err(format!("failed to parse config: {err}")),
-            },
-            Err(err) => Err(format!("failed to read configuration file: {err}")),
-        }
+        let (value, _) = load_toml_with_includes(path)?;
+        let mut config = value
+            .try_into::<Self>()
+            .map_err(|err| format!("failed to parse config: {err}"))?;
+        config.expand_panel_placeholders();
+        Ok(config)
+    }
+
+    pub fn watch_files_for(path: &Path) -> Vec<PathBuf> {
+        load_toml_with_includes(path)
+            .map(|(_, files)| files)
+            .unwrap_or_else(|err| {
+                tracing::debug!(
+                    config_file = %path.display(),
+                    "failed to resolve config include watch files: {err}"
+                );
+                vec![path.canonicalize().unwrap_or_else(|_| path.to_path_buf())]
+            })
     }
 
     fn expand_panel_placeholders(&mut self) {
@@ -126,6 +137,141 @@ fn existing_file(path: PathBuf) -> Option<PathBuf> {
         .ok()
         .filter(|m| m.is_file())
         .map(|_| path)
+}
+
+fn load_toml_with_includes(path: &Path) -> Result<(toml::Value, Vec<PathBuf>), String> {
+    let mut files = Vec::new();
+    let value = load_toml_with_includes_inner(path, &mut Vec::new(), &mut files)?;
+    Ok((value, files))
+}
+
+fn load_toml_with_includes_inner(
+    path: &Path,
+    include_stack: &mut Vec<PathBuf>,
+    files: &mut Vec<PathBuf>,
+) -> Result<toml::Value, String> {
+    let path = fs::canonicalize(path).map_err(|err| {
+        format!(
+            "failed to resolve configuration file {}: {err}",
+            path.display()
+        )
+    })?;
+    if include_stack.iter().any(|visited| visited == &path) {
+        return Err(format!(
+            "include cycle detected: {} -> {}",
+            include_stack
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(" -> "),
+            path.display()
+        ));
+    }
+
+    include_stack.push(path.clone());
+    if !files.iter().any(|file| file == &path) {
+        files.push(path.clone());
+    }
+    let result = load_toml_file_with_includes(&path, include_stack, files);
+    include_stack.pop();
+    result
+}
+
+fn load_toml_file_with_includes(
+    path: &Path,
+    include_stack: &mut Vec<PathBuf>,
+    files: &mut Vec<PathBuf>,
+) -> Result<toml::Value, String> {
+    tracing::debug!(
+        config_file = %path.display(),
+        "loading Glimpse config TOML"
+    );
+    let content = fs::read_to_string(path).map_err(|err| {
+        format!(
+            "failed to read configuration file {}: {err}",
+            path.display()
+        )
+    })?;
+    let mut value = content
+        .parse::<toml::Value>()
+        .map_err(|err| format!("failed to parse config {}: {err}", path.display()))?;
+
+    let include = match value.as_table_mut() {
+        Some(table) => table.remove("include"),
+        None => None,
+    };
+
+    let mut merged = toml::Value::Table(toml::map::Map::new());
+    for include_path in parse_include_paths(include.as_ref(), path)? {
+        tracing::debug!(
+            config_file = %path.display(),
+            include_file = %include_path.display(),
+            "loading included Glimpse config"
+        );
+        let include_value = load_toml_with_includes_inner(&include_path, include_stack, files)?;
+        tracing::debug!(
+            config_file = %path.display(),
+            include_file = %include_path.display(),
+            "merging included Glimpse config"
+        );
+        merge_toml_values(&mut merged, include_value);
+    }
+    tracing::debug!(
+        config_file = %path.display(),
+        "merging Glimpse config overrides"
+    );
+    merge_toml_values(&mut merged, value);
+    Ok(merged)
+}
+
+fn parse_include_paths(
+    include: Option<&toml::Value>,
+    source: &Path,
+) -> Result<Vec<PathBuf>, String> {
+    let Some(include) = include else {
+        return Ok(Vec::new());
+    };
+    let Some(paths) = include.as_array() else {
+        return Err(format!(
+            "invalid include in {}: expected an array of strings",
+            source.display()
+        ));
+    };
+
+    let base_dir = source.parent().unwrap_or_else(|| Path::new("."));
+    paths
+        .iter()
+        .map(|value| {
+            let Some(path) = value.as_str() else {
+                return Err(format!(
+                    "invalid include in {}: expected an array of strings",
+                    source.display()
+                ));
+            };
+            let path = PathBuf::from(path);
+            if path.is_absolute() {
+                Ok(path)
+            } else {
+                Ok(base_dir.join(path))
+            }
+        })
+        .collect()
+}
+
+fn merge_toml_values(base: &mut toml::Value, overlay: toml::Value) {
+    match (base, overlay) {
+        (toml::Value::Table(base), toml::Value::Table(overlay)) => {
+            for (key, value) in overlay {
+                match base.get_mut(&key) {
+                    Some(existing) => merge_toml_values(existing, value),
+                    None => {
+                        base.insert(key, value);
+                    }
+                }
+            }
+        }
+        (base, overlay) => *base = overlay,
+    }
 }
 
 fn expand_panel_section(section: &'static str, applets: &mut Vec<String>, defaults: &[String]) {
@@ -445,6 +591,209 @@ left = ["custom", "..."]
     }
 }
 
+#[cfg(test)]
+mod include_config_tests {
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    use crate::Config;
+
+    #[test]
+    fn config_include_loads_base_file_and_main_config_wins() {
+        let dir = TestConfigDir::new("config-include-base");
+        dir.write(
+            "base.toml",
+            r#"
+theme = "adwaita"
+
+[applets.clock]
+format = "%H:%M"
+"#,
+        );
+        dir.write(
+            "config.toml",
+            r#"
+include = ["base.toml"]
+theme = "rosepine"
+
+[applets.clock]
+format = "%a %H:%M"
+"#,
+        );
+
+        let config = Config::try_load_from_file(&dir.file("config.toml")).unwrap();
+
+        assert_eq!(config.theme, "rosepine");
+        assert_eq!(
+            config.applets["clock"].settings["format"].as_str(),
+            Some("%a %H:%M")
+        );
+    }
+
+    #[test]
+    fn config_include_recursively_merges_nested_tables() {
+        let dir = TestConfigDir::new("config-include-tables");
+        dir.write(
+            "base.toml",
+            r#"
+[applets.clock]
+format = "%H:%M"
+tooltip = "Local time"
+"#,
+        );
+        dir.write(
+            "config.toml",
+            r#"
+include = ["base.toml"]
+
+[applets.clock]
+format = "%a %H:%M"
+"#,
+        );
+
+        let config = Config::try_load_from_file(&dir.file("config.toml")).unwrap();
+
+        assert_eq!(
+            config.applets["clock"].settings["format"].as_str(),
+            Some("%a %H:%M")
+        );
+        assert_eq!(
+            config.applets["clock"].settings["tooltip"].as_str(),
+            Some("Local time")
+        );
+    }
+
+    #[test]
+    fn config_include_replaces_arrays_instead_of_appending() {
+        let dir = TestConfigDir::new("config-include-arrays");
+        dir.write(
+            "base.toml",
+            r#"
+[[panels]]
+left = ["workspace"]
+right = ["clock"]
+"#,
+        );
+        dir.write(
+            "config.toml",
+            r#"
+include = ["base.toml"]
+
+[[panels]]
+left = ["workspace", "..."]
+right = ["tray"]
+"#,
+        );
+
+        let config = Config::try_load_from_file(&dir.file("config.toml")).unwrap();
+
+        assert_eq!(
+            config.panels[0].left,
+            vec!["workspace", "pager", "mpris", "__dev__"]
+        );
+        assert_eq!(config.panels[0].right, vec!["tray"]);
+        assert_eq!(config.panels.len(), 1);
+    }
+
+    #[test]
+    fn config_include_paths_are_relative_to_declaring_file() {
+        let dir = TestConfigDir::new("config-include-relative");
+        dir.write(
+            "profiles/base.toml",
+            r#"
+theme = "rosepine"
+include = ["applets.toml"]
+"#,
+        );
+        dir.write(
+            "profiles/applets.toml",
+            r#"
+[applets.clock]
+format = "%H:%M"
+"#,
+        );
+        dir.write(
+            "config.toml",
+            r#"
+include = ["profiles/base.toml"]
+"#,
+        );
+
+        let config = Config::try_load_from_file(&dir.file("config.toml")).unwrap();
+
+        assert_eq!(config.theme, "rosepine");
+        assert_eq!(
+            config.applets["clock"].settings["format"].as_str(),
+            Some("%H:%M")
+        );
+    }
+
+    #[test]
+    fn config_include_cycles_return_error() {
+        let dir = TestConfigDir::new("config-include-cycle");
+        dir.write(
+            "config.toml",
+            r#"
+include = ["base.toml"]
+"#,
+        );
+        dir.write(
+            "base.toml",
+            r#"
+include = ["config.toml"]
+"#,
+        );
+
+        let err = Config::try_load_from_file(&dir.file("config.toml")).unwrap_err();
+
+        assert!(err.contains("include cycle"), "{err}");
+    }
+
+    struct TestConfigDir {
+        root: PathBuf,
+    }
+
+    impl TestConfigDir {
+        fn new(name: &str) -> Self {
+            let nanos = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let root = std::env::temp_dir().join(format!("{name}-{}-{nanos}", std::process::id()));
+            fs::create_dir_all(&root).unwrap();
+            Self { root }
+        }
+
+        fn file(&self, relative: &str) -> PathBuf {
+            self.root.join(relative)
+        }
+
+        fn write(&self, relative: &str, content: &str) {
+            let path = self.file(relative);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).unwrap();
+            }
+            fs::write(path, content).unwrap();
+        }
+    }
+
+    impl Drop for TestConfigDir {
+        fn drop(&mut self) {
+            let _ = remove_dir_all_if_exists(&self.root);
+        }
+    }
+
+    fn remove_dir_all_if_exists(path: &Path) -> std::io::Result<()> {
+        if path.exists() {
+            fs::remove_dir_all(path)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ConfigDiscovery {
     inner: ConfigFileDiscovery,
@@ -493,8 +842,12 @@ pub enum ConfigEvent {
 }
 
 pub async fn watch_for_config_changes(sender: mpsc::Sender<ConfigEvent>) {
-    watch_config_file(Config::detect_config_file(), sender, "shared", |path| {
-        ConfigEvent::Changed(Config::load_from_file(path))
-    })
+    watch_config_file(
+        Config::detect_config_file(),
+        sender,
+        "shared",
+        Config::watch_files_for,
+        |path| ConfigEvent::Changed(Config::load_from_file(path)),
+    )
     .await;
 }
