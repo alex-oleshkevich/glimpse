@@ -58,6 +58,7 @@ pub struct App {
     bluetooth_agent_cancel: CancellationToken,
     prompt_fallback_parent: gtk4::Widget,
     wayland_swap_tx: tokio::sync::mpsc::Sender<Box<dyn WaylandIdleInhibitor + Send>>,
+    services_started: bool,
     wayland_installed: bool,
     wayland_pending: bool,
     wayland_host_key: Option<panels::PanelKey>,
@@ -158,7 +159,6 @@ impl SimpleComponent for App {
         let wayland_swap_tx = spawn_idle_subsystem(init.dbus.session.clone());
 
         let services = ServiceRuntime::new(init.dbus);
-        services.broadcast(Control::Start(init.config.clone()));
         let ipc = launch_ipc(&services.handles());
         spawn_theme_subscription(services.handles().theme, sender.input_sender().clone());
 
@@ -209,6 +209,7 @@ impl SimpleComponent for App {
             bluetooth_agent_cancel,
             prompt_fallback_parent,
             wayland_swap_tx,
+            services_started: false,
             wayland_installed: false,
             wayland_pending: false,
             wayland_host_key: None,
@@ -225,11 +226,14 @@ impl SimpleComponent for App {
                 }
 
                 tracing::info!("app config changed");
-                self.services
-                    .broadcast(Control::Reconfigure(config.clone()));
+                if self.services_started {
+                    self.services
+                        .broadcast(Control::Reconfigure(config.clone()));
+                }
                 self.theme.reload(&config);
                 self.theme.apply_configured_mode(&config.theme_mode);
                 self.reconcile_panels(&config, &sender);
+                self.start_services_if_needed(&config);
                 self.config = config;
                 self.ipc.emit("config.changed", vec![]);
             }
@@ -273,6 +277,7 @@ impl SimpleComponent for App {
                 tracing::info!("monitors changed, reconciling panels");
                 let config = self.config.clone();
                 self.reconcile_panels(&config, &sender);
+                self.start_services_if_needed(&config);
             }
             Input::WaylandInstalled(host_key) => {
                 self.wayland_pending = false;
@@ -456,6 +461,14 @@ impl App {
         }
 
         self.maybe_install_wayland_inhibitor(sender);
+    }
+
+    fn start_services_if_needed(&mut self, config: &Config) {
+        if self.services_started {
+            return;
+        }
+        self.services.broadcast(Control::Start(config.clone()));
+        self.services_started = true;
     }
 
     fn maybe_install_wayland_inhibitor(&mut self, sender: &ComponentSender<Self>) {

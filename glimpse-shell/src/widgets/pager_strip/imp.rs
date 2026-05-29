@@ -24,7 +24,6 @@ impl ObjectImpl for PagerStrip {
     fn constructed(&self) {
         self.parent_constructed();
         let obj = self.obj();
-        obj.add_css_class("applet");
         obj.add_css_class("pager");
         obj.set_orientation(gtk4::Orientation::Horizontal);
         obj.set_valign(gtk4::Align::Center);

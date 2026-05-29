@@ -388,13 +388,12 @@ fn scroll_source<'a>(
     panel_monitor: Option<&str>,
     compositor: &CompositorState,
 ) -> Option<&'a glimpse_core::services::brightness::BrightnessSource> {
-    let monitor = panel_monitor.or_else(|| {
-        compositor
-            .monitors
-            .iter()
-            .find(|monitor| monitor.focused)
-            .map(|monitor| monitor.name.as_str())
-    });
+    let monitor = compositor
+        .monitors
+        .iter()
+        .find(|monitor| monitor.focused)
+        .map(|monitor| monitor.name.as_str())
+        .or(panel_monitor);
 
     if let Some(monitor) = monitor {
         if let Some(source) = source_for_connector(state, monitor) {
@@ -539,6 +538,19 @@ mod tests {
         };
 
         let source = scroll_source(&state, None, &compositor).unwrap();
+
+        assert_eq!(source.id, "ddcutil:2");
+    }
+
+    #[test]
+    fn scroll_source_prefers_focused_monitor_over_panel_monitor() {
+        let state = display_state();
+        let compositor = CompositorState {
+            monitors: vec![focused_monitor("DP-2")],
+            ..CompositorState::default()
+        };
+
+        let source = scroll_source(&state, Some("eDP-1"), &compositor).unwrap();
 
         assert_eq!(source.id, "ddcutil:2");
     }
