@@ -58,6 +58,7 @@ enum KeyboardScope {
 struct RememberState {
     focused_scope: Option<KeyboardScope>,
     remembered: HashMap<KeyboardScope, usize>,
+    pending_restores: HashMap<KeyboardScope, usize>,
 }
 
 impl KeyboardService {
@@ -129,24 +130,32 @@ impl KeyboardService {
         let current = state.current_keyboard_layout;
         let scope = focused_scope(self.config.remember, state);
 
+        self.remember.clear_arrived_restore(scope.as_ref(), current);
+
         if self.remember.focused_scope == scope {
+            if self
+                .remember
+                .clear_stale_arrived_restore(scope.as_ref(), current)
+            {
+                return self.remember.restore_target(scope.as_ref(), current, state);
+            }
             return None;
         }
 
-        if let (Some(previous), Some(current)) = (self.remember.focused_scope.take(), current) {
-            self.remember.remembered.insert(previous, current);
+        if let Some(previous) = self.remember.focused_scope.take() {
+            if let Some(layout) = self
+                .remember
+                .pending_restores
+                .get(&previous)
+                .copied()
+                .or(current)
+            {
+                self.remember.remembered.insert(previous, layout);
+            }
         }
         self.remember.focused_scope = scope.clone();
 
-        scope
-            .and_then(|scope| self.remember.remembered.get(&scope).copied())
-            .filter(|target| Some(*target) != current)
-            .filter(|target| {
-                state
-                    .keyboard_layouts
-                    .iter()
-                    .any(|layout| layout.index == *target)
-            })
+        self.remember.restore_target(scope.as_ref(), current, state)
     }
 
     async fn execute_command(&mut self, command: Command) {
@@ -164,8 +173,18 @@ impl KeyboardService {
         };
 
         if let Some(target) = target {
+            self.remember_user_target(target);
             self.set_layout(target).await;
         }
+    }
+
+    fn remember_user_target(&mut self, target: usize) {
+        let Some(scope) = self.remember.focused_scope.clone() else {
+            return;
+        };
+
+        self.remember.remembered.insert(scope.clone(), target);
+        self.remember.pending_restores.insert(scope, target);
     }
 
     async fn set_layout(&self, index: usize) {
@@ -177,6 +196,63 @@ impl KeyboardService {
             .await
         {
             tracing::warn!(%error, index, "failed to send keyboard layout command");
+        }
+    }
+}
+
+impl RememberState {
+    fn restore_target(
+        &mut self,
+        scope: Option<&KeyboardScope>,
+        current: Option<usize>,
+        state: &compositor::State,
+    ) -> Option<usize> {
+        let scope = scope?;
+        let target = self.remembered.get(scope).copied()?;
+        if Some(target) == current {
+            self.pending_restores.remove(scope);
+            return None;
+        }
+        if !state
+            .keyboard_layouts
+            .iter()
+            .any(|layout| layout.index == target)
+        {
+            return None;
+        }
+
+        self.pending_restores.insert(scope.clone(), target);
+        Some(target)
+    }
+
+    fn clear_arrived_restore(&mut self, scope: Option<&KeyboardScope>, current: Option<usize>) {
+        let (Some(scope), Some(current)) = (scope, current) else {
+            return;
+        };
+        if self.pending_restores.get(scope) == Some(&current) {
+            self.pending_restores.remove(scope);
+        }
+    }
+
+    fn clear_stale_arrived_restore(
+        &mut self,
+        scope: Option<&KeyboardScope>,
+        current: Option<usize>,
+    ) -> bool {
+        let (Some(scope), Some(current)) = (scope, current) else {
+            return false;
+        };
+        let stale_scope = self
+            .pending_restores
+            .iter()
+            .find(|(pending_scope, target)| *pending_scope != scope && **target == current)
+            .map(|(pending_scope, _)| pending_scope.clone());
+
+        if let Some(stale_scope) = stale_scope {
+            self.pending_restores.remove(&stale_scope);
+            true
+        } else {
+            false
         }
     }
 }
@@ -360,6 +436,31 @@ mod tests {
         state.focused_window = Some(10);
         state.windows = vec![window(10, "editor")];
         assert_eq!(service.remember_target(&state), Some(2));
+    }
+
+    #[test]
+    fn remember_state_does_not_overwrite_pending_window_restore_with_stale_layout() {
+        let mut service = service_with_remember(KeyboardRememberMode::Window);
+        service
+            .remember
+            .remembered
+            .insert(KeyboardScope::Window(20), 2);
+        let mut state = compositor_state(Some(1), Some(10), "editor");
+
+        assert_eq!(service.remember_target(&state), None);
+
+        state.focused_window = Some(20);
+        state.windows = vec![window(20, "editor")];
+        assert_eq!(service.remember_target(&state), Some(2));
+
+        state.focused_window = Some(10);
+        state.windows = vec![window(10, "editor")];
+        assert_eq!(service.remember_target(&state), None);
+        assert_eq!(
+            service.remember.remembered.get(&KeyboardScope::Window(20)),
+            Some(&2),
+            "pending restore for window 20 must not be overwritten by stale compositor layout"
+        );
     }
 
     #[test]
