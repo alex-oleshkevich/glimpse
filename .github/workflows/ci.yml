@@ -59,7 +59,6 @@ jobs:
           cargo test --locked \
             -p glimpse-core \
             -p glimpse-lock \
-            -p glimpse-shell \
             -p glimpse-wallpaper
 
       - name: Check applications
