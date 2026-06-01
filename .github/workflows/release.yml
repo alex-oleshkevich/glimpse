@@ -83,13 +83,12 @@ jobs:
         run: |
           cargo test --locked \
             -p glimpse-core \
-            -p glimpse-idle \
             -p glimpse-lock \
+            -p glimpse-shell \
             -p glimpse-wallpaper
           cargo check \
             -p glimpse-lock \
             -p glimpse-shell \
-            -p glimpse-idle \
             -p glimpse-wallpaper
 
   package:

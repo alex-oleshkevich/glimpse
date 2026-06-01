@@ -11,6 +11,7 @@ pub mod compositor;
 pub mod framework;
 pub mod geoclue;
 pub mod idle;
+pub mod idle_backend;
 pub mod idle_inhibitor;
 pub mod keyboard;
 pub mod location;

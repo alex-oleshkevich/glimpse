@@ -46,7 +46,6 @@ pub enum Input {
     UpdateState {
         state: State,
         wayland: WaylandHealth,
-        daemon_offline: bool,
     },
     SetManualHold(bool),
     EmitCommand(Command),
@@ -146,11 +145,7 @@ impl SimpleComponent for Popover {
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
             Input::Toggle => self.popover.toggle(),
-            Input::UpdateState {
-                state,
-                wayland,
-                daemon_offline,
-            } => {
+            Input::UpdateState { state, wayland } => {
                 let visible_records = visible_records(&state.inhibitors);
                 self.set_manual_hold_on(
                     state
@@ -168,7 +163,6 @@ impl SimpleComponent for Popover {
                     "view-conceal-symbolic"
                 };
                 self.hero_subtitle = format::subtitle(&format::SubtitleInputs {
-                    daemon_offline,
                     wayland: &wayland,
                     backend: &state.health,
                     records: &visible_records,

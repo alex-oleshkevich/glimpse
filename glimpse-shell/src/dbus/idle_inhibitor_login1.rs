@@ -10,7 +10,7 @@ use glimpse_core::services::idle_inhibitor::{
     IdleInhibitorRecord, IdleInhibitorSource, InhibitionTargets, Login1Mode, now_unix,
 };
 
-use crate::inhibitor_registry::Registry;
+use crate::dbus::idle_inhibitor_registry::Registry;
 
 // logind exposes no change signal for its inhibitor list, so we poll. A
 // logind inhibitor that is both taken and released within one interval is
@@ -67,7 +67,7 @@ pub fn entry_to_record(id: u64, e: &Login1InhibitorEntry) -> IdleInhibitorRecord
 
 /// Pure diff: compare a previous (key -> id) map against a fresh
 /// ListInhibitors response. Filters out any entry whose pid equals the
-/// daemon's own pid (logind reports our outbound fds too, and they're
+/// process' own pid (logind reports our outbound fds too, and they're
 /// already tracked via their owning ScreenSaver/Portal record), and any
 /// non-`block` mode entry (delay-mode is infrastructure noise — system
 /// services delay shutdown by a few seconds while they clean up; not
@@ -271,7 +271,7 @@ mod tests {
 
     #[tokio::test]
     async fn refresh_process_names_overwrites_stale_label_for_login1_records_only() {
-        use crate::inhibitor_registry::Registry;
+        use crate::dbus::idle_inhibitor_registry::Registry;
         use glimpse_core::services::idle_inhibitor::{
             IdleInhibitorRecord, IdleInhibitorSource, InhibitionTargets, Login1Mode,
         };

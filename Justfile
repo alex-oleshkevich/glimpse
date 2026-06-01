@@ -14,16 +14,13 @@ sync-pkgver:
     sed -i -E "s/^pkgver=.*/pkgver=$(just version)/" PKGBUILD
 
 verify-release: sync-pkgver
-    cargo test --locked -p glimpse-core -p glimpse-idle -p glimpse-lock -p glimpse-wallpaper
-    cargo check --locked -p glimpse-core -p glimpse-idle -p glimpse-lock -p glimpse-wallpaper
+    cargo test --locked -p glimpse-core -p glimpse-lock -p glimpse-shell -p glimpse-wallpaper
+    cargo check --locked -p glimpse-core -p glimpse-lock -p glimpse-shell -p glimpse-wallpaper
 
 # ---- Local development -------------------------------------------------------
 
 run-shell *args:
     RUST_LOG="${RUST_LOG:-info}" cargo run -p glimpse-shell -- {{ args }}
-
-run-idle *args:
-    RUST_LOG="${RUST_LOG:-info}" cargo run -p glimpse-idle -- {{ args }}
 
 run-lock *args:
     RUST_LOG="${RUST_LOG:-info}" cargo run -p glimpse-lock -- {{ args }}

@@ -138,8 +138,8 @@ func TestIPCResolvesSocketPath(t *testing.T) {
 	if got := IPC("shell").socket; got != "/run/glimpse-test/ipc.sock" {
 		t.Fatalf("shell socket = %q", got)
 	}
-	if got := IPC("idle").socket; got != "/run/glimpse-test/idle.sock" {
-		t.Fatalf("idle socket = %q", got)
+	if got := IPC("wallpaper").socket; got != "/run/glimpse-test/wallpaper.sock" {
+		t.Fatalf("wallpaper socket = %q", got)
 	}
 	if got := IPC("").socket; got != "/run/glimpse-test/ipc.sock" {
 		t.Fatalf("default socket = %q", got)

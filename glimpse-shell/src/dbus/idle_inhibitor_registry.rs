@@ -218,10 +218,12 @@ impl Registry {
         self.cookie_to_id.get(&cookie).copied()
     }
 
+    #[cfg(test)]
     pub fn lookup_by_portal_handle(&self, handle: &str) -> Option<u64> {
         self.portal_handle_to_id.get(handle).copied()
     }
 
+    #[cfg(test)]
     pub fn ids_for_bus_name(&self, bus_name: &str) -> Vec<u64> {
         self.bus_name_to_ids
             .get(bus_name)
@@ -229,10 +231,12 @@ impl Registry {
             .unwrap_or_default()
     }
 
+    #[cfg(test)]
     pub fn any_idle_target(&self) -> bool {
         self.records.values().any(|r| r.record.targets.idle)
     }
 
+    #[cfg(test)]
     pub fn count(&self) -> usize {
         self.records.len()
     }

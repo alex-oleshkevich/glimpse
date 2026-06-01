@@ -18,8 +18,12 @@ use adw::gdk::{self, prelude::DisplayExt, prelude::MonitorExt};
 use gio::prelude::ListModelExt;
 use glib::object::{Cast, CastNone};
 use glimpse_core::{
-    Config, ConfigEvent, DiscoveredApplets, PanelConfig, Position, config::merge_applet_configs,
-    expand_dev_slot, services::theme::State as ThemeServiceState, watch_for_config_changes,
+    Config, ConfigEvent, DiscoveredApplets, PanelConfig, Position,
+    config::merge_applet_configs,
+    expand_dev_slot,
+    services::idle_inhibitor::{self, BackendHealth, HealthKind, SourceKind},
+    services::theme::State as ThemeServiceState,
+    watch_for_config_changes,
 };
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use gtk4_layer_shell::LayerShell;
@@ -147,6 +151,7 @@ impl SimpleComponent for App {
             });
         }
 
+        let idle_system_dbus = system_dbus.clone();
         let (bluetooth_agent_runtime, bluetooth_agent) = BluetoothAgentRuntime::new(system_dbus);
         let bluetooth_agent_cancel = CancellationToken::new();
         {
@@ -156,10 +161,11 @@ impl SimpleComponent for App {
             });
         }
 
-        let wayland_swap_tx = spawn_idle_subsystem(init.dbus.session.clone());
-
+        let idle_session_dbus = init.dbus.session.clone();
         let services = ServiceRuntime::new(init.dbus);
         let ipc = launch_ipc(&services.handles());
+        let wayland_swap_tx =
+            spawn_idle_subsystem(idle_session_dbus, idle_system_dbus, ipc.emitter());
         spawn_theme_subscription(services.handles().theme, sender.input_sender().clone());
 
         let mut applet_watcher_rx = services.handles().applet_watcher.clone();
@@ -286,8 +292,8 @@ impl SimpleComponent for App {
             }
             Input::WaylandInstallFailed => {
                 // The deferred install (on window map) failed. Clear the pending
-                // flag so the next reconcile retries instead of wedging the
-                // daemon on the Noop inhibitor backend forever.
+                // flag so the next reconcile retries instead of leaving the
+                // shell on the Noop inhibitor backend forever.
                 self.wayland_pending = false;
                 self.wayland_host_key = None;
             }
@@ -304,6 +310,8 @@ impl Drop for App {
 
 fn spawn_idle_subsystem(
     session: zbus::Connection,
+    system_dbus: zbus::Connection,
+    ipc: IpcEmitter,
 ) -> tokio::sync::mpsc::Sender<Box<dyn WaylandIdleInhibitor + Send>> {
     let own_unique_bus_name = session
         .unique_name()
@@ -317,9 +325,10 @@ fn spawn_idle_subsystem(
     let (health_tx, health_rx) = tokio::sync::watch::channel(initial_health);
     relm4::spawn(async move {
         let cancel = CancellationToken::new();
-        match crate::dbus::idle_inhibitors::spawn(session, cancel.clone()).await {
+        match crate::dbus::idle_inhibitors::spawn(session, system_dbus, cancel.clone()).await {
             Ok(handle) => {
                 let state_rx = handle.subscribe();
+                spawn_idle_inhibitor_ipc_watcher(handle.subscribe(), ipc);
                 let task_cancel = cancel.clone();
                 tokio::spawn(async move {
                     wayland_idle_inhibit::run(backend, state_rx, swap_rx, health_tx, task_cancel)
@@ -345,6 +354,87 @@ fn spawn_idle_subsystem(
         }
     });
     swap_tx
+}
+
+fn spawn_idle_inhibitor_ipc_watcher(
+    mut rx: tokio::sync::watch::Receiver<idle_inhibitor::State>,
+    ipc: IpcEmitter,
+) {
+    relm4::spawn(async move {
+        let mut prev = rx.borrow_and_update().clone();
+        loop {
+            if rx.changed().await.is_err() {
+                break;
+            }
+            let next = rx.borrow_and_update().clone();
+
+            let prev_ids: std::collections::HashSet<u64> =
+                prev.inhibitors.iter().map(|record| record.id).collect();
+            let next_ids: std::collections::HashSet<u64> =
+                next.inhibitors.iter().map(|record| record.id).collect();
+
+            for record in &next.inhibitors {
+                if !prev_ids.contains(&record.id) {
+                    ipc.emit(
+                        "idle.inhibitor_added",
+                        vec![
+                            ("id", record.id.to_string()),
+                            ("who", record.who.clone()),
+                            ("why", record.why.clone()),
+                            ("source", source_name(&record.source.kind).to_owned()),
+                        ],
+                    );
+                }
+            }
+            for record in &prev.inhibitors {
+                if !next_ids.contains(&record.id) {
+                    ipc.emit(
+                        "idle.inhibitor_removed",
+                        vec![("id", record.id.to_string()), ("who", record.who.clone())],
+                    );
+                }
+            }
+
+            emit_health_change(
+                &ipc,
+                "screen_saver",
+                &prev.health.screen_saver,
+                &next.health.screen_saver,
+            );
+            emit_health_change(&ipc, "portal", &prev.health.portal, &next.health.portal);
+            emit_health_change(&ipc, "login1", &prev.health.login1, &next.health.login1);
+
+            prev = next;
+        }
+    });
+}
+
+fn emit_health_change(ipc: &IpcEmitter, backend: &str, prev: &BackendHealth, next: &BackendHealth) {
+    if prev != next {
+        ipc.emit(
+            "idle.backend_health_changed",
+            vec![
+                ("backend", backend.to_owned()),
+                ("health", backend_health_name(next).to_owned()),
+            ],
+        );
+    }
+}
+
+fn source_name(kind: &SourceKind) -> &'static str {
+    match kind {
+        SourceKind::ScreenSaver => "screen_saver",
+        SourceKind::Portal => "portal",
+        SourceKind::Login1 => "login1",
+    }
+}
+
+fn backend_health_name(health: &BackendHealth) -> &'static str {
+    match health.kind {
+        HealthKind::Ready => "ready",
+        HealthKind::Degraded => "degraded",
+        HealthKind::Unsupported => "unsupported",
+    }
 }
 
 fn spawn_theme_subscription(

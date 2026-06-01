@@ -12,6 +12,7 @@ dev = ["glimpse-core/dev"]
 adw.workspace = true
 ammonia.workspace = true
 anyhow.workspace = true
+async-trait.workspace = true
 chrono.workspace = true
 futures-util.workspace = true
 gtk4.workspace = true

@@ -12,15 +12,14 @@ Use another AUR helper if you prefer one.
 
 ## Enable The Desktop Pieces
 
-For a normal Niri setup, enable the shell, lock screen, and idle rules:
+For a normal Niri setup, enable the shell and lock screen:
 
 ```sh
 systemctl --user enable --now glimpse-shell.service
 systemctl --user enable --now glimpse-lock.service
-systemctl --user enable --now glimpse-idle.service
 ```
 
-This starts the panel and the background services Glimpse uses for locking and idle behavior. Night light runs inside the shell service.
+This starts the panel and the background services Glimpse uses for locking and idle behavior. Idle policy and night light run inside the shell service.
 
 ## Check It Worked
 

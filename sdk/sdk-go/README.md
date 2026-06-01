@@ -82,7 +82,7 @@ opened lazily.
 
 ```go
 ctx := context.Background()
-sub := sdk.IPC("shell") // "shell" | "wallpaper" | "idle" | "lock"
+sub := sdk.IPC("shell") // "shell" | "wallpaper" | "lock"
 
 // Fire an action; awaits the ack, errors if the server rejects it.
 ack, err := sub.Dispatch(ctx, "open_uri", map[string]string{

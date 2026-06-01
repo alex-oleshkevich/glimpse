@@ -1,4 +1,4 @@
 [D-BUS Service]
 Name=me.aresa.GlimpseIdle.Portal
-Exec=/usr/bin/glimpse-idle
-SystemdService=glimpse-idle.service
+Exec=/usr/bin/glimpse-shell
+SystemdService=glimpse-shell.service

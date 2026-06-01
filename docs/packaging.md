@@ -11,11 +11,9 @@ The binary release archive is produced by `scripts/package-binary.sh`. It instal
 ```text
 etc/geoclue/conf.d/glimpse.conf
 etc/pam.d/glimpse-lock
-usr/bin/glimpse-idle
 usr/bin/glimpse-lock
 usr/bin/glimpse-shell
 usr/bin/glimpse-wallpaper
-usr/lib/systemd/user/glimpse-idle.service
 usr/lib/systemd/user/glimpse-lock.service
 usr/lib/systemd/user/glimpse-shell.service
 usr/lib/systemd/user/glimpse-wallpaper.service
@@ -34,8 +32,7 @@ The archive may also include `LICENSE` at the archive root. A distro package sho
 
 | Binary | Purpose | Install to |
 |---|---|---|
-| `glimpse-shell` | GTK4 layer-shell panel and applet host | `/usr/bin/glimpse-shell` |
-| `glimpse-idle` | Wayland idle policy daemon and idle portal backend | `/usr/bin/glimpse-idle` |
+| `glimpse-shell` | GTK4 layer-shell panel, applet host, idle policy, idle portal backend, and night light service | `/usr/bin/glimpse-shell` |
 | `glimpse-lock` | Wayland session lock screen and logind lock listener | `/usr/bin/glimpse-lock` |
 | `glimpse-wallpaper` | Wallpaper and backdrop daemon | `/usr/bin/glimpse-wallpaper` |
 
@@ -45,7 +42,6 @@ Build all shipped binaries together:
 cargo build --release \
   -p glimpse-lock \
   -p glimpse-shell \
-  -p glimpse-idle \
   -p glimpse-wallpaper
 ```
 
@@ -54,7 +50,6 @@ After building a release archive, verify each binary reports the release version
 ```bash
 target/release/glimpse-lock --version
 target/release/glimpse-shell --version
-target/release/glimpse-idle --version
 target/release/glimpse-wallpaper --version
 ```
 
@@ -73,7 +68,6 @@ Install the unit files from `data/` without rewriting them:
 | `data/glimpse-shell.service` | `/usr/lib/systemd/user/glimpse-shell.service` |
 | `data/glimpse-wallpaper.service` | `/usr/lib/systemd/user/glimpse-wallpaper.service` |
 | `data/glimpse-lock.service` | `/usr/lib/systemd/user/glimpse-lock.service` |
-| `data/glimpse-idle.service` | `/usr/lib/systemd/user/glimpse-idle.service` |
 
 All shipped units are user services and are bound to `graphical-session.target` with `PartOf=` and `Requisite=`. They use `Type=exec`, restart on failure except for the lock screen, and include conservative hardening fields where compatible with the daemon.
 
@@ -82,17 +76,15 @@ All shipped units are user services and are bound to `graphical-session.target` 
 | `glimpse-shell.service` | Wants `glimpse-wallpaper.service`; starts after `graphical-session.target` and `glimpse-wallpaper.service`. |
 | `glimpse-wallpaper.service` | Starts after `graphical-session.target`; needs normal desktop/GPU access for image handling. |
 | `glimpse-lock.service` | Uses `Restart=always` so a clean exit while locked is treated as something to respawn. |
-| `glimpse-idle.service` | Starts after `graphical-session.target` so the compositor environment has been imported into the user manager. |
 
 User-facing install docs ask users to enable:
 
 ```bash
 systemctl --user enable --now glimpse-shell.service
 systemctl --user enable --now glimpse-lock.service
-systemctl --user enable --now glimpse-idle.service
 ```
 
-`glimpse-wallpaper.service` starts through `glimpse-shell.service` but can also be enabled explicitly if a session wants wallpaper before the panel.
+Idle policy, the idle inhibitor portal, and night light run inside `glimpse-shell.service`. `glimpse-wallpaper.service` starts through `glimpse-shell.service` but can also be enabled explicitly if a session wants wallpaper before the panel.
 
 ## PAM
 
@@ -116,14 +108,14 @@ The file grants the `glimpse-shell` desktop id access through GeoClue. Shared lo
 
 ## Idle Portal
 
-The idle daemon also ships an xdg-desktop-portal backend for inhibit requests:
+The shell ships an xdg-desktop-portal backend for inhibit requests:
 
 | Source | Install to |
 |---|---|
 | `data/portals/glimpse.portal` | `/usr/share/xdg-desktop-portal/portals/glimpse.portal` |
 | `data/dbus-1/me.aresa.GlimpseIdle.Portal.service` | `/usr/share/dbus-1/services/me.aresa.GlimpseIdle.Portal.service` |
 
-The portal descriptor exposes `org.freedesktop.impl.portal.Inhibit` for Glimpse sessions. The D-Bus service activates `glimpse-idle.service` through systemd.
+The portal descriptor exposes `org.freedesktop.impl.portal.Inhibit` for Glimpse sessions. The D-Bus service activates `glimpse-shell.service` through systemd.
 
 ## Monitor Helper
 
@@ -173,13 +165,11 @@ These commands mirror the release packaging script for the core files:
 ```bash
 install -Dm755 target/release/glimpse-lock "$pkgdir/usr/bin/glimpse-lock"
 install -Dm755 target/release/glimpse-shell "$pkgdir/usr/bin/glimpse-shell"
-install -Dm755 target/release/glimpse-idle "$pkgdir/usr/bin/glimpse-idle"
 install -Dm755 target/release/glimpse-wallpaper "$pkgdir/usr/bin/glimpse-wallpaper"
 install -Dm755 data/scripts/monitors "$pkgdir/usr/share/glimpse/scripts/monitors"
 
 install -Dm644 data/glimpse-lock.service "$pkgdir/usr/lib/systemd/user/glimpse-lock.service"
 install -Dm644 data/glimpse-shell.service "$pkgdir/usr/lib/systemd/user/glimpse-shell.service"
-install -Dm644 data/glimpse-idle.service "$pkgdir/usr/lib/systemd/user/glimpse-idle.service"
 install -Dm644 data/glimpse-wallpaper.service "$pkgdir/usr/lib/systemd/user/glimpse-wallpaper.service"
 
 install -Dm644 data/pam.d/glimpse-lock "$pkgdir/etc/pam.d/glimpse-lock"

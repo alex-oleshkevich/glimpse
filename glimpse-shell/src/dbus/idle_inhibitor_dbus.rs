@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use glimpse_core::dbus::login1::Login1ManagerProxy;
 
-use crate::screen_saver::Login1InhibitTaker;
+use crate::dbus::idle_inhibitor_screen_saver::Login1InhibitTaker;
 
 /// Real implementation of `Login1InhibitTaker` that wraps the Login1Manager
 /// D-Bus proxy. The fd is held until dropped, at which point the kernel

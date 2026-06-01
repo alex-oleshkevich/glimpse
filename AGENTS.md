@@ -42,6 +42,9 @@ Custom `exec` and `command` applets are package files under `$XDG_CONFIG_HOME/gl
 - review the PR
 - merge PR
 - close PR and branch
+- switch to main branch in this repo
+- pull main branch in repo repo
+- close local feature branch
 
 IMPORTANT: only apply that for project-related tasks. Any offtopic is not a subject of that flow and warn me about that.
 IMPORTANT: automaticaly move on to the next development step. Do not wait for nothing!
@@ -56,6 +59,7 @@ The release process is like that:
 - show release notes to me to approve them
 - use release notes in tag annotation
 - create a new github release and use generated release notes in that release
+- release documentation
 - monitor release workflow until it green.
 
 ## Common Commands

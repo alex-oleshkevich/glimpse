@@ -4,7 +4,7 @@ use tokio::sync::Mutex;
 
 use glimpse_core::services::idle_inhibitor::{IdleInhibitorRecord, InhibitorsHealth};
 
-use crate::inhibitor_registry::Registry;
+use crate::dbus::idle_inhibitor_registry::Registry;
 
 pub struct InhibitorsApi {
     pub registry: Arc<Mutex<Registry>>,
@@ -22,7 +22,7 @@ mod tests {
     use tokio::sync::Mutex;
 
     use super::*;
-    use crate::inhibitor_registry::{Registry, build_screen_saver_record};
+    use crate::dbus::idle_inhibitor_registry::{Registry, build_screen_saver_record};
     use glimpse_core::services::idle_inhibitor::{InhibitionTargets, InhibitorsHealth};
 
     #[tokio::test]
@@ -69,15 +69,15 @@ impl InhibitorsApi {
         self.registry.lock().await.snapshot()
     }
 
-    /// Daemon-side backend health (ScreenSaver bus availability, portal
-    /// availability, logind reachability). The shell folds this with its
-    /// own Wayland-side health for the popover subtitle.
+    /// Backend health for ScreenSaver bus availability, portal availability,
+    /// and logind reachability. The applet folds this with shell-side Wayland
+    /// idle-inhibit health for the popover subtitle.
     #[zbus(property)]
     async fn health(&self) -> InhibitorsHealth {
         self.health.lock().await.clone()
     }
 
-    /// Administrative release by daemon-internal id. Used by the popover's
+    /// Administrative release by internal id. Used by the popover's
     /// per-row Release button. NotSupported for records where can_release
     /// is false (logind inhibitors owned by other processes — we can't
     /// release someone else's fd).
