@@ -186,9 +186,6 @@ pub fn applets_socket_path() -> PathBuf {
 pub fn idle_socket_path() -> PathBuf {
     runtime_dir().join("idle.sock")
 }
-pub fn sunset_socket_path() -> PathBuf {
-    runtime_dir().join("sunset.sock")
-}
 pub fn wallpaper_socket_path() -> PathBuf {
     runtime_dir().join("wallpaper.sock")
 }

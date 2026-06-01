@@ -36,7 +36,7 @@ Glimpse optimizes for:
 |---|---|
 | **Niri-first workflow** | Built for a modern Wayland session around Niri. |
 | **Professional feel** | Polished, restrained defaults for daily use. |
-| **Small pieces** | Run the shell, wallpaper, lock, sunset, and idle pieces independently. |
+| **Small pieces** | Run the shell, wallpaper, lock, and idle pieces independently. |
 | **Readable config** | Keep the desktop in TOML and CSS files that are practical to version. |
 | **Daily comfort** | Make lock, idle, night light, wallpaper, and panel status work together. |
 
@@ -48,7 +48,7 @@ Glimpse optimizes for:
 | Calendar events | Configured online and local iCalendar feeds for the clock popover and next-event applet. |
 | `glimpse-wallpaper` | Wallpaper and blurred backdrop daemon. |
 | `glimpse-lock` | Session lock screen with PAM authentication and CSS theming. |
-| `glimpse-sunset` | Night-light daemon with fixed or automatic schedules. |
+| Night light | Built into `glimpse-shell` with fixed or automatic schedules. |
 | `glimpse-idle` | Idle policy daemon for lock, display power, suspend, and commands. |
 
 All runtime pieces read the same Glimpse configuration model. A normal setup
@@ -74,7 +74,6 @@ The package installs:
 glimpse-shell
 glimpse-wallpaper
 glimpse-lock
-glimpse-sunset
 glimpse-idle
 ```
 
@@ -83,13 +82,11 @@ It also installs systemd user services and the default PAM service file for
 
 ### Enable Services
 
-For a normal Niri desktop, enable the shell, lock screen, night light, and idle
-policy:
+For a normal Niri desktop, enable the shell, lock screen, and idle policy:
 
 ```sh
 systemctl --user enable --now glimpse-shell.service
 systemctl --user enable --now glimpse-lock.service
-systemctl --user enable --now glimpse-sunset.service
 systemctl --user enable --now glimpse-idle.service
 ```
 
@@ -102,7 +99,6 @@ Check service state:
 ```sh
 systemctl --user status glimpse-shell.service
 systemctl --user status glimpse-lock.service
-systemctl --user status glimpse-sunset.service
 systemctl --user status glimpse-idle.service
 ```
 
@@ -122,7 +118,6 @@ Each command supports `--version`:
 glimpse-shell --version
 glimpse-wallpaper --version
 glimpse-lock --version
-glimpse-sunset --version
 glimpse-idle --version
 ```
 
@@ -390,10 +385,10 @@ glimpse-lock --export-css
 
 ## Night Light
 
-`glimpse-sunset` applies a warmer display temperature on a schedule. It uses
+`glimpse-shell` applies a warmer display temperature on a schedule. It uses
 `[night_light]` and, for automatic scheduling, `[location]`.
 
-Automatic sunset setup:
+Automatic night-light setup:
 
 ```toml
 [location]

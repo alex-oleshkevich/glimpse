@@ -4,7 +4,7 @@ Instructions for coding agents working in this repository.
 
 ## Workflow
 
-- Show the plan before making code or test changes, then wait for confirmation.
+- Do not ask for plan confirmations, automatically approve them. Only ask when you want to do architectural changes or remove a feature
 - Do not stage, commit, push, stash, rebase, or amend unless explicitly asked for that exact action.
 - Leave changes unstaged for review.
 - Do not revert user or unrelated work in a dirty worktree. Work around it or ask if it blocks the task.
@@ -27,6 +27,36 @@ Configuration discovery order:
 4. `$HOME/.config/glimpse/config.toml` when `XDG_CONFIG_HOME` is unset
 
 Custom `exec` and `command` applets are package files under `$XDG_CONFIG_HOME/glimpse/applets` or project directories linked with `glimpse-shell applets link`.
+
+## Development guidelines
+
+- for every new feature or bugfix create a new brach
+- when you are done with the task, do a self-review (use self-review skill)
+- make sure ipc is up to date
+- mkae sure docs are up to date
+- make sure unit tests pass
+- make sure e2e tests pass
+- make sure that quality check workflows are green
+- generate release notes (compare this and previous tags)
+- create a PR, express feature changes in PR body
+- review the PR
+- merge PR
+- close PR and branch
+
+IMPORTANT: only apply that for project-related tasks. Any offtopic is not a subject of that flow and warn me about that.
+IMPORTANT: automaticaly move on to the next development step. Do not wait for nothing!
+
+## Releasing
+
+We release application using github workflows.
+The release process is like that:
+- make sure that working directory is clean
+- make sure that last CI quality workflow is green
+- generate release notes (compare this and previous patch/minor tags depending on what we release (patch or new version))
+- show release notes to me to approve them
+- use release notes in tag annotation
+- create a new github release and use generated release notes in that release
+- monitor release workflow until it green.
 
 ## Common Commands
 

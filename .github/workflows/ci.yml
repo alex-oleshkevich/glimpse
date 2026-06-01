@@ -60,7 +60,6 @@ jobs:
             -p glimpse-core \
             -p glimpse-idle \
             -p glimpse-lock \
-            -p glimpse-sunset \
             -p glimpse-wallpaper
 
       - name: Check daemons
@@ -69,7 +68,6 @@ jobs:
             -p glimpse-lock \
             -p glimpse-shell \
             -p glimpse-idle \
-            -p glimpse-sunset \
             -p glimpse-wallpaper
 
       - name: Build release binaries
@@ -78,5 +76,4 @@ jobs:
             -p glimpse-lock \
             -p glimpse-shell \
             -p glimpse-idle \
-            -p glimpse-sunset \
             -p glimpse-wallpaper

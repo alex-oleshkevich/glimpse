@@ -4,8 +4,9 @@ use glimpse_core::ThemeMode;
 use glimpse_core::ipc::client::CommandHandler;
 use glimpse_core::services::{
     audio, battery, bluetooth, brightness, clipboard, keyboard, location, mpris, network,
-    notifications, power, storage, theme, weather,
+    night_light, notifications, power, storage, theme, weather,
 };
+use glimpse_core::{NightLightConfig, NightLightPhase, NightLightSchedule};
 
 use crate::services::framework::{ServiceCommand, ServiceHandle, Services};
 
@@ -120,6 +121,7 @@ impl ShellCommandHandler {
         }
         append_location_status(&mut out, &self.services.location.snapshot());
         append_weather_status(&mut out, &self.services.weather.snapshot());
+        append_night_light_status(&mut out, &self.services.night_light.snapshot());
         out
     }
 
@@ -141,6 +143,64 @@ impl ShellCommandHandler {
             .current_player
             .map(|p| p.player_id)
     }
+}
+
+fn append_night_light_status(out: &mut Vec<(String, String)>, state: &night_light::State) {
+    out.push(("night_light_phase".into(), phase_name(state.phase).into()));
+    out.push((
+        "night_light_schedule".into(),
+        schedule_name(state.config.schedule).into(),
+    ));
+    out.push((
+        "night_light_temperature".into(),
+        state.target_temperature_kelvin.to_string(),
+    ));
+    out.push((
+        "night_light_effective_temperature".into(),
+        state.effective_temperature_kelvin.to_string(),
+    ));
+}
+
+fn phase_name(phase: NightLightPhase) -> &'static str {
+    match phase {
+        NightLightPhase::Disabled => "disabled",
+        NightLightPhase::Day => "day",
+        NightLightPhase::TransitionToNight => "transition_to_night",
+        NightLightPhase::Night => "night",
+        NightLightPhase::TransitionToDay => "transition_to_day",
+    }
+}
+
+fn schedule_name(schedule: NightLightSchedule) -> &'static str {
+    match schedule {
+        NightLightSchedule::Off => "off",
+        NightLightSchedule::Automatic => "automatic",
+        NightLightSchedule::Schedule => "schedule",
+    }
+}
+
+fn parse_night_light_schedule(value: &str) -> Result<NightLightSchedule, String> {
+    match value {
+        "off" => Ok(NightLightSchedule::Off),
+        "automatic" | "auto" => Ok(NightLightSchedule::Automatic),
+        "schedule" | "manual" => Ok(NightLightSchedule::Schedule),
+        other => Err(format!(
+            "schedule must be off, automatic, or schedule, got '{other}'"
+        )),
+    }
+}
+
+fn dispatch_night_light_config(
+    svc: &Services,
+    update: impl FnOnce(&mut NightLightConfig),
+) -> Result<Vec<(String, String)>, String> {
+    let mut config = svc.night_light.snapshot().config;
+    update(&mut config);
+    dispatch(
+        &svc.night_light,
+        "night_light",
+        night_light::Command::ApplyConfig(config),
+    )
 }
 
 fn append_location_status(out: &mut Vec<(String, String)>, state: &location::State) {
@@ -297,15 +357,48 @@ impl CommandHandler for ShellCommandHandler {
                     dispatch(&svc.theme, "theme", theme::Command::SetMode(mode))
                 }
 
+                // ── night light ───────────────────────────────────────
+                "night_light_enable" => dispatch_night_light_config(svc, |config| {
+                    if config.schedule == NightLightSchedule::Off {
+                        config.schedule = NightLightSchedule::Automatic;
+                    }
+                }),
+                "night_light_disable" => dispatch_night_light_config(svc, |config| {
+                    config.schedule = NightLightSchedule::Off;
+                }),
+                "night_light_activate" => dispatch(
+                    &svc.night_light,
+                    "night_light",
+                    night_light::Command::Manual(true),
+                ),
+                "night_light_deactivate" => dispatch(
+                    &svc.night_light,
+                    "night_light",
+                    night_light::Command::Manual(false),
+                ),
+                "set_night_light_temperature" => {
+                    let temperature: u32 = require(fields, "kelvin")?
+                        .parse()
+                        .map_err(|_| "kelvin must be an integer".to_owned())?;
+                    let temperature = temperature.clamp(1000, 6500);
+                    dispatch_night_light_config(svc, |config| {
+                        config.temperature = temperature;
+                    })
+                }
+                "set_night_light_schedule" => {
+                    let schedule = parse_night_light_schedule(require(fields, "schedule")?)?;
+                    dispatch_night_light_config(svc, |config| {
+                        config.schedule = schedule;
+                    })
+                }
+
                 // ── keyboard ───────────────────────────────────────────
                 "next_keyboard_layout" => {
                     dispatch(&svc.keyboard, "keyboard", keyboard::Command::NextLayout)
                 }
-                "prev_keyboard_layout" => dispatch(
-                    &svc.keyboard,
-                    "keyboard",
-                    keyboard::Command::PreviousLayout,
-                ),
+                "prev_keyboard_layout" => {
+                    dispatch(&svc.keyboard, "keyboard", keyboard::Command::PreviousLayout)
+                }
                 "set_keyboard_layout" => {
                     let index: usize = require(fields, "index")?
                         .parse()
@@ -426,8 +519,13 @@ impl CommandHandler for ShellCommandHandler {
                     "power" => dispatch(&svc.power, "power", power::Command::Refresh),
                     "storage" => dispatch(&svc.storage, "storage", storage::Command::Refresh),
                     "location" => dispatch(&svc.location, "location", location::Command::Refresh),
+                    "night_light" => dispatch(
+                        &svc.night_light,
+                        "night_light",
+                        night_light::Command::Refresh,
+                    ),
                     other => Err(format!(
-                        "unknown service '{other}' (battery|brightness|location|power|storage)"
+                        "unknown service '{other}' (battery|brightness|location|night_light|power|storage)"
                     )),
                 },
 

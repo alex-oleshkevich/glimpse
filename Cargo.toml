@@ -5,7 +5,6 @@ members = [
     "glimpse-idle",
     "glimpse-lock",
     "glimpse-shell",
-    "glimpse-sunset",
     "glimpse-wallpaper",
 ]
 

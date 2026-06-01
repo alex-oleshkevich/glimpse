@@ -284,6 +284,7 @@ fn is_icon_path(icon: &str) -> bool {
     icon.starts_with('/') || icon.starts_with("./") || icon.starts_with("../") || icon.contains('/')
 }
 
+#[cfg(test)]
 fn has_visible_menu_items(menu: &[MenuItemConfig]) -> bool {
     menu.iter()
         .any(|item| !item.label.is_empty() && !item.command.is_empty())

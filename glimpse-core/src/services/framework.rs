@@ -8,8 +8,8 @@ use crate::{
     services::{
         applet_watcher::AppletWatcher, audio, audio_events, battery, bluetooth, brightness,
         calendar_events, clipboard, clock, compositor, geoclue, idle, keyboard, location,
-        microphone, mpris, network, notifications, power, printing, session, solar, storage, theme,
-        tray, weather, webcam,
+        microphone, mpris, network, night_light, notifications, power, printing, session, solar,
+        storage, theme, tray, weather, webcam,
     },
 };
 
@@ -155,6 +155,7 @@ pub struct Services {
     pub notifications: notifications::NotificationsHandle,
     pub session: session::SessionHandle,
     pub compositor: compositor::CompositorHandle,
+    pub night_light: night_light::NightLightHandle,
     pub keyboard: keyboard::KeyboardHandle,
     pub weather: weather::WeatherHandle,
     pub storage: storage::StorageHandle,
@@ -192,6 +193,7 @@ impl Services {
                 notifications,
                 session,
                 compositor,
+                night_light,
                 keyboard,
                 weather,
                 storage,
@@ -275,6 +277,10 @@ impl ServiceRuntime {
         let (compositor_service, compositor) = compositor::CompositorService::new();
         let compositor_service = spawn_service(|cancel| compositor_service.run(cancel));
 
+        let (night_light_service, night_light) =
+            night_light::NightLightService::new(solar.clone(), compositor.clone());
+        let night_light_service = spawn_service(|cancel| night_light_service.run(cancel));
+
         let (keyboard_service, keyboard) = keyboard::KeyboardService::new(compositor.clone());
         let keyboard_service = spawn_service(|cancel| keyboard_service.run(cancel));
 
@@ -318,6 +324,7 @@ impl ServiceRuntime {
             notifications_service,
             session_service,
             compositor_service,
+            night_light_service,
             keyboard_service,
             weather_service,
             storage_service,
@@ -346,6 +353,7 @@ impl ServiceRuntime {
             notifications,
             session,
             compositor,
+            night_light,
             keyboard,
             weather,
             storage,

@@ -4,6 +4,7 @@ use tokio::time::{Duration, Instant, sleep};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
+    compositors::night_light::WaylandNightLightController,
     compositors::{
         Compositor, CompositorCapabilities, CompositorEvent, CompositorRefresh, CompositorSnapshot,
         CompositorStructureSnapshot, CompositorType, KeyboardLayout, KeyboardLayoutSnapshot,
@@ -47,6 +48,8 @@ pub enum Command {
     FocusNextWindow,
     FocusPreviousWindow,
     StopScreencast(String),
+    SetNightLightTemperature(u32),
+    ResetNightLight,
     SetMonitorEnabled {
         name: String,
         on: bool,
@@ -69,6 +72,7 @@ pub struct CompositorService {
     recovery_outcome_tx: mpsc::UnboundedSender<RecoveryOutcome>,
     recovery_outcome_rx: mpsc::UnboundedReceiver<RecoveryOutcome>,
     builtin_override: Option<String>,
+    night_light_controller: Option<WaylandNightLightController>,
 }
 
 enum RunOutcome {
@@ -91,6 +95,7 @@ impl CompositorService {
                 recovery_outcome_tx,
                 recovery_outcome_rx,
                 builtin_override: None,
+                night_light_controller: None,
             },
             ServiceHandle::new(state_rx, command_tx),
         )
@@ -446,7 +451,7 @@ impl CompositorService {
             .send_if_modified(|current| set_if_changed(current, state));
     }
 
-    async fn execute_command(&self, compositor: Compositor, command: Command) {
+    async fn execute_command(&mut self, compositor: Compositor, command: Command) {
         let result = match command {
             Command::SetKeyboardLayout(layout) => compositor.set_keyboard_layout(layout).await,
             Command::SetWorkspace(workspace) => compositor.set_workspace(workspace).await,
@@ -461,6 +466,11 @@ impl CompositorService {
             Command::FocusNextWindow => compositor.focus_next_window().await,
             Command::FocusPreviousWindow => compositor.focus_previous_window().await,
             Command::StopScreencast(session_id) => compositor.stop_screencast(&session_id).await,
+            Command::SetNightLightTemperature(temperature_kelvin) => {
+                self.set_night_light_temperature(compositor, temperature_kelvin)
+                    .await
+            }
+            Command::ResetNightLight => self.reset_night_light().await,
             Command::SetMonitorEnabled { name, on } => {
                 if would_disable_last(&self.state_tx.borrow().monitors, &name, on) {
                     tracing::warn!(monitor = %name, "refusing to disable the only enabled monitor");
@@ -473,6 +483,39 @@ impl CompositorService {
         if let Err(error) = result {
             tracing::warn!(error = %error, "compositor command failed");
         }
+    }
+
+    async fn set_night_light_temperature(
+        &mut self,
+        compositor: Compositor,
+        temperature_kelvin: u32,
+    ) -> anyhow::Result<()> {
+        if !compositor.capabilities().night_light {
+            anyhow::bail!(
+                "{} does not advertise night light capability",
+                compositor.name()
+            );
+        }
+
+        let controller = match self.night_light_controller.as_mut() {
+            Some(controller) => controller,
+            None => {
+                self.night_light_controller = Some(WaylandNightLightController::connect()?);
+                self.night_light_controller
+                    .as_mut()
+                    .expect("controller initialized")
+            }
+        };
+        controller.apply_temperature(temperature_kelvin)?;
+        Ok(())
+    }
+
+    async fn reset_night_light(&mut self) -> anyhow::Result<()> {
+        if let Some(controller) = self.night_light_controller.as_mut() {
+            controller.reset()?;
+        }
+        self.night_light_controller = None;
+        Ok(())
     }
 
     fn cancel_recovery(&mut self) {

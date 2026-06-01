@@ -11,7 +11,6 @@ The framework provides socket binding, event broadcasting, request/response comm
 | Shell | `shell_socket_path()` | `$XDG_RUNTIME_DIR/glimpse/ipc.sock` | Main panel IPC surface and service event dispatcher. |
 | Applets | `applets_socket_path()` | `$XDG_RUNTIME_DIR/glimpse/applets.sock` | Reserved applet management socket. |
 | Idle | `idle_socket_path()` | `$XDG_RUNTIME_DIR/glimpse/idle.sock` | Idle inhibitor events and idle daemon commands. |
-| Night light | `sunset_socket_path()` | `$XDG_RUNTIME_DIR/glimpse/sunset.sock` | Night-light state and schedule commands. |
 | Wallpaper | `wallpaper_socket_path()` | `$XDG_RUNTIME_DIR/glimpse/wallpaper.sock` | Wallpaper, backdrop, and theme-mode commands. |
 
 `GLIMPSE_IPC_DIR` overrides the socket directory for every server and CLI client. Use it for tests or parallel developer sessions. Without it, sockets live under `$XDG_RUNTIME_DIR/glimpse`. If `$XDG_RUNTIME_DIR` is missing, IPC refuses to start and asks the caller to set `GLIMPSE_IPC_DIR` or run inside a proper user session.
@@ -189,7 +188,7 @@ Events use `<service>.<noun>_<verb>`:
 | `service.thing_removed` | An item left a collection. |
 | `service.activated` / `service.deactivated` | A binary mode toggled. |
 
-Examples: `idle.inhibitor_added`, `idle.backend_health_changed`, `nightlight.phase_changed`.
+Examples: `idle.inhibitor_added`, `idle.backend_health_changed`, `nightlight.phase_changed`, `nightlight.temperature_changed`.
 
 Commands use `snake_case` verbs:
 
@@ -206,8 +205,7 @@ Do not add `get_*`; use `status`.
 
 | Service | Commands |
 |---|---|
-| Shell | `status`, `set_volume`, `set_input_volume`, `set_brightness`, `set_power_profile`, `set_dnd`, `set_theme`, `set_keyboard_layout`, `set_wifi`, `set_bluetooth`, `refresh`, `set_location` |
-| Night light | `status`, `refresh`, `set_temperature`, `set_schedule`, `set_times`, `set_location`, `reset` |
+| Shell | `status`, `set_volume`, `set_input_volume`, `set_brightness`, `set_power_profile`, `set_dnd`, `set_theme`, `set_keyboard_layout`, `set_wifi`, `set_bluetooth`, `night_light_enable`, `night_light_disable`, `night_light_activate`, `night_light_deactivate`, `set_night_light_temperature`, `set_night_light_schedule`, `refresh`, `set_location` |
 | Wallpaper | `status`, `set_image`, `set_color`, `set_fit`, `set_backdrop`, `set_theme_mode` |
 | Idle | `status` |
 
@@ -251,6 +249,5 @@ For event assertions, record the current watch output line count before dispatch
 | `glimpse-core/src/ipc/server.rs` | Socket paths, server lifetime, permissions, `IpcHandle`. |
 | `glimpse-core/src/ipc/cli.rs` | Shared `watch` and `dispatch` behavior. |
 | `glimpse-shell/src/ipc/handler.rs` | Largest command handler and shell status snapshot. |
-| `glimpse-sunset/src/ipc.rs` | Standalone daemon with watcher and mutating commands. |
 | `glimpse-wallpaper/src/ipc.rs` | Standalone daemon with wallpaper/backdrop commands. |
 | `glimpse-idle/src/ipc.rs` | Minimal daemon IPC surface. |
