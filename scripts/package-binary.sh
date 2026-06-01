@@ -31,22 +31,18 @@ mkdir -p \
 cargo build --release \
     -p glimpse-lock \
     -p glimpse-shell \
-    -p glimpse-idle \
     -p glimpse-wallpaper
 
 test "$(target/release/glimpse-lock --version)" = "glimpse-lock $version"
 test "$(target/release/glimpse-shell --version)" = "glimpse-shell $version"
-test "$(target/release/glimpse-idle --version)" = "glimpse-idle $version"
 test "$(target/release/glimpse-wallpaper --version)" = "glimpse-wallpaper $version"
 
 install -Dm755 target/release/glimpse-lock "$pkgroot/usr/bin/glimpse-lock"
 install -Dm755 target/release/glimpse-shell "$pkgroot/usr/bin/glimpse-shell"
-install -Dm755 target/release/glimpse-idle "$pkgroot/usr/bin/glimpse-idle"
 install -Dm755 target/release/glimpse-wallpaper "$pkgroot/usr/bin/glimpse-wallpaper"
 install -Dm755 data/scripts/monitors "$pkgroot/usr/share/glimpse/scripts/monitors"
 install -Dm644 data/glimpse-lock.service "$pkgroot/usr/lib/systemd/user/glimpse-lock.service"
 install -Dm644 data/glimpse-shell.service "$pkgroot/usr/lib/systemd/user/glimpse-shell.service"
-install -Dm644 data/glimpse-idle.service "$pkgroot/usr/lib/systemd/user/glimpse-idle.service"
 install -Dm644 data/glimpse-wallpaper.service "$pkgroot/usr/lib/systemd/user/glimpse-wallpaper.service"
 install -Dm644 data/pam.d/glimpse-lock "$pkgroot/etc/pam.d/glimpse-lock"
 install -Dm644 data/geoclue/glimpse.conf "$pkgroot/etc/geoclue/conf.d/glimpse.conf"

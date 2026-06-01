@@ -1,6 +1,6 @@
 #!/bin/sh
 # Power monitors on/off across niri and hyprland from a single entry point.
-# Used by glimpse-idle's default config and safe to call directly.
+# Used by Glimpse's default idle config and safe to call directly.
 set -eu
 
 usage() {

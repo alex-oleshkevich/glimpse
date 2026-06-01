@@ -1,9 +1,5 @@
 use std::{os::fd::AsFd, time::Duration};
 
-use glimpse_core::services::{
-    framework::ServiceCommand,
-    idle::{self, ActiveListener, Health, IdleHandle, State},
-};
 use tokio::io::{Interest, unix::AsyncFd};
 use tokio_util::sync::CancellationToken;
 use wayland_client::{
@@ -13,6 +9,11 @@ use wayland_client::{
 };
 use wayland_protocols::ext::idle_notify::v1::client::{
     ext_idle_notification_v1, ext_idle_notifier_v1,
+};
+
+use crate::services::{
+    framework::ServiceCommand,
+    idle::{self, ActiveListener, Health, IdleHandle, State},
 };
 
 const WAYLAND_RETRY_DELAY: Duration = Duration::from_secs(2);

@@ -5,10 +5,9 @@ use tokio_util::sync::CancellationToken;
 
 use glimpse_core::services::idle_inhibitor::{IdleInhibitorHandle, State};
 
-/// Shell-only handles produced after we connect to the daemon's idle
-/// inhibitor proxy. Populated once at shell startup; the panel applet
-/// factory reads from it to wire the idle applet. If unset, the idle
-/// applet is skipped (e.g. when the daemon is unavailable).
+/// Shell-only handles produced after the in-process idle inhibitor service is
+/// wired. Populated once at shell startup; the panel applet factory reads from
+/// it to wire the idle applet. If unset, the idle applet is skipped.
 #[derive(Clone)]
 pub struct ShellExtensions {
     pub idle_inhibitor: IdleInhibitorHandle,
@@ -18,10 +17,9 @@ pub struct ShellExtensions {
 
 pub static SHELL_EXTENSIONS: OnceLock<ShellExtensions> = OnceLock::new();
 
-/// Health of the shell-side Wayland idle-inhibit backend. Separate from
-/// the daemon-side InhibitorsHealth — the daemon doesn't know whether
-/// the shell can actually attach a zwp_idle_inhibitor_v1 to a visible
-/// surface (which is what the compositor needs to honor inhibition).
+/// Health of the shell-side Wayland idle-inhibit backend. Separate from the
+/// D-Bus inhibitor health because portal/ScreenSaver availability is distinct
+/// from attaching a zwp_idle_inhibitor_v1 to a visible surface.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WaylandHealth {
     Ready,

@@ -54,20 +54,18 @@ jobs:
       - name: Verify lockfile
         run: cargo fetch --locked
 
-      - name: Test core and daemon crates
+      - name: Test core and application crates
         run: |
           cargo test --locked \
             -p glimpse-core \
-            -p glimpse-idle \
             -p glimpse-lock \
             -p glimpse-wallpaper
 
-      - name: Check daemons
+      - name: Check applications
         run: |
           cargo check --locked \
             -p glimpse-lock \
             -p glimpse-shell \
-            -p glimpse-idle \
             -p glimpse-wallpaper
 
       - name: Build release binaries
@@ -75,5 +73,4 @@ jobs:
           cargo build --release --locked \
             -p glimpse-lock \
             -p glimpse-shell \
-            -p glimpse-idle \
             -p glimpse-wallpaper

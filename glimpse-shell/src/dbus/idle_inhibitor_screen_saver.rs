@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 
 use glimpse_core::services::idle_inhibitor::InhibitionTargets;
 
-use crate::inhibitor_registry::{Registry, build_screen_saver_record, clamp_label};
+use crate::dbus::idle_inhibitor_registry::{Registry, build_screen_saver_record, clamp_label};
 
 pub const MANUAL_HOLD_WHO: &str = "Glimpse";
 pub const MANUAL_HOLD_WHY: &str = "Manual hold";
@@ -49,7 +49,7 @@ impl ScreenSaver {
             let conn = conn.clone();
             tokio::spawn(async move {
                 if let Some(name) =
-                    crate::dbus_helpers::resolve_process_name(&conn, &bus_name).await
+                    crate::dbus::idle_inhibitor_dbus::resolve_process_name(&conn, &bus_name).await
                 {
                     let mut reg = registry.lock().await;
                     if let Some(id) = reg.lookup_by_cookie(cookie)

@@ -106,7 +106,7 @@ opened lazily.
 ```python
 import glimpse_sdk
 
-sub = glimpse_sdk.ipc(service="shell")  # "shell" | "wallpaper" | "idle" | "lock"
+sub = glimpse_sdk.ipc(service="shell")  # "shell" | "wallpaper" | "lock"
 
 # Fire an action; awaits the ack, raises IpcError if the server rejects it.
 ack = await sub.dispatch("open_uri", {"uri": "https://example.com"})

@@ -3,12 +3,13 @@ use std::pin::Pin;
 use glimpse_core::ThemeMode;
 use glimpse_core::ipc::client::CommandHandler;
 use glimpse_core::services::{
-    audio, battery, bluetooth, brightness, clipboard, keyboard, location, mpris, network,
-    night_light, notifications, power, storage, theme, weather,
+    audio, battery, bluetooth, brightness, clipboard, idle_inhibitor, keyboard, location, mpris,
+    network, night_light, notifications, power, storage, theme, weather,
 };
 use glimpse_core::{NightLightConfig, NightLightPhase, NightLightSchedule};
 
 use crate::services::framework::{ServiceCommand, ServiceHandle, Services};
+use crate::services::wayland_idle_inhibit::SHELL_EXTENSIONS;
 
 #[derive(Clone)]
 pub(crate) struct ShellCommandHandler {
@@ -407,6 +408,32 @@ impl CommandHandler for ShellCommandHandler {
                         &svc.keyboard,
                         "keyboard",
                         keyboard::Command::SetLayout(index),
+                    )
+                }
+
+                // ── idle inhibitors ───────────────────────────────────
+                "idle_manual_hold" => {
+                    let enabled = parse_bool(require(fields, "enabled")?)?;
+                    let extensions = SHELL_EXTENSIONS
+                        .get()
+                        .ok_or("idle inhibitor subsystem unavailable")?;
+                    dispatch(
+                        &extensions.idle_inhibitor,
+                        "idle_inhibitor",
+                        idle_inhibitor::Command::SetManualHold(enabled),
+                    )
+                }
+                "idle_release" => {
+                    let id: u64 = require(fields, "id")?
+                        .parse()
+                        .map_err(|_| "id must be an integer".to_owned())?;
+                    let extensions = SHELL_EXTENSIONS
+                        .get()
+                        .ok_or("idle inhibitor subsystem unavailable")?;
+                    dispatch(
+                        &extensions.idle_inhibitor,
+                        "idle_inhibitor",
+                        idle_inhibitor::Command::Release { id },
                     )
                 }
 

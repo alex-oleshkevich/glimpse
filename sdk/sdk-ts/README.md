@@ -116,7 +116,7 @@ opened lazily.
 ```ts
 import { ipc } from "glimpse-sdk";
 
-const sub = ipc("shell"); // "shell" | "wallpaper" | "idle" | "lock"
+const sub = ipc("shell"); // "shell" | "wallpaper" | "lock"
 
 // Fire an action; awaits the ack, throws IpcError if the server rejects it.
 const ack = await sub.dispatch("open_uri", { uri: "https://example.com" });

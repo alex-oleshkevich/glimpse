@@ -7,9 +7,9 @@ use crate::{
     dbus::Dbus,
     services::{
         applet_watcher::AppletWatcher, audio, audio_events, battery, bluetooth, brightness,
-        calendar_events, clipboard, clock, compositor, geoclue, idle, keyboard, location,
-        microphone, mpris, network, night_light, notifications, power, printing, session, solar,
-        storage, theme, tray, weather, webcam,
+        calendar_events, clipboard, clock, compositor, geoclue, idle, idle_backend, keyboard,
+        location, microphone, mpris, network, night_light, notifications, power, printing, session,
+        solar, storage, theme, tray, weather, webcam,
     },
 };
 
@@ -301,6 +301,10 @@ impl ServiceRuntime {
 
         let (idle_service, idle) = idle::IdleService::new(battery.clone());
         let idle_service = spawn_service(|cancel| idle_service.run(cancel));
+        let idle_backend_service = spawn_service({
+            let idle = idle.clone();
+            move |cancel| idle_backend::run(idle, cancel)
+        });
 
         let applet_watcher = AppletWatcher::start(AppletDirectoryScanner::from_process());
 
@@ -332,6 +336,7 @@ impl ServiceRuntime {
             tray_service,
             webcam_service,
             idle_service,
+            idle_backend_service,
         ];
         let handles = Services {
             audio,

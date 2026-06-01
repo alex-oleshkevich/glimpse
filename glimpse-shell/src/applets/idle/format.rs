@@ -7,9 +7,8 @@ use glimpse_core::services::idle_inhibitor::{
 use crate::services::wayland_idle_inhibit::WaylandHealth;
 
 /// Inputs to the subtitle composer. The applet builds this from its
-/// own local state plus the proxied daemon state.
+/// local inhibitor and Wayland backend state.
 pub struct SubtitleInputs<'a> {
-    pub daemon_offline: bool,
     pub wayland: &'a WaylandHealth,
     pub backend: &'a InhibitorsHealth,
     pub records: &'a [IdleInhibitorRecord],
@@ -19,9 +18,6 @@ pub struct SubtitleInputs<'a> {
 /// Compose the hero subtitle using the strict priority table from the
 /// spec. First matching row wins.
 pub fn subtitle(inputs: &SubtitleInputs<'_>) -> String {
-    if inputs.daemon_offline {
-        return "Idle daemon not running".into();
-    }
     if let WaylandHealth::Unsupported { message } = inputs.wayland {
         return message.clone();
     }
@@ -125,7 +121,6 @@ mod tests {
         own: &'a str,
     ) -> SubtitleInputs<'a> {
         SubtitleInputs {
-            daemon_offline: false,
             wayland: &WaylandHealth::Ready,
             backend,
             records,
@@ -187,23 +182,9 @@ mod tests {
     }
 
     #[test]
-    fn daemon_offline_overrides_everything() {
-        let recs = vec![rec(":1.99", "Firefox", true)];
-        let i = SubtitleInputs {
-            daemon_offline: true,
-            wayland: &WaylandHealth::Ready,
-            backend: &InhibitorsHealth::default(),
-            records: &recs,
-            own_unique_name: ":1.7",
-        };
-        assert_eq!(subtitle(&i), "Idle daemon not running");
-    }
-
-    #[test]
     fn wayland_unsupported_overrides_active_records() {
         let recs = vec![rec(":1.99", "Firefox", false)];
         let i = SubtitleInputs {
-            daemon_offline: false,
             wayland: &WaylandHealth::Unsupported {
                 message: "Not supported on this compositor".into(),
             },
@@ -221,7 +202,6 @@ mod tests {
             ..InhibitorsHealth::default()
         };
         let i = SubtitleInputs {
-            daemon_offline: false,
             wayland: &WaylandHealth::Ready,
             backend: &backend,
             records: &[],

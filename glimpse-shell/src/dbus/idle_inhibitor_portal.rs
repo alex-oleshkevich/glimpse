@@ -8,8 +8,8 @@ use glimpse_core::services::idle_inhibitor::{
     IdleInhibitorRecord, IdleInhibitorSource, InhibitionTargets, now_unix,
 };
 
-use crate::inhibitor_registry::{Registry, clamp_label};
-use crate::screen_saver::Login1InhibitTaker;
+use crate::dbus::idle_inhibitor_registry::{Registry, clamp_label};
+use crate::dbus::idle_inhibitor_screen_saver::Login1InhibitTaker;
 
 pub struct PortalInhibit {
     pub registry: Arc<Mutex<Registry>>,

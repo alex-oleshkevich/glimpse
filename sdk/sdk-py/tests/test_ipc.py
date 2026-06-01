@@ -57,7 +57,7 @@ class IpcCodecTests(unittest.TestCase):
             os.environ["GLIMPSE_IPC_DIR"] = d
             try:
                 self.assertEqual(ipc()._socket, Path(d) / "ipc.sock")
-                self.assertEqual(ipc("idle")._socket, Path(d) / "idle.sock")
+                self.assertEqual(ipc("wallpaper")._socket, Path(d) / "wallpaper.sock")
             finally:
                 del os.environ["GLIMPSE_IPC_DIR"]
 

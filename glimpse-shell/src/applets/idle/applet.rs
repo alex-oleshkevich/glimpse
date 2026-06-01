@@ -20,7 +20,6 @@ pub struct Applet {
     icon_name: &'static str,
     state: State,
     wayland_health: WaylandHealth,
-    daemon_offline: bool,
     own_unique_name: String,
     service: IdleInhibitorHandle,
     popover: Controller<Popover>,
@@ -82,7 +81,6 @@ impl SimpleComponent for Applet {
             icon_name: icon_name_for_state(&state, &own_unique_name),
             state,
             wayland_health,
-            daemon_offline: false,
             own_unique_name,
             service: init.service,
             popover,
@@ -162,7 +160,6 @@ impl Applet {
         self.popover.emit(PopoverInput::UpdateState {
             state: self.state.clone(),
             wayland: self.wayland_health.clone(),
-            daemon_offline: self.daemon_offline,
         });
     }
 

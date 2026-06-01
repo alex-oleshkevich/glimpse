@@ -49,7 +49,7 @@ Glimpse optimizes for:
 | `glimpse-wallpaper` | Wallpaper and blurred backdrop daemon. |
 | `glimpse-lock` | Session lock screen with PAM authentication and CSS theming. |
 | Night light | Built into `glimpse-shell` with fixed or automatic schedules. |
-| `glimpse-idle` | Idle policy daemon for lock, display power, suspend, and commands. |
+| Idle policy | Built into `glimpse-shell` for lock, display power, suspend, commands, and inhibitor portal support. |
 
 All runtime pieces read the same Glimpse configuration model. A normal setup
 keeps the file at:
@@ -74,7 +74,6 @@ The package installs:
 glimpse-shell
 glimpse-wallpaper
 glimpse-lock
-glimpse-idle
 ```
 
 It also installs systemd user services and the default PAM service file for
@@ -82,24 +81,23 @@ It also installs systemd user services and the default PAM service file for
 
 ### Enable Services
 
-For a normal Niri desktop, enable the shell, lock screen, and idle policy:
+For a normal Niri desktop, enable the shell and lock screen:
 
 ```sh
 systemctl --user enable --now glimpse-shell.service
 systemctl --user enable --now glimpse-lock.service
-systemctl --user enable --now glimpse-idle.service
 ```
 
-`glimpse-shell.service` wants `glimpse-wallpaper.service`, so starting the shell
-also starts the wallpaper daemon. Enable `glimpse-wallpaper.service` directly
-only if you want the wallpaper daemon without the shell.
+`glimpse-shell.service` owns the panel, idle policy, night light, idle inhibitor portal,
+and wants `glimpse-wallpaper.service`, so starting the shell also starts the
+wallpaper daemon. Enable `glimpse-wallpaper.service` directly only if you want
+the wallpaper daemon without the shell.
 
 Check service state:
 
 ```sh
 systemctl --user status glimpse-shell.service
 systemctl --user status glimpse-lock.service
-systemctl --user status glimpse-idle.service
 ```
 
 View logs:
@@ -118,7 +116,6 @@ Each command supports `--version`:
 glimpse-shell --version
 glimpse-wallpaper --version
 glimpse-lock --version
-glimpse-idle --version
 ```
 
 ## Configuration
@@ -423,8 +420,9 @@ Night-light schedule values:
 
 ## Idle Policy
 
-`glimpse-idle` runs commands after the session has been idle for configured
-timeouts. It supports separate AC and battery profiles.
+`glimpse-shell` runs commands after the session has been idle for configured
+timeouts. It supports separate AC and battery profiles and provides the idle
+inhibitor portal used by apps that keep the session awake.
 
 By default, Glimpse runs a three-step ladder: monitors off (10 min AC / 5 min
 battery), lock session (15 min on both), suspend (60 min AC / 30 min battery).

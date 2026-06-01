@@ -13,7 +13,7 @@ test("ipc() resolves the socket path; shell maps to ipc.sock", () => {
   try {
     process.env.GLIMPSE_IPC_DIR = dir;
     assert.ok(ipc() instanceof Subscriber);
-    assert.ok(ipc("idle") instanceof Subscriber);
+    assert.ok(ipc("wallpaper") instanceof Subscriber);
   } finally {
     if (prev === undefined) delete process.env.GLIMPSE_IPC_DIR;
     else process.env.GLIMPSE_IPC_DIR = prev;
