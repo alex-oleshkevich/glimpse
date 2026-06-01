@@ -12,17 +12,3 @@ pub enum NightLightPhase {
     Night,
     TransitionToDay,
 }
-
-#[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
-pub enum NightLightHealth {
-    #[default]
-    Starting,
-    Ready,
-    Unsupported,
-    Reconnecting {
-        attempt: u32,
-    },
-    Degraded {
-        message: String,
-    },
-}

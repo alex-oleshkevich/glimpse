@@ -85,13 +85,11 @@ jobs:
             -p glimpse-core \
             -p glimpse-idle \
             -p glimpse-lock \
-            -p glimpse-sunset \
             -p glimpse-wallpaper
           cargo check \
             -p glimpse-lock \
             -p glimpse-shell \
             -p glimpse-idle \
-            -p glimpse-sunset \
             -p glimpse-wallpaper
 
   package:

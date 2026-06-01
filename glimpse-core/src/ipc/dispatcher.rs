@@ -27,6 +27,7 @@ pub fn start(services: &Services) -> broadcast::Sender<Arc<IpcEvent>> {
     spawn_idle_watcher(services.idle.subscribe(), tx.clone());
     spawn_theme_watcher(services.theme.subscribe(), tx.clone());
     spawn_solar_watcher(services.solar.subscribe(), tx.clone());
+    spawn_night_light_watcher(services.night_light.subscribe(), tx.clone());
     spawn_weather_watcher(services.weather.subscribe(), tx.clone());
     spawn_microphone_watcher(services.microphone.subscribe(), tx.clone());
     spawn_clipboard_watcher(services.clipboard.subscribe(), tx.clone());
@@ -1848,6 +1849,79 @@ fn spawn_solar_watcher(
                         ],
                     );
                 }
+            }
+
+            prev = next;
+        }
+    });
+}
+
+fn phase_name(phase: crate::NightLightPhase) -> &'static str {
+    match phase {
+        crate::NightLightPhase::Disabled => "disabled",
+        crate::NightLightPhase::Day => "day",
+        crate::NightLightPhase::TransitionToNight => "transition_to_night",
+        crate::NightLightPhase::Night => "night",
+        crate::NightLightPhase::TransitionToDay => "transition_to_day",
+    }
+}
+
+fn schedule_name(schedule: crate::NightLightSchedule) -> &'static str {
+    match schedule {
+        crate::NightLightSchedule::Off => "off",
+        crate::NightLightSchedule::Automatic => "automatic",
+        crate::NightLightSchedule::Schedule => "schedule",
+    }
+}
+
+fn spawn_night_light_watcher(
+    mut rx: watch::Receiver<crate::services::night_light::State>,
+    tx: broadcast::Sender<Arc<IpcEvent>>,
+) {
+    use crate::{DAYLIGHT_TEMPERATURE_KELVIN, NightLightPhase};
+
+    tokio::spawn(async move {
+        let mut prev = rx.borrow_and_update().clone();
+        loop {
+            if rx.changed().await.is_err() {
+                break;
+            }
+            let next = rx.borrow_and_update().clone();
+
+            if prev.phase != next.phase {
+                emit(
+                    &tx,
+                    "nightlight.phase_changed",
+                    vec![("phase", phase_name(next.phase).to_owned())],
+                );
+                if next.phase == NightLightPhase::Night {
+                    emit(
+                        &tx,
+                        "nightlight.activated",
+                        vec![("temperature", next.effective_temperature_kelvin.to_string())],
+                    );
+                } else if next.effective_temperature_kelvin == DAYLIGHT_TEMPERATURE_KELVIN {
+                    emit(&tx, "nightlight.deactivated", vec![]);
+                }
+            }
+
+            if prev.effective_temperature_kelvin != next.effective_temperature_kelvin {
+                emit(
+                    &tx,
+                    "nightlight.temperature_changed",
+                    vec![
+                        ("kelvin", next.effective_temperature_kelvin.to_string()),
+                        ("phase", phase_name(next.phase).to_owned()),
+                    ],
+                );
+            }
+
+            if prev.config.schedule != next.config.schedule {
+                emit(
+                    &tx,
+                    "nightlight.schedule_changed",
+                    vec![("schedule", schedule_name(next.config.schedule).to_owned())],
+                );
             }
 
             prev = next;

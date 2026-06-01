@@ -1,12 +1,10 @@
 use std::{error::Error, time::Duration};
 
-use async_trait::async_trait;
-
 use crate::{
-    DAYLIGHT_TEMPERATURE_KELVIN, NightLightConfig, NightLightHealth, NightLightPhase,
-    NightLightSchedule,
-    compositors::{CompositorCapabilities, CompositorType},
+    DAYLIGHT_TEMPERATURE_KELVIN, NightLightConfig, NightLightPhase, NightLightSchedule,
+    compositors::CompositorType,
     services::{
+        compositor,
         framework::{Control, ServiceCommand, ServiceHandle},
         solar,
     },
@@ -30,18 +28,9 @@ const SOLAR_UNAVAILABLE_MESSAGE: &str = "solar times are unavailable for automat
 type ServiceError = Box<dyn Error + Send + Sync>;
 type ServiceResult<T> = Result<T, ServiceError>;
 
-#[async_trait]
-pub trait NightLightBackend: Send {
-    fn compositor_type(&self) -> CompositorType;
-    fn compositor_capabilities(&self) -> CompositorCapabilities;
-    async fn apply_temperature(&mut self, temperature_kelvin: u32) -> anyhow::Result<()>;
-    async fn reset(&mut self) -> anyhow::Result<()>;
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct State {
     pub compositor: CompositorType,
-    pub health: NightLightHealth,
     pub config: NightLightConfig,
     pub phase: NightLightPhase,
     pub manual_override: Option<bool>,
@@ -54,7 +43,6 @@ impl Default for State {
     fn default() -> Self {
         Self {
             compositor: CompositorType::Unsupported,
-            health: NightLightHealth::Starting,
             config: NightLightConfig::default(),
             phase: NightLightPhase::Disabled,
             manual_override: None,
@@ -77,8 +65,8 @@ pub enum Command {
 pub type NightLightHandle = ServiceHandle<State, Command>;
 
 pub struct NightLightService {
-    backend: Box<dyn NightLightBackend>,
     solar: solar::SolarHandle,
+    compositor: compositor::CompositorHandle,
     state_tx: watch::Sender<State>,
     command_rx: mpsc::Receiver<ServiceCommand<Command>>,
     manual_override: Option<bool>,
@@ -86,16 +74,16 @@ pub struct NightLightService {
 
 impl NightLightService {
     pub fn new(
-        backend: Box<dyn NightLightBackend>,
         solar: solar::SolarHandle,
+        compositor: compositor::CompositorHandle,
     ) -> (Self, NightLightHandle) {
-        let (state_tx, state_rx) = watch::channel(initial_state(&*backend));
+        let (state_tx, state_rx) = watch::channel(initial_state(&compositor.snapshot()));
         let (command_tx, command_rx) = mpsc::channel(COMMAND_QUEUE_SIZE);
 
         (
             Self {
-                backend,
                 solar,
+                compositor,
                 state_tx,
                 command_rx,
                 manual_override: None,
@@ -108,6 +96,8 @@ impl NightLightService {
         tracing::debug!("night light service started");
         let mut interval = tokio::time::interval(REFRESH_INTERVAL);
         let mut solar_rx = self.solar.subscribe();
+        let mut compositor_rx = self.compositor.subscribe();
+        let mut last_compositor_state = compositor_rx.borrow_and_update().clone();
 
         loop {
             tokio::select! {
@@ -120,10 +110,21 @@ impl NightLightService {
                 }
                 changed = solar_rx.changed() => {
                     if changed.is_err() {
-                        self.set_error_health("solar service subscription closed");
+                        tracing::warn!("night light service: solar service subscription closed");
                         break;
                     }
                     self.refresh_from_current_state().await;
+                }
+                changed = compositor_rx.changed() => {
+                    if changed.is_err() {
+                        tracing::warn!("night light service: compositor service subscription closed");
+                        break;
+                    }
+                    let next_compositor_state = compositor_rx.borrow_and_update().clone();
+                    if compositor_night_light_changed(&last_compositor_state, &next_compositor_state) {
+                        self.refresh_from_current_state().await;
+                    }
+                    last_compositor_state = next_compositor_state;
                 }
                 command = self.command_rx.recv() => match command {
                     Some(ServiceCommand::Control(Control::Start(config)))
@@ -161,8 +162,8 @@ impl NightLightService {
 
     async fn apply_config(&mut self, config: NightLightConfig) {
         if let Err(error) = apply_config(
-            &mut *self.backend,
             &self.solar,
+            &self.compositor,
             &self.state_tx,
             config.clone(),
             self.manual_override,
@@ -183,78 +184,49 @@ impl NightLightService {
                     true
                 }
             });
-            if error_message != SOLAR_UNAVAILABLE_MESSAGE {
-                apply_error_health(&self.state_tx, error.as_ref());
-            }
         }
     }
 
     async fn shutdown(&mut self) {
-        if let Err(error) = self.backend.reset().await {
-            tracing::debug!(%error, "night light service: failed to reset backend during shutdown");
+        if self.state_tx.borrow().effective_temperature_kelvin != DAYLIGHT_TEMPERATURE_KELVIN
+            && let Err(error) = reset_night_light(&self.compositor).await
+        {
+            tracing::debug!(%error, "night light service: failed to reset compositor during shutdown");
         }
-    }
-
-    fn set_error_health(&self, message: impl Into<String>) {
-        let mut next_state = self.state_tx.borrow().clone();
-        next_state.health = NightLightHealth::Degraded {
-            message: message.into(),
-        };
-        publish_state_if_changed(&self.state_tx, next_state);
     }
 }
 
-fn initial_state(backend: &dyn NightLightBackend) -> State {
+fn initial_state(compositor_state: &compositor::State) -> State {
     State {
-        compositor: backend.compositor_type(),
-        health: if backend.compositor_capabilities().night_light {
-            NightLightHealth::Starting
-        } else {
-            NightLightHealth::Unsupported
-        },
+        compositor: compositor_state.compositor,
         ..State::default()
     }
+}
+
+fn compositor_night_light_changed(previous: &compositor::State, next: &compositor::State) -> bool {
+    previous.compositor != next.compositor
+        || previous.capabilities.night_light != next.capabilities.night_light
 }
 
 fn service_error(message: impl Into<String>) -> ServiceError {
     Box::new(std::io::Error::other(message.into()))
 }
 
-fn health_for_error(error: &dyn Error) -> NightLightHealth {
-    let message = error.to_string();
-    if message.contains("gamma-control protocol is unavailable")
-        || message.contains("night light backend is unavailable")
-        || message.contains("no wayland outputs available for night light")
-    {
-        NightLightHealth::Unsupported
-    } else {
-        NightLightHealth::Degraded { message }
-    }
-}
-
-fn apply_error_health(state_tx: &watch::Sender<State>, error: &dyn Error) {
-    let health = health_for_error(error);
-    let mut next_state = state_tx.borrow().clone();
-    next_state.health = health;
-    publish_state_if_changed(state_tx, next_state);
-}
-
 async fn apply_config(
-    backend: &mut dyn NightLightBackend,
     solar: &solar::SolarHandle,
+    compositor: &compositor::CompositorHandle,
     state_tx: &watch::Sender<State>,
     config: NightLightConfig,
     manual_override: Option<bool>,
 ) -> ServiceResult<()> {
-    let compositor = backend.compositor_type();
-    let compositor_capabilities = backend.compositor_capabilities();
+    let compositor_state = compositor.snapshot();
+    let compositor_type = compositor_state.compositor;
     let previous_state = state_tx.borrow().clone();
 
-    if !compositor_capabilities.night_light {
+    if !compositor_state.capabilities.night_light {
         let mut next_state = previous_state;
-        next_state.compositor = compositor;
+        next_state.compositor = compositor_type;
         next_state.config = config;
-        next_state.health = NightLightHealth::Unsupported;
         next_state.phase = NightLightPhase::Disabled;
         next_state.manual_override = manual_override;
         next_state.current_temperature_kelvin = DAYLIGHT_TEMPERATURE_KELVIN;
@@ -268,7 +240,7 @@ async fn apply_config(
         resolve_effective_temperature(&config, solar, manual_override).await?;
 
     apply_temperature_transition(
-        backend,
+        compositor,
         previous_state.effective_temperature_kelvin,
         effective_temperature,
     )
@@ -278,8 +250,7 @@ async fn apply_config(
 
     let target_temperature = config.temperature;
     let next_state = State {
-        compositor,
-        health: NightLightHealth::Ready,
+        compositor: compositor_type,
         config,
         phase,
         manual_override,
@@ -454,7 +425,7 @@ fn transition_temperatures(from: u32, to: u32) -> Vec<u32> {
 }
 
 async fn apply_temperature_transition(
-    backend: &mut dyn NightLightBackend,
+    compositor: &compositor::CompositorHandle,
     from: u32,
     to: u32,
 ) -> ServiceResult<()> {
@@ -462,14 +433,14 @@ async fn apply_temperature_transition(
 
     if temperatures.is_empty() {
         if to == DAYLIGHT_TEMPERATURE_KELVIN {
-            apply_temperature_now(backend, to).await?;
+            apply_temperature_now(compositor, to).await?;
         }
         return Ok(());
     }
 
     let mut previous_temperature = from;
     for (index, temperature) in temperatures.iter().copied().enumerate() {
-        apply_temperature_now(backend, temperature).await?;
+        apply_temperature_now(compositor, temperature).await?;
         tracing::debug!(
             previous_temperature_kelvin = previous_temperature,
             effective_temperature_kelvin = temperature,
@@ -486,21 +457,30 @@ async fn apply_temperature_transition(
 }
 
 async fn apply_temperature_now(
-    backend: &mut dyn NightLightBackend,
+    compositor: &compositor::CompositorHandle,
     effective_temperature: u32,
 ) -> ServiceResult<()> {
     if effective_temperature == DAYLIGHT_TEMPERATURE_KELVIN {
-        backend
-            .reset()
-            .await
-            .map_err(|error| -> ServiceError { error.into() })?;
+        reset_night_light(compositor).await?;
     } else {
-        backend
-            .apply_temperature(effective_temperature)
+        compositor
+            .send(ServiceCommand::Command(
+                compositor::Command::SetNightLightTemperature(effective_temperature),
+            ))
             .await
-            .map_err(|error| -> ServiceError { error.into() })?;
+            .map_err(|error| service_error(error.to_string()))?;
     }
 
+    Ok(())
+}
+
+async fn reset_night_light(compositor: &compositor::CompositorHandle) -> ServiceResult<()> {
+    compositor
+        .send(ServiceCommand::Command(
+            compositor::Command::ResetNightLight,
+        ))
+        .await
+        .map_err(|error| service_error(error.to_string()))?;
     Ok(())
 }
 
@@ -510,61 +490,82 @@ fn current_local_time() -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
-
     use super::{
-        NightLightBackend, SOLAR_UNAVAILABLE_MESSAGE, State, resolve_solar_snapshot,
+        SOLAR_UNAVAILABLE_MESSAGE, State, compositor_night_light_changed, resolve_solar_snapshot,
         transition_temperatures,
     };
     use crate::{
-        Config, NightLightConfig, NightLightHealth, NightLightPhase, NightLightSchedule,
+        Config, NightLightConfig, NightLightPhase, NightLightSchedule,
         compositors::{CompositorCapabilities, CompositorType},
         services::{
+            compositor::{Command as CompositorCommand, State as CompositorState},
             framework::{Control, ServiceCommand, ServiceHandle},
             solar,
         },
     };
-    use async_trait::async_trait;
     use tokio::sync::{mpsc, watch};
-
-    #[derive(Clone, Default)]
-    struct BackendLog {
-        applied: Vec<u32>,
-        resets: usize,
-    }
-
-    struct MockBackend {
-        log: Arc<Mutex<BackendLog>>,
-    }
-
-    #[async_trait]
-    impl NightLightBackend for MockBackend {
-        fn compositor_type(&self) -> CompositorType {
-            CompositorType::Niri
-        }
-
-        fn compositor_capabilities(&self) -> CompositorCapabilities {
-            CompositorCapabilities {
-                night_light: true,
-                ..CompositorCapabilities::default()
-            }
-        }
-
-        async fn apply_temperature(&mut self, temperature_kelvin: u32) -> anyhow::Result<()> {
-            self.log.lock().unwrap().applied.push(temperature_kelvin);
-            Ok(())
-        }
-
-        async fn reset(&mut self) -> anyhow::Result<()> {
-            self.log.lock().unwrap().resets += 1;
-            Ok(())
-        }
-    }
 
     fn solar_handle(initial: solar::State) -> (watch::Sender<solar::State>, solar::SolarHandle) {
         let (state_tx, state_rx) = watch::channel(initial);
         let (command_tx, _command_rx) = mpsc::channel(4);
         (state_tx, ServiceHandle::new(state_rx, command_tx))
+    }
+
+    fn compositor_handle(
+        capabilities: CompositorCapabilities,
+    ) -> (
+        watch::Sender<CompositorState>,
+        crate::services::compositor::CompositorHandle,
+        mpsc::Receiver<ServiceCommand<CompositorCommand>>,
+    ) {
+        let (state_tx, state_rx) = watch::channel(CompositorState {
+            compositor: CompositorType::Niri,
+            capabilities,
+            ..CompositorState::default()
+        });
+        let (command_tx, command_rx) = mpsc::channel(4);
+        (
+            state_tx,
+            ServiceHandle::new(state_rx, command_tx),
+            command_rx,
+        )
+    }
+
+    #[test]
+    fn compositor_updates_only_matter_when_night_light_capability_or_type_changes() {
+        let mut prev = CompositorState {
+            compositor: CompositorType::Niri,
+            capabilities: CompositorCapabilities {
+                night_light: true,
+                ..CompositorCapabilities::default()
+            },
+            ..CompositorState::default()
+        };
+        let mut next = prev.clone();
+        next.focused_window = Some(42);
+
+        assert!(!compositor_night_light_changed(&prev, &next));
+
+        next.capabilities.night_light = false;
+        assert!(compositor_night_light_changed(&prev, &next));
+
+        prev.capabilities.night_light = false;
+        next.compositor = CompositorType::Hyprland;
+        assert!(compositor_night_light_changed(&prev, &next));
+    }
+
+    async fn next_compositor_command(
+        command_rx: &mut mpsc::Receiver<ServiceCommand<CompositorCommand>>,
+    ) -> CompositorCommand {
+        let command =
+            tokio::time::timeout(std::time::Duration::from_millis(250), command_rx.recv())
+                .await
+                .expect("compositor command should be sent")
+                .expect("compositor command channel should stay open");
+        match command {
+            ServiceCommand::Command(command) => command,
+            ServiceCommand::Control(_) => panic!("expected compositor command"),
+        }
     }
 
     #[test]
@@ -607,8 +608,6 @@ mod tests {
 
     #[tokio::test]
     async fn service_respects_disabled_start_control_config() {
-        let log = Arc::new(Mutex::new(BackendLog::default()));
-        let backend = Box::new(MockBackend { log: log.clone() });
         let (_solar_tx, solar) = solar_handle(solar::State::Ready(solar::Snapshot {
             coordinates: crate::services::location::Coordinates {
                 latitude: 52.2298,
@@ -620,7 +619,12 @@ mod tests {
                 sunset: "18:00".into(),
             },
         }));
-        let (service, handle) = super::NightLightService::new(backend, solar);
+        let (_compositor_tx, compositor, mut compositor_rx) =
+            compositor_handle(CompositorCapabilities {
+                night_light: true,
+                ..CompositorCapabilities::default()
+            });
+        let (service, handle) = super::NightLightService::new(solar, compositor);
         let config = Config {
             night_light: NightLightConfig {
                 schedule: NightLightSchedule::Off,
@@ -643,9 +647,53 @@ mod tests {
         let _ = task.await;
 
         let state = handle.snapshot();
-        assert_eq!(state.health, NightLightHealth::Ready);
         assert_eq!(state.phase, NightLightPhase::Disabled);
-        assert!(log.lock().unwrap().resets > 0);
+        assert!(matches!(
+            next_compositor_command(&mut compositor_rx).await,
+            CompositorCommand::ResetNightLight
+        ));
+    }
+
+    #[tokio::test]
+    async fn unsupported_compositor_capability_disables_without_dispatching() {
+        let (_solar_tx, solar) = solar_handle(solar::State::Ready(solar::Snapshot {
+            coordinates: crate::services::location::Coordinates {
+                latitude: 52.2298,
+                longitude: 21.0118,
+            },
+            date: chrono::Local::now().date_naive(),
+            times: solar::SolarTimes {
+                sunrise: "06:00".into(),
+                sunset: "18:00".into(),
+            },
+        }));
+        let (_compositor_tx, compositor, mut compositor_rx) =
+            compositor_handle(CompositorCapabilities::default());
+        let _compositor_keepalive = compositor.clone();
+        let (service, handle) = super::NightLightService::new(solar, compositor);
+
+        handle
+            .send(ServiceCommand::Control(Control::Start(Config::default())))
+            .await
+            .expect("send start");
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let service_cancel = cancel.clone();
+        let task = tokio::spawn(async move {
+            service.run(service_cancel).await;
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+        cancel.cancel();
+        let _ = task.await;
+
+        let state = handle.snapshot();
+        assert_eq!(state.phase, NightLightPhase::Disabled);
+        assert_eq!(state.effective_temperature_kelvin, 6500);
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(50), compositor_rx.recv())
+                .await
+                .is_err(),
+            "unsupported compositor should not receive night light commands"
+        );
     }
 
     #[test]

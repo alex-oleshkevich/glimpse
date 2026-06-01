@@ -1,7 +1,7 @@
 # Glimpse
 
 > Glimpse is a polished desktop shell toolkit for Niri on Wayland: panel,
-> idle policy, lock screen, wallpaper, night-light daemon, and custom applets.
+> idle policy, lock screen, wallpaper, built-in night light, and custom applets.
 > Extension authors can add panel widgets via `command` applets or long-running
 > `exec` applets that speak a line protocol.
 

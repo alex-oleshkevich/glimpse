@@ -14,12 +14,10 @@ etc/pam.d/glimpse-lock
 usr/bin/glimpse-idle
 usr/bin/glimpse-lock
 usr/bin/glimpse-shell
-usr/bin/glimpse-sunset
 usr/bin/glimpse-wallpaper
 usr/lib/systemd/user/glimpse-idle.service
 usr/lib/systemd/user/glimpse-lock.service
 usr/lib/systemd/user/glimpse-shell.service
-usr/lib/systemd/user/glimpse-sunset.service
 usr/lib/systemd/user/glimpse-wallpaper.service
 usr/share/dbus-1/services/me.aresa.GlimpseIdle.Portal.service
 usr/share/glimpse/applets/<name>/applet.toml
@@ -39,7 +37,6 @@ The archive may also include `LICENSE` at the archive root. A distro package sho
 | `glimpse-shell` | GTK4 layer-shell panel and applet host | `/usr/bin/glimpse-shell` |
 | `glimpse-idle` | Wayland idle policy daemon and idle portal backend | `/usr/bin/glimpse-idle` |
 | `glimpse-lock` | Wayland session lock screen and logind lock listener | `/usr/bin/glimpse-lock` |
-| `glimpse-sunset` | Night-light daemon | `/usr/bin/glimpse-sunset` |
 | `glimpse-wallpaper` | Wallpaper and backdrop daemon | `/usr/bin/glimpse-wallpaper` |
 
 Build all shipped binaries together:
@@ -49,7 +46,6 @@ cargo build --release \
   -p glimpse-lock \
   -p glimpse-shell \
   -p glimpse-idle \
-  -p glimpse-sunset \
   -p glimpse-wallpaper
 ```
 
@@ -59,7 +55,6 @@ After building a release archive, verify each binary reports the release version
 target/release/glimpse-lock --version
 target/release/glimpse-shell --version
 target/release/glimpse-idle --version
-target/release/glimpse-sunset --version
 target/release/glimpse-wallpaper --version
 ```
 
@@ -79,7 +74,6 @@ Install the unit files from `data/` without rewriting them:
 | `data/glimpse-wallpaper.service` | `/usr/lib/systemd/user/glimpse-wallpaper.service` |
 | `data/glimpse-lock.service` | `/usr/lib/systemd/user/glimpse-lock.service` |
 | `data/glimpse-idle.service` | `/usr/lib/systemd/user/glimpse-idle.service` |
-| `data/glimpse-sunset.service` | `/usr/lib/systemd/user/glimpse-sunset.service` |
 
 All shipped units are user services and are bound to `graphical-session.target` with `PartOf=` and `Requisite=`. They use `Type=exec`, restart on failure except for the lock screen, and include conservative hardening fields where compatible with the daemon.
 
@@ -89,14 +83,12 @@ All shipped units are user services and are bound to `graphical-session.target` 
 | `glimpse-wallpaper.service` | Starts after `graphical-session.target`; needs normal desktop/GPU access for image handling. |
 | `glimpse-lock.service` | Uses `Restart=always` so a clean exit while locked is treated as something to respawn. |
 | `glimpse-idle.service` | Starts after `graphical-session.target` so the compositor environment has been imported into the user manager. |
-| `glimpse-sunset.service` | Standalone night-light service; not wanted by the shell unit. |
 
 User-facing install docs ask users to enable:
 
 ```bash
 systemctl --user enable --now glimpse-shell.service
 systemctl --user enable --now glimpse-lock.service
-systemctl --user enable --now glimpse-sunset.service
 systemctl --user enable --now glimpse-idle.service
 ```
 
@@ -182,14 +174,12 @@ These commands mirror the release packaging script for the core files:
 install -Dm755 target/release/glimpse-lock "$pkgdir/usr/bin/glimpse-lock"
 install -Dm755 target/release/glimpse-shell "$pkgdir/usr/bin/glimpse-shell"
 install -Dm755 target/release/glimpse-idle "$pkgdir/usr/bin/glimpse-idle"
-install -Dm755 target/release/glimpse-sunset "$pkgdir/usr/bin/glimpse-sunset"
 install -Dm755 target/release/glimpse-wallpaper "$pkgdir/usr/bin/glimpse-wallpaper"
 install -Dm755 data/scripts/monitors "$pkgdir/usr/share/glimpse/scripts/monitors"
 
 install -Dm644 data/glimpse-lock.service "$pkgdir/usr/lib/systemd/user/glimpse-lock.service"
 install -Dm644 data/glimpse-shell.service "$pkgdir/usr/lib/systemd/user/glimpse-shell.service"
 install -Dm644 data/glimpse-idle.service "$pkgdir/usr/lib/systemd/user/glimpse-idle.service"
-install -Dm644 data/glimpse-sunset.service "$pkgdir/usr/lib/systemd/user/glimpse-sunset.service"
 install -Dm644 data/glimpse-wallpaper.service "$pkgdir/usr/lib/systemd/user/glimpse-wallpaper.service"
 
 install -Dm644 data/pam.d/glimpse-lock "$pkgdir/etc/pam.d/glimpse-lock"

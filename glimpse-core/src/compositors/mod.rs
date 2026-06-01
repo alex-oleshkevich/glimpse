@@ -3,6 +3,7 @@
 pub mod compositors;
 pub mod hyprland;
 pub mod keyboard;
+pub(crate) mod night_light;
 pub mod niri;
 
 pub use compositors::{

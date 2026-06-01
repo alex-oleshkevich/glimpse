@@ -1,13 +1,13 @@
 pkgname=glimpse-desktop-bin
 pkgver=0.12.0
 pkgrel=1
-pkgdesc="Wayland shell, status panel, idle, lock screen, wallpaper, and sunset daemons for the Glimpse ecosystem"
+pkgdesc="Wayland shell, status panel, idle, lock screen, wallpaper, and night-light services for the Glimpse ecosystem"
 arch=('x86_64')
 url="https://github.com/alex-oleshkevich/glimpse"
 license=('custom:unknown')
 depends=('gtk4' 'libadwaita' 'gtk4-layer-shell' 'libheif' 'pam' 'geoclue')
-provides=('glimpse-panel' 'glimpse-shell' 'glimpse-idle' 'glimpse-lock' 'glimpse-sunset' 'glimpse-wallpaper')
-conflicts=('glimpse-panel' 'glimpse-shell' 'glimpse-idle' 'glimpse-lock' 'glimpse-sunset' 'glimpse-wallpaper')
+provides=('glimpse-panel' 'glimpse-shell' 'glimpse-idle' 'glimpse-lock' 'glimpse-wallpaper')
+conflicts=('glimpse-panel' 'glimpse-shell' 'glimpse-idle' 'glimpse-lock' 'glimpse-wallpaper')
 source_x86_64=("glimpse-$pkgver-x86_64.tar.zst::$url/releases/download/v$pkgver/glimpse-$pkgver-x86_64.tar.zst")
 b2sums_x86_64=('SKIP')
 

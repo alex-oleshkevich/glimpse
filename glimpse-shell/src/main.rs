@@ -231,7 +231,7 @@ fn print_watch_help() {
     println!("    compositor.* window.* monitor.* screencast.*");
     println!("    panel.* applet.* panel/applet lifecycle + discovery");
     println!("    exec.*           exec/dev applet started/status/exited");
-    println!("    location.* solar.* idle.* tray.* session.* calendar.*");
+    println!("    location.* solar.* nightlight.* idle.* tray.* session.* calendar.*");
 }
 
 fn print_dispatch_help() {
@@ -261,6 +261,12 @@ fn print_dispatch_help() {
     println!("    media_next [player=<id>]                    Skip to next track");
     println!("    media_previous [player=<id>]                Skip to previous track");
     println!("    set_theme mode=<light|dark|auto>            Set theme mode");
+    println!("    night_light_enable                          Enable automatic night light");
+    println!("    night_light_disable                         Disable night light");
+    println!("    night_light_activate                        Force night light on");
+    println!("    night_light_deactivate                      Clear forced night light");
+    println!("    set_night_light_temperature kelvin=<1000-6500>  Set night light temperature");
+    println!("    set_night_light_schedule schedule=<off|automatic|schedule>");
     println!("    next_keyboard_layout                        Cycle to next layout");
     println!("    prev_keyboard_layout                        Cycle to previous layout");
     println!("    set_keyboard_layout index=<n>               Set layout by index");
@@ -271,7 +277,9 @@ fn print_dispatch_help() {
     println!("    bluetooth_scan action=<start|stop>          Start/stop discovery");
     println!("    connect_bluetooth address=<a>               Connect a Bluetooth device");
     println!("    disconnect_bluetooth address=<a>            Disconnect a Bluetooth device");
-    println!("    refresh service=<battery|brightness|location|power|storage>  Re-poll a service");
+    println!(
+        "    refresh service=<battery|brightness|location|night_light|power|storage>  Re-poll a service"
+    );
     println!(
         "    set_location lat=<-90..90> lon=<-180..180>  Override location (manual; bypasses GeoClue)"
     );

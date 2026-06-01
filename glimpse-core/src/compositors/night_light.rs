@@ -7,11 +7,6 @@ use std::{
     time::Duration,
 };
 
-use async_trait::async_trait;
-use glimpse_core::{
-    compositors::{Compositor, CompositorCapabilities, CompositorType},
-    services::night_light::NightLightBackend,
-};
 use uuid::Uuid;
 use wayland_client::{
     Connection, Dispatch, EventQueue, QueueHandle, delegate_noop,
@@ -24,94 +19,14 @@ use wayland_protocols_wlr::gamma_control::v1::client::{
 const GAMMA_CONTROL_RETRY_DELAY: Duration = Duration::from_millis(150);
 const GAMMA_CONTROL_RETRY_ATTEMPTS: usize = 8;
 
-pub fn create_backend(compositor: Option<Compositor>) -> Box<dyn NightLightBackend> {
-    match compositor {
-        Some(compositor) => Box::new(WaylandNightLightBackend::new(compositor)),
-        None => Box::new(UnsupportedNightLightBackend::new()),
-    }
-}
-
-pub struct UnsupportedNightLightBackend;
-
-impl UnsupportedNightLightBackend {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-#[async_trait]
-impl NightLightBackend for UnsupportedNightLightBackend {
-    fn compositor_type(&self) -> CompositorType {
-        CompositorType::Unsupported
-    }
-
-    fn compositor_capabilities(&self) -> CompositorCapabilities {
-        CompositorCapabilities::default()
-    }
-
-    async fn apply_temperature(&mut self, _temperature_kelvin: u32) -> anyhow::Result<()> {
-        anyhow::bail!("night light backend is unavailable for unsupported compositor");
-    }
-
-    async fn reset(&mut self) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
-pub struct WaylandNightLightBackend {
-    compositor: Compositor,
-    controller: Option<WaylandGammaController>,
-}
-
-impl WaylandNightLightBackend {
-    fn new(compositor: Compositor) -> Self {
-        Self {
-            compositor,
-            controller: None,
-        }
-    }
-
-    fn controller_mut(&mut self) -> anyhow::Result<&mut WaylandGammaController> {
-        if self.controller.is_none() {
-            self.controller = Some(WaylandGammaController::connect()?);
-        }
-        self.controller
-            .as_mut()
-            .ok_or_else(|| anyhow::anyhow!("failed to initialize wayland gamma controller"))
-    }
-}
-
-#[async_trait]
-impl NightLightBackend for WaylandNightLightBackend {
-    fn compositor_type(&self) -> CompositorType {
-        self.compositor.compositor_type()
-    }
-
-    fn compositor_capabilities(&self) -> CompositorCapabilities {
-        self.compositor.capabilities()
-    }
-
-    async fn apply_temperature(&mut self, temperature_kelvin: u32) -> anyhow::Result<()> {
-        let controller = self.controller_mut()?;
-        controller.apply_temperature(temperature_kelvin)
-    }
-
-    async fn reset(&mut self) -> anyhow::Result<()> {
-        if let Some(controller) = self.controller.as_mut() {
-            controller.reset()?;
-        }
-        Ok(())
-    }
-}
-
-struct WaylandGammaController {
+pub(crate) struct WaylandNightLightController {
     conn: Connection,
     event_queue: EventQueue<GammaState>,
     state: GammaState,
 }
 
-impl WaylandGammaController {
-    fn connect() -> anyhow::Result<Self> {
+impl WaylandNightLightController {
+    pub(crate) fn connect() -> anyhow::Result<Self> {
         let conn = Connection::connect_to_env()?;
         let mut event_queue = conn.new_event_queue();
         let qh = event_queue.handle();
@@ -134,7 +49,7 @@ impl WaylandGammaController {
         })
     }
 
-    fn apply_temperature(&mut self, temperature_kelvin: u32) -> anyhow::Result<()> {
+    pub(crate) fn apply_temperature(&mut self, temperature_kelvin: u32) -> anyhow::Result<()> {
         self.ensure_controls()?;
 
         let (red_scale, green_scale, blue_scale) = temperature_rgb_scales(temperature_kelvin);
@@ -174,7 +89,7 @@ impl WaylandGammaController {
         Ok(())
     }
 
-    fn reset(&mut self) -> anyhow::Result<()> {
+    pub(crate) fn reset(&mut self) -> anyhow::Result<()> {
         for (_, entry) in self.state.controls.drain() {
             entry.control.destroy();
         }
@@ -198,7 +113,7 @@ impl WaylandGammaController {
                     tracing::info!(
                         attempt,
                         outputs = %self.state.ready_output_label_list(),
-                        "night light backend: gamma control recovered after retry"
+                        "night light compositor control recovered after retry"
                     );
                 }
                 return Ok(());
@@ -208,7 +123,7 @@ impl WaylandGammaController {
                 tracing::debug!(
                     attempt,
                     outputs = %self.state.output_label_list(),
-                    "night light backend: gamma control not ready yet, retrying"
+                    "night light compositor control not ready yet, retrying"
                 );
                 std::thread::sleep(GAMMA_CONTROL_RETRY_DELAY);
             }
@@ -235,7 +150,7 @@ impl WaylandGammaController {
             }
             tracing::debug!(
                 output = %output.label(),
-                "night light backend: requesting gamma control"
+                "night light compositor control: requesting gamma control"
             );
             let control = manager.get_gamma_control(&output.output, &qh, output.name);
             self.state.controls.insert(
@@ -314,7 +229,7 @@ impl GammaState {
             }
             tracing::debug!(
                 output = %output_label,
-                "night light backend: gamma control failed for output"
+                "night light compositor control failed for output"
             );
         }
     }
@@ -479,7 +394,7 @@ pub(crate) fn write_gamma_ramp(
 
 fn temp_gamma_path() -> PathBuf {
     std::env::temp_dir().join(format!(
-        "glimpse-sunset-{}-{}.gamma",
+        "glimpse-night-light-{}-{}.gamma",
         std::process::id(),
         Uuid::new_v4()
     ))
