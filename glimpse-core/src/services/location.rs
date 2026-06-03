@@ -161,7 +161,9 @@ impl LocationService {
                         },
                         ServiceCommand::Command(service_command) => match service_command {
                             Command::Refresh => {
-                                self.change_state(State::Refreshing);
+                                if !matches!(*self.state_tx.borrow(), State::Ready(_)) {
+                                    self.change_state(State::Refreshing);
+                                }
                                 match lifecycle {
                                     Lifecycle::Running(ref provider) => {
                                         provider.send(ProviderCommand::Refresh).await;
@@ -309,10 +311,32 @@ mod tests {
     use super::{Command, LocationService, State};
     use crate::{
         Config,
-        services::framework::{Control, ServiceCommand},
+        services::{
+            framework::{Control, ServiceCommand, ServiceHandle},
+            geoclue,
+        },
     };
-    use tokio::time::{Duration, timeout};
+    use tokio::{
+        sync::{mpsc, watch},
+        time::{Duration, timeout},
+    };
     use tokio_util::sync::CancellationToken;
+
+    fn geoclue_handle(
+        initial: geoclue::State,
+    ) -> (
+        watch::Sender<geoclue::State>,
+        geoclue::GeoClueHandle,
+        mpsc::Receiver<ServiceCommand<geoclue::Command>>,
+    ) {
+        let (state_tx, state_rx) = watch::channel(initial);
+        let (command_tx, command_rx) = mpsc::channel(4);
+        (
+            state_tx,
+            ServiceHandle::new(state_rx, command_tx),
+            command_rx,
+        )
+    }
 
     async fn wait_for_state(
         rx: &mut tokio::sync::watch::Receiver<State>,
@@ -368,6 +392,70 @@ mod tests {
         })
         .await
         .expect("refresh should settle back to degraded");
+
+        cancel.cancel();
+        timeout(Duration::from_secs(1), task)
+            .await
+            .expect("location task should exit after cancellation")
+            .expect("location task should not panic");
+    }
+
+    #[tokio::test]
+    async fn refresh_preserves_ready_coordinates_until_provider_updates() {
+        let (_geoclue_tx, geoclue, mut geoclue_commands) = geoclue_handle(geoclue::State {
+            available: true,
+            coordinates: Some(geoclue::Coordinates {
+                latitude: 52.0,
+                longitude: 21.0,
+            }),
+            ..geoclue::State::default()
+        });
+        let (service, handle) = LocationService::new(geoclue);
+        let cancel = CancellationToken::new();
+        let task_cancel = cancel.clone();
+        let task = tokio::spawn(async move {
+            service.run(task_cancel).await;
+        });
+        let mut rx = handle.subscribe();
+
+        handle
+            .send(ServiceCommand::Control(Control::Start(Config::default())))
+            .await
+            .expect("start location service");
+        wait_for_state(&mut rx, |state| matches!(state, State::Ready(_))).await;
+
+        handle
+            .send(ServiceCommand::Command(Command::Refresh))
+            .await
+            .expect("refresh location service");
+
+        let saw_refreshing = timeout(Duration::from_secs(1), async {
+            loop {
+                tokio::select! {
+                    changed = rx.changed() => {
+                        changed.expect("location service should run");
+                        if matches!(*rx.borrow(), State::Refreshing) {
+                            break true;
+                        }
+                    }
+                    command = geoclue_commands.recv() => {
+                        assert!(matches!(
+                            command,
+                            Some(ServiceCommand::Command(geoclue::Command::Refresh))
+                        ));
+                        break false;
+                    }
+                }
+            }
+        })
+        .await
+        .expect("location refresh should be forwarded to GeoClue");
+
+        assert!(
+            !saw_refreshing,
+            "refreshing a ready location should keep the cached coordinates available"
+        );
+        assert!(matches!(handle.snapshot(), State::Ready(_)));
 
         cancel.cancel();
         timeout(Duration::from_secs(1), task)

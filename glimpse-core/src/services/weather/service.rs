@@ -170,15 +170,13 @@ async fn resolve_forecast_location(
     }
 
     let mut subscription = location.subscribe();
-    // Always trigger a refresh so we don't paint weather with stale coordinates
-    // (e.g., after the user moved on a flight or train). The cached fix is
-    // used immediately as a fallback while the fresh refresh runs in the
-    // background; when fresh coords arrive, the outer weather loop re-fetches
-    // via the location-changed signal.
-    request_location_refresh(location).await;
     if let Some(location) = location_from_state(&subscription.borrow()) {
         return Ok(ForecastLocation::Coordinates(location));
     }
+
+    // If there is no cached fix, trigger GeoClue and wait for the first usable
+    // coordinates. Later fresh coords are handled by the location-changed path.
+    request_location_refresh(location).await;
 
     timeout(LOCATION_WAIT, async {
         loop {
@@ -236,6 +234,18 @@ fn should_refetch_for_location_change(config: &Option<Config>, state: &location:
 mod tests {
     use super::*;
     use crate::services::location::{Coordinates, State as LocationState};
+    use tokio::sync::{mpsc, watch};
+
+    fn location_handle(
+        initial: LocationState,
+    ) -> (
+        location::LocationHandle,
+        mpsc::Receiver<ServiceCommand<location::Command>>,
+    ) {
+        let (_state_tx, state_rx) = watch::channel(initial);
+        let (command_tx, command_rx) = mpsc::channel(4);
+        (ServiceHandle::new(state_rx, command_tx), command_rx)
+    }
 
     #[test]
     fn location_from_state_maps_ready_coordinates() {
@@ -284,5 +294,28 @@ mod tests {
                 longitude: 21.0118,
             })
         ));
+    }
+
+    #[tokio::test]
+    async fn ready_location_is_used_without_requesting_another_refresh() {
+        let (location, mut command_rx) = location_handle(LocationState::Ready(Coordinates {
+            latitude: 52.2298,
+            longitude: 21.0118,
+        }));
+
+        let forecast_location = resolve_forecast_location(&Config::default(), &location)
+            .await
+            .expect("ready location should resolve");
+
+        assert!(matches!(
+            forecast_location,
+            ForecastLocation::Coordinates(_)
+        ));
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(50), command_rx.recv())
+                .await
+                .is_err(),
+            "cached ready coordinates should not trigger another location refresh"
+        );
     }
 }

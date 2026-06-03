@@ -237,7 +237,14 @@ async fn apply_config(
     }
 
     let (phase, effective_temperature) =
-        resolve_effective_temperature(&config, solar, manual_override).await?;
+        match resolve_effective_temperature(&config, solar, manual_override).await {
+            Ok(effective) => effective,
+            Err(error) if error.to_string() == SOLAR_UNAVAILABLE_MESSAGE => {
+                tracing::debug!("night light service: waiting for solar times; using daylight");
+                (NightLightPhase::Day, DAYLIGHT_TEMPERATURE_KELVIN)
+            }
+            Err(error) => return Err(error),
+        };
 
     apply_temperature_transition(
         compositor,
@@ -491,11 +498,11 @@ fn current_local_time() -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        SOLAR_UNAVAILABLE_MESSAGE, State, compositor_night_light_changed, resolve_solar_snapshot,
-        transition_temperatures,
+        SOLAR_UNAVAILABLE_MESSAGE, State, apply_config, compositor_night_light_changed,
+        resolve_solar_snapshot, transition_temperatures,
     };
     use crate::{
-        Config, NightLightConfig, NightLightPhase, NightLightSchedule,
+        Config, DAYLIGHT_TEMPERATURE_KELVIN, NightLightConfig, NightLightPhase, NightLightSchedule,
         compositors::{CompositorCapabilities, CompositorType},
         services::{
             compositor::{Command as CompositorCommand, State as CompositorState},
@@ -523,7 +530,7 @@ mod tests {
             capabilities,
             ..CompositorState::default()
         });
-        let (command_tx, command_rx) = mpsc::channel(4);
+        let (command_tx, command_rx) = mpsc::channel(32);
         (
             state_tx,
             ServiceHandle::new(state_rx, command_tx),
@@ -604,6 +611,55 @@ mod tests {
         let error = resolve_solar_snapshot(&solar).expect_err("solar times should be unavailable");
 
         assert_eq!(error.to_string(), SOLAR_UNAVAILABLE_MESSAGE);
+    }
+
+    #[tokio::test]
+    async fn automatic_schedule_resets_stale_night_state_when_solar_is_unavailable() {
+        let (_solar_tx, solar) = solar_handle(solar::State::Unknown);
+        let (_compositor_tx, compositor, mut compositor_rx) =
+            compositor_handle(CompositorCapabilities {
+                night_light: true,
+                ..CompositorCapabilities::default()
+            });
+        let config = NightLightConfig {
+            schedule: NightLightSchedule::Automatic,
+            temperature: 4200,
+            ..NightLightConfig::default()
+        };
+        let (state_tx, _state_rx) = watch::channel(State {
+            compositor: CompositorType::Niri,
+            config: config.clone(),
+            phase: NightLightPhase::Night,
+            manual_override: None,
+            current_temperature_kelvin: 4200,
+            target_temperature_kelvin: 4200,
+            effective_temperature_kelvin: 4200,
+        });
+
+        apply_config(&solar, &compositor, &state_tx, config, None)
+            .await
+            .expect("unavailable solar data should fall back to daylight");
+
+        let state = state_tx.borrow().clone();
+        assert_eq!(state.phase, NightLightPhase::Day);
+        assert_eq!(
+            state.effective_temperature_kelvin,
+            DAYLIGHT_TEMPERATURE_KELVIN
+        );
+        assert_eq!(state.target_temperature_kelvin, 4200);
+
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                if matches!(
+                    next_compositor_command(&mut compositor_rx).await,
+                    CompositorCommand::ResetNightLight
+                ) {
+                    break;
+                }
+            }
+        })
+        .await
+        .expect("daylight fallback should reset the compositor");
     }
 
     #[tokio::test]
