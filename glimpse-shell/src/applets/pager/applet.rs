@@ -125,6 +125,8 @@ impl SimpleComponent for Applet {
 
     view! {
         root = PanelIndicator {
+            add_css_class: "pager-applet",
+
             connect_scrolled[sender] => move |_, dx, dy| {
                 if let Some((next, horizontal)) = scroll_direction(dx, dy) {
                     sender.input(Input::Scroll { next, horizontal });

@@ -425,6 +425,14 @@ popover,
   transform: none;
 }
 
+/* The pager hosts per-workspace items that handle their own hover/click, so
+   suppress the applet-wide hover background that would otherwise highlight the
+   whole strip and obscure which workspace is targeted. */
+.panel-indicator.pager-applet:hover,
+.panel-indicator.pager-applet:active {
+  background: var(--indicator-bg);
+}
+
 .pager {
   padding: 0 var(--space-2);
 }
@@ -439,6 +447,10 @@ popover,
     min-width var(--motion-fast) var(--ease-standard),
     background-color var(--motion-fast) var(--ease-standard),
     opacity var(--motion-fast) var(--ease-standard);
+}
+
+.pager-dot:hover {
+  background: color-mix(in srgb, currentColor 60%, transparent);
 }
 
 .pager-dot.active {
@@ -460,10 +472,9 @@ popover,
 }
 
 .pager-num {
-  min-width: 22px;
   min-height: 22px;
   margin: 0 var(--space-1);
-  padding: 0 2px 0 2px;
+  padding: 0 var(--space-2);
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, currentColor 1%, transparent);
   color: var(--panel-fg);
@@ -474,11 +485,14 @@ popover,
 }
 
 .pager-num label {
-  min-width: 22px;
   min-height: 22px;
   font-weight: 500;
   font-size: 0.825rem;
   font-variant-numeric: tabular-nums;
+}
+
+.pager-num:hover {
+  background: color-mix(in srgb, currentColor 20%, transparent);
 }
 
 .pager-num.active {

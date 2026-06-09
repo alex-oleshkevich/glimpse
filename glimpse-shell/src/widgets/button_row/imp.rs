@@ -16,7 +16,6 @@ impl ObjectImpl for ButtonRow {
         let obj = self.obj();
         obj.set_orientation(gtk4::Orientation::Horizontal);
         obj.set_spacing(4);
-        obj.set_halign(gtk4::Align::Center);
         obj.add_css_class("button-row");
     }
 }

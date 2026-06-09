@@ -67,7 +67,16 @@ pub struct State {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
+    Play {
+        player_id: String,
+    },
+    Pause {
+        player_id: String,
+    },
     PlayPause {
+        player_id: String,
+    },
+    Stop {
         player_id: String,
     },
     Previous {

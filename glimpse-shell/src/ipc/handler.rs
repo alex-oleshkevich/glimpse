@@ -330,17 +330,39 @@ impl CommandHandler for ShellCommandHandler {
                 ),
 
                 // ── media (mpris) ──────────────────────────────────────
-                "media_play_pause" | "media_next" | "media_previous" => {
+                "media_play" | "media_pause" | "media_play_pause" | "media_stop"
+                | "media_next" | "media_previous" => {
                     let player_id = match field(fields, "player") {
                         Some(p) => p.to_owned(),
                         None => self.current_player_id().ok_or("no active media player")?,
                     };
                     let cmd = match name {
+                        "media_play" => mpris::Command::Play { player_id },
+                        "media_pause" => mpris::Command::Pause { player_id },
                         "media_play_pause" => mpris::Command::PlayPause { player_id },
+                        "media_stop" => mpris::Command::Stop { player_id },
                         "media_next" => mpris::Command::Next { player_id },
                         _ => mpris::Command::Previous { player_id },
                     };
                     dispatch(&svc.mpris, "mpris", cmd)
+                }
+                "media_seek" => {
+                    let player_id = match field(fields, "player") {
+                        Some(p) => p.to_owned(),
+                        None => self.current_player_id().ok_or("no active media player")?,
+                    };
+                    let seconds: f64 = require(fields, "offset")?
+                        .parse()
+                        .map_err(|_| "offset must be a number of seconds".to_owned())?;
+                    let offset_micros = (seconds * 1_000_000.0) as i64;
+                    dispatch(
+                        &svc.mpris,
+                        "mpris",
+                        mpris::Command::Seek {
+                            player_id,
+                            offset_micros,
+                        },
+                    )
                 }
 
                 // ── theme ──────────────────────────────────────────────

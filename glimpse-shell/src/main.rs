@@ -257,9 +257,13 @@ fn print_dispatch_help() {
     println!("    set_dnd enabled=<bool>                      Toggle do-not-disturb");
     println!("    dismiss_notification id=<u32>               Dismiss a notification");
     println!("    dismiss_all_notifications                   Dismiss all notifications");
+    println!("    media_play [player=<id>]                    Resume playback");
+    println!("    media_pause [player=<id>]                   Pause playback");
     println!("    media_play_pause [player=<id>]              Play/pause current media");
+    println!("    media_stop [player=<id>]                    Stop playback");
     println!("    media_next [player=<id>]                    Skip to next track");
     println!("    media_previous [player=<id>]                Skip to previous track");
+    println!("    media_seek offset=<sec> [player=<id>]       Seek by N seconds (signed)");
     println!("    set_theme mode=<light|dark|auto>            Set theme mode");
     println!("    night_light_enable                          Enable automatic night light");
     println!("    night_light_disable                         Disable night light");

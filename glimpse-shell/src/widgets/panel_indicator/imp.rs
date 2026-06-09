@@ -51,7 +51,6 @@ impl ObjectImpl for PanelIndicator {
         obj.set_orientation(gtk4::Orientation::Horizontal);
         obj.set_spacing(4);
         obj.set_valign(gtk4::Align::Center);
-        obj.set_halign(gtk4::Align::Center);
         obj.set_hexpand(false);
 
         self.icon.add_css_class("panel-indicator__icon");

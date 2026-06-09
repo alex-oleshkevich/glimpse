@@ -20,7 +20,6 @@ impl ObjectImpl for CircleBox {
         let obj = self.obj();
         obj.add_css_class("circle-box");
         obj.set_orientation(gtk4::Orientation::Vertical);
-        obj.set_halign(gtk4::Align::Center);
         obj.set_valign(gtk4::Align::Center);
     }
 }

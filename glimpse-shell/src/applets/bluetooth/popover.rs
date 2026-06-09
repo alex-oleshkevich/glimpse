@@ -656,6 +656,11 @@ fn adapter_discoverable(state: &State) -> bool {
     primary_adapter(state).is_some_and(|adapter| adapter.discoverable)
 }
 
+struct DeviceActionTile {
+    tile: Tile,
+    command: Rc<RefCell<Command>>,
+}
+
 struct SegmentedDeviceRow {
     root: SegmentedTile,
     icon: gtk::Image,
@@ -663,6 +668,7 @@ struct SegmentedDeviceRow {
     command: Rc<RefCell<Command>>,
     details: KeyValueGrid,
     actions: gtk::Box,
+    action_tiles: RefCell<HashMap<&'static str, DeviceActionTile>>,
 }
 
 impl SegmentedDeviceRow {
@@ -703,6 +709,7 @@ impl SegmentedDeviceRow {
             command,
             details,
             actions,
+            action_tiles: RefCell::new(HashMap::new()),
         };
         row.update(model, sender);
         row
@@ -728,24 +735,46 @@ impl SegmentedDeviceRow {
             self.details.add_row(row.key, &row.value);
         }
 
-        while let Some(child) = self.actions.first_child() {
-            self.actions.remove(&child);
-        }
         self.actions.set_visible(!model.actions.is_empty());
-        for action in &model.actions {
-            let tile = Tile::new();
-            tile.set_primary(action.label);
-            tile.set_secondary(None);
-            tile.add_css_class("bluetooth-device-action");
-            if action.destructive {
-                tile.add_css_class("destructive-action");
+        
+        let mut tiles = self.action_tiles.borrow_mut();
+        let current_ids: HashSet<&'static str> = model.actions.iter().map(|a| a.id).collect();
+        
+        tiles.retain(|id, state| {
+            if !current_ids.contains(id) {
+                self.actions.remove(&state.tile);
+                false
+            } else {
+                true
             }
-            tile.connect_activated({
-                let sender = sender.clone();
-                let command = action.command.clone();
-                move |_| sender.input(PopoverInput::DeviceCommand(command.clone()))
-            });
-            self.actions.append(&tile);
+        });
+
+        for action in &model.actions {
+            if let Some(state) = tiles.get(action.id) {
+                state.tile.set_primary(action.label);
+                if action.destructive {
+                    state.tile.add_css_class("destructive-action");
+                } else {
+                    state.tile.remove_css_class("destructive-action");
+                }
+                state.command.replace(action.command.clone());
+            } else {
+                let tile = Tile::new();
+                tile.set_primary(action.label);
+                tile.set_secondary(None);
+                tile.add_css_class("bluetooth-device-action");
+                if action.destructive {
+                    tile.add_css_class("destructive-action");
+                }
+                let command = Rc::new(RefCell::new(action.command.clone()));
+                tile.connect_activated({
+                    let sender = sender.clone();
+                    let command = command.clone();
+                    move |_| sender.input(PopoverInput::DeviceCommand(command.borrow().clone()))
+                });
+                self.actions.append(&tile);
+                tiles.insert(action.id, DeviceActionTile { tile, command });
+            }
         }
     }
 

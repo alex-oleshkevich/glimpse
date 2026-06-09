@@ -18,6 +18,7 @@ impl ObjectImpl for StatusDot {
     fn constructed(&self) {
         self.parent_constructed();
         let obj = self.obj();
+        obj.set_valign(gtk4::Align::Center);
         obj.add_css_class("status-dot");
         obj.add_css_class("is-neutral");
     }

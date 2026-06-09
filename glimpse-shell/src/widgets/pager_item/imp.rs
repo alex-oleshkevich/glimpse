@@ -29,6 +29,12 @@ impl ObjectImpl for PagerItem {
 
         let gesture = gtk4::GestureClick::new();
         gesture.set_button(1);
+        // Claim the sequence on press so this per-item gesture wins over the
+        // ancestor PanelIndicator's primary-click gesture, which also claims on
+        // press and would otherwise cancel us before the release fires.
+        gesture.connect_pressed(|gesture, _, _, _| {
+            gesture.set_state(gtk4::EventSequenceState::Claimed);
+        });
         let weak = obj.downgrade();
         gesture.connect_released(move |gesture, _, _, _| {
             gesture.set_state(gtk4::EventSequenceState::Claimed);

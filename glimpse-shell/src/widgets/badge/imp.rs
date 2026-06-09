@@ -23,6 +23,7 @@ impl ObjectImpl for Badge {
     fn constructed(&self) {
         self.parent_constructed();
         let obj = self.obj();
+        obj.set_valign(gtk4::Align::Center);
         obj.add_css_class("badge");
         obj.add_css_class("default");
         obj.append(&self.label);

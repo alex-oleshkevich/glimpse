@@ -22,11 +22,34 @@ impl WeatherHourlyStrip {
 
     pub fn set_items(&self, items: &[WeatherHourlyItem]) {
         let inner = &self.imp().inner;
-        while let Some(child) = inner.first_child() {
-            inner.remove(&child);
-        }
+        let mut child_opt = inner.first_child();
+
         for item in items {
-            inner.append(&make_slot(item));
+            if let Some(child) = child_opt.take() {
+                if let Some(box_container) = child.downcast_ref::<gtk4::Box>() {
+                    let mut elements = box_container.first_child();
+                    if let Some(time_label) = elements.take().and_then(|w| w.downcast::<gtk4::Label>().ok()) {
+                        time_label.set_label(&item.time);
+                        elements = time_label.next_sibling();
+                    }
+                    if let Some(icon) = elements.take().and_then(|w| w.downcast::<gtk4::Image>().ok()) {
+                        icon.set_icon_name(Some(&item.icon));
+                        elements = icon.next_sibling();
+                    }
+                    if let Some(temp_label) = elements.take().and_then(|w| w.downcast::<gtk4::Label>().ok()) {
+                        temp_label.set_label(&item.temperature);
+                    }
+                }
+                child_opt = child.next_sibling();
+            } else {
+                inner.append(&make_slot(item));
+            }
+        }
+
+        while let Some(child) = child_opt {
+            let next = child.next_sibling();
+            inner.remove(&child);
+            child_opt = next;
         }
     }
 }

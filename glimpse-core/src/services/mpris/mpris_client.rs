@@ -206,11 +206,29 @@ impl MprisClient {
         }
     }
 
+    pub async fn play(&self, player_id: &str) -> anyhow::Result<()> {
+        player_proxy(&self.session, player_id).await?.play().await?;
+        self.mark_player_active(player_id);
+        Ok(())
+    }
+
+    pub async fn pause(&self, player_id: &str) -> anyhow::Result<()> {
+        player_proxy(&self.session, player_id).await?.pause().await?;
+        self.mark_player_active(player_id);
+        Ok(())
+    }
+
     pub async fn play_pause(&self, player_id: &str) -> anyhow::Result<()> {
         player_proxy(&self.session, player_id)
             .await?
             .play_pause()
             .await?;
+        self.mark_player_active(player_id);
+        Ok(())
+    }
+
+    pub async fn stop(&self, player_id: &str) -> anyhow::Result<()> {
+        player_proxy(&self.session, player_id).await?.stop().await?;
         self.mark_player_active(player_id);
         Ok(())
     }

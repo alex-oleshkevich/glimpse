@@ -157,6 +157,11 @@ impl SimpleComponent for Popover {
     }
 }
 
+struct DeviceActionTile {
+    tile: Tile,
+    command: Rc<RefCell<Option<RowCommand>>>,
+}
+
 struct DeviceRow {
     root: SegmentedTile,
     icon: gtk::Image,
@@ -164,6 +169,7 @@ struct DeviceRow {
     status_spinner: gtk::Spinner,
     status_label: gtk::Label,
     actions: gtk::Box,
+    action_tiles: RefCell<HashMap<String, DeviceActionTile>>,
     command: Rc<RefCell<Option<RowCommand>>>,
 }
 
@@ -214,6 +220,7 @@ impl DeviceRow {
             status_spinner,
             status_label,
             actions,
+            action_tiles: RefCell::new(HashMap::new()),
             command,
         };
         row.update(model, sender);
@@ -267,26 +274,51 @@ impl DeviceRow {
         actions: &[DeviceAction<RowCommand>],
         sender: &ComponentSender<Popover>,
     ) {
-        while let Some(child) = self.actions.first_child() {
-            self.actions.remove(&child);
-        }
-
         let visible_actions: Vec<_> = actions.iter().filter(|action| action.visible).collect();
-        for action in &visible_actions {
-            let tile = Tile::new();
-            tile.add_css_class("removable-device-action");
-            tile.set_primary(&action.label);
-            tile.set_secondary(None);
-            tile.set_sensitive(action.enabled);
-            if action.destructive {
-                tile.add_css_class("destructive-action");
+        let mut tiles = self.action_tiles.borrow_mut();
+        let current_ids: HashSet<&str> = visible_actions.iter().map(|a| a.id.as_str()).collect();
+
+        tiles.retain(|id, state| {
+            if !current_ids.contains(id.as_str()) {
+                self.actions.remove(&state.tile);
+                false
+            } else {
+                true
             }
-            tile.connect_activated({
-                let sender = sender.clone();
-                let command = action.command.clone();
-                move |_| sender.input(PopoverInput::DeviceCommand(command.clone()))
-            });
-            self.actions.append(&tile);
+        });
+
+        for action in &visible_actions {
+            if let Some(state) = tiles.get(&action.id) {
+                state.tile.set_primary(&action.label);
+                state.tile.set_sensitive(action.enabled);
+                if action.destructive {
+                    state.tile.add_css_class("destructive-action");
+                } else {
+                    state.tile.remove_css_class("destructive-action");
+                }
+                state.command.replace(Some(action.command.clone()));
+            } else {
+                let tile = Tile::new();
+                tile.add_css_class("removable-device-action");
+                tile.set_primary(&action.label);
+                tile.set_secondary(None);
+                tile.set_sensitive(action.enabled);
+                if action.destructive {
+                    tile.add_css_class("destructive-action");
+                }
+                let command = Rc::new(RefCell::new(Some(action.command.clone())));
+                tile.connect_activated({
+                    let sender = sender.clone();
+                    let command = command.clone();
+                    move |_| {
+                        if let Some(cmd) = command.borrow().clone() {
+                            sender.input(PopoverInput::DeviceCommand(cmd));
+                        }
+                    }
+                });
+                self.actions.append(&tile);
+                tiles.insert(action.id.clone(), DeviceActionTile { tile, command });
+            }
         }
 
         if visible_actions.is_empty() {

@@ -204,7 +204,10 @@ fn should_refresh_progress(snapshot: &Snapshot) -> bool {
 
 async fn execute_command(client: &MprisClient, command: Command) -> anyhow::Result<()> {
     match command {
+        Command::Play { player_id } => client.play(&player_id).await,
+        Command::Pause { player_id } => client.pause(&player_id).await,
         Command::PlayPause { player_id } => client.play_pause(&player_id).await,
+        Command::Stop { player_id } => client.stop(&player_id).await,
         Command::Previous { player_id } => client.previous(&player_id).await,
         Command::Next { player_id } => client.next(&player_id).await,
         Command::Seek {

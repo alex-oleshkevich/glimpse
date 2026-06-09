@@ -287,6 +287,9 @@ struct JobRow {
     status_spinner: gtk::Spinner,
     status_label: gtk::Label,
     actions: gtk::Box,
+    pause_tile: Tile,
+    resume_tile: Tile,
+    cancel_tile: Tile,
 }
 
 impl JobRow {
@@ -315,18 +318,52 @@ impl JobRow {
 
         let actions = gtk::Box::new(gtk::Orientation::Vertical, 2);
 
+        let pause_tile = Tile::new();
+        pause_tile.set_primary("Pause");
+        pause_tile.set_visible(false);
+        let id = job.id;
+        pause_tile.connect_activated({
+            let sender = sender.clone();
+            move |_| sender.input(PopoverInput::JobCommand(Command::PauseJob { id }))
+        });
+        actions.append(&pause_tile);
+
+        let resume_tile = Tile::new();
+        resume_tile.set_primary("Resume");
+        resume_tile.set_visible(false);
+        let id = job.id;
+        resume_tile.connect_activated({
+            let sender = sender.clone();
+            move |_| sender.input(PopoverInput::JobCommand(Command::ResumeJob { id }))
+        });
+        actions.append(&resume_tile);
+
+        let cancel_tile = Tile::new();
+        cancel_tile.set_primary("Cancel");
+        cancel_tile.add_css_class("destructive-action");
+        cancel_tile.set_visible(false);
+        let id = job.id;
+        cancel_tile.connect_activated({
+            let sender = sender.clone();
+            move |_| sender.input(PopoverInput::JobCommand(Command::CancelJob { id }))
+        });
+        actions.append(&cancel_tile);
+
         let row = Self {
             root,
             status_box,
             status_spinner,
             status_label,
             actions,
+            pause_tile,
+            resume_tile,
+            cancel_tile,
         };
         row.update(job, sender);
         row
     }
 
-    fn update(&self, job: &PrintJob, sender: &ComponentSender<Popover>) {
+    fn update(&self, job: &PrintJob, _sender: &ComponentSender<Popover>) {
         use glimpse_core::services::printing::JobState;
 
         self.root.set_primary(&job.name);
@@ -354,46 +391,12 @@ impl JobRow {
             self.root.set_right(None::<gtk::Widget>);
         }
 
-        while let Some(child) = self.actions.first_child() {
-            self.actions.remove(&child);
-        }
+        self.pause_tile.set_visible(job.state == JobState::Processing || job.state == JobState::Pending);
+        self.resume_tile.set_visible(job.state == JobState::Held);
+        self.cancel_tile.set_visible(matches!(job.state, JobState::Pending | JobState::Processing | JobState::Held));
 
-        if job.state == JobState::Processing || job.state == JobState::Pending {
-            let pause = Tile::new();
-            pause.set_primary("Pause");
-            let id = job.id;
-            pause.connect_activated({
-                let sender = sender.clone();
-                move |_| sender.input(PopoverInput::JobCommand(Command::PauseJob { id }))
-            });
-            self.actions.append(&pause);
-        }
-
-        if job.state == JobState::Held {
-            let resume = Tile::new();
-            resume.set_primary("Resume");
-            let id = job.id;
-            resume.connect_activated({
-                let sender = sender.clone();
-                move |_| sender.input(PopoverInput::JobCommand(Command::ResumeJob { id }))
-            });
-            self.actions.append(&resume);
-        }
-
-        use glimpse_core::services::printing::JobState::*;
-        if matches!(job.state, Pending | Processing | Held) {
-            let cancel = Tile::new();
-            cancel.set_primary("Cancel");
-            cancel.add_css_class("destructive-action");
-            let id = job.id;
-            cancel.connect_activated({
-                let sender = sender.clone();
-                move |_| sender.input(PopoverInput::JobCommand(Command::CancelJob { id }))
-            });
-            self.actions.append(&cancel);
-        }
-
-        if self.actions.first_child().is_some() {
+        let has_actions = self.pause_tile.is_visible() || self.resume_tile.is_visible() || self.cancel_tile.is_visible();
+        if has_actions {
             self.root.set_child(Some(self.actions.clone()));
         } else {
             self.root.set_child(None::<gtk::Widget>);
