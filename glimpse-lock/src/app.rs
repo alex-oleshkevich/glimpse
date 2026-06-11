@@ -45,7 +45,7 @@ use relm4::{
     SimpleComponent, gtk,
 };
 use tokio::sync::mpsc;
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -57,6 +57,7 @@ use crate::{
 };
 
 const LOCK_CSS_RESOURCE: &str = "/me/aresa/GlimpseLock/lock.css";
+const AUTH_TIMEOUT: Duration = Duration::from_secs(30);
 #[cfg(feature = "dev")]
 const DEV_LOCK_CSS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/resources/lock.css");
 
@@ -524,17 +525,28 @@ impl SimpleComponent for LockApp {
                 let result_sender = sender.input_sender().clone();
                 let generation = self.auth_generation;
                 relm4::spawn_local(async move {
-                    let result = tokio::task::spawn_blocking(move || {
+                    let blocking = tokio::task::spawn_blocking(move || {
                         authenticator.authenticate(&service, &username, password)
-                    })
-                    .await
-                    .map_err(|error| anyhow::anyhow!("auth worker failed: {error}"))
-                    .and_then(|result| result);
-                    let auth_result = match result {
-                        Ok(result) => result,
-                        Err(error) => {
-                            tracing::warn!(%error, "authentication failed");
-                            AuthResult::Failure { pam_message: None }
+                    });
+                    let auth_result = match timeout(AUTH_TIMEOUT, blocking).await {
+                        Err(_elapsed) => {
+                            tracing::warn!("PAM authentication timed out after 30s");
+                            AuthResult::AccountUnavailable {
+                                reason: "Authentication timed out".into(),
+                                pam_message: None,
+                            }
+                        }
+                        Ok(join_result) => {
+                            let result = join_result
+                                .map_err(|error| anyhow::anyhow!("auth worker failed: {error}"))
+                                .and_then(|result| result);
+                            match result {
+                                Ok(result) => result,
+                                Err(error) => {
+                                    tracing::warn!(%error, "authentication failed");
+                                    AuthResult::Failure { pam_message: None }
+                                }
+                            }
                         }
                     };
                     let _ = result_sender.send(AppCommand::AuthFinished {
