@@ -193,7 +193,10 @@ impl SimpleComponent for Applet {
                 });
                 self.apply_state(self.service.snapshot());
             }
-            Input::TogglePopover => self.popover.emit(PopoverInput::Toggle),
+            Input::TogglePopover => {
+                self.popover.emit(PopoverInput::Update(self.state.clone()));
+                self.popover.emit(PopoverInput::Toggle);
+            }
             Input::PopoverOutput(output) => {
                 self.send_command(command_for_popover_output(output));
             }
@@ -207,7 +210,9 @@ impl Applet {
         self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
         self.hidden = self.config.hide_when_empty && self.label.is_empty();
         self.state = state.clone();
-        self.popover.emit(PopoverInput::Update(state));
+        if self.popover.widget().is_visible() {
+            self.popover.emit(PopoverInput::Update(state));
+        }
     }
 
     fn send_command(&self, command: Command) {

@@ -77,17 +77,17 @@ pub fn app_icon(notification: &NotificationEntry) -> &str {
     }
 }
 
-pub fn load_image(notification: &NotificationEntry) -> Option<NotificationImage> {
+pub fn image_path(notification: &NotificationEntry) -> Option<&str> {
     let image = notification.image.as_deref()?.trim();
     if image.is_empty() {
         return None;
     }
-
     let path = image.strip_prefix("file://").unwrap_or(image);
-    if !path.starts_with('/') {
-        return None;
-    }
+    if path.starts_with('/') { Some(path) } else { None }
+}
 
+pub fn load_image(notification: &NotificationEntry) -> Option<NotificationImage> {
+    let path = image_path(notification)?;
     let texture = gdk::Texture::from_filename(path).ok()?;
     Some(NotificationImage {
         texture,

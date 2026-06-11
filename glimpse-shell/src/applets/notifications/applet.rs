@@ -294,7 +294,10 @@ impl SimpleComponent for Applet {
                     });
                 }
             }
-            Input::TogglePopover => self.popover.emit(PopoverInput::Toggle),
+            Input::TogglePopover => {
+                self.sync_popover(&self.state.clone());
+                self.popover.emit(PopoverInput::Toggle);
+            }
             Input::PopoverOutput(output) => self.handle_output(output),
         }
     }
@@ -311,7 +314,9 @@ impl Applet {
         self.label = format::label(&self.config.label_format, &state);
         self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
         self.sync_badge(&state.notifications, state.dnd);
-        self.sync_popover(&state);
+        if self.popover.widget().is_visible() {
+            self.sync_popover(&state);
+        }
         if let Some(popup) = &self.popup {
             popup.emit(PopupInput::Update {
                 notifications: state.notifications.clone(),

@@ -30,7 +30,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             timezones: Vec::new(),
-            tick_interval: 1,
+            tick_interval: 60,
         }
     }
 }

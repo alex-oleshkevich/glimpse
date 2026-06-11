@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    os::unix::fs::PermissionsExt,
     sync::{
         Arc,
         atomic::{AtomicU64, AtomicUsize, Ordering},
@@ -15,6 +16,7 @@ use tokio::{
     net::{UnixListener, UnixStream},
     sync::mpsc,
 };
+use tokio_util::sync::CancellationToken;
 
 use crate::{
     applets::exec::{
@@ -251,6 +253,7 @@ pub struct Applet {
     connections: HashMap<ConnectionId, ConnectionState>,
     root: gtk::Box,
     runtime_container: gtk::Box,
+    cancel: CancellationToken,
 }
 
 struct ConnectionState {
@@ -326,14 +329,17 @@ impl SimpleComponent for Applet {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let widgets = view_output!();
+        let cancel = CancellationToken::new();
         let sender_clone = sender.input_sender().clone();
+        let cancel_clone = cancel.clone();
         relm4::spawn(async move {
-            run_listener(sender_clone).await;
+            run_listener(sender_clone, cancel_clone).await;
         });
         let model = Applet {
             connections: HashMap::new(),
             root: widgets.root.clone(),
             runtime_container: init.runtime_container,
+            cancel,
         };
         ComponentParts { model, widgets }
     }
@@ -377,8 +383,10 @@ impl SimpleComponent for Applet {
             }
             Input::PopoverChanged { id, payload } => {
                 if let Some(conn) = self.connections.get_mut(&id) {
-                    conn.root_node = payload.root.clone();
-                    conn.popover.emit(PopoverInput::SetRoot(payload.root));
+                    if conn.root_node != payload.root {
+                        conn.root_node = payload.root.clone();
+                        conn.popover.emit(PopoverInput::SetRoot(payload.root));
+                    }
                 }
                 self.rebuild_if_needed(id, &sender);
             }
@@ -520,6 +528,7 @@ fn send_event(tx: &mpsc::Sender<PanelCommand>, id: ConnectionId, event: EventPay
 
 impl Drop for Applet {
     fn drop(&mut self) {
+        self.cancel.cancel();
         for (_, conn) in self.connections.drain() {
             self.runtime_container.remove(&conn.indicator);
         }
@@ -527,7 +536,7 @@ impl Drop for Applet {
     }
 }
 
-async fn run_listener(sender: relm4::Sender<Input>) {
+async fn run_listener(sender: relm4::Sender<Input>, cancel: CancellationToken) {
     let socket_path = glimpse_core::ipc::applets_socket_path();
     if let Some(parent) = socket_path.parent() {
         let _ = std::fs::create_dir_all(parent);
@@ -545,35 +554,40 @@ async fn run_listener(sender: relm4::Sender<Input>) {
             return;
         }
     };
+    let _ = std::fs::set_permissions(&socket_path, std::fs::Permissions::from_mode(0o600));
     tracing::info!(path = %socket_path.display(), "dynamic applets socket ready");
     let active = Arc::new(AtomicUsize::new(0));
     loop {
-        match listener.accept().await {
-            Ok((stream, _)) => {
-                if active.load(Ordering::Relaxed) >= MAX_CONNECTIONS {
-                    tracing::warn!(
-                        limit = MAX_CONNECTIONS,
-                        "dynamic applets connection limit reached; rejecting connection"
-                    );
-                    drop(stream);
-                    continue;
+        tokio::select! {
+            _ = cancel.cancelled() => break,
+            result = listener.accept() => match result {
+                Ok((stream, _)) => {
+                    if active.load(Ordering::Relaxed) >= MAX_CONNECTIONS {
+                        tracing::warn!(
+                            limit = MAX_CONNECTIONS,
+                            "dynamic applets connection limit reached; rejecting connection"
+                        );
+                        drop(stream);
+                        continue;
+                    }
+                    active.fetch_add(1, Ordering::Relaxed);
+                    let id = next_id();
+                    let (outbound_tx, outbound_rx) = mpsc::channel(OUTBOUND_BUFFER);
+                    let _ = sender.send(Input::NewConnection { id, outbound_tx });
+                    let sender_clone = sender.clone();
+                    let active_clone = Arc::clone(&active);
+                    tokio::spawn(async move {
+                        run_connection(id, stream, outbound_rx, sender_clone).await;
+                        active_clone.fetch_sub(1, Ordering::Relaxed);
+                    });
                 }
-                active.fetch_add(1, Ordering::Relaxed);
-                let id = next_id();
-                let (outbound_tx, outbound_rx) = mpsc::channel(OUTBOUND_BUFFER);
-                let _ = sender.send(Input::NewConnection { id, outbound_tx });
-                let sender_clone = sender.clone();
-                let active_clone = Arc::clone(&active);
-                tokio::spawn(async move {
-                    run_connection(id, stream, outbound_rx, sender_clone).await;
-                    active_clone.fetch_sub(1, Ordering::Relaxed);
-                });
-            }
-            Err(e) => {
-                tracing::warn!(?e, "dynamic applets accept error");
-            }
+                Err(e) => {
+                    tracing::warn!(?e, "dynamic applets accept error");
+                }
+            },
         }
     }
+    let _ = std::fs::remove_file(&socket_path);
 }
 
 async fn run_connection(
@@ -615,7 +629,9 @@ async fn run_connection(
                                 ChildCommand::Class(class) => Input::CssClass { id, class },
                                 ChildCommand::ClosePopover => Input::ClosePopover { id },
                             };
-                            let _ = sender.send(msg);
+                            if sender.send(msg).is_err() {
+                                break;
+                            }
                         }
                         Err(e) => {
                             tracing::debug!(%e, connection = id, "dynamic applet ignored line");

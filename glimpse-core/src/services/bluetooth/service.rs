@@ -173,9 +173,7 @@ impl BluetoothService {
             .await
             .context("bluetooth: scan timed out")??;
         self.update_state(|state| {
-            if !matches!(state.health, BluetoothServiceHealth::Degraded { .. }) {
-                state.health = BluetoothServiceHealth::Ready;
-            }
+            state.health = BluetoothServiceHealth::Ready;
             state.snapshot = snapshot;
         });
         Ok(())

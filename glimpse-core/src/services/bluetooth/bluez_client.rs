@@ -96,6 +96,8 @@ impl BluezClient {
     ) -> anyhow::Result<()> {
         tracing::info!("bluetooth: listener started");
 
+        let dbus = zbus::fdo::DBusProxy::new(&self.conn).await?;
+        let mut name_changes = dbus.receive_name_owner_changed().await?;
         let om = self.object_manager().await?;
         let mut added = om.receive_interfaces_added().await?;
         let mut removed = om.receive_interfaces_removed().await?;
@@ -109,6 +111,17 @@ impl BluezClient {
                 _ = cancel.cancelled() => {
                     tracing::info!("bluetooth: listener stopping");
                     break;
+                }
+                change = name_changes.next() => {
+                    match change {
+                        Some(change) if change.args().ok().map(|a| a.name().as_str() == "org.bluez").unwrap_or(false) => {
+                            tracing::warn!("bluetooth: bluetoothd name owner changed — restarting listener");
+                            let _ = events.send(BluezEvent::Changed { reason: BluetoothChangeReason::Mixed }).await;
+                            break;
+                        }
+                        Some(_) => {}
+                        None => break,
+                    }
                 }
                 signal = added.next() => {
                     match signal {

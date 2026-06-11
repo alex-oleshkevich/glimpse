@@ -73,6 +73,9 @@ impl TrayClient {
                     }
                     Err(broadcast::error::RecvError::Lagged(skipped)) => {
                         tracing::warn!(skipped, "tray client event stream lagged");
+                        if events.send(TrayClientEvent::Changed { reason: "lagged".into() }).await.is_err() {
+                            return Ok(());
+                        }
                     }
                     Err(broadcast::error::RecvError::Closed) => return Ok(()),
                 }

@@ -31,6 +31,7 @@ pub struct Popover {
     subtitle: String,
     rows: HashMap<u32, Message>,
     groups: HashMap<String, MessageGroup>,
+    texture_cache: HashMap<String, Option<format::NotificationImage>>,
     list: gtk::Box,
 }
 
@@ -161,6 +162,7 @@ impl SimpleComponent for Popover {
             subtitle: format::count_label(0),
             rows: HashMap::new(),
             groups: HashMap::new(),
+            texture_cache: HashMap::new(),
             list: gtk::Box::new(gtk::Orientation::Vertical, 0),
         };
 
@@ -254,7 +256,7 @@ impl Popover {
                     let id = notification.id;
                     seen_rows.insert(id);
                     let msg = self.ensure_row(id, sender);
-                    update_row(&msg, notification, now);
+                    update_row(&msg, notification, now, &mut self.texture_cache);
                     reparent_into(&msg, &self.list);
                     self.list.reorder_child_after(&msg, previous.as_ref());
                     previous = Some(msg.upcast());
@@ -266,7 +268,7 @@ impl Popover {
                     for notification in &group_model.notifications {
                         seen_rows.insert(notification.id);
                         let msg = self.ensure_row(notification.id, sender);
-                        update_row(&msg, notification, now);
+                        update_row(&msg, notification, now, &mut self.texture_cache);
                         member_msgs.push(msg);
                     }
 
@@ -370,7 +372,12 @@ fn wire_signals(msg: &Message, id: u32, sender: &ComponentSender<Popover>) {
     });
 }
 
-fn update_row(msg: &Message, notification: &NotificationEntry, now: u64) {
+fn update_row(
+    msg: &Message,
+    notification: &NotificationEntry,
+    now: u64,
+    texture_cache: &mut HashMap<String, Option<format::NotificationImage>>,
+) {
     if notification.urgency == 2 {
         msg.add_css_class("message--critical");
     } else {
@@ -381,7 +388,14 @@ fn update_row(msg: &Message, notification: &NotificationEntry, now: u64) {
     msg.set_time(&format::relative_time(now, notification.timestamp));
     msg.set_title(&notification.summary);
     msg.set_body(&notification.body);
-    match format::load_image(notification) {
+    let image = match format::image_path(notification) {
+        Some(path) => texture_cache
+            .entry(path.to_owned())
+            .or_insert_with(|| format::load_image(notification))
+            .as_ref(),
+        None => None,
+    };
+    match image {
         Some(image) => msg.set_content_paintable(
             Some(&image.texture),
             content_image_presentation(image.presentation),

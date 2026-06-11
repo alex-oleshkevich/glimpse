@@ -113,9 +113,12 @@ impl TrayService {
                 },
                 command = self.command_rx.recv() => match command {
                     Some(ServiceCommand::Command(command)) => {
-                        if let Err(error) = execute_command(&client, command).await {
-                            tracing::warn!(error = %error, "tray command failed");
-                        }
+                        let client = client.clone();
+                        tokio::spawn(async move {
+                            if let Err(error) = execute_command(&client, command).await {
+                                tracing::warn!(error = %error, "tray command failed");
+                            }
+                        });
                     }
                     Some(ServiceCommand::Control(control)) => match control {
                         Control::Start(_) | Control::Reconfigure(_) => {}

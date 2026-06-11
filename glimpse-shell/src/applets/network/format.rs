@@ -74,10 +74,10 @@ pub fn hero_subtitle(state: &State) -> String {
         "Wi-Fi unavailable".into()
     } else if !status.wifi_enabled {
         "Wi-Fi off".into()
-    } else if state.scanning {
-        "Scanning".into()
     } else if !status.primary_connection.is_empty() {
         format!("Connected to {}", status.primary_connection)
+    } else if state.scanning {
+        "Scanning".into()
     } else {
         "Not connected".into()
     }

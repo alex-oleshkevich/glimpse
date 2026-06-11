@@ -31,6 +31,7 @@ pub struct Popover {
     rows: FactoryVecDeque<RowItem>,
     current: Option<Player>,
     current_texture: Option<gdk::Texture>,
+    others: Vec<Player>,
     max_rows: usize,
     show_artwork: bool,
     state: State,
@@ -184,6 +185,7 @@ impl SimpleComponent for Popover {
             rows,
             current: None,
             current_texture: None,
+            others: Vec::new(),
             max_rows: init.max_rows,
             show_artwork: init.show_artwork,
             state: State::default(),
@@ -208,6 +210,7 @@ impl SimpleComponent for Popover {
             } => {
                 self.max_rows = max_rows;
                 self.show_artwork = show_artwork;
+                self.others.clear();
                 let state = self.state.clone();
                 self.sync_state(state);
             }
@@ -254,12 +257,15 @@ impl Popover {
 
         self.current = current;
 
-        let mut guard = self.rows.guard();
-        guard.clear();
-        for player in others {
-            guard.push_back((player, self.show_artwork));
+        if others != self.others {
+            let mut guard = self.rows.guard();
+            guard.clear();
+            for player in &others {
+                guard.push_back((player.clone(), self.show_artwork));
+            }
+            drop(guard);
+            self.others = others;
         }
-        drop(guard);
 
         self.state = state;
     }

@@ -1,32 +1,64 @@
 #!/usr/bin/env bash
 #
-# Start a desktop screencast via the PipeWire-backed xdg-desktop-portal
-# (org.freedesktop.portal.ScreenCast). Captures for DURATION seconds via
-# gst-launch through pipewiresrc; the compositor + glimpse-shell should
-# both see an active screencast session, lighting up the privacy applet.
+# Start a desktop screencast-like capture via wf-recorder for DURATION seconds.
+# Depending on the compositor/backend, wf-recorder may use screencopy or a
+# portal-mediated path; glimpse-shell should see an active screencast session.
 #
 # Usage: ./scripts/privacy-test-screencast-pipewire [SECONDS]
 
 set -euo pipefail
 
 duration="${1:-10}"
+rec_pid=""
+sleep_pid=""
 
-command -v gst-launch-1.0 >/dev/null || { echo "gst-launch-1.0 not found" >&2; exit 1; }
+stop_child() {
+    local pid="${1:-}"
+    [[ -n "$pid" ]] || return 0
+    kill -INT "$pid" 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        kill -0 "$pid" 2>/dev/null || { wait "$pid" 2>/dev/null || true; return 0; }
+        sleep 0.1
+    done
+    kill -TERM "$pid" 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        kill -0 "$pid" 2>/dev/null || { wait "$pid" 2>/dev/null || true; return 0; }
+        sleep 0.1
+    done
+    kill -KILL "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+}
 
-# The proper way is via the portal; here we use wf-recorder if available
-# (Wayland-native, talks to wlr-screencopy or the portal) as a quick proxy.
+cleanup() {
+    if [[ -n "$sleep_pid" ]]; then
+        kill "$sleep_pid" 2>/dev/null || true
+        wait "$sleep_pid" 2>/dev/null || true
+        sleep_pid=""
+    fi
+    if [[ -n "$rec_pid" ]]; then
+        stop_child "$rec_pid"
+        rec_pid=""
+    fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 if command -v wf-recorder >/dev/null; then
     out="/tmp/glimpse-screencast.mkv"
     echo "Recording screen via wf-recorder for ${duration}s to ${out}"
     wf-recorder -f "$out" &
     rec_pid=$!
-    sleep "$duration"
-    kill -INT "$rec_pid" 2>/dev/null || true
-    wait "$rec_pid" 2>/dev/null || true
+    sleep "$duration" &
+    sleep_pid=$!
+    wait "$sleep_pid"
+    sleep_pid=""
+    stop_child "$rec_pid"
+    rec_pid=""
     echo "done: $out"
 else
     echo "wf-recorder not found." >&2
-    echo "Install wf-recorder (Wayland) for the portal/screencopy path," >&2
+    echo "Install wf-recorder (Wayland) for the screencopy/portal path," >&2
     echo "or trigger a screencast manually from your screensharing app." >&2
     exit 1
 fi

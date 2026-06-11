@@ -232,11 +232,15 @@ impl SimpleComponent for Applet {
             Input::BatteryStateChanged(state) => {
                 let status = state.status;
                 apply_status(self, &status);
-                self.popover.emit(PopoverInput::UpdateStatus(status));
+                if self.popover.widget().is_visible() {
+                    self.popover.emit(PopoverInput::UpdateStatus(status));
+                }
             }
             Input::PowerStateChanged(state) => {
-                self.popover
-                    .emit(PopoverInput::UpdateProfiles(state.profiles));
+                if self.popover.widget().is_visible() {
+                    self.popover
+                        .emit(PopoverInput::UpdateProfiles(state.profiles));
+                }
             }
             Input::Reconfigure(config) => {
                 self.config = config;
@@ -246,6 +250,10 @@ impl SimpleComponent for Applet {
                     .emit(PopoverInput::UpdateStatus(snapshot.status));
             }
             Input::TogglePopover => {
+                let status = self.service.snapshot().status;
+                self.popover.emit(PopoverInput::UpdateStatus(status));
+                let profiles = self.power_service.snapshot().profiles;
+                self.popover.emit(PopoverInput::UpdateProfiles(profiles));
                 self.popover.emit(PopoverInput::Toggle);
             }
             Input::SetPowerProfile(profile) => {

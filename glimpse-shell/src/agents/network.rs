@@ -11,6 +11,7 @@ use zeroize::Zeroizing;
 
 const AGENT_PATH: &str = "/org/freedesktop/NetworkManager/SecretAgent";
 const DBUS_TIMEOUT: Duration = Duration::from_secs(5);
+const PROMPT_TIMEOUT: Duration = Duration::from_secs(120);
 const WIFI_SECURITY_SETTING: &str = "802-11-wireless-security";
 const WIFI_PSK_KEY: &str = "psk";
 const SECRET_CONTENT_TYPE: &str = "text/plain";
@@ -307,24 +308,29 @@ impl NetworkSecretAgent {
             "network-secret-agent: password prompt emitted"
         );
 
-        match reply_rx.await {
-            Ok(NetworkPromptReply::Password(password)) => {
+        match timeout(PROMPT_TIMEOUT, reply_rx).await {
+            Ok(Ok(NetworkPromptReply::Password(password))) => {
                 tracing::debug!(
                     prompt_id = id.0,
                     "network-secret-agent: password reply received"
                 );
                 Ok(password)
             }
-            Ok(NetworkPromptReply::Cancel) => {
+            Ok(Ok(NetworkPromptReply::Cancel)) => {
                 tracing::debug!(
                     prompt_id = id.0,
                     "network-secret-agent: password prompt cancelled"
                 );
                 Err(zbus::fdo::Error::Failed("cancelled by user".into()))
             }
-            Err(_) => Err(zbus::fdo::Error::Failed(
+            Ok(Err(_)) => Err(zbus::fdo::Error::Failed(
                 "network prompt reply channel closed".into(),
             )),
+            Err(_elapsed) => {
+                tracing::warn!(prompt_id = id.0, "network-secret-agent: password prompt timed out");
+                self.cancel_prompt();
+                Err(zbus::fdo::Error::Failed("password prompt timed out".into()))
+            }
         }
     }
 

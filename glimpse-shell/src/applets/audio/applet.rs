@@ -216,6 +216,7 @@ impl SimpleComponent for Applet {
                 self.send_command(Command::ToggleOutputMute);
             }
             Input::TogglePopover => {
+                self.sync_popover_state();
                 self.popover.emit(PopoverInput::Toggle);
             }
             Input::PopoverOutput(PopoverOutput::Command(command)) => {
@@ -231,7 +232,9 @@ impl Applet {
         self.label = format::label(&self.config.label_format, &state);
         self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
         self.state = state.clone();
-        self.popover.emit(PopoverInput::UpdateState(state));
+        if self.popover.widget().is_visible() {
+            self.popover.emit(PopoverInput::UpdateState(state));
+        }
     }
 
     fn sync_popover_config(&self) {

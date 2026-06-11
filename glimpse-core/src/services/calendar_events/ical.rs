@@ -230,7 +230,10 @@ fn expand_recurring_event(
 
     let rrule_set = rule_text.parse::<RRuleSet>()?;
     let duration = end.value - start.value;
-    let result = rrule_set.all(RECURRENCE_LIMIT);
+    let now = Utc::now();
+    let window_start = (now - chrono::Duration::days(31)).with_timezone(&rrule::Tz::UTC);
+    let window_end = (now + chrono::Duration::days(400)).with_timezone(&rrule::Tz::UTC);
+    let result = rrule_set.after(window_start).before(window_end).all(RECURRENCE_LIMIT);
     if result.limited {
         tracing::debug!(
             event_id = %base.event_id,

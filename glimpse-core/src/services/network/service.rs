@@ -5,7 +5,7 @@ use std::{future, time::Duration};
 use anyhow::{Context, anyhow};
 use tokio::{
     sync::{mpsc, watch},
-    time::sleep,
+    time::{Instant, sleep, sleep_until},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -27,6 +27,7 @@ pub struct NetworkService {
     state_tx: watch::Sender<State>,
     command_rx: mpsc::Receiver<ServiceCommand<Command>>,
     scan_interval: Option<Duration>,
+    scan_deadline: Option<Instant>,
 }
 
 enum RunOutcome {
@@ -45,6 +46,7 @@ impl NetworkService {
                 state_tx,
                 command_rx,
                 scan_interval: None,
+                scan_deadline: None,
             },
             ServiceHandle::new(state_rx, command_tx),
         )
@@ -109,27 +111,23 @@ impl NetworkService {
                     None => break Err(anyhow!("network event listener stopped")),
                 },
                 result = action_rx.recv() => match result {
-                    Some(result) => {
-                        self.update_state(|state| {
-                            state.active_action = None;
-                        });
-
-                        match result {
-                            Ok(refresh) => {
-                                if refresh {
-                                    if let Err(error) = self.refresh_snapshot().await {
-                                        tracing::warn!(error = %error, "network: refresh failed after command");
-                                        self.set_degraded("Network data is stale");
-                                    }
-                                }
+                    Some(Ok(refresh)) => {
+                        if refresh {
+                            if let Err(error) = self.refresh_snapshot_with(|s| s.active_action = None).await {
+                                tracing::warn!(error = %error, "network: refresh failed after command");
+                                self.update_state(|s| s.active_action = None);
+                                self.set_degraded("Network data is stale");
                             }
-                            Err(error) => {
-                                tracing::warn!(error = %error, "network command failed");
-                                if let Err(error) = self.refresh_snapshot().await {
-                                    tracing::warn!(error = %error, "network: refresh failed after failed command");
-                                    self.set_degraded("Network data is stale");
-                                }
-                            }
+                        } else {
+                            self.update_state(|s| s.active_action = None);
+                        }
+                    }
+                    Some(Err(error)) => {
+                        tracing::warn!(error = %error, "network command failed");
+                        if let Err(error) = self.refresh_snapshot_with(|s| s.active_action = None).await {
+                            tracing::warn!(error = %error, "network: refresh failed after failed command");
+                            self.update_state(|s| s.active_action = None);
+                            self.set_degraded("Network data is stale");
                         }
                     }
                     None => break Err(anyhow!("network command result channel closed")),
@@ -150,11 +148,14 @@ impl NetworkService {
                     None => break Ok(RunOutcome::Cancelled),
                 },
                 _ = async {
-                    match self.scan_interval {
-                        Some(interval) => sleep(interval).await,
+                    match self.scan_deadline {
+                        Some(deadline) => sleep_until(deadline).await,
                         None => future::pending::<()>().await,
                     }
-                }, if self.scan_interval.is_some() => {
+                }, if self.scan_deadline.is_some() => {
+                    if let Some(interval) = self.scan_interval {
+                        self.scan_deadline = Some(Instant::now() + interval);
+                    }
                     if let Err(error) = self.client.request_scan().await {
                         tracing::debug!(error = %error, "network: periodic scan request failed");
                     }
@@ -173,10 +174,15 @@ impl NetworkService {
     }
 
     async fn refresh_snapshot(&self) -> anyhow::Result<()> {
+        self.refresh_snapshot_with(|_| {}).await
+    }
+
+    async fn refresh_snapshot_with(&self, f: impl FnOnce(&mut State)) -> anyhow::Result<()> {
         let snapshot = self.client.scan().await?;
         self.update_state(|state| {
             state.health = health_after_successful_refresh(&state.health);
             state.snapshot = snapshot;
+            f(state);
         });
         Ok(())
     }
@@ -191,6 +197,7 @@ impl NetworkService {
                 Ok(()) => {
                     let interval = scan_interval_duration(interval_secs);
                     self.scan_interval = Some(interval);
+                    self.scan_deadline = Some(Instant::now() + interval);
                     self.update_state(|state| {
                         state.scanning = true;
                     });
@@ -200,6 +207,7 @@ impl NetworkService {
             },
             Command::StopScanning => {
                 self.scan_interval = None;
+                self.scan_deadline = None;
                 self.update_state(|state| {
                     state.scanning = false;
                 });

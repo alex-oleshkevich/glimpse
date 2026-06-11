@@ -88,7 +88,7 @@ impl ClockService {
         let mut config = Config::default();
         let mut runtime = RuntimeConfig::from_config(&config);
         self.publish(snapshot(&runtime));
-        let tick = sleep(Duration::from_secs(runtime.tick_interval));
+        let tick = sleep(next_tick_delay(&runtime));
         tokio::pin!(tick);
 
         loop {
@@ -100,7 +100,7 @@ impl ClockService {
                             config = next;
                             runtime = RuntimeConfig::from_config(&config);
                             self.publish(snapshot(&runtime));
-                            tick.as_mut().reset(Instant::now() + Duration::from_secs(runtime.tick_interval));
+                            tick.as_mut().reset(Instant::now() + next_tick_delay(&runtime));
                         }
                     }
                     Some(ServiceCommand::Command(Command::Refresh)) => {
@@ -112,7 +112,7 @@ impl ClockService {
                 },
                 _ = &mut tick => {
                     self.publish(snapshot(&runtime));
-                    tick.as_mut().reset(Instant::now() + Duration::from_secs(runtime.tick_interval));
+                    tick.as_mut().reset(Instant::now() + next_tick_delay(&runtime));
                 }
             }
         }
@@ -136,6 +136,22 @@ fn snapshot(config: &RuntimeConfig) -> State {
         now,
         world: config.timezones.iter().map(world_clock_time).collect(),
     }
+}
+
+fn next_tick_delay(runtime: &RuntimeConfig) -> Duration {
+    if runtime.tick_interval >= 60 {
+        time_to_next_minute()
+    } else {
+        Duration::from_secs(runtime.tick_interval)
+    }
+}
+
+fn time_to_next_minute() -> Duration {
+    use chrono::Timelike;
+    let now = Local::now();
+    let secs = u64::from(60 - now.second().min(59));
+    let nanos = u64::from(now.nanosecond().min(999_999_999));
+    Duration::from_nanos(secs * 1_000_000_000 - nanos).max(Duration::from_millis(100))
 }
 
 fn rounded_local_now() -> chrono::DateTime<Local> {

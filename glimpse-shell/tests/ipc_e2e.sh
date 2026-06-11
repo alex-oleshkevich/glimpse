@@ -30,7 +30,8 @@ export XDG_CONFIG_HOME="$ROOT/cfg"
 mkdir -p "$XDG_CONFIG_HOME/glimpse"
 printf '[[panels]]\nposition = "top"\nleft = ["clock"]\n' > "$XDG_CONFIG_HOME/glimpse/config.toml"
 SOCKET="$ROOT/ipc/ipc.sock"
-DAEMON_PID=""; WATCHER_PID=""; WATCH_OUT=""; DAEMON_LOG=""
+DAEMON_PID=""; WATCHER_PID=""; REC_PID=""; GST_PID=""; LOC_PID=""; JSON_PID=""
+WATCH_OUT=""; DAEMON_LOG=""; MIC_OUT=""; SCR_OUT=""; JSON_OUT=""
 ORIG_DND=""; ORIG_VOLUME=""; ORIG_MUTED=""; ORIG_BRIGHTNESS=""; ORIG_PROFILE=""
 
 pass() { echo "  PASS: $*"; }
@@ -49,6 +50,10 @@ ev_from() {
 
 cleanup() {
     echo "--- cleanup (restoring real state we touched) ---"
+    stop_child "$REC_PID"; REC_PID=""
+    stop_child "$GST_PID"; GST_PID=""
+    stop_child "$LOC_PID"; LOC_PID=""
+    stop_child "$JSON_PID"; JSON_PID=""
     if [[ -S "$SOCKET" ]]; then
         [[ -n "$ORIG_DND"        ]] && "$BINARY" dispatch set_dnd "enabled=$ORIG_DND" >/dev/null 2>&1 || true
         [[ -n "$ORIG_VOLUME"     ]] && "$BINARY" dispatch set_volume "level=$ORIG_VOLUME" >/dev/null 2>&1 || true
@@ -60,7 +65,26 @@ cleanup() {
     fi
     [[ -n "$WATCHER_PID" ]] && kill "$WATCHER_PID" 2>/dev/null || true
     [[ -n "$DAEMON_PID"  ]] && { kill "$DAEMON_PID" 2>/dev/null || true; wait "$DAEMON_PID" 2>/dev/null || true; }
+    [[ -n "$MIC_OUT" ]] && rm -f "$MIC_OUT"
+    [[ -n "$SCR_OUT" ]] && rm -f "$SCR_OUT"
+    [[ -n "$JSON_OUT" ]] && rm -f "$JSON_OUT"
     rm -rf "$ROOT"
+}
+stop_child() {
+    local pid="${1:-}"
+    [[ -n "$pid" ]] || return 0
+    kill -INT "$pid" 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        kill -0 "$pid" 2>/dev/null || { wait "$pid" 2>/dev/null || true; return 0; }
+        sleep 0.1
+    done
+    kill -TERM "$pid" 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        kill -0 "$pid" 2>/dev/null || { wait "$pid" 2>/dev/null || true; return 0; }
+        sleep 0.1
+    done
+    kill -KILL "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -227,13 +251,13 @@ print(n)' 2>/dev/null | grep -qv '^0$'
 if command -v pw-record >/dev/null; then
     echo ""; echo "=== Tier A: privacy/mic (pw-record) ==="
     B=$(wlc)
-    out=$(mktemp -t glimpse-e2e-mic.XXXXXX.wav)
-    pw-record --rate=48000 --channels=1 --format=s16 "$out" >/dev/null 2>&1 &
+    MIC_OUT=$(mktemp -t glimpse-e2e-mic.XXXXXX.wav)
+    pw-record --rate=48000 --channels=1 --format=s16 "$MIC_OUT" >/dev/null 2>&1 &
     REC_PID=$!
     ev_from "$((B+1))" "mic.in_use" 6
-    kill -INT "$REC_PID" 2>/dev/null || true; wait "$REC_PID" 2>/dev/null || true
+    stop_child "$REC_PID"; REC_PID=""
     ev_from "$((B+1))" "mic.released" 6
-    rm -f "$out"
+    rm -f "$MIC_OUT"; MIC_OUT=""
     pass "mic in_use/released"
 else
     echo ""; echo "=== Tier A: privacy/mic SKIPPED (pw-record not installed) ==="
@@ -245,7 +269,7 @@ if command -v gst-launch-1.0 >/dev/null && has_pipewire_camera; then
     gst-launch-1.0 -q pipewiresrc ! videoconvert ! fakesink >/dev/null 2>&1 &
     GST_PID=$!
     ev_from "$((B+1))" "webcam.in_use" 6
-    kill -INT "$GST_PID" 2>/dev/null || true; wait "$GST_PID" 2>/dev/null || true
+    stop_child "$GST_PID"; GST_PID=""
     ev_from "$((B+1))" "webcam.released" 6
     pass "webcam in_use/released"
 else
@@ -255,13 +279,13 @@ fi
 if command -v wf-recorder >/dev/null && [[ "${XDG_SESSION_TYPE:-}" == "wayland" ]]; then
     echo ""; echo "=== Tier A: privacy/screencast (wf-recorder) ==="
     B=$(wlc)
-    out=$(mktemp -t glimpse-e2e-scr.XXXXXX.mkv)
-    wf-recorder -f "$out" >/dev/null 2>&1 &
+    SCR_OUT=$(mktemp -t glimpse-e2e-scr.XXXXXX.mkv)
+    wf-recorder -f "$SCR_OUT" >/dev/null 2>&1 &
     REC_PID=$!
     ev_from "$((B+1))" "screencast.in_use" 6
-    kill -INT "$REC_PID" 2>/dev/null || true; wait "$REC_PID" 2>/dev/null || true
+    stop_child "$REC_PID"; REC_PID=""
     ev_from "$((B+1))" "screencast.released" 6
-    rm -f "$out"
+    rm -f "$SCR_OUT"; SCR_OUT=""
     pass "screencast in_use/released"
 else
     echo ""; echo "=== Tier A: privacy/screencast SKIPPED (wf-recorder or Wayland unavailable) ==="
@@ -273,7 +297,7 @@ if [[ -n "$where_am_i_bin" ]]; then
     "$where_am_i_bin" -t 2 >/dev/null 2>&1 &
     LOC_PID=$!
     ev_from "$((B+1))" "location.in_use" 6
-    wait "$LOC_PID" 2>/dev/null || true
+    wait "$LOC_PID" 2>/dev/null || true; LOC_PID=""
     ev_from "$((B+1))" "location.released" 6
     pass "location in_use/released"
 else
@@ -290,12 +314,13 @@ sleep 0.5
 "$BINARY" dispatch set_dnd "enabled=$ORIG_DND" >/dev/null
 sleep 0.8
 kill "$JSON_PID" 2>/dev/null || true; wait "$JSON_PID" 2>/dev/null || true
+JSON_PID=""
 [[ -s "$JSON_OUT" ]] || fail "watch --json got no events"
 while IFS= read -r line; do
     echo "$line" | python3 -c "import sys,json;d=json.load(sys.stdin);assert d.get('type')=='event';assert 'name' in d;assert isinstance(d.get('ts'),int)" \
         || fail "invalid JSON event: $line"
 done < "$JSON_OUT"
-rm -f "$JSON_OUT"
+rm -f "$JSON_OUT"; JSON_OUT=""
 pass "watch --json valid"
 
 kill "$WATCHER_PID" 2>/dev/null || true; wait "$WATCHER_PID" 2>/dev/null || true; WATCHER_PID=""

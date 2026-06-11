@@ -102,6 +102,8 @@ impl NetworkManagerClient {
     ) -> anyhow::Result<()> {
         tracing::info!("network: listener started");
 
+        let dbus = zbus::fdo::DBusProxy::new(&self.conn).await?;
+        let mut name_changes = dbus.receive_name_owner_changed().await?;
         let mut properties = self.match_stream("PropertiesChanged").await?;
         let mut device_added = self.match_stream("DeviceAdded").await?;
         let mut device_removed = self.match_stream("DeviceRemoved").await?;
@@ -118,6 +120,17 @@ impl NetworkManagerClient {
                 _ = cancel.cancelled() => {
                     tracing::info!("network: listener stopping");
                     break;
+                }
+                change = name_changes.next() => {
+                    match change {
+                        Some(change) if change.args().ok().map(|a| a.name().as_str() == NM_SERVICE).unwrap_or(false) => {
+                            tracing::warn!("network: NetworkManager name owner changed — restarting listener");
+                            let _ = events.send(NetworkEvent::Changed { reason: NetworkChangeReason::Mixed }).await;
+                            break;
+                        }
+                        Some(_) => {}
+                        None => break,
+                    }
                 }
                 message = properties.next() => {
                     match message {
@@ -271,6 +284,13 @@ impl NetworkManagerClient {
         access_point_path: &str,
     ) -> anyhow::Result<()> {
         tracing::info!(ssid, path = %access_point_path, "network: connect wifi requested");
+
+        let saved_profiles = self.read_saved_wifi_profiles().await.unwrap_or_default();
+        if let Some(profile) = preferred_saved_wifi_profile(saved_profiles.get(ssid).map(Vec::as_slice), ssid) {
+            tracing::info!(ssid, uuid = %profile.uuid, "network: activating existing saved profile");
+            return self.connect_uuid(&profile.uuid).await;
+        }
+
         let device_path = self
             .wifi_device_for_access_point(access_point_path)
             .await?

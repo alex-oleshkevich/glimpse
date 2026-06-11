@@ -187,9 +187,11 @@ impl SimpleComponent for Applet {
                 self.rebuild_status_if_needed(&sender);
             }
             Input::PopoverChanged(payload) => {
-                self.root_node = payload.root;
-                self.popover
-                    .emit(PopoverInput::SetRoot(self.root_node.clone()));
+                if self.root_node != payload.root {
+                    self.root_node = payload.root;
+                    self.popover
+                        .emit(PopoverInput::SetRoot(self.root_node.clone()));
+                }
                 self.rebuild_status_if_needed(&sender);
             }
             Input::ChildExited => {
