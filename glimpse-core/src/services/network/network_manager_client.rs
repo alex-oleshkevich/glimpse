@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 
-use std::{collections::HashMap, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use anyhow::{Context, anyhow};
 use futures_util::{StreamExt, future};
@@ -29,6 +33,7 @@ const LISTENER_DEBOUNCE: Duration = Duration::from_millis(300);
 #[derive(Clone)]
 pub struct NetworkManagerClient {
     conn: zbus::Connection,
+    active_connection_reasons: Arc<Mutex<HashMap<String, u32>>>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -41,7 +46,10 @@ struct SavedWifiProfile {
 
 impl NetworkManagerClient {
     pub fn new(conn: zbus::Connection) -> Self {
-        Self { conn }
+        Self {
+            conn,
+            active_connection_reasons: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 
     pub async fn scan(&self) -> anyhow::Result<NetworkSnapshot> {
@@ -98,6 +106,7 @@ impl NetworkManagerClient {
         let mut device_removed = self.match_stream("DeviceRemoved").await?;
         let mut ap_added = self.match_stream("AccessPointAdded").await?;
         let mut ap_removed = self.match_stream("AccessPointRemoved").await?;
+        let mut state_changed = self.match_stream("StateChanged").await?;
 
         let mut pending_reason: Option<NetworkChangeReason> = None;
         let mut debounce_deadline: Option<Instant> = None;
@@ -165,6 +174,35 @@ impl NetworkManagerClient {
                         }
                         Some(Ok(_)) => {}
                         Some(Err(error)) => tracing::warn!(error = %error, "network: access-point-removed stream error"),
+                        None => break,
+                    }
+                }
+                message = state_changed.next() => {
+                    match message {
+                        Some(Ok(message)) => {
+                            if let Some(path) = message.header().path() {
+                                let path_str = path.as_str();
+                                if path_str.starts_with("/org/freedesktop/NetworkManager/ActiveConnection/") {
+                                    if let Ok((state, reason)) = message.body().deserialize::<(u32, u32)>() {
+                                        tracing::debug!(path = path_str, state, reason, "network: active connection state changed");
+                                        let mut reasons = self
+                                            .active_connection_reasons
+                                            .lock()
+                                            .unwrap_or_else(std::sync::PoisonError::into_inner);
+                                        if state == 4 {
+                                            // deactivated — evict so a recycled path won't carry a stale reason
+                                            reasons.remove(path_str);
+                                        } else {
+                                            reasons.insert(path_str.to_owned(), reason);
+                                        }
+                                        drop(reasons);
+                                        pending_reason = Some(merge_change_reason(pending_reason, NetworkChangeReason::PropertiesChanged));
+                                        debounce_deadline = Some(Instant::now() + LISTENER_DEBOUNCE);
+                                    }
+                                }
+                            }
+                        }
+                        Some(Err(error)) => tracing::warn!(error = %error, "network: state-changed stream error"),
                         None => break,
                     }
                 }
@@ -344,7 +382,7 @@ impl NetworkManagerClient {
             }
 
             let state = device.state().await.unwrap_or(0);
-            let state_reason = device.state_reason().await.unwrap_or(0);
+            let (_, state_reason) = device.state_reason().await.unwrap_or((0, 0));
             let interface = device.interface().await.unwrap_or_default();
             let (speed, carrier) = match device_type {
                 "ethernet" => {
@@ -427,7 +465,13 @@ impl NetworkManagerClient {
             let uuid = active.uuid().await.unwrap_or_default();
             let raw_type = active.kind().await.unwrap_or_default();
             let state = active.state().await.unwrap_or(0);
-            let state_reason = active.state_reason().await.unwrap_or(0);
+            let state_reason = self
+                .active_connection_reasons
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .get(path.as_str())
+                .copied()
+                .unwrap_or(0);
             let vpn = active.vpn().await.unwrap_or(false);
 
             let mut device_path = String::new();
@@ -1285,6 +1329,48 @@ mod tests {
             Some(NetworkFailureClassification::AuthenticationFailed)
         );
         assert_eq!(active_connection_failure_classification(2, 10), None);
+    }
+
+    // NM Device.StateReason has D-Bus signature "(uu)" = (state, reason).
+    // The reason is at index 1; index 0 duplicates Device.State.
+    #[test]
+    fn device_state_reason_tuple_reason_is_second_element() {
+        // (state=120/failed, reason=9/no-secrets) — wifi auth failure
+        let state_reason: (u32, u32) = (120, 9);
+        let (_, reason) = state_reason;
+        assert_eq!(
+            device_failure_classification("wifi", state_reason.0, reason),
+            Some(NetworkFailureClassification::AuthenticationFailed)
+        );
+    }
+
+    // NM Connection.Active emits StateChanged(state, reason) signal; there is
+    // no StateReason property on this interface.  The cache is keyed by object path.
+    #[test]
+    fn active_connection_reason_cache_is_keyed_by_path() {
+        let cache: HashMap<String, u32> = HashMap::from([
+            (
+                "/org/freedesktop/NetworkManager/ActiveConnection/1".into(),
+                10, // auth-failed
+            ),
+            (
+                "/org/freedesktop/NetworkManager/ActiveConnection/2".into(),
+                0,
+            ),
+        ]);
+        let reason1 = cache
+            .get("/org/freedesktop/NetworkManager/ActiveConnection/1")
+            .copied()
+            .unwrap_or(0);
+        let reason2 = cache
+            .get("/org/freedesktop/NetworkManager/ActiveConnection/2")
+            .copied()
+            .unwrap_or(0);
+        assert_eq!(
+            active_connection_failure_classification(4, reason1),
+            Some(NetworkFailureClassification::AuthenticationFailed)
+        );
+        assert_eq!(active_connection_failure_classification(4, reason2), None);
     }
 
     #[test]

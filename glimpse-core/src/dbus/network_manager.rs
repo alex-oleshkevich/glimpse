@@ -56,7 +56,7 @@ pub trait Device {
     #[zbus(property)]
     fn state(&self) -> zbus::Result<u32>;
     #[zbus(property, name = "StateReason")]
-    fn state_reason(&self) -> zbus::Result<u32>;
+    fn state_reason(&self) -> zbus::Result<(u32, u32)>;
     #[zbus(property)]
     fn interface(&self) -> zbus::Result<String>;
     #[zbus(property, name = "HwAddress")]
@@ -132,8 +132,6 @@ pub trait ActiveConnection {
     fn kind(&self) -> zbus::Result<String>;
     #[zbus(property)]
     fn state(&self) -> zbus::Result<u32>;
-    #[zbus(property, name = "StateReason")]
-    fn state_reason(&self) -> zbus::Result<u32>;
     #[zbus(property)]
     fn vpn(&self) -> zbus::Result<bool>;
     #[zbus(property)]
