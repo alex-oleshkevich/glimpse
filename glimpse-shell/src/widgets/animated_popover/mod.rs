@@ -23,6 +23,13 @@ impl AnimatedPopover {
         glib::Object::builder().build()
     }
 
+    pub fn is_open(&self) -> bool {
+        matches!(
+            self.imp().state.get(),
+            AnimationState::Open | AnimationState::Opening
+        )
+    }
+
     pub fn toggle(&self) {
         let state = self.imp().state.get();
         tracing::debug!(?state, "AnimatedPopover::toggle");
@@ -46,14 +53,24 @@ impl AnimatedPopover {
         if !self.is_visible() {
             tracing::warn!("AnimatedPopover: not visible after popup()");
         }
-        // The actual `OPEN_CLASS` flip happens in the `connect_show` handler
-        // installed in `imp::AnimatedPopover::constructed`, deferred via
-        // `idle_add_local_once`. That sequence — show → idle → add class —
-        // guarantees one painted frame at the initial (opacity:0) state on
-        // every popover size, including the small ones used by
-        // battery/session. Tick / timeout heuristics aren't reliable across
-        // sizes because GTK collapses layout+paint into a single frame for
-        // small popovers.
+
+        // Schedule OPEN_CLASS here as a fallback for the case where popup()
+        // was called on an already-visible popover (e.g. toggle() during
+        // Closing): GTK does not re-fire `show` on a mapped widget, so the
+        // connect_show handler never runs. In the normal path both this idle
+        // and the show-handler idle are queued; the epoch+state guard ensures
+        // only the first one to run applies the class.
+        let weak = self.downgrade();
+        glib::idle_add_local_once(move || {
+            let Some(w) = weak.upgrade() else { return };
+            let imp = w.imp();
+            if imp.generation.get() != epoch || imp.state.get() != AnimationState::Opening {
+                return;
+            }
+            w.add_css_class(OPEN_CLASS);
+            imp.state.set(AnimationState::Open);
+            tracing::debug!("AnimatedPopover: open class applied (via open() idle)");
+        });
     }
 
     pub fn close(&self) {

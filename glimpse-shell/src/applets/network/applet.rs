@@ -183,6 +183,9 @@ impl SimpleComponent for Applet {
             Input::PopoverOutput(PopoverOutput::Command(command)) => {
                 self.send_command(command);
             }
+            Input::PopoverOutput(PopoverOutput::Closed) => {
+                self.send_command(Command::StopScanning);
+            }
         }
     }
 }

@@ -29,7 +29,7 @@ pub struct Popup {
     overflow: gtk::Label,
     timeout_ms: u32,
     visible_limit: usize,
-    popup_monitor: Option<String>,
+    popup_monitor: Rc<RefCell<Option<String>>>,
     theme_mode: ThemeMode,
     started_at: u64,
     surfaced: HashMap<u32, u64>,
@@ -151,13 +151,14 @@ impl SimpleComponent for Popup {
             &init.theme_mode,
         );
         theme::apply_theme_mode(&widgets.card_box, &init.theme_mode);
+        let popup_monitor = Rc::new(RefCell::new(init.popup_monitor));
         let model = Popup {
             window: widgets.root.clone(),
             card_box: widgets.card_box.clone(),
             overflow: widgets.overflow.clone(),
             timeout_ms: init.timeout_ms,
             visible_limit: normalize_visible_limit(init.visible_limit),
-            popup_monitor: init.popup_monitor,
+            popup_monitor: Rc::clone(&popup_monitor),
             theme_mode: init.theme_mode,
             started_at: format::now_ms(),
             surfaced: HashMap::new(),
@@ -165,11 +166,11 @@ impl SimpleComponent for Popup {
             time_tick: None,
         };
 
-        let window = widgets.root.clone();
-        let popup_monitor = model.popup_monitor.clone();
+        let window_weak = widgets.root.downgrade();
         if let Some(display) = gtk::gdk::Display::default() {
             display.monitors().connect_items_changed(move |_, _, _, _| {
-                apply_popup_monitor(&window, popup_monitor.as_deref());
+                let Some(window) = window_weak.upgrade() else { return };
+                apply_popup_monitor(&window, popup_monitor.borrow().as_deref());
             });
         }
 
@@ -213,10 +214,10 @@ impl SimpleComponent for Popup {
             } => {
                 self.timeout_ms = timeout_ms;
                 self.visible_limit = normalize_visible_limit(visible_limit);
-                self.popup_monitor = popup_monitor;
+                *self.popup_monitor.borrow_mut() = popup_monitor;
                 self.theme_mode = theme_mode;
                 apply_position(&self.window, position, margin_x, margin_y);
-                apply_popup_monitor(&self.window, self.popup_monitor.as_deref());
+                apply_popup_monitor(&self.window, self.popup_monitor.borrow().as_deref());
                 theme::apply_theme_mode(&self.window, &self.theme_mode);
                 theme::apply_theme_mode(&self.card_box, &self.theme_mode);
             }

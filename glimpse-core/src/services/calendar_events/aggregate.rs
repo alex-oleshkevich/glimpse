@@ -196,19 +196,26 @@ fn event_dates_in_month(
 }
 
 fn event_start_date(event: &CalendarEvent) -> Option<NaiveDate> {
-    parse_event_time(&event.start).map(|time| time.date_naive())
+    if event.all_day {
+        // All-day events are stored as UTC midnight; convert to Local would
+        // shift the date in negative-UTC-offset timezones.
+        DateTime::parse_from_rfc3339(&event.start)
+            .ok()
+            .map(|t| t.date_naive())
+    } else {
+        parse_event_time(&event.start).map(|t| t.date_naive())
+    }
 }
 
 fn event_end_date(event: &CalendarEvent) -> Option<NaiveDate> {
-    parse_event_time(&event.end).map(|time| {
-        if event.all_day {
-            time.date_naive()
-                .pred_opt()
-                .unwrap_or_else(|| time.date_naive())
-        } else {
-            time.date_naive()
-        }
-    })
+    if event.all_day {
+        let date = DateTime::parse_from_rfc3339(&event.end)
+            .ok()
+            .map(|t| t.date_naive())?;
+        Some(date.pred_opt().unwrap_or(date))
+    } else {
+        parse_event_time(&event.end).map(|t| t.date_naive())
+    }
 }
 
 fn parse_event_time(value: &str) -> Option<DateTime<Local>> {

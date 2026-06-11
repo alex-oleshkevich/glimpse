@@ -10,15 +10,23 @@ pub fn install_half_monitor_limit(
 ) {
     apply_half_monitor_limit(scroller, parent, Some(popover));
 
-    let parent = parent.clone();
+    let parent_weak = parent.downgrade();
+    let popover_weak = popover.downgrade();
     let scroller = scroller.clone();
-    popover.connect_show(move |popover| {
-        apply_half_monitor_limit(&scroller, &parent, Some(popover));
+    popover.connect_show(move |_| {
+        let (Some(parent), Some(popover)) = (parent_weak.upgrade(), popover_weak.upgrade()) else {
+            return;
+        };
+        apply_half_monitor_limit(&scroller, &parent, Some(&popover));
 
-        let popover = popover.clone();
-        let parent = parent.clone();
+        let parent_weak = parent_weak.clone();
+        let popover_weak = popover_weak.clone();
         let scroller = scroller.clone();
         glib::idle_add_local_once(move || {
+            let (Some(parent), Some(popover)) = (parent_weak.upgrade(), popover_weak.upgrade())
+            else {
+                return;
+            };
             apply_half_monitor_limit(&scroller, &parent, Some(&popover));
         });
     });

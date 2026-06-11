@@ -67,6 +67,7 @@ pub enum PopoverInput {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PopoverOutput {
     Command(Command),
+    Closed,
 }
 
 #[allow(unused_assignments)]
@@ -249,7 +250,11 @@ impl SimpleComponent for Popover {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
             PopoverInput::Toggle => {
+                let closing = self.popover.is_open();
                 self.popover.toggle();
+                if closing {
+                    let _ = sender.output(PopoverOutput::Closed);
+                }
             }
             PopoverInput::UpdateState(state) => {
                 self.powered = state.snapshot.status.powered;

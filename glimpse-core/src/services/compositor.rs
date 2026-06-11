@@ -1,5 +1,5 @@
 use tokio::sync::{mpsc, watch};
-use tokio::task::JoinHandle;
+use tokio::task::{JoinHandle, spawn_blocking};
 use tokio::time::{Duration, Instant, sleep};
 use tokio_util::sync::CancellationToken;
 
@@ -497,17 +497,18 @@ impl CompositorService {
             );
         }
 
-        let controller = match self.night_light_controller.as_mut() {
-            Some(controller) => controller,
-            None => {
-                self.night_light_controller = Some(WaylandNightLightController::connect()?);
-                self.night_light_controller
-                    .as_mut()
-                    .expect("controller initialized")
-            }
+        let mut controller = match self.night_light_controller.take() {
+            Some(c) => c,
+            None => WaylandNightLightController::connect()?,
         };
-        controller.apply_temperature(temperature_kelvin)?;
-        Ok(())
+        let (result, controller) = spawn_blocking(move || {
+            let result = controller.apply_temperature(temperature_kelvin);
+            (result, controller)
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("night light worker panicked: {e}"))?;
+        self.night_light_controller = Some(controller);
+        result
     }
 
     async fn reset_night_light(&mut self) -> anyhow::Result<()> {

@@ -35,6 +35,10 @@ pub fn event_time(event: &CalendarEvent, selected_date: NaiveDate, now: DateTime
         return format!("{} · {}", start.format("%H:%M"), duration);
     }
 
+    if now >= end {
+        return format!("{} · over", start.format("%H:%M"));
+    }
+
     if now >= start && now < end {
         return format!("now · ends {}", end.format("%H:%M"));
     }
@@ -96,13 +100,13 @@ mod tests {
     }
 
     #[test]
-    fn event_time_keeps_ended_today_event_visible_with_start_time() {
+    fn event_time_marks_ended_today_event_as_over() {
         let now = Local.with_ymd_and_hms(2026, 5, 26, 12, 0, 0).unwrap();
         let start = Local.with_ymd_and_hms(2026, 5, 26, 9, 0, 0).unwrap();
         let end = Local.with_ymd_and_hms(2026, 5, 26, 10, 0, 0).unwrap();
         let event = calendar_event("Past meeting", start, end);
 
-        assert_eq!(event_time(&event, now.date_naive(), now), "09:00 · 1 h");
+        assert_eq!(event_time(&event, now.date_naive(), now), "09:00 · over");
     }
 
     #[test]

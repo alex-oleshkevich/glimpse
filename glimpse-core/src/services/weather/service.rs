@@ -74,11 +74,12 @@ impl WeatherService {
                     }
                     Some(ServiceCommand::Control(Control::Start(_))) => {}
                     Some(ServiceCommand::Control(Control::Reconfigure(_))) => {
+                        abort_fetch(fetch.take());
+                        refresh_scheduled = false;
                         if uses_location_service(&config) {
-                            abort_fetch(fetch.take());
-                            refresh_scheduled = false;
                             request_location_refresh(&self.location).await;
                         }
+                        fetch = self.start_fetch(config.clone());
                     }
                 },
                 result = async {

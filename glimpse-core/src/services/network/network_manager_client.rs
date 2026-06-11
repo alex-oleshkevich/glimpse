@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::{Context, anyhow};
-use futures_util::{StreamExt, future};
+use futures_util::StreamExt;
 use tokio::{sync::mpsc, time::Instant};
 use tokio_util::sync::CancellationToken;
 use zbus::{
@@ -29,6 +29,7 @@ use super::{
 
 const NM_SERVICE: &str = "org.freedesktop.NetworkManager";
 const LISTENER_DEBOUNCE: Duration = Duration::from_millis(300);
+const LISTENER_MAX_LATENCY: Duration = Duration::from_millis(1500);
 
 #[derive(Clone)]
 pub struct NetworkManagerClient {
@@ -110,6 +111,7 @@ impl NetworkManagerClient {
 
         let mut pending_reason: Option<NetworkChangeReason> = None;
         let mut debounce_deadline: Option<Instant> = None;
+        let mut burst_deadline: Option<Instant> = None;
 
         loop {
             tokio::select! {
@@ -123,6 +125,7 @@ impl NetworkManagerClient {
                             tracing::debug!("network: properties changed signal received");
                             pending_reason = Some(merge_change_reason(pending_reason, NetworkChangeReason::PropertiesChanged));
                             debounce_deadline = Some(Instant::now() + LISTENER_DEBOUNCE);
+                            burst_deadline.get_or_insert_with(|| Instant::now() + LISTENER_MAX_LATENCY);
                         }
                         Some(Ok(_)) => {}
                         Some(Err(error)) => tracing::warn!(error = %error, "network: properties stream error"),
@@ -135,6 +138,7 @@ impl NetworkManagerClient {
                             tracing::debug!("network: device added signal received");
                             pending_reason = Some(merge_change_reason(pending_reason, NetworkChangeReason::DeviceAdded));
                             debounce_deadline = Some(Instant::now() + LISTENER_DEBOUNCE);
+                            burst_deadline.get_or_insert_with(|| Instant::now() + LISTENER_MAX_LATENCY);
                         }
                         Some(Ok(_)) => {}
                         Some(Err(error)) => tracing::warn!(error = %error, "network: device-added stream error"),
@@ -147,6 +151,7 @@ impl NetworkManagerClient {
                             tracing::debug!("network: device removed signal received");
                             pending_reason = Some(merge_change_reason(pending_reason, NetworkChangeReason::DeviceRemoved));
                             debounce_deadline = Some(Instant::now() + LISTENER_DEBOUNCE);
+                            burst_deadline.get_or_insert_with(|| Instant::now() + LISTENER_MAX_LATENCY);
                         }
                         Some(Ok(_)) => {}
                         Some(Err(error)) => tracing::warn!(error = %error, "network: device-removed stream error"),
@@ -159,6 +164,7 @@ impl NetworkManagerClient {
                             tracing::debug!("network: access point added signal received");
                             pending_reason = Some(merge_change_reason(pending_reason, NetworkChangeReason::AccessPointAdded));
                             debounce_deadline = Some(Instant::now() + LISTENER_DEBOUNCE);
+                            burst_deadline.get_or_insert_with(|| Instant::now() + LISTENER_MAX_LATENCY);
                         }
                         Some(Ok(_)) => {}
                         Some(Err(error)) => tracing::warn!(error = %error, "network: access-point-added stream error"),
@@ -171,6 +177,7 @@ impl NetworkManagerClient {
                             tracing::debug!("network: access point removed signal received");
                             pending_reason = Some(merge_change_reason(pending_reason, NetworkChangeReason::AccessPointRemoved));
                             debounce_deadline = Some(Instant::now() + LISTENER_DEBOUNCE);
+                            burst_deadline.get_or_insert_with(|| Instant::now() + LISTENER_MAX_LATENCY);
                         }
                         Some(Ok(_)) => {}
                         Some(Err(error)) => tracing::warn!(error = %error, "network: access-point-removed stream error"),
@@ -198,6 +205,7 @@ impl NetworkManagerClient {
                                         drop(reasons);
                                         pending_reason = Some(merge_change_reason(pending_reason, NetworkChangeReason::PropertiesChanged));
                                         debounce_deadline = Some(Instant::now() + LISTENER_DEBOUNCE);
+                                        burst_deadline.get_or_insert_with(|| Instant::now() + LISTENER_MAX_LATENCY);
                                     }
                                 }
                             }
@@ -207,13 +215,17 @@ impl NetworkManagerClient {
                     }
                 }
                 _ = async {
-                    match debounce_deadline {
-                        Some(deadline) => tokio::time::sleep_until(deadline).await,
-                        None => future::pending::<()>().await,
-                    }
-                }, if debounce_deadline.is_some() => {
+                    let effective = match (debounce_deadline, burst_deadline) {
+                        (Some(d), Some(b)) => d.min(b),
+                        (Some(d), None) => d,
+                        (None, Some(b)) => b,
+                        (None, None) => return,
+                    };
+                    tokio::time::sleep_until(effective).await
+                }, if debounce_deadline.is_some() || burst_deadline.is_some() => {
                     let reason = pending_reason.take().unwrap_or(NetworkChangeReason::Mixed);
                     debounce_deadline = None;
+                    burst_deadline = None;
                     tracing::debug!(reason = %reason, "network: change event emitted");
                     if events.send(NetworkEvent::Changed { reason }).await.is_err() {
                         tracing::info!("network: listener receiver dropped");

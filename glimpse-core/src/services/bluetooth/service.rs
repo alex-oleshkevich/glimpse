@@ -92,6 +92,7 @@ impl BluetoothService {
         let (event_tx, mut event_rx) = mpsc::channel(EVENT_QUEUE_SIZE);
         let listener_cancel = CancellationToken::new();
         let listener = spawn_bluez_listener(self.client.clone(), event_tx, listener_cancel.clone());
+        let mut device_op: Option<tokio::task::JoinHandle<anyhow::Result<bool>>> = None;
 
         let outcome = loop {
             tokio::select! {
@@ -108,7 +109,18 @@ impl BluetoothService {
                 },
                 command = self.command_rx.recv() => match command {
                     Some(ServiceCommand::Command(command)) => {
-                        if self.execute_command(command).await {
+                        if is_device_operation(&command) {
+                            let action = active_action_for(&command);
+                            if action.is_some() && self.state_tx.borrow().active_action.is_some() {
+                                tracing::warn!("bluetooth: command ignored while another action is active");
+                            } else {
+                                if let Some(action) = action {
+                                    self.update_state(|state| state.active_action = Some(action));
+                                }
+                                let client = self.client.clone();
+                                device_op = Some(tokio::spawn(run_device_operation(client, command)));
+                            }
+                        } else if self.execute_command(command).await {
                             if let Err(error) = self.refresh_snapshot().await {
                                 tracing::warn!(error = %error, "bluetooth: refresh failed after command");
                                 self.set_degraded("Bluetooth data is stale");
@@ -120,12 +132,38 @@ impl BluetoothService {
                         Control::Shutdown => break Ok(RunOutcome::Cancelled),
                     },
                     None => break Ok(RunOutcome::Cancelled),
+                },
+                result = async { device_op.as_mut().unwrap().await }, if device_op.is_some() => {
+                    device_op = None;
+                    self.update_state(|state| state.active_action = None);
+                    let should_refresh = match result {
+                        Ok(Ok(r)) => r,
+                        Ok(Err(error)) => {
+                            tracing::warn!(error = %error, "bluetooth command failed");
+                            true
+                        }
+                        Err(error) if error.is_cancelled() => false,
+                        Err(error) => {
+                            tracing::warn!(error = %error, "bluetooth: device op task failed");
+                            true
+                        }
+                    };
+                    if should_refresh {
+                        if let Err(error) = self.refresh_snapshot().await {
+                            tracing::warn!(error = %error, "bluetooth: refresh failed after command");
+                            self.set_degraded("Bluetooth data is stale");
+                        }
+                    }
                 }
             }
         };
 
         listener_cancel.cancel();
         let _ = listener.await;
+        if let Some(op) = device_op {
+            op.abort();
+            self.update_state(|state| state.active_action = None);
+        }
 
         outcome
     }
@@ -218,50 +256,7 @@ impl BluetoothService {
                     .context("bluetooth: stop_discovery timed out")??;
                 Ok(true)
             }
-            Command::Connect { address } => {
-                timeout(DEVICE_OP_TIMEOUT, self.client.connect(&address))
-                    .await
-                    .context("bluetooth: connect timed out")??;
-                Ok(true)
-            }
-            Command::Disconnect { address } => {
-                timeout(DEVICE_OP_TIMEOUT, self.client.disconnect(&address))
-                    .await
-                    .context("bluetooth: disconnect timed out")??;
-                Ok(true)
-            }
-            Command::Pair { address } => {
-                tracing::debug!(address = %address, "bluetooth: pair command started");
-                timeout(PAIR_TIMEOUT, self.client.pair(&address))
-                    .await
-                    .context("bluetooth: pair timed out")??;
-                tracing::debug!(address = %address, "bluetooth: pair command finished");
-                Ok(true)
-            }
-            Command::Trust { address, trusted } => {
-                tracing::debug!(
-                    address = %address,
-                    trusted,
-                    "bluetooth: trust command started"
-                );
-                timeout(DBUS_TIMEOUT, self.client.trust(&address, trusted))
-                    .await
-                    .context("bluetooth: trust timed out")??;
-                tracing::debug!(
-                    address = %address,
-                    trusted,
-                    "bluetooth: trust command finished"
-                );
-                Ok(true)
-            }
-            Command::Forget { address } => {
-                tracing::debug!(address = %address, "bluetooth: forget command started");
-                timeout(DBUS_TIMEOUT, self.client.forget(&address))
-                    .await
-                    .context("bluetooth: forget timed out")??;
-                tracing::debug!(address = %address, "bluetooth: forget command finished");
-                Ok(true)
-            }
+            _ => unreachable!("device operations are routed through run_device_operation"),
         }
     }
 
@@ -285,6 +280,59 @@ impl BluetoothService {
         if let Err(error) = self.state_tx.send(state) {
             tracing::error!("failed to send new bluetooth state: {:?}", error);
         }
+    }
+}
+
+fn is_device_operation(command: &Command) -> bool {
+    matches!(
+        command,
+        Command::Connect { .. }
+            | Command::Disconnect { .. }
+            | Command::Pair { .. }
+            | Command::Trust { .. }
+            | Command::Forget { .. }
+    )
+}
+
+async fn run_device_operation(client: BluezClient, command: Command) -> anyhow::Result<bool> {
+    match command {
+        Command::Connect { address } => {
+            timeout(DEVICE_OP_TIMEOUT, client.connect(&address))
+                .await
+                .context("bluetooth: connect timed out")??;
+            Ok(true)
+        }
+        Command::Disconnect { address } => {
+            timeout(DEVICE_OP_TIMEOUT, client.disconnect(&address))
+                .await
+                .context("bluetooth: disconnect timed out")??;
+            Ok(true)
+        }
+        Command::Pair { address } => {
+            tracing::debug!(address = %address, "bluetooth: pair command started");
+            timeout(PAIR_TIMEOUT, client.pair(&address))
+                .await
+                .context("bluetooth: pair timed out")??;
+            tracing::debug!(address = %address, "bluetooth: pair command finished");
+            Ok(true)
+        }
+        Command::Trust { address, trusted } => {
+            tracing::debug!(address = %address, trusted, "bluetooth: trust command started");
+            timeout(DBUS_TIMEOUT, client.trust(&address, trusted))
+                .await
+                .context("bluetooth: trust timed out")??;
+            tracing::debug!(address = %address, trusted, "bluetooth: trust command finished");
+            Ok(true)
+        }
+        Command::Forget { address } => {
+            tracing::debug!(address = %address, "bluetooth: forget command started");
+            timeout(DBUS_TIMEOUT, client.forget(&address))
+                .await
+                .context("bluetooth: forget timed out")??;
+            tracing::debug!(address = %address, "bluetooth: forget command finished");
+            Ok(true)
+        }
+        _ => unreachable!("is_device_operation should prevent reaching here"),
     }
 }
 
