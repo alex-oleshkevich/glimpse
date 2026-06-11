@@ -248,6 +248,22 @@ async fn inspect_session_candidate(
     candidate
 }
 
+pub async fn read_current_session_locked_hint() -> anyhow::Result<bool> {
+    let system = zbus::Connection::system()
+        .await
+        .context("connect to system D-Bus")?;
+    let manager = Login1ManagerProxy::new(&system)
+        .await
+        .context("create logind manager proxy")?;
+    let session_path = current_session_path(&system, &manager).await?;
+    let session = Login1SessionProxy::builder(&system)
+        .path(session_path.clone())?
+        .build()
+        .await
+        .with_context(|| format!("create logind session proxy for {session_path}"))?;
+    session.locked_hint().await.context("read logind LockedHint")
+}
+
 pub async fn set_current_session_locked_hint(locked: bool) -> anyhow::Result<()> {
     let system = zbus::Connection::system()
         .await

@@ -89,12 +89,22 @@ fn main() -> anyhow::Result<()> {
         let _runtime_guard = runtime.enter();
         app::run_preview(config, gtk_args)
     } else {
+        let lock_on_start = runtime
+            .block_on(logind::read_current_session_locked_hint())
+            .unwrap_or_else(|error| {
+                tracing::warn!(%error, "failed to read logind LockedHint; assuming unlocked");
+                false
+            });
+        if lock_on_start {
+            tracing::info!("logind LockedHint=true at startup; will re-acquire session lock");
+        }
         let _runtime_guard = runtime.enter();
         app::run(
             config,
             gtk_args,
             instance_guard.as_ref().map(|guard| guard.connection()),
             api_state.clone(),
+            lock_on_start,
         )
     };
     if !preview

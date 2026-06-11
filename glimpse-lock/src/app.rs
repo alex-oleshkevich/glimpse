@@ -100,6 +100,7 @@ pub struct AppInit {
     pub mode: LockMode,
     pub api_connection: Option<zbus::Connection>,
     pub api_state: LockApiState,
+    pub lock_on_start: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -385,6 +386,10 @@ impl SimpleComponent for LockApp {
         start_clock_refresh(&sender);
         if model.services.battery.is_none() || model.services.network.is_none() {
             sender.input(AppCommand::RefreshControls);
+        }
+        if init.lock_on_start && model.mode == LockMode::Resident {
+            tracing::info!("logind LockedHint was set at startup; re-acquiring session lock");
+            sender.input(AppCommand::RequestLock);
         }
         tracing::info!(
             pam_service = %model.spec.pam_service,
@@ -899,6 +904,7 @@ pub fn run(
     args: Vec<String>,
     api_connection: Option<zbus::Connection>,
     api_state: LockApiState,
+    lock_on_start: bool,
 ) -> anyhow::Result<()> {
     let app = RelmApp::new(GTK_APPLICATION_ID);
     app.allow_multiple_instances(true);
@@ -910,6 +916,7 @@ pub fn run(
             mode: LockMode::Resident,
             api_connection,
             api_state,
+            lock_on_start,
         });
     Ok(())
 }
@@ -925,6 +932,7 @@ pub fn run_preview(config: LockAppConfig, args: Vec<String>) -> anyhow::Result<(
             mode: LockMode::Preview,
             api_connection: None,
             api_state: LockApiState::default(),
+            lock_on_start: false,
         });
     Ok(())
 }

@@ -55,6 +55,8 @@ pub trait Login1Session {
     fn set_locked_hint(&self, locked: bool) -> zbus::Result<()>;
     fn set_brightness(&self, subsystem: &str, name: &str, brightness: u32) -> zbus::Result<()>;
 
+    #[zbus(property, name = "LockedHint")]
+    fn locked_hint(&self) -> zbus::Result<bool>;
     #[zbus(property)]
     fn active(&self) -> zbus::Result<bool>;
     #[zbus(property, name = "Class")]
