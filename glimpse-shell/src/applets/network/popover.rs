@@ -968,6 +968,7 @@ struct SegmentedCommandRow {
     status: gtk::Label,
     command: Rc<RefCell<Command>>,
     details: KeyValueGrid,
+    model: Option<CommandRowModel>,
 }
 
 impl SegmentedCommandRow {
@@ -996,18 +997,22 @@ impl SegmentedCommandRow {
             move |_| sender.input(PopoverInput::RowCommand(command.borrow().clone()))
         });
 
-        let row = Self {
+        let mut row = Self {
             root,
             icon,
             status,
             command,
             details,
+            model: None,
         };
         row.update(model);
         row
     }
 
-    fn update(&self, model: &CommandRowModel) {
+    fn update(&mut self, model: &CommandRowModel) {
+        if self.model.as_ref() == Some(model) {
+            return;
+        }
         self.root.set_primary(&model.label);
         self.root.set_tooltip_text(Some(&model.tooltip));
         self.icon.set_icon_name(Some(&model.icon));
@@ -1026,6 +1031,7 @@ impl SegmentedCommandRow {
         for row in &model.details {
             self.details.add_row(row.key, &row.value);
         }
+        self.model = Some(model.clone());
     }
 
     fn widget(&self) -> &gtk::Widget {
@@ -1038,6 +1044,7 @@ struct SimpleCommandRow {
     icon: gtk::Image,
     status: gtk::Label,
     command: Rc<RefCell<Command>>,
+    model: Option<CommandRowModel>,
 }
 
 impl SimpleCommandRow {
@@ -1063,17 +1070,21 @@ impl SimpleCommandRow {
             move |_| sender.input(PopoverInput::RowCommand(command.borrow().clone()))
         });
 
-        let row = Self {
+        let mut row = Self {
             root,
             icon,
             status,
             command,
+            model: None,
         };
         row.update(model);
         row
     }
 
-    fn update(&self, model: &CommandRowModel) {
+    fn update(&mut self, model: &CommandRowModel) {
+        if self.model.as_ref() == Some(model) {
+            return;
+        }
         self.root.set_primary(&model.label);
         self.root.set_tooltip_text(Some(&model.tooltip));
         self.icon.set_icon_name(Some(&model.icon));
@@ -1087,6 +1098,7 @@ impl SimpleCommandRow {
         } else {
             self.root.set_right(None::<gtk::Widget>);
         }
+        self.model = Some(model.clone());
     }
 
     fn widget(&self) -> &gtk::Widget {
@@ -1098,6 +1110,7 @@ struct StaticRow {
     root: Tile,
     icon: gtk::Image,
     status: gtk::Label,
+    model: Option<StaticRowModel>,
 }
 
 impl StaticRow {
@@ -1116,12 +1129,15 @@ impl StaticRow {
         status.add_css_class("numeric");
         status.set_valign(gtk::Align::Center);
 
-        let row = Self { root, icon, status };
+        let mut row = Self { root, icon, status, model: None };
         row.update(model);
         row
     }
 
-    fn update(&self, model: &StaticRowModel) {
+    fn update(&mut self, model: &StaticRowModel) {
+        if self.model.as_ref() == Some(model) {
+            return;
+        }
         self.root.set_primary(&model.label);
         self.root.set_tooltip_text(Some(&model.tooltip));
         self.icon.set_icon_name(Some(&model.icon));
@@ -1138,6 +1154,7 @@ impl StaticRow {
         } else {
             self.root.set_right(None::<gtk::Widget>);
         }
+        self.model = Some(model.clone());
     }
 
     fn widget(&self) -> &gtk::Widget {

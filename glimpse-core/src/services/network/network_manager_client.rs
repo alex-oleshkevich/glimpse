@@ -57,8 +57,8 @@ impl NetworkManagerClient {
         let manager = self.manager_proxy().await?;
         let mut status = NetworkStatus {
             connectivity: connectivity_text(manager.connectivity().await.unwrap_or(0)).into(),
-            enabled: manager.networking_enabled().await.unwrap_or(false),
-            wifi_enabled: manager.wireless_enabled().await.unwrap_or(false),
+            enabled: manager.networking_enabled().await?,
+            wifi_enabled: manager.wireless_enabled().await?,
             wifi_hw_enabled: manager.wireless_hardware_enabled().await.unwrap_or(false),
             metered: matches!(manager.metered().await.unwrap_or(0), 1 | 3),
             icon: "network-offline-symbolic".into(),
@@ -475,6 +475,10 @@ impl NetworkManagerClient {
             let active = self.active_connection_proxy(path.as_str()).await?;
             let id = active.id().await.unwrap_or_default();
             let uuid = active.uuid().await.unwrap_or_default();
+            if id.is_empty() && uuid.is_empty() {
+                tracing::debug!(path = %path, "network: skipping connection with unreadable id/uuid (object likely vanished)");
+                continue;
+            }
             let raw_type = active.kind().await.unwrap_or_default();
             let state = active.state().await.unwrap_or(0);
             let state_reason = self
