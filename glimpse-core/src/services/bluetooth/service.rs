@@ -5,7 +5,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use tokio::{
     sync::{mpsc, watch},
-    time::sleep,
+    time::{sleep, timeout},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -18,6 +18,9 @@ use super::{
 const COMMAND_QUEUE_SIZE: usize = 16;
 const EVENT_QUEUE_SIZE: usize = 32;
 const RETRY_DELAY: Duration = Duration::from_secs(2);
+const DBUS_TIMEOUT: Duration = Duration::from_secs(5);
+const DEVICE_OP_TIMEOUT: Duration = Duration::from_secs(30);
+const PAIR_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub type BluetoothHandle = ServiceHandle<State, Command>;
 
@@ -128,7 +131,9 @@ impl BluetoothService {
     }
 
     async fn refresh_snapshot(&self) -> anyhow::Result<()> {
-        let snapshot = self.client.scan().await?;
+        let snapshot = timeout(DBUS_TIMEOUT, self.client.scan())
+            .await
+            .context("bluetooth: scan timed out")??;
         self.update_state(|state| {
             if !matches!(state.health, BluetoothServiceHealth::Degraded { .. }) {
                 state.health = BluetoothServiceHealth::Ready;
@@ -171,46 +176,65 @@ impl BluetoothService {
     async fn execute_client_command(&self, command: Command) -> anyhow::Result<bool> {
         match command {
             Command::SetPowered(powered) => {
-                self.client.set_powered(powered).await?;
+                timeout(DBUS_TIMEOUT, self.client.set_powered(powered))
+                    .await
+                    .context("bluetooth: set_powered timed out")??;
                 Ok(true)
             }
             Command::SetAdapterPowered {
                 adapter_path,
                 powered,
             } => {
-                self.client
-                    .set_adapter_powered(&adapter_path, powered)
-                    .await?;
+                timeout(
+                    DBUS_TIMEOUT,
+                    self.client.set_adapter_powered(&adapter_path, powered),
+                )
+                .await
+                .context("bluetooth: set_adapter_powered timed out")??;
                 Ok(true)
             }
             Command::SetAdapterDiscoverable {
                 adapter_path,
                 discoverable,
             } => {
-                self.client
-                    .set_adapter_discoverable(&adapter_path, discoverable)
-                    .await?;
+                timeout(
+                    DBUS_TIMEOUT,
+                    self.client
+                        .set_adapter_discoverable(&adapter_path, discoverable),
+                )
+                .await
+                .context("bluetooth: set_adapter_discoverable timed out")??;
                 Ok(true)
             }
             Command::StartDiscovery => {
-                self.client.start_discovery().await?;
+                timeout(DBUS_TIMEOUT, self.client.start_discovery())
+                    .await
+                    .context("bluetooth: start_discovery timed out")??;
                 Ok(true)
             }
             Command::StopDiscovery => {
-                self.client.stop_discovery().await?;
+                timeout(DBUS_TIMEOUT, self.client.stop_discovery())
+                    .await
+                    .context("bluetooth: stop_discovery timed out")??;
                 Ok(true)
             }
             Command::Connect { address } => {
-                self.client.connect(&address).await?;
+                timeout(DEVICE_OP_TIMEOUT, self.client.connect(&address))
+                    .await
+                    .context("bluetooth: connect timed out")??;
                 Ok(true)
             }
             Command::Disconnect { address } => {
-                self.client.disconnect(&address).await?;
+                timeout(DEVICE_OP_TIMEOUT, self.client.disconnect(&address))
+                    .await
+                    .context("bluetooth: disconnect timed out")??;
                 Ok(true)
             }
             Command::Pair { address } => {
                 tracing::debug!(address = %address, "bluetooth: pair command started");
-                self.client.pair(&address).await?;
+                timeout(PAIR_TIMEOUT, self.client.pair(&address))
+                    .await
+                    .context("bluetooth: pair timed out")??;
                 tracing::debug!(address = %address, "bluetooth: pair command finished");
                 Ok(true)
             }
@@ -220,7 +244,9 @@ impl BluetoothService {
                     trusted,
                     "bluetooth: trust command started"
                 );
-                self.client.trust(&address, trusted).await?;
+                timeout(DBUS_TIMEOUT, self.client.trust(&address, trusted))
+                    .await
+                    .context("bluetooth: trust timed out")??;
                 tracing::debug!(
                     address = %address,
                     trusted,
@@ -230,7 +256,9 @@ impl BluetoothService {
             }
             Command::Forget { address } => {
                 tracing::debug!(address = %address, "bluetooth: forget command started");
-                self.client.forget(&address).await?;
+                timeout(DBUS_TIMEOUT, self.client.forget(&address))
+                    .await
+                    .context("bluetooth: forget timed out")??;
                 tracing::debug!(address = %address, "bluetooth: forget command finished");
                 Ok(true)
             }

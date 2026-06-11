@@ -4,12 +4,13 @@ use std::{
 };
 
 use tokio::sync::{oneshot, watch};
-use tokio::time::{Duration, sleep};
+use tokio::time::{Duration, sleep, timeout};
 use tokio_util::sync::CancellationToken;
 use zbus::zvariant::{OwnedValue, Value};
 use zeroize::Zeroizing;
 
 const AGENT_PATH: &str = "/org/freedesktop/NetworkManager/SecretAgent";
+const DBUS_TIMEOUT: Duration = Duration::from_secs(5);
 const WIFI_SECURITY_SETTING: &str = "802-11-wireless-security";
 const WIFI_PSK_KEY: &str = "psk";
 const SECRET_CONTENT_TYPE: &str = "text/plain";
@@ -237,20 +238,25 @@ impl NetworkSecretAgent {
         .await?;
 
         tracing::debug!(agent_id, "network-secret-agent: unregistering stale agent");
-        let _ = agent_mgr
-            .call::<_, _, ()>("Unregister", &(agent_id.as_str(),))
-            .await;
+        let _ = timeout(
+            DBUS_TIMEOUT,
+            agent_mgr.call::<_, _, ()>("Unregister", &(agent_id.as_str(),)),
+        )
+        .await;
 
         tracing::debug!(
             agent_id,
             "network-secret-agent: registering with NetworkManager"
         );
-        agent_mgr
-            .call::<_, _, ()>("Register", &(agent_id.as_str(),))
-            .await
-            .map_err(|error| {
-                zbus::Error::Failure(format!("failed to register network secret agent: {error}"))
-            })?;
+        timeout(
+            DBUS_TIMEOUT,
+            agent_mgr.call::<_, _, ()>("Register", &(agent_id.as_str(),)),
+        )
+        .await
+        .map_err(|_| zbus::Error::Failure("network secret agent registration timed out".into()))?
+        .map_err(|error| {
+            zbus::Error::Failure(format!("failed to register network secret agent: {error}"))
+        })?;
 
         tracing::info!(agent_id, "network-secret-agent: registered");
         Ok(())
@@ -268,9 +274,11 @@ impl NetworkSecretAgent {
         )
         .await?;
 
-        let _ = agent_mgr
-            .call::<_, _, ()>("Unregister", &(agent_id.as_str(),))
-            .await;
+        let _ = timeout(
+            DBUS_TIMEOUT,
+            agent_mgr.call::<_, _, ()>("Unregister", &(agent_id.as_str(),)),
+        )
+        .await;
         let _ = self
             .conn
             .object_server()

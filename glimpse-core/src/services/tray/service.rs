@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use tokio::{
     sync::{mpsc, watch},
-    time::sleep,
+    time::{sleep, timeout},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -18,6 +18,7 @@ use super::{
 const COMMAND_QUEUE_SIZE: usize = 32;
 const EVENT_QUEUE_SIZE: usize = 64;
 const RETRY_DELAY: Duration = Duration::from_secs(2);
+const DBUS_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub type TrayHandle = ServiceHandle<State, Command>;
 
@@ -160,38 +161,59 @@ impl TrayService {
 
 async fn execute_command(client: &TrayClient, command: Command) -> anyhow::Result<()> {
     match command {
-        Command::Activate { address, x, y } => client.activate(address, x, y).await,
+        Command::Activate { address, x, y } => {
+            timeout(DBUS_TIMEOUT, client.activate(address, x, y))
+                .await
+                .context("tray: activate timed out")??
+        }
         Command::SecondaryActivate { address, x, y } => {
-            client.secondary_activate(&address, x, y).await
+            timeout(DBUS_TIMEOUT, client.secondary_activate(&address, x, y))
+                .await
+                .context("tray: secondary_activate timed out")??
         }
         Command::OpenContextMenu { address, x, y } => {
-            client.open_context_menu(&address, x, y).await
+            timeout(DBUS_TIMEOUT, client.open_context_menu(&address, x, y))
+                .await
+                .context("tray: open_context_menu timed out")??
         }
         Command::Scroll {
             address,
             delta,
             orientation,
         } => {
-            client
-                .scroll(&address, delta, orientation.as_dbus_str())
-                .await
+            timeout(
+                DBUS_TIMEOUT,
+                client.scroll(&address, delta, orientation.as_dbus_str()),
+            )
+            .await
+            .context("tray: scroll timed out")??
         }
         Command::AboutToShowMenu {
             address,
             menu_path,
             item_id,
         } => {
-            client
-                .about_to_show_menu(address, menu_path, item_id)
-                .await?;
-            Ok(())
+            timeout(
+                DBUS_TIMEOUT,
+                client.about_to_show_menu(address, menu_path, item_id),
+            )
+            .await
+            .context("tray: about_to_show_menu timed out")??;
         }
         Command::ActivateMenuItem {
             address,
             menu_path,
             item_id,
-        } => client.activate_menu_item(address, menu_path, item_id).await,
+        } => {
+            timeout(
+                DBUS_TIMEOUT,
+                client.activate_menu_item(address, menu_path, item_id),
+            )
+            .await
+            .context("tray: activate_menu_item timed out")??
+        }
     }
+    Ok(())
 }
 
 fn spawn_tray_listener(
