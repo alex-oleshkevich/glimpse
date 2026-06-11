@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [features]
-default = ["dev"]
+default = []
 dev = ["glimpse-core/dev"]
 
 [dependencies]
