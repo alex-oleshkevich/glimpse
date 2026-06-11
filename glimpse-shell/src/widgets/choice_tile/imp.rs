@@ -35,6 +35,7 @@ impl ObjectSubclass for ChoiceTile {
 impl ObjectImpl for ChoiceTile {
     fn constructed(&self) {
         self.parent_constructed();
+        self.obj().set_focusable(true);
 
         let obj = self.obj().downgrade();
         let gesture = gtk4::GestureClick::new();
@@ -44,6 +45,23 @@ impl ObjectImpl for ChoiceTile {
             }
         });
         self.obj().add_controller(gesture);
+
+        let key_ctrl = gtk4::EventControllerKey::new();
+        let obj = self.obj().downgrade();
+        key_ctrl.connect_key_pressed(move |_, key, _, _| {
+            if let Some(tile) = obj.upgrade() {
+                if matches!(
+                    key,
+                    gtk4::gdk::Key::Return | gtk4::gdk::Key::KP_Enter | gtk4::gdk::Key::space
+                ) {
+                    tile.emit_by_name::<()>("activated", &[]);
+                    return glib::Propagation::Stop;
+                }
+            }
+            glib::Propagation::Proceed
+        });
+        self.obj().add_controller(key_ctrl);
+
         self.obj()
             .add_controller(gtk4::EventControllerMotion::new());
     }

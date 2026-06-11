@@ -41,6 +41,7 @@ impl ObjectSubclass for ExpanderTile {
 impl ObjectImpl for ExpanderTile {
     fn constructed(&self) {
         self.parent_constructed();
+        self.header.set_focusable(true);
 
         let obj = self.obj().downgrade();
         let gesture = gtk4::GestureClick::new();
@@ -54,6 +55,25 @@ impl ObjectImpl for ExpanderTile {
             }
         });
         self.header.add_controller(gesture);
+
+        let key_ctrl = gtk4::EventControllerKey::new();
+        let obj = self.obj().downgrade();
+        key_ctrl.connect_key_pressed(move |_, key, _, _| {
+            if let Some(tile) = obj.upgrade() {
+                if matches!(
+                    key,
+                    gtk4::gdk::Key::Return | gtk4::gdk::Key::KP_Enter | gtk4::gdk::Key::space
+                ) {
+                    let new_state = !tile.imp().expanded.get();
+                    tile.apply_expanded(new_state);
+                    tile.emit_by_name::<()>("expanded", &[&new_state]);
+                    return glib::Propagation::Stop;
+                }
+            }
+            glib::Propagation::Proceed
+        });
+        self.header.add_controller(key_ctrl);
+
         self.header
             .add_controller(gtk4::EventControllerMotion::new());
     }

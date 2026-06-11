@@ -57,6 +57,7 @@ impl Tile {
 
     pub fn set_activatable(&self, v: bool) {
         self.imp().activatable.set(v);
+        self.set_focusable(v);
         if v {
             self.add_css_class("activatable");
         } else {

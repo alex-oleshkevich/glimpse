@@ -48,6 +48,26 @@ impl ObjectImpl for Tile {
         });
         self.obj().add_controller(gesture);
 
+        let key_ctrl = gtk4::EventControllerKey::new();
+        let obj = self.obj().downgrade();
+        key_ctrl.connect_key_pressed(move |_, key, _, _| {
+            if let Some(tile) = obj.upgrade() {
+                if tile.imp().activatable.get()
+                    && matches!(
+                        key,
+                        gtk4::gdk::Key::Return
+                            | gtk4::gdk::Key::KP_Enter
+                            | gtk4::gdk::Key::space
+                    )
+                {
+                    tile.emit_by_name::<()>("activated", &[]);
+                    return glib::Propagation::Stop;
+                }
+            }
+            glib::Propagation::Proceed
+        });
+        self.obj().add_controller(key_ctrl);
+
         self.obj()
             .add_controller(gtk4::EventControllerMotion::new());
     }

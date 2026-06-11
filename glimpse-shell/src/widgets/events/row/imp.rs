@@ -50,14 +50,17 @@ impl EventRow {
 }
 
 fn format_event_title(text: &str) -> String {
+    const LINE: usize = 40;
     let mut chars = text.chars();
-    let first: String = chars.by_ref().take(40).collect();
-    let rest: String = chars.collect();
-
-    if rest.is_empty() {
-        first
+    let first: String = chars.by_ref().take(LINE).collect();
+    let second: String = chars.by_ref().take(LINE).collect();
+    if second.is_empty() {
+        return first;
+    }
+    if chars.next().is_some() {
+        format!("{first}\n{second}…")
     } else {
-        format!("{first}\n{rest}")
+        format!("{first}\n{second}")
     }
 }
 
@@ -87,6 +90,32 @@ mod tests {
             format_event_title("ą234567890123456789012345678901234567890ABCDE"),
             "ą234567890123456789012345678901234567890\nABCDE"
         );
+    }
+
+    #[test]
+    fn event_title_second_line_is_capped_at_forty_chars_with_ellipsis() {
+        let long = format!(
+            "{}{}X",
+            "1234567890".repeat(4),
+            "abcdefghij".repeat(4),
+        );
+        let result = format_event_title(&long);
+        let mut lines = result.lines();
+        assert_eq!(lines.next().unwrap().chars().count(), 40);
+        let line2 = lines.next().unwrap();
+        assert!(line2.ends_with('…'), "expected ellipsis, got: {line2}");
+        assert_eq!(line2.chars().count(), 41); // 40 + '…'
+    }
+
+    #[test]
+    fn event_title_exactly_eighty_chars_needs_no_ellipsis() {
+        let text: String = "A".repeat(80);
+        let result = format_event_title(&text);
+        let mut lines = result.lines();
+        assert_eq!(lines.next().unwrap().chars().count(), 40);
+        let line2 = lines.next().unwrap();
+        assert!(!line2.ends_with('…'));
+        assert_eq!(line2.chars().count(), 40);
     }
 
     #[test]
