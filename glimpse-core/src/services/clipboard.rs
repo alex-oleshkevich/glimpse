@@ -3,15 +3,28 @@ use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
     io::Read,
+    os::fd::AsFd,
+    sync::Arc,
     time::Duration,
 };
 
 use serde::{Deserialize, Serialize};
 use tokio::{
+    io::{Interest, unix::AsyncFd},
     sync::{mpsc, watch},
-    time::interval,
 };
 use tokio_util::sync::CancellationToken;
+use wayland_client::{
+    Connection, Dispatch, QueueHandle,
+    globals::{GlobalListContents, registry_queue_init},
+    protocol::{wl_registry, wl_seat},
+    event_created_child,
+};
+use wayland_protocols_wlr::data_control::v1::client::{
+    zwlr_data_control_device_v1,
+    zwlr_data_control_manager_v1,
+    zwlr_data_control_offer_v1,
+};
 use wl_clipboard_rs::{
     copy::{
         ClipboardType as CopyClipboardType, MimeType as CopyMimeType, Options as CopyOptions,
@@ -26,10 +39,13 @@ use wl_clipboard_rs::{
 use crate::services::framework::{Control, ServiceCommand, ServiceHandle};
 
 const COMMAND_QUEUE_SIZE: usize = 32;
-const POLL_INTERVAL: Duration = Duration::from_millis(750);
-const DEFAULT_MAX_ENTRIES: usize = 50;
+const WATCHER_EVENT_QUEUE_SIZE: usize = 8;
+const WATCHER_RETRY_DELAY: Duration = Duration::from_secs(2);
+const WATCHER_SETUP_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_READ_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_PREVIEW_CHARS: usize = 240;
+const MAX_HISTORY_BYTES: usize = 10 * 1024 * 1024;
+const PASSWORD_HINT_MIME: &str = "x-kde-passwordManagerHint";
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
@@ -51,7 +67,7 @@ pub struct ClipboardEntry {
     pub size: u64,
     pub timestamp: u64,
     #[serde(skip)]
-    data: Vec<u8>,
+    data: Arc<[u8]>,
     fingerprint: u64,
 }
 
@@ -69,17 +85,12 @@ pub struct State {
     pub health: Health,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Health {
+    #[default]
     Starting,
     Ready,
     Degraded(String),
-}
-
-impl Default for Health {
-    fn default() -> Self {
-        Self::Starting
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -99,7 +110,6 @@ pub struct ClipboardService {
     backend: WlClipboardBackend,
     state: State,
     next_id: u64,
-    max_entries: usize,
     suppressed_current_fingerprints: HashSet<u64>,
 }
 
@@ -114,7 +124,6 @@ impl ClipboardService {
                 backend: WlClipboardBackend,
                 state: State::default(),
                 next_id: 1,
-                max_entries: DEFAULT_MAX_ENTRIES,
                 suppressed_current_fingerprints: HashSet::new(),
             },
             ServiceHandle::new(state_rx, command_tx),
@@ -128,11 +137,31 @@ impl ClipboardService {
         });
         self.refresh().await;
 
-        let mut poll = interval(POLL_INTERVAL);
+        let (sel_tx, mut sel_rx) = mpsc::channel::<SelectionEvent>(WATCHER_EVENT_QUEUE_SIZE);
+        let watcher_cancel = cancel.clone();
+        tokio::spawn(async move {
+            loop {
+                match run_watcher(sel_tx.clone(), watcher_cancel.clone()).await {
+                    Ok(()) => break,
+                    Err(error) => {
+                        tracing::warn!(%error, "clipboard watcher failed");
+                        tokio::select! {
+                            _ = watcher_cancel.cancelled() => break,
+                            _ = tokio::time::sleep(WATCHER_RETRY_DELAY) => {}
+                        }
+                    }
+                }
+            }
+        });
+
         loop {
             tokio::select! {
                 _ = cancel.cancelled() => break,
-                _ = poll.tick() => self.refresh().await,
+                event = sel_rx.recv() => match event {
+                    Some(SelectionEvent::Changed) => self.refresh().await,
+                    Some(SelectionEvent::Cleared) => self.handle_clipboard_cleared(),
+                    None => break, // watcher task exited (cancel or error)
+                },
                 command = self.command_rx.recv() => match command {
                     Some(ServiceCommand::Control(Control::Shutdown)) | None => {
                         break;
@@ -142,6 +171,18 @@ impl ClipboardService {
                     Some(ServiceCommand::Command(command)) => self.handle_command(command).await,
                 }
             }
+        }
+    }
+
+    fn handle_clipboard_cleared(&mut self) {
+        let changed = !self.state.available
+            || self.state.current_id.is_some()
+            || self.state.health != Health::Ready;
+        self.state.available = true;
+        self.state.current_id = None;
+        self.state.health = Health::Ready;
+        if changed {
+            self.publish_current();
         }
     }
 
@@ -197,13 +238,13 @@ impl ClipboardService {
                     .suppressed_current_fingerprints
                     .contains(&entry.fingerprint);
                 let status_changed =
-                    self.state.available != true || self.state.health != Health::Ready;
+                    !self.state.available || self.state.health != Health::Ready;
                 let history_changed = if suppressed {
                     self.state.current_id = None;
                     false
                 } else {
                     self.suppressed_current_fingerprints.clear();
-                    apply_clipboard_entry(&mut self.state, entry, self.max_entries)
+                    apply_clipboard_entry(&mut self.state, entry)
                 };
                 if history_changed {
                     self.next_id += 1;
@@ -215,13 +256,12 @@ impl ClipboardService {
                 }
             }
             Ok(None) => {
-                let changed = self.state.available != true
-                    || self.state.current_id.is_some()
-                    || self.state.health != Health::Ready;
+                // empty clipboard or filtered entry (password hint) — no history change
+                let status_changed =
+                    !self.state.available || self.state.health != Health::Ready;
                 self.state.available = true;
-                self.state.current_id = None;
                 self.state.health = Health::Ready;
-                if changed {
+                if status_changed {
                     self.publish_current();
                 }
             }
@@ -299,6 +339,13 @@ fn read_current_clipboard() -> anyhow::Result<Option<ClipboardSnapshot>> {
         return Ok(None);
     }
 
+    if mime_types
+        .iter()
+        .any(|m| m.eq_ignore_ascii_case(PASSWORD_HINT_MIME))
+    {
+        return Ok(None);
+    }
+
     let preferred = preferred_mime_type(&mime_types);
     let paste_mime = preferred
         .as_deref()
@@ -346,7 +393,7 @@ fn copy_clipboard_entry(entry: &ClipboardEntry) -> anyhow::Result<()> {
         CopyMimeType::Specific(entry.mime_type.clone())
     };
     options.copy(
-        CopySource::Bytes(entry.data.clone().into_boxed_slice()),
+        CopySource::Bytes(Box::from(entry.data.as_ref())),
         mime_type,
     )?;
     Ok(())
@@ -377,6 +424,7 @@ fn entry_from_snapshot(id: u64, snapshot: ClipboardSnapshot, timestamp: u64) -> 
     let size = snapshot.data.len() as u64;
     let preview = preview_for(kind, &snapshot.mime_type, &snapshot.data);
     let fingerprint = fingerprint(&snapshot.mime_type, &snapshot.data);
+    let data: Arc<[u8]> = snapshot.data.into();
 
     ClipboardEntry {
         id,
@@ -386,7 +434,7 @@ fn entry_from_snapshot(id: u64, snapshot: ClipboardSnapshot, timestamp: u64) -> 
         preview,
         size,
         timestamp,
-        data: snapshot.data,
+        data,
         fingerprint,
     }
 }
@@ -400,7 +448,7 @@ fn remove_history_entry(state: &mut State, id: u64) -> Option<u64> {
     Some(entry.fingerprint)
 }
 
-fn apply_clipboard_entry(state: &mut State, entry: ClipboardEntry, max_entries: usize) -> bool {
+fn apply_clipboard_entry(state: &mut State, entry: ClipboardEntry) -> bool {
     if entry.data.is_empty() {
         return false;
     }
@@ -419,14 +467,16 @@ fn apply_clipboard_entry(state: &mut State, entry: ClipboardEntry, max_entries: 
         .retain(|existing| existing.fingerprint != entry.fingerprint);
     state.current_id = Some(entry.id);
     state.history.insert(0, entry);
-    apply_history_limit(&mut state.history, max_entries);
+    apply_history_byte_limit(&mut state.history);
     true
 }
 
-fn apply_history_limit(history: &mut Vec<ClipboardEntry>, max_entries: usize) {
-    if history.len() > max_entries {
-        history.truncate(max_entries);
-    }
+fn apply_history_byte_limit(history: &mut Vec<ClipboardEntry>) {
+    let mut total: usize = 0;
+    history.retain(|entry| {
+        total += entry.data.len();
+        total <= MAX_HISTORY_BYTES
+    });
 }
 
 fn classify_mime(primary: &str, all: &[String]) -> ClipboardEntryKind {
@@ -480,6 +530,176 @@ fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
+// ── Wayland data-control watcher ────────────────────────────────────────────
+
+enum SelectionEvent {
+    Changed,
+    Cleared,
+}
+
+struct WatcherState {
+    event_tx: mpsc::Sender<SelectionEvent>,
+}
+
+struct WatcherSetup {
+    conn: Connection,
+    event_queue: wayland_client::EventQueue<WatcherState>,
+    state: WatcherState,
+    // Kept alive for the duration of the watcher: dropping the device destroys the Wayland object
+    // and stops selection events from being delivered.
+    _device: zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
+}
+
+async fn run_watcher(
+    event_tx: mpsc::Sender<SelectionEvent>,
+    cancel: CancellationToken,
+) -> anyhow::Result<()> {
+    let WatcherSetup {
+        conn,
+        mut event_queue,
+        mut state,
+        _device,
+    } = tokio::select! {
+        _ = cancel.cancelled() => return Ok(()),
+        setup = tokio::time::timeout(WATCHER_SETUP_TIMEOUT, setup_watcher(event_tx)) => {
+            setup.map_err(|_| anyhow::anyhow!("clipboard watcher setup timed out"))??
+        }
+    };
+
+    let owned_fd = conn.as_fd().try_clone_to_owned()?;
+    let async_fd = AsyncFd::with_interest(owned_fd, Interest::READABLE)?;
+
+    loop {
+        event_queue.dispatch_pending(&mut state)?;
+        conn.flush()?;
+
+        tokio::select! {
+            _ = cancel.cancelled() => return Ok(()),
+            readable = async_fd.readable() => {
+                let mut guard = readable?;
+                if let Some(read_guard) = conn.prepare_read() {
+                    read_guard.read()?;
+                }
+                guard.clear_ready();
+            }
+        }
+    }
+}
+
+async fn setup_watcher(event_tx: mpsc::Sender<SelectionEvent>) -> anyhow::Result<WatcherSetup> {
+    tokio::task::spawn_blocking(move || setup_watcher_blocking(event_tx))
+        .await
+        .map_err(|e| anyhow::anyhow!("clipboard watcher setup task failed: {e}"))?
+}
+
+fn setup_watcher_blocking(event_tx: mpsc::Sender<SelectionEvent>) -> anyhow::Result<WatcherSetup> {
+    let conn = Connection::connect_to_env()
+        .map_err(|e| anyhow::anyhow!("clipboard watcher: failed to connect to Wayland: {e}"))?;
+    let (globals, mut event_queue) = registry_queue_init::<WatcherState>(&conn)
+        .map_err(|e| anyhow::anyhow!("clipboard watcher: registry init failed: {e}"))?;
+    let qh = event_queue.handle();
+    let manager = globals
+        .bind::<zwlr_data_control_manager_v1::ZwlrDataControlManagerV1, _, _>(&qh, 1..=2, ())
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "clipboard watcher: zwlr_data_control_manager_v1 not available: {e}"
+            )
+        })?;
+    let seat = globals
+        .bind::<wl_seat::WlSeat, _, _>(&qh, 1..=9, ())
+        .map_err(|e| anyhow::anyhow!("clipboard watcher: wl_seat not available: {e}"))?;
+    let mut state = WatcherState { event_tx };
+    let device = manager.get_data_device(&seat, &qh, ());
+    event_queue
+        .roundtrip(&mut state)
+        .map_err(|e| anyhow::anyhow!("clipboard watcher: roundtrip failed: {e}"))?;
+    Ok(WatcherSetup {
+        conn,
+        event_queue,
+        state,
+        _device: device,
+    })
+}
+
+impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for WatcherState {
+    fn event(
+        _state: &mut Self,
+        _proxy: &wl_registry::WlRegistry,
+        _event: wl_registry::Event,
+        _data: &GlobalListContents,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+    }
+}
+
+impl Dispatch<zwlr_data_control_manager_v1::ZwlrDataControlManagerV1, ()> for WatcherState {
+    fn event(
+        _state: &mut Self,
+        _proxy: &zwlr_data_control_manager_v1::ZwlrDataControlManagerV1,
+        _event: zwlr_data_control_manager_v1::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+    }
+}
+
+impl Dispatch<wl_seat::WlSeat, ()> for WatcherState {
+    fn event(
+        _state: &mut Self,
+        _proxy: &wl_seat::WlSeat,
+        _event: wl_seat::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+    }
+}
+
+impl Dispatch<zwlr_data_control_device_v1::ZwlrDataControlDeviceV1, ()> for WatcherState {
+    fn event(
+        state: &mut Self,
+        _proxy: &zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
+        event: zwlr_data_control_device_v1::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        match event {
+            zwlr_data_control_device_v1::Event::Selection { id } => match id {
+                Some(offer) => {
+                    offer.destroy();
+                    let _ = state.event_tx.try_send(SelectionEvent::Changed);
+                }
+                None => {
+                    let _ = state.event_tx.try_send(SelectionEvent::Cleared);
+                }
+            },
+            zwlr_data_control_device_v1::Event::PrimarySelection { id: Some(offer) } => {
+                offer.destroy();
+            }
+            _ => {}
+        }
+    }
+
+    event_created_child!(WatcherState, zwlr_data_control_device_v1::ZwlrDataControlDeviceV1, [
+        zwlr_data_control_device_v1::EVT_DATA_OFFER_OPCODE => (zwlr_data_control_offer_v1::ZwlrDataControlOfferV1, ())
+    ]);
+}
+
+impl Dispatch<zwlr_data_control_offer_v1::ZwlrDataControlOfferV1, ()> for WatcherState {
+    fn event(
+        _state: &mut Self,
+        _proxy: &zwlr_data_control_offer_v1::ZwlrDataControlOfferV1,
+        _event: zwlr_data_control_offer_v1::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -513,9 +733,9 @@ mod tests {
         let duplicate = entry(2, "one");
         let second = entry(3, "two");
 
-        assert!(apply_clipboard_entry(&mut state, first, 10));
-        assert!(!apply_clipboard_entry(&mut state, duplicate, 10));
-        assert!(apply_clipboard_entry(&mut state, second, 10));
+        assert!(apply_clipboard_entry(&mut state, first));
+        assert!(!apply_clipboard_entry(&mut state, duplicate));
+        assert!(apply_clipboard_entry(&mut state, second));
 
         assert_eq!(state.history.len(), 2);
         assert_eq!(state.history[0].id, 3);
@@ -523,15 +743,26 @@ mod tests {
     }
 
     #[test]
-    fn apply_history_limit_drops_oldest_entries() {
-        let mut history = vec![entry(1, "one"), entry(2, "two"), entry(3, "three")];
-
-        apply_history_limit(&mut history, 2);
-
-        assert_eq!(
-            history.iter().map(|entry| entry.id).collect::<Vec<_>>(),
-            vec![1, 2]
-        );
+    fn apply_history_byte_limit_drops_oldest_entries_over_budget() {
+        // Build entries whose total payload exceeds MAX_HISTORY_BYTES.
+        // Each entry gets a 4 MB payload so that 3 entries = 12 MB > 10 MB limit.
+        let make_big = |id: u64| ClipboardEntry {
+            id,
+            kind: ClipboardEntryKind::Other,
+            mime_type: "application/octet-stream".into(),
+            mime_types: vec!["application/octet-stream".into()],
+            preview: String::new(),
+            size: (4 * 1024 * 1024) as u64,
+            timestamp: id,
+            data: Arc::from(vec![0u8; 4 * 1024 * 1024].as_slice()),
+            fingerprint: id,
+        };
+        let mut history = vec![make_big(1), make_big(2), make_big(3)];
+        apply_history_byte_limit(&mut history);
+        // history[0] + history[1] = 8 MB ≤ 10 MB; history[2] would push to 12 MB → dropped
+        assert_eq!(history.len(), 2);
+        assert_eq!(history[0].id, 1);
+        assert_eq!(history[1].id, 2);
     }
 
     #[test]

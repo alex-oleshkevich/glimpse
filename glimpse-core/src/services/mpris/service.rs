@@ -3,7 +3,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use tokio::{
     sync::{mpsc, watch},
-    time::{MissedTickBehavior, interval, sleep},
+    time::{Instant, MissedTickBehavior, interval, sleep},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -11,12 +11,13 @@ use crate::services::framework::{Control, ServiceCommand, ServiceHandle};
 
 use super::{
     model::{Command, Health, PlayerFilters, Snapshot, State},
-    mpris_client::{MprisClient, MprisClientEvent},
+    mpris_client::{MprisChangeReason, MprisClient, MprisClientEvent},
 };
 
 const COMMAND_QUEUE_SIZE: usize = 32;
 const EVENT_QUEUE_SIZE: usize = 32;
 const RETRY_DELAY: Duration = Duration::from_secs(2);
+const DEBOUNCE_DELAY: Duration = Duration::from_millis(150);
 
 pub type MprisHandle = ServiceHandle<State, Command>;
 
@@ -98,19 +99,41 @@ impl MprisService {
         let mut progress_refresh = interval(Duration::from_secs(1));
         progress_refresh.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
+        let debounce = tokio::time::sleep(Duration::MAX);
+        tokio::pin!(debounce);
+        let mut debounce_pending = false;
+
         let outcome = loop {
             tokio::select! {
                 _ = cancel.cancelled() => break Ok(RunOutcome::Cancelled),
+                _ = debounce.as_mut(), if debounce_pending => {
+                    debounce_pending = false;
+                    if let Err(error) = self.refresh_snapshot(&client).await {
+                        tracing::warn!(error = %error, "mpris: debounced refresh failed");
+                        self.set_health(Health::Degraded { message: "MPRIS data is stale".into() });
+                    } else {
+                        self.set_health(Health::Ready);
+                    }
+                }
                 event = event_rx.recv() => match event {
                     Some(MprisClientEvent::Changed { reason }) => {
-                        tracing::debug!(reason = %reason, "mpris: refreshing service state");
-                        if let Err(error) = self.refresh_snapshot(&client).await {
-                            tracing::warn!(error = %error, "mpris: refresh failed after change event");
-                            self.set_health(Health::Degraded {
-                                message: "MPRIS data is stale".into(),
-                            });
-                        } else {
-                            self.set_health(Health::Ready);
+                        tracing::debug!(reason = %reason, "mpris: change event");
+                        match reason {
+                            MprisChangeReason::NameOwnerChanged => {
+                                debounce_pending = false;
+                                if let Err(error) = self.refresh_snapshot(&client).await {
+                                    tracing::warn!(error = %error, "mpris: refresh failed after name change");
+                                    self.set_health(Health::Degraded { message: "MPRIS data is stale".into() });
+                                } else {
+                                    self.set_health(Health::Ready);
+                                }
+                            }
+                            _ => {
+                                if !debounce_pending {
+                                    debounce.as_mut().reset(Instant::now() + DEBOUNCE_DELAY);
+                                    debounce_pending = true;
+                                }
+                            }
                         }
                     }
                     None => break Err(anyhow!("mpris event listener stopped")),
