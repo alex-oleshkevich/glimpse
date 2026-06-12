@@ -5,6 +5,7 @@ use relm4::{
 };
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
+use crate::utils::subscribe_service;
 
 use glimpse_core::ThemeMode;
 
@@ -134,6 +135,7 @@ pub struct Applet {
     popover: Controller<Popover>,
     popup: Option<Controller<Popup>>,
     subscription_cancel: CancellationToken,
+    compositor_cancel: CancellationToken,
     theme_mode: ThemeMode,
     urgency_remaps: Vec<(Regex, u8)>,
 }
@@ -244,6 +246,16 @@ impl SimpleComponent for Applet {
         let state = init.service.snapshot();
         let compositor_state = init.compositor.snapshot();
         let urgency_remaps = compile_urgency_remaps(&init.config.urgency_remap);
+        let subscription_cancel = subscribe_service(
+            init.service.subscribe(),
+            sender.input_sender().clone(),
+            Input::ServiceStateChanged,
+        );
+        let compositor_cancel = subscribe_service(
+            init.compositor.subscribe(),
+            sender.input_sender().clone(),
+            Input::CompositorStateChanged,
+        );
         let mut model = Applet {
             icon_name: format::icon_name(&state).into(),
             label: format::label(&init.config.label_format, &state),
@@ -258,15 +270,14 @@ impl SimpleComponent for Applet {
             compositor: init.compositor,
             popover,
             popup,
-            subscription_cancel: CancellationToken::new(),
+            subscription_cancel,
+            compositor_cancel,
             theme_mode: init.theme_mode,
             urgency_remaps,
         };
         model.apply_state(model.state.clone());
         model.send_notification(Command::SetMaxHistory(model.config.max_history));
         model.send_notification(Command::SetFilterRegex(model.config.filter_regex.clone()));
-
-        subscribe_services(&model, sender.clone());
 
         let widgets = view_output!();
         ComponentParts { model, widgets }
@@ -459,6 +470,7 @@ impl Applet {
 impl Drop for Applet {
     fn drop(&mut self) {
         self.subscription_cancel.cancel();
+        self.compositor_cancel.cancel();
     }
 }
 
@@ -516,59 +528,6 @@ fn primary_connector() -> Option<String> {
         .collect::<Vec<_>>();
     connectors.sort();
     connectors.into_iter().next()
-}
-
-fn subscribe_services(model: &Applet, sender: ComponentSender<Applet>) {
-    let service = model.service.clone();
-    let compositor = model.compositor.clone();
-    let cancel = model.subscription_cancel.clone();
-    let sender = sender.input_sender().clone();
-    relm4::spawn(async move {
-        let mut notifications = service.subscribe();
-        let mut compositor_state = compositor.subscribe();
-        if sender
-            .send(Input::ServiceStateChanged(notifications.borrow().clone()))
-            .is_err()
-        {
-            return;
-        }
-        if sender
-            .send(Input::CompositorStateChanged(
-                compositor_state.borrow().clone(),
-            ))
-            .is_err()
-        {
-            return;
-        }
-
-        loop {
-            tokio::select! {
-                _ = cancel.cancelled() => break,
-                changed = notifications.changed() => {
-                    if changed.is_err() {
-                        break;
-                    }
-                    if sender
-                        .send(Input::ServiceStateChanged(notifications.borrow().clone()))
-                        .is_err()
-                    {
-                        break;
-                    }
-                }
-                changed = compositor_state.changed() => {
-                    if changed.is_err() {
-                        break;
-                    }
-                    if sender
-                        .send(Input::CompositorStateChanged(compositor_state.borrow().clone()))
-                        .is_err()
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-    });
 }
 
 async fn send_notification_command(service: &NotificationsHandle, command: Command) -> bool {

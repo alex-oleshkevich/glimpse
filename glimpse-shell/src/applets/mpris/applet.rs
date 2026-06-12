@@ -11,6 +11,7 @@ use crate::{
         framework::ServiceCommand,
         mpris::{Command, MprisHandle, State},
     },
+    utils::subscribe_service,
     widgets::panel_indicator::PanelIndicator,
 };
 
@@ -134,6 +135,11 @@ impl SimpleComponent for Applet {
         let label = format::label(&init.config.label_format, &state);
         let tooltip = format::tooltip(&init.config.tooltip_format, &state);
         let hidden = init.config.hide_when_empty && label.is_empty();
+        let subscription_cancel = subscribe_service(
+            init.service.subscribe(),
+            sender.input_sender().clone(),
+            Input::ServiceStateChanged,
+        );
         let model = Applet {
             config: init.config,
             label,
@@ -142,40 +148,9 @@ impl SimpleComponent for Applet {
             state,
             service: init.service,
             popover,
-            subscription_cancel: CancellationToken::new(),
+            subscription_cancel,
         };
         model.send_command(Command::SetFilterRegex(model.config.filter_regex.clone()));
-
-        let service = model.service.clone();
-        let cancel = model.subscription_cancel.clone();
-        let subscription_sender = sender.input_sender().clone();
-        relm4::spawn(async move {
-            let mut sub = service.subscribe();
-            if subscription_sender
-                .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                .is_err()
-            {
-                return;
-            }
-
-            loop {
-                tokio::select! {
-                    _ = cancel.cancelled() => break,
-                    changed = sub.changed() => {
-                        if changed.is_err() {
-                            break;
-                        }
-
-                        if subscription_sender
-                            .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                            .is_err()
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
 
         let widgets = view_output!();
         ComponentParts { model, widgets }

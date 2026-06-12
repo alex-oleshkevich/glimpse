@@ -12,6 +12,7 @@ use crate::{
         framework::ServiceCommand,
         power::{self, PowerHandle},
     },
+    utils::subscribe_service,
     widgets::panel_indicator::PanelIndicator,
 };
 
@@ -96,6 +97,7 @@ pub struct Applet {
     power_service: PowerHandle,
     popover: Controller<Popover>,
     subscription_cancel: CancellationToken,
+    power_cancel: CancellationToken,
 }
 
 #[derive(Debug)]
@@ -149,6 +151,16 @@ impl SimpleComponent for Applet {
                 PopoverOutput::SetProfile(profile) => Input::SetPowerProfile(profile),
             });
 
+        let subscription_cancel = subscribe_service(
+            init.service.subscribe(),
+            sender.input_sender().clone(),
+            Input::BatteryStateChanged,
+        );
+        let power_cancel = subscribe_service(
+            init.power_service.subscribe(),
+            sender.input_sender().clone(),
+            Input::PowerStateChanged,
+        );
         let model = Applet {
             label: String::new(),
             tooltip: String::new(),
@@ -158,70 +170,9 @@ impl SimpleComponent for Applet {
             service: init.service,
             power_service: init.power_service,
             popover,
-            subscription_cancel: CancellationToken::new(),
+            subscription_cancel,
+            power_cancel,
         };
-
-        let service = model.service.clone();
-        let cancel = model.subscription_cancel.clone();
-        let subscription_sender = sender.input_sender().clone();
-        relm4::spawn(async move {
-            let mut sub = service.subscribe();
-            if subscription_sender
-                .send(Input::BatteryStateChanged(sub.borrow().clone()))
-                .is_err()
-            {
-                return;
-            }
-
-            loop {
-                tokio::select! {
-                    _ = cancel.cancelled() => break,
-                    changed = sub.changed() => {
-                        if changed.is_err() {
-                            break;
-                        }
-
-                        if subscription_sender
-                            .send(Input::BatteryStateChanged(sub.borrow().clone()))
-                            .is_err()
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
-
-        let service = model.power_service.clone();
-        let cancel = model.subscription_cancel.clone();
-        let subscription_sender = sender.input_sender().clone();
-        relm4::spawn(async move {
-            let mut sub = service.subscribe();
-            if subscription_sender
-                .send(Input::PowerStateChanged(sub.borrow().clone()))
-                .is_err()
-            {
-                return;
-            }
-
-            loop {
-                tokio::select! {
-                    _ = cancel.cancelled() => break,
-                    changed = sub.changed() => {
-                        if changed.is_err() {
-                            break;
-                        }
-
-                        if subscription_sender
-                            .send(Input::PowerStateChanged(sub.borrow().clone()))
-                            .is_err()
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
 
         let widgets = view_output!();
         ComponentParts { model, widgets }
@@ -274,6 +225,7 @@ impl SimpleComponent for Applet {
 impl Drop for Applet {
     fn drop(&mut self) {
         self.subscription_cancel.cancel();
+        self.power_cancel.cancel();
     }
 }
 

@@ -1,9 +1,4 @@
-use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    rc::Rc,
-};
+use std::path::PathBuf;
 
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
@@ -21,7 +16,6 @@ use crate::{
 
 pub struct Popover {
     popover: AnimatedPopover,
-    rows: HashMap<String, DeviceRow>,
     list: gtk::Box,
     hero_subtitle: String,
 }
@@ -58,19 +52,6 @@ pub(super) struct DeviceAction<Command> {
     pub(super) enabled: bool,
     pub(super) visible: bool,
     pub(super) command: Command,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct DeviceRowModel {
-    id: String,
-    icon: String,
-    label: String,
-    status: DeviceStatus,
-    busy: bool,
-    tooltip: String,
-    active: bool,
-    command: Option<RowCommand>,
-    actions: Vec<DeviceAction<RowCommand>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -121,7 +102,6 @@ impl SimpleComponent for Popover {
 
         let mut model = Popover {
             popover: AnimatedPopover::new(),
-            rows: HashMap::new(),
             list: list.clone(),
             hero_subtitle: hero_subtitle(&State::default()),
         };
@@ -145,10 +125,14 @@ impl SimpleComponent for Popover {
                 self.popover.toggle();
             }
             PopoverInput::UpdateState(state) => {
-                let rows = build_device_rows(&state);
                 self.hero_subtitle = hero_subtitle(&state);
-                self.list.set_visible(!rows.is_empty());
-                sync_device_rows(&mut self.rows, &self.list, rows, &sender);
+                self.list.set_visible(!state.devices.is_empty());
+                while let Some(child) = self.list.first_child() {
+                    self.list.remove(&child);
+                }
+                for device in &state.devices {
+                    self.list.append(&build_row(device, &sender));
+                }
             }
             PopoverInput::DeviceCommand(command) => {
                 let _ = sender.output(popover_output_for_row_command(command));
@@ -157,245 +141,78 @@ impl SimpleComponent for Popover {
     }
 }
 
-struct DeviceActionTile {
-    tile: Tile,
-    command: Rc<RefCell<Option<RowCommand>>>,
-}
+fn build_row(device: &StorageDevice, sender: &ComponentSender<Popover>) -> gtk::Widget {
+    let tile = SegmentedTile::new();
+    tile.add_css_class("removable-device-row");
+    tile.set_secondary(None);
+    tile.set_primary(&device.name);
+    tile.set_tooltip_text(Some(&device_tooltip(device)));
 
-struct DeviceRow {
-    root: SegmentedTile,
-    icon: gtk::Image,
-    status_box: gtk::Box,
-    status_spinner: gtk::Spinner,
-    status_label: gtk::Label,
-    actions: gtk::Box,
-    action_tiles: RefCell<HashMap<String, DeviceActionTile>>,
-    command: Rc<RefCell<Option<RowCommand>>>,
-}
+    let icon = gtk::Image::from_icon_name(&device.icon);
+    icon.add_css_class("removable-device-row__icon");
+    icon.set_pixel_size(16);
+    icon.set_valign(gtk::Align::Center);
+    tile.set_left(Some(icon));
 
-impl DeviceRow {
-    fn new(model: &DeviceRowModel, sender: &ComponentSender<Popover>) -> Self {
-        let root = SegmentedTile::new();
-        root.add_css_class("removable-device-row");
-        root.set_secondary(None);
+    if device.mounted_at.is_some() {
+        tile.add_css_class("is-active");
+        tile.add_css_class("is-selected");
+    }
 
-        let icon = gtk::Image::from_icon_name(&model.icon);
-        icon.add_css_class("removable-device-row__icon");
-        icon.set_pixel_size(16);
-        icon.set_valign(gtk::Align::Center);
-        root.set_left(Some(icon.clone()));
-
+    let status = device_status(device);
+    if status.busy || status.text.is_some() {
         let status_box = gtk::Box::new(gtk::Orientation::Horizontal, 6);
         status_box.set_valign(gtk::Align::Center);
+        if status.busy {
+            let spinner = gtk::Spinner::new();
+            spinner.add_css_class("removable-device-row__spinner");
+            spinner.set_spinning(true);
+            status_box.append(&spinner);
+        } else if let Some(text) = &status.text {
+            let label = gtk::Label::new(Some(text));
+            label.add_css_class("dim-label");
+            label.add_css_class("caption");
+            status_box.append(&label);
+        }
+        tile.set_right(Some(status_box));
+    }
 
-        let status_spinner = gtk::Spinner::new();
-        status_spinner.add_css_class("removable-device-row__spinner");
-        status_spinner.set_visible(false);
-        status_box.append(&status_spinner);
-
-        let status_label = gtk::Label::new(None);
-        status_label.add_css_class("dim-label");
-        status_label.add_css_class("caption");
-        status_label.set_visible(false);
-        status_box.append(&status_label);
-
-        let actions = gtk::Box::new(gtk::Orientation::Vertical, 2);
-        actions.add_css_class("removable-device-row__actions");
-
-        let command = Rc::new(RefCell::new(model.command.clone()));
-        root.connect_activated({
+    let command = primary_device_command(device);
+    tile.set_activatable(command.is_some());
+    if let Some(cmd) = command {
+        tile.connect_activated({
             let sender = sender.clone();
-            let command = command.clone();
-            move |_| {
-                if let Some(command) = command.borrow().clone() {
-                    sender.input(PopoverInput::DeviceCommand(command));
-                }
-            }
+            move |_| sender.input(PopoverInput::DeviceCommand(cmd.clone()))
         });
-
-        let row = Self {
-            root,
-            icon,
-            status_box,
-            status_spinner,
-            status_label,
-            actions,
-            action_tiles: RefCell::new(HashMap::new()),
-            command,
-        };
-        row.update(model, sender);
-        row
     }
 
-    fn update(&self, model: &DeviceRowModel, sender: &ComponentSender<Popover>) {
-        self.root.set_primary(&model.label);
-        self.root.set_tooltip_text(Some(&model.tooltip));
-        self.root
-            .set_activatable(model.command.is_some() && !model.busy);
-        self.root.set_sensitive(true);
-        self.command.replace(model.command.clone());
-        self.icon.set_icon_name(Some(&model.icon));
-
-        if model.active {
-            self.root.add_css_class("is-active");
-            self.root.add_css_class("is-selected");
-        } else {
-            self.root.remove_css_class("is-active");
-            self.root.remove_css_class("is-selected");
-        }
-
-        self.sync_status(&model.status);
-        self.sync_actions(&model.actions, sender);
-    }
-
-    fn sync_status(&self, status: &DeviceStatus) {
-        self.status_spinner.set_visible(status.busy);
-        self.status_spinner.set_spinning(status.busy);
-
-        match &status.text {
-            Some(text) if !status.busy => {
-                self.status_label.set_label(text);
-                self.status_label.set_visible(true);
+    let actions: Vec<_> = device_actions(device)
+        .into_iter()
+        .filter(|a| a.visible)
+        .collect();
+    if !actions.is_empty() {
+        let actions_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
+        actions_box.add_css_class("removable-device-row__actions");
+        for action in actions {
+            let action_tile = Tile::new();
+            action_tile.add_css_class("removable-device-action");
+            action_tile.set_primary(&action.label);
+            action_tile.set_secondary(None);
+            action_tile.set_sensitive(action.enabled);
+            if action.destructive {
+                action_tile.add_css_class("destructive-action");
             }
-            _ => {
-                self.status_label.set_visible(false);
-            }
+            let cmd = action.command;
+            action_tile.connect_activated({
+                let sender = sender.clone();
+                move |_| sender.input(PopoverInput::DeviceCommand(cmd.clone()))
+            });
+            actions_box.append(&action_tile);
         }
-
-        if status.busy || status.text.is_some() {
-            self.root.set_right(Some(self.status_box.clone()));
-        } else {
-            self.root.set_right(None::<gtk::Widget>);
-        }
+        tile.set_child(Some(actions_box));
     }
 
-    fn sync_actions(
-        &self,
-        actions: &[DeviceAction<RowCommand>],
-        sender: &ComponentSender<Popover>,
-    ) {
-        let visible_actions: Vec<_> = actions.iter().filter(|action| action.visible).collect();
-        let mut tiles = self.action_tiles.borrow_mut();
-        let current_ids: HashSet<&str> = visible_actions.iter().map(|a| a.id.as_str()).collect();
-
-        tiles.retain(|id, state| {
-            if !current_ids.contains(id.as_str()) {
-                self.actions.remove(&state.tile);
-                false
-            } else {
-                true
-            }
-        });
-
-        for action in &visible_actions {
-            if let Some(state) = tiles.get(&action.id) {
-                state.tile.set_primary(&action.label);
-                state.tile.set_sensitive(action.enabled);
-                if action.destructive {
-                    state.tile.add_css_class("destructive-action");
-                } else {
-                    state.tile.remove_css_class("destructive-action");
-                }
-                state.command.replace(Some(action.command.clone()));
-            } else {
-                let tile = Tile::new();
-                tile.add_css_class("removable-device-action");
-                tile.set_primary(&action.label);
-                tile.set_secondary(None);
-                tile.set_sensitive(action.enabled);
-                if action.destructive {
-                    tile.add_css_class("destructive-action");
-                }
-                let command = Rc::new(RefCell::new(Some(action.command.clone())));
-                tile.connect_activated({
-                    let sender = sender.clone();
-                    let command = command.clone();
-                    move |_| {
-                        if let Some(cmd) = command.borrow().clone() {
-                            sender.input(PopoverInput::DeviceCommand(cmd));
-                        }
-                    }
-                });
-                self.actions.append(&tile);
-                tiles.insert(action.id.clone(), DeviceActionTile { tile, command });
-            }
-        }
-
-        if visible_actions.is_empty() {
-            self.root.set_child(None::<gtk::Widget>);
-        } else {
-            self.root.set_child(Some(self.actions.clone()));
-        }
-    }
-
-    fn widget(&self) -> &gtk::Widget {
-        self.root.upcast_ref()
-    }
-}
-
-fn build_device_rows(state: &State) -> Vec<DeviceRowModel> {
-    state
-        .devices
-        .iter()
-        .map(|device| DeviceRowModel {
-            id: device.id.clone(),
-            icon: device.icon.clone(),
-            label: device.name.clone(),
-            status: device_status(device),
-            busy: device.busy,
-            tooltip: device_tooltip(device),
-            active: device.mounted_at.is_some(),
-            command: primary_device_command(device),
-            actions: device_actions(device),
-        })
-        .collect()
-}
-
-fn sync_device_rows(
-    rows: &mut HashMap<String, DeviceRow>,
-    container: &gtk::Box,
-    models: Vec<DeviceRowModel>,
-    sender: &ComponentSender<Popover>,
-) {
-    let mut seen = HashSet::new();
-    let mut previous: Option<gtk::Widget> = None;
-
-    for model in models {
-        seen.insert(model.id.clone());
-        let row = rows
-            .entry(model.id.clone())
-            .or_insert_with(|| DeviceRow::new(&model, sender));
-        row.update(&model, sender);
-        place_row(row.widget(), container, previous.as_ref());
-        previous = Some(row.widget().clone());
-    }
-
-    rows.retain(|id, row| {
-        let keep = seen.contains(id);
-        if !keep {
-            remove_row(row.widget());
-        }
-        keep
-    });
-}
-
-fn place_row(row_widget: &gtk::Widget, container: &gtk::Box, previous: Option<&gtk::Widget>) {
-    let target = container.clone().upcast::<gtk::Widget>();
-    let already_in_container = row_widget.parent().is_some_and(|parent| parent == target);
-
-    if !already_in_container {
-        remove_row(row_widget);
-        container.append(row_widget);
-    }
-    container.reorder_child_after(row_widget, previous);
-}
-
-fn remove_row(row_widget: &gtk::Widget) {
-    if let Some(parent) = row_widget.parent()
-        && let Ok(parent) = parent.downcast::<gtk::Box>()
-    {
-        parent.remove(row_widget);
-    }
+    tile.upcast()
 }
 
 fn hero_subtitle(state: &State) -> String {
@@ -635,15 +452,10 @@ mod tests {
 
     #[test]
     fn safe_to_remove_device_has_no_status_and_still_uses_mount_primary_action() {
-        let row = build_device_rows(&State {
-            devices: vec![device()],
-            ..State::default()
-        })
-        .remove(0);
-
-        assert_eq!(row.status.text, None);
+        let device = device();
+        assert_eq!(device_status(&device).text, None);
         assert_eq!(
-            row.command,
+            primary_device_command(&device),
             Some(RowCommand::Storage(Command::Mount {
                 id: "device".into()
             }))

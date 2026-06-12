@@ -6,6 +6,7 @@ use relm4::{
 };
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
+use crate::utils::subscribe_service;
 
 use crate::{
     panels::applets::AppletConfig,
@@ -113,7 +114,6 @@ pub enum Input {
         menu_path: String,
         item_id: i32,
     },
-    Unavailable,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -149,46 +149,18 @@ impl Component for Applet {
         _root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
+        let subscription_cancel = subscribe_service(
+            init.service.subscribe(),
+            sender.input_sender().clone(),
+            Input::ServiceStateChanged,
+        );
         let model = Applet {
             config: init.config,
             service: init.service,
             snapshot: Snapshot::default(),
             items: HashMap::new(),
-            subscription_cancel: CancellationToken::new(),
+            subscription_cancel,
         };
-
-        let service = model.service.clone();
-        let cancel = model.subscription_cancel.clone();
-        let subscription_sender = sender.input_sender().clone();
-        relm4::spawn(async move {
-            let mut sub = service.subscribe();
-            if subscription_sender
-                .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                .is_err()
-            {
-                return;
-            }
-
-            loop {
-                tokio::select! {
-                    _ = cancel.cancelled() => break,
-                    changed = sub.changed() => {
-                        if changed.is_err() {
-                            break;
-                        }
-
-                        if subscription_sender
-                            .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                            .is_err()
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-
-            let _ = subscription_sender.send(Input::Unavailable);
-        });
 
         let widgets = view_output!();
         ComponentParts { model, widgets }
@@ -240,9 +212,6 @@ impl Component for Applet {
                 menu_path,
                 item_id,
             }),
-            Input::Unavailable => {
-                tracing::warn!("tray applet: tray service unavailable");
-            }
         }
     }
 }

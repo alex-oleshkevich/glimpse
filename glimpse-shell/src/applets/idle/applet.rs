@@ -10,6 +10,7 @@ use crate::services::{
     idle_inhibitor::{Command, IdleInhibitorHandle, State},
     wayland_idle_inhibit::WaylandHealth,
 };
+use crate::utils::subscribe_service;
 use crate::widgets::panel_indicator::PanelIndicator;
 
 use super::popover::{
@@ -24,6 +25,7 @@ pub struct Applet {
     service: IdleInhibitorHandle,
     popover: Controller<Popover>,
     subscription_cancel: CancellationToken,
+    wayland_cancel: CancellationToken,
 }
 
 pub struct Init {
@@ -77,6 +79,16 @@ impl SimpleComponent for Applet {
         let state = init.service.snapshot();
         let wayland_health = init.wayland_health.borrow().clone();
 
+        let subscription_cancel = subscribe_service(
+            init.service.subscribe(),
+            sender.input_sender().clone(),
+            Input::ServiceStateChanged,
+        );
+        let wayland_cancel = subscribe_service(
+            init.wayland_health,
+            sender.input_sender().clone(),
+            Input::WaylandHealthChanged,
+        );
         let model = Applet {
             icon_name: icon_name_for_state(&state, &own_unique_name),
             state,
@@ -84,51 +96,9 @@ impl SimpleComponent for Applet {
             own_unique_name,
             service: init.service,
             popover,
-            subscription_cancel: CancellationToken::new(),
+            subscription_cancel,
+            wayland_cancel,
         };
-
-        // State subscription.
-        let service = model.service.clone();
-        let cancel = model.subscription_cancel.clone();
-        let state_sender = sender.input_sender().clone();
-        relm4::spawn(async move {
-            let mut sub = service.subscribe();
-            if state_sender
-                .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                .is_err()
-            {
-                return;
-            }
-            loop {
-                tokio::select! {
-                    _ = cancel.cancelled() => break,
-                    changed = sub.changed() => {
-                        if changed.is_err() { break; }
-                        if state_sender
-                            .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                            .is_err()
-                        { break; }
-                    }
-                }
-            }
-        });
-
-        // Wayland health subscription.
-        let mut wayland_rx = init.wayland_health.clone();
-        let wayland_cancel = model.subscription_cancel.clone();
-        let wayland_sender = sender.input_sender().clone();
-        relm4::spawn(async move {
-            loop {
-                tokio::select! {
-                    _ = wayland_cancel.cancelled() => break,
-                    changed = wayland_rx.changed() => {
-                        if changed.is_err() { break; }
-                        let h = wayland_rx.borrow().clone();
-                        if wayland_sender.send(Input::WaylandHealthChanged(h)).is_err() { break; }
-                    }
-                }
-            }
-        });
 
         let widgets = view_output!();
         ComponentParts { model, widgets }
@@ -176,6 +146,7 @@ impl Applet {
 impl Drop for Applet {
     fn drop(&mut self) {
         self.subscription_cancel.cancel();
+        self.wayland_cancel.cancel();
     }
 }
 

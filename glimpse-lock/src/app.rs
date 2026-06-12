@@ -966,7 +966,7 @@ fn connect_monitor_changes(sender: &ComponentSender<LockApp>) {
 fn start_lock_services(config: &LockAppConfig, sender: &ComponentSender<LockApp>) -> LockServices {
     let cancel = CancellationToken::new();
     shell_status::spawn(sender.input_sender().clone(), cancel.clone());
-    let dbus = match Dbus::connect() {
+    let dbus = match tokio::runtime::Handle::current().block_on(Dbus::connect_async()) {
         Ok(dbus) => dbus,
         Err(error) => {
             tracing::warn!(%error, "failed to connect to D-Bus for lock services");

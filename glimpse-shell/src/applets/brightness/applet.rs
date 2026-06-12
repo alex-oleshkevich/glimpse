@@ -12,6 +12,7 @@ use crate::{
         compositor::{CompositorHandle, State as CompositorState},
         framework::ServiceCommand,
     },
+    utils::subscribe_service,
     widgets::panel_indicator::PanelIndicator,
 };
 
@@ -68,7 +69,6 @@ pub struct Applet {
     label: String,
     tooltip: String,
     service: BrightnessHandle,
-    compositor: CompositorHandle,
     popover: Controller<Popover>,
     display_cancel: CancellationToken,
     compositor_cancel: CancellationToken,
@@ -133,6 +133,16 @@ impl SimpleComponent for Applet {
         let service_state = init.service.snapshot();
         let compositor_state = init.compositor.snapshot();
         let state = visible_state(&service_state, &compositor_state);
+        let display_cancel = subscribe_service(
+            init.service.subscribe(),
+            sender.input_sender().clone(),
+            Input::ServiceStateChanged,
+        );
+        let compositor_cancel = subscribe_service(
+            init.compositor.subscribe(),
+            sender.input_sender().clone(),
+            Input::CompositorStateChanged,
+        );
         let model = Applet {
             icon_name: format::icon_name(&state).into(),
             label: format::label_with_monitors(
@@ -153,73 +163,10 @@ impl SimpleComponent for Applet {
             popover_monitors: Vec::new(),
             visible_state: state,
             service: init.service,
-            compositor: init.compositor,
             popover,
-            display_cancel: CancellationToken::new(),
-            compositor_cancel: CancellationToken::new(),
+            display_cancel,
+            compositor_cancel,
         };
-
-        let service = model.service.clone();
-        let cancel = model.display_cancel.clone();
-        let subscription_sender = sender.input_sender().clone();
-        relm4::spawn(async move {
-            let mut sub = service.subscribe();
-            if subscription_sender
-                .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                .is_err()
-            {
-                return;
-            }
-
-            loop {
-                tokio::select! {
-                    _ = cancel.cancelled() => break,
-                    changed = sub.changed() => {
-                        if changed.is_err() {
-                            break;
-                        }
-
-                        if subscription_sender
-                            .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                            .is_err()
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
-
-        let compositor = model.compositor.clone();
-        let cancel = model.compositor_cancel.clone();
-        let compositor_sender = sender.input_sender().clone();
-        relm4::spawn(async move {
-            let mut sub = compositor.subscribe();
-            if compositor_sender
-                .send(Input::CompositorStateChanged(sub.borrow().clone()))
-                .is_err()
-            {
-                return;
-            }
-
-            loop {
-                tokio::select! {
-                    _ = cancel.cancelled() => break,
-                    changed = sub.changed() => {
-                        if changed.is_err() {
-                            break;
-                        }
-
-                        if compositor_sender
-                            .send(Input::CompositorStateChanged(sub.borrow().clone()))
-                            .is_err()
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
 
         let widgets = view_output!();
         ComponentParts { model, widgets }

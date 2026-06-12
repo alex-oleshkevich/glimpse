@@ -1,4 +1,6 @@
-use std::{fs, path::Path, time::Duration};
+use std::{fs, path::Path};
+#[cfg(feature = "weather")]
+use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use chrono::{LocalResult, NaiveDate, NaiveDateTime, TimeZone, Utc};
@@ -12,6 +14,7 @@ use super::{
     source::SourceSnapshot,
 };
 
+#[cfg(feature = "weather")]
 const HTTP_FETCH_TIMEOUT: Duration = Duration::from_secs(15);
 const RECURRENCE_LIMIT: u16 = 2048;
 
@@ -25,21 +28,34 @@ pub async fn load_ical_source(config: &CalendarSourceConfig) -> anyhow::Result<S
     let content = load_ical_content(&config.uri).await?;
     let trimmed = content.trim_start();
     if trimmed.starts_with("http://") || trimmed.starts_with("https://") {
-        let content = fetch_calendar_url(trimmed.trim()).await?;
-        return parse_ical_source(config, &content);
+        #[cfg(feature = "weather")]
+        {
+            let content = fetch_calendar_url(trimmed.trim()).await?;
+            return parse_ical_source(config, &content);
+        }
+        #[cfg(not(feature = "weather"))]
+        return Err(anyhow::anyhow!(
+            "HTTP calendar sources require the 'weather' feature (got: {})", trimmed.trim()
+        ));
     }
     parse_ical_source(config, &content)
 }
 
 async fn load_ical_content(uri: &str) -> anyhow::Result<String> {
     if uri.starts_with("http://") || uri.starts_with("https://") {
+        #[cfg(feature = "weather")]
         return fetch_calendar_url(uri).await;
+        #[cfg(not(feature = "weather"))]
+        return Err(anyhow::anyhow!(
+            "HTTP calendar sources require the 'weather' feature (got: {uri})"
+        ));
     }
     let path = file_uri_path(uri)?;
     fs::read_to_string(&path)
         .with_context(|| format!("failed to read iCalendar source {}", path.display()))
 }
 
+#[cfg(feature = "weather")]
 async fn fetch_calendar_url(uri: &str) -> anyhow::Result<String> {
     let client = reqwest::Client::builder()
         .timeout(HTTP_FETCH_TIMEOUT)

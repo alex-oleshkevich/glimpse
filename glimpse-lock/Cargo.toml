@@ -15,7 +15,7 @@ css-color.workspace = true
 dirs.workspace = true
 futures-util.workspace = true
 gio.workspace = true
-glimpse-core = { path = "../glimpse-core" }
+glimpse-core = { path = "../glimpse-core", default-features = false, features = ["heic"] }
 gtk4.workspace = true
 gtk4-session-lock.workspace = true
 image = "0.25"

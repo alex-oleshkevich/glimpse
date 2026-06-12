@@ -68,218 +68,77 @@ pub struct AppletBlueprint {
     pub config: Option<AppletConfig>,
 }
 
-pub enum AppletController {
-    Audio(Controller<audio::Applet>),
-    Battery(Controller<battery::Applet>),
-    Brightness(Controller<brightness::Applet>),
-    Bluetooth(Controller<bluetooth::Applet>),
-    Display(Controller<display::Applet>),
-    Clipboard(Controller<clipboard::Applet>),
-    Clock(Controller<clock::Applet>),
-    Command(Controller<command::Applet>),
-    Dynamic(Controller<dynamic::Applet>),
-    Exec(Controller<exec::Applet>),
-    Idle(Controller<idle::applet::Applet>),
-    Keyboard(Controller<keyboard::Applet>),
-    Mpris(Controller<mpris::Applet>),
-    Network(Controller<network::Applet>),
-    NextEvent(Controller<next_event::Applet>),
-    Notifications(Controller<notifications::Applet>),
-    Pager(Controller<pager::Applet>),
-    Privacy(Controller<privacy::Applet>),
-    Printing(Controller<printing::Applet>),
-    Removable(Controller<removable::Applet>),
-    Session(Controller<session::Applet>),
-    Tray(Controller<tray::Applet>),
-    Weather(Controller<weather::Applet>),
-    Window(Controller<window::Applet>),
-    Workspace(Controller<workspace::Applet>),
+macro_rules! define_applet_controller {
+    // Private arms: reconfigure dispatch by style tag
+    (@std $mod:ident, $controller:ident, $config:ident, $_theme:ident) => {
+        $controller.emit($mod::Input::Reconfigure($mod::Config::from_raw(&$config.cloned())))
+    };
+    (@noop $_mod:ident, $controller:ident, $_cfg:ident, $_theme:ident) => { let _ = $controller; };
+    (@theme $mod:ident, $controller:ident, $config:ident, $theme_mode:ident) => {
+        $controller.emit($mod::Input::Reconfigure {
+            config: $mod::Config::from_raw(&$config.cloned()),
+            theme_mode: $theme_mode,
+        })
+    };
+
+    // Main arm: generates the enum + three uniform impl methods.
+    // Each row: (VariantName, mod_ident, AppletPath, AppletTypeVariant, reconfigure_style)
+    //   reconfigure_style: std | noop | theme
+    ( $( ($Variant:ident, $mod:ident, $Applet:path, $Type:ident, $reconfig:ident) ),* $(,)? ) => {
+        pub enum AppletController {
+            $($Variant(Controller<$Applet>),)*
+        }
+
+        impl AppletController {
+            pub fn applet_type(&self) -> AppletType {
+                match self {
+                    $(Self::$Variant(_) => AppletType::$Type,)*
+                }
+            }
+
+            pub fn widget(&self) -> gtk::Widget {
+                match self {
+                    $(Self::$Variant(c) => c.widget().clone().upcast(),)*
+                }
+            }
+
+            pub fn reconfigure(&self, config: Option<&AppletConfig>, theme_mode: ThemeMode) {
+                match self {
+                    $(Self::$Variant(controller) => {
+                        define_applet_controller!(@$reconfig $mod, controller, config, theme_mode);
+                    })*
+                }
+            }
+        }
+    };
 }
 
-impl AppletController {
-    pub fn applet_type(&self) -> AppletType {
-        match self {
-            Self::Audio(_) => AppletType::Audio,
-            Self::Battery(_) => AppletType::Battery,
-            Self::Brightness(_) => AppletType::Brightness,
-            Self::Bluetooth(_) => AppletType::Bluetooth,
-            Self::Display(_) => AppletType::Display,
-            Self::Clipboard(_) => AppletType::Clipboard,
-            Self::Clock(_) => AppletType::Clock,
-            Self::Command(_) => AppletType::Command,
-            Self::Dynamic(_) => AppletType::Dynamic,
-            Self::Exec(_) => AppletType::Exec,
-            Self::Idle(_) => AppletType::Idle,
-            Self::Keyboard(_) => AppletType::Keyboard,
-            Self::Mpris(_) => AppletType::Mpris,
-            Self::Network(_) => AppletType::Network,
-            Self::NextEvent(_) => AppletType::NextEvent,
-            Self::Notifications(_) => AppletType::Notifications,
-            Self::Pager(_) => AppletType::Pager,
-            Self::Privacy(_) => AppletType::Privacy,
-            Self::Printing(_) => AppletType::Printing,
-            Self::Removable(_) => AppletType::Removable,
-            Self::Session(_) => AppletType::Session,
-            Self::Tray(_) => AppletType::Tray,
-            Self::Weather(_) => AppletType::Weather,
-            Self::Window(_) => AppletType::Window,
-            Self::Workspace(_) => AppletType::Workspace,
-        }
-    }
-
-    pub fn widget(&self) -> gtk::Widget {
-        match self {
-            Self::Audio(controller) => controller.widget().clone().upcast(),
-            Self::Battery(controller) => controller.widget().clone().upcast(),
-            Self::Brightness(controller) => controller.widget().clone().upcast(),
-            Self::Bluetooth(controller) => controller.widget().clone().upcast(),
-            Self::Display(controller) => controller.widget().clone().upcast(),
-            Self::Clipboard(controller) => controller.widget().clone().upcast(),
-            Self::Clock(controller) => controller.widget().clone().upcast(),
-            Self::Command(controller) => controller.widget().clone().upcast(),
-            Self::Dynamic(controller) => controller.widget().clone().upcast(),
-            Self::Exec(controller) => controller.widget().clone().upcast(),
-            Self::Idle(controller) => controller.widget().clone().upcast(),
-            Self::Keyboard(controller) => controller.widget().clone().upcast(),
-            Self::Mpris(controller) => controller.widget().clone().upcast(),
-            Self::Network(controller) => controller.widget().clone().upcast(),
-            Self::NextEvent(controller) => controller.widget().clone().upcast(),
-            Self::Notifications(controller) => controller.widget().clone().upcast(),
-            Self::Pager(controller) => controller.widget().clone().upcast(),
-            Self::Privacy(controller) => controller.widget().clone().upcast(),
-            Self::Printing(controller) => controller.widget().clone().upcast(),
-            Self::Removable(controller) => controller.widget().clone().upcast(),
-            Self::Session(controller) => controller.widget().clone().upcast(),
-            Self::Tray(controller) => controller.widget().clone().upcast(),
-            Self::Weather(controller) => controller.widget().clone().upcast(),
-            Self::Window(controller) => controller.widget().clone().upcast(),
-            Self::Workspace(controller) => controller.widget().clone().upcast(),
-        }
-    }
-
-    pub fn reconfigure(&self, config: Option<&AppletConfig>, theme_mode: ThemeMode) {
-        match self {
-            Self::Dynamic(_) => {}
-            Self::Audio(controller) => {
-                controller.emit(audio::Input::Reconfigure(audio::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Battery(controller) => {
-                controller.emit(battery::Input::Reconfigure(battery::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Brightness(controller) => {
-                controller.emit(brightness::Input::Reconfigure(
-                    brightness::Config::from_raw(&config.cloned()),
-                ));
-            }
-            Self::Bluetooth(controller) => {
-                controller.emit(bluetooth::Input::Reconfigure(bluetooth::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Display(controller) => {
-                controller.emit(display::Input::Reconfigure(display::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Clipboard(controller) => {
-                controller.emit(clipboard::Input::Reconfigure(clipboard::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Clock(controller) => {
-                controller.emit(clock::Input::Reconfigure(clock::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Command(controller) => {
-                controller.emit(command::Input::Reconfigure(command::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Exec(controller) => {
-                controller.emit(exec::Input::Reconfigure(exec::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Idle(_) => {}
-            Self::Keyboard(controller) => {
-                controller.emit(keyboard::Input::Reconfigure(keyboard::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Network(controller) => {
-                controller.emit(network::Input::Reconfigure(network::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Mpris(controller) => {
-                controller.emit(mpris::Input::Reconfigure(mpris::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::NextEvent(controller) => {
-                controller.emit(next_event::Input::Reconfigure(
-                    next_event::Config::from_raw(&config.cloned()),
-                ));
-            }
-            Self::Notifications(controller) => {
-                controller.emit(notifications::Input::Reconfigure {
-                    config: notifications::Config::from_raw(&config.cloned()),
-                    theme_mode,
-                });
-            }
-            Self::Pager(controller) => {
-                controller.emit(pager::Input::Reconfigure(pager::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Privacy(controller) => {
-                controller.emit(privacy::Input::Reconfigure(privacy::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Printing(controller) => {
-                controller.emit(printing::Input::Reconfigure(printing::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Removable(controller) => {
-                controller.emit(removable::Input::Reconfigure(removable::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Session(controller) => {
-                controller.emit(session::Input::Reconfigure {
-                    config: session::Config::from_raw(&config.cloned()),
-                    theme_mode,
-                });
-            }
-            Self::Tray(controller) => {
-                controller.emit(tray::Input::Reconfigure(tray::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Weather(controller) => {
-                controller.emit(weather::Input::Reconfigure(weather::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Window(controller) => {
-                controller.emit(window::Input::Reconfigure(window::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-            Self::Workspace(controller) => {
-                controller.emit(workspace::Input::Reconfigure(workspace::Config::from_raw(
-                    &config.cloned(),
-                )));
-            }
-        }
-    }
+define_applet_controller! {
+    (Audio,         audio,         audio::Applet,         Audio,         std),
+    (Battery,       battery,       battery::Applet,       Battery,       std),
+    (Brightness,    brightness,    brightness::Applet,    Brightness,    std),
+    (Bluetooth,     bluetooth,     bluetooth::Applet,     Bluetooth,     std),
+    (Display,       display,       display::Applet,       Display,       std),
+    (Clipboard,     clipboard,     clipboard::Applet,     Clipboard,     std),
+    (Clock,         clock,         clock::Applet,         Clock,         std),
+    (Command,       command,       command::Applet,       Command,       std),
+    (Dynamic,       dynamic,       dynamic::Applet,       Dynamic,       noop),
+    (Exec,          exec,          exec::Applet,          Exec,          std),
+    (Idle,          idle,          idle::applet::Applet,  Idle,          noop),
+    (Keyboard,      keyboard,      keyboard::Applet,      Keyboard,      std),
+    (Mpris,         mpris,         mpris::Applet,         Mpris,         std),
+    (Network,       network,       network::Applet,       Network,       std),
+    (NextEvent,     next_event,    next_event::Applet,    NextEvent,     std),
+    (Notifications, notifications, notifications::Applet, Notifications, theme),
+    (Pager,         pager,         pager::Applet,         Pager,         std),
+    (Privacy,       privacy,       privacy::Applet,       Privacy,       std),
+    (Printing,      printing,      printing::Applet,      Printing,      std),
+    (Removable,     removable,     removable::Applet,     Removable,     std),
+    (Session,       session,       session::Applet,       Session,       theme),
+    (Tray,          tray,          tray::Applet,          Tray,          std),
+    (Weather,       weather,       weather::Applet,       Weather,       std),
+    (Window,        window,        window::Applet,        Window,        std),
+    (Workspace,     workspace,     workspace::Applet,     Workspace,     std),
 }
 
 pub fn create_applet(

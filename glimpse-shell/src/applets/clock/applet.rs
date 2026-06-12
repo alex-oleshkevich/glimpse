@@ -13,6 +13,7 @@ use crate::{
         clock::{self, State as ClockState, TimezoneConfig},
         framework::ServiceCommand,
     },
+    utils::subscribe_service,
     widgets::panel_indicator::PanelIndicator,
 };
 
@@ -134,6 +135,16 @@ impl SimpleComponent for Applet {
             })
             .forward(sender.input_sender(), Input::PopoverOutput);
 
+        let clock_cancel = subscribe_service(
+            init.clock.subscribe(),
+            sender.input_sender().clone(),
+            Input::ClockStateChanged,
+        );
+        let calendar_cancel = subscribe_service(
+            init.calendar.subscribe(),
+            sender.input_sender().clone(),
+            Input::CalendarStateChanged,
+        );
         let model = Applet {
             label: format::label(&init.config.label_format, &clock_state),
             tooltip: format::tooltip(&init.config.tooltip_format, &clock_state),
@@ -143,12 +154,10 @@ impl SimpleComponent for Applet {
             clock_state,
             calendar_state,
             popover,
-            clock_cancel: CancellationToken::new(),
-            calendar_cancel: CancellationToken::new(),
+            clock_cancel,
+            calendar_cancel,
         };
 
-        subscribe_clock(&model.clock, model.clock_cancel.clone(), &sender);
-        subscribe_calendar(&model.calendar, model.calendar_cancel.clone(), &sender);
         model.configure_clock();
         model.preload_month(MonthKey::from_date(Local::now().date_naive()));
 
@@ -238,70 +247,3 @@ impl Drop for Applet {
     }
 }
 
-fn subscribe_clock(
-    service: &clock::ClockHandle,
-    cancel: CancellationToken,
-    sender: &ComponentSender<Applet>,
-) {
-    let service = service.clone();
-    let sender = sender.input_sender().clone();
-    relm4::spawn(async move {
-        let mut sub = service.subscribe();
-        if sender
-            .send(Input::ClockStateChanged(sub.borrow().clone()))
-            .is_err()
-        {
-            return;
-        }
-        loop {
-            tokio::select! {
-                _ = cancel.cancelled() => break,
-                changed = sub.changed() => {
-                    if changed.is_err() {
-                        break;
-                    }
-                    if sender
-                        .send(Input::ClockStateChanged(sub.borrow().clone()))
-                        .is_err()
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-    });
-}
-
-fn subscribe_calendar(
-    service: &calendar_events::CalendarEventsHandle,
-    cancel: CancellationToken,
-    sender: &ComponentSender<Applet>,
-) {
-    let service = service.clone();
-    let sender = sender.input_sender().clone();
-    relm4::spawn(async move {
-        let mut sub = service.subscribe();
-        if sender
-            .send(Input::CalendarStateChanged(sub.borrow().clone()))
-            .is_err()
-        {
-            return;
-        }
-        loop {
-            tokio::select! {
-                _ = cancel.cancelled() => break,
-                changed = sub.changed() => {
-                    if changed.is_err() {
-                        break;
-                    }
-                    if sender
-                        .send(Input::CalendarStateChanged(sub.borrow().clone()))
-                        .is_err()
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-    });
-}

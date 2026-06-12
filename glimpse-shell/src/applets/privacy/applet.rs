@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 use relm4::{ComponentParts, ComponentSender, SimpleComponent, gtk::prelude::*};
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
+use crate::utils::subscribe_service;
 
 use crate::{
     panels::applets::AppletConfig,
@@ -48,11 +49,12 @@ pub struct Applet {
     config: Config,
     state: PrivacyState,
     view: View,
-    microphone: MicrophoneHandle,
     webcam: WebcamHandle,
     compositor: CompositorHandle,
-    geoclue: GeoClueHandle,
     subscription_cancel: CancellationToken,
+    webcam_cancel: CancellationToken,
+    compositor_cancel: CancellationToken,
+    geoclue_cancel: CancellationToken,
     screen_elapsed_started_at: Option<Instant>,
     screen_elapsed_cancel: Option<CancellationToken>,
 }
@@ -135,15 +137,36 @@ impl SimpleComponent for Applet {
             &init.geoclue.snapshot(),
         );
         let view = view_from_state(&state);
+        let subscription_cancel = subscribe_service(
+            init.microphone.subscribe(),
+            sender.input_sender().clone(),
+            Input::MicrophoneStateChanged,
+        );
+        let webcam_cancel = subscribe_service(
+            init.webcam.subscribe(),
+            sender.input_sender().clone(),
+            Input::WebcamStateChanged,
+        );
+        let compositor_cancel = subscribe_service(
+            init.compositor.subscribe(),
+            sender.input_sender().clone(),
+            Input::CompositorStateChanged,
+        );
+        let geoclue_cancel = subscribe_service(
+            init.geoclue.subscribe(),
+            sender.input_sender().clone(),
+            Input::GeoClueStateChanged,
+        );
         let mut model = Applet {
             config: init.config,
             state,
             view,
-            microphone: init.microphone,
             webcam: init.webcam,
             compositor: init.compositor,
-            geoclue: init.geoclue,
-            subscription_cancel: CancellationToken::new(),
+            subscription_cancel,
+            webcam_cancel,
+            compositor_cancel,
+            geoclue_cancel,
             screen_elapsed_started_at: None,
             screen_elapsed_cancel: None,
         };
@@ -153,8 +176,6 @@ impl SimpleComponent for Applet {
             model.update_screen_elapsed();
             model.sync_view();
         }
-
-        spawn_subscriptions(&model, &sender);
 
         let widgets = view_output!();
         ComponentParts { model, widgets }
@@ -316,6 +337,9 @@ impl Applet {
 impl Drop for Applet {
     fn drop(&mut self) {
         self.subscription_cancel.cancel();
+        self.webcam_cancel.cancel();
+        self.compositor_cancel.cancel();
+        self.geoclue_cancel.cancel();
         if let Some(cancel) = self.screen_elapsed_cancel.take() {
             cancel.cancel();
         }
@@ -429,92 +453,6 @@ fn stoppable_screencast_id(
     }
 
     Some(session.session_id.as_ref().unwrap_or(&session.id).clone())
-}
-
-fn spawn_subscriptions(model: &Applet, sender: &ComponentSender<Applet>) {
-    let mut microphone = model.microphone.subscribe();
-    let mut webcam = model.webcam.subscribe();
-    let mut compositor = model.compositor.subscribe();
-    let mut geoclue = model.geoclue.subscribe();
-    let cancel = model.subscription_cancel.clone();
-    let sender = sender.input_sender().clone();
-
-    relm4::spawn(async move {
-        if sender
-            .send(Input::MicrophoneStateChanged(microphone.borrow().clone()))
-            .is_err()
-        {
-            return;
-        }
-        if sender
-            .send(Input::WebcamStateChanged(webcam.borrow().clone()))
-            .is_err()
-        {
-            return;
-        }
-        if sender
-            .send(Input::CompositorStateChanged(compositor.borrow().clone()))
-            .is_err()
-        {
-            return;
-        }
-        if sender
-            .send(Input::GeoClueStateChanged(geoclue.borrow().clone()))
-            .is_err()
-        {
-            return;
-        }
-
-        loop {
-            tokio::select! {
-                _ = cancel.cancelled() => break,
-                changed = microphone.changed() => {
-                    if changed.is_err() {
-                        break;
-                    }
-                    if sender
-                        .send(Input::MicrophoneStateChanged(microphone.borrow().clone()))
-                        .is_err()
-                    {
-                        break;
-                    }
-                }
-                changed = webcam.changed() => {
-                    if changed.is_err() {
-                        break;
-                    }
-                    if sender
-                        .send(Input::WebcamStateChanged(webcam.borrow().clone()))
-                        .is_err()
-                    {
-                        break;
-                    }
-                }
-                changed = compositor.changed() => {
-                    if changed.is_err() {
-                        break;
-                    }
-                    if sender
-                        .send(Input::CompositorStateChanged(compositor.borrow().clone()))
-                        .is_err()
-                    {
-                        break;
-                    }
-                }
-                changed = geoclue.changed() => {
-                    if changed.is_err() {
-                        break;
-                    }
-                    if sender
-                        .send(Input::GeoClueStateChanged(geoclue.borrow().clone()))
-                        .is_err()
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-    });
 }
 
 #[cfg(test)]

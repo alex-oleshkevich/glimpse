@@ -5,7 +5,12 @@ edition.workspace = true
 rust-version.workspace = true
 
 [features]
+default = ["media", "weather", "printing", "heic"]
 dev = []
+media = ["dep:pipewire"]
+weather = ["dep:reqwest"]
+printing = ["dep:ipp"]
+heic = ["dep:libheif-rs"]
 
 [dependencies]
 anyhow.workspace = true
@@ -14,12 +19,12 @@ chrono.workspace = true
 chrono-tz.workspace = true
 futures-util.workspace = true
 image = "0.25"
-ipp = { version = "6", default-features = false, features = ["async-client-rustls"] }
-libheif-rs = "2.7.0"
+ipp = { version = "6", default-features = false, features = ["async-client-rustls"], optional = true }
+libheif-rs = { version = "2.7.0", optional = true }
 notify.workspace = true
 notify-debouncer-full.workspace = true
-pipewire = "0.9"
-reqwest.workspace = true
+pipewire = { version = "0.9", optional = true }
+reqwest = { workspace = true, optional = true }
 regex.workspace = true
 rrule.workspace = true
 serde = { workspace = true }

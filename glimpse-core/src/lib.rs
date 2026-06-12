@@ -1,6 +1,7 @@
 pub mod compositors;
 pub mod config;
 pub mod dbus;
+#[cfg(feature = "heic")]
 pub mod heic;
 pub mod ipc;
 pub mod night_light;

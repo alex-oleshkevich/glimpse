@@ -28,13 +28,16 @@ pub fn start(services: &Services) -> broadcast::Sender<Arc<IpcEvent>> {
     spawn_theme_watcher(services.theme.subscribe(), tx.clone());
     spawn_solar_watcher(services.solar.subscribe(), tx.clone());
     spawn_night_light_watcher(services.night_light.subscribe(), tx.clone());
+    #[cfg(feature = "weather")]
     spawn_weather_watcher(services.weather.subscribe(), tx.clone());
     spawn_microphone_watcher(services.microphone.subscribe(), tx.clone());
     spawn_clipboard_watcher(services.clipboard.subscribe(), tx.clone());
     spawn_power_watcher(services.power.subscribe(), tx.clone());
     spawn_session_watcher(services.session.subscribe(), tx.clone());
     spawn_storage_watcher(services.storage.subscribe(), tx.clone());
+    #[cfg(feature = "printing")]
     spawn_printing_watcher(services.printing.subscribe(), tx.clone());
+    #[cfg(feature = "media")]
     spawn_webcam_watcher(services.webcam.subscribe(), tx.clone());
     spawn_tray_watcher(services.tray.subscribe(), tx.clone());
     spawn_location_watcher(services.location.subscribe(), tx.clone());
@@ -1581,6 +1584,7 @@ fn spawn_storage_watcher(
     });
 }
 
+#[cfg(feature = "media")]
 fn spawn_webcam_watcher(
     mut rx: watch::Receiver<crate::services::webcam::State>,
     tx: broadcast::Sender<Arc<IpcEvent>>,
@@ -1733,6 +1737,7 @@ fn spawn_location_watcher(
     });
 }
 
+#[cfg(feature = "weather")]
 fn spawn_weather_watcher(
     mut rx: watch::Receiver<crate::services::weather::model::State>,
     tx: broadcast::Sender<Arc<IpcEvent>>,
@@ -1752,6 +1757,7 @@ fn spawn_weather_watcher(
     });
 }
 
+#[cfg(feature = "weather")]
 fn weather_event_fields(
     state: &crate::services::weather::model::State,
 ) -> Vec<(&'static str, String)> {
@@ -1929,6 +1935,7 @@ fn spawn_night_light_watcher(
     });
 }
 
+#[cfg(feature = "printing")]
 fn spawn_printing_watcher(
     mut rx: watch::Receiver<crate::services::printing::State>,
     tx: broadcast::Sender<Arc<IpcEvent>>,

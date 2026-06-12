@@ -9,6 +9,7 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     panels::applets::AppletConfig,
     services::calendar_events::{CalendarEventsHandle, State},
+    utils::subscribe_service,
     widgets::panel_indicator::PanelIndicator,
 };
 
@@ -68,7 +69,6 @@ pub struct Applet {
     tooltip: String,
     hidden: bool,
     state: State,
-    service: CalendarEventsHandle,
     popover: Controller<Popover>,
     subscription_cancel: CancellationToken,
     tick_source: Option<glib::SourceId>,
@@ -124,6 +124,11 @@ impl SimpleComponent for Applet {
             })
             .forward(sender.input_sender(), Input::PopoverOutput);
         let state = init.service.snapshot();
+        let subscription_cancel = subscribe_service(
+            init.service.subscribe(),
+            sender.input_sender().clone(),
+            Input::ServiceStateChanged,
+        );
         let mut model = Applet {
             config: init.config,
             label: String::new(),
@@ -131,18 +136,12 @@ impl SimpleComponent for Applet {
             tooltip: String::new(),
             hidden: true,
             state,
-            service: init.service,
             popover,
-            subscription_cancel: CancellationToken::new(),
+            subscription_cancel,
             tick_source: None,
         };
         model.recompute();
 
-        spawn_subscription(
-            &model.service,
-            model.subscription_cancel.clone(),
-            sender.clone(),
-        );
         model.tick_source = Some(start_tick_timer(sender.clone()));
 
         let widgets = view_output!();
@@ -204,36 +203,6 @@ impl Drop for Applet {
             source.remove();
         }
     }
-}
-
-fn spawn_subscription(
-    service: &CalendarEventsHandle,
-    cancel: CancellationToken,
-    sender: ComponentSender<Applet>,
-) {
-    let service = service.clone();
-    let sender = sender.input_sender().clone();
-    relm4::spawn(async move {
-        // init() already seeded state via service.snapshot(); subscribe just
-        // for subsequent changes.
-        let mut sub = service.subscribe();
-        loop {
-            tokio::select! {
-                _ = cancel.cancelled() => break,
-                changed = sub.changed() => {
-                    if changed.is_err() {
-                        break;
-                    }
-                    if sender
-                        .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                        .is_err()
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-    });
 }
 
 fn start_tick_timer(sender: ComponentSender<Applet>) -> glib::SourceId {

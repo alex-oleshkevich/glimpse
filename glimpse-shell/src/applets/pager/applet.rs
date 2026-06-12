@@ -11,6 +11,7 @@ use crate::{
         compositor::{Command, CompositorHandle, State},
         framework::ServiceCommand,
     },
+    utils::subscribe_service,
     widgets::pager::{PagerAppearance, PagerItemView},
     widgets::{
         pager_strip::{PagerStrip, PagerStripEntry},
@@ -153,6 +154,11 @@ impl SimpleComponent for Applet {
 
         let widgets = view_output!();
 
+        let subscription_cancel = subscribe_service(
+            init.service.subscribe(),
+            sender.input_sender().clone(),
+            Input::ServiceStateChanged,
+        );
         let model = Applet {
             config: init.config,
             state,
@@ -160,41 +166,10 @@ impl SimpleComponent for Applet {
             service: init.service,
             root: widgets.root.clone(),
             strip: widgets.strip.clone(),
-            subscription_cancel: CancellationToken::new(),
+            subscription_cancel,
             panel_monitor: init.panel_monitor,
         };
         model.render();
-
-        let service = model.service.clone();
-        let cancel = model.subscription_cancel.clone();
-        let subscription_sender = sender.input_sender().clone();
-        relm4::spawn(async move {
-            let mut sub = service.subscribe();
-            if subscription_sender
-                .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                .is_err()
-            {
-                return;
-            }
-
-            loop {
-                tokio::select! {
-                    _ = cancel.cancelled() => break,
-                    changed = sub.changed() => {
-                        if changed.is_err() {
-                            break;
-                        }
-
-                        if subscription_sender
-                            .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                            .is_err()
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
 
         model.render();
         ComponentParts { model, widgets }

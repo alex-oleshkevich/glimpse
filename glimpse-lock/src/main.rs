@@ -1,5 +1,6 @@
 use glimpse_core::Config;
 use glimpse_core::dbus::glimpse_lock::GlimpseLockProxy;
+use relm4::RELM_THREADS;
 use glimpse_lock::{
     app::{self, LockAppConfig},
     dbus::LockApiState,
@@ -53,11 +54,11 @@ fn main() -> anyhow::Result<()> {
             return Ok(());
         }
         Command::Lock => {
-            let runtime = tokio::runtime::Runtime::new()?;
+            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
             return runtime.block_on(request_resident_lock());
         }
         Command::Status => {
-            let runtime = tokio::runtime::Runtime::new()?;
+            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
             return runtime.block_on(print_status());
         }
         Command::Check => {
@@ -76,8 +77,16 @@ fn main() -> anyhow::Result<()> {
     if !preview {
         install_lock_panic_hook();
     }
+    let threads = std::env::var("GLIMPSE_THREADS")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(4);
+    if RELM_THREADS.set(threads).is_err() {
+        tracing::warn!(threads, "RELM_THREADS already initialized; GLIMPSE_THREADS ignored");
+    }
+
     let config = LockAppConfig::load();
-    let runtime = tokio::runtime::Runtime::new()?;
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
     let instance_guard = if preview {
         None
     } else {

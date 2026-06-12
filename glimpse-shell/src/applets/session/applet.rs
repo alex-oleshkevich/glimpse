@@ -13,6 +13,7 @@ use crate::{
         framework::ServiceCommand,
         session::{Command, SessionAction, SessionHandle, State},
     },
+    utils::subscribe_service,
     widgets::panel_indicator::PanelIndicator,
 };
 
@@ -143,6 +144,11 @@ impl SimpleComponent for Applet {
 
         let state = init.service.snapshot();
         let config = init.config;
+        let subscription_cancel = subscribe_service(
+            init.service.subscribe(),
+            sender.input_sender().clone(),
+            Input::ServiceStateChanged,
+        );
         let model = Applet {
             root: root.clone(),
             icon_name: icon_name_for_state(&state),
@@ -152,40 +158,9 @@ impl SimpleComponent for Applet {
             state,
             service: init.service,
             popover,
-            subscription_cancel: CancellationToken::new(),
+            subscription_cancel,
             theme_mode: init.theme_mode,
         };
-
-        let service = model.service.clone();
-        let cancel = model.subscription_cancel.clone();
-        let subscription_sender = sender.input_sender().clone();
-        relm4::spawn(async move {
-            let mut sub = service.subscribe();
-            if subscription_sender
-                .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                .is_err()
-            {
-                return;
-            }
-
-            loop {
-                tokio::select! {
-                    _ = cancel.cancelled() => break,
-                    changed = sub.changed() => {
-                        if changed.is_err() {
-                            break;
-                        }
-
-                        if subscription_sender
-                            .send(Input::ServiceStateChanged(sub.borrow().clone()))
-                            .is_err()
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
 
         let widgets = view_output!();
         ComponentParts { model, widgets }

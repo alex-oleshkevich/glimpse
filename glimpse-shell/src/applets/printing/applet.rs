@@ -9,6 +9,7 @@ use glimpse_core::services::printing::{Command, PrintingHandle, State};
 
 use crate::{
     panels::applets::AppletConfig, services::framework::ServiceCommand,
+    utils::subscribe_service,
     widgets::panel_indicator::PanelIndicator,
 };
 
@@ -142,6 +143,11 @@ impl SimpleComponent for Applet {
             move |_| action_popover.unparent()
         });
 
+        let subscription_cancel = subscribe_service(
+            init.service.subscribe(),
+            sender.input_sender().clone(),
+            Input::ServiceStateChanged,
+        );
         let model = Applet {
             visible: applet_visible(&state, &init.config),
             icon: applet_icon(&state),
@@ -152,29 +158,8 @@ impl SimpleComponent for Applet {
             service: init.service,
             popover,
             action_popover,
-            subscription_cancel: CancellationToken::new(),
+            subscription_cancel,
         };
-
-        let service = model.service.clone();
-        let cancel = model.subscription_cancel.clone();
-        let sub_sender = sender.input_sender().clone();
-        relm4::spawn(async move {
-            let mut sub = service.subscribe();
-            loop {
-                tokio::select! {
-                    _ = cancel.cancelled() => break,
-                    changed = sub.changed() => {
-                        if changed.is_err() { break; }
-                        if sub_sender
-                            .send(Input::ServiceStateChanged(sub.borrow_and_update().clone()))
-                            .is_err()
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-        });
 
         let widgets = view_output!();
         ComponentParts { model, widgets }

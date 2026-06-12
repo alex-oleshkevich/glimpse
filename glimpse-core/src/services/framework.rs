@@ -8,10 +8,16 @@ use crate::{
     services::{
         applet_watcher::AppletWatcher, audio, audio_events, battery, bluetooth, brightness,
         calendar_events, clipboard, clock, compositor, geoclue, idle, idle_backend, keyboard,
-        location, microphone, mpris, network, night_light, notifications, power, printing, session,
-        solar, storage, theme, tray, weather, webcam,
+        location, microphone, mpris, network, night_light, notifications, power, session,
+        solar, storage, theme, tray,
     },
 };
+#[cfg(feature = "printing")]
+use crate::services::printing;
+#[cfg(feature = "weather")]
+use crate::services::weather;
+#[cfg(feature = "media")]
+use crate::services::webcam;
 
 macro_rules! for_each_service_handle {
     ($self:expr, $control:expr, [$($name:ident),* $(,)?]) => {
@@ -157,10 +163,13 @@ pub struct Services {
     pub compositor: compositor::CompositorHandle,
     pub night_light: night_light::NightLightHandle,
     pub keyboard: keyboard::KeyboardHandle,
+    #[cfg(feature = "weather")]
     pub weather: weather::WeatherHandle,
     pub storage: storage::StorageHandle,
+    #[cfg(feature = "printing")]
     pub printing: printing::PrintingHandle,
     pub tray: tray::TrayHandle,
+    #[cfg(feature = "media")]
     pub webcam: webcam::WebcamHandle,
     pub idle: idle::IdleHandle,
     pub applet_watcher: watch::Receiver<DiscoveredApplets>,
@@ -174,35 +183,17 @@ impl Services {
             self,
             control,
             [
-                audio,
-                audio_events,
-                clock,
-                calendar_events,
-                geoclue,
-                location,
-                solar,
-                theme,
-                microphone,
-                mpris,
-                battery,
-                brightness,
-                clipboard,
-                power,
-                bluetooth,
-                network,
-                notifications,
-                session,
-                compositor,
-                night_light,
-                keyboard,
-                weather,
-                storage,
-                printing,
-                tray,
-                webcam,
-                idle
+                audio, audio_events, clock, calendar_events, geoclue, location, solar, theme,
+                microphone, mpris, battery, brightness, clipboard, power, bluetooth, network,
+                notifications, session, compositor, night_light, keyboard, storage, tray, idle
             ]
         );
+        #[cfg(feature = "weather")]
+        for_each_service_handle!(self, control, [weather]);
+        #[cfg(feature = "printing")]
+        for_each_service_handle!(self, control, [printing]);
+        #[cfg(feature = "media")]
+        for_each_service_handle!(self, control, [webcam]);
     }
 }
 
@@ -284,19 +275,25 @@ impl ServiceRuntime {
         let (keyboard_service, keyboard) = keyboard::KeyboardService::new(compositor.clone());
         let keyboard_service = spawn_service(|cancel| keyboard_service.run(cancel));
 
+        #[cfg(feature = "weather")]
         let (weather_service, weather) = weather::WeatherService::new(location.clone());
+        #[cfg(feature = "weather")]
         let weather_service = spawn_service(|cancel| weather_service.run(cancel));
 
         let (storage_service, storage) = storage::StorageService::new(system_dbus.clone());
         let storage_service = spawn_service(|cancel| storage_service.run(cancel));
 
+        #[cfg(feature = "printing")]
         let (printing_service, printing) = printing::PrintingService::new();
+        #[cfg(feature = "printing")]
         let printing_service = spawn_service(|cancel| printing_service.run(cancel));
 
         let (tray_service, tray) = tray::TrayService::new(session_dbus.clone());
         let tray_service = spawn_service(|cancel| tray_service.run(cancel));
 
+        #[cfg(feature = "media")]
         let (webcam_service, webcam) = webcam::WebcamService::new();
+        #[cfg(feature = "media")]
         let webcam_service = spawn_service(|cancel| webcam_service.run(cancel));
 
         let (idle_service, idle) = idle::IdleService::new(battery.clone());
@@ -308,7 +305,8 @@ impl ServiceRuntime {
 
         let applet_watcher = AppletWatcher::start(AppletDirectoryScanner::from_process());
 
-        let running_services = vec![
+        #[allow(unused_mut)]
+        let mut running_services = vec![
             audio_events_service,
             audio_service,
             clock_service,
@@ -330,14 +328,17 @@ impl ServiceRuntime {
             compositor_service,
             night_light_service,
             keyboard_service,
-            weather_service,
             storage_service,
-            printing_service,
             tray_service,
-            webcam_service,
             idle_service,
             idle_backend_service,
         ];
+        #[cfg(feature = "weather")]
+        running_services.push(weather_service);
+        #[cfg(feature = "printing")]
+        running_services.push(printing_service);
+        #[cfg(feature = "media")]
+        running_services.push(webcam_service);
         let handles = Services {
             audio,
             audio_events,
@@ -360,10 +361,13 @@ impl ServiceRuntime {
             compositor,
             night_light,
             keyboard,
+            #[cfg(feature = "weather")]
             weather,
             storage,
+            #[cfg(feature = "printing")]
             printing,
             tray,
+            #[cfg(feature = "media")]
             webcam,
             idle,
             applet_watcher,

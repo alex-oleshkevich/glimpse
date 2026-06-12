@@ -21,11 +21,14 @@ pub mod network;
 pub mod night_light;
 pub mod notifications;
 pub mod power;
+#[cfg(feature = "printing")]
 pub mod printing;
 pub mod session;
 pub mod solar;
 pub mod storage;
 pub mod theme;
 pub mod tray;
+#[cfg(feature = "weather")]
 pub mod weather;
+#[cfg(feature = "media")]
 pub mod webcam;

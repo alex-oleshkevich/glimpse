@@ -19,6 +19,16 @@ verify-release: sync-pkgver
 
 # ---- Local development -------------------------------------------------------
 
+install-local:
+    cargo build --release -p glimpse-shell -p glimpse-lock -p glimpse-wallpaper
+    pkexec install -Dm755 \
+        "$(pwd)/target/release/glimpse-shell" \
+        "$(pwd)/target/release/glimpse-lock" \
+        "$(pwd)/target/release/glimpse-wallpaper" \
+        /usr/bin/
+    systemctl --user restart glimpse-shell.service
+    systemctl --user is-active glimpse-shell.service
+
 run-shell *args:
     RUST_LOG="${RUST_LOG:-info}" cargo run -p glimpse-shell -- {{ args }}
 
