@@ -83,18 +83,6 @@ github-release: binary-package
     asset="dist/glimpse-$(just version)-$(uname -m).tar.zst"
     gh release create "$tag" "$asset" --verify-tag --title "$tag" --notes "Glimpse $(just version)" || gh release upload "$tag" "$asset" --clobber
 
-release-local: binary-package
-    #!/usr/bin/env bash
-    set -euo pipefail
-    tag="v$(just version)"
-    asset="dist/glimpse-$(just version)-$(uname -m).tar.zst"
-    git diff --quiet
-    git diff --cached --quiet
-    git rev-parse "$tag" >/dev/null 2>&1 || git tag -a "$tag" -m "Release $tag"
-    git push origin HEAD
-    git push origin "$tag"
-    gh release create "$tag" "$asset" --verify-tag --title "$tag" --notes "Glimpse $(just version)" || gh release upload "$tag" "$asset" --clobber
-    just aur-publish
 
 act-ci:
     act push -W .github/workflows/ci.yml
