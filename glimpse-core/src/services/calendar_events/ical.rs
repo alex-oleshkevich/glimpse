@@ -620,7 +620,7 @@ mod tests {
         let path = temp_path("weekly-rrule.ics");
         fs::write(
             &path,
-            "BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:family-weekly-1\nSUMMARY:Family Dinner\nDTSTART;TZID=Europe/Warsaw:20260505T180000\nDTEND;TZID=Europe/Warsaw:20260505T190000\nRRULE:FREQ=WEEKLY;COUNT=4\nEND:VEVENT\nEND:VCALENDAR\n",
+            "BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:family-weekly-1\nSUMMARY:Family Dinner\nDTSTART;TZID=Europe/Warsaw:20270405T180000\nDTEND;TZID=Europe/Warsaw:20270405T190000\nRRULE:FREQ=WEEKLY;COUNT=4\nEND:VEVENT\nEND:VCALENDAR\n",
         )
         .expect("test ics should be written");
         let config = ical_config(format!("file://{}", path.display()));
@@ -632,12 +632,12 @@ mod tests {
         assert_eq!(snapshot.events.len(), 4);
         assert_eq!(
             snapshot.events[0].event_id,
-            "family-weekly-1#2026-05-05T16:00:00+00:00"
+            "family-weekly-1#2027-04-05T16:00:00+00:00"
         );
-        assert_eq!(snapshot.events[0].start, "2026-05-05T16:00:00+00:00");
-        assert_eq!(snapshot.events[1].start, "2026-05-12T16:00:00+00:00");
-        assert_eq!(snapshot.events[2].start, "2026-05-19T16:00:00+00:00");
-        assert_eq!(snapshot.events[3].start, "2026-05-26T16:00:00+00:00");
+        assert_eq!(snapshot.events[0].start, "2027-04-05T16:00:00+00:00");
+        assert_eq!(snapshot.events[1].start, "2027-04-12T16:00:00+00:00");
+        assert_eq!(snapshot.events[2].start, "2027-04-19T16:00:00+00:00");
+        assert_eq!(snapshot.events[3].start, "2027-04-26T16:00:00+00:00");
         assert!(
             snapshot
                 .events
@@ -651,7 +651,7 @@ mod tests {
         let path = temp_path("outlook-weekly-rrule.ics");
         fs::write(
             &path,
-            "BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:outlook-weekly-1\nSUMMARY:Outlook Weekly\nDTSTART;TZID=W. Europe Standard Time:20260505T090000\nDTEND;TZID=W. Europe Standard Time:20260505T100000\nRRULE:FREQ=WEEKLY;COUNT=2\nEND:VEVENT\nEND:VCALENDAR\n",
+            "BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:outlook-weekly-1\nSUMMARY:Outlook Weekly\nDTSTART;TZID=W. Europe Standard Time:20270405T090000\nDTEND;TZID=W. Europe Standard Time:20270405T100000\nRRULE:FREQ=WEEKLY;COUNT=2\nEND:VEVENT\nEND:VCALENDAR\n",
         )
         .expect("test ics should be written");
         let config = ical_config(format!("file://{}", path.display()));
@@ -661,10 +661,10 @@ mod tests {
             .expect("ics file should load");
 
         assert_eq!(snapshot.events.len(), 2);
-        assert_eq!(snapshot.events[0].start, "2026-05-05T07:00:00+00:00");
-        assert_eq!(snapshot.events[0].end, "2026-05-05T08:00:00+00:00");
-        assert_eq!(snapshot.events[1].start, "2026-05-12T07:00:00+00:00");
-        assert_eq!(snapshot.events[1].end, "2026-05-12T08:00:00+00:00");
+        assert_eq!(snapshot.events[0].start, "2027-04-05T07:00:00+00:00");
+        assert_eq!(snapshot.events[0].end, "2027-04-05T08:00:00+00:00");
+        assert_eq!(snapshot.events[1].start, "2027-04-12T07:00:00+00:00");
+        assert_eq!(snapshot.events[1].end, "2027-04-12T08:00:00+00:00");
     }
 
     #[tokio::test]
@@ -672,7 +672,7 @@ mod tests {
         let path = temp_path("outlook-weekly-quoted-rrule.ics");
         fs::write(
             &path,
-            "BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:outlook-weekly-quoted-1\nSUMMARY:Outlook Weekly Quoted\nDTSTART;TZID=\"W. Europe Standard Time\":20260505T090000\nDTEND;TZID=\"W. Europe Standard Time\":20260505T100000\nRRULE:FREQ=WEEKLY;COUNT=2\nEND:VEVENT\nEND:VCALENDAR\n",
+            "BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:outlook-weekly-quoted-1\nSUMMARY:Outlook Weekly Quoted\nDTSTART;TZID=\"W. Europe Standard Time\":20270405T090000\nDTEND;TZID=\"W. Europe Standard Time\":20270405T100000\nRRULE:FREQ=WEEKLY;COUNT=2\nEND:VEVENT\nEND:VCALENDAR\n",
         )
         .expect("test ics should be written");
         let config = ical_config(format!("file://{}", path.display()));
@@ -682,10 +682,10 @@ mod tests {
             .expect("ics file should load");
 
         assert_eq!(snapshot.events.len(), 2);
-        assert_eq!(snapshot.events[0].start, "2026-05-05T07:00:00+00:00");
-        assert_eq!(snapshot.events[0].end, "2026-05-05T08:00:00+00:00");
-        assert_eq!(snapshot.events[1].start, "2026-05-12T07:00:00+00:00");
-        assert_eq!(snapshot.events[1].end, "2026-05-12T08:00:00+00:00");
+        assert_eq!(snapshot.events[0].start, "2027-04-05T07:00:00+00:00");
+        assert_eq!(snapshot.events[0].end, "2027-04-05T08:00:00+00:00");
+        assert_eq!(snapshot.events[1].start, "2027-04-12T07:00:00+00:00");
+        assert_eq!(snapshot.events[1].end, "2027-04-12T08:00:00+00:00");
     }
 
     #[tokio::test]
