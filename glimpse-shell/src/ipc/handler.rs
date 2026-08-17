@@ -160,6 +160,18 @@ fn append_night_light_status(out: &mut Vec<(String, String)>, state: &night_ligh
         "night_light_effective_temperature".into(),
         state.effective_temperature_kelvin.to_string(),
     ));
+    out.push((
+        "night_light_manual_override".into(),
+        manual_override_name(state.manual_override).into(),
+    ));
+}
+
+fn manual_override_name(manual_override: Option<bool>) -> &'static str {
+    match manual_override {
+        Some(true) => "on",
+        Some(false) => "off",
+        None => "none",
+    }
 }
 
 fn phase_name(phase: NightLightPhase) -> &'static str {

@@ -140,8 +140,15 @@ impl NightLightService {
                         self.refresh_from_current_state().await;
                     }
                     Some(ServiceCommand::Command(Command::ApplyConfig(config))) => {
-                        // Preserve manual_override across config changes (e.g. set_temperature
-                        // while in forced Night should stay in Night with the new temperature).
+                        // Preserve manual_override across parameter changes (e.g. set_temperature
+                        // while in forced Night should stay in Night with the new temperature),
+                        // but drop it when the schedule mode itself changes: selecting a schedule
+                        // is a request for the schedule to drive again.
+                        let schedule_changed =
+                            self.state_tx.borrow().config.schedule != config.schedule;
+                        if schedule_changed {
+                            self.manual_override = None;
+                        }
                         self.apply_config(config).await;
                     }
                     Some(ServiceCommand::Command(Command::Manual(forced))) => {
@@ -750,6 +757,159 @@ mod tests {
                 .is_err(),
             "unsupported compositor should not receive night light commands"
         );
+    }
+
+    /// Drains compositor commands so gamma transitions cannot fill the channel
+    /// and stall the service loop under test.
+    fn drain_compositor_commands(
+        mut command_rx: mpsc::Receiver<ServiceCommand<CompositorCommand>>,
+    ) -> tokio::task::JoinHandle<()> {
+        tokio::spawn(async move { while command_rx.recv().await.is_some() {} })
+    }
+
+    async fn wait_for_state(
+        handle: &super::NightLightHandle,
+        label: &str,
+        predicate: impl Fn(&State) -> bool,
+    ) -> State {
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                let state = handle.snapshot();
+                if predicate(&state) {
+                    return state;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("night light state never satisfied: {label}"))
+    }
+
+    /// A running service forced into Night, with the upstream watch senders held
+    /// alive — dropping either one closes a subscription and stops the run loop.
+    struct ForcedNightService {
+        handle: super::NightLightHandle,
+        cancel: tokio_util::sync::CancellationToken,
+        task: tokio::task::JoinHandle<()>,
+        _solar_tx: watch::Sender<solar::State>,
+        _compositor_tx: watch::Sender<CompositorState>,
+    }
+
+    impl ForcedNightService {
+        async fn shutdown(self) {
+            self.cancel.cancel();
+            let _ = self.task.await;
+        }
+    }
+
+    /// Starts the service with `Automatic` and forces night via a manual override.
+    async fn forced_night_service(temperature: u32) -> ForcedNightService {
+        let (solar_tx, solar) = solar_handle(solar::State::Ready(solar::Snapshot {
+            coordinates: crate::services::location::Coordinates {
+                latitude: 52.2298,
+                longitude: 21.0118,
+            },
+            date: chrono::Local::now().date_naive(),
+            times: solar::SolarTimes {
+                sunrise: "06:00".into(),
+                sunset: "18:00".into(),
+            },
+        }));
+        let (compositor_tx, compositor, compositor_rx) =
+            compositor_handle(CompositorCapabilities {
+                night_light: true,
+                ..CompositorCapabilities::default()
+            });
+        drain_compositor_commands(compositor_rx);
+        let (service, handle) = super::NightLightService::new(solar, compositor);
+
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let service_cancel = cancel.clone();
+        let task = tokio::spawn(async move { service.run(service_cancel).await });
+
+        handle
+            .send(ServiceCommand::Control(Control::Start(Config {
+                night_light: NightLightConfig {
+                    schedule: NightLightSchedule::Automatic,
+                    temperature,
+                    ..NightLightConfig::default()
+                },
+                ..Config::default()
+            })))
+            .await
+            .expect("send start");
+        handle
+            .send(ServiceCommand::Command(super::Command::Manual(true)))
+            .await
+            .expect("send manual override");
+        wait_for_state(&handle, "forced night", |state| {
+            state.manual_override == Some(true)
+        })
+        .await;
+
+        ForcedNightService {
+            handle,
+            cancel,
+            task,
+            _solar_tx: solar_tx,
+            _compositor_tx: compositor_tx,
+        }
+    }
+
+    #[tokio::test]
+    async fn changing_the_schedule_clears_a_forced_night_override() {
+        let service = forced_night_service(3700).await;
+
+        // Re-selecting a schedule mode is a request for the schedule to drive again.
+        service
+            .handle
+            .send(ServiceCommand::Command(super::Command::ApplyConfig(
+                NightLightConfig {
+                    schedule: NightLightSchedule::Schedule,
+                    temperature: 3700,
+                    start_time: Some("18:00".into()),
+                    end_time: Some("06:00".into()),
+                    ..NightLightConfig::default()
+                },
+            )))
+            .await
+            .expect("send apply config");
+
+        let state = wait_for_state(&service.handle, "override cleared", |state| {
+            state.manual_override.is_none()
+        })
+        .await;
+        assert_eq!(state.config.schedule, NightLightSchedule::Schedule);
+
+        service.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn changing_only_the_temperature_keeps_a_forced_night_override() {
+        let service = forced_night_service(3700).await;
+
+        // A parameter change must not silently hand control back to the schedule.
+        service
+            .handle
+            .send(ServiceCommand::Command(super::Command::ApplyConfig(
+                NightLightConfig {
+                    schedule: NightLightSchedule::Automatic,
+                    temperature: 3000,
+                    ..NightLightConfig::default()
+                },
+            )))
+            .await
+            .expect("send apply config");
+
+        let state = wait_for_state(&service.handle, "temperature applied", |state| {
+            state.config.temperature == 3000
+        })
+        .await;
+        assert_eq!(state.manual_override, Some(true));
+        assert_eq!(state.phase, NightLightPhase::Night);
+        assert_eq!(state.effective_temperature_kelvin, 3000);
+
+        service.shutdown().await;
     }
 
     #[test]
