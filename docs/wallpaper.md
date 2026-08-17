@@ -59,6 +59,19 @@ blur_radius = 24
 
 Set `enabled = false` if you want no backdrop layer.
 
+### Showing the backdrop in Niri's Overview
+
+Niri draws its own solid-color chrome behind the Overview (`Mod+O`) by default; it does not composite any client's background layer there automatically. To have the blurred backdrop show through the Overview instead, add a `layer-rule` to your Niri config that places the backdrop surface within the Overview backdrop:
+
+```kdl
+layer-rule {
+    match namespace="^glimpse-backdrop$"
+    place-within-backdrop true
+}
+```
+
+Without this rule, the backdrop still works everywhere else (behind the panel and popovers); only the Overview falls back to Niri's default chrome. The lock screen uses its own separate background config; see [Lock Screen](./lock.md).
+
 ## What wins
 
 Explicit config paths win over theme-pack images.

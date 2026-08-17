@@ -56,6 +56,7 @@ Wallpaper by Christina Oleshkevich ([@krisn_ph](https://instagram.com/krisn_ph))
 ![Battery popover](screenshots/popover-battery.png)
 ![Session popover](screenshots/popover-session.png)
 ![Clock popover](screenshots/popover-clock.png)
+![Niri Overview with blurred backdrop](screenshots/overview.png)
 
 </details>
 
@@ -352,6 +353,20 @@ Fit modes:
 
 When `[backdrop]` is enabled and `backdrop.path` is omitted, Glimpse derives
 the backdrop from `wallpaper.path`.
+
+Niri draws its own solid-color chrome behind the Overview (`Mod+O`) by
+default, not the backdrop layer. To see the blurred backdrop there too, add
+a layer-rule to your Niri config:
+
+```kdl
+layer-rule {
+    match namespace="^glimpse-backdrop$"
+    place-within-backdrop true
+}
+```
+
+See [Wallpaper](docs/wallpaper.md#showing-the-backdrop-in-niris-overview)
+for details.
 
 ## Lock screen
 
