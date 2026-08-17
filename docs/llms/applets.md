@@ -198,6 +198,8 @@ Enums:
 | `popup_position` | `top_left`, `top_center`, `top_right`, `bottom_left`, `bottom_center`, `bottom_right` |
 | `urgency` | `low`, `normal`, `critical` |
 
+Three or more notifications from the same application are grouped in the notification center. Click a collapsed group to expand it, or Shift-click any notification in the group to dismiss the whole group.
+
 Placeholders: `{count}`, `{unread}`.
 
 ## Pager

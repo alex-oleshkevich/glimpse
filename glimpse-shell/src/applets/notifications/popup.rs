@@ -496,7 +496,7 @@ fn build_card(notification: &NotificationEntry, sender: &ComponentSender<Popup>)
     let s = sender.clone();
     msg.connect_closed(move |_| s.input(PopupInput::Dismiss(id)));
     let s = sender.clone();
-    msg.connect_clicked(move |_| s.input(PopupInput::FocusAndDismiss(id)));
+    msg.connect_clicked(move |_, _| s.input(PopupInput::FocusAndDismiss(id)));
     let s = sender.clone();
     msg.connect_secondary_clicked(move |_| s.input(PopupInput::Cancel(id)));
     let s = sender.clone();

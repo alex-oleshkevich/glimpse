@@ -355,6 +355,8 @@ max_history = 100
 | `filter_regex` | `[]` | Regex filters for non-critical notifications to hide. Rules match app name, title, and body. |
 | `urgency_remap` | `[]` | Rules that rewrite notification urgency by app name. |
 
+Three or more notifications from the same application are grouped in the notification center. Click a collapsed group to expand it, or Shift-click any notification in the group to dismiss the whole group.
+
 `badge_style` values:
 
 | Value | Meaning |
