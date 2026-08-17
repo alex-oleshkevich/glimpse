@@ -10,18 +10,19 @@ defaults, and lets you replace the parts that should reflect your setup.
 
 ## Contents
 
-- [Why Glimpse Exists](#why-glimpse-exists)
-- [What's Inside](#whats-inside)
+- [Screenshots](#screenshots)
+- [Why Glimpse exists](#why-glimpse-exists)
+- [What's inside](#whats-inside)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Calendar Sources](#calendar-sources)
-- [Wallpaper And Backdrop](#wallpaper-and-backdrop)
-- [Lock Screen](#lock-screen)
-- [Night Light](#night-light)
-- [Idle Policy](#idle-policy)
+- [Calendar sources](#calendar-sources)
+- [Wallpaper and backdrop](#wallpaper-and-backdrop)
+- [Lock screen](#lock-screen)
+- [Night light](#night-light)
+- [Idle policy](#idle-policy)
 - [Theming](#theming)
 
-## Why Glimpse Exists
+## Why Glimpse exists
 
 Glimpse exists because a beautiful tiling desktop should not feel unfinished.
 
@@ -40,7 +41,25 @@ Glimpse optimizes for:
 | **Readable config** | Keep the desktop in TOML and CSS files that are practical to version. |
 | **Daily comfort** | Make lock, idle, night light, wallpaper, and panel status work together. |
 
-## What's Inside
+## Screenshots
+
+![Glimpse panel](screenshots/default.png)
+
+Wallpaper by Christina Oleshkevich ([@krisn_ph](https://instagram.com/krisn_ph)).
+
+<details>
+<summary>Popovers</summary>
+
+![Audio popover](screenshots/popover-audio.png)
+![Network popover](screenshots/popover-network.png)
+![Bluetooth popover](screenshots/popover-bluetooth.png)
+![Battery popover](screenshots/popover-battery.png)
+![Session popover](screenshots/popover-session.png)
+![Clock popover](screenshots/popover-clock.png)
+
+</details>
+
+## What's inside
 
 | Component | Purpose |
 |---|---|
@@ -79,7 +98,7 @@ glimpse-lock
 It also installs systemd user services and the default PAM service file for
 `glimpse-lock`.
 
-### Enable Services
+### Enable services
 
 For a normal Niri desktop, enable the shell and lock screen:
 
@@ -108,7 +127,7 @@ journalctl --user -u glimpse-shell.service -e
 
 Replace `glimpse-shell.service` with the service you are checking.
 
-### Version Check
+### Version check
 
 Each command supports `--version`:
 
@@ -157,14 +176,14 @@ latitude = 52.2297
 longitude = 21.0122
 ```
 
-### Panel Layout
+### Panel layout
 
 Default panel layout:
 
 - **Left:** `pager`, `mpris`
 - **Center:** `clock`, `weather`, `notifications`, `privacy`
-- **Right:** `next_event`, `tray`, `removable`, `clipboard`, `keyboard`, `bluetooth`,
-  `network`, `brightness`, `audio`, `battery`, `session`
+- **Right:** `next_event`, `tray`, `removable`, `clipboard`, `keyboard`, `printing`,
+  `bluetooth`, `network`, `display`, `audio`, `idle`, `battery`, `session`
 
 Panel options:
 
@@ -187,7 +206,7 @@ center = ["clock"]
 right = ["network", "battery", "..."]
 ```
 
-### Built-In Applets
+### Built-in applets
 
 | Applet | Purpose |
 |---|---|
@@ -258,7 +277,7 @@ right = ["terminal", "screenshot", "network", "battery"]
 `command` applets run a command on click and can expose a right-click menu.
 `exec` applets run an external process that speaks the Glimpse applet protocol.
 
-## Calendar Sources
+## Calendar sources
 
 Calendar sources live in `[calendar]` and feed both the clock popover and the `next_event` applet. Use iCalendar subscription URLs from Google Calendar, Outlook, or another provider; Glimpse does not perform provider account login.
 
@@ -292,7 +311,7 @@ Supported source types are `ical` for one provider `.ics` URL or local `.ics` fi
 
 Source colors appear in calendar date markers, event rows, and the next-event panel label. Read [Calendar Sources](docs/calendar.md) for Google Calendar and Outlook ICS links, polling, dedupe, local test events, display rules, and debugging.
 
-## Wallpaper And Backdrop
+## Wallpaper and backdrop
 
 `glimpse-wallpaper` uses `[wallpaper]` and `[backdrop]` from the shared config.
 
@@ -334,7 +353,7 @@ Fit modes:
 When `[backdrop]` is enabled and `backdrop.path` is omitted, Glimpse derives
 the backdrop from `wallpaper.path`.
 
-## Lock Screen
+## Lock screen
 
 `glimpse-lock` listens for logind lock requests. Keep the service running and
 trigger locks with:
@@ -380,7 +399,7 @@ Export starter lock CSS:
 glimpse-lock --export-css
 ```
 
-## Night Light
+## Night light
 
 `glimpse-shell` applies a warmer display temperature on a schedule. It uses
 `[night_light]` and, for automatic scheduling, `[location]`.
@@ -418,7 +437,7 @@ Night-light schedule values:
 | `automatic` | Use location-based sunset and sunrise. |
 | `schedule` | Use `start_time` and `end_time`. |
 
-## Idle Policy
+## Idle policy
 
 `glimpse-shell` runs commands after the session has been idle for configured
 timeouts. It supports separate AC and battery profiles and provides the idle
