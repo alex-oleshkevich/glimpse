@@ -22,7 +22,7 @@ features:
     details: "Add launchers, menus, live widgets, and script-driven popovers without rebuilding the shell."
 ---
 
-## Built Around The Session
+## Built around the session
 
 Glimpse covers the parts of a desktop session that usually sit around the compositor: panel status, notifications, wallpaper, locking, idle behavior, night light, and session actions.
 
@@ -34,13 +34,13 @@ Glimpse covers the parts of a desktop session that usually sit around the compos
 | **Idle and night light** | Automatic locking, monitor power commands, suspend rules, and night-light scheduling. |
 | **Custom applets** | Command launchers and long-running exec widgets with typed SDKs and popover components. |
 
-## Designed For Daily Use
+## Designed for daily use
 
 Glimpse keeps the desktop understandable. System services run as regular user units, configuration stays in plain files, and custom applets can be developed outside the main codebase.
 
 The result is a desktop that remains hackable without feeling assembled from unrelated pieces.
 
-## Choose Your Path
+## Choose your path
 
 | Goal | Page |
 |---|---|

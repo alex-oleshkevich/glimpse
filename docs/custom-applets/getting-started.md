@@ -23,7 +23,7 @@ Run the doctor before creating your first applet:
 glimpse-shell applets doctor
 ```
 
-## Create The Project
+## Create the project
 
 Create a generated Python applet:
 
@@ -59,7 +59,7 @@ The generated project includes its manifest, dependencies, run command, and
 default applet code. Read [Applet Tooling](./tooling.md) for the full command
 reference.
 
-## Link For Local Use
+## Link for local use
 
 Development mode is temporary. When the applet is ready for local use, link the
 generated project:
@@ -83,7 +83,7 @@ For sharing an applet with other users, ship `applet.toml` together with the
 executable or script. [Applet Tooling](./tooling.md) covers that distribution
 shape.
 
-## What The Applet Does
+## What the applet does
 
 The generated counter applet demonstrates the normal exec applet shape:
 
@@ -96,7 +96,7 @@ The generated counter applet demonstrates the normal exec applet shape:
 The SDK handles stdin, stdout, JSON lines, and protocol details. Applet logs and
 diagnostics should go to stderr.
 
-## Python Shape
+## Python shape
 
 When you scaffold with `--lang python`, the applet shape looks like this:
 
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     CounterApplet().run()
 ```
 
-## TypeScript Shape
+## TypeScript shape
 
 When you scaffold with `--lang typescript`, the applet shape looks like this:
 
@@ -213,7 +213,7 @@ class CounterApplet extends Applet<CounterState> {
 void new CounterApplet().run();
 ```
 
-## Rust Shape
+## Rust shape
 
 When you scaffold with `--lang rust`, the applet shape looks like this:
 
@@ -282,7 +282,7 @@ async fn main() -> AppletResult<()> {
 }
 ```
 
-## Go Shape
+## Go shape
 
 When you scaffold with `--lang go`, the applet shape looks like this:
 
@@ -346,7 +346,7 @@ func main() {
 }
 ```
 
-## What Happened
+## What happened
 
 The applet tooling created an applet package and language project for you.
 During development, the dev runner starts the child process and exposes it
@@ -359,7 +359,7 @@ popover tree. When you click the `increment` tile, Glimpse sends an event back
 to the child; the SDK routes it to your handler and pushes fresh output after
 the state changes.
 
-## Common Follow-Ups
+## Common follow-ups
 
 - **Pass per-applet config.** Add an `[exec.options]` table in the generated
   applet package; the SDK exposes those values during initialization.
@@ -371,7 +371,7 @@ the state changes.
 - **Debug startup.** Use `glimpse-shell applets doctor --strict` and write
   applet diagnostics to stderr.
 
-## Where To Go Next
+## Where to go next
 
 | Topic | Page |
 |---|---|

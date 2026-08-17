@@ -2,7 +2,7 @@
 
 Glimpse is configured with one TOML file. Start with the panel layout, then add applet settings as you need them.
 
-## Config File
+## Config file
 
 Most users create this file:
 
@@ -21,7 +21,7 @@ Glimpse looks for config in this order:
 | **3** | `$XDG_CONFIG_HOME/glimpse/config.toml` |
 | **4** | `$HOME/.config/glimpse/config.toml` when `XDG_CONFIG_HOME` is unset |
 
-### Include Other Config Files
+### Include other config files
 
 Use top-level `include` to split shared settings into smaller TOML files:
 
@@ -62,7 +62,7 @@ right = ["tray", "session"]
 
 The final clock config keeps `tooltip_format = "%A"` from `common.toml`, overrides `label_format`, and replaces the whole `panels` array with the panel from `config.toml`.
 
-## Start With A Panel
+## Start with a panel
 
 This is a compact top panel:
 
@@ -80,7 +80,7 @@ right = ["network", "battery", "session"]
 
 The special name `"..."` keeps the default applets for that section in place. Use it when you want to add or remove a few items without copying the whole default layout.
 
-## Theme And Mode
+## Theme and mode
 
 Use `theme` to choose the theme pack and `theme_mode` to choose how Glimpse resolves light and dark styling:
 
@@ -122,7 +122,7 @@ right = ["network", "battery", "session"]
 
 Panel mode does not select a different theme pack. It only changes the light/dark styling for that panel.
 
-## Panel Options
+## Panel options
 
 | Option | What it does |
 |---|---|
@@ -146,7 +146,7 @@ center = ["clock"]
 right = ["network", "battery", "session"]
 ```
 
-## Built-In Applets
+## Built-in applets
 
 Put these names in `left`, `center`, or `right`:
 
@@ -178,7 +178,7 @@ Put these names in `left`, `center`, or `right`:
 
 `__dev__` shows applets started with `glimpse-shell applets dev`. The default panel keeps it at the end of the left section.
 
-## Configure An Applet
+## Configure an applet
 
 Settings for a built-in applet live under `[applets.name]`.
 
@@ -199,7 +199,7 @@ right = ["weather", "network", "battery", "session"]
 
 Read [Applets](./applets/) for the full list of options and format placeholders.
 
-## Add A Launcher Button
+## Add a launcher button
 
 Custom `command` and `exec` applets live in package files under:
 
@@ -228,7 +228,7 @@ right = ["weather", "terminal", "network", "battery", "session"]
 
 Use `exec` when you want a live applet with changing text, icons, popovers, or click handling. Read [Custom Applets](./custom-applets/) for the applet package format and SDKs.
 
-## Calendar Sources
+## Calendar sources
 
 Calendar sources live in the shared `[calendar]` section. The clock popover and `next_event` applet both use these sources.
 
@@ -275,7 +275,7 @@ Static shared coordinates are not a supported `[location]` provider in the curre
 
 The same config file also controls the background services for night light and idle rules. Enable the services from [Installation](./installation.md), then tune their behavior here.
 
-### Night Light
+### Night light
 
 Night light warms the display after dark. The default config follows sunrise and sunset from the shared location provider:
 
@@ -378,7 +378,7 @@ listeners = [
 ]
 ```
 
-## Wallpaper And Lock
+## Wallpaper and lock
 
 Wallpaper and lock screen settings can stay in the same file:
 
@@ -393,7 +393,7 @@ css_path = "themes/lock.css"
 
 Read [Wallpaper](./wallpaper.md) for background settings and [Lock](./lock.md) for lock screen options.
 
-## Default Config Reference
+## Default config reference
 
 These snippets show defaults by file. You usually do not need to copy all of this. Copy only the section you want to change.
 
@@ -500,7 +500,7 @@ poll_interval = 600
 sources = []
 ```
 
-### Built-In Applet Sections In `~/.config/glimpse/config.toml`
+### Built-in applet sections in `~/.config/glimpse/config.toml`
 
 Built-in applet sections are also written in the main config file. They are implicit; add a section only when you want to override it.
 

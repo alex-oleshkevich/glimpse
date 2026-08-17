@@ -2,7 +2,7 @@
 
 Calendar sources feed the clock popover, date markers, event rows, and the `next_event` panel applet. Configure sources once in `~/.config/glimpse/config.toml`; every calendar surface reads from the same event stream.
 
-## Quick Setup
+## Quick setup
 
 Add one or more sources under `[calendar]`:
 
@@ -28,7 +28,7 @@ poll_interval = 300
 
 Every configured source is active. To disable one, remove or comment out its `[[calendar.sources]]` block.
 
-## Calendar URLs And Optional URL Files
+## Calendar URLs and optional URL files
 
 Most calendar providers expose an iCalendar subscription URL. Google calls these **Public address in iCal format** and **Secret address in iCal format**. Outlook calls the subscription URL an **ICS link**. You can put a provider URL directly in `uri`:
 
@@ -70,7 +70,7 @@ color = "#e01b24"
 
 Do not commit `.url` files that contain private or secret provider URLs.
 
-## Provider ICS Links
+## Provider ICS links
 
 Glimpse reads iCalendar subscription feeds. Use the provider's `.ics` or iCal subscription URL, not an exported one-time `.ics` download, when you want future event changes to appear after polling.
 
@@ -84,7 +84,7 @@ Glimpse reads iCalendar subscription feeds. Use the provider's `.ics` or iCal su
 
 Google Calendar exposes two relevant iCal URLs from the calendar's settings. Google only lets you edit these settings from a computer.
 
-#### Google Public Address In iCal Format
+#### Google public address in iCal format
 
 Use this when the calendar is meant to be public.
 
@@ -99,7 +99,7 @@ Use this when the calendar is meant to be public.
 
 Google's public iCal address only works when the calendar is public. Sharing changes can take several minutes to propagate.
 
-#### Google Secret Address In iCal Format
+#### Google secret address in iCal format
 
 Use this for your own private read-only feed.
 
@@ -113,7 +113,7 @@ Use this for your own private read-only feed.
 
 Do not share the secret address with other people. If the address was exposed, use Google's **Reset** action for the secret address and update the `.url` file. Google Workspace administrators can disable secret addresses; if the field is missing on a work or school account, contact the Workspace administrator.
 
-### Outlook And Microsoft 365
+### Outlook and Microsoft 365
 
 Outlook exposes read-only calendar feeds through calendar publishing. Microsoft shows both an HTML link and an ICS link; use the ICS link for Glimpse.
 
@@ -129,7 +129,7 @@ Outlook exposes read-only calendar feeds through calendar publishing. Microsoft 
 
 Published Outlook calendars are viewable by anyone who has the link. To revoke access, unpublish the calendar in Outlook and replace or remove the Glimpse source.
 
-## Local Calendar Files
+## Local calendar files
 
 Use a directory source when another app already writes `.ics` files locally:
 
@@ -144,7 +144,7 @@ color = "#f6c343"
 
 Glimpse reads every `.ics` file directly inside that directory and ignores other files. New, changed, and removed files are picked up on the next poll.
 
-## Source Fields
+## Source fields
 
 | Field | Default | Meaning |
 |---|---|---|
@@ -158,7 +158,7 @@ Glimpse reads every `.ics` file directly inside that directory and ignores other
 
 The effective refresh interval is the lowest configured interval across `[calendar]` and all sources, with a 60 second floor.
 
-## Source Types
+## Source types
 
 | Type | URI shape | Behavior |
 |---|---|---|
@@ -167,7 +167,7 @@ The effective refresh interval is the lowest configured interval across `[calend
 | `ical` | `file:///path/to/work.url` | Reads the file, treats an `http://` or `https://` body as the provider calendar URL, then downloads it. |
 | `directory` | `file:///path/to/calendars` | Reads every `.ics` file in the directory on each poll. |
 
-## Event Support
+## Event support
 
 Glimpse reads common iCalendar fields including `UID`, `SUMMARY`, `DTSTART`, `DTEND`, `LOCATION`, `DESCRIPTION`, `URL`, `STATUS`, `TRANSP`, `ORGANIZER`, `ATTENDEE`, `LAST-MODIFIED`, and `SEQUENCE`.
 
@@ -177,7 +177,7 @@ Meeting links are detected from `URL` and `DESCRIPTION` for Zoom, Google Meet, a
 
 Duplicate events are merged by normalized title, start time, end time, and all-day state. When two sources contain the same event, the first source in config wins.
 
-## Display Rules
+## Display rules
 
 | Surface | Events shown |
 |---|---|
@@ -188,7 +188,7 @@ Duplicate events are merged by normalized title, start time, end time, and all-d
 
 The clock popover behaves like a day agenda: past events stay visible while you are looking at that day. The `next_event` applet is stricter because it is an upcoming-event indicator.
 
-### See Also
+### See also
 
 | Document | Purpose |
 |---|---|

@@ -4,7 +4,7 @@ Glimpse uses GTK CSS. The built-in base style is always loaded, then an optional
 
 The first-class customization path is simple: put CSS variables in `~/.config/glimpse/themes/panel.css`. You usually do not need to target GTK classes or widget nodes.
 
-## Quick Start
+## Quick start
 
 Create a final override file:
 
@@ -39,9 +39,9 @@ Treat custom selectors and classes as advanced overrides. Variables are the supp
 
 CSS reloads while the panel is running.
 
-Theme pack selection and light/dark mode live in the main config. See [Theme And Mode](./configuration.md#theme-and-mode) for `theme` and `theme_mode`.
+Theme pack selection and light/dark mode live in the main config. See [Theme and mode](./configuration.md#theme-and-mode) for `theme` and `theme_mode`.
 
-## Theme Packs
+## Theme packs
 
 A theme pack is a directory with any subset of these files:
 
@@ -67,7 +67,7 @@ Install user packs under:
 
 Glimpse resolves each file independently. For example, `panel.css` can come from your user pack while `wallpaper-dark.png` comes from a system pack with the same name.
 
-## Search Order
+## Search order
 
 Theme packs are resolved by name in this order:
 
@@ -84,7 +84,7 @@ Set `GLIMPSE_THEME_NAME=rosepine` before starting the panel to try a pack withou
 
 `GLIMPSE_THEME` wins over `GLIMPSE_THEME_NAME`, and `GLIMPSE_THEME_NAME` wins over `theme = "..."`.
 
-## Override Files
+## Override files
 
 Top-level override files live beside theme pack directories:
 
@@ -111,7 +111,7 @@ css_path = "themes/lock.css"
 
 Relative lock CSS paths are resolved from the Glimpse config directory.
 
-## Light And Dark Values
+## Light and dark values
 
 For panel themes, set light values and matching dark values:
 
@@ -136,7 +136,7 @@ popover {
 
 Always include `popover` in the selector list. GTK popovers are separate widget subtrees, so variables on `:root` alone do not reliably reach them.
 
-## Panel Token Groups
+## Panel token groups
 
 These are the main variables consumed by `themes/base.css`. Override these before writing class-specific CSS.
 
@@ -159,7 +159,7 @@ These are the main variables consumed by `themes/base.css`. Override these befor
 
 Compatibility aliases still exist for older theme snippets: `--accent-bg`, `--on-accent`, `--border`, `--border-opacity`, `--popover-section-spacing`, and `--dim-opacity`.
 
-## Libadwaita Accent
+## Libadwaita accent
 
 Glimpse maps its accent into libadwaita variables:
 
@@ -176,7 +176,7 @@ That means widgets such as switches, check buttons, progress bars, links, and fo
 
 ## Lock CSS
 
-The lock screen can be themed separately from the panel.
+You can theme the lock screen separately from the panel.
 
 Put your lock overrides here:
 
@@ -215,7 +215,7 @@ Main lock tokens:
 | Buttons | `--lock-button-hover-bg`, `--lock-button-active-bg` |
 | Menu and modal | `--lock-menu-bg`, `--lock-modal-bg`, `--lock-modal-border`, `--lock-modal-shadow`, `--lock-modal-button-bg`, `--lock-modal-button-hover-bg`, `--lock-modal-button-danger-bg` |
 
-## Image Fallbacks
+## Image fallbacks
 
 Config paths always win over theme assets.
 
@@ -227,7 +227,7 @@ Config paths always win over theme assets.
 
 When only one light/dark image exists, Glimpse uses that image for both modes.
 
-## Hot Reload
+## Hot reload
 
 | Area | What reloads |
 |---|---|
@@ -237,7 +237,7 @@ When only one light/dark image exists, Glimpse uses that image for both modes.
 
 If you add a brand-new image file to a pack and it is not the currently resolved file, switch theme mode or reload config to force a fresh resolution.
 
-## Shipped Theme Packs
+## Shipped theme packs
 
 | Pack | Panel CSS | Lock CSS | Images |
 |---|---|---|---|
@@ -265,7 +265,7 @@ theme_mode = "auto"
 | Lock CSS not applied | Check `[lock].css_path`; relative paths start from `~/.config/glimpse/`. |
 | New image did not appear | Re-resolve by changing config, changing theme mode, or restarting the relevant daemon. |
 
-### See Also
+### See also
 
 | Document | Purpose |
 |---|---|

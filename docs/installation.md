@@ -10,7 +10,7 @@ yay -S glimpse-desktop-bin
 
 Use another AUR helper if you prefer one.
 
-## Enable The Desktop Pieces
+## Enable the desktop pieces
 
 For a normal Niri setup, enable the shell and lock screen:
 
@@ -21,7 +21,7 @@ systemctl --user enable --now glimpse-lock.service
 
 This starts the panel and the background services Glimpse uses for locking and idle behavior. Idle policy and night light run inside the shell service.
 
-## Check It Worked
+## Check it worked
 
 You should see the Glimpse panel in your Niri session.
 
@@ -37,7 +37,7 @@ For logs:
 journalctl --user -u glimpse-shell.service -e
 ```
 
-## Customize It
+## Customize it
 
 Next, create your config file, choose what appears in the panel, and tune background services. Start with [Configuration](./configuration.md).
 
@@ -50,7 +50,7 @@ Next, create your config file, choose what appears in the panel, and tune backgr
 | Configure lock screen | [Lock](./lock.md) |
 | Add custom widgets | [Custom Applets](./custom-applets/) |
 
-## Common First Fixes
+## Common first fixes
 
 | Problem | Try this |
 |---|---|

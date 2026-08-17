@@ -1,4 +1,4 @@
-# Command Applet — Full Reference
+# Command Applet: Full Reference
 
 The `command` applet is experimental; its package API may change.
 
@@ -26,7 +26,7 @@ tooltip = "Open a terminal"
 command = ["ghostty"]
 ```
 
-The applet `<name>` (here `terminal`) is the identifier you use elsewhere — for
+The applet `<name>` (here `terminal`) is the identifier you use elsewhere, for
 example to place the applet in a panel:
 
 ```toml
@@ -42,7 +42,7 @@ right = ["terminal", "network", "battery"]
 | `icon` | string | unset | Symbolic icon name (preferred) or absolute path to an image. Symbolic icons should end in `-symbolic`. |
 | `label` | string | unset | Optional text shown beside the icon in the panel. |
 | `tooltip` | string | unset | Hover text. |
-| `command` | array of strings | required | Argv to run when the button is clicked. The first element is the program; remaining elements are arguments. Arguments are passed literally — no shell expansion. |
+| `command` | array of strings | required | Argv to run when the button is clicked. The first element is the program; remaining elements are arguments. Arguments are passed literally, with no shell expansion. |
 | `menu` | array of menu items | unset | Optional right-click / popover menu. See below. |
 
 ### Menu Items

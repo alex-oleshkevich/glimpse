@@ -2,7 +2,7 @@
 
 Custom applets are user-owned panel items. Use them when the built-in applets do not show exactly what you want, or when you want a personal launcher, menu, script, or live widget in the panel.
 
-## Choose A Path
+## Choose a path
 
 | You want to | Use | Start here |
 | --- | --- | --- |
@@ -11,7 +11,7 @@ Custom applets are user-owned panel items. Use them when the built-in applets do
 
 If the applet only needs to run something when you click it, start with a command applet. If it needs to stay alive, update itself, or react to panel events, use an exec applet.
 
-## How The Pieces Fit
+## How the pieces fit
 
 Custom applets are package files. A package file gives the applet an `id`, selects its `type`, and stores the applet-specific options.
 
@@ -25,7 +25,7 @@ A command package runs commands directly from the panel. It is best for launcher
 
 An exec package starts a program that controls the panel item. The program can send status updates, render popovers, and receive click or scroll events.
 
-## Development Flow
+## Development flow
 
 For exec applets, the usual flow is:
 
@@ -43,7 +43,7 @@ left = ["pager", "mpris", "__dev__"]
 
 If you replace the default panel layout, keep or add `__dev__` wherever you want active development applets to appear.
 
-## Recommended Reading
+## Recommended reading
 
 | Page | Use it for |
 | --- | --- |

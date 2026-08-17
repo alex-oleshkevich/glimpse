@@ -12,7 +12,7 @@ If the applet needs to show changing state, render custom popovers, or react to 
 2. Add the package `id` to a panel section in `config.toml`.
 3. Click the panel item to run the command.
 
-## Button Example
+## Button example
 
 ```toml
 # ~/.config/glimpse/applets/terminal.toml
@@ -33,7 +33,7 @@ Add the package id to a panel:
 left = ["pager", "terminal", "mpris"]
 ```
 
-## Menu Example
+## Menu example
 
 ```toml
 # ~/.config/glimpse/applets/power-menu.toml
@@ -76,7 +76,7 @@ The main button runs `command`. Menu items run their own commands.
 | `on_scroll_right` | Command run when horizontal scrolling right over the applet. |
 | `menu` | Optional menu entries. Each entry has `label` and `command`. |
 
-## Shell Syntax
+## Shell syntax
 
 Commands are argument arrays, not shell strings. This avoids quoting surprises:
 
@@ -90,7 +90,7 @@ Use a shell only when you need shell features like pipes, redirects, variables, 
 command = ["sh", "-c", "grim ~/Pictures/Screenshots/$(date +%F-%H%M%S).png"]
 ```
 
-## When To Use Exec Instead
+## When to use exec instead
 
 Use an [exec applet](./exec.md) when the panel item needs to:
 
@@ -99,7 +99,7 @@ Use an [exec applet](./exec.md) when the panel item needs to:
 - react to panel events inside a running program;
 - keep state between clicks.
 
-## See Also
+## See also
 
 | Page | Use it for |
 | --- | --- |

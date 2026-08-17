@@ -8,7 +8,7 @@ Later, I moved away from KDE because I was no longer happy with its look and fee
 
 Niri felt right. The missing piece was everything around it.
 
-## Why Another Shell
+## Why another shell
 
 I was not satisfied with the existing Wayland bar options. Many are useful, but I wanted something closer to a desktop shell: polished, coherent, GTK-based, and visually aligned with the rest of the applications I use.
 
@@ -16,7 +16,7 @@ I tried Ironbar and liked the direction, but could not get it themed the way I w
 
 Glimpse is that shell: panel, applets, wallpaper, lock screen, idle behavior, night light, notifications, and custom widgets designed to feel like one desktop.
 
-## What Glimpse Optimizes For
+## What Glimpse optimizes for
 
 | Value | What it means |
 |---|---|
@@ -27,13 +27,13 @@ Glimpse is that shell: panel, applets, wallpaper, lock screen, idle behavior, ni
 | **Extensibility** | Custom launchers, menus, status widgets, and popovers should be possible without rebuilding the shell. |
 | **Daily comfort** | The common things should feel calm, polished, and ready for everyday use. |
 
-## Authorship And AI Assistance
+## Authorship and AI assistance
 
-I design the architecture, core services, public configuration, and overall direction of Glimpse. Many routine implementation tasks, fixes, and repetitive code changes were done with AI assistance under my review.
+I design the architecture, core services, public configuration, and overall direction of Glimpse. AI handled many routine implementation tasks, fixes, and repetitive code changes under my review.
 
 That is intentional. AI helps the project move faster, but the product direction, integration decisions, taste, and final review remain human.
 
-## Design Disclaimer
+## Design disclaimer
 
 I am not a professional designer. I make the interface as polished and useful as I can, guided by my own taste and daily use.
 

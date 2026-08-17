@@ -2,7 +2,7 @@
 
 Wallpaper and backdrop settings live in `~/.config/glimpse/config.toml`.
 
-## Image Wallpaper
+## Image wallpaper
 
 Use an absolute path for the image you want on the desktop:
 
@@ -20,7 +20,7 @@ blur_radius = 24
 
 `color` is the fallback behind the image. Keep it close to the wallpaper's dominant tone so startup, loading failures, and transparent edges still look intentional.
 
-## Solid Color
+## Solid color
 
 Leave `path` out when you want a plain background:
 
@@ -59,7 +59,7 @@ blur_radius = 24
 
 Set `enabled = false` if you want no backdrop layer.
 
-## What Wins
+## What wins
 
 Explicit config paths win over theme-pack images.
 
@@ -76,7 +76,7 @@ Glimpse watches the config and the currently used image files. Changing `config.
 
 If a new image cannot be loaded, the previous image stays visible when possible. If no image is available, Glimpse falls back to `color`.
 
-## Practical Tips
+## Practical tips
 
 | Goal | Tip |
 |---|---|
@@ -85,7 +85,7 @@ If a new image cannot be loaded, the previous image stays visible when possible.
 | Faster iteration | Replace the image at the same path instead of renaming files every time. |
 | Multi-monitor | Choose images that still look good when cropped differently per output. |
 
-### See Also
+### See also
 
 | Document | Purpose |
 |---|---|
