@@ -34,6 +34,15 @@ pub struct Init {
 #[derive(Debug)]
 pub enum Input {
     Reconfigure(PanelRuntimeConfig),
+    /// Toggles a popover by applet config name. Sends a reply exactly once,
+    /// and only when this panel owns a matching applet — callers that
+    /// broadcast to every panel treat silence as "not found here".
+    TogglePopover {
+        applet: String,
+        section: Option<PanelSection>,
+        occurrence: Option<usize>,
+        reply: tokio::sync::mpsc::UnboundedSender<Result<(), String>>,
+    },
 }
 
 #[derive(Debug)]
@@ -278,7 +287,51 @@ impl Component for Panel {
 
                 self.applet_configs = runtime.applet_configs;
             }
+            Input::TogglePopover {
+                applet,
+                section,
+                occurrence,
+                reply,
+            } => {
+                let occurrence = occurrence.unwrap_or(0);
+                if let Some(result) =
+                    self.find_and_toggle_popover(&applet, section.as_ref(), occurrence)
+                {
+                    let _ = reply.send(result);
+                }
+            }
         }
+    }
+}
+
+impl Panel {
+    fn find_and_toggle_popover(
+        &self,
+        applet: &str,
+        section: Option<&PanelSection>,
+        occurrence: usize,
+    ) -> Option<Result<(), String>> {
+        let sections = [
+            (PanelSection::Left, &self.left.applets),
+            (PanelSection::Center, &self.center.applets),
+            (PanelSection::Right, &self.right.applets),
+        ];
+        for (panel_section, applets) in sections {
+            if section.is_some_and(|s| s != &panel_section) {
+                continue;
+            }
+            if let Some((_, controller)) = applets
+                .iter()
+                .find(|(key, _)| key.name == applet && key.occurrence == occurrence)
+            {
+                return Some(if controller.toggle_popover() {
+                    Ok(())
+                } else {
+                    Err(format!("applet '{applet}' has no popover"))
+                });
+            }
+        }
+        None
     }
 }
 

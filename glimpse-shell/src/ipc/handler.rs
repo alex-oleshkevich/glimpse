@@ -8,12 +8,31 @@ use glimpse_core::services::{
 };
 use glimpse_core::{NightLightConfig, NightLightPhase, NightLightSchedule};
 
+use crate::app;
+use crate::panels::PanelSection;
 use crate::services::framework::{ServiceCommand, ServiceHandle, Services};
 use crate::services::wayland_idle_inhibit::SHELL_EXTENSIONS;
+
+/// How long to wait for a panel to claim a `toggle_popover` request before
+/// reporting the applet as not found. Panels reply only when they own the
+/// applet, so a timeout — not a channel close — is the "no match" signal.
+const TOGGLE_POPOVER_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(500);
 
 #[derive(Clone)]
 pub(crate) struct ShellCommandHandler {
     pub services: Services,
+    pub app_sender: relm4::Sender<app::Input>,
+}
+
+fn parse_panel_section(v: &str) -> Result<PanelSection, String> {
+    match v {
+        "left" => Ok(PanelSection::Left),
+        "center" => Ok(PanelSection::Center),
+        "right" => Ok(PanelSection::Right),
+        other => Err(format!(
+            "section must be left, center, or right, got '{other}'"
+        )),
+    }
 }
 
 /// Dispatch a command to a service, surfacing a send failure to the IPC caller
@@ -611,6 +630,35 @@ impl CommandHandler for ShellCommandHandler {
                         "location",
                         location::Command::SetManual(lat, lon),
                     )
+                }
+
+                // ── panel/applet UI (generic, any applet with a popover) ──
+                "toggle_popover" => {
+                    let applet = require(fields, "applet")?.to_owned();
+                    let section = field(fields, "section")
+                        .map(parse_panel_section)
+                        .transpose()?;
+                    let occurrence = field(fields, "occurrence")
+                        .map(|v| {
+                            v.parse::<usize>()
+                                .map_err(|_| "occurrence must be a non-negative integer".to_owned())
+                        })
+                        .transpose()?;
+
+                    let (reply_tx, mut reply_rx) = tokio::sync::mpsc::unbounded_channel();
+                    self.app_sender
+                        .send(app::Input::TogglePopover {
+                            applet: applet.clone(),
+                            section,
+                            occurrence,
+                            reply: reply_tx,
+                        })
+                        .map_err(|_| "shell app is not running".to_owned())?;
+
+                    match tokio::time::timeout(TOGGLE_POPOVER_TIMEOUT, reply_rx.recv()).await {
+                        Ok(Some(result)) => result.map(|()| Vec::new()),
+                        Ok(None) | Err(_) => Err(format!("no such applet: '{applet}'")),
+                    }
                 }
 
                 _ => Err(format!("unknown command: {name}")),

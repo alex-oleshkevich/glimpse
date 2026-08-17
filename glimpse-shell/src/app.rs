@@ -47,6 +47,13 @@ pub enum Input {
     MonitorsChanged,
     WaylandInstalled(panels::PanelKey),
     WaylandInstallFailed,
+    /// Broadcast to every panel; whichever one owns the applet replies.
+    TogglePopover {
+        applet: String,
+        section: Option<panels::PanelSection>,
+        occurrence: Option<usize>,
+        reply: tokio::sync::mpsc::UnboundedSender<Result<(), String>>,
+    },
 }
 
 pub struct App {
@@ -163,7 +170,7 @@ impl SimpleComponent for App {
 
         let idle_session_dbus = init.dbus.session.clone();
         let services = ServiceRuntime::new(init.dbus);
-        let ipc = launch_ipc(&services.handles());
+        let ipc = launch_ipc(&services.handles(), sender.input_sender().clone());
         let wayland_swap_tx =
             spawn_idle_subsystem(idle_session_dbus, idle_system_dbus, ipc.emitter());
         spawn_theme_subscription(services.handles().theme, sender.input_sender().clone());
@@ -296,6 +303,21 @@ impl SimpleComponent for App {
                 // shell on the Noop inhibitor backend forever.
                 self.wayland_pending = false;
                 self.wayland_host_key = None;
+            }
+            Input::TogglePopover {
+                applet,
+                section,
+                occurrence,
+                reply,
+            } => {
+                for panel in &self.panels {
+                    panel.controller.emit(panels::Input::TogglePopover {
+                        applet: applet.clone(),
+                        section: section.clone(),
+                        occurrence,
+                        reply: reply.clone(),
+                    });
+                }
             }
         }
     }

@@ -4,7 +4,7 @@ Glimpse daemons expose a small Unix-socket IPC protocol from `glimpse-core::ipc`
 
 The framework provides socket binding, event broadcasting, request/response command handling, escaping, and shared `watch` / `dispatch` CLI helpers. Daemon code supplies the socket path, state-to-event watcher, and command handler.
 
-## IPC Surfaces
+## IPC surfaces
 
 | Service | Socket helper | Default socket | Notes |
 |---|---|---|---|
@@ -20,7 +20,7 @@ Sockets are created with `0600` permissions. `IpcHandle` owns the server lifetim
 
 All messages are newline-terminated UTF-8 text. Values are space-separated `key=value` fields. Values escape backslash, newline, tab, and space as `\\`, `\n`, `\t`, and `\s`.
 
-### Server To Client
+### Server to client
 
 ```txt
 hello version=<crate-version>
@@ -31,7 +31,7 @@ ack ok=false error=<escaped-message>
 
 The server sends `hello` immediately after a client connects. Event lines are sent only to clients subscribed with `subscribe`. Command clients receive one `ack` line.
 
-### Client To Server
+### Client to server
 
 ```txt
 subscribe <pattern> [<pattern> ...]
@@ -49,7 +49,7 @@ Subscription patterns support three forms:
 
 Malformed client lines return `ack ok=false error=<message>`. Unknown commands are handled by the daemon command handler.
 
-## CLI Behavior
+## CLI behavior
 
 Each daemon that exposes IPC should route these commands before starting the normal daemon process:
 
@@ -72,9 +72,9 @@ Each daemon that exposes IPC should route these commands before starting the nor
 
 If dispatch receives `ack ok=false`, the CLI exits with failure after printing the ack.
 
-## Add IPC To A Daemon
+## Add IPC to a daemon
 
-### 1. Register The Socket
+### 1. Register the socket
 
 Add a helper in `glimpse-core/src/ipc/server.rs` and re-export it from `glimpse-core/src/ipc/mod.rs`:
 
@@ -86,7 +86,7 @@ pub fn my_service_socket_path() -> PathBuf {
 
 Shell uses `IpcServer::launch(...)` because it has the full `Services` dispatcher. Standalone daemons usually use `IpcServer::launch_at(...)` with their own event channel.
 
-### 2. Start The Server
+### 2. Start the server
 
 Create `src/ipc.rs` in the daemon crate:
 
@@ -105,7 +105,7 @@ pub fn start(service: MyServiceHandle) -> IpcHandle {
 
 Store the returned `IpcHandle` for the daemon lifetime. Assigning it to `_` drops the server immediately.
 
-### 3. Emit Events From A Watcher
+### 3. Emit events from a watcher
 
 Watchers subscribe to service state, diff consecutive snapshots, and emit one event per logical change:
 
@@ -133,7 +133,7 @@ fn spawn_watcher(mut rx: watch::Receiver<MyState>, tx: broadcast::Sender<Arc<Ipc
 
 Use `borrow_and_update()` so each receiver marks the value as seen. Keep event fields minimal: include the changed value and stable identifiers, not whole snapshots.
 
-### 4. Implement Commands
+### 4. Implement commands
 
 `CommandHandler` is cloned per connection and returns ack fields or an error string:
 
@@ -204,7 +204,7 @@ Do not add `get_*`; use `status`.
 
 | Service | Commands |
 |---|---|
-| Shell | `status`, `set_volume`, `set_input_volume`, `set_brightness`, `set_power_profile`, `set_dnd`, `set_theme`, `set_keyboard_layout`, `idle_manual_hold`, `idle_release`, `set_wifi`, `set_bluetooth`, `night_light_enable`, `night_light_disable`, `night_light_activate`, `night_light_deactivate`, `set_night_light_temperature`, `set_night_light_schedule`, `refresh`, `set_location` |
+| Shell | `status`, `set_volume`, `set_input_volume`, `set_brightness`, `set_power_profile`, `set_dnd`, `set_theme`, `set_keyboard_layout`, `idle_manual_hold`, `idle_release`, `set_wifi`, `set_bluetooth`, `night_light_enable`, `night_light_disable`, `night_light_activate`, `night_light_deactivate`, `set_night_light_temperature`, `set_night_light_schedule`, `refresh`, `set_location`, `toggle_popover` |
 | Wallpaper | `status`, `set_image`, `set_color`, `set_fit`, `set_backdrop`, `set_theme_mode` |
 
 Keep `dispatch --help` in each daemon aligned with the implemented commands.

@@ -7,11 +7,12 @@ pub use glimpse_core::ipc::{IpcEmitter, IpcHandle, IpcServer};
 use crate::services::framework::Services;
 use handler::ShellCommandHandler;
 
-pub fn launch(services: &Services) -> IpcHandle {
+pub fn launch(services: &Services, app_sender: relm4::Sender<crate::app::Input>) -> IpcHandle {
     IpcServer::launch(
         services,
         ShellCommandHandler {
             services: services.clone(),
+            app_sender,
         },
     )
 }

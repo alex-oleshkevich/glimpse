@@ -80,11 +80,20 @@ macro_rules! define_applet_controller {
             theme_mode: $theme_mode,
         })
     };
+    (@pop $mod:ident, $controller:ident) => {{
+        $controller.emit($mod::Input::TogglePopover);
+        true
+    }};
+    (@nopop $_mod:ident, $controller:ident) => {{
+        let _ = $controller;
+        false
+    }};
 
-    // Main arm: generates the enum + three uniform impl methods.
-    // Each row: (VariantName, mod_ident, AppletPath, AppletTypeVariant, reconfigure_style)
+    // Main arm: generates the enum + four uniform impl methods.
+    // Each row: (VariantName, mod_ident, AppletPath, AppletTypeVariant, reconfigure_style, popover)
     //   reconfigure_style: std | noop | theme
-    ( $( ($Variant:ident, $mod:ident, $Applet:path, $Type:ident, $reconfig:ident) ),* $(,)? ) => {
+    //   popover: pop (has Input::TogglePopover) | nopop (no popover)
+    ( $( ($Variant:ident, $mod:ident, $Applet:path, $Type:ident, $reconfig:ident, $popover:ident) ),* $(,)? ) => {
         pub enum AppletController {
             $($Variant(Controller<$Applet>),)*
         }
@@ -109,36 +118,53 @@ macro_rules! define_applet_controller {
                     })*
                 }
             }
+
+            /// Toggles this applet's popover, if it has one. Returns `false` for
+            /// applet types with no popover (e.g. pager, tray, workspace) so
+            /// callers such as IPC command handling can report "unsupported"
+            /// instead of silently doing nothing.
+            pub fn toggle_popover(&self) -> bool {
+                match self {
+                    $(Self::$Variant(controller) => {
+                        define_applet_controller!(@$popover $mod, controller)
+                    })*
+                }
+            }
         }
     };
 }
 
 define_applet_controller! {
-    (Audio,         audio,         audio::Applet,         Audio,         std),
-    (Battery,       battery,       battery::Applet,       Battery,       std),
-    (Brightness,    brightness,    brightness::Applet,    Brightness,    std),
-    (Bluetooth,     bluetooth,     bluetooth::Applet,     Bluetooth,     std),
-    (Display,       display,       display::Applet,       Display,       std),
-    (Clipboard,     clipboard,     clipboard::Applet,     Clipboard,     std),
-    (Clock,         clock,         clock::Applet,         Clock,         std),
-    (Command,       command,       command::Applet,       Command,       std),
-    (Dynamic,       dynamic,       dynamic::Applet,       Dynamic,       noop),
-    (Exec,          exec,          exec::Applet,          Exec,          std),
-    (Idle,          idle,          idle::applet::Applet,  Idle,          noop),
-    (Keyboard,      keyboard,      keyboard::Applet,      Keyboard,      std),
-    (Mpris,         mpris,         mpris::Applet,         Mpris,         std),
-    (Network,       network,       network::Applet,       Network,       std),
-    (NextEvent,     next_event,    next_event::Applet,    NextEvent,     std),
-    (Notifications, notifications, notifications::Applet, Notifications, theme),
-    (Pager,         pager,         pager::Applet,         Pager,         std),
-    (Privacy,       privacy,       privacy::Applet,       Privacy,       std),
-    (Printing,      printing,      printing::Applet,      Printing,      std),
-    (Removable,     removable,     removable::Applet,     Removable,     std),
-    (Session,       session,       session::Applet,       Session,       theme),
-    (Tray,          tray,          tray::Applet,          Tray,          std),
-    (Weather,       weather,       weather::Applet,       Weather,       std),
-    (Window,        window,        window::Applet,        Window,        std),
-    (Workspace,     workspace,     workspace::Applet,     Workspace,     std),
+    (Audio,         audio,         audio::Applet,         Audio,         std,   pop),
+    (Battery,       battery,       battery::Applet,       Battery,       std,   pop),
+    (Brightness,    brightness,    brightness::Applet,    Brightness,    std,   pop),
+    (Bluetooth,     bluetooth,     bluetooth::Applet,     Bluetooth,     std,   pop),
+    (Display,       display,       display::Applet,       Display,       std,   pop),
+    (Clipboard,     clipboard,     clipboard::Applet,     Clipboard,     std,   pop),
+    (Clock,         clock,         clock::Applet,         Clock,         std,   pop),
+    (Command,       command,       command::Applet,       Command,       std,   nopop),
+    // Dynamic hosts N independent runtime connections, each with its own
+    // popover; there is no single applet-level popover to address generically.
+    (Dynamic,       dynamic,       dynamic::Applet,       Dynamic,       noop,  nopop),
+    // Exec's popovers belong to its dynamically-hosted status items, not to
+    // the applet's own top-level Input, so there is no single popover to
+    // address generically here.
+    (Exec,          exec,          exec::Applet,          Exec,          std,   nopop),
+    (Idle,          idle,          idle::applet::Applet,  Idle,          noop,  pop),
+    (Keyboard,      keyboard,      keyboard::Applet,      Keyboard,      std,   nopop),
+    (Mpris,         mpris,         mpris::Applet,         Mpris,         std,   pop),
+    (Network,       network,       network::Applet,       Network,       std,   pop),
+    (NextEvent,     next_event,    next_event::Applet,    NextEvent,     std,   pop),
+    (Notifications, notifications, notifications::Applet, Notifications, theme, pop),
+    (Pager,         pager,         pager::Applet,         Pager,         std,   nopop),
+    (Privacy,       privacy,       privacy::Applet,       Privacy,       std,   nopop),
+    (Printing,      printing,      printing::Applet,      Printing,      std,   pop),
+    (Removable,     removable,     removable::Applet,     Removable,     std,   pop),
+    (Session,       session,       session::Applet,       Session,       theme, pop),
+    (Tray,          tray,          tray::Applet,          Tray,          std,   nopop),
+    (Weather,       weather,       weather::Applet,       Weather,       std,   pop),
+    (Window,        window,        window::Applet,        Window,        std,   nopop),
+    (Workspace,     workspace,     workspace::Applet,     Workspace,     std,   nopop),
 }
 
 pub fn create_applet(
