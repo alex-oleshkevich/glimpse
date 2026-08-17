@@ -139,6 +139,50 @@ fn existing_file(path: PathBuf) -> Option<PathBuf> {
         .map(|_| path)
 }
 
+/// Path to the packaged starter config, if one is installed on this system.
+/// Absent in source checkouts and dev builds, so callers must treat a
+/// missing template as a normal no-op rather than an error.
+const DEFAULT_CONFIG_TEMPLATE: &str = "/usr/share/glimpse/config.default.toml";
+
+/// Seeds `~/.config/glimpse/config.toml` (or `$XDG_CONFIG_HOME` equivalent)
+/// from the packaged starter config the first time Glimpse finds no config
+/// file there. Never overwrites an existing file, and quietly does nothing
+/// when no packaged template is present (source checkout, `GLIMPSE_CONFIG`
+/// override, container without the data files, etc).
+pub fn install_default_config_if_missing() {
+    let config_file = Config::config_file();
+    if config_file.exists() {
+        return;
+    }
+
+    let template = PathBuf::from(DEFAULT_CONFIG_TEMPLATE);
+    if !template.is_file() {
+        return;
+    }
+
+    let config_dir = Config::config_dir();
+    if let Err(error) = fs::create_dir_all(&config_dir) {
+        tracing::warn!(
+            ?error,
+            path = %config_dir.display(),
+            "failed to create config directory for default config"
+        );
+        return;
+    }
+
+    match fs::copy(&template, &config_file) {
+        Ok(_) => tracing::info!(
+            path = %config_file.display(),
+            "installed default configuration"
+        ),
+        Err(error) => tracing::warn!(
+            ?error,
+            path = %config_file.display(),
+            "failed to install default configuration"
+        ),
+    }
+}
+
 fn load_toml_with_includes(path: &Path) -> Result<(toml::Value, Vec<PathBuf>), String> {
     let mut files = Vec::new();
     let value = load_toml_with_includes_inner(path, &mut Vec::new(), &mut files)?;

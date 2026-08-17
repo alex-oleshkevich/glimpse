@@ -109,6 +109,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
+    glimpse_core::install_default_config_if_missing();
     let config = Config::load();
     tracing::debug!(
         wallpaper_color = %config.wallpaper.color,

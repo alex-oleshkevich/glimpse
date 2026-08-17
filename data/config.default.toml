@@ -1,0 +1,289 @@
+# Glimpse default configuration.
+#
+# Installed once, automatically, to ~/.config/glimpse/config.toml (or
+# $XDG_CONFIG_HOME/glimpse/config.toml) the first time Glimpse runs and finds
+# no config file there. It is never overwritten after that, so edit it
+# freely.
+#
+# Every setting below is commented out and shown at its current built-in
+# default, except [wallpaper], which is active so a fresh install has a
+# wallpaper on first launch. Uncomment and edit anything you want to change;
+# delete a line to fall back to the built-in default again.
+#
+# Full reference: https://github.com/alex-oleshkevich/glimpse
+# Panel and applet configuration: https://github.com/alex-oleshkevich/glimpse/blob/master/docs/configuration.md
+
+# theme = "adwaita"
+# theme_mode = "auto"          # auto | light | dark
+
+[wallpaper]
+path = "/usr/share/glimpse/wallpapers/city.jpg"
+fit = "cover"
+# color = "#101010"            # shown while the image loads, or if path is unset
+# transition_ms = 800
+
+# [backdrop]
+# enabled = true                # blurred wallpaper behind lock screen / overview
+# path = "..."                  # defaults to wallpaper.path when unset
+# blur_radius = 24
+
+# [location]
+# provider = "geo_clue"         # only provider supported today
+
+# [monitors]
+# builtin_connector = "eDP-1"   # override built-in-display detection
+
+# ---------------------------------------------------------------------------
+# Panels
+# ---------------------------------------------------------------------------
+# One [[panels]] block per panel. Repeat the block for multiple panels
+# (e.g. a second bar on another monitor). This is the built-in single-panel
+# default:
+#
+# [[panels]]
+# position = "top"               # top | bottom | left | right
+# size = 36                      # panel thickness in px
+# monitor = "eDP-1"              # pin to one output; unset = every output
+# theme_mode = "dark"            # per-panel override of the top-level theme_mode
+# left = ["pager", "mpris"]
+# center = ["clock", "weather", "notifications", "privacy"]
+# right = [
+#   "next_event", "tray", "removable", "clipboard", "keyboard", "printing",
+#   "bluetooth", "network", "display", "audio", "idle", "battery", "session",
+# ]
+#
+# Use "..." inside a section to keep the built-in applets for that section
+# and add your own around them, e.g. left = ["...", "screenshot"].
+#
+# Built-in applet names: audio, battery, bluetooth, brightness, clipboard,
+# clock, command, exec, idle, keyboard, mpris, network, next_event,
+# notifications, pager, privacy, printing, removable, session, tray, weather,
+# window, workspace.
+
+# ---------------------------------------------------------------------------
+# Night light
+# ---------------------------------------------------------------------------
+
+# [night_light]
+# schedule = "automatic"         # off | automatic | schedule
+# temperature = 4200             # kelvin
+# transition_minutes = 15
+# start_time = "20:30"           # "HH:MM", only used when schedule = "schedule"
+# end_time = "07:00"
+
+# ---------------------------------------------------------------------------
+# Idle policy
+# ---------------------------------------------------------------------------
+# Runs on logind idle. This is the built-in three-step ladder (monitors off,
+# lock, suspend), with separate AC and battery timeouts:
+#
+# [idle]
+# enabled = true
+# respect_inhibitors = true
+#
+# [idle.profiles.ac]
+# listeners = [
+#   { timeout = 600, on_idle = "/usr/share/glimpse/scripts/monitors off", on_resume = "/usr/share/glimpse/scripts/monitors on" },
+#   { timeout = 900, on_idle = "loginctl lock-session" },
+#   { timeout = 3600, on_idle = "systemctl suspend" },
+# ]
+#
+# [idle.profiles.battery]
+# listeners = [
+#   { timeout = 300, on_idle = "/usr/share/glimpse/scripts/monitors off", on_resume = "/usr/share/glimpse/scripts/monitors on" },
+#   { timeout = 900, on_idle = "loginctl lock-session" },
+#   { timeout = 1800, on_idle = "systemctl suspend" },
+# ]
+
+# ---------------------------------------------------------------------------
+# Keyboard
+# ---------------------------------------------------------------------------
+
+# [keyboard]
+# remember = "window"            # global | app | window
+
+# ---------------------------------------------------------------------------
+# Lock screen
+# ---------------------------------------------------------------------------
+
+# [lock]
+# pam_service = "glimpse-lock"
+# css_path = "themes/lock.css"
+#
+# [lock.background]
+# path = "..."                   # defaults to the wallpaper config
+# color = "#101010"
+# fit = "cover"
+# blur_radius = 0
+# dim = 0.35                     # 0.0-1.0
+#
+# [lock.clock]
+# enabled = true
+# time_format = "%H:%M"
+# date_format = "%A, %B %-d"
+#
+# [lock.controls]
+# buttons = ["wifi", "input", "weather", "battery", "power"]
+
+# ---------------------------------------------------------------------------
+# Calendar
+# ---------------------------------------------------------------------------
+# Feeds the clock popover and the next_event applet. Empty by default; add
+# one [[calendar.sources]] block per calendar. See docs/calendar.md.
+#
+# [calendar]
+# poll_interval = 600            # seconds
+#
+# [[calendar.sources]]
+# id = "personal"
+# type = "ical"                  # ical | directory
+# name = "Personal"
+# uri = "https://calendar.google.com/calendar/ical/example/basic.ics"
+# color = "#4285f4"
+
+# ---------------------------------------------------------------------------
+# Applet settings
+# ---------------------------------------------------------------------------
+# Configure any applet with [applets.<name>]. These are every built-in
+# applet's fields at their default value; uncomment a block and change what
+# you need.
+
+# [applets.audio]
+# show_icon = true
+# show_muted_indicator = true
+# label_format = ""
+# tooltip_format = "{device} - {volume}%"
+# scroll_step = 10
+# max_volume = 100
+# show_streams = true
+
+# [applets.battery]
+# show_icon = true
+# label_on_battery = ""
+# label_on_ac = ""
+# tooltip_on_battery = "{percentage}% {state}, {time_left}"
+# tooltip_on_ac = "{percentage}% {state}"
+# settings_command = ""
+
+# [applets.bluetooth]
+# label_format = ""
+# tooltip_format = "{devices} connected devices"
+
+# [applets.brightness]
+# label_format = ""
+# tooltip_format = "{source}: {percent}%"
+# scroll_step = 10
+
+# [applets.display]
+# tooltip_format = "{active}/{total} monitors"
+
+# [applets.clipboard]
+# label_format = ""
+# tooltip_format = "{count} clipboard items"
+# show_when_empty = false
+
+# [applets.clock]
+# label_format = "%a %-d %b, %H:%M"
+# tooltip_format = "%A, %-d %B %Y"
+# timezones = []
+# tick_interval = 60             # seconds, clamped 1-60
+# hide_all_day_events = false
+# show_week_numbers = false
+
+# [applets.command]           # fields are unset by default; example below
+# icon = "utilities-terminal-symbolic"
+# label = "Terminal"
+# tooltip = "Open terminal"
+# on_click = ["ghostty"]
+# on_middle_click = []
+# on_scroll_up = []
+# on_scroll_down = []
+# on_scroll_left = []
+# on_scroll_right = []
+# menu = []                      # [{ label = "...", command = ["..."] }]
+
+# [applets.exec]              # command is unset by default; example below
+# command = ["/path/to/script"]
+# restart_delay_ms = 1000        # clamped, minimum 50
+# options = {}                   # arbitrary JSON passed to the child process
+# env_forward = false
+# env = {}
+# work_dir = "..."
+
+# [applets.keyboard]
+# labels = {}                    # layout code -> display label, e.g. { us = "EN" }
+
+# [applets.mpris]
+# label_format = "{artist} - {title}"
+# tooltip_format = "{player}: {artist} - {title}"
+# hide_when_empty = true
+# max_rows = 12                  # clamped 1-12
+# show_artwork = true
+# filter_regex = []
+
+# [applets.network]
+# label_format = ""
+# tooltip_format = "{state}"
+
+# [applets.next_event]
+# label_format = "{name} {remaining}"
+# tooltip_format = "{name} ({time}) — {duration}"
+# threshold_minutes = 30
+
+# [applets.notifications]
+# label_format = ""
+# tooltip_format = "{count} notifications"
+# badge_style = "dot"            # none | count | dot
+# popup_timeout_ms = 5000
+# popup_visible_limit = 8
+# popup_position = "top_right"   # top_left | top_center | top_right | bottom_left | bottom_center | bottom_right
+# popup_margin_x = 12
+# popup_margin_y = 12
+# popup_monitor = "eDP-1"
+# max_history = 100
+# filter_regex = []
+# urgency_remap = []             # [{ app_pattern = "...", urgency = "low|normal|critical" }]
+
+# [applets.pager]
+# display = "windows"            # workspaces | windows
+# appearance = "dots"            # dots | numbers
+# active_workspace_label = "{index}"
+# inactive_workspace_label = "{index}"
+
+# [applets.printing]
+# display = "auto"               # auto | always
+
+# [applets.removable]
+# show_when_empty = false
+# label_format = ""
+# tooltip_format = "{count} removable device(s), {mounted} mounted"
+
+# [applets.session]
+# label_format = "{user}"
+# tooltip_format = "{user} on {host}"
+# show_lock = true
+# show_logout = true
+# show_suspend = true
+# show_hibernate = false
+# show_reboot = true
+# show_shutdown = true
+# confirm_logout = true
+# confirm_suspend = true
+# confirm_hibernate = true
+# confirm_reboot = true
+# confirm_shutdown = true
+
+# [applets.tray]
+# icon_size = 16                 # clamped 12-32
+# show_passive = false
+
+# [applets.weather]
+# city_name = ""                 # empty = geolocated
+# geolocate = false
+# hourly_slots = 5
+# forecast_days = 5
+# label_format = "{temp}"
+# tooltip_format = "{condition} · {temp} · feels like {feels_like} · {location}"
+# refresh_interval = 1800        # seconds
+
+# idle (idle-inhibitor toggle) and privacy have no configurable fields.
