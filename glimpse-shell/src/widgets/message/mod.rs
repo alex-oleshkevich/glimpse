@@ -115,8 +115,15 @@ impl Message {
         self.connect_closure("closed", false, closure_local!(move |w: &Self| f(w)))
     }
 
-    pub fn connect_clicked(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {
-        self.connect_closure("clicked", false, closure_local!(move |w: &Self| f(w)))
+    pub fn connect_clicked(
+        &self,
+        f: impl Fn(&Self, gdk::ModifierType) + 'static,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "clicked",
+            false,
+            closure_local!(move |w: &Self, modifiers: gdk::ModifierType| f(w, modifiers)),
+        )
     }
 
     pub fn connect_secondary_clicked(&self, f: impl Fn(&Self) + 'static) -> glib::SignalHandlerId {

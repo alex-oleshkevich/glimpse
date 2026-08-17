@@ -385,6 +385,7 @@ impl Applet {
     fn handle_output(&mut self, output: PopoverOutput) {
         match output {
             PopoverOutput::Dismiss(id) => self.send_notification(Command::Dismiss { id }),
+            PopoverOutput::DismissGroup(ids) => self.dismiss_notifications(ids),
             PopoverOutput::DismissAll => self.send_notification(Command::DismissAll),
             PopoverOutput::SetDnd(enabled) => self.send_notification(Command::SetDnd(enabled)),
             PopoverOutput::FocusAndDismiss(id) => self.focus_and_dismiss_notification(id),
@@ -463,6 +464,17 @@ impl Applet {
         let service = self.service.clone();
         relm4::spawn(async move {
             send_notification_command(&service, command).await;
+        });
+    }
+
+    fn dismiss_notifications(&self, ids: Vec<u32>) {
+        let service = self.service.clone();
+        relm4::spawn(async move {
+            for id in ids {
+                if !send_notification_command(&service, Command::Dismiss { id }).await {
+                    break;
+                }
+            }
         });
     }
 }

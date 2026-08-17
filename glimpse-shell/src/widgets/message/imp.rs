@@ -53,9 +53,9 @@ impl ObjectImpl for Message {
         let click = gtk4::GestureClick::new();
         click.set_button(gdk::BUTTON_PRIMARY);
         let weak = obj.downgrade();
-        click.connect_released(move |_, _, _, _| {
+        click.connect_released(move |gesture, _, _, _| {
             if let Some(w) = weak.upgrade() {
-                w.emit_by_name::<()>("clicked", &[]);
+                w.emit_by_name::<()>("clicked", &[&gesture.current_event_state()]);
             }
         });
         obj.add_controller(click);
@@ -76,7 +76,9 @@ impl ObjectImpl for Message {
         SIGNALS.get_or_init(|| {
             vec![
                 Signal::builder("closed").build(),
-                Signal::builder("clicked").build(),
+                Signal::builder("clicked")
+                    .param_types([gdk::ModifierType::static_type()])
+                    .build(),
                 Signal::builder("secondary-clicked").build(),
                 Signal::builder("action")
                     .param_types([String::static_type()])

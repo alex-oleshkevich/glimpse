@@ -49,7 +49,10 @@ pub enum PopoverInput {
     Dismiss(u32),
     DismissAll,
     SetDnd(bool),
-    FocusAndDismiss(u32),
+    Click {
+        id: u32,
+        modifiers: gtk::gdk::ModifierType,
+    },
     RefreshTimes,
     InvokeAction {
         id: u32,
@@ -60,6 +63,7 @@ pub enum PopoverInput {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PopoverOutput {
     Dismiss(u32),
+    DismissGroup(Vec<u32>),
     DismissAll,
     SetDnd(bool),
     FocusAndDismiss(u32),
@@ -221,11 +225,18 @@ impl SimpleComponent for Popover {
             PopoverInput::SetDnd(enabled) => {
                 let _ = sender.output(PopoverOutput::SetDnd(enabled));
             }
-            PopoverInput::FocusAndDismiss(id) => {
-                if let Some(group) = self.collapsed_group_with_lead(id) {
-                    group.set_state(MessageGroupState::Expanded);
-                } else {
-                    let _ = sender.output(PopoverOutput::FocusAndDismiss(id));
+            PopoverInput::Click { id, modifiers } => {
+                match notification_click_action(&self.notifications, id, modifiers) {
+                    NotificationClickAction::Activate(id) => {
+                        if let Some(group) = self.collapsed_group_with_lead(id) {
+                            group.set_state(MessageGroupState::Expanded);
+                        } else {
+                            let _ = sender.output(PopoverOutput::FocusAndDismiss(id));
+                        }
+                    }
+                    NotificationClickAction::DismissGroup(ids) => {
+                        let _ = sender.output(PopoverOutput::DismissGroup(ids));
+                    }
                 }
             }
             PopoverInput::RefreshTimes => self.refresh_times(),
@@ -360,7 +371,7 @@ fn wire_signals(msg: &Message, id: u32, sender: &ComponentSender<Popover>) {
     let s = sender.clone();
     msg.connect_closed(move |_| s.input(PopoverInput::Dismiss(id)));
     let s = sender.clone();
-    msg.connect_clicked(move |_| s.input(PopoverInput::FocusAndDismiss(id)));
+    msg.connect_clicked(move |_, modifiers| s.input(PopoverInput::Click { id, modifiers }));
     let s = sender.clone();
     msg.connect_secondary_clicked(move |_| s.input(PopoverInput::Dismiss(id)));
     let s = sender.clone();
@@ -370,6 +381,30 @@ fn wire_signals(msg: &Message, id: u32, sender: &ComponentSender<Popover>) {
             action_key: action_key.to_owned(),
         });
     });
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum NotificationClickAction {
+    Activate(u32),
+    DismissGroup(Vec<u32>),
+}
+
+fn notification_click_action(
+    notifications: &[NotificationEntry],
+    id: u32,
+    modifiers: gtk::gdk::ModifierType,
+) -> NotificationClickAction {
+    if modifiers.contains(gtk::gdk::ModifierType::SHIFT_MASK) {
+        for item in notification_items(notifications) {
+            if let NotificationListItem::Group(group) = item
+                && group.ids.contains(&id)
+            {
+                return NotificationClickAction::DismissGroup(group.ids);
+            }
+        }
+    }
+
+    NotificationClickAction::Activate(id)
 }
 
 fn update_row(
@@ -445,6 +480,22 @@ fn content_image_presentation(presentation: format::ImagePresentation) -> Conten
 mod tests {
     use super::*;
 
+    fn notification(id: u32, app_name: &str) -> NotificationEntry {
+        NotificationEntry {
+            id,
+            app_name: app_name.into(),
+            app_icon: String::new(),
+            desktop_entry: None,
+            summary: String::new(),
+            body: String::new(),
+            urgency: 1,
+            actions: Vec::new(),
+            image: None,
+            timestamp: id.into(),
+            resident: false,
+        }
+    }
+
     #[test]
     fn popover_uses_available_notification_icon_names() {
         assert_eq!(
@@ -454,6 +505,40 @@ mod tests {
         assert_eq!(
             notification_popover_icon_name(true),
             "notifications-disabled-symbolic"
+        );
+    }
+
+    #[test]
+    fn shift_click_on_grouped_notification_dismisses_the_group() {
+        let notifications = vec![
+            notification(1, "Mail"),
+            notification(2, "Mail"),
+            notification(3, "Mail"),
+            notification(4, "Chat"),
+        ];
+
+        assert_eq!(
+            notification_click_action(&notifications, 2, gtk::gdk::ModifierType::SHIFT_MASK),
+            NotificationClickAction::DismissGroup(vec![3, 2, 1])
+        );
+    }
+
+    #[test]
+    fn ordinary_click_and_shift_click_on_single_notification_keep_activation_behavior() {
+        let notifications = vec![
+            notification(1, "Mail"),
+            notification(2, "Mail"),
+            notification(3, "Mail"),
+            notification(4, "Chat"),
+        ];
+
+        assert_eq!(
+            notification_click_action(&notifications, 2, gtk::gdk::ModifierType::empty()),
+            NotificationClickAction::Activate(2)
+        );
+        assert_eq!(
+            notification_click_action(&notifications, 4, gtk::gdk::ModifierType::SHIFT_MASK),
+            NotificationClickAction::Activate(4)
         );
     }
 }
