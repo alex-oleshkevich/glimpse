@@ -1,4 +1,8 @@
 target/
+var/
+redesign/
+.beads
+
 _old/
 .claude/
 sdk/sdk-rs/Cargo.lock
