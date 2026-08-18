@@ -1,8 +1,8 @@
-# Applet Tooling
+# Applet tooling
 
 `glimpse-shell` scaffolds, runs, links, lists, and debugs custom applets. Use it when you want a repeatable project directory instead of hand-editing every config file.
 
-## Workflow Overview
+## Workflow overview
 
 | Phase | Command | Result |
 |---|---|---|
@@ -22,7 +22,7 @@ flowchart LR
     List --> Remove["glimpse-shell applets unlink"]
 ```
 
-## Applet Project Directories
+## Applet project directories
 
 An applet project is a directory with an `applet.toml` file at its root. Exec applets also contain the source code or package files for one SDK language.
 
@@ -46,7 +46,7 @@ command = ["uv", "run", "main.py"]
 
 `glimpse-shell applets link` creates `~/.config/glimpse/applets/<id>.toml` as a symlink to that file. Glimpse discovers those files and lets panel config reference them by id.
 
-## Create A Project
+## Create a project
 
 ```sh
 glimpse-shell applets new counter --lang python
@@ -73,7 +73,7 @@ glimpse-shell applets new terminal --type command
 
 Project names must use ASCII letters, numbers, `_`, or `-`, and cannot start with `.` or `-`.
 
-## Develop With Live Reload
+## Develop with live reload
 
 Run development mode from the project directory or pass the project path:
 
@@ -101,7 +101,7 @@ right = ["network", "__dev__", "battery"]
 
 If a linked applet and a dev applet use the same id, the linked applet wins. Rename one of them or unlink the linked applet while testing.
 
-## Link For Local Use
+## Link for local use
 
 When the applet is ready for local use, link the project into the applets directory:
 
@@ -125,7 +125,7 @@ glimpse-shell applets unlink /path/to/counter
 glimpse-shell applets unlink counter
 ```
 
-## Distribute An Applet
+## Distribute an applet
 
 `glimpse-shell applets link` is for local project use. It links a development
 applet project into the applet search path so your panel can reference it by id.
@@ -153,7 +153,7 @@ type = "exec"
 command = ["/opt/my-applet/my-applet"]
 ```
 
-## Inspect And Diagnose
+## Inspect and diagnose
 
 | Command | Use |
 |---|---|
@@ -162,7 +162,7 @@ command = ["/opt/my-applet/my-applet"]
 | `glimpse-shell applets doctor --lang python` | Checks one language. |
 | `glimpse-shell applets doctor --strict` | Exits non-zero if any check fails. Useful in scripts. |
 
-## IPC Helpers
+## IPC helpers
 
 `glimpse-shell watch` and `glimpse-shell dispatch` connect to the Glimpse IPC socket. They use `GLIMPSE_IPC_SOCKET` when set, otherwise `$XDG_RUNTIME_DIR/glimpse/ipc.sock`, then `/tmp/glimpse/ipc.sock`.
 
@@ -174,7 +174,7 @@ command = ["/opt/my-applet/my-applet"]
 
 These helpers are useful when an applet calls shell actions through an SDK helper and you want to observe the shell side of the flow.
 
-## See Also
+## See also
 
 | Page | Covers |
 |---|---|

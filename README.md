@@ -218,18 +218,23 @@ right = ["network", "battery", "..."]
 | `clipboard` | Clipboard history. |
 | `clock` | Time, date, calendar, and optional world clocks. |
 | `command` | A button or menu that runs commands. |
+| `display` | Connected monitors status. |
 | `exec` | A live custom status widget from your script or program. |
+| `idle` | Idle inhibitor status. |
 | `keyboard` | Current keyboard layout. |
 | `mpris` | Media player status and controls. |
 | `network` | Wi-Fi, wired network, and VPN status. |
 | `next_event` | Next upcoming calendar event. |
 | `notifications` | Notification center and popups. |
 | `pager` | Workspaces and windows. |
+| `printing` | Printer and print job status. |
 | `privacy` | Camera, microphone, screen sharing, and location indicators. |
 | `removable` | USB drives and removable storage. |
 | `session` | Lock, logout, suspend, restart, and shutdown. |
 | `tray` | Status notifier icons. |
 | `weather` | Current weather and forecast. |
+| `window` | Focused window title. |
+| `workspace` | Current workspace name or index. |
 
 Configure an applet with `[applets.<name>]`:
 
@@ -239,7 +244,7 @@ format = "%H:%M"
 tooltip = "%A, %-d %B %Y"
 
 [[applets.clock.timezones]]
-label = "Tokyo"
+name = "Tokyo"
 timezone = "Asia/Tokyo"
 ```
 

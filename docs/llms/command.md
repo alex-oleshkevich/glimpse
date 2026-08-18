@@ -1,4 +1,4 @@
-# Command Applet: Full Reference
+# Command applet: full reference
 
 The `command` applet is experimental; its package API may change.
 
@@ -9,7 +9,7 @@ purely declarative TOML, no script, no protocol.
 This page is self-contained. You do not need to read any other page to write a
 working command applet.
 
-## Defining A Command Applet
+## Defining a command applet
 
 Custom command applets live as package files in `~/.config/glimpse/applets`.
 A command applet is declared with `type = "command"`:
@@ -34,7 +34,7 @@ example to place the applet in a panel:
 right = ["terminal", "network", "battery"]
 ```
 
-## All Options
+## All options
 
 | Option | Type | Default | Meaning |
 |---|---|---|---|
@@ -45,7 +45,7 @@ right = ["terminal", "network", "battery"]
 | `command` | array of strings | required | Argv to run when the button is clicked. The first element is the program; remaining elements are arguments. Arguments are passed literally, with no shell expansion. |
 | `menu` | array of menu items | unset | Optional right-click / popover menu. See below. |
 
-### Menu Items
+### Menu items
 
 Each menu entry is a `[[command.menu]]` table:
 
@@ -59,7 +59,7 @@ The main button always runs the top-level `command`. Menu items each run their
 own `command`. Right-clicking the button opens the menu; on touch input it
 opens via long-press.
 
-## Shell Syntax And `argv`
+## Shell syntax and `argv`
 
 `command` is **always** an explicit argv array. There is no implicit shell.
 Shell metacharacters (`|`, `>`, `&&`, `~`, `$VAR`, globs, etc.) are not
@@ -76,9 +76,9 @@ Rules of thumb:
 - For one-off complex scripts, save them under `~/.config/glimpse/scripts/foo`
   and call `command = ["sh", "-c", "~/.config/glimpse/scripts/foo"]`.
 
-## Working Examples
+## Working examples
 
-### Plain Launcher
+### Plain launcher
 
 ```toml
 id = "terminal"
@@ -90,7 +90,7 @@ tooltip = "Open terminal"
 command = ["ghostty"]
 ```
 
-### Launcher With Visible Label
+### Launcher with visible label
 
 ```toml
 id = "editor"
@@ -103,7 +103,7 @@ tooltip = "Open editor"
 command = ["code", "-n"]
 ```
 
-### Power Menu (Button + Right-Click Menu)
+### Power menu (button + right-click menu)
 
 ```toml
 id = "power-menu"
@@ -129,7 +129,7 @@ command = ["systemctl", "poweroff"]
 
 Left-click locks the session; right-click opens Suspend / Restart / Shutdown.
 
-### Web Shortcut
+### Web shortcut
 
 ```toml
 id = "calendar"
@@ -141,7 +141,7 @@ label = "Cal"
 command = ["xdg-open", "https://calendar.google.com"]
 ```
 
-### Screenshot With Shell Substitution
+### Screenshot with shell substitution
 
 ```toml
 id = "screenshot"
@@ -153,7 +153,7 @@ tooltip = "Screenshot region"
 command = ["sh", "-c", "slurp | grim -g - ~/Pictures/$(date +%F-%H%M%S).png"]
 ```
 
-### Append A Timestamped Note
+### Append a timestamped note
 
 ```toml
 id = "note-time"
@@ -164,7 +164,7 @@ icon = "document-edit-symbolic"
 command = ["sh", "-c", "date >> ~/.cache/glimpse-notes.log"]
 ```
 
-### Custom Script Path With Menu
+### Custom script path with menu
 
 ```toml
 id = "dotfiles"
@@ -186,7 +186,7 @@ label = "Open"
 command = ["xdg-open", "/home/me/.dotfiles"]
 ```
 
-### Quick-Switch With Multiple Menu Targets
+### Quick-switch with multiple menu targets
 
 ```toml
 id = "workspaces"
@@ -209,7 +209,7 @@ label = "Workspace 3"
 command = ["niri", "msg", "action", "focus-workspace", "3"]
 ```
 
-## What Command Applets Cannot Do
+## What command applets cannot do
 
 - Show changing state (counts, status, live values). Use [`exec`](./exec.md).
 - React to events from the command's output. Use `exec`.
@@ -218,7 +218,7 @@ command = ["niri", "msg", "action", "focus-workspace", "3"]
 
 If any of those apply, switch to `exec`.
 
-## Behavior Notes
+## Behavior notes
 
 - Commands run with the user environment Glimpse inherited at startup.
 - Glimpse does not capture stdout/stderr. Redirect inside `sh -c` if you need

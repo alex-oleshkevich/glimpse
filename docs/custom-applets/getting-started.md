@@ -1,4 +1,4 @@
-# Getting Started: Build Your First Applet
+# Getting started: build your first applet
 
 This walkthrough builds a small **counter applet**. It shows a number in the
 panel; opening the popover and clicking **Increment** bumps the number.

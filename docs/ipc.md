@@ -1,4 +1,4 @@
-# IPC Developer Specification
+# IPC developer specification
 
 Glimpse daemons expose a small Unix-socket IPC protocol from `glimpse-core::ipc`. Use this document when adding IPC to a daemon or extending an existing command surface.
 
@@ -16,7 +16,7 @@ The framework provides socket binding, event broadcasting, request/response comm
 
 Sockets are created with `0600` permissions. `IpcHandle` owns the server lifetime; dropping the handle cancels the accept loop and removes the socket file.
 
-## Wire Protocol
+## Wire protocol
 
 All messages are newline-terminated UTF-8 text. Values are space-separated `key=value` fields. Values escape backslash, newline, tab, and space as `\\`, `\n`, `\t`, and `\s`.
 
@@ -176,7 +176,7 @@ Command rules:
 | Return `Err(message)` for validation failures | The client receives `ack ok=false error=<message>`. |
 | Parse every field inside the handler | The wire protocol carries strings only. |
 
-## Naming Conventions
+## Naming conventions
 
 Events use `<service>.<noun>_<verb>`:
 
@@ -200,7 +200,7 @@ Commands use `snake_case` verbs:
 
 Do not add `get_*`; use `status`.
 
-## Existing Command Surfaces
+## Existing command surfaces
 
 | Service | Commands |
 |---|---|
@@ -209,7 +209,7 @@ Do not add `get_*`; use `status`.
 
 Keep `dispatch --help` in each daemon aligned with the implemented commands.
 
-## Help Text Requirements
+## Help text requirements
 
 Each IPC-enabled daemon should expose:
 
@@ -238,7 +238,7 @@ Each daemon with IPC should have an end-to-end test that:
 
 For event assertions, record the current watch output line count before dispatch, then scan only new lines. That avoids passing because of an old event.
 
-## Reference Files
+## Reference files
 
 | File | Use it for |
 |---|---|

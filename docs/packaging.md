@@ -1,10 +1,10 @@
-# Packaging Guide
+# Packaging guide
 
 Use this guide when maintaining a distribution package, release archive, or local system install for Glimpse. It documents the files shipped by the current binary package and the service behavior expected by the user-facing installation docs.
 
 Most users should install `glimpse-desktop-bin` and follow [Installation](./installation.md). This page is for packagers and maintainers.
 
-## Package Contents
+## Package contents
 
 The binary release archive is produced by `scripts/package-binary.sh`. It installs this runtime tree:
 
@@ -53,13 +53,13 @@ target/release/glimpse-shell --version
 target/release/glimpse-wallpaper --version
 ```
 
-## Runtime Dependencies
+## Runtime dependencies
 
 The Arch binary package currently depends on GTK4, libadwaita, gtk4-layer-shell, libheif, PAM, and GeoClue.
 
 Packagers should also preserve access to the session D-Bus bus, Wayland socket, fontconfig, icon themes, and GPU/image decoding paths. The shipped systemd units intentionally avoid sandboxing that would break those desktop integrations.
 
-## Systemd User Units
+## Systemd user units
 
 Install the unit files from `data/` without rewriting them:
 
@@ -106,7 +106,7 @@ Install the GeoClue config so the shell can request location for weather, automa
 
 The file grants the `glimpse-shell` desktop id access through GeoClue. Shared location config currently supports GeoClue only; do not document static shared coordinates as a packaged feature.
 
-## Idle Portal
+## Idle portal
 
 The shell ships an xdg-desktop-portal backend for inhibit requests:
 
@@ -117,7 +117,7 @@ The shell ships an xdg-desktop-portal backend for inhibit requests:
 
 The portal descriptor exposes `org.freedesktop.impl.portal.Inhibit` for Glimpse sessions. The D-Bus service activates `glimpse-shell.service` through systemd.
 
-## Monitor Helper
+## Monitor helper
 
 Install the monitor helper used by the default idle config:
 
@@ -134,7 +134,7 @@ It supports:
 
 If a package moves this helper, the default `[idle]` commands in the shared config must change too.
 
-## Themes, Applets, And Templates
+## Themes, applets, and templates
 
 Install packaged theme packs under `/usr/share/glimpse/themes/<name>/`. The current binary package ships the `rosepine` pack when present in `themes/rosepine`.
 
@@ -146,7 +146,7 @@ scripts/build-glimpse-applets.sh glimpse-applets "$pkgdir/usr/share/glimpse/appl
 
 Install applet project templates under `/usr/share/glimpse/applet-templates/`. `glimpse-shell applets new` reads templates from disk, so missing templates break applet scaffolding even when the shell binary works.
 
-## Configuration Files
+## Configuration files
 
 | Config | Discovery or location |
 |---|---|
@@ -158,7 +158,7 @@ Install applet project templates under `/usr/share/glimpse/applet-templates/`. `
 
 Do not duplicate full user config examples in packaging docs. Link to [Configuration](./configuration.md) and [Services](./configuration.md#services) so packager docs do not drift from the config reference.
 
-## Manual Install Commands
+## Manual install commands
 
 These commands mirror the release packaging script for the core files:
 
@@ -180,7 +180,7 @@ install -Dm644 data/dbus-1/me.aresa.GlimpseIdle.Portal.service "$pkgdir/usr/shar
 
 No polkit policy or battery helper is shipped in the current package tree.
 
-## Release Archive Notes
+## Release archive notes
 
 The AUR package `glimpse-desktop-bin` consumes GitHub release archives named:
 
@@ -196,7 +196,7 @@ scripts/package-binary.sh <version>
 
 The source `PKGBUILD` keeps `b2sums_x86_64=('SKIP')` as a template. The release process renders the AUR copy with the checksum for the uploaded archive.
 
-## See Also
+## See also
 
 | Page | Use it for |
 |---|---|

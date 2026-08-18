@@ -1,4 +1,4 @@
-# Glimpse Reference (LLM-Optimized)
+# Glimpse reference (LLM-optimized)
 
 Single-file references optimized for code generation and documentation tasks. Each page is self-contained enough to use without following the human docs first. Duplication across pages is intentional.
 

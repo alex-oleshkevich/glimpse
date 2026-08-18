@@ -1,10 +1,10 @@
-# Exec Components
+# Exec components
 
 Exec popovers are component trees. Raw protocol applets send them in `popover` messages, and SDK applets serialize helper objects to the same protocol tree.
 
 Use this page when you need exact component names, fields, defaults, enum values, and emitted events.
 
-## Component Node Shape
+## Component node shape
 
 Every component node has a `type` and a `data` object:
 
@@ -14,7 +14,7 @@ Every component node has a `type` and a `data` object:
 
 The component names below are the names accepted by the current protocol. `section`, `button`, `link_button`, `grid`, `picture`, and `progress` are not exec protocol components.
 
-## Common Fields
+## Common fields
 
 Most components accept these fields inside `data`:
 
@@ -37,7 +37,7 @@ Most components accept these fields inside `data`:
 | Event source | `status`, `popover` | none |
 | Event type | `click`, `toggle`, `change`, `scroll`, `open`, `close` | none |
 
-## Layout Components
+## Layout components
 
 | Component | Fields | Defaults | Notes |
 |---|---|---|---|
@@ -57,7 +57,7 @@ Example:
 popover {"root":{"type":"popover_shell","data":{"size":"medium","children":[{"type":"hero","data":{"title":"System","subtitle":"Live status","icon":"utilities-system-monitor-symbolic"}},{"type":"tile","data":{"id":"refresh","primary":"Refresh","secondary":"Run now","left_icon":"view-refresh-symbolic"}}]}}}
 ```
 
-## Text And Display Components
+## Text and display components
 
 | Component | Fields | Defaults | Notes |
 |---|---|---|---|
@@ -78,7 +78,7 @@ Example:
 popover {"root":{"type":"column","data":{"children":[{"type":"header","data":{"label":"Network"}},{"type":"key_value_grid","data":{"rows":[{"key":"IPv4","value":"10.0.0.42"}]}},{"type":"badge","data":{"label":"Connected","kind":"success"}}]}}}
 ```
 
-## Tiles And Controls
+## Tiles and controls
 
 | Component | Fields | Defaults | Events |
 |---|---|---|---|
@@ -98,7 +98,7 @@ Example:
 popover {"root":{"type":"column","data":{"children":[{"type":"switch_tile","data":{"id":"vpn","primary":"VPN","secondary":"Disconnected","left_icon":"network-vpn-symbolic","active":false}},{"type":"slider_tile","data":{"id":"brightness","label":"Brightness","left_icon":"display-brightness-symbolic","value":0.6,"min":0.0,"max":1.0,"step":0.05}},{"type":"choice_list","data":{"id":"profile","active":"balanced","choices":[{"id":"balanced","primary":"Balanced","secondary":"Recommended"},{"id":"performance","primary":"Performance"}]}}]}}}
 ```
 
-## Pager Components
+## Pager components
 
 | Component | Fields | Defaults | Events |
 |---|---|---|---|
@@ -107,7 +107,7 @@ popover {"root":{"type":"column","data":{"children":[{"type":"switch_tile","data
 
 Use pager components for workspace or page indicators.
 
-## Calendar Components
+## Calendar components
 
 | Component | Fields | Defaults | Events |
 |---|---|---|---|
@@ -117,7 +117,7 @@ Use pager components for workspace or page indicators.
 
 `events.events` entries use `id`, `title`, `start`, optional `end`, optional `location`, and `all_day = false`.
 
-## Weather And Clock Components
+## Weather and clock components
 
 | Component | Fields | Defaults | Notes |
 |---|---|---|---|
@@ -131,7 +131,7 @@ Use pager components for workspace or page indicators.
 
 `world_clock.rows` entries use `name`, `timezone`, `time`, `offset`, and optional `day_label`.
 
-## Battery And Privacy Components
+## Battery and privacy components
 
 | Component | Fields | Defaults | Notes |
 |---|---|---|---|
@@ -156,7 +156,7 @@ Interactive components send `event` lines back to the applet:
 
 Raw protocol applets must set `id` on components that should emit events. SDKs can generate private ids for widget-local callbacks; those generated ids are an SDK convenience, not a field you need to write by hand.
 
-## See Also
+## See also
 
 | Page | Use it for |
 |---|---|

@@ -58,7 +58,7 @@ fit = "cover"
 # and add your own around them, e.g. left = ["...", "screenshot"].
 #
 # Built-in applet names: audio, battery, bluetooth, brightness, clipboard,
-# clock, command, exec, idle, keyboard, mpris, network, next_event,
+# clock, command, display, exec, idle, keyboard, mpris, network, next_event,
 # notifications, pager, privacy, printing, removable, session, tray, weather,
 # window, workspace.
 
@@ -114,8 +114,8 @@ fit = "cover"
 #
 # [lock.background]
 # path = "..."                   # defaults to the wallpaper config
-# color = "#101010"
-# fit = "cover"
+# color = "#101010"              # defaults to wallpaper.color
+# fit = "cover"                  # defaults to wallpaper.fit, or "cover" if this has its own path
 # blur_radius = 0
 # dim = 0.35                     # 0.0-1.0
 #
@@ -176,9 +176,6 @@ fit = "cover"
 # tooltip_format = "{source}: {percent}%"
 # scroll_step = 10
 
-# [applets.display]
-# tooltip_format = "{active}/{total} monitors"
-
 # [applets.clipboard]
 # label_format = ""
 # tooltip_format = "{count} clipboard items"
@@ -203,6 +200,9 @@ fit = "cover"
 # on_scroll_left = []
 # on_scroll_right = []
 # menu = []                      # [{ label = "...", command = ["..."] }]
+
+# [applets.display]
+# tooltip_format = "{active}/{total} monitors"
 
 # [applets.exec]              # command is unset by default; example below
 # command = ["/path/to/script"]
@@ -287,5 +287,13 @@ fit = "cover"
 # label_format = "{temp}"
 # tooltip_format = "{condition} · {temp} · feels like {feels_like} · {location}"
 # refresh_interval = 1800        # seconds
+
+# [applets.window]
+# label_format = "{title}"
+# max_chars = 80
+# icon = "app"                   # unset by default; "app" resolves from the window's .desktop entry
+
+# [applets.workspace]
+# label_format = "{name_or_index}"
 
 # idle (idle-inhibitor toggle) and privacy have no configurable fields.

@@ -1,4 +1,4 @@
-# Calendar Sources
+# Calendar sources
 
 Calendar sources feed the clock popover, date markers, event rows, and the `next_event` panel applet. Configure sources once in `~/.config/glimpse/config.toml`; every calendar surface reads from the same event stream.
 

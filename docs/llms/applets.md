@@ -1,4 +1,4 @@
-# Applet Configuration Reference
+# Applet configuration reference
 
 This LLM-optimized reference covers built-in applet configuration in `~/.config/glimpse/config.toml`. Built-in applet overrides live under `[applets.<name>]`. Command and exec package applets live in separate `applet.toml` files under `~/.config/glimpse/applets`.
 
@@ -11,7 +11,7 @@ center = ["clock", "weather", "notifications", "privacy"]
 right = ["__dynamic__", "tray", "network", "audio", "battery", "session"]
 ```
 
-Built-in ids: `audio`, `battery`, `bluetooth`, `clipboard`, `clock`, `display`, `idle`, `keyboard`, `mpris`, `network`, `next_event`, `notifications`, `pager`, `printing`, `privacy`, `removable`, `session`, `tray`, `weather`.
+Built-in ids: `audio`, `battery`, `bluetooth`, `brightness`, `clipboard`, `clock`, `display`, `idle`, `keyboard`, `mpris`, `network`, `next_event`, `notifications`, `pager`, `printing`, `privacy`, `removable`, `session`, `tray`, `weather`, `window`, `workspace`.
 
 Second copies use `extends`:
 
@@ -45,9 +45,10 @@ label_on_battery = ""
 label_on_ac = ""
 tooltip_on_battery = "{percentage}% {state}, {time_left}"
 tooltip_on_ac = "{percentage}% {state}"
+settings_command = ""
 ```
 
-Placeholders: `{percentage}`, `{state}`, `{time_left}`.
+Placeholders: `{percentage}`, `{state}`, `{time_left}`. `settings_command` is accepted by config but not yet wired to a popover action.
 
 ## Bluetooth
 
@@ -58,6 +59,19 @@ tooltip_format = "{devices} connected devices"
 ```
 
 Placeholders: `{devices}`, `{state}`.
+
+## Brightness
+
+The brightness applet controls screen brightness and shows a mouse-wheel-adjustable indicator.
+
+```toml
+[applets.brightness]
+label_format = ""
+tooltip_format = "{source}: {percent}%"
+scroll_step = 10
+```
+
+Placeholders: `{source}`, `{percent}`.
 
 ## Clipboard
 
@@ -76,6 +90,7 @@ Placeholders: `{count}`, `{state}`.
 [applets.clock]
 label_format = "%a %-d %b, %H:%M"
 tooltip_format = "%A, %-d %B %Y"
+tick_interval = 60
 hide_all_day_events = false
 show_week_numbers = false
 # [[applets.clock.timezones]]
@@ -93,16 +108,14 @@ Timezone fields: `name`, `timezone`, `format`. Calendar sources are configured g
 
 ## Display
 
-The display applet shows brightness and can manage brightness from the panel.
+The display applet shows connected monitors and lets you enable or disable them from the popover. It has no brightness control; use `brightness` for that.
 
 ```toml
 [applets.display]
-label_format = ""
-tooltip_format = "{source}: {percent}%"
-scroll_step = 10
+tooltip_format = "{active}/{total} monitors"
 ```
 
-Placeholders: `{source}`, `{percent}`.
+Placeholders: `{active}`, `{total}`.
 
 ## Idle
 
@@ -152,7 +165,7 @@ tooltip_format = "{state}"
 
 Placeholders: `{state}`, `{network}`, `{type}`, `{wifi}`, `{access_points}`, `{connections}`, `{vpns}`, `{speed}`.
 
-## Next Event
+## Next event
 
 ```toml
 [applets.next_event]
@@ -275,6 +288,7 @@ The tray applet has no per-applet config. Add `tray` to show StatusNotifier item
 ```toml
 [applets.weather]
 city_name = ""
+geolocate = false
 hourly_slots = 5
 forecast_days = 5
 label_format = "{temp}"
@@ -282,9 +296,33 @@ tooltip_format = "{condition} - {temp} - feels like {feels_like} - {location}"
 refresh_interval = 1800
 ```
 
-`city_name = ""` uses shared `[location]`. Placeholders: `{temp}`, `{feels_like}`, `{condition}`, `{location}`, `{humidity}`, `{wind}`.
+`city_name = ""` uses shared `[location]`. `geolocate` is accepted by config but not yet wired to weather refresh behavior. Placeholders: `{temp}`, `{feels_like}`, `{condition}`, `{location}`, `{humidity}`, `{wind}`.
 
-## Package Applets
+## Window
+
+Shows the title of the focused window. Hidden when no window is focused or the compositor does not support window tracking.
+
+```toml
+[applets.window]
+label_format = "{title}"
+max_chars = 80
+# icon = "app"
+```
+
+`icon` is unset by default; `"app"` resolves the icon from the window's `.desktop` entry, any other string is used as a literal icon name. Placeholders: `{title}`, `{app_id}`, `{id}`, `{index}`.
+
+## Workspace
+
+Shows the name or index of the current workspace. Scroll switches workspaces; right-click opens a rename dialog on Niri and Hyprland.
+
+```toml
+[applets.workspace]
+label_format = "{name_or_index}"
+```
+
+Placeholders: `{name_or_index}`, `{name}`, `{index}`, `{id}`.
+
+## Package applets
 
 Command applet package:
 

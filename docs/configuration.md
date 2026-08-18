@@ -155,9 +155,10 @@ Put these names in `left`, `center`, or `right`:
 | `audio` | Volume status and controls. |
 | `battery` | Battery percentage and charging status. |
 | `bluetooth` | Bluetooth status and devices. |
+| `brightness` | Screen brightness with scroll control. |
 | `clipboard` | Clipboard history. |
 | `clock` | Time and calendar. |
-| `display` | Display brightness. |
+| `display` | Connected monitors status. |
 | `idle` | Idle inhibitor status. |
 | `keyboard` | Current keyboard layout. |
 | `mpris` | Media player status. |
@@ -171,6 +172,8 @@ Put these names in `left`, `center`, or `right`:
 | `session` | Lock, logout, suspend, restart, and shutdown actions. |
 | `tray` | Status notifier icons. |
 | `weather` | Current weather. |
+| `window` | Focused window title. |
+| `workspace` | Current workspace name or index. |
 | `command` | A custom button or menu that runs commands. |
 | `exec` | A live custom applet powered by your own program. |
 
@@ -478,9 +481,9 @@ blur_radius = 24
 css_path = "themes/lock.css"
 
 [lock.background]
-# color = "#101010"
+# color = "#101010"              # defaults to wallpaper.color
 # path = "/home/alex/Pictures/wallpapers/lock.jpg"
-# fit = "cover"
+# fit = "cover"                  # defaults to wallpaper.fit, or "cover" if this has its own path
 blur_radius = 0
 dim = 0.35
 
@@ -520,10 +523,16 @@ label_on_battery = ""
 label_on_ac = ""
 tooltip_on_battery = "{percentage}% {state}, {time_left}"
 tooltip_on_ac = "{percentage}% {state}"
+settings_command = ""
 
 [applets.bluetooth]
 label_format = ""
 tooltip_format = "{devices} connected devices"
+
+[applets.brightness]
+label_format = ""
+tooltip_format = "{source}: {percent}%"
+scroll_step = 10
 
 [applets.clipboard]
 label_format = ""
@@ -542,14 +551,12 @@ tooltip_format = "%A, %-d %B %Y"
 # name = "Tokyo"
 # timezone = "Asia/Tokyo"
 # format = "%H:%M"
+tick_interval = 60
 hide_all_day_events = false
 show_week_numbers = false
 
 [applets.display]
-# Manages display brightness.
-label_format = ""
-tooltip_format = "{source}: {percent}%"
-scroll_step = 10
+tooltip_format = "{active}/{total} monitors"
 
 [applets.keyboard]
 
@@ -633,11 +640,20 @@ confirm_shutdown = true
 
 [applets.weather]
 city_name = ""
+geolocate = false
 hourly_slots = 5
 forecast_days = 5
 label_format = "{temp}"
 tooltip_format = "{condition} · {temp} · feels like {feels_like} · {location}"
 refresh_interval = 1800
+
+[applets.window]
+label_format = "{title}"
+max_chars = 80
+# icon = "app"
+
+[applets.workspace]
+label_format = "{name_or_index}"
 ```
 
 Read [Theming](./theming.md) for visual customization, [Applets](./applets/) for per-applet options, [Calendar Sources](./calendar.md) for event feeds, [Wallpaper](./wallpaper.md) for background settings, and [Lock](./lock.md) for lock screen settings.

@@ -1,8 +1,8 @@
-# Configuration Reference
+# Configuration reference
 
 This LLM-optimized reference covers the main Glimpse config file. Use it when generating or editing `~/.config/glimpse/config.toml`.
 
-## File Discovery
+## File discovery
 
 Glimpse reads the first config file found in this order:
 
@@ -36,7 +36,7 @@ Merge rules:
 
 Use includes for shared defaults. Keep machine-specific or final overrides in the main `config.toml`.
 
-## Minimal Panel
+## Minimal panel
 
 ```toml
 theme = "adwaita"
@@ -74,7 +74,7 @@ right = ["network", "battery", "session"]
 
 Panel-level `theme_mode` does not select a different theme pack.
 
-## Panel Fields
+## Panel fields
 
 | Field | Default | Values | Meaning |
 |---|---|---|---|
@@ -95,19 +95,19 @@ Reserved applet ids:
 | `__dev__` | Applets started by `glimpse-shell applets dev`. |
 | `...` | Preserve defaults for that panel section. |
 
-## Built-In Applet Names
+## Built-in applet names
 
 Use these ids in `left`, `center`, or `right`:
 
-```toml
-audio, battery, bluetooth, clipboard, clock, display, idle, keyboard,
-mpris, network, next_event, notifications, pager, printing, privacy,
-removable, session, tray, weather
+```text
+audio, battery, bluetooth, brightness, clipboard, clock, command, display,
+exec, idle, keyboard, mpris, network, next_event, notifications, pager,
+printing, privacy, removable, session, tray, weather, window, workspace
 ```
 
 Custom package applets use the package id from their `applet.toml`.
 
-## Built-In Applet Config
+## Built-in applet config
 
 Built-in applet overrides live under `[applets.<name>]`:
 
@@ -122,7 +122,7 @@ label_format = "{temp}"
 
 For every built-in applet field, see [Applet Configuration](./applets.md).
 
-## Keyboard Memory
+## Keyboard memory
 
 Keyboard layout memory is global; display labels are applet-local:
 
@@ -155,7 +155,7 @@ city_name = "Warsaw, PL"
 
 Static shared coordinates are not supported in the current config format.
 
-## Night Light
+## Night light
 
 ```toml
 [night_light]
@@ -224,7 +224,7 @@ Listener fields:
 | `on_resume` | no | Shell command run when activity returns after that listener fired. |
 | `respect_inhibitors` | no | Overrides global inhibitor behavior for one listener. |
 
-## Wallpaper, Backdrop, And Lock
+## Wallpaper, backdrop, and lock
 
 ```toml
 [wallpaper]
@@ -262,7 +262,6 @@ buttons = ["wifi", "input", "weather", "battery", "power"]
 ```toml
 [calendar]
 poll_interval = 600
-sources = []
 
 [[calendar.sources]]
 id = "personal"
@@ -281,7 +280,7 @@ color = "#f6c343"
 
 Source types are `ical` and `directory`.
 
-## Custom Applet Package
+## Custom applet package
 
 Package files live under `~/.config/glimpse/applets/`:
 

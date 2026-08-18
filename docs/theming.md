@@ -78,9 +78,7 @@ Theme packs are resolved by name in this order:
 | **3** | `~/.config/glimpse/themes/<name>/` | User-installed packs. |
 | **4** | `/usr/share/glimpse/themes/<name>/` | Packaged system themes. |
 
-`GLIMPSE_THEME_NAME` overrides the configured `theme` name but still uses the normal search order:
-
-Set `GLIMPSE_THEME_NAME=rosepine` before starting the panel to try a pack without editing config.
+`GLIMPSE_THEME_NAME` overrides the configured `theme` name but still uses the normal search order. Set `GLIMPSE_THEME_NAME=rosepine` before starting the panel to try a pack without editing config.
 
 `GLIMPSE_THEME` wins over `GLIMPSE_THEME_NAME`, and `GLIMPSE_THEME_NAME` wins over `theme = "..."`.
 

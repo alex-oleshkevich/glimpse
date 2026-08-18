@@ -1,4 +1,4 @@
-# Night Light
+# Night light
 
 Night light is now documented in [Configuration](./configuration.md#night-light).
 

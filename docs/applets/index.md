@@ -8,10 +8,10 @@ Applets are the small panel items that show status, open popovers, or run quick 
 ```toml
 [[panels]]
 position = "top"
-height = 34
-start = ["pager", "mpris"]
+size = 34
+left = ["pager", "mpris"]
 center = ["clock"]
-end = ["tray", "network", "audio", "battery", "notifications", "session"]
+right = ["tray", "network", "audio", "battery", "notifications", "session"]
 
 [applets.clock]
 label_format = "%a %-d %b, %H:%M"
@@ -22,7 +22,7 @@ tooltip_format = "{device} - {volume}%"
 
 For the full panel layout shape, see [Configuration](../configuration.md).
 
-## Second Copies
+## Second copies
 
 To create a second copy of a built-in applet, give it your own name and point `extends` at the built-in type.
 
@@ -32,10 +32,10 @@ extends = "battery"
 label_on_battery = "{percentage}%"
 
 [[panels]]
-end = ["short-battery", "session"]
+right = ["short-battery", "session"]
 ```
 
-## Format Strings
+## Format strings
 
 Many applets use format strings. Text is shown as-is, and placeholders are replaced at runtime.
 
@@ -47,7 +47,7 @@ tooltip_on_battery = "{state}, {time_left}"
 
 If a placeholder is unknown, it is left unchanged.
 
-## Built-In Applets
+## Built-in applets
 
 Use these names in a panel section:
 
@@ -56,9 +56,10 @@ Use these names in a panel section:
 | `audio` | Volume, mute state, devices, and streams |
 | `battery` | Battery level and charging state |
 | `bluetooth` | Bluetooth power state and connected devices |
+| `brightness` | Screen brightness with monitor-aware scroll control |
 | `clipboard` | Clipboard history status |
 | `clock` | Time, calendar popover, and optional calendar sources |
-| `display` | Brightness status and brightness control |
+| `display` | Connected monitors status |
 | `idle` | Idle inhibitor status |
 | `keyboard` | Keyboard layout indicator |
 | `mpris` | Media player controls |
@@ -111,6 +112,7 @@ label_on_battery = ""
 label_on_ac = ""
 tooltip_on_battery = "{percentage}% {state}, {time_left}"
 tooltip_on_ac = "{percentage}% {state}"
+settings_command = ""
 ```
 
 | Field | Default | Notes |
@@ -120,6 +122,7 @@ tooltip_on_ac = "{percentage}% {state}"
 | `label_on_ac` | `""` | Label while plugged in. |
 | `tooltip_on_battery` | `"{percentage}% {state}, {time_left}"` | Tooltip while running on battery. |
 | `tooltip_on_ac` | `"{percentage}% {state}"` | Tooltip while plugged in. |
+| `settings_command` | `""` | Accepted by config; not yet wired to a popover action. |
 
 Placeholders: `{percentage}`, `{state}`, `{time_left}`.
 
@@ -137,6 +140,25 @@ tooltip_format = "{devices} connected devices"
 | `tooltip_format` | `"{devices} connected devices"` | Tooltip text. |
 
 Placeholders: `{devices}`, `{state}`.
+
+## Brightness
+
+The brightness applet controls screen brightness and shows a mouse-wheel-adjustable indicator.
+
+```toml
+[applets.brightness]
+label_format = ""
+tooltip_format = "{source}: {percent}%"
+scroll_step = 10
+```
+
+| Field | Default | Notes |
+| --- | --- | --- |
+| `label_format` | `""` | Optional text next to the icon. |
+| `tooltip_format` | `"{source}: {percent}%"` | Tooltip text. |
+| `scroll_step` | `10` | Brightness step for mouse wheel changes. |
+
+Placeholders: `{source}`, `{percent}`.
 
 ## Clipboard
 
@@ -161,6 +183,7 @@ Placeholders: `{count}`, `{state}`.
 [applets.clock]
 label_format = "%a %-d %b, %H:%M"
 tooltip_format = "%A, %-d %B %Y"
+tick_interval = 60
 hide_all_day_events = false
 show_week_numbers = false
 
@@ -181,6 +204,7 @@ show_week_numbers = false
 | `label_format` | `"%a %-d %b, %H:%M"` | Panel label using `strftime`. |
 | `tooltip_format` | `"%A, %-d %B %Y"` | Tooltip using `strftime`. |
 | `timezones` | `[]` | Extra timezone rows in the popover. |
+| `tick_interval` | `60` | Seconds between clock updates, clamped from `1` to `60`. |
 | `hide_all_day_events` | `false` | Hides all-day events in the calendar popover. |
 | `show_week_numbers` | `false` | Shows ISO week numbers in the calendar popover. |
 
@@ -196,29 +220,25 @@ Calendar sources are configured separately. See [Calendar Sources](../calendar.m
 
 ## Display
 
-The display applet shows brightness and can manage brightness from the panel.
+The display applet shows connected monitors and lets you enable or disable them from the popover. It has no brightness control; use `brightness` for that.
 
 ```toml
 [applets.display]
-label_format = ""
-tooltip_format = "{source}: {percent}%"
-scroll_step = 10
+tooltip_format = "{active}/{total} monitors"
 ```
 
 | Field | Default | Notes |
 | --- | --- | --- |
-| `label_format` | `""` | Optional text next to the icon. |
-| `tooltip_format` | `"{source}: {percent}%"` | Tooltip text. |
-| `scroll_step` | `10` | Brightness step for mouse wheel changes. |
+| `tooltip_format` | `"{active}/{total} monitors"` | Tooltip text. |
 
-Placeholders: `{source}`, `{percent}`.
+Placeholders: `{active}`, `{total}`.
 
 ## Idle
 
 ```toml
 # Add `idle` to a panel section.
 [[panels]]
-end = ["idle"]
+right = ["idle"]
 ```
 
 The idle applet has no per-applet config. It reflects the current idle inhibition state and lets you toggle it from the panel.
@@ -252,7 +272,7 @@ The panel item itself only needs the applet name:
 
 ```toml
 [[panels]]
-end = ["keyboard"]
+right = ["keyboard"]
 ```
 
 ## MPRIS
@@ -300,7 +320,7 @@ tooltip_format = "{state}"
 
 Placeholders: `{state}`, `{network}`, `{type}`, `{wifi}`, `{access_points}`, `{connections}`, `{vpns}`, `{speed}`.
 
-## Next Event
+## Next event
 
 ```toml
 [applets.next_event]
@@ -442,7 +462,7 @@ display = "auto"
 ```toml
 # Add `privacy` to a panel section.
 [[panels]]
-end = ["privacy"]
+right = ["privacy"]
 ```
 
 The privacy applet has no config. It shows privacy-sensitive activity such as microphone, camera, screen sharing, and location usage.
@@ -519,6 +539,7 @@ show_passive = false
 ```toml
 [applets.weather]
 city_name = ""
+geolocate = false
 hourly_slots = 5
 forecast_days = 5
 label_format = "{temp}"
@@ -529,6 +550,7 @@ refresh_interval = 1800
 | Field | Default | Notes |
 | --- | --- | --- |
 | `city_name` | `""` | City to show. Empty uses the shared location provider when available. |
+| `geolocate` | `false` | Reserved for automatic location lookup; not yet wired to weather refresh behavior. |
 | `hourly_slots` | `5` | Hourly forecast slots, clamped from `1` to `8`. |
 | `forecast_days` | `5` | Forecast days, clamped from `1` to `10`. |
 | `label_format` | `"{temp}"` | Panel label. |
@@ -546,7 +568,7 @@ provider = "geo_clue"
 
 ## Window
 
-Shows the title of the currently focused window. Hidden when no window is focused or the compositor does not support window tracking.
+The window applet shows the title of the currently focused window. It is hidden when no window is focused or the compositor does not support window tracking.
 
 ```toml
 [applets.window]
@@ -574,7 +596,7 @@ Scroll is not supported on this applet.
 
 ## Workspace
 
-Shows the name or index of the current workspace. Scroll up/down switches to the next or previous workspace.
+The workspace applet shows the name or index of the current workspace. Scrolling up or down switches to the next or previous workspace.
 
 Right-click opens a context menu with `Rename`. The rename dialog is prefilled with the current workspace name. Submitting an empty value clears the workspace name. Workspace rename is sent to the compositor and is supported on Hyprland and Niri.
 
@@ -598,7 +620,7 @@ Placeholders: `{name_or_index}`, `{name}`, `{index}`, `{id}`.
 
 On Niri, `{index}` and `{name_or_index}` use the workspace's logical index. On Hyprland they use the workspace ID.
 
-## Package Applets
+## Package applets
 
 Package applets are small TOML files under `~/.config/glimpse/applets`. Use them when you want a custom command button or a custom process-driven applet.
 
@@ -651,7 +673,7 @@ Add the package applet by its `id`:
 
 ```toml
 [[panels]]
-end = ["terminal"]
+right = ["terminal"]
 ```
 
 ### Exec
@@ -689,5 +711,5 @@ Add the package applet by its `id`:
 
 ```toml
 [[panels]]
-end = ["weather-line"]
+right = ["weather-line"]
 ```

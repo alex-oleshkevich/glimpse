@@ -1,4 +1,4 @@
-# Exec Applet
+# Exec applet
 
 Exec applets and SDK APIs are experimental and may change.
 
@@ -6,7 +6,7 @@ Use an exec applet when a custom panel item needs to stay alive. It can update i
 
 For a simple launcher or menu, use a [command applet](./command.md) instead.
 
-## How It Runs
+## How it runs
 
 | Step | What happens |
 | --- | --- |
@@ -19,7 +19,7 @@ For a simple launcher or menu, use a [command applet](./command.md) instead.
 
 Most users should start with [Getting Started](./getting-started.md), then come back to this page when they need the config reference.
 
-## Basic Config
+## Basic config
 
 ```toml
 # ~/.config/glimpse/applets/sysinfo.toml
@@ -42,7 +42,7 @@ Add the package id to a panel section:
 right = ["sysinfo", "network", "battery"]
 ```
 
-## Applet Project Directories
+## Applet project directories
 
 For a reusable applet project, keep the package file beside the applet code:
 
@@ -90,7 +90,7 @@ For sharing an applet with other users, distribute `applet.toml` together with t
 | `env` | `{}` | Extra environment variables passed to the command. |
 | `env_forward` | `false` | Set `true` to inherit the parent process environment. |
 
-## Environment And Working Directory
+## Environment and working directory
 
 Use `work_dir` when the command needs to run from a specific directory:
 
@@ -111,7 +111,7 @@ Set `env_forward = true` only when the applet needs the full parent environment.
 
 The shell always adds its applet IPC socket environment variables for SDK helpers, even when `env_forward = false`.
 
-## Options In Init
+## Options in init
 
 `[exec.options]` is applet-owned data. The shell does not interpret it; it sends the table to the child process in the first `init` line:
 
@@ -121,7 +121,7 @@ init {"instance":"sysinfo","options":{"interval_seconds":5}}
 
 Use this for applet-specific settings such as polling intervals, labels, thresholds, paths, or feature flags.
 
-## Choose An Implementation
+## Choose an implementation
 
 | Option | Use it when |
 | --- | --- |
@@ -131,7 +131,7 @@ Use this for applet-specific settings such as polling intervals, labels, thresho
 
 SDK applets are the easiest path for most applets. Raw protocol applets are useful for short scripts or debugging.
 
-## Development Flow
+## Development flow
 
 Use [Applet Tooling](./tooling.md) for the full workflow:
 
@@ -142,7 +142,7 @@ Use [Applet Tooling](./tooling.md) for the full workflow:
 5. Distribute the applet by sharing `applet.toml` with the executable or script.
 6. Diagnose package and runtime issues.
 
-## See Also
+## See also
 
 | Page | Use it for |
 | --- | --- |

@@ -1,8 +1,8 @@
-# Lock Screen
+# Lock screen
 
 The lock screen uses the shared config file at `~/.config/glimpse/config.toml`. It can reuse your wallpaper, use a separate lock image, show a clock, and show status buttons.
 
-## Enable Locking
+## Enable locking
 
 Enable the user service:
 
@@ -18,7 +18,7 @@ loginctl lock-session
 
 Use `loginctl lock-session` from compositor keybindings and idle rules. Keep the service running so locking happens immediately.
 
-## Use Your Wallpaper
+## Use your wallpaper
 
 Leave `[lock.background].path` unset to use the same image as `[wallpaper]`:
 
@@ -38,7 +38,7 @@ dim = 0.35
 
 This is the best starting point when you want the lock screen to match the desktop.
 
-## Use A Separate Lock Image
+## Use a separate lock image
 
 Set `[lock.background].path` when the lock screen needs its own image:
 
@@ -54,7 +54,7 @@ dim = 0.35
 
 If `fit` is left out, a lock-specific image uses `cover`. When the lock screen inherits the wallpaper image, it also inherits the wallpaper fit mode.
 
-## Background Fallback
+## Background fallback
 
 Config paths win over theme-pack images.
 
@@ -79,7 +79,7 @@ date_format = "%A, %B %-d"
 
 Set `enabled = false` if you want the lock screen to be image-first with no large clock.
 
-## Status Buttons
+## Status buttons
 
 ```toml
 [lock.controls]
@@ -111,7 +111,7 @@ The default lock CSS override path is:
 
 Keep small lock-screen visual tweaks there. See [Theming](./theming.md#lock-css) for lock CSS variables.
 
-## Practical Tips
+## Practical tips
 
 | Goal | Tip |
 |---|---|
@@ -120,7 +120,7 @@ Keep small lock-screen visual tweaks there. See [Theming](./theming.md#lock-css)
 | Use a busy wallpaper | Use a separate, calmer `[lock.background].path`. |
 | Avoid accidental shutdown | Keep the `power` button only if you want power actions on the lock screen. |
 
-### See Also
+### See also
 
 | Document | Purpose |
 |---|---|

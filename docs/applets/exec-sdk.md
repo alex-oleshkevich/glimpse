@@ -4,7 +4,7 @@ The Exec SDKs wrap the raw exec applet protocol with typed applet classes, state
 
 Use this page when you want to build an applet in Python, TypeScript, Rust, or Go. Use [Applet Tooling](../custom-applets/tooling.md) to create, run, and link applet projects. Use [Line Protocol](../custom-applets/exec-protocol.md) and [Components](../custom-applets/exec-components.md) when you need the raw wire format.
 
-## SDK Locations
+## SDK locations
 
 | Language | Package |
 |---|---|
@@ -13,7 +13,7 @@ Use this page when you want to build an applet in Python, TypeScript, Rust, or G
 | Rust | `glimpse-sdk` |
 | Go | `github.com/alex-oleshkevich/glimpse/sdk/sdk-go` |
 
-## Start With Tooling
+## Start with tooling
 
 Generated projects include the right language manifest, dependency entries, run command, and `applet.toml`. Start with the applet tooling:
 
@@ -31,7 +31,7 @@ glimpse-shell applets link
 
 For distribution, share an `applet.toml` with the executable or script. See [Applet Tooling](../custom-applets/tooling.md) for the package shape.
 
-## Applet Package Shape
+## Applet package shape
 
 SDK applets run through an `exec` applet package. A generated package looks like this:
 
@@ -48,7 +48,7 @@ start = 0
 
 `[exec.options]` is passed to the SDK during initialization. Keep applet settings there instead of hardcoding them in the program.
 
-## How SDK Applets Work
+## How SDK applets work
 
 | Concept | Meaning |
 |---|---|
@@ -62,7 +62,7 @@ start = 0
 
 Every render is a full replacement. Return the current truth from `status` and `popover`; do not try to patch old widget trees.
 
-## Event Handling
+## Event handling
 
 Prefer widget-local callbacks for controls rendered in `popover`. The SDK registers the callback and generates a private id when the raw protocol needs one.
 
@@ -334,7 +334,7 @@ func main() {
 
 Go `BaseApplet` provides state storage, render notifications, lifecycle no-op defaults, logging, and desktop helpers. Implement typed handler interfaces such as `OnClick`, `OnToggle`, or `OnPopover` when explicit id handlers are a better fit than widget-local callbacks.
 
-## Desktop Helpers
+## Desktop helpers
 
 SDK helper names differ by language, but the concepts are shared:
 
@@ -348,7 +348,7 @@ SDK helper names differ by language, but the concepts are shared:
 
 These helpers run local desktop commands. The raw line protocol only accepts the commands documented in [Line Protocol](../custom-applets/exec-protocol.md).
 
-## IPC Client
+## IPC client
 
 The IPC client lets applets listen to shell events and dispatch shell commands over the Glimpse socket.
 
@@ -414,7 +414,7 @@ for event := range events {
 ack, err := sub.Dispatch(ctx, "set_volume", map[string]string{"level": "50"})
 ```
 
-## Golden Fixture Workflow
+## Golden fixture workflow
 
 The four SDKs share canonical JSON fixtures under `sdk/fixtures`. Update them when adding widgets, events, common props, or desktop helpers.
 
@@ -434,7 +434,7 @@ Fixture rules:
 - If a fixture and an SDK disagree, fix the SDK unless the fixture violates the documented protocol.
 - Interactive renderer widgets that emit events require stable ids. Widget-local SDK callbacks can generate private ids during serialization.
 
-## See Also
+## See also
 
 | Page | Covers |
 |---|---|

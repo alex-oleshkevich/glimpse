@@ -1,10 +1,10 @@
-# Exec Line Protocol
+# Exec line protocol
 
 The exec line protocol is the raw interface between the panel and an `exec` applet process. Glimpse starts the child process, writes setup and event lines to stdin, and reads applet output from stdout. Diagnostics belong on stderr.
 
 Use an SDK when possible. Use this page when you are writing a small script, debugging SDK output, or implementing the protocol directly.
 
-## Line Format
+## Line format
 
 Each line starts with a command name. Commands with JSON payloads use one space followed by a JSON object:
 
@@ -43,7 +43,7 @@ init {"instance":"sysinfo","options":{"interval":5,"unit":"celsius"}}
 event {"id":"cpu","type":"click","source":"status","button":"left"}
 ```
 
-## Init Messages
+## Init messages
 
 `init` is sent by Glimpse after the child process starts.
 
@@ -54,7 +54,7 @@ event {"id":"cpu","type":"click","source":"status","button":"left"}
 
 Use `options` for applet-specific settings instead of hardcoding values in the script.
 
-## Status Messages
+## Status messages
 
 A `status` message replaces the full list of status items shown in the panel.
 
@@ -75,7 +75,7 @@ status {"items":[
 
 Left-click opens the popover when the applet has popover content. Right-click opens the context menu if one is available. Status items with `id` also receive `click` and `scroll` events.
 
-## Popover Messages
+## Popover messages
 
 A `popover` message replaces the full popover tree. The payload has a `root` field containing a component node, or `null` to clear popover content.
 
@@ -98,7 +98,7 @@ Component nodes use this structure:
 
 Send a complete popover update whenever the content changes. Read [Components](./exec-components.md) for valid component types and fields.
 
-## Class Messages
+## Class messages
 
 `class` sets one applet-specific class suffix on the panel item and popover. It is not JSON.
 
@@ -108,7 +108,7 @@ class build-status
 
 That class is applied as applet-specific styling by the shell. Send it once after startup if the applet needs custom theme selectors.
 
-## Close Popover
+## Close popover
 
 `close-popover` closes this applet popover. It has no payload.
 
@@ -152,7 +152,7 @@ event {"id":"vpn","type":"toggle","source":"popover","active":true}
 event {"id":"popover","type":"open","source":"popover"}
 ```
 
-## Shell Starter
+## Shell starter
 
 ```sh
 #!/bin/sh
@@ -173,7 +173,7 @@ done
 
 This shape is event-driven. For polling, run a background loop and keep reading events in the foreground.
 
-## How-To: Toggle A Command
+## How to toggle a command
 
 Render a clickable tile:
 
@@ -189,7 +189,7 @@ event {"id":"toggle-vpn","type":"click","source":"popover","button":"left"}
 
 Run your command, then print updated `status` and `popover` lines.
 
-## Best Practices
+## Best practices
 
 | Practice | Why |
 |---|---|
@@ -201,7 +201,7 @@ Run your command, then print updated `status` and `popover` lines.
 | Put detail in the popover | Popovers are for explanations and controls. |
 | Validate JSON before running | Bad JSON is ignored and logged. |
 
-## See Also
+## See also
 
 | Page | Covers |
 |---|---|

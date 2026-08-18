@@ -1,4 +1,4 @@
-# Command Applet
+# Command applet
 
 Command applets are experimental; the package API may change.
 

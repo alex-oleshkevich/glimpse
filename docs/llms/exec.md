@@ -1,4 +1,4 @@
-# Exec Applet Reference
+# Exec applet reference
 
 The `exec` applet and SDK APIs are experimental and may change.
 
@@ -6,7 +6,7 @@ This page is a compact reference for LLMs and maintainers working on Glimpse
 exec applets. It intentionally starts from the applet tooling, because generated
 projects contain the correct manifests, dependencies, commands, and SDK wiring.
 
-## Tooling-First Workflow
+## Tooling-first workflow
 
 Create, run, and link applets through the CLI:
 
@@ -44,7 +44,7 @@ For distribution, share the applet executable or script with an `applet.toml`
 that points to it. `link` is a local project workflow, not the distribution
 format.
 
-## Choosing Command Or Exec
+## Choosing command or exec
 
 | Need | Use |
 |---|---|
@@ -54,7 +54,7 @@ format.
 | Handle clicks, toggles, sliders, or choices | `exec` applet |
 | Build a reusable local applet project | `exec` applet with applet tooling |
 
-## Applet Package
+## Applet package
 
 Generated applet projects include an `applet.toml` package. The package is what
 the panel loads:
@@ -83,7 +83,7 @@ Useful fields:
 | `env` | `{}` | Extra environment variables for the child process. |
 | `env_forward` | `false` | Set `true` only when the child really needs the parent environment. |
 
-## Runtime Model
+## Runtime model
 
 | Step | What happens |
 |---|---|
@@ -97,7 +97,7 @@ Useful fields:
 The SDKs own stdin/stdout parsing and JSON serialization. Applet diagnostics
 must go to stderr.
 
-## Protocol Lines
+## Protocol lines
 
 Every raw protocol message is one line:
 
@@ -217,7 +217,7 @@ Specialized components:
 | `choice_list`, `pager_strip`, `calendar` | `change` | Selected id, item id, or date string in `value`. |
 | Popover lifecycle | `open`, `close` | `id = "popover"`. |
 
-## SDK Counter Shapes
+## SDK counter shapes
 
 Use the generated project as the source of truth. These snippets show the
 current API style.
@@ -406,7 +406,7 @@ func (a *counterApplet) Popover(_ context.Context, state *counterState) (sdk.Wid
 }
 ```
 
-## IPC Client
+## IPC client
 
 SDK applets can listen to shell events and dispatch shell commands through IPC.
 Use `"shell"` as the service name for panel events and commands.
@@ -440,7 +440,7 @@ for await (const event of sub.listen("audio.*")) {
 await sub.dispatch("set_volume", { level: "50" });
 ```
 
-## Best Practices
+## Best practices
 
 | Practice | Why |
 |---|---|
@@ -454,7 +454,7 @@ await sub.dispatch("set_volume", { level: "50" });
 | Keep `env_forward = false` by default | Forward only the environment your applet actually needs. |
 | Write diagnostics to stderr | Stdout is reserved for protocol lines. |
 
-## See Also
+## See also
 
 | Page | Covers |
 |---|---|

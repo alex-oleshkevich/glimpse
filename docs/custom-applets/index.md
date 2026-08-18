@@ -1,4 +1,4 @@
-# Custom Applets
+# Custom applets
 
 Custom applets are user-owned panel items. Use them when the built-in applets do not show exactly what you want, or when you want a personal launcher, menu, script, or live widget in the panel.
 
