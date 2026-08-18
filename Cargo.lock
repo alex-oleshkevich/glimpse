@@ -1327,7 +1327,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-core"
-version = "0.15.1"
+version = "0.16.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1361,7 +1361,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-lock"
-version = "0.15.1"
+version = "0.16.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1388,7 +1388,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-shell"
-version = "0.15.1"
+version = "0.16.0"
 dependencies = [
  "ammonia",
  "anyhow",
@@ -1424,7 +1424,7 @@ dependencies = [
 
 [[package]]
 name = "glimpse-wallpaper"
-version = "0.15.1"
+version = "0.16.0"
 dependencies = [
  "anyhow",
  "css-color",
