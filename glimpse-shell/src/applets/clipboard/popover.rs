@@ -7,7 +7,10 @@ use relm4::{
 
 use crate::{
     utils::popover_scroll,
-    widgets::{animated_popover::AnimatedPopover, hero::Hero, popover_shell::PopoverShell},
+    widgets::{
+        animated_popover::AnimatedPopover, empty_state::EmptyState, hero::Hero,
+        popover_shell::PopoverShell,
+    },
 };
 use glimpse_core::services::clipboard::{ClipboardEntry, Command, State};
 
@@ -22,7 +25,7 @@ pub struct Popover {
     rows: HashMap<u64, ClipboardHistoryRow>,
     list: gtk::Box,
     scroller: gtk::ScrolledWindow,
-    empty: gtk::Box,
+    empty: EmptyState,
 }
 
 pub struct PopoverInit {
@@ -63,25 +66,7 @@ impl SimpleComponent for Popover {
                 },
 
                 #[name = "empty"]
-                gtk::Box {
-                    set_orientation: gtk::Orientation::Vertical,
-                    set_spacing: 4,
-                    set_halign: gtk::Align::Center,
-                    set_valign: gtk::Align::Center,
-                    set_vexpand: true,
-                    set_hexpand: true,
-                    add_css_class: "empty-state",
-
-                    gtk::Label {
-                        add_css_class: "empty-state__title",
-                        set_label: "No clipboard items",
-                    },
-
-                    gtk::Label {
-                        add_css_class: "empty-state__subtitle",
-                        set_label: "Copy something to start history.",
-                    },
-                },
+                EmptyState {},
 
                 #[name = "scroller"]
                 gtk::ScrolledWindow {
@@ -111,7 +96,7 @@ impl SimpleComponent for Popover {
             rows: HashMap::new(),
             list: gtk::Box::new(gtk::Orientation::Vertical, 2),
             scroller: gtk::ScrolledWindow::new(),
-            empty: gtk::Box::new(gtk::Orientation::Vertical, 4),
+            empty: EmptyState::new(),
         };
 
         let widgets = view_output!();
@@ -119,6 +104,10 @@ impl SimpleComponent for Popover {
         model.list = widgets.list.clone();
         model.scroller = widgets.scroller.clone();
         model.empty = widgets.empty.clone();
+        model.empty.set_title("No clipboard items");
+        model
+            .empty
+            .set_subtitle(Some("Copy something to start history."));
 
         widgets.root.set_parent(&init.parent);
         popover_scroll::install_half_monitor_limit(
@@ -139,6 +128,7 @@ impl SimpleComponent for Popover {
             }
             PopoverInput::Select(id) => {
                 let _ = sender.output(PopoverOutput::Command(Command::Select(id)));
+                self.popover.close();
             }
         }
     }

@@ -14,7 +14,7 @@ const BACKDROP_LIGHT_STEM: &str = "backdrop-light";
 const BACKDROP_DARK_STEM: &str = "backdrop-dark";
 const LOCK_BG_LIGHT_STEM: &str = "lock-light";
 const LOCK_BG_DARK_STEM: &str = "lock-dark";
-const WALLPAPER_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "avif"];
+const WALLPAPER_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "avif", "heic", "heif"];
 
 pub const GLIMPSE_THEME_ENV: &str = "GLIMPSE_THEME";
 pub const GLIMPSE_THEME_NAME_ENV: &str = "GLIMPSE_THEME_NAME";
@@ -251,6 +251,19 @@ mod tests {
         touch(&dir.path().join("wallpaper-light.PNG"), "");
         let resolved = find_wallpaper(dir.path(), WALLPAPER_LIGHT_STEM).unwrap();
         assert_eq!(resolved.extension().and_then(|e| e.to_str()), Some("PNG"));
+    }
+
+    #[test]
+    fn find_wallpaper_accepts_heic_and_heif() {
+        let dir = TestDir::new("heic");
+        touch(&dir.path().join("wallpaper-light.heic"), "");
+        let resolved = find_wallpaper(dir.path(), WALLPAPER_LIGHT_STEM).unwrap();
+        assert_eq!(resolved.extension().and_then(|e| e.to_str()), Some("heic"));
+
+        let dir = TestDir::new("heif");
+        touch(&dir.path().join("wallpaper-light.heif"), "");
+        let resolved = find_wallpaper(dir.path(), WALLPAPER_LIGHT_STEM).unwrap();
+        assert_eq!(resolved.extension().and_then(|e| e.to_str()), Some("heif"));
     }
 
     #[test]

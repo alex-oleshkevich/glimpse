@@ -7,7 +7,9 @@ use relm4::{
 
 use crate::{
     utils::popover_scroll,
-    widgets::{animated_popover::AnimatedPopover, popover_shell::PopoverShell},
+    widgets::{
+        animated_popover::AnimatedPopover, empty_state::EmptyState, popover_shell::PopoverShell,
+    },
 };
 
 use super::{
@@ -22,6 +24,7 @@ pub struct Popover {
     content_box: gtk::Box,
     popover: AnimatedPopover,
     size_class: &'static str,
+    applet_css_class: Option<String>,
 }
 
 pub struct Init {
@@ -98,6 +101,7 @@ impl SimpleComponent for Popover {
             content_box: widgets.content_box.clone(),
             popover: widgets.root.clone(),
             size_class: DEFAULT_SIZE_CLASS,
+            applet_css_class: None,
         };
 
         ComponentParts { model, widgets }
@@ -112,7 +116,11 @@ impl SimpleComponent for Popover {
                 self.rebuild(&sender);
             }
             Input::SetCssClass(class) => {
+                if let Some(previous) = &self.applet_css_class {
+                    self.popover.remove_css_class(&format!("applet-{previous}"));
+                }
                 self.popover.add_css_class(&format!("applet-{class}"));
+                self.applet_css_class = Some(class);
             }
         }
     }
@@ -154,15 +162,30 @@ impl Popover {
             self.popover.add_css_class(self.size_class);
             match renderer.render(root) {
                 Ok(widget) => self.content_box.append(&widget),
-                Err(error) => tracing::warn!(%error, "exec popover shell render failed"),
+                Err(error) => {
+                    tracing::warn!(%error, "exec popover shell render failed");
+                    self.content_box.append(&render_error_state());
+                }
             }
         } else {
             self.size_class = DEFAULT_SIZE_CLASS;
             self.popover.add_css_class(self.size_class);
             match renderer.render(root) {
                 Ok(widget) => self.content_box.append(&widget),
-                Err(error) => tracing::warn!(%error, "exec popover render failed"),
+                Err(error) => {
+                    tracing::warn!(%error, "exec popover render failed");
+                    self.content_box.append(&render_error_state());
+                }
             }
         }
     }
+}
+
+/// Shown in place of the tree when RenderCatalog::render fails, instead of
+/// leaving the popover entirely blank with only a log line.
+fn render_error_state() -> EmptyState {
+    let empty = EmptyState::new();
+    empty.set_title("Couldn't display this content");
+    empty.set_subtitle(Some("Check the applet's logs for details."));
+    empty
 }

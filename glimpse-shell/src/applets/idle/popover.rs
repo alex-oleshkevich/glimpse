@@ -35,13 +35,13 @@ pub struct Popover {
     own_unique_name: String,
 }
 
-pub struct Init {
+pub struct PopoverInit {
     pub parent: gtk::Box,
     pub own_unique_name: String,
 }
 
 #[derive(Debug, Clone)]
-pub enum Input {
+pub enum PopoverInput {
     Toggle,
     UpdateState {
         state: State,
@@ -52,16 +52,16 @@ pub enum Input {
 }
 
 #[derive(Debug, Clone)]
-pub enum Output {
+pub enum PopoverOutput {
     Command(Command),
 }
 
 #[allow(unused_assignments)]
 #[relm4::component(pub)]
 impl SimpleComponent for Popover {
-    type Init = Init;
-    type Input = Input;
-    type Output = Output;
+    type Init = PopoverInit;
+    type Input = PopoverInput;
+    type Output = PopoverOutput;
 
     view! {
         root = AnimatedPopover {
@@ -81,7 +81,7 @@ impl SimpleComponent for Popover {
                         if toggle_guard.get() {
                             return;
                         }
-                        sender.input(Input::SetManualHold(active));
+                        sender.input(PopoverInput::SetManualHold(active));
                     },
                 },
 
@@ -108,7 +108,11 @@ impl SimpleComponent for Popover {
         }
     }
 
-    fn init(init: Init, _root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
+    fn init(
+        init: PopoverInit,
+        _root: Self::Root,
+        sender: ComponentSender<Self>,
+    ) -> ComponentParts<Self> {
         let updating_toggle = Rc::new(Cell::new(false));
         let mut model = Popover {
             popover: AnimatedPopover::new(),
@@ -144,9 +148,8 @@ impl SimpleComponent for Popover {
 
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
-            Input::Toggle => self.popover.toggle(),
-            Input::UpdateState { state, wayland } => {
-                let visible_records = visible_records(&state.inhibitors);
+            PopoverInput::Toggle => self.popover.toggle(),
+            PopoverInput::UpdateState { state, wayland } => {
                 self.set_manual_hold_on(
                     state
                         .inhibitors
@@ -162,20 +165,25 @@ impl SimpleComponent for Popover {
                 } else {
                     "view-conceal-symbolic"
                 };
+                // Include non-releasable inhibitors (e.g. a systemd-inhibit
+                // block) in both the subtitle and the row list — they still
+                // block idle even though there's nothing the user can do
+                // about them from here. The row itself hides its Release
+                // tile when record.can_release is false.
                 self.hero_subtitle = format::subtitle(&format::SubtitleInputs {
                     wayland: &wayland,
                     backend: &state.health,
-                    records: &visible_records,
+                    records: &state.inhibitors,
                     own_unique_name: &self.own_unique_name,
                 });
-                self.sync_rows(&visible_records, &sender);
+                self.sync_rows(&state.inhibitors, &sender);
             }
-            Input::SetManualHold(on) => {
+            PopoverInput::SetManualHold(on) => {
                 self.manual_hold_on = on;
-                let _ = sender.output(Output::Command(Command::SetManualHold(on)));
+                let _ = sender.output(PopoverOutput::Command(Command::SetManualHold(on)));
             }
-            Input::EmitCommand(cmd) => {
-                let _ = sender.output(Output::Command(cmd));
+            PopoverInput::EmitCommand(cmd) => {
+                let _ = sender.output(PopoverOutput::Command(cmd));
             }
         }
     }
@@ -230,14 +238,6 @@ impl Popover {
     }
 }
 
-fn visible_records(records: &[IdleInhibitorRecord]) -> Vec<IdleInhibitorRecord> {
-    records
-        .iter()
-        .filter(|record| record.can_release)
-        .cloned()
-        .collect()
-}
-
 // ─── Row ────────────────────────────────────────────────────────────────
 
 struct IdleListRow {
@@ -265,7 +265,7 @@ impl IdleListRow {
         release.connect_activated({
             let sender = sender.clone();
             let id = record.id;
-            move |_| sender.input(Input::EmitCommand(Command::Release { id }))
+            move |_| sender.input(PopoverInput::EmitCommand(Command::Release { id }))
         });
 
         let content = gtk::Box::new(gtk::Orientation::Vertical, 4);
@@ -295,6 +295,7 @@ impl IdleListRow {
         }
         self.release
             .set_tooltip_text(Some(&format!("Release {}", format::row_label(record))));
+        self.release.set_visible(record.can_release);
     }
 
     fn widget(&self) -> &gtk::Widget {
@@ -457,16 +458,6 @@ mod tests {
             rows.iter()
                 .any(|(key, value)| { *key == "Identity" && value == ":1.99" })
         );
-    }
-
-    #[test]
-    fn visible_records_filters_readonly_inhibitors() {
-        let records = vec![rec(1, ":1.99", "Firefox", true), rec(2, "", "apt", false)];
-
-        let visible = visible_records(&records);
-
-        assert_eq!(visible.len(), 1);
-        assert_eq!(visible[0].id, 1);
     }
 
     #[test]

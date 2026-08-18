@@ -20,7 +20,6 @@ use crate::{
 
 const VOLUME_ECHO_GRACE: Duration = Duration::from_secs(2);
 const VOLUME_COMMAND_INTERVAL: Duration = Duration::from_millis(50);
-const DEVICE_LABEL_MAX_CHARS: usize = 30;
 
 pub struct Popover {
     popover: AnimatedPopover,
@@ -107,16 +106,14 @@ impl SimpleComponent for Popover {
 
                 #[name = "output_volume"]
                 SliderTile {
-                    #[watch]
-                    set_range: (0.0, model.max_volume as f64),
+                    set_increments: (1.0, 5.0),
                     #[watch]
                     set_sensitive: model.state.default_output().is_some(),
                 },
 
                 #[name = "input_volume"]
                 SliderTile {
-                    #[watch]
-                    set_range: (0.0, model.max_volume as f64),
+                    set_increments: (1.0, 5.0),
                     #[watch]
                     set_sensitive: model.state.default_input().is_some(),
                 },
@@ -131,6 +128,8 @@ impl SimpleComponent for Popover {
                     #[watch]
                     set_primary: "Output devices",
                     #[watch]
+                    set_visible: !model.output_rows.is_empty(),
+                    #[watch]
                     set_expanded: model.outputs_expanded,
 
                     connect_expanded[sender] => move |_, expanded| {
@@ -144,6 +143,8 @@ impl SimpleComponent for Popover {
                     #[watch]
                     set_primary: "Input devices",
                     #[watch]
+                    set_visible: !model.input_rows.is_empty(),
+                    #[watch]
                     set_expanded: model.inputs_expanded,
 
                     connect_expanded[sender] => move |_, expanded| {
@@ -156,7 +157,7 @@ impl SimpleComponent for Popover {
                     add_css_class: "audio-device-section",
                     set_primary: "Apps",
                     #[watch]
-                    set_visible: model.show_streams,
+                    set_visible: model.show_streams && !model.stream_rows.is_empty(),
                     #[watch]
                     set_expanded: model.streams_expanded,
 
@@ -250,6 +251,7 @@ impl SimpleComponent for Popover {
             Command::SetInputVolume,
         );
 
+        model.sync_volume_ranges();
         model.sync_volume_values();
         model.sync_rows(&sender);
 
@@ -272,6 +274,7 @@ impl SimpleComponent for Popover {
             } => {
                 self.max_volume = max_volume;
                 self.show_streams = show_streams;
+                self.sync_volume_ranges();
             }
             PopoverInput::SetOutputsExpanded(expanded) => {
                 self.outputs_expanded = expanded;
@@ -301,6 +304,21 @@ impl SimpleComponent for Popover {
 }
 
 impl Popover {
+    /// Applies max_volume to both sliders under the same updating_*_scale
+    /// guard set_value uses. Shrinking the range below the slider's current
+    /// value makes GTK clamp the adjustment and fire value-changed; without
+    /// the guard, the throttled-slider handler would mistake that clamp for
+    /// a user edit and write it back to PipeWire.
+    fn sync_volume_ranges(&self) {
+        self.updating_output_scale.set(true);
+        self.output_volume.set_range(0.0, self.max_volume as f64);
+        self.updating_output_scale.set(false);
+
+        self.updating_input_scale.set(true);
+        self.input_volume.set_range(0.0, self.max_volume as f64);
+        self.updating_input_scale.set(false);
+    }
+
     fn sync_volume_values(&self) {
         let output = self.state.default_output();
         let input = self.state.default_input();
@@ -672,7 +690,7 @@ fn output_icon_name(state: &State) -> &'static str {
 }
 
 fn device_label(description: &str) -> String {
-    description.chars().take(DEVICE_LABEL_MAX_CHARS).collect()
+    description.to_owned()
 }
 
 fn input_icon_name(device: Option<&AudioDevice>) -> &'static str {
@@ -721,7 +739,7 @@ mod tests {
     }
 
     #[test]
-    fn output_and_input_device_labels_are_limited_to_30_chars() {
+    fn output_and_input_device_labels_are_not_truncated() {
         let long_description = "123456789012345678901234567890EXTRA";
         let output_rows = output_row_models(&[AudioDevice {
             index: 1,
@@ -742,10 +760,8 @@ mod tests {
             icon_name: "audio-input-microphone-symbolic".into(),
         }]);
 
-        assert_eq!(output_rows[0].label.chars().count(), DEVICE_LABEL_MAX_CHARS);
-        assert_eq!(input_rows[0].label.chars().count(), DEVICE_LABEL_MAX_CHARS);
-        assert_eq!(output_rows[0].label, "123456789012345678901234567890");
-        assert_eq!(input_rows[0].label, "123456789012345678901234567890");
+        assert_eq!(output_rows[0].label, long_description);
+        assert_eq!(input_rows[0].label, long_description);
     }
 
     #[test]

@@ -232,14 +232,14 @@ impl SimpleComponent for Popover {
             .paired_section
             .set_child(Some(model.paired_list.clone()));
 
-        let nearby_scroller = gtk::ScrolledWindow::new();
-        nearby_scroller.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
-        nearby_scroller.set_vexpand(false);
-        nearby_scroller.set_propagate_natural_height(true);
-        nearby_scroller.set_min_content_height(80);
-        nearby_scroller.set_max_content_height(220);
-        nearby_scroller.set_child(Some(&model.nearby_list));
-        widgets.nearby_section.set_child(Some(nearby_scroller));
+        // No nested ScrolledWindow here: the inner list used to have its own
+        // scroll limit, so at the inner limit the wheel wouldn't propagate
+        // out to the popover's outer half-monitor-limited scroller, trapping
+        // the scroll. Let this list grow naturally and rely on the outer
+        // scroller instead.
+        widgets
+            .nearby_section
+            .set_child(Some(model.nearby_list.clone()));
 
         model.sync_toggles();
         model.sync_rows(&sender);
@@ -284,6 +284,12 @@ impl SimpleComponent for Popover {
                     gtk::glib::timeout_add_local_once(DISCOVERABLE_DEBOUNCE, move || {
                         sender.input(PopoverInput::ExpirePendingDiscoverable(generation));
                     });
+                } else {
+                    // No adapter to target: revert the switch instead of
+                    // leaving it stuck on the value the user just requested.
+                    tracing::warn!("bluetooth: cannot set discoverable, no adapter available");
+                    self.discoverable = adapter_discoverable(&self.state);
+                    self.sync_toggles();
                 }
             }
             PopoverInput::ExpirePendingDiscoverable(generation) => {
@@ -309,6 +315,7 @@ impl Popover {
     fn sync_toggles(&self) {
         self.updating_power.set(true);
         self.hero.set_toggle_active(self.powered);
+        self.hero.set_toggle_sensitive(self.has_adapter);
         self.updating_power.set(false);
 
         self.updating_discoverable.set(true);
@@ -497,10 +504,14 @@ fn device_section(device: &BluetoothDevice) -> DeviceSection {
 
 fn busy_device_address(state: &State) -> Option<&str> {
     match state.active_action.as_ref()? {
-        BluetoothActiveAction::Connect { address } | BluetoothActiveAction::Pair { address } => {
-            Some(address.as_str())
-        }
-        _ => None,
+        BluetoothActiveAction::Connect { address }
+        | BluetoothActiveAction::Disconnect { address }
+        | BluetoothActiveAction::Pair { address }
+        | BluetoothActiveAction::Trust { address, .. }
+        | BluetoothActiveAction::Forget { address } => Some(address.as_str()),
+        BluetoothActiveAction::SetPowered(_)
+        | BluetoothActiveAction::SetAdapterPowered { .. }
+        | BluetoothActiveAction::SetAdapterDiscoverable { .. } => None,
     }
 }
 
@@ -741,10 +752,10 @@ impl SegmentedDeviceRow {
         }
 
         self.actions.set_visible(!model.actions.is_empty());
-        
+
         let mut tiles = self.action_tiles.borrow_mut();
         let current_ids: HashSet<&'static str> = model.actions.iter().map(|a| a.id).collect();
-        
+
         tiles.retain(|id, state| {
             if !current_ids.contains(id) {
                 self.actions.remove(&state.tile);
@@ -1256,6 +1267,56 @@ mod tests {
         let sections = device_sections(&state);
 
         assert!(sections.nearby[0].busy);
+    }
+
+    #[test]
+    fn busy_device_address_matches_every_address_bearing_action() {
+        let addr = "AA:BB:CC:DD:EE:02";
+        for action in [
+            BluetoothActiveAction::Connect {
+                address: addr.into(),
+            },
+            BluetoothActiveAction::Disconnect {
+                address: addr.into(),
+            },
+            BluetoothActiveAction::Pair {
+                address: addr.into(),
+            },
+            BluetoothActiveAction::Trust {
+                address: addr.into(),
+                trusted: true,
+            },
+            BluetoothActiveAction::Forget {
+                address: addr.into(),
+            },
+        ] {
+            let state = State {
+                active_action: Some(action),
+                ..State::default()
+            };
+            assert_eq!(busy_device_address(&state), Some(addr));
+        }
+    }
+
+    #[test]
+    fn busy_device_address_is_none_for_adapter_level_actions() {
+        for action in [
+            BluetoothActiveAction::SetPowered(true),
+            BluetoothActiveAction::SetAdapterPowered {
+                adapter_path: "/org/bluez/hci0".into(),
+                powered: true,
+            },
+            BluetoothActiveAction::SetAdapterDiscoverable {
+                adapter_path: "/org/bluez/hci0".into(),
+                discoverable: true,
+            },
+        ] {
+            let state = State {
+                active_action: Some(action),
+                ..State::default()
+            };
+            assert_eq!(busy_device_address(&state), None);
+        }
     }
 
     #[test]

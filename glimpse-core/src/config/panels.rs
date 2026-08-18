@@ -58,10 +58,21 @@ pub struct PanelConfig {
     pub monitor: Option<String>,
     pub position: Position,
     pub margin: Margin,
-    pub theme_mode: ThemeMode,
+    /// Per-panel theme mode override. `None` (the default, i.e. not set in
+    /// the `[[panels]]` block) means "inherit the top-level `theme_mode`" —
+    /// see [`PanelConfig::effective_theme_mode`].
+    pub theme_mode: Option<ThemeMode>,
     pub left: Vec<String>,
     pub center: Vec<String>,
     pub right: Vec<String>,
+}
+
+impl PanelConfig {
+    /// Resolves this panel's theme mode, falling back to the top-level
+    /// config's `theme_mode` when the panel doesn't set its own.
+    pub fn effective_theme_mode(&self, top_level: ThemeMode) -> ThemeMode {
+        self.theme_mode.unwrap_or(top_level)
+    }
 }
 
 impl Default for PanelConfig {
@@ -71,7 +82,7 @@ impl Default for PanelConfig {
             monitor: None,
             position: Position::Top,
             margin: Margin::default(),
-            theme_mode: ThemeMode::Dark,
+            theme_mode: None,
             left: vec!["pager".into(), "mpris".into(), DEV_SLOT.into()],
             center: vec![
                 "clock".into(),
@@ -252,7 +263,25 @@ pub type AppletConfigs = HashMap<String, AppletConfig>;
 
 #[cfg(test)]
 mod tests {
-    use super::AppletType;
+    use super::{AppletType, PanelConfig};
+    use crate::ThemeMode;
+
+    #[test]
+    fn panel_theme_mode_falls_back_to_top_level_when_unset() {
+        let panel = PanelConfig::default();
+        assert_eq!(panel.effective_theme_mode(ThemeMode::Auto), ThemeMode::Auto);
+    }
+
+    #[test]
+    fn panel_theme_mode_override_wins_when_explicitly_set() {
+        let panel = PanelConfig {
+            theme_mode: Some(ThemeMode::Dark),
+            ..PanelConfig::default()
+        };
+        // The panel's explicit override wins even though the top-level
+        // config says Auto.
+        assert_eq!(panel.effective_theme_mode(ThemeMode::Auto), ThemeMode::Dark);
+    }
 
     #[test]
     fn removable_applet_type_is_available_from_config_name() {

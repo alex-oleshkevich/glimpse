@@ -391,11 +391,17 @@ impl JobRow {
             self.root.set_right(None::<gtk::Widget>);
         }
 
-        self.pause_tile.set_visible(job.state == JobState::Processing || job.state == JobState::Pending);
+        self.pause_tile
+            .set_visible(job.state == JobState::Processing || job.state == JobState::Pending);
         self.resume_tile.set_visible(job.state == JobState::Held);
-        self.cancel_tile.set_visible(matches!(job.state, JobState::Pending | JobState::Processing | JobState::Held));
+        self.cancel_tile.set_visible(matches!(
+            job.state,
+            JobState::Pending | JobState::Processing | JobState::Held
+        ));
 
-        let has_actions = self.pause_tile.is_visible() || self.resume_tile.is_visible() || self.cancel_tile.is_visible();
+        let has_actions = self.pause_tile.is_visible()
+            || self.resume_tile.is_visible()
+            || self.cancel_tile.is_visible();
         if has_actions {
             self.root.set_child(Some(self.actions.clone()));
         } else {

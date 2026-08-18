@@ -111,7 +111,7 @@ fn group_notifications(notifications: &[NotificationEntry]) -> Vec<NotificationG
 }
 
 fn notification_group_key(notification: &NotificationEntry) -> String {
-    notification
+    let identified = notification
         .desktop_entry
         .as_deref()
         .map(str::trim)
@@ -119,7 +119,52 @@ fn notification_group_key(notification: &NotificationEntry) -> String {
         .or_else(|| {
             let app_name = notification.app_name.trim();
             (!app_name.is_empty()).then_some(app_name)
-        })
-        .unwrap_or("notification")
-        .to_lowercase()
+        });
+    match identified {
+        Some(key) => key.to_lowercase(),
+        // Neither desktop_entry nor app_name identifies the source: use a
+        // per-notification unique key so unrelated unidentified
+        // notifications never end up in the same group (and get
+        // Shift-clicked away together).
+        None => format!("notification-{}", notification.id),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn notification(id: u32, desktop_entry: Option<&str>, app_name: &str) -> NotificationEntry {
+        NotificationEntry {
+            id,
+            app_name: app_name.into(),
+            app_icon: String::new(),
+            desktop_entry: desktop_entry.map(str::to_owned),
+            summary: String::new(),
+            body: String::new(),
+            urgency: 1,
+            actions: Vec::new(),
+            image: None,
+            timestamp: id.into(),
+            resident: false,
+        }
+    }
+
+    #[test]
+    fn unidentified_notifications_never_share_a_group_key() {
+        let a = notification(1, None, "");
+        let b = notification(2, None, "");
+
+        assert_ne!(notification_group_key(&a), notification_group_key(&b));
+    }
+
+    #[test]
+    fn identified_notifications_group_by_desktop_entry_or_app_name() {
+        let a = notification(1, Some("Firefox"), "");
+        let b = notification(2, Some("firefox"), "");
+        assert_eq!(notification_group_key(&a), notification_group_key(&b));
+
+        let c = notification(3, None, "Firefox");
+        assert_eq!(notification_group_key(&a), notification_group_key(&c));
+    }
 }

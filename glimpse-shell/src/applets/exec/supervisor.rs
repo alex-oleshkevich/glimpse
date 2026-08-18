@@ -19,6 +19,45 @@ use super::{
 const STDERR_LOG_WINDOW: Duration = Duration::from_secs(10);
 const STDERR_LOG_LIMIT: usize = 20;
 
+/// How long a child must stay alive for a restart to no longer count as
+/// part of a crash loop, resetting the exponential backoff.
+const RESTART_STABILITY_WINDOW: Duration = Duration::from_secs(10);
+/// Ceiling on the exponential growth: multiplier tops out at 2^6 = 64x
+/// restart_delay_ms.
+const MAX_RESTART_BACKOFF_EXPONENT: u32 = 6;
+/// Absolute ceiling on the computed delay, regardless of restart_delay_ms
+/// or how many consecutive restarts have happened.
+const MAX_RESTART_BACKOFF_MS: u64 = 30_000;
+
+/// Capped exponential backoff: a child that exits immediately no longer
+/// respawns every restart_delay_ms forever - each consecutive fast restart
+/// doubles the delay (up to MAX_RESTART_BACKOFF_EXPONENT), capped at
+/// MAX_RESTART_BACKOFF_MS (or restart_delay_ms itself, if that's already
+/// higher than the cap). The first restart uses restart_delay_ms unchanged.
+fn restart_backoff(base_ms: u64, consecutive_restarts: u32) -> Duration {
+    let exponent = consecutive_restarts
+        .saturating_sub(1)
+        .min(MAX_RESTART_BACKOFF_EXPONENT);
+    let multiplier = 1u64 << exponent;
+    let scaled = base_ms.saturating_mul(multiplier);
+    Duration::from_millis(scaled.min(MAX_RESTART_BACKOFF_MS.max(base_ms)))
+}
+
+/// Seeded into the child's environment even when `env_forward = false`, so a
+/// minimal config doesn't spawn a child with no PATH/HOME/XDG_RUNTIME_DIR.
+/// Explicit `[applets.*.env]` entries and `env_forward = true` still win —
+/// this runs after `env_clear()` but before the configured overrides.
+const BASELINE_ENV_KEYS: [&str; 3] = ["PATH", "HOME", "XDG_RUNTIME_DIR"];
+
+fn baseline_env_pairs(
+    lookup: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Vec<(&'static str, std::ffi::OsString)> {
+    BASELINE_ENV_KEYS
+        .iter()
+        .filter_map(|&key| lookup(key).map(|value| (key, value)))
+        .collect()
+}
+
 #[derive(Debug)]
 pub enum Control {
     Restart,
@@ -33,6 +72,7 @@ pub async fn run(
     out: relm4::Sender<Input>,
     ipc: glimpse_core::ipc::IpcEmitter,
 ) {
+    let mut consecutive_restarts: u32 = 0;
     loop {
         let Some(program) = config.command.first().cloned() else {
             tracing::warn!(applet = %name, "exec applet command is empty");
@@ -41,7 +81,16 @@ pub async fn run(
                 vec![("name", name.clone()), ("reason", "no_command".to_owned())],
             );
             let _ = out.send(Input::ChildExited);
-            return;
+            // Keep listening instead of returning: a later Reconfigure with
+            // a valid command must not hit a dead receiver.
+            match control_rx.recv().await {
+                Some(Control::Reconfigure(next_config)) => {
+                    config = next_config;
+                    continue;
+                }
+                Some(Control::Restart) => continue,
+                None => return,
+            }
         };
 
         tracing::info!(applet = %name, program = %program, "exec applet spawning child");
@@ -53,6 +102,9 @@ pub async fn run(
             .stderr(Stdio::piped());
         if !config.env_forward {
             command_builder.env_clear();
+            for (key, value) in baseline_env_pairs(|key| std::env::var_os(key)) {
+                command_builder.env(key, value);
+            }
         }
         for (key, value) in &config.env {
             command_builder.env(key, value);
@@ -74,16 +126,27 @@ pub async fn run(
                     ],
                 );
                 let _ = out.send(Input::ChildExited);
-                tokio::time::sleep(Duration::from_millis(config.restart_delay_ms)).await;
+                consecutive_restarts += 1;
+                tokio::time::sleep(restart_backoff(
+                    config.restart_delay_ms,
+                    consecutive_restarts,
+                ))
+                .await;
                 continue;
             }
         };
+        let spawn_time = Instant::now();
 
         let Some(mut stdin) = child.stdin.take() else {
             tracing::warn!(applet = %name, "exec applet child has no stdin");
             let _ = out.send(Input::ChildExited);
             let _ = child.kill().await;
-            tokio::time::sleep(Duration::from_millis(config.restart_delay_ms)).await;
+            consecutive_restarts += 1;
+            tokio::time::sleep(restart_backoff(
+                config.restart_delay_ms,
+                consecutive_restarts,
+            ))
+            .await;
             continue;
         };
 
@@ -91,7 +154,12 @@ pub async fn run(
             tracing::warn!(applet = %name, "exec applet child has no stdout");
             let _ = out.send(Input::ChildExited);
             let _ = child.kill().await;
-            tokio::time::sleep(Duration::from_millis(config.restart_delay_ms)).await;
+            consecutive_restarts += 1;
+            tokio::time::sleep(restart_backoff(
+                config.restart_delay_ms,
+                consecutive_restarts,
+            ))
+            .await;
             continue;
         };
 
@@ -99,7 +167,12 @@ pub async fn run(
             tracing::warn!(applet = %name, "exec applet child has no stderr");
             let _ = out.send(Input::ChildExited);
             let _ = child.kill().await;
-            tokio::time::sleep(Duration::from_millis(config.restart_delay_ms)).await;
+            consecutive_restarts += 1;
+            tokio::time::sleep(restart_backoff(
+                config.restart_delay_ms,
+                consecutive_restarts,
+            ))
+            .await;
             continue;
         };
 
@@ -224,8 +297,22 @@ pub async fn run(
         if matches!(exit, ChildLoopExit::Stop) {
             return;
         }
+        if matches!(exit, ChildLoopExit::Restart) {
+            // An explicit Control::Restart/Reconfigure is a deliberate
+            // restart, not a crash - don't let it inherit backoff from an
+            // earlier crash loop.
+            consecutive_restarts = 0;
+        }
         if matches!(exit, ChildLoopExit::ProtocolEnded) {
-            tokio::time::sleep(Duration::from_millis(config.restart_delay_ms)).await;
+            if spawn_time.elapsed() >= RESTART_STABILITY_WINDOW {
+                consecutive_restarts = 0;
+            }
+            consecutive_restarts += 1;
+            tokio::time::sleep(restart_backoff(
+                config.restart_delay_ms,
+                consecutive_restarts,
+            ))
+            .await;
         }
     }
 }
@@ -409,6 +496,109 @@ mod tests {
         applet::Config,
         protocol::{StatusItem, StatusPayload},
     };
+
+    #[test]
+    fn restart_backoff_doubles_per_consecutive_restart_then_caps() {
+        assert_eq!(restart_backoff(1000, 1), Duration::from_millis(1000));
+        assert_eq!(restart_backoff(1000, 2), Duration::from_millis(2000));
+        assert_eq!(restart_backoff(1000, 3), Duration::from_millis(4000));
+        assert_eq!(restart_backoff(1000, 4), Duration::from_millis(8000));
+        assert_eq!(restart_backoff(1000, 7), Duration::from_millis(30_000));
+        // Exponent is capped, so further restarts don't keep growing.
+        assert_eq!(restart_backoff(1000, 100), Duration::from_millis(30_000));
+    }
+
+    #[test]
+    fn restart_backoff_never_shrinks_below_a_large_base_delay() {
+        // If restart_delay_ms is already above the cap, the first restart
+        // must still honor it rather than jump down to the cap.
+        assert_eq!(restart_backoff(60_000, 1), Duration::from_millis(60_000));
+    }
+
+    #[test]
+    fn baseline_env_seeds_present_vars_and_skips_missing() {
+        let pairs = baseline_env_pairs(|key| match key {
+            "PATH" => Some("/usr/bin".into()),
+            "HOME" => Some("/home/alex".into()),
+            _ => None,
+        });
+        assert_eq!(
+            pairs,
+            vec![
+                ("PATH", std::ffi::OsString::from("/usr/bin")),
+                ("HOME", std::ffi::OsString::from("/home/alex")),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn empty_command_recovers_after_reconfigure_with_valid_command() {
+        let (sender, receiver) = relm4::channel();
+        let (_outbound_tx, outbound_rx) = mpsc::channel(1);
+        let (control_tx, control_rx) = mpsc::unbounded_channel();
+        let config = Config {
+            command: vec![],
+            restart_delay_ms: 60_000,
+            options: serde_json::json!({}),
+            env_forward: true,
+            env: std::collections::HashMap::new(),
+            work_dir: None,
+        };
+
+        let task = tokio::spawn(run(
+            "empty".into(),
+            config,
+            outbound_rx,
+            control_rx,
+            sender,
+            glimpse_core::ipc::IpcEmitter::noop(),
+        ));
+
+        let first = tokio::time::timeout(Duration::from_secs(2), receiver.recv())
+            .await
+            .expect("supervisor should emit first message")
+            .expect("supervisor sender should stay alive");
+        assert!(
+            matches!(first, Input::ChildExited),
+            "empty command must report ChildExited, got {first:?}"
+        );
+
+        // The supervisor task must still be listening on control_rx instead
+        // of having already returned - this Reconfigure must not hit a dead
+        // receiver.
+        let new_config = Config {
+            command: vec![
+                "/bin/sh".into(),
+                "-c".into(),
+                r#"printf 'status {"items":[{"id":"recovered","label":"ok"}]}\n'"#.into(),
+            ],
+            restart_delay_ms: 60_000,
+            options: serde_json::json!({}),
+            env_forward: true,
+            env: std::collections::HashMap::new(),
+            work_dir: None,
+        };
+        control_tx
+            .send(Control::Reconfigure(new_config))
+            .expect("control channel should still have a live receiver");
+
+        let second = tokio::time::timeout(Duration::from_secs(2), receiver.recv())
+            .await
+            .expect("supervisor should recover and emit status after reconfigure")
+            .expect("supervisor sender should stay alive");
+        task.abort();
+
+        assert!(matches!(
+            second,
+            Input::StatusChanged(StatusPayload { items }) if items == vec![StatusItem {
+                id: Some("recovered".into()),
+                icon: None,
+                label: Some("ok".into()),
+                tooltip: None,
+                css_classes: vec![],
+            }]
+        ));
+    }
 
     #[tokio::test]
     async fn supervisor_delivers_fast_child_output_before_exit() {

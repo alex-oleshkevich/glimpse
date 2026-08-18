@@ -45,12 +45,13 @@ Set `[lock.background].path` when the lock screen needs its own image:
 ```toml
 [lock.background]
 path = "/home/alex/Pictures/wallpapers/lock.jpg"
+color = "#101010"
 fit = "cover"
 blur_radius = 12
 dim = 0.35
 ```
 
-`blur_radius` softens the background. `dim` darkens it; `0.0` means no dimming and `1.0` means fully dimmed.
+`blur_radius` softens the background. `dim` darkens it; `0.0` means no dimming and `1.0` means fully dimmed. `color` is an optional fallback shown behind the image (or alone if the image fails to load); when unset it falls back to `[wallpaper].color`.
 
 If `fit` is left out, a lock-specific image uses `cover`. When the lock screen inherits the wallpaper image, it also inherits the wallpaper fit mode.
 
@@ -64,7 +65,8 @@ Config paths win over theme-pack images.
 | `[wallpaper].path` | No lock-specific image is set. |
 | Theme pack `lock-light` / `lock-dark` image | Config has no lock or wallpaper image. |
 | Theme pack `wallpaper-light` / `wallpaper-dark` image | The theme has no lock-specific image. |
-| `[wallpaper].color` | No image is available. |
+| `[lock.background].color` | You set a lock-specific fallback color. |
+| `[wallpaper].color` | No lock-specific color is set. Shown behind the image, or alone when no image is available. |
 
 The current `theme_mode` decides whether light or dark theme-pack images are used.
 

@@ -110,6 +110,21 @@ impl Config {
         Ok(config)
     }
 
+    /// Reload for hot-reload: on parse failure, keeps `previous` instead of
+    /// resetting to built-in defaults.
+    pub fn reload_from_file(previous: &Self, path: &Path) -> Self {
+        match Self::try_load_from_file(path) {
+            Ok(config) => config,
+            Err(err) => {
+                tracing::error!(
+                    "failed to reload configuration, keeping previous config: {}",
+                    err
+                );
+                previous.clone()
+            }
+        }
+    }
+
     pub fn watch_files_for(path: &Path) -> Vec<PathBuf> {
         load_toml_with_includes(path)
             .map(|(_, files)| files)
@@ -150,6 +165,10 @@ const DEFAULT_CONFIG_TEMPLATE: &str = "/usr/share/glimpse/config.default.toml";
 /// when no packaged template is present (source checkout, `GLIMPSE_CONFIG`
 /// override, container without the data files, etc).
 pub fn install_default_config_if_missing() {
+    if std::env::var_os("GLIMPSE_CONFIG").is_some() {
+        return;
+    }
+
     let config_file = Config::config_file();
     if config_file.exists() {
         return;
@@ -776,6 +795,33 @@ include = ["profiles/base.toml"]
     }
 
     #[test]
+    fn reload_from_file_uses_new_config_when_valid() {
+        let dir = TestConfigDir::new("config-reload-valid");
+        dir.write("config.toml", r#"theme = "adwaita""#);
+        let previous = Config::try_load_from_file(&dir.file("config.toml")).unwrap();
+
+        dir.write("config.toml", r#"theme = "rosepine""#);
+        let reloaded = Config::reload_from_file(&previous, &dir.file("config.toml"));
+
+        assert_eq!(reloaded.theme, "rosepine");
+    }
+
+    #[test]
+    fn reload_from_file_keeps_previous_config_on_parse_error() {
+        let dir = TestConfigDir::new("config-reload-invalid");
+        dir.write("config.toml", r#"theme = "rosepine""#);
+        let previous = Config::try_load_from_file(&dir.file("config.toml")).unwrap();
+
+        dir.write("config.toml", "this is not valid toml [[[");
+        let reloaded = Config::reload_from_file(&previous, &dir.file("config.toml"));
+
+        assert_eq!(
+            reloaded.theme, "rosepine",
+            "a parse error during hot-reload must keep the previously loaded config, not reset to defaults"
+        );
+    }
+
+    #[test]
     fn config_include_cycles_return_error() {
         let dir = TestConfigDir::new("config-include-cycle");
         dir.write(
@@ -886,12 +932,16 @@ pub enum ConfigEvent {
 }
 
 pub async fn watch_for_config_changes(sender: mpsc::Sender<ConfigEvent>) {
+    let mut current = Config::load();
     watch_config_file(
         Config::detect_config_file(),
         sender,
         "shared",
         Config::watch_files_for,
-        |path| ConfigEvent::Changed(Config::load_from_file(path)),
+        move |path| {
+            current = Config::reload_from_file(&current, path);
+            ConfigEvent::Changed(current.clone())
+        },
     )
     .await;
 }

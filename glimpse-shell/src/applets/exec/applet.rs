@@ -34,7 +34,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn from_raw(raw: &Option<AppletConfig>) -> Self {
+    pub fn from_raw(name: &str, raw: &Option<AppletConfig>) -> Self {
         let Some(raw) = raw else {
             return Self::default();
         };
@@ -42,7 +42,7 @@ impl Config {
         let mut config: Self = match raw.settings.clone().try_into() {
             Ok(config) => config,
             Err(error) => {
-                tracing::warn!(?error, "invalid exec applet config, using defaults");
+                tracing::warn!(applet = name, %error, "invalid exec applet config, using defaults");
                 Self::default()
             }
         };
@@ -88,6 +88,7 @@ pub struct Applet {
     status_items: Vec<RenderedStatusItem>,
     outbound_tx: mpsc::Sender<PanelCommand>,
     control_tx: mpsc::UnboundedSender<Control>,
+    applet_css_class: Option<String>,
 }
 
 #[derive(Debug)]
@@ -102,7 +103,7 @@ pub enum Input {
     StatusChanged(StatusPayload),
     PopoverChanged(PopoverPayload),
     ChildExited,
-    Reconfigure(Config),
+    Reconfigure(Option<AppletConfig>),
     CssClass(String),
     ClosePopover,
     StatusItemOutput(StatusItemOutput),
@@ -175,6 +176,7 @@ impl SimpleComponent for Applet {
             status_items: Vec::new(),
             outbound_tx,
             control_tx,
+            applet_css_class: None,
         };
 
         ComponentParts { model, widgets }
@@ -195,18 +197,13 @@ impl SimpleComponent for Applet {
                 self.rebuild_status_if_needed(&sender);
             }
             Input::ChildExited => {
-                self.status.clear();
                 self.root_node = None;
-                self.rendered_status.clear();
-                self.rendered_has_popover = false;
-                while let Some(child) = self.status_box.first_child() {
-                    self.status_box.remove(&child);
-                }
-                self.status_items.clear();
-                self.root.set_visible(false);
+                self.status = vec![crashed_placeholder(&self.name)];
                 self.popover.emit(PopoverInput::Close);
+                self.rebuild_status_if_needed(&sender);
             }
-            Input::Reconfigure(config) => {
+            Input::Reconfigure(raw) => {
+                let config = Config::from_raw(&self.name, &raw);
                 if self.config == config {
                     return;
                 }
@@ -217,7 +214,11 @@ impl SimpleComponent for Applet {
                 }
             }
             Input::CssClass(class) => {
+                if let Some(previous) = &self.applet_css_class {
+                    self.root.remove_css_class(&format!("applet-{previous}"));
+                }
                 self.root.add_css_class(&format!("applet-{class}"));
+                self.applet_css_class = Some(class.clone());
                 self.popover.emit(PopoverInput::SetCssClass(class));
             }
             Input::ClosePopover => {
@@ -358,6 +359,20 @@ fn status_item_key(index: usize, item: &StatusItemModel) -> String {
         .unwrap_or_else(|| format!("index:{index}"))
 }
 
+/// Placeholder shown in place of the real status when the child crashes.
+/// Every `StatusItem` carries a "Restart" context menu unconditionally, so
+/// keeping this one indicator visible (instead of clearing the applet down
+/// to nothing) keeps manual restart reachable exactly when it's needed.
+fn crashed_placeholder(name: &str) -> StatusItemModel {
+    StatusItemModel {
+        id: None,
+        icon: Some("dialog-error-symbolic".into()),
+        label: None,
+        tooltip: Some(format!("{name} crashed — right-click to restart")),
+        css_classes: vec!["exec-status-error".into()],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -382,7 +397,7 @@ mod tests {
             ..AppletConfig::default()
         };
 
-        let config = Config::from_raw(&Some(raw));
+        let config = Config::from_raw("test", &Some(raw));
 
         assert!(config.env_forward);
     }
@@ -421,5 +436,23 @@ mod tests {
         };
 
         assert_eq!(status_item_key(3, &item), "index:3");
+    }
+
+    #[test]
+    fn crashed_placeholder_carries_an_error_icon_and_named_tooltip() {
+        let item = crashed_placeholder("sysmonitor");
+
+        assert_eq!(item.icon.as_deref(), Some("dialog-error-symbolic"));
+        assert!(item.tooltip.as_deref().unwrap().contains("sysmonitor"));
+        assert!(item.tooltip.as_deref().unwrap().contains("crashed"));
+        assert!(item.css_classes.iter().any(|c| c == "exec-status-error"));
+    }
+
+    #[test]
+    fn crashed_placeholder_has_no_id_so_it_never_dispatches_click_events() {
+        // StatusItem::Click only sends an event when item.id is Some — the
+        // placeholder must stay inert (Restart menu still works via the
+        // context menu, which every StatusItem carries unconditionally).
+        assert_eq!(crashed_placeholder("x").id, None);
     }
 }

@@ -85,7 +85,6 @@ pub struct Applet {
     state: State,
     service: WeatherHandle,
     popover: Controller<Popover>,
-    popover_open: bool,
     subscription_cancel: CancellationToken,
 }
 
@@ -148,7 +147,6 @@ impl SimpleComponent for Applet {
             config: init.config,
             service: init.service,
             popover,
-            popover_open: false,
             subscription_cancel,
         };
 
@@ -170,12 +168,9 @@ impl SimpleComponent for Applet {
                 self.popover.emit(PopoverInput::Toggle);
             }
             Input::PopoverOutput(PopoverOutput::Opened) => {
-                self.popover_open = true;
                 self.sync_popover();
             }
-            Input::PopoverOutput(PopoverOutput::Closed) => {
-                self.popover_open = false;
-            }
+            Input::PopoverOutput(PopoverOutput::Closed) => {}
         }
     }
 }
@@ -186,7 +181,7 @@ impl Applet {
         self.label = format::label(&self.config.label_format, &state);
         self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
         self.state = state.clone();
-        if self.popover_open {
+        if self.popover.widget().is_visible() {
             self.popover.emit(PopoverInput::Update(state));
         }
     }

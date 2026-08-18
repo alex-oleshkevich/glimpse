@@ -211,6 +211,14 @@ impl SimpleComponent for Popover {
                 self.max_rows = max_rows;
                 self.show_artwork = show_artwork;
                 self.others.clear();
+                // sync_state only reloads current_texture when the artwork
+                // URI itself changes, so toggling show_artwork alone (same
+                // track, same URI) would otherwise leave a stale texture
+                // (or none) in place. Recompute it directly here.
+                self.current_texture = self
+                    .current
+                    .as_ref()
+                    .and_then(|p| load_texture(p, self.show_artwork));
                 let state = self.state.clone();
                 self.sync_state(state);
             }
@@ -257,15 +265,32 @@ impl Popover {
 
         self.current = current;
 
-        if others != self.others {
+        // Diff instead of clear()+rebuild: guard.clear() destroys and
+        // recreates every row, which re-reads artwork from disk (see
+        // RowItem::init_model) — a full rebuild on every position tick of
+        // any visible player, since `others` includes `position`.
+        let same_membership_and_order = others.len() == self.others.len()
+            && others
+                .iter()
+                .zip(&self.others)
+                .all(|(a, b)| a.player_id == b.player_id);
+        if same_membership_and_order {
+            let mut guard = self.rows.guard();
+            for (index, player) in others.iter().enumerate() {
+                if *player != self.others[index]
+                    && let Some(row) = guard.get_mut(index)
+                {
+                    row.update_player(player.clone(), self.show_artwork);
+                }
+            }
+        } else {
             let mut guard = self.rows.guard();
             guard.clear();
             for player in &others {
                 guard.push_back((player.clone(), self.show_artwork));
             }
-            drop(guard);
-            self.others = others;
         }
+        self.others = others;
 
         self.state = state;
     }
@@ -420,6 +445,19 @@ mod row {
                     let _ = sender.output(PopoverOutput::Raise { player_id });
                 }
             }
+        }
+    }
+
+    impl RowItem {
+        /// Updates an existing row in place instead of destroying and
+        /// recreating it, so a field tick (e.g. position) on an unrelated
+        /// row doesn't force every row to reload its artwork from disk.
+        /// Only reloads the texture when the artwork identity itself changed.
+        pub fn update_player(&mut self, player: Player, show_artwork: bool) {
+            if player.artwork != self.player.artwork {
+                self.artwork = load_texture(&player, show_artwork);
+            }
+            self.player = player;
         }
     }
 }

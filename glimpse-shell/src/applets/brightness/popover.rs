@@ -107,7 +107,7 @@ impl SimpleComponent for Popover {
         let state = State::default();
         let mut model = Popover {
             popover: AnimatedPopover::new(),
-            sources: usable_sources(&state),
+            sources: visible_sources(&state),
             monitors: Vec::new(),
             state,
             list: gtk::Box::new(gtk::Orientation::Vertical, 2),
@@ -136,7 +136,7 @@ impl SimpleComponent for Popover {
                 self.popover.toggle();
             }
             PopoverInput::UpdateState(state) => {
-                self.sources = usable_sources(&state);
+                self.sources = visible_sources(&state);
                 self.state = state;
                 self.sync_rows(&sender);
             }
@@ -274,8 +274,12 @@ impl SourceRow {
         self.icon.set_icon_name(Some(&source.icon));
         self.root.set_label(Some(&source.name));
         self.root.set_sensitive(source.writable);
-        self.root
-            .set_tooltip_text(Some(&format!("{} - {}%", source.name, source.percent)));
+        let tooltip = if source.writable {
+            format!("{} - {}%", source.name, source.percent)
+        } else {
+            format!("{} - not writable", source.name)
+        };
+        self.root.set_tooltip_text(Some(&tooltip));
         if source.primary {
             self.root.add_css_class("is-primary");
         } else {
@@ -391,11 +395,11 @@ fn emit_throttled_row_command(
     });
 }
 
-fn usable_sources(state: &State) -> Vec<BrightnessSource> {
+fn visible_sources(state: &State) -> Vec<BrightnessSource> {
     state
         .sources
         .iter()
-        .filter(|source| source.is_usable())
+        .filter(|source| source.available)
         .cloned()
         .collect()
 }
@@ -493,7 +497,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn usable_sources_keeps_all_usable_sources_in_order() {
+    fn visible_sources_keeps_all_visible_sources_in_order() {
         let state = State {
             available: true,
             sources: vec![
@@ -511,12 +515,29 @@ mod tests {
             active: None,
         };
 
-        let sources = usable_sources(&state);
+        let sources = visible_sources(&state);
 
         assert_eq!(sources.len(), 3);
         assert_eq!(sources[0].id, "primary");
         assert_eq!(sources[1].id, "keyboard");
         assert_eq!(sources[2].id, "external");
+    }
+
+    #[test]
+    fn visible_sources_keeps_present_but_unwritable_sources() {
+        // A permissions issue makes a source unwritable but it's still
+        // physically present; it must stay listed (insensitive) instead of
+        // vanishing with no explanation.
+        let state = State {
+            available: true,
+            sources: vec![unwritable_source("locked-down")],
+            active: None,
+        };
+
+        let sources = visible_sources(&state);
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].id, "locked-down");
+        assert!(!sources[0].writable);
     }
 
     #[test]
@@ -527,7 +548,7 @@ mod tests {
             active: None,
         };
 
-        assert!(usable_sources(&state).is_empty());
+        assert!(visible_sources(&state).is_empty());
     }
 
     #[test]
@@ -711,6 +732,14 @@ mod tests {
         BrightnessSource {
             writable: false,
             available: false,
+            ..source(id, BrightnessSourceKind::BuiltInDisplay, 0, 100, 0)
+        }
+    }
+
+    fn unwritable_source(id: &str) -> BrightnessSource {
+        BrightnessSource {
+            writable: false,
+            available: true,
             ..source(id, BrightnessSourceKind::BuiltInDisplay, 0, 100, 0)
         }
     }

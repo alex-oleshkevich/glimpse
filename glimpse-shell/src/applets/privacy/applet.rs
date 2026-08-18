@@ -1,9 +1,9 @@
 use std::time::{Duration, Instant};
 
+use crate::utils::subscribe_service;
 use relm4::{ComponentParts, ComponentSender, SimpleComponent, gtk::prelude::*};
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
-use crate::utils::subscribe_service;
 
 use crate::{
     panels::applets::AppletConfig,

@@ -1,5 +1,6 @@
 use glimpse_core::services::network::{
-    NetworkActiveAction, NetworkServiceHealth, NetworkSnapshot, State, WifiAccessPoint,
+    NetworkActiveAction, NetworkFailureClassification, NetworkServiceHealth, NetworkSnapshot,
+    State, WifiAccessPoint,
 };
 
 pub const DEFAULT_LABEL_FORMAT: &str = "";
@@ -74,6 +75,8 @@ pub fn hero_subtitle(state: &State) -> String {
         "Wi-Fi unavailable".into()
     } else if !status.wifi_enabled {
         "Wi-Fi off".into()
+    } else if let Some(message) = wifi_failure_message(&state.snapshot) {
+        message
     } else if !status.primary_connection.is_empty() {
         format!("Connected to {}", status.primary_connection)
     } else if state.scanning {
@@ -81,6 +84,31 @@ pub fn hero_subtitle(state: &State) -> String {
     } else {
         "Not connected".into()
     }
+}
+
+/// Surfaces the wifi device's current failure reason (e.g. a wrong
+/// password), so a failed connect attempt doesn't just leave the row
+/// silently idle with no explanation. `NetworkDevice.failure` only holds a
+/// value while NetworkManager reports the device as Failed, so this clears
+/// itself once the device moves on (retry, disable, etc).
+fn wifi_failure_message(snapshot: &NetworkSnapshot) -> Option<String> {
+    let failure = snapshot
+        .devices
+        .iter()
+        .find(|device| device.device_type == "wifi")
+        .and_then(|device| device.failure.clone())?;
+    Some(
+        match failure {
+            NetworkFailureClassification::AuthenticationFailed => "Wrong password",
+            NetworkFailureClassification::MissingSecrets => "Password required",
+            NetworkFailureClassification::Timeout => "Connection timed out",
+            NetworkFailureClassification::NetworkNotFound => "Network not found",
+            NetworkFailureClassification::ConfigurationFailed => "Connection failed",
+            NetworkFailureClassification::ConnectionRemoved => "Connection removed",
+            NetworkFailureClassification::Disconnected => "Connection lost",
+        }
+        .into(),
+    )
 }
 
 pub fn wifi_status(access_point: &WifiAccessPoint) -> String {
@@ -97,6 +125,7 @@ fn render(template: &str, state: &State) -> String {
         .replace("{state}", &state_text(state))
         .replace("{network}", &snapshot.status.primary_connection)
         .replace("{type}", &snapshot.status.primary_type)
+        // {wifi} is a documented alias for {access_points}; both render the count.
         .replace("{wifi}", &snapshot.wifi_access_points.len().to_string())
         .replace(
             "{access_points}",

@@ -7,7 +7,11 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::config::{discovery::ConfigFileDiscovery, panels::AppletConfig, panels::AppletType};
+use crate::config::{
+    discovery::{ConfigFileDiscovery, config_file_dir},
+    panels::AppletConfig,
+    panels::AppletType,
+};
 
 pub const SYSTEM_APPLETS_DIR: &str = "/usr/share/glimpse/applets";
 
@@ -17,7 +21,7 @@ pub struct AppletDirectoryScanner {
     pub user_dir: PathBuf,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct DiscoveredApplets {
     pub normal: HashMap<String, AppletConfig>,
     pub dev: HashMap<String, AppletConfig>,
@@ -58,6 +62,14 @@ fn applet_kind(config: &AppletConfig) -> String {
     .to_owned()
 }
 
+/// The user applet/themes directory lives next to the resolved config file,
+/// not at a fixed XDG/HOME path — so a GLIMPSE_CONFIG override redirects
+/// applet packages along with the config itself.
+fn user_applets_dir(discovery: &ConfigFileDiscovery) -> PathBuf {
+    let config_file = discovery.detect_config_file();
+    config_file_dir(&config_file, || discovery.config_dir()).join("applets")
+}
+
 impl AppletDirectoryScanner {
     pub fn new(system_dir: PathBuf, user_dir: PathBuf) -> Self {
         Self {
@@ -68,8 +80,10 @@ impl AppletDirectoryScanner {
 
     pub fn from_process() -> Self {
         let discovery = ConfigFileDiscovery::from_process("GLIMPSE_CONFIG", "config.toml");
-        let user_dir = discovery.config_dir().join("applets");
-        Self::new(PathBuf::from(SYSTEM_APPLETS_DIR), user_dir)
+        Self::new(
+            PathBuf::from(SYSTEM_APPLETS_DIR),
+            user_applets_dir(&discovery),
+        )
     }
 
     pub fn scan(&self) -> DiscoveredApplets {
@@ -336,6 +350,48 @@ mod tests {
             fs::write(&path, content).unwrap();
             path
         }
+    }
+
+    #[test]
+    fn user_applets_dir_follows_glimpse_config_override() {
+        let dir = TempDir::new("glimpse-config-override");
+        let config_file = dir.write("custom/myconfig.toml", "");
+        let mut env = HashMap::new();
+        env.insert(
+            "GLIMPSE_CONFIG".to_string(),
+            config_file.display().to_string(),
+        );
+        let discovery = ConfigFileDiscovery::new(
+            env,
+            dir.path.clone(),
+            None,
+            None,
+            "GLIMPSE_CONFIG",
+            "config.toml",
+        );
+
+        assert_eq!(
+            user_applets_dir(&discovery),
+            config_file.parent().unwrap().join("applets")
+        );
+    }
+
+    #[test]
+    fn user_applets_dir_falls_back_to_config_dir_without_override() {
+        let dir = TempDir::new("glimpse-config-default");
+        let discovery = ConfigFileDiscovery::new(
+            HashMap::new(),
+            dir.path.clone(),
+            Some(dir.path.join("xdg")),
+            None,
+            "GLIMPSE_CONFIG",
+            "config.toml",
+        );
+
+        assert_eq!(
+            user_applets_dir(&discovery),
+            dir.path.join("xdg").join("glimpse").join("applets")
+        );
     }
 
     impl Drop for TempDir {

@@ -40,6 +40,11 @@ pub struct Popup {
 struct PopupCard {
     widget: Message,
     timeout_cancelled: Option<Rc<Cell<bool>>>,
+    /// Whether this card's dismiss timeout has actually been scheduled yet.
+    /// A card beyond `visible_limit` is hidden behind "+N more" and must not
+    /// start counting down until it becomes visible - otherwise it can
+    /// expire unseen while still hidden.
+    timeout_started: bool,
     removal_cancelled: Option<Rc<Cell<bool>>>,
     order: u64,
     phase: PopupCardPhase,
@@ -169,7 +174,9 @@ impl SimpleComponent for Popup {
         let window_weak = widgets.root.downgrade();
         if let Some(display) = gtk::gdk::Display::default() {
             display.monitors().connect_items_changed(move |_, _, _, _| {
-                let Some(window) = window_weak.upgrade() else { return };
+                let Some(window) = window_weak.upgrade() else {
+                    return;
+                };
                 apply_popup_monitor(&window, popup_monitor.borrow().as_deref());
             });
         }
@@ -239,7 +246,7 @@ impl SimpleComponent for Popup {
                 }
             }
             PopupInput::LeaveAnimationFinished(id) => {
-                self.finish_remove_card_after_animation(id);
+                self.finish_remove_card_after_animation(id, &sender);
             }
             PopupInput::InvokeAction { id, action_key } => {
                 let _ = sender.output(popover::PopoverOutput::InvokeAction { id, action_key });
@@ -267,7 +274,7 @@ impl Drop for Popup {
 
 impl Popup {
     fn show(&mut self, notification: &NotificationEntry, sender: &ComponentSender<Self>) {
-        self.finish_remove_card_now(notification.id);
+        self.finish_remove_card_now(notification.id, sender);
         while self.cards.borrow().len() >= MAX_TRACKED_POPUPS {
             let oldest = self
                 .cards
@@ -278,44 +285,54 @@ impl Popup {
             let Some(id) = oldest else {
                 break;
             };
-            self.finish_remove_card_now(id);
+            self.finish_remove_card_now(id, sender);
         }
 
         let card = build_card(notification, sender);
         prepare_enter_animation(&card);
         self.card_box.prepend(&card);
         start_enter_animation(notification.id, &card, sender);
-        let timeout = if self.timeout_ms > 0 {
-            let id = notification.id;
-            let input_sender = sender.input_sender().clone();
-            let cancelled = Rc::new(Cell::new(false));
-            let callback_cancelled = cancelled.clone();
-            glib::timeout_add_local_once(
-                Duration::from_millis(self.timeout_ms as u64),
-                move || {
-                    if !callback_cancelled.get() {
-                        let _ = input_sender.send(PopupInput::TimeoutElapsed(id));
-                    }
-                },
-            );
-            Some(cancelled)
-        } else {
-            None
-        };
 
+        // The dismiss timeout is started lazily by update_overflow once
+        // this card actually becomes visible - not here - so a card
+        // overflowed behind "+N more" doesn't expire unseen.
         self.cards.borrow_mut().insert(
             notification.id,
             PopupCard {
                 widget: card,
-                timeout_cancelled: timeout,
+                timeout_cancelled: None,
+                timeout_started: false,
                 removal_cancelled: None,
                 order: notification.timestamp,
                 phase: PopupCardPhase::Entering,
             },
         );
-        self.update_overflow();
+        self.update_overflow(sender);
         self.window.set_visible(true);
         self.start_time_tick();
+    }
+
+    fn start_card_timeout(&self, id: u32, sender: &ComponentSender<Self>) {
+        if self.timeout_ms == 0 {
+            return;
+        }
+        let mut cards = self.cards.borrow_mut();
+        let Some(card) = cards.get_mut(&id) else {
+            return;
+        };
+        if card.timeout_started {
+            return;
+        }
+        card.timeout_started = true;
+        let input_sender = sender.input_sender().clone();
+        let cancelled = Rc::new(Cell::new(false));
+        let callback_cancelled = cancelled.clone();
+        glib::timeout_add_local_once(Duration::from_millis(self.timeout_ms as u64), move || {
+            if !callback_cancelled.get() {
+                let _ = input_sender.send(PopupInput::TimeoutElapsed(id));
+            }
+        });
+        card.timeout_cancelled = Some(cancelled);
     }
 
     fn start_time_tick(&mut self) {
@@ -377,18 +394,23 @@ impl Popup {
         card.removal_cancelled = Some(cancelled);
         drop(cards);
 
-        self.update_overflow();
+        self.update_overflow(sender);
     }
 
-    fn finish_remove_card_now(&mut self, id: u32) {
-        self.finish_remove_card(id, true);
+    fn finish_remove_card_now(&mut self, id: u32, sender: &ComponentSender<Self>) {
+        self.finish_remove_card(id, true, sender);
     }
 
-    fn finish_remove_card_after_animation(&mut self, id: u32) {
-        self.finish_remove_card(id, false);
+    fn finish_remove_card_after_animation(&mut self, id: u32, sender: &ComponentSender<Self>) {
+        self.finish_remove_card(id, false, sender);
     }
 
-    fn finish_remove_card(&mut self, id: u32, remove_removal_source: bool) {
+    fn finish_remove_card(
+        &mut self,
+        id: u32,
+        remove_removal_source: bool,
+        sender: &ComponentSender<Self>,
+    ) {
         if let Some(card) = self.cards.borrow_mut().remove(&id) {
             if let Some(timeout_cancelled) = card.timeout_cancelled {
                 timeout_cancelled.set(true);
@@ -399,7 +421,7 @@ impl Popup {
             self.card_box.remove(&card.widget);
         }
 
-        self.update_overflow();
+        self.update_overflow(sender);
         if self.cards.borrow().is_empty() {
             self.window.set_visible(false);
             self.stop_time_tick();
@@ -413,26 +435,40 @@ impl Popup {
         }
     }
 
-    fn update_overflow(&self) {
-        let cards = self.cards.borrow();
-        let leaving_visible = cards
-            .values()
-            .filter(|card| card.phase == PopupCardPhase::Leaving && card.widget.is_visible())
-            .count();
-        let visible_slots = active_visible_slots(self.visible_limit, leaving_visible);
-        let mut sorted = cards
-            .values()
-            .filter(|card| card.phase != PopupCardPhase::Leaving)
-            .collect::<Vec<_>>();
-        sorted.sort_by(|a, b| b.order.cmp(&a.order));
-        for (index, card) in sorted.iter().enumerate() {
-            card.widget.set_visible(index < visible_slots);
-        }
+    fn update_overflow(&self, sender: &ComponentSender<Self>) {
+        let newly_visible = {
+            let cards = self.cards.borrow();
+            let leaving_visible = cards
+                .values()
+                .filter(|card| card.phase == PopupCardPhase::Leaving && card.widget.is_visible())
+                .count();
+            let visible_slots = active_visible_slots(self.visible_limit, leaving_visible);
+            let mut sorted = cards
+                .iter()
+                .filter(|(_, card)| card.phase != PopupCardPhase::Leaving)
+                .collect::<Vec<_>>();
+            sorted.sort_by(|(_, a), (_, b)| b.order.cmp(&a.order));
+            let mut newly_visible = Vec::new();
+            for (index, entry) in sorted.iter().enumerate() {
+                let (id, card) = *entry;
+                let visible = index < visible_slots;
+                card.widget.set_visible(visible);
+                if visible && !card.timeout_started {
+                    newly_visible.push(*id);
+                }
+            }
 
-        let hidden = sorted.len().saturating_sub(visible_slots);
-        self.overflow.set_visible(hidden > 0);
-        if hidden > 0 {
-            self.overflow.set_label(&format!("+ {hidden} more"));
+            let hidden = sorted.len().saturating_sub(visible_slots);
+            self.overflow.set_visible(hidden > 0);
+            if hidden > 0 {
+                self.overflow.set_label(&format!("+ {hidden} more"));
+            }
+
+            newly_visible
+        };
+
+        for id in newly_visible {
+            self.start_card_timeout(id, sender);
         }
     }
 

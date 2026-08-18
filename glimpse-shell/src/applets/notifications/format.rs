@@ -83,7 +83,11 @@ pub fn image_path(notification: &NotificationEntry) -> Option<&str> {
         return None;
     }
     let path = image.strip_prefix("file://").unwrap_or(image);
-    if path.starts_with('/') { Some(path) } else { None }
+    if path.starts_with('/') {
+        Some(path)
+    } else {
+        None
+    }
 }
 
 pub fn load_image(notification: &NotificationEntry) -> Option<NotificationImage> {

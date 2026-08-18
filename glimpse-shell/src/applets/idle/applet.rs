@@ -13,9 +13,8 @@ use crate::services::{
 use crate::utils::subscribe_service;
 use crate::widgets::panel_indicator::PanelIndicator;
 
-use super::popover::{
-    Init as PopoverInit, Input as PopoverInput, Output as PopoverOutput, Popover,
-};
+use super::format::{SubtitleInputs, subtitle};
+use super::popover::{Popover, PopoverInit, PopoverInput, PopoverOutput};
 
 pub struct Applet {
     icon_name: &'static str,
@@ -52,7 +51,12 @@ impl SimpleComponent for Applet {
         root = PanelIndicator {
             add_css_class: "idle-applet",
             #[watch]
-            set_tooltip_text: Some("Idle Inhibitor"),
+            set_tooltip_text: Some(&subtitle(&SubtitleInputs {
+                wayland: &model.wayland_health,
+                backend: &model.state.health,
+                records: &model.state.inhibitors,
+                own_unique_name: &model.own_unique_name,
+            })),
             #[watch]
             set_icon: Some(model.icon_name),
             connect_activated[sender] => move |_| {

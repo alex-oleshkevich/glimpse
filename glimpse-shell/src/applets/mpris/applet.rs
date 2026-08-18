@@ -134,7 +134,7 @@ impl SimpleComponent for Applet {
         let state = init.service.snapshot();
         let label = format::label(&init.config.label_format, &state);
         let tooltip = format::tooltip(&init.config.tooltip_format, &state);
-        let hidden = init.config.hide_when_empty && label.is_empty();
+        let hidden = init.config.hide_when_empty && !format::has_visible_player(&state);
         let subscription_cancel = subscribe_service(
             init.service.subscribe(),
             sender.input_sender().clone(),
@@ -183,7 +183,7 @@ impl Applet {
     fn apply_state(&mut self, state: State) {
         self.label = format::label(&self.config.label_format, &state);
         self.tooltip = format::tooltip(&self.config.tooltip_format, &state);
-        self.hidden = self.config.hide_when_empty && self.label.is_empty();
+        self.hidden = self.config.hide_when_empty && !format::has_visible_player(&state);
         self.state = state.clone();
         if self.popover.widget().is_visible() {
             self.popover.emit(PopoverInput::Update(state));

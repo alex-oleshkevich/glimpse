@@ -163,7 +163,7 @@ label_format = ""
 tooltip_format = "{state}"
 ```
 
-Placeholders: `{state}`, `{network}`, `{type}`, `{wifi}`, `{access_points}`, `{connections}`, `{vpns}`, `{speed}`.
+Placeholders: `{state}`, `{network}`, `{type}`, `{wifi}` (alias for `{access_points}`), `{access_points}`, `{connections}`, `{vpns}`, `{speed}`.
 
 ## Next event
 

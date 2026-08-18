@@ -33,7 +33,7 @@ struct MonthLoad {
 }
 
 impl CalendarEventsService {
-    pub fn new(_session: zbus::Connection) -> (Self, CalendarEventsHandle) {
+    pub fn new() -> (Self, CalendarEventsHandle) {
         let (state_tx, state_rx) = watch::channel(State::default());
         let (command_tx, command_rx) = mpsc::channel(COMMAND_QUEUE_SIZE);
 
@@ -75,7 +75,7 @@ impl CalendarEventsService {
                 command = self.command_rx.recv() => match command {
                     Some(ServiceCommand::Command(Command::PreloadAround(month))) => {
                         self.set_preload_window(month, &mut active_months, &mut pending, &mut queued);
-                        abort_inactive_load(&active_months, &mut inflight);
+                        abort_inactive_load(&active_months, &mut inflight, &self.state_tx);
                         start_next_load(&aggregator, &mut pending, &mut queued, &mut inflight, &self.state_tx);
                     }
                     Some(ServiceCommand::Command(Command::Refresh)) => {
@@ -245,13 +245,15 @@ fn start_next_load(
 fn abort_inactive_load(
     active_months: &BTreeSet<MonthKey>,
     inflight: &mut Option<(MonthKey, JoinHandle<MonthLoad>)>,
+    state_tx: &watch::Sender<State>,
 ) {
     if inflight
         .as_ref()
         .is_some_and(|(key, _)| !active_months.contains(key))
     {
-        if let Some((_, task)) = inflight.take() {
+        if let Some((key, task)) = inflight.take() {
             task.abort();
+            state_tx.send_if_modified(|state| state.loading_months.remove(&key));
         }
     }
 }
@@ -278,6 +280,32 @@ fn preload_window(month: MonthKey) -> BTreeSet<MonthKey> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn abort_inactive_load_clears_loading_months_for_the_aborted_key() {
+        let key = MonthKey {
+            year: 2026,
+            month: 12,
+        };
+        let (state_tx, _state_rx) = watch::channel(State {
+            loading_months: BTreeSet::from([key]),
+            ..State::default()
+        });
+        let mut inflight = Some((
+            key,
+            tokio::spawn(async {
+                std::future::pending::<()>().await;
+                MonthLoad {
+                    result: Err(anyhow::anyhow!("unreachable")),
+                }
+            }),
+        ));
+
+        abort_inactive_load(&BTreeSet::new(), &mut inflight, &state_tx);
+
+        assert!(inflight.is_none());
+        assert!(!state_tx.borrow().loading_months.contains(&key));
+    }
 
     #[test]
     fn preload_window_keeps_visible_month_and_next_only() {

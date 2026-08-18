@@ -259,6 +259,7 @@ impl Popover {
         let items = notification_items(&self.notifications);
         let mut seen_rows: HashSet<u32> = HashSet::new();
         let mut seen_groups: HashSet<String> = HashSet::new();
+        let mut seen_image_paths: HashSet<String> = HashSet::new();
         let mut previous: Option<gtk::Widget> = None;
 
         for item in &items {
@@ -266,6 +267,9 @@ impl Popover {
                 NotificationListItem::Notification(notification) => {
                     let id = notification.id;
                     seen_rows.insert(id);
+                    if let Some(path) = format::image_path(notification) {
+                        seen_image_paths.insert(path.to_owned());
+                    }
                     let msg = self.ensure_row(id, sender);
                     update_row(&msg, notification, now, &mut self.texture_cache);
                     reparent_into(&msg, &self.list);
@@ -278,6 +282,9 @@ impl Popover {
                         Vec::with_capacity(group_model.notifications.len());
                     for notification in &group_model.notifications {
                         seen_rows.insert(notification.id);
+                        if let Some(path) = format::image_path(notification) {
+                            seen_image_paths.insert(path.to_owned());
+                        }
                         let msg = self.ensure_row(notification.id, sender);
                         update_row(&msg, notification, now, &mut self.texture_cache);
                         member_msgs.push(msg);
@@ -314,6 +321,10 @@ impl Popover {
             }
             keep
         });
+        // Otherwise decoded textures for dismissed/expired notifications
+        // accumulate in memory for the process lifetime.
+        self.texture_cache
+            .retain(|path, _| seen_image_paths.contains(path));
     }
 
     fn ensure_row(&mut self, id: u32, sender: &ComponentSender<Self>) -> Message {

@@ -10,7 +10,7 @@ use glimpse_core::{
     },
     services::theme::EffectiveThemeMode,
 };
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::{broadcast, mpsc, watch};
 
 use crate::app::{ThemeModeRequest, WallpaperCommand};
 
@@ -18,20 +18,64 @@ pub fn start() -> (
     IpcHandle,
     broadcast::Sender<Arc<IpcEvent>>,
     mpsc::Receiver<WallpaperCommand>,
+    watch::Sender<Option<WallpaperStatus>>,
 ) {
     let tx = ipc::new_event_channel();
     let (cmd_tx, cmd_rx) = mpsc::channel::<WallpaperCommand>(16);
+    let (status_tx, status_rx) = watch::channel(None);
     let handle = IpcServer::launch_at(
         tx.clone(),
         wallpaper_socket_path(),
-        WallpaperCommandHandler { cmd_tx },
+        WallpaperCommandHandler { cmd_tx, status_rx },
     );
-    (handle, tx, cmd_rx)
+    (handle, tx, cmd_rx, status_tx)
+}
+
+/// Snapshot of the currently-applied wallpaper spec, kept up to date by the
+/// app for the IPC `status` command to read.
+#[derive(Debug, Clone)]
+pub struct WallpaperStatus {
+    spec: ResolvedWallpaperSpec,
+    theme_mode: &'static str,
+}
+
+impl WallpaperStatus {
+    pub fn from_spec(spec: &ResolvedWallpaperSpec, theme_mode: &'static str) -> Self {
+        Self {
+            spec: spec.clone(),
+            theme_mode,
+        }
+    }
+}
+
+fn status_fields(status: &WallpaperStatus) -> Vec<(String, String)> {
+    let mut fields = vec![("color".to_owned(), status.spec.color.clone())];
+    match &status.spec.image {
+        Some(image) => {
+            fields.push(("mode".into(), "image".to_owned()));
+            fields.push(("path".into(), image.path.display().to_string()));
+            fields.push(("fit".into(), fit_name(image.fit).to_owned()));
+        }
+        None => fields.push(("mode".into(), "color".to_owned())),
+    }
+    match &status.spec.backdrop {
+        ResolvedBackdropSpec::Disabled => fields.push(("backdrop".into(), "false".to_owned())),
+        ResolvedBackdropSpec::Enabled { path, blur_radius } => {
+            fields.push(("backdrop".into(), "true".to_owned()));
+            fields.push(("backdrop_blur".into(), blur_radius.to_string()));
+            if let Some(p) = path {
+                fields.push(("backdrop_path".into(), p.display().to_string()));
+            }
+        }
+    }
+    fields.push(("theme_mode".into(), status.theme_mode.to_owned()));
+    fields
 }
 
 #[derive(Clone)]
 struct WallpaperCommandHandler {
     cmd_tx: mpsc::Sender<WallpaperCommand>,
+    status_rx: watch::Receiver<Option<WallpaperStatus>>,
 }
 
 impl WallpaperCommandHandler {
@@ -103,7 +147,14 @@ impl CommandHandler for WallpaperCommandHandler {
             };
 
             match name {
-                "reload_config" => self.send(WallpaperCommand::ReloadConfig).await,
+                "status" => self
+                    .status_rx
+                    .borrow()
+                    .as_ref()
+                    .map(status_fields)
+                    .ok_or_else(|| "wallpaper daemon still starting".to_owned()),
+
+                "reset" => self.send(WallpaperCommand::ReloadConfig).await,
 
                 "set_image" => {
                     let path = require(fields, "path")?;
@@ -228,7 +279,8 @@ mod tests {
     #[tokio::test]
     async fn send_queues_bursts_without_dropping() {
         let (cmd_tx, mut cmd_rx) = mpsc::channel::<WallpaperCommand>(16);
-        let handler = WallpaperCommandHandler { cmd_tx };
+        let (_status_tx, status_rx) = watch::channel(None);
+        let handler = WallpaperCommandHandler { cmd_tx, status_rx };
         // Drain concurrently so the awaiting sender makes progress past the buffer.
         let consumer = tokio::spawn(async move {
             let mut count = 0usize;
@@ -253,7 +305,119 @@ mod tests {
     async fn send_errors_when_daemon_channel_closed() {
         let (cmd_tx, cmd_rx) = mpsc::channel::<WallpaperCommand>(1);
         drop(cmd_rx);
-        let handler = WallpaperCommandHandler { cmd_tx };
+        let (_status_tx, status_rx) = watch::channel(None);
+        let handler = WallpaperCommandHandler { cmd_tx, status_rx };
         assert!(handler.send(WallpaperCommand::ReloadConfig).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn reset_command_matches_docs_ipc_md_naming_convention() {
+        // docs/ipc.md reserves `refresh` for re-reading external state and
+        // `reset` for "return to config defaults or clear transient
+        // overrides" — which is exactly what this command does, so the wire
+        // name must be `reset`, not the undocumented `reload_config`.
+        let (cmd_tx, mut cmd_rx) = mpsc::channel::<WallpaperCommand>(1);
+        let (_status_tx, status_rx) = watch::channel(None);
+        let handler = WallpaperCommandHandler { cmd_tx, status_rx };
+
+        assert!(handler.execute("reset", &[]).await.is_ok());
+        assert!(matches!(
+            cmd_rx.recv().await,
+            Some(WallpaperCommand::ReloadConfig)
+        ));
+        assert!(handler.execute("reload_config", &[]).await.is_err());
+    }
+
+    fn image_spec() -> ResolvedWallpaperSpec {
+        ResolvedWallpaperSpec {
+            color: "#112233".into(),
+            image: Some(glimpse_core::ResolvedImageSpec {
+                path: PathBuf::from("/home/alex/wallpapers/big-sur.heic"),
+                fit: FitMode::Contain,
+            }),
+            transition_ms: 500,
+            backdrop: ResolvedBackdropSpec::Enabled {
+                path: Some(PathBuf::from("/home/alex/wallpapers/backdrop.png")),
+                blur_radius: 40,
+            },
+        }
+    }
+
+    fn color_spec() -> ResolvedWallpaperSpec {
+        ResolvedWallpaperSpec {
+            color: "#abcdef".into(),
+            image: None,
+            transition_ms: 500,
+            backdrop: ResolvedBackdropSpec::Disabled,
+        }
+    }
+
+    #[test]
+    fn status_fields_reports_image_mode_and_backdrop() {
+        let status = WallpaperStatus::from_spec(&image_spec(), "dark");
+        let fields = status_fields(&status);
+        let get = |key: &str| {
+            fields
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.as_str())
+        };
+        assert_eq!(get("mode"), Some("image"));
+        assert_eq!(get("color"), Some("#112233"));
+        assert_eq!(get("path"), Some("/home/alex/wallpapers/big-sur.heic"));
+        assert_eq!(get("fit"), Some("contain"));
+        assert_eq!(get("backdrop"), Some("true"));
+        assert_eq!(get("backdrop_blur"), Some("40"));
+        assert_eq!(
+            get("backdrop_path"),
+            Some("/home/alex/wallpapers/backdrop.png")
+        );
+        assert_eq!(get("theme_mode"), Some("dark"));
+    }
+
+    #[test]
+    fn status_fields_reports_color_mode_and_disabled_backdrop() {
+        let status = WallpaperStatus::from_spec(&color_spec(), "auto");
+        let fields = status_fields(&status);
+        let get = |key: &str| {
+            fields
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.as_str())
+        };
+        assert_eq!(get("mode"), Some("color"));
+        assert_eq!(get("color"), Some("#abcdef"));
+        assert_eq!(get("path"), None);
+        assert_eq!(get("fit"), None);
+        assert_eq!(get("backdrop"), Some("false"));
+        assert_eq!(get("theme_mode"), Some("auto"));
+    }
+
+    #[tokio::test]
+    async fn status_command_returns_current_snapshot() {
+        let (cmd_tx, _cmd_rx) = mpsc::channel::<WallpaperCommand>(1);
+        let (status_tx, status_rx) = watch::channel(None);
+        let handler = WallpaperCommandHandler { cmd_tx, status_rx };
+        status_tx
+            .send(Some(WallpaperStatus::from_spec(&color_spec(), "auto")))
+            .unwrap();
+
+        let fields = handler.execute("status", &[]).await.unwrap();
+        let get = |key: &str| {
+            fields
+                .iter()
+                .find(|(k, _)| k == key)
+                .map(|(_, v)| v.as_str())
+        };
+        assert_eq!(get("mode"), Some("color"));
+        assert_eq!(get("theme_mode"), Some("auto"));
+    }
+
+    #[tokio::test]
+    async fn status_command_errors_before_first_spec_is_resolved() {
+        let (cmd_tx, _cmd_rx) = mpsc::channel::<WallpaperCommand>(1);
+        let (_status_tx, status_rx) = watch::channel(None);
+        let handler = WallpaperCommandHandler { cmd_tx, status_rx };
+        assert!(handler.execute("status", &[]).await.is_err());
     }
 }

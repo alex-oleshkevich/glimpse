@@ -154,7 +154,7 @@ Glimpse reads every `.ics` file directly inside that directory and ignores other
 | `name` | `id` | Display name shown in tooltips and event metadata. |
 | `uri` | required | `https://`, `http://`, or `file://` URI. |
 | `color` | unset | Calendar color used for date markers, event-row dots, and `next_event` dots. |
-| `poll_interval` | global interval | Per-source refresh interval in seconds. Values below 60 are clamped to 60. |
+| `poll_interval` | global interval | Contributes to the shared refresh interval (see below) in seconds. Values below 60 are clamped to 60. Does not make this source poll independently of the others. |
 
 The effective refresh interval is the lowest configured interval across `[calendar]` and all sources, with a 60 second floor.
 

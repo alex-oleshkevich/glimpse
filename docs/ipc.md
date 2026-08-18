@@ -49,6 +49,21 @@ Subscription patterns support three forms:
 
 Malformed client lines return `ack ok=false error=<message>`. Unknown commands are handled by the daemon command handler.
 
+Event namespaces do not always match the service name — some services emit
+under multiple namespaces, or a namespace that differs from the service
+name entirely:
+
+| Service | Namespace(s) actually used |
+|---|---|
+| compositor | `window.*`, `monitor.*`, `screencast.*`, `compositor.workspace_changed` |
+| keyboard | `input.*` |
+| microphone | `mic.*` |
+| night_light | `nightlight.*` |
+| notifications | `notification.*` (singular) |
+
+`subscribe compositor.*` therefore only catches `compositor.workspace_changed`
+— subscribe to `window.*`/`monitor.*`/`screencast.*` separately, or use `*`.
+
 ## CLI behavior
 
 Each daemon that exposes IPC should route these commands before starting the normal daemon process:
@@ -204,8 +219,8 @@ Do not add `get_*`; use `status`.
 
 | Service | Commands |
 |---|---|
-| Shell | `status`, `set_volume`, `set_input_volume`, `set_brightness`, `set_power_profile`, `set_dnd`, `set_theme`, `set_keyboard_layout`, `idle_manual_hold`, `idle_release`, `set_wifi`, `set_bluetooth`, `night_light_enable`, `night_light_disable`, `night_light_activate`, `night_light_deactivate`, `set_night_light_temperature`, `set_night_light_schedule`, `refresh`, `set_location`, `toggle_popover` |
-| Wallpaper | `status`, `set_image`, `set_color`, `set_fit`, `set_backdrop`, `set_theme_mode` |
+| Shell | `status`, `set_volume`, `toggle_mute`, `set_input_volume`, `toggle_input_mute`, `set_brightness`, `adjust_brightness`, `set_power_profile`, `set_dnd`, `dismiss_notification`, `dismiss_all_notifications`, `media_play`, `media_pause`, `media_play_pause`, `media_stop`, `media_next`, `media_previous`, `media_seek`, `set_theme`, `set_keyboard_layout`, `next_keyboard_layout`, `prev_keyboard_layout`, `idle_manual_hold`, `idle_release`, `set_wifi`, `wifi_scan`, `connect_wifi`, `forget_wifi`, `set_bluetooth`, `bluetooth_scan`, `connect_bluetooth`, `disconnect_bluetooth`, `forget_bluetooth`, `night_light_enable`, `night_light_disable`, `night_light_activate`, `night_light_deactivate`, `set_night_light_temperature`, `set_night_light_schedule`, `refresh`, `set_location`, `toggle_popover`, `eject`, `poweroff_drive`, `clear_clipboard`, `clear_clipboard_history` |
+| Wallpaper | `status`, `reset`, `set_image`, `set_color`, `set_fit`, `set_backdrop`, `set_theme_mode` |
 
 Keep `dispatch --help` in each daemon aligned with the implemented commands.
 

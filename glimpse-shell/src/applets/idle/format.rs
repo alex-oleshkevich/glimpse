@@ -54,7 +54,9 @@ pub fn subtitle(inputs: &SubtitleInputs<'_>) -> String {
         (false, _, false) => format!("{n} apps preventing idle"),
         (false, 1, true) => "1 app preventing idle or sleep".into(),
         (false, _, true) => format!("{n} apps preventing idle or sleep"),
+        (true, 1, false) => "Manual hold · 1 app preventing idle".into(),
         (true, _, false) => format!("Manual hold · {n} apps preventing idle"),
+        (true, 1, true) => "Manual hold · 1 app preventing idle or sleep".into(),
         (true, _, true) => format!("Manual hold · {n} apps preventing idle or sleep"),
     }
 }
@@ -178,6 +180,19 @@ mod tests {
         assert_eq!(
             subtitle(&inputs(&backend, &recs, ":1.7")),
             "Manual hold · 2 apps preventing idle or sleep"
+        );
+    }
+
+    #[test]
+    fn manual_plus_one_external_is_singular() {
+        let backend = InhibitorsHealth::default();
+        let recs = vec![
+            rec(":1.7", "Glimpse", false),
+            rec(":1.99", "Firefox", false),
+        ];
+        assert_eq!(
+            subtitle(&inputs(&backend, &recs, ":1.7")),
+            "Manual hold · 1 app preventing idle"
         );
     }
 

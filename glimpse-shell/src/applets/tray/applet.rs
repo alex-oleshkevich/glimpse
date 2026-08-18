@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
+use crate::utils::subscribe_service;
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller,
     gtk::{self, gio, prelude::*},
 };
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
-use crate::utils::subscribe_service;
 
 use crate::{
     panels::applets::AppletConfig,
@@ -68,6 +68,11 @@ pub struct Applet {
     snapshot: Snapshot,
     items: HashMap<String, ItemState>,
     subscription_cancel: CancellationToken,
+    /// Address awaiting a fresh AboutToShowMenu round-trip before its
+    /// popover pops up, so the popup shows the real menu on first open
+    /// instead of the stale cached one immediately followed by a
+    /// rebuild-and-reposition once the reply lands.
+    pending_menu_popup: Option<String>,
 }
 
 struct ItemState {
@@ -160,6 +165,7 @@ impl Component for Applet {
             snapshot: Snapshot::default(),
             items: HashMap::new(),
             subscription_cancel,
+            pending_menu_popup: None,
         };
 
         let widgets = view_output!();
@@ -237,6 +243,9 @@ impl Applet {
             .cloned()
             .collect::<Vec<_>>();
         for address in to_remove {
+            if self.pending_menu_popup.as_deref() == Some(address.as_str()) {
+                self.pending_menu_popup = None;
+            }
             if let Some(state) = self.items.remove(&address) {
                 detach_popover(state.popover);
                 root.remove(state.controller.widget());
@@ -258,6 +267,13 @@ impl Applet {
                 }
 
                 rebuild_menu(state, item, sender);
+
+                if self.pending_menu_popup.as_deref() == Some(item.address.as_str()) {
+                    if let Some(popover) = state.popover.as_ref() {
+                        popover.popup();
+                    }
+                    self.pending_menu_popup = None;
+                }
             } else {
                 let address = item.address.clone();
                 let view = ViewModel::from(item);
@@ -314,9 +330,11 @@ impl Applet {
             root.reorder_child_after(state.controller.widget(), previous.as_ref());
             previous = Some(state.controller.widget().clone().upcast());
         }
+
+        root.set_visible(!visible_items.is_empty());
     }
 
-    fn handle_click(&self, address: &str, click: ClickKind, x: i32, y: i32) {
+    fn handle_click(&mut self, address: &str, click: ClickKind, x: i32, y: i32) {
         let Some(item) = self.item(address) else {
             tracing::debug!(address, "tray applet: ignoring click for unknown item");
             return;
@@ -329,13 +347,12 @@ impl Applet {
                     menu_path: item.menu_path.clone(),
                     item_id: 0,
                 });
-                if let Some(state) = self
-                    .items
-                    .get(address)
-                    .and_then(|state| state.popover.as_ref())
-                {
-                    state.popup();
-                }
+                // Wait for the AboutToShowMenu round-trip (sync_items ->
+                // rebuild_menu) before popping up, instead of popping up
+                // immediately with the stale cached menu and then rebuilding
+                // (and re-popping) it out from under the cursor once the
+                // reply lands.
+                self.pending_menu_popup = Some(item.address.clone());
             }
             ClickOutcome::ServiceCommand(command) => self.send_command(command),
         }
@@ -462,8 +479,10 @@ fn menu_label(item: &MenuItem) -> String {
     let prefix = match (item.toggle_type, item.toggle_state) {
         (MenuToggleType::Checkmark, MenuToggleState::On) => "✓ ",
         (MenuToggleType::Checkmark, MenuToggleState::Off) => "  ",
+        (MenuToggleType::Checkmark, MenuToggleState::Indeterminate) => "  ",
         (MenuToggleType::Radio, MenuToggleState::On) => "◉ ",
         (MenuToggleType::Radio, MenuToggleState::Off) => "○ ",
+        (MenuToggleType::Radio, MenuToggleState::Indeterminate) => "  ",
         _ => "",
     };
 
@@ -544,6 +563,46 @@ fn command_for_click(item: &Item, click: ClickKind, x: i32, y: i32) -> ClickOutc
 mod tests {
     use super::*;
     use glimpse_core::services::tray::model::{Category, Icon, MenuDisposition, MenuToggleState};
+
+    fn toggle_item(toggle_type: MenuToggleType, toggle_state: MenuToggleState) -> MenuItem {
+        MenuItem {
+            id: 1,
+            label: "Item".into(),
+            enabled: true,
+            visible: true,
+            kind: MenuItemKind::Standard,
+            icon: None,
+            shortcut: None,
+            toggle_type,
+            toggle_state,
+            children_display: None,
+            disposition: MenuDisposition::Normal,
+            children: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn menu_label_indents_indeterminate_toggles_same_width_as_siblings() {
+        let checkmark_off = menu_label(&toggle_item(
+            MenuToggleType::Checkmark,
+            MenuToggleState::Off,
+        ));
+        let checkmark_indeterminate = menu_label(&toggle_item(
+            MenuToggleType::Checkmark,
+            MenuToggleState::Indeterminate,
+        ));
+        assert_eq!(checkmark_indeterminate, checkmark_off);
+
+        let radio_off = menu_label(&toggle_item(MenuToggleType::Radio, MenuToggleState::Off));
+        let radio_indeterminate = menu_label(&toggle_item(
+            MenuToggleType::Radio,
+            MenuToggleState::Indeterminate,
+        ));
+        assert_eq!(
+            radio_indeterminate.chars().count(),
+            radio_off.chars().count()
+        );
+    }
 
     #[test]
     fn normal_item_left_click_activates() {

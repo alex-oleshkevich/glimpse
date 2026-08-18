@@ -67,10 +67,16 @@ impl ConfigFileDiscovery {
     }
 
     fn detect_from_env(&self) -> Option<PathBuf> {
-        self.env
-            .get(self.env_var)
-            .map(PathBuf::from)
-            .filter(|path| path.exists())
+        let path = self.env.get(self.env_var).map(PathBuf::from)?;
+        if path.exists() {
+            return Some(path);
+        }
+        tracing::warn!(
+            env_var = self.env_var,
+            path = %path.display(),
+            "config path from env var does not exist; falling back to XDG defaults"
+        );
+        None
     }
 
     fn detect_from_dirs(&self) -> Option<PathBuf> {

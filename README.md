@@ -510,23 +510,29 @@ User themes live in:
 ~/.config/glimpse/themes/
 ```
 
-Select a shell theme by file name without `.css`:
+Select a shell theme by pack directory name:
 
 ```toml
 theme = "my-theme"
 theme_mode = "auto"
 ```
 
-This loads:
+This resolves the pack directory and loads whichever of its files exist:
 
 ```text
-~/.config/glimpse/themes/my-theme.css
+~/.config/glimpse/themes/my-theme/panel.css
+~/.config/glimpse/themes/my-theme/lock.css
 ```
 
-Override the theme file directly with `GLIMPSE_THEME`:
+(plus light/dark wallpaper, backdrop, and lock-background images in the same
+directory, named `wallpaper-light`/`wallpaper-dark`,
+`backdrop-light`/`backdrop-dark`, and `lock-light`/`lock-dark`).
+
+Override the theme pack directory directly with `GLIMPSE_THEME` (a
+directory, not a CSS file — it bypasses the search path entirely):
 
 ```sh
-GLIMPSE_THEME=/home/alex/.config/glimpse/themes/test.css glimpse-shell
+GLIMPSE_THEME=/home/alex/.config/glimpse/themes/my-theme glimpse-shell
 ```
 
 Theme modes:

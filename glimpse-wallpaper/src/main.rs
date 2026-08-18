@@ -117,7 +117,7 @@ async fn main() -> anyhow::Result<()> {
         backdrop_enabled = config.backdrop.enabled,
         "resolved startup configuration"
     );
-    let (_ipc_handle, event_tx, command_rx) = wallpaper_ipc::start();
+    let (_ipc_handle, event_tx, command_rx, status_tx) = wallpaper_ipc::start();
     let gtk_app = gtk::Application::builder()
         .application_id(&app_id)
         .flags(gtk::gio::ApplicationFlags::NON_UNIQUE)
@@ -130,6 +130,7 @@ async fn main() -> anyhow::Result<()> {
             config,
             event_tx,
             command_rx,
+            status_tx,
         });
     tracing::info!("glimpse-wallpaper stopped");
 
@@ -223,7 +224,10 @@ fn print_dispatch_help() {
     println!();
     println!("COMMANDS:");
     println!(
-        "    reload_config                              Reload config from disk (clears runtime overrides)"
+        "    status                                      Return the current resolved wallpaper state"
+    );
+    println!(
+        "    reset                                       Reload config from disk (clears runtime overrides)"
     );
     println!("    set_image path=<abs file>                  Override the wallpaper image");
     println!("    set_color color=<css>                      Override the background colour");
@@ -234,7 +238,7 @@ fn print_dispatch_help() {
     );
     println!();
     println!("Runtime overrides are in-memory only and survive unrelated config edits;");
-    println!("'reload_config' clears them and re-reads disk.");
+    println!("'reset' clears them and re-reads disk.");
 }
 
 #[cfg(test)]

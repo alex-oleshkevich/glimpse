@@ -235,7 +235,22 @@ impl GeoClueService {
         manager: &GeoClueManagerProxy<'_>,
         active: &Option<ActiveClient>,
     ) {
-        let in_use = manager.in_use().await.unwrap_or(false);
+        let in_use = match manager.in_use().await {
+            Ok(in_use) => in_use,
+            Err(error) => {
+                // The D-Bus service is unreachable: report unavailable
+                // instead of silently pretending everything is fine, or
+                // location stays "Unknown" forever and solar/theme/night
+                // light never activate.
+                self.change_state(State {
+                    available: false,
+                    in_use: false,
+                    coordinates: None,
+                    error: Some(error.to_string()),
+                });
+                return;
+            }
+        };
         // When we don't have an active client, keep the last known coordinates
         // around instead of clearing them — clients depend on the cached fix
         // between transient client lifetimes.

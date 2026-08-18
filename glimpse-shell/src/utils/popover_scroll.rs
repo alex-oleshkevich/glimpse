@@ -10,6 +10,23 @@ pub fn install_half_monitor_limit(
 ) {
     apply_half_monitor_limit(scroller, parent, Some(popover));
 
+    // The scroller may be hidden (empty state) when the popover first shows,
+    // so its height can't be used to measure chrome yet. Re-measure once it
+    // becomes visible so a later content load gets the correct limit instead
+    // of staying floored at DEFAULT_CHROME_RESERVE for the rest of the
+    // session.
+    {
+        let parent_weak = parent.downgrade();
+        let popover_weak = popover.downgrade();
+        scroller.connect_map(move |scroller| {
+            let (Some(parent), Some(popover)) = (parent_weak.upgrade(), popover_weak.upgrade())
+            else {
+                return;
+            };
+            apply_half_monitor_limit(scroller, &parent, Some(&popover));
+        });
+    }
+
     let parent_weak = parent.downgrade();
     let popover_weak = popover.downgrade();
     let scroller = scroller.clone();
@@ -41,7 +58,11 @@ fn apply_half_monitor_limit(
         return;
     };
 
+    // A hidden scroller (empty-state popovers) reports height() == 0, which
+    // would otherwise make the whole popover look like chrome and clamp
+    // max_content_height to the floor even once content later appears.
     let chrome_height = popover
+        .filter(|_| scroller.is_visible())
         .map(|popover| popover.height() - scroller.height())
         .filter(|height| *height > 0);
     scroller.set_max_content_height(content_height_limit(height, chrome_height));

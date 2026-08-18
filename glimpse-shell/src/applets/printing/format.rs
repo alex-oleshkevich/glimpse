@@ -1,7 +1,20 @@
 use glimpse_core::services::printing::{JobState, PrintJob, PrinterState, State};
 
 pub fn has_errors(state: &State) -> bool {
-    state.printers.iter().any(|p| !p.state_reasons.is_empty())
+    state
+        .printers
+        .iter()
+        .any(|p| p.state_reasons.iter().any(|r| !is_informational_reason(r)))
+}
+
+/// IPP/CUPS convention: reason keywords carrying "-warning"/"-report"
+/// severity (or the two well-known bare supply-level reasons) are
+/// informational, not blocking errors - a low toner warning shouldn't pin
+/// the error icon and force the applet visible forever in auto mode.
+fn is_informational_reason(reason: &str) -> bool {
+    reason.ends_with("-warning")
+        || reason.ends_with("-report")
+        || matches!(reason, "media-low" | "toner-low")
 }
 
 pub fn label(state: &State) -> String {
@@ -101,6 +114,60 @@ mod tests {
             pages_completed: None,
             pages_total: None,
         }
+    }
+
+    fn make_printer(state_reasons: Vec<&str>) -> glimpse_core::services::printing::Printer {
+        glimpse_core::services::printing::Printer {
+            name: "Printer".into(),
+            make_model: "Test".into(),
+            state: glimpse_core::services::printing::PrinterState::Idle,
+            state_reasons: state_reasons.into_iter().map(String::from).collect(),
+            job_count: 0,
+            markers: vec![],
+        }
+    }
+
+    #[test]
+    fn has_errors_ignores_informational_supply_level_reasons() {
+        let state = State {
+            available: true,
+            jobs: vec![],
+            printers: vec![make_printer(vec!["media-low", "toner-low"])],
+        };
+        assert!(!has_errors(&state));
+    }
+
+    #[test]
+    fn has_errors_ignores_report_and_warning_suffixed_reasons() {
+        let state = State {
+            available: true,
+            jobs: vec![],
+            printers: vec![make_printer(vec![
+                "offline-report",
+                "marker-supply-low-report",
+            ])],
+        };
+        assert!(!has_errors(&state));
+    }
+
+    #[test]
+    fn has_errors_true_for_a_genuine_error_reason() {
+        let state = State {
+            available: true,
+            jobs: vec![],
+            printers: vec![make_printer(vec!["paper-jam"])],
+        };
+        assert!(has_errors(&state));
+    }
+
+    #[test]
+    fn has_errors_true_when_mixed_with_an_informational_reason() {
+        let state = State {
+            available: true,
+            jobs: vec![],
+            printers: vec![make_printer(vec!["media-low", "paper-jam"])],
+        };
+        assert!(has_errors(&state));
     }
 
     #[test]

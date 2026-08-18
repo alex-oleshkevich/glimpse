@@ -57,6 +57,18 @@ use crate::{
 };
 
 const LOCK_CSS_RESOURCE: &str = "/me/aresa/GlimpseLock/lock.css";
+const GTK_APPLICATION_ID_ENV: &str = "GLIMPSE_LOCK_APP_ID";
+
+/// Mirrors glimpse-wallpaper's GLIMPSE_WALLPAPER_APP_ID: lets the resident
+/// daemon's GTK app id be overridden so a dev instance doesn't collide with
+/// a real running session over the D-Bus well-known name.
+fn gtk_application_id() -> String {
+    gtk_application_id_from_env(std::env::var(GTK_APPLICATION_ID_ENV).ok())
+}
+
+fn gtk_application_id_from_env(value: Option<String>) -> String {
+    value.unwrap_or_else(|| GTK_APPLICATION_ID.into())
+}
 const AUTH_TIMEOUT: Duration = Duration::from_secs(30);
 #[cfg(feature = "dev")]
 const DEV_LOCK_CSS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/resources/lock.css");
@@ -86,6 +98,7 @@ pub enum AppCommand {
     CycleInput,
     PowerAction(LockPowerAction),
     ClockTick,
+    CooldownTick,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -235,6 +248,7 @@ pub struct LockApp {
     auth_generation: u64,
     consecutive_failures: u32,
     cooldown_expires: Option<Instant>,
+    cooldown_tick_cancel: Option<CancellationToken>,
     pending_sleep_release: Option<zbus::zvariant::OwnedFd>,
     control_status: LockControlStatus,
     services: LockServices,
@@ -270,7 +284,7 @@ impl SimpleComponent for LockApp {
         load_base_css(&base_css_provider);
         let effective_mode = read_effective_theme_mode(init.config.theme_mode);
         let spec = init.config.resolve(effective_mode);
-        let color_scheme_settings = subscribe_color_scheme(sender.clone());
+        let color_scheme_settings = subscribe_color_scheme(sender.clone(), init.config.theme_mode);
         log_lock_sources(&init.config, &spec, effective_mode);
         load_pack_css(&pack_css_provider, spec.pack_css_path.as_deref());
         load_custom_css(&custom_css_provider, &spec.css_path);
@@ -352,7 +366,7 @@ impl SimpleComponent for LockApp {
             config: init.config,
             spec,
             effective_mode,
-            _color_scheme_settings: Some(color_scheme_settings),
+            _color_scheme_settings: color_scheme_settings,
             authenticator: init.authenticator,
             windows: Vec::new(),
             preview_window: None,
@@ -368,6 +382,7 @@ impl SimpleComponent for LockApp {
             auth_generation: 0,
             consecutive_failures: 0,
             cooldown_expires: None,
+            cooldown_tick_cancel: None,
             pending_sleep_release: None,
             control_status: LockControlStatus::default(),
             services,
@@ -504,6 +519,9 @@ impl SimpleComponent for LockApp {
             }
             AppCommand::SubmitPassword(password) => {
                 if password.is_empty() {
+                    self.emit_to_lock_windows(LockWindowInput::SetStatus(
+                        "Enter your password".into(),
+                    ));
                     return;
                 }
                 if self.authenticating {
@@ -523,6 +541,7 @@ impl SimpleComponent for LockApp {
                     return;
                 }
                 self.authenticating = true;
+                self.emit_to_lock_windows(LockWindowInput::SetAuthenticating(true));
                 self.emit_to_lock_windows(LockWindowInput::SetStatus("Checking...".into()));
                 let authenticator = self.authenticator.clone();
                 let service = self.spec.pam_service.clone();
@@ -570,6 +589,7 @@ impl SimpleComponent for LockApp {
                     return;
                 }
                 self.authenticating = false;
+                self.emit_to_lock_windows(LockWindowInput::SetAuthenticating(false));
                 match result {
                     AuthResult::Success => {
                         tracing::info!("authentication succeeded");
@@ -585,7 +605,7 @@ impl SimpleComponent for LockApp {
                     AuthResult::Failure { pam_message } => {
                         tracing::warn!("authentication failed");
                         self.runtime.clear_auth_success();
-                        self.bump_failure_counter();
+                        self.bump_failure_counter(&sender);
                         let status = pam_message.unwrap_or_else(|| self.failure_status_text());
                         self.emit_to_lock_windows(LockWindowInput::SetStatus(status));
                     }
@@ -595,7 +615,7 @@ impl SimpleComponent for LockApp {
                     } => {
                         tracing::warn!(reason = %reason, "PAM account unavailable");
                         self.runtime.clear_auth_success();
-                        self.bump_failure_counter();
+                        self.bump_failure_counter(&sender);
                         let status = pam_message.unwrap_or(reason);
                         self.emit_to_lock_windows(LockWindowInput::SetStatus(status));
                     }
@@ -642,6 +662,20 @@ impl SimpleComponent for LockApp {
             AppCommand::ClockTick => {
                 self.emit_to_lock_windows(LockWindowInput::ClockTick);
             }
+            AppCommand::CooldownTick => match self.cooldown_remaining() {
+                Some(remaining) => {
+                    self.emit_to_lock_windows(LockWindowInput::SetStatus(format!(
+                        "Try again in {}s",
+                        remaining.as_secs().max(1)
+                    )));
+                }
+                None => {
+                    if let Some(cancel) = self.cooldown_tick_cancel.take() {
+                        cancel.cancel();
+                    }
+                    self.emit_to_lock_windows(LockWindowInput::SetStatus(String::new()));
+                }
+            },
         }
     }
 }
@@ -705,6 +739,8 @@ impl LockApp {
         // hand the same fd through to the new lock cycle without leaking it.
         self.pending_sleep_release.take();
         self.clear_lock_state();
+        self.consecutive_failures = 0;
+        self.cooldown_expires = None;
         relm4::spawn(async {
             if let Err(error) = logind::set_current_session_locked_hint(false).await {
                 tracing::debug!(%error, "failed to set logind LockedHint=false");
@@ -716,13 +752,18 @@ impl LockApp {
         // NOTE: does NOT touch pending_sleep_release. See finish_unlock for
         // why; the inhibitor fd is owned by the active sleep cycle, not by
         // the lock-instance lifecycle.
+        //
+        // NOTE: also does NOT touch consecutive_failures/cooldown_expires.
+        // This is called from request_lock on every re-acquire, including
+        // an unsolicited compositor release with no successful auth; wiping
+        // the brute-force cooldown ladder there would let an attacker who
+        // triggers repeated unsolicited releases dodge the cooldown. Only
+        // finish_unlock resets the ladder, on an actual successful unlock.
         self.windows.clear();
         self.instance = None;
         self.runtime.reset();
         self.authenticating = false;
         self.auth_generation = self.auth_generation.wrapping_add(1);
-        self.consecutive_failures = 0;
-        self.cooldown_expires = None;
         self.api_state.set_active(false);
     }
 
@@ -746,11 +787,38 @@ fn cooldown_seconds_after(failures: u32) -> Option<u64> {
 }
 
 impl LockApp {
-    fn bump_failure_counter(&mut self) {
+    fn bump_failure_counter(&mut self, sender: &ComponentSender<Self>) {
         self.consecutive_failures = self.consecutive_failures.saturating_add(1);
         if let Some(seconds) = cooldown_seconds_after(self.consecutive_failures) {
             self.cooldown_expires = Some(Instant::now() + Duration::from_secs(seconds));
+            self.start_cooldown_tick(sender);
         }
+    }
+
+    /// Ticks AppCommand::CooldownTick once a second while a cooldown is
+    /// active, so the "Try again in Ns" status counts down live and clears
+    /// itself at zero instead of only updating on the user's next submit
+    /// attempt. No-op if a tick is already running.
+    fn start_cooldown_tick(&mut self, sender: &ComponentSender<Self>) {
+        if self.cooldown_tick_cancel.is_some() {
+            return;
+        }
+        let cancel = CancellationToken::new();
+        let task_cancel = cancel.clone();
+        self.cooldown_tick_cancel = Some(cancel);
+        let input = sender.input_sender().clone();
+        relm4::spawn_local(async move {
+            loop {
+                tokio::select! {
+                    () = task_cancel.cancelled() => break,
+                    () = glib::timeout_future(Duration::from_secs(1)) => {
+                        if input.send(AppCommand::CooldownTick).is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+        });
     }
 
     fn failure_status_text(&self) -> String {
@@ -777,14 +845,14 @@ impl LockApp {
         self.windows.retain(|window| {
             monitors
                 .iter()
-                .any(|monitor| monitor.as_ptr() == window.monitor.as_ptr())
+                .any(|monitor| same_monitor(monitor, &window.monitor))
         });
 
         for monitor in monitors {
             if self
                 .windows
                 .iter()
-                .any(|window| window.monitor.as_ptr() == monitor.as_ptr())
+                .any(|window| same_monitor(&window.monitor, &monitor))
             {
                 continue;
             }
@@ -906,7 +974,7 @@ pub fn run(
     api_state: LockApiState,
     lock_on_start: bool,
 ) -> anyhow::Result<()> {
-    let app = RelmApp::new(GTK_APPLICATION_ID);
+    let app = RelmApp::new(&gtk_application_id());
     app.allow_multiple_instances(true);
     app.visible_on_activate(false)
         .with_args(args)
@@ -1194,6 +1262,16 @@ fn list_gdk_monitors() -> Vec<gdk::Monitor> {
         .collect()
 }
 
+/// Identity comparison for monitors that survives unplug/replug. Prefers the
+/// connector name (stable across reconnects) over the raw GObject pointer,
+/// which glib can reuse for a different physical output.
+fn same_monitor(a: &gdk::Monitor, b: &gdk::Monitor) -> bool {
+    match (a.connector(), b.connector()) {
+        (Some(a), Some(b)) => a == b,
+        _ => a.as_ptr() == b.as_ptr(),
+    }
+}
+
 pub struct LockWindow {
     spec: ResolvedLockSpec,
     user: UserInfo,
@@ -1207,6 +1285,8 @@ pub struct LockWindow {
     preview: bool,
     background: Controller<BackgroundLayer>,
     sender: relm4::Sender<AppCommand>,
+    password_entry: gtk::PasswordEntry,
+    authenticating: bool,
 }
 
 pub struct LockWindowInit {
@@ -1223,8 +1303,8 @@ pub enum LockWindowInput {
     Reconfigure(ResolvedLockSpec),
     Submit(SecretString),
     SetStatus(String),
+    SetAuthenticating(bool),
     AuthSucceeded,
-    AuthFailed,
     PowerAction(LockPowerAction),
     ControlStatus(LockControlStatus),
     CycleInput,
@@ -1318,6 +1398,8 @@ impl SimpleComponent for LockWindow {
                         add_css_class: "lock-password",
                         set_width_chars: 24,
                         set_show_peek_icon: false,
+                        #[watch]
+                        set_sensitive: !model.authenticating,
                         connect_activate[sender] => move |entry| {
                             let password = SecretString::new(entry.text().as_str());
                             entry.set_text("");
@@ -1668,7 +1750,7 @@ impl SimpleComponent for LockWindow {
             .detach();
         let background_widget_value = background.widget().clone().upcast::<gtk::Widget>();
         let background_widget = &background_widget_value;
-        let model = LockWindow {
+        let mut model = LockWindow {
             spec: init.spec,
             user: init.user,
             status: String::new(),
@@ -1681,8 +1763,11 @@ impl SimpleComponent for LockWindow {
             preview: init.preview,
             background,
             sender: init.sender,
+            password_entry: gtk::PasswordEntry::new(),
+            authenticating: false,
         };
         let widgets = view_output!();
+        model.password_entry = widgets.password_entry.clone();
         connect_lock_window_keys(&root, sender.input_sender().clone());
         connect_caps_lock_indicator(&widgets.password_entry, sender.input_sender().clone());
         widgets
@@ -1728,13 +1813,13 @@ impl SimpleComponent for LockWindow {
             LockWindowInput::SetStatus(status) => {
                 self.status = status;
             }
+            LockWindowInput::SetAuthenticating(authenticating) => {
+                self.authenticating = authenticating;
+            }
             LockWindowInput::AuthSucceeded => {
                 self.status = "Authentication accepted".into();
                 self.power_menu_open = false;
                 self.confirm_power_action = None;
-            }
-            LockWindowInput::AuthFailed => {
-                self.status = "Authentication failed".into();
             }
             LockWindowInput::PowerAction(action) => {
                 if action.requires_confirmation() && self.confirm_power_action != Some(action) {
@@ -1782,7 +1867,13 @@ impl SimpleComponent for LockWindow {
             }
             LockWindowInput::SetPrimary(show_auth) => {
                 self.show_auth = show_auth;
-                if !show_auth {
+                if show_auth {
+                    self.password_entry.grab_focus();
+                    let password_entry = self.password_entry.clone();
+                    glib::idle_add_local_once(move || {
+                        password_entry.grab_focus();
+                    });
+                } else {
                     self.power_menu_open = false;
                     self.confirm_power_action = None;
                     self.caps_lock = false;
@@ -2143,29 +2234,53 @@ fn log_lock_sources(config: &LockAppConfig, spec: &ResolvedLockSpec, mode: Effec
     );
 }
 
+/// Whether the GNOME interface settings schema is installed. `gio::Settings::new`
+/// g_error-aborts the whole process for an unknown schema, so this must be
+/// checked before ever constructing one.
+fn gnome_interface_schema_available() -> bool {
+    gio::SettingsSchemaSource::default()
+        .and_then(|src| src.lookup(GNOME_INTERFACE_SCHEMA, true))
+        .is_some()
+}
+
+/// Pure decision for Auto theme mode: falls back to Light whenever the schema
+/// is unavailable, regardless of `prefers_dark`.
+fn resolve_auto_theme_mode(schema_available: bool, prefers_dark: bool) -> EffectiveThemeMode {
+    if schema_available && prefers_dark {
+        EffectiveThemeMode::Dark
+    } else {
+        EffectiveThemeMode::Light
+    }
+}
+
 fn read_effective_theme_mode(configured: ThemeMode) -> EffectiveThemeMode {
     match configured {
         ThemeMode::Light => EffectiveThemeMode::Light,
         ThemeMode::Dark => EffectiveThemeMode::Dark,
         ThemeMode::Auto => {
-            let value = gio::Settings::new(GNOME_INTERFACE_SCHEMA).string(GNOME_COLOR_SCHEME_KEY);
-            if value == "prefer-dark" {
-                EffectiveThemeMode::Dark
-            } else {
-                EffectiveThemeMode::Light
-            }
+            let schema_available = gnome_interface_schema_available();
+            let prefers_dark = schema_available
+                && gio::Settings::new(GNOME_INTERFACE_SCHEMA).string(GNOME_COLOR_SCHEME_KEY)
+                    == "prefer-dark";
+            resolve_auto_theme_mode(schema_available, prefers_dark)
         }
     }
 }
 
-fn subscribe_color_scheme(sender: ComponentSender<LockApp>) -> gio::Settings {
+fn subscribe_color_scheme(
+    sender: ComponentSender<LockApp>,
+    theme_mode: ThemeMode,
+) -> Option<gio::Settings> {
+    if theme_mode != ThemeMode::Auto || !gnome_interface_schema_available() {
+        return None;
+    }
     let settings = gio::Settings::new(GNOME_INTERFACE_SCHEMA);
     settings.connect_changed(Some(GNOME_COLOR_SCHEME_KEY), move |_, _| {
         let config = Config::load();
         let mode = read_effective_theme_mode(config.theme_mode);
         sender.input(AppCommand::ThemeModeChanged(mode));
     });
-    settings
+    Some(settings)
 }
 
 fn install_css_provider(provider: &CssProvider, priority: u32) {
@@ -2550,9 +2665,10 @@ fn largest_monitor_size() -> Option<TextureTargetSize> {
         .into_iter()
         .map(|monitor| {
             let geometry = monitor.geometry();
+            let scale = monitor.scale_factor().max(1);
             TextureTargetSize {
-                width: geometry.width().max(1) as u32,
-                height: geometry.height().max(1) as u32,
+                width: geometry.width().saturating_mul(scale).max(1) as u32,
+                height: geometry.height().saturating_mul(scale).max(1) as u32,
             }
         })
         .max_by_key(|size| size.width.saturating_mul(size.height))
@@ -2629,6 +2745,25 @@ impl std::fmt::Debug for DecodedTexture {
     }
 }
 
+/// Ceiling on the blur radius actually handed to image::imageops::blur.
+/// [lock.background].blur_radius is user/config controlled and unbounded
+/// upstream; without this, a huge value hands the blur an effectively
+/// infinite sigma and wedges the decode worker.
+const MAX_BLUR_RADIUS: u32 = 128;
+
+/// Downsample-blur-upsample working dimensions, mirroring
+/// glimpse-wallpaper's blur_processing_dimensions: blurring at full target
+/// resolution is expensive (seconds on a first 4K decode at blur_radius=12),
+/// so the blur runs on a smaller working image and gets scaled back up.
+fn blur_processing_dimensions(width: u32, height: u32, blur_radius: u32) -> (u32, u32, u32) {
+    let blur_radius = blur_radius.min(MAX_BLUR_RADIUS);
+    let divisor = (blur_radius / 8).clamp(1, 4);
+    let work_width = (width / divisor).max(1);
+    let work_height = (height / divisor).max(1);
+    let work_blur_radius = (blur_radius / divisor).max(1);
+    (work_width, work_height, work_blur_radius)
+}
+
 fn decode_texture(
     image: &ResolvedImageSpec,
     blur_radius: u32,
@@ -2667,9 +2802,16 @@ fn decode_texture(
         blur_radius,
         "resizing lock background image"
     );
-    rgba = resize_rgba_for_fit(rgba, target_size.width, target_size.height, image.fit);
     if blur_radius > 0 {
-        rgba = image::imageops::blur(&rgba, blur_radius as f32);
+        let (work_width, work_height, work_blur_radius) =
+            blur_processing_dimensions(target_size.width, target_size.height, blur_radius);
+        rgba = resize_rgba_for_fit(rgba, work_width, work_height, image.fit);
+        rgba = image::imageops::blur(&rgba, work_blur_radius as f32);
+        if (work_width, work_height) != (target_size.width, target_size.height) {
+            rgba = resize_rgba_for_fit(rgba, target_size.width, target_size.height, image.fit);
+        }
+    } else {
+        rgba = resize_rgba_for_fit(rgba, target_size.width, target_size.height, image.fit);
     }
     let (width, height) = rgba.dimensions();
     let decoded = DecodedTexture {
@@ -2846,12 +2988,67 @@ mod tests {
     use notify::event::{AccessKind, AccessMode, DataChange, ModifyKind, RenameMode};
 
     use super::{
-        CssLoadOutcome, DecodedTexture, ImageLoadState, LockMode, LockPowerAction, TextureCacheKey,
-        battery_control_status, cooldown_seconds_after, css_load_outcome, file_watch_event_reloads,
-        file_watch_path_matches, keyboard_control_status, load_cached_texture,
-        network_control_status, power_confirmation_icon, power_confirmation_title,
-        resize_rgba_for_fit, should_run_power_action, watch_dirs_for_file, write_cached_texture,
+        CssLoadOutcome, DecodedTexture, EffectiveThemeMode, GTK_APPLICATION_ID, ImageLoadState,
+        LockMode, LockPowerAction, MAX_BLUR_RADIUS, TextureCacheKey, battery_control_status,
+        blur_processing_dimensions, cooldown_seconds_after, css_load_outcome,
+        file_watch_event_reloads, file_watch_path_matches, gtk_application_id_from_env,
+        keyboard_control_status, load_cached_texture, network_control_status,
+        power_confirmation_icon, power_confirmation_title, resize_rgba_for_fit,
+        resolve_auto_theme_mode, should_run_power_action, watch_dirs_for_file,
+        write_cached_texture,
     };
+
+    #[test]
+    fn lock_app_id_defaults_to_runtime_constant() {
+        assert_eq!(gtk_application_id_from_env(None), GTK_APPLICATION_ID);
+    }
+
+    #[test]
+    fn lock_app_id_can_be_overridden_from_env() {
+        assert_eq!(
+            gtk_application_id_from_env(Some("me.aresa.GlimpseLock.TestApp".into())),
+            "me.aresa.GlimpseLock.TestApp"
+        );
+    }
+
+    #[test]
+    fn lock_blur_processing_downsamples_large_blurs() {
+        assert_eq!(blur_processing_dimensions(1920, 1080, 24), (640, 360, 8));
+        assert_eq!(blur_processing_dimensions(1280, 720, 24), (426, 240, 8));
+        assert_eq!(blur_processing_dimensions(1280, 720, 4), (1280, 720, 4));
+    }
+
+    #[test]
+    fn lock_blur_processing_clamps_huge_radius_to_ceiling() {
+        assert_eq!(
+            blur_processing_dimensions(1920, 1080, 1_000_000),
+            blur_processing_dimensions(1920, 1080, MAX_BLUR_RADIUS)
+        );
+    }
+
+    #[test]
+    fn resolve_auto_theme_mode_falls_back_to_light_when_schema_missing() {
+        // A missing org.gnome.desktop.interface schema must never abort the
+        // process (gio::Settings::new g_errors on an unknown schema); Auto
+        // mode falls back to Light instead, even if a stray "prefers_dark"
+        // value were somehow available.
+        assert_eq!(
+            resolve_auto_theme_mode(false, true),
+            EffectiveThemeMode::Light
+        );
+    }
+
+    #[test]
+    fn resolve_auto_theme_mode_follows_prefers_dark_when_schema_present() {
+        assert_eq!(
+            resolve_auto_theme_mode(true, true),
+            EffectiveThemeMode::Dark
+        );
+        assert_eq!(
+            resolve_auto_theme_mode(true, false),
+            EffectiveThemeMode::Light
+        );
+    }
 
     #[test]
     fn image_load_state_rejects_stale_requests() {

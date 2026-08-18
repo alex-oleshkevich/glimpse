@@ -117,7 +117,9 @@ impl SimpleComponent for Applet {
                 sender.input(Input::ToggleMute);
             },
             connect_scrolled[sender] => move |_, _dx, dy| {
-                sender.input(Input::Scroll(dy));
+                if dy != 0.0 {
+                    sender.input(Input::Scroll(dy));
+                }
             },
 
             MutedIndicator {

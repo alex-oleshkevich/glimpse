@@ -22,7 +22,7 @@ use super::{
 };
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct Config {
     show_icon: bool,
     #[serde(alias = "label_format")]
@@ -238,6 +238,10 @@ fn apply_status(instance: &mut Applet, status: &BatteryStatus) {
     instance.visible = status.present;
 }
 
+/// Selects the label/tooltip templates for the current power state. When
+/// plugged in, an empty `label_on_ac`/`tooltip_on_ac` falls back to the
+/// corresponding `_on_battery` template rather than rendering blank —
+/// documented in docs/applets/index.md.
 fn select_templates<'a>(config: &'a Config, status: &BatteryStatus) -> (&'a str, &'a str) {
     if status.on_battery {
         (&config.label_on_battery, &config.tooltip_on_battery)

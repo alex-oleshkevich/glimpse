@@ -446,9 +446,11 @@ async fn apply_temperature_transition(
     let temperatures = transition_temperatures(from, to);
 
     if temperatures.is_empty() {
-        if to == DAYLIGHT_TEMPERATURE_KELVIN {
-            apply_temperature_now(compositor, to).await?;
-        }
+        // from == to: still force one apply. The compositor's actual gamma
+        // state can diverge from what we last set (e.g. a compositor
+        // restart), and skipping the apply here would leave it stuck
+        // uncorrected with no way to recover.
+        apply_temperature_now(compositor, to).await?;
         return Ok(());
     }
 

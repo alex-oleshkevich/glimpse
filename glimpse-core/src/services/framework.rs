@@ -217,7 +217,7 @@ impl ServiceRuntime {
         let clock_service = spawn_service(|cancel| clock_service.run(cancel));
 
         let (calendar_events_service, calendar_events) =
-            calendar_events::CalendarEventsService::new(session_dbus.clone());
+            calendar_events::CalendarEventsService::new();
         let calendar_events_service = spawn_service(|cancel| calendar_events_service.run(cancel));
 
         let (geoclue_service, geoclue) = geoclue::GeoClueService::new(system_dbus.clone());

@@ -95,8 +95,6 @@ fn event_to_json(line: &str) -> String {
         return "{}".into();
     };
     let mut map = Map::new();
-    map.insert("type".into(), Value::String("event".into()));
-    map.insert("name".into(), Value::String(name.to_owned()));
     for token in tokens {
         let Some((k, v)) = token.split_once('=') else {
             continue;
@@ -110,6 +108,10 @@ fn event_to_json(line: &str) -> String {
         }
         map.insert(k.to_owned(), Value::String(v));
     }
+    // Envelope keys are inserted last so an event field of the same name
+    // (e.g. bluetooth.device_added's own "name" field) can never shadow them.
+    map.insert("type".into(), Value::String("event".into()));
+    map.insert("name".into(), Value::String(name.to_owned()));
     serde_json::to_string(&map).unwrap_or_else(|_| "{}".into())
 }
 
@@ -148,5 +150,28 @@ async fn read_hello(
         Some(line) if line.starts_with("hello") => Ok(()),
         Some(line) => bail!("unexpected server greeting: {line}"),
         None => bail!("server closed connection before hello"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn event_to_json_keeps_event_name_when_a_field_is_also_named_name() {
+        // e.g. bluetooth.device_added carries its own "name" field (device alias).
+        let line = "bluetooth.device_added address=aa:bb name=AirPods ts=123";
+        let parsed: Value = serde_json::from_str(&event_to_json(line)).unwrap();
+        assert_eq!(parsed["type"], "event");
+        assert_eq!(parsed["name"], "bluetooth.device_added");
+        assert_eq!(parsed["ts"], 123);
+    }
+
+    #[test]
+    fn event_to_json_keeps_envelope_type_when_a_field_is_also_named_type() {
+        let line = "removable.device_added type=usb ts=123";
+        let parsed: Value = serde_json::from_str(&event_to_json(line)).unwrap();
+        assert_eq!(parsed["type"], "event");
+        assert_eq!(parsed["name"], "removable.device_added");
     }
 }

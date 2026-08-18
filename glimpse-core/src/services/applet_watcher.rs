@@ -96,7 +96,15 @@ impl AppletWatcher {
                     &[&system_dir, &user_dir],
                     &mut watched_targets,
                 );
-                if state_tx.send(discovered).is_err() {
+                state_tx.send_if_modified(|current| {
+                    if *current == discovered {
+                        false
+                    } else {
+                        *current = discovered;
+                        true
+                    }
+                });
+                if state_tx.is_closed() {
                     break;
                 }
             }

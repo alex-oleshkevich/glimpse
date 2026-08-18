@@ -303,6 +303,8 @@ impl RenderCatalog {
     fn render_scroll(&self, data: &ScrollNode) -> Result<gtk::Widget, RenderError> {
         let scroll = GtkScroll::new();
         scroll.set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Automatic);
+        scroll.set_propagate_natural_height(true);
+        scroll.set_min_content_height(80);
         scroll.set_child(Some(&self.render(&data.child)?));
         apply_common(&scroll, &data.common);
         Ok(scroll.upcast())

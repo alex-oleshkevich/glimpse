@@ -1,5 +1,5 @@
 use std::process::Stdio;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use relm4::{ComponentParts, ComponentSender, SimpleComponent, gtk::prelude::*};
 use serde::Deserialize;
@@ -10,7 +10,10 @@ use crate::{
     widgets::panel_indicator::{PanelIndicator, PanelMenu, PanelMenuItem},
 };
 
-const SCROLL_DEBOUNCE_MS: u64 = 100;
+/// Minimum gap between fired scroll commands. Leading-edge: the first notch
+/// in a burst fires immediately; further notches within the window are
+/// dropped instead of only ever firing the last one after scrolling stops.
+const SCROLL_THROTTLE_MS: u64 = 100;
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
@@ -35,7 +38,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn from_raw(raw: &Option<AppletConfig>) -> Self {
+    pub fn from_raw(name: &str, raw: &Option<AppletConfig>) -> Self {
         let Some(raw) = raw else {
             return Self::default();
         };
@@ -43,7 +46,7 @@ impl Config {
         match raw.settings.clone().try_into() {
             Ok(config) => config,
             Err(error) => {
-                tracing::warn!(?error, "invalid command applet config, using defaults");
+                tracing::warn!(applet = name, %error, "invalid command applet config, using defaults");
                 Self::default()
             }
         }
@@ -63,8 +66,8 @@ pub struct Applet {
     config: Config,
     view: View,
     root: PanelIndicator,
-    scroll_v: Option<tokio::task::JoinHandle<()>>,
-    scroll_h: Option<tokio::task::JoinHandle<()>>,
+    scroll_v_throttle: Option<Instant>,
+    scroll_h_throttle: Option<Instant>,
 }
 
 #[derive(Debug)]
@@ -82,7 +85,7 @@ pub enum Input {
     HScrollLeft,
     HScrollRight,
     MenuCommand(usize),
-    Reconfigure(Config),
+    Reconfigure(Option<AppletConfig>),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -141,8 +144,8 @@ impl SimpleComponent for Applet {
             config: init.config,
             view,
             root: root.clone(),
-            scroll_v: None,
-            scroll_h: None,
+            scroll_v_throttle: None,
+            scroll_h_throttle: None,
         };
         let widgets = view_output!();
 
@@ -153,22 +156,21 @@ impl SimpleComponent for Applet {
         match message {
             Input::Activate => self.spawn_command(&self.config.on_click),
             Input::MiddleClick => self.spawn_command(&self.config.on_middle_click),
-            Input::ScrollUp => self.debounce_scroll_v(&self.config.on_scroll_up.clone()),
-            Input::ScrollDown => self.debounce_scroll_v(&self.config.on_scroll_down.clone()),
-            Input::HScrollLeft => self.debounce_scroll_h(&self.config.on_scroll_left.clone()),
-            Input::HScrollRight => self.debounce_scroll_h(&self.config.on_scroll_right.clone()),
+            Input::ScrollUp => self.throttle_scroll_v(&self.config.on_scroll_up.clone()),
+            Input::ScrollDown => self.throttle_scroll_v(&self.config.on_scroll_down.clone()),
+            Input::HScrollLeft => self.throttle_scroll_h(&self.config.on_scroll_left.clone()),
+            Input::HScrollRight => self.throttle_scroll_h(&self.config.on_scroll_right.clone()),
             Input::MenuCommand(index) => {
                 if let Some(item) = self.config.menu.get(index) {
                     self.spawn_command(&item.command);
                     self.root.popdown_context_menu();
                 }
             }
-            Input::Reconfigure(config) => {
+            Input::Reconfigure(raw) => {
+                let config = Config::from_raw(&self.name, &raw);
                 if self.config == config {
                     return;
                 }
-                self.scroll_v.take().map(|h| h.abort());
-                self.scroll_h.take().map(|h| h.abort());
                 sync_context_menu(&self.root, &config, &sender);
                 self.view = view_from_config(&config);
                 self.config = config;
@@ -179,8 +181,6 @@ impl SimpleComponent for Applet {
 
 impl Drop for Applet {
     fn drop(&mut self) {
-        self.scroll_v.take().map(|h| h.abort());
-        self.scroll_h.take().map(|h| h.abort());
         self.root.clear_context_menu();
     }
 }
@@ -190,34 +190,18 @@ impl Applet {
         view_from_config(config).visible
     }
 
-    fn debounce_scroll_v(&mut self, command: &[String]) {
-        self.scroll_v.take().map(|h| h.abort());
-        if command.is_empty() {
+    fn throttle_scroll_v(&mut self, command: &[String]) {
+        if command.is_empty() || !scroll_throttle_ready(&mut self.scroll_v_throttle) {
             return;
         }
-        let name = self.name.clone();
-        let cmd = command.to_vec();
-        self.scroll_v = Some(relm4::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(SCROLL_DEBOUNCE_MS)).await;
-            if let Err(e) = run_command(&name, cmd).await {
-                tracing::warn!(%e, applet = %name, "scroll command failed");
-            }
-        }));
+        self.spawn_command(command);
     }
 
-    fn debounce_scroll_h(&mut self, command: &[String]) {
-        self.scroll_h.take().map(|h| h.abort());
-        if command.is_empty() {
+    fn throttle_scroll_h(&mut self, command: &[String]) {
+        if command.is_empty() || !scroll_throttle_ready(&mut self.scroll_h_throttle) {
             return;
         }
-        let name = self.name.clone();
-        let cmd = command.to_vec();
-        self.scroll_h = Some(relm4::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(SCROLL_DEBOUNCE_MS)).await;
-            if let Err(e) = run_command(&name, cmd).await {
-                tracing::warn!(%e, applet = %name, "scroll command failed");
-            }
-        }));
+        self.spawn_command(command);
     }
 
     fn spawn_command(&self, command: &[String]) {
@@ -235,6 +219,21 @@ impl Applet {
     }
 }
 
+/// Leading-edge throttle: fires (and returns true) if enough time has
+/// passed since the last fire, updating `last` in that case. Otherwise
+/// returns false and leaves `last` untouched.
+fn scroll_throttle_ready(last: &mut Option<Instant>) -> bool {
+    let now = Instant::now();
+    let ready = match *last {
+        Some(previous) => now.duration_since(previous) >= Duration::from_millis(SCROLL_THROTTLE_MS),
+        None => true,
+    };
+    if ready {
+        *last = Some(now);
+    }
+    ready
+}
+
 async fn run_command(applet: &str, command: Vec<String>) -> anyhow::Result<()> {
     let Some((program, args)) = command.split_first() else {
         return Ok(());
@@ -242,13 +241,17 @@ async fn run_command(applet: &str, command: Vec<String>) -> anyhow::Result<()> {
 
     tracing::debug!(applet, %program, ?args, "command applet running command");
 
-    TokioCommand::new(program)
+    let status = TokioCommand::new(program)
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
         .await?;
+
+    if !status.success() {
+        tracing::warn!(applet, %program, ?args, ?status, "command applet command exited with failure");
+    }
 
     Ok(())
 }
@@ -317,7 +320,31 @@ mod tests {
 
     #[test]
     fn config_accepts_empty_settings() {
-        assert_eq!(Config::from_raw(&None), Config::default());
+        assert_eq!(Config::from_raw("test", &None), Config::default());
+    }
+
+    #[tokio::test]
+    async fn run_command_returns_ok_when_child_exits_nonzero() {
+        let result =
+            run_command("test", vec!["/bin/sh".into(), "-c".into(), "exit 3".into()]).await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn scroll_throttle_fires_on_first_call_then_blocks_until_window_elapses() {
+        let mut last = None;
+        assert!(scroll_throttle_ready(&mut last), "first notch always fires");
+        assert!(
+            !scroll_throttle_ready(&mut last),
+            "an immediate second notch within the window must not fire"
+        );
+
+        // Simulate the window having elapsed by backdating the stored instant.
+        last = Instant::now().checked_sub(Duration::from_millis(SCROLL_THROTTLE_MS));
+        assert!(
+            scroll_throttle_ready(&mut last),
+            "a notch after the window elapses must fire"
+        );
     }
 
     #[test]

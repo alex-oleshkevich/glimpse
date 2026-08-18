@@ -1,4 +1,9 @@
-use std::path::PathBuf;
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    rc::Rc,
+};
 
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
@@ -16,8 +21,10 @@ use crate::{
 
 pub struct Popover {
     popover: AnimatedPopover,
+    error_box: gtk::Box,
     list: gtk::Box,
     hero_subtitle: String,
+    rows: HashMap<String, RemovableRow>,
 }
 
 #[derive(Debug)]
@@ -80,6 +87,9 @@ impl SimpleComponent for Popover {
                     set_subtitle: &model.hero_subtitle,
                 },
 
+                #[local_ref]
+                error_box -> gtk::Box {},
+
                 #[name = "scroller"]
                 gtk::ScrolledWindow {
                     set_policy: (gtk::PolicyType::Never, gtk::PolicyType::Automatic),
@@ -98,12 +108,15 @@ impl SimpleComponent for Popover {
         _root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
+        let error_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
         let list = gtk::Box::new(gtk::Orientation::Vertical, 2);
 
         let mut model = Popover {
             popover: AnimatedPopover::new(),
+            error_box: error_box.clone(),
             list: list.clone(),
             hero_subtitle: hero_subtitle(&State::default()),
+            rows: HashMap::new(),
         };
 
         let widgets = view_output!();
@@ -127,12 +140,8 @@ impl SimpleComponent for Popover {
             PopoverInput::UpdateState(state) => {
                 self.hero_subtitle = hero_subtitle(&state);
                 self.list.set_visible(!state.devices.is_empty());
-                while let Some(child) = self.list.first_child() {
-                    self.list.remove(&child);
-                }
-                for device in &state.devices {
-                    self.list.append(&build_row(device, &sender));
-                }
+                self.sync_error_banner(&state);
+                self.sync_rows(&state, &sender);
             }
             PopoverInput::DeviceCommand(command) => {
                 let _ = sender.output(popover_output_for_row_command(command));
@@ -141,78 +150,219 @@ impl SimpleComponent for Popover {
     }
 }
 
-fn build_row(device: &StorageDevice, sender: &ComponentSender<Popover>) -> gtk::Widget {
-    let tile = SegmentedTile::new();
-    tile.add_css_class("removable-device-row");
-    tile.set_secondary(None);
-    tile.set_primary(&device.name);
-    tile.set_tooltip_text(Some(&device_tooltip(device)));
-
-    let icon = gtk::Image::from_icon_name(&device.icon);
-    icon.add_css_class("removable-device-row__icon");
-    icon.set_pixel_size(16);
-    icon.set_valign(gtk::Align::Center);
-    tile.set_left(Some(icon));
-
-    if device.mounted_at.is_some() {
-        tile.add_css_class("is-active");
-        tile.add_css_class("is-selected");
-    }
-
-    let status = device_status(device);
-    if status.busy || status.text.is_some() {
-        let status_box = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-        status_box.set_valign(gtk::Align::Center);
-        if status.busy {
-            let spinner = gtk::Spinner::new();
-            spinner.add_css_class("removable-device-row__spinner");
-            spinner.set_spinning(true);
-            status_box.append(&spinner);
-        } else if let Some(text) = &status.text {
-            let label = gtk::Label::new(Some(text));
-            label.add_css_class("dim-label");
-            label.add_css_class("caption");
-            status_box.append(&label);
+impl Popover {
+    /// Mirrors printing's sync_error_banners: state.error is set on every
+    /// failed storage command (mount/unmount/eject/...) but previously had
+    /// no rendering, so a failure just silently stopped the row's spinner.
+    fn sync_error_banner(&self, state: &State) {
+        while let Some(child) = self.error_box.first_child() {
+            self.error_box.remove(&child);
         }
-        tile.set_right(Some(status_box));
+        if let Some(error) = &state.error {
+            let tile = Tile::new();
+            tile.add_css_class("error-banner");
+            tile.set_primary("Storage error");
+            tile.set_secondary(Some(error.as_str()));
+            tile.set_activatable(false);
+            self.error_box.append(&tile);
+        }
+        self.error_box
+            .set_visible(self.error_box.first_child().is_some());
     }
 
-    let command = primary_device_command(device);
-    tile.set_activatable(command.is_some());
-    if let Some(cmd) = command {
-        tile.connect_activated({
-            let sender = sender.clone();
-            move |_| sender.input(PopoverInput::DeviceCommand(cmd.clone()))
+    /// Keyed diff instead of tearing down and rebuilding every row: a row's
+    /// SegmentedTile is a persistent GTK object, so an in-place mount/eject
+    /// while a row is expanded doesn't collapse it out from under the user.
+    fn sync_rows(&mut self, state: &State, sender: &ComponentSender<Popover>) {
+        let mut seen: HashSet<String> = HashSet::new();
+        let mut previous: Option<gtk::Widget> = None;
+        // The storage service refuses any command while it has an action in
+        // flight (not just commands targeting the busy device), so disable
+        // every row's actions during that window instead of only the one
+        // showing a spinner.
+        let globally_busy = state.active_action.is_some();
+
+        for device in &state.devices {
+            seen.insert(device.id.clone());
+            let row = self
+                .rows
+                .entry(device.id.clone())
+                .or_insert_with(|| RemovableRow::new(device, sender));
+            row.update(device, globally_busy, sender);
+            place_row(row, &self.list, previous.as_ref());
+            previous = Some(row.widget().clone());
+        }
+
+        self.rows.retain(|id, row| {
+            let keep = seen.contains(id);
+            if !keep {
+                let widget = row.widget();
+                if let Some(parent) = widget.parent()
+                    && let Ok(parent) = parent.downcast::<gtk::Box>()
+                {
+                    parent.remove(widget);
+                }
+            }
+            keep
         });
     }
+}
 
-    let actions: Vec<_> = device_actions(device)
-        .into_iter()
-        .filter(|a| a.visible)
-        .collect();
-    if !actions.is_empty() {
+fn place_row(row: &RemovableRow, container: &gtk::Box, previous: Option<&gtk::Widget>) {
+    let row_widget = row.widget();
+    let target = container.clone().upcast::<gtk::Widget>();
+    let already_in_container = row_widget.parent().is_some_and(|parent| parent == target);
+
+    if !already_in_container {
+        if let Some(parent) = row_widget.parent()
+            && let Ok(parent) = parent.downcast::<gtk::Box>()
+        {
+            parent.remove(row_widget);
+        }
+        container.append(row_widget);
+    }
+    container.reorder_child_after(row_widget, previous);
+}
+
+// ─── Row ────────────────────────────────────────────────────────────────
+
+struct RemovableRow {
+    root: SegmentedTile,
+    icon: gtk::Image,
+    status_box: gtk::Box,
+    spinner: gtk::Spinner,
+    status_label: gtk::Label,
+    actions_box: gtk::Box,
+    primary_command: Rc<RefCell<Option<RowCommand>>>,
+    id: String,
+}
+
+impl RemovableRow {
+    fn new(device: &StorageDevice, sender: &ComponentSender<Popover>) -> Self {
+        let root = SegmentedTile::new();
+        root.add_css_class("removable-device-row");
+        root.set_secondary(None);
+
+        let icon = gtk::Image::new();
+        icon.add_css_class("removable-device-row__icon");
+        icon.set_pixel_size(16);
+        icon.set_valign(gtk::Align::Center);
+        root.set_left(Some(icon.clone()));
+
+        let spinner = gtk::Spinner::new();
+        spinner.add_css_class("removable-device-row__spinner");
+        let status_label = gtk::Label::new(None);
+        status_label.add_css_class("dim-label");
+        status_label.add_css_class("caption");
+        let status_box = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        status_box.set_valign(gtk::Align::Center);
+        status_box.append(&spinner);
+        status_box.append(&status_label);
+        root.set_right(Some(status_box.clone()));
+
         let actions_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
         actions_box.add_css_class("removable-device-row__actions");
-        for action in actions {
-            let action_tile = Tile::new();
-            action_tile.add_css_class("removable-device-action");
-            action_tile.set_primary(&action.label);
-            action_tile.set_secondary(None);
-            action_tile.set_sensitive(action.enabled);
-            if action.destructive {
-                action_tile.add_css_class("destructive-action");
+
+        // The primary command depends on mutable device state (Mount vs
+        // OpenPath vs disabled), so it's read from a cell at click time
+        // rather than wiring a fresh connect_activated closure per update
+        // (which would stack handlers on this now-persistent tile).
+        let primary_command: Rc<RefCell<Option<RowCommand>>> = Rc::new(RefCell::new(None));
+        root.connect_activated({
+            let sender = sender.clone();
+            let primary_command = primary_command.clone();
+            move |_| {
+                if let Some(cmd) = primary_command.borrow().clone() {
+                    sender.input(PopoverInput::DeviceCommand(cmd));
+                }
             }
-            let cmd = action.command;
-            action_tile.connect_activated({
-                let sender = sender.clone();
-                move |_| sender.input(PopoverInput::DeviceCommand(cmd.clone()))
-            });
-            actions_box.append(&action_tile);
-        }
-        tile.set_child(Some(actions_box));
+        });
+
+        let mut row = Self {
+            root,
+            icon,
+            status_box,
+            spinner,
+            status_label,
+            actions_box,
+            primary_command,
+            id: device.id.clone(),
+        };
+        // Real value applied immediately after by the sync_rows() caller.
+        row.update(device, false, sender);
+        row
     }
 
-    tile.upcast()
+    fn update(
+        &mut self,
+        device: &StorageDevice,
+        globally_busy: bool,
+        sender: &ComponentSender<Popover>,
+    ) {
+        debug_assert_eq!(self.id, device.id);
+        self.root.set_primary(&device.name);
+        self.root.set_tooltip_text(Some(&device_tooltip(device)));
+        self.icon.set_icon_name(Some(&device.icon));
+
+        if device.mounted_at.is_some() {
+            self.root.add_css_class("is-active");
+            self.root.add_css_class("is-selected");
+        } else {
+            self.root.remove_css_class("is-active");
+            self.root.remove_css_class("is-selected");
+        }
+
+        let status = device_status(device);
+        self.status_box
+            .set_visible(status.busy || status.text.is_some());
+        self.spinner.set_visible(status.busy);
+        self.spinner.set_spinning(status.busy);
+        self.status_label.set_visible(!status.busy);
+        if let Some(text) = &status.text {
+            self.status_label.set_label(text);
+        }
+
+        let command = if globally_busy {
+            None
+        } else {
+            primary_device_command(device)
+        };
+        self.root.set_activatable(command.is_some());
+        *self.primary_command.borrow_mut() = command;
+
+        while let Some(child) = self.actions_box.first_child() {
+            self.actions_box.remove(&child);
+        }
+        let actions: Vec<_> = device_actions(device)
+            .into_iter()
+            .filter(|a| a.visible)
+            .collect();
+        if actions.is_empty() {
+            self.root.set_child(None::<gtk::Widget>);
+        } else {
+            for action in actions {
+                let action_tile = Tile::new();
+                action_tile.add_css_class("removable-device-action");
+                action_tile.set_primary(&action.label);
+                action_tile.set_secondary(None);
+                action_tile.set_sensitive(action.enabled && !globally_busy);
+                if action.destructive {
+                    action_tile.add_css_class("destructive-action");
+                }
+                let cmd = action.command;
+                action_tile.connect_activated({
+                    let sender = sender.clone();
+                    move |_| sender.input(PopoverInput::DeviceCommand(cmd.clone()))
+                });
+                self.actions_box.append(&action_tile);
+            }
+            self.root.set_child(Some(self.actions_box.clone()));
+        }
+    }
+
+    fn widget(&self) -> &gtk::Widget {
+        self.root.upcast_ref()
+    }
 }
 
 fn hero_subtitle(state: &State) -> String {
@@ -288,10 +438,23 @@ pub(super) fn storage_device_actions(device: &StorageDevice) -> Vec<DeviceAction
         actions.push(DeviceAction {
             id: "eject".into(),
             label: "Eject".into(),
-            destructive: false,
+            destructive: true,
             enabled: true,
             visible: true,
             command: Command::Eject {
+                id: device.id.clone(),
+            },
+        });
+    }
+
+    if device.can_power_off {
+        actions.push(DeviceAction {
+            id: "power_off".into(),
+            label: "Power off".into(),
+            destructive: true,
+            enabled: true,
+            visible: true,
+            command: Command::PowerOff {
                 id: device.id.clone(),
             },
         });
@@ -417,6 +580,37 @@ mod tests {
     }
 
     #[test]
+    fn eject_and_power_off_actions_are_marked_destructive() {
+        let actions = storage_device_actions(&device());
+
+        let eject = actions.iter().find(|a| a.id == "eject").unwrap();
+        assert!(eject.destructive);
+
+        let power_off = actions.iter().find(|a| a.id == "power_off").unwrap();
+        assert!(power_off.destructive);
+        assert_eq!(
+            power_off.command,
+            Command::PowerOff {
+                id: "device".into()
+            }
+        );
+    }
+
+    #[test]
+    fn power_off_action_is_absent_when_device_cannot_power_off() {
+        let device = StorageDevice {
+            can_power_off: false,
+            ..device()
+        };
+
+        assert!(
+            !storage_device_actions(&device)
+                .iter()
+                .any(|a| a.id == "power_off")
+        );
+    }
+
+    #[test]
     fn busy_device_has_no_primary_action() {
         let device = StorageDevice {
             busy: true,
@@ -495,7 +689,7 @@ mod tests {
                 .iter()
                 .map(|action| action.id.as_str())
                 .collect::<Vec<_>>(),
-            vec!["mount", "eject"]
+            vec!["mount", "eject", "power_off"]
         );
 
         let mounted = StorageDevice {

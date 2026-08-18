@@ -287,16 +287,18 @@ fn print_dispatch_help() {
     println!(
         "    set_location lat=<-90..90> lon=<-180..180>  Override location (manual; bypasses GeoClue)"
     );
+    println!("    toggle_popover applet=<name> [section=<left|center|right>] [occurrence=<n>]");
     println!(
-        "    toggle_popover applet=<name> [section=<left|center|right>] [occurrence=<n>]"
+        "                                                 Toggle an applet's popover, if it has one"
     );
-    println!("                                                 Toggle an applet's popover, if it has one");
     println!("    forget_wifi uuid=<u> confirm=true           Forget a network (destructive)");
     println!("    forget_bluetooth address=<a> confirm=true   Unpair a device (destructive)");
     println!("    eject id=<id> confirm=true                  Eject media (destructive)");
     println!("    poweroff_drive id=<id> confirm=true         Power off a drive (destructive)");
     println!("    clear_clipboard confirm=true                Clear clipboard (destructive)");
     println!("    clear_clipboard_history confirm=true        Clear history (destructive)");
+    println!("    idle_manual_hold enabled=<bool>             Toggle the manual idle inhibitor");
+    println!("    idle_release id=<u64>                       Release an idle inhibitor by id");
 }
 
 fn print_applets_help() {

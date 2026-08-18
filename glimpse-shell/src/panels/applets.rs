@@ -73,6 +73,13 @@ macro_rules! define_applet_controller {
     (@std $mod:ident, $controller:ident, $config:ident, $_theme:ident) => {
         $controller.emit($mod::Input::Reconfigure($mod::Config::from_raw(&$config.cloned())))
     };
+    // Like @std, but Config::from_raw needs the applet's instance name (to
+    // attribute a config parse warning to the right applet) so the raw,
+    // unparsed config is sent instead and the applet parses it itself,
+    // where its own name is already in scope.
+    (@std_named $mod:ident, $controller:ident, $config:ident, $_theme:ident) => {
+        $controller.emit($mod::Input::Reconfigure($config.cloned()))
+    };
     (@noop $_mod:ident, $controller:ident, $_cfg:ident, $_theme:ident) => { let _ = $controller; };
     (@theme $mod:ident, $controller:ident, $config:ident, $theme_mode:ident) => {
         $controller.emit($mod::Input::Reconfigure {
@@ -142,14 +149,14 @@ define_applet_controller! {
     (Display,       display,       display::Applet,       Display,       std,   pop),
     (Clipboard,     clipboard,     clipboard::Applet,     Clipboard,     std,   pop),
     (Clock,         clock,         clock::Applet,         Clock,         std,   pop),
-    (Command,       command,       command::Applet,       Command,       std,   nopop),
+    (Command,       command,       command::Applet,       Command,       std_named, nopop),
     // Dynamic hosts N independent runtime connections, each with its own
     // popover; there is no single applet-level popover to address generically.
     (Dynamic,       dynamic,       dynamic::Applet,       Dynamic,       noop,  nopop),
     // Exec's popovers belong to its dynamically-hosted status items, not to
     // the applet's own top-level Input, so there is no single popover to
     // address generically here.
-    (Exec,          exec,          exec::Applet,          Exec,          std,   nopop),
+    (Exec,          exec,          exec::Applet,          Exec,          std_named, nopop),
     (Idle,          idle,          idle::applet::Applet,  Idle,          noop,  pop),
     (Keyboard,      keyboard,      keyboard::Applet,      Keyboard,      std,   nopop),
     (Mpris,         mpris,         mpris::Applet,         Mpris,         std,   pop),
@@ -237,7 +244,7 @@ pub fn create_applet(
                 .detach(),
         )),
         AppletType::Command => {
-            let config = command::Config::from_raw(&blueprint.config);
+            let config = command::Config::from_raw(&blueprint.name, &blueprint.config);
             if !command::Applet::can_launch(&config) {
                 tracing::warn!(name = %blueprint.name, "command applet requires an icon or label");
                 return None;
@@ -259,7 +266,7 @@ pub fn create_applet(
                 .detach(),
         )),
         AppletType::Exec => {
-            let config = exec::Config::from_raw(&blueprint.config);
+            let config = exec::Config::from_raw(&blueprint.name, &blueprint.config);
             if !exec::Applet::can_launch(&config) {
                 tracing::warn!(name = %blueprint.name, "exec applet requires a non-empty command");
                 return None;
@@ -514,6 +521,12 @@ pub fn reconcile_applets(
                     theme_mode,
                     ipc,
                 ) else {
+                    // The old controller was already detached and is about
+                    // to be dropped here - tell IPC subscribers it's gone
+                    // even though the replacement failed to spawn.
+                    if let Some(old) = current_types.get(&entry.key) {
+                        emit_applet(ipc, "applet.removed", panel_monitor, &entry.key, *old);
+                    }
                     continue;
                 };
                 created

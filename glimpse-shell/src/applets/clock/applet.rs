@@ -174,12 +174,15 @@ impl SimpleComponent for Applet {
                 self.popover.emit(PopoverInput::SetHideAllDayEvents(
                     self.config.hide_all_day_events,
                 ));
+                self.popover.emit(PopoverInput::SetShowWeekNumbers(
+                    self.config.show_week_numbers,
+                ));
                 self.configure_clock();
                 self.apply_clock_state(self.clock.snapshot());
             }
             Input::TogglePopover => {
-                self.popover.emit(PopoverInput::Toggle);
                 self.sync_popover();
+                self.popover.emit(PopoverInput::Toggle);
             }
             Input::PopoverOutput(output) => match output {
                 PopoverOutput::VisibleMonthChanged(month) => self.preload_month(month),
@@ -246,4 +249,3 @@ impl Drop for Applet {
         self.calendar_cancel.cancel();
     }
 }
-

@@ -48,6 +48,7 @@ pub enum PopoverInput {
     CalendarSelectedDate(NaiveDate),
     CalendarMonthChanged(MonthKey),
     SetHideAllDayEvents(bool),
+    SetShowWeekNumbers(bool),
 }
 
 #[derive(Debug, Clone)]
@@ -178,6 +179,9 @@ impl SimpleComponent for Popover {
                     self.hide_all_day_events = hide;
                     self.sync_calendar_state();
                 }
+            }
+            PopoverInput::SetShowWeekNumbers(show) => {
+                self.calendar_view.set_show_week_numbers(show);
             }
         }
     }

@@ -55,7 +55,7 @@ pub enum DisplayMode {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct Config {
     display: DisplayMode,
     appearance: PagerAppearance,

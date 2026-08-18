@@ -42,7 +42,7 @@ dirs = "5"
 anyhow = "1"
 async-trait = "0.1"
 gio = "0.22"
-gio-unix = "0.22"
+gio-unix = { version = "0.22", features = ["v2_58"] }
 sunrise = "1.2.1"
 css-color = "0.2"
 tokio-util = "0.7"

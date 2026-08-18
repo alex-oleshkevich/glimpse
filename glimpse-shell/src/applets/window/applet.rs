@@ -34,8 +34,12 @@ impl Config {
         let Some(raw) = raw else {
             return Self::default();
         };
-        match raw.settings.clone().try_into() {
-            Ok(config) => config,
+        let result: Result<Self, _> = raw.settings.clone().try_into();
+        match result {
+            Ok(mut config) => {
+                config.max_chars = config.max_chars.clamp(1, 200);
+                config
+            }
             Err(error) => {
                 tracing::warn!(?error, "invalid window applet config, using defaults");
                 Self::default()
@@ -49,6 +53,9 @@ struct View {
     visible: bool,
     label: String,
     icon: Option<String>,
+    /// The untruncated title, set only when `label` actually truncated it —
+    /// otherwise the full title is unrecoverable from the panel.
+    tooltip: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,12 +75,17 @@ impl From<&State> for WindowState {
     }
 }
 
-fn view_from_state(config: &Config, state: &WindowState) -> View {
+fn view_from_state(
+    config: &Config,
+    state: &WindowState,
+    icon_cache: &mut std::collections::HashMap<String, Option<String>>,
+) -> View {
     if !state.windows_available {
         return View {
             visible: false,
             label: String::new(),
             icon: None,
+            tooltip: None,
         };
     }
     let focused = state
@@ -84,14 +96,20 @@ fn view_from_state(config: &Config, state: &WindowState) -> View {
             visible: false,
             label: String::new(),
             icon: None,
+            tooltip: None,
         };
     };
     let label = format_window_label(&config.label_format, window, config.max_chars);
-    let icon = resolve_icon(config.icon.as_deref(), window.app_id.as_deref());
+    let icon = resolve_icon_cached(icon_cache, config.icon.as_deref(), window.app_id.as_deref());
+    let tooltip = window
+        .title
+        .as_deref()
+        .and_then(|title| (title.chars().count() > config.max_chars).then(|| title.to_owned()));
     View {
         visible: true,
         label,
         icon,
+        tooltip,
     }
 }
 
@@ -99,6 +117,7 @@ pub struct Applet {
     config: Config,
     state: WindowState,
     view: View,
+    icon_cache: std::collections::HashMap<String, Option<String>>,
     subscription_cancel: CancellationToken,
 }
 
@@ -132,6 +151,8 @@ impl SimpleComponent for Applet {
             },
             #[watch]
             set_icon: model.view.icon.as_deref(),
+            #[watch]
+            set_tooltip_text: model.view.tooltip.as_deref(),
         }
     }
 
@@ -141,7 +162,8 @@ impl SimpleComponent for Applet {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let state = WindowState::from(&init.service.snapshot());
-        let view = view_from_state(&init.config, &state);
+        let mut icon_cache = std::collections::HashMap::new();
+        let view = view_from_state(&init.config, &state, &mut icon_cache);
         let subscription_cancel = subscribe_service(
             init.service.subscribe(),
             sender.input_sender().clone(),
@@ -151,6 +173,7 @@ impl SimpleComponent for Applet {
             config: init.config,
             state,
             view,
+            icon_cache,
             subscription_cancel,
         };
 
@@ -177,7 +200,7 @@ impl SimpleComponent for Applet {
 
 impl Applet {
     fn sync_view(&mut self) {
-        let view = view_from_state(&self.config, &self.state);
+        let view = view_from_state(&self.config, &self.state, &mut self.icon_cache);
         if self.view != view {
             self.view = view;
         }
@@ -234,27 +257,57 @@ pub fn format_window_label(format: &str, window: &WindowInfo, max_chars: usize) 
         .replace("{index}", &index)
 }
 
+/// Memoizes resolve_icon's desktop-file DB lookup by app_id, since
+/// view_from_state runs on every compositor state change (including every
+/// title keystroke) and the lookup is a synchronous main-thread disk read.
+/// Safe without cache invalidation: the mapping from app_id to icon name
+/// doesn't depend on any other config field.
+fn resolve_icon_cached(
+    cache: &mut std::collections::HashMap<String, Option<String>>,
+    icon_config: Option<&str>,
+    app_id: Option<&str>,
+) -> Option<String> {
+    if icon_config != Some("app") {
+        return resolve_icon(icon_config, app_id);
+    }
+    let app_id = app_id?;
+    if let Some(cached) = cache.get(app_id) {
+        return cached.clone();
+    }
+    let resolved = resolve_icon(icon_config, Some(app_id));
+    cache.insert(app_id.to_owned(), resolved.clone());
+    resolved
+}
+
 pub fn resolve_icon(icon_config: Option<&str>, app_id: Option<&str>) -> Option<String> {
     match icon_config {
         None => None,
         Some("app") => {
             let app_id = app_id?;
-            let candidates = [app_id.to_string(), format!("{app_id}.desktop")];
-            for candidate in &candidates {
-                if let Some(info) = DesktopAppInfo::new(candidate) {
-                    if let Some(icon) = info.icon() {
-                        if let Ok(themed) = icon.downcast::<gio::ThemedIcon>() {
-                            if let Some(name) = themed.names().first() {
-                                return Some(name.to_string());
-                            }
-                        }
-                    }
-                }
+            // DesktopAppInfo::new expects a desktop file id (basename incl.
+            // ".desktop"), never a bare app_id — a candidate for the bare
+            // string can never match, so it's not worth trying.
+            if let Some(icon) = icon_from_desktop_id(&format!("{app_id}.desktop")) {
+                return Some(icon);
             }
-            None
+            // app_id doesn't match the desktop file's basename (common with
+            // Flatpak/Snap-style reverse-DNS ids); fall back to a fuzzy
+            // search and use the best match.
+            let best_match = DesktopAppInfo::search(app_id)
+                .into_iter()
+                .next()
+                .and_then(|group| group.into_iter().next())?;
+            icon_from_desktop_id(&best_match)
         }
         Some(other) => Some(other.to_string()),
     }
+}
+
+fn icon_from_desktop_id(desktop_id: &str) -> Option<String> {
+    let info = DesktopAppInfo::new(desktop_id)?;
+    let icon = info.icon()?;
+    let themed = icon.downcast::<gio::ThemedIcon>().ok()?;
+    themed.names().first().map(|name| name.to_string())
 }
 
 #[cfg(test)]
@@ -273,6 +326,25 @@ mod tests {
             app_id: app_id.map(str::to_owned),
             layout_order,
         }
+    }
+
+    #[test]
+    fn from_raw_clamps_max_chars_to_a_sane_range() {
+        let mut table = toml::map::Map::new();
+        table.insert("max_chars".into(), toml::Value::Integer(0));
+        let raw = Some(AppletConfig {
+            extends: None,
+            settings: toml::Value::Table(table),
+        });
+        assert_eq!(Config::from_raw(&raw).max_chars, 1);
+
+        let mut table = toml::map::Map::new();
+        table.insert("max_chars".into(), toml::Value::Integer(999));
+        let raw = Some(AppletConfig {
+            extends: None,
+            settings: toml::Value::Table(table),
+        });
+        assert_eq!(Config::from_raw(&raw).max_chars, 200);
     }
 
     #[test]
@@ -325,6 +397,30 @@ mod tests {
     }
 
     #[test]
+    fn resolve_icon_cached_returns_cached_value_without_relookup() {
+        let mut cache = std::collections::HashMap::new();
+        cache.insert(
+            "definitely-not-a-real-app-id".to_string(),
+            Some("cached-icon-name".to_string()),
+        );
+        assert_eq!(
+            resolve_icon_cached(
+                &mut cache,
+                Some("app"),
+                Some("definitely-not-a-real-app-id")
+            ),
+            Some("cached-icon-name".to_string())
+        );
+    }
+
+    #[test]
+    fn resolve_icon_cached_populates_cache_after_lookup() {
+        let mut cache = std::collections::HashMap::new();
+        resolve_icon_cached(&mut cache, Some("app"), Some("some-app-id"));
+        assert!(cache.contains_key("some-app-id"));
+    }
+
+    #[test]
     fn resolve_icon_returns_none_when_config_absent() {
         assert_eq!(resolve_icon(None, Some("firefox")), None);
     }
@@ -357,29 +453,70 @@ mod tests {
             focused_window: None,
             windows: vec![],
         };
-        let v = view_from_state(&Config::default(), &s);
+        let v = view_from_state(
+            &Config::default(),
+            &s,
+            &mut std::collections::HashMap::new(),
+        );
         assert!(!v.visible);
     }
 
     #[test]
     fn view_hidden_when_no_focused_window() {
         let s = state(vec![window(1, Some("Firefox"), None, None)], None);
-        let v = view_from_state(&Config::default(), &s);
+        let v = view_from_state(
+            &Config::default(),
+            &s,
+            &mut std::collections::HashMap::new(),
+        );
         assert!(!v.visible);
     }
 
     #[test]
     fn view_hidden_when_focused_id_not_in_windows_list() {
         let s = state(vec![window(1, Some("Firefox"), None, None)], Some(99));
-        let v = view_from_state(&Config::default(), &s);
+        let v = view_from_state(
+            &Config::default(),
+            &s,
+            &mut std::collections::HashMap::new(),
+        );
         assert!(!v.visible);
     }
 
     #[test]
     fn view_shows_focused_window_title() {
         let s = state(vec![window(1, Some("Firefox"), None, None)], Some(1));
-        let v = view_from_state(&Config::default(), &s);
+        let v = view_from_state(
+            &Config::default(),
+            &s,
+            &mut std::collections::HashMap::new(),
+        );
         assert!(v.visible);
         assert_eq!(v.label, "Firefox");
+    }
+
+    #[test]
+    fn view_sets_tooltip_to_untruncated_title_when_truncated() {
+        let config = Config {
+            max_chars: 5,
+            ..Config::default()
+        };
+        let s = state(
+            vec![window(1, Some("A Very Long Window Title"), None, None)],
+            Some(1),
+        );
+        let v = view_from_state(&config, &s, &mut std::collections::HashMap::new());
+        assert_eq!(v.tooltip.as_deref(), Some("A Very Long Window Title"));
+    }
+
+    #[test]
+    fn view_has_no_tooltip_when_title_is_not_truncated() {
+        let s = state(vec![window(1, Some("Firefox"), None, None)], Some(1));
+        let v = view_from_state(
+            &Config::default(),
+            &s,
+            &mut std::collections::HashMap::new(),
+        );
+        assert_eq!(v.tooltip, None);
     }
 }

@@ -42,6 +42,25 @@ fn config_discovery_prefers_glimpse_config_env_then_cwd_then_xdg() {
 }
 
 #[test]
+fn config_discovery_falls_back_when_glimpse_config_env_points_at_missing_file() {
+    let temp = TestDir::new("discovery-missing-env-file");
+    let xdg_file = temp.file("xdg/glimpse/config.toml");
+    touch(&xdg_file);
+
+    let discovery = ConfigDiscovery::new(
+        HashMap::from([(
+            "GLIMPSE_CONFIG".into(),
+            temp.path("env/does-not-exist.toml").display().to_string(),
+        )]),
+        temp.path("cwd"),
+        Some(temp.path("xdg")),
+        Some(temp.path("home")),
+    );
+
+    assert_eq!(discovery.detect_config_file(), xdg_file);
+}
+
+#[test]
 fn parses_shell_compatible_config_with_shared_wallpaper_settings() {
     let config = Config::from_toml_str(
         r##"

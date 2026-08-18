@@ -109,7 +109,7 @@ RUST_LOG = "info"
 
 Set `env_forward = true` only when the applet needs the full parent environment. Keeping it `false` makes development and startup behavior easier to reason about.
 
-The shell always adds its applet IPC socket environment variables for SDK helpers, even when `env_forward = false`.
+The shell always adds its applet IPC socket environment variables for SDK helpers, even when `env_forward = false`. It also seeds `PATH`, `HOME`, and `XDG_RUNTIME_DIR` from its own environment in that case, so a minimal config doesn't spawn a child with no baseline environment. Explicit `[exec.env]` entries and `env_forward = true` both override this baseline.
 
 ## Options in init
 

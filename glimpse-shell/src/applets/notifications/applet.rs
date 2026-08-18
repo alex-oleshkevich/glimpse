@@ -1,3 +1,4 @@
+use crate::utils::subscribe_service;
 use regex::Regex;
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
@@ -5,7 +6,6 @@ use relm4::{
 };
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
-use crate::utils::subscribe_service;
 
 use glimpse_core::ThemeMode;
 
@@ -290,6 +290,7 @@ impl SimpleComponent for Applet {
             Input::Reconfigure { config, theme_mode } => {
                 self.config = config;
                 self.theme_mode = theme_mode;
+                self.urgency_remaps = compile_urgency_remaps(&self.config.urgency_remap);
                 self.send_notification(Command::SetMaxHistory(self.config.max_history));
                 self.send_notification(Command::SetFilterRegex(self.config.filter_regex.clone()));
                 self.apply_state(self.service.snapshot());

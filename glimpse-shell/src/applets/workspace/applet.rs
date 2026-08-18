@@ -59,6 +59,10 @@ struct View {
 struct WorkspaceRenameTarget {
     id: usize,
     name: Option<String>,
+    /// The name-or-index label the panel renders for this workspace, e.g.
+    /// "3" or "chat" - shown in the rename dialog instead of the raw
+    /// compositor id, which on Niri is an opaque number.
+    display: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -106,13 +110,20 @@ fn view_from_state(config: &Config, state: &WorkspaceState, panel_monitor: Optio
             rename_target: None,
         };
     }
-    let current = state.effective_current_workspace(panel_monitor);
-    let workspace = current.and_then(|id| state.workspaces.iter().find(|w| w.id == id));
-    let fallback = current.unwrap_or(1);
+    let Some(current) = state.effective_current_workspace(panel_monitor) else {
+        return View {
+            visible: false,
+            label: String::new(),
+            rename_target: None,
+        };
+    };
+    let workspace = state.workspaces.iter().find(|w| w.id == current);
+    let fallback = current;
     let label = format_workspace_label(&config.label_format, state.compositor, workspace, fallback);
-    let rename_target = current.map(|id| WorkspaceRenameTarget {
-        id,
+    let rename_target = Some(WorkspaceRenameTarget {
+        id: current,
         name: workspace.and_then(|workspace| workspace.name.clone()),
+        display: format_workspace_label("{name_or_index}", state.compositor, workspace, fallback),
     });
     View {
         visible: true,
@@ -274,7 +285,7 @@ impl Applet {
 
         let dialog = adw::AlertDialog::new(
             Some("Rename Workspace"),
-            Some(&format!("Set a name for workspace {}.", target.id)),
+            Some(&format!("Set a name for workspace {}.", target.display)),
         );
         dialog.add_response(RESPONSE_CANCEL, "Cancel");
         dialog.add_response(RESPONSE_RENAME, "Rename");
@@ -434,6 +445,18 @@ mod tests {
     }
 
     #[test]
+    fn view_hidden_when_no_current_workspace() {
+        let s = ws_state(vec![workspace(1, 1, None)], None);
+        let v = view_from_state(&Config::default(), &s, None);
+        assert!(
+            !v.visible,
+            "no current workspace must hide, not show a bogus fallback"
+        );
+        assert_eq!(v.label, "");
+        assert!(v.rename_target.is_none());
+    }
+
+    #[test]
     fn view_hidden_when_workspaces_unavailable() {
         let mut s = ws_state(vec![], Some(1));
         s.workspaces_available = false;
@@ -452,9 +475,25 @@ mod tests {
             v.rename_target,
             Some(WorkspaceRenameTarget {
                 id: 2,
-                name: Some("chat".into())
+                name: Some("chat".into()),
+                display: "chat".into(),
             })
         );
+    }
+
+    #[test]
+    fn rename_target_display_uses_index_not_opaque_niri_id_for_unnamed_workspace() {
+        // On Niri, `id` is an opaque monotonic number unrelated to what the
+        // panel shows; an unnamed workspace displays by index instead.
+        let ws = workspace(47, 3, None);
+        let s = ws_state(vec![ws], Some(47));
+        let v = view_from_state(&Config::default(), &s, None);
+
+        let target = v
+            .rename_target
+            .expect("current workspace has a rename target");
+        assert_eq!(target.id, 47);
+        assert_eq!(target.display, "3");
     }
 
     #[test]
@@ -481,7 +520,8 @@ mod tests {
             v.rename_target,
             Some(WorkspaceRenameTarget {
                 id: 2,
-                name: Some("side".into())
+                name: Some("side".into()),
+                display: "side".into(),
             })
         );
     }

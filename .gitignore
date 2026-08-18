@@ -20,7 +20,8 @@ __pycache__
 node_modules
 *.pyc
 dist/
-frameworks/custom-applet/sdk-go/stateful_counter
+sdk/sdk-go/stateful_counter
+sdk/sdk-go/examples/*/stateful_counter-e2e
 .superpowers
 var/*
 !var/demo/

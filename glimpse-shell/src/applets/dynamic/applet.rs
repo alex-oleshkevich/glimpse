@@ -265,6 +265,7 @@ struct ConnectionState {
     status_items: Vec<RenderedStatusItem>,
     popover: Controller<Popover>,
     outbound_tx: mpsc::Sender<PanelCommand>,
+    applet_css_class: Option<String>,
 }
 
 struct RenderedStatusItem {
@@ -372,6 +373,7 @@ impl SimpleComponent for Applet {
                         status_items: Vec::new(),
                         popover,
                         outbound_tx,
+                        applet_css_class: None,
                     },
                 );
             }
@@ -391,8 +393,13 @@ impl SimpleComponent for Applet {
                 self.rebuild_if_needed(id, &sender);
             }
             Input::CssClass { id, class } => {
-                if let Some(conn) = self.connections.get(&id) {
+                if let Some(conn) = self.connections.get_mut(&id) {
+                    if let Some(previous) = &conn.applet_css_class {
+                        conn.indicator
+                            .remove_css_class(&format!("applet-{previous}"));
+                    }
                     conn.indicator.add_css_class(&format!("applet-{class}"));
+                    conn.applet_css_class = Some(class.clone());
                     conn.popover.emit(PopoverInput::SetCssClass(class));
                 }
             }
@@ -634,7 +641,12 @@ async fn run_connection(
                             }
                         }
                         Err(e) => {
-                            tracing::debug!(%e, connection = id, "dynamic applet ignored line");
+                            tracing::warn!(
+                                %e,
+                                raw = %trimmed,
+                                connection = id,
+                                "dynamic applet ignored line"
+                            );
                         }
                     }
                 }

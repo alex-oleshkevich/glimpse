@@ -509,6 +509,7 @@ impl App {
         let mut new_panels: Vec<PanelState> = Vec::new();
         for (index, cfg) in new_config.panels.iter().enumerate() {
             let expanded = expand_dev_slot(cfg, &dev_names);
+            let theme_mode = cfg.effective_theme_mode(new_config.theme_mode);
             for monitor in &monitors {
                 let connector = monitor_connector(monitor);
                 if let Some(target) = cfg.monitor.as_deref() {
@@ -526,6 +527,7 @@ impl App {
                         state.controller.emit(panels::Input::Reconfigure(
                             panels::PanelRuntimeConfig {
                                 config: expanded.clone(),
+                                theme_mode,
                                 applet_configs: effective_applets.clone(),
                             },
                         ));
@@ -536,6 +538,7 @@ impl App {
                         build_panel(
                             key,
                             expanded.clone(),
+                            theme_mode,
                             services.clone(),
                             monitor.clone(),
                             effective_applets.clone(),
@@ -678,6 +681,7 @@ fn monitor_connector(monitor: &gdk::Monitor) -> Option<String> {
 fn build_panel(
     key: panels::PanelKey,
     config: PanelConfig,
+    theme_mode: glimpse_core::ThemeMode,
     services: Services,
     monitor: gdk::Monitor,
     applet_configs: glimpse_core::AppletConfigs,
@@ -687,6 +691,7 @@ fn build_panel(
     let controller = panels::Panel::builder()
         .launch(panels::Init {
             config,
+            theme_mode,
             services: services.clone(),
             monitor: Some(monitor),
             monitor_connector,

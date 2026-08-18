@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # E2E test: stop the glimpse-wallpaper systemd service, run a freshly built
-# binary under the live Wayland session, exercise every watch + dispatch path,
-# verify via the event stream (there is no `status` command), then restore.
+# binary under the live Wayland session, exercise every watch + dispatch path
+# (including `status`), verify via the event stream, then restore.
 #
 # INTRUSIVE: this stops/starts glimpse-wallpaper.service, briefly changes the
 # real desktop wallpaper, and edits the on-disk config.toml (restored on exit).
@@ -123,7 +123,7 @@ pass "dispatch --help"
 echo ""
 echo "=== watch/dispatch with no daemon → immediate connection error ==="
 ! "$BINARY" watch 2>/dev/null || fail "watch with no daemon should exit non-zero"
-! "$BINARY" dispatch reload_config 2>/dev/null || fail "dispatch with no daemon should exit non-zero"
+! "$BINARY" dispatch reset 2>/dev/null || fail "dispatch with no daemon should exit non-zero"
 pass "no daemon → immediate error"
 
 # ── start daemon ──────────────────────────────────────────────────────────────
@@ -286,18 +286,18 @@ tail -n +"$((BEFORE + 1))" "$WATCH_OUT" | grep "wallpaper.spec_changed" | tail -
     || fail "override colour did NOT survive config edit (M-config regression)"
 pass "IPC override survives unrelated config edit"
 
-# ── reload_config clears the override ─────────────────────────────────────────
+# ── reset clears the override ─────────────────────────────────────────────────
 
 echo ""
-echo "=== dispatch reload_config → override cleared, colour reverts to config ==="
+echo "=== dispatch reset → override cleared, colour reverts to config ==="
 CONFIG_COLOR=$(grep -m1 '^color = ' "$CONFIG_PATH" | sed 's/^color = "\?\([^"]*\)"\?.*/\1/')
 BEFORE=$(watch_line_count)
-OUT=$("$BINARY" dispatch reload_config)
+OUT=$("$BINARY" dispatch reset)
 assert_contains "$OUT" "ok=true"
 expect_event_from "$((BEFORE + 1))" "wallpaper.spec_changed" 5
 tail -n +"$((BEFORE + 1))" "$WATCH_OUT" | grep "wallpaper.spec_changed" | tail -1 | grep -q "color=$CONFIG_COLOR" \
-    || fail "reload_config did not revert colour to config value '$CONFIG_COLOR'"
-pass "reload_config clears override"
+    || fail "reset did not revert colour to config value '$CONFIG_COLOR'"
+pass "reset clears override"
 
 # ── error paths ───────────────────────────────────────────────────────────────
 

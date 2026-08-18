@@ -47,8 +47,7 @@ pub fn start(services: &Services) -> broadcast::Sender<Arc<IpcEvent>> {
 }
 
 fn emit(tx: &broadcast::Sender<Arc<IpcEvent>>, name: &str, fields: Vec<(&str, String)>) {
-    let owned: Vec<(String, String)> = fields.into_iter().map(|(k, v)| (k.to_owned(), v)).collect();
-    let _ = tx.send(Arc::new(IpcEvent::new(name, owned)));
+    crate::ipc::emit(tx, name, fields);
 }
 
 fn spawn_bluetooth_watcher(
@@ -708,7 +707,10 @@ fn spawn_battery_watcher(
                         ("energy_rate", format!("{:.2}", next.status.energy_rate)),
                     ],
                 );
-                if next.status.percentage <= 10 && prev.status.percentage > 10 {
+                if next.status.on_battery
+                    && next.status.percentage <= 10
+                    && prev.status.percentage > 10
+                {
                     emit(
                         &tx,
                         "battery.critical",
@@ -820,7 +822,9 @@ fn spawn_compositor_watcher(
 
             // --- compositor.workspace_changed ---
             if prev.current_workspace != next.current_workspace {
-                let ws = next.current_workspace.and_then(|i| next.workspaces.get(i));
+                let ws = next
+                    .current_workspace
+                    .and_then(|id| next.workspaces.iter().find(|w| w.id == id));
                 emit(
                     &tx,
                     "compositor.workspace_changed",
@@ -867,7 +871,9 @@ fn spawn_compositor_watcher(
                 }
             }
             if prev.focused_window != next.focused_window {
-                let w = next.focused_window.and_then(|i| next.windows.get(i));
+                let w = next
+                    .focused_window
+                    .and_then(|id| next.windows.iter().find(|w| w.id == id));
                 emit(
                     &tx,
                     "window.focused",
@@ -1940,8 +1946,6 @@ fn spawn_printing_watcher(
     mut rx: watch::Receiver<crate::services::printing::State>,
     tx: broadcast::Sender<Arc<IpcEvent>>,
 ) {
-    use std::collections::{HashMap, HashSet};
-
     tokio::spawn(async move {
         let mut prev = rx.borrow_and_update().clone();
 
@@ -2011,4 +2015,148 @@ fn spawn_printing_watcher(
             prev = next;
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::compositors::{Window, Workspace};
+    use crate::services::compositor::State;
+
+    fn window(id: usize, title: &str) -> Window {
+        Window {
+            id,
+            title: Some(title.to_owned()),
+            app_id: None,
+            pid: None,
+            layout_order: None,
+            workspace: None,
+            focused: false,
+            urgent: false,
+            fullscreen: false,
+            floating: None,
+        }
+    }
+
+    fn workspace(id: usize, name: &str) -> Workspace {
+        Workspace {
+            id,
+            index: None,
+            name: Some(name.to_owned()),
+            monitor: None,
+            active: false,
+            focused: false,
+            urgent: false,
+            active_window: None,
+        }
+    }
+
+    async fn recv_event(rx: &mut broadcast::Receiver<Arc<IpcEvent>>, name: &str) -> Arc<IpcEvent> {
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            loop {
+                let event = rx
+                    .recv()
+                    .await
+                    .expect("channel closed before event arrived");
+                if event.name == name {
+                    return event;
+                }
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("timed out waiting for {name}"))
+    }
+
+    #[tokio::test]
+    async fn focused_window_resolves_by_id_not_vec_index() {
+        let (watch_tx, watch_rx) = watch::channel(State::default());
+        let (tx, mut rx) = broadcast::channel(16);
+        spawn_compositor_watcher(watch_rx, tx);
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        // window id (5) intentionally exceeds its position (index 0) in the vec.
+        let next = State {
+            windows: vec![window(5, "Fifth Window")],
+            focused_window: Some(5),
+            ..State::default()
+        };
+        watch_tx.send(next).unwrap();
+
+        let event = recv_event(&mut rx, "window.focused").await;
+        let title = event
+            .fields
+            .iter()
+            .find(|(k, _)| k == "title")
+            .map(|(_, v)| v.as_str());
+        assert_eq!(title, Some("Fifth Window"));
+    }
+
+    #[tokio::test]
+    async fn workspace_changed_resolves_by_id_not_vec_index() {
+        let (watch_tx, watch_rx) = watch::channel(State::default());
+        let (tx, mut rx) = broadcast::channel(16);
+        spawn_compositor_watcher(watch_rx, tx);
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        // workspace id (5) intentionally exceeds its position (index 0) in the vec.
+        let next = State {
+            workspaces: vec![workspace(5, "Fifth Workspace")],
+            current_workspace: Some(5),
+            ..State::default()
+        };
+        watch_tx.send(next).unwrap();
+
+        let event = recv_event(&mut rx, "compositor.workspace_changed").await;
+        let name = event
+            .fields
+            .iter()
+            .find(|(k, _)| k == "workspace")
+            .map(|(_, v)| v.as_str());
+        assert_eq!(name, Some("Fifth Workspace"));
+    }
+
+    fn battery_state(percentage: u8, on_battery: bool) -> crate::services::battery::State {
+        crate::services::battery::State {
+            status: crate::services::battery::BatteryStatus {
+                percentage,
+                on_battery,
+                ..crate::services::battery::BatteryStatus::default()
+            },
+            ..crate::services::battery::State::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn battery_critical_does_not_fire_while_on_ac() {
+        let (watch_tx, watch_rx) = watch::channel(battery_state(50, false));
+        let (tx, mut rx) = broadcast::channel(16);
+        spawn_battery_watcher(watch_rx, tx);
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        // Percentage crosses the critical threshold, but on_battery is still
+        // false (e.g. a dip while AC is present at slow-charge start).
+        watch_tx.send(battery_state(5, false)).unwrap();
+
+        let level_changed = recv_event(&mut rx, "battery.level_changed").await;
+        assert_eq!(level_changed.name, "battery.level_changed");
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(200), rx.recv())
+                .await
+                .is_err(),
+            "battery.critical must not fire while on AC"
+        );
+    }
+
+    #[tokio::test]
+    async fn battery_critical_fires_when_crossing_threshold_on_battery() {
+        let (watch_tx, watch_rx) = watch::channel(battery_state(50, true));
+        let (tx, mut rx) = broadcast::channel(16);
+        spawn_battery_watcher(watch_rx, tx);
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        watch_tx.send(battery_state(5, true)).unwrap();
+
+        let event = recv_event(&mut rx, "battery.critical").await;
+        assert_eq!(event.name, "battery.critical");
+    }
 }

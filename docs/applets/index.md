@@ -119,9 +119,9 @@ settings_command = ""
 | --- | --- | --- |
 | `show_icon` | `true` | Shows the battery icon. |
 | `label_on_battery` | `""` | Label while running on battery. |
-| `label_on_ac` | `""` | Label while plugged in. |
+| `label_on_ac` | `""` | Label while plugged in. Falls back to `label_on_battery` when empty. |
 | `tooltip_on_battery` | `"{percentage}% {state}, {time_left}"` | Tooltip while running on battery. |
-| `tooltip_on_ac` | `"{percentage}% {state}"` | Tooltip while plugged in. |
+| `tooltip_on_ac` | `"{percentage}% {state}"` | Tooltip while plugged in. Falls back to `tooltip_on_battery` when empty. |
 | `settings_command` | `""` | Accepted by config; not yet wired to a popover action. |
 
 Placeholders: `{percentage}`, `{state}`, `{time_left}`.
@@ -318,7 +318,7 @@ tooltip_format = "{state}"
 | `label_format` | `""` | Optional text next to the icon. |
 | `tooltip_format` | `"{state}"` | Tooltip text. |
 
-Placeholders: `{state}`, `{network}`, `{type}`, `{wifi}`, `{access_points}`, `{connections}`, `{vpns}`, `{speed}`.
+Placeholders: `{state}`, `{network}`, `{type}`, `{wifi}` (alias for `{access_points}`), `{access_points}`, `{connections}`, `{vpns}`, `{speed}`.
 
 ## Next event
 

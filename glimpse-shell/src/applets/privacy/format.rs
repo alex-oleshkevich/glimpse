@@ -44,7 +44,14 @@ pub fn tooltip(
 }
 
 pub fn elapsed(seconds: u64) -> String {
-    format!("{}:{:02}", seconds / 60, seconds % 60)
+    let hours = seconds / 3600;
+    let minutes = (seconds % 3600) / 60;
+    let secs = seconds % 60;
+    if hours > 0 {
+        format!("{hours}:{minutes:02}:{secs:02}")
+    } else {
+        format!("{minutes}:{secs:02}")
+    }
 }
 
 fn app_list<T>(items: &[T], app_name: impl Fn(&T) -> &str) -> String {
@@ -106,6 +113,13 @@ mod tests {
         assert_eq!(elapsed(0), "0:00");
         assert_eq!(elapsed(9), "0:09");
         assert_eq!(elapsed(65), "1:05");
+    }
+
+    #[test]
+    fn elapsed_rolls_into_hours_past_3600_seconds() {
+        assert_eq!(elapsed(3599), "59:59");
+        assert_eq!(elapsed(3600), "1:00:00");
+        assert_eq!(elapsed(5400), "1:30:00");
     }
 
     fn microphone(app_name: &str) -> MicrophoneUsage {

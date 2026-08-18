@@ -8,8 +8,7 @@ use tokio_util::sync::CancellationToken;
 use glimpse_core::services::printing::{Command, PrintingHandle, State};
 
 use crate::{
-    panels::applets::AppletConfig, services::framework::ServiceCommand,
-    utils::subscribe_service,
+    panels::applets::AppletConfig, services::framework::ServiceCommand, utils::subscribe_service,
     widgets::panel_indicator::PanelIndicator,
 };
 
@@ -180,6 +179,11 @@ impl SimpleComponent for Applet {
                 self.config = config;
             }
             Input::TogglePopover => {
+                // Pre-sync with cached state before toggling, then kick a
+                // Refresh so the service can push anything newer — matches
+                // brightness/audio/removable/clipboard's contract.
+                self.popover
+                    .emit(PopoverInput::UpdateState(self.state.clone()));
                 self.send_command(Command::Refresh);
                 self.popover.emit(PopoverInput::Toggle);
             }
@@ -234,15 +238,36 @@ fn applet_icon(state: &State) -> &'static str {
     }
 }
 
+fn queue_url(printer_name: &str) -> String {
+    let escaped_name = relm4::gtk::glib::Uri::escape_string(printer_name, None, false);
+    format!("http://localhost:631/printers/{escaped_name}")
+}
+
 fn open_queue(printer_name: &str) {
-    let url = format!("http://localhost:631/printers/{printer_name}");
-    gtk::UriLauncher::new(&url).launch(None::<&gtk::Window>, None::<&gio::Cancellable>, |_| {});
+    let url = queue_url(printer_name);
+    gtk::UriLauncher::new(&url).launch(
+        None::<&gtk::Window>,
+        None::<&gio::Cancellable>,
+        move |result| {
+            if let Err(error) = result {
+                tracing::warn!(%error, %url, "failed to open printer queue");
+            }
+        },
+    );
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use glimpse_core::services::printing::{JobState, PrintJob};
+
+    #[test]
+    fn queue_url_percent_encodes_printer_name() {
+        assert_eq!(
+            queue_url("Office Printer #2"),
+            "http://localhost:631/printers/Office%20Printer%20%232"
+        );
+    }
 
     fn make_job(id: u32) -> PrintJob {
         PrintJob {

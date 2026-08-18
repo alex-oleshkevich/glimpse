@@ -180,7 +180,10 @@ impl Applet {
         self.label = format::label(&self.config.label_format, event, now);
         self.label_markup = format::label_markup(&self.config.label_format, event, now);
         self.tooltip = format::tooltip(&self.config.tooltip_format, event, now);
-        self.hidden = self.label.is_empty();
+        // An event was found (that's why apply_event was called at all), so
+        // it's visible regardless of the rendered label text — an empty
+        // label_format (icon-only) must not hide the applet.
+        self.hidden = false;
         self.popover.emit(PopoverInput::Update {
             event: Some(event.clone()),
             now,

@@ -24,6 +24,9 @@ pub struct PanelKey {
 
 pub struct Init {
     pub config: PanelConfig,
+    /// Resolved theme mode: `config.theme_mode` if set, else the top-level
+    /// config's `theme_mode`. See `PanelConfig::effective_theme_mode`.
+    pub theme_mode: glimpse_core::ThemeMode,
     pub services: Services,
     pub monitor: Option<gdk::Monitor>,
     pub monitor_connector: Option<String>,
@@ -48,6 +51,9 @@ pub enum Input {
 #[derive(Debug)]
 pub struct PanelRuntimeConfig {
     pub config: PanelConfig,
+    /// Resolved theme mode: `config.theme_mode` if set, else the top-level
+    /// config's `theme_mode`. See `PanelConfig::effective_theme_mode`.
+    pub theme_mode: glimpse_core::ThemeMode,
     pub applet_configs: HashMap<String, AppletConfig>,
 }
 
@@ -139,7 +145,7 @@ impl Component for Panel {
             root.set_monitor(Some(monitor));
         }
         apply_panel_config(&root, &init.config);
-        theme::apply_theme_mode(&root, &init.config.theme_mode);
+        theme::apply_theme_mode(&root, &init.theme_mode);
 
         let layout_orientation = orientation_for_position(&init.config.position);
         let left_box = gtk::Box::builder()
@@ -180,7 +186,7 @@ impl Component for Panel {
             &init.applet_configs,
             init.services.clone(),
             init.monitor_connector.as_deref(),
-            init.config.theme_mode,
+            init.theme_mode,
             &ipc,
             &panel_monitor,
         );
@@ -192,7 +198,7 @@ impl Component for Panel {
             &init.applet_configs,
             init.services.clone(),
             init.monitor_connector.as_deref(),
-            init.config.theme_mode,
+            init.theme_mode,
             &ipc,
             &panel_monitor,
         );
@@ -204,7 +210,7 @@ impl Component for Panel {
             &init.applet_configs,
             init.services.clone(),
             init.monitor_connector.as_deref(),
-            init.config.theme_mode,
+            init.theme_mode,
             &ipc,
             &panel_monitor,
         );
@@ -239,7 +245,7 @@ impl Component for Panel {
             Input::Reconfigure(runtime) => {
                 tracing::debug!("panel config change, updating");
                 apply_panel_config(root, &runtime.config);
-                theme::apply_theme_mode(root, &runtime.config.theme_mode);
+                theme::apply_theme_mode(root, &runtime.theme_mode);
 
                 let panel_monitor = self.monitor_connector.clone().unwrap_or_default();
                 reconcile_applets(
@@ -252,7 +258,7 @@ impl Component for Panel {
                     &runtime.applet_configs,
                     self.services.clone(),
                     self.monitor_connector.as_deref(),
-                    runtime.config.theme_mode,
+                    runtime.theme_mode,
                     &self.ipc,
                     &panel_monitor,
                 );
@@ -266,7 +272,7 @@ impl Component for Panel {
                     &runtime.applet_configs,
                     self.services.clone(),
                     self.monitor_connector.as_deref(),
-                    runtime.config.theme_mode,
+                    runtime.theme_mode,
                     &self.ipc,
                     &panel_monitor,
                 );
@@ -280,7 +286,7 @@ impl Component for Panel {
                     &runtime.applet_configs,
                     self.services.clone(),
                     self.monitor_connector.as_deref(),
-                    runtime.config.theme_mode,
+                    runtime.theme_mode,
                     &self.ipc,
                     &panel_monitor,
                 );

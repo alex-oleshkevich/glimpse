@@ -223,14 +223,14 @@ impl SimpleComponent for Popover {
         model.connected_list.append(&model.connected_wired_list);
         model.connected_list.append(&model.connected_vpn_list);
 
-        let other_scroller = gtk::ScrolledWindow::new();
-        other_scroller.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
-        other_scroller.set_vexpand(false);
-        other_scroller.set_propagate_natural_height(true);
-        other_scroller.set_min_content_height(80);
-        other_scroller.set_max_content_height(220);
-        other_scroller.set_child(Some(&model.other_list));
-        widgets.other_section.set_child(Some(other_scroller));
+        // No nested ScrolledWindow here: the inner list used to have its own
+        // scroll limit, so at the inner limit the wheel wouldn't propagate
+        // out to the popover's outer half-monitor-limited scroller, trapping
+        // the scroll. Let this list grow naturally and rely on the outer
+        // scroller instead.
+        widgets
+            .other_section
+            .set_child(Some(model.other_list.clone()));
         widgets
             .wired_section
             .set_child(Some(model.wired_list.clone()));
@@ -456,11 +456,7 @@ fn connected_wifi_rows(state: &State) -> Vec<CommandRowModel> {
         .snapshot
         .wifi_access_points
         .iter()
-        .filter(|access_point| {
-            is_visible_access_point(access_point)
-                && access_point.connected
-                && access_point.uuid.is_some()
-        })
+        .filter(|access_point| is_visible_access_point(access_point) && access_point.connected)
         .map(|access_point| {
             wifi_row_model(
                 access_point,
@@ -492,6 +488,10 @@ fn wifi_row_model(
     active_action: Option<&NetworkActiveAction>,
     device_interface: Option<&str>,
 ) -> CommandRowModel {
+    // A connected AP with no matched saved-connection uuid can't be
+    // disconnected via Command::Disconnect, so it's rendered read-only
+    // instead of falling through to a redundant ConnectWifi retry.
+    let disconnectable = !connected || access_point.uuid.is_some();
     CommandRowModel {
         id: wifi_item_id(access_point),
         label: access_point.ssid.clone(),
@@ -499,7 +499,7 @@ fn wifi_row_model(
         status: connected.then(|| format::wifi_status(access_point)),
         tooltip: access_point_tooltip(access_point),
         busy: is_wifi_busy(active_action, access_point),
-        activatable: true,
+        activatable: disconnectable,
         active: access_point.connected,
         command: primary_wifi_command(access_point),
         ip4_addresses: access_point.ip4_addresses.clone(),
@@ -1129,7 +1129,12 @@ impl StaticRow {
         status.add_css_class("numeric");
         status.set_valign(gtk::Align::Center);
 
-        let mut row = Self { root, icon, status, model: None };
+        let mut row = Self {
+            root,
+            icon,
+            status,
+            model: None,
+        };
         row.update(model);
         row
     }
@@ -1279,7 +1284,8 @@ fn icon_name_for_state(state: &State) -> &str {
 mod tests {
     use super::*;
     use glimpse_core::services::network::{
-        NetworkConnection, NetworkServiceHealth, NetworkStatus, SavedVpn, WifiAccessPoint,
+        NetworkConnection, NetworkDevice, NetworkFailureClassification, NetworkServiceHealth,
+        NetworkStatus, SavedVpn, WifiAccessPoint,
     };
 
     #[test]
@@ -1305,11 +1311,66 @@ mod tests {
         assert_eq!(format::hero_subtitle(&state), "Turning Wi-Fi off");
 
         state.active_action = None;
+        state.snapshot.status.primary_connection = String::new();
         state.scanning = true;
         assert_eq!(format::hero_subtitle(&state), "Scanning");
 
         state.health = NetworkServiceHealth::Reconnecting { attempt: 2 };
         assert_eq!(format::hero_subtitle(&state), "Reconnecting");
+    }
+
+    #[test]
+    fn hero_subtitle_surfaces_wifi_device_failure_reason() {
+        // Wrong Wi-Fi password: the connect attempt fails, active_action
+        // clears, and NetworkManager reports the wifi device as Failed with
+        // an authentication failure reason. The user must see why, not just
+        // a row that silently stopped spinning.
+        let state = State {
+            health: NetworkServiceHealth::Ready,
+            snapshot: NetworkSnapshot {
+                status: NetworkStatus {
+                    enabled: true,
+                    wifi_enabled: true,
+                    wifi_hw_enabled: true,
+                    ..NetworkStatus::default()
+                },
+                devices: vec![NetworkDevice {
+                    device_type: "wifi".into(),
+                    failure: Some(NetworkFailureClassification::AuthenticationFailed),
+                    ..NetworkDevice::default()
+                }],
+                ..NetworkSnapshot::default()
+            },
+            active_action: None,
+            ..State::default()
+        };
+
+        assert_eq!(format::hero_subtitle(&state), "Wrong password");
+    }
+
+    #[test]
+    fn hero_subtitle_wifi_off_takes_priority_over_a_stale_failure() {
+        let state = State {
+            health: NetworkServiceHealth::Ready,
+            snapshot: NetworkSnapshot {
+                status: NetworkStatus {
+                    enabled: true,
+                    wifi_enabled: false,
+                    wifi_hw_enabled: true,
+                    ..NetworkStatus::default()
+                },
+                devices: vec![NetworkDevice {
+                    device_type: "wifi".into(),
+                    failure: Some(NetworkFailureClassification::AuthenticationFailed),
+                    ..NetworkDevice::default()
+                }],
+                ..NetworkSnapshot::default()
+            },
+            active_action: None,
+            ..State::default()
+        };
+
+        assert_eq!(format::hero_subtitle(&state), "Wi-Fi off");
     }
 
     fn access_point(ssid: &str, strength: u8, connected: bool, saved: bool) -> WifiAccessPoint {
@@ -1389,6 +1450,40 @@ mod tests {
                 path: "/ap/Cafe".into()
             }
         );
+    }
+
+    #[test]
+    fn connected_ap_without_matched_uuid_still_appears_as_a_readonly_row() {
+        let state = State {
+            health: NetworkServiceHealth::Ready,
+            snapshot: NetworkSnapshot {
+                status: NetworkStatus {
+                    enabled: true,
+                    wifi_enabled: true,
+                    wifi_hw_enabled: true,
+                    ..NetworkStatus::default()
+                },
+                devices: vec![NetworkDevice {
+                    path: "/dev/wlan0".into(),
+                    interface: "wlan0".into(),
+                    device_type: "wifi".into(),
+                    ..NetworkDevice::default()
+                }],
+                // Connected but not yet matched to a saved-connection uuid
+                // (e.g. NetworkManager hasn't reported the active connection
+                // uuid yet). Previously this vanished from both lists.
+                wifi_access_points: vec![access_point("Unmatched", 70, true, false)],
+                ..NetworkSnapshot::default()
+            },
+            ..State::default()
+        };
+
+        let sections = network_sections(&state);
+
+        assert_eq!(sections.connected_wifi.len(), 1);
+        assert_eq!(sections.connected_wifi[0].label, "Unmatched");
+        assert!(!sections.connected_wifi[0].activatable);
+        assert!(sections.other_wifi.is_empty());
     }
 
     #[test]

@@ -86,6 +86,13 @@ pub fn duration(value_micros: u64) -> String {
     format!("{minutes}:{seconds:02}")
 }
 
+/// Whether there's a player to show, independent of what label_format
+/// happens to render for it (an empty/icon-only format must not be
+/// mistaken for "no player").
+pub fn has_visible_player(state: &State) -> bool {
+    current_visible_player(state).is_some()
+}
+
 fn current_visible_player(state: &State) -> Option<&Player> {
     let visible = visible_players(&state.snapshot.players);
     let current_id = state.snapshot.current_player.as_ref().map(|p| &p.player_id);
@@ -171,6 +178,32 @@ mod tests {
 
         assert_eq!(label("{artist} - {title}", &state), "Nils Frahm - Says");
         assert_eq!(label("{position}/{duration}", &state), "3:12/7:38");
+    }
+
+    #[test]
+    fn has_visible_player_is_independent_of_label_content() {
+        let mut empty_identity_player = player();
+        empty_identity_player.identity.clear();
+        empty_identity_player.artist.clear();
+        empty_identity_player.title.clear();
+        let state = State {
+            snapshot: Snapshot {
+                current_player: Some(empty_identity_player.clone()),
+                players: vec![empty_identity_player],
+            },
+            ..Default::default()
+        };
+
+        // label() falls all the way through to an empty string here (no
+        // artist/title/identity for the fallback to use), but a player is
+        // still visibly playing — hidden must not key off the label.
+        assert_eq!(label("{artist} - {title}", &state), "");
+        assert!(has_visible_player(&state));
+    }
+
+    #[test]
+    fn has_visible_player_is_false_with_no_players() {
+        assert!(!has_visible_player(&State::default()));
     }
 
     #[test]

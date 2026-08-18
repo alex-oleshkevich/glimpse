@@ -31,6 +31,7 @@ use relm4::{
 };
 use tokio::sync::broadcast;
 use tokio::sync::mpsc;
+use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
 use crate::runtime::{BACKDROP_NAMESPACE, WALLPAPER_NAMESPACE};
@@ -45,7 +46,7 @@ pub enum AppCommand {
     /// An IPC client requested a runtime change (see [`WallpaperCommand`]).
     IpcCommand(WallpaperCommand),
     /// The on-disk config changed; re-resolve the base spec but keep any
-    /// active IPC override layered on top (only `reload_config` clears it).
+    /// active IPC override layered on top (only `reset` clears it).
     ExternalConfigChanged,
 }
 
@@ -74,20 +75,39 @@ pub enum ThemeModeRequest {
     Auto,
 }
 
+/// An IPC `set_backdrop` override before it's resolved against config.
+/// `blur` of `None` means "use the config default", resolved by `apply_to`
+/// against the config already loaded by its caller rather than re-reading
+/// the config file a second time.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum BackdropOverride {
+    Disabled,
+    Enabled {
+        path: Option<PathBuf>,
+        blur: Option<u32>,
+    },
+}
+
 /// Ephemeral, non-persisted overrides layered on top of the resolved
-/// config spec. Cleared only by the IPC `reload_config` command.
+/// config spec. Cleared only by the IPC `reset` command.
 #[derive(Debug, Default, Clone)]
 pub struct WallpaperOverride {
     color: Option<String>,
     image: Option<PathBuf>,
     fit: Option<FitMode>,
-    backdrop: Option<ResolvedBackdropSpec>,
+    backdrop: Option<BackdropOverride>,
     theme_mode: Option<EffectiveThemeMode>,
 }
 
 impl WallpaperOverride {
     /// Layer the active overrides onto a freshly resolved base spec.
-    fn apply_to(&self, mut base: ResolvedWallpaperSpec) -> ResolvedWallpaperSpec {
+    /// `default_blur_radius` resolves a backdrop override's blur when it
+    /// didn't specify one explicitly (config's `[backdrop].blur_radius`).
+    fn apply_to(
+        &self,
+        mut base: ResolvedWallpaperSpec,
+        default_blur_radius: u32,
+    ) -> ResolvedWallpaperSpec {
         if let Some(color) = &self.color {
             base.color = color.clone();
         }
@@ -109,7 +129,13 @@ impl WallpaperOverride {
             (None, None) => {}
         }
         if let Some(backdrop) = &self.backdrop {
-            base.backdrop = backdrop.clone();
+            base.backdrop = match backdrop {
+                BackdropOverride::Disabled => ResolvedBackdropSpec::Disabled,
+                BackdropOverride::Enabled { path, blur } => ResolvedBackdropSpec::Enabled {
+                    path: path.clone(),
+                    blur_radius: blur.unwrap_or(default_blur_radius),
+                },
+            };
         }
         base
     }
@@ -126,6 +152,7 @@ pub struct WallpaperAppModel {
     wallpaper_override: WallpaperOverride,
     _color_scheme_settings: Option<gio::Settings>,
     event_tx: broadcast::Sender<Arc<IpcEvent>>,
+    status_tx: watch::Sender<Option<crate::ipc::WallpaperStatus>>,
 }
 
 impl WallpaperAppModel {
@@ -141,6 +168,7 @@ impl WallpaperAppModel {
             wallpaper_override: WallpaperOverride::default(),
             _color_scheme_settings: None,
             event_tx,
+            status_tx: watch::channel(None).0,
         }
     }
 }
@@ -151,12 +179,21 @@ impl Default for WallpaperAppModel {
     }
 }
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
-struct MonitorKey(usize);
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+enum MonitorKey {
+    /// Stable across unplug/replug on backends that report a connector name.
+    Connector(String),
+    /// Fallback for backends with no connector name; glib can reuse this
+    /// address after unplug/replug, so it's a last resort only.
+    Pointer(usize),
+}
 
 impl MonitorKey {
     fn for_monitor(monitor: &gdk::Monitor) -> Self {
-        Self(monitor.as_ptr() as usize)
+        match monitor.connector() {
+            Some(connector) => Self::Connector(connector.to_string()),
+            None => Self::Pointer(monitor.as_ptr() as usize),
+        }
     }
 }
 
@@ -176,6 +213,7 @@ pub struct AppInit {
     pub config: Config,
     pub event_tx: broadcast::Sender<Arc<IpcEvent>>,
     pub command_rx: mpsc::Receiver<WallpaperCommand>,
+    pub status_tx: watch::Sender<Option<crate::ipc::WallpaperStatus>>,
 }
 
 #[relm4::component(pub)]
@@ -230,7 +268,7 @@ impl SimpleComponent for WallpaperAppModel {
             }
         });
 
-        let color_scheme_settings = subscribe_color_scheme(sender.clone());
+        let color_scheme_settings = subscribe_color_scheme(sender.clone(), init.config.theme_mode);
 
         if let Some(display) = gdk::Display::default() {
             let monitor_count = display.monitors().n_items();
@@ -258,7 +296,8 @@ impl SimpleComponent for WallpaperAppModel {
 
         let model = WallpaperAppModel {
             effective_mode: initial_mode,
-            _color_scheme_settings: Some(color_scheme_settings),
+            _color_scheme_settings: color_scheme_settings,
+            status_tx: init.status_tx,
             ..WallpaperAppModel::with_event_tx(init.event_tx)
         };
         let widgets = view_output!();
@@ -305,7 +344,7 @@ impl WallpaperAppModel {
         match command {
             WallpaperCommand::ReloadConfig => {
                 self.wallpaper_override = WallpaperOverride::default();
-                tracing::info!("ipc: reload_config (cleared runtime overrides)");
+                tracing::info!("ipc: reset (cleared runtime overrides)");
                 self.reapply_with_override(false, sender);
             }
             WallpaperCommand::SetImage(path) => {
@@ -329,10 +368,9 @@ impl WallpaperAppModel {
                 blur,
             } => {
                 let backdrop = if enabled {
-                    let blur_radius = blur.unwrap_or_else(|| Config::load().backdrop.blur_radius);
-                    ResolvedBackdropSpec::Enabled { path, blur_radius }
+                    BackdropOverride::Enabled { path, blur }
                 } else {
-                    ResolvedBackdropSpec::Disabled
+                    BackdropOverride::Disabled
                 };
                 tracing::info!(enabled, "ipc: set_backdrop");
                 self.wallpaper_override.backdrop = Some(backdrop);
@@ -365,8 +403,20 @@ impl WallpaperAppModel {
         self.effective_mode = mode;
         log_wallpaper_sources(&config, mode);
         let base = config.resolve_wallpaper(mode);
-        let merged = self.wallpaper_override.apply_to(base);
+        let merged = self
+            .wallpaper_override
+            .apply_to(base, config.backdrop.blur_radius);
         self.apply_resolved_spec(merged, force_image_reload, sender);
+    }
+
+    /// "light"/"dark" when the theme is pinned via IPC `set_theme_mode`,
+    /// else "auto" (following config/gsettings).
+    fn theme_mode_status(&self) -> &'static str {
+        match self.wallpaper_override.theme_mode {
+            Some(EffectiveThemeMode::Light) => "light",
+            Some(EffectiveThemeMode::Dark) => "dark",
+            None => "auto",
+        }
     }
 
     fn apply_resolved_spec(
@@ -389,6 +439,12 @@ impl WallpaperAppModel {
         );
         self.active_spec = Some(spec.clone());
         crate::ipc::emit_spec_changed(&self.event_tx, &spec);
+        let _ = self
+            .status_tx
+            .send(Some(crate::ipc::WallpaperStatus::from_spec(
+                &spec,
+                self.theme_mode_status(),
+            )));
         self.reconcile_windows(&spec, force_image_reload, sender.clone());
         self.watch_active_paths(spec, sender);
     }
@@ -697,12 +753,35 @@ fn log_wallpaper_sources(config: &Config, mode: EffectiveThemeMode) {
     );
 }
 
+/// Whether the GNOME interface settings schema is installed. `gio::Settings::new`
+/// g_error-aborts the whole process for an unknown schema, so this must be
+/// checked before ever constructing one.
+fn gnome_interface_schema_available() -> bool {
+    gio::SettingsSchemaSource::default()
+        .and_then(|src| src.lookup(GNOME_INTERFACE_SCHEMA, true))
+        .is_some()
+}
+
+/// Pure decision for Auto theme mode: falls back to Light whenever the schema
+/// is unavailable, regardless of `prefers_dark`.
+fn resolve_auto_theme_mode(schema_available: bool, prefers_dark: bool) -> EffectiveThemeMode {
+    if schema_available && prefers_dark {
+        EffectiveThemeMode::Dark
+    } else {
+        EffectiveThemeMode::Light
+    }
+}
+
 fn read_effective_theme_mode(config: &Config) -> EffectiveThemeMode {
     use glimpse_core::ThemeMode;
     match config.theme_mode {
         ThemeMode::Light => EffectiveThemeMode::Light,
         ThemeMode::Dark => EffectiveThemeMode::Dark,
-        ThemeMode::Auto => color_scheme_to_effective_mode(&read_gnome_color_scheme()),
+        ThemeMode::Auto => {
+            let schema_available = gnome_interface_schema_available();
+            let prefers_dark = schema_available && read_gnome_color_scheme() == "prefer-dark";
+            resolve_auto_theme_mode(schema_available, prefers_dark)
+        }
     }
 }
 
@@ -712,15 +791,14 @@ fn read_gnome_color_scheme() -> String {
         .to_string()
 }
 
-fn color_scheme_to_effective_mode(value: &str) -> EffectiveThemeMode {
-    if value == "prefer-dark" {
-        EffectiveThemeMode::Dark
-    } else {
-        EffectiveThemeMode::Light
+fn subscribe_color_scheme(
+    sender: ComponentSender<WallpaperAppModel>,
+    theme_mode: glimpse_core::ThemeMode,
+) -> Option<gio::Settings> {
+    use glimpse_core::ThemeMode;
+    if theme_mode != ThemeMode::Auto || !gnome_interface_schema_available() {
+        return None;
     }
-}
-
-fn subscribe_color_scheme(sender: ComponentSender<WallpaperAppModel>) -> gio::Settings {
     let settings = gio::Settings::new(GNOME_INTERFACE_SCHEMA);
     settings.connect_changed(Some(GNOME_COLOR_SCHEME_KEY), move |_, _| {
         // Re-read config so an explicit Light/Dark theme_mode wins over the gsetting.
@@ -728,7 +806,7 @@ fn subscribe_color_scheme(sender: ComponentSender<WallpaperAppModel>) -> gio::Se
         let mode = read_effective_theme_mode(&config);
         let _ = sender.input(AppCommand::ThemeModeChanged(mode));
     });
-    settings
+    Some(settings)
 }
 
 fn backdrop_label(backdrop: &ResolvedBackdropSpec) -> &'static str {
@@ -1648,7 +1726,14 @@ fn backdrop_texture_dimensions(width: u32, height: u32) -> (u32, u32) {
     )
 }
 
+/// Ceiling on the blur radius actually handed to the blur algorithm. Radius
+/// is user/IPC controlled and unbounded upstream; without this, a huge value
+/// hands the blur an effectively infinite sigma and wedges the decode
+/// worker.
+const MAX_BLUR_RADIUS: u32 = 128;
+
 fn blur_processing_dimensions(width: u32, height: u32, blur_radius: u32) -> (u32, u32, u32) {
+    let blur_radius = blur_radius.min(MAX_BLUR_RADIUS);
     let divisor = (blur_radius / 8).clamp(1, 4);
     let work_width = (width / divisor).max(1);
     let work_height = (height / divisor).max(1);
@@ -1843,17 +1928,44 @@ fn image_color_label(color: image::ColorType) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{
-        DecodedImage, ImageCacheKey, ImageLayerInit, WallpaperOverride, active_paths,
-        backdrop_texture_dimensions, blur_processing_dimensions, decode_image, load_cached_image,
-        load_legacy_unprocessed_cache, resize_rgba_for_fit, should_start_image_load,
-        write_cached_image,
+        BackdropOverride, DecodedImage, ImageCacheKey, ImageLayerInit, MAX_BLUR_RADIUS,
+        WallpaperOverride, active_paths, backdrop_texture_dimensions, blur_processing_dimensions,
+        decode_image, load_cached_image, load_legacy_unprocessed_cache, resize_rgba_for_fit,
+        resolve_auto_theme_mode, should_start_image_load, write_cached_image,
     };
-    use glimpse_core::{FitMode, ResolvedBackdropSpec, ResolvedImageSpec, ResolvedWallpaperSpec};
+    use glimpse_core::{
+        FitMode, ResolvedBackdropSpec, ResolvedImageSpec, ResolvedWallpaperSpec,
+        services::theme::EffectiveThemeMode,
+    };
     use std::{
         fs,
         path::PathBuf,
         time::{SystemTime, UNIX_EPOCH},
     };
+
+    #[test]
+    fn resolve_auto_theme_mode_falls_back_to_light_when_schema_missing() {
+        // A missing org.gnome.desktop.interface schema must never abort the
+        // process (gio::Settings::new g_errors on an unknown schema); Auto
+        // mode falls back to Light instead, even if a stray "prefers_dark"
+        // value were somehow available.
+        assert_eq!(
+            resolve_auto_theme_mode(false, true),
+            EffectiveThemeMode::Light
+        );
+    }
+
+    #[test]
+    fn resolve_auto_theme_mode_follows_prefers_dark_when_schema_present() {
+        assert_eq!(
+            resolve_auto_theme_mode(true, true),
+            EffectiveThemeMode::Dark
+        );
+        assert_eq!(
+            resolve_auto_theme_mode(true, false),
+            EffectiveThemeMode::Light
+        );
+    }
 
     #[test]
     fn decoded_image_debug_does_not_include_pixel_buffer() {
@@ -1916,6 +2028,17 @@ mod tests {
         assert_eq!(blur_processing_dimensions(1920, 1080, 24), (640, 360, 8));
         assert_eq!(blur_processing_dimensions(1280, 720, 24), (426, 240, 8));
         assert_eq!(blur_processing_dimensions(1280, 720, 4), (1280, 720, 4));
+    }
+
+    #[test]
+    fn backdrop_blur_processing_clamps_huge_radius_to_ceiling() {
+        // A huge radius must produce the same working radius as the
+        // ceiling itself - otherwise it hands the blur algorithm an
+        // effectively infinite sigma and wedges the decode worker.
+        assert_eq!(
+            blur_processing_dimensions(1920, 1080, 1_000_000),
+            blur_processing_dimensions(1920, 1080, MAX_BLUR_RADIUS)
+        );
     }
 
     #[test]
@@ -2114,7 +2237,10 @@ mod tests {
     #[test]
     fn empty_override_is_identity() {
         let base = base_spec();
-        assert_eq!(WallpaperOverride::default().apply_to(base.clone()), base);
+        assert_eq!(
+            WallpaperOverride::default().apply_to(base.clone(), 20),
+            base
+        );
     }
 
     #[test]
@@ -2123,7 +2249,7 @@ mod tests {
             color: Some("#abcdef".into()),
             ..WallpaperOverride::default()
         };
-        let result = over.apply_to(base_spec());
+        let result = over.apply_to(base_spec(), 20);
         assert_eq!(result.color, "#abcdef");
         assert_eq!(result.image, base_spec().image);
     }
@@ -2134,7 +2260,7 @@ mod tests {
             image: Some(PathBuf::from("/new/pic.png")),
             ..WallpaperOverride::default()
         };
-        let result = over.apply_to(base_spec());
+        let result = over.apply_to(base_spec(), 20);
         let image = result.image.expect("image present");
         assert_eq!(image.path, PathBuf::from("/new/pic.png"));
         assert_eq!(image.fit, FitMode::Cover);
@@ -2146,7 +2272,7 @@ mod tests {
             fit: Some(FitMode::Contain),
             ..WallpaperOverride::default()
         };
-        let result = over.apply_to(base_spec());
+        let result = over.apply_to(base_spec(), 20);
         assert_eq!(result.image.expect("image present").fit, FitMode::Contain);
     }
 
@@ -2158,7 +2284,7 @@ mod tests {
             fit: Some(FitMode::Fill),
             ..WallpaperOverride::default()
         };
-        assert!(over.apply_to(base).image.is_none());
+        assert!(over.apply_to(base, 20).image.is_none());
     }
 
     #[test]
@@ -2168,7 +2294,7 @@ mod tests {
             fit: Some(FitMode::Fill),
             ..WallpaperOverride::default()
         };
-        let image = over.apply_to(base_spec()).image.expect("image present");
+        let image = over.apply_to(base_spec(), 20).image.expect("image present");
         assert_eq!(image.path, PathBuf::from("/new/pic.png"));
         assert_eq!(image.fit, FitMode::Fill);
     }
@@ -2176,17 +2302,35 @@ mod tests {
     #[test]
     fn backdrop_override_replaces_backdrop() {
         let over = WallpaperOverride {
-            backdrop: Some(ResolvedBackdropSpec::Enabled {
+            backdrop: Some(BackdropOverride::Enabled {
                 path: None,
-                blur_radius: 40,
+                blur: Some(40),
             }),
             ..WallpaperOverride::default()
         };
         assert_eq!(
-            over.apply_to(base_spec()).backdrop,
+            over.apply_to(base_spec(), 20).backdrop,
             ResolvedBackdropSpec::Enabled {
                 path: None,
                 blur_radius: 40
+            }
+        );
+    }
+
+    #[test]
+    fn backdrop_override_with_no_blur_falls_back_to_config_default() {
+        let over = WallpaperOverride {
+            backdrop: Some(BackdropOverride::Enabled {
+                path: None,
+                blur: None,
+            }),
+            ..WallpaperOverride::default()
+        };
+        assert_eq!(
+            over.apply_to(base_spec(), 20).backdrop,
+            ResolvedBackdropSpec::Enabled {
+                path: None,
+                blur_radius: 20
             }
         );
     }

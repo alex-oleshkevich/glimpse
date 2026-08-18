@@ -283,7 +283,10 @@ fn visible_state(state: &State, compositor: &CompositorState) -> State {
         });
         normalize_visible_primary(&mut state);
     }
-    state.available = state.sources.iter().any(|source| source.is_usable());
+    // Present-but-unwritable sources (e.g. a permissions issue) must keep
+    // the applet visible; the popover lists them insensitive instead of
+    // hiding them, so the user has a hint instead of nothing.
+    state.available = state.sources.iter().any(|source| source.available);
     state
 }
 

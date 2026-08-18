@@ -361,8 +361,8 @@ impl CommandHandler for ShellCommandHandler {
                 ),
 
                 // ── media (mpris) ──────────────────────────────────────
-                "media_play" | "media_pause" | "media_play_pause" | "media_stop"
-                | "media_next" | "media_previous" => {
+                "media_play" | "media_pause" | "media_play_pause" | "media_stop" | "media_next"
+                | "media_previous" => {
                     let player_id = match field(fields, "player") {
                         Some(p) => p.to_owned(),
                         None => self.current_player_id().ok_or("no active media player")?,
@@ -657,7 +657,10 @@ impl CommandHandler for ShellCommandHandler {
 
                     match tokio::time::timeout(TOGGLE_POPOVER_TIMEOUT, reply_rx.recv()).await {
                         Ok(Some(result)) => result.map(|()| Vec::new()),
-                        Ok(None) | Err(_) => Err(format!("no such applet: '{applet}'")),
+                        Ok(None) => Err(format!("no such applet: '{applet}'")),
+                        Err(_) => Err(format!(
+                            "timed out waiting for panel to respond for applet: '{applet}'"
+                        )),
                     }
                 }
 

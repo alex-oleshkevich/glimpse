@@ -28,9 +28,7 @@ impl Drop for IpcHandle {
 
 impl IpcHandle {
     pub fn emit(&self, name: &str, fields: Vec<(&str, String)>) {
-        let owned: Vec<(String, String)> =
-            fields.into_iter().map(|(k, v)| (k.to_owned(), v)).collect();
-        let _ = self.event_tx.send(Arc::new(IpcEvent::new(name, owned)));
+        crate::ipc::emit(&self.event_tx, name, fields);
     }
 
     /// A cloneable, `Send` emitter for code that produces events away from the
@@ -58,9 +56,7 @@ impl IpcEmitter {
     }
 
     pub fn emit(&self, name: &str, fields: Vec<(&str, String)>) {
-        let owned: Vec<(String, String)> =
-            fields.into_iter().map(|(k, v)| (k.to_owned(), v)).collect();
-        let _ = self.event_tx.send(Arc::new(IpcEvent::new(name, owned)));
+        crate::ipc::emit(&self.event_tx, name, fields);
     }
 }
 
@@ -96,6 +92,14 @@ impl IpcServer {
             tokio::spawn(async move {
                 if let Some(parent) = path_clone.parent() {
                     let _ = std::fs::create_dir_all(parent);
+                }
+                if tokio::net::UnixStream::connect(&path_clone).await.is_ok() {
+                    tracing::error!(
+                        path = %path_clone.display(),
+                        "IPC socket already has a live server listening; refusing to bind \
+                         (a second daemon instance would otherwise hijack the socket)"
+                    );
+                    return;
                 }
                 let _ = std::fs::remove_file(&path_clone);
                 match UnixListener::bind(&path_clone) {
@@ -195,4 +199,41 @@ pub fn resolve_socket_path() -> PathBuf {
 /// Create a new broadcast channel suitable for use with `IpcServer::launch_at`.
 pub fn new_event_channel() -> broadcast::Sender<Arc<IpcEvent>> {
     broadcast::channel(BROADCAST_CAPACITY).0
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    use tokio::net::UnixStream;
+
+    use super::*;
+    use crate::ipc::client::NoopCommandHandler;
+
+    #[tokio::test]
+    async fn launch_at_refuses_to_bind_over_a_live_server() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("glimpse-ipc-server-test-{suffix}.sock"));
+
+        let original_listener = UnixListener::bind(&path).unwrap();
+
+        let _handle = IpcServer::launch_at(new_event_channel(), path.clone(), NoopCommandHandler);
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let _client = UnixStream::connect(&path)
+            .await
+            .expect("connecting to the still-live original server should succeed");
+
+        // If launch_at had removed and rebound the socket, this connection
+        // would have gone to its new listener instead of ours.
+        tokio::time::timeout(Duration::from_millis(500), original_listener.accept())
+            .await
+            .expect("original listener should still be the one accepting connections")
+            .expect("accept should succeed");
+
+        let _ = std::fs::remove_file(&path);
+    }
 }

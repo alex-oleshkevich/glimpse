@@ -23,11 +23,11 @@ use super::{
 };
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct Config {
-    show_when_empty: bool,
-    label_format: String,
-    tooltip_format: String,
+    pub show_when_empty: bool,
+    pub label_format: String,
+    pub tooltip_format: String,
 }
 
 impl Config {
@@ -382,6 +382,9 @@ mod tests {
                 RemovableContextItem {
                     label: "USB Drive: Eject".into(),
                 },
+                RemovableContextItem {
+                    label: "USB Drive: Power off".into(),
+                },
             ]
         );
         assert_eq!(
@@ -392,6 +395,9 @@ mod tests {
                     id: "device".into(),
                 },
                 Command::Eject {
+                    id: "device".into(),
+                },
+                Command::PowerOff {
                     id: "device".into(),
                 },
             ]

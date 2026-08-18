@@ -8,6 +8,7 @@ use crate::widgets::panel_indicator::{PanelIndicator, PanelMenu, PanelMenuItem};
 pub struct StatusItem {
     item: StatusItemModel,
     has_popover: bool,
+    root: PanelIndicator,
 }
 
 #[derive(Debug, Clone)]
@@ -61,7 +62,9 @@ impl SimpleComponent for StatusItem {
                 sender.input(Input::Click(2));
             },
             connect_scrolled[sender] => move |_, _dx, dy| {
-                sender.input(Input::Scroll(dy));
+                if dy != 0.0 {
+                    sender.input(Input::Scroll(dy));
+                }
             }
         }
     }
@@ -74,6 +77,7 @@ impl SimpleComponent for StatusItem {
         let model = StatusItem {
             item: init.item,
             has_popover: init.has_popover,
+            root: root.clone(),
         };
         let widgets = view_output!();
         root.set_context_menu(
@@ -136,6 +140,12 @@ impl SimpleComponent for StatusItem {
                 self.has_popover = has_popover;
             }
         }
+    }
+}
+
+impl Drop for StatusItem {
+    fn drop(&mut self) {
+        self.root.clear_context_menu();
     }
 }
 

@@ -89,10 +89,10 @@ pub async fn watch_config_file<T, W, F>(
                 };
                 if event_paths.iter().any(|path| watched_files.iter().any(|file| path_matches(path, file))) {
                     let event = load_event(&watch_file);
-                    if let Err(err) = sender.try_send(event) {
-                        tracing::error!(
-                            "failed to broadcast {label} config change to the app: {err}"
-                        );
+                    if sender.send(event).await.is_err() {
+                        // Receiver dropped; no one is listening for config
+                        // changes anymore, so stop watching.
+                        break;
                     }
 
                     watched_files = normalize_watch_files(&watch_file, watch_files(&watch_file));
