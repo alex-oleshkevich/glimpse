@@ -98,14 +98,13 @@ exit codes.
 | ------------------- | -------------------------- | ---------------------- | ----- | --------------------------------------- |
 | `glimpsed`          | `003_glimpsed.md`          | yes, via `WaylandEdge` | never | graphical session, `Restart=on-failure` |
 | `glimpse`           | `004_glimpse_panel.md`     | layer-shell            | yes   | graphical session                       |
-| `glimpse-wallpaper` | `005_glimpse_wallpaper.md` | layer-shell            | yes   | graphical session                       |
+| `glimpse-wallpaper` | `005_wallpaper.md`         | layer-shell            | yes   | graphical session                       |
 | `glimpse-lock`      | `006_glimpse_lock.md`      | `ext-session-lock-v1`  | yes   | on demand                               |
 | `glimpsectl`        | `007_glimpsectl.md`        | never                  | never | one-shot / TUI                          |
 | `glimpse-devtools`  | `008_glimpse_devtools.md`  | ordinary toplevel      | yes   | dev loop                                |
 
-Wallpaper is its own process so that restarting the panel does not black the screen and so the
-effects render loop does not share a process with panel code. Lock is its own process because it
-must start when the panel is broken and must not share its crash domain.
+Wallpaper is its own process so that restarting the panel does not black the screen. Lock is its own
+process because it must start when the panel is broken and must not share its crash domain.
 
 ### What glimpsed holds
 
@@ -281,8 +280,9 @@ Units, sandboxing rules, D-Bus activation and the environment-propagation proble
   register against a frame budget. If size ever matters, the codec is negotiated at handshake.
 - **Persistence for clipboard and notification history** — rejected: not wanted, and dropping it
   removes the state directory, schema versioning, migrations and downgrade protection.
-- **Wallpaper folded into the panel** — rejected: every panel restart would black the screen, and
-  live effects would put a GL loop in the panel process.
+- **Wallpaper folded into the panel** — rejected: every panel restart would black the screen. This
+  is now the only reason, since live effects are gone; if panel restarts stop being routine the
+  merge is worth revisiting.
 - **greetd as the lock backend** — rejected: greetd is a login manager. Its socket exists only in
   the greeter process and it exposes no way to verify a password inside a running session. A greeter
   built on greetd is a separate program that shares `glimpse-widgets`.
@@ -349,3 +349,4 @@ Read from source while designing; useful when a detail is disputed.
 - 2026-08-20 — added the `watcher` service, which moves configuration and stylesheet watching out of the UI processes; see `011_watcher.md`.
 - 2026-08-20 — added the `calendar` service; `_old` already configures calendar sources and nothing in the new design owned them.
 - 2026-08-20 — split `solar` out as its own service: `theme` and `nightlight` both consume `solar.daylight` rather than theme depending on nightlight, which is what `_old` does and what keeps dark mode working with night light off.
+- 2026-08-20 — live effects dropped; wallpaper stays a separate process for the panel-restart reason alone.

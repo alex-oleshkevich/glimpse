@@ -56,7 +56,7 @@ Five libraries, five shipped binaries, one development binary.
 | `glimpse-widgets`   | lib           | GObject subclasses, Blueprint templates, shared CSS                        |
 | `glimpsed`          | bin           | broker, socket server, `WaylandEdge` implementation, wiring, `main`        |
 | `glimpse-panel`     | bin `glimpse` | panel, applets, popovers, notification popups                              |
-| `glimpse-wallpaper` | bin           | background layer surface, live effects                                     |
+| `glimpse-wallpaper` | bin           | background layer surface, decode cache, transitions                        |
 | `glimpse-lock`      | bin           | `ext-session-lock-v1` surfaces, PAM                                        |
 | `glimpsectl`        | bin           | CLI and TUI                                                                |
 | `glimpse-devtools`  | bin           | widget previewer with hot reload, not installed                            |

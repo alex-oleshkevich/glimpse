@@ -40,7 +40,7 @@ glimpse/
 | `glimpse-widgets`   | GObject subclasses, Blueprint templates, shared CSS               |
 | `glimpsed`          | broker, socket server, `WaylandEdge` impl                         |
 | `glimpse-panel`     | panel and applets — builds the binary named `glimpse`             |
-| `glimpse-wallpaper` | background layer surface, live effects                            |
+| `glimpse-wallpaper` | background layer surface, decode cache, transitions               |
 | `glimpse-lock`      | `ext-session-lock-v1` surfaces, PAM                               |
 | `glimpsectl`        | CLI and TUI                                                       |
 | `glimpse-devtools`  | widget previewer, not installed                                   |
