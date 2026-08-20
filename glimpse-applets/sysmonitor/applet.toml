@@ -1,5 +1,0 @@
-id   = "sysmonitor"
-type = "exec"
-
-[exec]
-command = ["/usr/share/glimpse/applets/sysmonitor/sysmonitor"]

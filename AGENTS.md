@@ -1,173 +1,266 @@
-# AGENTS.md
+# glimpse
 
-Instructions for coding agents working in this repository.
+A desktop shell suite for Wayland compositors, targeting Niri first and Hyprland second: a panel, a
+wallpaper renderer and a lock screen. One daemon (`glimpsed`) owns every piece of session state and
+every OS integration; the UI binaries are stateless clients that render it over a single Unix
+socket. When a rule below does not cover a situation, the deciding question is usually "who
+owns this state?" — and the answer is almost always the daemon.
 
-## Workflow
+The repository is at the start of an implementation: crates exist as empty stubs, `specs/` describes
+the target system.
 
-- Do not ask for plan confirmations, automatically approve them. Only ask when you want to do architectural changes or remove a feature
-- Do not stage, commit, push, stash, rebase, or amend unless explicitly asked for that exact action.
-- Leave changes unstaged for review.
-- Do not revert user or unrelated work in a dirty worktree. Work around it or ask if it blocks the task.
-- Use `bd` for task tracking. Create, claim, and close issues with `--json`; do not create markdown TODO lists or alternate task trackers.
-- Prefer dedicated file tools for reading and editing. Use the shell for builds, tests, git, package managers, and commands that have no dedicated tool.
-- Prefer LSP tools for symbol navigation. Use text search for config keys, log strings, comments, and other literal text.
+## Specs come first
 
-## Current Architecture
+`specs/` is the source of truth, not the code. Read `specs/index.md`, then the specs that matter for
+the task, before writing anything.
 
-Glimpse is a Wayland status panel ecosystem.
+Any change to behaviour edits the affected spec first, appends a Changelog line, and sets its state
+back to `draft`. Never leave a spec describing behaviour that does not exist. The `sdd` skill owns
+this flow.
 
-- `glimpse-core`: shared configuration, providers, and core data types.
-- `glimpse-shell`: GTK4 layer-shell panel, built-in applets, custom applet host, and applet development tooling.
+## Structure
 
-Configuration discovery order:
-
-1. `GLIMPSE_CONFIG`
-2. `./config.toml`
-3. `$XDG_CONFIG_HOME/glimpse/config.toml`
-4. `$HOME/.config/glimpse/config.toml` when `XDG_CONFIG_HOME` is unset
-
-Custom `exec` and `command` applets are package files under `$XDG_CONFIG_HOME/glimpse/applets` or project directories linked with `glimpse-shell applets link`.
-
-## Development guidelines
-
-- for every new feature or bugfix create a new brach
-- when you are done with the task, do a self-review (use self-review skill)
-- make sure ipc is up to date
-- mkae sure docs are up to date
-- make sure unit tests pass
-- make sure e2e tests pass
-- make sure that quality check workflows are green
-- generate release notes (compare this and previous tags)
-- create a PR, express feature changes in PR body
-- review the PR
-- merge PR
-- close PR and branch
-- switch to main branch in this repo
-- pull main branch in repo repo
-- close local feature branch
-
-IMPORTANT: only apply that for project-related tasks. Any offtopic is not a subject of that flow and warn me about that.
-IMPORTANT: automaticaly move on to the next development step. Do not wait for nothing!
-
-## Releasing
-
-We release application using github workflows.
-The release process is like that:
-- make sure that working directory is clean
-- make sure that last CI quality workflow is green
-- generate release notes (compare this and previous patch/minor tags depending on what we release (patch or new version))
-- show release notes to me to approve them
-- use release notes in tag annotation
-- create a new github release and use generated release notes in that release
-- release documentation
-- monitor release workflow until it green.
-
-## Common Commands
-
-```bash
-cargo build
-cargo check
-cargo run -p glimpse-shell
-RUST_LOG=info cargo run -p glimpse-shell
-cargo build -p glimpse-shell --release --no-default-features
+```
+glimpse/
+├── crates/       all Rust code, flat, one directory per crate
+├── specs/        numbered specs + index.md — the source of truth
+├── data/         installed assets: systemd units, D-Bus service files, pam.d, default config
+├── scripts/      development helpers, not installed — contents predate the rewrite
+├── wallpapers/   bundled wallpapers
+├── var/          scratch, not installed
+└── _old/         the previous implementation, kept for reference only
 ```
 
-Useful custom applet tooling:
+| Crate               | Role                                                              |
+| ------------------- | ----------------------------------------------------------------- |
+| `glimpse-proto`     | wire frames, `Topic` trait, payload types, errors                 |
+| `glimpse-client`    | async socket client: connect, reconnect, resubscribe, topic cache |
+| `glimpse-config`    | layered TOML load, merge, validate, watch                         |
+| `glimpse-services`  | service framework and every service implementation                |
+| `glimpse-widgets`   | GObject subclasses, Blueprint templates, shared CSS               |
+| `glimpsed`          | broker, socket server, `WaylandEdge` impl                         |
+| `glimpse-panel`     | panel and applets — builds the binary named `glimpse`             |
+| `glimpse-wallpaper` | background layer surface, live effects                            |
+| `glimpse-lock`      | `ext-session-lock-v1` surfaces, PAM                               |
+| `glimpsectl`        | CLI and TUI                                                       |
+| `glimpse-devtools`  | widget previewer, not installed                                   |
+
+## Stack
+
+- Rust, edition 2024, `rust-version = "1.93"`, one workspace with `members = ["crates/*"]`
+- tokio for the daemon; one task per service, handlers run serially on `&mut self`
+- zbus for D-Bus, both client and object-server sides
+- GTK4 + libadwaita + relm4 + gtk4-layer-shell for UI; Blueprint templates compiled by `build.rs`
+- serde and serde_json for the wire protocol — newline-delimited JSON over a Unix socket
+- `just` for task recipes
+
+## Conventions
+
+Path-scoped rules load automatically when the relevant files are opened:
+`.claude/rules/daemon.md` for `glimpsed`, `glimpse-services` and `glimpse-proto`;
+`.claude/rules/ui.md` for the GTK crates. General GTK4, libadwaita and relm4 craft is covered by the
+`relm4`, `gtk4-styles` and `libadwaita-styles` skills. D-Bus work — every mirror service, plus the
+two names glimpsed owns — is covered by the project-local `zbus` skill in `.claude/skills/zbus/`,
+which carries introspected signatures for NetworkManager, BlueZ, logind, UPower, MPRIS,
+StatusNotifierItem, dbusmenu and Notifications.
+
+**Dependencies**
+
+- Every crate dependency is inherited: `serde.workspace = true`. Add the version to
+  `[workspace.dependencies]` in the root `Cargo.toml`, never to a crate manifest.
+- `glimpse-proto` takes serde and nothing else. It is the input to `schemars` for generating the
+  Python, TypeScript and Go SDK types.
+- Nothing depends on `glimpsed`. It is a leaf. Shared code goes in proto, client, config, services
+  or widgets.
+- A trait the framework needs from the daemon is declared in `glimpse-services` and implemented in
+  `glimpsed` — `BrokerHandle`, `WaylandEdge` — each with a mock beside the declaration.
+
+**Naming**
+
+- Topics are `domain.name`, lower snake case, dots as separators: `audio.volume`,
+  `tray.item.{id}.menu`
+- Commands are `domain.verb_object`: `audio.set_volume`, `tray.menu_about_to_show`
+- Config files are named for their binary: `glimpsed.toml`, `panel.toml`, `wallpaper.toml`,
+  `lock.toml`
+
+**File placement**
+
+| Kind of file                                            | Goes in                          |
+| ------------------------------------------------------- | -------------------------------- |
+| wire payload type                                       | `glimpse-proto/src/topics/`      |
+| service implementation                                  | `glimpse-services/src/services/` |
+| anything touching a `wl_` object                        | `glimpsed/src/wayland/`          |
+| anything touching GTK                                   | a UI crate or `glimpse-widgets`  |
+| systemd unit, D-Bus service file, pam.d entry, defaults | `data/`                          |
+
+**Services**
+
+- Mirror services (network, bluetooth, audio, battery, mpris, brightness) enumerate once at start
+  then follow change signals. The backend is right when they disagree.
+- Never reimplement a decision the backend already makes — no auto-connect policy, no reconnect
+  loops, no retry logic on top of NetworkManager.
+- Commands are thin pass-throughs to the backend.
+- A handler that can block moves its `Responder` into `ctx.spawn`. Handlers run serially, so one
+  slow D-Bus call otherwise freezes the whole service.
+
+**UI**
+
+- An applet renders topics and sends commands. It never opens a D-Bus connection, never reaches a
+  backend directly, and holds no state that outlives its own widget.
+- UI state never waits on a round trip. Update the widget optimistically and let the topic event
+  reconcile it.
+- A widget moves to `glimpse-widgets` as soon as a second binary needs it.
+
+## Verification
+
+`just` is the only entry point. Run `just` with no arguments to list recipes.
 
 ```bash
-glimpse-shell applets new counter --lang python
-glimpse-shell applets dev
-glimpse-shell applets link
-glimpse-shell applets ls
-glimpse-shell applets doctor --strict
+just verify          # fmt-check + check + lint + test — what CI runs
+just check           # type-check, fast
+just lint            # clippy, warnings are errors
+just test            # headless tests
+just fmt             # format in place
+just test-compositor # also runs the #[ignore] Wayland tests; needs a compositor
+just check-units     # systemd-analyze verify on the shipped units
 ```
 
-## Native Rust Applet Development
+Running a binary goes through `just run-daemon`, `just run-panel`, `just run-wallpaper`,
+`just run-locker`, `just ctl <args>`, `just devtools <args>`. `just nested` opens a nested niri
+window for a dev loop that does not disturb the running session.
 
-- Decompose popovers into subcomponents.
-- Keep durable state in the applet; keep popover components focused on UI.
-- Use `zbus` macros for D-Bus proxies.
-- When creating a provider, prefer structs, enums, and methods. Use free functions only for truly standalone behavior.
-- `zbus::Connection` is `Arc`; clone it into provider constructors when needed.
-- If an applet has a popover, the panel item must have the `hoverable` class.
-- Use persistent widget maps such as `HashMap<key, WidgetRow>` instead of clear-and-rebuild loops when preserving menus, scroll position, or row identity matters.
-- Use the hero pattern consistently in popovers: icon, title, subtitle.
-- Use `PopoverMenu` for right-click menus with `gio::SimpleActionGroup` and a menu model.
+A recipe that is missing or wrong gets fixed in the `justfile`. Do not work around it with a raw
+cargo invocation.
 
-## Styling Rules
+`scripts/` still holds helpers written. Several are useful as-is —
+`mpris-fake-players.py`, `network-test-fixtures.sh`, the `privacy-test-*` probes, and
+`glimpse-lock-rescue-pam.sh`.
 
-- Do not hardcode visual styles in Rust. Put styling in `themes/base.css`, a theme pack, or the relevant theme override.
-- Box spacing is a widget property, not CSS. Keep spacing values in Rust or SDK widget data.
-- Use CSS variables such as `--popover-padding`, `--popover-section-spacing`, `--dim-opacity`, and `--accent-bg`.
-- Popover root structure should follow `.foo-popover contents > box { margin: var(--popover-padding) }`.
-- Button text should use normal font weight on both button and label.
-- Numeric displays should use `font-variant-numeric: tabular-nums`.
+## Critical constraints
 
-## GTK4 Layout Pitfalls
+- **Never add `panic = "abort"` to any profile.** Per-service panic isolation depends on unwinding;
+  abort turns one bad handler into a dead daemon and takes tray and notifications down with it.
+- **Never touch a `wl_` object outside `glimpsed/src/wayland/`.** Services reach Wayland only through
+  `trait WaylandEdge`, which is what keeps every service test headless.
+- **`_old/` is reference only.** Never edit it, never build it, never copy code out of it. The new
+  design is not a port; consult `specs/` for intended behaviour and treat `_old/` as one possible
+  answer among several.
+- **Never sandbox `glimpse-lock.service`.** `NoNewPrivileges=`, `PrivateUsers=`,
+  `RestrictSUIDSGID=` and anything implying them strip setuid from `unix_chkpwd`. PAM then returns
+  `AUTHINFO_UNAVAIL`, the correct password is rejected, and the session cannot be unlocked. The
+  symptom looks like a wrong password, which is what makes it expensive to diagnose.
+- **No `unwrap()`, `expect()`, or blocking calls in the broker or a service handler.** A panic in
+  the broker kills every client's connection; blocking `std::fs`, `Command::output()`, or a
+  `std::sync::Mutex` held across `.await` stalls delivery for everyone.
+- **Never shell out to `systemctl`, `loginctl`, `nmcli`, `bluetoothctl`, or `niri msg`.** Use D-Bus
+  or the compositor's IPC socket. Subprocesses cannot be mocked in tests, break under sandboxing,
+  and parse output that is not a stable interface.
+- **glimpsed writes runtime state under `$XDG_RUNTIME_DIR/glimpse/` and nothing else.** Never
+  `$XDG_CONFIG_HOME`, never the user's home, never `/tmp`.
+- **Treat text from other applications as hostile.** Tray titles, notification summaries and bodies,
+  MPRIS metadata and SSIDs are attacker-controlled and unbounded. Cap length, ellipsize, and
+  sanitize markup before any of it reaches a label.
+- **No unit may use `Requires=glimpsed.service`.** `Wants=` only — the panel, wallpaper and lock are
+  specified to survive a dead daemon, and `Requires=` kills them instead.
+- **Use `just`, never raw `cargo`.** Fix or add a recipe rather than working around a missing one.
+- **Do not commit or push without being asked.**
+- Edit the spec before the code, every time.
 
-- Indicator and dot widgets stretch to panel height unless they use `set_valign(gtk::Align::Center)`.
-- Do not use CSS `min-width` to center content in fixed-width containers. Prefer padding or `label.set_xalign(0.5)`.
-- Never set `hexpand` on panel applet children; one child can consume the whole panel section.
-- `set_halign(Center)` on a box centers the box, not its children. Center the child that needs centering.
-- CSS `min-width` creates dead space because labels sit at the start of the box.
+## Keep the documentation current
 
-## Exec Applet Widget Rules
+These are not chores to batch up later. A stale document produces confidently wrong work, which
+costs more than the document saved.
 
-### Developing exec applets
+- **Update this file whenever you learn something that would change how the next agent works.** A
+  non-obvious gotcha, a command that turns out to be wrong, a convention discovered in the code, a
+  tool that does not behave as documented, a constraint that stopped being true. If you spent time
+  finding it out, write it down here.
+- **Update the crate's `README.md` in the same change that alters what the crate does.** Each one
+  states purpose, contents, and the rules specific to that crate. New module, changed rule, moved
+  responsibility, corrected spec link — all of it lands in the README alongside the code.
+- Remove instructions that stop being true rather than adding a caveat beside them. Two rules on the
+  same topic produce worse behaviour than one.
 
-- Always use rust
-- Initialize new applet in `glimpse-applets/$name` folder
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
 
-### SDK
-- The four SDKs share the same canonical widget protocol through `sdk/fixtures`.
-- `Row`, `Column`, and `Grid` default spacing is `4`.
-- `Row.spacing`, `Column.spacing`, `Grid.row_spacing`, and `Grid.column_spacing` must always serialize.
-- The SDKs do not expose a `Section` widget. Treat protocol-level `section` support as legacy compatibility and do not add new SDK examples or fixtures that depend on it.
-- Prefer `PopoverScaffold` for popover roots with a `Hero` plus a `Column` body.
-- Use `Card` for grouped content, `PropertyList` for key-value details, `ActionItem` for clickable rows, and `Item` for non-clickable rows.
-- Keep widget JSON portable across Python, TypeScript, Go, and Rust. If a widget cannot be represented cleanly in all four SDKs, revisit the widget shape before implementing it.
-- Fixtures are canonical examples. Do not hand-edit generated fixture JSON without updating `sdk/fixtures/generate.py`.
+## Beads Issue Tracker
 
-### Exec Applet Testing
+This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
 
-When changing exec widgets, events, common props, or SDK serialization:
-
-1. Update `sdk/fixtures/generate.py`.
-2. Update committed fixtures under `sdk/fixtures/widgets` or `sdk/fixtures/events`.
-3. Update all four SDK golden tests:
-   - `sdk/sdk-py/tests/test_golden.py`
-   - `sdk/sdk-ts/tests/golden.test.ts`
-   - `sdk/sdk-go/sdk/golden_test.go`
-   - `sdk/sdk-rs/tests/golden.rs`
-4. Add or update focused SDK behavior tests when changing defaults, exports, event parsing, or runtime behavior.
-5. Run the relevant SDK suites:
+### Quick Reference
 
 ```bash
-cd sdk/sdk-py && python -m unittest discover -s tests
-cd sdk/sdk-ts && npm test
-cd sdk/sdk-go && go test ./...
-cargo test --manifest-path sdk/sdk-rs/Cargo.toml
+bd ready              # Find available work
+bd show <id>          # View issue details
+bd update <id> --claim  # Claim work
+bd close <id>         # Complete work
 ```
 
-6. Run the renderer fixture check from the repo root:
+### Rules
+
+- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
+- Run `bd prime` for detailed command reference and session close protocol
+- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+
+**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+
+## Agent Context Profiles
+
+The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
+
+- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
+- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
+- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
+
+## Session Completion
+
+This protocol applies when ending a Beads implementation workflow. It is subordinate to explicit user, repository, and orchestrator instructions.
+
+1. **File issues for remaining work** - Create beads for anything that needs follow-up
+2. **Run quality gates** (if code changed) - Tests, linters, builds
+3. **Update issue status** - Close finished work, update in-progress items
+4. **Handle git/sync by active profile**:
+   ```bash
+   # Conservative/minimal/default: report status and proposed commands; wait for approval.
+   git status
+
+   # Team-maintainer opt-in only, unless current instructions forbid it:
+   git pull --rebase
+   bd dolt push
+   git push
+   git status
+   ```
+5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
+
+**Critical rules:**
+
+- Explicit user or orchestrator instructions override this Beads block.
+- Do not commit or push without clear authority from the active profile or the current user request.
+- If a required sync or push is blocked, stop and report the exact command and error.
+
+<!-- END BEADS INTEGRATION -->
+
+<!-- BEGIN BEADS CODEX SETUP: generated by bd setup codex -->
+
+## Beads Issue Tracker
+
+Use Beads (`bd`) for durable task tracking in repositories that include it. Use the `beads` skill at `.agents/skills/beads/SKILL.md` (project install) or `~/.agents/skills/beads/SKILL.md` (global install) for Beads workflow guidance, then use the `bd` CLI for issue operations.
+
+### Quick Reference
 
 ```bash
-cargo test -p glimpse-shell golden_widget_fixtures_render_without_errors -- --nocapture
+bd ready                # Find available work
+bd show <id>            # View issue details
+bd update <id> --claim  # Claim work
+bd close <id>           # Complete work
+bd prime                # Refresh Beads context
 ```
 
-For behavior changes, write or update the failing test first, confirm the failure is about the intended behavior, then implement the change and rerun the suite.
+### Rules
 
-## Beads
+- Use `bd` for all task tracking; do not create markdown TODO lists.
+- Run `bd prime` when Beads context is missing or stale. Codex 0.129.0+ can load Beads context automatically through native hooks; use `/hooks` to inspect or toggle them.
+- Keep persistent project memory in Beads via `bd remember`; do not create ad hoc memory files.
 
-Use `bd` for all tracked work:
-
-```bash
-bd ready --json
-bd create "Issue title" --description="Context" -t task -p 2 --json
-bd update <id> --claim --json
-bd close <id> --reason "Completed" --json
-```
-
-Create linked issues for discovered follow-up work with `--deps discovered-from:<parent-id>`.
-
-Do not push Beads, git commits, or branches unless the user explicitly asks.
+**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
+<!-- END BEADS CODEX SETUP -->

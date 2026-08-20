@@ -1,9 +1,0 @@
-{
-  "data": {
-    "fraction": 0.82,
-    "icon": "battery-good-symbolic",
-    "percentage": "82%",
-    "state": "Discharging"
-  },
-  "type": "battery_hero"
-}

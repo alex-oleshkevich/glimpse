@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<gresources>
-  <gresource prefix="/me/aresa/GlimpseLock">
-    <file>lock.css</file>
-    <file compressed="true">widgets/avatar.ui</file>
-  </gresource>
-</gresources>

@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "skills": {
+    "arch-btw": {
+      "source": "iuliandita/skills",
+      "sourceType": "github",
+      "skillPath": "skills/arch-btw/SKILL.md",
+      "computedHash": "9e5db480836a017b34a33b4c1221265975fcfede2fc500cbd67b6160874cbb6e"
+    },
+    "build-acceleration": {
+      "source": "mohitmishra786/low-level-dev-skills",
+      "sourceType": "github",
+      "skillPath": "skills/build-systems/build-acceleration/SKILL.md",
+      "computedHash": "c93105065a73e1043091d263d6cc81d37eb2a316ba0949131ec3c9de4d6bb010"
+    },
+    "cargo-workflows": {
+      "source": "mohitmishra786/low-level-dev-skills",
+      "sourceType": "github",
+      "skillPath": "skills/rust/cargo-workflows/SKILL.md",
+      "computedHash": "14a5bc62c6206505c027201b5c075916a0987ca528428ecb6f2d7f10272b4685"
+    },
+    "clap-patterns": {
+      "source": "geoffjay/claude-plugins",
+      "sourceType": "github",
+      "skillPath": "plugins/rust-cli-developer/skills/clap-patterns/SKILL.md",
+      "computedHash": "2d6559fe4d65f8cbe9376ed8cc9115473d42faf6df8f81356db5ec1744d98355"
+    },
+    "cli-configuration": {
+      "source": "geoffjay/claude-plugins",
+      "sourceType": "github",
+      "skillPath": "plugins/rust-cli-developer/skills/cli-configuration/SKILL.md",
+      "computedHash": "7d265cb5f6484a8dd271289008c5c66f2d0726840c1810210f05522676baf7c8"
+    },
+    "developing-gtk-apps": {
+      "source": "mhagrelius/dotfiles",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/developing-gtk-apps/SKILL.md",
+      "computedHash": "594d8410a4601bb7550fb7d39188a932356b5d3a21f6ccffdec9831be0d8768d"
+    },
+    "flamegraphs": {
+      "source": "mohitmishra786/low-level-dev-skills",
+      "sourceType": "github",
+      "skillPath": "skills/profilers/flamegraphs/SKILL.md",
+      "computedHash": "1ce56ac9a172cc7dd42c51da8347ec83fef7c336b47fdeca1cae382c881fd92e"
+    },
+    "gdb": {
+      "source": "mohitmishra786/low-level-dev-skills",
+      "sourceType": "github",
+      "skillPath": "skills/debuggers/gdb/SKILL.md",
+      "computedHash": "2a05cf6a724c6d4cc6b1390d7472dd26c25ff1bb12340c0ea30f50a5f355ef82"
+    },
+    "insta-snapshots": {
+      "source": "oxc-project/oxc",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/insta-snapshots/SKILL.md",
+      "computedHash": "c8400c9cb84529ef6f943e42a9ca422ac3602e0273d3e179685189e6d5c1ea79"
+    },
+    "property-based-testing": {
+      "source": "trailofbits/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/property-based-testing/skills/property-based-testing/SKILL.md",
+      "computedHash": "ddde371888a75d492f6b296c3f33c0aa92e7722c82b547acbf53369f64b97449"
+    },
+    "ratatui-tui": {
+      "source": "blacktop/dotfiles",
+      "sourceType": "github",
+      "skillPath": "ai/skills/ratatui-tui/SKILL.md",
+      "computedHash": "519ad8e9d88e2cd5e8a9754874b078860524146050f80f1236203c7e140b61bd"
+    },
+    "relm4-app": {
+      "source": "anson2251/relm4-app-skill",
+      "sourceType": "github",
+      "skillPath": "skills/relm4-app/SKILL.md",
+      "computedHash": "749ea853031b27017669ba3bc70d0b760124d62dfdba363d6281b701ea90cd59"
+    },
+    "rust-async-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/systems-programming/skills/rust-async-patterns/SKILL.md",
+      "computedHash": "20d32ef58158c94eb4dfc4aaf19bec7ae2a025ae5d42da7b49ccfbaeda389273"
+    },
+    "rust-best-practices": {
+      "source": "apollographql/skills",
+      "sourceType": "github",
+      "skillPath": "skills/rust-best-practices/SKILL.md",
+      "computedHash": "0ac6606adb27e64a31bdc8c1ed34e446ae0c14bff1c7648867c46e106adc048f"
+    },
+    "rust-build-times": {
+      "source": "mohitmishra786/low-level-dev-skills",
+      "sourceType": "github",
+      "skillPath": "skills/rust/rust-build-times/SKILL.md",
+      "computedHash": "80825b76fc15facc5a1f609eb8356c957758fb75feef4248d913b61d897ccefd"
+    },
+    "rust-debugging": {
+      "source": "mohitmishra786/low-level-dev-skills",
+      "sourceType": "github",
+      "skillPath": "skills/rust/rust-debugging/SKILL.md",
+      "computedHash": "70002eabb81f25ffdf84ba7203b6d0069cfe976dea30d17a3b558d335458488f"
+    },
+    "rust-profiling": {
+      "source": "mohitmishra786/low-level-dev-skills",
+      "sourceType": "github",
+      "skillPath": "skills/rust/rust-profiling/SKILL.md",
+      "computedHash": "6470a08bc2c0072c405ff7f0d9db099aef66c06d49dc85cff6fdca0ed459a14c"
+    },
+    "rust-security": {
+      "source": "mohitmishra786/low-level-dev-skills",
+      "sourceType": "github",
+      "skillPath": "skills/rust/rust-security/SKILL.md",
+      "computedHash": "3c3763fbb2da225b1286304e42bae6d95201e1a1fdc15d7550eee5ab337394f6"
+    },
+    "rust-unsafe": {
+      "source": "mohitmishra786/low-level-dev-skills",
+      "sourceType": "github",
+      "skillPath": "skills/rust/rust-unsafe/SKILL.md",
+      "computedHash": "0f98528d2805553c7264c19c006b582cf2bccfc501932feabbde284fed5a412c"
+    },
+    "rustc-basics": {
+      "source": "mohitmishra786/low-level-dev-skills",
+      "sourceType": "github",
+      "skillPath": "skills/rust/rustc-basics/SKILL.md",
+      "computedHash": "4adaaf43e27841c15ccb529d17c537e575e5238af0e11886aa7ef7c9f4800b03"
+    },
+    "tokio-patterns": {
+      "source": "geoffjay/claude-plugins",
+      "sourceType": "github",
+      "skillPath": "plugins/rust-tokio-expert/skills/tokio-patterns/SKILL.md",
+      "computedHash": "3d33732b5c7e9560556ed2470d526777dd6d92873aae327a536536aa2dbe767a"
+    },
+    "tokio-troubleshooting": {
+      "source": "geoffjay/claude-plugins",
+      "sourceType": "github",
+      "skillPath": "plugins/rust-tokio-expert/skills/tokio-troubleshooting/SKILL.md",
+      "computedHash": "28bc272baa7341124c21342b4aa2f921e24132fc4f3be0205192e8e597c7a889"
+    }
+  }
+}

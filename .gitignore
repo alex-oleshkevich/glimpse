@@ -36,3 +36,6 @@ config.toml
 wallpaper.toml
 !glimpse-wallpaper/resources/wallpaper.toml
 .envrc
+
+# Beads / Dolt files (added by bd init)
+.beads/proxieddb/
