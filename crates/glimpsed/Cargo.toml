@@ -7,6 +7,6 @@ rust-version.workspace = true
 [dependencies]
 clap.workspace = true
 dirs.workspace = true
-glimpse-proto = { path = "../glimpse-proto" }
+glimpse-ipc = { path = "../glimpse-ipc" }
 tracing.workspace = true
 tracing-subscriber.workspace = true

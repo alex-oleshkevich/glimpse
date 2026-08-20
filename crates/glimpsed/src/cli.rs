@@ -6,7 +6,7 @@ use clap::{Parser, ValueEnum};
 // clap wants a `&'static str`, so the protocol number is literal; the assertion catches drift.
 const LONG_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " (protocol 1)");
 const _: () = assert!(
-    glimpse_proto::PROTOCOL_VERSION == 1,
+    glimpse_ipc::PROTOCOL_VERSION == 1,
     "PROTOCOL_VERSION changed — update LONG_VERSION to match"
 );
 

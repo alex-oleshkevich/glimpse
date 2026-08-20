@@ -24,7 +24,7 @@ fn main() -> ExitCode {
         tracing::error!("XDG_RUNTIME_DIR is unset or is not an absolute path");
         return exit::NO_RUNTIME_DIR.into();
     };
-    let socket = glimpse_proto::socket_path(cli.socket.as_deref(), &runtime_dir);
+    let socket = glimpse_ipc::socket_path(cli.socket.as_deref(), &runtime_dir);
 
     if cli.check_config || cli.print_config {
         return inspect_config(&cli);
