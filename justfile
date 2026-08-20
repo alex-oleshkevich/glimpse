@@ -47,6 +47,10 @@ test-compositor:
 [doc("everything CI runs")]
 verify: fmt-check check lint test
 
+[doc("search crates.io before writing something by hand")]
+search QUERY:
+    cargo search "{{ QUERY }}" --limit 20
+
 [doc("validate the shipped systemd units")]
 check-units:
     systemd-analyze --user verify data/systemd/*.service

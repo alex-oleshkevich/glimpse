@@ -88,3 +88,18 @@ Reverses the rule that `glimpse-proto` takes serde and nothing else. Its stated 
 else it links. The real costs were a UI binary compiling a socket server it never runs, which the
 linker drops, and a crate name that would have stopped describing its contents, which the rename
 fixes. Specs 001, 002.
+
+### 2026-08-20 · The IPC transport is written, not taken from a crate — except the framing
+
+Surveyed before writing. `jsonrpsee` has exactly the right subscription model and no Unix socket
+transport at all — HTTP, WebSocket and WASM only — and moving the session bus to a TCP port to reach
+a library is a worse trade than writing the transport. `tarpc` is strictly request-response, so
+server-initiated `event` frames have no expression in it; its generic `serde_transport` would carry
+a `UnixStream`, but the protocol shape is the mismatch, not the transport. `remoc` is a superset
+with its own object model. `stubborn-io` reconnects underneath a `Framed` stream, which resumes
+mid-frame, and cannot know to resubscribe.
+
+What *is* taken: `tokio_util::codec::LinesCodec::new_with_max_length`, which is the line framing and
+the length cap, already a workspace dependency and already exactly the specified behaviour. Only the
+two policies on top are ours — an over-length or malformed line closes the connection rather than
+recovering, because recovering leaves the two ends disagreeing about what was delivered. Spec 012.

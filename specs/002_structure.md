@@ -117,7 +117,7 @@ with no display, no session bus and no broker.
 src/
 ├── lib.rs           re-exports, PROTOCOL_VERSION, SOCKET_RELATIVE_PATH, socket_path
 ├── frame.rs         Frame, Body, Status
-├── codec.rs         frame to line, line to frame
+├── codec.rs         LinesCodec + serde_json; over-length and malformed lines close
 ├── topic.rs         trait Topic, pattern matching rules
 ├── error.rs         CallError { code, message, retryable }
 ├── client/          connect, reconnect with backoff, resubscribe, typed topic cache

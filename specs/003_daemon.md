@@ -116,28 +116,15 @@ falls back to defaults. An invalid reload is dropped and the running configurati
 
 ### The socket
 
-Newline-delimited JSON over a Unix socket at `$XDG_RUNTIME_DIR/glimpse/glimpsed.sock`, mode 0600,
-one frame per line, `{id?, type, data}`.
+Newline-delimited JSON over a Unix socket at `$XDG_RUNTIME_DIR/glimpse/glimpsed.sock`, mode 0600.
+Frames, the codec, the handshake, the limits and both ends of the transport are `012_ipc.md`; the
+daemon uses `glimpse-ipc`'s server rather than implementing one.
 
-| Frame                         | Direction | Purpose                                         |
-| ----------------------------- | --------- | ----------------------------------------------- |
-| `subscribe` / `subscribe_ack` | out / in  | register a pattern, receive matched count       |
-| `unsubscribe`                 | out       | drop a pattern, releasing demand                |
-| `get` / `get_result`          | out / in  | one-shot read of a topic's current value        |
-| `call` / `call_result`        | out / in  | invoke a command, correlated by `id`            |
-| `event`                       | in        | `{topic, seq, ts, stale, data}`, the full value |
+Two consequences belong to the daemon rather than to the wire:
 
-Errors carry `{code, message, retryable}`. One `PROTOCOL_VERSION` is checked at handshake.
-
-Three rules about where the socket lives and who may take it:
-
-- **`XDG_RUNTIME_DIR` is required and there is no `/tmp` fallback.** `/tmp` is world-writable, so a
-  predictable path there invites socket pre-creation, symlink hijack and cross-user denial of
-  service. A session without `XDG_RUNTIME_DIR` is misconfigured, and failing fast is the correct
-  response to it.
-- **A second instance fails rather than stealing the socket.** Unlinking an existing socket before
-  binding is what lets a second daemon silently displace a live one and leave every connected client
-  talking to nothing. Connect first; a socket that answers means a live daemon and exit 3.
+- **A second instance fails rather than stealing the socket.** Connect before binding; a socket that
+  answers means a live daemon and exit 3. Unlinking first is what lets a second daemon silently
+  displace a live one and leave every connected client talking to nothing.
 - **A command that could not be delivered returns an error.** A full or closed service channel means
   the command did not take effect, and reporting success for it is worse than reporting failure.
 
@@ -261,3 +248,4 @@ on reload — see `010_configuration.md`.
 - 2026-08-20 — invalid configuration no longer exits at startup; exit 1 is now only `--check-config`.
 - 2026-08-20 — renamed from `003_glimpsed.md` and reorganised around the daemon's concepts — topics, broker, services, demand, socket, health — with the binary and its flags as one section rather than the subject.
 - 2026-08-20 — recorded from `_old`: eager service spawning, constructor-wired dependencies and whole-config broadcast as the problems the design answers, plus the socket rules it got right (no `/tmp` fallback, 0600) and wrong (unlinking before bind, and disabling IPC instead of failing).
+- 2026-08-20 — the socket section points at `012_ipc.md` for frames, codec, handshake and limits, keeping only what is the daemon's rather than the wire's. The transport moved to `glimpse-ipc`, so `socket.rs` leaves this crate.
