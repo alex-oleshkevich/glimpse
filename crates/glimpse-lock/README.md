@@ -21,6 +21,15 @@ directly.
 If the process dies after `locked`, the compositor keeps the session locked and shows a blank
 screen. That is correct and must not be worked around.
 
+`AUTHINFO_UNAVAIL` never renders as a wrong password. It is the symptom of the sandbox trap below,
+and mislabelling it is what makes that failure expensive.
+
+The conversation answers one `echo-off` prompt and refuses a second: a module retrying its prompt is
+indistinguishable from a real second factor, and re-sending the password is the worse guess.
+
+`glimpse-lock check` runs the three diagnostics that explain a rejected correct password —
+`NoNewPrivs`, no `pam_permit.so` in the PAM file, and a setuid root `unix_chkpwd`.
+
 **Never sandbox this unit.** `NoNewPrivileges=`, `PrivateUsers=` and `RestrictSUIDSGID=` put the
 process in a user namespace that strips the setuid bit from `unix_chkpwd`. PAM then returns
 `AUTHINFO_UNAVAIL`, the correct password is rejected, and the session cannot be unlocked. The
@@ -30,4 +39,4 @@ Configuration is the `[lock]` table of the shared `config.toml`, plus `lock.css`
 other binaries are ignored, not validated. Schema in
 [`specs/010_configuration.md`](../../specs/010_configuration.md).
 
-Spec: [`specs/006_glimpse_lock.md`](../../specs/006_glimpse_lock.md)
+Spec: [`specs/006_lock.md`](../../specs/006_lock.md)

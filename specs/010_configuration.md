@@ -389,7 +389,7 @@ buttons = ["wifi", "input", "weather", "battery", "power"]
 ```
 
 `pam_service` is configurable but changing it is how a working locker becomes an unlockable session.
-`006_glimpse_lock.md` carries the warning that belongs with it.
+`006_lock.md` carries the warning that belongs with it.
 
 ### `[[panels]]`
 
@@ -535,7 +535,7 @@ the editor catches before that.
 
 ## Changelog
 
-- 2026-08-20 — created, split out of `003_glimpsed.md`.
+- 2026-08-20 — created, split out of `003_daemon.md`.
 - 2026-08-20 — added the load-failure rule: invalid config logs and falls back to defaults at boot, and is dropped on reload. Neither exits; `--check-config` still exits 1.
 - 2026-08-20 — the file is `config.toml`; dropped `[daemon]`, so every top-level table belongs to a service or a UI binary and logging is configured only by flag, `RUST_LOG` or a unit drop-in.
 - 2026-08-20 — replaced `include = [...]` with `config.d/` drop-ins; includes solved the four-file sharing problem, which merging into one file already solved.

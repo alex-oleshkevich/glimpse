@@ -96,10 +96,10 @@ exit codes.
 
 | Binary              | Spec                       | Wayland                | GTK   | Lifetime                                |
 | ------------------- | -------------------------- | ---------------------- | ----- | --------------------------------------- |
-| `glimpsed`          | `003_glimpsed.md`          | yes, via `WaylandEdge` | never | graphical session, `Restart=on-failure` |
-| `glimpse`           | `004_glimpse_panel.md`     | layer-shell            | yes   | graphical session                       |
+| `glimpsed`          | `003_daemon.md`          | yes, via `WaylandEdge` | never | graphical session, `Restart=on-failure` |
+| `glimpse`           | `004_panel.md`             | layer-shell            | yes   | graphical session                       |
 | `glimpse-wallpaper` | `005_wallpaper.md`         | layer-shell            | yes   | graphical session                       |
-| `glimpse-lock`      | `006_glimpse_lock.md`      | `ext-session-lock-v1`  | yes   | on demand                               |
+| `glimpse-lock`      | `006_lock.md`              | `ext-session-lock-v1`  | yes   | on demand                               |
 | `glimpsectl`        | `007_glimpsectl.md`        | never                  | never | one-shot / TUI                          |
 | `glimpse-devtools`  | `008_glimpse_devtools.md`  | ordinary toplevel      | yes   | dev loop                                |
 
