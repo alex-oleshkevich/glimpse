@@ -146,10 +146,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "glimpse-client"
-version = "0.16.0"
-
-[[package]]
 name = "glimpse-config"
 version = "0.16.0"
 
@@ -158,15 +154,15 @@ name = "glimpse-devtools"
 version = "0.16.0"
 
 [[package]]
+name = "glimpse-ipc"
+version = "0.16.0"
+
+[[package]]
 name = "glimpse-lock"
 version = "0.16.0"
 
 [[package]]
 name = "glimpse-panel"
-version = "0.16.0"
-
-[[package]]
-name = "glimpse-proto"
 version = "0.16.0"
 
 [[package]]
@@ -191,7 +187,7 @@ version = "0.16.0"
 dependencies = [
  "clap",
  "dirs",
- "glimpse-proto",
+ "glimpse-ipc",
  "tracing",
  "tracing-subscriber",
 ]

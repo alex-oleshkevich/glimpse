@@ -18,6 +18,12 @@ Any change to behaviour edits the affected spec first, appends a Changelog line,
 back to `draft`. Never leave a spec describing behaviour that does not exist. The `sdd` skill owns
 this flow.
 
+**Record why, not just what.** A decision that changes direction, reverses an earlier one, or that
+somebody would plausibly re-propose in six months gets an entry in `specs/decisions.md`. A spec's
+Changelog says what changed in that document; the decision log says why the project moved, which is
+the part that is lost when a decision spans several specs. It is append-only — a reversal is a new
+entry naming the old one, never an edit to it.
+
 **No spec changes without approval.** Propose the edit — the exact wording, not a summary of it —
 and wait for a yes. This holds for a one-word correction as much as for a new section, and it holds
 when the spec is plainly wrong: a spec records decisions somebody made, so changing it silently
@@ -62,12 +68,11 @@ glimpse/
 
 | Crate               | Role                                                              |
 | ------------------- | ----------------------------------------------------------------- |
-| `glimpse-proto`     | wire frames, `Topic` trait, payload types, errors                 |
-| `glimpse-client`    | async socket client: connect, reconnect, resubscribe, topic cache |
+| `glimpse-ipc`       | wire frames, codec, `Topic` trait, payload types, errors, client, server |
 | `glimpse-config`    | layered TOML load, drop-ins, merge, validate, watch               |
 | `glimpse-services`  | service framework and every service implementation                |
 | `glimpse-widgets`   | GObject subclasses, Blueprint templates, shared CSS               |
-| `glimpsed`          | broker, socket server, `WaylandEdge` impl                         |
+| `glimpsed`          | broker, `WaylandEdge` impl                                        |
 | `glimpse-panel`     | panel and applets — builds the binary named `glimpse`             |
 | `glimpse-wallpaper` | background layer surface, decode cache, transitions               |
 | `glimpse-lock`      | `ext-session-lock-v1` surfaces, PAM                               |
@@ -86,7 +91,7 @@ glimpse/
 ## Conventions
 
 Path-scoped rules load automatically when the relevant files are opened:
-`.claude/rules/daemon.md` for `glimpsed`, `glimpse-services` and `glimpse-proto`;
+`.claude/rules/daemon.md` for `glimpsed`, `glimpse-services` and `glimpse-ipc`;
 `.claude/rules/ui.md` for the GTK crates. General GTK4, libadwaita and relm4 craft is covered by the
 `relm4`, `gtk4-styles` and `libadwaita-styles` skills. D-Bus work — every mirror service, plus the
 two names glimpsed owns — is covered by the project-local `zbus` skill in `.claude/skills/zbus/`,
@@ -109,8 +114,8 @@ StatusNotifierItem, dbusmenu and Notifications.
 
 - Every crate dependency is inherited: `serde.workspace = true`. Add the version to
   `[workspace.dependencies]` in the root `Cargo.toml`, never to a crate manifest.
-- `glimpse-proto` takes serde and nothing else. It is the input to `schemars` for generating the
-  Python, TypeScript and Go SDK types.
+- `glimpse-ipc` takes serde and tokio and nothing else — no zbus, no GTK. Its `topics/` and
+  `frame.rs` are the input to `schemars` for the Python, TypeScript and Go SDK types.
 - Nothing depends on `glimpsed`. It is a leaf. Shared code goes in proto, client, config, services
   or widgets.
 - A trait the framework needs from the daemon is declared in `glimpse-services` and implemented in
@@ -130,7 +135,7 @@ StatusNotifierItem, dbusmenu and Notifications.
 
 | Kind of file                                            | Goes in                          |
 | ------------------------------------------------------- | -------------------------------- |
-| wire payload type                                       | `glimpse-proto/src/topics/`      |
+| wire payload type                                       | `glimpse-ipc/src/topics/`        |
 | service implementation                                  | `glimpse-services/src/services/` |
 | anything touching a `wl_` object                        | `glimpsed/src/wayland/`          |
 | anything touching GTK                                   | a UI crate or `glimpse-widgets`  |

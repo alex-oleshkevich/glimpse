@@ -271,7 +271,7 @@ Units, sandboxing rules, D-Bus activation and the environment-propagation proble
   own SSID grouping, or a panel-to-lock side channel, which is a worse daemon.
 - **gRPC** — rejected: pattern subscriptions and runtime-created topics do not fit a compile-time
   service surface, and the `Any`-payload workaround keeps the dependency while discarding the
-  typing. SDK codegen is obtained instead by deriving JSON Schema from `glimpse-proto`.
+  typing. SDK codegen is obtained instead by deriving JSON Schema from `glimpse-ipc`'s payload types.
 - **D-Bus for the client API** — rejected: no snapshot-on-subscribe, no per-client coalescing, and
   `dbus-daemon` disconnects clients that exceed its queue rather than degrading them. A thin
   read-only facade on `me.aresa.Glimpse` remains possible for scripting.
@@ -311,17 +311,6 @@ Units, sandboxing rules, D-Bus activation and the environment-propagation proble
 - **External applet write access.** Whether applet processes may publish topics or only read them
   changes the broker's write path and the trust model.
 
-## Implementation TODO
-
-- [ ] `glimpse-proto`, broker, one trivial service, `glimpsectl watch` — prove the topic model in a
-      terminal with no GTK and no Wayland
-- [ ] audio service — high event rate, inline commands, `on_demand` gating; the point at which to
-      change the service trait if it is wrong
-- [ ] minimal panel with two applets, end to end
-- [ ] notifications and tray
-- [ ] `WaylandEdge`, then solar with theme and nightlight over it
-- [ ] wallpaper, lock
-
 ## Reference implementations
 
 Read from source while designing; useful when a detail is disputed.
@@ -350,3 +339,4 @@ Read from source while designing; useful when a detail is disputed.
 - 2026-08-20 — added the `calendar` service; `_old` already configures calendar sources and nothing in the new design owned them.
 - 2026-08-20 — split `solar` out as its own service: `theme` and `nightlight` both consume `solar.daylight` rather than theme depending on nightlight, which is what `_old` does and what keeps dark mode working with night light off.
 - 2026-08-20 — live effects dropped; wallpaper stays a separate process for the panel-restart reason alone.
+- 2026-08-20 — `glimpse-proto` and `glimpse-client` are one crate, `glimpse-ipc`; see `002_structure.md`.

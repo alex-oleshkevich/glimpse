@@ -45,16 +45,15 @@ glimpse/
 
 ### Crates
 
-Five libraries, five shipped binaries, one development binary.
+Four libraries, five shipped binaries, one development binary.
 
 | Crate               | Kind          | Contains                                                                   |
 | ------------------- | ------------- | -------------------------------------------------------------------------- |
-| `glimpse-proto`     | lib           | wire frames, `Topic` trait, payloads, error codes, `PROTOCOL_VERSION`, the socket name and NDJSON codec |
-| `glimpse-client`    | lib           | async socket client: connect, reconnect, resubscribe, typed topic cache    |
+| `glimpse-ipc`       | lib           | the wire format and both ends of the transport: frames, codec, topics, errors, client, server |
 | `glimpse-config`    | lib           | layered TOML load, drop-ins, merge, validate                              |
 | `glimpse-services`  | lib           | service framework and every service implementation                         |
 | `glimpse-widgets`   | lib           | GObject subclasses, Blueprint templates, shared CSS                        |
-| `glimpsed`          | bin           | broker, socket server, `WaylandEdge` implementation, wiring, `main`        |
+| `glimpsed`          | bin           | broker, `WaylandEdge` implementation, wiring, `main`                       |
 | `glimpse-panel`     | bin `glimpse` | panel, applets, popovers, notification popups                              |
 | `glimpse-wallpaper` | bin           | background layer surface, decode cache, transitions                        |
 | `glimpse-lock`      | bin           | `ext-session-lock-v1` surfaces, PAM                                        |
@@ -64,13 +63,13 @@ Five libraries, five shipped binaries, one development binary.
 ### Dependency direction
 
 ```
-                    glimpse-proto            (serde only: no tokio, no zbus, no GTK)
-                     ↑    ↑     ↑
-      glimpse-client ┘    │     └ glimpse-services
-             ↑            │              ↑
-             │      glimpse-config       │
-             │            ↑              │
-   ┌─────────┴────────────┴──────────────┘
+                    glimpse-ipc              (+ serde, tokio; no zbus, no GTK)
+                     ↑         ↑
+                     │         └ glimpse-services
+                     │                  ↑
+              glimpse-config            │
+                     ↑                  │
+   ┌─────────────────┴──────────────────┘
    │
    ├── glimpsed                          (+ zbus, wayland-client, pipewire)
    ├── glimpse-panel ────┐
@@ -82,16 +81,23 @@ Five libraries, five shipped binaries, one development binary.
 
 Two rules carry the whole layout.
 
-**Nothing depends on `glimpsed`.** It is a leaf. Anything two crates need lives in proto, client,
-config, services or widgets.
+**Nothing depends on `glimpsed`.** It is a leaf. Anything two crates need lives in ipc, config,
+services or widgets.
 
-**`glimpse-proto` takes serde and nothing else.** It is the input to `schemars` for generating the
-Python, TypeScript and Go SDK types. A tokio or zbus dependency closes that door.
+**`glimpse-ipc` holds the transport, `glimpsed` holds the routing.** Frames, codec, client and
+server all describe how bytes cross the socket, and both ends have to agree on every one of them; a
+second implementation of any of them could only drift. The broker decides *which* client gets
+*which* value, which is a daemon decision and stays in `glimpsed`.
+
+`glimpse-ipc` takes serde and tokio and nothing else — no zbus, no GTK. `topics/` and `frame.rs` are
+the input to `schemars` for the Python, TypeScript and Go SDK types, and a generator reads those
+modules rather than the whole crate. The earlier form of this rule barred tokio on the grounds that
+it broke schema generation, which is not true: `schema_for!` compiles the crate and does not care
+what else it links.
 
 ### The services and daemon split
 
-`glimpse-services` owns the framework and the implementations; `glimpsed` owns the broker and the
-socket. The arrow points from `glimpsed` to `glimpse-services` and never back, so anything the
+`glimpse-services` owns the framework and the implementations; `glimpsed` owns the broker. The arrow points from `glimpsed` to `glimpse-services` and never back, so anything the
 framework needs from the daemon is declared as a trait in `glimpse-services` and implemented in
 `glimpsed`:
 
@@ -105,7 +111,7 @@ with no display, no session bus and no broker.
 
 ### Module layout
 
-#### glimpse-proto
+#### glimpse-ipc
 
 ```
 src/
@@ -114,6 +120,8 @@ src/
 ├── codec.rs         frame to line, line to frame
 ├── topic.rs         trait Topic, pattern matching rules
 ├── error.rs         CallError { code, message, retryable }
+├── client/          connect, reconnect with backoff, resubscribe, typed topic cache
+├── server/          listener, per-client reader and writer tasks, byte caps
 └── topics/          one module per domain, payload types only
     ├── audio.rs   battery.rs   bluetooth.rs   brightness.rs
     ├── clipboard.rs   idle.rs   keyboard.rs   mpris.rs
@@ -162,7 +170,6 @@ src/
 │   ├── store.rs     latest value per topic, stale flag
 │   ├── subscribers.rs  pattern registry, per-client coalescing, byte caps
 │   └── handle.rs    impl BrokerHandle
-├── socket.rs        listener, per-client reader and writer tasks
 ├── registry.rs      service registration, DAG validation, supervision
 └── wayland/
     ├── mod.rs       impl WaylandEdge
@@ -201,7 +208,7 @@ this crate exists to prevent.
 
 | Kind of file                                                  | Goes in                          |
 | ------------------------------------------------------------- | -------------------------------- |
-| Wire payload type                                             | `glimpse-proto/src/topics/`      |
+| Wire payload type                                             | `glimpse-ipc/src/topics/`        |
 | Service implementation                                        | `glimpse-services/src/services/` |
 | Anything touching a `wl_` object                              | `glimpsed/src/wayland/`          |
 | Anything touching GTK                                         | a UI crate or `glimpse-widgets`  |
@@ -212,10 +219,10 @@ this crate exists to prevent.
 
 | Level                                   | Where                                                                      | Needs                |
 | --------------------------------------- | -------------------------------------------------------------------------- | -------------------- |
-| Payload round-trip, pattern matching    | `glimpse-proto` unit tests                                                 | nothing              |
+| Payload round-trip, pattern matching    | `glimpse-ipc` unit tests                                                   | nothing              |
+| Client against server, end to end       | `glimpse-ipc` unit tests: encode, decode, respond, decode                  | nothing              |
 | Service behaviour                       | `glimpse-services` unit tests against `BrokerHandle` / `WaylandEdge` mocks | nothing              |
 | Broker fan-out, coalescing, client caps | `glimpsed` unit tests                                                      | nothing              |
-| Socket protocol                         | `glimpsed/tests/` over a temporary socket                                  | nothing              |
 | Wayland backends                        | `glimpsed/tests/`, `#[ignore]` by default                                  | a running compositor |
 | Widgets                                 | `glimpse-devtools`, by eye                                                 | a display            |
 
@@ -240,6 +247,11 @@ this crate exists to prevent.
   `glimpse-services` with the services that use it; only the implementation is in `glimpsed`.
 - **A crate per service** — rejected: twelve more manifests, and every service needs the framework
   anyway, so the boundaries would be nominal.
+- **A separate `glimpse-client` crate** — rejected after being specified: the client and the server
+  are two ends of one wire format, and splitting them meant the codec had two homes and the only
+  place a real client met a real server was an integration test over a temporary socket. Merged, a
+  round trip is a unit test. The cost is that every UI binary compiles a socket server it never
+  runs, which is a few hundred lines the linker drops.
 - **A shared `glimpse-core` holding everything non-UI** — rejected: it becomes the crate everything
   depends on and nothing can be tested without, which is the outcome the proto/client/config split
   exists to avoid.
@@ -256,3 +268,4 @@ this crate exists to prevent.
 - 2026-08-20 — the socket's name under `$XDG_RUNTIME_DIR` is a constant in `glimpse-proto`, so the daemon that binds it and the client that connects to it derive the same path without either depending on the other. `glimpse-client` exposes a connection, never a path.
 - 2026-08-20 — socket path resolution is `glimpse_proto::socket_path`, not `glimpse-client`: both ends must agree on it and neither may depend on the other.
 - 2026-08-20 — the NDJSON codec moves from `glimpsed/src/socket.rs` to `glimpse-proto/src/codec.rs`. It is the one part both ends execute identically, and a second implementation in `glimpse-client` could only diverge. The client and the socket server stay where they are: both need tokio, which proto does not take, and a merged crate would make every UI binary compile a socket server it never runs.
+- 2026-08-20 — `glimpse-proto` and `glimpse-client` merge into `glimpse-ipc`, holding the wire format and both ends of the transport; the broker stays in `glimpsed`, so the split is transport against routing rather than client against server. The serde-only rule is replaced: it barred tokio on the grounds that it broke `schemars`, which is not true.

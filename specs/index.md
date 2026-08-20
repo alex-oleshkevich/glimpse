@@ -1,6 +1,7 @@
 # Specs
 
 [glossary.md](glossary.md) defines the vocabulary these specs use.
+[decisions.md](decisions.md) records why the project changed direction, across documents.
 
 | #   | Title                                               | Description                                                                   | Beads | State |
 | --- | --------------------------------------------------- | ----------------------------------------------------------------------------- | ----- | ----- |
@@ -15,3 +16,4 @@
 | 009 | [systemd integration](009_systemd.md)               | User units, ordering, readiness, restart policy, sandboxing rules.            | —     | draft |
 | 010 | [Configuration](010_configuration.md)               | One shared `config.toml`: tables, layers, drop-ins, per-service reload.      | —     | draft |
 | 011 | [Watcher](011_watcher.md)                           | The service watching config and stylesheets; digests, not contents.          | —     | draft |
+| 012 | [IPC](012_ipc.md)                                   | Frames, codec, socket ownership, client and server; the wire both ends share. | —     | draft |
