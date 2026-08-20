@@ -26,4 +26,8 @@ process in a user namespace that strips the setuid bit from `unix_chkpwd`. PAM t
 `AUTHINFO_UNAVAIL`, the correct password is rejected, and the session cannot be unlocked. The
 symptom looks like a wrong password, which is what makes it expensive to diagnose.
 
+Configuration is the `[lock]` table of the shared `config.toml`, plus `lock.css`. Tables owned by
+other binaries are ignored, not validated. Schema in
+[`specs/010_configuration.md`](../../specs/010_configuration.md).
+
 Spec: [`specs/006_glimpse_lock.md`](../../specs/006_glimpse_lock.md)

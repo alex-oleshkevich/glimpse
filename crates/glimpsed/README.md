@@ -25,4 +25,5 @@ which is what keeps every service test headless.
 Never add `panic = "abort"`. Per-service panic isolation depends on unwinding.
 
 Spec: [`specs/003_glimpsed.md`](../../specs/003_glimpsed.md) ·
+configuration: [`specs/010_configuration.md`](../../specs/010_configuration.md) ·
 units: [`specs/009_systemd.md`](../../specs/009_systemd.md)

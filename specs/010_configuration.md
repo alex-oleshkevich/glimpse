@@ -43,18 +43,24 @@ others — including the daemon, which owns tray and notifications for the whole
 `$XDG_CONFIG_HOME/glimpse/config.toml`, read by all four binaries. Each reads only the tables it
 owns.
 
-| Table         | Owner             | Contents                                   |
-| ------------- | ----------------- | ------------------------------------------ |
-| `[<service>]` | glimpsed          | one per service, named for the service     |
-| `[panel]`     | glimpse-panel     | layout, applet placement, behaviour        |
-| `[wallpaper]` | glimpse-wallpaper | source, mode, effect, per-output overrides |
-| `[lock]`      | glimpse-lock      | appearance, widgets, grace period          |
+| Entry                            | Owner             | Contents                                   |
+| -------------------------------- | ----------------- | ------------------------------------------ |
+| `theme`, `theme_mode`            | glimpsed          | the two top-level scalars                  |
+| `[<service>]`                    | glimpsed          | one per service, named for the service     |
+| `[monitors]`                     | glimpsed          | session hardware, read by several services |
+| `[[panels]]`, `[applets.<name>]` | glimpse-panel     | bars, zones, applet instances              |
+| `[wallpaper]`, `[backdrop]`      | glimpse-wallpaper | image, fit, transition, overview backdrop  |
+| `[lock]`                         | glimpse-lock      | PAM service, background, clock, controls   |
 
-Service tables sit at the top level, named for the service: `[weather]`, `[nightlight]`. A service
+Service tables sit at the top level, named for the service as existing configurations already spell
+it — `[night_light]` for the nightlight service and `[location]` for geolocation, both kept because
+renaming them would break every file in the wild. A service
 can never collide with a binary table, because `001_architecture.md` lists wallpaper, panel layout
 and lock among the things glimpsed does not hold — so no service of those names will exist.
 
-Stylesheets stay separate files — `panel.css`, `lock.css`. CSS is not TOML.
+Stylesheets stay separate files under `themes/`, not in the configuration: `themes/panel.css` is a
+user override layered over the active theme pack's own, and the locker's is wherever `lock.css_path`
+points, `themes/lock.css` by default. CSS is not TOML.
 
 ### Ownership and validation
 
@@ -73,14 +79,14 @@ every reader and silently does nothing, which is the worst outcome for a file pe
 
 Later wins, per key:
 
-| # | Layer           | Source                                                            |
-| - | --------------- | ----------------------------------------------------------------- |
-| 1 | defaults        | compiled in, mirrored for reference in `data/config.default.toml` |
-| 2 | system          | `/etc/glimpse/config.toml`                                        |
-| 3 | system drop-ins | `/etc/glimpse/config.d/*.toml`, lexical order                     |
-| 4 | user            | `$XDG_CONFIG_HOME/glimpse/config.toml`                            |
-| 5 | user drop-ins   | `$XDG_CONFIG_HOME/glimpse/config.d/*.toml`, lexical order         |
-| 6 | CLI             | flags                                                             |
+| #   | Layer           | Source                                                            |
+| --- | --------------- | ----------------------------------------------------------------- |
+| 1   | defaults        | compiled in, mirrored for reference in `data/config.default.toml` |
+| 2   | system          | `/etc/glimpse/config.toml`                                        |
+| 3   | system drop-ins | `/etc/glimpse/config.d/*.toml`, lexical order                     |
+| 4   | user            | `$XDG_CONFIG_HOME/glimpse/config.toml`                            |
+| 5   | user drop-ins   | `$XDG_CONFIG_HOME/glimpse/config.d/*.toml`, lexical order         |
+| 6   | CLI             | flags                                                             |
 
 `--config <PATH>` replaces layers 2 through 5 with that file. Layers 1 and 6 still apply, so a
 `--config` run is still a merged configuration and not a raw file read.
@@ -139,14 +145,46 @@ resolves to nothing readable, that is a load failure and the defaults rule appli
 
 Errors name the path as written and the path it resolved to, and never any of the file's content. A
 link aimed at a private file — an SSH key, a token — must not echo that file into the journal, into
-`config.reloaded`, or into `--print-config` output. This is the reason resolution is specified at
+the log, or into `--print-config` output. This is the reason resolution is specified at
 all: glimpsed runs unprivileged, so a link cannot reach anything the user could not already read,
 but it can trick the daemon into reprinting it somewhere more public than where it started.
+
+### Bounds
+
+Nothing in the stack traverses without a bound, and nothing holds descriptors it is not using.
+
+- **No directory recursion.** `config.d/` is read exactly one level deep. A subdirectory inside it is
+  ignored rather than descended into, and a `config.d/` that resolves to a link pointing at another
+  directory is still read one level. No configuration shape needs a tree, so there is no traversal
+  to bound in the first place.
+- **One file open at a time.** Each drop-in is opened, read to the cap, and closed before the next is
+  opened. Peak descriptor use for a whole load is two — the directory being listed and the file
+  being read — no matter how many drop-ins exist. The merged document is built in memory; the files
+  are not held.
+- **At most 64 drop-ins per directory.** Past that the load fails rather than silently applying a
+  prefix of them, because a user who wrote a drop-in must never have it quietly ignored. With the
+  1 MiB per-file cap this bounds a load at 64 MiB read sequentially, and a real one at a few KiB.
+- **Watches are per directory, never per file**, and the `watcher` service of `011_watcher.md`
+  places them; a directory missing at start or recreated later is its problem, defined there. Four
+  cover the whole stack: `/etc/glimpse/`,
+  `/etc/glimpse/config.d/`, `$XDG_CONFIG_HOME/glimpse/` and its `config.d/`. A hundred drop-ins cost
+  the same as one. Per-file watches would also be wrong on their own terms — they cannot see a
+  drop-in that does not exist yet, and adding one is exactly the event that has to trigger a reload.
+- **A symlinked base file adds one more watch**, on the directory holding its resolved target.
+  Editors write a new file and rename it over the old one, so a watch that followed the link to the
+  original inode would go quiet after the first save. Total watches are bounded at six.
+- **Symlink chains** are bounded by the kernel, surfacing as `ELOOP`. The daemon adds no depth limit
+  of its own because it never resolves links by hand.
+
+If watch registration fails — `fs.inotify.max_user_watches` is a shared and commonly exhausted
+resource — the daemon logs it once and runs without hot reload. Configuration still loads at start
+and `SIGHUP` still works. Losing automatic reload is a degradation; refusing to start over it would
+not be.
 
 ### Reload and per-service diffing
 
 On `SIGHUP` the whole stack is re-read, re-merged and re-validated. On failure the
-running configuration survives untouched and the error location goes out on `config.reloaded`.
+running configuration survives untouched and the error location is logged.
 
 On success glimpsed does **not** restart services. For each registered service it deserializes that
 service's table into its associated `Config` type, compares it against the running value, and calls
@@ -161,12 +199,30 @@ trait Service {
 ```
 
 This is the equality gate the daemon already applies to payloads, one level up. It is what makes a
-shared file safe: editing `[panel]` cannot perturb the nightlight schedule, because nightlight's
+shared file safe: editing `[[panels]]` cannot perturb the night light schedule, because its
 subtree is unchanged and `apply` is never called.
 
 A service with no table of its own gets `Config::default()`.
 
-### `[geolocation]`
+### `[appearance]`
+
+| Key      | Type   | Default  | Meaning                                   |
+| -------- | ------ | -------- | ----------------------------------------- |
+| `pack`   | string | `""`     | theme pack name, resolved under `themes/` |
+| `scheme` | enum   | `"auto"` | `light`, `dark`, `auto`                   |
+
+| Key          | Type   | Default  | Meaning                                     |
+| ------------ | ------ | -------- | ------------------------------------------- |
+| `theme`      | string | `""`     | theme pack name, resolved under `themes/`   |
+| `theme_mode` | enum   | `"auto"` | `light`, `dark`, `auto`                     |
+
+They stay scalars because that is what existing configurations contain. Folding them into a `[theme]`
+table would be tidier and would break every file in the wild, which is the trade this spec refuses.
+
+`theme_mode = "auto"` is what the `theme` service resolves against `night_light.state`; the other
+two pin it. A `[[panels]]` entry may override it per bar.
+
+### `[location]`
 
 | Key         | Type  | Default  | Meaning                           |
 | ----------- | ----- | -------- | --------------------------------- |
@@ -179,18 +235,34 @@ nightlight and weather working on a machine with no location service.
 
 ### `[nightlight]`
 
-| Key                  | Type    | Default   | Meaning                                          |
-| -------------------- | ------- | --------- | ------------------------------------------------ |
-| `enabled`            | bool    | `true`    |                                                  |
-| `mode`               | enum    | `"solar"` | `solar`, `manual`, `always`, `off`               |
-| `day_temperature`    | integer | `6500`    | kelvin, 1000..10000                              |
-| `night_temperature`  | integer | `4000`    | kelvin, 1000..10000, must be ≤ `day_temperature` |
-| `transition_minutes` | integer | `30`      | 0..240                                           |
-| `sunrise`            | string  | `"07:00"` | `HH:MM` local, used when `mode = "manual"`       |
-| `sunset`             | string  | `"20:00"` | `HH:MM` local, used when `mode = "manual"`       |
+| Key                  | Type    | Default  | Meaning                                          |
+| -------------------- | ------- | -------- | ------------------------------------------------ |
+| `mode`               | enum    | `"auto"` | `auto`, `manual`, `off`                          |
+| `day_temperature`    | integer | `6500`   | kelvin, 1000..10000                              |
+| `night_temperature`  | integer | `4000`   | kelvin, 1000..10000, must be ≤ `day_temperature` |
+| `transition_minutes` | integer | `30`     | 0..240                                           |
+| `activate_at`        | string  | —        | `HH:MM` local, required when `mode = "manual"`   |
+| `deactivate_at`      | string  | —        | `HH:MM` local, required when `mode = "manual"`   |
 
-`solar` needs `geolocation.position`. Without it the service reports `degraded` rather than guessing
-a location.
+| Mode     | Behaviour                                                   |
+| -------- | ----------------------------------------------------------- |
+| `auto`   | Follows the sun, from location service                      |
+| `manual` | Follows the two configured times, with no location involved |
+| `off`    | Never warms the screen and never actuates gamma             |
+
+`auto` needs location, which `[location]` supplies from GeoClue2 or from a manual
+coordinate pair. Without one the service reports `degraded` rather than guessing a location.
+
+`activate_at` and `deactivate_at` have no defaults. `manual` means the user states both, and
+inventing times would warm the screen on a schedule nobody chose. The pair wraps midnight, which is
+the ordinary case: `activate_at = "20:00"` with `deactivate_at = "07:00"` is one night, not an empty
+window.
+
+They are named for the feature, not for the sun. Nightlight is active _between_ sunset and sunrise,
+so a `sunrise`/`sunset` pair has to be read inverted at every use.
+
+There is no `enabled` key and no `always` mode. `off` is what disabling looks like, and a schedule
+that never lapses is `manual` with a window covering the day.
 
 ### `[theme]`
 
@@ -318,6 +390,7 @@ any. The same checks run at startup and on reload, where they feed the load-fail
 - `api_key_file` missing or unreadable
 - a drop-in that cannot be read
 - a path that resolves to something other than a regular file, or past the 1 MiB cap
+- more than 64 drop-ins in one directory
 
 Each problem carries file, line and column, naming the drop-in the error is in rather than the base
 file it merges over.
@@ -339,9 +412,10 @@ Fallback is whole-document, not per table. A partially applied configuration is 
 than a wholly ignored one: with defaults everywhere the failure is unmistakable at a glance, and the
 user fixes one thing instead of hunting for which half took effect.
 
-The failure must be visible without reading the journal. Both cases publish on `config.reloaded`,
-which carries the outcome of the last configuration load, boot included — so `glimpsectl config
-show` and the panel can say the running configuration is not the one on disk.
+Both cases log at warn with the file, line and column of the problem, which is the channel
+`009_systemd.md` already commits to: `journalctl --user -u glimpsed` is enough to diagnose a
+failure. `glimpsectl config validate` re-checks the stack on demand and reports the same locations,
+so nothing has to be running for a user to find out what is wrong with their file.
 
 `--check-config` is the exception and the reason it exists: it is a validation tool, so it reports
 every problem and exits 1. Normal startup never does.
@@ -354,7 +428,7 @@ have cost one.
 
 What that is worth is bounded by the load-failure rule above. At boot every binary starts on
 defaults instead of the user's settings; on reload every binary keeps what it is already running.
-Nothing exits, nothing is lost, and `config.reloaded` says so. The remaining cost is that the blast
+Nothing exits and nothing is lost. The remaining cost is that the blast
 radius of a syntax error is the whole document rather than one table, which `--check-config` catches
 before a restart and which the editor catches before that.
 
@@ -373,7 +447,7 @@ before a restart and which the editor catches before that.
   later layer, so a drop-in could add an idle step but never remove one.
 - **Exiting at boot on invalid configuration** — rejected: it leaves the user with no panel, which
   is where they would have seen the error, and a session they cannot fix without another machine or
-  a TTY. Defaults plus a loud `config.reloaded` keeps the shell usable.
+  a TTY. Defaults plus a logged error keeps the shell usable.
 - **Per-table fallback, keeping the tables that did validate** — rejected: half-applied settings are
   harder to spot than none, and the user ends up bisecting their own file. Whole-document fallback
   fails obviously.

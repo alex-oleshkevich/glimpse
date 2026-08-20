@@ -85,7 +85,7 @@ When a feature conflicts with one of these, the invariant wins.
 | 1   | **One writer per topic**                                                              | Two binaries can never hold competing halves of one concern.                                                            |
 | 2   | **Topics are state cells, not event logs**                                            | Every event carries the full value. Reconnect equals resubscribe equals fresh snapshot. Coalescing is lossless.         |
 | 3   | **UI processes hold no state that matters**                                           | Killing panel, wallpaper or lock is always safe.                                                                        |
-| 4   | **glimpsed never writes configuration**                                               | Config files belong to the user. Runtime adjustments are overrides in the state directory.                              |
+| 4   | **glimpsed never writes configuration**                                               | The config file belongs to the user. Runtime adjustments are overrides in the state directory.                          |
 | 5   | **glimpse-lock never depends on glimpsed for function**                               | It keeps direct PAM, logind and compositor-IPC paths. A dead daemon degrades it cosmetically.                           |
 | 6   | **A session-scoped connection is held only when losing it is recoverable in-process** | Compositor IPC qualifies: a `UnixStream` reconnect rebuilds nothing. Wayland does not, so it sits behind `WaylandEdge`. |
 
@@ -158,7 +158,7 @@ lose nothing.
 | -------------------- | -------- | --------------------- | ---------------------------------------------- |
 | notifications        | owned    | `OnBoot + Never`      | zbus object server                             |
 | tray                 | owned    | `OnBoot + Never`      | watcher server, plus item and dbusmenu clients |
-| nightlight           | computed | `OnBoot + Never`      | solar math, actuated through `WaylandEdge`     |
+| nightlight           | computed | `OnBoot + Never`      | solar math or fixed times, via `WaylandEdge`   |
 | theme                | computed | `OnBoot + Never`      | nightlight + config                            |
 | idle                 | owned    | `OnBoot + Never`      | `WaylandEdge`                                  |
 | clipboard            | owned    | `OnBoot + Never`      | `WaylandEdge`                                  |
@@ -172,7 +172,9 @@ lose nothing.
 | workspaces, keyboard | mirror   | `OnBoot + WhenIdle`   | compositor IPC socket                          |
 | power                | mirror   | `OnBoot + Never`      | logind suspend and resume signals              |
 | weather              | poll     | `OnDemand + WhenIdle` | HTTP                                           |
+| calendar             | poll     | `OnDemand + WhenIdle` | iCal over HTTP, or a directory                 |
 | sysstats             | poll     | `OnDemand + WhenIdle` | /proc, sysfs                                   |
+| watcher              | owned    | `OnBoot + Never`      | inotify over the config and stylesheet paths   |
 
 Demand that starts an `OnDemand` service: a client pattern matches one of its topics, an in-process
 `Ctx::subscribe` targets one, a `call` names one of its commands, or a dependent service starts.
@@ -341,3 +343,6 @@ Read from source while designing; useful when a detail is disputed.
   only interaction needing speed is a panel popover toggle.
 - 2026-08-20 — moved per-binary detail into specs 003-008 and systemd units into 009; this spec keeps
   the shape and the cross-cutting rules.
+- 2026-08-20 — invariant 4 reworded for the single `config.toml`; schema and layering live in `010_configuration.md`.
+- 2026-08-20 — added the `watcher` service, which moves configuration and stylesheet watching out of the UI processes; see `011_watcher.md`.
+- 2026-08-20 — added the `calendar` service; `_old` already configures calendar sources and nothing in the new design owned them.

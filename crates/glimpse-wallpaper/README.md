@@ -9,7 +9,7 @@ and a GL render loop should not share a process with panel layout work.
 
 - One background surface per output, redrawn across hotplug and scale changes
 - Single image or a directory cycled on an interval
-- Follows `theme.mode` to swap light and dark sources
+- Follows `appearance.scheme` to swap light and dark sources
 - Live effects drawn over the base image
 
 ## Rules
@@ -18,5 +18,9 @@ An effect must be frame-budget aware. Repeatedly missing frames disables the eff
 rather than degrading the whole session.
 
 With the daemon down, it keeps drawing the last image and the last theme mode.
+
+Configuration is the `[wallpaper]` table of the shared `config.toml`. Tables owned by other
+binaries are ignored, not validated. Schema in
+[`specs/010_configuration.md`](../../specs/010_configuration.md).
 
 Spec: [`specs/005_glimpse_wallpaper.md`](../../specs/005_glimpse_wallpaper.md)

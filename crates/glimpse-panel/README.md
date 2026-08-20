@@ -26,4 +26,8 @@ of visible stutter.
 A dead daemon is a normal state: widgets render empty, `stale` values render with reduced emphasis,
 and reconnection restores everything with no special handling.
 
+Configuration is the `[panel]` table of the shared `config.toml`, plus `panel.css`. Tables owned
+by other binaries are ignored, not validated. Schema in
+[`specs/010_configuration.md`](../../specs/010_configuration.md).
+
 Spec: [`specs/004_glimpse_panel.md`](../../specs/004_glimpse_panel.md)

@@ -36,7 +36,7 @@ glimpse/
 ├── justfile                task runner
 ├── crates/                 all Rust code
 ├── data/                   installed assets: systemd units, D-Bus service files, pam.d,
-│                           portal definitions, default config
+│                           portal definitions, default config (data/config.default.toml)
 ├── specs/                  this document set
 ├── scripts/                development helpers, not installed
 ├── wallpapers/             bundled wallpapers
@@ -51,7 +51,7 @@ Five libraries, five shipped binaries, one development binary.
 | ------------------- | ------------- | -------------------------------------------------------------------------- |
 | `glimpse-proto`     | lib           | wire frames, `Topic` trait, payload types, error codes, `PROTOCOL_VERSION` |
 | `glimpse-client`    | lib           | async socket client: connect, reconnect, resubscribe, typed topic cache    |
-| `glimpse-config`    | lib           | layered TOML load, merge, validate, watch                                  |
+| `glimpse-config`    | lib           | layered TOML load, drop-ins, merge, validate                              |
 | `glimpse-services`  | lib           | service framework and every service implementation                         |
 | `glimpse-widgets`   | lib           | GObject subclasses, Blueprint templates, shared CSS                        |
 | `glimpsed`          | bin           | broker, socket server, `WaylandEdge` implementation, wiring, `main`        |
@@ -117,8 +117,9 @@ src/
     ├── audio.rs   battery.rs   bluetooth.rs   brightness.rs
     ├── clipboard.rs   idle.rs   keyboard.rs   mpris.rs
     ├── network.rs   nightlight.rs   notifications.rs   power.rs
-    ├── sysstats.rs   theme.rs   tray.rs   weather.rs   workspaces.rs
-    └── system.rs    system.services, config.reloaded
+    ├── sysstats.rs   theme.rs   tray.rs   watch.rs   weather.rs
+    ├── workspaces.rs
+    └── system.rs    system.services
 ```
 
 #### glimpse-services
@@ -126,7 +127,7 @@ src/
 ```
 src/
 ├── lib.rs           register(), the service registry entry point
-├── service.rs       trait Service, associated Command and Source types
+├── service.rs       trait Service, associated Command, Source and Config types
 ├── ctx.rs           Ctx: publish, subscribe, call, spawn, interval, health, apply
 ├── publisher.rs     Publisher<T>, dynamic topic claims, equality gate
 ├── lifecycle.rs     Start × Stop classes, the state machine, backoff
@@ -138,8 +139,13 @@ src/
     ├── clipboard.rs   geolocation.rs   idle.rs   keyboard.rs
     ├── mpris.rs   network.rs   nightlight.rs   notifications.rs
     ├── power.rs   sysstats.rs   theme.rs   tray/   weather.rs
-    └── workspaces.rs
+    └── watcher.rs   workspaces.rs
 ```
+
+Each service declares its own `Config`. On reload the framework deserializes that service's table
+from `config.toml`, compares it against the running value, and calls `apply` only where the two
+differ — the same equality gate `publisher.rs` applies to payloads, one level up. A service whose
+table did not change never learns a reload happened.
 
 `tray/` is a directory because it is the largest service: `mod.rs`, `watcher.rs` (serves
 `org.kde.StatusNotifierWatcher`), `item.rs` (per-item SNI proxy), `menu.rs` (dbusmenu bridge),
@@ -218,8 +224,10 @@ this crate exists to prevent.
 - Topics are `domain.name` in lower snake case with dots as separators: `audio.volume`,
   `tray.item.{id}.menu`.
 - Commands are `domain.verb_object`: `audio.set_volume`, `tray.menu_about_to_show`.
-- Config files are named for their binary: `glimpsed.toml`, `panel.toml`, `lock.toml`,
-  `wallpaper.toml`.
+- One configuration file, `config.toml`, with a top-level table per owner: one table per service
+  for the daemon, `[panel]`, `[wallpaper]` and `[lock]` for the UI binaries. A
+  binary reads only the tables it owns and ignores the rest. Stylesheets stay separate files,
+  `panel.css` and `lock.css`, because CSS is not TOML. See `010_configuration.md`.
 
 ## Alternatives considered
 
@@ -239,3 +247,7 @@ this crate exists to prevent.
 
 - 2026-08-20 — created.
 - 2026-08-20 — dropped `glimpse-sunset`.
+- 2026-08-20 — collapsed the four per-binary config files into one `config.toml` with a table per owner; naming rule restated around what a file configures rather than which binary reads it.
+- 2026-08-20 — config file named `config.toml`; no `[daemon]` table.
+- 2026-08-20 — dropped the `config.reloaded` topic; config load outcomes are logged and `glimpsectl config validate` reports them on demand.
+- 2026-08-20 — added `services/watcher.rs` and `topics/watch.rs`; watching moved from `glimpse-config` to the daemon's watcher service, per `011_watcher.md`.
