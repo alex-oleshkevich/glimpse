@@ -104,12 +104,13 @@ The uid check on step 1 is the point of the sequence. `XDG_SESSION_ID` is an ord
 variable, inherited and forgeable, and a session belonging to someone else must never receive this
 session's `LockedHint` or its power actions. Failing to read the ownership counts as a mismatch.
 
-**Suspend is coordinated by systemd, not by an inhibitor held here.** `009_systemd.md` orders the
-locker before `sleep.target`, so the lock surface exists before the machine suspends without this
-process holding a logind delay inhibitor of its own. The previous implementation held one because it
-was resident and had no unit to order — and paid for it with a file descriptor whose lifetime
-spanned lock cycles, had to survive an unsolicited re-lock, and leaked on every path that forgot to
-drop it.
+**No sleep inhibitor is held here.** The machine decides to suspend while this process is not
+running, so there is nothing for it to inhibit. The daemon's `power` service holds the logind
+`delay` inhibitor and starts the locker — `009_systemd.md` covers why nothing else can.
+
+What that imposes on this program is a deadline. `InhibitDelayMaxSec` defaults to five seconds, and
+a locker that has not reached `locked` by then suspends behind an unlocked screen. It is the reason
+the background never gates the prompt.
 
 ### Who is being authenticated
 
@@ -350,8 +351,11 @@ on reload — see `010_configuration.md`.
   session is locked in appearance only, its length is a guess, and nothing else in this document
   needs it. A `--grace` flag was specified before the behaviour behind it was, which is how a
   security hole acquires a default value.
-- **Holding a logind sleep delay inhibitor** — rejected: unit ordering does the same job without a
-  descriptor whose lifetime has to survive lock cycles. See Session state and logind.
+- **Holding a logind sleep delay inhibitor** — rejected here, not in general: an on-demand locker is
+  not running when the machine decides to suspend, so the inhibitor has to belong to something
+  resident, and it does — the daemon's `power` service. The previous implementation held one because
+  it was resident itself, and paid for it with a descriptor whose lifetime spanned lock cycles, had
+  to survive an unsolicited re-lock, and leaked on every path that forgot to drop it.
 - **A literal fallback username when `$USER` and passwd both fail** — rejected: it authenticates
   against an account that does not exist and reports the result as a wrong password.
 - **`preview`, `export-css` and `export-config` subcommands** — moved rather than rejected.
@@ -375,3 +379,4 @@ on reload — see `010_configuration.md`.
 - 2026-08-20 — renamed from `006_glimpse_lock.md` and reorganised around locking behaviour, with the binary and its flags as one section rather than the subject.
 - 2026-08-20 — specified authentication from `_old/glimpse-lock`: one password prompt with the reasoning against MFA, the two distinct PAM code sets, `AUTHINFO_UNAVAIL` never rendering as a wrong password, `SecretString` zeroing and its honest limit, the cooldown ladder, and the `check` subcommand with its three diagnostics.
 - 2026-08-20 — specified what a second pass over `_old/glimpse-lock` turned up: re-locking on an unsolicited `unlocked`, one authentication panel across outputs, `LockedHint` set and read, `Unlock` ignored, uid-checked session resolution, user identity resolution and its path-traversal guard, single-flight submits, the auth generation counter, the 30 s timeout, cooldown scope, Caps Lock, the power menu, the background and the stylesheet rules. Dropped `--grace`, which had a flag but no behaviour.
+- 2026-08-20 — dropped `systemd-lock-handler`: there is no user-level `sleep.target` to order against, so the sleep inhibitor belongs to the daemon's `power` service and the locker has five seconds to reach `locked`.

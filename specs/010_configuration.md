@@ -300,6 +300,20 @@ The shipped defaults are three listeners per profile — screens off, lock, susp
 on mains and 300/900/1800 on battery. Supplying `listeners` replaces the list rather than adding to
 it, per the merge rules.
 
+### `[power]`
+
+| Key                 | Type | Default | Meaning                                                |
+| ------------------- | ---- | ------- | ------------------------------------------------------ |
+| `lock_before_sleep` | bool | `true`  | hold a logind delay inhibitor and lock before suspend  |
+| `lock_on_request`   | bool | `true`  | start the locker on logind's `Lock` signal             |
+
+`lock_before_sleep` is the only route to a locked screen across a suspend; `009_systemd.md` explains
+why nothing else can hold the inhibitor. Turning it off is for a machine that suspends somewhere
+physically trusted.
+
+`lock_on_request` is what answers `loginctl lock-session`. logind's `Unlock` signal has no key here
+and will not get one — `006_lock.md` refuses it, and a configurable refusal is not a refusal.
+
 ### `[keyboard]`
 
 | Key        | Type          | Default    | Meaning                                   |
@@ -428,7 +442,7 @@ type rather than to this schema.
 
 ### Services with no configuration
 
-`tray`, `audio`, `network`, `bluetooth`, `battery`, `mpris`, `workspaces`, `brightness`, `power`,
+`tray`, `audio`, `network`, `bluetooth`, `battery`, `mpris`, `workspaces`, `brightness`,
 `watcher`, `solar`. Every mirror among them has a backend that owns the state and the policy;
 `watcher` watches the paths this spec already fixes; and `solar` derives sunrise and sunset from
 `location.position`, with nothing left to decide.
@@ -549,3 +563,4 @@ the editor catches before that.
 - 2026-08-20 — `theme`/`theme_mode` become `[appearance]` `pack`/`scheme`, with no aliases: a deliberate break, because a scalar named `theme` blocks a `[theme]` table forever.
 - 2026-08-20 — corrected the claim that theme resolves against night light; both are siblings over `solar.daylight`, as `_old` implements them.
 - 2026-08-20 — review pass: dropped validation rules for keys the rebase removed, corrected night light to follow `solar.daylight`, and rewrote the Problem, the include rejection and the single-file cost, which all argued from a four-file history that never existed.
+- 2026-08-20 — added `[power]`, which stops being a service with no configuration once it owns locking before sleep.

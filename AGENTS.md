@@ -18,6 +18,29 @@ Any change to behaviour edits the affected spec first, appends a Changelog line,
 back to `draft`. Never leave a spec describing behaviour that does not exist. The `sdd` skill owns
 this flow.
 
+## Prior art
+
+This is the second generation of an application that already exists. Two bodies of earlier work are
+in the tree, and both are **reference only — never a source of truth.**
+
+| Where          | What it is                                                    |
+| -------------- | ------------------------------------------------------------- |
+| `_old/`        | the shipped previous implementation, in Rust                  |
+| `var/glimpse2` | design documents for this rewrite, written by another agent   |
+
+Read either when you want to know how a problem was solved before, what a backend actually does, or
+which edge cases turned out to matter in practice. That knowledge is the reason they are kept: it
+was paid for once already, and the specs are better for absorbing it.
+
+Neither one decides anything. `_old/` is one answer among several and frequently the wrong one —
+where it and `specs/` disagree, `specs/` wins, and if `_old/` is right the fix is to edit the spec
+and say so. `var/glimpse2` was written without the constraints in this file and does not know what
+has been decided since; treat it as a proposal from someone who has left the project.
+
+**Never edit either, never build them, and never copy code out of them.** This is not a port. The
+job is a smaller, simpler, cleaner application than the one in `_old/` — if a design lands at the
+same size and shape as its predecessor, that is a signal to look again, not a sign of fidelity.
+
 ## Structure
 
 ```
@@ -27,7 +50,7 @@ glimpse/
 ├── data/         installed assets: systemd units, D-Bus service files, pam.d, default config
 ├── scripts/      development helpers, not installed — contents predate the rewrite
 ├── wallpapers/   bundled wallpapers
-├── var/          scratch, not installed
+├── var/          scratch, not installed; `var/glimpse2` holds third-party design drafts
 └── _old/         the previous implementation, kept for reference only
 ```
 
@@ -144,9 +167,8 @@ cargo invocation.
   abort turns one bad handler into a dead daemon and takes tray and notifications down with it.
 - **Never touch a `wl_` object outside `glimpsed/src/wayland/`.** Services reach Wayland only through
   `trait WaylandEdge`, which is what keeps every service test headless.
-- **`_old/` is reference only.** Never edit it, never build it, never copy code out of it. The new
-  design is not a port; consult `specs/` for intended behaviour and treat `_old/` as one possible
-  answer among several.
+- **`_old/` and `var/glimpse2` are reference only.** Never edit them, never build them, never copy
+  code out of them. See Prior art.
 - **Never sandbox `glimpse-lock.service`.** `NoNewPrivileges=`, `PrivateUsers=`,
   `RestrictSUIDSGID=` and anything implying them strip setuid from `unix_chkpwd`. PAM then returns
   `AUTHINFO_UNAVAIL`, the correct password is rejected, and the session cannot be unlocked. The
@@ -162,10 +184,10 @@ cargo invocation.
 - **Treat text from other applications as hostile.** Tray titles, notification summaries and bodies,
   MPRIS metadata and SSIDs are attacker-controlled and unbounded. Cap length, ellipsize, and
   sanitize markup before any of it reaches a label.
-- **Never add `PartOf=lock.target` to `glimpse-lock.service`.** `systemd-lock-handler` stops
-  `lock.target` when logind reports the session unlocked, and `PartOf=` propagates that stop — which
-  hands `loginctl unlock-session`, an unauthenticated call for the session's own user, a SIGTERM to
-  the locker. `WantedBy=` does not propagate stop. The absence of this line is load-bearing.
+- **No unit relationship may stop `glimpse-lock.service` while it holds the lock.** A stopped locker
+  is a locked session with nothing left to authenticate against, not an unlocked one. `PartOf=` on
+  anything but `graphical-session.target`, `BindsTo=`, or a `Conflicts=` from someone else's target
+  all reach that state; `Wants=`/`WantedBy=` cannot.
 - **No unit may use `Requires=glimpsed.service`.** `Wants=` only — the panel, wallpaper and lock are
   specified to survive a dead daemon, and `Requires=` kills them instead.
 - **Use `just`, never raw `cargo`.** Fix or add a recipe rather than working around a missing one.

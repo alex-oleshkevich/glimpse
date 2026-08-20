@@ -94,14 +94,14 @@ When a feature conflicts with one of these, the invariant wins.
 Each binary has its own spec covering purpose, flags, arguments, subcommands, environment, files and
 exit codes.
 
-| Binary              | Spec                       | Wayland                | GTK   | Lifetime                                |
-| ------------------- | -------------------------- | ---------------------- | ----- | --------------------------------------- |
-| `glimpsed`          | `003_daemon.md`          | yes, via `WaylandEdge` | never | graphical session, `Restart=on-failure` |
-| `glimpse`           | `004_panel.md`             | layer-shell            | yes   | graphical session                       |
-| `glimpse-wallpaper` | `005_wallpaper.md`         | layer-shell            | yes   | graphical session                       |
-| `glimpse-lock`      | `006_lock.md`              | `ext-session-lock-v1`  | yes   | on demand                               |
-| `glimpsectl`        | `007_glimpsectl.md`        | never                  | never | one-shot / TUI                          |
-| `glimpse-devtools`  | `008_glimpse_devtools.md`  | ordinary toplevel      | yes   | dev loop                                |
+| Binary              | Spec                      | Wayland                | GTK   | Lifetime                                |
+| ------------------- | ------------------------- | ---------------------- | ----- | --------------------------------------- |
+| `glimpsed`          | `003_daemon.md`           | yes, via `WaylandEdge` | never | graphical session, `Restart=on-failure` |
+| `glimpse`           | `004_panel.md`            | layer-shell            | yes   | graphical session                       |
+| `glimpse-wallpaper` | `005_wallpaper.md`        | layer-shell            | yes   | graphical session                       |
+| `glimpse-lock`      | `006_lock.md`             | `ext-session-lock-v1`  | yes   | on demand                               |
+| `glimpsectl`        | `007_glimpsectl.md`       | never                  | never | one-shot / TUI                          |
+| `glimpse-devtools`  | `008_glimpse_devtools.md` | ordinary toplevel      | yes   | dev loop                                |
 
 Wallpaper is its own process so that restarting the panel does not black the screen. Lock is its own
 process because it must start when the panel is broken and must not share its crash domain.
@@ -170,7 +170,7 @@ lose nothing.
 | mpris                | mirror   | `OnDemand + WhenIdle` | MPRIS                                          |
 | brightness           | mirror   | `OnDemand + WhenIdle` | logind / sysfs                                 |
 | workspaces, keyboard | mirror   | `OnBoot + WhenIdle`   | compositor IPC socket                          |
-| power                | mirror   | `OnBoot + Never`      | logind suspend and resume signals              |
+| power                | mirror   | `OnBoot + Never`      | logind sleep signals; starts the locker        |
 | weather              | poll     | `OnDemand + WhenIdle` | HTTP                                           |
 | calendar             | poll     | `OnDemand + WhenIdle` | iCal over HTTP, or a directory                 |
 | sysstats             | poll     | `OnDemand + WhenIdle` | /proc, sysfs                                   |
@@ -190,12 +190,12 @@ keep them honest.
 
 ### The computed chain
 
-| Topic                  | Producer    | Consumers                      |
-| ---------------------- | ----------- | ------------------------------ |
-| `location.position`    | location    | solar, weather                 |
-| `solar.daylight`       | solar       | theme, nightlight              |
-| `nightlight.state`     | nightlight  | panel                          |
-| `theme.scheme`         | theme       | panel CSS, wallpaper, lock CSS |
+| Topic               | Producer   | Consumers                      |
+| ------------------- | ---------- | ------------------------------ |
+| `location.position` | location   | solar, weather                 |
+| `solar.daylight`    | solar      | theme, nightlight              |
+| `nightlight.state`  | nightlight | panel                          |
+| `theme.scheme`      | theme      | panel CSS, wallpaper, lock CSS |
 
 `theme` and `nightlight` are siblings, not a chain: each subscribes to `solar.daylight` on its own,
 so turning night light off leaves automatic light and dark working. `ctx.subscribe` counts as

@@ -145,39 +145,39 @@ Restart=no
 OOMScoreAdjust=-500
 ```
 
-```ini
-[Install]
-WantedBy=lock.target
-```
-
-The locker is started on demand — by a keybind, by `systemctl --user start glimpse-lock`, or by a
-lock handler. `graphical-session.target` never pulls it in; the only `[Install]` relationship is to
-`lock.target`, which does not exist until a lock handler provides it and does nothing until the user
-runs `systemctl --user enable glimpse-lock`.
+No `[Install]` section. The locker is started on demand — by a keybind, by
+`systemctl --user start glimpse-lock`, or by the daemon's `power` service — and never pulled in by
+the session target.
 
 `Restart=no` is deliberate. A locker that respawns on failure can mask a configuration error by
 looping, and the compositor already fails closed: if the process dies after the `locked` event, the
 session stays locked with a blank screen.
 
-**Locking before sleep** is an integration, not a feature of this unit. Two supported routes:
+**No unit relationship may stop the locker while it holds the lock.** A stopped locker is not an
+unlocked session — the compositor keeps the lock, the screen stays blank, and the one process that
+could have authenticated is gone. `PartOf=graphical-session.target` above is the single exception,
+and only because it fires when the compositor is leaving too, so there is no surface left to
+authenticate against. Every other form that propagates a stop — `PartOf=` on any other unit,
+`BindsTo=`, a `Conflicts=` from a target someone else starts — is a route into that state.
+`Wants=` and `WantedBy=` are the only relationships that do not.
 
-- `systemd-lock-handler`, which turns logind's `Lock` signal and `PrepareForSleep` into a user-level
-  `lock.target`; glimpse-lock is wanted by that target through the `[Install]` section above.
-- The daemon's `power` service, which already follows logind, spawning the locker.
+**Locking before sleep is the daemon's `power` service, and it is the only route.**
 
-The first is preferred because it keeps locking working when `glimpsed` is down, which is invariant
-5.
+logind emits `PrepareForSleep` and does not wait. Something has to hold a `delay` inhibitor across
+that signal, and that something has to be resident — which the locker is not, since it is not
+running when the lid closes. The `power` service is `OnBoot + Never` and already follows logind, so
+it holds the inhibitor, starts `glimpse-lock.service` through the systemd user manager's D-Bus API,
+and drops the descriptor once logind reports `LockedHint`.
 
-**Never add `PartOf=lock.target` to the locker.** `systemd-lock-handler` stops `lock.target` when
-logind reports the session unlocked, and `PartOf=` is what propagates that stop to a member unit —
-so adding it hands `loginctl unlock-session` a SIGTERM to the locker and reinstates, through
-systemd, the unauthenticated unlock that `006_lock.md` refuses at the D-Bus level. `Wants=` does not
-propagate stop, which is the whole reason the `[Install]` relationship is `WantedBy=` and nothing
-more. This is a line whose absence is load-bearing.
+This costs invariant 5, and the cost is stated rather than worked around: with `glimpsed` down an
+explicit lock still works and locking before suspend does not. There is no user-level `sleep.target`
+to order against — systemd 261 still ships none — so the only alternative is a second resident
+process whose whole job is holding one file descriptor.
 
-`OnSuccess=unlock.target` is not set either. The locker sets logind's `LockedHint` itself, so the
-handler's view of session state is already correct without it, and a unit that fires a target on
-clean exit is one more path into the unlock decision.
+**The inhibitor buys about five seconds.** `InhibitDelayMaxSec` defaults to 5 s, after which logind
+suspends regardless of who is still delaying. The locker has to reach `locked` inside that window,
+which is a real constraint on how much it may do before creating its surfaces — it is why
+`006_lock.md` specifies that the background never gates the prompt.
 
 ### D-Bus activation
 
@@ -284,3 +284,4 @@ systemd-analyze --user critical-chain glimpse.service         # ordering, once t
 
 - 2026-08-20 — created.
 - 2026-08-20 — gave the locker an `[Install] WantedBy=lock.target` section, which the previous text both required and denied; recorded that `PartOf=lock.target` must never be added, because `systemd-lock-handler` stops that target on logind's `Unlock` and `PartOf=` would turn an unauthenticated D-Bus call into a SIGTERM to the locker.
+- 2026-08-20 — dropped `systemd-lock-handler` as a supported integration: no `[Install]` section, and locking before sleep is the daemon's `power` service holding a logind delay inhibitor. Recorded the invariant-5 cost, the absence of any user-level `sleep.target`, the five-second `InhibitDelayMaxSec` ceiling, and the rule that no unit relationship may stop the locker while it holds the lock.
