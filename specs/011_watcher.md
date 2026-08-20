@@ -111,8 +111,33 @@ can exhaust:
   lacked, but it keeps the watch set to files that are plausibly configuration.
 - At most 8 registered styles per connection, and 32 across all connections.
 
-Path resolution follows `010_configuration.md`: symlinks are followed, the target must be a regular
-file, and the watch goes on the resolved parent directory.
+Path resolution follows `010_configuration.md`: symlinks are followed and the target must be a
+regular file.
+
+**A symlinked file needs two watches, not one.** Dotfile managers put `lock.css` in the
+configuration directory as a link into a repository, and the two ends break differently: editing the
+file produces events in the *target's* directory, while re-stowing or `ln -sfn` replaces the link
+and produces events only in the *configuration* directory. Watching either end alone misses half of
+what users actually do, so the watch goes on the link's parent and on the resolved target's parent.
+When the path is not a symlink the two collapse to one directory and one watch.
+
+### What counts as a change
+
+A watch is on a directory, so most of what arrives is about neighbouring files, and some of it is
+not about content at all.
+
+**Only create, remove and modify events are considered.** Access events — open, close-nowrite, read
+— fire for every file in a watched directory and describe nothing that changed, this daemon's own
+digest reads included. Filtering them is what keeps the directory holding `config.toml` from
+generating traffic every time anything reads anything in it.
+
+**An event only costs a digest read when its path names a watched file, or resolves to one.** The
+second half matters for the symlinked case: an editor writing through the link produces an event
+naming the target, and the registration named the link.
+
+The digest gate is the backstop rather than the filter. It makes a spurious wake-up publish nothing,
+but it still has to read and hash the file to find that out, which is the cost these two rules avoid
+paying on every unrelated write.
 
 ### Directories that do not exist yet
 
@@ -196,6 +221,12 @@ reloads on request.
   tells it what it needs on its first snapshot.
 - **A fixed stylesheet path list** — rejected: `--css` and `GLIMPSE_CSS_PATH` make the path a
   client's decision, and the path is configured in a table the daemon does not own.
+- **Watching only the resolved target of a symlink** — rejected: it is the obvious reading of
+  "follow symlinks", and it silently stops noticing anything for the users most likely to be
+  editing configuration, because replacing the link is how dotfile managers apply a change.
+- **Ending the watch task when no directory can be watched** — rejected: it is what the previous
+  implementation did, and a watcher that has quietly stopped watching is indistinguishable from one
+  with nothing to report. The service reports `degraded` and stays up, so `system.services` says so.
 - **Watching Blueprint output for `glimpse-devtools`** — rejected here, not in general: devtools is
   not installed and routinely runs with no daemon, so it keeps its own watching. See `008`.
 
@@ -203,3 +234,4 @@ reloads on request.
 
 - 2026-08-20 — created.
 - 2026-08-20 — defined behaviour for directories that are missing at start or recreated later: watch the nearest existing ancestor, descend on create, re-arm and rescan on delete or move.
+- 2026-08-20 — specified symlink watching against both parents, the create/remove/modify event filter, and per-path event matching, from what `_old/glimpse-lock`'s watcher got right; recorded that giving up silently when no watch can be placed is not acceptable.

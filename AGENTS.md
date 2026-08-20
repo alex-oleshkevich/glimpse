@@ -162,6 +162,10 @@ cargo invocation.
 - **Treat text from other applications as hostile.** Tray titles, notification summaries and bodies,
   MPRIS metadata and SSIDs are attacker-controlled and unbounded. Cap length, ellipsize, and
   sanitize markup before any of it reaches a label.
+- **Never add `PartOf=lock.target` to `glimpse-lock.service`.** `systemd-lock-handler` stops
+  `lock.target` when logind reports the session unlocked, and `PartOf=` propagates that stop — which
+  hands `loginctl unlock-session`, an unauthenticated call for the session's own user, a SIGTERM to
+  the locker. `WantedBy=` does not propagate stop. The absence of this line is load-bearing.
 - **No unit may use `Requires=glimpsed.service`.** `Wants=` only — the panel, wallpaper and lock are
   specified to survive a dead daemon, and `Requires=` kills them instead.
 - **Use `just`, never raw `cargo`.** Fix or add a recipe rather than working around a missing one.

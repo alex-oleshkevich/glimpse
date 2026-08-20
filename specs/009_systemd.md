@@ -145,8 +145,15 @@ Restart=no
 OOMScoreAdjust=-500
 ```
 
-No `[Install]` section. The locker is started on demand — by a keybind, by
-`systemctl --user start glimpse-lock`, or by a lock handler — never pulled in by the session target.
+```ini
+[Install]
+WantedBy=lock.target
+```
+
+The locker is started on demand — by a keybind, by `systemctl --user start glimpse-lock`, or by a
+lock handler. `graphical-session.target` never pulls it in; the only `[Install]` relationship is to
+`lock.target`, which does not exist until a lock handler provides it and does nothing until the user
+runs `systemctl --user enable glimpse-lock`.
 
 `Restart=no` is deliberate. A locker that respawns on failure can mask a configuration error by
 looping, and the compositor already fails closed: if the process dies after the `locked` event, the
@@ -155,11 +162,22 @@ session stays locked with a blank screen.
 **Locking before sleep** is an integration, not a feature of this unit. Two supported routes:
 
 - `systemd-lock-handler`, which turns logind's `Lock` signal and `PrepareForSleep` into a user-level
-  `lock.target`; glimpse-lock is then wanted by that target.
+  `lock.target`; glimpse-lock is wanted by that target through the `[Install]` section above.
 - The daemon's `power` service, which already follows logind, spawning the locker.
 
 The first is preferred because it keeps locking working when `glimpsed` is down, which is invariant
 5.
+
+**Never add `PartOf=lock.target` to the locker.** `systemd-lock-handler` stops `lock.target` when
+logind reports the session unlocked, and `PartOf=` is what propagates that stop to a member unit —
+so adding it hands `loginctl unlock-session` a SIGTERM to the locker and reinstates, through
+systemd, the unauthenticated unlock that `006_lock.md` refuses at the D-Bus level. `Wants=` does not
+propagate stop, which is the whole reason the `[Install]` relationship is `WantedBy=` and nothing
+more. This is a line whose absence is load-bearing.
+
+`OnSuccess=unlock.target` is not set either. The locker sets logind's `LockedHint` itself, so the
+handler's view of session state is already correct without it, and a unit that fires a target on
+clean exit is one more path into the unlock decision.
 
 ### D-Bus activation
 
@@ -265,3 +283,4 @@ systemd-analyze --user critical-chain glimpse.service         # ordering, once t
 ## Changelog
 
 - 2026-08-20 — created.
+- 2026-08-20 — gave the locker an `[Install] WantedBy=lock.target` section, which the previous text both required and denied; recorded that `PartOf=lock.target` must never be added, because `systemd-lock-handler` stops that target on logind's `Unlock` and `PartOf=` would turn an unauthenticated D-Bus call into a SIGTERM to the locker.
