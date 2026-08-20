@@ -45,7 +45,7 @@ owns.
 
 | Entry                            | Owner             | Contents                                   |
 | -------------------------------- | ----------------- | ------------------------------------------ |
-| `theme`, `theme_mode`            | glimpsed          | the two top-level scalars                  |
+| `[appearance]`                   | glimpsed          | theme pack and light/dark scheme           |
 | `[<service>]`                    | glimpsed          | one per service, named for the service     |
 | `[monitors]`                     | glimpsed          | session hardware, read by several services |
 | `[[panels]]`, `[applets.<name>]` | glimpse-panel     | bars, zones, applet instances              |
@@ -211,107 +211,55 @@ A service with no table of its own gets `Config::default()`.
 | `pack`   | string | `""`     | theme pack name, resolved under `themes/` |
 | `scheme` | enum   | `"auto"` | `light`, `dark`, `auto`                   |
 
-| Key          | Type   | Default  | Meaning                                     |
-| ------------ | ------ | -------- | ------------------------------------------- |
-| `theme`      | string | `""`     | theme pack name, resolved under `themes/`   |
-| `theme_mode` | enum   | `"auto"` | `light`, `dark`, `auto`                     |
+This is the one deliberate break with existing configurations.
 
-They stay scalars because that is what existing configurations contain. Folding them into a `[theme]`
-table would be tidier and would break every file in the wild, which is the trade this spec refuses.
+`scheme = "auto"` resolves against `solar.daylight` — light while the sun is up, dark once it is
+down. `light` and `dark` pin it. This is independent of night light: both services consume the same
+solar data as siblings, so `[night_light] schedule = "off"` leaves automatic light and dark
+untouched.
 
-`theme_mode = "auto"` is what the `theme` service resolves against `night_light.state`; the other
-two pin it. A `[[panels]]` entry may override it per bar.
+A `[[panels]]` entry may override `scheme` for one bar.
 
 ### `[location]`
 
-| Key         | Type  | Default  | Meaning                           |
-| ----------- | ----- | -------- | --------------------------------- |
-| `source`    | enum  | `"auto"` | `auto`, `geoclue`, `manual`       |
-| `latitude`  | float | —        | required when `manual`, −90..90   |
-| `longitude` | float | —        | required when `manual`, −180..180 |
+| Key         | Type  | Default     | Meaning                           |
+| ----------- | ----- | ----------- | --------------------------------- |
+| `provider`  | enum  | `"geoclue"` | `geoclue`, `manual`               |
+| `latitude`  | float | —           | required when `manual`, −90..90   |
+| `longitude` | float | —           | required when `manual`, −180..180 |
 
-`auto` uses GeoClue2 and falls back to the manual pair when it is absent. That fallback is what keeps
-nightlight and weather working on a machine with no location service.
+The table is a tagged enum keyed on `provider`, which is what makes `manual` an addition rather than
+a break: an existing `provider = "geoclue"` keeps parsing untouched.
 
-### `[nightlight]`
+`manual` is what keeps night light and weather working on a machine with no location service.
 
-| Key                  | Type    | Default  | Meaning                                          |
-| -------------------- | ------- | -------- | ------------------------------------------------ |
-| `mode`               | enum    | `"auto"` | `auto`, `manual`, `off`                          |
-| `day_temperature`    | integer | `6500`   | kelvin, 1000..10000                              |
-| `night_temperature`  | integer | `4000`   | kelvin, 1000..10000, must be ≤ `day_temperature` |
-| `transition_minutes` | integer | `30`     | 0..240                                           |
-| `activate_at`        | string  | —        | `HH:MM` local, required when `mode = "manual"`   |
-| `deactivate_at`      | string  | —        | `HH:MM` local, required when `mode = "manual"`   |
+### `[night_light]`
 
-| Mode     | Behaviour                                                   |
-| -------- | ----------------------------------------------------------- |
-| `auto`   | Follows the sun, from location service                      |
-| `manual` | Follows the two configured times, with no location involved |
-| `off`    | Never warms the screen and never actuates gamma             |
+| Key                  | Type    | Default       | Meaning                                      |
+| -------------------- | ------- | ------------- | -------------------------------------------- |
+| `schedule`           | enum    | `"automatic"` | `off`, `automatic`, `schedule`               |
+| `temperature`        | integer | `4200`        | kelvin applied while active                  |
+| `start_time`         | string  | —             | `HH:MM` local, used when `schedule` is fixed |
+| `end_time`           | string  | —             | `HH:MM` local, used when `schedule` is fixed |
+| `transition_minutes` | integer | `15`          |                                              |
 
-`auto` needs location, which `[location]` supplies from GeoClue2 or from a manual
-coordinate pair. Without one the service reports `degraded` rather than guessing a location.
+| Value       | Behaviour                                                      |
+| ----------- | -------------------------------------------------------------- |
+| `off`       | never warms the screen, never actuates gamma                   |
+| `automatic` | follows the sun, from `location.position`                      |
+| `schedule`  | follows `start_time` and `end_time`, with no location involved |
 
-`activate_at` and `deactivate_at` have no defaults. `manual` means the user states both, and
-inventing times would warm the screen on a schedule nobody chose. The pair wraps midnight, which is
-the ordinary case: `activate_at = "20:00"` with `deactivate_at = "07:00"` is one night, not an empty
-window.
+`schedule = "manual"` is accepted as an alias for `schedule`, which existing configurations use.
 
-They are named for the feature, not for the sun. Nightlight is active _between_ sunset and sunrise,
-so a `sunrise`/`sunset` pair has to be read inverted at every use.
+`automatic` needs a position. Without one the service reports `degraded` rather than guessing a
+location.
 
-There is no `enabled` key and no `always` mode. `off` is what disabling looks like, and a schedule
-that never lapses is `manual` with a window covering the day.
+`start_time` and `end_time` have no defaults and are read only when `schedule = "schedule"`. The
+pair wraps midnight, which is the ordinary case: `20:00` to `07:00` is one night, not an empty
+window. A `schedule` selection with either missing leaves the service `degraded` rather than
+inventing a time.
 
-### `[theme]`
-
-| Key    | Type | Default        | Meaning                       |
-| ------ | ---- | -------------- | ----------------------------- |
-| `mode` | enum | `"nightlight"` | `nightlight`, `light`, `dark` |
-
-`nightlight` derives `theme.mode` from `nightlight.state`; the other two pin it. Panel, wallpaper and
-lock all read the resulting topic, which is why this is daemon configuration rather than UI
-configuration.
-
-### `[weather]`
-
-| Key            | Type    | Default        | Meaning                                         |
-| -------------- | ------- | -------------- | ----------------------------------------------- |
-| `provider`     | enum    | `"open-meteo"` |                                                 |
-| `units`        | enum    | `"metric"`     | `metric`, `imperial`                            |
-| `poll_minutes` | integer | `30`           | 10..1440                                        |
-| `location`     | enum    | `"auto"`       | `auto` follows `geolocation.position`           |
-| `latitude`     | float   | —              | required when `location = "manual"`             |
-| `longitude`    | float   | —              | required when `location = "manual"`             |
-| `api_key_file` | path    | —              | file holding the key, for providers needing one |
-
-The key is a path, never an inline string: configuration files land in dotfile repositories, and
-`--print-config` writes to stdout. `open-meteo` is the default precisely because it needs no key.
-
-`poll_minutes` has a floor because the service is `OnDemand`. A panel that subscribes on hover must
-not be able to drive a request per second.
-
-### `[notifications]`
-
-| Key                      | Type    | Default | Meaning                                              |
-| ------------------------ | ------- | ------- | ---------------------------------------------------- |
-| `default_expiry_seconds` | integer | `5`     | applied when the sender passes `expire_timeout = -1` |
-| `max_stored`             | integer | `100`   | history cap, 0..1000                                 |
-| `do_not_disturb`         | bool    | `false` | the value at boot only                               |
-
-`do_not_disturb` is a boot default, not live state. Toggling it at runtime is a command and the
-override lands in the state directory: glimpsed never writes this file back.
-
-```toml
-[[notifications.rules]]
-app = "Spotify"       # matches the sender's app_name, exact, case-insensitive
-suppress = false
-expiry_seconds = 2
-```
-
-`app_name` is attacker-controlled, so a rule is a display and expiry hint only. Nothing in a rule may
-grant a notification more privilege than it started with.
+There is no `enabled` key. `schedule = "off"` is what disabling looks like.
 
 ### `[idle]`
 
@@ -320,61 +268,157 @@ grant a notification more privilege than it started with.
 | `enabled`            | bool | `true`  |                                   |
 | `respect_inhibitors` | bool | `true`  | honour logind and idle inhibitors |
 
+Listeners are grouped into two profiles, chosen by whether the machine is on mains power:
+
 ```toml
-[[idle.steps]]
-timeout_seconds = 300
-action = "dim"        # dim, screen_off, lock, suspend
+[[idle.profiles.ac.listeners]]
+timeout = 600                  # seconds
+on_idle = "…"                  # command line run when the timeout elapses
+on_resume = "…"                # command line run on activity; empty means nothing
+# respect_inhibitors = true    # optional, overrides the table-level setting
+
+[[idle.profiles.battery.listeners]]
+timeout = 300
+on_idle = "…"
+on_resume = "…"
 ```
 
-Steps sort by `timeout_seconds` on load; duplicate timeouts are a validation error. `lock` starts
-`glimpse-lock.service` and `suspend` calls logind. Neither shells out.
+`on_idle` and `on_resume` are command lines the user supplies. That is the user's choice and not the
+daemon reaching for a subprocess of its own: the rule against shelling out governs how glimpsed
+talks to logind and systemd, not what a user may run on their own timer.
 
-### `[clipboard]`
+The shipped defaults are three listeners per profile — screens off, lock, suspend — at 600/900/3600
+on mains and 300/900/1800 on battery. Supplying `listeners` replaces the list rather than adding to
+it, per the merge rules.
 
-| Key                        | Type    | Default   | Meaning                                                 |
-| -------------------------- | ------- | --------- | ------------------------------------------------------- |
-| `enabled`                  | bool    | `true`    |                                                         |
-| `max_entries`              | integer | `100`     | 0..1000                                                 |
-| `max_entry_bytes`          | integer | `1048576` | larger entries are recorded by size only                |
-| `ignore_password_managers` | bool    | `true`    | drop selections carrying the password-manager MIME hint |
+### `[keyboard]`
 
-There is no `persist` key and there will not be one. History lives in `$XDG_RUNTIME_DIR/glimpse/` and
-dies with the session, because glimpsed has nowhere else to write.
+| Key        | Type          | Default    | Meaning                                   |
+| ---------- | ------------- | ---------- | ----------------------------------------- |
+| `remember` | enum          | `"window"` | `global`, `app`, `window`                 |
+| `labels`   | map of string | `{}`       | layout name to the short label to display |
 
-### `[sysstats]`
+`remember` is the scope at which the last layout is retained: one for the session, one per
+application, or one per window.
 
-| Key            | Type    | Default | Meaning                |
-| -------------- | ------- | ------- | ---------------------- |
-| `poll_seconds` | integer | `2`     | 1..60                  |
-| `disks`        | array   | `["/"]` | mount points to report |
+### `[calendar]`
 
-### `[brightness]`
+| Key             | Type    | Default | Meaning |
+| --------------- | ------- | ------- | ------- |
+| `poll_interval` | integer | `600`   | seconds |
 
-| Key      | Type   | Default  | Meaning                                        |
-| -------- | ------ | -------- | ---------------------------------------------- |
-| `device` | string | `"auto"` | backlight device name, or `auto` for the first |
+```toml
+[[calendar.sources]]
+id = "work"                    # required, stable identifier
+type = "ical"                  # ical or directory
+uri = "https://…"              # required
+# name = "Work"                # optional display name
+# poll_interval = 300          # optional, overrides the table-level interval
+# color = "#89b4fa"            # optional
+```
 
-One of only two mirror services with configuration. Choosing among several backlights on a laptop
-with a discrete GPU is not a decision logind or sysfs makes for us.
+A URI is fetched, so it is attacker-adjacent input: the calendar service caps response size and
+treats every field of a fetched event as hostile text.
 
-### `[power]`
+### `[monitors]`
 
-| Key             | Type | Default | Meaning                               |
-| --------------- | ---- | ------- | ------------------------------------- |
-| `lock_on_sleep` | bool | `false` | start the locker on `PrepareForSleep` |
+| Key                 | Type   | Default | Meaning                                |
+| ------------------- | ------ | ------- | -------------------------------------- |
+| `builtin_connector` | string | —       | connector name of the internal display |
 
-Off by default. `009_systemd.md` prefers `systemd-lock-handler`, which keeps locking working while
-glimpsed is down. This is the fallback for a system without it; running both locks twice.
+The one table glimpsed owns that is not a service's. It describes the session's hardware rather than
+any one service's behaviour, and brightness, nightlight and the panel all read it. Absent means the
+internal display is detected rather than declared; `"eDP-1"` is the usual override.
+
+### `[wallpaper]`
+
+| Key             | Type    | Default     | Meaning                      |
+| --------------- | ------- | ----------- | ---------------------------- |
+| `color`         | string  | `"#101010"` | drawn when no image resolves |
+| `path`          | path    | —           | image to draw                |
+| `fit`           | enum    | `"cover"`   | `cover`, `contain`, `fill`   |
+| `transition_ms` | integer | `800`       | crossfade length on a change |
+
+### `[backdrop]`
+
+| Key           | Type    | Default | Meaning                              |
+| ------------- | ------- | ------- | ------------------------------------ |
+| `enabled`     | bool    | `true`  |                                      |
+| `path`        | path    | —       | image; falls back to the wallpaper's |
+| `blur_radius` | integer | `24`    |                                      |
+
+Owned by `glimpse-wallpaper` alongside `[wallpaper]`. The backdrop is what the compositor's overview
+shows behind the workspaces, which is why it is blurred and separately configurable.
+
+### `[lock]`
+
+| Key           | Type   | Default             | Meaning                                 |
+| ------------- | ------ | ------------------- | --------------------------------------- |
+| `pam_service` | string | `"glimpse-lock"`    | the `pam_start` service name            |
+| `css_path`    | path   | `"themes/lock.css"` | relative to the configuration directory |
+
+```toml
+[lock.background]
+# color = "#101010"
+# path = "/path/to/image"
+# fit = "cover"
+blur_radius = 0
+dim = 0.35                     # 0.0 to 1.0
+
+[lock.clock]
+enabled = true
+time_format = "%H:%M"
+date_format = "…"
+
+[lock.controls]
+buttons = ["wifi", "input", "weather", "battery", "power"]
+```
+
+`pam_service` is configurable but changing it is how a working locker becomes an unlockable session.
+`006_glimpse_lock.md` carries the warning that belongs with it.
+
+### `[[panels]]`
+
+An array of tables, one per bar. An empty array means no panel.
+
+| Key        | Type    | Default   | Meaning                                      |
+| ---------- | ------- | --------- | -------------------------------------------- |
+| `size`     | integer | `36`      | thickness in logical pixels                  |
+| `monitor`  | string  | —         | connector name; absent means every output    |
+| `position` | enum    | `"top"`   | `left`, `top`, `right`, `bottom`             |
+| `margin`   | table   | all `0`   | `left`, `right`, `top`, `bottom`             |
+| `scheme`   | enum    | `"dark"`  | overrides `[appearance] scheme` for this bar |
+| `left`     | array   | see below | applet names, in order                       |
+| `center`   | array   | see below | applet names, in order                       |
+| `right`    | array   | see below | applet names, in order                       |
+
+The three zone arrays hold applet names. `__dynamic__` expands to the applets that are not named
+elsewhere, so a user who lists a few names keeps the rest without enumerating them.
+
+### `[applets.<name>]`
+
+| Key        | Type  | Default | Meaning                                     |
+| ---------- | ----- | ------- | ------------------------------------------- |
+| `extends`  | enum  | —       | the applet type this instance is built from |
+| `settings` | table | `{}`    | free-form, interpreted by the applet type   |
+
+`<name>` is the name used in a panel zone, so several instances of one type coexist under different
+names. `extends` names the type: `audio`, `battery`, `brightness`, `bluetooth`, `display`,
+`clipboard`, `clock`, `command`, `dynamic`, `exec`, `idle`, `keyboard`, `mpris`, `network`,
+`next_event`, `notifications`, `pager`, `privacy`, `printing`, `removable`, `session`, `tray`,
+`weather`, `window`, `workspace`.
+
+`settings` is the one place unknown keys are not an error, because its shape belongs to the applet
+type rather than to this schema.
 
 ### Services with no configuration
 
-`tray`, `audio`, `network`, `bluetooth`, `battery`, `mpris`, `workspaces`, `keyboard`. Every one is a
-mirror whose backend owns the state and the policy. A key here would mean reimplementing a decision
-NetworkManager, BlueZ, PipeWire or the compositor already makes.
-
-These names are not in the closed set of top-level tables, so writing `[tray]` is a validation error
-rather than a table that is silently ignored. The message says the service takes no configuration,
-not that the table is unknown — the user has named something real.
+`tray`, `audio`, `network`, `bluetooth`, `battery`, `mpris`, `workspaces`, `brightness`, `power`,
+`watcher`. Every mirror among them has a backend that owns the state and the policy, and `watcher`
+watches the paths this spec already fixes. `solar` has none either: it derives sunrise and sunset from `location.position` and has nothing to
+decide. `weather`, `sysstats`, `notifications` and `clipboard` take their settings from the applet
+that displays them, under `[applets.<name>.settings]`, which is where existing configurations
+already put them.
 
 ### Validation
 
@@ -384,7 +428,10 @@ any. The same checks run at startup and on reload, where they feed the load-fail
 - unknown top-level table, with the nearest known one as a suggestion
 - unknown key inside an owned table, likewise
 - wrong type, or a value outside a documented range
-- a conditional requirement unmet, such as `source = "manual"` with no coordinate pair
+- a conditional requirement unmet: `[location] provider = "manual"` with no coordinate pair
+- a time that is not `HH:MM`, or `start_time` equal to `end_time`, which describes no window
+- a `[[calendar.sources]]` entry missing `id`, `type` or `uri`
+- a `[[panels]]` zone naming an applet that no `[applets.<name>]` and no built-in type provides
 - `night_temperature` above `day_temperature`
 - duplicate `timeout_seconds` across `[[idle.steps]]`
 - `api_key_file` missing or unreadable
@@ -459,6 +506,10 @@ before a restart and which the editor catches before that.
 - **Refusing symlinked configuration** — rejected: dotfile managers symlink
   `~/.config/glimpse/config.toml` into a repository, which is the ordinary setup rather than an
   attack. Links are followed; what they resolve to is checked.
+- **A `config.reloaded` topic** — rejected: no client needs one. `glimpsectl config validate` and
+  `config path` re-read the stack themselves, the panel has no specified use for a load outcome, and
+  `009_systemd.md` already makes the journal the diagnostic channel. A topic nobody reads still costs
+  a payload type, an SDK type in three languages, and a wire contract to keep compatible.
 - **Inline API keys** — rejected: `--print-config` writes the merged document to stdout. Keys are
   paths to files.
 
@@ -470,3 +521,10 @@ before a restart and which the editor catches before that.
 - 2026-08-20 — replaced `include = [...]` with `config.d/` drop-ins; includes solved the four-file sharing problem, which merging into one file already solved.
 - 2026-08-20 — dropped the environment layer; `config.d/` covers the override case with the full schema and real types.
 - 2026-08-20 — specified path resolution: symlinks followed, regular files only, open-then-inspect, 1 MiB cap, and no file content in error messages.
+- 2026-08-20 — added Bounds: no directory recursion, one open descriptor at a time, 64 drop-ins per directory, per-directory watches capped at six, and reload degrades rather than fails when watches cannot be registered.
+- 2026-08-20 — dropped the `config.reloaded` topic; load outcomes are logged, and `glimpsectl config validate` reports them on demand.
+- 2026-08-20 — watching is performed by the `watcher` service; see `011_watcher.md`.
+- 2026-08-20 — `[nightlight]`: dropped `enabled`, replaced `sunrise`/`sunset` with the required `activate_at`/`deactivate_at` pair, and documented what each mode does.
+- 2026-08-20 — schema rebased on `_old/glimpse-core/src/config` so existing files keep loading: `[night_light]`, `[location]`, `[idle]` profiles, `[keyboard]`, `[calendar]`, `[monitors]`, `[[panels]]`, `[applets.*]`, `[wallpaper]`, `[backdrop]` and `[lock]` keep their original names and defaults.
+- 2026-08-20 — `theme`/`theme_mode` become `[appearance]` `pack`/`scheme`, with no aliases: a deliberate break, because a scalar named `theme` blocks a `[theme]` table forever.
+- 2026-08-20 — corrected the claim that theme resolves against night light; both are siblings over `solar.daylight`, as `_old` implements them.

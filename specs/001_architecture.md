@@ -158,8 +158,9 @@ lose nothing.
 | -------------------- | -------- | --------------------- | ---------------------------------------------- |
 | notifications        | owned    | `OnBoot + Never`      | zbus object server                             |
 | tray                 | owned    | `OnBoot + Never`      | watcher server, plus item and dbusmenu clients |
-| nightlight           | computed | `OnBoot + Never`      | solar math or fixed times, via `WaylandEdge`   |
-| theme                | computed | `OnBoot + Never`      | nightlight + config                            |
+| nightlight           | computed | `OnBoot + Never`      | solar or fixed times, via `WaylandEdge`        |
+| solar                | computed | `OnBoot + Never`      | sunrise and sunset from `location.position`    |
+| theme                | computed | `OnBoot + Never`      | solar + config                                 |
 | idle                 | owned    | `OnBoot + Never`      | `WaylandEdge`                                  |
 | clipboard            | owned    | `OnBoot + Never`      | `WaylandEdge`                                  |
 | geolocation          | mirror   | `OnDemand + WhenIdle` | GeoClue2                                       |
@@ -192,14 +193,15 @@ keep them honest.
 
 | Topic                  | Producer    | Consumers                      |
 | ---------------------- | ----------- | ------------------------------ |
-| `geolocation.position` | geolocation | nightlight, weather            |
-| `nightlight.schedule`  | nightlight  | theme, panel                   |
+| `location.position`    | location    | solar, weather                 |
+| `solar.daylight`       | solar       | theme, nightlight              |
 | `nightlight.state`     | nightlight  | panel                          |
-| `theme.mode`           | theme       | panel CSS, wallpaper, lock CSS |
+| `theme.scheme`         | theme       | panel CSS, wallpaper, lock CSS |
 
-`ctx.subscribe` counts as demand, so `theme` subscribing to `nightlight.state` keeps nightlight
-alive regardless of external subscribers. The DAG orders boot and cascades `degraded` downward, so
-`theme.mode` consumers can render the daemon's honesty about stale upstream data.
+`theme` and `nightlight` are siblings, not a chain: each subscribes to `solar.daylight` on its own,
+so turning night light off leaves automatic light and dark working. `ctx.subscribe` counts as
+demand, so either of them keeps `solar` alive regardless of external subscribers. The DAG orders boot and cascades `degraded` downward, so
+`theme.scheme` consumers can render the daemon's honesty about stale upstream data.
 
 ### Tray
 
@@ -317,7 +319,7 @@ Units, sandboxing rules, D-Bus activation and the environment-propagation proble
       change the service trait if it is wrong
 - [ ] minimal panel with two applets, end to end
 - [ ] notifications and tray
-- [ ] `WaylandEdge`, then the nightlight to theme chain
+- [ ] `WaylandEdge`, then solar with theme and nightlight over it
 - [ ] wallpaper, lock
 
 ## Reference implementations
@@ -346,3 +348,4 @@ Read from source while designing; useful when a detail is disputed.
 - 2026-08-20 — invariant 4 reworded for the single `config.toml`; schema and layering live in `010_configuration.md`.
 - 2026-08-20 — added the `watcher` service, which moves configuration and stylesheet watching out of the UI processes; see `011_watcher.md`.
 - 2026-08-20 — added the `calendar` service; `_old` already configures calendar sources and nothing in the new design owned them.
+- 2026-08-20 — split `solar` out as its own service: `theme` and `nightlight` both consume `solar.daylight` rather than theme depending on nightlight, which is what `_old` does and what keeps dark mode working with night light off.
