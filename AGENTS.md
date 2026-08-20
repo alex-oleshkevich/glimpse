@@ -35,7 +35,7 @@ glimpse/
 | ------------------- | ----------------------------------------------------------------- |
 | `glimpse-proto`     | wire frames, `Topic` trait, payload types, errors                 |
 | `glimpse-client`    | async socket client: connect, reconnect, resubscribe, topic cache |
-| `glimpse-config`    | layered TOML load, merge, validate, watch                         |
+| `glimpse-config`    | layered TOML load, drop-ins, merge, validate, watch               |
 | `glimpse-services`  | service framework and every service implementation                |
 | `glimpse-widgets`   | GObject subclasses, Blueprint templates, shared CSS               |
 | `glimpsed`          | broker, socket server, `WaylandEdge` impl                         |
@@ -80,8 +80,10 @@ StatusNotifierItem, dbusmenu and Notifications.
 - Topics are `domain.name`, lower snake case, dots as separators: `audio.volume`,
   `tray.item.{id}.menu`
 - Commands are `domain.verb_object`: `audio.set_volume`, `tray.menu_about_to_show`
-- Config files are named for their binary: `glimpsed.toml`, `panel.toml`, `wallpaper.toml`,
-  `lock.toml`
+- One config file, `config.toml`. Top-level table per owner: one table per service, named for the
+  service, for the daemon; `[panel]`, `[wallpaper]`, `[lock]` for the UI
+  binaries. A binary reads only the tables it owns. Stylesheets stay separate: `panel.css`,
+  `lock.css`. Schema and layering: `specs/010_configuration.md`
 
 **File placement**
 
