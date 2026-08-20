@@ -49,7 +49,7 @@ Five libraries, five shipped binaries, one development binary.
 
 | Crate               | Kind          | Contains                                                                   |
 | ------------------- | ------------- | -------------------------------------------------------------------------- |
-| `glimpse-proto`     | lib           | wire frames, `Topic` trait, payload types, error codes, `PROTOCOL_VERSION` |
+| `glimpse-proto`     | lib           | wire frames, `Topic` trait, payloads, error codes, `PROTOCOL_VERSION`, the socket name and NDJSON codec |
 | `glimpse-client`    | lib           | async socket client: connect, reconnect, resubscribe, typed topic cache    |
 | `glimpse-config`    | lib           | layered TOML load, drop-ins, merge, validate                              |
 | `glimpse-services`  | lib           | service framework and every service implementation                         |
@@ -109,8 +109,9 @@ with no display, no session bus and no broker.
 
 ```
 src/
-├── lib.rs           re-exports, PROTOCOL_VERSION
+├── lib.rs           re-exports, PROTOCOL_VERSION, SOCKET_RELATIVE_PATH, socket_path
 ├── frame.rs         Frame, Body, Status
+├── codec.rs         frame to line, line to frame
 ├── topic.rs         trait Topic, pattern matching rules
 ├── error.rs         CallError { code, message, retryable }
 └── topics/          one module per domain, payload types only
@@ -161,7 +162,7 @@ src/
 │   ├── store.rs     latest value per topic, stale flag
 │   ├── subscribers.rs  pattern registry, per-client coalescing, byte caps
 │   └── handle.rs    impl BrokerHandle
-├── socket.rs        listener, per-client reader and writer tasks, NDJSON codec
+├── socket.rs        listener, per-client reader and writer tasks
 ├── registry.rs      service registration, DAG validation, supervision
 └── wayland/
     ├── mod.rs       impl WaylandEdge
@@ -251,3 +252,7 @@ this crate exists to prevent.
 - 2026-08-20 — config file named `config.toml`; no `[daemon]` table.
 - 2026-08-20 — dropped the `config.reloaded` topic; config load outcomes are logged and `glimpsectl config validate` reports them on demand.
 - 2026-08-20 — added `services/watcher.rs` and `topics/watch.rs`; watching moved from `glimpse-config` to the daemon's watcher service, per `011_watcher.md`.
+- 2026-08-20 — `glimpse-client` owns resolving the socket path and `GLIMPSE_SOCKET_PATH`; `glimpsed` binds what it resolves rather than computing the same path a second time.
+- 2026-08-20 — the socket's name under `$XDG_RUNTIME_DIR` is a constant in `glimpse-proto`, so the daemon that binds it and the client that connects to it derive the same path without either depending on the other. `glimpse-client` exposes a connection, never a path.
+- 2026-08-20 — socket path resolution is `glimpse_proto::socket_path`, not `glimpse-client`: both ends must agree on it and neither may depend on the other.
+- 2026-08-20 — the NDJSON codec moves from `glimpsed/src/socket.rs` to `glimpse-proto/src/codec.rs`. It is the one part both ends execute identically, and a second implementation in `glimpse-client` could only diverge. The client and the socket server stay where they are: both need tokio, which proto does not take, and a merged crate would make every UI binary compile a socket server it never runs.

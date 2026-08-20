@@ -7,14 +7,35 @@ backing store anywhere else: `org.freedesktop.Notifications` and `org.kde.Status
 
 ## Contents
 
-- `broker/` — the single task holding topic values, pattern matching, per-client coalescing
-- `socket.rs` — listener, per-client reader and writer tasks, the NDJSON codec
-- `registry.rs` — service registration, DAG validation, supervision
-- `wayland/` — the `WaylandEdge` implementation: gamma, idle, clipboard
+- `main.rs` — mode dispatch, tracing setup, exit codes
+- `cli.rs` — the flag surface and log-format resolution
+- `broker/` — the single task holding topic values and per-client coalescing *(pending)*
+- `socket.rs` — listener, per-client reader and writer tasks *(pending)*
+- `registry.rs` — service registration, DAG validation, supervision *(pending)*
+- `wayland/` — the `WaylandEdge` implementation: gamma, idle, clipboard *(pending)*
+
+Only the command line layer exists so far: no socket is bound, no service runs, and no signal is
+handled. Every mode reaches the point where the broker would start and logs that it is not there.
 
 ## Rules
 
 Nothing depends on this crate. It is a leaf.
+
+`LogFormat::resolve` takes `JOURNAL_STREAM` as an argument rather than reading it, so the decision
+is testable without mutating process state — which edition 2024 makes `unsafe`, and correctly so,
+since it is a data race in a threaded program. Everything else reads the environment through clap's
+`env =`, which keeps the precedence flag over variable over default in one place.
+
+The socket path comes from `glimpse_proto::socket_path`, so the daemon binds exactly what a client
+will connect to. Resolving `XDG_RUNTIME_DIR` stays here, because proto takes serde and nothing else.
+
+`exit` holds only the codes something returns today; the rest arrive with the code that returns
+them. 2 will never be there — clap owns it, and that is where `--only` together with `--without`
+lands.
+
+A bad `--log` filter warns and falls back to `info` rather than refusing to start. `RUST_LOG` is
+inherited from a shell or a unit, and killing the session daemon over a stale value in someone's
+profile trades a cosmetic problem for a dead session.
 
 The broker routes and nothing else. No icon work, no image decoding, no synchronous writes to
 clients — anything slow inline hits every client's latency.

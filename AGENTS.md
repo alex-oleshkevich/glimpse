@@ -18,6 +18,12 @@ Any change to behaviour edits the affected spec first, appends a Changelog line,
 back to `draft`. Never leave a spec describing behaviour that does not exist. The `sdd` skill owns
 this flow.
 
+**No spec changes without approval.** Propose the edit — the exact wording, not a summary of it —
+and wait for a yes. This holds for a one-word correction as much as for a new section, and it holds
+when the spec is plainly wrong: a spec records decisions somebody made, so changing it silently
+rewrites what they decided. Where the code and a spec disagree mid-task, stop and say so rather than
+quietly editing either one to match the other.
+
 ## Prior art
 
 This is the second generation of an application that already exists. Two bodies of earlier work are
@@ -86,6 +92,18 @@ Path-scoped rules load automatically when the relevant files are opened:
 two names glimpsed owns — is covered by the project-local `zbus` skill in `.claude/skills/zbus/`,
 which carries introspected signatures for NetworkManager, BlueZ, logind, UPower, MPRIS,
 StatusNotifierItem, dbusmenu and Notifications.
+
+**Code**
+
+- **Comment intent, never mechanics.** Name functions, types and variables so the *what* needs no
+  comment, and write one only where the *why* cannot be read off the code: a constraint that is not
+  visible locally, a simpler approach that was tried and does not work, an `#[allow(...)]` that
+  needs justifying. A comment restating the signature is worse than none — delete it. Anything
+  longer than two or three lines is rationale, and rationale belongs in the crate's `README.md`.
+- **Never reference a spec from code.** No `specs/NNN` paths, no spec numbers, no "per the spec".
+  Code states what it does; the specs are found from the READMEs.
+- User-facing strings are not comments. `help = "..."` on a clap argument, an error message, a log
+  line — all fine, and stripping them breaks output.
 
 **Dependencies**
 
@@ -190,9 +208,50 @@ cargo invocation.
   all reach that state; `Wants=`/`WantedBy=` cannot.
 - **No unit may use `Requires=glimpsed.service`.** `Wants=` only — the panel, wallpaper and lock are
   specified to survive a dead daemon, and `Requires=` kills them instead.
+- **Never hand-roll what a library already does.** Search in this order and stop at the first hit:
+  the standard library, then a crate already in `[workspace.dependencies]`, then a crate that exists
+  on crates.io. Writing it yourself is the last resort, not the default. Before adding a `fn` that
+  parses, formats, resolves, encodes or retries anything, read the root `Cargo.toml` — the answer is
+  often already declared and unused. `XDG_RUNTIME_DIR` resolution was written out longhand here
+  while `dirs` sat in the workspace doing exactly that.
+- **Propose a new dependency, never add one silently.** If nothing in `std` or the workspace fits,
+  name the crate, say what it replaces and how much code that saves, and wait. Adding a dependency
+  is the user's call; writing forty lines to avoid asking is not a way around that.
+- **Always the current latest version, and confirm it before it lands.** Look the version up —
+  `cargo search`, `cargo add --dry-run`, the registry — rather than recalling one. A remembered
+  version number is usually a year stale and resolves against an API that has since moved, which
+  surfaces as compile errors nobody expected from a line they did not write. Name the exact version
+  in the proposal and wait for confirmation before adding it to `[workspace.dependencies]`.
 - **Use `just`, never raw `cargo`.** Fix or add a recipe rather than working around a missing one.
+- **Never hand work back without running the pass in Finishing.** Every time, before saying
+  anything is done.
 - **Do not commit or push without being asked.**
-- Edit the spec before the code, every time.
+- **Edit the spec before the code, every time, and never without approval.** See Specs come first.
+
+## Finishing
+
+Finishing is a pass over the work, not the moment the last edit compiles. Run it every time, before
+saying anything is done.
+
+1. **Formatter and linter clean.** `just fmt`, then `just lint`, and `just verify` when code
+   changed. Zero errors and zero warnings — clippy runs with `-D warnings`, so a warning left behind
+   is a broken build for whoever runs it next, not a cosmetic note. Silencing one with
+   `#[allow(...)]` rather than fixing it needs a reason worth saying out loud.
+2. **Re-read the spec against the diff.** Open it; do not go from memory. A default that drifted, an
+   exit code that is not the one specified, a flag renamed on one side only — these survive review
+   precisely because nobody goes back to the source.
+3. **Delete what nothing calls.** Dead functions, unused constants, a type kept "for later", a
+   wrapper whose body is a single call, a trait with one implementation. Anything that earns its
+   place only in an imagined future has not earned it; add it back in the change that needs it.
+4. **Cut the ceremony.** A custom error type carrying no information a message would not, a builder
+   for two fields, a helper called once, a test asserting that the standard library works.
+5. **Check the docs the change invalidated.** The crate `README.md` first — a stale README is worse
+   than none, because it is believed.
+6. **Read it as a stranger would.** Would you put this in front of someone whose opinion you value?
+   If any part of it would need an apology, that part is the finding.
+
+**Findings are work, not notes.** Fix them and run the pass again. It ends when a full pass turns up
+nothing, not when the list gets short.
 
 ## Keep the documentation current
 

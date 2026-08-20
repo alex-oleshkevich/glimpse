@@ -13,6 +13,7 @@ ammonia = "4"
 anyhow = "1"
 async-trait = "0.1"
 chrono = "0.4"
+clap = { version = "4", features = ["derive", "env"] }
 chrono-tz = "0.10"
 css-color = "0.2"
 dirs = "6"
@@ -38,7 +39,7 @@ tokio = { version = "1", features = ["io-util", "net", "process", "rt-multi-thre
 tokio-util = "0.7"
 toml = "1.1"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 uuid = { version = "1", features = ["v4"] }
 wayland-client = "0.31.14"
 wayland-protocols = { version = "0.32.12", features = ["client", "staging", "unstable"] }
