@@ -103,3 +103,16 @@ What *is* taken: `tokio_util::codec::LinesCodec::new_with_max_length`, which is 
 the length cap, already a workspace dependency and already exactly the specified behaviour. Only the
 two policies on top are ours — an over-length or malformed line closes the connection rather than
 recovering, because recovering leaves the two ends disagreeing about what was delivered. Spec 012.
+
+### 2026-08-21 · Configuration inspection is `glimpsectl`'s alone
+
+`glimpsed --check-config` and `--print-config` answered the same two questions as `glimpsectl
+config validate` and `config show`, from a binary whose job is to keep running. One question with
+two implementations drifts, and the daemon's was the weaker half: `config validate` and `config
+path` read the stack from disk with nothing running, which is the situation a broken file produces.
+
+The UI binaries keep their `--check-config`. It validates a stylesheet as well as a table, and
+neither is the daemon's to check.
+
+Removing the flags also empties the daemon's exit code 1: invalid configuration was already
+specified not to exit, so `--check-config` was its only cause. Specs 003, 010.

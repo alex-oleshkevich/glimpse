@@ -17,7 +17,7 @@ Layered TOML configuration, shared by the daemon and every UI binary.
 
 An invalid edit never costs the user a working session. At startup the binary logs the error and
 comes up on defaults; on reload the update is dropped and the running configuration stays. Neither
-exits — only `--check-config` does. Both outcomes are reported with the error's location.
+exits — validation tools do: the UI binaries' `--check-config`, and `glimpsectl config validate`. Both outcomes are reported with the error's location.
 
 ## One file, one owner per table
 

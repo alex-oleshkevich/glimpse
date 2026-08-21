@@ -73,11 +73,11 @@ application freezes every other item the service owns.
 
 Three kinds, and the kind determines the rules:
 
-| Kind         | Rule                                                                     |
-| ------------ | ------------------------------------------------------------------------- |
-| **owned**    | the state exists nowhere else, so the daemon is the source of truth       |
-| **mirror**   | the backend owns the state; enumerate once, then follow change signals    |
-| **computed** | derived from other topics and configuration                              |
+| Kind         | Rule                                                                   |
+| ------------ | ---------------------------------------------------------------------- |
+| **owned**    | the state exists nowhere else, so the daemon is the source of truth    |
+| **mirror**   | the backend owns the state; enumerate once, then follow change signals |
+| **computed** | derived from other topics and configuration                            |
 
 For a mirror, the backend is right when they disagree — converge, do not arbitrate — and a command
 is a thin pass-through. `network.connect { uuid }` calls `ActivateConnection` and lets the backend's
@@ -150,14 +150,17 @@ No subcommands and no arguments. One instance per session.
 | ----------------------- | ---------------------------------------- | -------------------------------------------------------------- |
 | `-c`, `--config <PATH>` | the layered stack                        | Use exactly this file; skip the system and user layers         |
 | `--socket <PATH>`       | `$XDG_RUNTIME_DIR/glimpse/glimpsed.sock` | Override the listening socket                                  |
-| `--check-config`        | off                                      | Load and validate configuration, print problems, exit          |
-| `--print-config`        | off                                      | Print the merged configuration as TOML and exit                |
 | `--only <SERVICES>`     | all                                      | Comma-separated allowlist; everything else stays unregistered  |
 | `--without <SERVICES>`  | none                                     | Comma-separated denylist                                       |
 | `--log <FILTER>`        | `info`                                   | `tracing-subscriber` filter, same syntax as `RUST_LOG`         |
 | `--log-format <FMT>`    | `auto`                                   | `auto`, `plain`, `json`; `auto` drops timestamps under journal |
 | `-V`, `--version`       |                                          | Version and protocol version                                   |
 | `-h`, `--help`          |                                          |                                                                |
+
+Configuration inspection is not the daemon's. `glimpsectl config show` prints what the running
+daemon merged; `config validate` and `config path` re-read the stack themselves, so neither needs a
+daemon — which is the case a user actually hits, because the daemon is what will not start. See
+`007_glimpsectl.md`.
 
 `--only` and `--without` are debugging aids: they make it possible to run the daemon with just
 `audio` while working on the audio service. A service excluded this way is absent from
@@ -192,10 +195,10 @@ because the journal stamps its own lines, and to `plain` with both otherwise.
 
 ### Signals
 
-| Signal    | Effect                                                                                            |
-| --------- | -------------------------------------------------------------------------------------------------- |
-| `SIGTERM` | graceful shutdown: stop accepting, drain writers, stop services in reverse DAG order               |
-| `SIGINT`  | same as `SIGTERM`                                                                                  |
+| Signal    | Effect                                                                                                                        |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `SIGTERM` | graceful shutdown: stop accepting, drain writers, stop services in reverse DAG order                                          |
+| `SIGINT`  | same as `SIGTERM`                                                                                                             |
 | `SIGHUP`  | reload configuration per `010`; only services whose table changed are re-applied, and an invalid config is logged and dropped |
 
 ### systemd integration
@@ -206,13 +209,12 @@ detected rather than silently ceasing delivery. Details in `009_systemd.md`.
 
 ### Exit codes
 
-| Code | Meaning                                                     |
-| ---- | ----------------------------------------------------------- |
-| 0    | clean shutdown, or `--check-config` / `--print-config` fine |
-| 1    | configuration invalid, reported by `--check-config`         |
-| 2    | usage error                                                 |
-| 3    | socket already in use by a live daemon                      |
-| 4    | `XDG_RUNTIME_DIR` unset or unusable                         |
+| Code | Meaning                                |
+| ---- | -------------------------------------- |
+| 0    | clean shutdown                         |
+| 2    | usage error                            |
+| 3    | socket already in use by a live daemon |
+| 4    | `XDG_RUNTIME_DIR` unset or unusable    |
 
 Invalid configuration is not an exit. It logs and falls back to defaults at startup, and is dropped
 on reload — see `010_configuration.md`.
@@ -249,3 +251,4 @@ on reload — see `010_configuration.md`.
 - 2026-08-20 — renamed from `003_glimpsed.md` and reorganised around the daemon's concepts — topics, broker, services, demand, socket, health — with the binary and its flags as one section rather than the subject.
 - 2026-08-20 — recorded from `_old`: eager service spawning, constructor-wired dependencies and whole-config broadcast as the problems the design answers, plus the socket rules it got right (no `/tmp` fallback, 0600) and wrong (unlinking before bind, and disabling IPC instead of failing).
 - 2026-08-20 — the socket section points at `012_ipc.md` for frames, codec, handshake and limits, keeping only what is the daemon's rather than the wire's. The transport moved to `glimpse-ipc`, so `socket.rs` leaves this crate.
+- 2026-08-21 — `--check-config` and `--print-config` removed; configuration inspection is `glimpsectl`'s alone, and exit 1 no longer has a cause.

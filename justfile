@@ -24,6 +24,10 @@ check:
 lint:
     cargo clippy --workspace --all-targets -- -D warnings
 
+[doc("clippy on one crate")]
+lint-crate CRATE:
+    cargo clippy -p {{ CRATE }} --all-targets -- -D warnings
+
 [doc("format in place")]
 fmt:
     cargo fmt --all

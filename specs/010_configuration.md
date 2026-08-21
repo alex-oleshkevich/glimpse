@@ -151,7 +151,7 @@ resolves to nothing readable, that is a load failure and the defaults rule appli
 
 Errors name the path as written and the path it resolved to, and never any of the file's content. A
 link aimed at a private file — an SSH key, a token — must not echo that file into the journal or
-into `--print-config` output. This is the reason resolution is specified at all: glimpsed runs
+into `glimpsectl config show` output. This is the reason resolution is specified at all: glimpsed runs
 unprivileged, so a link cannot reach anything the user could not already read, but it can trick the
 daemon into reprinting it somewhere more public than where it started.
 
@@ -544,7 +544,7 @@ the editor catches before that.
   `config path` re-read the stack themselves, the panel has no specified use for a load outcome, and
   `009_systemd.md` already makes the journal the diagnostic channel. A topic nobody reads still costs
   a payload type, an SDK type in three languages, and a wire contract to keep compatible.
-- **Inline API keys** — rejected: `--print-config` writes the merged document to stdout. Keys are
+- **Inline API keys** — rejected: `glimpsectl config show` writes the merged document to stdout. Keys are
   paths to files.
 
 ## Changelog
@@ -554,6 +554,7 @@ the editor catches before that.
 - 2026-08-20 — the file is `config.toml`; dropped `[daemon]`, so every top-level table belongs to a service or a UI binary and logging is configured only by flag, `RUST_LOG` or a unit drop-in.
 - 2026-08-20 — replaced `include = [...]` with `config.d/` drop-ins; includes solved the four-file sharing problem, which merging into one file already solved.
 - 2026-08-20 — dropped the environment layer; `config.d/` covers the override case with the full schema and real types.
+- 2026-08-21 — `--print-config` is now `glimpsectl config show`; the daemon no longer inspects its own configuration.
 - 2026-08-20 — specified path resolution: symlinks followed, regular files only, open-then-inspect, 1 MiB cap, and no file content in error messages.
 - 2026-08-20 — added Bounds: no directory recursion, one open descriptor at a time, 64 drop-ins per directory, per-directory watches capped at six, and reload degrades rather than fails when watches cannot be registered.
 - 2026-08-20 — dropped the `config.reloaded` topic; load outcomes are logged, and `glimpsectl config validate` reports them on demand.

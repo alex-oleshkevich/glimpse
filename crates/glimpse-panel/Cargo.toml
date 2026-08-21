@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 
-[[bin]]
-name = "glimpse"
-path = "src/main.rs"
+[dependencies]
+clap.workspace = true
+glimpse-ipc = { path = "../glimpse-ipc" }
+tracing.workspace = true
+tracing-subscriber.workspace = true

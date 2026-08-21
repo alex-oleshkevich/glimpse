@@ -9,7 +9,7 @@ there is only one of each.
 
 ## Contents
 
-- `lib.rs` — re-exports, `PROTOCOL_VERSION`, `SOCKET_RELATIVE_PATH`, `socket_path`
+- `lib.rs` — re-exports, `PROTOCOL_VERSION`, `SOCKET_ENV`, `SOCKET_RELATIVE_PATH`, `socket_path`
 - `frame.rs` — `Frame`, `Body`, `Status`: the NDJSON envelope *(pending)*
 - `codec.rs` — frame to line, line to frame *(pending)*
 - `topic.rs` — `trait Topic` binding a name to a payload type, plus matching rules *(pending)*
@@ -40,9 +40,11 @@ identical value, and it is why a 200-event volume drag does not become 200 frame
 `Frame.data` stays `serde_json::Value`. The broker routes topics it has no compile-time knowledge
 of, such as `tray.item.{id}`, so typing happens one layer up at the `Topic` boundary.
 
-`socket_path` and `SOCKET_RELATIVE_PATH` are here for the same reason as `PROTOCOL_VERSION`: both
-ends must agree on them exactly. `socket_path` takes the runtime directory rather than reading
-`XDG_RUNTIME_DIR`, because resolving it needs `dirs` and that belongs to the caller.
+`socket_path`, `SOCKET_ENV` and `SOCKET_RELATIVE_PATH` are here for the same reason as
+`PROTOCOL_VERSION`: both ends must agree on them exactly. `socket_path` *discovers* — it returns the
+first candidate that is on disk, the one named by `SOCKET_ENV` before the default under the runtime
+directory — so it answers for clients. The daemon binds instead, and builds the path itself: a
+socket that already exists is its refusal to start, not its answer.
 
 `PROTOCOL_VERSION` is checked once at handshake, and a mismatch refuses the connection rather than
 negotiating down: one clear message at connect time beats a payload that deserializes into the wrong

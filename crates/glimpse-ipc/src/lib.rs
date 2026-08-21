@@ -1,34 +1,30 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub const PROTOCOL_VERSION: u32 = 1;
-
+pub const SOCKET_ENV: &str = "GLIMPSE_SOCKET";
 pub const SOCKET_RELATIVE_PATH: &str = "glimpse/glimpsed.sock";
 
-pub fn socket_path(explicit: Option<&Path>, runtime_dir: &Path) -> PathBuf {
-    match explicit {
-        Some(path) => path.to_path_buf(),
-        None => runtime_dir.join(SOCKET_RELATIVE_PATH),
+pub fn socket_path() -> Option<PathBuf> {
+    let mut possible_paths: Vec<PathBuf> = vec![];
+    if let Some(socket) = std::env::var(SOCKET_ENV).ok() {
+        possible_paths.push(PathBuf::from(socket));
     }
+
+    if let Some(runtime_dir) = dirs::runtime_dir() {
+        let socket_path = runtime_dir.join(SOCKET_RELATIVE_PATH);
+        possible_paths.push(socket_path);
+    }
+
+    for socket_path in possible_paths {
+        if socket_path.exists() {
+            return Some(socket_path);
+        }
+    }
+
+    None
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_socket_defaults_under_the_runtime_directory() {
-        assert_eq!(
-            socket_path(None, Path::new("/run/user/1000")),
-            Path::new("/run/user/1000/glimpse/glimpsed.sock")
-        );
-    }
-
-    #[test]
-    fn an_explicit_socket_wins() {
-        let explicit = Path::new("/run/user/1000/other.sock");
-        assert_eq!(
-            socket_path(Some(explicit), Path::new("/run/user/1000")),
-            explicit
-        );
-    }
 }

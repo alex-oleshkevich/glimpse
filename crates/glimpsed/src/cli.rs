@@ -34,12 +34,6 @@ pub struct Cli {
     )]
     pub socket: Option<PathBuf>,
 
-    #[arg(long, help = "Load and validate configuration, print problems, exit")]
-    pub check_config: bool,
-
-    #[arg(long, help = "Print the merged configuration as TOML and exit")]
-    pub print_config: bool,
-
     #[arg(
         long,
         value_name = "SERVICES",
@@ -73,7 +67,7 @@ pub struct Cli {
         value_name = "FMT",
         value_enum,
         default_value_t = LogFormat::Auto,
-        help = "auto drops timestamps and colour under a journal stream"
+        help = "auto drops timestamps and color under a journal stream"
     )]
     pub log_format: LogFormat,
 }
@@ -98,7 +92,7 @@ pub enum LogFormat {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LogSink {
     Terminal,
-    // The journal stamps and colours its own lines, so ours arrive doubled.
+    // The journal stamps and colors its own lines, so ours arrive doubled.
     Journal,
     Json,
 }

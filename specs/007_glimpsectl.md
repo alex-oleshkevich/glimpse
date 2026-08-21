@@ -76,6 +76,7 @@ glimpsectl watch 'network.**' --json | while read -r line; do ...; done
 | `XDG_RUNTIME_DIR` | default socket path                        |
 | `NO_COLOR`        | disable colour                             |
 | `GLIMPSE_SOCKET_PATH` | default socket path, overridden by `--socket` |
+| `CLICOLOR`, `CLICOLOR_FORCE`, `TERM` | colour detection, per the `anstream` conventions |
 
 ### Output conventions
 
@@ -111,3 +112,4 @@ transient failure from a permanent one without parsing prose.
 - 2026-08-20 — `config path` lists every file in the resolved stack, drop-ins included; with one shared `config.toml` it is the only way to see where a value came from.
 - 2026-08-20 — example updated: `nightlight.set_mode` takes `auto`; `solar` no longer exists.
 - 2026-08-20 — `GLIMPSE_SOCKET` renamed to `GLIMPSE_SOCKET_PATH`, matching `003_daemon.md` and `004_panel.md`; it also pairs with `GLIMPSE_CONFIG_PATH`.
+- 2026-08-21 — colour detection follows the `anstream` conventions, so `CLICOLOR`, `CLICOLOR_FORCE` and `TERM` are honoured alongside `NO_COLOR`.

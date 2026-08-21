@@ -24,22 +24,14 @@ fn main() -> ExitCode {
         tracing::error!("XDG_RUNTIME_DIR is unset or is not an absolute path");
         return exit::NO_RUNTIME_DIR.into();
     };
-    let socket = glimpse_ipc::socket_path(cli.socket.as_deref(), &runtime_dir);
-
-    if cli.check_config || cli.print_config {
-        return inspect_config(&cli);
-    }
+    // The daemon binds rather than discovers: a socket that is already there means another
+    // daemon may own it, which is a refusal to start and not the path to use.
+    let socket = cli
+        .socket
+        .clone()
+        .unwrap_or_else(|| runtime_dir.join(glimpse_ipc::SOCKET_RELATIVE_PATH));
 
     run(&cli, &socket)
-}
-
-fn inspect_config(cli: &Cli) -> ExitCode {
-    let source = cli.config.as_ref().map_or_else(
-        || "the layered stack".to_owned(),
-        |path| path.display().to_string(),
-    );
-    tracing::warn!(config = %source, "configuration loading is not implemented yet");
-    exit::OK.into()
 }
 
 fn run(cli: &Cli, socket: &Path) -> ExitCode {
@@ -49,7 +41,12 @@ fn run(cli: &Cli, socket: &Path) -> ExitCode {
         tracing::info!(names = ?cli.without, "running without these services");
     }
 
-    tracing::info!(socket = %socket.display(), "glimpsed {}", env!("CARGO_PKG_VERSION"));
+    let config = match &cli.config {
+        Some(path) => path.display().to_string(),
+        None => "the layered stack".to_owned(),
+    };
+
+    tracing::info!(socket = %socket.display(), %config, "glimpsed {}", env!("CARGO_PKG_VERSION"));
     tracing::warn!("the broker, socket server and service registry are not implemented yet");
     exit::OK.into()
 }

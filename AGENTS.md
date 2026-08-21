@@ -107,6 +107,7 @@ StatusNotifierItem, dbusmenu and Notifications.
   longer than two or three lines is rationale, and rationale belongs in the crate's `README.md`.
 - **Never reference a spec from code.** No `specs/NNN` paths, no spec numbers, no "per the spec".
   Code states what it does; the specs are found from the READMEs.
+- **US English.** `color`, not `colour`, in identifiers, comments and user-facing strings.
 - User-facing strings are not comments. `help = "..."` on a clap argument, an error message, a log
   line — all fine, and stripping them breaks output.
 

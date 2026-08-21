@@ -156,6 +156,12 @@ version = "0.16.0"
 [[package]]
 name = "glimpse-ipc"
 version = "0.16.0"
+dependencies = [
+ "dirs",
+ "serde",
+ "serde_json",
+ "tracing",
+]
 
 [[package]]
 name = "glimpse-lock"
@@ -164,6 +170,12 @@ version = "0.16.0"
 [[package]]
 name = "glimpse-panel"
 version = "0.16.0"
+dependencies = [
+ "clap",
+ "glimpse-ipc",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "glimpse-services"
@@ -180,6 +192,11 @@ version = "0.16.0"
 [[package]]
 name = "glimpsectl"
 version = "0.16.0"
+dependencies = [
+ "anstream",
+ "clap",
+ "glimpse-ipc",
+]
 
 [[package]]
 name = "glimpsed"
@@ -338,6 +355,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
 dependencies = [
  "serde_core",
+ "serde_derive",
 ]
 
 [[package]]

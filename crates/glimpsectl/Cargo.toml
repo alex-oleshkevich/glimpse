@@ -3,3 +3,8 @@ name = "glimpsectl"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+
+[dependencies]
+anstream.workspace = true
+clap.workspace = true
+glimpse-ipc = { path = "../glimpse-ipc" }

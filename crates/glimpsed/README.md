@@ -7,14 +7,14 @@ backing store anywhere else: `org.freedesktop.Notifications` and `org.kde.Status
 
 ## Contents
 
-- `main.rs` — mode dispatch, tracing setup, exit codes
+- `main.rs` — startup, tracing setup, exit codes
 - `cli.rs` — the flag surface and log-format resolution
 - `broker/` — the single task holding topic values and per-client coalescing *(pending)*
 - `registry.rs` — service registration, DAG validation, supervision *(pending)*
 - `wayland/` — the `WaylandEdge` implementation: gamma, idle, clipboard *(pending)*
 
 Only the command line layer exists so far: no socket is bound, no service runs, and no signal is
-handled. Every mode reaches the point where the broker would start and logs that it is not there.
+handled. Startup reaches the point where the broker would begin and logs that it is not there.
 
 ## Rules
 
@@ -25,8 +25,9 @@ is testable without mutating process state — which edition 2024 makes `unsafe`
 since it is a data race in a threaded program. Everything else reads the environment through clap's
 `env =`, which keeps the precedence flag over variable over default in one place.
 
-The socket path comes from `glimpse_ipc::socket_path`, so the daemon binds exactly what a client
-will connect to. Resolving `XDG_RUNTIME_DIR` stays here, because `glimpse-ipc` takes no filesystem dependency.
+The daemon joins `glimpse_ipc::SOCKET_RELATIVE_PATH` onto `XDG_RUNTIME_DIR` itself rather than
+calling `glimpse_ipc::socket_path`, which discovers a socket that is already there. For a daemon
+that is the refusal-to-start case, not the answer.
 
 `exit` holds only the codes something returns today; the rest arrive with the code that returns
 them. 2 will never be there — clap owns it, and that is where `--only` together with `--without`
