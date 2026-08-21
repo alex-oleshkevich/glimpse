@@ -1,3 +1,5 @@
+mod client;
+pub use client::IPCClient;
 use std::path::PathBuf;
 
 pub const PROTOCOL_VERSION: u32 = 1;
