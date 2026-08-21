@@ -10,6 +10,35 @@ const _: () = assert!(
     "PROTOCOL_VERSION changed — update LONG_VERSION to match"
 );
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "lower")]
+pub enum LogFormat {
+    Auto,
+    Plain,
+    Json,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogSink {
+    Terminal,
+    // The journal stamps and colors its own lines, so ours arrive doubled.
+    Journal,
+    Json,
+}
+
+impl LogFormat {
+    // An empty variable means unset; units and shells both export empty values.
+    pub fn resolve(self, journal_stream: Option<&OsStr>) -> LogSink {
+        let under_journal = journal_stream.is_some_and(|value| !value.is_empty());
+        match self {
+            Self::Json => LogSink::Json,
+            Self::Plain => LogSink::Terminal,
+            Self::Auto if under_journal => LogSink::Journal,
+            Self::Auto => LogSink::Terminal,
+        }
+    }
+}
+
 #[derive(Debug, Parser)]
 #[command(
     name = "glimpsed",
@@ -79,35 +108,6 @@ fn service_name(raw: &str) -> Result<String, String> {
         return Err("service name is empty".into());
     }
     Ok(name.to_owned())
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-#[value(rename_all = "lower")]
-pub enum LogFormat {
-    Auto,
-    Plain,
-    Json,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LogSink {
-    Terminal,
-    // The journal stamps and colors its own lines, so ours arrive doubled.
-    Journal,
-    Json,
-}
-
-impl LogFormat {
-    // An empty variable means unset; units and shells both export empty values.
-    pub fn resolve(self, journal_stream: Option<&OsStr>) -> LogSink {
-        let under_journal = journal_stream.is_some_and(|value| !value.is_empty());
-        match self {
-            Self::Json => LogSink::Json,
-            Self::Plain => LogSink::Terminal,
-            Self::Auto if under_journal => LogSink::Journal,
-            Self::Auto => LogSink::Terminal,
-        }
-    }
 }
 
 #[cfg(test)]

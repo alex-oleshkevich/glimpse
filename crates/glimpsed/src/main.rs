@@ -5,13 +5,15 @@ use std::process::ExitCode;
 
 use clap::Parser;
 use cli::{Cli, LogSink};
+use glimpse_config::Config;
 
 mod exit {
     pub const OK: u8 = 0;
-    pub const NO_RUNTIME_DIR: u8 = 4;
+    pub const NO_DAEMON: u8 = 1;
 }
 
-fn main() -> ExitCode {
+#[tokio::main]
+async fn main() -> ExitCode {
     let cli = Cli::parse();
 
     init_tracing(
@@ -20,33 +22,27 @@ fn main() -> ExitCode {
             .resolve(std::env::var_os("JOURNAL_STREAM").as_deref()),
     );
 
-    let Some(runtime_dir) = dirs::runtime_dir() else {
-        tracing::error!("XDG_RUNTIME_DIR is unset or is not an absolute path");
-        return exit::NO_RUNTIME_DIR.into();
+    let Some(socket) = glimpse_ipc::socket_path() else {
+        tracing::error!("daemon socket not found, is it running?");
+        return exit::NO_DAEMON.into();
     };
-    // The daemon binds rather than discovers: a socket that is already there means another
-    // daemon may own it, which is a refusal to start and not the path to use.
-    let socket = cli
-        .socket
-        .clone()
-        .unwrap_or_else(|| runtime_dir.join(glimpse_ipc::SOCKET_RELATIVE_PATH));
 
-    run(&cli, &socket)
-}
-
-fn run(cli: &Cli, socket: &Path) -> ExitCode {
     if !cli.only.is_empty() {
         tracing::info!(names = ?cli.only, "running only these services");
     } else if !cli.without.is_empty() {
         tracing::info!(names = ?cli.without, "running without these services");
     }
 
-    let config = match &cli.config {
-        Some(path) => path.display().to_string(),
-        None => "the layered stack".to_owned(),
-    };
+    let config = Config::load(&cli.config);
+    config.get_loaded_files().iter().for_each(|p| {
+        tracing::info!(path = %p.display(), "loaded config file");
+    });
 
-    tracing::info!(socket = %socket.display(), %config, "glimpsed {}", env!("CARGO_PKG_VERSION"));
+    run(&config, &socket).await
+}
+
+async fn run(_config: &Config, _socket: &Path) -> ExitCode {
+    // tracing::info!(socket = %socket.display(), %config, "glimpsed {}", env!("CARGO_PKG_VERSION"));
     tracing::warn!("the broker, socket server and service registry are not implemented yet");
     exit::OK.into()
 }
