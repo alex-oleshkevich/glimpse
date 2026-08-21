@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+anyhow.workspace = true
 clap.workspace = true
 dirs.workspace = true
 glimpse-config = { path = "../glimpse-config" }

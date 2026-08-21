@@ -1,19 +1,12 @@
 mod cli;
+mod errors;
 
-use std::path::Path;
 use std::process::ExitCode;
 
 use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, LogSink};
 use glimpse_config::Config;
-use glimpse_ipc::NoRuntimeDir;
-
-mod exit {
-    pub const OK: u8 = 0;
-    pub const SOCKET_IN_USE: u8 = 3;
-    pub const NO_RUNTIME_DIR: u8 = 4;
-}
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -26,16 +19,15 @@ async fn main() -> ExitCode {
     );
 
     match run(cli).await {
-        Ok(()) => ExitCode::from(exit::OK),
-        // The daemon logs rather than prints: it runs under systemd, where the journal is what
-        // anybody reads. `{:#}` keeps the whole context chain on one line.
+        Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             tracing::error!("{error:#}");
-            ExitCode::from(exit_code(&error))
+            errors::exit_code(&error)
         }
     }
 }
 
+async fn run(cli: Cli) -> Result<()> {
     if !cli.only.is_empty() {
         tracing::info!(names = ?cli.only, "running only these services");
     } else if !cli.without.is_empty() {
@@ -43,17 +35,16 @@ async fn main() -> ExitCode {
     }
 
     let config = Config::load(&cli.config);
-    config.get_loaded_files().iter().for_each(|p| {
-        tracing::info!(path = %p.display(), "loaded config file");
-    });
+    for path in config.get_loaded_files() {
+        tracing::info!(path = %path.display(), "loaded config file");
+    }
 
-    run(&config, &socket).await
-}
+    let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
+    let _listener = glimpse_ipc::Server::listen(&socket).await?;
+    tracing::info!(socket = %socket.display(), "glimpsed {}", env!("CARGO_PKG_VERSION"));
+    tracing::warn!("the broker, service registry and socket server are not implemented yet");
 
-async fn run(_config: &Config, _socket: &Path) -> ExitCode {
-    // tracing::info!(socket = %socket.display(), %config, "glimpsed {}", env!("CARGO_PKG_VERSION"));
-    tracing::warn!("the broker, socket server and service registry are not implemented yet");
-    exit::OK.into()
+    Ok(())
 }
 
 // The filter also comes from RUST_LOG, which is inherited: a stale value in someone's profile
