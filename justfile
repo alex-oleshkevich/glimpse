@@ -45,6 +45,10 @@ fmt-check:
 gen-config-default:
     cargo run -q -p glimpse-config --example gen_config_default > data/config.default.toml
 
+[doc("regenerate data/config.schema.json from the Config types")]
+gen-config-schema:
+    cargo run -q -p glimpse-config --example gen_config_schema > data/config.schema.json
+
 [doc("headless tests")]
 test:
     cargo test --workspace
@@ -131,10 +135,11 @@ install: build-release
     for f in data/dbus-1/services/*.service; do [ -e "$f" ] && install -Dm644 "$f" {{ dbusdir }}/"$(basename $f)"; done
     for f in data/pam.d/*; do [ -e "$f" ] && [ "$(basename $f)" != .gitkeep ] && install -Dm644 "$f" {{ pamdir }}/"$(basename $f)"; done
     install -Dm644 data/config.default.toml {{ sharedir }}/config.default.toml
+    install -Dm644 data/config.schema.json {{ sharedir }}/config.schema.json
 
 [doc("remove installed files")]
 uninstall:
     rm -f {{ bindir }}/{glimpsed,glimpse,glimpse-wallpaper,glimpse-lock,glimpsectl}
     rm -f {{ unitdir }}/glimpse*.service {{ dbusdir }}/org.kde.StatusNotifierWatcher.service
     rm -f {{ dbusdir }}/org.freedesktop.Notifications.service {{ pamdir }}/glimpse-lock
-    rm -f {{ sharedir }}/config.default.toml
+    rm -f {{ sharedir }}/config.default.toml {{ sharedir }}/config.schema.json

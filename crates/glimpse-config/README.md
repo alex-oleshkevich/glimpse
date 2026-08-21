@@ -26,6 +26,21 @@ file and that rendering differ.
 Merging is per key: **tables merge, scalars replace, and arrays replace rather than append** — an
 appending array could never be shortened by a later layer.
 
+## The JSON Schema
+
+`data/config.schema.json` is `Config`'s shape for editor tooling — Even Better TOML and other
+`taplo`-based editors read it for completion and inline validation. Every `schema/*.rs` type derives
+`schemars::JsonSchema` alongside `Serialize`/`Deserialize`; `json_schema_document()` renders it,
+`just gen-config-schema` writes the result, and a test keeps it honest the same way as the default
+document. `Applet.settings` is described as an open object (`#[schemars(with = "...")]`), since its
+shape belongs to the applet type, not this schema.
+
+`default_document()`'s header carries a `#:schema /usr/share/glimpse/config.schema.json` directive —
+the path `just install` puts the schema at — so a config file that starts from the shipped default
+gets completion for free. One caveat: `schemars` does not surface a `#[serde(alias = ...)]` in the
+schema's enum values, so `night_light.schedule = "manual"` still parses but an editor will flag it;
+`"schedule"` is the spelling the schema expects.
+
 ## One file, one schema
 
 All four binaries read `config.toml`, and all four link the whole schema and validate the whole

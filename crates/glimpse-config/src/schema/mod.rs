@@ -14,6 +14,7 @@ mod wallpaper;
 
 use std::collections::BTreeMap;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 pub use appearance::{Appearance, Scheme};
@@ -33,7 +34,7 @@ pub use panels::{DYNAMIC, Margin, Panel, Position};
 pub use power::Power;
 pub use wallpaper::{Fit, Wallpaper};
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct Config {
     pub appearance: Appearance,
@@ -80,6 +81,13 @@ mod tests {
         let checked_in = include_str!("../../../../data/config.default.toml");
 
         assert_eq!(checked_in, crate::default_document());
+    }
+
+    #[test]
+    fn the_json_schema_matches_the_compiled_in_types() {
+        let checked_in = include_str!("../../../../data/config.schema.json");
+
+        assert_eq!(checked_in, crate::json_schema_document());
     }
 
     #[test]

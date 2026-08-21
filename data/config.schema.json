@@ -1,0 +1,901 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Config",
+  "type": "object",
+  "properties": {
+    "appearance": {
+      "$ref": "#/$defs/Appearance",
+      "default": {
+        "pack": "",
+        "scheme": "auto"
+      }
+    },
+    "applets": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/Applet"
+      },
+      "default": {}
+    },
+    "backdrop": {
+      "$ref": "#/$defs/Backdrop",
+      "default": {
+        "blur_radius": 24,
+        "enabled": true
+      }
+    },
+    "calendar": {
+      "$ref": "#/$defs/Calendar",
+      "default": {
+        "poll_interval": 600,
+        "sources": []
+      }
+    },
+    "idle": {
+      "$ref": "#/$defs/Idle",
+      "default": {
+        "enabled": true,
+        "profiles": {
+          "ac": {
+            "listeners": [
+              {
+                "on_idle": "/usr/share/glimpse/scripts/monitors off",
+                "on_resume": "/usr/share/glimpse/scripts/monitors on",
+                "timeout": 600
+              },
+              {
+                "on_idle": "loginctl lock-session",
+                "on_resume": "",
+                "timeout": 900
+              },
+              {
+                "on_idle": "systemctl suspend",
+                "on_resume": "",
+                "timeout": 3600
+              }
+            ]
+          },
+          "battery": {
+            "listeners": [
+              {
+                "on_idle": "/usr/share/glimpse/scripts/monitors off",
+                "on_resume": "/usr/share/glimpse/scripts/monitors on",
+                "timeout": 300
+              },
+              {
+                "on_idle": "loginctl lock-session",
+                "on_resume": "",
+                "timeout": 900
+              },
+              {
+                "on_idle": "systemctl suspend",
+                "on_resume": "",
+                "timeout": 1800
+              }
+            ]
+          }
+        },
+        "respect_inhibitors": true
+      }
+    },
+    "keyboard": {
+      "$ref": "#/$defs/Keyboard",
+      "default": {
+        "labels": {},
+        "remember": "window"
+      }
+    },
+    "location": {
+      "$ref": "#/$defs/Location",
+      "default": {
+        "provider": "geoclue"
+      }
+    },
+    "lock": {
+      "$ref": "#/$defs/Lock",
+      "default": {
+        "background": {
+          "blur_radius": 0,
+          "dim": 0.3499999940395355
+        },
+        "clock": {
+          "date_format": "%A, %B %-d",
+          "enabled": true,
+          "time_format": "%H:%M"
+        },
+        "controls": {
+          "buttons": [
+            "wifi",
+            "input",
+            "weather",
+            "battery",
+            "power"
+          ]
+        },
+        "css_path": "themes/lock.css",
+        "pam_service": "glimpse-lock"
+      }
+    },
+    "monitors": {
+      "$ref": "#/$defs/Monitors",
+      "default": {}
+    },
+    "night_light": {
+      "$ref": "#/$defs/NightLight",
+      "default": {
+        "schedule": "automatic",
+        "temperature": 4200,
+        "transition_minutes": 15
+      }
+    },
+    "panels": {
+      "type": "array",
+      "default": [
+        {
+          "center": [
+            "clock",
+            "weather",
+            "notifications",
+            "privacy"
+          ],
+          "left": [
+            "pager",
+            "mpris"
+          ],
+          "margin": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0,
+            "top": 0
+          },
+          "position": "top",
+          "right": [
+            "__dynamic__",
+            "next_event",
+            "tray",
+            "removable",
+            "clipboard",
+            "keyboard",
+            "printing",
+            "bluetooth",
+            "network",
+            "display",
+            "audio",
+            "idle",
+            "battery",
+            "session"
+          ],
+          "scheme": "dark",
+          "size": 36
+        }
+      ],
+      "items": {
+        "$ref": "#/$defs/Panel"
+      }
+    },
+    "power": {
+      "$ref": "#/$defs/Power",
+      "default": {
+        "lock_before_sleep": true,
+        "lock_on_request": true
+      }
+    },
+    "wallpaper": {
+      "$ref": "#/$defs/Wallpaper",
+      "default": {
+        "color": "#101010",
+        "fit": "cover",
+        "transition_ms": 800
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Appearance": {
+      "type": "object",
+      "properties": {
+        "pack": {
+          "type": "string",
+          "default": ""
+        },
+        "scheme": {
+          "$ref": "#/$defs/Scheme",
+          "default": "auto"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Applet": {
+      "type": "object",
+      "properties": {
+        "extends": {
+          "$ref": "#/$defs/Kind"
+        },
+        "settings": {
+          "type": "object",
+          "additionalProperties": true,
+          "default": {}
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "extends"
+      ]
+    },
+    "Backdrop": {
+      "type": "object",
+      "properties": {
+        "blur_radius": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 24,
+          "minimum": 0
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Background": {
+      "type": "object",
+      "properties": {
+        "blur_radius": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "color": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dim": {
+          "type": "number",
+          "format": "float",
+          "default": 0.3499999940395355
+        },
+        "fit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Fit"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Button": {
+      "type": "string",
+      "enum": [
+        "wifi",
+        "input",
+        "weather",
+        "battery",
+        "power"
+      ]
+    },
+    "Calendar": {
+      "type": "object",
+      "properties": {
+        "poll_interval": {
+          "type": "integer",
+          "format": "uint64",
+          "default": 600,
+          "minimum": 0
+        },
+        "sources": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Source"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Clock": {
+      "type": "object",
+      "properties": {
+        "date_format": {
+          "type": "string",
+          "default": "%A, %B %-d"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "time_format": {
+          "type": "string",
+          "default": "%H:%M"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Controls": {
+      "type": "object",
+      "properties": {
+        "buttons": {
+          "type": "array",
+          "default": [
+            "wifi",
+            "input",
+            "weather",
+            "battery",
+            "power"
+          ],
+          "items": {
+            "$ref": "#/$defs/Button"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Fit": {
+      "type": "string",
+      "enum": [
+        "cover",
+        "contain",
+        "fill"
+      ]
+    },
+    "Idle": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "profiles": {
+          "$ref": "#/$defs/Profiles",
+          "default": {
+            "ac": {
+              "listeners": [
+                {
+                  "on_idle": "/usr/share/glimpse/scripts/monitors off",
+                  "on_resume": "/usr/share/glimpse/scripts/monitors on",
+                  "timeout": 600
+                },
+                {
+                  "on_idle": "loginctl lock-session",
+                  "on_resume": "",
+                  "timeout": 900
+                },
+                {
+                  "on_idle": "systemctl suspend",
+                  "on_resume": "",
+                  "timeout": 3600
+                }
+              ]
+            },
+            "battery": {
+              "listeners": [
+                {
+                  "on_idle": "/usr/share/glimpse/scripts/monitors off",
+                  "on_resume": "/usr/share/glimpse/scripts/monitors on",
+                  "timeout": 300
+                },
+                {
+                  "on_idle": "loginctl lock-session",
+                  "on_resume": "",
+                  "timeout": 900
+                },
+                {
+                  "on_idle": "systemctl suspend",
+                  "on_resume": "",
+                  "timeout": 1800
+                }
+              ]
+            }
+          }
+        },
+        "respect_inhibitors": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "Keyboard": {
+      "type": "object",
+      "properties": {
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        },
+        "remember": {
+          "$ref": "#/$defs/Remember",
+          "default": "window"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Kind": {
+      "type": "string",
+      "enum": [
+        "audio",
+        "battery",
+        "brightness",
+        "bluetooth",
+        "display",
+        "clipboard",
+        "clock",
+        "command",
+        "dynamic",
+        "exec",
+        "idle",
+        "keyboard",
+        "mpris",
+        "network",
+        "next_event",
+        "notifications",
+        "pager",
+        "privacy",
+        "printing",
+        "removable",
+        "session",
+        "tray",
+        "weather",
+        "window",
+        "workspace"
+      ]
+    },
+    "Listener": {
+      "type": "object",
+      "properties": {
+        "on_idle": {
+          "type": "string",
+          "default": ""
+        },
+        "on_resume": {
+          "type": "string",
+          "default": ""
+        },
+        "respect_inhibitors": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "timeout": {
+          "type": "integer",
+          "format": "uint64",
+          "default": 0,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Location": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "longitude": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "provider": {
+          "$ref": "#/$defs/Provider",
+          "default": "geoclue"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Lock": {
+      "type": "object",
+      "properties": {
+        "background": {
+          "$ref": "#/$defs/Background",
+          "default": {
+            "blur_radius": 0,
+            "dim": 0.3499999940395355
+          }
+        },
+        "clock": {
+          "$ref": "#/$defs/Clock",
+          "default": {
+            "date_format": "%A, %B %-d",
+            "enabled": true,
+            "time_format": "%H:%M"
+          }
+        },
+        "controls": {
+          "$ref": "#/$defs/Controls",
+          "default": {
+            "buttons": [
+              "wifi",
+              "input",
+              "weather",
+              "battery",
+              "power"
+            ]
+          }
+        },
+        "css_path": {
+          "type": "string",
+          "default": "themes/lock.css"
+        },
+        "pam_service": {
+          "type": "string",
+          "default": "glimpse-lock"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Margin": {
+      "type": "object",
+      "properties": {
+        "bottom": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "left": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "right": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        },
+        "top": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 0,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Monitors": {
+      "type": "object",
+      "properties": {
+        "builtin_connector": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "NightLight": {
+      "type": "object",
+      "properties": {
+        "end_time": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schedule": {
+          "$ref": "#/$defs/Schedule",
+          "default": "automatic"
+        },
+        "start_time": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "temperature": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 4200,
+          "minimum": 0
+        },
+        "transition_minutes": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 15,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Panel": {
+      "type": "object",
+      "properties": {
+        "center": {
+          "type": "array",
+          "default": [
+            "clock",
+            "weather",
+            "notifications",
+            "privacy"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "left": {
+          "type": "array",
+          "default": [
+            "pager",
+            "mpris"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "margin": {
+          "$ref": "#/$defs/Margin",
+          "default": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0,
+            "top": 0
+          }
+        },
+        "monitor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "position": {
+          "$ref": "#/$defs/Position",
+          "default": "top"
+        },
+        "right": {
+          "type": "array",
+          "default": [
+            "__dynamic__",
+            "next_event",
+            "tray",
+            "removable",
+            "clipboard",
+            "keyboard",
+            "printing",
+            "bluetooth",
+            "network",
+            "display",
+            "audio",
+            "idle",
+            "battery",
+            "session"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "scheme": {
+          "$ref": "#/$defs/Scheme",
+          "default": "dark"
+        },
+        "size": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 36,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Position": {
+      "type": "string",
+      "enum": [
+        "left",
+        "top",
+        "right",
+        "bottom"
+      ]
+    },
+    "Power": {
+      "type": "object",
+      "properties": {
+        "lock_before_sleep": {
+          "type": "boolean",
+          "default": true
+        },
+        "lock_on_request": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "Profile": {
+      "type": "object",
+      "properties": {
+        "listeners": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Listener"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Profiles": {
+      "type": "object",
+      "properties": {
+        "ac": {
+          "$ref": "#/$defs/Profile",
+          "default": {
+            "listeners": [
+              {
+                "on_idle": "/usr/share/glimpse/scripts/monitors off",
+                "on_resume": "/usr/share/glimpse/scripts/monitors on",
+                "timeout": 600
+              },
+              {
+                "on_idle": "loginctl lock-session",
+                "on_resume": "",
+                "timeout": 900
+              },
+              {
+                "on_idle": "systemctl suspend",
+                "on_resume": "",
+                "timeout": 3600
+              }
+            ]
+          }
+        },
+        "battery": {
+          "$ref": "#/$defs/Profile",
+          "default": {
+            "listeners": [
+              {
+                "on_idle": "/usr/share/glimpse/scripts/monitors off",
+                "on_resume": "/usr/share/glimpse/scripts/monitors on",
+                "timeout": 300
+              },
+              {
+                "on_idle": "loginctl lock-session",
+                "on_resume": "",
+                "timeout": 900
+              },
+              {
+                "on_idle": "systemctl suspend",
+                "on_resume": "",
+                "timeout": 1800
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Provider": {
+      "type": "string",
+      "enum": [
+        "geoclue",
+        "manual"
+      ]
+    },
+    "Remember": {
+      "type": "string",
+      "enum": [
+        "global",
+        "app",
+        "window"
+      ]
+    },
+    "Schedule": {
+      "type": "string",
+      "enum": [
+        "off",
+        "automatic",
+        "schedule"
+      ]
+    },
+    "Scheme": {
+      "type": "string",
+      "enum": [
+        "light",
+        "dark",
+        "auto"
+      ]
+    },
+    "Source": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "poll_interval": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0
+        },
+        "type": {
+          "$ref": "#/$defs/SourceKind"
+        },
+        "uri": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "uri"
+      ]
+    },
+    "SourceKind": {
+      "type": "string",
+      "enum": [
+        "ical",
+        "directory"
+      ]
+    },
+    "Wallpaper": {
+      "type": "object",
+      "properties": {
+        "color": {
+          "type": "string",
+          "default": "#101010"
+        },
+        "fit": {
+          "$ref": "#/$defs/Fit",
+          "default": "cover"
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transition_ms": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 800,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

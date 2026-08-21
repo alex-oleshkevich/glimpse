@@ -196,3 +196,25 @@ that case with a different name. A file that exists and is wrong — a directory
 one over the size cap, one that fails to parse — is a different problem, and still fails the whole
 load; being present and broken is not the same as never having been written. Spec 010.
 
+### 2026-08-21 · a JSON Schema for editor tooling
+
+TOML has no schema field of its own, but `taplo` — and the editors built on it, including Even
+Better TOML — read one from a `#:schema <path>` header directive at the top of the document, or
+from an out-of-band association. `schemars 1.2.2` derives that schema directly from the same
+`Config` types `serde` already deserializes into, so the two can never describe different shapes.
+
+`data/config.schema.json` is generated, not hand-written, the same way `data/config.default.toml`
+is: `json_schema_document()` renders it, `just gen-config-schema` writes it, and a test fails if the
+checked-in file drifts from the types. `default_document()`'s header now carries a `#:schema
+/usr/share/glimpse/config.schema.json` directive, the path `just install` places the schema at, so a
+config file that started from the shipped default gets completion without the user doing anything.
+
+`Applet.settings` — the one field with no fixed shape, since it belongs to the applet type rather
+than to this schema — is described as an open object via `#[schemars(with = "...")]`, keeping the
+actual `toml::Table` type and its `Deserialize` impl untouched.
+
+One known gap: `schemars` does not reflect a `#[serde(alias = ...)]` in an enum's schema, so
+`night_light.schedule = "manual"` still parses correctly but an editor validating against the schema
+will flag it. Accepted rather than worked around — `010` already calls `manual` the legacy spelling,
+so nudging toward `schedule` is the right default. Spec 010.
+

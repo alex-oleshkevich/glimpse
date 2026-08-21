@@ -92,7 +92,7 @@ Later wins, per key:
 
 | #   | Layer           | Source                                                            |
 | --- | --------------- | ----------------------------------------------------------------- |
-| 1   | defaults        | compiled in, mirrored for reference in `data/config.default.toml` |
+| 1   | defaults        | compiled in, mirrored for reference in `data/config.default.toml`, with a JSON Schema for editor tooling in `data/config.schema.json` |
 | 2   | system          | `/etc/glimpse/config.toml`                                        |
 | 3   | system drop-ins | `/etc/glimpse/config.d/*.toml`, lexical order                     |
 | 4   | user            | `$XDG_CONFIG_HOME/glimpse/config.toml`                            |
@@ -579,3 +579,4 @@ the editor catches before that.
 - 2026-08-21 — file, line and column are promised for syntax errors only; a schema error is found in the merged document, which has no lines to name, and carries the key path.
 - 2026-08-21 — dropped the warn-and-skip case for drop-ins: any bad drop-in fails the whole load now, same as the base file. The load-failure rule already bounds the cost; a separate leniency path was unneeded complexity.
 - 2026-08-21 — refined: "missing" and "broken" are different. A file that genuinely is not there — including a drop-in whose symlink target does not exist — is an absent layer everywhere in the stack, `--config` included. Only a file that exists but is wrong somehow still fails the whole load.
+- 2026-08-21 — added `data/config.schema.json`, a JSON Schema for the whole document generated from the `Config` types, for editor completion and linting.
