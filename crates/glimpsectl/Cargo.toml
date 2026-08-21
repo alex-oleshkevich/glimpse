@@ -6,6 +6,7 @@ rust-version.workspace = true
 
 [dependencies]
 anstream.workspace = true
+anyhow.workspace = true
 clap.workspace = true
 glimpse-config = { path = "../glimpse-config" }
 glimpse-ipc = { path = "../glimpse-ipc" }

@@ -57,6 +57,7 @@ pub struct Cli {
     #[arg(
         short,
         long,
+        global = true,
         value_name = "PATH",
         env = "GLIMPSE_CONFIG_PATH",
         help = "Use exactly this file, skipping the system and user layers"

@@ -1,81 +1,88 @@
 mod cli;
+mod commands;
+use anyhow::{Context, Result};
 
 use std::process::ExitCode;
-use std::time::Duration;
 
 use clap::Parser;
 use cli::{Cli, Command, ConfigCommand};
 
-mod exit {
-    pub const COMMAND_FAILED: u8 = 1;
-    pub const DAEMON_UNREACHABLE: u8 = 3;
-}
+use crate::cli::LogSink;
 
-fn main() -> ExitCode {
+#[tokio::main]
+async fn main() -> ExitCode {
     let cli = Cli::parse();
 
-    // `--socket` and `GLIMPSE_SOCKET_PATH` name the socket outright, so only the default needs a
-    // runtime directory.
-    let socket = if !cli.command.needs_daemon() {
-        None
-    } else if let Some(socket) = glimpse_ipc::socket_path() {
-        Some(socket)
-    } else {
-        eprintln!("glimpsectl: XDG_RUNTIME_DIR is unset, so there is no socket to reach");
-        return exit::DAEMON_UNREACHABLE.into();
-    };
-
+    // Before the subscriber exists: a terminal sink fixes its ANSI setting when it is built.
     if cli.no_color {
         anstream::ColorChoice::Never.write_global();
     }
-    let color = anstream::AutoStream::choice(&std::io::stdout());
-    let format = if cli.json { "json" } else { "text" };
+    // tracing writes to stderr, so stderr is the stream whose color support decides.
+    let color = anstream::AutoStream::choice(&std::io::stderr()) != anstream::ColorChoice::Never;
 
-    eprintln!(
-        "glimpsectl: not implemented yet: {}",
-        invocation(&cli.command)
+    init_tracing(
+        &cli.log,
+        cli.log_format
+            .resolve(std::env::var_os("JOURNAL_STREAM").as_deref()),
+        color,
     );
-    if let Some(socket) = socket {
-        eprintln!("  socket   {}", socket.display());
-        eprintln!("  timeout  {:?}", Duration::from_millis(cli.timeout));
-    }
-    eprintln!("  output   {format}, color {color:?}");
 
-    // Not success: nothing reached stdout, and a script must not read "did nothing" as "worked".
-    exit::COMMAND_FAILED.into()
+    match run(cli).await {
+        Ok(_) => ExitCode::SUCCESS,
+        Err(e) => {
+            tracing::error!("{e}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
-// Each arm is where that subcommand's implementation goes; for now it renders what it parsed, so
-// the argument surface can be exercised before anything speaks to a socket.
-fn invocation(command: &Command) -> String {
-    match command {
-        Command::Get { topic, field } => match field {
-            Some(field) => format!("get {topic} --field {field}"),
-            None => format!("get {topic}"),
-        },
-        Command::Watch { pattern, count } => match count {
-            Some(count) => format!("watch {pattern} --count {count}"),
-            None => format!("watch {pattern}"),
-        },
-        Command::Call { method, arguments } => {
-            let arguments: Vec<_> = arguments
-                .iter()
-                .map(|(key, value)| format!(" {key}={value}"))
-                .collect();
-            format!("call {method}{}", arguments.concat())
+async fn run(cli: Cli) -> Result<()> {
+    let client = match cli.command.needs_daemon() {
+        true => {
+            let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
+            Some(glimpse_ipc::Client::connect(&socket).await?)
         }
-        Command::Topics { pattern } => match pattern {
-            Some(pattern) => format!("topics {pattern}"),
-            None => "topics".to_owned(),
-        },
-        Command::Services => "services".to_owned(),
-        Command::Config(ConfigCommand::Show) => "config show".to_owned(),
-        Command::Config(ConfigCommand::Validate { path }) => match path {
-            Some(path) => format!("config validate {}", path.display()),
-            None => "config validate".to_owned(),
-        },
-        Command::Config(ConfigCommand::Path) => "config path".to_owned(),
-        Command::Doctor => "doctor".to_owned(),
-        Command::Monitor => "monitor".to_owned(),
+        false => None,
+    };
+
+    let daemon = || {
+        client
+            .as_ref()
+            .context("this command needs a running daemon")
+    };
+    let json = cli.json;
+
+    match cli.command {
+        Command::Get { topic, field } => commands::get(daemon()?, topic, field, json).await,
+        Command::Watch { pattern, count } => commands::watch(daemon()?, pattern, count, json).await,
+        Command::Call { method, arguments } => {
+            commands::call(daemon()?, method, arguments, json).await
+        }
+        Command::Topics { pattern } => commands::topics(daemon()?, pattern, json).await,
+        Command::Services => commands::services(daemon()?, json).await,
+        Command::Config(ConfigCommand::Show) => commands::config_show(daemon()?, json).await,
+        Command::Config(ConfigCommand::Validate { path }) => {
+            commands::config_validate(path.or(cli.config), json)
+        }
+        Command::Config(ConfigCommand::Path) => commands::config_path(cli.config, json),
+        Command::Doctor => commands::doctor(daemon()?, json).await,
+        Command::Monitor => commands::monitor(daemon()?).await,
+    }
+}
+
+fn init_tracing(filter: &str, sink: LogSink, color: bool) {
+    let env_filter = match tracing_subscriber::EnvFilter::try_new(filter) {
+        Ok(env_filter) => env_filter,
+        Err(error) => {
+            eprintln!("glimpsectl: ignoring invalid log filter {filter:?}: {error}");
+            tracing_subscriber::EnvFilter::new("info")
+        }
+    };
+
+    let builder = tracing_subscriber::fmt().with_env_filter(env_filter);
+    match sink {
+        LogSink::Terminal => builder.with_ansi(color).init(),
+        LogSink::Journal => builder.without_time().with_ansi(false).init(),
+        LogSink::Json => builder.json().init(),
     }
 }
