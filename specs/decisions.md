@@ -116,3 +116,21 @@ neither is the daemon's to check.
 
 Removing the flags also empties the daemon's exit code 1: invalid configuration was already
 specified not to exit, so `--check-config` was its only cause. Specs 003, 010.
+
+### 2026-08-21 · `anyhow` in the binaries, `thiserror` in the libraries
+
+The exit codes in `007` are decided almost entirely one crate down: four of the six come from a
+transport failure, an unknown name, a timeout or a version mismatch, all of which `glimpse-ipc`
+knows and `glimpsectl` only translates. A glimpsectl-local error enum would have been a
+hand-written mirror of a type that has to exist anyway, kept in step by hand.
+
+So the split is by who reacts. A library whose caller must branch — reconnect or not, `degraded`
+for which reason, which exit code — declares a `thiserror` enum and the caller matches on it. A
+binary, where every failure ends at one `eprintln!` and one exit code, takes `anyhow` and keeps the
+context chain. `main` recovers the typed error with `downcast_ref` in one function, so adding
+`.context(...)` anywhere in between cannot change the exit code.
+
+`anyhow` was already in `[workspace.dependencies]`, used by nothing. `thiserror 2.0.20` is new; it
+compiles to no runtime code and shares `syn` with the `clap` and `serde` derives already in the
+build. Adding it is also what exposed `glimpse-ipc`'s "serde and tokio, nothing else" rule as
+already false, so that rule is now stated as a test rather than a list. Specs 002, 007.

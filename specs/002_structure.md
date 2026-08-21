@@ -63,7 +63,7 @@ Four libraries, five shipped binaries, one development binary.
 ### Dependency direction
 
 ```
-                    glimpse-ipc              (+ serde, tokio; no zbus, no GTK)
+                    glimpse-ipc              (what both ends need; no zbus, no GTK)
                      ↑         ↑
                      │         └ glimpse-services
                      │                  ↑
@@ -89,11 +89,14 @@ server all describe how bytes cross the socket, and both ends have to agree on e
 second implementation of any of them could only drift. The broker decides *which* client gets
 *which* value, which is a daemon decision and stays in `glimpsed`.
 
-`glimpse-ipc` takes serde and tokio and nothing else — no zbus, no GTK. `topics/` and `frame.rs` are
-the input to `schemars` for the Python, TypeScript and Go SDK types, and a generator reads those
-modules rather than the whole crate. The earlier form of this rule barred tokio on the grounds that
-it broke schema generation, which is not true: `schema_for!` compiles the crate and does not care
-what else it links.
+A dependency belongs in `glimpse-ipc` only if both ends of the socket need it, plus `tracing` for
+diagnostics. No zbus, no GTK, and no backend type in `topics/` — a payload that names one cannot be
+generated for Python, TypeScript or Go. `topics/` and `frame.rs` are the input to `schemars` for the
+Python, TypeScript and Go SDK types, and a generator reads those modules rather than the whole
+crate. The rule is stated as a test rather than a list because two earlier list forms were both
+wrong: the first barred tokio on the grounds that it broke schema generation, which is not true, and
+the second read "serde and tokio, nothing else" while the manifest already carried `dirs`,
+`serde_json` and `tracing`.
 
 ### The services and daemon split
 
@@ -269,3 +272,4 @@ this crate exists to prevent.
 - 2026-08-20 — socket path resolution is `glimpse_proto::socket_path`, not `glimpse-client`: both ends must agree on it and neither may depend on the other.
 - 2026-08-20 — the NDJSON codec moves from `glimpsed/src/socket.rs` to `glimpse-proto/src/codec.rs`. It is the one part both ends execute identically, and a second implementation in `glimpse-client` could only diverge. The client and the socket server stay where they are: both need tokio, which proto does not take, and a merged crate would make every UI binary compile a socket server it never runs.
 - 2026-08-20 — `glimpse-proto` and `glimpse-client` merge into `glimpse-ipc`, holding the wire format and both ends of the transport; the broker stays in `glimpsed`, so the split is transport against routing rather than client against server. The serde-only rule is replaced: it barred tokio on the grounds that it broke `schemars`, which is not true.
+- 2026-08-21 — `glimpse-ipc`'s dependency rule is stated as a test — what both ends of the socket need — rather than a list. The "serde and tokio, nothing else" form was already false: the manifest carried `dirs`, `serde_json` and `tracing` before `thiserror` was added. Error-type convention recorded in `decisions.md`.
