@@ -22,9 +22,16 @@ Only `lib.rs` exists so far.
 
 ## Rules
 
-**serde and tokio, nothing else.** No zbus, no GTK. `topics/` and `frame.rs` are the input to
-`schemars` for the Python, TypeScript and Go SDK types; a generator reads those modules, not the
-whole crate.
+**A dependency belongs here only if both ends of the socket need it**, plus `tracing` for
+diagnostics. No zbus, no GTK, and no backend type in `topics/` — a payload that names one cannot be
+generated for Python, TypeScript or Go. `topics/` and `frame.rs` are the input to `schemars` for the
+Python, TypeScript and Go SDK types; a generator reads those modules, not the whole crate.
+
+**Errors are `thiserror` enums, not `anyhow`.** A caller has to branch on them: the panel reconnects
+after a transport failure but not after a daemon `CallError`, and `glimpsectl` maps four of them
+onto the exit codes in `specs/007_glimpsectl.md`. `CallError` is the exception in the other
+direction — it crosses the wire, so it is a serde payload and a `schemars` input, not an error
+type.
 
 **Transport lives here, routing lives in `glimpsed`.** Framing, reconnect and per-client writer
 tasks are all "how bytes cross the socket" and both ends must agree on them. Deciding _which_ client

@@ -3,13 +3,16 @@ mod cli;
 use std::path::Path;
 use std::process::ExitCode;
 
+use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, LogSink};
 use glimpse_config::Config;
+use glimpse_ipc::NoRuntimeDir;
 
 mod exit {
     pub const OK: u8 = 0;
-    pub const NO_DAEMON: u8 = 1;
+    pub const SOCKET_IN_USE: u8 = 3;
+    pub const NO_RUNTIME_DIR: u8 = 4;
 }
 
 #[tokio::main]
@@ -22,10 +25,16 @@ async fn main() -> ExitCode {
             .resolve(std::env::var_os("JOURNAL_STREAM").as_deref()),
     );
 
-    let Some(socket) = glimpse_ipc::socket_path() else {
-        tracing::error!("daemon socket not found, is it running?");
-        return exit::NO_DAEMON.into();
-    };
+    match run(cli).await {
+        Ok(()) => ExitCode::from(exit::OK),
+        // The daemon logs rather than prints: it runs under systemd, where the journal is what
+        // anybody reads. `{:#}` keeps the whole context chain on one line.
+        Err(error) => {
+            tracing::error!("{error:#}");
+            ExitCode::from(exit_code(&error))
+        }
+    }
+}
 
     if !cli.only.is_empty() {
         tracing::info!(names = ?cli.only, "running only these services");
