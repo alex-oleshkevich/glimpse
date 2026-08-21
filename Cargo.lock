@@ -62,6 +62,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.104"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
+
+[[package]]
 name = "bytes"
 version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -164,6 +170,9 @@ dependencies = [
 [[package]]
 name = "glimpse-config"
 version = "0.16.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "glimpse-devtools"
@@ -176,6 +185,8 @@ dependencies = [
  "dirs",
  "serde",
  "serde_json",
+ "thiserror",
+ "tokio",
  "tracing",
 ]
 
@@ -188,6 +199,7 @@ name = "glimpse-panel"
 version = "0.16.0"
 dependencies = [
  "anstream",
+ "anyhow",
  "clap",
  "glimpse-config",
  "glimpse-ipc",
@@ -213,6 +225,7 @@ name = "glimpsectl"
 version = "0.16.0"
 dependencies = [
  "anstream",
+ "anyhow",
  "clap",
  "glimpse-config",
  "glimpse-ipc",
@@ -225,6 +238,7 @@ dependencies = [
 name = "glimpsed"
 version = "0.16.0"
 dependencies = [
+ "anyhow",
  "clap",
  "dirs",
  "glimpse-config",

@@ -20,6 +20,10 @@ default:
 check:
     cargo check --workspace --all-targets
 
+[doc("type-check one crate")]
+check-crate CRATE:
+    cargo check -p {{ CRATE }} --all-targets
+
 [doc("clippy, warnings are errors")]
 lint:
     cargo clippy --workspace --all-targets -- -D warnings

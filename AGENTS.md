@@ -35,10 +35,10 @@ quietly editing either one to match the other.
 This is the second generation of an application that already exists. Two bodies of earlier work are
 in the tree, and both are **reference only — never a source of truth.**
 
-| Where          | What it is                                                    |
-| -------------- | ------------------------------------------------------------- |
-| `_old/`        | the shipped previous implementation, in Rust                  |
-| `var/glimpse2` | design documents for this rewrite, written by another agent   |
+| Where          | What it is                                                  |
+| -------------- | ----------------------------------------------------------- |
+| `_old/`        | the shipped previous implementation, in Rust                |
+| `var/glimpse2` | design documents for this rewrite, written by another agent |
 
 Read either when you want to know how a problem was solved before, what a backend actually does, or
 which edge cases turned out to matter in practice. That knowledge is the reason they are kept: it
@@ -66,18 +66,18 @@ glimpse/
 └── _old/         the previous implementation, kept for reference only
 ```
 
-| Crate               | Role                                                              |
-| ------------------- | ----------------------------------------------------------------- |
+| Crate               | Role                                                                     |
+| ------------------- | ------------------------------------------------------------------------ |
 | `glimpse-ipc`       | wire frames, codec, `Topic` trait, payload types, errors, client, server |
-| `glimpse-config`    | layered TOML load, drop-ins, merge, validate, watch               |
-| `glimpse-services`  | service framework and every service implementation                |
-| `glimpse-widgets`   | GObject subclasses, Blueprint templates, shared CSS               |
-| `glimpsed`          | broker, `WaylandEdge` impl                                        |
-| `glimpse-panel`     | panel and applets — builds the binary named `glimpse`             |
-| `glimpse-wallpaper` | background layer surface, decode cache, transitions               |
-| `glimpse-lock`      | `ext-session-lock-v1` surfaces, PAM                               |
-| `glimpsectl`        | CLI and TUI                                                       |
-| `glimpse-devtools`  | widget previewer, not installed                                   |
+| `glimpse-config`    | layered TOML load, drop-ins, merge, validate, watch                      |
+| `glimpse-services`  | service framework and every service implementation                       |
+| `glimpse-widgets`   | GObject subclasses, Blueprint templates, shared CSS                      |
+| `glimpsed`          | broker, `WaylandEdge` impl                                               |
+| `glimpse-panel`     | panel and applets — builds the binary named `glimpse`                    |
+| `glimpse-wallpaper` | background layer surface, decode cache, transitions                      |
+| `glimpse-lock`      | `ext-session-lock-v1` surfaces, PAM                                      |
+| `glimpsectl`        | CLI and TUI                                                              |
+| `glimpse-devtools`  | widget previewer, not installed                                          |
 
 ## Stack
 
@@ -100,14 +100,20 @@ StatusNotifierItem, dbusmenu and Notifications.
 
 **Code**
 
-- **Comment intent, never mechanics.** Name functions, types and variables so the *what* needs no
-  comment, and write one only where the *why* cannot be read off the code: a constraint that is not
+- **Comment intent, never mechanics.** Name functions, types and variables so the _what_ needs no
+  comment, and write one only where the _why_ cannot be read off the code: a constraint that is not
   visible locally, a simpler approach that was tried and does not work, an `#[allow(...)]` that
   needs justifying. A comment restating the signature is worse than none — delete it. Anything
   longer than two or three lines is rationale, and rationale belongs in the crate's `README.md`.
 - **Never reference a spec from code.** No `specs/NNN` paths, no spec numbers, no "per the spec".
   Code states what it does; the specs are found from the READMEs.
 - **US English.** `color`, not `colour`, in identifiers, comments and user-facing strings.
+- Every binary fails the same way: `run(cli) -> anyhow::Result<()>` does the work and `main` turns
+  the outcome into an `ExitCode`, because `?` cannot be used in a function returning one.
+  `errors.rs` holds both halves — a private module of named code constants matching that binary's
+  specified table, and the single `exit_code(&anyhow::Error) -> ExitCode` that maps them by
+  `downcast_ref`. One mapping site is what stops a `.context(...)` added upstream from changing
+  which code a script sees. `ExitCode` is opaque, so split the `u8` out to keep it testable.
 - User-facing strings are not comments. `help = "..."` on a clap argument, an error message, a log
   line — all fine, and stripping them breaks output.
 
@@ -115,8 +121,11 @@ StatusNotifierItem, dbusmenu and Notifications.
 
 - Every crate dependency is inherited: `serde.workspace = true`. Add the version to
   `[workspace.dependencies]` in the root `Cargo.toml`, never to a crate manifest.
-- `glimpse-ipc` takes serde and tokio and nothing else — no zbus, no GTK. Its `topics/` and
-  `frame.rs` are the input to `schemars` for the Python, TypeScript and Go SDK types.
+- A dependency belongs in `glimpse-ipc` only if both ends of the socket need it, plus `tracing` for
+  diagnostics. No zbus, no GTK, no backend type in `topics/`. Its `topics/` and `frame.rs` are the
+  input to `schemars` for the Python, TypeScript and Go SDK types.
+- Errors: `thiserror` in a library, whose caller must branch on the failure; `anyhow` in a binary,
+  where every failure ends at one message and one exit code.
 - Nothing depends on `glimpsed`. It is a leaf. Shared code goes in proto, client, config, services
   or widgets.
 - A trait the framework needs from the daemon is declared in `glimpse-services` and implemented in
