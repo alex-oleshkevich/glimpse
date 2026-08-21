@@ -34,10 +34,16 @@ async fn run(cli: Cli) -> Result<()> {
         tracing::info!(names = ?cli.without, "running without these services");
     }
 
-    let config = Config::load(&cli.config);
-    for path in config.get_loaded_files() {
-        tracing::info!(path = %path.display(), "loaded config file");
-    }
+    let _config = match glimpse_config::load(cli.config.as_deref()) {
+        Ok(config) => config,
+        Err(problems) => {
+            for problem in &problems {
+                tracing::warn!("{problem}");
+            }
+            tracing::warn!("starting with default configuration");
+            Config::default()
+        }
+    };
 
     let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
     let _listener = glimpse_ipc::Server::listen(&socket).await?;
@@ -47,8 +53,6 @@ async fn run(cli: Cli) -> Result<()> {
     Ok(())
 }
 
-// The filter also comes from RUST_LOG, which is inherited: a stale value in someone's profile
-// must not stop the session daemon.
 fn init_tracing(filter: &str, sink: LogSink) {
     let env_filter = match tracing_subscriber::EnvFilter::try_new(filter) {
         Ok(env_filter) => env_filter,

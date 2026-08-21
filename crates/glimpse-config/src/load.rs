@@ -9,44 +9,27 @@ const SYSTEM_DIR: &str = "/etc/glimpse";
 const FILE_NAME: &str = "config.toml";
 const DROPIN_DIR: &str = "config.d";
 
-#[derive(Debug)]
-pub struct Loaded {
-    pub config: Config,
-    pub warnings: Vec<ConfigError>,
-}
-
-pub fn load(config_path: Option<&Path>) -> Result<Loaded, Vec<ConfigError>> {
+pub fn load(config_path: Option<&Path>) -> Result<Config, Vec<ConfigError>> {
     let user_dir = dirs::config_dir().map(|dir| dir.join("glimpse"));
     load_from(Path::new(SYSTEM_DIR), user_dir.as_deref(), config_path)
 }
-
-enum Kind {
-    Base,
-    Named,
-    Dropin,
-}
-
-type Stack = (Vec<(PathBuf, Kind)>, Vec<ConfigError>);
 
 fn load_from(
     system_dir: &Path,
     user_dir: Option<&Path>,
     config_path: Option<&Path>,
-) -> Result<Loaded, Vec<ConfigError>> {
-    let (files, mut warnings) =
-        stack(system_dir, user_dir, config_path).map_err(|error| vec![error])?;
+) -> Result<Config, Vec<ConfigError>> {
+    let files = stack(system_dir, user_dir, config_path).map_err(|error| vec![error])?;
 
     let mut merged = toml::Table::new();
     let mut errors = Vec::new();
 
-    for (path, kind) in files {
+    for path in files {
         let text = match read(&path) {
             Ok(text) => text,
             Err(error) => {
-                match (kind, is_missing(&error)) {
-                    (Kind::Base, true) => {}
-                    (Kind::Dropin, _) => warnings.push(error),
-                    _ => errors.push(error),
+                if !is_missing(&error) {
+                    errors.push(error);
                 }
                 continue;
             }
@@ -59,37 +42,29 @@ fn load_from(
     }
 
     if !errors.is_empty() {
-        errors.append(&mut warnings);
         return Err(errors);
     }
 
-    let config = toml::Value::Table(merged)
+    toml::Value::Table(merged)
         .try_into()
-        .map_err(|error| vec![ConfigError::schema(error)])?;
-
-    Ok(Loaded { config, warnings })
+        .map_err(|error| vec![ConfigError::schema(error)])
 }
 
 fn stack(
     system_dir: &Path,
     user_dir: Option<&Path>,
     config_path: Option<&Path>,
-) -> Result<Stack, ConfigError> {
+) -> Result<Vec<PathBuf>, ConfigError> {
     if let Some(path) = config_path {
-        return Ok((vec![(path.to_path_buf(), Kind::Named)], Vec::new()));
+        return Ok(vec![path.to_path_buf()]);
     }
 
     let mut files = Vec::new();
-    let mut warnings = Vec::new();
     for dir in [Some(system_dir), user_dir].into_iter().flatten() {
-        files.push((dir.join(FILE_NAME), Kind::Base));
-        match dropins(&dir.join(DROPIN_DIR)) {
-            Ok(paths) => files.extend(paths.into_iter().map(|path| (path, Kind::Dropin))),
-            Err(error @ ConfigError::TooManyDropins { .. }) => return Err(error),
-            Err(error) => warnings.push(error),
-        }
+        files.push(dir.join(FILE_NAME));
+        files.extend(dropins(&dir.join(DROPIN_DIR))?);
     }
-    Ok((files, warnings))
+    Ok(files)
 }
 
 fn dropins(dir: &Path) -> Result<Vec<PathBuf>, ConfigError> {
@@ -278,10 +253,10 @@ mod tests {
         )
         .expect("fixture");
 
-        let loaded = load_from(&system, Some(&user), None).expect("loaded");
+        let config = load_from(&system, Some(&user), None).expect("loaded");
 
-        assert_eq!(loaded.config.appearance.pack, "user");
-        assert_eq!(loaded.config.appearance.scheme, Scheme::Dark);
+        assert_eq!(config.appearance.pack, "user");
+        assert_eq!(config.appearance.scheme, Scheme::Dark);
     }
 
     #[test]
@@ -299,31 +274,31 @@ mod tests {
         let named = root.path().join("named.toml");
         fs::write(&named, "[appearance]\npack = \"named\"\n").expect("fixture");
 
-        let loaded =
+        let config =
             load_from(&root.path().join("etc"), Some(&user), Some(&named)).expect("loaded");
 
-        assert_eq!(loaded.config.appearance.pack, "named");
-        assert_eq!(loaded.config.appearance.scheme, Scheme::Auto);
+        assert_eq!(config.appearance.pack, "named");
+        assert_eq!(config.appearance.scheme, Scheme::Auto);
     }
 
     #[test]
-    fn a_missing_conventional_file_is_an_absent_layer_but_a_named_one_is_an_error() {
+    fn a_missing_file_is_an_absent_layer_everywhere_in_the_stack() {
         let root = tempfile::tempdir().expect("tempdir");
 
-        let loaded = load_from(&root.path().join("etc"), None, None).expect("loaded");
-        assert_eq!(loaded.config, Config::default());
+        let config = load_from(&root.path().join("etc"), None, None).expect("loaded");
+        assert_eq!(config, Config::default());
 
-        let problems = load_from(
+        let named = load_from(
             &root.path().join("etc"),
             None,
             Some(&root.path().join("nowhere.toml")),
         )
-        .expect_err("a path the user typed must be there");
-        assert!(matches!(problems[..], [ConfigError::Unreadable { .. }]));
+        .expect("a missing --config path is an absent layer too");
+        assert_eq!(named, Config::default());
     }
 
     #[test]
-    fn a_dangling_dropin_is_skipped_with_a_warning() {
+    fn a_dangling_dropin_is_an_absent_layer() {
         let root = tempfile::tempdir().expect("tempdir");
         let user = root.path().join("user");
         fs::create_dir_all(user.join("config.d")).expect("fixture");
@@ -334,41 +309,38 @@ mod tests {
         )
         .expect("fixture");
 
-        let loaded = load_from(&root.path().join("etc"), Some(&user), None).expect("loaded");
+        let config = load_from(&root.path().join("etc"), Some(&user), None)
+            .expect("a stale link left by an uninstalled package must not cost the session");
 
-        assert_eq!(loaded.config.appearance.pack, "user");
-        assert_eq!(loaded.warnings.len(), 1);
+        assert_eq!(config.appearance.pack, "user");
     }
 
     #[test]
-    fn a_dropin_directory_that_is_not_a_directory_is_a_warning_not_a_failure() {
+    fn a_dropin_directory_that_is_not_a_directory_fails_the_whole_load() {
         let root = tempfile::tempdir().expect("tempdir");
         let user = root.path().join("user");
         fs::create_dir_all(&user).expect("fixture");
         fs::write(user.join("config.toml"), "[appearance]\npack = \"user\"\n").expect("fixture");
         fs::write(user.join("config.d"), "not a directory").expect("fixture");
 
-        let loaded = load_from(&root.path().join("etc"), Some(&user), None).expect("loaded");
+        let problems = load_from(&root.path().join("etc"), Some(&user), None)
+            .expect_err("a broken config.d/ is not skipped");
 
-        assert_eq!(loaded.config.appearance.pack, "user");
-        assert_eq!(loaded.warnings.len(), 1);
+        assert!(matches!(problems[..], [ConfigError::Unreadable { .. }]));
     }
 
     #[test]
-    fn a_failed_load_reports_every_problem_and_names_the_dropin_each_is_in() {
+    fn a_failed_load_reports_every_problem_not_just_the_first() {
         let root = tempfile::tempdir().expect("tempdir");
         let user = root.path().join("user");
         fs::create_dir_all(user.join("config.d")).expect("fixture");
         fs::write(user.join("config.toml"), "[appearance]\npack = \"user\"\n").expect("fixture");
         fs::write(user.join("config.d/10-broken.toml"), "[appearance\n").expect("fixture");
-        std::os::unix::fs::symlink(
-            root.path().join("uninstalled.toml"),
-            user.join("config.d/20-stale.toml"),
-        )
-        .expect("fixture");
+        let padding = "#".repeat(MAX_FILE_BYTES as usize + 1);
+        fs::write(user.join("config.d/20-large.toml"), padding).expect("fixture");
 
         let problems =
-            load_from(&root.path().join("etc"), Some(&user), None).expect_err("a syntax error");
+            load_from(&root.path().join("etc"), Some(&user), None).expect_err("two problems");
 
         assert_eq!(problems.len(), 2);
         assert!(
@@ -376,11 +348,7 @@ mod tests {
             "{}",
             problems[0]
         );
-        assert!(
-            problems[1].to_string().contains("20-stale.toml"),
-            "{}",
-            problems[1]
-        );
+        assert!(matches!(problems[1], ConfigError::TooLarge { .. }));
     }
 
     #[test]

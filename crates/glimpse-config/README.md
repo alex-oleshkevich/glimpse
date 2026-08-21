@@ -46,8 +46,9 @@ type rather than to this schema.
   so a file symlinked at one hangs the binary.
 - `config.d/` is read one level deep, one file open at a time, at most 64 entries. Past that the
   load fails rather than applying a prefix.
-- An access failure on a drop-in is a warning and the file is skipped; a stale link left by an
-  uninstalled package must not cost the user their session. A syntax error is fatal wherever it is.
+- A missing file is an absent layer everywhere in the stack — the base file, `--config`, and a
+  drop-in whose symlink target is gone are all optional in the same way. A file that exists and is
+  wrong somehow (wrong type, too large, a syntax error) still fails the whole load.
 
 Nothing here is async. Three GTK binaries link this crate with no tokio runtime; the daemon calls
 `load` synchronously during startup, before anything else is running.

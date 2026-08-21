@@ -171,3 +171,28 @@ constant, in a crate that otherwise needs no unsafe and no bindings at all. A co
 symlinked at a FIFO now hangs the binary until a writer appears. Nobody writes that by accident, and
 the regular-file check still refuses `/dev/zero`, a directory and a socket, which are the cases that
 happen. Specs 002, 010.
+
+### 2026-08-21 · drop-ins fail the whole load, like any other file
+
+`010` originally gave a drop-in one exception the base file never got: a dangling symlink, an
+oversized file, or one that resolved to something other than a regular file was skipped with a
+warning rather than failing the load, on the theory that a stale link left by an uninstalled
+package must not cost the user their session.
+
+That theory was already covered by the load-failure rule one level up — a fresh start comes up on
+defaults and a reload keeps the running configuration either way, whether the bad file is a drop-in
+or the base file. The warn-and-skip path bought nothing the load-failure rule didn't already
+provide, and cost a second code path (`Loaded.warnings`, a `Kind::Dropin` exception in two places)
+to keep in step with it. A bad drop-in now fails the whole load, exactly like a bad base file. Spec
+010.
+
+### 2026-08-21 · missing is not broken
+
+The previous entry treated "dangling" and "bad" as one case: any drop-in problem, symlink target
+gone or not, failed the whole load. That conflated two different things. A file that is not there at
+all is the same as a layer nobody wrote — the base file has always been allowed to be absent, and a
+`--config <PATH>` that does not exist, or a drop-in whose symlink resolves to nothing, is exactly
+that case with a different name. A file that exists and is wrong — a directory where a file belongs,
+one over the size cap, one that fails to parse — is a different problem, and still fails the whole
+load; being present and broken is not the same as never having been written. Spec 010.
+

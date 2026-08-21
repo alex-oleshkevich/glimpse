@@ -151,9 +151,11 @@ What is checked is what the link lands on, and how:
   legitimate configuration approaches it, and it bounds what a mistaken link can pull into memory.
 - **Symlink loops** surface as `ELOOP` and are reported as an unreadable file, not retried.
 
-A dangling or unresolvable drop-in is **skipped with a warning**, not a failure. A stale link left by
-an uninstalled package must not cost the user their session. The base file is different: if it
-resolves to nothing readable, that is a load failure and the defaults rule applies.
+A missing file is an absent layer, not an error, everywhere in the stack — the base file,
+`--config <PATH>`, and a drop-in whose symlink target does not exist (`ENOENT`) are all optional in
+exactly the same way. A file that is there but broken in some other way — the wrong type, past the
+size cap, a genuine read failure, a syntax error — still fails the whole load; the load-failure rule
+is what bounds that cost.
 
 Errors name the path as written and the path it resolved to, and never any of the file's content. A
 link aimed at a private file — an SSH key, a token — must not echo that file into the journal or
@@ -575,3 +577,5 @@ the editor catches before that.
 - 2026-08-21 — the whole schema lives in `glimpse-config` and every binary validates every table; independent per-binary schema versioning was never available to one workspace released at one version.
 - 2026-08-21 — the FIFO guard is dropped: refusing one needs `O_NONBLOCK` and a C ABI crate, and the dependency costs more than the case.
 - 2026-08-21 — file, line and column are promised for syntax errors only; a schema error is found in the merged document, which has no lines to name, and carries the key path.
+- 2026-08-21 — dropped the warn-and-skip case for drop-ins: any bad drop-in fails the whole load now, same as the base file. The load-failure rule already bounds the cost; a separate leniency path was unneeded complexity.
+- 2026-08-21 — refined: "missing" and "broken" are different. A file that genuinely is not there — including a drop-in whose symlink target does not exist — is an absent layer everywhere in the stack, `--config` included. Only a file that exists but is wrong somehow still fails the whole load.
