@@ -77,7 +77,6 @@ glimpse/
 | `glimpse-wallpaper` | background layer surface, decode cache, transitions                      |
 | `glimpse-lock`      | `ext-session-lock-v1` surfaces, PAM                                      |
 | `glimpsectl`        | CLI and TUI                                                              |
-| `glimpse-devtools`  | widget previewer, not installed                                          |
 
 ## Stack
 
@@ -184,7 +183,7 @@ just check-units     # systemd-analyze verify on the shipped units
 ```
 
 Running a binary goes through `just run-daemon`, `just run-panel`, `just run-wallpaper`,
-`just run-locker`, `just ctl <args>`, `just devtools <args>`. `just nested` opens a nested niri
+`just run-locker`, `just ctl <args>`. `just nested` opens a nested niri
 window for a dev loop that does not disturb the running session.
 
 A recipe that is missing or wrong gets fixed in the `justfile`. Do not work around it with a raw

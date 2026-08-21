@@ -85,10 +85,6 @@ run-locker *ARGS:
 ctl *ARGS:
     cargo run -q -p glimpsectl -- {{ ARGS }}
 
-[doc("run the widget previewer")]
-devtools *ARGS:
-    cargo run -p glimpse-devtools -- {{ ARGS }}
-
 [doc("nested niri in a window; run the panel inside it for a fast dev loop")]
 nested:
     niri

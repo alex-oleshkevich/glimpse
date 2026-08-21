@@ -175,10 +175,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "glimpse-devtools"
-version = "0.16.0"
-
-[[package]]
 name = "glimpse-ipc"
 version = "0.16.0"
 dependencies = [

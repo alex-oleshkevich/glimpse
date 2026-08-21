@@ -134,3 +134,16 @@ context chain. `main` recovers the typed error with `downcast_ref` in one functi
 compiles to no runtime code and shares `syn` with the `clap` and `serde` derives already in the
 build. Adding it is also what exposed `glimpse-ipc`'s "serde and tokio, nothing else" rule as
 already false, so that rule is now stated as a test rather than a list. Specs 002, 007.
+
+### 2026-08-21 · `glimpse-devtools` removed
+
+A widget previewer earns its place when widgets are hard to reach any other way. These are not: a
+widget in `glimpse-widgets` takes values and emits signals, so it can be built in a test with a
+literal value and no daemon, and a `just nested` niri already gives a dev loop against the real
+panel. What the previewer added on top was a second rendering path — its own fixture format, its own
+CSS loading, its own watching of Blueprint output, all of which had to be kept in step with the
+binaries or quietly stop resembling them.
+
+The spec, `008_glimpse_devtools.md`, is deleted with the crate. The number is not reused and the
+later specs are not renumbered: every cross-reference to `009` through `012` is a path, and
+renumbering to close a gap would break all of them to save nothing. Specs 001, 002, 006, 011.

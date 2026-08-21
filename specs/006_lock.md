@@ -358,9 +358,10 @@ on reload — see `010_configuration.md`.
   to survive an unsolicited re-lock, and leaked on every path that forgot to drop it.
 - **A literal fallback username when `$USER` and passwd both fail** — rejected: it authenticates
   against an account that does not exist and reports the result as a wrong password.
-- **`preview`, `export-css` and `export-config` subcommands** — moved rather than rejected.
-  Previewing the lock UI belongs to `glimpse-devtools`; writing out default configuration and
-  stylesheets is `glimpsectl`'s job, for every binary at once.
+- **`export-css` and `export-config` subcommands** — moved rather than rejected: writing out
+  default configuration and stylesheets is `glimpsectl`'s job, for every binary at once.
+- **A `preview` subcommand** — rejected: running the binary against a test configuration shows the
+  same surfaces, and a preview mode is a second rendering path to keep in step with the real one.
 - **A `status` subcommand and a bus name reporting lock state** — rejected: both only answer while a
   resident process is there to answer, which on-demand start removes. `LockedHint` is where the rest
   of the system reads this.
@@ -380,3 +381,4 @@ on reload — see `010_configuration.md`.
 - 2026-08-20 — specified authentication from `_old/glimpse-lock`: one password prompt with the reasoning against MFA, the two distinct PAM code sets, `AUTHINFO_UNAVAIL` never rendering as a wrong password, `SecretString` zeroing and its honest limit, the cooldown ladder, and the `check` subcommand with its three diagnostics.
 - 2026-08-20 — specified what a second pass over `_old/glimpse-lock` turned up: re-locking on an unsolicited `unlocked`, one authentication panel across outputs, `LockedHint` set and read, `Unlock` ignored, uid-checked session resolution, user identity resolution and its path-traversal guard, single-flight submits, the auth generation counter, the 30 s timeout, cooldown scope, Caps Lock, the power menu, the background and the stylesheet rules. Dropped `--grace`, which had a flag but no behaviour.
 - 2026-08-20 — dropped `systemd-lock-handler`: there is no user-level `sleep.target` to order against, so the sleep inhibitor belongs to the daemon's `power` service and the locker has five seconds to reach `locked`.
+- 2026-08-21 — `preview` moves from "moved to `glimpse-devtools`" to rejected, since that binary no longer exists; `export-css` and `export-config` still belong to `glimpsectl`.

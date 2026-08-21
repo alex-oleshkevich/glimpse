@@ -97,7 +97,7 @@ it wants watched:
 | `watch.register_style`    | `key`, `path`    | Watch this file, publish it on `watch.style` |
 | `watch.unregister_style`  | `key`            | Stop watching it                            |
 
-`key` is the client's own label — `panel`, `lock`, and whatever `glimpse-devtools` uses. Re-registering
+`key` is the client's own label — `panel`, `lock`, and whatever a further client chooses. Re-registering
 an existing key replaces its path, which is what a `--css` change across a restart looks like.
 
 Registration is dropped when the registering connection closes, so a panel that dies does not leave
@@ -227,11 +227,10 @@ reloads on request.
 - **Ending the watch task when no directory can be watched** — rejected: it is what the previous
   implementation did, and a watcher that has quietly stopped watching is indistinguishable from one
   with nothing to report. The service reports `degraded` and stays up, so `system.services` says so.
-- **Watching Blueprint output for `glimpse-devtools`** — rejected here, not in general: devtools is
-  not installed and routinely runs with no daemon, so it keeps its own watching. See `008`.
 
 ## Changelog
 
 - 2026-08-20 — created.
 - 2026-08-20 — defined behaviour for directories that are missing at start or recreated later: watch the nearest existing ancestor, descend on create, re-arm and rescan on delete or move.
 - 2026-08-20 — specified symlink watching against both parents, the create/remove/modify event filter, and per-path event matching, from what `_old/glimpse-lock`'s watcher got right; recorded that giving up silently when no watch can be placed is not acceptable.
+- 2026-08-21 — dropped the alternative about watching Blueprint output for `glimpse-devtools`, which no longer exists; the `key` example no longer names it.

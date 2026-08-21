@@ -101,7 +101,6 @@ exit codes.
 | `glimpse-wallpaper` | `005_wallpaper.md`        | layer-shell            | yes   | graphical session                       |
 | `glimpse-lock`      | `006_lock.md`             | `ext-session-lock-v1`  | yes   | on demand                               |
 | `glimpsectl`        | `007_glimpsectl.md`       | never                  | never | one-shot / TUI                          |
-| `glimpse-devtools`  | `008_glimpse_devtools.md` | ordinary toplevel      | yes   | dev loop                                |
 
 Wallpaper is its own process so that restarting the panel does not black the screen. Lock is its own
 process because it must start when the panel is broken and must not share its crash domain.
@@ -340,3 +339,4 @@ Read from source while designing; useful when a detail is disputed.
 - 2026-08-20 — split `solar` out as its own service: `theme` and `nightlight` both consume `solar.daylight` rather than theme depending on nightlight, which is what `_old` does and what keeps dark mode working with night light off.
 - 2026-08-20 — live effects dropped; wallpaper stays a separate process for the panel-restart reason alone.
 - 2026-08-20 — `glimpse-proto` and `glimpse-client` are one crate, `glimpse-ipc`; see `002_structure.md`.
+- 2026-08-21 — `glimpse-devtools` removed, along with `008_glimpse_devtools.md`; see `decisions.md`.

@@ -4,7 +4,6 @@ paths:
   - "crates/glimpse-widgets/**"
   - "crates/glimpse-wallpaper/**"
   - "crates/glimpse-lock/**"
-  - "crates/glimpse-devtools/**"
 ---
 
 # UI conventions
@@ -22,8 +21,8 @@ General GTK4, libadwaita and relm4 craft is covered by the `relm4`, `gtk4-styles
 ## Widget boundaries
 
 - A widget in `glimpse-widgets` takes values and emits signals. It never holds a `glimpse-ipc`
-  client, never knows a topic name, never reaches the daemon. That is what lets `glimpse-devtools` render it
-  from a fixture file.
+  client, never knows a topic name, never reaches the daemon. That is what lets it be built in a
+  test with a literal value and no daemon behind it.
 - A `Controller` that is not stored in the parent model is dropped, and its component silently stops
   receiving messages. Keep it.
 - A widget moves into `glimpse-widgets` as soon as a second binary needs it.

@@ -45,7 +45,7 @@ glimpse/
 
 ### Crates
 
-Four libraries, five shipped binaries, one development binary.
+Four libraries and five shipped binaries.
 
 | Crate               | Kind          | Contains                                                                   |
 | ------------------- | ------------- | -------------------------------------------------------------------------- |
@@ -58,7 +58,6 @@ Four libraries, five shipped binaries, one development binary.
 | `glimpse-wallpaper` | bin           | background layer surface, decode cache, transitions                        |
 | `glimpse-lock`      | bin           | `ext-session-lock-v1` surfaces, PAM                                        |
 | `glimpsectl`        | bin           | CLI and TUI                                                                |
-| `glimpse-devtools`  | bin           | widget previewer with hot reload, not installed                            |
 
 ### Dependency direction
 
@@ -75,8 +74,7 @@ Four libraries, five shipped binaries, one development binary.
    ├── glimpse-panel ────┐
    ├── glimpse-wallpaper ┼── glimpse-widgets   (+ gtk4, adw, relm4)
    ├── glimpse-lock ─────┘
-   ├── glimpsectl
-   └── glimpse-devtools ─── glimpse-widgets
+   └── glimpsectl
 ```
 
 Two rules carry the whole layout.
@@ -227,7 +225,7 @@ this crate exists to prevent.
 | Service behaviour                       | `glimpse-services` unit tests against `BrokerHandle` / `WaylandEdge` mocks | nothing              |
 | Broker fan-out, coalescing, client caps | `glimpsed` unit tests                                                      | nothing              |
 | Wayland backends                        | `glimpsed/tests/`, `#[ignore]` by default                                  | a running compositor |
-| Widgets                                 | `glimpse-devtools`, by eye                                                 | a display            |
+| Widgets                                 | by eye, in the binary that uses them                                       | a display            |
 
 ### Naming
 
@@ -273,3 +271,4 @@ this crate exists to prevent.
 - 2026-08-20 — the NDJSON codec moves from `glimpsed/src/socket.rs` to `glimpse-proto/src/codec.rs`. It is the one part both ends execute identically, and a second implementation in `glimpse-client` could only diverge. The client and the socket server stay where they are: both need tokio, which proto does not take, and a merged crate would make every UI binary compile a socket server it never runs.
 - 2026-08-20 — `glimpse-proto` and `glimpse-client` merge into `glimpse-ipc`, holding the wire format and both ends of the transport; the broker stays in `glimpsed`, so the split is transport against routing rather than client against server. The serde-only rule is replaced: it barred tokio on the grounds that it broke `schemars`, which is not true.
 - 2026-08-21 — `glimpse-ipc`'s dependency rule is stated as a test — what both ends of the socket need — rather than a list. The "serde and tokio, nothing else" form was already false: the manifest carried `dirs`, `serde_json` and `tracing` before `thiserror` was added. Error-type convention recorded in `decisions.md`.
+- 2026-08-21 — `glimpse-devtools` removed: the crate, its spec, its `just` recipe and its arrow in the dependency graph. Widget checking is by eye in the binary that uses the widget.

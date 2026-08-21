@@ -2,7 +2,7 @@
 
 Shared GTK4 widgets: GObject subclasses, Blueprint templates and the CSS they expect.
 
-Used by the panel and the lock screen, and previewed by `glimpse-devtools`.
+Used by the panel and the lock screen.
 
 ## Layout
 
@@ -15,6 +15,6 @@ A widget moves here as soon as a second binary needs it. Preventing copy-paste b
 the lock screen is the entire reason this crate exists.
 
 Widgets take values and emit signals. They do not know about topics, sockets or the daemon, which is
-what lets `glimpse-devtools` render them from a fixture file.
+what lets one be built in a test with a literal value and no daemon behind it.
 
 Spec: [`specs/002_structure.md`](../../specs/002_structure.md)
