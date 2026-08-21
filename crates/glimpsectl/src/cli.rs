@@ -1,6 +1,6 @@
-use std::path::PathBuf;
+use std::{ffi::OsStr, path::PathBuf};
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 // clap wants a `&'static str`, so the protocol number is literal; the assertion catches drift.
 const LONG_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " (protocol 1)");
@@ -8,6 +8,35 @@ const _: () = assert!(
     glimpse_ipc::PROTOCOL_VERSION == 1,
     "PROTOCOL_VERSION changed — update LONG_VERSION to match"
 );
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "lower")]
+pub enum LogFormat {
+    Auto,
+    Plain,
+    Json,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogSink {
+    Terminal,
+    // The journal stamps and colors its own lines, so ours arrive doubled.
+    Journal,
+    Json,
+}
+
+impl LogFormat {
+    // An empty variable means unset; units and shells both export empty values.
+    pub fn resolve(self, journal_stream: Option<&OsStr>) -> LogSink {
+        let under_journal = journal_stream.is_some_and(|value| !value.is_empty());
+        match self {
+            Self::Json => LogSink::Json,
+            Self::Plain => LogSink::Terminal,
+            Self::Auto if under_journal => LogSink::Journal,
+            Self::Auto => LogSink::Terminal,
+        }
+    }
+}
 
 #[derive(Debug, Parser)]
 #[command(
@@ -28,6 +57,15 @@ pub struct Cli {
     #[arg(
         short,
         long,
+        value_name = "PATH",
+        env = "GLIMPSE_CONFIG_PATH",
+        help = "Use exactly this file, skipping the system and user layers"
+    )]
+    pub config: Option<PathBuf>,
+
+    #[arg(
+        short,
+        long,
         global = true,
         help = "Emit raw JSON instead of formatted output"
     )]
@@ -44,6 +82,24 @@ pub struct Cli {
 
     #[arg(long, global = true, help = "Disable color; NO_COLOR does the same")]
     pub no_color: bool,
+
+    #[arg(
+        long,
+        value_name = "FILTER",
+        env = "RUST_LOG",
+        default_value = "info",
+        help = "tracing-subscriber filter, same syntax as RUST_LOG"
+    )]
+    pub log: String,
+
+    #[arg(
+        long,
+        value_name = "FMT",
+        value_enum,
+        default_value_t = LogFormat::Auto,
+        help = "auto drops timestamps and color under a journal stream"
+    )]
+    pub log_format: LogFormat,
 
     #[command(subcommand)]
     pub command: Command,
