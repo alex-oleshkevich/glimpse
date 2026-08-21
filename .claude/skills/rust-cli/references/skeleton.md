@@ -3,7 +3,7 @@
 A complete starting point for a new binary crate. Delete what the binary does not need. The rules
 behind every line are in `SKILL.md`; this file is the shape, not the reasoning.
 
-Manifest:
+Manifest (when using workspaces):
 
 ```toml
 [dependencies]
@@ -61,7 +61,7 @@ async fn run(cli: Cli) -> Result<()> {
     let json = cli.json;
 
     match cli.command {
-        Command::Get { topic, field } => commands::get(topic, field, json).await,
+        Command::Get { key, field } => commands::get(key, field, json).await,
         Command::Watch { pattern, count } => commands::watch(pattern, count, json).await,
         Command::Config(ConfigCommand::Show) => commands::config_show(json),
         Command::Config(ConfigCommand::Path) => commands::config_path(cli.config, json),
@@ -174,10 +174,10 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    #[command(about = "Print the current value of one topic")]
+    #[command(about = "Print the current value of one key")]
     Get {
-        #[arg(value_name = "TOPIC", help = "Exact topic name")]
-        topic: String,
+        #[arg(value_name = "KEY", help = "Exact key name")]
+        key: String,
 
         #[arg(long, value_name = "PATH", help = "Print one field of the payload")]
         field: Option<String>,
@@ -185,7 +185,7 @@ pub enum Command {
 
     #[command(about = "Print the snapshot then every update, one per line")]
     Watch {
-        #[arg(value_name = "PATTERN", help = "Topic pattern")]
+        #[arg(value_name = "PATTERN", help = "Key pattern, `server.*`")]
         pattern: String,
 
         #[arg(long, value_name = "N", help = "Exit after N events")]
@@ -208,7 +208,7 @@ pub enum ConfigCommand {
 impl Command {
     // `config path` reads the stack from disk, so it answers with nothing running — which is the
     // case a broken configuration produces.
-    pub fn needs_daemon(&self) -> bool {
+    pub fn needs_backend(&self) -> bool {
         !matches!(self, Self::Config(ConfigCommand::Path))
     }
 }
@@ -231,7 +231,7 @@ mod tests {
 
     #[test]
     fn global_flags_are_accepted_after_the_subcommand() {
-        let cli = Cli::try_parse_from(["mytool", "get", "battery.status", "--json"])
+        let cli = Cli::try_parse_from(["mytool", "get", "server.port", "--json"])
             .expect("arguments should parse");
         assert!(cli.json);
     }
@@ -283,7 +283,7 @@ use std::path::PathBuf;
 
 use anyhow::{Result, bail};
 
-pub async fn get(_topic: String, _field: Option<String>, _json: bool) -> Result<()> {
+pub async fn get(_key: String, _field: Option<String>, _json: bool) -> Result<()> {
     bail!("get is not implemented yet")
 }
 
@@ -331,7 +331,7 @@ use std::process::ExitCode;
 pub enum Exit {
     Ok = 0,
     Failed = 1,
-    NoDaemon = 3,
+    Unreachable = 3,
 }
 
 impl From<Exit> for ExitCode {
@@ -341,8 +341,8 @@ impl From<Exit> for ExitCode {
 }
 
 pub fn exit(error: &anyhow::Error) -> Exit {
-    match error.is::<mylib::NoDaemon>() {
-        true => Exit::NoDaemon,
+    match error.is::<mylib::Unreachable>() {
+        true => Exit::Unreachable,
         false => Exit::Failed,
     }
 }
@@ -360,8 +360,8 @@ mod tests {
     // change which code a script sees.
     #[test]
     fn a_context_layer_does_not_change_the_code() {
-        let error = anyhow::Error::new(mylib::NoDaemon).context("reading battery.status");
-        assert_eq!(exit(&error), Exit::NoDaemon);
+        let error = anyhow::Error::new(mylib::Unreachable).context("reading server.port");
+        assert_eq!(exit(&error), Exit::Unreachable);
     }
 }
 ```
@@ -372,8 +372,8 @@ The one place `thiserror` belongs inside a binary:
 
 ```rust
 #[derive(Debug, thiserror::Error)]
-#[error("no daemon socket at {0}")]
-pub struct NoDaemon(pub PathBuf);
+#[error("cannot reach the service at {0}")]
+pub struct Unreachable(pub PathBuf);
 ```
 
-Return it with `bail!(NoDaemon(path))`, recover it with `error.downcast_ref::<NoDaemon>()`.
+Return it with `bail!(Unreachable(path))`, recover it with `error.downcast_ref::<Unreachable>()`.

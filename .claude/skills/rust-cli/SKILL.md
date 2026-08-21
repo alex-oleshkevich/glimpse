@@ -5,7 +5,7 @@ description: Command-line binaries in Rust with clap 4, anyhow, thiserror and tr
 
 # Rust CLI
 
-Every binary has the same skeleton. Not for tidiness — the shape falls out of two
+Every command-line binary has the same skeleton. Not for tidiness — the shape falls out of two
 facts that cannot be argued with:
 
 - **`?` does not work in a function returning `ExitCode`.** `ExitCode` implements no `Try`, so the
@@ -66,7 +66,7 @@ async fn main() -> ExitCode {
 
 async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
-        Command::Get { topic, field } => commands::get(topic, field, cli.json).await,
+        Command::Get { key, field } => commands::get(key, field, cli.json).await,
         …
     }
 }
@@ -92,22 +92,22 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
 - **Nest subcommands with a second `Subcommand` enum**, `Config(ConfigCommand)`, not with a string
   argument. Nesting deeper than two levels means the second level wanted to be a flag.
 - **Custom `value_parser` functions return `Result<T, String>`** and describe what was expected:
-  `expected KEY=VALUE, got "volume"`. clap prints it and exits 2 for you.
-- **Put facts about a command on the command.** `fn needs_daemon(&self) -> bool` next to the enum is
+  `expected KEY=VALUE, got "port"`. clap prints it and exits 2 for you.
+- **Put facts about a command on the command.** `fn needs_backend(&self) -> bool` next to the enum is
   testable and has one home; the same `matches!` scattered through `run` is neither.
 
 ## commands.rs
 
 - **One `pub` function per subcommand, named for it.** `get`, `watch`, `config_path` — not
-  `get_state` or `show_loaded_config_paths`.
-- **Owned arguments, plus the presentation flags the handler needs.** `topic: String`, `json: bool`.
+  `get_the_value` or `show_all_resolved_config_file_paths`.
+- **Owned arguments, plus the presentation flags the handler needs.** `key: String`, `json: bool`.
 - **Every handler returns `anyhow::Result<()>` and prints its own output.** Rendering is the
-  handler's job; `main` has no idea what a topic looks like.
+  handler's job; `main` has no idea what a record looks like.
 - **Stub with `bail!("get is not implemented yet")`, never `todo!()`.** `todo!()` panics: a
   backtrace on stderr and exit 101, which no exit-code table contains. `bail!` exits 1 with a
   sentence, and a script reading the code is not misled.
-- **Underscore-prefix parameters a stub does not use yet.** Clippy runs with `-D warnings`; an
-  `#[allow]` here would outlive the stub.
+- **Underscore-prefix parameters a stub does not use yet.** Clippy with `-D warnings` fails on an
+  unused parameter, and an `#[allow]` added here would outlive the stub.
 
 ## errors.rs and exit codes
 
@@ -119,14 +119,12 @@ form the mapping can be tested in. Convert at the boundary with one `From` impl.
 ```rust
 use std::process::ExitCode;
 
-/// Every code this binary is specified to return. 2 is absent because clap owns usage errors and
-/// exits before `main` runs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Exit {
     Ok = 0,
     Failed = 1,
-    NoDaemon = 3,
+    Unreachable = 3,
     Timeout = 5,
 }
 
@@ -138,7 +136,7 @@ impl From<Exit> for ExitCode {
 
 pub fn exit(error: &anyhow::Error) -> Exit {
     match error.downcast_ref::<ConnectError>() {
-        Some(ConnectError::NotListening { .. }) => Exit::NoDaemon,
+        Some(ConnectError::NotListening { .. }) => Exit::Unreachable,
         Some(ConnectError::Timeout { .. }) => Exit::Timeout,
         _ => Exit::Failed,
     }
@@ -178,7 +176,7 @@ pub fn exit(error: &anyhow::Error) -> Exit {
 
 ## Color
 
-Resolution is `anstream`'s, never hand-written. It already honours `NO_COLOR`, `CLICOLOR`,
+Resolution is `anstream`'s, never hand-written. It already honors `NO_COLOR`, `CLICOLOR`,
 `CLICOLOR_FORCE`, `TERM` and whether the stream is a terminal.
 
 ```rust

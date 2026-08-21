@@ -4,7 +4,7 @@ redesign/
 .beads
 
 _old/
-.claude/
+.claude/settings.local.json
 sdk/sdk-rs/Cargo.lock
 
 # Beads / Dolt files (added by bd init)
