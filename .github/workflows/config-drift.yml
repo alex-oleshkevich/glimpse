@@ -1,0 +1,30 @@
+name: Config defaults
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  config-drift:
+    name: data/config.default.toml matches Config::default()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: extractions/setup-just@v4
+
+      - name: Regenerate and check data/config.default.toml
+        run: |
+          just gen-config-default
+          if ! git diff --exit-code -- data/config.default.toml; then
+            echo "::error file=data/config.default.toml::stale — run 'just gen-config-default' and commit the result"
+            exit 1
+          fi

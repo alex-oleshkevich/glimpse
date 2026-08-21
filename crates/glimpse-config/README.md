@@ -4,35 +4,72 @@ Layered TOML configuration, shared by the daemon and every UI binary.
 
 ## What it does
 
-- Resolves the layered stack: built-in defaults, system, system drop-ins, user, user drop-ins, CLI
-- Merges `config.d/*.toml` drop-ins over the base file at each level, in lexical order
-- Merges layers and validates the result
-- Watches every resolved file and the drop-in directories, and reports changes for hot reload
-- Follows symlinks, then checks what they land on: regular files only, inspected through the open
-  descriptor rather than by a prior `stat`, capped at 1 MiB
-- Reads drop-in directories one level deep, one open file at a time, at most 64 per directory
-- Watches directories rather than files, at most six, and degrades to no hot reload rather than
-  failing when the kernel refuses another watch
-- Reports the exact location of a parse or validation error
+`load(config_path)` resolves the layer stack, reads it, merges it and types it:
 
-An invalid edit never costs the user a working session. At startup the binary logs the error and
-comes up on defaults; on reload the update is dropped and the running configuration stays. Neither
-exits, and both name the error's location. Validation is the separate job: the UI binaries'
-`--check-config` and `glimpsectl config validate` report every problem and exit 1.
+| #   | Layer           | Source                                                    |
+| --- | --------------- | --------------------------------------------------------- |
+| 1   | defaults        | the `Default` impls under `schema/`                       |
+| 2   | system          | `/etc/glimpse/config.toml`                                |
+| 3   | system drop-ins | `/etc/glimpse/config.d/*.toml`, lexical order             |
+| 4   | user            | `$XDG_CONFIG_HOME/glimpse/config.toml`                    |
+| 5   | user drop-ins   | `$XDG_CONFIG_HOME/glimpse/config.d/*.toml`, lexical order |
 
-## One file, one owner per table
+`--config <PATH>` replaces layers 2 through 5 with that one file, drop-ins included: no `config.d/`
+beside it is read.
 
-All four binaries read `config.toml`. Each reads only the tables it owns — one table per service,
-named for the service, for the daemon; `[panel]`, `[wallpaper]` and `[lock]` for the UI binaries —
-and ignores the rest. A binary never reads another binary's tables; if it needs a
-value from elsewhere, that value is a topic.
+Only files that exist are merged. Layer 1 is not a document — a table absent from every file keeps
+the value from its `Default` impl. `data/config.default.toml` is a reference nothing reads, kept
+honest the way `cargo fmt` keeps formatting honest: `default_document()` renders it from
+`Config::default()`, `just gen-config-default` writes the result, and a test fails if the checked-in
+file and that rendering differ.
 
-Two rules pull in opposite directions on purpose. An unknown key **inside an owned table** is an
-error, so a typo is loud. The contents of a table someone else owns are ignored, so the schemas
-version independently. The set of top-level table names is closed and lives here, which is what
-catches a misspelled `[panle]` that would otherwise be ignored by every reader.
-
-Merging is per key: tables merge, scalars replace, and **arrays replace rather than append** — an
+Merging is per key: **tables merge, scalars replace, and arrays replace rather than append** — an
 appending array could never be shortened by a later layer.
+
+## One file, one schema
+
+All four binaries read `config.toml`, and all four link the whole schema and validate the whole
+document. Each acts on only the tables it owns; a binary that needs a value from elsewhere gets it
+as a topic, not by reading someone else's table.
+
+An unknown key is an error wherever it lands, and the set of top-level table names is closed —
+`deny_unknown_fields` on `Config` is what catches a misspelled `[panle]` that every reader would
+otherwise ignore. The exception is `[applets.<name>].settings`, whose shape belongs to the applet
+type rather than to this schema.
+
+## Reading a file
+
+- Symlinks are followed — a `config.toml` pointing into a dotfile repository is the ordinary case.
+- The descriptor is inspected after the open, never a path before it: between a `stat` and an `open`
+  the path can be replaced.
+- Regular files only, capped at 1 MiB. A FIFO is **not** defended against: the open is what blocks,
+  so a file symlinked at one hangs the binary.
+- `config.d/` is read one level deep, one file open at a time, at most 64 entries. Past that the
+  load fails rather than applying a prefix.
+- An access failure on a drop-in is a warning and the file is skipped; a stale link left by an
+  uninstalled package must not cost the user their session. A syntax error is fatal wherever it is.
+
+Nothing here is async. Three GTK binaries link this crate with no tokio runtime; the daemon calls
+`load` synchronously during startup, before anything else is running.
+
+## Errors
+
+`load` reports every problem it found, not the first. No `ConfigError` renders any of a file's
+content: `toml::de::Error`'s own `Display` prints the offending source line as a snippet, and a
+`config.toml` aimed at an SSH key would echo it into the journal, so only the message and the span
+are taken and the position is translated in `error.rs`.
+
+A syntax error names file, line and column, and names the drop-in it is in rather than the base file
+it merges over. A schema error names the key path instead — it is found in the merged document,
+which has no lines to name.
+
+The caller decides what a failure means. At startup that is to log it and come up on
+`Config::default()`; on reload it is to drop the update and keep what is running. Neither exits.
+
+## Not here
+
+Watching, which belongs to the daemon's `watcher` service. Semantic validation — `HH:MM` parsing,
+`provider = "manual"` without coordinates, duplicate idle timeouts, a panel zone naming an applet
+that does not exist — which is not written yet.
 
 Spec: [`specs/010_configuration.md`](../../specs/010_configuration.md)

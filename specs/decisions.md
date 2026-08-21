@@ -147,3 +147,27 @@ binaries or quietly stop resembling them.
 The spec, `008_glimpse_devtools.md`, is deleted with the crate. The number is not reused and the
 later specs are not renumbered: every cross-reference to `009` through `012` is a path, and
 renumbering to close a gap would break all of them to save nothing. Specs 001, 002, 006, 011.
+
+### 2026-08-21 · one schema crate, and no FIFO guard
+
+Two reversals in `010`, taken together because both trade a property the project could not cash in.
+
+The first is that the whole configuration schema now lives in `glimpse-config` and every binary
+parses and validates every table. What that gives up is the rule that a reader never learns another
+binary's schema, so the two version independently — but the four binaries are built from one
+workspace at one version and released together, so there was never a moment at which one schema
+could be older than another. The property was theoretical. What a single schema buys is real:
+`--check-config` is exhaustive whichever binary runs it, `[appearance]` is one type rather than a
+copy in the panel and a copy in the locker, and the closed set of top-level table names is
+`deny_unknown_fields` on one struct rather than a second list kept in step by hand. The cost is that
+a schema error anywhere now fails every binary's load, which is what a syntax error already did, and
+which the load-failure rule already bounds.
+
+The second is that a FIFO is no longer refused. The check was specified as open-then-inspect, but on
+a FIFO the open is what blocks, so no inspection placed after it can help; refusing one needs
+`O_NONBLOCK` in the open flags, and the flag's value comes from a C ABI crate. `libc` and `rustix`
+were both weighed and both declined — a dependency on the whole of a platform-bindings crate for one
+constant, in a crate that otherwise needs no unsafe and no bindings at all. A configuration file
+symlinked at a FIFO now hangs the binary until a writer appears. Nobody writes that by accident, and
+the regular-file check still refuses `/dev/zero`, a directory and a socket, which are the cases that
+happen. Specs 002, 010.

@@ -70,16 +70,21 @@ points, `themes/lock.css` by default. CSS is not TOML.
 
 ### Ownership and validation
 
-Two rules that pull in opposite directions, on purpose:
+The whole schema lives in `glimpse-config`, which all four binaries link, and every binary validates
+the whole document:
 
-- **A reader rejects an unknown key inside a table it owns** (`deny_unknown_fields`). A typo in a
-  hand-edited file must be loud.
-- **A reader ignores the contents of tables it does not own.** glimpsed never learns the panel's
-  schema, so the two version independently.
+- **An unknown key is an error** (`deny_unknown_fields`), in whichever table it lands.
+- **The set of top-level table names is closed**, which is what catches `[panle]`: a misspelled
+  top-level table would otherwise be ignored by every reader and silently do nothing.
 
-The set of _top-level_ table names is closed and lives in `glimpse-config`, which all four binaries
-already link. That is what catches `[panle]`: without it a misspelled top-level table is ignored by
-every reader and silently does nothing, which is the worst outcome for a file people edit by hand.
+A binary still _acts on_ only the tables it owns — the panel does nothing with `[night_light]` — but
+it parses and checks all of them, because the types are already linked into it.
+
+Schemas that version independently was never a property this project could have: the four binaries
+are built from one workspace at one version and released together. What one shared schema buys
+instead is that `--check-config` is exhaustive whichever binary runs it, and that a table two owners
+read is one type rather than two that drift. The cost is the one already under "The cost of a single
+file", now extended from syntax to schema.
 
 ### Layers
 
@@ -136,11 +141,12 @@ What is checked is what the link lands on, and how:
 
 - **Open first, then inspect the descriptor.** Never stat a path and then open it: between the two
   the path can be replaced, and the file that was checked is not the file that is read.
-- **Regular files only.** After resolution, anything else is refused. A FIFO is the one that matters:
-  opening it blocks until a writer appears, which would hang startup past the unit's timeout and
-  breaks the rule that nothing in the daemon blocks. A character device such as `/dev/zero` reads
-  without end. Directories and sockets are refused for the same reason — they are never what the
-  user meant.
+- **Regular files only.** The descriptor's type is checked after the open; anything that is not a
+  regular file is refused. A character device such as `/dev/zero` reads without end; a directory or
+  a socket is never what the user meant.
+- **A FIFO is not defended against.** The open is what blocks, so no check after it helps, and
+  refusing one needs `O_NONBLOCK` and the constant from a C ABI crate. That dependency costs more
+  than the case is worth. A file symlinked at a FIFO hangs the binary until a writer appears.
 - **A size cap of 1 MiB per file**, applied to the descriptor rather than to a prior `stat`. No
   legitimate configuration approaches it, and it bounds what a mistaken link can pull into memory.
 - **Symlink loops** surface as `ELOOP` and are reported as an unreadable file, not retried.
@@ -471,8 +477,9 @@ any. The same checks run at startup and on reload, where they feed the load-fail
 - a path that resolves to something other than a regular file, or past the 1 MiB cap
 - more than 64 drop-ins in one directory
 
-Each problem carries file, line and column, naming the drop-in the error is in rather than the base
-file it merges over.
+A syntax error carries file, line and column, naming the drop-in it is in rather than the base file
+it merges over. A schema error carries the key path instead: it is found in the merged document, and
+no file owns a line of that.
 
 ### Load failure
 
@@ -501,9 +508,9 @@ every problem and exits 1. Normal startup never does.
 
 ### The cost of a single file
 
-A TOML **syntax** error anywhere in the merged document fails every binary's parse, not only the
-owner's: one table's stray bracket costs every binary its configuration, where a file per binary
-would have cost one.
+A TOML **syntax or schema** error anywhere in the document fails every binary's load, not only the
+owner's: one table's stray bracket or misspelled key costs every binary its configuration, where a
+file per binary would have cost one.
 
 What that is worth is bounded by the load-failure rule above. At boot every binary starts on
 defaults instead of the user's settings; on reload every binary keeps what it is already running.
@@ -565,3 +572,6 @@ the editor catches before that.
 - 2026-08-20 — corrected the claim that theme resolves against night light; both are siblings over `solar.daylight`, as `_old` implements them.
 - 2026-08-20 — review pass: dropped validation rules for keys the rebase removed, corrected night light to follow `solar.daylight`, and rewrote the Problem, the include rejection and the single-file cost, which all argued from a four-file history that never existed.
 - 2026-08-20 — added `[power]`, which stops being a service with no configuration once it owns locking before sleep.
+- 2026-08-21 — the whole schema lives in `glimpse-config` and every binary validates every table; independent per-binary schema versioning was never available to one workspace released at one version.
+- 2026-08-21 — the FIFO guard is dropped: refusing one needs `O_NONBLOCK` and a C ABI crate, and the dependency costs more than the case.
+- 2026-08-21 — file, line and column are promised for syntax errors only; a schema error is found in the merged document, which has no lines to name, and carries the key path.

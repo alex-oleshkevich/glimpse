@@ -9,6 +9,7 @@ bindir := destdir / prefix / "bin"
 unitdir := destdir / prefix / "lib/systemd/user"
 dbusdir := destdir / prefix / "share/dbus-1/services"
 pamdir := destdir / "/etc/pam.d"
+sharedir := destdir / prefix / "share/glimpse"
 
 [doc("list recipes")]
 default:
@@ -39,6 +40,10 @@ fmt:
 [doc("fail if anything is unformatted")]
 fmt-check:
     cargo fmt --all --check
+
+[doc("regenerate data/config.default.toml from Config::default()")]
+gen-config-default:
+    cargo run -q -p glimpse-config --example gen_config_default > data/config.default.toml
 
 [doc("headless tests")]
 test:
@@ -125,9 +130,11 @@ install: build-release
     for f in data/systemd/*.service; do [ -e "$f" ] && install -Dm644 "$f" {{ unitdir }}/"$(basename $f)"; done
     for f in data/dbus-1/services/*.service; do [ -e "$f" ] && install -Dm644 "$f" {{ dbusdir }}/"$(basename $f)"; done
     for f in data/pam.d/*; do [ -e "$f" ] && [ "$(basename $f)" != .gitkeep ] && install -Dm644 "$f" {{ pamdir }}/"$(basename $f)"; done
+    install -Dm644 data/config.default.toml {{ sharedir }}/config.default.toml
 
 [doc("remove installed files")]
 uninstall:
     rm -f {{ bindir }}/{glimpsed,glimpse,glimpse-wallpaper,glimpse-lock,glimpsectl}
     rm -f {{ unitdir }}/glimpse*.service {{ dbusdir }}/org.kde.StatusNotifierWatcher.service
     rm -f {{ dbusdir }}/org.freedesktop.Notifications.service {{ pamdir }}/glimpse-lock
+    rm -f {{ sharedir }}/config.default.toml

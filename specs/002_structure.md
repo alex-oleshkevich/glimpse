@@ -132,6 +132,24 @@ src/
     └── system.rs    system.services
 ```
 
+#### glimpse-config
+
+```
+src/
+├── lib.rs           re-exports, MAX_FILE_BYTES, MAX_DROPINS
+├── load.rs          layers, drop-ins, bounded reading, per-key merge
+├── error.rs         ConfigError; byte offset to line and column
+└── schema/          one module per top-level table
+    ├── appearance.rs   monitors.rs      location.rs
+    ├── night_light.rs  idle.rs          power.rs
+    ├── keyboard.rs     calendar.rs      wallpaper.rs
+    ├── backdrop.rs     lock.rs          panels.rs
+    └── applets.rs
+```
+
+Every binary links the whole schema and validates the whole document; each acts on only the tables
+it owns. See `010_configuration.md`.
+
 #### glimpse-services
 
 ```
@@ -152,9 +170,9 @@ src/
     └── watcher.rs   workspaces.rs
 ```
 
-Each service declares its own `Config`. On reload the framework deserializes that service's table
-from `config.toml`, compares it against the running value, and calls `apply` only where the two
-differ — the same equality gate `publisher.rs` applies to payloads, one level up. A service whose
+Each service names its `Config` type from `glimpse-config`, where the whole schema lives. On reload
+the framework compares that service's value against the running one and calls `apply` only where the
+two differ — the same equality gate `publisher.rs` applies to payloads, one level up. A service whose
 table did not change never learns a reload happened.
 
 `tray/` is a directory because it is the largest service: `mod.rs`, `watcher.rs` (serves
@@ -272,3 +290,4 @@ this crate exists to prevent.
 - 2026-08-20 — `glimpse-proto` and `glimpse-client` merge into `glimpse-ipc`, holding the wire format and both ends of the transport; the broker stays in `glimpsed`, so the split is transport against routing rather than client against server. The serde-only rule is replaced: it barred tokio on the grounds that it broke `schemars`, which is not true.
 - 2026-08-21 — `glimpse-ipc`'s dependency rule is stated as a test — what both ends of the socket need — rather than a list. The "serde and tokio, nothing else" form was already false: the manifest carried `dirs`, `serde_json` and `tracing` before `thiserror` was added. Error-type convention recorded in `decisions.md`.
 - 2026-08-21 — `glimpse-devtools` removed: the crate, its spec, its `just` recipe and its arrow in the dependency graph. Widget checking is by eye in the binary that uses the widget.
+- 2026-08-21 — added `glimpse-config`'s module layout; the whole configuration schema lives there and a service names its `Config` type from it rather than declaring one.

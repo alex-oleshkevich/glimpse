@@ -1,0 +1,135 @@
+# This is glimpse's default configuration — every setting, with the value it ships with.
+#
+# Don't edit this file. Put your own settings in $XDG_CONFIG_HOME/glimpse/config.toml, with
+# only what you want different from the defaults shown here.
+
+[appearance]
+pack = ""
+scheme = "auto"
+
+[monitors]
+
+[location]
+provider = "geoclue"
+
+[night_light]
+schedule = "automatic"
+temperature = 4200
+transition_minutes = 15
+
+[idle]
+enabled = true
+respect_inhibitors = true
+
+[[idle.profiles.ac.listeners]]
+timeout = 600
+on_idle = "/usr/share/glimpse/scripts/monitors off"
+on_resume = "/usr/share/glimpse/scripts/monitors on"
+
+[[idle.profiles.ac.listeners]]
+timeout = 900
+on_idle = "loginctl lock-session"
+on_resume = ""
+
+[[idle.profiles.ac.listeners]]
+timeout = 3600
+on_idle = "systemctl suspend"
+on_resume = ""
+
+[[idle.profiles.battery.listeners]]
+timeout = 300
+on_idle = "/usr/share/glimpse/scripts/monitors off"
+on_resume = "/usr/share/glimpse/scripts/monitors on"
+
+[[idle.profiles.battery.listeners]]
+timeout = 900
+on_idle = "loginctl lock-session"
+on_resume = ""
+
+[[idle.profiles.battery.listeners]]
+timeout = 1800
+on_idle = "systemctl suspend"
+on_resume = ""
+
+[power]
+lock_before_sleep = true
+lock_on_request = true
+
+[keyboard]
+remember = "window"
+
+[keyboard.labels]
+
+[calendar]
+poll_interval = 600
+sources = []
+
+[wallpaper]
+color = "#101010"
+fit = "cover"
+transition_ms = 800
+
+[backdrop]
+enabled = true
+blur_radius = 24
+
+[lock]
+pam_service = "glimpse-lock"
+css_path = "themes/lock.css"
+
+[lock.background]
+blur_radius = 0
+dim = 0.35
+
+[lock.clock]
+enabled = true
+time_format = "%H:%M"
+date_format = "%A, %B %-d"
+
+[lock.controls]
+buttons = [
+    "wifi",
+    "input",
+    "weather",
+    "battery",
+    "power",
+]
+
+[[panels]]
+size = 36
+position = "top"
+scheme = "dark"
+left = [
+    "pager",
+    "mpris",
+]
+center = [
+    "clock",
+    "weather",
+    "notifications",
+    "privacy",
+]
+right = [
+    "__dynamic__",
+    "next_event",
+    "tray",
+    "removable",
+    "clipboard",
+    "keyboard",
+    "printing",
+    "bluetooth",
+    "network",
+    "display",
+    "audio",
+    "idle",
+    "battery",
+    "session",
+]
+
+[panels.margin]
+left = 0
+right = 0
+top = 0
+bottom = 0
+
+[applets]

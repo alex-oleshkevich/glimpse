@@ -13,6 +13,6 @@
 | 006 | [Lock](006_lock.md)                                 | Session lock surfaces, PAM, rate limiting, lockout diagnostics.             | —     | draft |
 | 007 | [glimpsectl](007_glimpsectl.md)                     | CLI and TUI: read, watch, call, inspect.                                      | —     | draft |
 | 009 | [systemd integration](009_systemd.md)               | User units, ordering, readiness, restart policy, sandboxing rules.            | —     | draft |
-| 010 | [Configuration](010_configuration.md)               | One shared `config.toml`: tables, layers, drop-ins, per-service reload.      | —     | draft |
+| 010 | [Configuration](010_configuration.md)               | One shared `config.toml`: tables, layers, drop-ins, per-service reload.      | glimpse-86zh | draft |
 | 011 | [Watcher](011_watcher.md)                           | The service watching config and stylesheets; digests, not contents.          | —     | draft |
 | 012 | [IPC](012_ipc.md)                                   | Frames, codec, socket ownership, client and server; the wire both ends share. | —     | draft |
