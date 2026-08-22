@@ -5,18 +5,13 @@ use std::process::ExitCode;
 
 use anyhow::Result;
 use clap::Parser;
-use cli::{Cli, LogSink};
-use glimpse_config::Config;
+use cli::Cli;
+use glimpse_utils::init_app_tracing;
 
 #[tokio::main]
 async fn main() -> ExitCode {
     let cli = Cli::parse();
-
-    init_tracing(
-        &cli.log,
-        cli.log_format
-            .resolve(std::env::var_os("JOURNAL_STREAM").as_deref()),
-    );
+    cli.color.write_global();
 
     match run(cli).await {
         Ok(()) => ExitCode::SUCCESS,
@@ -28,44 +23,20 @@ async fn main() -> ExitCode {
 }
 
 async fn run(cli: Cli) -> Result<()> {
+    init_app_tracing(&cli.log.log, cli.log.log_format);
+
     if !cli.only.is_empty() {
         tracing::info!(names = ?cli.only, "running only these services");
     } else if !cli.without.is_empty() {
         tracing::info!(names = ?cli.without, "running without these services");
     }
 
-    let _config = match glimpse_config::load(cli.config.as_deref()) {
-        Ok(config) => config,
-        Err(problems) => {
-            for problem in &problems {
-                tracing::warn!("{problem}");
-            }
-            tracing::warn!("starting with default configuration");
-            Config::default()
-        }
-    };
-
+    let _config = glimpse_config::load(cli.config.as_deref())?;
     let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
+
     let _listener = glimpse_ipc::Server::listen(&socket).await?;
     tracing::info!(socket = %socket.display(), "glimpsed {}", env!("CARGO_PKG_VERSION"));
     tracing::warn!("the broker, service registry and socket server are not implemented yet");
 
     Ok(())
-}
-
-fn init_tracing(filter: &str, sink: LogSink) {
-    let env_filter = match tracing_subscriber::EnvFilter::try_new(filter) {
-        Ok(env_filter) => env_filter,
-        Err(error) => {
-            eprintln!("glimpsed: ignoring invalid log filter {filter:?}: {error}");
-            tracing_subscriber::EnvFilter::new("info")
-        }
-    };
-
-    let builder = tracing_subscriber::fmt().with_env_filter(env_filter);
-    match sink {
-        LogSink::Terminal => builder.init(),
-        LogSink::Journal => builder.without_time().with_ansi(false).init(),
-        LogSink::Json => builder.json().init(),
-    }
 }
