@@ -1,4 +1,3 @@
-use adw::gdk::{self, prelude::DisplayExt, prelude::MonitorExt};
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use gtk4_layer_shell::LayerShell;
 use std::path::PathBuf;
@@ -8,7 +7,7 @@ use relm4::{ComponentParts, ComponentSender, SimpleComponent};
 
 pub struct AppInit {
     pub config: Config,
-    pub daemon_socket: PathBuf,
+    pub socket: PathBuf,
 }
 
 #[derive(Debug)]
