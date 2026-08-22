@@ -15,8 +15,10 @@ anstyle = "1.0.14"
 anyhow = "1"
 async-trait = "0.1"
 chrono = "0.4"
-clap = { version = "4", features = ["derive", "env"] }
 chrono-tz = "0.10"
+clap = { version = "4", features = ["derive", "env"] }
+colorchoice-clap = "1.0.1"
+config = { version = "0.15.25", default-features = false, features = ["toml"] }
 css-color = "0.2"
 dirs = "6"
 futures-util = "0.3"
@@ -29,13 +31,15 @@ gtk4-layer-shell = "0.8"
 gtk4-session-lock = { version = "0.4", features = ["v1_1"] }
 notify = "8.2"
 notify-debouncer-full = "0.7"
+owo-colors = "4"
 regex = "1"
 relm4 = { version = "0.11", features = ["gnome_50", "libadwaita"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-tls"] }
-schemars = "1.2.2"
 rrule = "0.14"
+schemars = "1.2.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+shadow-rs = "0.33.0"
 sunrise = "3.0"
 system-tray = "0.8.5"
 tempfile = "3.27.0"
