@@ -678,6 +678,18 @@ dependencies = [
 [[package]]
 name = "glimpse-lock"
 version = "0.16.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "colorchoice-clap",
+ "glimpse-config",
+ "glimpse-ipc",
+ "glimpse-utils",
+ "shadow-rs",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "glimpse-panel"
@@ -706,6 +718,23 @@ dependencies = [
 [[package]]
 name = "glimpse-services"
 version = "0.16.0"
+
+[[package]]
+name = "glimpse-sunset"
+version = "0.16.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "colorchoice-clap",
+ "dirs",
+ "glimpse-config",
+ "glimpse-ipc",
+ "glimpse-utils",
+ "shadow-rs",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "glimpse-utils"

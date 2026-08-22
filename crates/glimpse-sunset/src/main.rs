@@ -1,5 +1,4 @@
 mod cli;
-mod errors;
 
 use std::process::ExitCode;
 
@@ -17,7 +16,7 @@ async fn main() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             tracing::error!("{error:#}");
-            errors::exit_code(&error)
+            ExitCode::FAILURE
         }
     }
 }

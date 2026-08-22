@@ -3,3 +3,9 @@ name = "glimpse-widgets"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+
+[dependencies]
+gio.workspace = true
+
+[build-dependencies]
+glib-build-tools.workspace = true
