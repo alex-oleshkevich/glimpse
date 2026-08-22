@@ -3,15 +3,19 @@ name = "glimpsectl"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+build = "build.rs"
 
 [dependencies]
-anstream.workspace = true
 anstyle.workspace = true
 anyhow.workspace = true
 clap.workspace = true
+colorchoice-clap.workspace = true
 glimpse-config = { path = "../glimpse-config" }
 glimpse-ipc = { path = "../glimpse-ipc" }
+glimpse-utils = { path = "../glimpse-utils" }
+owo-colors.workspace = true
 serde_json.workspace = true
+shadow-rs.workspace = true
 tokio.workspace = true
 toml.workspace = true
 tracing.workspace = true
@@ -19,3 +23,6 @@ tracing-subscriber.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+
+[build-dependencies]
+shadow-rs.workspace = true

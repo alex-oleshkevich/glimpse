@@ -1,106 +1,29 @@
-use std::{ffi::OsStr, path::PathBuf};
+use shadow_rs::shadow;
 
-use clap::{Parser, Subcommand, ValueEnum};
+use std::path::PathBuf;
 
-// clap wants a `&'static str`, so the protocol number is literal; the assertion catches drift.
-const LONG_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), " (protocol 1)");
-const _: () = assert!(
-    glimpse_ipc::PROTOCOL_VERSION == 1,
-    "PROTOCOL_VERSION changed — update LONG_VERSION to match"
-);
+use clap::{Parser, Subcommand};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-#[value(rename_all = "lower")]
-pub enum LogFormat {
-    Auto,
-    Plain,
-    Json,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LogSink {
-    Terminal,
-    // The journal stamps and colors its own lines, so ours arrive doubled.
-    Journal,
-    Json,
-}
-
-impl LogFormat {
-    // An empty variable means unset; units and shells both export empty values.
-    pub fn resolve(self, journal_stream: Option<&OsStr>) -> LogSink {
-        let under_journal = journal_stream.is_some_and(|value| !value.is_empty());
-        match self {
-            Self::Json => LogSink::Json,
-            Self::Plain => LogSink::Terminal,
-            Self::Auto if under_journal => LogSink::Journal,
-            Self::Auto => LogSink::Terminal,
-        }
-    }
-}
+shadow!(build);
 
 #[derive(Debug, Parser)]
 #[command(
     name = "glimpsectl",
     about = "Read topics, invoke commands and inspect the glimpse daemon.",
-    version = LONG_VERSION
+    version = build::VERSION
 )]
 pub struct Cli {
-    #[arg(
-        long,
-        value_name = "PATH",
-        env = "GLIMPSE_SOCKET_PATH",
-        global = true,
-        help = "Daemon socket"
-    )]
-    pub socket: Option<PathBuf>,
+    #[command(flatten)]
+    pub socket: glimpse_utils::SocketArg,
 
-    #[arg(
-        short,
-        long,
-        global = true,
-        value_name = "PATH",
-        env = "GLIMPSE_CONFIG_PATH",
-        help = "Use exactly this file, skipping the system and user layers"
-    )]
-    pub config: Option<PathBuf>,
+    #[command(flatten)]
+    pub config: glimpse_utils::ConfigArg,
 
-    #[arg(
-        short,
-        long,
-        global = true,
-        help = "Emit raw JSON instead of formatted output"
-    )]
-    pub json: bool,
+    #[command(flatten)]
+    pub log: glimpse_utils::LogArgs,
 
-    #[arg(
-        long,
-        value_name = "MS",
-        default_value_t = 5000,
-        global = true,
-        help = "Per-request timeout in milliseconds"
-    )]
-    pub timeout: u64,
-
-    #[arg(long, global = true, help = "Disable color; NO_COLOR does the same")]
-    pub no_color: bool,
-
-    #[arg(
-        long,
-        value_name = "FILTER",
-        env = "RUST_LOG",
-        default_value = "info",
-        help = "tracing-subscriber filter, same syntax as RUST_LOG"
-    )]
-    pub log: String,
-
-    #[arg(
-        long,
-        value_name = "FMT",
-        value_enum,
-        default_value_t = LogFormat::Auto,
-        help = "auto drops timestamps and color under a journal stream"
-    )]
-    pub log_format: LogFormat,
+    #[command(flatten)]
+    pub color: colorchoice_clap::Color,
 
     #[command(subcommand)]
     pub command: Command,
@@ -240,12 +163,5 @@ mod tests {
                 .expect("arguments should parse");
             assert!(cli.command.needs_daemon(), "{command}");
         }
-    }
-
-    #[test]
-    fn global_flags_are_accepted_after_the_subcommand() {
-        let cli = Cli::try_parse_from(["glimpsectl", "get", "battery.status", "--json"])
-            .expect("arguments should parse");
-        assert!(cli.json);
     }
 }
