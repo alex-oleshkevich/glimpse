@@ -14,6 +14,11 @@ pub fn load(config_path: Option<&Path>) -> Result<Config, Vec<ConfigError>> {
     load_from(Path::new(SYSTEM_DIR), user_dir.as_deref(), config_path)
 }
 
+pub fn resolved_files(config_path: Option<&Path>) -> Result<Vec<PathBuf>, ConfigError> {
+    let user_dir = dirs::config_dir().map(|dir| dir.join("glimpse"));
+    stack(Path::new(SYSTEM_DIR), user_dir.as_deref(), config_path)
+}
+
 fn load_from(
     system_dir: &Path,
     user_dir: Option<&Path>,
@@ -376,6 +381,26 @@ mod tests {
             load_from(&root.path().join("etc"), Some(&user), None).expect_err("past the cap");
 
         assert!(matches!(problems[..], [ConfigError::TooLarge { .. }]));
+    }
+
+    #[test]
+    fn resolved_files_lists_the_same_stack_load_reads() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let user = root.path().join("user");
+        fs::create_dir_all(user.join("config.d")).expect("fixture");
+        fs::write(user.join("config.toml"), "[appearance]\npack = \"user\"\n").expect("fixture");
+        fs::write(user.join("config.d/10-scheme.toml"), "").expect("fixture");
+
+        let files = stack(&root.path().join("etc"), Some(&user), None).expect("resolved");
+
+        assert_eq!(
+            files,
+            [
+                root.path().join("etc/config.toml"),
+                user.join("config.toml"),
+                user.join("config.d/10-scheme.toml"),
+            ]
+        );
     }
 
     #[test]

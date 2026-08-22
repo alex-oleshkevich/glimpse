@@ -174,13 +174,8 @@ pub enum ConfigCommand {
 }
 
 impl Command {
-    // `config validate` and `config path` read the stack from disk, so they answer while the
-    // daemon is down — which is the case a broken configuration produces.
     pub fn needs_daemon(&self) -> bool {
-        !matches!(
-            self,
-            Self::Config(ConfigCommand::Validate { .. } | ConfigCommand::Path)
-        )
+        !matches!(self, Self::Config(_))
     }
 }
 
@@ -234,13 +229,13 @@ mod tests {
     }
 
     #[test]
-    fn only_the_local_config_subcommands_run_without_a_daemon() {
-        for command in ["config validate", "config path"] {
+    fn every_config_subcommand_runs_without_a_daemon() {
+        for command in ["config validate", "config path", "config show"] {
             let cli = Cli::try_parse_from(format!("glimpsectl {command}").split(' '))
                 .expect("arguments should parse");
             assert!(!cli.command.needs_daemon(), "{command}");
         }
-        for command in ["config show", "services", "doctor"] {
+        for command in ["services", "doctor"] {
             let cli = Cli::try_parse_from(format!("glimpsectl {command}").split(' '))
                 .expect("arguments should parse");
             assert!(cli.command.needs_daemon(), "{command}");

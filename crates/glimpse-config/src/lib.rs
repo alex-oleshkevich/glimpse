@@ -3,7 +3,7 @@ mod load;
 mod schema;
 
 pub use error::ConfigError;
-pub use load::load;
+pub use load::{load, resolved_files};
 pub use schema::*;
 
 pub fn default_document() -> String {

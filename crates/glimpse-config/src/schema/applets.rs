@@ -2,10 +2,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct Applet {
-    pub extends: Kind,
     #[serde(default)]
+    pub extends: Option<Kind>,
+    #[serde(flatten)]
     #[schemars(with = "serde_json::Map<String, serde_json::Value>")]
     pub settings: toml::Table,
 }

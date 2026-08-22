@@ -434,19 +434,23 @@ applets not named elsewhere, so a user who lists a few keeps the rest without en
 
 ### `[applets.<name>]`
 
-| Key        | Type  | Default | Meaning                                     |
-| ---------- | ----- | ------- | ------------------------------------------- |
-| `extends`  | enum  | —       | the applet type this instance is built from |
-| `settings` | table | `{}`    | free-form, interpreted by the applet type   |
+| Key       | Type           | Default | Meaning                                     |
+| --------- | -------------- | ------- | -------------------------------------------- |
+| `extends` | enum, optional | absent  | the applet type this instance is built from |
 
 `<name>` is the name used in a panel zone, so several instances of one type coexist under different
 names. `extends` names the type: `audio`, `battery`, `brightness`, `bluetooth`, `display`,
 `clipboard`, `clock`, `command`, `dynamic`, `exec`, `idle`, `keyboard`, `mpris`, `network`,
 `next_event`, `notifications`, `pager`, `privacy`, `printing`, `removable`, `session`, `tray`,
-`weather`, `window`, `workspace`.
+`weather`, `window`, `workspace`. `extends` may be absent — `004` already documents `<name>` as
+falling back to a built-in type of the same name, so `[applets.clock]` with no `extends` is `clock`.
+This crate accepts either form; matching `<name>` against a real type is `004`'s to do, not this
+schema's.
 
-`settings` is the one place unknown keys are not an error, because its shape belongs to the applet
-type rather than to this schema.
+Every key besides `extends` is free-form, written directly alongside it — `[applets.clock]` takes
+its own `timezones` with no nesting. This is the one place unknown keys are not an error, because
+their shape belongs to the applet type rather than to this schema; nothing here validates them yet,
+which arrives once an applet owns a typed settings struct.
 
 ### Services with no configuration
 
@@ -456,8 +460,8 @@ type rather than to this schema.
 `location.position`, with nothing left to decide.
 
 `weather`, `sysstats`, `notifications` and `clipboard` take their settings from the applet that
-displays them, under `[applets.<name>.settings]`, which is where existing configurations already
-put them.
+displays them, written directly under `[applets.<name>]` alongside `extends` — matching where
+existing configurations already put them.
 
 ### Validation
 
@@ -580,3 +584,4 @@ the editor catches before that.
 - 2026-08-21 — dropped the warn-and-skip case for drop-ins: any bad drop-in fails the whole load now, same as the base file. The load-failure rule already bounds the cost; a separate leniency path was unneeded complexity.
 - 2026-08-21 — refined: "missing" and "broken" are different. A file that genuinely is not there — including a drop-in whose symlink target does not exist — is an absent layer everywhere in the stack, `--config` included. Only a file that exists but is wrong somehow still fails the whole load.
 - 2026-08-21 — added `data/config.schema.json`, a JSON Schema for the whole document generated from the `Config` types, for editor completion and linting.
+- 2026-08-21 — `[applets.<name>]` settings are written flat, alongside `extends`, not nested under a `.settings` sub-table — the nested form was never how `_old/` worked. `extends` is optional, `<name>` resolving to a built-in type per `004` when it is absent, also matching `_old/`.

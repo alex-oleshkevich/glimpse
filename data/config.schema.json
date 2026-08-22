@@ -209,18 +209,18 @@
       "type": "object",
       "properties": {
         "extends": {
-          "$ref": "#/$defs/Kind"
-        },
-        "settings": {
-          "type": "object",
-          "additionalProperties": true,
-          "default": {}
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Kind"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
-      "additionalProperties": false,
-      "required": [
-        "extends"
-      ]
+      "additionalProperties": true
     },
     "Backdrop": {
       "type": "object",

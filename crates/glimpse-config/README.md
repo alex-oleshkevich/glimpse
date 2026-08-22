@@ -17,6 +17,9 @@ Layered TOML configuration, shared by the daemon and every UI binary.
 `--config <PATH>` replaces layers 2 through 5 with that one file, drop-ins included: no `config.d/`
 beside it is read.
 
+`resolved_files(config_path)` returns the same ordered file list `load` reads, without reading any
+of them — what `glimpsectl config path` prints.
+
 Only files that exist are merged. Layer 1 is not a document — a table absent from every file keeps
 the value from its `Default` impl. `data/config.default.toml` is a reference nothing reads, kept
 honest the way `cargo fmt` keeps formatting honest: `default_document()` renders it from
@@ -49,8 +52,9 @@ as a topic, not by reading someone else's table.
 
 An unknown key is an error wherever it lands, and the set of top-level table names is closed —
 `deny_unknown_fields` on `Config` is what catches a misspelled `[panle]` that every reader would
-otherwise ignore. The exception is `[applets.<name>].settings`, whose shape belongs to the applet
-type rather than to this schema.
+otherwise ignore. The exception is any key besides `extends` in `[applets.<name>]`, whose shape
+belongs to the applet type rather than to this schema — written flat, alongside `extends`, not
+nested under a `.settings` sub-table.
 
 ## Reading a file
 

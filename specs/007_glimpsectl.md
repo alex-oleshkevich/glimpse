@@ -53,7 +53,7 @@ glimpsectl [GLOBAL OPTIONS] <COMMAND> [ARGS]
 | `call <METHOD> [KEY=VALUE]...`       | method name then arguments       | Invoke a command, print the result. Values parse as JSON when possible, otherwise as strings |
 | `topics [PATTERN]`                   | optional filter                  | List known topics with their owning service and whether a value is present |
 | `services`                           | none                             | List services with state, health and the reason for `degraded`            |
-| `config show`                        | none                             | Print the daemon's merged configuration                                    |
+| `config show`                        | none                             | Print the merged configuration — the same layered stack `config path` resolves and `config validate` checks |
 | `config validate [PATH]`             | optional file                    | Validate a file, or the layered stack, and report the exact error location |
 | `config path`                        | none                             | Print which files the layered stack resolved to, in order, drop-ins included |
 | `doctor`                             | none                             | Check environment: socket, compositor, Wayland protocols, session bus, backends. Report what is missing and what degrades as a result |
@@ -113,3 +113,5 @@ transient failure from a permanent one without parsing prose.
 - 2026-08-20 — example updated: `nightlight.set_mode` takes `auto`; `solar` no longer exists.
 - 2026-08-20 — `GLIMPSE_SOCKET` renamed to `GLIMPSE_SOCKET_PATH`, matching `003_daemon.md` and `004_panel.md`; it also pairs with `GLIMPSE_CONFIG_PATH`.
 - 2026-08-21 — colour detection follows the `anstream` conventions, so `CLICOLOR`, `CLICOLOR_FORCE` and `TERM` are honoured alongside `NO_COLOR`.
+- 2026-08-21 — `config show` reads the layered stack from disk, the same as `config path` and `config validate`; it never needed the daemon running.
+- 2026-08-21 — `config validate`, running against a real config on this machine, is what surfaced that `[applets.<name>.settings]` nesting (see `010`) was never how `_old/` actually worked.

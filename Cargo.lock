@@ -262,11 +262,15 @@ name = "glimpsectl"
 version = "0.16.0"
 dependencies = [
  "anstream",
+ "anstyle",
  "anyhow",
  "clap",
  "glimpse-config",
  "glimpse-ipc",
+ "serde_json",
+ "tempfile",
  "tokio",
+ "toml",
  "tracing",
  "tracing-subscriber",
 ]

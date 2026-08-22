@@ -99,19 +99,42 @@ mod tests {
     }
 
     #[test]
-    fn applet_settings_take_any_key_but_the_applet_itself_does_not() {
+    fn applet_settings_are_flat_alongside_extends() {
         let parsed: Config = toml::from_str(
-            "[applets.clock]\nextends = \"clock\"\n[applets.clock.settings]\nanything = 1\n",
+            "[applets.clock]\nextends = \"clock\"\ntimezones = [\"UTC\"]\nanything = 1\n",
         )
         .expect("free-form settings");
 
-        assert_eq!(parsed.applets["clock"].extends, AppletKind::Clock);
+        assert_eq!(parsed.applets["clock"].extends, Some(AppletKind::Clock));
+        assert_eq!(
+            parsed.applets["clock"].settings["timezones"]
+                .as_array()
+                .map(Vec::len),
+            Some(1)
+        );
         assert_eq!(
             parsed.applets["clock"].settings["anything"].as_integer(),
             Some(1)
         );
+    }
 
-        toml::from_str::<Config>("[applets.clock]\nextends = \"clock\"\ntypo = 1\n")
-            .expect_err("a typo beside `settings` is still loud");
+    #[test]
+    fn extends_defaults_to_none_when_absent() {
+        let parsed: Config = toml::from_str("[applets.clock]\ntimezones = [\"UTC\"]\n")
+            .expect("extends is optional");
+
+        assert_eq!(parsed.applets["clock"].extends, None);
+        assert_eq!(
+            parsed.applets["clock"].settings["timezones"]
+                .as_array()
+                .map(Vec::len),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn an_unknown_extends_value_is_still_loud() {
+        toml::from_str::<Config>("[applets.clock]\nextends = \"not_a_type\"\n")
+            .expect_err("extends, when given, is still checked against Kind");
     }
 }

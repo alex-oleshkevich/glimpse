@@ -15,9 +15,10 @@ glimpsectl doctor
 - `main.rs` — global-flag resolution, subcommand dispatch, exit codes
 - `cli.rs` — the argument surface and `KEY=VALUE` splitting
 
-Only the command line layer exists so far: nothing connects to the socket. Every subcommand parses
-its arguments, resolves the globals and reports that it is not implemented, exiting 1 rather than 0
-so a script cannot read "did nothing" as "worked".
+`config show`, `config validate` and `config path` are wired to `glimpse-config`. Every other
+subcommand still parses its arguments, resolves the globals and reports that it is not implemented,
+exiting 1 rather than 0 so a script cannot read "did nothing" as "worked" — they need the get/topic
+IPC round-trip, which nothing here implements yet.
 
 ## Subcommands
 
@@ -26,8 +27,11 @@ so a script cannot read "did nothing" as "worked".
 ## Rules
 
 `--socket` names one outright; otherwise `glimpse_ipc::socket_path` discovers the first socket that
-is on disk. `config validate` and `config path` resolve no socket at all — they read the stack from
-disk, which is what makes them work when the daemon is what will not start.
+is on disk. All three `config` subcommands resolve no socket at all — they read the layered stack
+straight from disk via `glimpse_config::load`/`resolved_files`, which is what makes them work when
+the daemon is what will not start. `config show` prints the merged document (TOML, or `--json`);
+`config validate` reports every problem `glimpse-config` finds, one per line, and exits 1 if there
+are any; `config path` lists the resolved file stack with a found/missing marker per file.
 
 `exit` holds only the codes something returns today; the rest arrive with the code that returns
 them. 2 will never be there, because clap owns it.

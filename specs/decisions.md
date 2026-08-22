@@ -218,3 +218,41 @@ One known gap: `schemars` does not reflect a `#[serde(alias = ...)]` in an enum'
 will flag it. Accepted rather than worked around — `010` already calls `manual` the legacy spelling,
 so nudging toward `schedule` is the right default. Spec 010.
 
+### 2026-08-21 · `config show` needs no daemon either
+
+Scaffolded to ask the running daemon for its merged configuration, on the theory that a reload
+could leave the two disagreeing. The divergence is real but narrow — the window between an edit
+landing and the next reload — and `010` already specifies that a *failed* reload keeps the running
+configuration rather than partially applying, so outside that window disk and daemon always agree.
+Sourcing from the daemon bought detecting that one narrow window, at the cost of needing the
+get/topic protocol plumbing that no command has yet, including working when the daemon won't start
+at all — the case configuration inspection matters most for. `config show` now calls the same
+`glimpse_config::load` as `config path` and `config validate`. If the narrow-window case turns out
+to matter, it comes back later as a real daemon topic once `get` exists. Spec 007.
+
+### 2026-08-21 · applet settings are flat, not nested under `.settings`
+
+`010` documented `[applets.<name>.settings]` as a nested sub-table, on the assumption that was where
+`_old/` put applet-specific keys. Checking `_old/glimpse-core/src/config/panels.rs` shows otherwise:
+`AppletConfig.settings` was `#[serde(flatten)]`, which folds every key besides `extends` into the
+settings bucket straight from `[applets.<name>]` — a literal `[applets.<name>.settings]` sub-table
+flattens to a *key* named `settings` one level too deep, not the fields inside it, confirmed by
+probing both forms against the derive. A real config on this machine, written before this rewrite,
+confirms the flat form is what was actually shipped; `config validate` reporting an "unknown field"
+on it is what surfaced the spec's claim as wrong.
+
+`Applet.settings` is now `#[serde(flatten)] toml::Table`, matching `_old/`'s mechanism.
+`#[serde(deny_unknown_fields)]` cannot combine with `flatten`, so it comes off `Applet`.
+
+A second real config on this machine also had no `extends` at all — `[applets.clock]` with only
+`timezones`, relying on the section name itself naming the type. `004_panel.md` already documents
+this exactly: "An applet name resolves to an `[applets.<name>]` entry, or to a built-in type of the
+same name." `_old/`'s `AppletConfig.extends` was `Option<AppletType>` for the same reason, resolved
+by the panel/zone builder (`resolve_applet` in `_old/glimpse-shell/src/panels/applets.rs`), not by
+the generic config layer. `Applet.extends` is now `Option<Kind>` here for the same split: this crate
+accepts either form without judging which type `<name>` names, because that resolution — and the
+skip-with-warning `_old/` did when neither `extends` nor the name matches a type — belongs to
+whatever builds applets from `Config`, which is `004`'s job, not `010`'s. `extends`, when given, is
+still checked against `Kind`; nothing yet validates the contents of `settings` itself — that arrives
+once an applet owns a typed settings struct, the same second pass `_old/` also had. Specs 004, 010.
+
