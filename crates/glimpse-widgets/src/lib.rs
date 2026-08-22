@@ -1,5 +1,5 @@
 use gio::*;
 
-fn register_resources() {
-    gio::resources_register_include!("glimpse-shell.gresource")
+pub fn register_resources() -> Result<(), glib::Error> {
+    gio::resources_register_include!("glimpse-panel.gresource")
 }

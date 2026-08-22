@@ -4,6 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
 use glimpse_utils::init_app_tracing;
+use glimpse_widgets::register_resources;
 use relm4::{RELM_THREADS, RelmApp};
 use std::process::ExitCode;
 
@@ -36,6 +37,7 @@ fn run(cli: &Cli) -> Result<()> {
         );
     }
 
+    register_resources()?;
     let app_id = std::env::var("GLIMPSE_SHELL_APP_ID").unwrap_or("me.aresa.GlimpseShell".into());
     let app = RelmApp::new(app_id.as_str());
     app.with_args(vec![]).run::<app::App>(app::AppInit {

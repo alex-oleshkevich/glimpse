@@ -703,6 +703,7 @@ dependencies = [
  "glimpse-config",
  "glimpse-ipc",
  "glimpse-utils",
+ "glimpse-widgets",
  "gtk4",
  "gtk4-layer-shell",
  "libadwaita",

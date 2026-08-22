@@ -14,6 +14,7 @@ colorchoice-clap.workspace = true
 glimpse-config = { path = "../glimpse-config" }
 glimpse-ipc = { path = "../glimpse-ipc" }
 glimpse-utils = { path = "../glimpse-utils" }
+glimpse-widgets = { path = "../glimpse-widgets" }
 gtk4.workspace = true
 gtk4-layer-shell.workspace = true
 owo-colors.workspace = true
