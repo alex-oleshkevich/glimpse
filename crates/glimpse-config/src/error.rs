@@ -3,8 +3,6 @@ use std::path::{Path, PathBuf};
 
 pub(crate) const MAX_FILE_BYTES: u64 = 1 << 20;
 
-pub(crate) const MAX_DROPINS: usize = 64;
-
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     #[error("{}: {source}", located(path, resolved))]
@@ -26,9 +24,6 @@ pub enum ConfigError {
         path: PathBuf,
         resolved: Option<PathBuf>,
     },
-
-    #[error("{}: more than {MAX_DROPINS} drop-ins", dir.display())]
-    TooManyDropins { dir: PathBuf },
 
     #[error("{}:{line}:{column}: {message}", path.display())]
     Parse {
@@ -77,12 +72,44 @@ impl ConfigError {
         }
     }
 
-    pub(crate) fn schema(mut error: toml::de::Error) -> Self {
-        error.set_input(None);
+    pub(crate) fn schema(error: config::ConfigError) -> Self {
         Self::Schema {
-            message: error.to_string().trim_end().to_owned(),
+            message: schema_message(&error),
         }
     }
+}
+
+fn schema_message(error: &config::ConfigError) -> String {
+    match error {
+        config::ConfigError::Type {
+            origin,
+            expected,
+            key,
+            ..
+        } => describe_type_mismatch(expected, key.as_deref(), origin.as_deref()),
+        config::ConfigError::At { error, origin, key } => {
+            let mut message = schema_message(error);
+            if let Some(key) = key {
+                message.push_str(&format!(" for key `{key}`"));
+            }
+            if let Some(origin) = origin {
+                message.push_str(&format!(" in {origin}"));
+            }
+            message
+        }
+        other => other.to_string(),
+    }
+}
+
+fn describe_type_mismatch(expected: &str, key: Option<&str>, origin: Option<&str>) -> String {
+    let mut message = format!("expected {expected}");
+    if let Some(key) = key {
+        message.push_str(&format!(" for key `{key}`"));
+    }
+    if let Some(origin) = origin {
+        message.push_str(&format!(" in {origin}"));
+    }
+    message
 }
 
 fn located(path: &Path, resolved: &Option<PathBuf>) -> String {
@@ -141,6 +168,33 @@ mod tests {
         let rendered = ConfigError::parse(Path::new("config.toml"), text, &error).to_string();
 
         assert!(rendered.starts_with("config.toml:1:9:"), "{rendered}");
+        assert!(!rendered.contains("ghp_thisisasecret"), "{rendered}");
+    }
+
+    #[test]
+    fn a_type_mismatch_names_the_key_without_quoting_the_value() {
+        // Only ever exercises the Err path, so `count` is never read back.
+        #[derive(serde::Deserialize)]
+        struct Fixture {
+            #[allow(dead_code)]
+            count: u64,
+        }
+
+        let raw = config::Config::builder()
+            .add_source(config::File::from_str(
+                "count = \"ghp_thisisasecret\"",
+                config::FileFormat::Toml,
+            ))
+            .build()
+            .expect("valid TOML, just the wrong type for `count`");
+
+        let Err(error) = raw.try_deserialize::<Fixture>() else {
+            panic!("expected a type mismatch");
+        };
+
+        let rendered = ConfigError::schema(error).to_string();
+
+        assert!(rendered.contains("count"), "{rendered}");
         assert!(!rendered.contains("ghp_thisisasecret"), "{rendered}");
     }
 }

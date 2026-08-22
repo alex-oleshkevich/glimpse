@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+config.workspace = true
 dirs.workspace = true
 schemars.workspace = true
 serde.workspace = true
