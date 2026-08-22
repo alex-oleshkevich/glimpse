@@ -38,6 +38,10 @@ impl SimpleComponent for App {
         root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
+        root.init_layer_shell();
+        root.set_layer(gtk4_layer_shell::Layer::Background);
+        root.set_namespace(Some("glimpse-panel"));
+
         let model = App {
             config: init.config,
         };
