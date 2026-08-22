@@ -771,9 +771,12 @@ version = "0.16.0"
 dependencies = [
  "anyhow",
  "clap",
+ "colorchoice-clap",
  "dirs",
  "glimpse-config",
  "glimpse-ipc",
+ "glimpse-utils",
+ "shadow-rs",
  "tokio",
  "tracing",
  "tracing-subscriber",
