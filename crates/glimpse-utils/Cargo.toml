@@ -1,0 +1,10 @@
+[package]
+name = "glimpse-utils"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anstream.workspace = true
+clap.workspace = true
+tracing-subscriber.workspace = true
