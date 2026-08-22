@@ -90,6 +90,10 @@ run-wallpaper *ARGS:
 run-locker *ARGS:
     cargo run -p glimpse-lock -- {{ ARGS }}
 
+[doc("run sunset")]
+run-sunset *ARGS:
+    cargo run -p glimpse-sunset -- {{ ARGS }}
+
 [doc("run the CLI")]
 ctl *ARGS:
     cargo run -q -p glimpsectl -- {{ ARGS }}

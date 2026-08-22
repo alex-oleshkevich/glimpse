@@ -1,0 +1,22 @@
+[package]
+name = "glimpse-sunset"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+build = "build.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+colorchoice-clap.workspace = true
+dirs.workspace = true
+glimpse-config = { path = "../glimpse-config" }
+glimpse-ipc = { path = "../glimpse-ipc" }
+glimpse-utils = { path = "../glimpse-utils" }
+shadow-rs.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[build-dependencies]
+shadow-rs.workspace = true
