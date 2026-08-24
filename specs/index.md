@@ -16,3 +16,4 @@
 | 010 | [Configuration](010_configuration.md)               | One shared `config.toml`: tables, layers, drop-ins, per-service reload.      | glimpse-86zh | draft |
 | 011 | [Watcher](011_watcher.md)                           | The service watching config and stylesheets; digests, not contents.          | —     | draft |
 | 012 | [IPC](012_ipc.md)                                   | Frames, codec, socket ownership, client and server; the wire both ends share. | —     | draft |
+| 013 | [Packaging and release](013_packaging.md)           | Build/release pipeline: GitHub Releases, .deb, .rpm, AUR, install.sh.        | —     | draft |

@@ -1,11 +1,15 @@
 mod cli;
+mod daemon;
 
 use std::process::ExitCode;
 
 use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
+use glimpse_services::Solar;
 use glimpse_utils::init_app_tracing;
+
+use crate::daemon::Daemon;
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -33,7 +37,11 @@ async fn run(cli: Cli) -> Result<()> {
     let _config = glimpse_config::load(cli.config.as_deref())?;
     let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
 
-    let _listener = glimpse_ipc::Server::listen(&socket).await?;
+    let daemon = Daemon::new(config)
+        .register<Solar>()
+            .run()
+            .await;
+
     tracing::info!(socket = %socket.display(), "glimpsed {}", env!("CARGO_PKG_VERSION"));
     tracing::warn!("the broker, service registry and socket server are not implemented yet");
 

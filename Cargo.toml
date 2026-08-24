@@ -6,6 +6,7 @@ members = ["crates/*"]
 version = "0.16.0"
 edition = "2024"
 rust-version = "1.93"
+license = "BSD-3-Clause"
 
 [workspace.dependencies]
 adw = { package = "libadwaita", version = "0.9", features = ["gtk_v4_22", "v1_9"] }
@@ -26,6 +27,10 @@ gio = "0.22"
 gio-unix = "0.22"
 glib = "0.22"
 glib-build-tools = "0.22"
+glimpse-config = { path = "crates/glimpse-config" }
+glimpse-ipc = { path = "crates/glimpse-ipc" }
+glimpse-services = { path = "crates/glimpse-services" }
+glimpse-utils = { path = "crates/glimpse-utils" }
 gtk4 = { package = "gtk4", version = "0.11", features = ["v4_22"] }
 gtk4-layer-shell = "0.8"
 gtk4-session-lock = { version = "0.4", features = ["v1_1"] }

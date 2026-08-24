@@ -3,6 +3,11 @@
 
 set shell := ["bash", "-uc"]
 
+# Single source of truth for install/uninstall/package-binary. Static TOML can't read this, so
+# the cargo-deb/cargo-generate-rpm asset lists and this script's own no-just fallback default
+# (scripts/package-binary.sh) still hand-duplicate it.
+binaries := "glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset"
+
 prefix := env("PREFIX", "/usr")
 destdir := env("DESTDIR", "")
 bindir := destdir / prefix / "bin"
@@ -116,6 +121,46 @@ build-release:
 build-crate CRATE:
     cargo build -p {{ CRATE }}
 
+[doc("build only the shipped binaries, release — unlike build-release, doesn't need every workspace crate to compile")]
+build-release-binaries:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    args=()
+    for b in {{ binaries }}; do args+=(-p "$b"); done
+    cargo build --release "${args[@]}"
+
+# ---------------------------------------------------------------- package
+
+[doc("fail unless TAG (e.g. v0.16.0) matches workspace.package.version in Cargo.toml")]
+release-verify TAG:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version="$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)"
+    raw_tag={{ quote(TAG) }}
+    tag="${raw_tag#v}"
+    if [ "$tag" != "$version" ]; then
+        echo "tag ${raw_tag} does not match Cargo.toml version $version" >&2
+        exit 1
+    fi
+    echo "tag ${raw_tag} matches Cargo.toml version $version"
+
+[doc("build a release tarball (glimpse-<version>-<arch>.tar.zst) under dist/ — builds its own binaries")]
+package-binary VERSION="":
+    GLIMPSE_BINARIES="{{ binaries }}" scripts/package-binary.sh {{ quote(VERSION) }}
+
+[doc("build a .deb under target/debian/ (needs: cargo install cargo-deb)")]
+package-deb: build-release-binaries
+    cargo deb -p glimpsed --no-build
+
+[doc("build a .rpm under target/generate-rpm/ (needs: cargo install cargo-generate-rpm)")]
+package-rpm: build-release-binaries
+    cargo generate-rpm -p crates/glimpsed
+
+[doc("render dist/PKGBUILD for VERSION with the x86_64 tarball's b2sum patched in")]
+aur-pkgbuild VERSION B2SUM:
+    mkdir -p dist
+    scripts/render-aur-pkgbuild.sh {{ quote(VERSION) }} {{ quote(B2SUM) }} > dist/PKGBUILD
+
 # ---------------------------------------------------------------- clean
 
 [doc("remove the whole target directory")]
@@ -130,20 +175,18 @@ clean-crate CRATE:
 
 [doc("install binaries and data, honours PREFIX and DESTDIR")]
 install: build-release
-    install -Dm755 target/release/glimpsed          {{ bindir }}/glimpsed
-    install -Dm755 target/release/glimpse           {{ bindir }}/glimpse
-    install -Dm755 target/release/glimpse-wallpaper {{ bindir }}/glimpse-wallpaper
-    install -Dm755 target/release/glimpse-lock      {{ bindir }}/glimpse-lock
-    install -Dm755 target/release/glimpsectl        {{ bindir }}/glimpsectl
+    for b in {{ binaries }}; do install -Dm755 "target/release/$b" {{ bindir }}/"$b"; done
     for f in data/systemd/*.service; do [ -e "$f" ] && install -Dm644 "$f" {{ unitdir }}/"$(basename $f)"; done
     for f in data/dbus-1/services/*.service; do [ -e "$f" ] && install -Dm644 "$f" {{ dbusdir }}/"$(basename $f)"; done
     for f in data/pam.d/*; do [ -e "$f" ] && [ "$(basename $f)" != .gitkeep ] && install -Dm644 "$f" {{ pamdir }}/"$(basename $f)"; done
     install -Dm644 data/config.default.toml {{ sharedir }}/config.default.toml
     install -Dm644 data/config.schema.json {{ sharedir }}/config.schema.json
+    for f in wallpapers/*; do [ -e "$f" ] && install -Dm644 "$f" {{ sharedir }}/wallpapers/"$(basename $f)"; done
+    install -Dm644 LICENSE {{ sharedir }}/LICENSE
 
 [doc("remove installed files")]
 uninstall:
-    rm -f {{ bindir }}/{glimpsed,glimpse,glimpse-wallpaper,glimpse-lock,glimpsectl}
+    for b in {{ binaries }}; do rm -f {{ bindir }}/"$b"; done
     rm -f {{ unitdir }}/glimpse*.service {{ dbusdir }}/org.kde.StatusNotifierWatcher.service
     rm -f {{ dbusdir }}/org.freedesktop.Notifications.service {{ pamdir }}/glimpse-lock
-    rm -f {{ sharedir }}/config.default.toml {{ sharedir }}/config.schema.json
+    rm -rf {{ sharedir }}

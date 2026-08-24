@@ -3,7 +3,72 @@ name = "glimpsed"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+description = "Desktop shell suite for Wayland compositors"
+license.workspace = true
 build = "build.rs"
+
+# Packages the whole 6-binary suite, not just glimpsed — see README for why it's here.
+[package.metadata.deb]
+name = "glimpse"
+maintainer = "Alex Oleshkevich <alex.oleshkevich@gmail.com>"
+copyright = "2026, Alex Oleshkevich <alex.oleshkevich@gmail.com>"
+section = "gnome"
+priority = "optional"
+extended-description = """\
+A desktop shell suite for Wayland compositors: a panel, a wallpaper renderer, and a lock."""
+
+# $auto scans glimpsed's own linked libraries via dpkg-shlibdeps; the other five binaries
+# bundled into this .deb via `assets` link GTK4/libadwaita/gtk4-layer-shell/libheif/PAM, which
+# $auto's scan may not cover, so those are listed explicitly rather than trusted to auto-detect.
+depends = [
+  "$auto",
+  "libgtk-4-1",
+  "libadwaita-1-0",
+  "libgtk4-layer-shell0",
+  "libheif1",
+  "libpam0g",
+  "geoclue-2.0",
+]
+assets = [
+  ["target/release/glimpsectl", "usr/bin/", "755"],
+  ["target/release/glimpsed", "usr/bin/", "755"],
+  ["target/release/glimpse-panel", "usr/bin/", "755"],
+  ["target/release/glimpse-lock", "usr/bin/", "755"],
+  ["target/release/glimpse-wallpaper", "usr/bin/", "755"],
+  ["target/release/glimpse-sunset", "usr/bin/", "755"],
+  ["../../data/config.default.toml", "usr/share/glimpse/", "644"],
+  ["../../data/config.schema.json", "usr/share/glimpse/", "644"],
+  ["../../wallpapers/*", "usr/share/glimpse/wallpapers/", "644"],
+  ["../../LICENSE", "usr/share/glimpse/", "644"],
+]
+
+# `cargo generate-rpm -p glimpsed` is run from the workspace root, so these `source` paths
+# resolve there directly (unlike cargo-deb's crate-manifest-relative resolution above).
+[package.metadata.generate-rpm]
+name = "glimpse"
+summary = "Desktop shell suite for Wayland compositors"
+assets = [
+  { source = "target/release/glimpsectl", dest = "/usr/bin/glimpsectl", mode = "755" },
+  { source = "target/release/glimpsed", dest = "/usr/bin/glimpsed", mode = "755" },
+  { source = "target/release/glimpse-panel", dest = "/usr/bin/glimpse-panel", mode = "755" },
+  { source = "target/release/glimpse-lock", dest = "/usr/bin/glimpse-lock", mode = "755" },
+  { source = "target/release/glimpse-wallpaper", dest = "/usr/bin/glimpse-wallpaper", mode = "755" },
+  { source = "target/release/glimpse-sunset", dest = "/usr/bin/glimpse-sunset", mode = "755" },
+  { source = "data/config.default.toml", dest = "/usr/share/glimpse/", mode = "644" },
+  { source = "data/config.schema.json", dest = "/usr/share/glimpse/", mode = "644" },
+  { source = "wallpapers/*", dest = "/usr/share/glimpse/wallpapers/", mode = "644" },
+  { source = "LICENSE", dest = "/usr/share/glimpse/", mode = "644" },
+]
+
+# auto-req (default) scans every asset under the RPM, so it should cover all six bundled
+# binaries, but these are listed explicitly too as a safety net against a partial scan.
+[package.metadata.generate-rpm.requires]
+gtk4 = "*"
+libadwaita = "*"
+gtk4-layer-shell = "*"
+libheif = "*"
+pam-libs = "*"
+geoclue2 = "*"
 
 [dependencies]
 anyhow.workspace = true
@@ -12,8 +77,10 @@ colorchoice-clap.workspace = true
 dirs.workspace = true
 glimpse-config = { path = "../glimpse-config" }
 glimpse-ipc = { path = "../glimpse-ipc" }
+glimpse-services = { path = "../glimpse-services" }
 glimpse-utils = { path = "../glimpse-utils" }
 shadow-rs.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

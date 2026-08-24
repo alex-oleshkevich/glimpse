@@ -1,7 +1,9 @@
 mod client;
 mod server;
+pub mod topics;
 pub use client::Client;
 pub use server::Server;
+
 use std::path::{Path, PathBuf};
 
 pub const PROTOCOL_VERSION: u32 = 1;

@@ -72,10 +72,12 @@ glimpse/
 | `glimpse-config`    | layered TOML load, drop-ins, merge, validate, watch                      |
 | `glimpse-services`  | service framework and every service implementation                       |
 | `glimpse-widgets`   | GObject subclasses, Blueprint templates, shared CSS                      |
+| `glimpse-utils`     | shared CLI arg structs and tracing/log setup used by every binary        |
 | `glimpsed`          | broker, `WaylandEdge` impl                                               |
-| `glimpse-panel`     | panel and applets — builds the binary named `glimpse`                    |
+| `glimpse-panel`     | panel and applets                                                        |
 | `glimpse-wallpaper` | background layer surface, decode cache, transitions                      |
 | `glimpse-lock`      | `ext-session-lock-v1` surfaces, PAM                                      |
+| `glimpse-sunset`    | night-light service                                                      |
 | `glimpsectl`        | CLI and TUI                                                              |
 
 ## Stack

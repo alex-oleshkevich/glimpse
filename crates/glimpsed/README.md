@@ -52,6 +52,14 @@ which is what keeps every service test headless.
 
 Never add `panic = "abort"`. Per-service panic isolation depends on unwinding.
 
+`[package.metadata.deb]` and `[package.metadata.generate-rpm]` live here rather than on any of
+the other five binary crates because cargo-deb/cargo-generate-rpm each need one crate to invoke
+against, not because glimpsed is special — the assets lists pull in all six binaries plus config,
+wallpapers, and the license from the shared target dir and repo root. `data/pam.d`, `data/systemd`,
+and `data/dbus-1/services` are empty placeholders today, so their contents aren't in the asset
+lists yet; add them once something real lands under `data/`.
+
 Spec: [`specs/003_daemon.md`](../../specs/003_daemon.md) ·
 configuration: [`specs/010_configuration.md`](../../specs/010_configuration.md) ·
-units: [`specs/009_systemd.md`](../../specs/009_systemd.md)
+units: [`specs/009_systemd.md`](../../specs/009_systemd.md) ·
+packaging: [`specs/013_packaging.md`](../../specs/013_packaging.md)

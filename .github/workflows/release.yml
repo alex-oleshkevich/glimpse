@@ -1,0 +1,181 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to dry-run against (vX.Y.Z) — the workflow still needs an existing tag to verify against"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  BUILD_DEPS: >-
+    libgtk-4-dev libadwaita-1-dev libgtk4-layer-shell-dev libheif-dev
+    libpam0g-dev libglib2.0-dev libclang-dev pkg-config blueprint-compiler
+
+jobs:
+  verify:
+    name: tag matches Cargo.toml version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve-tag.outputs.tag }}
+    steps:
+      - id: resolve-tag
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          REF_TAG: ${{ github.ref_name }}
+        run: echo "tag=${INPUT_TAG:-$REF_TAG}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.resolve-tag.outputs.tag }}
+      - uses: extractions/setup-just@v4
+      - env:
+          TAG: ${{ steps.resolve-tag.outputs.tag }}
+        run: just release-verify "$TAG"
+
+  test:
+    name: test
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: extractions/setup-just@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y $BUILD_DEPS
+      - run: just check
+      - run: just test
+
+  package:
+    name: package
+    needs: [test, verify]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: extractions/setup-just@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y $BUILD_DEPS zstd
+      - id: cache-tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin
+          key: packaging-tools-cargo-deb-3.7.0-cargo-generate-rpm-0.21.0
+      - name: Install cargo-deb and cargo-generate-rpm
+        if: steps.cache-tools.outputs.cache-hit != 'true'
+        run: |
+          cargo install cargo-deb --version 3.7.0 --locked
+          cargo install cargo-generate-rpm --version 0.21.0 --locked
+      - name: Build packages
+        env:
+          TAG: ${{ needs.verify.outputs.tag }}
+        run: |
+          just package-binary "${TAG#v}"
+          just package-deb
+          just package-rpm
+      - name: Collect packages and checksums
+        run: |
+          cp target/debian/*.deb dist/
+          cp target/generate-rpm/*.rpm dist/
+          ( cd dist && sha256sum -- *.tar.zst *.deb *.rpm > SHA256SUMS )
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: dist/
+          retention-days: 1
+
+  publish:
+    name: publish GitHub Release
+    needs: [verify, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: dist/
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.verify.outputs.tag }}
+        run: |
+          gh release create "$TAG" dist/*.tar.zst dist/*.deb dist/*.rpm dist/SHA256SUMS \
+            --verify-tag --title "$TAG" --generate-notes \
+            || gh release upload "$TAG" dist/*.tar.zst dist/*.deb dist/*.rpm dist/SHA256SUMS --clobber
+
+  publish-aur:
+    name: publish AUR package
+    needs: [verify, package]
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: dist/
+      - name: Check AUR_SSH_PRIVATE_KEY
+        id: aur-key
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "$AUR_SSH_PRIVATE_KEY" ]; then
+            echo "::notice::AUR_SSH_PRIVATE_KEY not configured, skipping AUR publish"
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Render PKGBUILD and .SRCINFO
+        if: steps.aur-key.outputs.configured == 'true'
+        env:
+          TAG: ${{ needs.verify.outputs.tag }}
+        run: |
+          pacman -Sy --noconfirm --needed just openssh git
+          version="${TAG#v}"
+          b2sum="$(cut -d' ' -f1 "dist/glimpse-${version}-x86_64.tar.zst.b2")"
+          just aur-pkgbuild "$version" "$b2sum"
+          useradd -m builder
+          chown -R builder:builder dist/
+          su builder -c 'cd dist && makepkg -p PKGBUILD --printsrcinfo > .SRCINFO'
+      - name: Push to AUR
+        if: steps.aur-key.outputs.configured == 'true'
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          TAG: ${{ needs.verify.outputs.tag }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/aur -o UserKnownHostsFile=~/.ssh/known_hosts"
+          git clone ssh://aur@aur.archlinux.org/glimpse-desktop-bin.git aur-repo
+          cp dist/PKGBUILD dist/.SRCINFO aur-repo/
+          cd aur-repo
+          git config user.name "glimpse release bot"
+          git config user.email "alex.oleshkevich@gmail.com"
+          git add PKGBUILD .SRCINFO
+          if git diff --cached --quiet; then
+            echo "::notice::AUR package unchanged, nothing to push"
+          else
+            git commit -m "update to $TAG"
+            git push
+          fi
