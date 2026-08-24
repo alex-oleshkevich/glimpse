@@ -1,7 +1,6 @@
 mod error;
 mod load;
 mod schema;
-mod watch;
 
 pub use error::ConfigError;
 pub use load::{load, resolved_files};

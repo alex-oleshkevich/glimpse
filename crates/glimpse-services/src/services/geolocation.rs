@@ -3,16 +3,19 @@ use crate::{
     service::{Input, Service, StartError},
 };
 
+#[derive(Debug)]
 pub struct Coordinates {
     pub latitude: f64,
     pub longitude: f64,
 }
 
+#[derive(Debug)]
 pub enum Provider {
     Geoclue,
     Manual(Coordinates),
 }
 
+#[derive(Debug)]
 pub enum Command {
     Refresh,
 }
@@ -21,6 +24,7 @@ enum Event {
     Changed(Coordinates),
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Config {
     provider: Provider,
 }

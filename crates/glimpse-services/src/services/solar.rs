@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use tokio::time;
 
 use crate::{
@@ -6,10 +5,10 @@ use crate::{
     service::{Input, Service, StartError},
 };
 
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Config {}
 
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Command {
     Refresh,
 }

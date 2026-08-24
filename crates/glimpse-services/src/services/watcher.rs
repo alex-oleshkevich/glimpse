@@ -60,5 +60,3 @@ impl Service for Watcher {
         }
     }
 }
-
-async fn watch(paths: Vec<PathBuf>) {}

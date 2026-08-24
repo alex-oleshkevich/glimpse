@@ -1,5 +1,3 @@
-use serde::de::DeserializeOwned;
-
 use crate::context::Ctx;
 
 #[derive(Debug, thiserror::Error)]
@@ -12,8 +10,8 @@ pub enum Input<S: Service> {
 }
 
 pub trait Service: Sized + Send + 'static {
-    type Config: DeserializeOwned + PartialEq + Send + 'static;
-    type Command: DeserializeOwned + Send + 'static;
+    type Config: PartialEq + Send + 'static;
+    type Command: Send + 'static;
     type Event: Send + 'static;
 
     fn start(
