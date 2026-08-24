@@ -1,12 +1,10 @@
 mod error;
 mod load;
 mod schema;
-mod watcher;
 
 pub use error::ConfigError;
 pub use load::{load, resolved_files};
 pub use schema::*;
-pub use watcher::watch;
 
 pub fn default_document() -> String {
     let header = "\

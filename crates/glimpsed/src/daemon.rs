@@ -5,10 +5,10 @@ use tokio::sync::watch;
 #[derive(Debug, thiserror::Error)]
 pub enum DaemonError {}
 
-struct ServiceDescriptor {
+struct ServiceDescriptor<S> {
     prefix: String,
     topics: Vec<String>,
-    // spawn: spawn_service<S>,
+    service: S,
 }
 
 pub struct Call {
@@ -44,7 +44,7 @@ impl Daemon {
         self.descriptors.push(ServiceDescriptor {
             prefix: T::prefix(),
             topics: T::topics(),
-            // spawn: T::spawn,
+            service: T::new(),
         });
     }
 }
