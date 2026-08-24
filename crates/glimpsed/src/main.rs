@@ -6,7 +6,7 @@ use std::process::ExitCode;
 use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
-use glimpse_services::Solar;
+use glimpse_services::{Solar, Geolocation, Watcher};
 use glimpse_utils::init_app_tracing;
 
 use crate::daemon::Daemon;
@@ -38,6 +38,8 @@ async fn run(cli: Cli) -> Result<()> {
     let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
 
     let daemon = Daemon::new(config)
+        .register<Watcher>()
+        .register<Geolocation>()
         .register<Solar>()
             .run()
             .await;

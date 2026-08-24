@@ -34,10 +34,7 @@ impl Daemon {
         let shutdown = CancellationToken::new();
 
         let (calls_tx, calls_rx) = mpsc::channel::<Call>(256);
-        let (config_tx, config_rx) = watch::channel(self.config);
-        let _reload = glimpse_config::watch(config_tx);
 
-        accept(socket, broker.handle(), calls_tx, shutdown.clone()).await;
         shutdown.cancel();
 
         Ok(())
@@ -47,7 +44,7 @@ impl Daemon {
         self.descriptors.push(ServiceDescriptor {
             prefix: T::prefix(),
             topics: T::topics(),
-            spawn: T::spawn,
+            // spawn: T::spawn,
         });
     }
 }

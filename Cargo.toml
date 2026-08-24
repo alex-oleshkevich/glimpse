@@ -50,7 +50,7 @@ system-tray = "0.8.5"
 tempfile = "3.27.0"
 thiserror = "2.0.20"
 tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "sync", "time"] }
-tokio-util = "0.7"
+tokio-util = { version = "0.7", features = ["rt"] }
 toml = "1.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }

@@ -42,6 +42,10 @@ lint-crate CRATE:
 fmt:
     cargo fmt --all
 
+[doc("format one crate in place")]
+fmt-crate CRATE:
+    cargo fmt -p {{ CRATE }}
+
 [doc("fail if anything is unformatted")]
 fmt-check:
     cargo fmt --all --check

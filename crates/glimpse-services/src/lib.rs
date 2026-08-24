@@ -4,4 +4,4 @@ mod context;
 mod service;
 mod services;
 
-pub use {broker::Broker, services::Solar};
+pub use {broker::Broker, services::*};

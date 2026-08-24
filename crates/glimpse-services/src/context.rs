@@ -1,37 +1,51 @@
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use glimpse_ipc::topics::Topic;
 use serde::Serialize;
 use tokio::{sync::mpsc, task::AbortHandle, time};
-use tokio_util::task::TaskTracker;
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
+use crate::broker_handle::{BrokerHandle, SubscriptionId};
 use crate::service::Service;
 
 pub struct Ctx<S: Service> {
     events: mpsc::Sender<S::Event>,
     tasks: TaskTracker,
+    cancel: CancellationToken,
 }
 
 impl<S: Service> Ctx<S> {
     pub fn publisher<T: Topic>(&self) -> Publisher<T::Payload> {
-        Publisher {}
+        Publisher {
+            _payload: PhantomData,
+        }
     }
 
     pub fn subscribe<T: Topic>(
         &self,
-        map: impl Fn(T::Payload) -> S::Event + Send + 'static,
+        _map: impl Fn(T::Payload) -> S::Event + Send + 'static,
     ) -> SourceGuard {
-        SourceGuard(())
+        SourceGuard {
+            abort: self.spawn_tracked(std::future::pending()),
+            subscription: None,
+        }
     }
 
     pub fn spawn(&self, task: impl Future<Output = ()> + Send + 'static) {
+        self.spawn_tracked(task);
+    }
+
+    fn spawn_tracked(&self, task: impl Future<Output = ()> + Send + 'static) -> AbortHandle {
         let cancel = self.cancel.clone();
-        self.tasks.spawn(async move {
-            tokio::select! {
-                () = cancel.cancelled() => {},
-                () = task => {}
-            }
-        });
+        self.tasks
+            .spawn(async move {
+                tokio::select! {
+                    () = cancel.cancelled() => {},
+                    () = task => {}
+                }
+            })
+            .abort_handle()
     }
 
     pub fn interval(
@@ -48,8 +62,22 @@ impl<S: Service> Ctx<S> {
         period: time::Duration,
         on_tick: impl Fn() -> S::Event + Send + 'static,
     ) -> SourceGuard {
-        // let pump = self.task
-        SourceGuard(())
+        let events = self.events.clone();
+
+        SourceGuard {
+            abort: self.spawn_tracked(async move {
+                let mut timer = time::interval_at(start, period);
+                timer.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+
+                loop {
+                    timer.tick().await;
+                    if events.send(on_tick()).await.is_err() {
+                        break;
+                    }
+                }
+            }),
+            subscription: None,
+        }
     }
 
     pub fn events(&self) -> mpsc::Sender<S::Event> {
@@ -57,7 +85,9 @@ impl<S: Service> Ctx<S> {
     }
 }
 
-pub struct Publisher<P> {}
+pub struct Publisher<P> {
+    _payload: PhantomData<P>,
+}
 
 impl<P: Serialize + PartialEq> Publisher<P> {
     pub fn set(&self, _value: P) {}
