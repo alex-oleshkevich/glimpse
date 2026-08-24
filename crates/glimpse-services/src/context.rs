@@ -1,25 +1,23 @@
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 use glimpse_ipc::topics::Topic;
-use serde::Serialize;
 use tokio::{sync::mpsc, task::AbortHandle, time};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use crate::broker_handle::{BrokerHandle, SubscriptionId};
+use crate::publisher::Publisher;
 use crate::service::Service;
 
 pub struct Ctx<S: Service> {
     events: mpsc::Sender<S::Event>,
     tasks: TaskTracker,
     cancel: CancellationToken,
+    broker: Arc<dyn BrokerHandle>,
 }
 
 impl<S: Service> Ctx<S> {
     pub fn publisher<T: Topic>(&self) -> Publisher<T::Payload> {
-        Publisher {
-            _payload: PhantomData,
-        }
+        Publisher::new(T::NAME, self.broker.clone())
     }
 
     pub fn subscribe<T: Topic>(
@@ -29,11 +27,7 @@ impl<S: Service> Ctx<S> {
         todo!("needs the broker")
     }
 
-    pub fn spawn(&self, task: impl Future<Output = ()> + Send + 'static) {
-        self.spawn_tracked(task);
-    }
-
-    fn spawn_tracked(&self, task: impl Future<Output = ()> + Send + 'static) -> AbortHandle {
+    pub fn spawn(&self, task: impl Future<Output = ()> + Send + 'static) -> AbortHandle {
         let cancel = self.cancel.clone();
         self.tasks
             .spawn(async move {
@@ -62,7 +56,7 @@ impl<S: Service> Ctx<S> {
         let events = self.events.clone();
 
         SourceGuard {
-            abort: self.spawn_tracked(async move {
+            abort: self.spawn(async move {
                 let mut timer = time::interval_at(start, period);
                 timer.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
@@ -80,14 +74,6 @@ impl<S: Service> Ctx<S> {
     pub fn events(&self) -> mpsc::Sender<S::Event> {
         self.events.clone()
     }
-}
-
-pub struct Publisher<P> {
-    _payload: PhantomData<P>,
-}
-
-impl<P: Serialize + PartialEq> Publisher<P> {
-    pub fn set(&self, _value: P) {}
 }
 
 pub struct SourceGuard {
