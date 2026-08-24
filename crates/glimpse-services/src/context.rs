@@ -26,10 +26,7 @@ impl<S: Service> Ctx<S> {
         &self,
         _map: impl Fn(T::Payload) -> S::Event + Send + 'static,
     ) -> SourceGuard {
-        SourceGuard {
-            abort: self.spawn_tracked(std::future::pending()),
-            subscription: None,
-        }
+        todo!("needs the broker")
     }
 
     pub fn spawn(&self, task: impl Future<Output = ()> + Send + 'static) {
