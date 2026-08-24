@@ -4,7 +4,7 @@ use serde_json::Value;
 pub struct SubscriptionId(pub u64);
 
 pub trait BrokerHandle: Send + Sync + 'static {
-    fn publish(&self, topic: &'static str, data: Value);
+    fn publish(&self, topic: &str, data: Value);
     fn unsubscribe(&self, id: SubscriptionId);
 }
 
@@ -16,24 +16,21 @@ pub(crate) mod mock {
 
     #[derive(Default)]
     pub(crate) struct MockBroker {
-        published: Mutex<Vec<(&'static str, Value)>>,
+        published: Mutex<Vec<(String, Value)>>,
     }
 
     impl MockBroker {
-        pub(crate) fn published(&self) -> Vec<(&'static str, Value)> {
-            self.lock().clone()
-        }
-
-        fn lock(&self) -> std::sync::MutexGuard<'_, Vec<(&'static str, Value)>> {
-            self.published
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner())
+        pub(crate) fn published(&self) -> Vec<(String, Value)> {
+            self.published.lock().expect("mock broker poisoned").clone()
         }
     }
 
     impl BrokerHandle for MockBroker {
-        fn publish(&self, topic: &'static str, data: Value) {
-            self.lock().push((topic, data));
+        fn publish(&self, topic: &str, data: Value) {
+            self.published
+                .lock()
+                .expect("mock broker poisoned")
+                .push((topic.to_owned(), data));
         }
 
         fn unsubscribe(&self, _id: SubscriptionId) {}

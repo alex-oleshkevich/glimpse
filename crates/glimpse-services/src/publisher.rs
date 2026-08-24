@@ -20,7 +20,7 @@ impl<P: Serialize + PartialEq> Publisher<P> {
     }
 
     pub fn set(&mut self, value: P) {
-        if self.last.as_ref().is_some_and(|last| *last == value) {
+        if self.last.as_ref() == Some(&value) {
             return;
         }
 
@@ -38,13 +38,26 @@ impl<P: Serialize + PartialEq> Publisher<P> {
 
 #[cfg(test)]
 mod tests {
+    use serde::Serializer;
+    use serde_json::{Value, json};
+
     use super::*;
     use crate::broker_handle::mock::MockBroker;
 
+    const TOPIC: &str = "test.topic";
+
     fn publisher() -> (Arc<MockBroker>, Publisher<u32>) {
         let broker = Arc::new(MockBroker::default());
-        let publisher = Publisher::new("test.topic", broker.clone());
+        let publisher = Publisher::new(TOPIC, broker.clone());
         (broker, publisher)
+    }
+
+    fn values(broker: &MockBroker) -> Vec<Value> {
+        broker
+            .published()
+            .into_iter()
+            .map(|(_, data)| data)
+            .collect()
     }
 
     #[test]
@@ -53,7 +66,7 @@ mod tests {
 
         publisher.set(1);
 
-        assert_eq!(broker.published(), vec![("test.topic", 1.into())]);
+        assert_eq!(broker.published(), vec![(TOPIC.to_owned(), json!(1))]);
     }
 
     #[test]
@@ -63,7 +76,7 @@ mod tests {
         publisher.set(1);
         publisher.set(1);
 
-        assert_eq!(broker.published().len(), 1);
+        assert_eq!(values(&broker), vec![json!(1)]);
     }
 
     #[test]
@@ -74,13 +87,25 @@ mod tests {
         publisher.set(2);
         publisher.set(1);
 
-        assert_eq!(
-            broker.published(),
-            vec![
-                ("test.topic", 1.into()),
-                ("test.topic", 2.into()),
-                ("test.topic", 1.into()),
-            ]
-        );
+        assert_eq!(values(&broker), vec![json!(1), json!(2), json!(1)]);
+    }
+
+    #[derive(PartialEq)]
+    struct Unserializable;
+
+    impl Serialize for Unserializable {
+        fn serialize<S: Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+            Err(serde::ser::Error::custom("unserializable"))
+        }
+    }
+
+    #[test]
+    fn publishes_nothing_when_a_payload_fails_to_serialize() {
+        let broker = Arc::new(MockBroker::default());
+        let mut publisher = Publisher::new(TOPIC, broker.clone());
+
+        publisher.set(Unserializable);
+
+        assert!(broker.published().is_empty());
     }
 }
