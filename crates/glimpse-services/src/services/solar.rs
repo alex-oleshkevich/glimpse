@@ -33,6 +33,7 @@ impl Service for Solar {
     type Event = Event;
 
     async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
+        tracing::debug!("starting solar service");
         Ok(Self {
             coordinates: None,
             status: ctx.publisher::<SolarStatus>(),

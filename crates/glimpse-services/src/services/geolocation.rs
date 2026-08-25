@@ -37,6 +37,7 @@ impl Service for Geolocation {
     type Event = Event;
 
     async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, ServiceError> {
+        tracing::debug!("starting geolocation service");
         Ok(Self {
             coordinates: match &config.provider {
                 Provider::Geoclue => None,

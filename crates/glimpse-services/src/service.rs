@@ -62,12 +62,12 @@ pub struct ServiceRuntime<S: Service> {
 impl<S: Service> ServiceRuntime<S> {
     pub fn new(broker_handle: Arc<BrokerHandle>, cancel: CancellationToken) -> Self {
         let (inbox_tx, inbox_rx) = mpsc::channel::<Input<S>>(EVENT_BACKLOG_SIZE);
-        return Self {
+        Self {
             cancel: cancel,
             inbox: inbox_rx,
             broker: broker_handle,
             inbox_sender: inbox_tx,
-        };
+        }
     }
 
     pub fn sender(&self) -> ServiceSender<S> {
@@ -77,14 +77,14 @@ impl<S: Service> ServiceRuntime<S> {
     }
 
     pub async fn run(&mut self, config: S::Config) -> Result<(), ServiceError> {
-        let (events_tx, events_rx) = mpsc::channel::<S::Event>(EVENT_BACKLOG_SIZE);
+        let (events_tx, mut events_rx) = mpsc::channel::<S::Event>(EVENT_BACKLOG_SIZE);
         let ctx = Ctx::<S>::new(events_tx, &self.cancel, self.broker.clone());
         let mut service = S::start(&ctx, config).await?;
 
         loop {
             let input = tokio::select! {
                 () = self.cancel.cancelled() => break,
-                // Some(event) = events_rx.recv() => Input::Event(event),
+                Some(event) = events_rx.recv() => Input::Event(event),
                 Some(input) = self.inbox.recv() => input,
                 else => break,
             };

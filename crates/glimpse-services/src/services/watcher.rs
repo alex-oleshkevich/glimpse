@@ -31,9 +31,9 @@ impl Service for Watcher {
     type Event = Event;
 
     async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, ServiceError> {
-        let events = ctx.events();
+        let _events = ctx.events();
 
-        let debouncer = new_debouncer(DEBOUNCE, None, move |result: DebounceEventResult| {
+        let _debouncer = new_debouncer(DEBOUNCE, None, move |result: DebounceEventResult| {
             let Ok(batch) = result else { return };
             let touched = batch.iter().any(|event| {
                 matches!(
@@ -52,7 +52,7 @@ impl Service for Watcher {
         })
     }
 
-    async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
+    async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
             Input::Event(Event::Changed(_)) => {}
             Input::Command(_) => {}

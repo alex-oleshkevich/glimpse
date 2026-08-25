@@ -58,6 +58,7 @@ impl Server {
                 }
             }
         }
+        while clients.join_next().await.is_some() {}
     }
 }
 

@@ -14,6 +14,12 @@ pub enum DaemonError {
     MessageBroker(#[from] glimpse_services::BrokerError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error("load config: {0}")]
+    Config(String),
+    #[error("socket: {0}")]
+    Socket(String),
+    #[error("runtime: {0}")]
+    Runtime(String),
 }
 
 struct InitService {
@@ -75,7 +81,9 @@ impl Daemon {
         shutdown_signal().await?;
 
         accepting.cancel();
-        let _ = serving.await;
+        if let Err(err) = serving.await {
+            return Err(DaemonError::Runtime(err.to_string()));
+        }
 
         running.cancel();
         self.tasks.close();

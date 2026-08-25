@@ -9,7 +9,7 @@ use cli::Cli;
 use glimpse_services::{Geolocation, Solar, Watcher};
 use glimpse_utils::init_app_tracing;
 
-use crate::daemon::Daemon;
+use crate::daemon::{Daemon, DaemonError};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -25,7 +25,7 @@ async fn main() -> ExitCode {
     }
 }
 
-async fn run(cli: Cli) -> Result<()> {
+async fn run(cli: Cli) -> Result<(), DaemonError> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
 
     if !cli.only.is_empty() {
@@ -34,19 +34,16 @@ async fn run(cli: Cli) -> Result<()> {
         tracing::info!(names = ?cli.without, "running without these services");
     }
 
-    let config = glimpse_config::load(cli.config.as_deref())?;
-    let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
+    let config = glimpse_config::load(cli.config.as_deref())
+        .map_err(|e| DaemonError::Config(e.to_string()))?;
+    let socket = glimpse_ipc::socket_path(cli.socket.as_deref())
+        .map_err(|e| DaemonError::Socket(e.to_string()))?;
     tracing::info!(path = ?socket, "using socket");
 
-    if let Err(err) = Daemon::new()
+    Daemon::new()
         .register::<Watcher>()
         .register::<Geolocation>()
         .register::<Solar>()
         .run(&socket, config)
         .await
-    {
-        tracing::error!(%err, "daemon stopped unexpectedly");
-    }
-
-    Ok(())
 }
