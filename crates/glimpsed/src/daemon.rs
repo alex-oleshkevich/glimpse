@@ -1,5 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
+use crate::handler::BrokerHandler;
 use glimpse_config::Config;
 use glimpse_ipc::Server;
 use glimpse_services::{Broker, BrokerHandle, Service, ServiceRuntime};
@@ -75,7 +76,7 @@ impl Daemon {
             factory(&init);
         }
 
-        let server = Server::bind(socket).await?;
+        let server = Server::bind(socket, BrokerHandler).await?;
         tracing::info!(path=?socket,"daemon listening");
         let serving = tokio::spawn(server.serve(accepting.clone()));
         shutdown_signal().await?;

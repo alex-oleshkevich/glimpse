@@ -43,9 +43,9 @@ fn load_from(
 
     builder
         .build()
-        .map_err(|error| ConfigError::schema(error))?
+        .map_err(ConfigError::schema)?
         .try_deserialize()
-        .map_err(|error| ConfigError::schema(error))
+        .map_err(ConfigError::schema)
 }
 
 fn stack(

@@ -1,5 +1,6 @@
 mod cli;
 mod daemon;
+mod handler;
 
 use std::process::ExitCode;
 

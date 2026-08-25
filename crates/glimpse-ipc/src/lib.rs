@@ -1,13 +1,17 @@
 mod client;
+mod codec;
 mod frame;
+pub mod pattern;
 mod server;
-pub use client::Client;
-pub use server::{Server, ServerError};
+
+pub use client::{Client, ConnectError, ConnectionState, Subscription};
+pub use frame::{Body, CallError, ErrorCode, Event, Frame, Status};
+pub use server::{ClientId, Handler, Server, ServerError};
 
 use std::path::{Path, PathBuf};
 
 pub const PROTOCOL_VERSION: u32 = 1;
-pub const SOCKET_ENV: &str = "GLIMPSE_SOCKET";
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const SOCKET_RELATIVE_PATH: &str = "glimpse/glimpsed.sock";
 
 #[derive(Debug, thiserror::Error)]

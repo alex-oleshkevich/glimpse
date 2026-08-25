@@ -1,40 +1,49 @@
 mod cli;
 mod commands;
+mod errors;
+
+use std::{process::ExitCode, time::Duration};
+
 use anyhow::{Context, Result};
-use glimpse_utils::init_app_tracing;
-
-use std::process::ExitCode;
-
 use clap::Parser;
 use cli::{Cli, Command, ConfigCommand};
+use commands::Session;
+use errors::Exit;
+use glimpse_utils::init_app_tracing;
 
 #[tokio::main]
 async fn main() -> ExitCode {
     let cli = Cli::parse();
     cli.color.write_global();
+    init_app_tracing(&cli.log.log, cli.log.log_format);
 
     match run(cli).await {
-        Ok(_) => ExitCode::SUCCESS,
-        Err(e) => {
-            tracing::error!("{e}");
-            ExitCode::FAILURE
+        Ok(()) => Exit::Ok.into(),
+        Err(error) => {
+            // A failure is the answer, not a log line: routing it through the filter would make
+            // `--log warn` exit non-zero with nothing said. `{error:#}` flattens the whole chain.
+            anstream::eprintln!("glimpsectl: {error:#}");
+            errors::exit(&error).into()
         }
     }
 }
 
 async fn run(cli: Cli) -> Result<()> {
-    init_app_tracing(&cli.log.log, cli.log.log_format);
-
-    let client = match cli.command.needs_daemon() {
+    let session = match cli.command.needs_daemon() {
         true => {
             let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
-            Some(glimpse_ipc::Client::connect(&socket).await?)
+            let client =
+                glimpse_ipc::Client::connect(&socket, Duration::from_millis(cli.timeout)).await?;
+            Some(Session {
+                client,
+                json: cli.json,
+            })
         }
         false => None,
     };
 
     let daemon = || {
-        client
+        session
             .as_ref()
             .context("this command needs a running daemon")
     };
@@ -45,12 +54,12 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Call { method, arguments } => commands::call(daemon()?, method, arguments).await,
         Command::Topics { pattern } => commands::topics(daemon()?, pattern).await,
         Command::Services => commands::services(daemon()?).await,
-        Command::Config(ConfigCommand::Show) => commands::config_show(cli.config.config),
+        Command::Config(ConfigCommand::Show) => commands::config_show(cli.config.config, cli.json),
         Command::Config(ConfigCommand::Validate { path }) => {
             commands::config_validate(path.or(cli.config.config))
         }
         Command::Config(ConfigCommand::Path) => commands::config_path(cli.config.config),
-        Command::Doctor => commands::doctor(daemon()?).await,
+        Command::Doctor => commands::doctor(),
         Command::Monitor => commands::monitor(daemon()?).await,
     }
 }

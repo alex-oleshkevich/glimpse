@@ -14,11 +14,16 @@ glimpsectl doctor
 
 - `main.rs` — global-flag resolution, subcommand dispatch, exit codes
 - `cli.rs` — the argument surface and `KEY=VALUE` splitting
+- `commands.rs` — one function per subcommand, each printing its own output
+- `errors.rs` — the `Exit` table and the one `anyhow::Error` to exit-code mapping
 
-`config show`, `config validate` and `config path` are wired to `glimpse-config`. Every other
-subcommand still parses its arguments, resolves the globals and reports that it is not implemented,
-exiting 1 rather than 0 so a script cannot read "did nothing" as "worked" — they need the get/topic
-IPC round-trip, which nothing here implements yet.
+`get`, `watch`, `call`, `topics`, `services` and all three `config` subcommands are wired. `doctor`
+and `monitor` still report that they are not implemented and exit 1, so a script cannot read
+"did nothing" as "worked".
+
+`topics` and `services` are `get` on `system.topics` and `system.services` rather than frames of
+their own — the daemon already has to publish that state, and a second way to ask for it would be a
+second thing to keep true. Both refuse today because no service declares those topics yet.
 
 ## Subcommands
 
@@ -26,21 +31,31 @@ IPC round-trip, which nothing here implements yet.
 
 ## Rules
 
-`--socket` names one outright; otherwise `glimpse_ipc::socket_path` discovers the first socket that
-is on disk. All three `config` subcommands resolve no socket at all — they read the layered stack
-straight from disk via `glimpse_config::load`/`resolved_files`, which is what makes them work when
-the daemon is what will not start. `config show` prints the merged document (TOML, or `--json`);
-`config validate` reports every problem `glimpse-config` finds, one per line, and exits 1 if there
-are any; `config path` lists the resolved file stack with a found/missing marker per file.
+`--socket` names one outright; otherwise `glimpse_ipc::socket_path` derives it from
+`XDG_RUNTIME_DIR`. The three `config` subcommands resolve no socket at all — they read the layered
+stack straight from disk via `glimpse_config::load`/`resolved_files`, which is what makes them work
+when the daemon is what will not start. `doctor` resolves none either, for the same reason: a
+command that exists to diagnose a missing daemon cannot require one.
+
+`config show` prints the merged document, TOML by default and JSON under `--json`; `config validate`
+loads the stack and reports the first problem `glimpse-config` finds; `config path` lists the
+resolved files in order. Reporting every problem rather than the first, and marking each path
+found or missing, wait on `glimpse-config` returning more than one error.
+
+`--timeout` is handed to `Client::connect` rather than wrapped around each request, because a
+caller that abandons its own future does not release the in-flight slot the request still holds.
 
 `exit` holds only the codes something returns today; the rest arrive with the code that returns
 them. 2 will never be there, because clap owns it.
 
-Human output is aligned and colored on a terminal and plain when piped. The choice comes from
-`anstream`, so `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE` and `TERM` are honored without any detection
-of our own; `--no-color` sets the global override before anything writes. `--json` emits exactly the
-daemon's payload, one object per line for `watch`, so `jq` works without unwrapping. Errors go to
-stderr; only requested data goes to stdout.
+Color resolution is `anstream`'s, so `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE` and `TERM` are honored
+without any detection of our own; `--color` sets the global override before anything writes. Human
+output is pretty-printed JSON today and is not yet aligned or colored — that arrives with the
+payload types there is something to align.
+
+`--json` emits exactly the daemon's payload, one object per line for `watch`, so `jq` works without
+unwrapping. Errors go to stderr; only requested data goes to stdout, and every subcommand that
+streams treats a closed pipe as a clean exit rather than panicking out of `println!`.
 
 Exit codes distinguish a failed command from an unreachable daemon from a usage error, so scripts
 branch without parsing prose.

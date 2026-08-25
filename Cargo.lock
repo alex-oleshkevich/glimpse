@@ -839,6 +839,7 @@ dependencies = [
 name = "glimpsectl"
 version = "0.16.0"
 dependencies = [
+ "anstream",
  "anstyle",
  "anyhow",
  "clap",
@@ -870,6 +871,7 @@ dependencies = [
  "glimpse-ipc",
  "glimpse-services",
  "glimpse-utils",
+ "serde_json",
  "shadow-rs",
  "thiserror",
  "tokio",

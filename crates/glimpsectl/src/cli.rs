@@ -25,6 +25,23 @@ pub struct Cli {
     #[command(flatten)]
     pub color: colorchoice_clap::Color,
 
+    #[arg(
+        short = 'j',
+        long,
+        global = true,
+        help = "Emit raw JSON instead of formatted output."
+    )]
+    pub json: bool,
+
+    #[arg(
+        long,
+        global = true,
+        value_name = "MS",
+        default_value_t = 5000,
+        help = "Give up on a request after this many milliseconds."
+    )]
+    pub timeout: u64,
+
     #[command(subcommand)]
     pub command: Command,
 }
@@ -45,7 +62,12 @@ pub enum Command {
         #[arg(value_name = "PATTERN", help = "Topic pattern, `audio.*` or `tray.**`")]
         pattern: String,
 
-        #[arg(long, value_name = "N", help = "Exit after N events")]
+        #[arg(
+            long,
+            value_name = "N",
+            value_parser = clap::value_parser!(u64).range(1..),
+            help = "Exit after N events"
+        )]
         count: Option<u64>,
     },
 
@@ -98,7 +120,8 @@ pub enum ConfigCommand {
 
 impl Command {
     pub fn needs_daemon(&self) -> bool {
-        !matches!(self, Self::Config(_))
+        // `doctor` diagnoses a missing daemon, so requiring one inverts what it is for.
+        !matches!(self, Self::Config(_) | Self::Doctor)
     }
 }
 

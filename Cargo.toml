@@ -22,7 +22,7 @@ colorchoice-clap = "1.0.1"
 config = { version = "0.15.25", default-features = false, features = ["toml"] }
 css-color = "0.2"
 dirs = "6"
-futures-util = "0.3"
+futures-util = { version = "0.3", features = ["sink"] }
 gio = "0.22"
 gio-unix = "0.22"
 glib = "0.22"

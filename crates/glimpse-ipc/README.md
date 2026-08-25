@@ -9,16 +9,18 @@ there is only one of each.
 
 ## Contents
 
-- `lib.rs` — re-exports, `PROTOCOL_VERSION`, `SOCKET_ENV`, `SOCKET_RELATIVE_PATH`, `socket_path`
-- `frame.rs` — `Frame`, `Body`, `Status`: the NDJSON envelope _(pending)_
-- `codec.rs` — frame to line, line to frame _(pending)_
-- `topic.rs` — `trait Topic` binding a name to a payload type, plus matching rules _(pending)_
-- `error.rs` — `CallError { code, message, retryable }` _(pending)_
-- `client/` — connect, reconnect with backoff, resubscribe, typed topic cache _(pending)_
-- `server/` — listener, per-client reader and writer tasks, byte caps _(pending)_
+- `lib.rs` — re-exports, `PROTOCOL_VERSION`, `VERSION`, `SOCKET_RELATIVE_PATH`, `socket_path`
+- `frame.rs` — `Frame`, `Body`, `Status`, `Event`, `CallError`, `ErrorCode`: the NDJSON envelope
+- `codec.rs` — `LinesCodec` for the bytes, `serde_json` for the frame, and the two policies on top
+- `pattern.rs` — `matches`, the `*` and `**` rules a subscription is resolved against
+- `client.rs` — connect, handshake, reconnect with backoff, resubscribe, request deadlines
+- `server.rs` — listener, `trait Handler`, one task per client, handshake
 - `topics/` — one module per domain, payload types only _(pending)_
 
-Only `lib.rs` exists so far.
+Publishing is the next piece: `Server` has no `publisher()` yet, so `subscribe` succeeds and no
+event ever arrives. Per-client writer tasks, newest-value coalescing and the buffered-byte cap land
+with it, and the reconnect and resubscribe unit tests land with the fake server it makes possible.
+Typed access — `Topic`, `Command`, `Cached<T>` — waits on where payload types live.
 
 ## Rules
 
@@ -37,6 +39,11 @@ type.
 tasks are all "how bytes cross the socket" and both ends must agree on them. Deciding _which_ client
 receives _which_ value is the broker's job and stays in the daemon.
 
+**The request deadline belongs to the connection, not the caller.** A caller that wraps its own
+future in `tokio::time::timeout` gives up without releasing the in-flight slot its request still
+holds, so 32 abandoned calls lock the client out. `Client::connect` takes the timeout and the
+connection task expires entries against it.
+
 A round trip — client encodes, server decodes, server responds, client decodes — is a unit test in
 this crate. That is the reason the two ends are not separate crates: split, the only place they met
 was an integration test over a temporary socket.
@@ -46,6 +53,10 @@ identical value, and it is why a 200-event volume drag does not become 200 frame
 
 `Frame.data` stays `serde_json::Value`. The broker routes topics it has no compile-time knowledge
 of, such as `tray.item.{id}`, so typing happens one layer up at the `Topic` boundary.
+
+The handshake is answered with `hello_ack` even when the versions differ, so the client can name
+both numbers before the daemon closes the connection; refusing silently would leave every mismatch
+looking like a dead daemon.
 
 `PROTOCOL_VERSION` is checked once at handshake, and a mismatch refuses the connection rather than
 negotiating down: one clear message at connect time beats a payload that deserializes into the wrong
