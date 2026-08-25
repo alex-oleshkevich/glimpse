@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use crate::{
     context::{Ctx, SourceGuard},
-    service::{Input, Service, StartError},
+    service::{Input, Service, ServiceError},
 };
 
 const DEBOUNCE: time::Duration = time::Duration::from_millis(250);
@@ -16,7 +16,7 @@ pub struct Config {
     paths: Vec<String>,
 }
 
-enum Event {
+pub enum Event {
     Changed(PathBuf), // add raeson
 }
 
@@ -30,7 +30,7 @@ impl Service for Watcher {
     type Command = ();
     type Event = Event;
 
-    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, StartError> {
+    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, ServiceError> {
         let events = ctx.events();
 
         let debouncer = new_debouncer(DEBOUNCE, None, move |result: DebounceEventResult| {
@@ -42,7 +42,7 @@ impl Service for Watcher {
                 )
             });
             if touched {
-                events.try_send(Event::Changed(event.path.to_path_buf()));
+                // events.try_send(Event::Changed(event.path.to_path_buf()));
             }
         });
 
@@ -58,5 +58,9 @@ impl Service for Watcher {
             Input::Command(_) => {}
             Input::Config(config) => self.paths = config.paths,
         }
+    }
+
+    fn peek_config(_config: &glimpse_config::Config) -> Self::Config {
+        Self::Config { paths: vec![] }
     }
 }

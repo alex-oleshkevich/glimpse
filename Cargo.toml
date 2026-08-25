@@ -28,6 +28,7 @@ gio-unix = "0.22"
 glib = "0.22"
 glib-build-tools = "0.22"
 glimpse-config = { path = "crates/glimpse-config" }
+glimpse-contracts = { path = "crates/glimpse-contracts" }
 glimpse-ipc = { path = "crates/glimpse-ipc" }
 glimpse-services = { path = "crates/glimpse-services" }
 glimpse-utils = { path = "crates/glimpse-utils" }
@@ -49,7 +50,7 @@ sunrise = "3.0"
 system-tray = "0.8.5"
 tempfile = "3.27.0"
 thiserror = "2.0.20"
-tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "sync", "time"] }
+tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 toml = "1.1"
 tracing = "0.1"

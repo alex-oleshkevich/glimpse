@@ -1,18 +1,14 @@
 use crate::{
     context::{Ctx, SourceGuard},
-    service::{Input, Service, StartError},
+    service::{Input, Service, ServiceError},
 };
+use glimpse_config::Provider as GeolocationProvider;
+use glimpse_contracts::GeoCoordinates;
 
-#[derive(Debug)]
-pub struct Coordinates {
-    pub latitude: f64,
-    pub longitude: f64,
-}
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Provider {
     Geoclue,
-    Manual(Coordinates),
+    Manual(GeoCoordinates),
 }
 
 #[derive(Debug)]
@@ -20,8 +16,8 @@ pub enum Command {
     Refresh,
 }
 
-enum Event {
-    Changed(Coordinates),
+pub enum Event {
+    Changed(GeoCoordinates),
 }
 
 #[derive(Debug, PartialEq)]
@@ -31,7 +27,7 @@ pub struct Config {
 
 pub struct Geolocation {
     provider: Provider,
-    coordinates: Option<Coordinates>,
+    coordinates: Option<GeoCoordinates>,
     _handle: SourceGuard,
 }
 
@@ -40,14 +36,14 @@ impl Service for Geolocation {
     type Command = Command;
     type Event = Event;
 
-    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, StartError> {
+    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, ServiceError> {
         Ok(Self {
+            coordinates: match &config.provider {
+                Provider::Geoclue => None,
+                Provider::Manual(coordinates) => Some(coordinates.clone()),
+            },
             provider: config.provider,
             _handle: ctx.spawn(async move {}),
-            coordinates: match config.provider {
-                Provider::Geoclue => None,
-                Provider::Manual(coordinates) => Some(coordinates),
-            },
         })
     }
 
@@ -57,6 +53,18 @@ impl Service for Geolocation {
             Input::Config(_) => {}
             Input::Command(cmd) => match cmd {
                 Command::Refresh => {}
+            },
+        }
+    }
+
+    fn peek_config(config: &glimpse_config::Config) -> Self::Config {
+        Config {
+            provider: match config.location.provider {
+                GeolocationProvider::Geoclue => Provider::Geoclue,
+                GeolocationProvider::Manual => Provider::Manual(GeoCoordinates {
+                    latitude: 0.0,
+                    longitude: 0.0,
+                }),
             },
         }
     }

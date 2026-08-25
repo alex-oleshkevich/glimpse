@@ -1,8 +1,7 @@
 mod client;
 mod server;
-pub mod topics;
 pub use client::Client;
-pub use server::Server;
+pub use server::{Server, ServerError};
 
 use std::path::{Path, PathBuf};
 

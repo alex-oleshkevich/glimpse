@@ -1,52 +1,98 @@
+use glimpse_contracts::{GeoCoordinates, GeolocationStatus, SolarPhase, SolarStatus};
+use sunrise::{Coordinates as SunriseCoordinates, SolarDay, SolarEvent};
 use tokio::time;
 
 use crate::{
     context::{Ctx, SourceGuard},
-    service::{Input, Service, StartError},
+    publisher::Publisher,
+    service::{Input, Service, ServiceError},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Config {}
+const TICK: time::Duration = time::Duration::from_secs(60);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Command {
     Refresh,
 }
 
-pub enum Phase {
-    Day,
-    Night,
+pub enum Event {
+    Tick,
+    Update(Option<GeoCoordinates>),
 }
 
 pub struct Solar {
-    phase: Phase,
-    config: Config,
+    status: Publisher<SolarStatus>,
+    coordinates: Option<GeoCoordinates>,
     _tick: SourceGuard,
-}
-enum Event {
-    Tick,
+    _on_location: SourceGuard,
 }
 
 impl Service for Solar {
-    type Config = Config;
+    type Config = ();
     type Command = Command;
     type Event = Event;
 
-    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, StartError> {
+    async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
         Ok(Self {
-            config,
-            phase: Phase::Day,
-            _tick: ctx.at_interval(time::Instant::now(), time::Duration::from_mins(1), || {
-                Event::Tick
-            }),
+            coordinates: None,
+            status: ctx.publisher::<SolarStatus>(),
+            _tick: ctx.interval(TICK, || Event::Tick),
+            _on_location: ctx
+                .subscribe::<GeolocationStatus>(move |data| Event::Update(data.coordinates)),
         })
     }
 
-    async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
+    async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
-            Input::Event(Event::Tick) => {}
-            Input::Config(config) => self.config = config,
-            Input::Command(Command::Refresh) => {}
+            Input::Event(Event::Update(coordinates)) => {
+                self.coordinates = coordinates;
+            }
+            Input::Event(Event::Tick) | Input::Command(Command::Refresh) => {
+                match self.coordinates {
+                    Some(ref coordinates) => {
+                        if let Some(times) =
+                            solar_times_for_date(chrono::Local::now().date_naive(), coordinates)
+                        {
+                            self.status.set(SolarStatus {
+                                phase: detect_phase(&times),
+                            });
+                        }
+                    }
+                    None => {
+                        tracing::warn!("solar: location unavailable")
+                    }
+                }
+            }
+            Input::Config(()) => {}
         }
     }
+
+    fn peek_config(config: &glimpse_config::Config) -> Self::Config {
+        ()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SolarTimes {
+    pub sunrise: Option<chrono::DateTime<chrono::Utc>>,
+    pub sunset: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+fn detect_phase(times: &SolarTimes) -> SolarPhase {
+    SolarPhase::Day
+}
+
+fn solar_times_for_date(
+    date: chrono::NaiveDate,
+    coordinates: &GeoCoordinates,
+) -> Option<SolarTimes> {
+    let latlon = SunriseCoordinates::new(coordinates.latitude, coordinates.longitude)?;
+    let solar_day = SolarDay::new(latlon, date);
+    let sunrise = solar_day.event_time(SolarEvent::Sunrise);
+    let sunset = solar_day.event_time(SolarEvent::Sunset);
+
+    Some(SolarTimes {
+        sunrise: sunrise,
+        sunset: sunset,
+    })
 }

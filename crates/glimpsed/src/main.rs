@@ -6,7 +6,7 @@ use std::process::ExitCode;
 use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
-use glimpse_services::{Solar, Geolocation, Watcher};
+use glimpse_services::{Geolocation, Solar, Watcher};
 use glimpse_utils::init_app_tracing;
 
 use crate::daemon::Daemon;
@@ -34,18 +34,19 @@ async fn run(cli: Cli) -> Result<()> {
         tracing::info!(names = ?cli.without, "running without these services");
     }
 
-    let _config = glimpse_config::load(cli.config.as_deref())?;
+    let config = glimpse_config::load(cli.config.as_deref())?;
     let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
+    tracing::info!(path = ?socket, "using socket");
 
-    let daemon = Daemon::new(config)
-        .register<Watcher>()
-        .register<Geolocation>()
-        .register<Solar>()
-            .run()
-            .await;
-
-    tracing::info!(socket = %socket.display(), "glimpsed {}", env!("CARGO_PKG_VERSION"));
-    tracing::warn!("the broker, service registry and socket server are not implemented yet");
+    if let Err(err) = Daemon::new()
+        .register::<Watcher>()
+        .register::<Geolocation>()
+        .register::<Solar>()
+        .run(&socket, config)
+        .await
+    {
+        tracing::error!(%err, "daemon stopped unexpectedly");
+    }
 
     Ok(())
 }

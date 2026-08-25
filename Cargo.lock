@@ -152,6 +152,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
+name = "chrono"
+version = "0.4.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
+dependencies = [
+ "iana-time-zone",
+ "js-sys",
+ "num-traits",
+ "wasm-bindgen",
+ "windows-link",
+]
+
+[[package]]
 name = "clap"
 version = "4.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -684,14 +697,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "glimpse-contracts"
+version = "0.16.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "glimpse-ipc"
 version = "0.16.0"
 dependencies = [
  "dirs",
+ "glimpse-contracts",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 
@@ -740,11 +765,15 @@ dependencies = [
 name = "glimpse-services"
 version = "0.16.0"
 dependencies = [
+ "chrono",
+ "glimpse-config",
+ "glimpse-contracts",
  "glimpse-ipc",
  "notify",
  "notify-debouncer-full",
  "serde",
  "serde_json",
+ "sunrise",
  "thiserror",
  "tokio",
  "tokio-util",
@@ -835,12 +864,14 @@ dependencies = [
  "colorchoice-clap",
  "dirs",
  "glimpse-config",
+ "glimpse-contracts",
  "glimpse-ipc",
  "glimpse-services",
  "glimpse-utils",
  "shadow-rs",
  "thiserror",
  "tokio",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
 ]
@@ -1432,6 +1463,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "521739c6d2bac4aa25192232afe6841231376b2b26d4d9fae5ecf8ca5772e441"
 
 [[package]]
+name = "num-traits"
+version = "0.2.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "num_threads"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1859,6 +1899,15 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "sunrise"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15eecb5ec59a060dd9fe8f88c48b701abecd6be9d9c28d55081b80bdda73981c"
+dependencies = [
+ "chrono",
+]
 
 [[package]]
 name = "syn"
