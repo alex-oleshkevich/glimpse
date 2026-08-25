@@ -5,7 +5,7 @@ use crate::{
 use glimpse_config::Provider as GeolocationProvider;
 use glimpse_contracts::GeoCoordinates;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Provider {
     Geoclue,
     Manual(GeoCoordinates),
@@ -26,9 +26,8 @@ pub struct Config {
 }
 
 pub struct Geolocation {
-    provider: Provider,
     coordinates: Option<GeoCoordinates>,
-    _handle: SourceGuard,
+    _handle: Option<SourceGuard>,
 }
 
 impl Service for Geolocation {
@@ -43,15 +42,22 @@ impl Service for Geolocation {
                 Provider::Geoclue => None,
                 Provider::Manual(coordinates) => Some(coordinates.clone()),
             },
-            provider: config.provider,
-            _handle: ctx.spawn(async move {}),
+            _handle: match &config.provider {
+                Provider::Geoclue => Some(ctx.spawn(geoclue_watcher())),
+                Provider::Manual(_) => None,
+            },
         })
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: crate::service::Input<Self>) {
         match input {
-            Input::Event(_) => {}
-            Input::Config(_) => {}
+            Input::Event(event) => match event {
+                Event::Changed(coords) => self.coordinates = Some(coords),
+            },
+            Input::Config(config) => match config.provider {
+                Provider::Geoclue => self._handle = Some(ctx.spawn(geoclue_watcher())),
+                Provider::Manual(coords) => self.coordinates = Some(coords),
+            },
             Input::Command(cmd) => match cmd {
                 Command::Refresh => {}
             },
@@ -62,11 +68,26 @@ impl Service for Geolocation {
         Config {
             provider: match config.location.provider {
                 GeolocationProvider::Geoclue => Provider::Geoclue,
-                GeolocationProvider::Manual => Provider::Manual(GeoCoordinates {
-                    latitude: 0.0,
-                    longitude: 0.0,
-                }),
+                GeolocationProvider::Manual => Provider::Manual(
+                    match (config.location.latitude, config.location.longitude) {
+                        (Some(latitude), Some(longitude)) => GeoCoordinates {
+                            latitude,
+                            longitude,
+                        },
+                        _ => {
+                            tracing::warn!(
+                                "manual geolocation provider requires both latitude and longitude to be set"
+                            );
+                            GeoCoordinates {
+                                latitude: 0.0,
+                                longitude: 0.0,
+                            }
+                        }
+                    },
+                ),
             },
         }
     }
 }
+
+async fn geoclue_watcher() {}

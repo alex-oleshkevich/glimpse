@@ -1,0 +1,11 @@
+pub mod bluez;
+pub mod geoclue;
+pub mod glimpse_lock;
+pub mod login1;
+pub mod mpris;
+pub mod network_manager;
+// pub mod notifications;
+pub mod power_profiles;
+pub mod status_notifier_item;
+pub mod udisks2;
+pub mod upower;
