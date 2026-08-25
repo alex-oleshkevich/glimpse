@@ -1,4 +1,5 @@
 mod client;
+mod frame;
 mod server;
 pub use client::Client;
 pub use server::{Server, ServerError};

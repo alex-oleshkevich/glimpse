@@ -711,6 +711,7 @@ name = "glimpse-ipc"
 version = "0.16.0"
 dependencies = [
  "dirs",
+ "futures-util",
  "glimpse-contracts",
  "serde",
  "serde_json",
@@ -849,6 +850,7 @@ dependencies = [
  "serde_json",
  "shadow-rs",
  "tempfile",
+ "thiserror",
  "tokio",
  "toml",
  "tracing",
@@ -2095,6 +2097,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "futures-util",
+ "libc",
  "pin-project-lite",
  "tokio",
 ]
