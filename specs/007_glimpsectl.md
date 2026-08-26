@@ -47,8 +47,8 @@ glimpsectl [GLOBAL OPTIONS] <COMMAND> [ARGS]
 
 | Command                              | Arguments                        | Behaviour                                                                 |
 | ------------------------------------ | -------------------------------- | ------------------------------------------------------------------------- |
-| `get <TOPIC>`                        | one topic, exact                 | Print the current value, exit. `--field <PATH>` prints one field           |
-| `watch <PATTERN>`                    | one pattern, `audio.*`, `tray.**`| Print the snapshot then every update, one per line, until interrupted. `--count <N>` exits after N events |
+| `get <TOPIC>`                        | one topic, exact                 | Print the current value, exit. `--field <PATH>` prints one field; `--json` prints the payload verbatim |
+| `watch <PATTERN>`                    | one pattern, `audio.*`, `tray.**`| Print the snapshot then every update, one per line, until interrupted. `--count <N>` exits after N events; `--json` prints each event frame verbatim |
 | `call <METHOD> [KEY=VALUE]...`       | method name then arguments       | Invoke a command, print the result. Values parse as JSON when possible, otherwise as strings |
 | `topics [PATTERN]`                   | optional filter                  | List known topics with their owning service and whether a value is present |
 | `services`                           | none                             | List services with state, health and the reason for `degraded`            |
@@ -80,9 +80,11 @@ glimpsectl watch 'network.**' | while read -r topic values; do ...; done
 ### Output conventions
 
 - Human output is aligned and coloured when stdout is a terminal; piping switches to plain.
-- There is no JSON output mode. `glimpsectl` renders values for people; a script reads one scalar
-  with `get --field`, and `watch` prints one line per event so `read` and `awk` work on it directly.
-  Anything wanting raw frames talks to the socket, which is what `012_ipc.md` and the SDKs are for.
+- Rendered output is for people. `get` and `watch` also take `--json`, which prints what the daemon
+  sent and nothing else: the payload for `get`, one event frame per line for `watch`. It is not a
+  formatting choice but a passthrough, so `jq` sees exactly what crossed the socket. No other
+  command has it — `topics` and `services` render the daemon's own introspection, and a consumer
+  wanting those as data should read `system.topics` and `system.services` with `get --json`.
 - Errors go to stderr; only requested data goes to stdout.
 
 ### Exit codes
@@ -116,3 +118,4 @@ transient failure from a permanent one without parsing prose.
 - 2026-08-21 — `config show` reads the layered stack from disk, the same as `config path` and `config validate`; it never needed the daemon running.
 - 2026-08-21 — `config validate`, running against a real config on this machine, is what surfaced that `[applets.<name>.settings]` nesting (see `010`) was never how `_old/` actually worked.
 - 2026-08-26 — `--json` removed; `glimpsectl` renders for people only, and `get --field` is the scripting primitive. See the decision log.
+- 2026-08-26 — `--json` returns as a per-command flag on `get` and `watch`, printing the daemon's bytes verbatim rather than a second rendering. See the decision log.

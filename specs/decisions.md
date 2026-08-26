@@ -280,3 +280,16 @@ one-line-per-event form. A consumer that genuinely wants frames should speak the
 what `012_ipc.md` specifies and what the Python, TypeScript and Go SDKs are for. Reversing this
 means writing the human renderer anyway, so nothing is foreclosed. Specs 007.
 
+### 2026-08-26 · `--json` returns, as a passthrough on two commands
+
+Reverses "`glimpsectl` has no JSON output mode" from earlier today. That entry was right that a
+global flag toggling compact against pretty JSON was worth deleting, and wrong to conclude the
+capability itself was. Removing it left no way to see what actually crossed the socket, which is
+what the tool is for when the wire is the thing under suspicion.
+
+The distinction that makes it work this time: `--json` is not an output format sitting beside the
+rendered one, it is a passthrough. `get --json` prints the payload, `watch --json` prints the frame,
+neither is re-serialized into a second shape, and neither is a global flag that every command has to
+answer for. `topics` and `services` do not take it because they render topics a caller can read
+directly with `get --json`. Specs 007.
+

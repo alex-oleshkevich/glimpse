@@ -47,8 +47,12 @@ async fn run(cli: Cli) -> Result<()> {
     };
 
     match cli.command {
-        Command::Get { topic, field } => commands::get(daemon()?, topic, field).await,
-        Command::Watch { pattern, count } => commands::watch(daemon()?, pattern, count).await,
+        Command::Get { topic, field, json } => commands::get(daemon()?, topic, field, json).await,
+        Command::Watch {
+            pattern,
+            count,
+            json,
+        } => commands::watch(daemon()?, pattern, count, json).await,
         Command::Call { method, arguments } => commands::call(daemon()?, method, arguments).await,
         Command::Topics { pattern } => commands::topics(daemon()?, pattern).await,
         Command::Services => commands::services(daemon()?).await,
@@ -57,7 +61,7 @@ async fn run(cli: Cli) -> Result<()> {
             commands::config_validate(path.or(cli.config.config))
         }
         Command::Config(ConfigCommand::Path) => commands::config_path(cli.config.config),
-        Command::Doctor => commands::doctor(),
+        Command::Doctor => commands::doctor(cli.socket, cli.config.config).await,
         Command::Monitor => commands::monitor(daemon()?).await,
     }
 }

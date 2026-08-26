@@ -47,6 +47,9 @@ pub enum Command {
 
         #[arg(long, value_name = "PATH", help = "Print one field of the payload")]
         field: Option<String>,
+
+        #[arg(long, help = "Print the payload as the daemon sent it.")]
+        json: bool,
     },
 
     #[command(about = "Print the snapshot then every update, one per line")]
@@ -61,6 +64,9 @@ pub enum Command {
             help = "Exit after N events"
         )]
         count: Option<u64>,
+
+        #[arg(long, help = "Print each event frame as the daemon sent it.")]
+        json: bool,
     },
 
     #[command(about = "Invoke a command and print the result")]

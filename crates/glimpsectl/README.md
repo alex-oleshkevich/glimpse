@@ -14,52 +14,63 @@ glimpsectl doctor
 
 - `main.rs` — global-flag resolution, subcommand dispatch, exit codes
 - `cli.rs` — the argument surface and `KEY=VALUE` splitting
-- `commands.rs` — one function per subcommand, each printing its own output
+- `commands/` — one module per subcommand, each printing its own output
+- `render.rs` — `Table`, `Section`, payload rendering and the `styled` colours
 - `errors.rs` — the `Exit` table and the one `anyhow::Error` to exit-code mapping
 
-`get`, `watch`, `call`, `topics`, `services` and all three `config` subcommands are wired. `doctor`
-and `monitor` still report that they are not implemented and exit 1, so a script cannot read
-"did nothing" as "worked".
+`monitor` is the only subcommand still unimplemented; it reports so and exits 1, so a script cannot
+read "did nothing" as "worked". `doctor` covers what a client can determine — the socket, the
+configuration stack, and every service with its state — and exits 0 whatever it finds, because
+diagnosing a broken session is the command succeeding, not failing. The compositor, the Wayland
+protocols and backend availability are the daemon's knowledge and reach `doctor` only through the
+states on `system.services`.
 
 `topics` and `services` are `get` on `system.topics` and `system.services` rather than frames of
 their own — the daemon already has to publish that state, and a second way to ask for it would be a
-second thing to keep true. Both refuse today because no service declares those topics yet.
-
-## Subcommands
-
-`get`, `watch`, `call`, `topics`, `services`, `config show|validate|path`, `doctor`, `monitor`.
+second thing to keep true.
 
 ## Rules
 
-`--socket` names one outright; otherwise `glimpse_ipc::socket_path` derives it from
+**Rendering is for people; `--json` is a passthrough.** `get` and `watch` take `--json`, which
+prints what the daemon sent and nothing else — the payload for `get`, one event frame per line for
+`watch`. It is per-command, not global, so it cannot appear after a subcommand that would ignore it.
+No other subcommand has one: `topics` and `services` render the daemon's own introspection, and a
+consumer wanting those as data reads `system.topics` and `system.services` with `get --json`.
+
+**Everything drawn goes through `render.rs`.** `Table` aligns columns and takes `[String; N]` rows,
+so a row that does not match its headers is a compile error rather than a ragged table; `with_empty`
+gives it something to say when there are no rows. `Section` is a heading over indented content and
+an optional note, and takes content already rendered, so it composes with a table, with `lines`, or
+with a sentence. Width is measured on the visible text, so a styled cell never shifts a column.
+
+**`--socket` names one outright**; otherwise `glimpse_ipc::socket_path` derives it from
 `XDG_RUNTIME_DIR`. The three `config` subcommands resolve no socket at all — they read the layered
 stack straight from disk via `glimpse_config::load`/`resolved_files`, which is what makes them work
-when the daemon is what will not start. `doctor` resolves none either, for the same reason: a
-command that exists to diagnose a missing daemon cannot require one.
+when the daemon is what will not start. `doctor` connects but tolerates failure, for the same
+reason: a command that exists to diagnose a missing daemon cannot require one, so an unreachable
+socket is a finding it prints, not an error it exits on.
 
-`config show` prints the merged document, TOML by default and JSON under `--json`; `config validate`
-loads the stack and reports the first problem `glimpse-config` finds; `config path` lists the
-resolved files in order. Reporting every problem rather than the first, and marking each path
-found or missing, wait on `glimpse-config` returning more than one error.
-
-`--timeout` is handed to `Client::connect` rather than wrapped around each request, because a
+**`--timeout` is handed to `Client::connect`** rather than wrapped around each request, because a
 caller that abandons its own future does not release the in-flight slot the request still holds.
 
-`exit` holds only the codes something returns today; the rest arrive with the code that returns
+**`exit` holds only the codes something returns today**; the rest arrive with the code that returns
 them. 2 will never be there, because clap owns it.
 
-Color resolution is `anstream`'s, so `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE` and `TERM` are honored
-without any detection of our own; `--color` sets the global override before anything writes. Human
-output is pretty-printed JSON today and is not yet aligned or colored — that arrives with the
-payload types there is something to align.
+Colour resolution is `anstream`'s, so `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE` and `TERM` are
+honoured without any detection of our own; `--color` sets the global override before anything
+writes, and every line leaves through one `write_line` on `anstream::stdout()`, so a pipe gets plain
+text without any command asking whether it is being piped.
 
-`--json` emits exactly the daemon's payload, one object per line for `watch`, so `jq` works without
-unwrapping. Errors go to stderr; only requested data goes to stdout, and every subcommand that
-streams treats a closed pipe as a clean exit rather than panicking out of `println!`.
-
-Exit codes distinguish a failed command from an unreachable daemon from a usage error, so scripts
-branch without parsing prose.
+Errors go to stderr; only requested data goes to stdout, and every subcommand that streams treats a
+closed pipe as a clean exit rather than panicking out of `println!`.
 
 This is the first client to build. It exercises the protocol before any GTK exists.
+
+## Known gap
+
+Column width counts characters, not display columns, so a wide glyph — CJK, an emoji — is measured
+one short and hangs its row. Topic and service names are ASCII by convention; the exposure is the
+key column of `get` on a payload whose keys come from another application. `unicode-width` is the
+fix and has not been proposed yet.
 
 Spec: [`specs/007_glimpsectl.md`](../../specs/007_glimpsectl.md)
