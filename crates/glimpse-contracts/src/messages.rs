@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::types::*;
@@ -10,7 +12,7 @@ pub trait Message {
 #[macro_export]
 macro_rules! topic {
     ($ty:ty, $name:literal) => {
-        impl $crate::messages::Message for $ty {
+        impl $crate::Message for $ty {
             const NAME: &'static str = $name;
             type Payload = Self;
         }
@@ -39,6 +41,12 @@ macro_rules! topics {
 }
 
 topics! {
+    #[name = "system.topics"]
+    pub struct SystemTopics { topics: BTreeMap<String, TopicReport> }
+
+    #[name = "system.services"]
+    pub struct SystemServices { services: BTreeMap<String, ServiceState> }
+
     #[name = "solar.status"]
     pub struct SolarStatus { phase: SolarPhase }
 
