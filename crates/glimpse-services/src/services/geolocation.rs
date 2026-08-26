@@ -3,7 +3,8 @@ use crate::{
     service::{Input, Service, ServiceError},
 };
 use glimpse_config::Provider as GeolocationProvider;
-use glimpse_contracts::GeoCoordinates;
+use glimpse_contracts::{GeoCoordinates, GeolocationStatus, Message};
+use glimpse_dbus::geoclue::GeoClueClientProxy;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Provider {
@@ -31,6 +32,9 @@ pub struct Geolocation {
 }
 
 impl Service for Geolocation {
+    const NAME: &'static str = "geolocation";
+    const TOPICS: &'static [&'static str] = &[GeolocationStatus::NAME];
+
     type Config = Config;
     type Command = Command;
     type Event = Event;

@@ -1,4 +1,4 @@
-use glimpse_contracts::{GeoCoordinates, GeolocationStatus, SolarPhase, SolarStatus};
+use glimpse_contracts::{GeoCoordinates, GeolocationStatus, Message, SolarPhase, SolarStatus};
 use sunrise::{Coordinates as SunriseCoordinates, SolarDay, SolarEvent};
 use tokio::time;
 
@@ -28,6 +28,9 @@ pub struct Solar {
 }
 
 impl Service for Solar {
+    const NAME: &'static str = "solar";
+    const TOPICS: &'static [&'static str] = &[SolarStatus::NAME];
+
     type Config = ();
     type Command = Command;
     type Event = Event;

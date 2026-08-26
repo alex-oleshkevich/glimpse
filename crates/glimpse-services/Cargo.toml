@@ -7,8 +7,10 @@ license.workspace = true
 
 [dependencies]
 chrono.workspace = true
+futures-util.workspace = true
 glimpse-config.workspace = true
 glimpse-contracts.workspace = true
+glimpse-dbus.workspace = true
 glimpse-ipc.workspace = true
 notify.workspace = true
 notify-debouncer-full.workspace = true

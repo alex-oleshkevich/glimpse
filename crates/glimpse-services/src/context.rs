@@ -8,20 +8,20 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use crate::publisher::Publisher;
 use crate::service::Service;
-use crate::{BrokerHandle, SubscriptionId};
+use crate::{BrokerHandle, ServiceState, SubscriptionId};
 
 pub struct Ctx<S: Service> {
     events: mpsc::Sender<S::Event>,
     tasks: TaskTracker,
     cancel: CancellationToken,
-    broker: Arc<BrokerHandle>,
+    broker: Arc<dyn BrokerHandle>,
 }
 
 impl<S: Service> Ctx<S> {
     pub fn new(
         events: mpsc::Sender<S::Event>,
         cancel: &CancellationToken,
-        broker: Arc<BrokerHandle>,
+        broker: Arc<dyn BrokerHandle>,
     ) -> Self {
         Self {
             events,
@@ -106,11 +106,27 @@ impl<S: Service> Ctx<S> {
     pub fn events(&self) -> mpsc::Sender<S::Event> {
         self.events.clone()
     }
+
+    /// A service's own judgement that it is running but cannot fully do its job — a missing Wayland
+    /// protocol, a backend that will not answer. Its topics stay current and are never `stale`.
+    pub fn degraded(&self, reason: impl Into<String>) {
+        self.broker.report_health(
+            S::NAME,
+            ServiceState::Degraded {
+                reason: reason.into(),
+            },
+        );
+    }
+
+    /// Withdraw a previous `degraded`, once whatever was missing turns up.
+    pub fn running(&self) {
+        self.broker.report_health(S::NAME, ServiceState::Running);
+    }
 }
 
 pub struct SourceGuard {
     abort: Option<AbortHandle>,
-    subscription: Option<(Arc<BrokerHandle>, SubscriptionId)>,
+    subscription: Option<(Arc<dyn BrokerHandle>, SubscriptionId)>,
 }
 
 impl Drop for SourceGuard {

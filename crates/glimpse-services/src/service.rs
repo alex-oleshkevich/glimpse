@@ -1,10 +1,11 @@
-use std::sync::Arc;
+use std::{any::Any, panic::AssertUnwindSafe, sync::Arc};
 
+use futures_util::FutureExt;
 use glimpse_config::Config;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use crate::{BrokerHandle, Ctx};
+use crate::{BrokerHandle, Ctx, ServiceState};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
@@ -21,6 +22,14 @@ pub enum Input<S: Service> {
 }
 
 pub trait Service: Sized + Send + 'static {
+    /// Identifies the service in `system.services` and owns its topics in the registry.
+    const NAME: &'static str;
+
+    /// Every topic this service may publish, declared before it starts. The broker needs the
+    /// mapping while the service is still stopped: a `get` on one of these has to answer
+    /// "declared, no value" rather than "unknown", and a pattern has to match it.
+    const TOPICS: &'static [&'static str];
+
     type Config: PartialEq + Send + 'static;
     type Command: Send + 'static;
     type Event: Send + 'static;
@@ -55,15 +64,15 @@ impl<S: Service> ServiceSender<S> {
 pub struct ServiceRuntime<S: Service> {
     inbox_sender: mpsc::Sender<Input<S>>,
     inbox: mpsc::Receiver<Input<S>>,
-    broker: Arc<BrokerHandle>,
+    broker: Arc<dyn BrokerHandle>,
     cancel: CancellationToken,
 }
 
 impl<S: Service> ServiceRuntime<S> {
-    pub fn new(broker_handle: Arc<BrokerHandle>, cancel: CancellationToken) -> Self {
+    pub fn new(broker_handle: Arc<dyn BrokerHandle>, cancel: CancellationToken) -> Self {
         let (inbox_tx, inbox_rx) = mpsc::channel::<Input<S>>(EVENT_BACKLOG_SIZE);
         Self {
-            cancel: cancel,
+            cancel,
             inbox: inbox_rx,
             broker: broker_handle,
             inbox_sender: inbox_tx,
@@ -79,7 +88,16 @@ impl<S: Service> ServiceRuntime<S> {
     pub async fn run(&mut self, config: S::Config) -> Result<(), ServiceError> {
         let (events_tx, mut events_rx) = mpsc::channel::<S::Event>(EVENT_BACKLOG_SIZE);
         let ctx = Ctx::<S>::new(events_tx, &self.cancel, self.broker.clone());
-        let mut service = S::start(&ctx, config).await?;
+
+        self.broker.report_health(S::NAME, ServiceState::Starting);
+        let mut service = match S::start(&ctx, config).await {
+            Ok(service) => service,
+            Err(error) => {
+                self.report_stopped(Some(error.to_string()));
+                return Err(error);
+            }
+        };
+        self.broker.report_health(S::NAME, ServiceState::Running);
 
         loop {
             let input = tokio::select! {
@@ -88,10 +106,99 @@ impl<S: Service> ServiceRuntime<S> {
                 Some(input) = self.inbox.recv() => input,
                 else => break,
             };
-            service.handle(&ctx, input).await;
+
+            // A panicking handler takes down its own service and nothing else. Unwinding past a
+            // `&mut self` the handler was midway through mutating leaves it in a state nobody can
+            // reason about, so the service stops rather than carrying on with it — and `stop` is
+            // skipped for the same reason.
+            if let Err(panic) = AssertUnwindSafe(service.handle(&ctx, input))
+                .catch_unwind()
+                .await
+            {
+                let reason = panic_reason(panic.as_ref());
+                tracing::error!(
+                    service = S::NAME,
+                    reason,
+                    "handler panicked, stopping the service"
+                );
+                self.report_stopped(Some(reason));
+                return Ok(());
+            }
         }
 
         service.stop(&ctx).await;
+        self.report_stopped(None);
         Ok(())
+    }
+
+    fn report_stopped(&self, reason: Option<String>) {
+        self.broker
+            .report_health(S::NAME, ServiceState::Stopped { reason });
+    }
+}
+
+fn panic_reason(panic: &(dyn Any + Send)) -> String {
+    if let Some(text) = panic.downcast_ref::<&str>() {
+        return (*text).to_owned();
+    }
+    if let Some(text) = panic.downcast_ref::<String>() {
+        return text.clone();
+    }
+    "panicked".to_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::MockBroker;
+
+    struct Panicky;
+
+    impl Service for Panicky {
+        const NAME: &'static str = "panicky";
+        const TOPICS: &'static [&'static str] = &[];
+
+        type Config = ();
+        type Command = ();
+        type Event = ();
+
+        async fn start(_ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
+            Ok(Self)
+        }
+
+        async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {
+            panic!("the backend said something unrepeatable");
+        }
+
+        fn peek_config(_config: &Config) -> Self::Config {}
+    }
+
+    /// The panic is expected and its message reaches the log; what matters is that the service is
+    /// reported `Stopped` rather than left `Running`, and that `run` returns instead of unwinding
+    /// into the daemon.
+    #[tokio::test]
+    async fn a_panicking_handler_stops_its_own_service() {
+        let mock = Arc::new(MockBroker::default());
+        let broker: Arc<dyn BrokerHandle> = mock.clone();
+        let mut runtime = ServiceRuntime::<Panicky>::new(broker, CancellationToken::new());
+
+        runtime
+            .sender()
+            .send(Input::Event(()))
+            .await
+            .expect("queued");
+        runtime
+            .run(())
+            .await
+            .expect("run returns rather than unwinding");
+
+        let states: Vec<ServiceState> = mock.health().into_iter().map(|(_, s)| s).collect();
+        assert_eq!(states.first(), Some(&ServiceState::Starting));
+        assert!(states.contains(&ServiceState::Running));
+        assert!(
+            matches!(states.last(), Some(ServiceState::Stopped { reason: Some(reason) })
+                if reason.contains("unrepeatable")),
+            "expected a Stopped carrying the panic message, got {states:?}"
+        );
     }
 }

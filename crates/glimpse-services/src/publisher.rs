@@ -6,12 +6,12 @@ use crate::BrokerHandle;
 
 pub struct Publisher<P> {
     topic: &'static str,
-    broker: Arc<BrokerHandle>,
+    broker: Arc<dyn BrokerHandle>,
     last: Option<P>,
 }
 
 impl<P: Serialize + PartialEq> Publisher<P> {
-    pub(crate) fn new(topic: &'static str, broker: Arc<BrokerHandle>) -> Self {
+    pub(crate) fn new(topic: &'static str, broker: Arc<dyn BrokerHandle>) -> Self {
         Self {
             topic,
             broker,

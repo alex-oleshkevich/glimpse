@@ -26,6 +26,9 @@ pub struct Watcher {
 }
 
 impl Service for Watcher {
+    const NAME: &'static str = "watcher";
+    const TOPICS: &'static [&'static str] = &[];
+
     type Config = Config;
     type Command = ();
     type Event = Event;
