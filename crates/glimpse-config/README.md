@@ -121,10 +121,16 @@ configuration-specific, which is what will make stylesheets a caller rather than
 - Two directories that are both missing collapse onto the same ancestor and therefore share one
   watch. Releasing a watch addresses it by path, so one is released only once no directory is
   resolving to it.
-- A directory that does not exist is watched through its nearest existing ancestor, and the watch
-  descends when the missing component appears. `config.d/` absent is the ordinary case, not an
-  error. The walk refuses `$HOME` and `/`, which are noisy enough to cost more than the reload they
-  would buy.
+- A directory that does not exist is watched through its nearest existing ancestor **within the set
+  being watched**, and the watch descends when the missing component appears. An absent `config.d/`
+  falls back onto the `glimpse/` beside it in the set, which is the ordinary case and not an error.
+  An absent `glimpse/` falls back onto nothing: `$XDG_CONFIG_HOME` and `/etc` are written constantly
+  by software with no connection to this session, and a watch on either wakes us for every one of
+  those writes to report a file that did not change. The configuration directory being created
+  therefore needs a restart to be picked up — which is the one moment a restart costs nothing,
+  because there was nothing configured to reload. Deleting and restoring it wholesale is caught only
+  when both happen inside one debounce window, which is what `rm -rf` immediately followed by a
+  re-stow looks like; a restore that arrives seconds later needs a restart too.
 - **The watch re-arms when its directory is replaced.** A watch is bound to an inode rather than to
   a name, so `rm -rf ~/.config/glimpse` followed by a fresh clone otherwise leaves one armed on a
   directory nobody can reach: it reports nothing again, ever, and looks exactly like a directory
