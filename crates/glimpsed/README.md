@@ -11,6 +11,7 @@ backing store anywhere else: `org.freedesktop.Notifications` and `org.kde.Status
 - `cli.rs` — the flag surface and log-format resolution
 - `errors.rs` — the `Exit` table and the one `anyhow::Error` to exit-code mapping
 - `broker/` — the single task holding topic values and per-client coalescing *(pending)*
+- `reload.rs` — the `Reloader`: watches the configuration stack and re-applies it per service
 - `registry.rs` — service registration, DAG validation, supervision *(pending)*
 - `wayland/` — the `WaylandEdge` implementation: gamma, idle, clipboard *(pending)*
 
@@ -66,6 +67,22 @@ the same `Declare` that carries `METHODS` — declaring a method with no way to 
 expressed. The broker looks the name up in the store, calls the dispatcher and returns; the service
 answers the `Responder` itself, so nothing in the broker task ever awaits a service. `system.methods`
 is published from `Declare` alone, because that is the only message that changes the registry.
+
+Configuration reload is one task of its own rather than an arm of the shutdown loop. `SIGHUP` and
+the filesystem are two triggers for the same work and neither replaces the other: a user editing
+with a tool that defeats inotify still has a way to apply the change, and a session whose watches
+the kernel refused still reloads on request. `shutdown_signal` therefore handles only `SIGTERM` and
+`SIGINT`, which is what its name claims.
+
+A reload re-reads the whole stack and re-applies **only the services whose own table changed**.
+`register::<S>()` is the last place the concrete service type is known, so it builds the `ConfigSink`
+there alongside the `Dispatch`, closing over `S::peek_config` and the previous slice; editing
+`[[panels]]` therefore cannot perturb the night light schedule, because that subtree is unchanged
+and its service never hears about the reload at all. A sink offers rather than queues: awaiting
+would park the one task that reloads every service behind whichever of them is wedged.
+
+A reload that does not parse is dropped and the running configuration survives. The daemon does not
+exit over it, and it does not half-apply it.
 
 `wl_` objects appear only under `wayland/`. Services reach Wayland through `trait WaylandEdge`,
 which is what keeps every service test headless.

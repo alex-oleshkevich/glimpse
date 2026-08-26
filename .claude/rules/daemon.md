@@ -41,5 +41,6 @@ identical value.
 - `wl_` objects appear only under `glimpsed/src/wayland/`. Services reach Wayland through
   `trait WaylandEdge`.
 - A dependency belongs in `glimpse-ipc` only if both ends of the socket need it, plus `tracing`.
-  No zbus, no GTK, no backend type in `topics/`.
+  Topic and command payloads live in `glimpse-contracts`, bound to their names by `trait Message`
+  and `trait Command`. No zbus, no GTK, no backend type in either.
 - Nothing depends on `glimpsed`.

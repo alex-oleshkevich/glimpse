@@ -75,6 +75,7 @@ anyhow.workspace = true
 clap.workspace = true
 colorchoice-clap.workspace = true
 dirs.workspace = true
+futures-util.workspace = true
 glimpse-config.workspace = true
 glimpse-contracts.workspace = true
 glimpse-dbus.workspace = true
@@ -92,3 +93,6 @@ tracing-subscriber.workspace = true
 
 [build-dependencies]
 shadow-rs.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

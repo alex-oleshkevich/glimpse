@@ -42,7 +42,9 @@ glimpse/
 
 | Crate               | Role                                                                     |
 | ------------------- | ------------------------------------------------------------------------ |
-| `glimpse-ipc`       | wire frames, codec, `Topic` trait, payload types, errors, client, server |
+| `glimpse-ipc`       | wire frames, codec, errors, client, server                              |
+| `glimpse-contracts` | `Message` and `Command`, every topic and command payload                |
+| `glimpse-dbus`      | D-Bus proxies and the shared bus connections                            |
 | `glimpse-config`    | layered TOML load, drop-ins, merge, validate, watch                      |
 | `glimpse-services`  | service framework and every service implementation                       |
 | `glimpse-widgets`   | GObject subclasses, Blueprint templates, shared CSS                      |
@@ -95,8 +97,10 @@ StatusNotifierItem, dbusmenu and Notifications.
 - Every crate dependency is inherited: `serde.workspace = true`. Add the version to
   `[workspace.dependencies]` in the root `Cargo.toml`, never to a crate manifest.
 - A dependency belongs in `glimpse-ipc` only if both ends of the socket need it, plus `tracing` for
-  diagnostics. No zbus, no GTK, no backend type in `topics/`. Its `topics/` and `frame.rs` are the
-  input to `schemars` for the Python, TypeScript and Go SDK types.
+  diagnostics. Payloads live in `glimpse-contracts`, bound to their names by `trait Message` and
+  `trait Command`; no zbus, no GTK, no backend type reaches either. `glimpse-contracts` and
+  `glimpse-ipc/src/frame.rs` are the input to `schemars` for the Python, TypeScript and Go SDK
+  types.
 - Errors: `thiserror` in a library, whose caller must branch on the failure; `anyhow` in a binary,
   where every failure ends at one message and one exit code.
 - Nothing depends on `glimpsed`. It is a leaf. Shared code goes in proto, client, config, services
@@ -118,7 +122,7 @@ StatusNotifierItem, dbusmenu and Notifications.
 
 | Kind of file                                            | Goes in                          |
 | ------------------------------------------------------- | -------------------------------- |
-| wire payload type                                       | `glimpse-ipc/src/topics/`        |
+| wire payload type                                       | `glimpse-contracts/src/`         |
 | service implementation                                  | `glimpse-services/src/services/` |
 | anything touching a `wl_` object                        | `glimpsed/src/wayland/`          |
 | anything touching GTK                                   | a UI crate or `glimpse-widgets`  |

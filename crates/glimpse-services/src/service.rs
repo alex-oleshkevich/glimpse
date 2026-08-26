@@ -96,6 +96,18 @@ impl<S: Service> ServiceSender<S> {
             .map_err(|e| ServiceError::SendError(e.to_string()))
     }
 
+    /// Offers a configuration rather than queueing it. Awaiting here would park the one task that
+    /// reloads every service behind whichever of them is wedged, so a full inbox costs this
+    /// service its update and costs the others nothing.
+    pub fn reconfigure(&self, config: S::Config) {
+        if self.inbox_tx.try_send(Input::Config(config)).is_err() {
+            tracing::warn!(
+                service = S::NAME,
+                "inbox full, dropped a configuration update"
+            );
+        }
+    }
+
     /// Offers a command rather than queueing it, because the caller is the broker and the broker
     /// must never await. A full or closed inbox means the command did not take effect, which the
     /// caller has to be told rather than left to assume.

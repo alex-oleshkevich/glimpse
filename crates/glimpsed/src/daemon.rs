@@ -2,6 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use crate::broker::{self, Handle, Message};
 use crate::handler::BrokerHandler;
+use crate::reload::{ConfigSink, Reloader};
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_ipc::Server;
@@ -33,7 +34,7 @@ struct InitService {
     config: Config,
 }
 
-type Factory = Box<dyn FnOnce(&InitService) + Send>;
+type Factory = Box<dyn FnOnce(&InitService) -> ConfigSink + Send>;
 
 /// Which services `--only` and `--without` leave running. An empty allowlist means everything, so
 /// the two flags share one rule rather than each carrying its own idea of the default.
@@ -93,7 +94,9 @@ impl Daemon {
                 ServiceRuntime::<S>::new(broker, init.buses.clone(), init.cancel.child_token());
 
             // The one place the concrete service is still known, so the one place a `call` can be
-            // turned into its command type.
+            // turned into its command type — and the one place a reload can be narrowed to the
+            // table this service owns.
+            let reconfigure = runtime.sender();
             let sender = runtime.sender();
             let dispatch: Dispatch =
                 Box::new(
@@ -117,11 +120,30 @@ impl Daemon {
                     tracing::error!("service stopped: {}", err);
                 }
             });
+
+            // A service whose own table did not move never learns a reload happened, so editing
+            // `[[panels]]` cannot perturb the night light schedule.
+            let mut previous = S::peek_config(&init.config);
+            Box::new(move |document: &Config| {
+                let next = S::peek_config(document);
+                if next == previous {
+                    return;
+                }
+                // `S::Config` is not `Clone` and `next` is moved into the inbox. Peeking a second
+                // time costs less than a `Clone` bound on every service's associated type.
+                previous = S::peek_config(document);
+                reconfigure.reconfigure(next);
+            })
         }));
         self
     }
 
-    pub async fn run(self, socket: &PathBuf, config: Config) -> Result<(), DaemonError> {
+    pub async fn run(
+        self,
+        socket: &PathBuf,
+        config: Config,
+        config_path: Option<PathBuf>,
+    ) -> Result<(), DaemonError> {
         tracing::info!("daemon starting");
         // A misspelt `--only` otherwise starts nothing at all and reads as a daemon that broke.
         for name in self.filter.unmatched(&self.known) {
@@ -146,9 +168,18 @@ impl Daemon {
             tasks: self.tasks.clone(),
             broker: broker.clone(),
         };
-        for factory in self.factories {
-            factory(&init);
-        }
+        let sinks: Vec<ConfigSink> = self
+            .factories
+            .into_iter()
+            .map(|factory| factory(&init))
+            .collect();
+
+        // After the factories, because the sinks are what they produce: the reloader has nothing
+        // to hand a new document to until every service has been built.
+        let hangup = signal(SignalKind::hangup())?;
+        let reloader = Reloader::new(config_path, init.config, sinks);
+        self.tasks
+            .spawn(reloader.run(hangup, running.child_token()));
 
         // The publisher only exists once the socket is bound, and the broker only routes to
         // clients once it has one. Anything published before this is stored and delivered as a
@@ -175,14 +206,10 @@ impl Daemon {
 async fn shutdown_signal() -> Result<(), DaemonError> {
     let mut terminate = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;
-    let mut hangup = signal(SignalKind::hangup())?;
 
-    loop {
-        tokio::select! {
-            _ = terminate.recv() => break,
-            _ = interrupt.recv() => break,
-            _ = hangup.recv() => tracing::info!("reload is not wired yet"),
-        }
+    tokio::select! {
+        _ = terminate.recv() => {},
+        _ = interrupt.recv() => {},
     }
 
     tracing::info!("shutting down");

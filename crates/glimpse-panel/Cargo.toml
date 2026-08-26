@@ -7,6 +7,7 @@ license.workspace = true
 build = "build.rs"
 
 [dependencies]
+futures-util.workspace = true
 adw.workspace = true
 anstream.workspace = true
 anyhow.workspace = true

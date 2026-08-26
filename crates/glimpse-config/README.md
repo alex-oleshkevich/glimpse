@@ -69,8 +69,9 @@ nested under a `.settings` sub-table.
   drop-in whose symlink target is gone are all optional in the same way. A file that exists and is
   wrong somehow (wrong type, too large, a syntax error) still fails the whole load.
 
-Nothing here is async. Three GTK binaries link this crate with no tokio runtime; the daemon calls
-`load` synchronously during startup, before anything else is running.
+Loading is synchronous. Every binary calls `load` once during startup, before anything else is
+running; only the watching below is async, and it puts each re-read on `spawn_blocking` so a caller
+holding a stream never has to know that `load` touches the filesystem the blocking way.
 
 ## Errors
 
@@ -86,8 +87,49 @@ which has no lines to name.
 The caller decides what a failure means. At startup that is to log it and come up on
 `Config::default()`; on reload it is to drop the update and keep what is running. Neither exits.
 
+## Watching
+
+Every binary watches its own files and re-reads them itself. No process learns about a change from
+another one, so hot reload does not depend on the daemon being alive — which `glimpse-lock`
+requires, and which means there is one loading path rather than one for a live daemon and one for a
+dead one.
+
+`watch_dirs(config_path)` is the layer stack's *directories*, existing or not — the counterpart to
+`resolved_files`, which is its files that do. Normally four: `/etc/glimpse/`, its `config.d/`,
+`$XDG_CONFIG_HOME/glimpse/`, and its `config.d/`. `--config` replaces them with that file's own
+directory, drop-ins included.
+
+Watches go on directories, never on files. A per-file watch cannot see a drop-in that does not exist
+yet, and creating one is exactly the change that has to be noticed. A symlinked base file adds one
+more directory, the one holding its resolved target: editors write a new file and rename it over the
+old one, so a watch on the link alone goes quiet after the first save.
+
+`watch(dir)` is the primitive — one directory, non-recursive, for as long as the stream lives. It is
+not configuration-specific, which is what will make stylesheets a caller rather than a subsystem.
+
+- Only create, modify and remove events. Access events fire for every read in the directory, this
+  process's own included, and describe nothing that changed.
+- A 250 ms debounce, because one editor save is a write, a rename over the target, and sometimes a
+  delete and a create.
+- A directory that does not exist is watched through its nearest existing ancestor, and the watch
+  descends when the missing component appears. `config.d/` absent is the ordinary case, not an
+  error. The walk refuses `$HOME` and `/`, which are noisy enough to cost more than the reload they
+  would buy.
+- **The watch re-arms when its directory is replaced.** A watch is bound to an inode rather than to
+  a name, so `rm -rf ~/.config/glimpse` followed by a fresh clone otherwise leaves one armed on a
+  directory nobody can reach: it reports nothing again, ever, and looks exactly like a directory
+  where nothing happens. The inode is compared, not just the path, and `Update::Rearmed` says
+  "read everything again" — whatever happened during the gap produced no events and cannot be
+  inferred.
+- The `Debouncer` is owned by the stream, so dropping the stream drops the watch.
+
+`watch_config(config_path, current)` composes the two: every document that parsed **and differs from
+the one before it**. One that fails to parse is logged and skipped, so the caller keeps what is
+already running. The equality gate is what makes `:w` on an unmodified buffer, and every unrelated
+write in a watched directory, cost one parse and nothing else. A caller that needs the `ConfigError`
+rather than a log line uses `watch` and `load` directly.
+
 ## Not here
 
-Watching, which belongs to the daemon's `watcher` service. Semantic validation — `HH:MM` parsing,
-`provider = "manual"` without coordinates, duplicate idle timeouts, a panel zone naming an applet
-that does not exist — which is not written yet.
+Semantic validation — `HH:MM` parsing, `provider = "manual"` without coordinates, duplicate idle
+timeouts, a panel zone naming an applet that does not exist — which is not written yet.

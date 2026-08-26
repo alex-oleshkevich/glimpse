@@ -40,7 +40,10 @@ fn run(cli: &Cli) -> Result<()> {
     register_resources()?;
     let app_id = std::env::var("GLIMPSE_SHELL_APP_ID").unwrap_or("me.aresa.GlimpseShell".into());
     let app = RelmApp::new(app_id.as_str());
-    app.with_args(vec![])
-        .run::<app::App>(app::AppInit { config, socket });
+    app.with_args(vec![]).run::<app::App>(app::AppInit {
+        config,
+        config_path: cli.config.config.clone(),
+        socket,
+    });
     Ok(())
 }
