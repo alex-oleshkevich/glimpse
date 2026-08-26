@@ -1,10 +1,11 @@
 use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use tokio::{
     net::UnixStream,
-    sync::{mpsc, oneshot, watch},
+    sync::{Notify, OwnedSemaphorePermit, Semaphore, mpsc, oneshot, watch},
     time,
 };
 use tokio_util::codec::Framed;
@@ -18,9 +19,9 @@ use crate::{
     pattern,
 };
 
-const EVENT_QUEUE: usize = 64;
-/// Both the in-flight cap and the request channel's bound: queueing more than can ever be in
-/// flight at once only defers the `LimitExceeded` the caller is going to get anyway.
+/// The one cap on outstanding requests. A permit is taken before a request is queued and released
+/// when its reply settles, so nothing can be waiting on the daemon without holding one — there is
+/// no second queue for a request to sit in and no call that blocks instead of being refused.
 const MAX_INFLIGHT: usize = 32;
 const BACKOFF_MIN: time::Duration = time::Duration::from_millis(250);
 const BACKOFF_MAX: time::Duration = time::Duration::from_secs(10);
@@ -54,6 +55,7 @@ type Wire = Framed<UnixStream, FrameCodec>;
 #[derive(Clone)]
 pub struct Client {
     requests: mpsc::Sender<Request>,
+    inflight: Arc<Semaphore>,
     state: watch::Receiver<ConnectionState>,
 }
 
@@ -86,6 +88,7 @@ impl Client {
 
         Ok(Self {
             requests,
+            inflight: Arc::new(Semaphore::new(MAX_INFLIGHT)),
             state: watcher,
         })
     }
@@ -96,47 +99,80 @@ impl Client {
 
     pub async fn get(&self, topic: &str) -> Result<Option<Event>, CallError> {
         let (reply, answer) = oneshot::channel();
-        let request = Request::Ask {
-            body: Body::Get {
-                topic: topic.to_owned(),
+        self.ask(
+            |permit| Request::Ask {
+                body: Body::Get {
+                    topic: topic.to_owned(),
+                },
+                pending: Pending::Get(reply),
+                permit,
             },
-            pending: Pending::Get(reply),
-        };
-        self.ask(request, answer).await
+            answer,
+        )
+        .await
     }
 
     pub async fn call(&self, command: &str, args: Value) -> Result<Value, CallError> {
         let (reply, answer) = oneshot::channel();
-        let request = Request::Ask {
-            body: Body::Call {
-                command: command.to_owned(),
-                args,
+        self.ask(
+            |permit| Request::Ask {
+                body: Body::Call {
+                    command: command.to_owned(),
+                    args,
+                },
+                pending: Pending::Call(reply),
+                permit,
             },
-            pending: Pending::Call(reply),
-        };
-        self.ask(request, answer).await
+            answer,
+        )
+        .await
     }
 
     pub async fn subscribe(&self, pattern: &str) -> Result<Subscription, CallError> {
-        let (events, stream) = mpsc::channel(EVENT_QUEUE);
+        let mailbox = Mailbox::new();
+        let watched = Arc::downgrade(&mailbox);
         let (reply, answer) = oneshot::channel();
-        let request = Request::Watch {
-            pattern: pattern.to_owned(),
-            events,
-            reply,
-        };
 
-        let matched = self.ask(request, answer).await?;
+        let matched = self
+            .ask(
+                |permit| Request::Watch {
+                    pattern: pattern.to_owned(),
+                    mailbox: watched,
+                    reply,
+                    permit,
+                },
+                answer,
+            )
+            .await?;
+
         tracing::debug!(pattern, matched, "subscribed");
-        Ok(Subscription { events: stream })
+        Ok(Subscription {
+            pattern: pattern.to_owned(),
+            mailbox,
+            requests: self.requests.downgrade(),
+        })
     }
 
+    /// The permit is taken here and travels with the request, so the slot is held for exactly as
+    /// long as the daemon owes an answer.
     async fn ask<T>(
         &self,
-        request: Request,
+        build: impl FnOnce(OwnedSemaphorePermit) -> Request,
         answer: oneshot::Receiver<Result<T, CallError>>,
     ) -> Result<T, CallError> {
-        self.requests.send(request).await.map_err(|_| gone())?;
+        let permit = Arc::clone(&self.inflight)
+            .try_acquire_owned()
+            .map_err(|_| {
+                CallError::new(
+                    ErrorCode::LimitExceeded,
+                    "too many requests are already in flight",
+                )
+            })?;
+
+        self.requests
+            .send(build(permit))
+            .await
+            .map_err(|_| gone())?;
         answer.await.map_err(|_| gone())?
     }
 }
@@ -148,16 +184,115 @@ fn gone() -> CallError {
     )
 }
 
+/// One subscription's pending events, newest-wins per topic.
+///
+/// A bounded channel drops the value it is handed once it is full, which is the *newest* one — a
+/// subscriber that falls behind then renders an old value and never catches up. Coalescing per
+/// topic drops the intermediate values instead, which costs nothing because every event carries the
+/// whole one.
+struct Mailbox {
+    queued: Mutex<Queued>,
+    ready: Notify,
+}
+
+#[derive(Default)]
+struct Queued {
+    order: VecDeque<String>,
+    events: HashMap<String, Event>,
+    closed: bool,
+}
+
+impl Mailbox {
+    fn new() -> Arc<Self> {
+        Arc::new(Self {
+            queued: Mutex::new(Queued::default()),
+            ready: Notify::new(),
+        })
+    }
+
+    fn lock(&self) -> MutexGuard<'_, Queued> {
+        self.queued
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// A value older than the one already queued is dropped rather than replacing it, so a
+    /// subscription snapshot and a value published while the subscribe was in flight are safe in
+    /// either order — the newer one wins whichever arrives second.
+    fn offer(&self, event: Event) {
+        {
+            let mut queued = self.lock();
+            match queued.events.get(&event.topic).map(|pending| pending.seq) {
+                Some(seq) if seq >= event.seq => return,
+                Some(_) => {}
+                None => queued.order.push_back(event.topic.clone()),
+            }
+            queued.events.insert(event.topic.clone(), event);
+        }
+        self.ready.notify_one();
+    }
+
+    fn take(&self) -> Option<Event> {
+        let mut queued = self.lock();
+        loop {
+            // `order` holds one entry per queued topic, so the map always has it. Skipping rather
+            // than indexing keeps that invariant from becoming a panic if it ever stops holding.
+            let topic = queued.order.pop_front()?;
+            if let Some(event) = queued.events.remove(&topic) {
+                return Some(event);
+            }
+        }
+    }
+
+    fn close(&self) {
+        self.lock().closed = true;
+        self.ready.notify_one();
+    }
+
+    fn is_closed(&self) -> bool {
+        self.lock().closed
+    }
+}
+
 /// Survives a reconnect: a daemon that goes away does not end the subscription, and the next value
-/// after one is a fresh snapshot. `None` means the caller dropped the `Client`, or that the daemon
-/// came back speaking a protocol version this build cannot talk to.
+/// after one is a fresh snapshot. `None` means the connection stopped — the caller dropped the
+/// `Client`, or the daemon came back speaking a protocol version this build cannot talk to.
 pub struct Subscription {
-    events: mpsc::Receiver<Event>,
+    pattern: String,
+    mailbox: Arc<Mailbox>,
+    /// Weak, so a subscription cannot hold the connection open after the last `Client` is gone.
+    /// Dropping the client is what ends the connection, and ending it is what makes `next` return
+    /// `None` — a strong sender here would keep the task alive with nobody left to drive it.
+    requests: mpsc::WeakSender<Request>,
 }
 
 impl Subscription {
     pub async fn next(&mut self) -> Option<Event> {
-        self.events.recv().await
+        loop {
+            if let Some(event) = self.mailbox.take() {
+                return Some(event);
+            }
+            if self.mailbox.is_closed() {
+                return None;
+            }
+            // `notify_one` stores a permit, so an offer between the take above and this await
+            // wakes us rather than being lost.
+            self.mailbox.ready.notified().await;
+        }
+    }
+}
+
+impl Drop for Subscription {
+    /// Releasing the pattern is what stops a client that subscribes and drops in a loop — a popover
+    /// opening and closing — from walking into the daemon's per-connection subscription cap holding
+    /// patterns nothing reads. `try_send` because `Drop` cannot await; a full channel only defers
+    /// the release to the next prune, which every incoming event drives.
+    fn drop(&mut self) {
+        let Some(requests) = self.requests.upgrade() else {
+            return;
+        };
+        let pattern = std::mem::take(&mut self.pattern);
+        let _ = requests.try_send(Request::Unwatch { pattern });
     }
 }
 
@@ -217,12 +352,16 @@ enum Request {
     Ask {
         body: Body,
         pending: Pending,
+        permit: OwnedSemaphorePermit,
     },
     Watch {
         pattern: String,
-        events: mpsc::Sender<Event>,
+        mailbox: Weak<Mailbox>,
         reply: oneshot::Sender<Result<usize, CallError>>,
+        permit: OwnedSemaphorePermit,
     },
+    /// A dropped `Subscription`. Nothing waits on it, so it holds no in-flight slot.
+    Unwatch { pattern: String },
 }
 
 impl Request {
@@ -232,6 +371,8 @@ impl Request {
             Self::Watch { reply, .. } => {
                 let _ = reply.send(Err(error));
             }
+            // Nothing to release: a connection that is gone holds no patterns.
+            Self::Unwatch { .. } => {}
         }
     }
 }
@@ -279,6 +420,8 @@ impl Pending {
 struct Waiting {
     pending: Pending,
     deadline: time::Instant,
+    /// Held for exactly as long as the daemon owes an answer; dropping it frees the slot.
+    _permit: OwnedSemaphorePermit,
 }
 
 enum Step {
@@ -297,7 +440,9 @@ struct Connection {
     request_timeout: time::Duration,
     inbox: mpsc::Receiver<Request>,
     state: watch::Sender<ConnectionState>,
-    subscriptions: Vec<(String, mpsc::Sender<Event>)>,
+    /// Weak, so a dropped `Subscription` is what releases its pattern: the connection never keeps
+    /// a subscription alive on behalf of a caller that has stopped reading it.
+    subscriptions: Vec<(String, Weak<Mailbox>)>,
     pending: HashMap<u64, Waiting>,
     next_id: u64,
 }
@@ -341,6 +486,16 @@ impl Connection {
         }
 
         self.fail_pending("the client stopped");
+        for (_, mailbox) in self.subscriptions.drain(..) {
+            if let Some(mailbox) = mailbox.upgrade() {
+                mailbox.close();
+            }
+        }
+    }
+
+    fn prune(&mut self) {
+        self.subscriptions
+            .retain(|(_, mailbox)| mailbox.strong_count() > 0);
     }
 
     async fn session(&mut self, mut wire: Wire) -> Stop {
@@ -384,12 +539,15 @@ impl Connection {
 
     /// Reconnecting is resubscribing is a fresh snapshot, which is why no caller writes recovery.
     async fn resubscribe(&mut self, wire: &mut Wire) -> Result<(), CodecError> {
-        self.subscriptions.retain(|(_, events)| !events.is_closed());
-        let patterns: Vec<String> = self
+        self.prune();
+        let mut patterns: Vec<String> = self
             .subscriptions
             .iter()
             .map(|(pattern, _)| pattern.clone())
             .collect();
+        // Two subscriptions may share a pattern; the daemon registers it once either way.
+        patterns.sort_unstable();
+        patterns.dedup();
 
         for pattern in patterns {
             // No id: nobody is waiting on the ack, and the matched count is already known.
@@ -403,23 +561,34 @@ impl Connection {
     }
 
     async fn dispatch(&mut self, request: Request, wire: &mut Wire) -> Result<(), CodecError> {
-        if self.pending.len() >= MAX_INFLIGHT {
-            request.fail(CallError::new(
-                ErrorCode::LimitExceeded,
-                "too many requests are already in flight",
-            ));
-            return Ok(());
-        }
-
-        let (body, pending) = match request {
-            Request::Ask { body, pending } => (body, pending),
+        let (body, pending, permit) = match request {
+            // Only once no live subscription still wants it: two callers may hold the same pattern,
+            // and releasing it for one of them would stop the other's events.
+            Request::Unwatch { pattern } => {
+                self.prune();
+                if !self.subscriptions.iter().any(|(held, _)| *held == pattern) {
+                    let body = Body::Unsubscribe { pattern };
+                    wire.send(Frame { id: None, body }).await?;
+                }
+                return Ok(());
+            }
+            Request::Ask {
+                body,
+                pending,
+                permit,
+            } => (body, pending, permit),
             Request::Watch {
                 pattern,
-                events,
+                mailbox,
                 reply,
+                permit,
             } => {
-                self.subscriptions.push((pattern.clone(), events));
-                (Body::Subscribe { pattern }, Pending::Subscribe(reply))
+                self.subscriptions.push((pattern.clone(), mailbox));
+                (
+                    Body::Subscribe { pattern },
+                    Pending::Subscribe(reply),
+                    permit,
+                )
             }
         };
 
@@ -430,6 +599,7 @@ impl Connection {
             Waiting {
                 pending,
                 deadline: time::Instant::now() + self.request_timeout,
+                _permit: permit,
             },
         );
         wire.send(Frame { id: Some(id), body }).await
@@ -445,18 +615,17 @@ impl Connection {
         }
     }
 
+    /// Never awaits a subscriber: a mailbox coalesces, so a slow reader costs it intermediate
+    /// values rather than costing every other subscription its delivery.
     fn fan_out(&mut self, event: Event) {
-        self.subscriptions.retain(|(_, events)| !events.is_closed());
+        self.prune();
 
-        for (pattern, events) in &self.subscriptions {
+        for (pattern, mailbox) in &self.subscriptions {
             if !pattern::matches(pattern, &event.topic) {
                 continue;
             }
-            // try_send, never send: a subscriber that reads slowly loses intermediate values, which
-            // is lossless because every event carries the full one. Blocking here would stall the
-            // connection for every other subscription.
-            if let Err(error) = events.try_send(event.clone()) {
-                tracing::warn!(topic = %event.topic, %error, "subscriber is behind");
+            if let Some(mailbox) = mailbox.upgrade() {
+                mailbox.offer(event.clone());
             }
         }
     }

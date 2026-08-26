@@ -1,8 +1,15 @@
+use std::time::Duration;
+
 use glimpse_ipc::{CallError, ClientId, ErrorCode, Event, Handler, Subscribed};
 use serde_json::Value;
-use tokio::sync::oneshot;
+use tokio::{sync::oneshot, time::timeout};
 
 use crate::broker::{Handle, Message};
+
+/// A service that never answers must not hold a request open forever. Generous, because the
+/// backends behind a command carry their own timeouts inside this one — what it catches is a
+/// handler that moved its `Responder` into a task and then wedged, which nothing else notices.
+const ANSWER_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Turns socket requests into broker messages. It holds no state of its own: which client is
 /// subscribed to what is the server's bookkeeping, and what exists is the broker's.
@@ -24,7 +31,7 @@ impl Handler for BrokerHandler {
             pattern: pattern.to_owned(),
             reply,
         });
-        answer.await.map_err(|_| gone())
+        settle(answer).await
     }
 
     async fn unsubscribe(&self, client: ClientId, pattern: &str) {
@@ -37,7 +44,7 @@ impl Handler for BrokerHandler {
             topic: topic.to_owned(),
             reply,
         });
-        answer.await.map_err(|_| gone())?
+        settle(answer).await?
     }
 
     async fn call(&self, command: &str, args: Value) -> Result<Value, CallError> {
@@ -48,11 +55,24 @@ impl Handler for BrokerHandler {
             args,
             reply,
         });
-        answer.await.map_err(|_| gone())?
+        settle(answer).await?
     }
 
     async fn disconnected(&self, client: ClientId) {
         tracing::debug!(?client, "client gone");
+    }
+}
+
+/// A dropped sender means the broker stopped; the elapsed deadline means a service took the message
+/// and never answered. Both are ours to report, and neither is the value the broker sent back.
+async fn settle<T>(answer: oneshot::Receiver<T>) -> Result<T, CallError> {
+    match timeout(ANSWER_TIMEOUT, answer).await {
+        Ok(Ok(value)) => Ok(value),
+        Ok(Err(_)) => Err(gone()),
+        Err(_) => Err(CallError::new(
+            ErrorCode::Timeout,
+            format!("no answer within {ANSWER_TIMEOUT:?}"),
+        )),
     }
 }
 

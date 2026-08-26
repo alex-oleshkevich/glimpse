@@ -79,7 +79,10 @@ pub trait Service: Sized + Send + 'static {
     fn peek_config(config: &Config) -> Self::Config;
 }
 
-const EVENT_BACKLOG_SIZE: usize = 128;
+/// The service's one inbox, carrying events, commands and configuration together. One channel means
+/// one order: a command and the event that follows it are handled in the order they were produced,
+/// which two channels raced against each other could not promise.
+const INBOX_SIZE: usize = 128;
 
 pub struct ServiceSender<S: Service> {
     inbox_tx: mpsc::Sender<Input<S>>,
@@ -123,7 +126,7 @@ impl<S: Service> ServiceRuntime<S> {
         buses: Buses,
         cancel: CancellationToken,
     ) -> Self {
-        let (inbox_tx, inbox_rx) = mpsc::channel::<Input<S>>(EVENT_BACKLOG_SIZE);
+        let (inbox_tx, inbox_rx) = mpsc::channel::<Input<S>>(INBOX_SIZE);
         Self {
             cancel,
             buses,
@@ -140,9 +143,8 @@ impl<S: Service> ServiceRuntime<S> {
     }
 
     pub async fn run(&mut self, config: S::Config) -> Result<(), ServiceError> {
-        let (events_tx, mut events_rx) = mpsc::channel::<S::Event>(EVENT_BACKLOG_SIZE);
         let ctx = Ctx::<S>::new(
-            events_tx,
+            self.inbox_sender.clone(),
             &self.cancel,
             self.broker.clone(),
             self.buses.clone(),
@@ -152,6 +154,8 @@ impl<S: Service> ServiceRuntime<S> {
         let mut service = match S::start(&ctx, config).await {
             Ok(service) => service,
             Err(error) => {
+                // `start` may already have opened sources before it failed.
+                ctx.shutdown().await;
                 self.report_stopped(Some(error.to_string()));
                 return Err(error);
             }
@@ -165,9 +169,10 @@ impl<S: Service> ServiceRuntime<S> {
         loop {
             let input = tokio::select! {
                 () = self.cancel.cancelled() => break,
-                Some(event) = events_rx.recv() => Input::Event(event),
-                Some(input) = self.inbox.recv() => input,
-                else => break,
+                input = self.inbox.recv() => match input {
+                    Some(input) => input,
+                    None => break,
+                },
             };
 
             // A panicking handler takes down its own service and nothing else. Unwinding past a
@@ -184,11 +189,15 @@ impl<S: Service> ServiceRuntime<S> {
                     reason,
                     "handler panicked, stopping the service"
                 );
+                ctx.shutdown().await;
                 self.report_stopped(Some(reason));
                 return Ok(());
             }
         }
 
+        // Sources stop before `stop` runs, so nothing can still be delivering into a service that
+        // is already tearing down.
+        ctx.shutdown().await;
         service.stop(&ctx).await;
         self.report_stopped(None);
         Ok(())
@@ -200,7 +209,7 @@ impl<S: Service> ServiceRuntime<S> {
     }
 }
 
-fn panic_reason(panic: &(dyn Any + Send)) -> String {
+pub(crate) fn panic_reason(panic: &(dyn Any + Send)) -> String {
     if let Some(text) = panic.downcast_ref::<&str>() {
         return (*text).to_owned();
     }

@@ -17,10 +17,9 @@ there is only one of each.
 - `server.rs` — listener, `trait Handler`, one task per client, handshake
 - `topics/` — one module per domain, payload types only _(pending)_
 
-Publishing is the next piece: `Server` has no `publisher()` yet, so `subscribe` succeeds and no
-event ever arrives. Per-client writer tasks, newest-value coalescing and the buffered-byte cap land
-with it, and the reconnect and resubscribe unit tests land with the fake server it makes possible.
-Typed access — `Topic`, `Command`, `Cached<T>` — waits on where payload types live.
+Typed access — `Topic`, `Command`, `Cached<T>` — waits on where payload types live. The reconnect
+and resubscribe unit tests wait on a fake server; nothing in `client.rs` or `server.rs` is covered
+yet, which is the largest hole in this crate.
 
 ## Rules
 
@@ -43,6 +42,25 @@ receives _which_ value is the broker's job and stays in the daemon.
 future in `tokio::time::timeout` gives up without releasing the in-flight slot its request still
 holds, so 32 abandoned calls lock the client out. `Client::connect` takes the timeout and the
 connection task expires entries against it.
+
+**One cap on in-flight requests, held as a semaphore permit.** The permit is taken in `Client::ask`
+and travels with the request until its reply settles, so a request cannot be outstanding without
+holding one. A second bound — a queue in front of the cap — would not be a cap at all: it turns the
+`LimitExceeded` a caller can act on into a wait it cannot see.
+
+**A slow reader loses intermediate values and never a current one.** Both ends coalesce newest-wins
+per topic: `Outbox` on the server, `Mailbox` on the client. A bounded channel does the opposite —
+full means the value being handed over is dropped, which is the newest — and a subscriber that falls
+behind then renders a stale value forever rather than skipping to the current one.
+
+**A `get` or a `call` is answered in its own task.** Awaiting a handler in the read loop would stop
+the server taking the client's next frame off the socket, so one command waiting on a wedged backend
+would hold up every unrelated request on that connection. `Frame.id` correlates and the outbox
+orders responses independently, so completing out of order is already legal.
+
+**Dropping a `Subscription` releases its pattern.** The daemon caps patterns per connection, so a
+caller that subscribes and drops in a loop would otherwise walk into that cap holding subscriptions
+nothing reads. The release is automatic, which is the only way it does not get forgotten.
 
 A round trip — client encodes, server decodes, server responds, client decodes — is a unit test in
 this crate. That is the reason the two ends are not separate crates: split, the only place they met

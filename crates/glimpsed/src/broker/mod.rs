@@ -107,9 +107,8 @@ impl Broker {
             } => {
                 self.store.declare(service, topics, methods);
                 self.dispatchers.insert(service, dispatch);
-                self.announce();
-                // The method registry changes only here, so it is announced only here — a health
-                // transition leaves it identical and must not churn a republish.
+                self.announce_services();
+                self.announce_topics();
                 self.announce_methods();
             }
             Message::SetPublisher(publisher) => self.publisher = Some(publisher),
@@ -161,7 +160,7 @@ impl Broker {
 
     fn health(&mut self, service: &'static str, state: ServiceState) {
         let restamp = self.store.set_state(service, state);
-        self.announce();
+        self.announce_services();
 
         // Only a transition that crossed the stale boundary reaches here, so this is not churn: an
         // already-connected subscriber has no other way to learn that its data froze.
@@ -172,10 +171,9 @@ impl Broker {
         }
     }
 
-    fn announce(&mut self) {
+    fn announce_services(&mut self) {
         let services = self.store.services();
         self.publish_own(SystemServices::NAME, services);
-        self.announce_topics();
     }
 
     fn announce_topics(&mut self) {

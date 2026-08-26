@@ -84,6 +84,9 @@ impl Store {
         }
 
         let previous = self.cells.get(topic);
+        if previous.is_some_and(|cell| cell.data == data) {
+            return None;
+        }
         let first = previous.is_none();
         let seq = previous.map_or(1, |cell| cell.seq + 1);
         let ts = now_ms();

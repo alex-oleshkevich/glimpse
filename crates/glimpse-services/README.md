@@ -23,9 +23,9 @@ change signals. The backend is right when they disagree, and no decision the bac
 gets reimplemented here.
 
 A handler that can block moves its `Responder` into `ctx.spawn`. Handlers run serially, so one slow
-D-Bus call otherwise freezes the whole service. Such a task answers the responder and still returns
-an event, because that is `spawn`'s contract — usually the one saying the command finished, which
-the handler wants anyway.
+D-Bus call otherwise freezes the whole service. Such a task usually returns the event saying the
+command finished, which the handler wants anyway; one with nothing to report uses
+`ctx.spawn_detached` rather than inventing an event for the handler to ignore.
 
 A `Responder` that is dropped unanswered — queued when the service stopped, lost to a panicking
 handler, or simply forgotten — answers `Unavailable` from its `Drop` impl and logs, rather than
@@ -44,11 +44,19 @@ Dropping the guard is the whole cancellation story — it aborts the task or dro
 so there is no token to remember and no shutdown path to write.
 
 | Source | Produces | For |
-| ------------------- | ---------------- | -------------------------------------------------- |
-| `ctx.spawn`         | one event        | one unit of async work whose result is an event    |
-| `ctx.interval`      | an event a tick  | polling, clocks; `at_interval` picks the first tick |
-| `ctx.stream`        | many events      | a backend signal stream, a watch, a subscription   |
-| `ctx.subscribe::<T>` | many events     | another service's topic                            |
+| -------------------- | ---------------- | --------------------------------------------------- |
+| `ctx.spawn`          | one event        | one unit of async work whose result is an event     |
+| `ctx.spawn_detached` | nothing          | work with no result to report — see below           |
+| `ctx.interval`       | an event a tick  | polling, clocks; `at_interval` picks the first tick |
+| `ctx.stream`         | many events      | a backend signal stream, a watch, a subscription    |
+| `ctx.subscribe::<T>` | many events      | another service's topic                             |
+
+`SourceGuard` is `#[must_use]`, because `ctx.spawn(...)` written as a statement drops the guard at
+the semicolon and aborts the task before it runs — a call that looks right and does nothing.
+
+A panic inside a source is caught, logged and turned into `degraded` on the owning service. A source
+is where the backend's own data gets parsed, which makes it both the likeliest place to panic and
+the least visible: uncaught, the task stops and the service goes on believing it still has a source.
 
 `spawn`, `interval` and `stream` each take an async closure receiving a `Ctx` of its own, so a task
 reaches the buses, the publishers and `degraded` without any of them being threaded through its
@@ -57,6 +65,12 @@ service is visible to the runtime. `stream`'s closure is async because building 
 a D-Bus signal stream has to be requested before it can be read. `ctx.events()` hands out the raw
 sender and is for the one case the sources do not cover — a synchronous callback from a foreign
 thread, as `notify`'s debouncer delivers.
+
+Events, commands and configuration all arrive on **one** inbox. One channel means one order: a
+command and the event that follows it reach the handler in the order they were produced, which two
+channels raced against each other in a `select!` could not promise. The cost is a shared budget —
+a service flooding its own inbox with events makes `dispatch` refuse commands with `Unavailable`,
+which is the honest answer but a coarse one.
 
 A service publishes through a `Publisher` it takes from `ctx.publisher::<T>()` in `start` and keeps
 for its lifetime. The publisher holds the last value it sent and drops a `set` that matches it, so

@@ -15,7 +15,7 @@ use tokio::{
         UnixListener, UnixStream,
         unix::{OwnedReadHalf, OwnedWriteHalf},
     },
-    sync::Notify,
+    sync::{Notify, Semaphore},
     task::JoinSet,
 };
 use tokio_util::{
@@ -33,6 +33,11 @@ use crate::{
 
 type Reader = FramedRead<OwnedReadHalf, FrameCodec>;
 type Registry = Arc<RwLock<HashMap<ClientId, Arc<Client>>>>;
+
+/// How many `get`s and `call`s one client may have outstanding. Each runs in a task of its own, so
+/// the cap is what stops a client from spawning without bound; the client caps itself at the same
+/// number, which makes reaching this one a sign of a client that is not.
+const MAX_INFLIGHT: usize = 32;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClientId(u64);
@@ -281,7 +286,7 @@ async fn serve_client<H: Handler>(
         cancel.clone(),
     ));
 
-    read_client(id, &mut reader, &*handler, &client, &cancel).await;
+    read_client(id, &mut reader, &handler, &client, &cancel).await;
 
     client.lock().close();
     client.notify.notify_one();
@@ -298,10 +303,12 @@ async fn serve_client<H: Handler>(
 async fn read_client<H: Handler>(
     id: ClientId,
     reader: &mut Reader,
-    handler: &H,
-    client: &Client,
+    handler: &Arc<H>,
+    client: &Arc<Client>,
     cancel: &CancellationToken,
 ) {
+    let inflight = Arc::new(Semaphore::new(MAX_INFLIGHT));
+
     loop {
         let frame = tokio::select! {
             () = cancel.cancelled() => return,
@@ -318,17 +325,86 @@ async fn read_client<H: Handler>(
         };
 
         let correlation = frame.id;
-        let Some(body) = answer(handler, id, frame.body, client, correlation).await else {
+        let ask = match frame.body {
+            Body::Get { topic } => Ask::Get(topic),
+            Body::Call { command, args } => Ask::Call(command, args),
+            Body::Subscribe { pattern } => {
+                subscribe(&**handler, id, pattern, client, correlation).await;
+                continue;
+            }
+            Body::Unsubscribe { pattern } => {
+                client.lock().remove_pattern(&pattern);
+                handler.unsubscribe(id, &pattern).await;
+                continue;
+            }
+            other => {
+                tracing::warn!(
+                    ?id,
+                    ?other,
+                    "a client sent a frame only the daemon may send"
+                );
+                continue;
+            }
+        };
+
+        // Answered in a task of its own. Awaiting the handler here would stop this loop from
+        // taking the client's next frame off the socket, so one command waiting on a wedged
+        // backend would hold up every unrelated request on the same connection.
+        let Ok(permit) = Arc::clone(&inflight).try_acquire_owned() else {
+            let error = CallError::new(
+                ErrorCode::LimitExceeded,
+                "this connection already has the maximum number of requests in flight",
+            );
+            reply(client, correlation, ask.refused(error));
             continue;
         };
 
-        match encode(&Frame {
-            id: correlation,
-            body,
-        }) {
-            Ok(frame) => client.push_response(frame),
-            Err(error) => tracing::error!(?id, %error, "reply failed to serialize"),
+        let handler = Arc::clone(handler);
+        let client = Arc::clone(client);
+        let cancel = cancel.clone();
+        tokio::spawn(async move {
+            let _permit = permit;
+            let body = tokio::select! {
+                () = cancel.cancelled() => return,
+                body = ask.answer(&*handler) => body,
+            };
+            reply(&client, correlation, body);
+        });
+    }
+}
+
+/// The two requests that reach a handler, kept as a value so the spawn below is written once and
+/// the reply shape cannot drift from the request it answers.
+enum Ask {
+    Get(String),
+    Call(String, Value),
+}
+
+impl Ask {
+    async fn answer<H: Handler>(self, handler: &H) -> Body {
+        match self {
+            Self::Get(topic) => Body::GetResult(handler.get(&topic).await.into()),
+            Self::Call(command, args) => {
+                Body::CallResult(handler.call(&command, args).await.into())
+            }
         }
+    }
+
+    fn refused(&self, error: CallError) -> Body {
+        match self {
+            Self::Get(_) => Body::GetResult(Status::Error { error }),
+            Self::Call(..) => Body::CallResult(Status::Error { error }),
+        }
+    }
+}
+
+fn reply(client: &Client, correlation: Option<u64>, body: Body) {
+    match encode(&Frame {
+        id: correlation,
+        body,
+    }) {
+        Ok(frame) => client.push_response(frame),
+        Err(error) => tracing::error!(%error, "reply failed to serialize"),
     }
 }
 
@@ -357,36 +433,6 @@ async fn write_client(mut io: OwnedWriteHalf, client: Arc<Client>, cancel: Cance
     }
 
     let _ = io.shutdown().await;
-}
-
-async fn answer<H: Handler>(
-    handler: &H,
-    id: ClientId,
-    body: Body,
-    client: &Client,
-    correlation: Option<u64>,
-) -> Option<Body> {
-    Some(match body {
-        Body::Get { topic } => Body::GetResult(handler.get(&topic).await.into()),
-        Body::Call { command, args } => Body::CallResult(handler.call(&command, args).await.into()),
-        Body::Subscribe { pattern } => {
-            subscribe(handler, id, pattern, client, correlation).await;
-            return None;
-        }
-        Body::Unsubscribe { pattern } => {
-            client.lock().remove_pattern(&pattern);
-            handler.unsubscribe(id, &pattern).await;
-            return None;
-        }
-        other => {
-            tracing::warn!(
-                ?id,
-                ?other,
-                "a client sent a frame only the daemon may send"
-            );
-            return None;
-        }
-    })
 }
 
 /// The pattern is registered before the snapshot is asked for, so a value published while the
@@ -446,13 +492,7 @@ async fn subscribe<H: Handler>(
 /// The correlation id is echoed, so a `subscribe` sent without one — the client's resubscribe after
 /// a reconnect — stays fire-and-forget while a caller waiting on an ack is answered.
 fn reply_subscribe(client: &Client, correlation: Option<u64>, status: Status<usize>) {
-    match encode(&Frame {
-        id: correlation,
-        body: Body::SubscribeAck(status),
-    }) {
-        Ok(frame) => client.push_response(frame),
-        Err(error) => tracing::error!(%error, "subscribe_ack failed to serialize"),
-    }
+    reply(client, correlation, Body::SubscribeAck(status));
 }
 
 /// The ack carries our version even when it does not match, so the client can name both numbers.
