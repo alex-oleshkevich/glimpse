@@ -3,6 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use crate::broker::{self, Handle, Message};
 use crate::handler::BrokerHandler;
 use glimpse_config::Config;
+use glimpse_dbus::Buses;
 use glimpse_ipc::Server;
 use glimpse_services::{BrokerHandle, Service, ServiceRuntime};
 use tokio::signal::unix::{SignalKind, signal};
@@ -26,6 +27,7 @@ struct InitService {
     tasks: TaskTracker,
     cancel: CancellationToken,
     broker: Handle,
+    buses: Buses,
     config: Config,
 }
 
@@ -55,7 +57,8 @@ impl Daemon {
 
             let config = S::peek_config(&init.config);
             let broker: Arc<dyn BrokerHandle> = Arc::new(init.broker.clone());
-            let mut runtime = ServiceRuntime::<S>::new(broker, init.cancel.child_token());
+            let mut runtime =
+                ServiceRuntime::<S>::new(broker, init.buses.clone(), init.cancel.child_token());
             init.tasks.spawn(async move {
                 if let Err(err) = runtime.run(config).await {
                     tracing::error!("service stopped: {}", err);
@@ -72,8 +75,11 @@ impl Daemon {
         let brokering = CancellationToken::new();
 
         let broker = broker::spawn(brokering.clone());
+        // Before the factories run: a service may build a proxy the moment `start` is called.
+        let buses = Buses::connect().await;
         let init = InitService {
             config,
+            buses,
             cancel: running.clone(),
             tasks: self.tasks.clone(),
             broker: broker.clone(),

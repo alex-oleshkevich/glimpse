@@ -2,6 +2,7 @@ use std::{any::Any, panic::AssertUnwindSafe, sync::Arc};
 
 use futures_util::FutureExt;
 use glimpse_config::Config;
+use glimpse_dbus::Buses;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
@@ -65,14 +66,20 @@ pub struct ServiceRuntime<S: Service> {
     inbox_sender: mpsc::Sender<Input<S>>,
     inbox: mpsc::Receiver<Input<S>>,
     broker: Arc<dyn BrokerHandle>,
+    buses: Buses,
     cancel: CancellationToken,
 }
 
 impl<S: Service> ServiceRuntime<S> {
-    pub fn new(broker_handle: Arc<dyn BrokerHandle>, cancel: CancellationToken) -> Self {
+    pub fn new(
+        broker_handle: Arc<dyn BrokerHandle>,
+        buses: Buses,
+        cancel: CancellationToken,
+    ) -> Self {
         let (inbox_tx, inbox_rx) = mpsc::channel::<Input<S>>(EVENT_BACKLOG_SIZE);
         Self {
             cancel,
+            buses,
             inbox: inbox_rx,
             broker: broker_handle,
             inbox_sender: inbox_tx,
@@ -87,7 +94,12 @@ impl<S: Service> ServiceRuntime<S> {
 
     pub async fn run(&mut self, config: S::Config) -> Result<(), ServiceError> {
         let (events_tx, mut events_rx) = mpsc::channel::<S::Event>(EVENT_BACKLOG_SIZE);
-        let ctx = Ctx::<S>::new(events_tx, &self.cancel, self.broker.clone());
+        let ctx = Ctx::<S>::new(
+            events_tx,
+            &self.cancel,
+            self.broker.clone(),
+            self.buses.clone(),
+        );
 
         self.broker.report_health(S::NAME, ServiceState::Starting);
         let mut service = match S::start(&ctx, config).await {
@@ -97,7 +109,11 @@ impl<S: Service> ServiceRuntime<S> {
                 return Err(error);
             }
         };
-        self.broker.report_health(S::NAME, ServiceState::Running);
+        // A service that judged itself degraded while starting keeps that state: reporting
+        // `Running` over the top would erase the reason before anyone could read it.
+        if !ctx.is_degraded() {
+            self.broker.report_health(S::NAME, ServiceState::Running);
+        }
 
         loop {
             let input = tokio::select! {
@@ -180,7 +196,11 @@ mod tests {
     async fn a_panicking_handler_stops_its_own_service() {
         let mock = Arc::new(MockBroker::default());
         let broker: Arc<dyn BrokerHandle> = mock.clone();
-        let mut runtime = ServiceRuntime::<Panicky>::new(broker, CancellationToken::new());
+        let mut runtime = ServiceRuntime::<Panicky>::new(
+            broker,
+            Buses::unavailable("no bus in tests"),
+            CancellationToken::new(),
+        );
 
         runtime
             .sender()
@@ -199,6 +219,58 @@ mod tests {
             matches!(states.last(), Some(ServiceState::Stopped { reason: Some(reason) })
                 if reason.contains("unrepeatable")),
             "expected a Stopped carrying the panic message, got {states:?}"
+        );
+    }
+
+    struct NeedsTheBus;
+
+    impl Service for NeedsTheBus {
+        const NAME: &'static str = "needs-the-bus";
+        const TOPICS: &'static [&'static str] = &[];
+
+        type Config = ();
+        type Command = ();
+        type Event = ();
+
+        async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
+            if let Err(reason) = ctx.system_bus() {
+                ctx.degraded(format!("no system bus: {reason}"));
+            }
+            Ok(Self)
+        }
+
+        async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {}
+
+        fn peek_config(_config: &Config) -> Self::Config {}
+    }
+
+    /// A missing bus costs the service its backend, not its life: it still starts, still reaches
+    /// `Running`, and puts the reason somewhere `glimpsectl services` can read it.
+    #[tokio::test]
+    async fn a_service_without_a_bus_degrades_and_keeps_running() {
+        let mock = Arc::new(MockBroker::default());
+        let broker: Arc<dyn BrokerHandle> = mock.clone();
+        let cancel = CancellationToken::new();
+        let mut runtime = ServiceRuntime::<NeedsTheBus>::new(
+            broker,
+            Buses::unavailable("connect failed"),
+            cancel.clone(),
+        );
+
+        cancel.cancel();
+        runtime.run(()).await.expect("starts without a bus");
+
+        let states: Vec<ServiceState> = mock.health().into_iter().map(|(_, s)| s).collect();
+        assert!(
+            states.iter().any(|state| matches!(
+                state,
+                ServiceState::Degraded { reason } if reason.contains("connect failed")
+            )),
+            "expected a Degraded naming the connect failure, got {states:?}"
+        );
+        assert!(
+            !states.contains(&ServiceState::Running),
+            "a service that degraded during start must not then be reported Running, got {states:?}"
         );
     }
 }

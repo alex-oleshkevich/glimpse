@@ -884,6 +884,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "zbus",
 ]
 
 [[package]]
@@ -973,6 +974,7 @@ dependencies = [
  "dirs",
  "glimpse-config",
  "glimpse-contracts",
+ "glimpse-dbus",
  "glimpse-ipc",
  "glimpse-services",
  "glimpse-utils",

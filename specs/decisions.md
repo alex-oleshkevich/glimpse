@@ -256,3 +256,15 @@ whatever builds applets from `Config`, which is `004`'s job, not `010`'s. `exten
 still checked against `Kind`; nothing yet validates the contents of `settings` itself — that arrives
 once an applet owns a typed settings struct, the same second pass `_old/` also had. Specs 004, 010.
 
+### 2026-08-26 · an unreachable bus degrades services, it does not stop the daemon
+
+`Buses` carries `Result<Connection, String>` per bus rather than two live connections, so `glimpsed`
+starts with no D-Bus at all. A service that needs a bus reports its own `degraded` with the connect
+error as the reason, which is what puts it on `system.services` where `glimpsectl doctor` can read
+it. Rejected: failing `Daemon::run`, which trades the tray, notifications and wallpaper for a
+missing system bus that only costs network, bluetooth and battery. The `WAYLAND_DISPLAY` row in
+`003`'s environment table already sets this posture one line above; the D-Bus row now matches it.
+
+The error is kept as a `String` rather than a `BusError` because `Buses` is cloned into every
+service and the only consumer of the value is a `degraded` message. Specs 001, 003.
+

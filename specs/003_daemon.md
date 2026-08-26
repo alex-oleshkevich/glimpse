@@ -179,7 +179,7 @@ because the journal stamps its own lines, and to `plain` with both otherwise.
 | `GLIMPSE_CONFIG_PATH`                        | default for `--config`                                             |
 | `GLIMPSE_SOCKET_PATH`                        | default for `--socket`                                             |
 | `WAYLAND_DISPLAY`                            | required for the `WaylandEdge` capabilities; absent means degraded |
-| `DBUS_SESSION_BUS_ADDRESS`                   | session bus                                                        |
+| `DBUS_SESSION_BUS_ADDRESS`                   | session bus; unreachable degrades services, not a failed start     |
 | `NIRI_SOCKET`, `HYPRLAND_INSTANCE_SIGNATURE` | compositor IPC discovery                                           |
 | `RUST_LOG`                                   | fallback when `--log` is absent                                    |
 | `NOTIFY_SOCKET`                              | set by systemd; enables readiness and watchdog notification        |
@@ -252,3 +252,4 @@ on reload — see `010_configuration.md`.
 - 2026-08-20 — recorded from `_old`: eager service spawning, constructor-wired dependencies and whole-config broadcast as the problems the design answers, plus the socket rules it got right (no `/tmp` fallback, 0600) and wrong (unlinking before bind, and disabling IPC instead of failing).
 - 2026-08-20 — the socket section points at `012_ipc.md` for frames, codec, handshake and limits, keeping only what is the daemon's rather than the wire's. The transport moved to `glimpse-ipc`, so `socket.rs` leaves this crate.
 - 2026-08-21 — `--check-config` and `--print-config` removed; configuration inspection is `glimpsectl`'s alone, and exit 1 no longer has a cause.
+- 2026-08-26 — an unreachable D-Bus bus degrades the services that need it rather than stopping the daemon; see the decision log.

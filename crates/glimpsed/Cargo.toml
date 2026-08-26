@@ -75,11 +75,12 @@ anyhow.workspace = true
 clap.workspace = true
 colorchoice-clap.workspace = true
 dirs.workspace = true
-glimpse-config = { path = "../glimpse-config" }
-glimpse-contracts = { path = "../glimpse-contracts" }
-glimpse-ipc = { path = "../glimpse-ipc" }
-glimpse-services = { path = "../glimpse-services" }
-glimpse-utils = { path = "../glimpse-utils" }
+glimpse-config.workspace = true
+glimpse-contracts.workspace = true
+glimpse-dbus.workspace = true
+glimpse-ipc.workspace = true
+glimpse-services.workspace = true
+glimpse-utils.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 shadow-rs.workspace = true

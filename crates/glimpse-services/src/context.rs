@@ -1,6 +1,10 @@
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use glimpse_contracts::Message;
+use glimpse_dbus::Buses;
 use serde::Deserialize;
 use serde_json::Value;
 use tokio::{sync::mpsc, task::AbortHandle, time};
@@ -15,6 +19,8 @@ pub struct Ctx<S: Service> {
     tasks: TaskTracker,
     cancel: CancellationToken,
     broker: Arc<dyn BrokerHandle>,
+    buses: Buses,
+    degraded: AtomicBool,
 }
 
 impl<S: Service> Ctx<S> {
@@ -22,13 +28,27 @@ impl<S: Service> Ctx<S> {
         events: mpsc::Sender<S::Event>,
         cancel: &CancellationToken,
         broker: Arc<dyn BrokerHandle>,
+        buses: Buses,
     ) -> Self {
         Self {
             events,
             broker,
+            buses,
+            degraded: AtomicBool::new(false),
             tasks: TaskTracker::new(),
             cancel: cancel.clone(),
         }
+    }
+
+    /// The connection, or why there is none. A service that needs a bus and gets `Err` reports
+    /// `degraded` with the reason and keeps running — a missing bus is never a reason to stop.
+    pub fn session_bus(&self) -> Result<&zbus::Connection, &str> {
+        self.buses.session_bus()
+    }
+
+    /// See [`Ctx::session_bus`].
+    pub fn system_bus(&self) -> Result<&zbus::Connection, &str> {
+        self.buses.system_bus()
     }
 
     pub fn publisher<T: Message>(&self) -> Publisher<T::Payload> {
@@ -110,6 +130,7 @@ impl<S: Service> Ctx<S> {
     /// A service's own judgement that it is running but cannot fully do its job — a missing Wayland
     /// protocol, a backend that will not answer. Its topics stay current and are never `stale`.
     pub fn degraded(&self, reason: impl Into<String>) {
+        self.degraded.store(true, Ordering::Relaxed);
         self.broker.report_health(
             S::NAME,
             ServiceState::Degraded {
@@ -120,7 +141,12 @@ impl<S: Service> Ctx<S> {
 
     /// Withdraw a previous `degraded`, once whatever was missing turns up.
     pub fn running(&self) {
+        self.degraded.store(false, Ordering::Relaxed);
         self.broker.report_health(S::NAME, ServiceState::Running);
+    }
+
+    pub(crate) fn is_degraded(&self) -> bool {
+        self.degraded.load(Ordering::Relaxed)
     }
 }
 

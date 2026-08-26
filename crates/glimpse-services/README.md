@@ -8,10 +8,9 @@ connection.
 
 ## Contents
 
-- `service.rs`, `context.rs`, `publisher.rs`, `lifecycle.rs` — the framework
-- `broker_handle.rs`, `wayland_edge.rs` — traits the daemon implements, each with a mock
-- `dbus/` — shared zbus helpers for property and signal streams
-- `services/` — one module per service; `tray/` is a directory because it is the largest
+- `service.rs`, `context.rs`, `publisher.rs` — the framework
+- `broker.rs` — `BrokerHandle`, the trait the daemon implements, with `MockBroker` beside it
+- `services/` — one module per service; `tray/` will be a directory because it is the largest
 
 ## Rules
 
@@ -32,7 +31,14 @@ the whole topic design rests on, and a publisher rebuilt per call would defeat i
 no last value every time. `seq`, `ts` and `stale` are the broker's to assign; a publisher hands over
 a topic name and a value and knows nothing about any of the three.
 
+A service reaches D-Bus through `ctx.session_bus()` and `ctx.system_bus()`, never by opening a
+connection of its own. Both return `Result<&zbus::Connection, &str>`: the daemon connects once
+before any service starts, and the `Err` is why there is no connection. A service that needs a bus
+and gets `Err` calls `ctx.degraded(...)` with that reason and carries on — a missing bus costs it
+its backend, not its life, and `system.services` is where anyone finds out which.
+
 `just test-crate glimpse-services` runs every service against the mocks, with no display, no
-session bus and no broker.
+session bus and no broker. `Buses::unavailable("...")` is the no-bus case a test injects, the way
+`MockBroker` is the no-broker one.
 
 Spec: [`specs/001_architecture.md`](../../specs/001_architecture.md)
