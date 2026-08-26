@@ -6,30 +6,6 @@ every OS integration; the UI binaries are stateless clients that render it over 
 socket. When a rule below does not cover a situation, the deciding question is usually "who
 owns this state?" — and the answer is almost always the daemon.
 
-The repository is at the start of an implementation: crates exist as empty stubs, `specs/` describes
-the target system.
-
-## Specs come first
-
-`specs/` is the source of truth, not the code. Read `specs/index.md`, then the specs that matter for
-the task, before writing anything.
-
-Any change to behaviour edits the affected spec first, appends a Changelog line, and sets its state
-back to `draft`. Never leave a spec describing behaviour that does not exist. The `sdd` skill owns
-this flow.
-
-**Record why, not just what.** A decision that changes direction, reverses an earlier one, or that
-somebody would plausibly re-propose in six months gets an entry in `specs/decisions.md`. A spec's
-Changelog says what changed in that document; the decision log says why the project moved, which is
-the part that is lost when a decision spans several specs. It is append-only — a reversal is a new
-entry naming the old one, never an edit to it.
-
-**No spec changes without approval.** Propose the edit — the exact wording, not a summary of it —
-and wait for a yes. This holds for a one-word correction as much as for a new section, and it holds
-when the spec is plainly wrong: a spec records decisions somebody made, so changing it silently
-rewrites what they decided. Where the code and a spec disagree mid-task, stop and say so rather than
-quietly editing either one to match the other.
-
 ## Prior art
 
 This is the second generation of an application that already exists. Two bodies of earlier work are
@@ -42,12 +18,11 @@ in the tree, and both are **reference only — never a source of truth.**
 
 Read either when you want to know how a problem was solved before, what a backend actually does, or
 which edge cases turned out to matter in practice. That knowledge is the reason they are kept: it
-was paid for once already, and the specs are better for absorbing it.
+was paid for once already.
 
-Neither one decides anything. `_old/` is one answer among several and frequently the wrong one —
-where it and `specs/` disagree, `specs/` wins, and if `_old/` is right the fix is to edit the spec
-and say so. `var/glimpse2` was written without the constraints in this file and does not know what
-has been decided since; treat it as a proposal from someone who has left the project.
+Neither one decides anything. `_old/` is one answer among several and frequently the wrong one.
+`var/glimpse2` was written without the constraints in this file and does not know what has been
+decided since; treat it as a proposal from someone who has left the project.
 
 **Never edit either, never build them, and never copy code out of them.** This is not a port. The
 job is a smaller, simpler, cleaner application than the one in `_old/` — if a design lands at the
@@ -58,7 +33,6 @@ same size and shape as its predecessor, that is a signal to look again, not a si
 ```
 glimpse/
 ├── crates/       all Rust code, flat, one directory per crate
-├── specs/        numbered specs + index.md — the source of truth
 ├── data/         installed assets: systemd units, D-Bus service files, pam.d, default config
 ├── scripts/      development helpers, not installed — contents predate the rewrite
 ├── wallpapers/   bundled wallpapers
@@ -106,13 +80,11 @@ StatusNotifierItem, dbusmenu and Notifications.
   visible locally, a simpler approach that was tried and does not work, an `#[allow(...)]` that
   needs justifying. A comment restating the signature is worse than none — delete it. Anything
   longer than two or three lines is rationale, and rationale belongs in the crate's `README.md`.
-- **Never reference a spec from code.** No `specs/NNN` paths, no spec numbers, no "per the spec".
-  Code states what it does; the specs are found from the READMEs.
 - **US English.** `color`, not `colour`, in identifiers, comments and user-facing strings.
 - Every binary fails the same way: `run(cli) -> anyhow::Result<()>` does the work and `main` turns
   the outcome into an `ExitCode`, because `?` cannot be used in a function returning one.
-  `errors.rs` holds both halves — a private module of named code constants matching that binary's
-  specified table, and the single `exit_code(&anyhow::Error) -> ExitCode` that maps them by
+  `errors.rs` holds both halves — a private module of named code constants for that binary's exit
+  codes, and the single `exit_code(&anyhow::Error) -> ExitCode` that maps them by
   `downcast_ref`. One mapping site is what stops a `.context(...)` added upstream from changing
   which code a script sees. `ExitCode` is opaque, so split the `u8` out to keep it testable.
 - User-facing strings are not comments. `help = "..."` on a clap argument, an error message, a log
@@ -140,7 +112,7 @@ StatusNotifierItem, dbusmenu and Notifications.
 - One config file, `config.toml`. Top-level table per owner: one table per service, named for the
   service, for the daemon; `[panel]`, `[wallpaper]`, `[lock]` for the UI
   binaries. A binary reads only the tables it owns. Stylesheets stay separate: `panel.css`,
-  `lock.css`. Schema and layering: `specs/010_configuration.md`
+  `lock.css`.
 
 **File placement**
 
@@ -222,8 +194,8 @@ cargo invocation.
   is a locked session with nothing left to authenticate against, not an unlocked one. `PartOf=` on
   anything but `graphical-session.target`, `BindsTo=`, or a `Conflicts=` from someone else's target
   all reach that state; `Wants=`/`WantedBy=` cannot.
-- **No unit may use `Requires=glimpsed.service`.** `Wants=` only — the panel, wallpaper and lock are
-  specified to survive a dead daemon, and `Requires=` kills them instead.
+- **No unit may use `Requires=glimpsed.service`.** `Wants=` only — the panel, wallpaper and lock must
+  survive a dead daemon, and `Requires=` kills them instead.
 - **Never hand-roll what a library already does.** Search in this order and stop at the first hit:
   the standard library, then a crate already in `[workspace.dependencies]`, then a crate that exists
   on crates.io. Writing it yourself is the last resort, not the default. Before adding a `fn` that
@@ -242,7 +214,6 @@ cargo invocation.
 - **Never hand work back without running the pass in Finishing.** Every time, before saying
   anything is done.
 - **Do not commit or push without being asked.**
-- **Edit the spec before the code, every time, and never without approval.** See Specs come first.
 
 ## Finishing
 
@@ -253,17 +224,14 @@ saying anything is done.
    changed. Zero errors and zero warnings — clippy runs with `-D warnings`, so a warning left behind
    is a broken build for whoever runs it next, not a cosmetic note. Silencing one with
    `#[allow(...)]` rather than fixing it needs a reason worth saying out loud.
-2. **Re-read the spec against the diff.** Open it; do not go from memory. A default that drifted, an
-   exit code that is not the one specified, a flag renamed on one side only — these survive review
-   precisely because nobody goes back to the source.
-3. **Delete what nothing calls.** Dead functions, unused constants, a type kept "for later", a
+2. **Delete what nothing calls.** Dead functions, unused constants, a type kept "for later", a
    wrapper whose body is a single call, a trait with one implementation. Anything that earns its
    place only in an imagined future has not earned it; add it back in the change that needs it.
-4. **Cut the ceremony.** A custom error type carrying no information a message would not, a builder
+3. **Cut the ceremony.** A custom error type carrying no information a message would not, a builder
    for two fields, a helper called once, a test asserting that the standard library works.
-5. **Check the docs the change invalidated.** The crate `README.md` first — a stale README is worse
+4. **Check the docs the change invalidated.** The crate `README.md` first — a stale README is worse
    than none, because it is believed.
-6. **Read it as a stranger would.** Would you put this in front of someone whose opinion you value?
+5. **Read it as a stranger would.** Would you put this in front of someone whose opinion you value?
    If any part of it would need an apology, that part is the finding.
 
 **Findings are work, not notes.** Fix them and run the pass again. It ends when a full pass turns up
@@ -280,7 +248,7 @@ costs more than the document saved.
   finding it out, write it down here.
 - **Update the crate's `README.md` in the same change that alters what the crate does.** Each one
   states purpose, contents, and the rules specific to that crate. New module, changed rule, moved
-  responsibility, corrected spec link — all of it lands in the README alongside the code.
+  responsibility — all of it lands in the README alongside the code.
 - Remove instructions that stop being true rather than adding a caveat beside them. Two rules on the
   same topic produce worse behaviour than one.
 
