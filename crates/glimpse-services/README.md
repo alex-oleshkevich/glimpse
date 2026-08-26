@@ -9,7 +9,8 @@ connection.
 ## Contents
 
 - `service.rs`, `context.rs`, `publisher.rs` — the framework
-- `broker.rs` — `BrokerHandle`, the trait the daemon implements, with `MockBroker` beside it
+- `broker.rs` — `BrokerHandle`, the trait the daemon implements, with `MockBroker` beside it;
+  `Responder` and the erased `Dispatch` a command travels through
 - `services/` — one module per service; `tray/` will be a directory because it is the largest
 
 ## Rules
@@ -22,7 +23,37 @@ change signals. The backend is right when they disagree, and no decision the bac
 gets reimplemented here.
 
 A handler that can block moves its `Responder` into `ctx.spawn`. Handlers run serially, so one slow
-D-Bus call otherwise freezes the whole service.
+D-Bus call otherwise freezes the whole service. A `Responder` that is dropped unanswered — queued
+when the service stopped, lost to a panicking handler, or simply forgotten — answers `Unavailable`
+from its `Drop` impl and logs, rather than leaving the caller to wait out its whole timeout with
+nothing said anywhere.
+
+Commands are declared the way topics are: `METHODS` lists the names, `decode` turns one plus its
+JSON arguments into the service's own `Command` type, and the two must agree — a name in `METHODS`
+that `decode` refuses is a command the broker will route and the service will then reject. The
+default `decode` refuses everything, which is right for a service that declares no methods. A
+command reaches the inbox through `ServiceSender::dispatch`, which offers rather than queues:
+the caller is the broker, and the broker must never await.
+
+Everything that reaches a handler arrives as an event from a **source**, and every source is one
+`ctx` call returning a `SourceGuard` the service keeps for as long as it wants the source alive.
+Dropping the guard is the whole cancellation story — it aborts the task or drops the subscription,
+so there is no token to remember and no shutdown path to write.
+
+| Source | Produces | For |
+| ------------------- | ---------------- | -------------------------------------------------- |
+| `ctx.spawn`         | one event        | one unit of async work whose result is an event    |
+| `ctx.interval`      | an event a tick  | polling, clocks; `at_interval` picks the first tick |
+| `ctx.stream`        | many events      | a backend signal stream, a watch, a subscription   |
+| `ctx.subscribe::<T>` | many events     | another service's topic                            |
+
+`spawn`, `interval` and `stream` each take an async closure receiving a `Ctx` of its own, so a task
+reaches the buses, the publishers and `degraded` without any of them being threaded through its
+arguments — `Ctx` is cheap to clone and its `degraded` flag is shared, so a task that degrades the
+service is visible to the runtime. `stream`'s closure is async because building a source usually is:
+a D-Bus signal stream has to be requested before it can be read. `ctx.events()` hands out the raw
+sender and is for the one case the sources do not cover — a synchronous callback from a foreign
+thread, as `notify`'s debouncer delivers.
 
 A service publishes through a `Publisher` it takes from `ctx.publisher::<T>()` in `start` and keeps
 for its lifetime. The publisher holds the last value it sent and drops a `set` that matches it, so

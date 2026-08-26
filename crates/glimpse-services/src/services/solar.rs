@@ -40,7 +40,7 @@ impl Service for Solar {
         Ok(Self {
             coordinates: None,
             status: ctx.publisher::<SolarStatus>(),
-            _tick: ctx.interval(TICK, || Event::Tick),
+            _tick: ctx.interval(TICK, |_ctx| async { Event::Tick }),
             _on_location: ctx
                 .subscribe::<GeolocationStatus>(move |data| Event::Update(data.coordinates)),
         })
@@ -51,21 +51,10 @@ impl Service for Solar {
             Input::Event(Event::Update(coordinates)) => {
                 self.coordinates = coordinates;
             }
-            Input::Event(Event::Tick) | Input::Command(Command::Refresh) => {
-                match self.coordinates {
-                    Some(ref coordinates) => {
-                        if let Some(times) =
-                            solar_times_for_date(chrono::Local::now().date_naive(), coordinates)
-                        {
-                            self.status.set(SolarStatus {
-                                phase: detect_phase(&times),
-                            });
-                        }
-                    }
-                    None => {
-                        tracing::warn!("solar: location unavailable")
-                    }
-                }
+            Input::Event(Event::Tick) => self.refresh(),
+            Input::Command(Command::Refresh, responder) => {
+                self.refresh();
+                responder.ok(());
             }
             Input::Config(()) => {}
         }
@@ -73,6 +62,20 @@ impl Service for Solar {
 
     fn peek_config(config: &glimpse_config::Config) -> Self::Config {
         ()
+    }
+}
+
+impl Solar {
+    fn refresh(&mut self) {
+        let Some(coordinates) = self.coordinates.as_ref() else {
+            tracing::warn!("solar: location unavailable");
+            return;
+        };
+        if let Some(times) = solar_times_for_date(chrono::Local::now().date_naive(), coordinates) {
+            self.status.set(SolarStatus {
+                phase: detect_phase(&times),
+            });
+        }
     }
 }
 

@@ -22,6 +22,10 @@ pub async fn call(
         .collect::<Map<String, Value>>();
 
     let result = session.client.call(&method, Value::Object(args)).await?;
-    render::print(&render::lines(&result))?;
+    // A command that returns nothing has already said so by exiting 0; printing `null` would give
+    // a script a line to strip.
+    if !result.is_null() {
+        render::print(&render::lines(&result))?;
+    }
     Ok(())
 }

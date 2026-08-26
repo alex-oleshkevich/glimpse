@@ -51,14 +51,16 @@ impl Service for Watcher {
 
         Ok(Self {
             paths: config.paths,
-            _handle: ctx.spawn(async move {}),
+            // The debouncer delivers on a thread of its own through `ctx.events()`, so there is no
+            // source here yet — this holds the slot until it is wired.
+            _handle: ctx.spawn(|_ctx| std::future::pending()),
         })
     }
 
     async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
             Input::Event(Event::Changed(_)) => {}
-            Input::Command(_) => {}
+            Input::Command((), responder) => responder.ok(()),
             Input::Config(config) => self.paths = config.paths,
         }
     }

@@ -5,13 +5,15 @@ topic name.
 
 ## Contents
 
-- `messages.rs` — `trait Message`, the `topic!` / `topics!` macros, and every topic payload
-- `types.rs` — the component types payloads are built from: `SolarPhase`, `GeoCoordinates`,
-  `ServiceState`, `TopicReport`
+- `topics.rs` — `trait Message`, the `topic!` / `topics!` macros, and every topic payload
+- `commands.rs` — `trait Command`, the `commands!` macro, and every command
+- `types.rs` — the component types the other two are built from: `SolarPhase`, `GeoCoordinates`,
+  `ServiceState`, `TopicReport`, `MethodReport`, `HeartbeatInterval`
 
-The split is payload against part. A type that is what a topic carries lives in `messages.rs` next
-to the name that binds it; a type that only appears *inside* one lives in `types.rs`. Keeping the
-payloads together is what makes the set of topics readable in one place.
+The split is by direction first, then payload against part. State the daemon publishes is a topic;
+something a client asks the daemon to do is a command; a type that only appears *inside* one of
+those lives in `types.rs`. Keeping each set together is what makes the topics, and the commands,
+readable in one place.
 
 ## Binding a name to a payload
 
@@ -42,6 +44,22 @@ and its name drift apart, which is what these macros exist to prevent.
 One shape, always a struct of named fields. A payload that is really just a map still gets a field
 holding it, so `system.topics` is `{"topics": {…}}` rather than a bare object. That costs a level of
 nesting and buys one way to declare a topic.
+
+## Binding a name to a command
+
+`Command` is the same idea one step over: a name, the arguments that travel to the daemon, and what
+comes back. `commands!` declares one, and the trailing type is the result:
+
+```rust
+commands! {
+    #[name = "heartbeat.set_interval"]
+    pub struct HeartbeatSetInterval { period_ms: u64 } -> HeartbeatInterval;
+}
+```
+
+`type Args = Self`, the way a topic's `Payload` is — the command *is* its argument struct, so there
+is no second type to keep in step with the name. A command that returns nothing declares `-> ()`,
+which is `null` on the wire and prints as nothing.
 
 ## Rules
 

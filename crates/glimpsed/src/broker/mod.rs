@@ -3,9 +3,9 @@ mod store;
 
 use std::collections::HashMap;
 
-use glimpse_contracts::{Message as _, ServiceState, SystemServices, SystemTopics};
-use glimpse_ipc::{CallError, Event, Publisher, Subscribed};
-use glimpse_services::{Sink, SubscriptionId};
+use glimpse_contracts::{Message as _, ServiceState, SystemMethods, SystemServices, SystemTopics};
+use glimpse_ipc::{CallError, ErrorCode, Event, Publisher, Subscribed};
+use glimpse_services::{Dispatch, Responder, Sink, SubscriptionId};
 use serde_json::Value;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
@@ -19,6 +19,10 @@ pub enum Message {
     Declare {
         service: &'static str,
         topics: &'static [&'static str],
+        methods: &'static [&'static str],
+        /// Carried with the declaration rather than sent separately, so declaring a method without
+        /// a way to route it cannot be expressed.
+        dispatch: Dispatch,
     },
     SetPublisher(Publisher),
     Publish {
@@ -45,6 +49,11 @@ pub enum Message {
         pattern: String,
         reply: oneshot::Sender<Subscribed>,
     },
+    Call {
+        method: String,
+        args: Value,
+        reply: oneshot::Sender<Result<Value, CallError>>,
+    },
 }
 
 /// One task owns every topic value and every subscription. It routes and nothing else: no
@@ -53,6 +62,7 @@ pub enum Message {
 pub struct Broker {
     store: Store,
     sinks: HashMap<SubscriptionId, (String, Sink)>,
+    dispatchers: HashMap<&'static str, Dispatch>,
     publisher: Option<Publisher>,
 }
 
@@ -63,6 +73,7 @@ pub fn spawn(cancel: CancellationToken) -> Handle {
         Broker {
             store: Store::new(),
             sinks: HashMap::new(),
+            dispatchers: HashMap::new(),
             publisher: None,
         }
         .run(rx, cancel),
@@ -88,9 +99,18 @@ impl Broker {
 
     fn handle(&mut self, message: Message) {
         match message {
-            Message::Declare { service, topics } => {
-                self.store.declare(service, topics);
+            Message::Declare {
+                service,
+                topics,
+                methods,
+                dispatch,
+            } => {
+                self.store.declare(service, topics, methods);
+                self.dispatchers.insert(service, dispatch);
                 self.announce();
+                // The method registry changes only here, so it is announced only here — a health
+                // transition leaves it identical and must not churn a republish.
+                self.announce_methods();
             }
             Message::SetPublisher(publisher) => self.publisher = Some(publisher),
             Message::Publish { topic, data } => {
@@ -114,6 +134,28 @@ impl Broker {
             Message::Matching { pattern, reply } => {
                 let _ = reply.send(self.store.matching(&pattern));
             }
+            Message::Call {
+                method,
+                args,
+                reply,
+            } => self.call(&method, args, Responder::new(reply)),
+        }
+    }
+
+    /// The dispatcher hands the command to its service's inbox and returns; the service answers the
+    /// responder, possibly from a spawned task. Nothing here awaits the result.
+    fn call(&self, method: &str, args: Value, responder: Responder) {
+        let dispatch = self
+            .store
+            .method_owner(method)
+            .and_then(|service| self.dispatchers.get(service));
+
+        match dispatch {
+            Some(dispatch) => dispatch(method, args, responder),
+            None => responder.fail(CallError::new(
+                ErrorCode::UnknownCommand,
+                format!("no service declares `{method}`"),
+            )),
         }
     }
 
@@ -139,6 +181,11 @@ impl Broker {
     fn announce_topics(&mut self) {
         let topics = self.store.topics();
         self.publish_own(SystemTopics::NAME, topics);
+    }
+
+    fn announce_methods(&mut self) {
+        let methods = self.store.methods();
+        self.publish_own(SystemMethods::NAME, methods);
     }
 
     fn publish_own(&mut self, topic: &'static str, payload: impl serde::Serialize) {

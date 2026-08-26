@@ -40,11 +40,15 @@ impl Handler for BrokerHandler {
         answer.await.map_err(|_| gone())?
     }
 
-    async fn call(&self, command: &str, _args: Value) -> Result<Value, CallError> {
-        Err(CallError::new(
-            ErrorCode::UnknownCommand,
-            format!("no service declares `{command}`"),
-        ))
+    async fn call(&self, command: &str, args: Value) -> Result<Value, CallError> {
+        tracing::debug!(command, "call");
+        let (reply, answer) = oneshot::channel();
+        self.broker.send(Message::Call {
+            method: command.to_owned(),
+            args,
+            reply,
+        });
+        answer.await.map_err(|_| gone())?
     }
 
     async fn disconnected(&self, client: ClientId) {

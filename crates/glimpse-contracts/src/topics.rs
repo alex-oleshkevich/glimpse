@@ -44,6 +44,9 @@ topics! {
     #[name = "system.topics"]
     pub struct SystemTopics { topics: BTreeMap<String, TopicReport> }
 
+    #[name = "system.methods"]
+    pub struct SystemMethods { methods: BTreeMap<String, MethodReport> }
+
     #[name = "system.services"]
     pub struct SystemServices { services: BTreeMap<String, ServiceState> }
 

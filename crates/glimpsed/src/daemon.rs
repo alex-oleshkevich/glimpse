@@ -5,7 +5,7 @@ use crate::handler::BrokerHandler;
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_ipc::Server;
-use glimpse_services::{BrokerHandle, Service, ServiceRuntime};
+use glimpse_services::{BrokerHandle, Dispatch, Service, ServiceRuntime};
 use tokio::signal::unix::{SignalKind, signal};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
@@ -48,17 +48,31 @@ impl Daemon {
 
     pub fn register<S: Service>(mut self) -> Self {
         self.factories.push(Box::new(|init: &InitService| {
+            let config = S::peek_config(&init.config);
+            let broker: Arc<dyn BrokerHandle> = Arc::new(init.broker.clone());
+            let mut runtime =
+                ServiceRuntime::<S>::new(broker, init.buses.clone(), init.cancel.child_token());
+
+            // The one place the concrete service is still known, so the one place a `call` can be
+            // turned into its command type.
+            let sender = runtime.sender();
+            let dispatch: Dispatch =
+                Box::new(
+                    move |method, args, responder| match S::decode(method, args) {
+                        Ok(command) => sender.dispatch(command, responder),
+                        Err(error) => responder.fail(error),
+                    },
+                );
+
             // Declared before the service starts, so a client can subscribe to a topic of a
             // service that has not published yet and be told it matched.
             init.broker.send(Message::Declare {
                 service: S::NAME,
                 topics: S::TOPICS,
+                methods: S::METHODS,
+                dispatch,
             });
 
-            let config = S::peek_config(&init.config);
-            let broker: Arc<dyn BrokerHandle> = Arc::new(init.broker.clone());
-            let mut runtime =
-                ServiceRuntime::<S>::new(broker, init.buses.clone(), init.cancel.child_token());
             init.tasks.spawn(async move {
                 if let Err(err) = runtime.run(config).await {
                     tracing::error!("service stopped: {}", err);

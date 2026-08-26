@@ -3,11 +3,68 @@ use std::sync::{
     atomic::{AtomicU64, Ordering},
 };
 
+use glimpse_ipc::{CallError, ErrorCode};
+use serde::Serialize;
 use serde_json::Value;
+use tokio::sync::oneshot;
 
 pub use glimpse_contracts::ServiceState;
 
 pub type Sink = Box<dyn Fn(&Value) + Send>;
+
+/// Routes one `call` to the service that declared it. Erased where the concrete service is still
+/// known — at registration — because the broker is a single task with no type parameter to spare.
+pub type Dispatch = Box<dyn Fn(&str, Value, Responder) + Send>;
+
+/// The reply channel for one `call`, held until the service answers. A handler that has to await a
+/// backend moves this into `ctx.spawn` instead of answering inline, so one slow backend does not
+/// stall every other command the service owns.
+pub struct Responder {
+    reply: Option<oneshot::Sender<Result<Value, CallError>>>,
+}
+
+impl Responder {
+    pub fn new(reply: oneshot::Sender<Result<Value, CallError>>) -> Self {
+        Self { reply: Some(reply) }
+    }
+
+    pub fn ok<T: Serialize>(mut self, output: T) {
+        let outcome = serde_json::to_value(output).map_err(|error| {
+            CallError::new(
+                ErrorCode::Internal,
+                format!("the result did not serialize: {error}"),
+            )
+        });
+        self.answer(outcome);
+    }
+
+    pub fn fail(mut self, error: CallError) {
+        self.answer(Err(error));
+    }
+
+    fn answer(&mut self, outcome: Result<Value, CallError>) {
+        // A caller that gave up is not an error: the result simply has nowhere to go.
+        if let Some(reply) = self.reply.take() {
+            let _ = reply.send(outcome);
+        }
+    }
+}
+
+/// A command can reach here unanswered three ways: it was still queued when the service stopped,
+/// the handler panicked mid-command, or the handler simply forgot. All three mean it did not take
+/// effect and may well succeed later, so the answer is `Unavailable` — the caller would otherwise
+/// wait out its whole timeout with nothing said anywhere.
+impl Drop for Responder {
+    fn drop(&mut self) {
+        if self.reply.is_some() {
+            tracing::warn!("a command was dropped without an answer");
+            self.answer(Err(CallError::new(
+                ErrorCode::Unavailable,
+                "the service did not answer",
+            )));
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SubscriptionId(pub u64);
@@ -79,5 +136,30 @@ impl BrokerHandle for MockBroker {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .push((service, state));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The failure this guards against is silence: without the `Drop` impl the caller waits out its
+    /// whole timeout and no log line explains why.
+    #[tokio::test]
+    async fn a_dropped_responder_answers_instead_of_leaving_the_caller_waiting() {
+        let (reply, answer) = oneshot::channel();
+        drop(Responder::new(reply));
+
+        let error = answer.await.expect("answered").expect_err("an error");
+        assert_eq!(error.code, ErrorCode::Unavailable);
+        assert!(error.retryable, "a dropped command is worth retrying");
+    }
+
+    #[tokio::test]
+    async fn a_responder_that_answered_does_not_answer_again_on_drop() {
+        let (reply, answer) = oneshot::channel();
+        Responder::new(reply).ok(7);
+
+        assert_eq!(answer.await.expect("answered"), Ok(Value::from(7)));
     }
 }

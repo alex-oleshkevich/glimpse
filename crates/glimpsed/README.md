@@ -45,7 +45,15 @@ predictable world-writable path invites pre-creation and symlink hijack. A secon
 first and exits rather than unlinking a socket a live daemon may still own.
 
 A command that could not be delivered returns an error. Reporting success for a command that never
-reached its service is worse than reporting failure.
+reached its service is worse than reporting failure. A full or closed service inbox is `Unavailable`
+and retryable — a stopped service is one a supervisor may bring back, so a caller retrying is right.
+
+Method routing mirrors topic routing exactly. `register::<S>()` is the last place the concrete
+service type is known, so it builds the erased `Dispatch` there and hands it to the broker inside
+the same `Declare` that carries `METHODS` — declaring a method with no way to route it cannot be
+expressed. The broker looks the name up in the store, calls the dispatcher and returns; the service
+answers the `Responder` itself, so nothing in the broker task ever awaits a service. `system.methods`
+is published from `Declare` alone, because that is the only message that changes the registry.
 
 `wl_` objects appear only under `wayland/`. Services reach Wayland through `trait WaylandEdge`,
 which is what keeps every service test headless.

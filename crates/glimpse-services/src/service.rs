@@ -3,10 +3,13 @@ use std::{any::Any, panic::AssertUnwindSafe, sync::Arc};
 use futures_util::FutureExt;
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
+use glimpse_ipc::{CallError, ErrorCode};
+use serde::de::DeserializeOwned;
+use serde_json::Value;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use crate::{BrokerHandle, Ctx, ServiceState};
+use crate::{BrokerHandle, Ctx, Responder, ServiceState};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
@@ -14,12 +17,30 @@ pub enum ServiceError {
     StartError,
     #[error("did not send message: {0}")]
     SendError(String),
+    #[error("dbus: {0}")]
+    Bus(String),
 }
 
 pub enum Input<S: Service> {
     Event(S::Event),
-    Command(S::Command),
+    Command(S::Command, Responder),
     Config(S::Config),
+}
+
+/// The error a service returns for a name it does not answer. Shared by the default `decode` and
+/// by the fallback arm of one that is implemented, so the wording cannot drift between them.
+pub fn unknown_command(service: &str, method: &str) -> CallError {
+    CallError::new(
+        ErrorCode::UnknownCommand,
+        format!("`{service}` does not answer `{method}`"),
+    )
+}
+
+/// Wire payloads accept unknown fields on purpose, so a newer client and an older daemon survive
+/// version skew; what this catches is a missing or mistyped argument.
+pub fn decode_args<T: DeserializeOwned>(args: Value) -> Result<T, CallError> {
+    serde_json::from_value(args)
+        .map_err(|error| CallError::new(ErrorCode::InvalidArgs, error.to_string()))
 }
 
 pub trait Service: Sized + Send + 'static {
@@ -31,9 +52,20 @@ pub trait Service: Sized + Send + 'static {
     /// "declared, no value" rather than "unknown", and a pattern has to match it.
     const TOPICS: &'static [&'static str];
 
+    /// Every command this service answers, declared the same way and for the same reason as
+    /// `TOPICS`: the broker routes a `call` by this map, and `system.methods` is built from it.
+    const METHODS: &'static [&'static str] = &[];
+
     type Config: PartialEq + Send + 'static;
     type Command: Send + 'static;
     type Event: Send + 'static;
+
+    /// Turns a wire call into this service's own command type. Anything in `METHODS` must decode
+    /// here, and the default refuses everything, which is right for a service that declares none.
+    fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> {
+        let _ = args;
+        Err(unknown_command(Self::NAME, method))
+    }
 
     fn start(
         ctx: &Ctx<Self>,
@@ -59,6 +91,21 @@ impl<S: Service> ServiceSender<S> {
             .send(input)
             .await
             .map_err(|e| ServiceError::SendError(e.to_string()))
+    }
+
+    /// Offers a command rather than queueing it, because the caller is the broker and the broker
+    /// must never await. A full or closed inbox means the command did not take effect, which the
+    /// caller has to be told rather than left to assume.
+    pub fn dispatch(&self, command: S::Command, responder: Responder) {
+        let Err(rejected) = self.inbox_tx.try_send(Input::Command(command, responder)) else {
+            return;
+        };
+        if let Input::Command(_, responder) = rejected.into_inner() {
+            responder.fail(CallError::new(
+                ErrorCode::Unavailable,
+                format!("`{}` is not accepting commands", S::NAME),
+            ));
+        }
     }
 }
 

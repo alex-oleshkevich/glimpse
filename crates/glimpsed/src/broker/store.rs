@@ -3,7 +3,9 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use glimpse_contracts::{Message, ServiceState, SystemServices, SystemTopics, TopicReport};
+use glimpse_contracts::{
+    Message, MethodReport, ServiceState, SystemMethods, SystemServices, SystemTopics, TopicReport,
+};
 use glimpse_ipc::{CallError, ErrorCode, Event, Subscribed, pattern};
 use serde_json::Value;
 
@@ -13,6 +15,7 @@ use serde_json::Value;
 pub struct Store {
     cells: HashMap<String, Cell>,
     owners: BTreeMap<String, Option<&'static str>>,
+    methods: BTreeMap<String, &'static str>,
     states: BTreeMap<&'static str, ServiceState>,
 }
 
@@ -27,14 +30,45 @@ impl Store {
     pub fn new() -> Self {
         let mut store = Self::default();
         store.owners.insert(SystemTopics::NAME.to_owned(), None);
+        store.owners.insert(SystemMethods::NAME.to_owned(), None);
         store.owners.insert(SystemServices::NAME.to_owned(), None);
         store
     }
 
-    pub fn declare(&mut self, service: &'static str, topics: &'static [&'static str]) {
+    pub fn declare(
+        &mut self,
+        service: &'static str,
+        topics: &'static [&'static str],
+        methods: &'static [&'static str],
+    ) {
         self.states.insert(service, ServiceState::Starting);
         for topic in topics {
             self.owners.insert((*topic).to_owned(), Some(service));
+        }
+        for method in methods {
+            self.methods.insert((*method).to_owned(), service);
+        }
+    }
+
+    /// Which service answers a command, or `None` for a name nobody declared.
+    pub fn method_owner(&self, method: &str) -> Option<&'static str> {
+        self.methods.get(method).copied()
+    }
+
+    pub fn methods(&self) -> SystemMethods {
+        SystemMethods {
+            methods: self
+                .methods
+                .iter()
+                .map(|(method, service)| {
+                    (
+                        method.clone(),
+                        MethodReport {
+                            service: (*service).to_owned(),
+                        },
+                    )
+                })
+                .collect(),
         }
     }
 
@@ -178,8 +212,20 @@ mod tests {
 
     fn store() -> Store {
         let mut store = Store::new();
-        store.declare("audio", &["audio.volume", "audio.mute"]);
+        store.declare(
+            "audio",
+            &["audio.volume", "audio.mute"],
+            &["audio.set_volume"],
+        );
         store
+    }
+
+    #[test]
+    fn a_method_resolves_to_its_service_and_an_undeclared_one_to_nothing() {
+        let store = store();
+        assert_eq!(store.method_owner("audio.set_volume"), Some("audio"));
+        assert_eq!(store.method_owner("audio.explode"), None);
+        assert_eq!(store.methods().methods["audio.set_volume"].service, "audio");
     }
 
     fn value(n: u64) -> Value {

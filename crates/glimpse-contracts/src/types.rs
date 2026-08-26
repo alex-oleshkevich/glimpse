@@ -37,3 +37,13 @@ pub struct TopicReport {
     pub service: Option<String>,
     pub has_value: bool,
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MethodReport {
+    pub service: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeartbeatInterval {
+    pub previous_ms: u64,
+}

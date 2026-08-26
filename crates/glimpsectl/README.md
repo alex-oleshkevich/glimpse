@@ -5,7 +5,8 @@ Command-line and TUI client for `glimpsed`.
 ```bash
 glimpsectl get battery.status --field percentage
 glimpsectl watch 'network.**' --json
-glimpsectl call audio.set_volume volume=0.42
+glimpsectl call heartbeat.set_interval period_ms=250
+glimpsectl methods 'heartbeat.*'
 glimpsectl services
 glimpsectl doctor
 ```
@@ -25,20 +26,25 @@ diagnosing a broken session is the command succeeding, not failing. The composit
 protocols and backend availability are the daemon's knowledge and reach `doctor` only through the
 states on `system.services`.
 
-`topics` filters on two axes that compose: a positional pattern narrows by topic name, `--owner`
-narrows by owning service, and an empty result names whichever one emptied it.
+`topics` and `methods` filter on two axes that compose: a positional pattern narrows by name,
+`--owner` narrows by owning service, and an empty result names whichever one emptied it. `methods`
+is what makes `call` discoverable — it lists exactly the names the daemon will route.
 
-`topics` and `services` are `get` on `system.topics` and `system.services` rather than frames of
-their own — the daemon already has to publish that state, and a second way to ask for it would be a
-second thing to keep true.
+`topics`, `methods` and `services` are `get` on `system.topics`, `system.methods` and
+`system.services` rather than frames of their own — the daemon already has to publish that state,
+and a second way to ask for it would be a second thing to keep true.
+
+`call` prints nothing for a command whose result is `null`. Success is the exit code; a printed
+`null` would only be a line for a script to strip.
 
 ## Rules
 
 **Rendering is for people; `--json` is a passthrough.** `get` and `watch` take `--json`, which
 prints what the daemon sent and nothing else — the payload for `get`, one event frame per line for
 `watch`. It is per-command, not global, so it cannot appear after a subcommand that would ignore it.
-No other subcommand has one: `topics` and `services` render the daemon's own introspection, and a
-consumer wanting those as data reads `system.topics` and `system.services` with `get --json`.
+No other subcommand has one: `topics`, `methods` and `services` render the daemon's own
+introspection, and a consumer wanting those as data reads the matching `system.*` topic with
+`get --json`.
 
 **Everything drawn goes through `render.rs`**, including reaching stdout: `Table` and `Section`
 carry `.print()`, and `render::print` is the single place a line is written, so `BrokenPipe` is

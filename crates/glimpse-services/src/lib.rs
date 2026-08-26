@@ -5,9 +5,11 @@ mod service;
 mod services;
 
 pub use {
-    broker::{BrokerHandle, MockBroker, ServiceState, Sink, SubscriptionId},
+    broker::{BrokerHandle, Dispatch, MockBroker, Responder, ServiceState, Sink, SubscriptionId},
     context::Ctx,
     publisher::Publisher,
-    service::{Input, Service, ServiceError, ServiceRuntime, ServiceSender},
+    service::{
+        Input, Service, ServiceError, ServiceRuntime, ServiceSender, decode_args, unknown_command,
+    },
     services::*,
 };
