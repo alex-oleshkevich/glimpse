@@ -25,22 +25,27 @@ pub enum Update {
 
 /// Watches one directory, non-recursively, for as long as the stream lives.
 pub fn watch(dir: impl Into<PathBuf>) -> impl Stream<Item = Update> + Send + 'static {
-    stream::unfold(Watch::new(dir.into()), |mut watch| async move {
-        watch.next().await.map(|update| (update, watch))
-    })
+    watch_all([dir.into()])
+}
+
+/// One inotify instance and one debounce thread for the whole set, however many directories it
+/// holds. The debouncer polls on a timer rather than blocking, so one per directory would wake an
+/// idle session several times a second for each of them.
+pub fn watch_all(
+    dirs: impl IntoIterator<Item = PathBuf>,
+) -> impl Stream<Item = Update> + Send + 'static {
+    stream::unfold(
+        Watch::new(dirs.into_iter().collect()),
+        |mut watch| async move { watch.next().await.map(|update| (update, watch)) },
+    )
 }
 
 pub fn watch_config(
     config_path: Option<PathBuf>,
     current: Config,
 ) -> impl Stream<Item = Config> + Send + 'static {
-    let updates = stream::select_all(
-        watch_dirs(config_path.as_deref())
-            .into_iter()
-            .map(|dir| Box::pin(watch(dir))),
-    );
     let reader = Reader {
-        updates: Box::pin(updates),
+        updates: Box::pin(watch_all(watch_dirs(config_path.as_deref()))),
         path: config_path,
         current,
     };
@@ -93,30 +98,53 @@ impl Reader {
 }
 
 struct Watch {
-    wanted: PathBuf,
-    armed: Option<Arm>,
+    arms: Vec<Arm>,
     debouncer: Option<Debouncer<RecommendedWatcher, RecommendedCache>>,
     batches: mpsc::Receiver<Vec<PathBuf>>,
     pending: Option<Update>,
 }
 
 struct Arm {
-    dir: PathBuf,
+    wanted: PathBuf,
+    dir: Option<PathBuf>,
     inode: Option<u64>,
 }
 
+impl Arm {
+    /// A watch is bound to an inode, not to a name, so `rm -rf` followed by a fresh clone leaves
+    /// one armed on a directory nobody can reach: it reports nothing, forever, and looks identical
+    /// to a directory where nothing happens. Comparing the inode is what tells those two apart.
+    fn displaced(&self) -> bool {
+        let Some(dir) = self.dir.as_ref() else {
+            return true;
+        };
+        match nearest_existing(&self.wanted) {
+            Some(current) => current != *dir || inode(&current) != self.inode,
+            None => true,
+        }
+    }
+}
+
 impl Watch {
-    fn new(wanted: PathBuf) -> Self {
+    fn new(wanted: Vec<PathBuf>) -> Self {
         let (batches_tx, batches) = mpsc::channel(BATCHES);
         let mut watch = Self {
-            wanted,
-            armed: None,
+            arms: wanted
+                .into_iter()
+                .map(|wanted| Arm {
+                    wanted,
+                    dir: None,
+                    inode: None,
+                })
+                .collect(),
             debouncer: None,
             batches,
             pending: None,
         };
 
-        match new_debouncer(DEBOUNCE, None, forward(batches_tx)) {
+        // A tick of its own would poll four times per debounce window; the window itself is as
+        // often as this needs to look, and a reload nobody is waiting on can be 250 ms later.
+        match new_debouncer(DEBOUNCE, Some(DEBOUNCE), forward(batches_tx)) {
             Ok(debouncer) => {
                 watch.debouncer = Some(debouncer);
                 watch.pending = watch.rearm().err().map(Update::Unavailable);
@@ -134,7 +162,7 @@ impl Watch {
         loop {
             let paths = self.batches.recv().await?;
 
-            if self.displaced() {
+            if self.arms.iter().any(Arm::displaced) {
                 return Some(match self.rearm() {
                     Ok(()) => Update::Rearmed,
                     Err(reason) => Update::Unavailable(reason),
@@ -143,7 +171,11 @@ impl Watch {
 
             let touched: Vec<PathBuf> = paths
                 .into_iter()
-                .filter(|path| path.parent() == Some(self.wanted.as_path()))
+                .filter(|path| {
+                    self.arms
+                        .iter()
+                        .any(|arm| path.parent() == Some(arm.wanted.as_path()))
+                })
                 .collect();
             if !touched.is_empty() {
                 return Some(Update::Changed(touched));
@@ -151,46 +183,57 @@ impl Watch {
         }
     }
 
-    /// A watch is bound to an inode, not to a name, so `rm -rf` followed by a fresh clone leaves
-    /// one armed on a directory nobody can reach: it reports nothing, forever, and looks identical
-    /// to a directory where nothing happens. Comparing the inode is what tells those two apart.
-    fn displaced(&self) -> bool {
-        let Some(armed) = self.armed.as_ref() else {
-            return true;
-        };
-        match nearest_existing(&self.wanted) {
-            Some(dir) => dir != armed.dir || inode(&dir) != armed.inode,
-            None => true,
-        }
-    }
-
+    /// Fails only when the whole set is unwatchable. One directory the kernel refused is a warning
+    /// and the rest keep working, because reporting the set dead would throw away watches that are
+    /// still delivering.
     fn rearm(&mut self) -> Result<(), String> {
         let Some(debouncer) = self.debouncer.as_mut() else {
             return Err("no watcher".to_owned());
         };
-        let dir = nearest_existing(&self.wanted)
-            .ok_or_else(|| format!("nothing watchable above {}", self.wanted.display()))?;
+        let previous: Vec<PathBuf> = self.arms.iter().filter_map(|arm| arm.dir.clone()).collect();
+        let mut failure = None;
 
-        // The new watch is placed before the old one is dropped, so a kernel that refuses it
-        // leaves the working watch in place instead of taking both. Descending from `/etc` to
-        // `/etc/glimpse` otherwise loses `/etc` too, and nothing is ever noticed again.
-        debouncer
-            .watch(&dir, RecursiveMode::NonRecursive)
-            .map_err(|error| error.to_string())?;
+        for arm in &mut self.arms {
+            if !arm.displaced() {
+                continue;
+            }
+            let Some(dir) = nearest_existing(&arm.wanted) else {
+                failure = failure.or(Some(format!(
+                    "nothing watchable above {}",
+                    arm.wanted.display()
+                )));
+                arm.dir = None;
+                arm.inode = None;
+                continue;
+            };
 
-        // A replaced directory keeps its path, and `unwatch` addresses by path: dropping the old
-        // watch by name here would drop the one just placed on the new inode.
-        if let Some(previous) = self.armed.take()
-            && previous.dir != dir
-        {
-            let _ = debouncer.unwatch(&previous.dir);
+            // The new watch is placed before the old one is released below, so a kernel that
+            // refuses it leaves the working watch in place instead of costing both.
+            match debouncer.watch(&dir, RecursiveMode::NonRecursive) {
+                Ok(()) => {
+                    arm.inode = inode(&dir);
+                    arm.dir = Some(dir);
+                }
+                Err(error) => {
+                    tracing::warn!(dir = %dir.display(), %error, "could not watch");
+                    failure = failure.or(Some(error.to_string()));
+                }
+            }
         }
 
-        self.armed = Some(Arm {
-            inode: inode(&dir),
-            dir,
-        });
-        Ok(())
+        // Release only what nothing is armed on any more. Two directories missing from the same
+        // parent share one watch, and `unwatch` addresses by path, so releasing one by name would
+        // take the other's watch with it.
+        for dir in previous {
+            if !self.arms.iter().any(|arm| arm.dir.as_ref() == Some(&dir)) {
+                let _ = debouncer.unwatch(&dir);
+            }
+        }
+
+        match self.arms.iter().all(|arm| arm.dir.is_none()) {
+            true => Err(failure.unwrap_or_else(|| "nothing watchable".to_owned())),
+            false => Ok(()),
+        }
     }
 }
 

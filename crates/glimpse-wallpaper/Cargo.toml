@@ -7,11 +7,11 @@ license.workspace = true
 build = "build.rs"
 
 [dependencies]
-futures-util.workspace = true
 adw.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 colorchoice-clap.workspace = true
+futures-util.workspace = true
 glimpse-config = { path = "../glimpse-config" }
 glimpse-ipc = { path = "../glimpse-ipc" }
 glimpse-utils = { path = "../glimpse-utils" }

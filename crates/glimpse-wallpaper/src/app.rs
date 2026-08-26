@@ -62,7 +62,7 @@ impl SimpleComponent for App {
     }
 }
 
-fn watch(path: Option<PathBuf>, current: Config, sender: ComponentSender<App>) {
+fn spawn_config_watch(path: Option<PathBuf>, current: Config, sender: ComponentSender<App>) {
     relm4::spawn(async move {
         let mut configs = Box::pin(watch_config(path, current));
         while let Some(config) = configs.next().await {
