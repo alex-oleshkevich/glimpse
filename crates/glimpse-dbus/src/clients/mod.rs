@@ -1,11 +1,16 @@
+pub mod accounts;
 pub mod bluez;
 pub mod geoclue;
 pub mod glimpse_lock;
+pub mod hostname1;
 pub mod login1;
 pub mod mpris;
 pub mod network_manager;
 // pub mod notifications;
 pub mod power_profiles;
+pub mod sensor;
 pub mod status_notifier_item;
+pub mod systemd1;
+pub mod timedate1;
 pub mod udisks2;
 pub mod upower;

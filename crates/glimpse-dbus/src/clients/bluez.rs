@@ -18,7 +18,7 @@ pub trait Adapter1 {
     fn pairable_timeout(&self) -> zbus::Result<u32>;
     #[zbus(property)]
     fn modalias(&self) -> zbus::Result<String>;
-    #[zbus(property)]
+    #[zbus(property, name = "UUIDs")]
     fn uuids(&self) -> zbus::Result<Vec<String>>;
     #[zbus(property)]
     fn roles(&self) -> zbus::Result<Vec<String>>;

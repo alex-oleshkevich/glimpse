@@ -9,8 +9,7 @@ pub const MPRIS_NAME_PREFIX: &str = "org.mpris.MediaPlayer2.";
 
 #[zbus::proxy(
     interface = "org.mpris.MediaPlayer2",
-    default_path = "/org/mpris/MediaPlayer2",
-    assume_defaults = true
+    default_path = "/org/mpris/MediaPlayer2"
 )]
 pub trait MprisRoot {
     #[zbus(property)]
@@ -24,8 +23,7 @@ pub trait MprisRoot {
 
 #[zbus::proxy(
     interface = "org.mpris.MediaPlayer2.Player",
-    default_path = "/org/mpris/MediaPlayer2",
-    assume_defaults = true
+    default_path = "/org/mpris/MediaPlayer2"
 )]
 pub trait MprisPlayer {
     #[zbus(property)]

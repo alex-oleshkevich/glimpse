@@ -30,6 +30,9 @@ pub trait GeoClueClient {
 
     #[zbus(property, name = "Location")]
     fn location(&self) -> zbus::Result<OwnedObjectPath>;
+
+    #[zbus(signal)]
+    fn location_updated(&self, old: OwnedObjectPath, new: OwnedObjectPath) -> zbus::Result<()>;
 }
 
 #[zbus::proxy(

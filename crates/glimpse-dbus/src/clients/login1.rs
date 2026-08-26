@@ -13,6 +13,7 @@ pub type Login1InhibitorEntry = (String, String, String, String, u32, u32);
 )]
 pub trait Login1Manager {
     fn get_session(&self, session_id: &str) -> zbus::Result<OwnedObjectPath>;
+    #[zbus(name = "GetSessionByPID")]
     fn get_session_by_pid(&self, pid: u32) -> zbus::Result<OwnedObjectPath>;
     fn list_sessions(&self) -> zbus::Result<Vec<Login1SessionEntry>>;
     // Returns one of: "yes" | "no" | "na" | "challenge"

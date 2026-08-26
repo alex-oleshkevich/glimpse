@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use zbus::zvariant::OwnedValue;
 
 #[zbus::proxy(
-    interface = "net.hadess.PowerProfiles",
-    default_service = "net.hadess.PowerProfiles",
-    default_path = "/net/hadess/PowerProfiles"
+    interface = "org.freedesktop.UPower.PowerProfiles",
+    default_service = "org.freedesktop.UPower.PowerProfiles",
+    default_path = "/org/freedesktop/UPower/PowerProfiles"
 )]
 pub trait PowerProfilesDaemon {
     #[zbus(property)]

@@ -976,6 +976,7 @@ dependencies = [
  "glimpse-ipc",
  "glimpse-services",
  "glimpse-utils",
+ "serde",
  "serde_json",
  "shadow-rs",
  "thiserror",
