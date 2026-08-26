@@ -80,6 +80,7 @@ glimpse-contracts = { path = "../glimpse-contracts" }
 glimpse-ipc = { path = "../glimpse-ipc" }
 glimpse-services = { path = "../glimpse-services" }
 glimpse-utils = { path = "../glimpse-utils" }
+serde.workspace = true
 serde_json.workspace = true
 shadow-rs.workspace = true
 thiserror.workspace = true

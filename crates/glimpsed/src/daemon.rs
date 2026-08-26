@@ -1,9 +1,10 @@
 use std::{path::PathBuf, sync::Arc};
 
+use crate::broker::{self, Handle, Message};
 use crate::handler::BrokerHandler;
 use glimpse_config::Config;
 use glimpse_ipc::Server;
-use glimpse_services::{Broker, BrokerHandle, Service, ServiceRuntime};
+use glimpse_services::{BrokerHandle, Service, ServiceRuntime};
 use tokio::signal::unix::{SignalKind, signal};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
@@ -11,8 +12,6 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 pub enum DaemonError {
     #[error("failed to start ipc server")]
     IpcServer(#[from] glimpse_ipc::ServerError),
-    #[error("failed to start message broker")]
-    MessageBroker(#[from] glimpse_services::BrokerError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error("load config: {0}")]
@@ -26,7 +25,7 @@ pub enum DaemonError {
 struct InitService {
     tasks: TaskTracker,
     cancel: CancellationToken,
-    broker: Arc<BrokerHandle>,
+    broker: Handle,
     config: Config,
 }
 
@@ -47,9 +46,16 @@ impl Daemon {
 
     pub fn register<S: Service>(mut self) -> Self {
         self.factories.push(Box::new(|init: &InitService| {
+            // Declared before the service starts, so a client can subscribe to a topic of a
+            // service that has not published yet and be told it matched.
+            init.broker.send(Message::Declare {
+                service: S::NAME,
+                topics: S::TOPICS,
+            });
+
             let config = S::peek_config(&init.config);
-            let mut runtime =
-                ServiceRuntime::<S>::new(init.broker.clone(), init.cancel.child_token());
+            let broker: Arc<dyn BrokerHandle> = Arc::new(init.broker.clone());
+            let mut runtime = ServiceRuntime::<S>::new(broker, init.cancel.child_token());
             init.tasks.spawn(async move {
                 if let Err(err) = runtime.run(config).await {
                     tracing::error!("service stopped: {}", err);
@@ -65,18 +71,22 @@ impl Daemon {
         let running = CancellationToken::new();
         let brokering = CancellationToken::new();
 
-        let broker = Broker::spawn(brokering.clone()).await?;
+        let broker = broker::spawn(brokering.clone());
         let init = InitService {
             config,
             cancel: running.clone(),
             tasks: self.tasks.clone(),
-            broker: Arc::new(broker.handle()),
+            broker: broker.clone(),
         };
         for factory in self.factories {
             factory(&init);
         }
 
-        let server = Server::bind(socket, BrokerHandler).await?;
+        let server = Server::bind(socket, BrokerHandler::new(broker.clone())).await?;
+        // The publisher only exists once the socket is bound, and the broker only routes to
+        // clients once it has one. Anything published before this is stored and delivered as a
+        // snapshot to the first client that asks, which is what a state cell is for.
+        broker.send(Message::SetPublisher(server.publisher()));
         tracing::info!(path=?socket,"daemon listening");
         let serving = tokio::spawn(server.serve(accepting.clone()));
         shutdown_signal().await?;
