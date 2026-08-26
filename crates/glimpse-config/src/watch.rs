@@ -4,15 +4,16 @@ use std::pin::Pin;
 use std::time::Duration;
 
 use futures_util::{Stream, StreamExt, stream};
-use notify::{EventKind, RecommendedWatcher, RecursiveMode};
-use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, new_debouncer};
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as _};
 use tokio::sync::mpsc;
 
 use crate::load::{load, watch_dirs};
 use crate::schema::Config;
 
+/// How long a watched directory has to go quiet before its events are reported. An editor saving a
+/// file produces a write, a rename over the target, and sometimes a delete and a create.
 const DEBOUNCE: Duration = Duration::from_millis(250);
-const BATCHES: usize = 64;
+const EVENTS: usize = 256;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Update {
@@ -28,9 +29,8 @@ pub fn watch(dir: impl Into<PathBuf>) -> impl Stream<Item = Update> + Send + 'st
     watch_all([dir.into()])
 }
 
-/// One inotify instance and one debounce thread for the whole set, however many directories it
-/// holds. The debouncer polls on a timer rather than blocking, so one per directory would wake an
-/// idle session several times a second for each of them.
+/// One inotify instance for the whole set, however many directories it holds. Its reader blocks on
+/// the descriptor, so a session where nothing is edited costs nothing at all.
 pub fn watch_all(
     dirs: impl IntoIterator<Item = PathBuf>,
 ) -> impl Stream<Item = Update> + Send + 'static {
@@ -99,8 +99,11 @@ impl Reader {
 
 struct Watch {
     arms: Vec<Arm>,
-    debouncer: Option<Debouncer<RecommendedWatcher, RecommendedCache>>,
-    batches: mpsc::Receiver<Vec<PathBuf>>,
+    /// The floor for the ancestor walk: a watch may fall back onto a directory only if that
+    /// directory is itself one we were asked to watch.
+    allowed: Vec<PathBuf>,
+    watcher: Option<RecommendedWatcher>,
+    events: mpsc::Receiver<Vec<PathBuf>>,
     pending: Option<Update>,
 }
 
@@ -114,21 +117,24 @@ impl Arm {
     /// A watch is bound to an inode, not to a name, so `rm -rf` followed by a fresh clone leaves
     /// one armed on a directory nobody can reach: it reports nothing, forever, and looks identical
     /// to a directory where nothing happens. Comparing the inode is what tells those two apart.
-    fn displaced(&self) -> bool {
-        let Some(dir) = self.dir.as_ref() else {
-            return true;
-        };
-        match nearest_existing(&self.wanted) {
-            Some(current) => current != *dir || inode(&current) != self.inode,
-            None => true,
+    ///
+    /// Watching nothing is a settled state, not a displaced one. An arm with no watchable ancestor
+    /// — the ordinary case for `/etc/glimpse/` on a machine with no system layer — would otherwise
+    /// count as displaced on every event, and every event would re-arm instead of being reported.
+    fn displaced(&self, allowed: &[PathBuf]) -> bool {
+        match (nearest_existing(&self.wanted, allowed), self.dir.as_ref()) {
+            (None, None) => false,
+            (Some(current), Some(dir)) => current != *dir || inode(&current) != self.inode,
+            _ => true,
         }
     }
 }
 
 impl Watch {
     fn new(wanted: Vec<PathBuf>) -> Self {
-        let (batches_tx, batches) = mpsc::channel(BATCHES);
+        let (events_tx, events) = mpsc::channel(EVENTS);
         let mut watch = Self {
+            allowed: wanted.clone(),
             arms: wanted
                 .into_iter()
                 .map(|wanted| Arm {
@@ -137,16 +143,14 @@ impl Watch {
                     inode: None,
                 })
                 .collect(),
-            debouncer: None,
-            batches,
+            watcher: None,
+            events,
             pending: None,
         };
 
-        // A tick of its own would poll four times per debounce window; the window itself is as
-        // often as this needs to look, and a reload nobody is waiting on can be 250 ms later.
-        match new_debouncer(DEBOUNCE, Some(DEBOUNCE), forward(batches_tx)) {
-            Ok(debouncer) => {
-                watch.debouncer = Some(debouncer);
+        match notify::recommended_watcher(forward(events_tx)) {
+            Ok(watcher) => {
+                watch.watcher = Some(watcher);
                 watch.pending = watch.rearm().err().map(Update::Unavailable);
             }
             Err(error) => watch.pending = Some(Update::Unavailable(error.to_string())),
@@ -160,9 +164,17 @@ impl Watch {
         }
 
         loop {
-            let paths = self.batches.recv().await?;
+            // Coalesce until the directory goes quiet, rather than flushing on a fixed window: a
+            // rewrite in progress is read once it has finished, not partway through.
+            let mut paths = self.events.recv().await?;
+            while let Ok(more) = tokio::time::timeout(DEBOUNCE, self.events.recv()).await {
+                match more {
+                    Some(more) => paths.extend(more),
+                    None => break,
+                }
+            }
 
-            if self.arms.iter().any(Arm::displaced) {
+            if self.arms.iter().any(|arm| arm.displaced(&self.allowed)) {
                 return Some(match self.rearm() {
                     Ok(()) => Update::Rearmed,
                     Err(reason) => Update::Unavailable(reason),
@@ -187,17 +199,23 @@ impl Watch {
     /// and the rest keep working, because reporting the set dead would throw away watches that are
     /// still delivering.
     fn rearm(&mut self) -> Result<(), String> {
-        let Some(debouncer) = self.debouncer.as_mut() else {
+        let Self {
+            arms,
+            allowed,
+            watcher,
+            ..
+        } = self;
+        let Some(watcher) = watcher.as_mut() else {
             return Err("no watcher".to_owned());
         };
-        let previous: Vec<PathBuf> = self.arms.iter().filter_map(|arm| arm.dir.clone()).collect();
+        let previous: Vec<PathBuf> = arms.iter().filter_map(|arm| arm.dir.clone()).collect();
         let mut failure = None;
 
-        for arm in &mut self.arms {
-            if !arm.displaced() {
+        for arm in &mut *arms {
+            if !arm.displaced(allowed) {
                 continue;
             }
-            let Some(dir) = nearest_existing(&arm.wanted) else {
+            let Some(dir) = nearest_existing(&arm.wanted, allowed) else {
                 failure = failure
                     .or_else(|| Some(format!("nothing watchable above {}", arm.wanted.display())));
                 arm.dir = None;
@@ -207,7 +225,7 @@ impl Watch {
 
             // The new watch is placed before the old one is released below, so a kernel that
             // refuses it leaves the working watch in place instead of costing both.
-            match debouncer.watch(&dir, RecursiveMode::NonRecursive) {
+            match watcher.watch(&dir, RecursiveMode::NonRecursive) {
                 Ok(()) => {
                     arm.inode = inode(&dir);
                     arm.dir = Some(dir);
@@ -223,12 +241,12 @@ impl Watch {
         // parent share one watch, and `unwatch` addresses by path, so releasing one by name would
         // take the other's watch with it.
         for dir in previous {
-            if !self.arms.iter().any(|arm| arm.dir.as_ref() == Some(&dir)) {
-                let _ = debouncer.unwatch(&dir);
+            if !arms.iter().any(|arm| arm.dir.as_ref() == Some(&dir)) {
+                let _ = watcher.unwatch(&dir);
             }
         }
 
-        match self.arms.iter().all(|arm| arm.dir.is_none()) {
+        match arms.iter().all(|arm| arm.dir.is_none()) {
             true => Err(failure.unwrap_or_else(|| "nothing watchable".to_owned())),
             false => Ok(()),
         }
@@ -239,47 +257,45 @@ impl Watch {
 /// nothing about what changed. Dropping them is what keeps the directory holding `config.toml`
 /// quiet while anything else reads anything in it.
 fn forward(
-    batches: mpsc::Sender<Vec<PathBuf>>,
-) -> impl FnMut(DebounceEventResult) + Send + 'static {
+    events: mpsc::Sender<Vec<PathBuf>>,
+) -> impl FnMut(notify::Result<Event>) + Send + 'static {
     move |result| {
-        let Ok(batch) = result else { return };
-        let paths: Vec<PathBuf> = batch
-            .iter()
-            .filter(|event| {
-                matches!(
-                    event.kind,
-                    EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
-                )
-            })
-            .flat_map(|event| event.paths.iter().cloned())
-            .collect();
+        let Ok(event) = result else { return };
+        if !matches!(
+            event.kind,
+            EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
+        ) {
+            return;
+        }
 
-        // Dropping a batch when the queue is full loses nothing: every batch makes the consumer
-        // re-read the files as they are now, and a full queue means one is already waiting to.
-        if !paths.is_empty() {
-            let _ = batches.try_send(paths);
+        // Dropping one when the queue is full loses nothing: every event makes the consumer re-read
+        // the files as they are now, and a full queue means one is already waiting to.
+        if !event.paths.is_empty() {
+            let _ = events.try_send(event.paths);
         }
     }
 }
 
-/// `$HOME` and `/` are refused: both are noisy enough to cost more than the reload they would buy,
-/// and every real case — an absent `config.d/`, an unconfigured machine's `glimpse/` — stops well
-/// above either.
-fn nearest_existing(dir: &Path) -> Option<PathBuf> {
-    let home = dirs::home_dir();
+/// The deepest existing directory at or above `dir`, never leaving `allowed`.
+///
+/// The walk stops at the set it was given rather than at a list of directories to avoid, so a
+/// missing `config.d/` still falls back onto the `glimpse/` beside it in the set, and a missing
+/// `glimpse/` falls back onto nothing. `/etc` and `$XDG_CONFIG_HOME` are written constantly by
+/// software with no connection to this session, and a watch on either wakes us for every one of
+/// those writes to report a file that did not change. What is given up is noticing the
+/// configuration directory being created while the session runs, which is the one time a restart
+/// is no imposition — there was nothing configured to reload.
+fn nearest_existing(dir: &Path, allowed: &[PathBuf]) -> Option<PathBuf> {
     let mut candidate = dir;
 
     loop {
-        if candidate.as_os_str().is_empty()
-            || candidate == Path::new("/")
-            || home.as_deref() == Some(candidate)
-        {
-            return None;
-        }
         if candidate.is_dir() {
             return Some(candidate.to_path_buf());
         }
         candidate = candidate.parent()?;
+        if !allowed.iter().any(|floor| floor == candidate) {
+            return None;
+        }
     }
 }
 
@@ -336,13 +352,30 @@ mod tests {
         }
     }
 
-    /// The ordinary first-run case: `config.d/` does not exist, so the watch sits on the parent
-    /// until the directory shows up.
+    /// The walk stops at the set it was given, so a directory that is missing and has no watched
+    /// parent beside it in the set is not reachable from above. `$XDG_CONFIG_HOME` and `/etc` are
+    /// written constantly by unrelated software; the configuration directory appearing is the one
+    /// moment a restart costs nothing, because nothing was configured to reload.
     #[tokio::test]
-    async fn a_directory_that_appears_is_descended_into() {
+    async fn a_missing_directory_is_never_watched_through_a_parent_outside_the_set() {
         let root = tempfile::tempdir().expect("a temporary directory");
-        let dropins = root.path().join("config.d");
-        let mut updates = watching(&dropins);
+        let mut updates = watching(&root.path().join("glimpse"));
+
+        assert!(
+            matches!(next(&mut updates).await, Update::Unavailable(_)),
+            "the parent is not in the set, so there is nothing to fall back to"
+        );
+    }
+
+    /// The ordinary case: the configuration directory exists and `config.d/` does not, so the
+    /// drop-in arm falls back onto the directory beside it in the set.
+    #[tokio::test]
+    async fn a_dropin_directory_that_appears_is_descended_into() {
+        let root = tempfile::tempdir().expect("a temporary directory");
+        let base = root.path().join("glimpse");
+        let dropins = base.join("config.d");
+        std::fs::create_dir(&base).expect("creates");
+        let mut updates: Updates = Box::pin(watch_all([base.clone(), dropins.clone()]));
 
         std::fs::create_dir(&dropins).expect("creates");
         assert_eq!(next(&mut updates).await, Update::Rearmed);
@@ -378,10 +411,8 @@ mod tests {
         let root = tempfile::tempdir().expect("a temporary directory");
         let base = root.path().join("glimpse");
         let dropins = base.join("config.d");
-        let mut updates: Updates = Box::pin(watch_all([base.clone(), dropins.clone()]));
-
         std::fs::create_dir(&base).expect("creates");
-        assert_eq!(next(&mut updates).await, Update::Rearmed);
+        let mut updates: Updates = Box::pin(watch_all([base.clone(), dropins.clone()]));
 
         std::fs::write(base.join("config.toml"), "").expect("writes");
         let paths = next_changed(&mut updates).await;

@@ -109,13 +109,15 @@ configuration-specific, which is what will make stylesheets a caller rather than
 
 - Only create, modify and remove events. Access events fire for every read in the directory, this
   process's own included, and describe nothing that changed.
-- A 250 ms debounce, because one editor save is a write, a rename over the target, and sometimes a
-  delete and a create.
-- **One inotify instance and one debounce thread for the whole set.** `notify-debouncer-full`'s
-  thread polls on a timer rather than blocking, so a debouncer per directory would wake an idle
-  session once per directory per tick — and the tick defaults to a quarter of the debounce window.
-  The tick is set to the window instead: a reload nobody is waiting on can afford to be 250 ms
-  later, and an idle session is worth more.
+- **Events are coalesced until the directory has been quiet for 250 ms**, because one editor save is
+  a write, a rename over the target, and sometimes a delete and a create. Waiting for quiet rather
+  than flushing on a fixed window also means a file being rewritten in place is read once it has
+  finished, not partway through — a burst of non-atomic writes costs one reload and no parse errors.
+- **One inotify instance for the whole set, and no timer.** The coalescing is a `tokio` timeout
+  armed only once an event arrives, so an idle session costs nothing: measured at zero wakeups on
+  the watching thread over ten seconds. This is why `notify-debouncer-full` is not used — its worker
+  is a `loop { sleep(tick); flush }` that cannot be woken early, and the file-identity tracking it
+  offers in exchange is something nothing here reads.
 - Two directories that are both missing collapse onto the same ancestor and therefore share one
   watch. Releasing a watch addresses it by path, so one is released only once no directory is
   resolving to it.

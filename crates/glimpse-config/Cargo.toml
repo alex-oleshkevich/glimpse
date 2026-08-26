@@ -10,7 +10,6 @@ config.workspace = true
 dirs.workspace = true
 futures-util.workspace = true
 notify.workspace = true
-notify-debouncer-full.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true

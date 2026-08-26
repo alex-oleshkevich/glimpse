@@ -132,6 +132,7 @@ impl Daemon {
                 // `S::Config` is not `Clone` and `next` is moved into the inbox. Peeking a second
                 // time costs less than a `Clone` bound on every service's associated type.
                 previous = S::peek_config(document);
+                tracing::debug!(service = S::NAME, "reconfiguring");
                 reconfigure.reconfigure(next);
             })
         }));
