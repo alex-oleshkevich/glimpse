@@ -96,8 +96,8 @@ dead one.
 
 `watch_dirs(config_path)` is the layer stack's *directories*, existing or not — the counterpart to
 `resolved_files`, which is its files that do. Normally four: `/etc/glimpse/`, its `config.d/`,
-`$XDG_CONFIG_HOME/glimpse/`, and its `config.d/`. `--config` replaces them with that file's own
-directory, drop-ins included.
+`$XDG_CONFIG_HOME/glimpse/`, and its `config.d/`. `--config` replaces the whole stack with one
+file, so it replaces the whole watch set too: that file's directory, and no `config.d/`.
 
 Watches go on directories, never on files. A per-file watch cannot see a drop-in that does not exist
 yet, and creating one is exactly the change that has to be noticed. A symlinked base file adds one
@@ -121,13 +121,31 @@ not configuration-specific, which is what will make stylesheets a caller rather 
   where nothing happens. The inode is compared, not just the path, and `Update::Rearmed` says
   "read everything again" — whatever happened during the gap produced no events and cannot be
   inferred.
-- The `Debouncer` is owned by the stream, so dropping the stream drops the watch.
+- The `Debouncer` is owned by the stream, so dropping the stream drops the watch, and a re-arm
+  places the new watch before releasing the old one — a kernel that refuses the new one would
+  otherwise cost the working watch as well as the descent.
 
-`watch_config(config_path, current)` composes the two: every document that parsed **and differs from
-the one before it**. One that fails to parse is logged and skipped, so the caller keeps what is
-already running. The equality gate is what makes `:w` on an unmodified buffer, and every unrelated
-write in a watched directory, cost one parse and nothing else. A caller that needs the `ConfigError`
-rather than a log line uses `watch` and `load` directly.
+The watch set is derived once, at construction. Re-pointing a symlinked base file at a **different**
+directory is therefore caught — the link's own directory is watched — but edits at the new target
+are not, until the process restarts. Re-stowing in place, which keeps the target directory, is
+unaffected. Re-deriving the set on every event would mean stat-ing the whole stack and rebuilding
+every watch, which is a poor trade for a case that only arises when someone moves their dotfile
+repository.
+
+`reread(config_path, current)` is the step every consumer takes when something moved: load the
+stack off the runtime threads, and answer with the new document only if it parsed **and differs**.
+A read that failed is logged and yields nothing, so the caller keeps what is already running. Both
+the logging and the equality gate live here rather than once per binary.
+
+`watch_config(config_path, current)` composes the three, for a consumer whose only trigger is the
+filesystem: a stream of documents, one per real change. `glimpsed` uses the pieces separately
+instead, because `SIGHUP` has to force a re-read that no filesystem event announced.
+
+Note what is *not* filtered: an event is anything created, modified or removed directly inside a
+watched directory, not just `*.toml`. Filtering by extension would drop the creation of `config.d/`
+itself, which is one of the changes that most needs noticing. So an unrelated write in the
+configuration directory does cost one debounced re-read — and then the equality gate absorbs it,
+which is the whole reason that gate is worth more than a content digest here.
 
 ## Not here
 

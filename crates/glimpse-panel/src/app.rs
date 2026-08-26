@@ -45,7 +45,7 @@ impl SimpleComponent for App {
         root.set_layer(gtk4_layer_shell::Layer::Background);
         root.set_namespace(Some("glimpse-panel"));
 
-        watch(init.config_path, init.config.clone(), sender);
+        spawn_config_watch(init.config_path, init.config.clone(), sender);
 
         let model = App {
             config: init.config,
@@ -63,7 +63,7 @@ impl SimpleComponent for App {
     }
 }
 
-fn watch(path: Option<PathBuf>, current: Config, sender: ComponentSender<App>) {
+fn spawn_config_watch(path: Option<PathBuf>, current: Config, sender: ComponentSender<App>) {
     relm4::spawn(async move {
         let mut configs = Box::pin(watch_config(path, current));
         while let Some(config) = configs.next().await {

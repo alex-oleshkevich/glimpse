@@ -44,7 +44,7 @@ impl SimpleComponent for App {
         root.set_layer(gtk4_layer_shell::Layer::Background);
         root.set_namespace(Some("glimpse-wallpaper"));
 
-        watch(init.config_path, init.config.clone(), sender);
+        spawn_config_watch(init.config_path, init.config.clone(), sender);
 
         let model = App {
             config: init.config,

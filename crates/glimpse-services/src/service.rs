@@ -100,11 +100,21 @@ impl<S: Service> ServiceSender<S> {
     /// reloads every service behind whichever of them is wedged, so a full inbox costs this
     /// service its update and costs the others nothing.
     pub fn reconfigure(&self, config: S::Config) {
-        if self.inbox_tx.try_send(Input::Config(config)).is_err() {
-            tracing::warn!(
-                service = S::NAME,
-                "inbox full, dropped a configuration update"
-            );
+        match self.inbox_tx.try_send(Input::Config(config)) {
+            Ok(()) => {}
+            // A backlog this deep is a service that has stopped answering, and it is losing a
+            // setting the user just wrote.
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                tracing::warn!(
+                    service = S::NAME,
+                    "inbox full, dropped a configuration update"
+                );
+            }
+            // A stopped service is the ordinary shutdown case, and warning about it every time
+            // would teach everyone to ignore the line above.
+            Err(mpsc::error::TrySendError::Closed(_)) => {
+                tracing::debug!(service = S::NAME, "stopped, dropped a configuration update");
+            }
         }
     }
 

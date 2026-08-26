@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use futures_util::{StreamExt, stream};
-use glimpse_config::{Config, Update, watch, watch_dirs};
+use futures_util::StreamExt;
+use glimpse_config::{Config, Update, watch_all, watch_dirs};
 use tokio::signal::unix::Signal;
 use tokio_util::sync::CancellationToken;
 
@@ -29,11 +29,7 @@ impl Reloader {
     }
 
     pub async fn run(mut self, mut hangup: Signal, cancel: CancellationToken) {
-        let mut updates = stream::select_all(
-            watch_dirs(self.path.as_deref())
-                .into_iter()
-                .map(|dir| Box::pin(watch(dir))),
-        );
+        let mut updates = Box::pin(watch_all(watch_dirs(self.path.as_deref())));
 
         loop {
             tokio::select! {
@@ -51,25 +47,9 @@ impl Reloader {
     }
 
     async fn reload(&mut self) {
-        let path = self.path.clone();
-        // `load` is blocking `std::fs`, and this task shares its runtime threads with the broker.
-        let read = tokio::task::spawn_blocking(move || glimpse_config::load(path.as_deref())).await;
-
-        let config = match read {
-            Ok(Ok(config)) => config,
-            Ok(Err(error)) => {
-                tracing::error!(%error, "dropped a reload, keeping the running configuration");
-                return;
-            }
-            Err(error) => {
-                tracing::error!(%error, "the configuration reader panicked");
-                return;
-            }
-        };
-
-        if config == self.config {
+        let Some(config) = glimpse_config::reread(self.path.as_deref(), &self.config).await else {
             return;
-        }
+        };
 
         tracing::info!("configuration reloaded");
         self.config = config;

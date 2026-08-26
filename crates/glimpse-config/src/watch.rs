@@ -14,7 +14,7 @@ use crate::schema::Config;
 const DEBOUNCE: Duration = Duration::from_millis(250);
 const BATCHES: usize = 64;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Update {
     Changed(Vec<PathBuf>),
     /// The watch moved. Whatever happened while it was elsewhere produced no events and cannot be
@@ -50,6 +50,25 @@ pub fn watch_config(
     })
 }
 
+/// The next document, or nothing: a read that failed, or one that came back equal, both leave the
+/// caller running what it already has. Every consumer wants that same answer, so the logging and
+/// the equality gate live here rather than once per binary.
+pub async fn reread(config_path: Option<&Path>, current: &Config) -> Option<Config> {
+    let path = config_path.map(Path::to_path_buf);
+
+    match tokio::task::spawn_blocking(move || load(path.as_deref())).await {
+        Ok(Ok(config)) => (config != *current).then_some(config),
+        Ok(Err(error)) => {
+            tracing::error!(%error, "dropped a reload, keeping the running configuration");
+            None
+        }
+        Err(error) => {
+            tracing::error!(%error, "the configuration reader panicked");
+            None
+        }
+    }
+}
+
 struct Reader {
     updates: Pin<Box<dyn Stream<Item = Update> + Send>>,
     path: Option<PathBuf>,
@@ -64,17 +83,9 @@ impl Reader {
                 continue;
             }
 
-            let path = self.path.clone();
-            match tokio::task::spawn_blocking(move || load(path.as_deref())).await {
-                Ok(Ok(config)) if config != self.current => {
-                    self.current = config.clone();
-                    return Some(config);
-                }
-                Ok(Ok(_)) => {}
-                Ok(Err(error)) => {
-                    tracing::error!(%error, "dropped a reload, keeping the running configuration");
-                }
-                Err(error) => tracing::error!(%error, "the configuration reader panicked"),
+            if let Some(config) = reread(self.path.as_deref(), &self.current).await {
+                self.current = config.clone();
+                return Some(config);
             }
         }
         None
@@ -160,12 +171,20 @@ impl Watch {
         let dir = nearest_existing(&self.wanted)
             .ok_or_else(|| format!("nothing watchable above {}", self.wanted.display()))?;
 
-        if let Some(previous) = self.armed.take() {
-            let _ = debouncer.unwatch(&previous.dir);
-        }
+        // The new watch is placed before the old one is dropped, so a kernel that refuses it
+        // leaves the working watch in place instead of taking both. Descending from `/etc` to
+        // `/etc/glimpse` otherwise loses `/etc` too, and nothing is ever noticed again.
         debouncer
             .watch(&dir, RecursiveMode::NonRecursive)
             .map_err(|error| error.to_string())?;
+
+        // A replaced directory keeps its path, and `unwatch` addresses by path: dropping the old
+        // watch by name here would drop the one just placed on the new inode.
+        if let Some(previous) = self.armed.take()
+            && previous.dir != dir
+        {
+            let _ = debouncer.unwatch(&previous.dir);
+        }
 
         self.armed = Some(Arm {
             inode: inode(&dir),
@@ -194,6 +213,8 @@ fn forward(
             .flat_map(|event| event.paths.iter().cloned())
             .collect();
 
+        // Dropping a batch when the queue is full loses nothing: every batch makes the consumer
+        // re-read the files as they are now, and a full queue means one is already waiting to.
         if !paths.is_empty() {
             let _ = batches.try_send(paths);
         }
@@ -242,6 +263,19 @@ mod tests {
             .expect("the stream is still alive")
     }
 
+    /// A re-arm may arrive on its own before the change that followed it, because the debounce
+    /// window does not have to contain both. Skipping them is what keeps these tests from
+    /// depending on that timing.
+    async fn next_changed(updates: &mut Updates) -> Vec<PathBuf> {
+        loop {
+            match next(updates).await {
+                Update::Changed(paths) => return paths,
+                Update::Rearmed => continue,
+                other => panic!("expected Changed, got {other:?}"),
+            }
+        }
+    }
+
     fn watching(dir: &Path) -> Updates {
         Box::pin(watch(dir.to_path_buf()))
     }
@@ -273,12 +307,8 @@ mod tests {
         assert_eq!(next(&mut updates).await, Update::Rearmed);
 
         std::fs::write(dropins.join("10-laptop.toml"), "").expect("writes");
-        match next(&mut updates).await {
-            Update::Changed(paths) => {
-                assert!(paths.iter().any(|path| path.ends_with("10-laptop.toml")));
-            }
-            other => panic!("expected Changed, got {other:?}"),
-        }
+        let paths = next_changed(&mut updates).await;
+        assert!(paths.iter().any(|path| path.ends_with("10-laptop.toml")));
     }
 
     /// What a dotfile manager does. The directory has the same name and a different inode, so a
@@ -295,12 +325,8 @@ mod tests {
         assert_eq!(next(&mut updates).await, Update::Rearmed);
 
         std::fs::write(dir.join("config.toml"), "").expect("writes");
-        match next(&mut updates).await {
-            Update::Changed(paths) => {
-                assert!(paths.iter().any(|path| path.ends_with("config.toml")));
-            }
-            other => panic!("expected Changed, got {other:?}"),
-        }
+        let paths = next_changed(&mut updates).await;
+        assert!(paths.iter().any(|path| path.ends_with("config.toml")));
     }
 
     #[tokio::test]
