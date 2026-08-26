@@ -104,13 +104,21 @@ yet, and creating one is exactly the change that has to be noticed. A symlinked 
 more directory, the one holding its resolved target: editors write a new file and rename it over the
 old one, so a watch on the link alone goes quiet after the first save.
 
-`watch(dir)` is the primitive — one directory, non-recursive, for as long as the stream lives. It is
-not configuration-specific, which is what will make stylesheets a caller rather than a subsystem.
+`watch_all(dirs)` is the primitive, and `watch(dir)` is its one-directory case. Neither is
+configuration-specific, which is what will make stylesheets a caller rather than a subsystem.
 
 - Only create, modify and remove events. Access events fire for every read in the directory, this
   process's own included, and describe nothing that changed.
 - A 250 ms debounce, because one editor save is a write, a rename over the target, and sometimes a
   delete and a create.
+- **One inotify instance and one debounce thread for the whole set.** `notify-debouncer-full`'s
+  thread polls on a timer rather than blocking, so a debouncer per directory would wake an idle
+  session once per directory per tick — and the tick defaults to a quarter of the debounce window.
+  The tick is set to the window instead: a reload nobody is waiting on can afford to be 250 ms
+  later, and an idle session is worth more.
+- Two directories that are both missing collapse onto the same ancestor and therefore share one
+  watch. Releasing a watch addresses it by path, so one is released only once no directory is
+  resolving to it.
 - A directory that does not exist is watched through its nearest existing ancestor, and the watch
   descends when the missing component appears. `config.d/` absent is the ordinary case, not an
   error. The walk refuses `$HOME` and `/`, which are noisy enough to cost more than the reload they

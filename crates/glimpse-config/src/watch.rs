@@ -198,10 +198,8 @@ impl Watch {
                 continue;
             }
             let Some(dir) = nearest_existing(&arm.wanted) else {
-                failure = failure.or(Some(format!(
-                    "nothing watchable above {}",
-                    arm.wanted.display()
-                )));
+                failure = failure
+                    .or_else(|| Some(format!("nothing watchable above {}", arm.wanted.display())));
                 arm.dir = None;
                 arm.inode = None;
                 continue;
@@ -216,7 +214,7 @@ impl Watch {
                 }
                 Err(error) => {
                     tracing::warn!(dir = %dir.display(), %error, "could not watch");
-                    failure = failure.or(Some(error.to_string()));
+                    failure = failure.or_else(|| Some(error.to_string()));
                 }
             }
         }
@@ -370,6 +368,39 @@ mod tests {
         std::fs::write(dir.join("config.toml"), "").expect("writes");
         let paths = next_changed(&mut updates).await;
         assert!(paths.iter().any(|path| path.ends_with("config.toml")));
+    }
+
+    /// Both directories start missing and collapse onto the same ancestor, so they share one
+    /// watch. As each appears the set descends — and releasing the ancestor by path must not take
+    /// the watch the other arm is still using.
+    #[tokio::test]
+    async fn directories_sharing_a_watch_survive_each_other_descending() {
+        let root = tempfile::tempdir().expect("a temporary directory");
+        let base = root.path().join("glimpse");
+        let dropins = base.join("config.d");
+        let mut updates: Updates = Box::pin(watch_all([base.clone(), dropins.clone()]));
+
+        std::fs::create_dir(&base).expect("creates");
+        assert_eq!(next(&mut updates).await, Update::Rearmed);
+
+        std::fs::write(base.join("config.toml"), "").expect("writes");
+        let paths = next_changed(&mut updates).await;
+        assert!(paths.iter().any(|path| path.ends_with("config.toml")));
+
+        // The drop-in directory now descends off the base, which is still armed for the other arm.
+        std::fs::create_dir(&dropins).expect("creates");
+        assert_eq!(next(&mut updates).await, Update::Rearmed);
+
+        std::fs::write(base.join("config.toml"), "changed").expect("writes");
+        let paths = next_changed(&mut updates).await;
+        assert!(
+            paths.iter().any(|path| path.ends_with("config.toml")),
+            "the base directory lost its watch when the drop-in directory descended"
+        );
+
+        std::fs::write(dropins.join("10-laptop.toml"), "").expect("writes");
+        let paths = next_changed(&mut updates).await;
+        assert!(paths.iter().any(|path| path.ends_with("10-laptop.toml")));
     }
 
     #[tokio::test]
