@@ -145,17 +145,14 @@ fn absent(session: &Session, topic: &str) -> Result<()> {
     Ok(())
 }
 
-/// `system.topics` is keyed by topic name, so filtering it is filtering keys.
-fn narrow(data: Value, pattern: &str) -> Result<Value> {
-    let Value::Object(map) = data else {
-        bail!("`{TOPICS}` is not an object");
+/// `system.topics` carries an object keyed by topic name, so filtering it is filtering keys.
+fn narrow(mut data: Value, pattern: &str) -> Result<Value> {
+    let Some(Value::Object(topics)) = data.get_mut("topics") else {
+        bail!("`{TOPICS}` does not carry a `topics` object");
     };
 
-    Ok(Value::Object(
-        map.into_iter()
-            .filter(|(topic, _)| pattern::matches(pattern, topic))
-            .collect(),
-    ))
+    topics.retain(|topic, _| pattern::matches(pattern, topic));
+    Ok(data)
 }
 
 /// `--field a.b` is a JSON Pointer with different punctuation, so each segment is escaped the way
