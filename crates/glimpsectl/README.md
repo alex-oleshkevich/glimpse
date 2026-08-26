@@ -15,7 +15,7 @@ glimpsectl doctor
 - `main.rs` — global-flag resolution, subcommand dispatch, exit codes
 - `cli.rs` — the argument surface and `KEY=VALUE` splitting
 - `commands/` — one module per subcommand, each printing its own output
-- `render.rs` — `Table`, `Section`, payload rendering and the `styled` colours
+- `render.rs` — `Table`, `Section`, payload rendering, the `styled` colours, and the one `print` everything leaves through
 - `errors.rs` — the `Exit` table and the one `anyhow::Error` to exit-code mapping
 
 `monitor` is the only subcommand still unimplemented; it reports so and exits 1, so a script cannot
@@ -24,6 +24,9 @@ configuration stack, and every service with its state — and exits 0 whatever i
 diagnosing a broken session is the command succeeding, not failing. The compositor, the Wayland
 protocols and backend availability are the daemon's knowledge and reach `doctor` only through the
 states on `system.services`.
+
+`topics` filters on two axes that compose: a positional pattern narrows by topic name, `--owner`
+narrows by owning service, and an empty result names whichever one emptied it.
 
 `topics` and `services` are `get` on `system.topics` and `system.services` rather than frames of
 their own — the daemon already has to publish that state, and a second way to ask for it would be a
@@ -37,7 +40,9 @@ prints what the daemon sent and nothing else — the payload for `get`, one even
 No other subcommand has one: `topics` and `services` render the daemon's own introspection, and a
 consumer wanting those as data reads `system.topics` and `system.services` with `get --json`.
 
-**Everything drawn goes through `render.rs`.** `Table` aligns columns and takes `[String; N]` rows,
+**Everything drawn goes through `render.rs`**, including reaching stdout: `Table` and `Section`
+carry `.print()`, and `render::print` is the single place a line is written, so `BrokenPipe` is
+handled once rather than per command. `Table` aligns columns and takes `[String; N]` rows,
 so a row that does not match its headers is a compile error rather than a ragged table; `with_empty`
 gives it something to say when there are no rows. `Section` is a heading over indented content and
 an optional note, and takes content already rendered, so it composes with a table, with `lines`, or

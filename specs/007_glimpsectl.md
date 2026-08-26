@@ -50,7 +50,7 @@ glimpsectl [GLOBAL OPTIONS] <COMMAND> [ARGS]
 | `get <TOPIC>`                        | one topic, exact                 | Print the current value, exit. `--field <PATH>` prints one field; `--json` prints the payload verbatim |
 | `watch <PATTERN>`                    | one pattern, `audio.*`, `tray.**`| Print the snapshot then every update, one per line, until interrupted. `--count <N>` exits after N events; `--json` prints each event frame verbatim |
 | `call <METHOD> [KEY=VALUE]...`       | method name then arguments       | Invoke a command, print the result. Values parse as JSON when possible, otherwise as strings |
-| `topics [PATTERN]`                   | optional filter                  | List known topics with their owning service and whether a value is present |
+| `topics [PATTERN]`                   | optional filter                  | List known topics with their owning service and whether a value is present. `--owner <SERVICE>` keeps only that service's topics |
 | `services`                           | none                             | List services with state, health and the reason for `degraded`            |
 | `config show`                        | none                             | Print the merged configuration — the same layered stack `config path` resolves and `config validate` checks |
 | `config validate [PATH]`             | optional file                    | Validate a file, or the layered stack, and report the exact error location |
@@ -119,3 +119,4 @@ transient failure from a permanent one without parsing prose.
 - 2026-08-21 — `config validate`, running against a real config on this machine, is what surfaced that `[applets.<name>.settings]` nesting (see `010`) was never how `_old/` actually worked.
 - 2026-08-26 — `--json` removed; `glimpsectl` renders for people only, and `get --field` is the scripting primitive. See the decision log.
 - 2026-08-26 — `--json` returns as a per-command flag on `get` and `watch`, printing the daemon's bytes verbatim rather than a second rendering. See the decision log.
+- 2026-08-26 — `topics --owner <SERVICE>` filters by owning service, the other axis of the table it already prints.

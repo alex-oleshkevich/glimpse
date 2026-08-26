@@ -54,7 +54,7 @@ async fn run(cli: Cli) -> Result<()> {
             json,
         } => commands::watch(daemon()?, pattern, count, json).await,
         Command::Call { method, arguments } => commands::call(daemon()?, method, arguments).await,
-        Command::Topics { pattern } => commands::topics(daemon()?, pattern).await,
+        Command::Topics { pattern, owner } => commands::topics(daemon()?, pattern, owner).await,
         Command::Services => commands::services(daemon()?).await,
         Command::Config(ConfigCommand::Show) => commands::config_show(cli.config.config),
         Command::Config(ConfigCommand::Validate { path }) => {

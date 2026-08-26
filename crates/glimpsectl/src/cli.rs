@@ -86,6 +86,13 @@ pub enum Command {
     Topics {
         #[arg(value_name = "PATTERN", help = "Only topics matching this pattern")]
         pattern: Option<String>,
+
+        #[arg(
+            long,
+            value_name = "SERVICE",
+            help = "Only topics owned by this service"
+        )]
+        owner: Option<String>,
     },
 
     #[command(about = "List services with state, health and the reason for `degraded`")]
