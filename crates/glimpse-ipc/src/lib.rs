@@ -1,12 +1,13 @@
 mod client;
 mod codec;
 mod frame;
+mod outbox;
 pub mod pattern;
 mod server;
 
 pub use client::{Client, ConnectError, ConnectionState, Subscription};
 pub use frame::{Body, CallError, ErrorCode, Event, Frame, Status};
-pub use server::{ClientId, Handler, Server, ServerError};
+pub use server::{ClientId, Handler, Publisher, Server, ServerError, Subscribed};
 
 use std::path::{Path, PathBuf};
 

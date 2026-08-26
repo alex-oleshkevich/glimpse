@@ -22,9 +22,7 @@ pub enum Body {
     Subscribe {
         pattern: String,
     },
-    SubscribeAck {
-        matched: usize,
-    },
+    SubscribeAck(Status<usize>),
     Unsubscribe {
         pattern: String,
     },
@@ -144,7 +142,7 @@ mod tests {
             Body::Subscribe {
                 pattern: "audio.*".into(),
             },
-            Body::SubscribeAck { matched: 3 },
+            Body::SubscribeAck(Status::Ok { value: 3 }),
             Body::Unsubscribe {
                 pattern: "audio.*".into(),
             },

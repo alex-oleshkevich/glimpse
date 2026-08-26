@@ -251,8 +251,8 @@ impl Pending {
             (Self::Call(reply), Body::CallResult(status)) => {
                 let _ = reply.send(status.into());
             }
-            (Self::Subscribe(reply), Body::SubscribeAck { matched }) => {
-                let _ = reply.send(Ok(matched));
+            (Self::Subscribe(reply), Body::SubscribeAck(status)) => {
+                let _ = reply.send(status.into());
             }
             (pending, body) => {
                 tracing::warn!(?body, "the daemon answered with a frame of the wrong kind");
