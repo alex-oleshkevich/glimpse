@@ -8,7 +8,7 @@ use std::process::ExitCode;
 use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
-use glimpse_services::{Geolocation, Solar, Watcher};
+use glimpse_services::{Geolocation, Heartbeat, Solar, Watcher};
 use glimpse_utils::init_app_tracing;
 
 use crate::daemon::{Daemon, DaemonError};
@@ -46,6 +46,7 @@ async fn run(cli: Cli) -> Result<(), DaemonError> {
         .register::<Watcher>()
         .register::<Geolocation>()
         .register::<Solar>()
+        .register::<Heartbeat>()
         .run(&socket, config)
         .await
 }

@@ -318,7 +318,7 @@ async fn read_client<H: Handler>(
         };
 
         let correlation = frame.id;
-        let Some(body) = answer(handler, id, frame.body, client).await else {
+        let Some(body) = answer(handler, id, frame.body, client, correlation).await else {
             continue;
         };
 
@@ -364,12 +364,13 @@ async fn answer<H: Handler>(
     id: ClientId,
     body: Body,
     client: &Client,
+    correlation: Option<u64>,
 ) -> Option<Body> {
     Some(match body {
         Body::Get { topic } => Body::GetResult(handler.get(&topic).await.into()),
         Body::Call { command, args } => Body::CallResult(handler.call(&command, args).await.into()),
         Body::Subscribe { pattern } => {
-            subscribe(handler, id, pattern, client).await;
+            subscribe(handler, id, pattern, client, correlation).await;
             return None;
         }
         Body::Unsubscribe { pattern } => {
@@ -391,10 +392,17 @@ async fn answer<H: Handler>(
 /// The pattern is registered before the snapshot is asked for, so a value published while the
 /// handler is working still reaches this client. The outbox's `seq` guard is what makes that safe:
 /// whichever of the two arrives second, the newer value is the one that survives.
-async fn subscribe<H: Handler>(handler: &H, id: ClientId, pattern: String, client: &Client) {
+async fn subscribe<H: Handler>(
+    handler: &H,
+    id: ClientId,
+    pattern: String,
+    client: &Client,
+    correlation: Option<u64>,
+) {
     if !client.lock().add_pattern(&pattern) {
         reply_subscribe(
             client,
+            correlation,
             Status::Error {
                 error: CallError::new(
                     ErrorCode::LimitExceeded,
@@ -409,13 +417,14 @@ async fn subscribe<H: Handler>(handler: &H, id: ClientId, pattern: String, clien
         Ok(subscribed) => subscribed,
         Err(error) => {
             client.lock().remove_pattern(&pattern);
-            reply_subscribe(client, Status::Error { error });
+            reply_subscribe(client, correlation, Status::Error { error });
             return;
         }
     };
 
     reply_subscribe(
         client,
+        correlation,
         Status::Ok {
             value: subscribed.matched,
         },
@@ -434,9 +443,11 @@ async fn subscribe<H: Handler>(handler: &H, id: ClientId, pattern: String, clien
     }
 }
 
-fn reply_subscribe(client: &Client, status: Status<usize>) {
+/// The correlation id is echoed, so a `subscribe` sent without one — the client's resubscribe after
+/// a reconnect — stays fire-and-forget while a caller waiting on an ack is answered.
+fn reply_subscribe(client: &Client, correlation: Option<u64>, status: Status<usize>) {
     match encode(&Frame {
-        id: None,
+        id: correlation,
         body: Body::SubscribeAck(status),
     }) {
         Ok(frame) => client.push_response(frame),

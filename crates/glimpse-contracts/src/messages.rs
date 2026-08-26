@@ -52,4 +52,7 @@ topics! {
 
     #[name = "geolocation.status"]
     pub struct GeolocationStatus { coordinates: Option<GeoCoordinates> }
+
+    #[name = "heartbeat.tick"]
+    pub struct HeartbeatTick { count: u64 }
 }
