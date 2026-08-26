@@ -1,7 +1,7 @@
 use anyhow::Result;
 use glimpse_contracts::{ServiceState, SystemServices};
 
-use super::{ABSENT, Session, absent, write_line};
+use super::{ABSENT, Session, absent};
 use crate::render::{Table, styled};
 
 pub(super) const SERVICES: &str = "system.services";
@@ -13,17 +13,14 @@ pub async fn services(session: &Session) -> Result<()> {
 
     let report: SystemServices = serde_json::from_value(event.data)?;
 
-    write_line(
-        &Table::new()
-            .with_headers(["SERVICE", "STATE", "DETAIL"])
-            .with_empty("the daemon has no registered services")
-            .with_rows(report.services.iter().map(|(name, state)| {
-                let (state, detail) = described(state);
-                [name.clone(), state, styled::key(&detail)]
-            }))
-            .render(),
-    )?;
-    Ok(())
+    Table::new()
+        .with_headers(["SERVICE", "STATE", "DETAIL"])
+        .with_empty("the daemon has no registered services")
+        .with_rows(report.services.iter().map(|(name, state)| {
+            let (state, detail) = described(state);
+            [name.clone(), state, styled::key(&detail)]
+        }))
+        .print()
 }
 
 /// The state as it should read, and whatever detail belongs beside it.

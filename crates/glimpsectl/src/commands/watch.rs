@@ -1,7 +1,7 @@
 use anyhow::Result;
 
-use super::{Flow, Session, write_line};
-use crate::render::{self, styled};
+use super::Session;
+use crate::render::{self, Flow, styled};
 
 pub async fn watch(
     session: &Session,
@@ -22,7 +22,7 @@ pub async fn watch(
             }
         };
 
-        if let Flow::Stop = write_line(&line)? {
+        if let Flow::Stop = render::print(&line)? {
             break;
         }
 

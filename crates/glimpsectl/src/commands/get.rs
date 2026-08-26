@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use serde_json::Value;
 
-use super::{Session, absent, write_line};
+use super::{Session, absent};
 use crate::render;
 
 pub async fn get(
@@ -24,8 +24,8 @@ pub async fn get(
     // `--json` is a passthrough, not a second rendering: whatever the daemon sent is what a script
     // reading this sees.
     match json {
-        true => write_line(&serde_json::to_string(data)?)?,
-        false => write_line(&render::lines(data))?,
+        true => render::print(&serde_json::to_string(data)?)?,
+        false => render::print(&render::lines(data))?,
     };
     Ok(())
 }

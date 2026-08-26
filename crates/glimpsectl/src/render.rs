@@ -1,3 +1,6 @@
+use std::io::{self, Write};
+
+use anyhow::Result;
 use serde_json::Value;
 
 /// One function per colour. Each returns the text wrapped in its escapes, or an empty string for
@@ -81,6 +84,10 @@ impl<const N: usize> Table<N> {
         self
     }
 
+    pub fn print(self) -> Result<()> {
+        print(&self.render()).map(|_| ())
+    }
+
     pub fn render(self) -> String {
         if let (true, Some(empty)) = (self.rows.is_empty(), &self.empty) {
             return empty.clone();
@@ -140,6 +147,25 @@ fn visible(text: &str) -> String {
     out
 }
 
+/// Whether the reader is still there. A streaming command checks it; a one-shot does not need to.
+pub enum Flow {
+    Continue,
+    Stop,
+}
+
+/// The one place anything reaches stdout.
+pub fn print(text: &str) -> Result<Flow> {
+    // `anstream` strips the styling when stdout is not a terminal, so a pipe gets plain text
+    // without any command having to ask whether it is being piped.
+    match writeln!(anstream::stdout(), "{text}") {
+        Ok(()) => Ok(Flow::Continue),
+        // Rust ignores SIGPIPE, so `glimpsectl watch … | head -1` arrives here rather than
+        // panicking out of `println!` with exit 101, which no exit table contains.
+        Err(error) if error.kind() == io::ErrorKind::BrokenPipe => Ok(Flow::Stop),
+        Err(error) => Err(error.into()),
+    }
+}
+
 /// A titled block: a heading, indented content, and an optional note saying what the content means.
 ///
 /// Content arrives already rendered, as a `String`, so a section composes with a `Table`, with
@@ -170,6 +196,10 @@ impl Section {
         self
     }
 
+    pub fn print(self) -> Result<()> {
+        print(&self.render()).map(|_| ())
+    }
+
     pub fn render(self) -> String {
         let body = self.body.iter().map(String::as_str);
         let note = self.note.iter().map(String::as_str);
@@ -185,11 +215,6 @@ impl Section {
             .collect::<Vec<_>>()
             .join("\n")
     }
-}
-
-/// Blank line between blocks, which is what separates one section from the next.
-pub fn stacked(blocks: impl IntoIterator<Item = String>) -> String {
-    blocks.into_iter().collect::<Vec<_>>().join("\n\n")
 }
 
 /// An empty line stays empty: indenting it would leave whitespace nothing can see.
@@ -361,15 +386,6 @@ mod tests {
             visible(&rendered),
             "D-BUS\n  session bus  ok\n  → network is degraded"
         );
-    }
-
-    #[test]
-    fn stacked_sections_are_separated_by_a_blank_line() {
-        let rendered = stacked([
-            Section::new("One").with("a").render(),
-            Section::new("Two").with("b").render(),
-        ]);
-        assert_eq!(visible(&rendered), "ONE\n  a\n\nTWO\n  b");
     }
 
     #[test]

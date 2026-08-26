@@ -3,7 +3,7 @@ use glimpse_contracts::SystemTopics;
 use glimpse_ipc::pattern;
 use serde_json::Value;
 
-use super::{ABSENT, Session, absent, write_line};
+use super::{ABSENT, Session, absent};
 use crate::render::Table;
 
 const TOPICS: &str = "system.topics";
@@ -20,23 +20,20 @@ pub async fn topics(session: &Session, pattern: Option<String>) -> Result<()> {
 
     let report: SystemTopics = serde_json::from_value(data)?;
 
-    write_line(
-        &Table::new()
-            .with_headers(["TOPIC", "OWNER", "VALUE"])
-            .with_empty("no topic matches that pattern")
-            .with_rows(report.topics.iter().map(|(topic, report)| {
-                [
-                    topic.clone(),
-                    report.service.clone().unwrap_or_else(|| ABSENT.to_owned()),
-                    match report.has_value {
-                        true => "yes".to_owned(),
-                        false => ABSENT.to_owned(),
-                    },
-                ]
-            }))
-            .render(),
-    )?;
-    Ok(())
+    Table::new()
+        .with_headers(["TOPIC", "OWNER", "VALUE"])
+        .with_empty("no topic matches that pattern")
+        .with_rows(report.topics.iter().map(|(topic, report)| {
+            [
+                topic.clone(),
+                report.service.clone().unwrap_or_else(|| ABSENT.to_owned()),
+                match report.has_value {
+                    true => "yes".to_owned(),
+                    false => ABSENT.to_owned(),
+                },
+            ]
+        }))
+        .print()
 }
 
 /// `system.topics` carries an object keyed by topic name, so filtering it is filtering keys.

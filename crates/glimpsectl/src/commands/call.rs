@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde_json::{Map, Value};
 
-use super::{Session, write_line};
+use super::Session;
 use crate::render;
 
 pub async fn call(
@@ -22,6 +22,6 @@ pub async fn call(
         .collect::<Map<String, Value>>();
 
     let result = session.client.call(&method, Value::Object(args)).await?;
-    write_line(&render::lines(&result))?;
+    render::print(&render::lines(&result))?;
     Ok(())
 }
