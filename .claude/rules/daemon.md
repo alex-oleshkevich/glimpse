@@ -7,8 +7,6 @@ paths:
 
 # Daemon and service conventions
 
-Architecture in `specs/001_architecture.md`, the daemon's own contract in `specs/003_daemon.md`.
-
 ## The broker
 
 - It routes and nothing else. No image decoding, no icon work, no filesystem access, no synchronous

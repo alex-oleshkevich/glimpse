@@ -66,8 +66,3 @@ against, not because glimpsed is special — the assets lists pull in all six bi
 wallpapers, and the license from the shared target dir and repo root. `data/pam.d`, `data/systemd`,
 and `data/dbus-1/services` are empty placeholders today, so their contents aren't in the asset
 lists yet; add them once something real lands under `data/`.
-
-Spec: [`specs/003_daemon.md`](../../specs/003_daemon.md) ·
-configuration: [`specs/010_configuration.md`](../../specs/010_configuration.md) ·
-units: [`specs/009_systemd.md`](../../specs/009_systemd.md) ·
-packaging: [`specs/013_packaging.md`](../../specs/013_packaging.md)

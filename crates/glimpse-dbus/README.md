@@ -56,5 +56,3 @@ other SDKs. A backend type that leaked into a payload could not be.
 Under construction. `clients/notifications.rs` is a `#[zbus::interface]` block that belongs with the
 notifications service and is not declared here; a live fixture connection for tests needs zbus's
 `p2p` feature, which nothing has asked for yet.
-
-Spec: [`specs/001_architecture.md`](../../specs/001_architecture.md)

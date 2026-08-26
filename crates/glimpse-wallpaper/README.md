@@ -25,7 +25,4 @@ request id so a stale decode cannot overwrite a newer image.
 With the daemon down, it keeps drawing the last image and the last theme mode.
 
 Configuration is the `[wallpaper]` and `[backdrop]` tables of the shared `config.toml`. Tables owned by other
-binaries are ignored, not validated. Schema in
-[`specs/010_configuration.md`](../../specs/010_configuration.md).
-
-Spec: [`specs/005_wallpaper.md`](../../specs/005_wallpaper.md)
+binaries are ignored, not validated. Schema in.

@@ -1,6 +1,6 @@
 use std::panic::AssertUnwindSafe;
 use std::sync::{
-    Arc,
+    Arc, Mutex, MutexGuard,
     atomic::{AtomicBool, Ordering},
 };
 
@@ -9,7 +9,11 @@ use glimpse_contracts::Message;
 use glimpse_dbus::Buses;
 use serde::Deserialize;
 use serde_json::Value;
-use tokio::{sync::mpsc, task::AbortHandle, time};
+use tokio::{
+    sync::{Notify, mpsc},
+    task::AbortHandle,
+    time,
+};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use crate::publisher::Publisher;
@@ -76,26 +80,36 @@ impl<S: Service> Ctx<S> {
         self.cancel.child_token()
     }
 
+    /// The broker calls the sink from its own task and must never be made to wait, so the sink only
+    /// parks the newest payload in a slot. A pump task then applies `map` and delivers it, which
+    /// keeps two things off the broker: the wait for a full inbox, and the service's own closure —
+    /// a panic in `map` degrades this service instead of taking the broker down with it.
     pub fn subscribe<T: Message>(
         &self,
         map: impl Fn(T::Payload) -> S::Event + Send + 'static,
     ) -> SourceGuard {
-        let events = self.events();
+        let slot = Slot::<T::Payload>::new();
+        let writer = Arc::clone(&slot);
+
         let id = self.broker.subscribe(
             T::NAME,
             Box::new(move |data: &Value| match T::Payload::deserialize(data) {
-                Ok(value) => {
-                    if events.try_send(Input::Event(map(value))).is_err() {
-                        tracing::warn!(topic = T::NAME, "dropped a topic update");
-                    }
-                }
+                Ok(value) => writer.put(value),
                 Err(err) => tracing::warn!(topic=T::NAME, %err, "undecodable payload"),
             }),
         );
-        SourceGuard {
-            abort: None,
-            subscription: Some((self.broker.clone(), id)),
-        }
+
+        let events = self.events.clone();
+        let mut guard = self.spawn_raw(async move {
+            loop {
+                let payload = slot.take().await;
+                if events.send(Input::Event(map(payload))).await.is_err() {
+                    break;
+                }
+            }
+        });
+        guard.subscription = Some((self.broker.clone(), id));
+        guard
     }
 
     /// One unit of asynchronous work whose result is one event. The task is handed a `Ctx` of its
@@ -260,6 +274,47 @@ impl<S: Service> Ctx<S> {
 
     pub(crate) fn is_degraded(&self) -> bool {
         self.degraded.load(Ordering::Relaxed)
+    }
+}
+
+/// One topic's latest payload, waiting for the task that will deliver it.
+///
+/// Newest wins: a value that arrives before the previous one was taken replaces it. The producer
+/// never waits and never drops the current value — the two things a bounded channel cannot do at
+/// once, since a full one drops whatever it is handed, which is always the newest.
+struct Slot<P> {
+    latest: Mutex<Option<P>>,
+    ready: Notify,
+}
+
+impl<P> Slot<P> {
+    fn new() -> Arc<Self> {
+        Arc::new(Self {
+            latest: Mutex::new(None),
+            ready: Notify::new(),
+        })
+    }
+
+    fn lock(&self) -> MutexGuard<'_, Option<P>> {
+        self.latest
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    fn put(&self, payload: P) {
+        *self.lock() = Some(payload);
+        self.ready.notify_one();
+    }
+
+    async fn take(&self) -> P {
+        loop {
+            // Taken before the await so the guard is never held across one.
+            let taken = self.lock().take();
+            if let Some(payload) = taken {
+                return payload;
+            }
+            self.ready.notified().await;
+        }
     }
 }
 

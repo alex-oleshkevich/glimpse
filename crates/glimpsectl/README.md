@@ -83,5 +83,3 @@ Column width counts characters, not display columns, so a wide glyph — CJK, an
 one short and hangs its row. Topic and service names are ASCII by convention; the exposure is the
 key column of `get` on a payload whose keys come from another application. `unicode-width` is the
 fix and has not been proposed yet.
-
-Spec: [`specs/007_glimpsectl.md`](../../specs/007_glimpsectl.md)

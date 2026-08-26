@@ -30,7 +30,7 @@ Python, TypeScript and Go SDK types; a generator reads those modules, not the wh
 
 **Errors are `thiserror` enums, not `anyhow`.** A caller has to branch on them: the panel reconnects
 after a transport failure but not after a daemon `CallError`, and `glimpsectl` maps four of them
-onto the exit codes in `specs/007_glimpsectl.md`. `CallError` is the exception in the other
+onto its own exit codes. `CallError` is the exception in the other
 direction — it crosses the wire, so it is a serde payload and a `schemars` input, not an error
 type.
 
@@ -83,5 +83,3 @@ bump cannot land with stale output.
 
 Note for SDK generation: `schemars` emits types, not constants, so this is the single source of
 truth for Rust only. A Python, TypeScript or Go generator has to be told the same socket name.
-
-Spec: [`specs/001_architecture.md`](../../specs/001_architecture.md)

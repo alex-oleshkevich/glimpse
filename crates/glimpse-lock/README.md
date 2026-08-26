@@ -56,7 +56,4 @@ provider. A half-applied stylesheet here can leave the password entry invisible 
 to fall back to.
 
 Configuration is the `[lock]` table of the shared `config.toml`, plus `lock.css`. Tables owned by
-other binaries are ignored, not validated. Schema in
-[`specs/010_configuration.md`](../../specs/010_configuration.md).
-
-Spec: [`specs/006_lock.md`](../../specs/006_lock.md)
+other binaries are ignored, not validated. Schema in.

@@ -88,5 +88,3 @@ its backend, not its life, and `system.services` is where anyone finds out which
 `just test-crate glimpse-services` runs every service against the mocks, with no display, no
 session bus and no broker. `Buses::unavailable("...")` is the no-bus case a test injects, the way
 `MockBroker` is the no-broker one.
-
-Spec: [`specs/001_architecture.md`](../../specs/001_architecture.md)

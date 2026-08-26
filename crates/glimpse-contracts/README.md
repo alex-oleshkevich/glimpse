@@ -75,5 +75,3 @@ so: a newer daemon and an older client survive a version skew instead of failing
 
 **No backend type reaches a payload.** A `zbus` value or a `gtk` type here could not be generated
 for Python, TypeScript or Go, and this crate is the input those generators read.
-
-Spec: [`specs/012_ipc.md`](../../specs/012_ipc.md)

@@ -39,5 +39,3 @@ it is built, so a color override applied afterwards reaches nothing.
 
 **Nothing here is domain logic.** No config schema, no topics, no socket. This crate exists so six
 binaries agree on what `--log` means, not as a place for code that has no other home.
-
-Spec: [`specs/002_structure.md`](../../specs/002_structure.md)

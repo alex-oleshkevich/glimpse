@@ -91,5 +91,3 @@ The caller decides what a failure means. At startup that is to log it and come u
 Watching, which belongs to the daemon's `watcher` service. Semantic validation — `HH:MM` parsing,
 `provider = "manual"` without coordinates, duplicate idle timeouts, a panel zone naming an applet
 that does not exist — which is not written yet.
-
-Spec: [`specs/010_configuration.md`](../../specs/010_configuration.md)
