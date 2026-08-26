@@ -37,6 +37,11 @@ and a second way to ask for it would be a second thing to keep true.
 `call` prints nothing for a command whose result is `null`. Success is the exit code; a printed
 `null` would only be a line for a script to strip.
 
+`watch` warns on stderr when its pattern matched nothing and keeps watching anyway. Zero matches is
+not an error — `tray.item.**` legitimately matches nothing until an application registers — but it
+is also what a typo looks like, and saying nothing makes the two indistinguishable from a prompt
+that never returns. stderr so a pipe into `jq` is unaffected.
+
 ## Rules
 
 **Rendering is for people; `--json` is a passthrough.** `get` and `watch` take `--json`, which

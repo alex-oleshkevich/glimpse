@@ -11,7 +11,9 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DaemonError {
-    #[error("failed to start ipc server")]
+    // Transparent: `ServerError::AlreadyRunning` names the path, and a message of our own here
+    // would replace the only sentence that says what actually went wrong.
+    #[error(transparent)]
     IpcServer(#[from] glimpse_ipc::ServerError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -33,20 +35,57 @@ struct InitService {
 
 type Factory = Box<dyn FnOnce(&InitService) + Send>;
 
+/// Which services `--only` and `--without` leave running. An empty allowlist means everything, so
+/// the two flags share one rule rather than each carrying its own idea of the default.
+#[derive(Default)]
+pub struct Filter {
+    pub only: Vec<String>,
+    pub without: Vec<String>,
+}
+
+impl Filter {
+    fn allows(&self, name: &str) -> bool {
+        match self.only.is_empty() {
+            false => self.only.iter().any(|wanted| wanted == name),
+            true => !self.without.iter().any(|refused| refused == name),
+        }
+    }
+
+    fn unmatched<'a>(&'a self, registered: &'a [&'static str]) -> Vec<&'a String> {
+        self.only
+            .iter()
+            .chain(&self.without)
+            .filter(|name| !registered.contains(&name.as_str()))
+            .collect()
+    }
+}
+
 pub struct Daemon {
     tasks: TaskTracker,
     factories: Vec<Factory>,
+    filter: Filter,
+    known: Vec<&'static str>,
 }
 
 impl Daemon {
-    pub fn new() -> Self {
+    pub fn new(filter: Filter) -> Self {
         Self {
             tasks: TaskTracker::new(),
             factories: Vec::new(),
+            filter,
+            known: Vec::new(),
         }
     }
 
     pub fn register<S: Service>(mut self) -> Self {
+        self.known.push(S::NAME);
+        // Excluded before anything is declared, so the service is absent from `system.services`
+        // rather than listed as one that failed.
+        if !self.filter.allows(S::NAME) {
+            tracing::info!(service = S::NAME, "excluded by the command line");
+            return self;
+        }
+
         self.factories.push(Box::new(|init: &InitService| {
             let config = S::peek_config(&init.config);
             let broker: Arc<dyn BrokerHandle> = Arc::new(init.broker.clone());
@@ -84,11 +123,20 @@ impl Daemon {
 
     pub async fn run(self, socket: &PathBuf, config: Config) -> Result<(), DaemonError> {
         tracing::info!("daemon starting");
+        // A misspelt `--only` otherwise starts nothing at all and reads as a daemon that broke.
+        for name in self.filter.unmatched(&self.known) {
+            tracing::warn!(service = %name, "no such service; the name matches nothing");
+        }
         let accepting = CancellationToken::new();
         let running = CancellationToken::new();
         let brokering = CancellationToken::new();
 
         let broker = broker::spawn(brokering.clone());
+        // Bound before anything else is built. A second instance fails here, and every line below
+        // this — a bus connection, a service task — is work it would otherwise do and then abandon
+        // on the way out.
+        let server = Server::bind(socket, BrokerHandler::new(broker.clone())).await?;
+
         // Before the factories run: a service may build a proxy the moment `start` is called.
         let buses = Buses::connect().await;
         let init = InitService {
@@ -102,7 +150,6 @@ impl Daemon {
             factory(&init);
         }
 
-        let server = Server::bind(socket, BrokerHandler::new(broker.clone())).await?;
         // The publisher only exists once the socket is bound, and the broker only routes to
         // clients once it has one. Anything published before this is stored and delivered as a
         // snapshot to the first client that asks, which is what a state cell is for.

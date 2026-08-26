@@ -11,7 +11,6 @@ pub use server::{ClientId, Handler, Publisher, Server, ServerError, Subscribed};
 
 use std::path::{Path, PathBuf};
 
-pub const PROTOCOL_VERSION: u32 = 1;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const SOCKET_RELATIVE_PATH: &str = "glimpse/glimpsed.sock";
 

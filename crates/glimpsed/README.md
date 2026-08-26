@@ -9,12 +9,13 @@ backing store anywhere else: `org.freedesktop.Notifications` and `org.kde.Status
 
 - `main.rs` — startup, tracing setup, exit codes
 - `cli.rs` — the flag surface and log-format resolution
+- `errors.rs` — the `Exit` table and the one `anyhow::Error` to exit-code mapping
 - `broker/` — the single task holding topic values and per-client coalescing *(pending)*
 - `registry.rs` — service registration, DAG validation, supervision *(pending)*
 - `wayland/` — the `WaylandEdge` implementation: gamma, idle, clipboard *(pending)*
 
-Only the command line layer exists so far: no socket is bound, no service runs, and no signal is
-handled. Startup reaches the point where the broker would begin and logs that it is not there.
+The broker, the socket and the service host all run; `registry.rs` and `wayland/` do not exist yet,
+so there is no demand-driven lifecycle, no dependency DAG and no Wayland edge.
 
 ## Rules
 
@@ -42,7 +43,18 @@ clients — anything slow inline hits every client's latency.
 
 The socket lives under `XDG_RUNTIME_DIR` at mode 0600, and there is no `/tmp` fallback: a
 predictable world-writable path invites pre-creation and symlink hijack. A second instance connects
-first and exits rather than unlinking a socket a live daemon may still own.
+first and exits 3 rather than unlinking a socket a live daemon may still own — and the message names
+the path, which is why `DaemonError::IpcServer` is `#[error(transparent)]`: a wrapper message of its
+own would replace the only sentence saying which daemon is already there.
+
+The socket is unlinked on a clean shutdown, while the listener is still held so nothing can have
+taken the path in between. Not a correctness fix — `bind` connects first and clears a dead socket —
+but leaving one behind means every start goes through that path instead of none.
+
+`--only` and `--without` are applied in `register::<S>()`, before anything is declared, so an
+excluded service is absent from `system.services` rather than listed as one that failed. A name
+matching no service warns: a misspelt `--only` otherwise starts nothing at all and reads as a daemon
+that broke.
 
 A command that could not be delivered returns an error. Reporting success for a command that never
 reached its service is worse than reporting failure. A full or closed service inbox is `Unavailable`

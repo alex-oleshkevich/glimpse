@@ -25,7 +25,7 @@ use tokio_util::{
 };
 
 use crate::{
-    PROTOCOL_VERSION, VERSION,
+    VERSION,
     codec::{CodecError, FrameCodec, MAX_LINE_BYTES},
     frame::{Body, CallError, ErrorCode, Event, Frame, Status},
     outbox::Outbox,
@@ -56,8 +56,6 @@ enum HandshakeError {
     Closed,
     #[error("the client sent a frame before hello")]
     OutOfOrder,
-    #[error("the client speaks protocol version {0}, we speak {PROTOCOL_VERSION}")]
-    ProtocolVersion(u32),
     #[error(transparent)]
     Codec(#[from] CodecError),
 }
@@ -189,6 +187,7 @@ impl Publisher {
 
 pub struct Server<H> {
     listener: UnixListener,
+    socket: PathBuf,
     handler: Arc<H>,
     clients: Registry,
 }
@@ -216,6 +215,7 @@ impl<H: Handler> Server<H> {
         fs::set_permissions(socket, PermissionsExt::from_mode(0o600)).await?;
         Ok(Self {
             listener,
+            socket: socket.to_owned(),
             handler: Arc::new(handler),
             clients: Registry::default(),
         })
@@ -253,6 +253,13 @@ impl<H: Handler> Server<H> {
             }
         }
         while clients.join_next().await.is_some() {}
+
+        // Unlinked while the listener is still held, so nothing can have taken the path in between.
+        // A socket left behind is not a correctness problem — `bind` connects first and clears a
+        // dead one — but leaving it means every start goes through that path instead of none.
+        if let Err(error) = fs::remove_file(&self.socket).await {
+            tracing::debug!(path = ?self.socket, %error, "could not remove the socket");
+        }
     }
 }
 
@@ -495,8 +502,8 @@ fn reply_subscribe(client: &Client, correlation: Option<u64>, status: Status<usi
     reply(client, correlation, Body::SubscribeAck(status));
 }
 
-/// The ack carries our version even when it does not match, so the client can name both numbers.
-/// Refusing silently would leave every mismatch looking like a dead daemon.
+/// `hello` must be the first frame, and the ack naming this daemon is what lets a client tell a
+/// glimpse socket from any other program's — the one thing `--socket` cannot check for itself.
 async fn handshake(
     reader: &mut Reader,
     writer: &mut FramedWrite<OwnedWriteHalf, FrameCodec>,
@@ -507,25 +514,19 @@ async fn handshake(
         None => return Err(HandshakeError::Closed),
     };
 
-    let Body::Hello { protocol } = frame.body else {
+    if !matches!(frame.body, Body::Hello {}) {
         return Err(HandshakeError::OutOfOrder);
-    };
+    }
 
-    let ack = Body::HelloAck {
-        protocol: PROTOCOL_VERSION,
-        daemon_version: VERSION.to_owned(),
-    };
     writer
         .send(Frame {
             id: frame.id,
-            body: ack,
+            body: Body::HelloAck {
+                daemon_version: VERSION.to_owned(),
+            },
         })
         .await?;
-
-    match protocol == PROTOCOL_VERSION {
-        true => Ok(()),
-        false => Err(HandshakeError::ProtocolVersion(protocol)),
-    }
+    Ok(())
 }
 
 fn encode(frame: &Frame) -> Result<Bytes, serde_json::Error> {

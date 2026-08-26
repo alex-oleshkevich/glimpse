@@ -12,28 +12,14 @@ pub struct Frame {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum Body {
-    Hello {
-        protocol: u32,
-    },
-    HelloAck {
-        protocol: u32,
-        daemon_version: String,
-    },
-    Subscribe {
-        pattern: String,
-    },
+    Hello {},
+    HelloAck { daemon_version: String },
+    Subscribe { pattern: String },
     SubscribeAck(Status<usize>),
-    Unsubscribe {
-        pattern: String,
-    },
-    Get {
-        topic: String,
-    },
+    Unsubscribe { pattern: String },
+    Get { topic: String },
     GetResult(Status<Option<Event>>),
-    Call {
-        command: String,
-        args: Value,
-    },
+    Call { command: String, args: Value },
     CallResult(Status<Value>),
     Event(Event),
 }
@@ -101,7 +87,6 @@ impl CallError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
-    ProtocolVersion,
     UnknownTopic,
     UnknownCommand,
     InvalidArgs,
@@ -134,9 +119,8 @@ mod tests {
         };
 
         let bodies = [
-            Body::Hello { protocol: 1 },
+            Body::Hello {},
             Body::HelloAck {
-                protocol: 1,
                 daemon_version: "0.16.0".into(),
             },
             Body::Subscribe {
@@ -173,17 +157,32 @@ mod tests {
     fn a_frame_without_an_id_omits_the_field() {
         let frame = Frame {
             id: None,
-            body: Body::Hello { protocol: 1 },
+            body: Body::Hello {},
         };
         let line = serde_json::to_string(&frame).expect("serialize");
-        assert_eq!(line, r#"{"type":"hello","data":{"protocol":1}}"#);
+        assert_eq!(line, r#"{"type":"hello","data":{}}"#);
     }
 
     #[test]
     fn an_unknown_field_does_not_kill_the_connection() {
-        let line = r#"{"type":"hello","data":{"protocol":1,"nickname":"from the future"}}"#;
+        let line = r#"{"type":"hello_ack","data":{"daemon_version":"9","nickname":"the future"}}"#;
         let frame: Frame = serde_json::from_str(line).expect("deserialize");
-        assert_eq!(frame.body, Body::Hello { protocol: 1 });
+        assert_eq!(
+            frame.body,
+            Body::HelloAck {
+                daemon_version: "9".into()
+            }
+        );
+    }
+
+    /// `hello` carried a protocol version until the wire stopped being versioned. A client built
+    /// before that still sends it, and refusing one would be the very version-skew failure dropping
+    /// the version was meant to remove — so the field is accepted and ignored.
+    #[test]
+    fn a_hello_from_before_the_version_was_dropped_still_connects() {
+        let legacy = r#"{"type":"hello","data":{"protocol":1}}"#;
+        let frame: Frame = serde_json::from_str(legacy).expect("deserialize");
+        assert_eq!(frame.body, Body::Hello {});
     }
 
     #[test]

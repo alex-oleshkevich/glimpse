@@ -10,7 +10,6 @@ pub enum Exit {
     Unreachable = 3,
     Unknown = 4,
     Timeout = 5,
-    ProtocolMismatch = 6,
 }
 
 impl From<Exit> for ExitCode {
@@ -25,7 +24,6 @@ pub fn exit(error: &anyhow::Error) -> Exit {
     if let Some(connect) = error.downcast_ref::<ConnectError>() {
         return match connect {
             ConnectError::NotListening { .. } | ConnectError::Handshake => Exit::Unreachable,
-            ConnectError::ProtocolMismatch { .. } => Exit::ProtocolMismatch,
         };
     }
 
@@ -33,7 +31,6 @@ pub fn exit(error: &anyhow::Error) -> Exit {
         return match call.code {
             ErrorCode::UnknownTopic | ErrorCode::UnknownCommand => Exit::Unknown,
             ErrorCode::Timeout => Exit::Timeout,
-            ErrorCode::ProtocolVersion => Exit::ProtocolMismatch,
             _ => Exit::Failed,
         };
     }

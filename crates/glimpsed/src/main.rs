@@ -1,6 +1,7 @@
 mod broker;
 mod cli;
 mod daemon;
+mod errors;
 mod handler;
 
 use std::process::ExitCode;
@@ -11,7 +12,7 @@ use cli::Cli;
 use glimpse_services::{Geolocation, Heartbeat, Solar, Watcher};
 use glimpse_utils::init_app_tracing;
 
-use crate::daemon::{Daemon, DaemonError};
+use crate::daemon::{Daemon, DaemonError, Filter};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -19,22 +20,16 @@ async fn main() -> ExitCode {
     cli.color.write_global();
 
     match run(cli).await {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(()) => errors::Exit::Ok.into(),
         Err(error) => {
             tracing::error!("{error:#}");
-            ExitCode::FAILURE
+            errors::exit(&error).into()
         }
     }
 }
 
-async fn run(cli: Cli) -> Result<(), DaemonError> {
+async fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
-
-    if !cli.only.is_empty() {
-        tracing::info!(names = ?cli.only, "running only these services");
-    } else if !cli.without.is_empty() {
-        tracing::info!(names = ?cli.without, "running without these services");
-    }
 
     let config = glimpse_config::load(cli.config.as_deref())
         .map_err(|e| DaemonError::Config(e.to_string()))?;
@@ -42,11 +37,18 @@ async fn run(cli: Cli) -> Result<(), DaemonError> {
         .map_err(|e| DaemonError::Socket(e.to_string()))?;
     tracing::info!(path = ?socket, "using socket");
 
-    Daemon::new()
+    let filter = Filter {
+        only: cli.only,
+        without: cli.without,
+    };
+
+    Daemon::new(filter)
         .register::<Watcher>()
         .register::<Geolocation>()
         .register::<Solar>()
         .register::<Heartbeat>()
         .run(&socket, config)
-        .await
+        .await?;
+
+    Ok(())
 }

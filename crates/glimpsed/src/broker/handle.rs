@@ -26,10 +26,18 @@ impl Handle {
     }
 
     pub fn send(&self, message: Message) {
-        // A full mailbox means the broker is wedged; dropping is the only option that does not
-        // block a service handler, and it is loud.
-        if let Err(error) = self.tx.try_send(message) {
-            tracing::error!(%error, "the broker mailbox is full, dropped a message");
+        match self.tx.try_send(message) {
+            Ok(()) => {}
+            // A wedged broker is a real fault and dropping is the only option that does not block a
+            // service handler, so it is loud.
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                tracing::error!("the broker mailbox is full, dropped a message");
+            }
+            // A closed one is just shutdown: the broker stops before the last service does, and
+            // reporting that as a fault every time would train everyone to ignore the loud case.
+            Err(mpsc::error::TrySendError::Closed(_)) => {
+                tracing::debug!("the broker has stopped, dropped a message");
+            }
         }
     }
 }

@@ -9,7 +9,7 @@ there is only one of each.
 
 ## Contents
 
-- `lib.rs` — re-exports, `PROTOCOL_VERSION`, `VERSION`, `SOCKET_RELATIVE_PATH`, `socket_path`
+- `lib.rs` — re-exports, `VERSION`, `SOCKET_RELATIVE_PATH`, `socket_path`
 - `frame.rs` — `Frame`, `Body`, `Status`, `Event`, `CallError`, `ErrorCode`: the NDJSON envelope
 - `codec.rs` — `LinesCodec` for the bytes, `serde_json` for the frame, and the two policies on top
 - `pattern.rs` — `matches`, the `*` and `**` rules a subscription is resolved against
@@ -72,14 +72,21 @@ identical value, and it is why a 200-event volume drag does not become 200 frame
 `Frame.data` stays `serde_json::Value`. The broker routes topics it has no compile-time knowledge
 of, such as `tray.item.{id}`, so typing happens one layer up at the `Topic` boundary.
 
-The handshake is answered with `hello_ack` even when the versions differ, so the client can name
-both numbers before the daemon closes the connection; refusing silently would leave every mismatch
-looking like a dead daemon.
+**The wire is not versioned.** There is no `PROTOCOL_VERSION` and no compatibility check, because
+the only thing a version number ever did here was refuse a working client whose binary was built at
+a different time from the daemon's — a failure the check created rather than caught. Payload types
+accept unknown fields, which is what actually carries a mixed-age pair of binaries.
 
-`PROTOCOL_VERSION` is checked once at handshake, and a mismatch refuses the connection rather than
-negotiating down: one clear message at connect time beats a payload that deserializes into the wrong
-shape somewhere later. `glimpsed` static-asserts the number against its `--version` string, so a
-bump cannot land with stale output.
+`hello` survives, carrying nothing. It is what tells a client that the path it was pointed at is a
+glimpse daemon rather than some other program's socket, which `--socket` makes reachable and nothing
+else can check; without it `connect` succeeds against anything and the first symptom is a timeout on
+an unrelated request. It must still be the first frame — anything else closes the connection.
+
+On the wire that is `{"type":"hello","data":{}}`, answered with
+`{"type":"hello_ack","data":{"daemon_version":"…"}}`. The empty `data` object is load-bearing: it is
+what lets a client built before the version was dropped still connect, since its
+`{"protocol":1}` is read as an unknown field and ignored. Bare `{"type":"hello"}` is refused, which
+matters only when hand-typing one into `socat`.
 
 Note for SDK generation: `schemars` emits types, not constants, so this is the single source of
 truth for Rust only. A Python, TypeScript or Go generator has to be told the same socket name.

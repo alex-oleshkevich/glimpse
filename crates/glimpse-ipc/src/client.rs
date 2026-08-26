@@ -13,7 +13,6 @@ use tokio_util::codec::Framed;
 use std::io;
 
 use crate::{
-    PROTOCOL_VERSION,
     codec::{CodecError, FrameCodec},
     frame::{Body, CallError, ErrorCode, Event, Frame},
     pattern,
@@ -36,8 +35,6 @@ pub enum ConnectError {
     },
     #[error("the daemon did not complete the handshake")]
     Handshake,
-    #[error("the daemon speaks protocol version {daemon}, we speak {ours}")]
-    ProtocolMismatch { daemon: u32, ours: u32 },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -148,6 +145,7 @@ impl Client {
         tracing::debug!(pattern, matched, "subscribed");
         Ok(Subscription {
             pattern: pattern.to_owned(),
+            matched,
             mailbox,
             requests: self.requests.downgrade(),
         })
@@ -255,10 +253,11 @@ impl Mailbox {
 }
 
 /// Survives a reconnect: a daemon that goes away does not end the subscription, and the next value
-/// after one is a fresh snapshot. `None` means the connection stopped — the caller dropped the
-/// `Client`, or the daemon came back speaking a protocol version this build cannot talk to.
+/// after one is a fresh snapshot. `None` means the connection stopped, which happens when the
+/// caller drops the last `Client`.
 pub struct Subscription {
     pattern: String,
+    matched: usize,
     mailbox: Arc<Mailbox>,
     /// Weak, so a subscription cannot hold the connection open after the last `Client` is gone.
     /// Dropping the client is what ends the connection, and ending it is what makes `next` return
@@ -267,6 +266,13 @@ pub struct Subscription {
 }
 
 impl Subscription {
+    /// How many declared topics the pattern matched when it was registered. Zero is not an error —
+    /// a topic can be declared later — but it is what a typo looks like, and a caller that never
+    /// reports it turns one into a silent wait.
+    pub fn matched(&self) -> usize {
+        self.matched
+    }
+
     pub async fn next(&mut self) -> Option<Event> {
         loop {
             if let Some(event) = self.mailbox.take() {
@@ -308,9 +314,7 @@ async fn dial(socket: &Path) -> Result<Wire, ConnectError> {
 
     let hello = Frame {
         id: None,
-        body: Body::Hello {
-            protocol: PROTOCOL_VERSION,
-        },
+        body: Body::Hello {},
     };
     if let Err(error) = wire.send(hello).await {
         tracing::warn!(%error, "the handshake could not be written");
@@ -319,22 +323,14 @@ async fn dial(socket: &Path) -> Result<Wire, ConnectError> {
 
     match wire.next().await {
         Some(Ok(Frame {
-            body:
-                Body::HelloAck {
-                    protocol,
-                    daemon_version,
-                },
+            body: Body::HelloAck { daemon_version },
             ..
         })) => {
-            if protocol != PROTOCOL_VERSION {
-                return Err(ConnectError::ProtocolMismatch {
-                    daemon: protocol,
-                    ours: PROTOCOL_VERSION,
-                });
-            }
             tracing::debug!(daemon_version, "connected");
             Ok(wire)
         }
+        // Anything else means the socket is not a glimpse daemon, which is the failure `--socket`
+        // makes reachable and the reason the ack is worth one frame at connect.
         answer => {
             tracing::warn!(?answer, "expected hello_ack");
             Err(ConnectError::Handshake)
@@ -461,11 +457,6 @@ impl Connection {
                         break;
                     }
                     self.fail_pending("the connection to the daemon was lost");
-                }
-                // Reconnecting cannot fix a version mismatch, and retrying one forever hides it.
-                Err(ConnectError::ProtocolMismatch { daemon, ours }) => {
-                    tracing::error!(daemon, ours, "protocol mismatch, not reconnecting");
-                    break;
                 }
                 Err(error) => {
                     tracing::debug!(%error, attempt, "reconnect failed");

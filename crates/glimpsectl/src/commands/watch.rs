@@ -10,6 +10,13 @@ pub async fn watch(
     json: bool,
 ) -> Result<()> {
     let mut subscription = session.client.subscribe(&pattern).await?;
+
+    // On stderr, and it keeps watching: a pattern like `tray.item.**` legitimately matches nothing
+    // until an application registers. Silence is what makes a typo indistinguishable from waiting.
+    if subscription.matched() == 0 {
+        eprintln!("glimpsectl: no topic matches `{pattern}` yet; watching anyway");
+    }
+
     let mut seen = 0;
 
     while let Some(event) = subscription.next().await {
