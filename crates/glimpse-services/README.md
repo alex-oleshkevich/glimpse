@@ -23,10 +23,13 @@ change signals. The backend is right when they disagree, and no decision the bac
 gets reimplemented here.
 
 A handler that can block moves its `Responder` into `ctx.spawn`. Handlers run serially, so one slow
-D-Bus call otherwise freezes the whole service. A `Responder` that is dropped unanswered — queued
-when the service stopped, lost to a panicking handler, or simply forgotten — answers `Unavailable`
-from its `Drop` impl and logs, rather than leaving the caller to wait out its whole timeout with
-nothing said anywhere.
+D-Bus call otherwise freezes the whole service. Such a task answers the responder and still returns
+an event, because that is `spawn`'s contract — usually the one saying the command finished, which
+the handler wants anyway.
+
+A `Responder` that is dropped unanswered — queued when the service stopped, lost to a panicking
+handler, or simply forgotten — answers `Unavailable` from its `Drop` impl and logs, rather than
+leaving the caller to wait out its whole timeout with nothing said anywhere.
 
 Commands are declared the way topics are: `METHODS` lists the names, `decode` turns one plus its
 JSON arguments into the service's own `Command` type, and the two must agree — a name in `METHODS`

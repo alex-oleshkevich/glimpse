@@ -5,7 +5,7 @@ use notify_debouncer_full::{DebounceEventResult, new_debouncer};
 use serde::Deserialize;
 
 use crate::{
-    context::{Ctx, SourceGuard},
+    context::Ctx,
     service::{Input, Service, ServiceError},
 };
 
@@ -22,7 +22,6 @@ pub enum Event {
 
 pub struct Watcher {
     paths: Vec<String>,
-    _handle: SourceGuard,
 }
 
 impl Service for Watcher {
@@ -51,9 +50,6 @@ impl Service for Watcher {
 
         Ok(Self {
             paths: config.paths,
-            // The debouncer delivers on a thread of its own through `ctx.events()`, so there is no
-            // source here yet — this holds the slot until it is wired.
-            _handle: ctx.spawn(|_ctx| std::future::pending()),
         })
     }
 
