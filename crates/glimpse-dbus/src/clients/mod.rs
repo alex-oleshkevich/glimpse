@@ -1,5 +1,6 @@
 pub mod accounts;
 pub mod bluez;
+pub mod dbusmenu;
 pub mod geoclue;
 pub mod glimpse_lock;
 pub mod hostname1;
@@ -7,6 +8,7 @@ pub mod login1;
 pub mod mpris;
 pub mod network_manager;
 // pub mod notifications;
+pub mod portal_settings;
 pub mod power_profiles;
 pub mod sensor;
 pub mod status_notifier_item;
