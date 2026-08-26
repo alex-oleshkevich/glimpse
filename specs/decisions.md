@@ -268,3 +268,15 @@ missing system bus that only costs network, bluetooth and battery. The `WAYLAND_
 The error is kept as a `String` rather than a `BusError` because `Buses` is cloned into every
 service and the only consumer of the value is a `degraded` message. Specs 001, 003.
 
+### 2026-08-26 · `glimpsectl` has no JSON output mode
+
+`--json` is gone. It never earned its keep: the flag toggled compact against pretty JSON and no
+human format existed at all, so every command emitted JSON either way and the "formatted output"
+the flags table promised was never written. Rather than build a second output mode beside the one
+that was missing, the tool now renders for people only.
+
+Scripting keeps working through `get --field`, which prints one bare scalar, and through `watch`'s
+one-line-per-event form. A consumer that genuinely wants frames should speak the protocol — that is
+what `012_ipc.md` specifies and what the Python, TypeScript and Go SDKs are for. Reversing this
+means writing the human renderer anyway, so nothing is foreclosed. Specs 007.
+

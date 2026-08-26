@@ -26,14 +26,6 @@ pub struct Cli {
     pub color: colorchoice_clap::Color,
 
     #[arg(
-        short = 'j',
-        long,
-        global = true,
-        help = "Emit raw JSON instead of formatted output."
-    )]
-    pub json: bool,
-
-    #[arg(
         long,
         global = true,
         value_name = "MS",

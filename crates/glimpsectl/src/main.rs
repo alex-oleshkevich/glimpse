@@ -1,6 +1,7 @@
 mod cli;
 mod commands;
 mod errors;
+mod render;
 
 use std::{process::ExitCode, time::Duration};
 
@@ -34,10 +35,7 @@ async fn run(cli: Cli) -> Result<()> {
             let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
             let client =
                 glimpse_ipc::Client::connect(&socket, Duration::from_millis(cli.timeout)).await?;
-            Some(Session {
-                client,
-                json: cli.json,
-            })
+            Some(Session { client })
         }
         false => None,
     };
@@ -54,7 +52,7 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Call { method, arguments } => commands::call(daemon()?, method, arguments).await,
         Command::Topics { pattern } => commands::topics(daemon()?, pattern).await,
         Command::Services => commands::services(daemon()?).await,
-        Command::Config(ConfigCommand::Show) => commands::config_show(cli.config.config, cli.json),
+        Command::Config(ConfigCommand::Show) => commands::config_show(cli.config.config),
         Command::Config(ConfigCommand::Validate { path }) => {
             commands::config_validate(path.or(cli.config.config))
         }

@@ -38,7 +38,6 @@ glimpsectl [GLOBAL OPTIONS] <COMMAND> [ARGS]
 | Flag              | Default                                  | Purpose                                          |
 | ----------------- | ---------------------------------------- | ------------------------------------------------ |
 | `--socket <PATH>` | `$XDG_RUNTIME_DIR/glimpse/glimpsed.sock` | Daemon socket                                    |
-| `-j`, `--json`    | off                                      | Emit raw JSON instead of formatted output        |
 | `--timeout <MS>`  | `5000`                                   | Per-request timeout                              |
 | `--no-color`      | auto                                     | Disable colour; also honours `NO_COLOR`          |
 | `-V`, `--version` |                                          | Version and protocol version                     |
@@ -66,7 +65,7 @@ glimpsectl call audio.set_volume volume=0.42
 glimpsectl call nightlight.set_mode mode=auto
 glimpsectl call tray.activate item=nextcloud
 glimpsectl get battery.status --field percentage
-glimpsectl watch 'network.**' --json | while read -r line; do ...; done
+glimpsectl watch 'network.**' | while read -r topic values; do ...; done
 ```
 
 ### Environment
@@ -81,8 +80,9 @@ glimpsectl watch 'network.**' --json | while read -r line; do ...; done
 ### Output conventions
 
 - Human output is aligned and coloured when stdout is a terminal; piping switches to plain.
-- `--json` emits exactly the daemon's payload for `get` and `call`, and one JSON object per line for
-  `watch`, so `jq` works without unwrapping.
+- There is no JSON output mode. `glimpsectl` renders values for people; a script reads one scalar
+  with `get --field`, and `watch` prints one line per event so `read` and `awk` work on it directly.
+  Anything wanting raw frames talks to the socket, which is what `012_ipc.md` and the SDKs are for.
 - Errors go to stderr; only requested data goes to stdout.
 
 ### Exit codes
@@ -115,3 +115,4 @@ transient failure from a permanent one without parsing prose.
 - 2026-08-21 — colour detection follows the `anstream` conventions, so `CLICOLOR`, `CLICOLOR_FORCE` and `TERM` are honoured alongside `NO_COLOR`.
 - 2026-08-21 — `config show` reads the layered stack from disk, the same as `config path` and `config validate`; it never needed the daemon running.
 - 2026-08-21 — `config validate`, running against a real config on this machine, is what surfaced that `[applets.<name>.settings]` nesting (see `010`) was never how `_old/` actually worked.
+- 2026-08-26 — `--json` removed; `glimpsectl` renders for people only, and `get --field` is the scripting primitive. See the decision log.
