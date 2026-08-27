@@ -121,7 +121,14 @@ impl Broker {
                 }
             }
             Message::Health { service, state } => self.health(service, state),
+            // The stored value first: a service that subscribes after the producer already
+            // published would otherwise wait for a change that may never come, since the
+            // publisher's equality gate never republishes an unchanged value. A `manual` location
+            // publishes exactly once, and solar subscribes after it.
             Message::Subscribe { id, topic, sink } => {
+                if let Ok(Some(event)) = self.store.get(&topic) {
+                    sink(&event.data);
+                }
                 self.sinks.insert(id, (topic, sink));
             }
             Message::Unsubscribe { id } => {
@@ -209,5 +216,73 @@ impl Broker {
         if let Some(publisher) = &self.publisher {
             publisher.publish(event);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use super::*;
+
+    type Seen = Arc<Mutex<Vec<Value>>>;
+
+    fn declared() -> Broker {
+        let mut broker = Broker {
+            store: Store::new(),
+            sinks: HashMap::new(),
+            dispatchers: HashMap::new(),
+            publisher: None,
+        };
+        broker.handle(Message::Declare {
+            service: "audio",
+            topics: &["audio.volume"],
+            methods: &[],
+            dispatch: Box::new(|_method, _args, _responder| {}),
+        });
+        broker
+    }
+
+    fn watch(broker: &mut Broker, topic: &str) -> Seen {
+        let seen: Seen = Arc::new(Mutex::new(Vec::new()));
+        let recorder = seen.clone();
+        broker.handle(Message::Subscribe {
+            id: SubscriptionId(1),
+            topic: topic.to_owned(),
+            sink: Box::new(move |data| recorder.lock().expect("not poisoned").push(data.clone())),
+        });
+        seen
+    }
+
+    /// Without the replay, a service subscribing after the producer published sits blank until the
+    /// value happens to change — and the publisher's equality gate means a one-shot producer never
+    /// changes it. That is a `manual` location against solar.
+    #[test]
+    fn a_new_subscriber_is_handed_the_topics_current_value() {
+        let mut broker = declared();
+        broker.handle(Message::Publish {
+            topic: "audio.volume".to_owned(),
+            data: Value::from(0.4),
+        });
+
+        let seen = watch(&mut broker, "audio.volume");
+
+        assert_eq!(*seen.lock().expect("not poisoned"), [Value::from(0.4)]);
+    }
+
+    #[test]
+    fn a_declared_topic_with_no_value_replays_nothing() {
+        let mut broker = declared();
+        let seen = watch(&mut broker, "audio.volume");
+
+        assert!(seen.lock().expect("not poisoned").is_empty());
+    }
+
+    #[test]
+    fn an_undeclared_topic_replays_nothing_rather_than_failing() {
+        let mut broker = declared();
+        let seen = watch(&mut broker, "audio.balance");
+
+        assert!(seen.lock().expect("not poisoned").is_empty());
     }
 }

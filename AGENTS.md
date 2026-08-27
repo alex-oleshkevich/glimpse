@@ -175,6 +175,21 @@ window for a dev loop that does not disturb the running session.
 A recipe that is missing or wrong gets fixed in the `justfile`. Do not work around it with a raw
 cargo invocation.
 
+**Never run a test against the live configuration.** `~/.config/glimpse/config.toml` is the user's
+own, it is edited outside this repository, and a daemon started without `--config` both reads it and
+watches it. Point every run at a scratch file instead:
+
+```bash
+glimpsed --config "$SCRATCH/config.toml"          # replaces the whole stack, drop-ins included
+HOME="$SCRATCH/home" glimpsed                     # a fake home, when drop-ins are the thing under test
+```
+
+`--config` is the default choice and is enough for anything that is one document. It cannot exercise
+layering, because an explicit path replaces the stack rather than joining it — so a test that needs
+`config.d/` sets `HOME` (or `XDG_CONFIG_HOME`) to a directory built for the test and lets `user_dir()`
+resolve into it. Neither redirects the `/etc/glimpse` layer; a test that needs that layer builds it
+through `load_from`, which takes the system directory as an argument for exactly this reason.
+
 `scripts/` still holds helpers written. Several are useful as-is —
 `mpris-fake-players.py`, `network-test-fixtures.sh`, the `privacy-test-*` probes, and
 `glimpse-lock-rescue-pam.sh`.

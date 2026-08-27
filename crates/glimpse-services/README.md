@@ -15,7 +15,7 @@ connection.
 
 ## The geolocation service
 
-Two providers behind one topic. `[location] provider = "manual"` publishes the configured pair
+Two providers behind one topic. `[geolocation] provider = "manual"` publishes the configured pair
 directly; `"geoclue"` follows GeoClue's `Location` property. Either way `geolocation.status` is the
 only thing downstream services see, which is what lets `solar` subscribe to it without knowing a
 provider exists.
@@ -30,8 +30,24 @@ Three details are load-bearing:
   GeoClue deferring to an agent that either is not running or has nobody to answer it. Its section
   name and `DESKTOP_ID` must agree.
 
-A missing fix, a refused request or a `manual` table without coordinates all leave the service
-`degraded` and publishing `None` — running, and honest about having nothing.
+A missing fix, a refused request or coordinates outside their ranges all leave the service
+`degraded` and publishing `None` — running, and honest about having nothing. A `manual` table
+*missing* a coordinate is not among them: `[geolocation]` is a tagged enum, so that document never
+loads.
+
+## The solar service
+
+`solar.status` carries one field, `phase`, and nothing else — no sunrise timestamps, no color
+temperature. It follows `geolocation.status`, recomputes on every location it is handed and once a
+minute after that, and declares its timer only while it holds coordinates.
+
+Two details are load-bearing:
+
+- **Above the polar circles a date has neither event**, so `sunrise` answers `None` for both and the
+  phase falls back to the sign of the solar declination against the sign of the latitude — that
+  hemisphere's own season is what decides between midnight sun and polar night.
+- **Without a location it publishes nothing** and reports `degraded`. `SolarStatus.phase` is not
+  optional and `Day` is not a safe guess to make at three in the morning.
 
 ## Rules
 
@@ -124,11 +140,11 @@ A key too coarse silently ignores a change; a key holding something that moves p
 rebuilds the source every time. Both fail quietly, which is why the key is worth choosing deliberately.
 Two declarations sharing a key is a bug — the second is dropped, warned about once.
 
-The two kinds of source do not survive a restart alike. `Sub::stream` rebuilds by re-reading its
-backend, so it comes back current. `Sub::topic` does not: the broker delivers a topic to a new sink
-only on the next publish, and a publisher's equality gate means an unchanged value is never
-republished — so a resubscribed topic can sit blank indefinitely. Key a topic subscription on
-something constant unless the service can live with that gap.
+Both kinds of source come back current after a restart. `Sub::stream` re-reads its backend, and
+`Sub::topic` is handed the topic's stored value the moment it subscribes — the broker replays it on
+`Message::Subscribe`. Without that replay a publisher's equality gate, which never republishes an
+unchanged value, would leave a resubscribed topic blank until the upstream value happened to
+change, and for a one-shot producer that is never.
 
 This is `Sub` against `Cmd`, and the split is the same one Elm draws: `subscriptions` is for sources
 whose lifetime the model decides, and `ctx.spawn` / `ctx.spawn_detached` for an effect that fires once

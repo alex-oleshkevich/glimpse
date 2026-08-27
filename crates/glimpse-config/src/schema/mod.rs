@@ -2,9 +2,9 @@ mod appearance;
 mod applets;
 mod backdrop;
 mod calendar;
+mod geolocation;
 mod idle;
 mod keyboard;
-mod location;
 mod lock;
 mod monitors;
 mod night_light;
@@ -21,9 +21,9 @@ pub use appearance::{Appearance, Scheme};
 pub use applets::{Applet, Kind as AppletKind};
 pub use backdrop::Backdrop;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};
+pub use geolocation::Geolocation;
 pub use idle::{Idle, Listener as IdleListener, Profile as IdleProfile, Profiles as IdleProfiles};
 pub use keyboard::{Keyboard, Remember};
-pub use location::{Location, Provider};
 pub use lock::{
     Background as LockBackground, Button as LockButton, Clock as LockClock,
     Controls as LockControls, Lock,
@@ -39,7 +39,7 @@ pub use wallpaper::{Fit, Wallpaper};
 pub struct Config {
     pub appearance: Appearance,
     pub monitors: Monitors,
-    pub location: Location,
+    pub geolocation: Geolocation,
     pub night_light: NightLight,
     pub idle: Idle,
     pub power: Power,
@@ -57,7 +57,7 @@ impl Default for Config {
         Self {
             appearance: Appearance::default(),
             monitors: Monitors::default(),
-            location: Location::default(),
+            geolocation: Geolocation::default(),
             night_light: NightLight::default(),
             idle: Idle::default(),
             power: Power::default(),

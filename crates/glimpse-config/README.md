@@ -179,5 +179,11 @@ which is the whole reason that gate is worth more than a content digest here.
 
 ## Not here
 
-Semantic validation — `HH:MM` parsing, `provider = "manual"` without coordinates, duplicate idle
-timeouts, a panel zone naming an applet that does not exist — which is not written yet.
+Semantic validation — `HH:MM` parsing, duplicate idle timeouts, a panel zone naming an applet that
+does not exist — which is not written yet.
+
+`[geolocation]` is the exception, and it needs none: the table is one internally tagged enum, so
+`provider = "manual"` carries `latitude` and `longitude` in the variant that selects it. A
+half-filled table is a `missing field` from serde, naming the key, before any reader sees it. Where
+a rule can be expressed in the type it belongs there rather than in a pass that has to remember to
+run.

@@ -233,4 +233,37 @@ mod tests {
             ]
         );
     }
+
+    /// `[geolocation]` is one internally tagged enum, so it is the table most likely to break under
+    /// layering: the layers have to merge as plain maps and be typed once at the end, or a drop-in
+    /// completing a base table would be read as a table missing a key.
+    #[test]
+    fn a_dropin_completes_a_base_table_rather_than_replacing_it() {
+        let root = tempfile::tempdir().expect("a temporary directory");
+        let system = root.path().join("etc");
+        let user = root.path().join("config");
+        std::fs::create_dir_all(system.join(DROPIN_DIR)).expect("creates");
+        std::fs::create_dir_all(&user).expect("creates");
+        std::fs::write(
+            system.join(FILE_NAME),
+            "[geolocation]\nprovider = \"manual\"\nlatitude = 51.5074\nlongitude = -0.1278\n",
+        )
+        .expect("writes");
+        std::fs::write(
+            system.join(DROPIN_DIR).join("10-move.toml"),
+            "[geolocation]\nlatitude = 52.2297\n",
+        )
+        .expect("writes");
+
+        let loaded = load_from(&system, Some(&user), None).expect("the layers merge");
+
+        assert_eq!(
+            loaded.geolocation,
+            crate::Geolocation::Manual {
+                latitude: 52.2297,
+                longitude: -0.1278
+            },
+            "the drop-in overrides one key and leaves the other standing"
+        );
+    }
 }

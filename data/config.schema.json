@@ -31,6 +31,12 @@
         "sources": []
       }
     },
+    "geolocation": {
+      "$ref": "#/$defs/Geolocation",
+      "default": {
+        "provider": "geoclue"
+      }
+    },
     "idle": {
       "$ref": "#/$defs/Idle",
       "default": {
@@ -83,12 +89,6 @@
       "default": {
         "labels": {},
         "remember": "window"
-      }
-    },
-    "location": {
-      "$ref": "#/$defs/Location",
-      "default": {
-        "provider": "geoclue"
       }
     },
     "lock": {
@@ -357,6 +357,45 @@
         "fill"
       ]
     },
+    "Geolocation": {
+      "description": "`manual` carries its coordinates in the table that selects it, so a provider without them cannot\nbe written down: serde refuses the document and names the key that is missing. The alternative —\ntwo loose `Option` fields — makes a half-filled table a runtime problem for every reader.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "const": "geoclue"
+            }
+          },
+          "required": [
+            "provider"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "latitude": {
+              "type": "number",
+              "format": "double"
+            },
+            "longitude": {
+              "type": "number",
+              "format": "double"
+            },
+            "provider": {
+              "type": "string",
+              "const": "manual"
+            }
+          },
+          "required": [
+            "provider",
+            "latitude",
+            "longitude"
+          ]
+        }
+      ]
+    },
     "Idle": {
       "type": "object",
       "properties": {
@@ -483,30 +522,6 @@
           "format": "uint64",
           "default": 0,
           "minimum": 0
-        }
-      },
-      "additionalProperties": false
-    },
-    "Location": {
-      "type": "object",
-      "properties": {
-        "latitude": {
-          "type": [
-            "number",
-            "null"
-          ],
-          "format": "double"
-        },
-        "longitude": {
-          "type": [
-            "number",
-            "null"
-          ],
-          "format": "double"
-        },
-        "provider": {
-          "$ref": "#/$defs/Provider",
-          "default": "geoclue"
         }
       },
       "additionalProperties": false
@@ -792,13 +807,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "Provider": {
-      "type": "string",
-      "enum": [
-        "geoclue",
-        "manual"
-      ]
     },
     "Remember": {
       "type": "string",

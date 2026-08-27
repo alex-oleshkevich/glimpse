@@ -16,10 +16,6 @@ are working as designed — if the payload genuinely did not change, nothing sho
 change and nothing arrived, check `PartialEq` on the payload actually distinguishes the field you
 changed.
 
-**A subscriber gets nothing until something else changes it.** The broker does not replay a topic's
-current value to a new sink. Combined with the equality gate, a late subscriber can wait forever.
-Affects `Sub::topic` whose key moved; bead `glimpse-rgd7` for the broker-side fix.
-
 ## A command does not work
 
 **"no service declares `x`".** Missing from `METHODS`. The broker routes by that map alone.

@@ -101,13 +101,6 @@ not be re-declared on the next input.
 
 ## Hazards
 
-**A restarted `Sub::topic` can go silent.** The broker's `Message::Subscribe` inserts the sink and
-nothing else — there is no replay of the topic's current value — and the publisher's equality gate
-means an unchanged value is never republished. So a topic subscription whose key moved is torn down,
-resubscribed, and then sits blank until the upstream value happens to change, which may be never.
-**Key a `Sub::topic` on something constant** unless the service can live with the gap (bead
-`glimpse-rgd7`). `Sub::stream` does not have this problem: it re-reads its backend on rebuild.
-
 **Teardown does not un-queue.** Dropping a guard stops a source producing *more* events; it does not
 remove what the source already put in the inbox. An event queued before a model change is still
 delivered after it. Guard the handler on the model, not on the guard's existence:

@@ -127,7 +127,21 @@ impl BrokerHandle for MockBroker {
             .push((topic.to_owned(), data));
     }
 
+    /// Replays the topic's latest value the way the broker does, so a test agrees with the daemon
+    /// about when a new subscriber first hears anything.
     fn subscribe(&self, topic: &str, sink: Sink) -> SubscriptionId {
+        let latest = self
+            .published
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .iter()
+            .rev()
+            .find(|(published, _)| published == topic)
+            .map(|(_, data)| data.clone());
+
+        if let Some(data) = latest {
+            sink(&data);
+        }
         self.sinks
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -147,6 +161,8 @@ impl BrokerHandle for MockBroker {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
 
     /// The failure this guards against is silence: without the `Drop` impl the caller waits out its
@@ -167,5 +183,38 @@ mod tests {
         Responder::new(reply).ok(7);
 
         assert_eq!(answer.await.expect("answered"), Ok(Value::from(7)));
+    }
+
+    /// Mirrors the daemon. Without it a service test disagrees with the broker about when a new
+    /// subscriber first hears anything, which is the difference between a topic that arrives and
+    /// one that sits blank forever.
+    #[test]
+    fn subscribing_after_a_publish_replays_the_latest_value() {
+        let mock = MockBroker::default();
+        mock.publish("audio.volume", Value::from(0.2));
+        mock.publish("audio.volume", Value::from(0.4));
+
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let recorder = seen.clone();
+        mock.subscribe(
+            "audio.volume",
+            Box::new(move |data| recorder.lock().expect("not poisoned").push(data.clone())),
+        );
+
+        assert_eq!(*seen.lock().expect("not poisoned"), [Value::from(0.4)]);
+    }
+
+    #[test]
+    fn subscribing_to_a_topic_with_no_value_replays_nothing() {
+        let mock = MockBroker::default();
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let recorder = seen.clone();
+
+        mock.subscribe(
+            "audio.volume",
+            Box::new(move |data| recorder.lock().expect("not poisoned").push(data.clone())),
+        );
+
+        assert!(seen.lock().expect("not poisoned").is_empty());
     }
 }

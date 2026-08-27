@@ -1,7 +1,7 @@
 use std::pin::Pin;
 
 use futures_util::{Stream, StreamExt, stream};
-use glimpse_config::Provider as ConfiguredProvider;
+use glimpse_config::Geolocation as ConfiguredGeolocation;
 use glimpse_contracts::{
     Command as _, GeoCoordinates, GeolocationRefresh, GeolocationStatus, Message,
 };
@@ -33,7 +33,8 @@ const NO_FIX: &str = "/";
 #[derive(Debug, Clone, PartialEq)]
 pub enum Provider {
     Geoclue,
-    /// `None` when the table names `manual` without a usable pair of coordinates.
+    /// `None` when the table names coordinates outside their ranges. Presence is not a case here:
+    /// a `manual` table missing either key never loads.
     Manual(Option<GeoCoordinates>),
 }
 
@@ -55,12 +56,12 @@ pub struct Config {
 impl From<&glimpse_config::Config> for Config {
     fn from(document: &glimpse_config::Config) -> Self {
         Self {
-            provider: match document.location.provider {
-                ConfiguredProvider::Geoclue => Provider::Geoclue,
-                ConfiguredProvider::Manual => Provider::Manual(coordinates(
-                    document.location.latitude,
-                    document.location.longitude,
-                )),
+            provider: match document.geolocation {
+                ConfiguredGeolocation::Geoclue => Provider::Geoclue,
+                ConfiguredGeolocation::Manual {
+                    latitude,
+                    longitude,
+                } => Provider::Manual(coordinates(latitude, longitude)),
             },
         }
     }
@@ -128,7 +129,7 @@ impl Service for Geolocation {
                 self.publish(coordinates);
             }
             // A fix that cannot be obtained is a degraded service, not a dead one: the daemon
-            // keeps running and a manual `[location]` still works.
+            // keeps running and a manual `[geolocation]` still works.
             Input::Event(Event::Unavailable(reason)) => {
                 ctx.degraded(reason);
                 self.publish(None);
@@ -154,7 +155,7 @@ impl Geolocation {
                 self.publish(Some(coordinates.clone()));
             }
             Provider::Manual(None) => {
-                ctx.degraded("`[location] provider = \"manual\"` needs latitude and longitude");
+                ctx.degraded("`[geolocation]` coordinates are out of range");
                 self.publish(None);
             }
             Provider::Geoclue => self.publish(None),
@@ -174,10 +175,10 @@ impl Geolocation {
     }
 }
 
-/// Both coordinates or neither, and both in range. A half-configured or out-of-range pair is a
-/// mistake worth reporting as one, not a silent fix at latitude zero off the coast of Africa.
-fn coordinates(latitude: Option<f64>, longitude: Option<f64>) -> Option<GeoCoordinates> {
-    let (latitude, longitude) = (latitude?, longitude?);
+/// Presence is the configuration's job — a `manual` table missing either key is refused before the
+/// document loads. What is left is range: a mistyped latitude is a mistake worth reporting as one,
+/// not a silent fix at zero off the coast of Africa.
+fn coordinates(latitude: f64, longitude: f64) -> Option<GeoCoordinates> {
     ((-90.0..=90.0).contains(&latitude) && (-180.0..=180.0).contains(&longitude)).then_some(
         GeoCoordinates {
             latitude,
@@ -301,38 +302,29 @@ mod tests {
             .collect()
     }
 
-    fn document(
-        provider: ConfiguredProvider,
-        latitude: Option<f64>,
-        longitude: Option<f64>,
-    ) -> glimpse_config::Config {
+    fn document(geolocation: ConfiguredGeolocation) -> glimpse_config::Config {
         glimpse_config::Config {
-            location: glimpse_config::Location {
-                provider,
-                latitude,
-                longitude,
-            },
+            geolocation,
             ..Default::default()
+        }
+    }
+
+    fn configured(latitude: f64, longitude: f64) -> ConfiguredGeolocation {
+        ConfiguredGeolocation::Manual {
+            latitude,
+            longitude,
         }
     }
 
     #[test]
     fn a_manual_table_maps_to_the_pair_it_names() {
-        let mapped = Config::from(&document(
-            ConfiguredProvider::Manual,
-            Some(51.5074),
-            Some(-0.1278),
-        ));
+        let mapped = Config::from(&document(configured(51.5074, -0.1278)));
         assert_eq!(mapped, manual(51.5074, -0.1278));
     }
 
     #[test]
-    fn geoclue_ignores_coordinates_left_lying_around() {
-        let mapped = Config::from(&document(
-            ConfiguredProvider::Geoclue,
-            Some(51.5074),
-            Some(-0.1278),
-        ));
+    fn geoclue_carries_no_coordinates() {
+        let mapped = Config::from(&document(ConfiguredGeolocation::Geoclue));
         assert_eq!(
             mapped,
             Config {
@@ -341,37 +333,31 @@ mod tests {
         );
     }
 
-    /// Both or neither, and both in range. Every one of these is a `manual` table that cannot be
-    /// honoured, and the service reports each as degraded rather than guessing a location.
+    /// A pair the configuration accepts structurally but that names nowhere on Earth. The service
+    /// reports it as degraded rather than guessing a location.
     #[test]
-    fn a_manual_table_that_cannot_be_honoured_yields_no_coordinates() {
+    fn coordinates_outside_their_ranges_are_refused() {
         for (latitude, longitude) in [
-            (None, None),
-            (Some(51.5074), None),
-            (None, Some(-0.1278)),
-            (Some(91.0), Some(0.0)),
-            (Some(-91.0), Some(0.0)),
-            (Some(0.0), Some(181.0)),
-            (Some(0.0), Some(-181.0)),
+            (91.0, 0.0),
+            (-91.0, 0.0),
+            (0.0, 181.0),
+            (0.0, -181.0),
+            (f64::NAN, 0.0),
         ] {
-            let mapped = Config::from(&document(ConfiguredProvider::Manual, latitude, longitude));
+            let mapped = Config::from(&document(configured(latitude, longitude)));
             assert_eq!(
                 mapped,
                 Config {
                     provider: Provider::Manual(None)
                 },
-                "expected no coordinates from {latitude:?}/{longitude:?}"
+                "expected no coordinates from {latitude}/{longitude}"
             );
         }
     }
 
     #[test]
     fn the_edges_of_the_ranges_are_inside_them() {
-        let mapped = Config::from(&document(
-            ConfiguredProvider::Manual,
-            Some(90.0),
-            Some(180.0),
-        ));
+        let mapped = Config::from(&document(configured(90.0, 180.0)));
         assert_eq!(mapped, manual(90.0, 180.0));
     }
 

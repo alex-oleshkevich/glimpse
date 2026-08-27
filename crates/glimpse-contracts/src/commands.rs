@@ -47,4 +47,7 @@ commands! {
 
     #[name = "geolocation.refresh"]
     pub struct GeolocationRefresh {} -> ();
+
+    #[name = "solar.refresh"]
+    pub struct SolarRefresh {} -> ();
 }

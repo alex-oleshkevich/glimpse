@@ -92,9 +92,6 @@ not repeated here. Neither is capping hostile text off a backend — that is a c
   topic nothing declared (`store.rs:81`, logged as an error). There is no way to declare
   `tray.item.{id}.menu` today. A collection in one topic is the pattern that works — see
   `references/pitfalls.md` → A per-entity topic cannot be declared.
-- **A new subscriber gets nothing until the next publish.** The broker does not replay a topic's
-  current value on subscribe, and the publisher's equality gate means an unchanged value is never
-  republished. Bead `glimpse-rgd7`; until then, key a `Sub::topic` on something constant.
 - **Nothing checks declarations at compile time.** `const { assert!(...) }` and an associated-const
   check both compile and never fire. One test per service closes it instead — see Definition of done
   and `references/testing.md` → Declaration drift.
