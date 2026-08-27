@@ -17,9 +17,10 @@ there is only one of each.
 - `server.rs` — listener, `trait Handler`, one task per client, handshake
 - `topics/` — one module per domain, payload types only _(pending)_
 
-Typed access — `Topic`, `Command`, `Cached<T>` — waits on where payload types live. The reconnect
-and resubscribe unit tests wait on a fake server; nothing in `client.rs` or `server.rs` is covered
-yet, which is the largest hole in this crate.
+Typed access — `Topic`, `Command`, `Cached<T>` — waits on where payload types live. `client.rs`
+covers the dial: an absent daemon, a live one, and a socket that accepts without answering. The
+reconnect and resubscribe paths still wait on a fake server, and `server.rs` is uncovered, which is
+the largest hole left in this crate.
 
 ## Rules
 
@@ -44,17 +45,27 @@ holds, so 32 abandoned calls lock the client out. `REQUEST_TIMEOUT` is a constan
 the connection task expires entries against it — no caller passes one, because the deadline exists
 to release that slot and nobody outside the connection can hold a useful opinion about when.
 
-**`connect` fails on a missing daemon, `open` waits for one.** `connect` dials before it returns, so
-a one-shot caller such as `glimpsectl` gets `NotListening` as an answer and maps it to an exit code.
-`open` returns a client that has not dialled yet and lets the reconnect loop reach the daemon
-whenever it appears, which is what the UI binaries need: their units carry `Wants=glimpsed.service`,
-never `Requires=`, so starting before the daemon is ordinary rather than a failure. Both share one
-loop — `open` simply starts it in the arm that backs off and redials, so there is no second
-reconnect path to keep in step.
+It bounds the handshake too. A daemon that accepts the connection and then answers nothing leaves
+`dial` waiting on a frame that never arrives — and `dial` is called from inside the reconnect loop,
+so an unbounded wait there stops the reconnection rather than delaying it: the loop never reaches
+its backoff and never tries again. `glimpsectl` had the same hole from the other side, since the
+request deadline only ever covered requests and a wedged daemon hung the command outright.
 
-The connect is logged at `info` only after an absence. `connect` hands its caller the outcome
-directly, and a one-shot CLI would otherwise print a line on every invocation; a client from `open`
-always arrives through the redial arm, so its first connection still says so.
+**`connect` fails on a missing daemon, `open` waits for one.** Both dial once before returning; they
+differ only in what a failed dial means. `connect` returns `NotListening`, which a one-shot caller
+such as `glimpsectl` maps to an exit code. `open` keeps the failure and returns a client anyway,
+leaving the reconnect loop to reach the daemon whenever it appears — which is what the UI binaries
+need. `glimpse-panel`, `glimpse-wallpaper` and `glimpse-sunset` carry `Wants=glimpsed.service` and
+never `Requires=`, and `glimpse-lock` carries no relation to it at all, so every one of them can
+start before the daemon and that is ordinary rather than a failure.
+
+Both dial eagerly because the loop's first act is to back off. A client handed `None` waits a full
+`BACKOFF_MIN` doubling before its first attempt, so a panel restarted against a daemon that is
+already up would sit disconnected for half a second with nothing wrong.
+
+The connect is logged at `info` only after an absence — a one-shot CLI would otherwise print a line
+on every invocation, and a client that reached the daemon on its first dial has nothing to diagnose.
+Every reconnect after a loss is logged, which is the case worth seeing.
 
 **One cap on in-flight requests, held as a semaphore permit.** The permit is taken in `Client::ask`
 and travels with the request until its reply settles, so a request cannot be outstanding without

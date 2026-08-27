@@ -67,7 +67,7 @@ impl SimpleComponent for App {
 
 fn spawn_daemon_client(socket: PathBuf) {
     relm4::spawn(async move {
-        let client = Client::open(&socket);
+        let client = Client::open(&socket).await;
         let mut states = client.watch_state();
         while states.changed().await.is_ok() {
             tracing::debug!(state = ?*states.borrow_and_update(), "daemon connection");

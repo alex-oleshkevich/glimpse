@@ -58,15 +58,12 @@ pub struct Client {
 }
 
 impl Client {
-    /// The first connection is made here rather than in the task, so a missing daemon and a refused
-    /// protocol version are answers the caller gets from `connect` instead of a hang.
     pub async fn connect(socket: &Path) -> Result<Self, ConnectError> {
-        let wire = dial(socket).await?;
-        Ok(Self::start(socket, Some(wire)))
+        Ok(Self::start(socket, Some(dial(socket).await?)))
     }
 
-    pub fn open(socket: &Path) -> Self {
-        Self::start(socket, None)
+    pub async fn open(socket: &Path) -> Self {
+        Self::start(socket, dial(socket).await.ok())
     }
 
     fn start(socket: &Path, wire: Option<Wire>) -> Self {
@@ -326,18 +323,25 @@ async fn dial(socket: &Path) -> Result<Wire, ConnectError> {
         return Err(ConnectError::Handshake);
     }
 
-    match wire.next().await {
-        Some(Ok(Frame {
+    match time::timeout(REQUEST_TIMEOUT, wire.next()).await {
+        Ok(Some(Ok(Frame {
             body: Body::HelloAck { daemon_version },
             ..
-        })) => {
+        }))) => {
             tracing::debug!(daemon_version, "connected");
             Ok(wire)
         }
         // Anything else means the socket is not a glimpse daemon, which is the failure `--socket`
         // makes reachable and the reason the ack is worth one frame at connect.
-        answer => {
+        Ok(answer) => {
             tracing::warn!(?answer, "expected hello_ack");
+            Err(ConnectError::Handshake)
+        }
+        Err(_) => {
+            tracing::warn!(
+                ?socket,
+                "the daemon accepted but did not answer the handshake"
+            );
             Err(ConnectError::Handshake)
         }
     }
@@ -695,10 +699,54 @@ mod tests {
 
     #[tokio::test]
     async fn open_survives_a_socket_nothing_is_listening_on() {
-        let client = Client::open(Path::new("/nonexistent/glimpsed.sock"));
+        let client = Client::open(Path::new("/nonexistent/glimpsed.sock")).await;
 
         assert_eq!(*client.watch_state().borrow(), ConnectionState::Connecting);
         let refused = client.get("solar.status").await.expect_err("no daemon");
         assert_eq!(refused.code, ErrorCode::Unavailable);
+    }
+
+    #[tokio::test]
+    async fn open_is_connected_when_the_daemon_answers_the_first_dial() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("glimpsed.sock");
+        let listener = tokio::net::UnixListener::bind(&path).expect("bind");
+        tokio::spawn(answer_one_handshake(listener));
+
+        let client = Client::open(&path).await;
+
+        assert_eq!(*client.watch_state().borrow(), ConnectionState::Connected);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_socket_that_accepts_but_never_answers_fails_instead_of_hanging() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("glimpsed.sock");
+        let listener = tokio::net::UnixListener::bind(&path).expect("bind");
+        tokio::spawn(async move {
+            let held = listener.accept().await;
+            std::future::pending::<()>().await;
+            drop(held);
+        });
+
+        let Err(error) = Client::connect(&path).await else {
+            panic!("connect succeeded against a socket that never answered");
+        };
+
+        assert!(matches!(error, ConnectError::Handshake), "{error}");
+    }
+
+    async fn answer_one_handshake(listener: tokio::net::UnixListener) {
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+
+        let (stream, _) = listener.accept().await.expect("accept");
+        let mut wire = tokio::io::BufReader::new(stream);
+        let mut hello = String::new();
+        wire.read_line(&mut hello).await.expect("hello");
+        wire.get_mut()
+            .write_all(b"{\"type\":\"hello_ack\",\"data\":{\"daemon_version\":\"test\"}}\n")
+            .await
+            .expect("ack");
+        std::future::pending::<()>().await;
     }
 }

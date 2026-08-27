@@ -30,7 +30,7 @@ async fn run(cli: Cli) -> Result<()> {
 
     let mut config = glimpse_config::load(cli.config.as_deref())?;
     let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
-    let _client = Client::open(&socket);
+    let _client = Client::open(&socket).await;
 
     let mut configs = Box::pin(watch_config(cli.config.config.clone(), config.clone()));
     let mut terminate = signal(SignalKind::terminate())?;
