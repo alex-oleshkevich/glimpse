@@ -9,7 +9,7 @@ use crate::{
     broker::Responder,
     context::Ctx,
     publisher::Publisher,
-    service::{Input, Service, ServiceError, decode_args, unknown_command},
+    service::{Input, NoConfig, Service, ServiceError, decode_args, unknown_command},
     subscription::Sub,
 };
 
@@ -47,7 +47,7 @@ impl Service for Heartbeat {
     const TOPICS: &'static [&'static str] = &[HeartbeatTick::NAME];
     const METHODS: &'static [&'static str] = &[HeartbeatReset::NAME, HeartbeatSetInterval::NAME];
 
-    type Config = ();
+    type Config = NoConfig;
     type Command = Command;
     type Event = Event;
     type SubKey = Tick;
@@ -96,11 +96,9 @@ impl Service for Heartbeat {
             Input::Command(Command::SetInterval { period_ms }, responder) => {
                 self.set_interval(period_ms, responder);
             }
-            Input::Config(()) => {}
+            Input::Config(NoConfig) => {}
         }
     }
-
-    fn peek_config(_config: &glimpse_config::Config) -> Self::Config {}
 }
 
 impl Heartbeat {
@@ -143,7 +141,7 @@ mod tests {
         let (reply, answer) = oneshot::channel();
         runtime.sender().dispatch(command, Responder::new(reply));
 
-        let running = tokio::spawn(async move { runtime.run(()).await });
+        let running = tokio::spawn(async move { runtime.run(NoConfig).await });
         let outcome = answer.await.expect("the handler answered");
         cancel.cancel();
         let _ = running.await;

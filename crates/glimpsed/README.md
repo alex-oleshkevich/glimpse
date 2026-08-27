@@ -75,11 +75,11 @@ the kernel refused still reloads on request. `shutdown_signal` therefore handles
 `SIGINT`, which is what its name claims.
 
 A reload re-reads the whole stack and re-applies **only the services whose own table changed**.
-`register::<S>()` is the last place the concrete service type is known, so it builds the `ConfigSink`
-there alongside the `Dispatch`, closing over `S::peek_config` and the previous slice; editing
-`[[panels]]` therefore cannot perturb the night light schedule, because that subtree is unchanged
-and its service never hears about the reload at all. A sink offers rather than queues: awaiting
-would park the one task that reloads every service behind whichever of them is wedged.
+`register::<S>()` is the last place the concrete type is known, so it builds the `ConfigSink` there
+alongside the `Dispatch`, projecting with `S::Config::from(document)` and closing over the previous
+slice; editing `[[panels]]` therefore cannot perturb the night light schedule, because that subtree
+is unchanged and its service never hears about the reload at all. A sink offers rather than queues: awaiting would park the one task that
+reloads every service behind whichever of them is wedged.
 
 A reload that does not parse is dropped and the running configuration survives. The daemon does not
 exit over it, and it does not half-apply it.

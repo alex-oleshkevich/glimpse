@@ -88,7 +88,8 @@ impl Daemon {
         }
 
         self.factories.push(Box::new(|init: &InitService| {
-            let config = S::peek_config(&init.config);
+            let config = S::Config::from(&init.config);
+            let mut previous = config.clone();
             let broker: Arc<dyn BrokerHandle> = Arc::new(init.broker.clone());
             let mut runtime =
                 ServiceRuntime::<S>::new(broker, init.buses.clone(), init.cancel.child_token());
@@ -123,15 +124,12 @@ impl Daemon {
 
             // A service whose own table did not move never learns a reload happened, so editing
             // `[[panels]]` cannot perturb the night light schedule.
-            let mut previous = S::peek_config(&init.config);
             Box::new(move |document: &Config| {
-                let next = S::peek_config(document);
+                let next = S::Config::from(document);
                 if next == previous {
                     return;
                 }
-                // `S::Config` is not `Clone` and `next` is moved into the inbox. Peeking a second
-                // time costs less than a `Clone` bound on every service's associated type.
-                previous = S::peek_config(document);
+                previous = next.clone();
                 tracing::debug!(service = S::NAME, "reconfiguring");
                 reconfigure.reconfigure(next);
             })

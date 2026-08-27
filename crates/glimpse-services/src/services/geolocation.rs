@@ -30,7 +30,7 @@ const CITY_ACCURACY: u32 = 4;
 /// GeoClue parks `Location` at the root path until it has a fix.
 const NO_FIX: &str = "/";
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Provider {
     Geoclue,
     /// `None` when the table names `manual` without a usable pair of coordinates.
@@ -47,9 +47,23 @@ pub enum Event {
     Unavailable(String),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     provider: Provider,
+}
+
+impl From<&glimpse_config::Config> for Config {
+    fn from(document: &glimpse_config::Config) -> Self {
+        Self {
+            provider: match document.location.provider {
+                ConfiguredProvider::Geoclue => Provider::Geoclue,
+                ConfiguredProvider::Manual => Provider::Manual(coordinates(
+                    document.location.latitude,
+                    document.location.longitude,
+                )),
+            },
+        }
+    }
 }
 
 pub struct Geolocation {
@@ -128,18 +142,6 @@ impl Service for Geolocation {
                 self.refresh();
                 responder.ok(());
             }
-        }
-    }
-
-    fn peek_config(config: &glimpse_config::Config) -> Self::Config {
-        Config {
-            provider: match config.location.provider {
-                ConfiguredProvider::Geoclue => Provider::Geoclue,
-                ConfiguredProvider::Manual => Provider::Manual(coordinates(
-                    config.location.latitude,
-                    config.location.longitude,
-                )),
-            },
         }
     }
 }
@@ -274,9 +276,14 @@ mod tests {
     use super::*;
     use crate::{BrokerHandle, MockBroker, service::ServiceRuntime};
 
+    /// Built literally rather than through `coordinates`, which is the function under test: a
+    /// helper that called it would compare its output against itself and assert nothing.
     fn manual(latitude: f64, longitude: f64) -> Config {
         Config {
-            provider: Provider::Manual(coordinates(Some(latitude), Some(longitude))),
+            provider: Provider::Manual(Some(GeoCoordinates {
+                latitude,
+                longitude,
+            })),
         }
     }
 
@@ -287,6 +294,80 @@ mod tests {
             .filter_map(|(_, data)| serde_json::from_value::<GeolocationStatus>(data).ok())
             .map(|status| status.coordinates)
             .collect()
+    }
+
+    fn document(
+        provider: ConfiguredProvider,
+        latitude: Option<f64>,
+        longitude: Option<f64>,
+    ) -> glimpse_config::Config {
+        glimpse_config::Config {
+            location: glimpse_config::Location {
+                provider,
+                latitude,
+                longitude,
+            },
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_manual_table_maps_to_the_pair_it_names() {
+        let mapped = Config::from(&document(
+            ConfiguredProvider::Manual,
+            Some(51.5074),
+            Some(-0.1278),
+        ));
+        assert_eq!(mapped, manual(51.5074, -0.1278));
+    }
+
+    #[test]
+    fn geoclue_ignores_coordinates_left_lying_around() {
+        let mapped = Config::from(&document(
+            ConfiguredProvider::Geoclue,
+            Some(51.5074),
+            Some(-0.1278),
+        ));
+        assert_eq!(
+            mapped,
+            Config {
+                provider: Provider::Geoclue
+            }
+        );
+    }
+
+    /// Both or neither, and both in range. Every one of these is a `manual` table that cannot be
+    /// honoured, and the service reports each as degraded rather than guessing a location.
+    #[test]
+    fn a_manual_table_that_cannot_be_honoured_yields_no_coordinates() {
+        for (latitude, longitude) in [
+            (None, None),
+            (Some(51.5074), None),
+            (None, Some(-0.1278)),
+            (Some(91.0), Some(0.0)),
+            (Some(-91.0), Some(0.0)),
+            (Some(0.0), Some(181.0)),
+            (Some(0.0), Some(-181.0)),
+        ] {
+            let mapped = Config::from(&document(ConfiguredProvider::Manual, latitude, longitude));
+            assert_eq!(
+                mapped,
+                Config {
+                    provider: Provider::Manual(None)
+                },
+                "expected no coordinates from {latitude:?}/{longitude:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_edges_of_the_ranges_are_inside_them() {
+        let mapped = Config::from(&document(
+            ConfiguredProvider::Manual,
+            Some(90.0),
+            Some(180.0),
+        ));
+        assert_eq!(mapped, manual(90.0, 180.0));
     }
 
     /// A watch that has been torn down can still have an event waiting in the inbox behind the

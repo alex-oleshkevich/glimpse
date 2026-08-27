@@ -5,7 +5,7 @@ use tokio::time;
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{Input, Service, ServiceError},
+    service::{Input, NoConfig, Service, ServiceError},
     subscription::Sub,
 };
 
@@ -36,7 +36,7 @@ impl Service for Solar {
     const NAME: &'static str = "solar";
     const TOPICS: &'static [&'static str] = &[SolarStatus::NAME];
 
-    type Config = ();
+    type Config = NoConfig;
     type Command = Command;
     type Event = Event;
     type SubKey = Watch;
@@ -68,12 +68,8 @@ impl Service for Solar {
                 self.refresh();
                 responder.ok(());
             }
-            Input::Config(()) => {}
+            Input::Config(NoConfig) => {}
         }
-    }
-
-    fn peek_config(config: &glimpse_config::Config) -> Self::Config {
-        ()
     }
 }
 

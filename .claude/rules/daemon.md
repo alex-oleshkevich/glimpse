@@ -40,6 +40,12 @@ These two rules point in opposite directions on purpose:
 Payload types derive `PartialEq`. That is the equality gate that stops a service republishing an
 identical value.
 
+`S::Config` is bound by `From<&glimpse_config::Config>`, so the projection from the whole document
+down to one service's slice is an impl beside the slice — never a method on the service. A service
+that reads no configuration uses `type Config = NoConfig;` and writes no impl at all; `()` cannot be
+used, because `From<&Config> for ()` is a foreign trait on a foreign type. `S::Config: PartialEq` is
+what narrows a reload to the services whose own table moved.
+
 ## Boundaries
 
 - `wl_` objects appear only under `glimpsed/src/wayland/`. Services reach Wayland through

@@ -136,6 +136,21 @@ defaults are still unstable.
 `subscriptions` runs inside the same `catch_unwind` as the handler, so a panic while declaring stops
 that one service rather than the runtime loop.
 
+A service declares `type Config` and receives it as `Input::Config`. The projection from the whole
+document down to that slice is `From<&glimpse_config::Config>`, implemented beside the slice rather
+than on the service, so whatever it validates stays private to the module:
+
+```rust
+impl From<&glimpse_config::Config> for Config {
+    fn from(document: &glimpse_config::Config) -> Self { ... }
+}
+```
+
+A service that reads no configuration writes `type Config = NoConfig;` and no impl. `()` will not do
+— `From<&Config> for ()` is a foreign trait on a foreign type and the orphan rules refuse it, which
+is the whole reason `NoConfig` exists. `S::Config: PartialEq` is what narrows a reload to the
+services whose own table moved.
+
 Events, commands and configuration all arrive on **one** inbox. One channel means one order: a
 command and the event that follows it reach the handler in the order they were produced, which two
 channels raced against each other in a `select!` could not promise. The cost is a shared budget —

@@ -1,7 +1,6 @@
 use std::{any::Any, hash::Hash, panic::AssertUnwindSafe, sync::Arc};
 
 use futures_util::FutureExt;
-use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_ipc::{CallError, ErrorCode};
 use serde::de::DeserializeOwned;
@@ -44,6 +43,17 @@ pub fn decode_args<T: DeserializeOwned>(args: Value) -> Result<T, CallError> {
         .map_err(|error| CallError::new(ErrorCode::InvalidArgs, error.to_string()))
 }
 
+/// The configuration of a service that reads none. `()` cannot be used: `From<&Config> for ()`
+/// puts a foreign trait on a foreign type, which the orphan rules refuse.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NoConfig;
+
+impl From<&glimpse_config::Config> for NoConfig {
+    fn from(_document: &glimpse_config::Config) -> Self {
+        Self
+    }
+}
+
 pub trait Service: Sized + Send + 'static {
     /// Identifies the service in `system.services` and owns its topics in the registry.
     const NAME: &'static str;
@@ -57,7 +67,7 @@ pub trait Service: Sized + Send + 'static {
     /// `TOPICS`: the broker routes a `call` by this map, and `system.methods` is built from it.
     const METHODS: &'static [&'static str] = &[];
 
-    type Config: PartialEq + Send + 'static;
+    type Config: Clone + PartialEq + Send + 'static + for<'a> From<&'a glimpse_config::Config>;
     type Command: Send + 'static;
     type Event: Send + 'static;
     /// Identifies one declared source across reconciliations. `()` for a service that declares
@@ -87,7 +97,6 @@ pub trait Service: Sized + Send + 'static {
         let _ = ctx;
         async {}
     }
-    fn peek_config(config: &Config) -> Self::Config;
 }
 
 /// The service's one inbox, carrying events, commands and configuration together. One channel means
@@ -275,7 +284,7 @@ mod tests {
         const NAME: &'static str = "panicky";
         const TOPICS: &'static [&'static str] = &[];
 
-        type Config = ();
+        type Config = NoConfig;
         type Command = ();
         type Event = ();
         type SubKey = ();
@@ -287,8 +296,6 @@ mod tests {
         async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {
             panic!("the backend said something unrepeatable");
         }
-
-        fn peek_config(_config: &Config) -> Self::Config {}
     }
 
     /// The panic is expected and its message reaches the log; what matters is that the service is
@@ -310,7 +317,7 @@ mod tests {
             .await
             .expect("queued");
         runtime
-            .run(())
+            .run(NoConfig)
             .await
             .expect("run returns rather than unwinding");
 
@@ -338,7 +345,7 @@ mod tests {
         const NAME: &'static str = "armable";
         const TOPICS: &'static [&'static str] = &[HeartbeatTick::NAME];
 
-        type Config = ();
+        type Config = NoConfig;
         type Command = ();
         type Event = u64;
         type SubKey = Armed;
@@ -366,11 +373,9 @@ mod tests {
                     responder.ok(());
                 }
                 Input::Event(count) => self.published.set(HeartbeatTick { count }),
-                Input::Config(()) => {}
+                Input::Config(NoConfig) => {}
             }
         }
-
-        fn peek_config(_config: &Config) -> Self::Config {}
     }
 
     /// Without the reconcile after `handle`, the command flips the flag and nothing ever starts.
@@ -388,7 +393,7 @@ mod tests {
         let (reply, answered) = tokio::sync::oneshot::channel();
         runtime.sender().dispatch((), Responder::new(reply));
 
-        let running = tokio::spawn(async move { runtime.run(()).await });
+        let running = tokio::spawn(async move { runtime.run(NoConfig).await });
         answered.await.expect("the handler answered").expect("ok");
         for _ in 0..8 {
             tokio::task::yield_now().await;
@@ -409,7 +414,7 @@ mod tests {
         const NAME: &'static str = "needs-the-bus";
         const TOPICS: &'static [&'static str] = &[];
 
-        type Config = ();
+        type Config = NoConfig;
         type Command = ();
         type Event = ();
         type SubKey = ();
@@ -422,8 +427,6 @@ mod tests {
         }
 
         async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {}
-
-        fn peek_config(_config: &Config) -> Self::Config {}
     }
 
     /// A missing bus costs the service its backend, not its life: it still starts, still reaches
@@ -440,7 +443,7 @@ mod tests {
         );
 
         cancel.cancel();
-        runtime.run(()).await.expect("starts without a bus");
+        runtime.run(NoConfig).await.expect("starts without a bus");
 
         let states: Vec<ServiceState> = mock.health().into_iter().map(|(_, s)| s).collect();
         assert!(

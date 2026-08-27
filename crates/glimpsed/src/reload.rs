@@ -6,8 +6,8 @@ use tokio::signal::unix::Signal;
 use tokio_util::sync::CancellationToken;
 
 /// Hands one service its own slice of a freshly loaded document, and only when that slice moved.
-/// Built where the concrete service type is still known, which is the one place `peek_config` and
-/// its `PartialEq` can be reached.
+/// Built where the concrete service type is still known, which is the one place the mapping given
+/// to `Daemon::register` and its `PartialEq` can be reached.
 pub type ConfigSink = Box<dyn FnMut(&Config) + Send>;
 
 /// Watching and reloading, run as one task of its own. `SIGHUP` and the filesystem are two

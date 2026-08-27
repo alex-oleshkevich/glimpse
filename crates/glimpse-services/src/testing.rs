@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use crate::context::Ctx;
-use crate::service::{Input, Service, ServiceError};
+use crate::service::{Input, NoConfig, Service, ServiceError};
 use crate::{BrokerHandle, MockBroker};
 
 /// A service that does nothing, for exercising the framework rather than any behaviour of its own.
@@ -22,7 +22,7 @@ impl Service for Probe {
     const NAME: &'static str = "probe";
     const TOPICS: &'static [&'static str] = &[];
 
-    type Config = ();
+    type Config = NoConfig;
     type Command = ();
     type Event = u8;
     type SubKey = Watch;
@@ -32,8 +32,6 @@ impl Service for Probe {
     }
 
     async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {}
-
-    fn peek_config(_config: &glimpse_config::Config) -> Self::Config {}
 }
 
 /// A topic to publish into a subscriber under test, independent of any real contract.
