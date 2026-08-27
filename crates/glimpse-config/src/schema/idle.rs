@@ -19,8 +19,9 @@ impl Default for Idle {
     }
 }
 
-const MONITORS_OFF: &str = "/usr/share/glimpse/scripts/monitors off";
-const MONITORS_ON: &str = "/usr/share/glimpse/scripts/monitors on";
+fn monitors(state: &str) -> String {
+    format!("{}/scripts/monitors {state}", crate::DATA_DIR)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields)]
@@ -48,7 +49,7 @@ impl Profile {
     fn mains() -> Self {
         Self {
             listeners: vec![
-                Listener::new(600, MONITORS_OFF, MONITORS_ON),
+                Listener::new(600, &monitors("off"), &monitors("on")),
                 Listener::new(900, "loginctl lock-session", ""),
                 Listener::new(3600, "systemctl suspend", ""),
             ],
@@ -58,7 +59,7 @@ impl Profile {
     fn battery() -> Self {
         Self {
             listeners: vec![
-                Listener::new(300, MONITORS_OFF, MONITORS_ON),
+                Listener::new(300, &monitors("off"), &monitors("on")),
                 Listener::new(900, "loginctl lock-session", ""),
                 Listener::new(1800, "systemctl suspend", ""),
             ],

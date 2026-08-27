@@ -4,15 +4,15 @@ mod schema;
 mod watch;
 
 pub use error::ConfigError;
-pub use load::{load, resolved_files, watch_dirs};
+pub use load::{DATA_DIR, load, resolved_files, user_dir, watch_dirs};
 pub use schema::*;
 pub use watch::{Update, reread, watch, watch_all, watch_config};
 
 pub fn default_document() -> String {
-    let header = "\
-#:schema /usr/share/glimpse/config.schema.json
-# This is glimpse's default configuration — every setting, with the value it ships with.
-";
+    let header = format!(
+        "#:schema {DATA_DIR}/config.schema.json\n\
+         # This is glimpse's default configuration — every setting, with the value it ships with.\n"
+    );
     let body = toml::to_string_pretty(&Config::default()).expect("Config::default() serializes");
     format!("{header}\n{body}")
 }

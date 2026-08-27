@@ -10,19 +10,27 @@ const FILE_NAME: &str = "config.toml";
 const DROPIN_DIR: &str = "config.d";
 const FOLDER_NAME: &str = "glimpse";
 
+/// `/usr/share/glimpse` — where the package installs files a user reads but does not edit. Beside
+/// [`user_dir`] because the two are asked in the same breath: the user's copy, then the shipped one.
+pub const DATA_DIR: &str = "/usr/share/glimpse";
+
+/// `~/.config/glimpse`, or `None` on a platform that names no config directory. Everything a user
+/// may override lives here, not only `config.toml`, so other crates locate their own files through
+/// this rather than rebuilding the path.
+pub fn user_dir() -> Option<PathBuf> {
+    dirs::config_dir().map(|dir| dir.join(FOLDER_NAME))
+}
+
 pub fn load(config_path: Option<&Path>) -> Result<Config, ConfigError> {
-    let user_dir = dirs::config_dir().map(|dir| dir.join(FOLDER_NAME));
-    load_from(Path::new(SYSTEM_DIR), user_dir.as_deref(), config_path)
+    load_from(Path::new(SYSTEM_DIR), user_dir().as_deref(), config_path)
 }
 
 pub fn resolved_files(config_path: Option<&Path>) -> Result<Vec<PathBuf>, ConfigError> {
-    let user_dir = dirs::config_dir().map(|dir| dir.join(FOLDER_NAME));
-    stack(Path::new(SYSTEM_DIR), user_dir.as_deref(), config_path)
+    stack(Path::new(SYSTEM_DIR), user_dir().as_deref(), config_path)
 }
 
 pub fn watch_dirs(config_path: Option<&Path>) -> Vec<PathBuf> {
-    let user_dir = dirs::config_dir().map(|dir| dir.join(FOLDER_NAME));
-    watch_dirs_from(Path::new(SYSTEM_DIR), user_dir.as_deref(), config_path)
+    watch_dirs_from(Path::new(SYSTEM_DIR), user_dir().as_deref(), config_path)
 }
 
 fn watch_dirs_from(

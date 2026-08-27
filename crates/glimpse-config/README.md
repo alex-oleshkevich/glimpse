@@ -20,6 +20,12 @@ beside it is read.
 `resolved_files(config_path)` returns the same ordered file list `load` reads, without reading any
 of them — what `glimpsectl config path` prints.
 
+`user_dir()` is `~/.config/glimpse`, or `None` on a platform that names no config directory. This
+crate owns where a user's glimpse files live, so anything else that needs to look one up asks here
+instead of rebuilding `dirs::config_dir().join("glimpse")` — `glimpse-compositors` finds
+`language-codes.json` that way. It is the directory, not a file: what a caller joins onto it is that
+caller's business.
+
 Only files that exist are merged. Layer 1 is not a document — a table absent from every file keeps
 the value from its `Default` impl. `data/config.default.toml` is a reference nothing reads, kept
 honest the way `cargo fmt` keeps formatting honest: `default_document()` renders it from

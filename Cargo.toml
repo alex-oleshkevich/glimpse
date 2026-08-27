@@ -28,6 +28,7 @@ gio-unix = "0.22"
 glib = "0.22"
 glib-build-tools = "0.22"
 glimpse-config = { path = "crates/glimpse-config" }
+glimpse-compositors = { path = "crates/glimpse-compositors" }
 glimpse-contracts = { path = "crates/glimpse-contracts" }
 glimpse-dbus = { path = "crates/glimpse-dbus" }
 glimpse-ipc = { path = "crates/glimpse-ipc" }

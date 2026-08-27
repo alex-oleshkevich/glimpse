@@ -766,6 +766,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "glimpse-compositors"
+version = "0.16.0"
+dependencies = [
+ "dirs",
+ "futures-util",
+ "glimpse-config",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "glimpse-config"
 version = "0.16.0"
 dependencies = [

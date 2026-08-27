@@ -46,6 +46,7 @@ glimpse/
 | `glimpse-contracts` | `Message` and `Command`, every topic and command payload                |
 | `glimpse-dbus`      | D-Bus proxies and the shared bus connections                            |
 | `glimpse-config`    | layered TOML load, drop-ins, merge, validate, watch                      |
+| `glimpse-compositors` | niri and Hyprland IPC: snapshot, events, keyboard/workspace/window/output control |
 | `glimpse-services`  | service framework and every service implementation                       |
 | `glimpse-widgets`   | GObject subclasses, Blueprint templates, shared CSS                      |
 | `glimpse-utils`     | shared CLI arg structs and tracing/log setup used by every binary        |
@@ -115,6 +116,11 @@ StatusNotifierItem, dbusmenu and Notifications.
 - Topics are `domain.name`, lower snake case, dots as separators: `audio.volume`,
   `tray.item.{id}.menu`
 - Commands are `domain.verb_object`: `audio.set_volume`, `tray.menu_about_to_show`
+- **Never build a glimpse path by hand.** `glimpse-config` owns where glimpse files live and
+  exports it: `user_dir()` for `~/.config/glimpse`, `DATA_DIR` for `/usr/share/glimpse`. Writing
+  `dirs::config_dir().join("glimpse")` or `"/usr/share/glimpse/..."` in another crate makes a second
+  answer to a question that already has one — it was duplicated four ways before this rule existed.
+  A user-overridable file is looked up in `user_dir()` first, then `DATA_DIR`.
 - One config file, `config.toml`. Top-level table per owner: one table per service, named for the
   service, for the daemon; `[panel]`, `[wallpaper]`, `[lock]` for the UI
   binaries. A binary reads only the tables it owns. Stylesheets stay separate: `panel.css`,
