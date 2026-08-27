@@ -6,6 +6,7 @@ arch=('x86_64')
 url="https://github.com/alex-oleshkevich/glimpse"
 license=('BSD-3-Clause')
 depends=('gtk4' 'libadwaita' 'gtk4-layer-shell' 'libheif' 'pam' 'geoclue')
+backup=('etc/geoclue/conf.d/glimpse.conf')
 provides=('glimpse-desktop')
 conflicts=('glimpse-desktop')
 source_x86_64=("glimpse-$pkgver-x86_64.tar.zst::$url/releases/download/v$pkgver/glimpse-$pkgver-x86_64.tar.zst")

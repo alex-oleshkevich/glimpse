@@ -57,6 +57,9 @@ commands! {
 }
 ```
 
+A command that takes no arguments still declares an empty struct — `GeolocationRefresh {}` — so
+that every command has one shape.
+
 `type Args = Self`, the way a topic's `Payload` is — the command *is* its argument struct, so there
 is no second type to keep in step with the name. A command that returns nothing declares `-> ()`,
 which is `null` on the wire and prints as nothing.

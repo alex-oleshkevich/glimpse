@@ -41,4 +41,7 @@ commands! {
 
     #[name = "heartbeat.set_interval"]
     pub struct HeartbeatSetInterval { period_ms: u64 } -> HeartbeatInterval;
+
+    #[name = "geolocation.refresh"]
+    pub struct GeolocationRefresh {} -> ();
 }

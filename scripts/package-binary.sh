@@ -28,6 +28,7 @@ mkdir -p \
     "$pkgroot/usr/share/dbus-1/services" \
     "$pkgroot/usr/share/glimpse/wallpapers" \
     "$pkgroot/etc/pam.d" \
+    "$pkgroot/etc/geoclue/conf.d" \
     dist
 
 cargo_args=()
@@ -53,6 +54,9 @@ install -Dm644 LICENSE "$pkgroot/usr/share/glimpse/LICENSE"
 
 for f in data/systemd/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/lib/systemd/user/$(basename "$f")"
+done
+for f in data/geoclue/conf.d/*.conf; do
+    [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/etc/geoclue/conf.d/$(basename "$f")"
 done
 for f in data/dbus-1/services/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/share/dbus-1/services/$(basename "$f")"

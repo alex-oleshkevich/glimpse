@@ -39,8 +39,13 @@ assets = [
   ["../../data/config.default.toml", "usr/share/glimpse/", "644"],
   ["../../data/config.schema.json", "usr/share/glimpse/", "644"],
   ["../../wallpapers/*", "usr/share/glimpse/wallpapers/", "644"],
+  ["../../data/geoclue/conf.d/glimpse.conf", "etc/geoclue/conf.d/", "644"],
   ["../../LICENSE", "usr/share/glimpse/", "644"],
 ]
+
+# Marked as a conffile so dpkg preserves an edited allowlist across upgrades rather than
+# overwriting it, which is the whole point of it living under /etc.
+conf-files = ["/etc/geoclue/conf.d/glimpse.conf"]
 
 # `cargo generate-rpm -p glimpsed` is run from the workspace root, so these `source` paths
 # resolve there directly (unlike cargo-deb's crate-manifest-relative resolution above).
@@ -57,6 +62,7 @@ assets = [
   { source = "data/config.default.toml", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/config.schema.json", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "wallpapers/*", dest = "/usr/share/glimpse/wallpapers/", mode = "644" },
+  { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = true },
   { source = "LICENSE", dest = "/usr/share/glimpse/", mode = "644" },
 ]
 

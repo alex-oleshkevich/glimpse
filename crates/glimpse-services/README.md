@@ -13,6 +13,26 @@ connection.
   `Responder` and the erased `Dispatch` a command travels through
 - `services/` — one module per service; `tray/` will be a directory because it is the largest
 
+## The geolocation service
+
+Two providers behind one topic. `[location] provider = "manual"` publishes the configured pair
+directly; `"geoclue"` follows GeoClue's `Location` property. Either way `geolocation.status` is the
+only thing downstream services see, which is what lets `solar` subscribe to it without knowing a
+provider exists.
+
+Three details are load-bearing:
+
+- **The GeoClue watch is subscribed before `Start`**, because the first fix can arrive before that
+  call returns.
+- **`GCLUE_ACCURACY_LEVEL_CITY`, not exact.** Sunrise, sunset and weather are everything downstream
+  of this service, and none of them is sharper than a city.
+- **Authorization is a shipped file, not code.** `data/geoclue/conf.d/glimpse.conf` is what stops
+  GeoClue deferring to an agent that either is not running or has nobody to answer it. Its section
+  name and `DESKTOP_ID` must agree.
+
+A missing fix, a refused request or a `manual` table without coordinates all leave the service
+`degraded` and publishing `None` — running, and honest about having nothing.
+
 ## Rules
 
 The dependency arrow points from `glimpsed` to here and never back. Anything the framework needs

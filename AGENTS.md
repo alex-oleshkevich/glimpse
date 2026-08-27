@@ -33,7 +33,7 @@ same size and shape as its predecessor, that is a signal to look again, not a si
 ```
 glimpse/
 ├── crates/       all Rust code, flat, one directory per crate
-├── data/         installed assets: systemd units, D-Bus service files, pam.d, default config
+├── data/         installed assets: systemd units, D-Bus service files, pam.d, GeoClue policy, default config
 ├── scripts/      development helpers, not installed — contents predate the rewrite
 ├── wallpapers/   bundled wallpapers
 ├── var/          scratch, not installed; `var/glimpse2` holds third-party design drafts
@@ -126,7 +126,7 @@ StatusNotifierItem, dbusmenu and Notifications.
 | service implementation                                  | `glimpse-services/src/services/` |
 | anything touching a `wl_` object                        | `glimpsed/src/wayland/`          |
 | anything touching GTK                                   | a UI crate or `glimpse-widgets`  |
-| systemd unit, D-Bus service file, pam.d entry, defaults | `data/`                          |
+| systemd unit, D-Bus service file, pam.d entry, GeoClue policy, defaults | `data/`              |
 
 **Services**
 
