@@ -89,7 +89,6 @@ impl Daemon {
 
         self.factories.push(Box::new(|init: &InitService| {
             let config = S::Config::from(&init.config);
-            let mut previous = config.clone();
             let broker: Arc<dyn BrokerHandle> = Arc::new(init.broker.clone());
             let mut runtime =
                 ServiceRuntime::<S>::new(broker, init.buses.clone(), init.cancel.child_token());
@@ -116,6 +115,7 @@ impl Daemon {
                 dispatch,
             });
 
+            let mut previous = config.clone();
             init.tasks.spawn(async move {
                 if let Err(err) = runtime.run(config).await {
                     tracing::error!("service stopped: {}", err);

@@ -45,7 +45,7 @@ pub fn decode_args<T: DeserializeOwned>(args: Value) -> Result<T, CallError> {
 
 /// The configuration of a service that reads none. `()` cannot be used: `From<&Config> for ()`
 /// puts a foreign trait on a foreign type, which the orphan rules refuse.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NoConfig;
 
 impl From<&glimpse_config::Config> for NoConfig {
