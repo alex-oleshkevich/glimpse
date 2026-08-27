@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use crate::broker::{self, Handle, Message};
 use crate::handler::BrokerHandler;
-use crate::reload::{ConfigSink, Reloader};
+use crate::reload::{self, ConfigSink};
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_ipc::Server;
@@ -175,10 +175,12 @@ impl Daemon {
 
         // After the factories, because the sinks are what they produce: the reloader has nothing
         // to hand a new document to until every service has been built.
-        let hangup = signal(SignalKind::hangup())?;
-        let reloader = Reloader::new(config_path, init.config, sinks);
-        self.tasks
-            .spawn(reloader.run(hangup, running.child_token()));
+        self.tasks.spawn(reload::run(
+            config_path,
+            init.config,
+            sinks,
+            running.child_token(),
+        ));
 
         // The publisher only exists once the socket is bound, and the broker only routes to
         // clients once it has one. Anything published before this is stored and delivered as a

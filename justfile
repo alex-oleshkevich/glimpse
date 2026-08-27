@@ -98,7 +98,7 @@ check-units:
     done
 
     for key in $(sed -n '/^\[Service\]/,/^\[/p' "$lock" | grep -oE '^[A-Za-z]+=' | tr -d '='); do
-        case " Type ExecStart Restart RestartSec " in
+        case " Type ExecStart ExecReload Restart RestartSec " in
             *" $key "*) ;;
             *) echo "$lock: [Service] carries $key= — sandboxing breaks PAM, see README"; exit 1 ;;
         esac

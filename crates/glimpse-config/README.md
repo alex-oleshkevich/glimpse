@@ -153,9 +153,17 @@ stack off the runtime threads, and answer with the new document only if it parse
 A read that failed is logged and yields nothing, so the caller keeps what is already running. Both
 the logging and the equality gate live here rather than once per binary.
 
-`watch_config(config_path, current)` composes the three, for a consumer whose only trigger is the
-filesystem: a stream of documents, one per real change. `glimpsed` uses the pieces separately
-instead, because `SIGHUP` has to force a re-read that no filesystem event announced.
+`watch_config(config_path, current)` composes the three into a stream of documents, one per real
+change, and is what every binary reloads through. It merges two triggers, and neither replaces the
+other: the filesystem watch, and `SIGHUP`. An editor whose write inotify never saw still has a way
+to apply the change, and a session whose watches the kernel refused still reloads on request.
+Failing to register the signal handler is a warning rather than a failure, because the other half of
+the pair is still running. Registration happens when `watch_config` is called, so call it from
+inside a runtime.
+
+`SIGHUP` is not an `Update`. `watch_all` is a directory watch and will have callers that are not
+configuration at all, and "a human asked" is not something a directory did; the two are merged one
+level up, on a stream of bare triggers.
 
 Note what is *not* filtered: an event is anything created, modified or removed directly inside a
 watched directory, not just `*.toml`. Filtering by extension would drop the creation of `config.d/`

@@ -9,5 +9,6 @@ StartLimitIntervalSec=60
 [Service]
 Type=exec
 ExecStart=/usr/bin/glimpse-lock
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=2

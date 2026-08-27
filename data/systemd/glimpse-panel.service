@@ -11,6 +11,7 @@ StartLimitIntervalSec=60
 [Service]
 Type=exec
 ExecStart=/usr/bin/glimpse-panel
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=2
 NoNewPrivileges=true

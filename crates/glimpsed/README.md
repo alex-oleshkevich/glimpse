@@ -11,7 +11,7 @@ backing store anywhere else: `org.freedesktop.Notifications` and `org.kde.Status
 - `cli.rs` — the flag surface and log-format resolution
 - `errors.rs` — the `Exit` table and the one `anyhow::Error` to exit-code mapping
 - `broker/` — the single task holding topic values and per-client coalescing *(pending)*
-- `reload.rs` — the `Reloader`: watches the configuration stack and re-applies it per service
+- `reload.rs` — the task that fans a reloaded document out to every service's `ConfigSink`
 - `registry.rs` — service registration, DAG validation, supervision *(pending)*
 - `wayland/` — the `WaylandEdge` implementation: gamma, idle, clipboard *(pending)*
 
@@ -95,9 +95,13 @@ Five user units ship in `data/systemd/`, installed to `{prefix}/lib/systemd/user
 `WantedBy=graphical-session.target`; `glimpse-lock.service` deliberately has no `[Install]` section,
 because starting it locks the screen — it is started on demand, not pulled in at login.
 
-`glimpsed.service` carries `ExecReload=/bin/kill -HUP $MAINPID`, so `systemctl --user reload
-glimpsed` re-reads the configuration stack through the same path the filesystem watch uses. That is
-the way out for an editor whose write inotify never sees.
+All five units carry `ExecReload=/bin/kill -HUP $MAINPID`, so `systemctl --user reload <unit>`
+re-reads the configuration stack through the same path the filesystem watch uses. That is the way
+out for an editor whose write inotify never sees.
+
+`ExecReload=` goes in with the handler and never before it. `SIGHUP`'s default disposition
+terminates the process, so on a binary that registers no handler the directive turns
+`systemctl --user reload` into a kill.
 
 The UI units use `Wants=glimpsed.service`, never `Requires=` — a dead daemon must not take the
 panel, wallpaper or night light with it. The locker names glimpsed nowhere at all: it has to

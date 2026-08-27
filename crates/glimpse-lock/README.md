@@ -56,4 +56,11 @@ provider. A half-applied stylesheet here can leave the password entry invisible 
 to fall back to.
 
 Configuration is the `[lock]` table of the shared `config.toml`, plus `lock.css`. Tables owned by
-other binaries are ignored, not validated. Schema in.
+other binaries are ignored, not validated. It is re-read through `glimpse_config::watch_config`, so
+both `SIGHUP` and a change under the configuration directory apply it — the same two triggers every
+other binary has, and neither of them needs `glimpsed` alive.
+
+The process outlives its own startup even while the lock surfaces are unwritten. A locker that
+returns is an unlocked session, and under `Restart=always` returning immediately is a restart loop.
+Losing every reload trigger does not end it either — only `SIGTERM` or `SIGINT` may. `glimpse-sunset`
+runs the same loop for the same reason; the two are a line apart on purpose.

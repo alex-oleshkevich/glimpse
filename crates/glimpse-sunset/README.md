@@ -10,9 +10,15 @@ computes.
 
 ## Status
 
-A stub. `run` loads the configuration and resolves the socket path, then returns — it opens no
+A stub. `run` loads the configuration, resolves the socket path, and then holds — it opens no
 connection to the daemon, subscribes to nothing, and touches no gamma control. Nothing here does
 what the name says yet.
+
+What it does do is reload: the document is re-read through `glimpse_config::watch_config`, so both
+`SIGHUP` and a change under the configuration directory apply it, and `glimpse-sunset.service`
+carries `ExecReload=`. That is parity with the other four long-lived binaries rather than growth —
+the loop is the same handful of lines each of them has, and it goes with the crate if the crate
+goes.
 
 **Whether this crate should exist at all is an open question.** It was once decided that night light
 becomes a daemon service and this binary goes, but the crate is still in the workspace and

@@ -11,6 +11,7 @@ anyhow.workspace = true
 clap.workspace = true
 colorchoice-clap.workspace = true
 dirs.workspace = true
+futures-util.workspace = true
 glimpse-config = { path = "../glimpse-config" }
 glimpse-ipc = { path = "../glimpse-ipc" }
 glimpse-utils = { path = "../glimpse-utils" }

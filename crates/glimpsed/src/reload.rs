@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
 use futures_util::StreamExt;
-use glimpse_config::{Config, Update, watch_all, watch_dirs};
-use tokio::signal::unix::Signal;
+use glimpse_config::{Config, watch_config};
 use tokio_util::sync::CancellationToken;
 
 /// Hands one service its own slice of a freshly loaded document, and only when that slice moved.
@@ -10,61 +9,43 @@ use tokio_util::sync::CancellationToken;
 /// `From` and its `PartialEq` can be reached.
 pub type ConfigSink = Box<dyn FnMut(&Config) + Send>;
 
-/// Watching and reloading, run as one task of its own. `SIGHUP` and the filesystem are two
-/// triggers for the same work, and neither replaces the other: a user editing with a tool that
-/// defeats inotify still has a way to apply the change.
-pub struct Reloader {
+/// Fans a reloaded document out to every service, run as one task of its own. The triggers —
+/// `SIGHUP` and the filesystem — belong to `watch_config`, which every binary reloads through.
+pub async fn run(
     path: Option<PathBuf>,
     config: Config,
-    sinks: Vec<ConfigSink>,
-}
+    mut sinks: Vec<ConfigSink>,
+    cancel: CancellationToken,
+) {
+    let mut configs = Box::pin(watch_config(path, config));
 
-impl Reloader {
-    pub fn new(path: Option<PathBuf>, config: Config, sinks: Vec<ConfigSink>) -> Self {
-        Self {
-            path,
-            config,
-            sinks,
-        }
-    }
-
-    pub async fn run(mut self, mut hangup: Signal, cancel: CancellationToken) {
-        let mut updates = Box::pin(watch_all(watch_dirs(self.path.as_deref())));
-
-        loop {
-            tokio::select! {
-                () = cancel.cancelled() => break,
-                _ = hangup.recv() => self.reload().await,
-                Some(update) = updates.next() => match update {
-                    Update::Changed(_) | Update::Rearmed => self.reload().await,
-                    Update::Unavailable(reason) => tracing::warn!(
-                        reason,
-                        "the configuration is not being watched; SIGHUP still reloads it"
-                    ),
-                },
+    loop {
+        tokio::select! {
+            () = cancel.cancelled() => break,
+            config = configs.next() => {
+                let Some(config) = config else {
+                    tracing::error!("the configuration is no longer being watched");
+                    break;
+                };
+                tracing::info!("configuration reloaded");
+                for sink in &mut sinks {
+                    sink(&config);
+                }
             }
-        }
-    }
-
-    async fn reload(&mut self) {
-        let Some(config) = glimpse_config::reread(self.path.as_deref(), &self.config).await else {
-            return;
-        };
-
-        tracing::info!("configuration reloaded");
-        self.config = config;
-        for sink in &mut self.sinks {
-            sink(&self.config);
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
     use std::sync::{Arc, Mutex};
+    use std::time::Duration;
 
     use super::*;
+
+    /// Generous, because it covers an inotify round trip plus the watch's debounce window; a
+    /// correct implementation answers in well under it and a broken one waits the whole time.
+    const SETTLE: Duration = Duration::from_secs(5);
 
     /// Records the temperature each reload handed it, which is enough to tell "was not called"
     /// from "was called with the same value".
@@ -79,73 +60,48 @@ mod tests {
         (sink, seen)
     }
 
-    fn write(path: &Path, body: &str) {
-        std::fs::write(path, body).expect("writes");
-    }
-
-    fn reloader(path: &Path, sink: ConfigSink) -> Reloader {
-        let config = glimpse_config::load(Some(path)).expect("loads");
-        Reloader::new(Some(path.to_path_buf()), config, vec![sink])
-    }
-
+    /// The equality gate and the drop of a document that does not parse are `watch_config`'s and
+    /// are tested there. What is this task's alone is that a document which did move reaches every
+    /// sink it holds.
     #[tokio::test]
-    async fn a_document_that_did_not_move_reaches_no_sink() {
+    async fn a_changed_document_reaches_every_sink() {
         let dir = tempfile::tempdir().expect("a temporary directory");
         let path = dir.path().join("config.toml");
-        write(&path, "[night_light]\ntemperature = 4200\n");
+        std::fs::write(&path, "[night_light]\ntemperature = 4200\n").expect("writes");
 
-        let (sink, seen) = recorder();
-        let mut reloader = reloader(&path, sink);
+        let (first, seen_first) = recorder();
+        let (second, seen_second) = recorder();
+        let config = glimpse_config::load(Some(&path)).expect("loads");
+        let cancel = CancellationToken::new();
+        let running = tokio::spawn(run(
+            Some(path.clone()),
+            config,
+            vec![first, second],
+            cancel.clone(),
+        ));
 
-        write(&path, "[night_light]\ntemperature = 4200\n");
-        reloader.reload().await;
+        // The task arms its watch on its first poll, and a write before that is a write inotify
+        // never saw.
+        for _ in 0..8 {
+            tokio::task::yield_now().await;
+        }
+        std::fs::write(&path, "[night_light]\ntemperature = 3000\n").expect("changes");
+        tokio::time::timeout(SETTLE, async {
+            while seen_first.lock().expect("not poisoned").is_empty() {
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .expect("the changed document within the settle window");
 
-        assert!(
-            seen.lock().expect("not poisoned").is_empty(),
-            "an identical document must not be handed to anyone"
-        );
-    }
+        cancel.cancel();
+        running.await.expect("the task joins");
 
-    #[tokio::test]
-    async fn a_changed_document_reaches_every_sink_once() {
-        let dir = tempfile::tempdir().expect("a temporary directory");
-        let path = dir.path().join("config.toml");
-        write(&path, "[night_light]\ntemperature = 4200\n");
-
-        let (sink, seen) = recorder();
-        let mut reloader = reloader(&path, sink);
-
-        write(&path, "[night_light]\ntemperature = 3000\n");
-        reloader.reload().await;
-        reloader.reload().await;
-
+        assert_eq!(*seen_first.lock().expect("not poisoned"), [3000]);
         assert_eq!(
-            *seen.lock().expect("not poisoned"),
+            *seen_second.lock().expect("not poisoned"),
             [3000],
-            "the second reload found nothing new"
+            "a document must reach every sink, not just the first"
         );
-    }
-
-    #[tokio::test]
-    async fn a_document_that_does_not_parse_is_dropped_and_the_running_one_survives() {
-        let dir = tempfile::tempdir().expect("a temporary directory");
-        let path = dir.path().join("config.toml");
-        write(&path, "[night_light]\ntemperature = 4200\n");
-
-        let (sink, seen) = recorder();
-        let mut reloader = reloader(&path, sink);
-
-        write(&path, "not toml [[[");
-        reloader.reload().await;
-
-        assert!(seen.lock().expect("not poisoned").is_empty());
-        assert_eq!(
-            reloader.config.night_light.temperature, 4200,
-            "the broken read must not have displaced the running configuration"
-        );
-
-        write(&path, "[night_light]\ntemperature = 3000\n");
-        reloader.reload().await;
-        assert_eq!(*seen.lock().expect("not poisoned"), [3000]);
     }
 }

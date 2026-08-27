@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use futures_util::{Stream, StreamExt, stream};
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as _};
+use tokio::signal::unix::{SignalKind, signal};
 use tokio::sync::mpsc;
 
 use crate::load::{load, watch_dirs};
@@ -44,14 +45,39 @@ pub fn watch_config(
     config_path: Option<PathBuf>,
     current: Config,
 ) -> impl Stream<Item = Config> + Send + 'static {
+    let watched = watch_all(watch_dirs(config_path.as_deref())).filter_map(|update| async move {
+        match update {
+            Update::Changed(_) | Update::Rearmed => Some(()),
+            Update::Unavailable(reason) => {
+                tracing::warn!(
+                    reason,
+                    "the configuration is not being watched; SIGHUP still reloads it"
+                );
+                None
+            }
+        }
+    });
+
     let reader = Reader {
-        updates: Box::pin(watch_all(watch_dirs(config_path.as_deref()))),
+        triggers: Box::pin(stream::select(Box::pin(watched), Box::pin(hangups()))),
         path: config_path,
         current,
     };
 
     stream::unfold(reader, |mut reader| async move {
         reader.next().await.map(|config| (config, reader))
+    })
+}
+
+fn hangups() -> impl Stream<Item = ()> + Send + 'static {
+    let hangup = signal(SignalKind::hangup())
+        .inspect_err(|error| tracing::warn!(%error, "SIGHUP will not reload the configuration"))
+        .ok();
+
+    stream::unfold(hangup, |hangup| async move {
+        let mut hangup = hangup?;
+        hangup.recv().await?;
+        Some(((), Some(hangup)))
     })
 }
 
@@ -75,19 +101,14 @@ pub async fn reread(config_path: Option<&Path>, current: &Config) -> Option<Conf
 }
 
 struct Reader {
-    updates: Pin<Box<dyn Stream<Item = Update> + Send>>,
+    triggers: Pin<Box<dyn Stream<Item = ()> + Send>>,
     path: Option<PathBuf>,
     current: Config,
 }
 
 impl Reader {
     async fn next(&mut self) -> Option<Config> {
-        while let Some(update) = self.updates.next().await {
-            if let Update::Unavailable(reason) = update {
-                tracing::warn!(reason, "the configuration is not being watched");
-                continue;
-            }
-
+        while self.triggers.next().await.is_some() {
             if let Some(config) = reread(self.path.as_deref(), &self.current).await {
                 self.current = config.clone();
                 return Some(config);
@@ -337,6 +358,16 @@ mod tests {
         Box::pin(watch(dir.to_path_buf()))
     }
 
+    async fn hangup() {
+        let _installed = signal(SignalKind::hangup()).expect("registers a handler");
+        let status = tokio::process::Command::new("kill")
+            .args(["-HUP", &std::process::id().to_string()])
+            .status()
+            .await
+            .expect("kill runs");
+        assert!(status.success(), "kill did not signal this process");
+    }
+
     #[tokio::test]
     async fn a_file_written_in_the_directory_is_reported() {
         let dir = tempfile::tempdir().expect("a temporary directory");
@@ -456,6 +487,29 @@ mod tests {
             config.night_light.temperature, 3000,
             "the identical rewrite must not have been yielded first"
         );
+    }
+
+    /// The change lands before the watch is armed, so inotify never reports it and `SIGHUP` is the
+    /// only thing that can produce a document here. That is the whole point of the second trigger:
+    /// an editor whose write the watch missed still has a way to apply the change.
+    #[tokio::test]
+    async fn sighup_rereads_a_change_no_filesystem_event_announced() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "[night_light]\ntemperature = 4200\n").expect("writes");
+
+        let current = load(Some(&path)).expect("loads");
+        std::fs::write(&path, "[night_light]\ntemperature = 3000\n").expect("changes");
+
+        // Registers the handler. Raising SIGHUP before this point kills the test binary.
+        let mut configs = Box::pin(watch_config(Some(path.clone()), current));
+        hangup().await;
+
+        let config = tokio::time::timeout(SETTLE, configs.next())
+            .await
+            .expect("a configuration within the settle window")
+            .expect("the stream is still alive");
+        assert_eq!(config.night_light.temperature, 3000);
     }
 
     #[tokio::test]
