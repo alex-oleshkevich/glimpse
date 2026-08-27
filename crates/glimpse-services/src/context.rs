@@ -1,16 +1,16 @@
 use std::panic::AssertUnwindSafe;
 use std::sync::{
-    Arc, Mutex, MutexGuard,
+    Arc,
     atomic::{AtomicBool, Ordering},
 };
 
-use futures_util::{FutureExt, Stream, StreamExt};
+use futures_util::{FutureExt, Stream, StreamExt, stream};
 use glimpse_contracts::Message;
 use glimpse_dbus::Buses;
 use serde::Deserialize;
 use serde_json::Value;
 use tokio::{
-    sync::{Notify, mpsc},
+    sync::{mpsc, watch},
     task::AbortHandle,
     time,
 };
@@ -81,28 +81,34 @@ impl<S: Service> Ctx<S> {
     }
 
     /// The broker calls the sink from its own task and must never be made to wait, so the sink only
-    /// parks the newest payload in a slot. A pump task then applies `map` and delivers it, which
-    /// keeps two things off the broker: the wait for a full inbox, and the service's own closure —
-    /// a panic in `map` degrades this service instead of taking the broker down with it.
+    /// parks the newest payload in a `watch` cell: the producer never blocks, and a payload that
+    /// arrives before the previous one was read replaces it rather than queueing. A pump task then
+    /// applies `map` and delivers it, which keeps two things off the broker: the wait for a full
+    /// inbox, and the service's own closure — a panic in `map` degrades this service instead of
+    /// taking the broker down with it.
     pub fn subscribe<T: Message>(
         &self,
         map: impl Fn(T::Payload) -> S::Event + Send + 'static,
     ) -> SourceGuard {
-        let slot = Slot::<T::Payload>::new();
-        let writer = Arc::clone(&slot);
+        let (latest, mut changed) = watch::channel(None::<T::Payload>);
 
         let id = self.broker.subscribe(
             T::NAME,
             Box::new(move |data: &Value| match T::Payload::deserialize(data) {
-                Ok(value) => writer.put(value),
+                Ok(value) => {
+                    latest.send_replace(Some(value));
+                }
                 Err(err) => tracing::warn!(topic=T::NAME, %err, "undecodable payload"),
             }),
         );
 
         let events = self.events.clone();
         let mut guard = self.spawn_raw(async move {
-            loop {
-                let payload = slot.take().await;
+            while changed.changed().await.is_ok() {
+                // Cloned out in its own statement: the borrow guard must not be held across the
+                // send below.
+                let payload = changed.borrow_and_update().clone();
+                let Some(payload) = payload else { continue };
                 if events.send(Input::Event(map(payload))).await.is_err() {
                     break;
                 }
@@ -120,13 +126,7 @@ impl<S: Service> Ctx<S> {
         F: FnOnce(Ctx<S>) -> Fut + Send + 'static,
         Fut: Future<Output = S::Event> + Send + 'static,
     {
-        let ctx = self.clone();
-        let events = self.events.clone();
-
-        self.spawn_raw(async move {
-            let event = task(ctx).await;
-            let _ = events.send(Input::Event(event)).await;
-        })
+        self.stream(|ctx| async move { stream::once(task(ctx)) })
     }
 
     /// Work with nothing to report back: a handler that moved its `Responder` into a task so a slow
@@ -163,26 +163,29 @@ impl<S: Service> Ctx<S> {
         F: Fn(Ctx<S>) -> Fut + Send + 'static,
         Fut: Future<Output = S::Event> + Send + 'static,
     {
-        let ctx = self.clone();
-        let events = self.events.clone();
-
-        self.spawn_raw(async move {
+        self.stream(move |ctx| async move {
             let mut timer = time::interval_at(start, period);
             timer.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
-            loop {
-                timer.tick().await;
-                let event = Input::Event(on_tick(ctx.clone()).await);
-                if events.send(event).await.is_err() {
-                    break;
-                }
-            }
+            // `on_tick` rides in the unfold state rather than an `Arc`, which would need a `Sync`
+            // bound on every caller's closure to buy nothing but a shorter line here.
+            stream::unfold(
+                (timer, on_tick, ctx),
+                |(mut timer, on_tick, ctx)| async move {
+                    timer.tick().await;
+                    let event = on_tick(ctx.clone()).await;
+                    Some((event, (timer, on_tick, ctx)))
+                },
+            )
         })
     }
 
     /// A backend that produces events for as long as the service lives. The closure is async
     /// because building such a source usually is — a D-Bus signal stream has to be requested
     /// before it can be read — and everything it yields reaches the handler as an event.
+    ///
+    /// Every event-producing source ends up here, which is what keeps one answer to a closed inbox
+    /// rather than one per constructor.
     pub fn stream<F, Fut, St>(&self, source: F) -> SourceGuard
     where
         F: FnOnce(Ctx<S>) -> Fut + Send + 'static,
@@ -240,8 +243,9 @@ impl<S: Service> Ctx<S> {
         }
     }
 
-    /// The service's inbox sender, for the one case the sources do not cover: a synchronous
-    /// callback from a foreign thread, as `notify`'s debouncer delivers.
+    /// The service's inbox sender, for a producer the sources cannot wrap: a synchronous callback
+    /// from a foreign thread that has to hand an event over without a task of its own. Nothing
+    /// needs it today — the one caller it was added for, the config watcher, has been removed.
     pub fn events(&self) -> mpsc::Sender<Input<S>> {
         self.events.clone()
     }
@@ -277,47 +281,6 @@ impl<S: Service> Ctx<S> {
     }
 }
 
-/// One topic's latest payload, waiting for the task that will deliver it.
-///
-/// Newest wins: a value that arrives before the previous one was taken replaces it. The producer
-/// never waits and never drops the current value — the two things a bounded channel cannot do at
-/// once, since a full one drops whatever it is handed, which is always the newest.
-struct Slot<P> {
-    latest: Mutex<Option<P>>,
-    ready: Notify,
-}
-
-impl<P> Slot<P> {
-    fn new() -> Arc<Self> {
-        Arc::new(Self {
-            latest: Mutex::new(None),
-            ready: Notify::new(),
-        })
-    }
-
-    fn lock(&self) -> MutexGuard<'_, Option<P>> {
-        self.latest
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-    }
-
-    fn put(&self, payload: P) {
-        *self.lock() = Some(payload);
-        self.ready.notify_one();
-    }
-
-    async fn take(&self) -> P {
-        loop {
-            // Taken before the await so the guard is never held across one.
-            let taken = self.lock().take();
-            if let Some(payload) = taken {
-                return payload;
-            }
-            self.ready.notified().await;
-        }
-    }
-}
-
 #[must_use = "a source stops the moment its guard is dropped; bind it for as long as the source \
               should live, and `let _ = ...` starts a source that is aborted before it runs"]
 pub struct SourceGuard {
@@ -344,6 +307,12 @@ mod tests {
     use crate::MockBroker;
     use crate::service::{Input, ServiceError};
 
+    #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+    struct Ping {
+        value: u8,
+    }
+    glimpse_contracts::topic!(Ping, "test.ping");
+
     struct Probe;
 
     impl Service for Probe {
@@ -366,15 +335,21 @@ mod tests {
     type Inbox = mpsc::Receiver<Input<Probe>>;
 
     fn probe() -> (Ctx<Probe>, Inbox) {
+        let (ctx, received, _broker) = wired_probe();
+        (ctx, received)
+    }
+
+    fn wired_probe() -> (Ctx<Probe>, Inbox, Arc<MockBroker>) {
         let (events, received) = mpsc::channel(8);
-        let broker: Arc<dyn BrokerHandle> = Arc::new(MockBroker::default());
+        let mock = Arc::new(MockBroker::default());
+        let broker: Arc<dyn BrokerHandle> = mock.clone();
         let ctx = Ctx::new(
             events,
             &CancellationToken::new(),
             broker,
             Buses::unavailable("no bus in tests"),
         );
-        (ctx, received)
+        (ctx, received, mock)
     }
 
     async fn event(received: &mut Inbox) -> Option<u8> {
@@ -422,19 +397,50 @@ mod tests {
         assert_eq!(event(&mut received).await, Some(9));
     }
 
+    #[tokio::test]
+    async fn a_subscription_delivers_the_mapped_payload() {
+        let (ctx, mut received, broker) = wired_probe();
+        let _source = ctx.subscribe::<Ping>(|ping| ping.value);
+
+        broker.deliver(Ping::NAME, &serde_json::json!({ "value": 3 }));
+
+        assert_eq!(event(&mut received).await, Some(3));
+    }
+
+    /// The property the shared cell exists for: the broker never waits, so a burst it delivers
+    /// before the pump wakes must collapse to the newest rather than queue or drop the latest.
+    #[tokio::test]
+    async fn a_burst_collapses_to_its_newest_payload() {
+        let (ctx, mut received, broker) = wired_probe();
+        let _source = ctx.subscribe::<Ping>(|ping| ping.value);
+
+        // Nothing is awaited between these, so the pump has not run and all three land in the cell.
+        for value in [1, 2, 3] {
+            broker.deliver(Ping::NAME, &serde_json::json!({ "value": value }));
+        }
+
+        assert_eq!(event(&mut received).await, Some(3));
+        assert!(received.try_recv().is_err(), "1 and 2 were superseded");
+    }
+
+    /// A payload that does not decode is one bad publisher, not a reason to stop following the
+    /// topic — without this the subscription would go silent and report nothing.
+    #[tokio::test]
+    async fn an_undecodable_payload_leaves_the_subscription_running() {
+        let (ctx, mut received, broker) = wired_probe();
+        let _source = ctx.subscribe::<Ping>(|ping| ping.value);
+
+        broker.deliver(Ping::NAME, &serde_json::json!({ "value": "not a number" }));
+        broker.deliver(Ping::NAME, &serde_json::json!({ "value": 5 }));
+
+        assert_eq!(event(&mut received).await, Some(5));
+    }
+
     /// Without this the task simply vanishes and the service keeps reporting itself healthy while
     /// one of its sources is gone.
     #[tokio::test]
     async fn a_panicking_source_degrades_its_service() {
-        let mock = Arc::new(MockBroker::default());
-        let broker: Arc<dyn BrokerHandle> = mock.clone();
-        let (events, _received) = mpsc::channel(8);
-        let ctx = Ctx::<Probe>::new(
-            events,
-            &CancellationToken::new(),
-            broker,
-            Buses::unavailable("no bus in tests"),
-        );
+        let (ctx, _received, mock) = wired_probe();
 
         let _source = ctx.spawn_detached(|_ctx| async { panic!("the backend sent nonsense") });
         // Let the task reach its panic before cancelling: `shutdown` races the cancel branch of the

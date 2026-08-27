@@ -82,9 +82,15 @@ the least visible: uncaught, the task stops and the service goes on believing it
 reaches the buses, the publishers and `degraded` without any of them being threaded through its
 arguments — `Ctx` is cheap to clone and its `degraded` flag is shared, so a task that degrades the
 service is visible to the runtime. `stream`'s closure is async because building a source usually is:
-a D-Bus signal stream has to be requested before it can be read. `ctx.events()` hands out the raw
-sender and is for the one case the sources do not cover — a synchronous callback from a foreign
-thread, as `notify`'s debouncer delivers.
+a D-Bus signal stream has to be requested before it can be read.
+
+`stream` is also the one that does the delivering: `spawn` is a stream of one item and `interval` a
+stream of ticks, so a closed inbox is answered in a single place rather than once per constructor.
+`subscribe` is the exception, because it has a broker subscription to release as well as a task to
+abort. Its sink parks the newest payload in a `tokio::sync::watch` cell and a pump task delivers it
+— the broker is called from its own task and must never be made to wait, and newest-wins is what a
+bounded channel cannot give, since a full one drops whatever it is handed, which is always the
+newest.
 
 Events, commands and configuration all arrive on **one** inbox. One channel means one order: a
 command and the event that follows it reach the handler in the order they were produced, which two

@@ -6,7 +6,7 @@ use crate::types::*;
 
 pub trait Message {
     const NAME: &'static str;
-    type Payload: Serialize + DeserializeOwned + PartialEq + Send + 'static;
+    type Payload: Clone + Serialize + DeserializeOwned + PartialEq + Send + Sync + 'static;
 }
 
 #[macro_export]

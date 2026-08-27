@@ -86,7 +86,7 @@ pub trait BrokerHandle: Send + Sync + 'static {
 pub struct MockBroker {
     published: Mutex<Vec<(String, Value)>>,
     health: Mutex<Vec<(&'static str, ServiceState)>>,
-    subscribed: Mutex<Vec<String>>,
+    sinks: Mutex<Vec<(String, Sink)>>,
     next_id: AtomicU64,
 }
 
@@ -105,11 +105,17 @@ impl MockBroker {
             .clone()
     }
 
-    pub fn subscribed(&self) -> Vec<String> {
-        self.subscribed
+    pub fn deliver(&self, topic: &str, data: &Value) {
+        for (subscribed, sink) in self
+            .sinks
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .clone()
+            .iter()
+        {
+            if subscribed == topic {
+                sink(data);
+            }
+        }
     }
 }
 
@@ -121,11 +127,11 @@ impl BrokerHandle for MockBroker {
             .push((topic.to_owned(), data));
     }
 
-    fn subscribe(&self, topic: &str, _sink: Sink) -> SubscriptionId {
-        self.subscribed
+    fn subscribe(&self, topic: &str, sink: Sink) -> SubscriptionId {
+        self.sinks
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .push(topic.to_owned());
+            .push((topic.to_owned(), sink));
         SubscriptionId(self.next_id.fetch_add(1, Ordering::Relaxed))
     }
 
