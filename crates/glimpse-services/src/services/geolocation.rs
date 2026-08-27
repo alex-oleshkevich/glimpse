@@ -106,6 +106,7 @@ impl Service for Geolocation {
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
+            Input::Event(_) if !matches!(self.provider, Provider::Geoclue) => {}
             Input::Event(Event::Located(coordinates)) => {
                 if coordinates.is_some() {
                     ctx.running();
@@ -261,4 +262,80 @@ async fn read(bus: &Connection, path: OwnedObjectPath) -> Option<GeoCoordinates>
 
 fn say(error: impl std::fmt::Display) -> String {
     error.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use glimpse_dbus::Buses;
+    use tokio_util::sync::CancellationToken;
+
+    use super::*;
+    use crate::{BrokerHandle, MockBroker, service::ServiceRuntime};
+
+    fn manual(latitude: f64, longitude: f64) -> Config {
+        Config {
+            provider: Provider::Manual(coordinates(Some(latitude), Some(longitude))),
+        }
+    }
+
+    fn published(mock: &MockBroker) -> Vec<Option<GeoCoordinates>> {
+        mock.published()
+            .into_iter()
+            .filter(|(topic, _)| topic == GeolocationStatus::NAME)
+            .filter_map(|(_, data)| serde_json::from_value::<GeolocationStatus>(data).ok())
+            .map(|status| status.coordinates)
+            .collect()
+    }
+
+    /// A watch that has been torn down can still have an event waiting in the inbox behind the
+    /// configuration that tore it down.
+    #[tokio::test]
+    async fn a_geoclue_event_arriving_after_a_switch_to_manual_is_ignored() {
+        let mock = Arc::new(MockBroker::default());
+        let broker: Arc<dyn BrokerHandle> = mock.clone();
+        let cancel = CancellationToken::new();
+        let mut runtime = ServiceRuntime::<Geolocation>::new(
+            broker,
+            Buses::unavailable("no bus in tests"),
+            cancel.clone(),
+        );
+
+        let sender = runtime.sender();
+        sender
+            .send(Input::Config(manual(51.5074, -0.1278)))
+            .await
+            .expect("queued");
+        sender
+            .send(Input::Event(Event::Located(Some(GeoCoordinates {
+                latitude: 52.2297,
+                longitude: 21.0122,
+            }))))
+            .await
+            .expect("queued");
+
+        let running = tokio::spawn(async move {
+            let _ = runtime
+                .run(Config {
+                    provider: Provider::Geoclue,
+                })
+                .await;
+        });
+        for _ in 0..8 {
+            tokio::task::yield_now().await;
+        }
+        cancel.cancel();
+        let _ = running.await;
+
+        let coordinates = published(&mock);
+        assert_eq!(
+            coordinates.last(),
+            Some(&Some(GeoCoordinates {
+                latitude: 51.5074,
+                longitude: -0.1278,
+            })),
+            "the manual pair must survive the straggler, got {coordinates:?}"
+        );
+    }
 }

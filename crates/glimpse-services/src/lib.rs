@@ -5,6 +5,9 @@ mod service;
 mod services;
 mod subscription;
 
+#[cfg(test)]
+mod testing;
+
 pub use {
     broker::{BrokerHandle, Dispatch, MockBroker, Responder, ServiceState, Sink, SubscriptionId},
     context::Ctx,

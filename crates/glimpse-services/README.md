@@ -8,7 +8,7 @@ connection.
 
 ## Contents
 
-- `service.rs`, `context.rs`, `publisher.rs` — the framework
+- `service.rs`, `context.rs`, `subscription.rs`, `publisher.rs` — the framework
 - `broker.rs` — `BrokerHandle`, the trait the daemon implements, with `MockBroker` beside it;
   `Responder` and the erased `Dispatch` a command travels through
 - `services/` — one module per service; `tray/` will be a directory because it is the largest
@@ -119,7 +119,13 @@ Geolocation keys on an `attempt` counter that carries nothing but its own differ
 `geolocation.refresh` has no parameter to change and an unmoved key would leave the watch running.
 A key too coarse silently ignores a change; a key holding something that moves per event silently
 rebuilds the source every time. Both fail quietly, which is why the key is worth choosing deliberately.
-Two declarations sharing a key is a bug — the second is dropped with a warning.
+Two declarations sharing a key is a bug — the second is dropped, warned about once.
+
+The two kinds of source do not survive a restart alike. `Sub::stream` rebuilds by re-reading its
+backend, so it comes back current. `Sub::topic` does not: the broker delivers a topic to a new sink
+only on the next publish, and a publisher's equality gate means an unchanged value is never
+republished — so a resubscribed topic can sit blank indefinitely. Key a topic subscription on
+something constant unless the service can live with that gap.
 
 This is `Sub` against `Cmd`, and the split is the same one Elm draws: `subscriptions` is for sources
 whose lifetime the model decides, and `ctx.spawn` / `ctx.spawn_detached` for an effect that fires once

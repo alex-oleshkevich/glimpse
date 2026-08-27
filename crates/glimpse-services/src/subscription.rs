@@ -55,86 +55,53 @@ impl<S: Service> Sub<S> {
     }
 }
 
-/// What the service declared, against what is running. Dropping a guard is the whole teardown: it
-/// aborts the task and releases the broker subscription behind it.
-pub(crate) fn reconcile<S: Service>(
-    ctx: &Ctx<S>,
-    live: &mut HashMap<S::SubKey, SourceGuard>,
-    declared: Vec<Sub<S>>,
-) {
-    let declared_keys: HashSet<&S::SubKey> = declared.iter().map(|sub| &sub.key).collect();
-    // One of the two sources the service asked for is about to be dropped on the floor.
-    if declared_keys.len() != declared.len() {
-        tracing::warn!(
-            service = S::NAME,
-            "two subscriptions share a key; only the first is running"
-        );
+/// The sources a service currently has running, against the ones it declares. Dropping a guard is
+/// the whole teardown: it aborts the task and releases the broker subscription behind it.
+pub(crate) struct Live<S: Service> {
+    running: HashMap<S::SubKey, SourceGuard>,
+    warned_duplicate: bool,
+}
+
+impl<S: Service> Live<S> {
+    pub(crate) fn new() -> Self {
+        Self {
+            running: HashMap::new(),
+            warned_duplicate: false,
+        }
     }
 
-    live.retain(|key, _| declared_keys.contains(&key));
+    pub(crate) fn reconcile(&mut self, ctx: &Ctx<S>, declared: Vec<Sub<S>>) {
+        let keys: HashSet<&S::SubKey> = declared.iter().map(|sub| &sub.key).collect();
+        // Said once: this runs after every input, and one of the two sources the service asked for
+        // is being dropped on every one of them.
+        if keys.len() != declared.len() && !std::mem::replace(&mut self.warned_duplicate, true) {
+            tracing::warn!(
+                service = S::NAME,
+                "two subscriptions share a key; only the first is running"
+            );
+        }
 
-    for sub in declared {
-        live.entry(sub.key).or_insert_with(|| (sub.start)(ctx));
+        self.running.retain(|key, _| keys.contains(&key));
+
+        for sub in declared {
+            self.running
+                .entry(sub.key)
+                .or_insert_with(|| (sub.start)(ctx));
+        }
+    }
+
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.running.len()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use futures_util::{StreamExt, stream};
-    use glimpse_dbus::Buses;
-    use tokio::sync::mpsc;
-    use tokio_util::sync::CancellationToken;
 
     use super::*;
-    use crate::service::{Input, ServiceError};
-    use crate::{BrokerHandle, MockBroker};
-
-    #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-    enum Watch {
-        First,
-        Second,
-    }
-
-    struct Probe;
-
-    impl Service for Probe {
-        const NAME: &'static str = "probe";
-        const TOPICS: &'static [&'static str] = &[];
-
-        type Config = ();
-        type Command = ();
-        type Event = u8;
-        type SubKey = Watch;
-
-        async fn start(_ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
-            Ok(Self)
-        }
-
-        async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {}
-
-        fn peek_config(_config: &glimpse_config::Config) -> Self::Config {}
-    }
-
-    fn probe() -> (Ctx<Probe>, mpsc::Receiver<Input<Probe>>) {
-        let (events, received) = mpsc::channel(8);
-        let broker: Arc<dyn BrokerHandle> = Arc::new(MockBroker::default());
-        let ctx = Ctx::new(
-            events,
-            &CancellationToken::new(),
-            broker,
-            Buses::unavailable("no bus in tests"),
-        );
-        (ctx, received)
-    }
-
-    async fn event(received: &mut mpsc::Receiver<Input<Probe>>) -> Option<u8> {
-        match received.recv().await {
-            Some(Input::Event(event)) => Some(event),
-            _ => None,
-        }
-    }
+    use crate::testing::{Probe, Watch, event, probe};
 
     fn forever(key: Watch, value: u8) -> Sub<Probe> {
         Sub::stream(key, move |_ctx| async move {
@@ -145,9 +112,9 @@ mod tests {
     #[tokio::test]
     async fn a_declared_key_is_built() {
         let (ctx, mut received) = probe();
-        let mut live = HashMap::new();
+        let mut live = Live::new();
 
-        reconcile(&ctx, &mut live, vec![forever(Watch::First, 1)]);
+        live.reconcile(&ctx, vec![forever(Watch::First, 1)]);
 
         assert_eq!(event(&mut received).await, Some(1));
         assert_eq!(live.len(), 1);
@@ -158,13 +125,13 @@ mod tests {
     #[tokio::test]
     async fn a_key_that_stays_is_not_rebuilt() {
         let (ctx, mut received) = probe();
-        let mut live = HashMap::new();
+        let mut live = Live::new();
 
-        reconcile(&ctx, &mut live, vec![forever(Watch::First, 1)]);
+        live.reconcile(&ctx, vec![forever(Watch::First, 1)]);
         assert_eq!(event(&mut received).await, Some(1));
 
         for _ in 0..3 {
-            reconcile(&ctx, &mut live, vec![forever(Watch::First, 1)]);
+            live.reconcile(&ctx, vec![forever(Watch::First, 1)]);
         }
         // A rebuilt source would deliver its first item on the next poll, so give it the chance.
         for _ in 0..3 {
@@ -174,26 +141,46 @@ mod tests {
         assert!(received.try_recv().is_err(), "the source was left running");
     }
 
+    /// A key names one source. Declaring it twice loses the second, which is a service bug worth
+    /// pinning down rather than discovering as a source that never runs.
+    #[tokio::test]
+    async fn two_declarations_of_one_key_build_a_single_source() {
+        let (ctx, mut received) = probe();
+        let mut live = Live::new();
+
+        live.reconcile(
+            &ctx,
+            vec![forever(Watch::First, 1), forever(Watch::First, 2)],
+        );
+
+        assert_eq!(live.len(), 1);
+        assert_eq!(event(&mut received).await, Some(1), "the first one wins");
+        for _ in 0..3 {
+            tokio::task::yield_now().await;
+        }
+        assert!(received.try_recv().is_err(), "the second never started");
+    }
+
     #[tokio::test]
     async fn a_key_that_stops_being_declared_is_torn_down() {
         let (ctx, _received) = probe();
-        let mut live = HashMap::new();
+        let mut live = Live::new();
 
-        reconcile(&ctx, &mut live, vec![forever(Watch::First, 1)]);
-        reconcile(&ctx, &mut live, Vec::new());
+        live.reconcile(&ctx, vec![forever(Watch::First, 1)]);
+        live.reconcile(&ctx, Vec::new());
 
-        assert!(live.is_empty());
+        assert_eq!(live.len(), 0);
     }
 
     #[tokio::test]
     async fn a_changed_key_replaces_the_source_behind_it() {
         let (ctx, mut received) = probe();
-        let mut live = HashMap::new();
+        let mut live = Live::new();
 
-        reconcile(&ctx, &mut live, vec![forever(Watch::First, 1)]);
+        live.reconcile(&ctx, vec![forever(Watch::First, 1)]);
         assert_eq!(event(&mut received).await, Some(1));
 
-        reconcile(&ctx, &mut live, vec![forever(Watch::Second, 2)]);
+        live.reconcile(&ctx, vec![forever(Watch::Second, 2)]);
 
         assert_eq!(event(&mut received).await, Some(2));
         assert_eq!(

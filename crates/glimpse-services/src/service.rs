@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap, hash::Hash, panic::AssertUnwindSafe, sync::Arc};
+use std::{any::Any, hash::Hash, panic::AssertUnwindSafe, sync::Arc};
 
 use futures_util::FutureExt;
 use glimpse_config::Config;
@@ -9,8 +9,7 @@ use serde_json::Value;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use crate::context::SourceGuard;
-use crate::subscription::{Sub, reconcile};
+use crate::subscription::{Live, Sub};
 use crate::{BrokerHandle, Ctx, Responder, ServiceState};
 
 #[derive(Debug, thiserror::Error)]
@@ -200,8 +199,8 @@ impl<S: Service> ServiceRuntime<S> {
             self.broker.report_health(S::NAME, ServiceState::Running);
         }
 
-        let mut live: HashMap<S::SubKey, SourceGuard> = HashMap::new();
-        reconcile(&ctx, &mut live, service.subscriptions());
+        let mut live = Live::<S>::new();
+        live.reconcile(&ctx, service.subscriptions());
 
         loop {
             let input = tokio::select! {
@@ -224,7 +223,7 @@ impl<S: Service> ServiceRuntime<S> {
             .await;
 
             match handled {
-                Ok(declared) => reconcile(&ctx, &mut live, declared),
+                Ok(declared) => live.reconcile(&ctx, declared),
                 Err(panic) => {
                     let reason = panic_reason(panic.as_ref());
                     tracing::error!(

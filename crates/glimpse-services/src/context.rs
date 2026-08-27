@@ -304,61 +304,7 @@ mod tests {
     use futures_util::stream;
 
     use super::*;
-    use crate::MockBroker;
-    use crate::service::{Input, ServiceError};
-
-    #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-    struct Ping {
-        value: u8,
-    }
-    glimpse_contracts::topic!(Ping, "test.ping");
-
-    struct Probe;
-
-    impl Service for Probe {
-        const NAME: &'static str = "probe";
-        const TOPICS: &'static [&'static str] = &[];
-
-        type Config = ();
-        type Command = ();
-        type Event = u8;
-        type SubKey = ();
-
-        async fn start(_ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
-            Ok(Self)
-        }
-
-        async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {}
-
-        fn peek_config(_config: &glimpse_config::Config) -> Self::Config {}
-    }
-
-    type Inbox = mpsc::Receiver<Input<Probe>>;
-
-    fn probe() -> (Ctx<Probe>, Inbox) {
-        let (ctx, received, _broker) = wired_probe();
-        (ctx, received)
-    }
-
-    fn wired_probe() -> (Ctx<Probe>, Inbox, Arc<MockBroker>) {
-        let (events, received) = mpsc::channel(8);
-        let mock = Arc::new(MockBroker::default());
-        let broker: Arc<dyn BrokerHandle> = mock.clone();
-        let ctx = Ctx::new(
-            events,
-            &CancellationToken::new(),
-            broker,
-            Buses::unavailable("no bus in tests"),
-        );
-        (ctx, received, mock)
-    }
-
-    async fn event(received: &mut Inbox) -> Option<u8> {
-        match received.recv().await {
-            Some(Input::Event(event)) => Some(event),
-            _ => None,
-        }
-    }
+    use crate::testing::{Ping, event, probe, wired_probe};
 
     #[tokio::test]
     async fn a_spawned_task_delivers_the_event_it_returns() {

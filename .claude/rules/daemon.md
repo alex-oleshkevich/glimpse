@@ -23,6 +23,10 @@ paths:
   `.await`. Use `tokio::fs` and `ctx.spawn`.
 - A service never retries what its backend already retries, and never reimplements a decision the
   backend makes.
+- A long-lived source is declared in `subscriptions`, not started in `start`. The runtime diffs the
+  declared set after every input, so dropping a guard is never something a handler has to remember.
+  Whatever must force a restart belongs in the `SubKey`; `ctx.spawn` stays for effects that fire
+  once.
 
 ## Payloads and config
 
