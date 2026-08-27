@@ -1,0 +1,13 @@
+[Unit]
+Description=Glimpse lock screen
+Documentation=https://github.com/alex-oleshkevich/glimpse
+PartOf=graphical-session.target
+After=graphical-session.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/glimpse-lock
+Restart=always
+RestartSec=2

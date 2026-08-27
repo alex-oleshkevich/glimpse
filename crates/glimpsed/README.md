@@ -89,9 +89,46 @@ which is what keeps every service test headless.
 
 Never add `panic = "abort"`. Per-service panic isolation depends on unwinding.
 
+## Units
+
+Five user units ship in `data/systemd/`, installed to `{prefix}/lib/systemd/user`. Four are
+`WantedBy=graphical-session.target`; `glimpse-lock.service` deliberately has no `[Install]` section,
+because starting it locks the screen — it is started on demand, not pulled in at login.
+
+`glimpsed.service` carries `ExecReload=/bin/kill -HUP $MAINPID`, so `systemctl --user reload
+glimpsed` re-reads the configuration stack through the same path the filesystem watch uses. That is
+the way out for an editor whose write inotify never sees.
+
+The UI units use `Wants=glimpsed.service`, never `Requires=` — a dead daemon must not take the
+panel, wallpaper or night light with it. The locker names glimpsed nowhere at all: it has to
+authenticate with the daemon dead, so the dependency would buy nothing, and every relationship it
+carries is another way for something to stop it.
+
+For the same reason the locker carries no `Requisite=`, which the other four do. `Requisite=` is
+documented as "similar to `Requires=`", and `Requires=` stops the configuring unit when the listed
+unit is stopped. On the locker that is a stop edge bought for nothing but failing fast outside a
+session, so it is left off and `just check-units` rejects it along with `Requires=`, `BindsTo=` and
+`Conflicts=`.
+
+The units carry no comments. Everything they would have said is here, and `just check-units` enforces
+the parts that matter rather than trusting anyone to read them.
+
+Units inherit the user manager's environment, so `WAYLAND_DISPLAY` and the rest have to be in it
+before `graphical-session.target` is reached — the compositor does that with `systemctl --user
+import-environment` or `dbus-update-activation-environment`. None of these units set it themselves.
+
+`glimpse-lock.service` has **no sandboxing whatsoever**, and `just check-units` enforces that with an
+allowlist over its `[Service]` keys rather than a list of banned directives — a dozen options imply
+`NoNewPrivileges=`, and any one of them places the locker in a user namespace that strips setuid from
+`unix_chkpwd`. PAM then rejects the correct password and the symptom looks exactly like a typo.
+
+`check-units` also verifies every `ExecStart` names a binary the build actually ships. It has to:
+the recipe filters systemd's "is not executable" complaint, since a source tree never has the
+binaries at their installed paths, and without the name check a typo would hide behind that filter.
+
 `[package.metadata.deb]` and `[package.metadata.generate-rpm]` live here rather than on any of
 the other five binary crates because cargo-deb/cargo-generate-rpm each need one crate to invoke
 against, not because glimpsed is special — the assets lists pull in all six binaries plus config,
-wallpapers, and the license from the shared target dir and repo root. `data/pam.d`, `data/systemd`,
-and `data/dbus-1/services` are empty placeholders today, so their contents aren't in the asset
-lists yet; add them once something real lands under `data/`.
+wallpapers, units, and the license from the shared target dir and repo root. `data/pam.d` and
+`data/dbus-1/services` are still empty placeholders, so their contents aren't in the asset lists
+yet; add them once something real lands there.

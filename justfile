@@ -80,7 +80,41 @@ search QUERY:
 
 [doc("validate the shipped systemd units")]
 check-units:
-    systemd-analyze --user verify data/systemd/*.service
+    #!/usr/bin/env bash
+    set -euo pipefail
+    lock=data/systemd/glimpse-lock.service
+
+    noise='is not executable: No such file or directory|^Configuration file .* is marked'
+    if systemd-analyze --user verify data/systemd/*.service 2>&1 | grep -Ev "$noise" | grep .; then
+        exit 1
+    fi
+
+    for f in data/systemd/*.service; do
+        bin=$(grep -m1 -oE '^ExecStart=[^ ]+' "$f" | sed 's|.*/||')
+        case " {{ binaries }} " in
+            *" $bin "*) ;;
+            *) echo "$f: ExecStart names '$bin', which is not a shipped binary"; exit 1 ;;
+        esac
+    done
+
+    for key in $(sed -n '/^\[Service\]/,/^\[/p' "$lock" | grep -oE '^[A-Za-z]+=' | tr -d '='); do
+        case " Type ExecStart Restart RestartSec " in
+            *" $key "*) ;;
+            *) echo "$lock: [Service] carries $key= — sandboxing breaks PAM, see README"; exit 1 ;;
+        esac
+    done
+
+    if grep -qE '^(BindsTo|Conflicts|Requires|Requisite)=' "$lock"; then
+        echo "$lock: a Requires-class or Conflicts= edge can stop the locker mid-lock"; exit 1
+    fi
+    if grep -E '^PartOf=' "$lock" | grep -qv '^PartOf=graphical-session.target$'; then
+        echo "$lock: PartOf= anything but graphical-session.target can stop the locker mid-lock"; exit 1
+    fi
+    if grep -l '^Requires=.*glimpsed' data/systemd/*.service | grep .; then
+        echo "Requires=glimpsed.service — use Wants="; exit 1
+    fi
+
+    echo "units ok"
 
 # ---------------------------------------------------------------- run
 

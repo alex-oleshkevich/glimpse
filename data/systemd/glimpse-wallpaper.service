@@ -1,0 +1,25 @@
+[Unit]
+Description=Glimpse wallpaper
+Documentation=https://github.com/alex-oleshkevich/glimpse
+PartOf=graphical-session.target
+After=graphical-session.target glimpsed.service
+Requisite=graphical-session.target
+Wants=glimpsed.service
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/glimpse-wallpaper
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=graphical-session.target

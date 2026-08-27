@@ -39,6 +39,7 @@ assets = [
   ["../../data/config.default.toml", "usr/share/glimpse/", "644"],
   ["../../data/config.schema.json", "usr/share/glimpse/", "644"],
   ["../../wallpapers/*", "usr/share/glimpse/wallpapers/", "644"],
+  ["../../data/systemd/*.service", "usr/lib/systemd/user/", "644"],
   ["../../data/geoclue/conf.d/glimpse.conf", "etc/geoclue/conf.d/", "644"],
   ["../../LICENSE", "usr/share/glimpse/", "644"],
 ]
@@ -62,6 +63,7 @@ assets = [
   { source = "data/config.default.toml", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/config.schema.json", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "wallpapers/*", dest = "/usr/share/glimpse/wallpapers/", mode = "644" },
+  { source = "data/systemd/*.service", dest = "/usr/lib/systemd/user/", mode = "644" },
   { source = "data/geoclue/conf.d/glimpse.conf", dest = "/etc/geoclue/conf.d/glimpse.conf", mode = "644", config = true },
   { source = "LICENSE", dest = "/usr/share/glimpse/", mode = "644" },
 ]

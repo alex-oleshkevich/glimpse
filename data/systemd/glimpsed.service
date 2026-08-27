@@ -1,0 +1,25 @@
+[Unit]
+Description=Glimpse desktop shell daemon
+Documentation=https://github.com/alex-oleshkevich/glimpse
+PartOf=graphical-session.target
+After=graphical-session.target
+Requisite=graphical-session.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/glimpsed
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=graphical-session.target
