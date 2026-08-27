@@ -37,6 +37,10 @@ macro_rules! topics {
 
             $crate::topic!($ty, $name);
         )*
+
+        /// Every topic name the tree knows. A second `topics!` invocation is a duplicate
+        /// definition of this, which is the intended way to keep them in one block.
+        pub const ALL_TOPICS: &[&str] = &[$($name),*];
     };
 }
 

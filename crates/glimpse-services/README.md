@@ -53,7 +53,10 @@ leaving the caller to wait out its whole timeout with nothing said anywhere.
 
 Commands are declared the way topics are: `METHODS` lists the names, `decode` turns one plus its
 JSON arguments into the service's own `Command` type, and the two must agree — a name in `METHODS`
-that `decode` refuses is a command the broker will route and the service will then reject. The
+that `decode` refuses is a command the broker will route and the service will then reject. Nothing
+makes them agree at compile time, so every service carries one test calling
+`assert_declarations::<Self>()`, which checks both lists against `ALL_TOPICS` / `ALL_COMMANDS` and
+that every declared method reaches an arm of `decode`. The
 default `decode` refuses everything, which is right for a service that declares no methods. A
 command reaches the inbox through `ServiceSender::dispatch`, which offers rather than queues:
 the caller is the broker, and the broker must never await.

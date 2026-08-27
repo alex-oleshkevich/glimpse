@@ -167,6 +167,11 @@ mod tests {
     }
 
     #[test]
+    fn declared_topics_and_methods_exist() {
+        crate::service::assert_declarations::<Heartbeat>();
+    }
+
+    #[test]
     fn a_mistyped_argument_is_refused_as_an_argument_not_as_a_missing_command() {
         let error = Heartbeat::decode(
             HeartbeatSetInterval::NAME,

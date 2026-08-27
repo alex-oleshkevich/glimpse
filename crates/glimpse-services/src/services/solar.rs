@@ -111,3 +111,13 @@ fn solar_times_for_date(
         sunset: sunset,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn declared_topics_and_methods_exist() {
+        crate::service::assert_declarations::<Solar>();
+    }
+}

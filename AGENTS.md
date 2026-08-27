@@ -69,8 +69,10 @@ glimpse/
 
 Path-scoped rules load automatically when the relevant files are opened:
 `.claude/rules/daemon.md` for `glimpsed`, `glimpse-services` and `glimpse-ipc`;
-`.claude/rules/ui.md` for the GTK crates. General GTK4, libadwaita and relm4 craft is covered by the
-`relm4`, `gtk4-styles` and `libadwaita-styles` skills. D-Bus work — every mirror service, plus the
+`.claude/rules/ui.md` for the GTK crates. Writing or changing a service — the `Service` trait, `Ctx`
+sources, subscriptions, topics and commands, registration, headless tests — is covered by the
+project-local `service` skill in `.claude/skills/service/`. General GTK4, libadwaita and relm4 craft
+is covered by the `relm4`, `gtk4-styles` and `libadwaita-styles` skills. D-Bus work — every mirror service, plus the
 two names glimpsed owns — is covered by the project-local `zbus` skill in `.claude/skills/zbus/`,
 which carries introspected signatures for NetworkManager, BlueZ, logind, UPower, MPRIS,
 StatusNotifierItem, dbusmenu and Notifications.

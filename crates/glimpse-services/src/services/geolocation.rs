@@ -287,6 +287,11 @@ mod tests {
         }
     }
 
+    #[test]
+    fn declared_topics_and_methods_exist() {
+        crate::service::assert_declarations::<Geolocation>();
+    }
+
     fn published(mock: &MockBroker) -> Vec<Option<GeoCoordinates>> {
         mock.published()
             .into_iter()

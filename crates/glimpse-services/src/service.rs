@@ -54,6 +54,41 @@ impl From<&glimpse_config::Config> for NoConfig {
     }
 }
 
+/// Checks a service's declarations against what actually exists: every name in `TOPICS` and
+/// `METHODS` is one `glimpse-contracts` declares, and every name in `METHODS` reaches an arm of
+/// `decode`. The broker routes by `METHODS` alone, so a name it carries that `decode` refuses is a
+/// command a client can call and always see fail. Nothing makes these agree at compile time —
+/// `const { assert!(...) }` and an associated-const check both compile and never fire.
+///
+/// Call it from one test per service.
+pub fn assert_declarations<S: Service>() {
+    for topic in S::TOPICS {
+        assert!(
+            glimpse_contracts::ALL_TOPICS.contains(topic),
+            "`{}` declares topic `{topic}`, which no `topics!` entry defines",
+            S::NAME,
+        );
+    }
+
+    for method in S::METHODS {
+        assert!(
+            glimpse_contracts::ALL_COMMANDS.contains(method),
+            "`{}` declares method `{method}`, which no `commands!` entry defines",
+            S::NAME,
+        );
+        // Null args are enough: a missing arm answers `UnknownCommand`, while an arm that exists
+        // and wants real arguments answers `InvalidArgs`, which is the pass.
+        if let Err(error) = S::decode(method, Value::Null) {
+            assert_ne!(
+                error.code,
+                ErrorCode::UnknownCommand,
+                "`{}` declares method `{method}` but `decode` refuses it",
+                S::NAME,
+            );
+        }
+    }
+}
+
 pub trait Service: Sized + Send + 'static {
     /// Identifies the service in `system.services` and owns its topics in the registry.
     const NAME: &'static str;

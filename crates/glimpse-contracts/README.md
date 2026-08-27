@@ -78,3 +78,8 @@ so: a newer daemon and an older client survive a version skew instead of failing
 
 **No backend type reaches a payload.** A `zbus` value or a `gtk` type here could not be generated
 for Python, TypeScript or Go, and this crate is the input those generators read.
+
+`topics!` and `commands!` are each invoked once for the whole tree and emit `ALL_TOPICS` and
+`ALL_COMMANDS` beside the types they generate. A second invocation of either is a duplicate
+definition of that constant, which is what keeps every name in one block. `glimpse-services` checks
+a service's `TOPICS` and `METHODS` against them in `assert_declarations`.

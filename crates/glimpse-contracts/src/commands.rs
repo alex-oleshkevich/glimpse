@@ -32,6 +32,9 @@ macro_rules! commands {
                 type Output = $output;
             }
         )*
+
+        /// Every command name the tree knows. See `ALL_TOPICS`.
+        pub const ALL_COMMANDS: &[&str] = &[$($name),*];
     };
 }
 

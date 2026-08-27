@@ -43,10 +43,26 @@ impl Store {
     ) {
         self.states.insert(service, ServiceState::Starting);
         for topic in topics {
-            self.owners.insert((*topic).to_owned(), Some(service));
+            // Last declaration wins, so the loser's publishes would be attributed to the winner
+            // and nothing would say why.
+            if let Some(Some(owner)) = self.owners.insert((*topic).to_owned(), Some(service)) {
+                tracing::error!(
+                    topic,
+                    first = owner,
+                    second = service,
+                    "two services declare one topic"
+                );
+            }
         }
         for method in methods {
-            self.methods.insert((*method).to_owned(), service);
+            if let Some(owner) = self.methods.insert((*method).to_owned(), service) {
+                tracing::error!(
+                    method,
+                    first = owner,
+                    second = service,
+                    "two services declare one method"
+                );
+            }
         }
     }
 
@@ -221,6 +237,18 @@ mod tests {
             &["audio.set_volume"],
         );
         store
+    }
+
+    /// Last declaration wins, which is worth knowing rather than discovering as a service whose
+    /// publishes are attributed to somebody else. The error log is what says so; this pins the
+    /// resolution the log describes.
+    #[test]
+    fn a_second_service_declaring_one_name_takes_it() {
+        let mut store = store();
+        store.declare("mixer", &["audio.volume"], &["audio.set_volume"]);
+
+        assert_eq!(store.method_owner("audio.set_volume"), Some("mixer"));
+        assert_eq!(store.methods().methods["audio.set_volume"].service, "mixer");
     }
 
     #[test]

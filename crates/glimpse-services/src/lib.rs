@@ -13,8 +13,8 @@ pub use {
     context::Ctx,
     publisher::Publisher,
     service::{
-        Input, NoConfig, Service, ServiceError, ServiceRuntime, ServiceSender, decode_args,
-        unknown_command,
+        Input, NoConfig, Service, ServiceError, ServiceRuntime, ServiceSender, assert_declarations,
+        decode_args, unknown_command,
     },
     services::*,
     subscription::Sub,
