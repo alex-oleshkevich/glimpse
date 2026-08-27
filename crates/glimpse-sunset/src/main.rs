@@ -7,6 +7,7 @@ use clap::Parser;
 use cli::Cli;
 use futures_util::StreamExt;
 use glimpse_config::watch_config;
+use glimpse_ipc::Client;
 use glimpse_utils::init_app_tracing;
 use tokio::signal::unix::{SignalKind, signal};
 
@@ -28,7 +29,8 @@ async fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
 
     let mut config = glimpse_config::load(cli.config.as_deref())?;
-    let _socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
+    let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
+    let _client = Client::open(&socket);
 
     let mut configs = Box::pin(watch_config(cli.config.config.clone(), config.clone()));
     let mut terminate = signal(SignalKind::terminate())?;

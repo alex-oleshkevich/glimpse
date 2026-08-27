@@ -17,7 +17,10 @@ The one component where a bug is a security failure rather than a cosmetic one.
 
 ## Rules
 
-Never depends on `glimpsed` for anything functional. Battery and network widgets go blank when the
+Never depends on `glimpsed` for anything functional. It holds a client — `Client::open`, bound to
+`_client` for the length of `run` — so the status widgets have a socket to read, and every one of
+them goes blank when the daemon does. Unlock, power actions and keyboard-layout switching use
+logind and compositor IPC directly and never touch it. Battery and network widgets go blank when the
 daemon is down; unlock, power actions and keyboard-layout switching use logind and compositor IPC
 directly.
 

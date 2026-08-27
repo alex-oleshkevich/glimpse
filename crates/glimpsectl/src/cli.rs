@@ -25,15 +25,6 @@ pub struct Cli {
     #[command(flatten)]
     pub color: colorchoice_clap::Color,
 
-    #[arg(
-        long,
-        global = true,
-        value_name = "MS",
-        default_value_t = 5000,
-        help = "Give up on a request after this many milliseconds."
-    )]
-    pub timeout: u64,
-
     #[command(subcommand)]
     pub command: Command,
 }

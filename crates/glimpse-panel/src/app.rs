@@ -4,6 +4,7 @@ use gtk4_layer_shell::LayerShell;
 use std::path::PathBuf;
 
 use glimpse_config::{Config, watch_config};
+use glimpse_ipc::Client;
 use relm4::{ComponentParts, ComponentSender, SimpleComponent};
 
 pub struct AppInit {
@@ -46,6 +47,7 @@ impl SimpleComponent for App {
         root.set_namespace(Some("glimpse-panel"));
 
         spawn_config_watch(init.config_path, init.config.clone(), sender);
+        spawn_daemon_client(init.socket);
 
         let model = App {
             config: init.config,
@@ -61,6 +63,16 @@ impl SimpleComponent for App {
             AppInput::ConfigChanged(config) => self.config = config,
         }
     }
+}
+
+fn spawn_daemon_client(socket: PathBuf) {
+    relm4::spawn(async move {
+        let client = Client::open(&socket);
+        let mut states = client.watch_state();
+        while states.changed().await.is_ok() {
+            tracing::debug!(state = ?*states.borrow_and_update(), "daemon connection");
+        }
+    });
 }
 
 fn spawn_config_watch(path: Option<PathBuf>, current: Config, sender: ComponentSender<App>) {

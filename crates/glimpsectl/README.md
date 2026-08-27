@@ -66,8 +66,9 @@ when the daemon is what will not start. `doctor` connects but tolerates failure,
 reason: a command that exists to diagnose a missing daemon cannot require one, so an unreachable
 socket is a finding it prints, not an error it exits on.
 
-**`--timeout` is handed to `Client::connect`** rather than wrapped around each request, because a
-caller that abandons its own future does not release the in-flight slot the request still holds.
+**There is no `--timeout`.** The request deadline is `glimpse-ipc`'s own constant: it exists to
+release the in-flight slot an unanswered request holds, which is the connection's invariant rather
+than a preference a caller can express.
 
 **`exit` holds only the codes something returns today**; the rest arrive with the code that returns
 them. 2 will never be there, because clap owns it.

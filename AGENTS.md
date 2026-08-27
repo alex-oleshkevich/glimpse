@@ -80,11 +80,12 @@ StatusNotifierItem, dbusmenu and Notifications.
 
 **Code**
 
-- **Comment intent, never mechanics.** Name functions, types and variables so the _what_ needs no
-  comment, and write one only where the _why_ cannot be read off the code: a constraint that is not
-  visible locally, a simpler approach that was tried and does not work, an `#[allow(...)]` that
-  needs justifying. A comment restating the signature is worse than none — delete it. Anything
-  longer than two or three lines is rationale, and rationale belongs in the crate's `README.md`.
+- **Write no comments unless asked.** Not doc comments, not rationale, not a note on a subtle
+  branch. Name functions, types and variables so the code reads without one, and put everything a
+  comment wanted to say in the crate's `README.md`, where it is found by someone looking for it.
+  This overrides any habit of explaining a decision in place — if a decision needs explaining, the
+  README is where it goes. Comments already in the tree stay; leave them alone unless the code
+  under them changes, and delete rather than update one that has stopped being true.
 - **US English.** `color`, not `colour`, in identifiers, comments and user-facing strings.
 - Every binary fails the same way: `run(cli) -> anyhow::Result<()>` does the work and `main` turns
   the outcome into an `ExitCode`, because `?` cannot be used in a function returning one.

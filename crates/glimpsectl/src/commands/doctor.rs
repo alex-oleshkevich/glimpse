@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Duration};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use glimpse_contracts::{ServiceState, SystemServices};
@@ -9,13 +9,9 @@ use crate::render::{self, Section, Table, styled};
 
 /// Diagnoses a missing daemon, so it connects for itself and reports the failure rather than
 /// exiting on it. Findings are the output; the exit code stays 0 because the check succeeded.
-/// Short and fixed, not `--timeout`: the answer here is whether anything is listening, and a
-/// diagnostic that hangs for the request timeout is the thing it was meant to diagnose.
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
-
 pub async fn doctor(socket: glimpse_utils::SocketArg, config: Option<PathBuf>) -> Result<()> {
     let path = glimpse_ipc::socket_path(socket.as_deref())?;
-    let client = Client::connect(&path, CONNECT_TIMEOUT).await;
+    let client = Client::connect(&path).await;
 
     let mut sections = vec![socket_section(&path, &client), config_section(config)];
 

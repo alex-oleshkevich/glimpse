@@ -3,7 +3,7 @@ mod commands;
 mod errors;
 mod render;
 
-use std::{process::ExitCode, time::Duration};
+use std::process::ExitCode;
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -33,8 +33,7 @@ async fn run(cli: Cli) -> Result<()> {
     let session = match cli.command.needs_daemon() {
         true => {
             let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
-            let client =
-                glimpse_ipc::Client::connect(&socket, Duration::from_millis(cli.timeout)).await?;
+            let client = glimpse_ipc::Client::connect(&socket).await?;
             Some(Session { client })
         }
         false => None,

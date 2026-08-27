@@ -22,6 +22,7 @@ use crate::{
 /// when its reply settles, so nothing can be waiting on the daemon without holding one — there is
 /// no second queue for a request to sit in and no call that blocks instead of being refused.
 const MAX_INFLIGHT: usize = 32;
+const REQUEST_TIMEOUT: time::Duration = time::Duration::from_secs(5);
 const BACKOFF_MIN: time::Duration = time::Duration::from_millis(250);
 const BACKOFF_MAX: time::Duration = time::Duration::from_secs(10);
 
@@ -59,21 +60,25 @@ pub struct Client {
 impl Client {
     /// The first connection is made here rather than in the task, so a missing daemon and a refused
     /// protocol version are answers the caller gets from `connect` instead of a hang.
-    ///
-    /// `request_timeout` is enforced by the connection, not by the caller: a caller that wraps its
-    /// own future gives up without releasing the in-flight slot the request still holds.
-    pub async fn connect(
-        socket: &Path,
-        request_timeout: time::Duration,
-    ) -> Result<Self, ConnectError> {
+    pub async fn connect(socket: &Path) -> Result<Self, ConnectError> {
         let wire = dial(socket).await?;
+        Ok(Self::start(socket, Some(wire)))
+    }
+
+    pub fn open(socket: &Path) -> Self {
+        Self::start(socket, None)
+    }
+
+    fn start(socket: &Path, wire: Option<Wire>) -> Self {
         let (requests, inbox) = mpsc::channel(MAX_INFLIGHT);
-        let (state, watcher) = watch::channel(ConnectionState::Connected);
+        let (state, watcher) = watch::channel(match wire {
+            Some(_) => ConnectionState::Connected,
+            None => ConnectionState::Connecting,
+        });
 
         tokio::spawn(
             Connection {
                 socket: socket.to_owned(),
-                request_timeout,
                 inbox,
                 state,
                 subscriptions: Vec::new(),
@@ -83,11 +88,11 @@ impl Client {
             .run(wire),
         );
 
-        Ok(Self {
+        Self {
             requests,
             inflight: Arc::new(Semaphore::new(MAX_INFLIGHT)),
             state: watcher,
-        })
+        }
     }
 
     pub fn watch_state(&self) -> watch::Receiver<ConnectionState> {
@@ -433,7 +438,6 @@ enum Stop {
 
 struct Connection {
     socket: PathBuf,
-    request_timeout: time::Duration,
     inbox: mpsc::Receiver<Request>,
     state: watch::Sender<ConnectionState>,
     /// Weak, so a dropped `Subscription` is what releases its pattern: the connection never keeps
@@ -444,24 +448,25 @@ struct Connection {
 }
 
 impl Connection {
-    async fn run(mut self, first: Wire) {
-        let mut wire = Ok(first);
+    async fn run(mut self, first: Option<Wire>) {
+        let mut wire = first;
         let mut attempt = 0;
 
         loop {
             match wire {
-                Ok(connected) => {
+                Some(connected) => {
+                    if attempt > 0 {
+                        tracing::info!(socket = ?self.socket, attempt, "connected to the daemon");
+                    }
                     attempt = 0;
                     self.state.send_replace(ConnectionState::Connected);
                     if let Stop::CallerGone = self.session(connected).await {
                         break;
                     }
+                    tracing::warn!(socket = ?self.socket, "the connection to the daemon was lost");
                     self.fail_pending("the connection to the daemon was lost");
                 }
-                Err(error) => {
-                    tracing::debug!(%error, attempt, "reconnect failed");
-                    self.fail_pending("the daemon is not reachable");
-                }
+                None => self.fail_pending("the daemon is not reachable"),
             }
 
             attempt += 1;
@@ -473,7 +478,13 @@ impl Connection {
             }
 
             self.state.send_replace(ConnectionState::Connecting);
-            wire = dial(&self.socket).await;
+            wire = match dial(&self.socket).await {
+                Ok(wire) => Some(wire),
+                Err(error) => {
+                    tracing::debug!(%error, attempt, "dial failed");
+                    None
+                }
+            };
         }
 
         self.fail_pending("the client stopped");
@@ -589,7 +600,7 @@ impl Connection {
             id,
             Waiting {
                 pending,
-                deadline: time::Instant::now() + self.request_timeout,
+                deadline: time::Instant::now() + REQUEST_TIMEOUT,
                 _permit: permit,
             },
         );
@@ -636,7 +647,7 @@ impl Connection {
             if let Some(waiting) = self.pending.remove(&id) {
                 waiting.pending.fail(CallError::new(
                     ErrorCode::Timeout,
-                    format!("no answer within {:?}", self.request_timeout),
+                    format!("no answer within {REQUEST_TIMEOUT:?}"),
                 ));
             }
         }
@@ -680,5 +691,14 @@ mod tests {
         assert_eq!(backoff(1), time::Duration::from_millis(500));
         assert_eq!(backoff(2), time::Duration::from_secs(1));
         assert_eq!(backoff(20), BACKOFF_MAX);
+    }
+
+    #[tokio::test]
+    async fn open_survives_a_socket_nothing_is_listening_on() {
+        let client = Client::open(Path::new("/nonexistent/glimpsed.sock"));
+
+        assert_eq!(*client.watch_state().borrow(), ConnectionState::Connecting);
+        let refused = client.get("solar.status").await.expect_err("no daemon");
+        assert_eq!(refused.code, ErrorCode::Unavailable);
     }
 }

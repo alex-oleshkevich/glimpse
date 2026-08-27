@@ -40,8 +40,21 @@ receives _which_ value is the broker's job and stays in the daemon.
 
 **The request deadline belongs to the connection, not the caller.** A caller that wraps its own
 future in `tokio::time::timeout` gives up without releasing the in-flight slot its request still
-holds, so 32 abandoned calls lock the client out. `Client::connect` takes the timeout and the
-connection task expires entries against it.
+holds, so 32 abandoned calls lock the client out. `REQUEST_TIMEOUT` is a constant of this module and
+the connection task expires entries against it — no caller passes one, because the deadline exists
+to release that slot and nobody outside the connection can hold a useful opinion about when.
+
+**`connect` fails on a missing daemon, `open` waits for one.** `connect` dials before it returns, so
+a one-shot caller such as `glimpsectl` gets `NotListening` as an answer and maps it to an exit code.
+`open` returns a client that has not dialled yet and lets the reconnect loop reach the daemon
+whenever it appears, which is what the UI binaries need: their units carry `Wants=glimpsed.service`,
+never `Requires=`, so starting before the daemon is ordinary rather than a failure. Both share one
+loop — `open` simply starts it in the arm that backs off and redials, so there is no second
+reconnect path to keep in step.
+
+The connect is logged at `info` only after an absence. `connect` hands its caller the outcome
+directly, and a one-shot CLI would otherwise print a line on every invocation; a client from `open`
+always arrives through the redial arm, so its first connection still says so.
 
 **One cap on in-flight requests, held as a semaphore permit.** The permit is taken in `Client::ask`
 and travels with the request until its reply settles, so a request cannot be outstanding without
