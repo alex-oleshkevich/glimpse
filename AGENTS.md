@@ -190,6 +190,11 @@ layering, because an explicit path replaces the stack rather than joining it —
 resolve into it. Neither redirects the `/etc/glimpse` layer; a test that needs that layer builds it
 through `load_from`, which takes the system directory as an argument for exactly this reason.
 
+**Send the log somewhere else as well.** `--config` watches that file's *parent directory*, so a run
+that redirects the daemon's output into it makes every line the daemon writes an event that makes it
+read the configuration again. With a document that will not parse, that is a closed loop running at
+exactly `DEBOUNCE` — it looks precisely like a watcher retrying, and it is not.
+
 `scripts/` still holds helpers written. Several are useful as-is —
 `mpris-fake-players.py`, `network-test-fixtures.sh`, the `privacy-test-*` probes, and
 `glimpse-lock-rescue-pam.sh`.
@@ -241,6 +246,33 @@ through `load_from`, which takes the system directory as an argument for exactly
 - **Never hand work back without running the pass in Finishing.** Every time, before saying
   anything is done.
 - **Do not commit or push without being asked.**
+
+## Known state
+
+Facts measured about code that would otherwise invite rework. Each says what was counted and when,
+so a later reader can tell a finding from an opinion.
+
+**`glimpse-config/src/watch.rs`, August 2026.** 347 production lines against 391 of tests. `Watch`
+and `Arm` — arming inotify, falling back onto an ancestor when `config.d/` does not exist, re-arming
+when a directory is replaced under it — are **44%** of the production half. That bulk is one design
+decision's consequence rather than accident: four directories are watched and two of them usually do
+not exist. Every branch of it has a test, and it has not been the source of a bug.
+
+What is genuinely dead, and is the cut to make in whichever change next touches the file:
+
+- `Update`, `watch` and `watch_all` are `pub` and re-exported from `lib.rs`, and have **no consumer
+  anywhere outside this module's own tests**. Every binary in the tree reloads through
+  `watch_config`. Verified by grep across `crates/`; the apparent hits are solar's own
+  `Event::Update` and `watch_config` imports.
+- `watch_config` is therefore the only reader of `Update`, and it discards `Changed`'s
+  `Vec<PathBuf>` and treats `Changed` and `Rearmed` as one arm. The only distinction the tree draws
+  is "something happened" against "the watch is dead" — so those paths are collected in `forward`,
+  carried through the channel and filtered in `Watch::next` to build a value nobody reads.
+
+Both defects found in this file in August 2026 were in the *simple* 18% that decides whether to
+reload and whether to complain, or in the harness testing it — not in the machinery. Its size is not
+by itself a reason to rewrite it. Bead `glimpse-aqi5` records the one limitation the design knowingly
+accepts.
 
 ## Finishing
 

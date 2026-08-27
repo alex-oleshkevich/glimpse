@@ -154,10 +154,13 @@ unaffected. Re-deriving the set on every event would mean stat-ing the whole sta
 every watch, which is a poor trade for a case that only arises when someone moves their dotfile
 repository.
 
-`reread(config_path, current)` is the step every consumer takes when something moved: load the
-stack off the runtime threads, and answer with the new document only if it parsed **and differs**.
-A read that failed is logged and yields nothing, so the caller keeps what is already running. Both
-the logging and the equality gate live here rather than once per binary.
+`reread` is the step behind each trigger: load the stack off the runtime threads, and answer with
+the new document only if it parsed **and differs**. A read that failed yields the reason instead of
+logging it, because the same reason repeated is one document nobody has fixed yet — a watched
+directory goes on producing events while it stays broken, and an editor's swap and backup files land
+right beside it. So the reader keeps the last failure and reports one at `error` only when the
+message changes, dropping the repeats to `debug`. A document that *loads* clears it, whether or not
+it moved: an undone edit is a fix, and the next break is news again.
 
 `watch_config(config_path, current)` composes the three into a stream of documents, one per real
 change, and is what every binary reloads through. It merges two triggers, and neither replaces the

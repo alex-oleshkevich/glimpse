@@ -6,7 +6,7 @@ mod watch;
 pub use error::ConfigError;
 pub use load::{DATA_DIR, load, resolved_files, user_dir, watch_dirs};
 pub use schema::*;
-pub use watch::{Update, reread, watch, watch_all, watch_config};
+pub use watch::{Update, watch, watch_all, watch_config};
 
 pub fn default_document() -> String {
     let header = format!(

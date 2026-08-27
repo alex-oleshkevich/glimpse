@@ -62,6 +62,7 @@ pub fn watch_config(
         triggers: Box::pin(stream::select(Box::pin(watched), Box::pin(hangups()))),
         path: config_path,
         current,
+        failure: None,
     };
 
     stream::unfold(reader, |mut reader| async move {
@@ -81,22 +82,17 @@ fn hangups() -> impl Stream<Item = ()> + Send + 'static {
     })
 }
 
-/// The next document, or nothing: a read that failed, or one that came back equal, both leave the
-/// caller running what it already has. Every consumer wants that same answer, so the logging and
-/// the equality gate live here rather than once per binary.
-pub async fn reread(config_path: Option<&Path>, current: &Config) -> Option<Config> {
+/// Loads the stack off the runtime threads: the new document if it parsed and differs, `None` if it
+/// parsed and did not, and the reason if it did not parse. The failure is returned rather than
+/// logged here, because the same one repeated is a document nobody has fixed yet and only the
+/// caller knows whether it has already said so.
+async fn reread(config_path: Option<&Path>, current: &Config) -> Result<Option<Config>, String> {
     let path = config_path.map(Path::to_path_buf);
 
     match tokio::task::spawn_blocking(move || load(path.as_deref())).await {
-        Ok(Ok(config)) => (config != *current).then_some(config),
-        Ok(Err(error)) => {
-            tracing::error!(%error, "dropped a reload, keeping the running configuration");
-            None
-        }
-        Err(error) => {
-            tracing::error!(%error, "the configuration reader panicked");
-            None
-        }
+        Ok(Ok(config)) => Ok((config != *current).then_some(config)),
+        Ok(Err(error)) => Err(error.to_string()),
+        Err(error) => Err(format!("the configuration reader panicked: {error}")),
     }
 }
 
@@ -104,17 +100,42 @@ struct Reader {
     triggers: Pin<Box<dyn Stream<Item = ()> + Send>>,
     path: Option<PathBuf>,
     current: Config,
+    /// The last failure reported. A watched directory goes on producing events while a document
+    /// stays broken — an editor's swap and backup files land right beside it — and without this
+    /// every one of them reproduces the same line.
+    failure: Option<String>,
 }
 
 impl Reader {
     async fn next(&mut self) -> Option<Config> {
         while self.triggers.next().await.is_some() {
-            if let Some(config) = reread(self.path.as_deref(), &self.current).await {
-                self.current = config.clone();
-                return Some(config);
+            match reread(self.path.as_deref(), &self.current).await {
+                // A document that loads is one that is no longer broken, whether or not it moved,
+                // so the next failure is news again.
+                Ok(loaded) => {
+                    self.failure = None;
+                    if let Some(config) = loaded {
+                        self.current = config.clone();
+                        return Some(config);
+                    }
+                }
+                Err(reason) => self.report(reason),
             }
         }
         None
+    }
+
+    /// The same failure again is one document nobody has fixed yet, not a second problem.
+    fn report(&mut self, reason: String) {
+        if self.failure.as_ref() == Some(&reason) {
+            tracing::debug!(reason, "dropped a reload, unchanged since the last");
+            return;
+        }
+        tracing::error!(
+            reason,
+            "dropped a reload, keeping the running configuration"
+        );
+        self.failure = Some(reason);
     }
 }
 
@@ -326,6 +347,8 @@ fn inode(dir: &Path) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Mutex};
+
     use super::*;
 
     /// Generous, because it covers an inotify round trip plus the debounce window; a correct
@@ -510,6 +533,183 @@ mod tests {
             .expect("a configuration within the settle window")
             .expect("the stream is still alive");
         assert_eq!(config.night_light.temperature, 3000);
+    }
+
+    /// Captures what the crate logs on this thread. `set_default` is thread-local and the test
+    /// runtime is current-thread, so everything awaited below reports into this buffer.
+    #[derive(Clone, Default)]
+    struct Logged(Arc<Mutex<Vec<u8>>>);
+
+    impl Logged {
+        fn lines(&self) -> String {
+            let bytes = self.0.lock().expect("not poisoned").clone();
+            String::from_utf8(bytes).expect("tracing writes utf-8")
+        }
+
+        fn capture(&self) -> tracing::subscriber::DefaultGuard {
+            let sink = self.clone();
+            tracing::subscriber::set_default(
+                tracing_subscriber::fmt()
+                    .with_writer(move || sink.clone())
+                    .with_max_level(tracing::Level::ERROR)
+                    .without_time()
+                    .finish(),
+            )
+        }
+    }
+
+    impl std::io::Write for Logged {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().expect("not poisoned").extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    const START: &str = "[night_light]\ntemperature = 4200\n";
+    const BROKEN: &str = "not toml [[[";
+    const MISTYPED: &str = "[night_light]\ntemperature = \"warm\"\n";
+
+    fn good(temperature: u32) -> String {
+        format!("[night_light]\ntemperature = {temperature}\n")
+    }
+
+    /// Drives `watch_config` through a sequence of writes, polling the stream throughout — it is
+    /// lazy, so the writes and the polling have to run together — and answers with the documents it
+    /// yielded and everything it logged at `ERROR`. `wanted` is how many documents the sequence
+    /// ends up producing; the collector stops there rather than waiting out the settle window.
+    async fn replay(writes: &[(&str, &str)], wanted: usize) -> (Vec<u32>, String) {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, START).expect("writes");
+
+        let current = load(Some(&path)).expect("loads");
+        let logged = Logged::default();
+        let _capture = logged.capture();
+        let mut configs = Box::pin(watch_config(Some(path), current));
+
+        let churn = async {
+            for (name, text) in writes {
+                std::fs::write(dir.path().join(name), text).expect("writes");
+                tokio::time::sleep(DEBOUNCE * 2).await;
+            }
+        };
+        let collect = async {
+            let mut seen = Vec::new();
+            while seen.len() < wanted {
+                match tokio::time::timeout(SETTLE, configs.next()).await {
+                    Ok(Some(config)) => seen.push(config.night_light.temperature),
+                    _ => break,
+                }
+            }
+            seen
+        };
+
+        let (seen, ()) = futures_util::future::join(collect, churn).await;
+        (seen, logged.lines())
+    }
+
+    fn complaints(lines: &str) -> usize {
+        lines.matches("dropped a reload").count()
+    }
+
+    /// One broken document and a directory that keeps producing events is one problem, not four.
+    /// Editors drop swap files right beside `config.toml`, and before the failure was gated the way
+    /// a success already was, every one of them reproduced the whole error line.
+    #[tokio::test]
+    async fn a_failure_that_has_not_changed_is_reported_once() {
+        let (seen, lines) = replay(
+            &[
+                ("config.toml", BROKEN),
+                (".config.toml.sw0", "x"),
+                (".config.toml.sw1", "x"),
+                (".config.toml.sw2", "x"),
+                ("config.toml", &good(3000)),
+            ],
+            1,
+        )
+        .await;
+
+        assert_eq!(
+            seen,
+            [3000],
+            "the good write still arrives after the broken one"
+        );
+        assert_eq!(complaints(&lines), 1, "one broken document, got:\n{lines}");
+    }
+
+    /// The gate is keyed on the message, so it must not swallow a different way of being broken.
+    #[tokio::test]
+    async fn a_failure_that_changed_is_reported_again() {
+        let (_, lines) = replay(
+            &[
+                ("config.toml", BROKEN),
+                ("config.toml", MISTYPED),
+                ("config.toml", &good(3000)),
+            ],
+            1,
+        )
+        .await;
+
+        assert_eq!(
+            complaints(&lines),
+            2,
+            "a parse failure and a type failure are two problems, got:\n{lines}"
+        );
+    }
+
+    /// The gate has to reopen on a good load, or a document broken, fixed, and broken again the
+    /// same way reports the first break and stays quiet for the life of the process.
+    #[tokio::test]
+    async fn the_same_failure_after_a_good_load_is_reported_again() {
+        let (seen, lines) = replay(
+            &[
+                ("config.toml", BROKEN),
+                ("config.toml", &good(3000)),
+                ("config.toml", BROKEN),
+                ("config.toml", &good(2000)),
+            ],
+            2,
+        )
+        .await;
+
+        assert_eq!(seen, [3000, 2000], "both good documents arrived");
+        assert_eq!(
+            complaints(&lines),
+            2,
+            "the second break is news, got:\n{lines}"
+        );
+    }
+
+    /// Undoing the edit that broke it is a good load that yields nothing, because the document is
+    /// back to what is already running. It still has to reopen the gate — the fix is that a
+    /// document *loads*, not that it moved.
+    #[tokio::test]
+    async fn a_good_load_reopens_the_gate_even_when_the_document_did_not_move() {
+        let (seen, lines) = replay(
+            &[
+                ("config.toml", BROKEN),
+                ("config.toml", START),
+                ("config.toml", BROKEN),
+                ("config.toml", &good(3000)),
+            ],
+            1,
+        )
+        .await;
+
+        assert_eq!(
+            seen,
+            [3000],
+            "the identical rewrite yielded nothing of its own"
+        );
+        assert_eq!(
+            complaints(&lines),
+            2,
+            "the break after the undo is news, got:\n{lines}"
+        );
     }
 
     #[tokio::test]
