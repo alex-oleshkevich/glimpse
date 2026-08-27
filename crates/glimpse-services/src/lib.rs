@@ -3,6 +3,7 @@ mod context;
 mod publisher;
 mod service;
 mod services;
+mod subscription;
 
 pub use {
     broker::{BrokerHandle, Dispatch, MockBroker, Responder, ServiceState, Sink, SubscriptionId},
@@ -12,4 +13,5 @@ pub use {
         Input, Service, ServiceError, ServiceRuntime, ServiceSender, decode_args, unknown_command,
     },
     services::*,
+    subscription::Sub,
 };

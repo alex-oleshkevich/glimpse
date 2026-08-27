@@ -59,9 +59,8 @@ command reaches the inbox through `ServiceSender::dispatch`, which offers rather
 the caller is the broker, and the broker must never await.
 
 Everything that reaches a handler arrives as an event from a **source**, and every source is one
-`ctx` call returning a `SourceGuard` the service keeps for as long as it wants the source alive.
-Dropping the guard is the whole cancellation story — it aborts the task or drops the subscription,
-so there is no token to remember and no shutdown path to write.
+`ctx` call returning a `SourceGuard`. Dropping the guard is the whole cancellation story — it aborts
+the task or drops the subscription, so there is no token to remember and no shutdown path to write.
 
 | Source | Produces | For |
 | -------------------- | ---------------- | --------------------------------------------------- |
@@ -91,6 +90,45 @@ abort. Its sink parks the newest payload in a `tokio::sync::watch` cell and a pu
 — the broker is called from its own task and must never be made to wait, and newest-wins is what a
 bounded channel cannot give, since a full one drops whatever it is handed, which is always the
 newest.
+
+## Subscriptions
+
+A source that should live as long as the service says so is **declared**, not started. `subscriptions`
+returns what ought to be running, given the service as it stands, and the runtime diffs that against
+what is running after `start` and after every input:
+
+```rust
+type SubKey = Watch;
+
+fn subscriptions(&self) -> Vec<Sub<Self>> {
+    match self.provider {
+        Provider::Geoclue => vec![Sub::stream(Watch::Geoclue { attempt: self.attempt }, geoclue)],
+        Provider::Manual(_) => Vec::new(),
+    }
+}
+```
+
+`Sub::stream`, `Sub::interval` and `Sub::topic::<T>` mirror the `ctx` constructors above; the runtime
+calls one only for a key it is not already running. Switching geolocation to `manual` releases GeoClue
+because the key stops being named, not because a handler remembered to drop a guard.
+
+`SubKey` is the identity a boxed closure cannot supply, and the whole discipline follows from how it
+is chosen: **whatever must force a restart belongs in the key, and whatever must not must stay out.**
+Heartbeat keys its timer on `period_ms`, so `heartbeat.set_interval` restarts it by assigning a field.
+Geolocation keys on an `attempt` counter that carries nothing but its own difference, because
+`geolocation.refresh` has no parameter to change and an unmoved key would leave the watch running.
+A key too coarse silently ignores a change; a key holding something that moves per event silently
+rebuilds the source every time. Both fail quietly, which is why the key is worth choosing deliberately.
+Two declarations sharing a key is a bug — the second is dropped with a warning.
+
+This is `Sub` against `Cmd`, and the split is the same one Elm draws: `subscriptions` is for sources
+whose lifetime the model decides, and `ctx.spawn` / `ctx.spawn_detached` for an effect that fires once
+and is never re-declared — a slow command that moved its `Responder` into a task. A service with no
+declared sources writes `type SubKey = ();` and inherits the empty default, since associated type
+defaults are still unstable.
+
+`subscriptions` runs inside the same `catch_unwind` as the handler, so a panic while declaring stops
+that one service rather than the runtime loop.
 
 Events, commands and configuration all arrive on **one** inbox. One channel means one order: a
 command and the event that follows it reach the handler in the order they were produced, which two

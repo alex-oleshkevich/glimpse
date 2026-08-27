@@ -1,4 +1,4 @@
-use std::{any::Any, panic::AssertUnwindSafe, sync::Arc};
+use std::{any::Any, collections::HashMap, hash::Hash, panic::AssertUnwindSafe, sync::Arc};
 
 use futures_util::FutureExt;
 use glimpse_config::Config;
@@ -9,6 +9,8 @@ use serde_json::Value;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
+use crate::context::SourceGuard;
+use crate::subscription::{Sub, reconcile};
 use crate::{BrokerHandle, Ctx, Responder, ServiceState};
 
 #[derive(Debug, thiserror::Error)]
@@ -59,12 +61,22 @@ pub trait Service: Sized + Send + 'static {
     type Config: PartialEq + Send + 'static;
     type Command: Send + 'static;
     type Event: Send + 'static;
+    /// Identifies one declared source across reconciliations. `()` for a service that declares
+    /// none, since associated type defaults are still unstable.
+    type SubKey: Eq + Hash + Send + 'static;
 
     /// Turns a wire call into this service's own command type. Anything in `METHODS` must decode
     /// here, and the default refuses everything, which is right for a service that declares none.
     fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> {
         let _ = args;
         Err(unknown_command(Self::NAME, method))
+    }
+
+    /// The sources that should be running, given the service as it stands. Called after `start` and
+    /// after every input; a key that is still named is left alone, one that is gone is torn down,
+    /// one that is new is built. Effects that fire once belong in `ctx.spawn`, not here.
+    fn subscriptions(&self) -> Vec<Sub<Self>> {
+        Vec::new()
     }
 
     fn start(
@@ -188,6 +200,9 @@ impl<S: Service> ServiceRuntime<S> {
             self.broker.report_health(S::NAME, ServiceState::Running);
         }
 
+        let mut live: HashMap<S::SubKey, SourceGuard> = HashMap::new();
+        reconcile(&ctx, &mut live, service.subscriptions());
+
         loop {
             let input = tokio::select! {
                 () = self.cancel.cancelled() => break,
@@ -201,19 +216,26 @@ impl<S: Service> ServiceRuntime<S> {
             // `&mut self` the handler was midway through mutating leaves it in a state nobody can
             // reason about, so the service stops rather than carrying on with it — and `stop` is
             // skipped for the same reason.
-            if let Err(panic) = AssertUnwindSafe(service.handle(&ctx, input))
-                .catch_unwind()
-                .await
-            {
-                let reason = panic_reason(panic.as_ref());
-                tracing::error!(
-                    service = S::NAME,
-                    reason,
-                    "handler panicked, stopping the service"
-                );
-                ctx.shutdown().await;
-                self.report_stopped(Some(reason));
-                return Ok(());
+            let handled = AssertUnwindSafe(async {
+                service.handle(&ctx, input).await;
+                service.subscriptions()
+            })
+            .catch_unwind()
+            .await;
+
+            match handled {
+                Ok(declared) => reconcile(&ctx, &mut live, declared),
+                Err(panic) => {
+                    let reason = panic_reason(panic.as_ref());
+                    tracing::error!(
+                        service = S::NAME,
+                        reason,
+                        "handler panicked, stopping the service"
+                    );
+                    ctx.shutdown().await;
+                    self.report_stopped(Some(reason));
+                    return Ok(());
+                }
             }
         }
 
@@ -243,8 +265,10 @@ pub(crate) fn panic_reason(panic: &(dyn Any + Send)) -> String {
 
 #[cfg(test)]
 mod tests {
+    use glimpse_contracts::{HeartbeatTick, Message};
+
     use super::*;
-    use crate::MockBroker;
+    use crate::{MockBroker, Publisher};
 
     struct Panicky;
 
@@ -255,6 +279,7 @@ mod tests {
         type Config = ();
         type Command = ();
         type Event = ();
+        type SubKey = ();
 
         async fn start(_ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
             Ok(Self)
@@ -300,6 +325,85 @@ mod tests {
         );
     }
 
+    /// A service whose source is declared only once the model says so, which is what the runtime
+    /// has to notice: `start` opens nothing, and the command is the only thing that arms it.
+    struct Armable {
+        armed: bool,
+        published: Publisher<HeartbeatTick>,
+    }
+
+    #[derive(PartialEq, Eq, Hash)]
+    struct Armed;
+
+    impl Service for Armable {
+        const NAME: &'static str = "armable";
+        const TOPICS: &'static [&'static str] = &[HeartbeatTick::NAME];
+
+        type Config = ();
+        type Command = ();
+        type Event = u64;
+        type SubKey = Armed;
+
+        fn subscriptions(&self) -> Vec<Sub<Self>> {
+            match self.armed {
+                false => Vec::new(),
+                true => vec![Sub::stream(Armed, |_ctx| async {
+                    futures_util::stream::once(async { 7 })
+                })],
+            }
+        }
+
+        async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
+            Ok(Self {
+                armed: false,
+                published: ctx.publisher::<HeartbeatTick>(),
+            })
+        }
+
+        async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {
+            match input {
+                Input::Command((), responder) => {
+                    self.armed = true;
+                    responder.ok(());
+                }
+                Input::Event(count) => self.published.set(HeartbeatTick { count }),
+                Input::Config(()) => {}
+            }
+        }
+
+        fn peek_config(_config: &Config) -> Self::Config {}
+    }
+
+    /// Without the reconcile after `handle`, the command flips the flag and nothing ever starts.
+    #[tokio::test]
+    async fn a_source_declared_by_a_handler_is_started_by_the_runtime() {
+        let mock = Arc::new(MockBroker::default());
+        let broker: Arc<dyn BrokerHandle> = mock.clone();
+        let cancel = CancellationToken::new();
+        let mut runtime = ServiceRuntime::<Armable>::new(
+            broker,
+            Buses::unavailable("no bus in tests"),
+            cancel.clone(),
+        );
+
+        let (reply, answered) = tokio::sync::oneshot::channel();
+        runtime.sender().dispatch((), Responder::new(reply));
+
+        let running = tokio::spawn(async move { runtime.run(()).await });
+        answered.await.expect("the handler answered").expect("ok");
+        for _ in 0..8 {
+            tokio::task::yield_now().await;
+        }
+        cancel.cancel();
+        let _ = running.await;
+
+        let topics: Vec<String> = mock.published().into_iter().map(|(t, _)| t).collect();
+        assert!(
+            topics.contains(&HeartbeatTick::NAME.to_owned()),
+            "the declared source never ran, published {topics:?}"
+        );
+    }
+
     struct NeedsTheBus;
 
     impl Service for NeedsTheBus {
@@ -309,6 +413,7 @@ mod tests {
         type Config = ();
         type Command = ();
         type Event = ();
+        type SubKey = ();
 
         async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
             if let Err(reason) = ctx.system_bus() {

@@ -3,9 +3,10 @@ use sunrise::{Coordinates as SunriseCoordinates, SolarDay, SolarEvent};
 use tokio::time;
 
 use crate::{
-    context::{Ctx, SourceGuard},
+    context::Ctx,
     publisher::Publisher,
     service::{Input, Service, ServiceError},
+    subscription::Sub,
 };
 
 const TICK: time::Duration = time::Duration::from_secs(60);
@@ -23,8 +24,12 @@ pub enum Event {
 pub struct Solar {
     status: Publisher<SolarStatus>,
     coordinates: Option<GeoCoordinates>,
-    _tick: SourceGuard,
-    _on_location: SourceGuard,
+}
+
+#[derive(PartialEq, Eq, Hash)]
+pub enum Watch {
+    Tick,
+    Location,
 }
 
 impl Service for Solar {
@@ -34,15 +39,22 @@ impl Service for Solar {
     type Config = ();
     type Command = Command;
     type Event = Event;
+    type SubKey = Watch;
+
+    fn subscriptions(&self) -> Vec<Sub<Self>> {
+        vec![
+            Sub::interval(Watch::Tick, TICK, |_ctx| async { Event::Tick }),
+            Sub::topic::<GeolocationStatus>(Watch::Location, |data| {
+                Event::Update(data.coordinates)
+            }),
+        ]
+    }
 
     async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
         tracing::debug!("starting solar service");
         Ok(Self {
             coordinates: None,
             status: ctx.publisher::<SolarStatus>(),
-            _tick: ctx.interval(TICK, |_ctx| async { Event::Tick }),
-            _on_location: ctx
-                .subscribe::<GeolocationStatus>(move |data| Event::Update(data.coordinates)),
         })
     }
 

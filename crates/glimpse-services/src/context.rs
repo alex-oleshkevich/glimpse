@@ -322,6 +322,7 @@ mod tests {
         type Config = ();
         type Command = ();
         type Event = u8;
+        type SubKey = ();
 
         async fn start(_ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
             Ok(Self)

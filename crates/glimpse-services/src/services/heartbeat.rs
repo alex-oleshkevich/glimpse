@@ -7,9 +7,10 @@ use tokio::time;
 
 use crate::{
     broker::Responder,
-    context::{Ctx, SourceGuard},
+    context::Ctx,
     publisher::Publisher,
     service::{Input, Service, ServiceError, decode_args, unknown_command},
+    subscription::Sub,
 };
 
 const DEFAULT_PERIOD_MS: u64 = 1000;
@@ -34,7 +35,11 @@ pub struct Heartbeat {
     tick: Publisher<HeartbeatTick>,
     count: u64,
     period_ms: u64,
-    timer: SourceGuard,
+}
+
+#[derive(PartialEq, Eq, Hash)]
+pub struct Tick {
+    period_ms: u64,
 }
 
 impl Service for Heartbeat {
@@ -45,6 +50,17 @@ impl Service for Heartbeat {
     type Config = ();
     type Command = Command;
     type Event = Event;
+    type SubKey = Tick;
+
+    fn subscriptions(&self) -> Vec<Sub<Self>> {
+        vec![Sub::interval(
+            Tick {
+                period_ms: self.period_ms,
+            },
+            time::Duration::from_millis(self.period_ms),
+            |_ctx| async { Event::Tick },
+        )]
+    }
 
     fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> {
         match method {
@@ -59,16 +75,14 @@ impl Service for Heartbeat {
 
     async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
         tracing::debug!("starting heartbeat service");
-        let period = time::Duration::from_millis(DEFAULT_PERIOD_MS);
         Ok(Self {
             count: 0,
             period_ms: DEFAULT_PERIOD_MS,
             tick: ctx.publisher::<HeartbeatTick>(),
-            timer: ctx.interval(period, |_ctx| async { Event::Tick }),
         })
     }
 
-    async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
+    async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
             Input::Event(Event::Tick) => {
                 self.count += 1;
@@ -80,7 +94,7 @@ impl Service for Heartbeat {
                 responder.ok(());
             }
             Input::Command(Command::SetInterval { period_ms }, responder) => {
-                self.set_interval(ctx, period_ms, responder);
+                self.set_interval(period_ms, responder);
             }
             Input::Config(()) => {}
         }
@@ -90,7 +104,7 @@ impl Service for Heartbeat {
 }
 
 impl Heartbeat {
-    fn set_interval(&mut self, ctx: &Ctx<Self>, period_ms: u64, responder: Responder) {
+    fn set_interval(&mut self, period_ms: u64, responder: Responder) {
         if !(MIN_PERIOD_MS..=MAX_PERIOD_MS).contains(&period_ms) {
             return responder.fail(CallError::new(
                 ErrorCode::InvalidArgs,
@@ -98,11 +112,8 @@ impl Heartbeat {
             ));
         }
 
+        // The period is part of the subscription key, so moving it is what restarts the timer.
         let previous_ms = std::mem::replace(&mut self.period_ms, period_ms);
-        let period = time::Duration::from_millis(period_ms);
-        // Assigning drops the old guard, which aborts the task behind it; there is no separate
-        // cancellation to remember.
-        self.timer = ctx.interval(period, |_ctx| async { Event::Tick });
         responder.ok(HeartbeatInterval { previous_ms });
     }
 }

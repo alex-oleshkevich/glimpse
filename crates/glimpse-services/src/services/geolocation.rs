@@ -11,9 +11,10 @@ use serde_json::Value;
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
 use crate::{
-    context::{Ctx, SourceGuard},
+    context::Ctx,
     publisher::Publisher,
     service::{Input, Service, ServiceError, unknown_command},
+    subscription::Sub,
 };
 
 /// The desktop id GeoClue authorizes against, and the section name of the shipped
@@ -54,7 +55,14 @@ pub struct Config {
 pub struct Geolocation {
     status: Publisher<GeolocationStatus>,
     provider: Provider,
-    geoclue: Option<SourceGuard>,
+    attempt: u64,
+}
+
+/// `attempt` carries nothing but its own difference: `geolocation.refresh` has no parameter to
+/// change, and a key that does not move would leave the watch running untouched.
+#[derive(PartialEq, Eq, Hash)]
+pub enum Watch {
+    Geoclue { attempt: u64 },
 }
 
 impl Service for Geolocation {
@@ -65,6 +73,19 @@ impl Service for Geolocation {
     type Config = Config;
     type Command = Command;
     type Event = Event;
+    type SubKey = Watch;
+
+    fn subscriptions(&self) -> Vec<Sub<Self>> {
+        match self.provider {
+            Provider::Geoclue => vec![Sub::stream(
+                Watch::Geoclue {
+                    attempt: self.attempt,
+                },
+                geoclue,
+            )],
+            Provider::Manual(_) => Vec::new(),
+        }
+    }
 
     fn decode(method: &str, _args: Value) -> Result<Self::Command, CallError> {
         match method {
@@ -77,7 +98,7 @@ impl Service for Geolocation {
         let mut service = Self {
             status: ctx.publisher::<GeolocationStatus>(),
             provider: Provider::Manual(None),
-            geoclue: None,
+            attempt: 0,
         };
         service.apply(ctx, config.provider);
         Ok(service)
@@ -103,7 +124,7 @@ impl Service for Geolocation {
                 }
             }
             Input::Command(Command::Refresh, responder) => {
-                self.refresh(ctx);
+                self.refresh();
                 responder.ok(());
             }
         }
@@ -124,10 +145,6 @@ impl Service for Geolocation {
 
 impl Geolocation {
     fn apply(&mut self, ctx: &Ctx<Self>, provider: Provider) {
-        // Dropping the guard stops the GeoClue watch, which is what makes switching to `manual`
-        // release the backend rather than leave it running behind an unread stream.
-        self.geoclue = None;
-
         match &provider {
             Provider::Manual(Some(coordinates)) => {
                 ctx.running();
@@ -137,17 +154,14 @@ impl Geolocation {
                 ctx.degraded("`[location] provider = \"manual\"` needs latitude and longitude");
                 self.publish(None);
             }
-            Provider::Geoclue => {
-                self.publish(None);
-                self.geoclue = Some(ctx.stream(geoclue));
-            }
+            Provider::Geoclue => self.publish(None),
         }
         self.provider = provider;
     }
 
-    fn refresh(&mut self, ctx: &Ctx<Self>) {
+    fn refresh(&mut self) {
         match &self.provider {
-            Provider::Geoclue => self.geoclue = Some(ctx.stream(geoclue)),
+            Provider::Geoclue => self.attempt += 1,
             Provider::Manual(coordinates) => self.publish(coordinates.clone()),
         }
     }
