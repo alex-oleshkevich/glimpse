@@ -39,7 +39,7 @@ fn run(cli: &Cli) -> Result<()> {
     }
 
     register_resources()?;
-    let app_id = std::env::var("GLIMPSE_SHELL_APP_ID").unwrap_or("me.aresa.GlimpseShell".into());
+    let app_id = std::env::var("GLIMPSE_PANEL_APP_ID").unwrap_or("me.aresa.GlimpsePanel".into());
     let app = RelmApp::new(app_id.as_str()).visible_on_activate(false);
     app.with_args(vec![]).run::<app::App>(app::AppInit {
         config,

@@ -36,7 +36,8 @@ fn run(cli: &Cli) -> Result<()> {
         );
     }
 
-    let app_id = std::env::var("GLIMPSE_SHELL_APP_ID").unwrap_or("me.aresa.GlimpseShell".into());
+    let app_id =
+        std::env::var("GLIMPSE_WALLPAPER_APP_ID").unwrap_or("me.aresa.GlimpseWallpaper".into());
     let app = RelmApp::new(app_id.as_str());
     app.with_args(vec![]).run::<app::App>(app::AppInit {
         config,
