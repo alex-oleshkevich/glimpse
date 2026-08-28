@@ -15,6 +15,22 @@ Every template is bundled under the resource prefix `/me/aresa/GlimpseShell`, so
 reachable once its `.ui` is listed in `resources/glimpse-panel.gresource.xml`. Adding a blueprint
 means adding both the `build.rs` pair and the manifest entry.
 
+## Stylesheets
+
+`Styles` owns the CSS providers for one process. `install()` registers them on the display **once**,
+and `load()` replaces their content in place — installing twice stacks every rule. Two providers, in
+cascade order: the theme's sheet for this surface at `STYLE_PROVIDER_PRIORITY_USER`, and the user's
+own `styles.css` one above it, so a drop-in always has the last word.
+
+Each provider connects `parsing-error`, because GTK4's loaders return nothing and a malformed
+stylesheet is otherwise indistinguishable from a selector that does not match. Sheets load by path
+rather than by string: a theme's `panel.css` carries `@import url("base.css")`, and relative imports
+resolve only against a provider that was given a location. A sheet that does not resolve loads the
+empty string, which clears its provider.
+
+`Styles` takes resolved paths rather than a theme name — locating them is `glimpse-config`'s job, and
+keeping it that way is what lets this crate stay free of the configuration schema.
+
 ## Rules
 
 A widget moves here as soon as a second binary needs it. Preventing copy-paste between the panel and

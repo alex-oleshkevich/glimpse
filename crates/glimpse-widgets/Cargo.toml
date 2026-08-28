@@ -9,6 +9,7 @@ license.workspace = true
 gio.workspace = true
 glib.workspace = true
 gtk4.workspace = true
+tracing.workspace = true
 
 [build-dependencies]
 glib-build-tools.workspace = true

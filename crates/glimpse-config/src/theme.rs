@@ -2,10 +2,16 @@ use std::path::{Path, PathBuf};
 
 use futures_util::{Stream, StreamExt};
 
-use crate::load::user_dir;
+use crate::load::{DATA_DIR, user_dir};
 use crate::watch::{Update, watch_all};
 
 const THEMES_DIR: &str = "themes";
+const STYLES_FILE: &str = "styles.css";
+
+pub const DEFAULT_THEME: &str = "adwaita";
+pub const PANEL_STYLESHEET: &str = "panel.css";
+pub const WALLPAPER_STYLESHEET: &str = "wallpaper.css";
+pub const LOCK_STYLESHEET: &str = "lock.css";
 
 fn theme_dirs_from(user_dir: Option<&Path>, theme: &str) -> Vec<PathBuf> {
     let Some(user) = user_dir else {
@@ -22,6 +28,43 @@ fn theme_dirs_from(user_dir: Option<&Path>, theme: &str) -> Vec<PathBuf> {
 
 fn theme_dirs(theme: &str) -> Vec<PathBuf> {
     theme_dirs_from(user_dir().as_deref(), theme)
+}
+
+fn is_file(path: &Path) -> bool {
+    std::fs::metadata(path).is_ok_and(|metadata| metadata.is_file())
+}
+
+fn theme_roots() -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(user) = user_dir() {
+        roots.push(user.join(THEMES_DIR));
+    }
+    roots.push(Path::new(DATA_DIR).join(THEMES_DIR));
+    roots
+}
+
+fn stylesheet_in(roots: &[PathBuf], theme: &str, name: &str) -> Option<PathBuf> {
+    let mut themes = Vec::new();
+    if !theme.is_empty() {
+        themes.push(theme);
+    }
+    if theme != DEFAULT_THEME {
+        themes.push(DEFAULT_THEME);
+    }
+
+    themes
+        .into_iter()
+        .flat_map(|theme| roots.iter().map(move |root| root.join(theme).join(name)))
+        .find(|path| is_file(path))
+}
+
+pub fn stylesheet(theme: &str, name: &str) -> Option<PathBuf> {
+    stylesheet_in(&theme_roots(), theme, name)
+}
+
+pub fn user_stylesheet() -> Option<PathBuf> {
+    let path = user_dir()?.join(STYLES_FILE);
+    is_file(&path).then_some(path)
 }
 
 pub fn watch_theme(theme: &str) -> impl Stream<Item = ()> + Send + 'static {
@@ -42,6 +85,80 @@ pub fn watch_theme(theme: &str) -> impl Stream<Item = ()> + Send + 'static {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn roots(base: &Path) -> Vec<PathBuf> {
+        vec![base.join("user"), base.join("data")]
+    }
+
+    fn sheet(base: &Path, root: &str, theme: &str, name: &str) {
+        let dir = base.join(root).join(theme);
+        std::fs::create_dir_all(&dir).expect("creates");
+        std::fs::write(dir.join(name), "").expect("writes");
+    }
+
+    #[test]
+    fn the_user_copy_of_a_sheet_wins_over_the_installed_one() {
+        let base = tempfile::tempdir().expect("a temporary directory");
+        sheet(base.path(), "user", "adwaita", "panel.css");
+        sheet(base.path(), "data", "adwaita", "panel.css");
+
+        assert_eq!(
+            stylesheet_in(&roots(base.path()), "adwaita", "panel.css"),
+            Some(base.path().join("user/adwaita/panel.css"))
+        );
+    }
+
+    #[test]
+    fn a_theme_supplying_one_sheet_inherits_the_rest_from_the_default_theme() {
+        let base = tempfile::tempdir().expect("a temporary directory");
+        sheet(base.path(), "user", "nord", "panel.css");
+        sheet(base.path(), "data", "adwaita", "panel.css");
+        sheet(base.path(), "data", "adwaita", "lock.css");
+
+        assert_eq!(
+            stylesheet_in(&roots(base.path()), "nord", "panel.css"),
+            Some(base.path().join("user/nord/panel.css"))
+        );
+        assert_eq!(
+            stylesheet_in(&roots(base.path()), "nord", "lock.css"),
+            Some(base.path().join("data/adwaita/lock.css")),
+            "the selected theme has no lock.css, so the default theme answers"
+        );
+    }
+
+    #[test]
+    fn a_sheet_no_theme_supplies_resolves_to_nothing() {
+        let base = tempfile::tempdir().expect("a temporary directory");
+        sheet(base.path(), "data", "adwaita", "panel.css");
+
+        assert_eq!(
+            stylesheet_in(&roots(base.path()), "nord", "wallpaper.css"),
+            None
+        );
+    }
+
+    #[test]
+    fn an_unnamed_theme_falls_straight_through_to_the_default_one() {
+        let base = tempfile::tempdir().expect("a temporary directory");
+        sheet(base.path(), "data", "adwaita", "panel.css");
+
+        assert_eq!(
+            stylesheet_in(&roots(base.path()), "", "panel.css"),
+            Some(base.path().join("data/adwaita/panel.css"))
+        );
+    }
+
+    #[test]
+    fn a_directory_named_like_a_sheet_is_not_a_sheet() {
+        let base = tempfile::tempdir().expect("a temporary directory");
+        std::fs::create_dir_all(base.path().join("user/adwaita/panel.css")).expect("creates");
+        sheet(base.path(), "data", "adwaita", "panel.css");
+
+        assert_eq!(
+            stylesheet_in(&roots(base.path()), "adwaita", "panel.css"),
+            Some(base.path().join("data/adwaita/panel.css"))
+        );
+    }
 
     #[test]
     fn the_set_is_the_theme_directory_and_the_ancestors_it_falls_back_onto() {

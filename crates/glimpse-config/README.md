@@ -110,6 +110,30 @@ which has no lines to name.
 The caller decides what a failure means. At startup that is to log it and come up on
 `Config::default()`; on reload it is to drop the update and keep what is running. Neither exits.
 
+## Themes
+
+A theme is a directory of stylesheets under `themes/<name>/`, looked up in `user_dir()` first and
+`DATA_DIR` second. Resolution is **per artifact, not per directory**: a user theme holding only
+`panel.css` still gets the rest from the installed copy, so tweaking one rule does not mean copying a
+package that then never picks up an upstream fix. A sheet the selected theme does not supply falls
+back to `DEFAULT_THEME`, which is why a theme may contain only the files it actually overrides.
+
+`stylesheet(theme, name)` returns the first of `user/<theme>/<name>`, `data/<theme>/<name>`,
+`user/adwaita/<name>`, `data/adwaita/<name>` that is a regular file — `fs::metadata`, so a symlinked
+asset inside a package resolves. `user_stylesheet()` locates the user's own `styles.css`, which is
+optional and absent by default.
+
+`watch_theme(theme)` is `watch_all` over three directories: `user_dir()`, `user_dir()/themes` and
+`user_dir()/themes/<theme>`. The two ancestors are not decoration. `nearest_existing` walks up only
+as far as directories that are themselves in the requested set, so a watch armed on the theme
+directory alone reports `Unavailable` on a machine where the user has never created one, and a
+directory created later is never noticed. Passing the ancestors is what buys fall-back-and-descend,
+and it is the shape `watch_dirs_from` already uses for `config.d/`.
+
+The set is fixed at construction, so a caller changing `appearance.theme` drops the stream and builds
+another. Watching `user_dir()` for `styles.css` also means a `config.toml` write reports a theme
+change, since both live in that directory.
+
 ## Watching
 
 Every binary watches its own files and re-reads them itself. No process learns about a change from

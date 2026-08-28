@@ -7,7 +7,10 @@ mod watch;
 pub use error::ConfigError;
 pub use load::{DATA_DIR, load, resolved_files, user_dir, watch_dirs};
 pub use schema::*;
-pub use theme::watch_theme;
+pub use theme::{
+    DEFAULT_THEME, LOCK_STYLESHEET, PANEL_STYLESHEET, WALLPAPER_STYLESHEET, stylesheet,
+    user_stylesheet, watch_theme,
+};
 pub use watch::{Update, watch, watch_all, watch_config};
 
 pub fn default_document() -> String {

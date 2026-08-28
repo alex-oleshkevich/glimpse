@@ -3,8 +3,11 @@ use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use gtk4_layer_shell::LayerShell;
 use std::path::PathBuf;
 
-use glimpse_config::{Config, watch_config, watch_theme};
+use glimpse_config::{
+    Config, WALLPAPER_STYLESHEET, stylesheet, user_stylesheet, watch_config, watch_theme,
+};
 use glimpse_ipc::Client;
+use glimpse_widgets::Styles;
 use relm4::{ComponentParts, ComponentSender, SimpleComponent};
 use tokio::task::JoinHandle;
 
@@ -24,6 +27,7 @@ pub enum AppInput {
 pub struct App {
     config: Config,
     theme_watch: JoinHandle<()>,
+    styles: Styles,
 }
 
 #[relm4::component(pub)]
@@ -57,7 +61,9 @@ impl SimpleComponent for App {
         let model = App {
             config: init.config,
             theme_watch,
+            styles: Styles::install(),
         };
+        model.reload_styles();
 
         let widgets = view_output!();
 
@@ -67,14 +73,24 @@ impl SimpleComponent for App {
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
             AppInput::ConfigChanged(config) => {
-                if config.appearance.theme != self.config.appearance.theme {
-                    self.theme_watch.abort();
-                    self.theme_watch = spawn_theme_watch(&config.appearance.theme, sender);
-                }
+                let renamed = config.appearance.theme != self.config.appearance.theme;
                 self.config = config;
+                if renamed {
+                    self.theme_watch.abort();
+                    self.theme_watch = spawn_theme_watch(&self.config.appearance.theme, sender);
+                    self.reload_styles();
+                }
             }
-            AppInput::ThemeChanged => tracing::debug!("theme changed"),
+            AppInput::ThemeChanged => self.reload_styles(),
         }
+    }
+}
+
+impl App {
+    fn reload_styles(&self) {
+        let theme = stylesheet(&self.config.appearance.theme, WALLPAPER_STYLESHEET);
+        self.styles
+            .load(theme.as_deref(), user_stylesheet().as_deref());
     }
 }
 

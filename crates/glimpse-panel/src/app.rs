@@ -3,8 +3,11 @@ use futures_util::StreamExt;
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use std::{collections::HashMap, path::PathBuf};
 
-use glimpse_config::{Config, watch_config, watch_theme};
+use glimpse_config::{
+    Config, PANEL_STYLESHEET, stylesheet, user_stylesheet, watch_config, watch_theme,
+};
 use glimpse_ipc::Client;
+use glimpse_widgets::Styles;
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
 };
@@ -19,7 +22,7 @@ pub struct AppInit {
 }
 
 #[derive(Debug)]
-#[allow(clippy::large_enum_variant)]
+#[allow(clippy::large_enum_variant, clippy::enum_variant_names)]
 pub enum AppInput {
     ConfigChanged(Config),
     MonitorsChanged,
@@ -30,6 +33,7 @@ pub struct App {
     config: Config,
     panels: Vec<PanelState>,
     theme_watch: JoinHandle<()>,
+    styles: Styles,
 }
 
 #[relm4::component(pub)]
@@ -62,7 +66,9 @@ impl SimpleComponent for App {
             config: init.config,
             panels: Default::default(),
             theme_watch,
+            styles: Styles::install(),
         };
+        model.reload_styles();
 
         let widgets = view_output!();
 
@@ -72,16 +78,26 @@ impl SimpleComponent for App {
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
             AppInput::ConfigChanged(config) => {
-                if config.appearance.theme != self.config.appearance.theme {
-                    self.theme_watch.abort();
-                    self.theme_watch = spawn_theme_watch(&config.appearance.theme, sender);
-                }
+                let renamed = config.appearance.theme != self.config.appearance.theme;
                 self.config = config;
+                if renamed {
+                    self.theme_watch.abort();
+                    self.theme_watch = spawn_theme_watch(&self.config.appearance.theme, sender);
+                    self.reload_styles();
+                }
             }
             AppInput::MonitorsChanged => {}
-            AppInput::ThemeChanged => tracing::debug!("theme changed"),
+            AppInput::ThemeChanged => self.reload_styles(),
         }
         reconcile_panels(&mut self.panels, &self.config);
+    }
+}
+
+impl App {
+    fn reload_styles(&self) {
+        let theme = stylesheet(&self.config.appearance.theme, PANEL_STYLESHEET);
+        self.styles
+            .load(theme.as_deref(), user_stylesheet().as_deref());
     }
 }
 

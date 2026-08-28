@@ -15,6 +15,7 @@ futures-util.workspace = true
 glimpse-config = { path = "../glimpse-config" }
 glimpse-ipc = { path = "../glimpse-ipc" }
 glimpse-utils = { path = "../glimpse-utils" }
+glimpse-widgets.workspace = true
 gtk4.workspace = true
 gtk4-layer-shell.workspace = true
 relm4.workspace = true
