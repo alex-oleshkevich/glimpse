@@ -1,19 +1,16 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::appearance::Scheme;
-
 pub const DYNAMIC: &str = "__dynamic__";
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Panel {
     pub size: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub monitor: Option<String>,
     pub position: Position,
     pub margin: Margin,
-    pub scheme: Scheme,
     pub left: Vec<String>,
     pub center: Vec<String>,
     pub right: Vec<String>,
@@ -26,12 +23,11 @@ impl Default for Panel {
             monitor: None,
             position: Position::Top,
             margin: Margin::default(),
-            scheme: Scheme::Dark,
             left: names(&["pager", "mpris"]),
             center: names(&["clock", "weather", "notifications", "privacy"]),
             right: names(&[
                 DYNAMIC,
-                "next_event",
+                "next-event",
                 "tray",
                 "removable",
                 "clipboard",
@@ -54,7 +50,7 @@ fn names(applets: &[&str]) -> Vec<String> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema, Hash)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "kebab-case")]
 pub enum Position {
     Left,
     Top,
@@ -63,7 +59,7 @@ pub enum Position {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Margin {
     pub left: u32,
     pub right: u32,

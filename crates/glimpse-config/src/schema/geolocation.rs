@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 /// be written down: serde refuses the document and names the key that is missing. The alternative —
 /// two loose `Option` fields — makes a half-filled table a runtime problem for every reader.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Deserialize, Serialize, JsonSchema)]
-#[serde(tag = "provider", rename_all = "snake_case")]
+#[serde(tag = "provider", rename_all = "kebab-case")]
 pub enum Geolocation {
     #[default]
     Geoclue,

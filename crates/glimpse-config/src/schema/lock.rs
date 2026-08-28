@@ -1,16 +1,14 @@
-use std::path::PathBuf;
-
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use super::wallpaper::Fit;
-
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Lock {
     pub pam_service: String,
-    pub css_path: PathBuf,
-    pub background: Background,
+    pub background: String,
+    pub background_dark: String,
+    pub dim: f32,
+    pub dim_dark: f32,
     pub clock: Clock,
     pub controls: Controls,
 }
@@ -19,41 +17,18 @@ impl Default for Lock {
     fn default() -> Self {
         Self {
             pam_service: "glimpse-lock".to_owned(),
-            css_path: PathBuf::from("themes/lock.css"),
-            background: Background::default(),
+            background: String::new(),
+            background_dark: String::new(),
+            dim: 1.0,
+            dim_dark: 1.0,
             clock: Clock::default(),
             controls: Controls::default(),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
-#[serde(default, deny_unknown_fields)]
-pub struct Background {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub color: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub path: Option<PathBuf>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub fit: Option<Fit>,
-    pub blur_radius: u32,
-    pub dim: f32,
-}
-
-impl Default for Background {
-    fn default() -> Self {
-        Self {
-            color: None,
-            path: None,
-            fit: None,
-            blur_radius: 0,
-            dim: 0.35,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Clock {
     pub enabled: bool,
     pub time_format: String,
@@ -71,7 +46,7 @@ impl Default for Clock {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Controls {
     pub buttons: Vec<Button>,
 }
@@ -91,7 +66,7 @@ impl Default for Controls {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "kebab-case")]
 pub enum Button {
     Wifi,
     Input,

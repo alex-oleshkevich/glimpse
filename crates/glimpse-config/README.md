@@ -47,8 +47,25 @@ shape belongs to the applet type, not this schema.
 `default_document()`'s header carries a `#:schema /usr/share/glimpse/config.schema.json` directive —
 the path `just install` puts the schema at — so a config file that starts from the shipped default
 gets completion for free. One caveat: `schemars` does not surface a `#[serde(alias = ...)]` in the
-schema's enum values, so `night_light.schedule = "manual"` still parses but an editor will flag it;
+schema's enum values, so `night-light.schedule = "manual"` still parses but an editor will flag it;
 `"schedule"` is the spelling the schema expects.
+
+## Key naming
+
+Every key and every enum value is kebab-case. The document contains no underscores, and
+`rename_all = "kebab-case"` on each `schema/*.rs` type is what translates the snake-case Rust fields
+behind them — `pub background_dark` is `background-dark` on the page.
+
+The convention comes from the stack this file sits beside rather than from Rust: GSettings spells it
+`color-scheme`, the XDG portal's `org.freedesktop.appearance` namespace spells it `color-scheme` and
+`reduced-motion`, niri's own `config.kdl` spells it `focus-follows-mouse`, and CSS spells it
+`--accent-bg-color`. A user editing `config.toml` in the same session as `config.kdl` should not have
+to switch conventions between them.
+
+The attribute is easy to forget on a new table, and forgetting it is silent — that table would ship
+snake-case keys while everything around it is kebab. `every_key_and_enum_value_is_kebab_case` walks
+the generated schema and fails on any key or enum value holding an underscore, naming the offenders,
+so the omission is a build failure rather than something review has to catch.
 
 ## One file, one schema
 

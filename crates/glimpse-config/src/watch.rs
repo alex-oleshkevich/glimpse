@@ -492,7 +492,7 @@ mod tests {
     async fn watch_config_yields_a_changed_document_and_skips_an_identical_rewrite() {
         let dir = tempfile::tempdir().expect("a temporary directory");
         let path = dir.path().join("config.toml");
-        let original = "[night_light]\ntemperature = 4200\n";
+        let original = "[night-light]\ntemperature = 4200\n";
         std::fs::write(&path, original).expect("writes");
 
         let current = load(Some(&path)).expect("loads");
@@ -500,7 +500,7 @@ mod tests {
 
         std::fs::write(&path, original).expect("rewrites");
         tokio::time::sleep(DEBOUNCE * 2).await;
-        std::fs::write(&path, "[night_light]\ntemperature = 3000\n").expect("changes");
+        std::fs::write(&path, "[night-light]\ntemperature = 3000\n").expect("changes");
 
         let config = tokio::time::timeout(SETTLE, configs.next())
             .await
@@ -519,10 +519,10 @@ mod tests {
     async fn sighup_rereads_a_change_no_filesystem_event_announced() {
         let dir = tempfile::tempdir().expect("a temporary directory");
         let path = dir.path().join("config.toml");
-        std::fs::write(&path, "[night_light]\ntemperature = 4200\n").expect("writes");
+        std::fs::write(&path, "[night-light]\ntemperature = 4200\n").expect("writes");
 
         let current = load(Some(&path)).expect("loads");
-        std::fs::write(&path, "[night_light]\ntemperature = 3000\n").expect("changes");
+        std::fs::write(&path, "[night-light]\ntemperature = 3000\n").expect("changes");
 
         // Registers the handler. Raising SIGHUP before this point kills the test binary.
         let mut configs = Box::pin(watch_config(Some(path.clone()), current));
@@ -569,12 +569,12 @@ mod tests {
         }
     }
 
-    const START: &str = "[night_light]\ntemperature = 4200\n";
+    const START: &str = "[night-light]\ntemperature = 4200\n";
     const BROKEN: &str = "not toml [[[";
-    const MISTYPED: &str = "[night_light]\ntemperature = \"warm\"\n";
+    const MISTYPED: &str = "[night-light]\ntemperature = \"warm\"\n";
 
     fn good(temperature: u32) -> String {
-        format!("[night_light]\ntemperature = {temperature}\n")
+        format!("[night-light]\ntemperature = {temperature}\n")
     }
 
     /// Drives `watch_config` through a sequence of writes, polling the stream throughout — it is
@@ -716,14 +716,14 @@ mod tests {
     async fn watch_config_keeps_the_running_document_when_a_reload_does_not_parse() {
         let dir = tempfile::tempdir().expect("a temporary directory");
         let path = dir.path().join("config.toml");
-        std::fs::write(&path, "[night_light]\ntemperature = 4200\n").expect("writes");
+        std::fs::write(&path, "[night-light]\ntemperature = 4200\n").expect("writes");
 
         let current = load(Some(&path)).expect("loads");
         let mut configs = Box::pin(watch_config(Some(path.clone()), current));
 
         std::fs::write(&path, "not toml [[[").expect("breaks it");
         tokio::time::sleep(DEBOUNCE * 2).await;
-        std::fs::write(&path, "[night_light]\ntemperature = 3000\n").expect("fixes it");
+        std::fs::write(&path, "[night-light]\ntemperature = 3000\n").expect("fixes it");
 
         let config = tokio::time::timeout(SETTLE, configs.next())
             .await

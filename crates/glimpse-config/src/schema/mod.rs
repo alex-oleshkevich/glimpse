@@ -17,17 +17,14 @@ use std::collections::BTreeMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub use appearance::{Appearance, Scheme};
+pub use appearance::{Appearance, ColorScheme};
 pub use applets::{Applet, Kind as AppletKind};
 pub use backdrop::Backdrop;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};
 pub use geolocation::Geolocation;
 pub use idle::{Idle, Listener as IdleListener, Profile as IdleProfile, Profiles as IdleProfiles};
 pub use keyboard::{Keyboard, Remember};
-pub use lock::{
-    Background as LockBackground, Button as LockButton, Clock as LockClock,
-    Controls as LockControls, Lock,
-};
+pub use lock::{Button as LockButton, Clock as LockClock, Controls as LockControls, Lock};
 pub use monitors::Monitors;
 pub use night_light::{NightLight, Schedule};
 pub use panels::{DYNAMIC, Margin, Panel, Position};
@@ -35,7 +32,7 @@ pub use power::Power;
 pub use wallpaper::{Fit, Wallpaper};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
-#[serde(default, deny_unknown_fields)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Config {
     pub appearance: Appearance,
     pub monitors: Monitors,
@@ -91,9 +88,50 @@ mod tests {
     }
 
     #[test]
+    fn every_key_and_enum_value_is_kebab_case() {
+        let schema: serde_json::Value =
+            serde_json::from_str(&crate::json_schema_document()).expect("the schema is JSON");
+        let mut offenders = Vec::new();
+        collect_underscored(&schema, &mut offenders);
+
+        assert!(
+            offenders.is_empty(),
+            "the document is kebab-case; add `rename_all` to the type owning {offenders:?}"
+        );
+    }
+
+    fn collect_underscored(node: &serde_json::Value, offenders: &mut Vec<String>) {
+        match node {
+            serde_json::Value::Object(map) => {
+                if let Some(properties) = map.get("properties").and_then(|node| node.as_object()) {
+                    offenders.extend(properties.keys().filter(|key| key.contains('_')).cloned());
+                }
+                if let Some(values) = map.get("enum").and_then(|node| node.as_array()) {
+                    offenders.extend(
+                        values
+                            .iter()
+                            .filter_map(|value| value.as_str())
+                            .filter(|value| value.contains('_'))
+                            .map(str::to_owned),
+                    );
+                }
+                for value in map.values() {
+                    collect_underscored(value, offenders);
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    collect_underscored(item, offenders);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
     fn night_light_still_accepts_manual_for_schedule() {
         let parsed: Config =
-            toml::from_str("[night_light]\nschedule = \"manual\"\n").expect("the alias parses");
+            toml::from_str("[night-light]\nschedule = \"manual\"\n").expect("the alias parses");
 
         assert_eq!(parsed.night_light.schedule, Schedule::Schedule);
     }
