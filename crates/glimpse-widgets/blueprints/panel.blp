@@ -1,0 +1,50 @@
+using Gtk 4.0;
+
+template $GlimpsePanel: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "panel",
+    "panel--horizontal",
+  ]
+
+  Gtk.CenterBox container {
+    orientation: horizontal;
+
+    start-widget: Box start_box {
+      orientation: horizontal;
+      spacing: 4;
+      halign: center;
+      valign: center;
+
+      styles [
+        "panel-section",
+        "panel-section--start",
+      ]
+    };
+
+    center-widget: Box center_box {
+      orientation: horizontal;
+      spacing: 4;
+      halign: center;
+      valign: center;
+
+      styles [
+        "panel-section",
+        "panel-section--center",
+      ]
+    };
+
+    end-widget: Box end_box {
+      orientation: horizontal;
+      spacing: 4;
+      halign: center;
+      valign: center;
+
+      styles [
+        "panel-section",
+        "panel-section--end",
+      ]
+    };
+  }
+}

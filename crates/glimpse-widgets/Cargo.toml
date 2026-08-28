@@ -7,6 +7,8 @@ license.workspace = true
 
 [dependencies]
 gio.workspace = true
+glib.workspace = true
+gtk4.workspace = true
 
 [build-dependencies]
 glib-build-tools.workspace = true

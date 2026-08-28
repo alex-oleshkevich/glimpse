@@ -860,6 +860,8 @@ dependencies = [
  "clap",
  "colorchoice-clap",
  "futures-util",
+ "gio",
+ "glib",
  "glib-build-tools",
  "glimpse-config",
  "glimpse-ipc",
@@ -950,7 +952,9 @@ name = "glimpse-widgets"
 version = "0.16.0"
 dependencies = [
  "gio",
+ "glib",
  "glib-build-tools",
+ "gtk4",
 ]
 
 [[package]]

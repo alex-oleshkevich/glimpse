@@ -27,13 +27,14 @@ gio = "0.22"
 gio-unix = "0.22"
 glib = "0.22"
 glib-build-tools = "0.22"
-glimpse-config = { path = "crates/glimpse-config" }
 glimpse-compositors = { path = "crates/glimpse-compositors" }
+glimpse-config = { path = "crates/glimpse-config" }
 glimpse-contracts = { path = "crates/glimpse-contracts" }
 glimpse-dbus = { path = "crates/glimpse-dbus" }
 glimpse-ipc = { path = "crates/glimpse-ipc" }
 glimpse-services = { path = "crates/glimpse-services" }
 glimpse-utils = { path = "crates/glimpse-utils" }
+glimpse-widgets = { path = "crates/glimpse-widgets" }
 gtk4 = { package = "gtk4", version = "0.11", features = ["v4_22"] }
 gtk4-layer-shell = "0.8"
 gtk4-session-lock = { version = "0.4", features = ["v1_1"] }
