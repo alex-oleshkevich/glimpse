@@ -23,6 +23,12 @@ cells — the daemon's value always wins and the panel cannot drift.
 Update properties on existing widgets. Rebuilding widget trees per event is the most likely source
 of visible stutter.
 
+A bar's identity is its position in the `panels` array paired with the monitor's connector name;
+everything else — position, size, and the monitor object itself — is reconfigured in place. A
+monitor GDK cannot name has no stable identity, so it gets no bar rather than one that reconcile
+cannot find again. Repointing a mapped layer surface at another output remaps it, so `set_monitor`
+is called only when the requested output actually changed.
+
 A surface that must exist once per session — the notification popup stack — is owned by an elected
 bar, not by every bar. An unbound bar never owns it.
 

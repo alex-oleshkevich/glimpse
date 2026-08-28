@@ -3,7 +3,7 @@ use futures_util::StreamExt;
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use std::{collections::HashMap, path::PathBuf};
 
-use glimpse_config::{Config, Position, watch_config};
+use glimpse_config::{Config, watch_config};
 use glimpse_ipc::Client;
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
@@ -64,16 +64,12 @@ impl SimpleComponent for App {
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
+    fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
         match msg {
-            AppInput::ConfigChanged(config) => {
-                self.reconcile_panels(&config, sender);
-                self.config = config;
-            }
-            AppInput::MonitorsChanged => {
-                self.reconcile_panels(&self.config.clone(), sender);
-            }
+            AppInput::ConfigChanged(config) => self.config = config,
+            AppInput::MonitorsChanged => {}
         }
+        reconcile_panels(&mut self.panels, &self.config);
     }
 }
 
@@ -111,7 +107,6 @@ fn watch_monitors(sender: ComponentSender<App>) {
 struct Key {
     pub index: usize,
     pub monitor: String,
-    pub position: Position,
 }
 
 struct PanelState {
@@ -119,51 +114,54 @@ struct PanelState {
     pub controller: Controller<components::panel::Panel>,
 }
 
-impl App {
-    fn reconcile_panels(&mut self, config: &Config, _sender: ComponentSender<App>) {
-        tracing::debug!("reconciling panels");
-        let mut existing: HashMap<Key, PanelState> = self
-            .panels
-            .drain(..)
-            .map(|state| (state.key.clone(), state))
-            .collect();
+fn reconcile_panels(panels: &mut Vec<PanelState>, config: &Config) {
+    tracing::debug!("reconciling panels");
+    let mut existing: HashMap<Key, PanelState> = panels
+        .drain(..)
+        .map(|state| (state.key.clone(), state))
+        .collect();
 
-        let monitors = list_gdk_monitors();
-        let mut new_panels: Vec<PanelState> = Vec::new();
-        for (index, cfg) in config.panels.iter().enumerate() {
-            for monitor in &monitors {
-                let connector = monitor_connector(monitor);
-                if let Some(target) = cfg.monitor.as_deref()
-                    && connector.as_deref() != Some(target)
-                {
-                    continue;
-                }
-
-                let key = Key {
-                    index,
-                    position: cfg.position,
-                    monitor: connector.clone().unwrap_or_default(),
-                };
-
-                let panel_cfg = panel::Config {
-                    position: cfg.position,
-                    size: cfg.size,
-                };
-                let state = match existing.remove(&key) {
-                    Some(state) => {
-                        state.controller.emit(panel::Input::Configure(panel_cfg));
-                        state
-                    }
-                    None => build_panel(key, panel_cfg, monitor.clone()),
-                };
-                new_panels.push(state);
+    let monitors = list_gdk_monitors();
+    for (index, cfg) in config.panels.iter().enumerate() {
+        for monitor in &monitors {
+            let Some(connector) = monitor.connector().map(String::from) else {
+                tracing::debug!("skipping monitor without a connector name");
+                continue;
+            };
+            if cfg
+                .monitor
+                .as_deref()
+                .is_some_and(|target| target != connector)
+            {
+                continue;
             }
+
+            let key = Key {
+                index,
+                monitor: connector,
+            };
+            let panel_cfg = panel::Config {
+                position: cfg.position,
+                size: cfg.size,
+                monitor: monitor.clone(),
+            };
+            let state = match existing.remove(&key) {
+                Some(state) => {
+                    state.controller.emit(panel::Input::Configure(panel_cfg));
+                    state
+                }
+                None => PanelState {
+                    key,
+                    controller: panel::Panel::builder().launch(panel_cfg).detach(),
+                },
+            };
+            panels.push(state);
         }
-        self.panels = new_panels;
-        for (key, state) in existing.drain() {
-            state.controller.widget().destroy();
-            tracing::debug!(?key.position, index=key.index,monitor=%key.monitor, "panel removed");
-        }
+    }
+
+    for (key, state) in existing {
+        state.controller.widget().destroy();
+        tracing::debug!(index = key.index, monitor = %key.monitor, "panel removed");
     }
 }
 
@@ -176,18 +174,4 @@ fn list_gdk_monitors() -> Vec<gdk::Monitor> {
     (0..model.n_items())
         .filter_map(|i| model.item(i).and_downcast::<gdk::Monitor>())
         .collect()
-}
-
-fn monitor_connector(monitor: &gdk::Monitor) -> Option<String> {
-    monitor.connector().map(|s| s.to_string())
-}
-
-fn build_panel(key: Key, config: panel::Config, monitor: gdk::Monitor) -> PanelState {
-    let controller = panel::Panel::builder()
-        .launch(panel::Init {
-            config,
-            monitor: Some(monitor),
-        })
-        .detach();
-    PanelState { key, controller }
 }
