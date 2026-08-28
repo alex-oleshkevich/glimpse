@@ -20,7 +20,8 @@ pub fn init_app_tracing(level: &str, format: LogFormat) {
     let color = anstream::AutoStream::choice(&std::io::stderr()) != anstream::ColorChoice::Never;
     let builder = tracing_subscriber::fmt()
         .with_env_filter(env_filter)
-        .with_ansi(color);
+        .with_ansi(color)
+        .with_writer(std::io::stderr);
 
     match format {
         LogFormat::Plain => builder.init(),

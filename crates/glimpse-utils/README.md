@@ -29,6 +29,13 @@ profile must not stop a binary from starting.
 
 ## Rules
 
+**Logs go to stderr, and the writer is set explicitly.** `tracing_subscriber::fmt()` defaults to
+stdout, which is not a preference to inherit: stdout is data. A log line landing there corrupts
+whatever the binary was asked to print — `glimpsectl get --json | jq` broke on exactly that, because
+one `WARN` from the client arrived ahead of the payload. `with_writer(std::io::stderr)` is what
+stops it, and it has to survive `.json()`, so the two formats are built from one builder rather than
+two.
+
 **Color is resolved, not detected.** `init_app_tracing` asks `anstream` what stderr should do, so
 `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE` and `TERM` are honored without any detection here. It asks
 about stderr specifically, because that is where logs go — asking about stdout would strip color
