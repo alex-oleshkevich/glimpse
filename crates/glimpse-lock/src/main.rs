@@ -6,7 +6,7 @@ use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
 use futures_util::StreamExt;
-use glimpse_config::watch_config;
+use glimpse_config::{watch_config, watch_theme};
 use glimpse_ipc::Client;
 use glimpse_utils::init_app_tracing;
 use tokio::signal::unix::{SignalKind, signal};
@@ -33,9 +33,11 @@ async fn run(cli: Cli) -> Result<()> {
     let _client = Client::open(&socket).await;
 
     let mut configs = Box::pin(watch_config(cli.config.config.clone(), config.clone()));
+    let mut themes = Box::pin(watch_theme(&config.appearance.theme));
     let mut terminate = signal(SignalKind::terminate())?;
     let mut interrupt = signal(SignalKind::interrupt())?;
     let mut reloading = true;
+    let mut watching = true;
 
     loop {
         tokio::select! {
@@ -43,12 +45,22 @@ async fn run(cli: Cli) -> Result<()> {
             _ = interrupt.recv() => break,
             reloaded = configs.next(), if reloading => match reloaded {
                 Some(reloaded) => {
+                    if reloaded.appearance.theme != config.appearance.theme {
+                        themes = Box::pin(watch_theme(&reloaded.appearance.theme));
+                    }
                     config = reloaded;
                     tracing::info!(lock = ?config.lock, "configuration reloaded");
                 }
                 None => {
                     tracing::error!("the configuration is no longer being watched");
                     reloading = false;
+                }
+            },
+            changed = themes.next(), if watching => match changed {
+                Some(()) => tracing::debug!("theme changed"),
+                None => {
+                    tracing::error!("the theme is no longer being watched");
+                    watching = false;
                 }
             },
         }

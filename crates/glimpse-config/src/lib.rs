@@ -1,11 +1,13 @@
 mod error;
 mod load;
 mod schema;
+mod theme;
 mod watch;
 
 pub use error::ConfigError;
 pub use load::{DATA_DIR, load, resolved_files, user_dir, watch_dirs};
 pub use schema::*;
+pub use theme::watch_theme;
 pub use watch::{Update, watch, watch_all, watch_config};
 
 pub fn default_document() -> String {

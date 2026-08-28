@@ -3,9 +3,10 @@ use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use gtk4_layer_shell::LayerShell;
 use std::path::PathBuf;
 
-use glimpse_config::{Config, watch_config};
+use glimpse_config::{Config, watch_config, watch_theme};
 use glimpse_ipc::Client;
 use relm4::{ComponentParts, ComponentSender, SimpleComponent};
+use tokio::task::JoinHandle;
 
 pub struct AppInit {
     pub config: Config,
@@ -14,12 +15,15 @@ pub struct AppInit {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum AppInput {
     ConfigChanged(Config),
+    ThemeChanged,
 }
 
 pub struct App {
     config: Config,
+    theme_watch: JoinHandle<()>,
 }
 
 #[relm4::component(pub)]
@@ -46,11 +50,13 @@ impl SimpleComponent for App {
         root.set_layer(gtk4_layer_shell::Layer::Background);
         root.set_namespace(Some("glimpse-wallpaper"));
 
+        let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
         spawn_config_watch(init.config_path, init.config.clone(), sender);
         spawn_daemon_client(init.socket);
 
         let model = App {
             config: init.config,
+            theme_watch,
         };
 
         let widgets = view_output!();
@@ -58,9 +64,16 @@ impl SimpleComponent for App {
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, msg: Self::Input, _sender: ComponentSender<Self>) {
+    fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
         match msg {
-            AppInput::ConfigChanged(config) => self.config = config,
+            AppInput::ConfigChanged(config) => {
+                if config.appearance.theme != self.config.appearance.theme {
+                    self.theme_watch.abort();
+                    self.theme_watch = spawn_theme_watch(&config.appearance.theme, sender);
+                }
+                self.config = config;
+            }
+            AppInput::ThemeChanged => tracing::debug!("theme changed"),
         }
     }
 }
@@ -73,6 +86,16 @@ fn spawn_daemon_client(socket: PathBuf) {
             tracing::debug!(state = ?*states.borrow_and_update(), "daemon connection");
         }
     });
+}
+
+fn spawn_theme_watch(theme: &str, sender: ComponentSender<App>) -> JoinHandle<()> {
+    let themes = watch_theme(theme);
+    relm4::spawn(async move {
+        let mut themes = Box::pin(themes);
+        while themes.next().await.is_some() {
+            sender.input(AppInput::ThemeChanged);
+        }
+    })
 }
 
 fn spawn_config_watch(path: Option<PathBuf>, current: Config, sender: ComponentSender<App>) {
