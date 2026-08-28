@@ -46,6 +46,18 @@ impl Panel {
         self.imp().end_box.remove(widget);
     }
 
+    pub fn clear_start(&self) {
+        clear(&self.imp().start_box);
+    }
+
+    pub fn clear_center(&self) {
+        clear(&self.imp().center_box);
+    }
+
+    pub fn clear_end(&self) {
+        clear(&self.imp().end_box);
+    }
+
     pub fn set_orientation(&self, orientation: gtk4::Orientation) {
         let imp = self.imp();
         imp.container.set_orientation(orientation);
@@ -59,5 +71,29 @@ impl Panel {
         };
         self.remove_css_class(remove);
         self.add_css_class(add);
+
+        self.apply_thickness();
+    }
+
+    pub fn set_thickness(&self, thickness: u32) {
+        self.imp()
+            .thickness
+            .set(i32::try_from(thickness).unwrap_or(i32::MAX));
+        self.apply_thickness();
+    }
+
+    fn apply_thickness(&self) {
+        let imp = self.imp();
+        let thickness = imp.thickness.get();
+        match imp.container.orientation() {
+            gtk4::Orientation::Vertical => self.set_size_request(thickness, -1),
+            _ => self.set_size_request(-1, thickness),
+        }
+    }
+}
+
+fn clear(section: &gtk4::Box) {
+    while let Some(child) = section.first_child() {
+        section.remove(&child);
     }
 }

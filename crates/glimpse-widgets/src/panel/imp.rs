@@ -1,8 +1,10 @@
 use gtk4::{AccessibleRole, CompositeTemplate, TemplateChild, glib, subclass::prelude::*};
+use std::cell::Cell;
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/panel.ui")]
 pub struct Panel {
+    pub thickness: Cell<i32>,
     #[template_child]
     pub container: TemplateChild<gtk4::CenterBox>,
     #[template_child]
