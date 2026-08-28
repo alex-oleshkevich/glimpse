@@ -53,7 +53,7 @@ fn names(applets: &[&str]) -> Vec<String> {
     applets.iter().map(|name| (*name).to_owned()).collect()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum Position {
     Left,
