@@ -1,5 +1,6 @@
 mod app;
 mod cli;
+mod components;
 use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
@@ -39,7 +40,7 @@ fn run(cli: &Cli) -> Result<()> {
 
     register_resources()?;
     let app_id = std::env::var("GLIMPSE_SHELL_APP_ID").unwrap_or("me.aresa.GlimpseShell".into());
-    let app = RelmApp::new(app_id.as_str());
+    let app = RelmApp::new(app_id.as_str()).visible_on_activate(false);
     app.with_args(vec![]).run::<app::App>(app::AppInit {
         config,
         config_path: cli.config.config.clone(),
