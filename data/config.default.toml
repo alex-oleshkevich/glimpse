@@ -2,56 +2,57 @@
 # This is glimpse's default configuration — every setting, with the value it ships with.
 
 [appearance]
-pack = ""
-scheme = "auto"
+theme = "adwaita"
+theme-variant = ""
+color-scheme = "auto"
 
 [monitors]
 
 [geolocation]
 provider = "geoclue"
 
-[night_light]
+[night-light]
 schedule = "automatic"
 temperature = 4200
-transition_minutes = 15
+transition-minutes = 15
 
 [idle]
 enabled = true
-respect_inhibitors = true
+respect-inhibitors = true
 
 [[idle.profiles.ac.listeners]]
 timeout = 600
-on_idle = "/usr/share/glimpse/scripts/monitors off"
-on_resume = "/usr/share/glimpse/scripts/monitors on"
+on-idle = "/usr/share/glimpse/scripts/monitors off"
+on-resume = "/usr/share/glimpse/scripts/monitors on"
 
 [[idle.profiles.ac.listeners]]
 timeout = 900
-on_idle = "loginctl lock-session"
-on_resume = ""
+on-idle = "loginctl lock-session"
+on-resume = ""
 
 [[idle.profiles.ac.listeners]]
 timeout = 3600
-on_idle = "systemctl suspend"
-on_resume = ""
+on-idle = "systemctl suspend"
+on-resume = ""
 
 [[idle.profiles.battery.listeners]]
 timeout = 300
-on_idle = "/usr/share/glimpse/scripts/monitors off"
-on_resume = "/usr/share/glimpse/scripts/monitors on"
+on-idle = "/usr/share/glimpse/scripts/monitors off"
+on-resume = "/usr/share/glimpse/scripts/monitors on"
 
 [[idle.profiles.battery.listeners]]
 timeout = 900
-on_idle = "loginctl lock-session"
-on_resume = ""
+on-idle = "loginctl lock-session"
+on-resume = ""
 
 [[idle.profiles.battery.listeners]]
 timeout = 1800
-on_idle = "systemctl suspend"
-on_resume = ""
+on-idle = "systemctl suspend"
+on-resume = ""
 
 [power]
-lock_before_sleep = true
-lock_on_request = true
+lock-before-sleep = true
+lock-on-request = true
 
 [keyboard]
 remember = "window"
@@ -59,30 +60,30 @@ remember = "window"
 [keyboard.labels]
 
 [calendar]
-poll_interval = 600
+poll-interval = 600
 sources = []
 
 [wallpaper]
-color = "#101010"
-fit = "cover"
-transition_ms = 800
+fit = "fill"
+color = "#000000"
+background = ""
+background-dark = ""
 
 [backdrop]
 enabled = true
-blur_radius = 24
+blur-radius = 24
 
 [lock]
-pam_service = "glimpse-lock"
-css_path = "themes/lock.css"
-
-[lock.background]
-blur_radius = 0
-dim = 0.35
+pam-service = "glimpse-lock"
+background = ""
+background-dark = ""
+dim = 1.0
+dim-dark = 1.0
 
 [lock.clock]
 enabled = true
-time_format = "%H:%M"
-date_format = "%A, %B %-d"
+time-format = "%H:%M"
+date-format = "%A, %B %-d"
 
 [lock.controls]
 buttons = [
@@ -96,7 +97,6 @@ buttons = [
 [[panels]]
 size = 36
 position = "top"
-scheme = "dark"
 left = [
     "pager",
     "mpris",
@@ -109,7 +109,7 @@ center = [
 ]
 right = [
     "__dynamic__",
-    "next_event",
+    "next-event",
     "tray",
     "removable",
     "clipboard",

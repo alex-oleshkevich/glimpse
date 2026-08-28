@@ -6,8 +6,9 @@
     "appearance": {
       "$ref": "#/$defs/Appearance",
       "default": {
-        "pack": "",
-        "scheme": "auto"
+        "color-scheme": "auto",
+        "theme": "adwaita",
+        "theme-variant": ""
       }
     },
     "applets": {
@@ -20,14 +21,14 @@
     "backdrop": {
       "$ref": "#/$defs/Backdrop",
       "default": {
-        "blur_radius": 24,
+        "blur-radius": 24,
         "enabled": true
       }
     },
     "calendar": {
       "$ref": "#/$defs/Calendar",
       "default": {
-        "poll_interval": 600,
+        "poll-interval": 600,
         "sources": []
       }
     },
@@ -45,18 +46,18 @@
           "ac": {
             "listeners": [
               {
-                "on_idle": "/usr/share/glimpse/scripts/monitors off",
-                "on_resume": "/usr/share/glimpse/scripts/monitors on",
+                "on-idle": "/usr/share/glimpse/scripts/monitors off",
+                "on-resume": "/usr/share/glimpse/scripts/monitors on",
                 "timeout": 600
               },
               {
-                "on_idle": "loginctl lock-session",
-                "on_resume": "",
+                "on-idle": "loginctl lock-session",
+                "on-resume": "",
                 "timeout": 900
               },
               {
-                "on_idle": "systemctl suspend",
-                "on_resume": "",
+                "on-idle": "systemctl suspend",
+                "on-resume": "",
                 "timeout": 3600
               }
             ]
@@ -64,24 +65,24 @@
           "battery": {
             "listeners": [
               {
-                "on_idle": "/usr/share/glimpse/scripts/monitors off",
-                "on_resume": "/usr/share/glimpse/scripts/monitors on",
+                "on-idle": "/usr/share/glimpse/scripts/monitors off",
+                "on-resume": "/usr/share/glimpse/scripts/monitors on",
                 "timeout": 300
               },
               {
-                "on_idle": "loginctl lock-session",
-                "on_resume": "",
+                "on-idle": "loginctl lock-session",
+                "on-resume": "",
                 "timeout": 900
               },
               {
-                "on_idle": "systemctl suspend",
-                "on_resume": "",
+                "on-idle": "systemctl suspend",
+                "on-resume": "",
                 "timeout": 1800
               }
             ]
           }
         },
-        "respect_inhibitors": true
+        "respect-inhibitors": true
       }
     },
     "keyboard": {
@@ -94,14 +95,12 @@
     "lock": {
       "$ref": "#/$defs/Lock",
       "default": {
-        "background": {
-          "blur_radius": 0,
-          "dim": 0.3499999940395355
-        },
+        "background": "",
+        "background-dark": "",
         "clock": {
-          "date_format": "%A, %B %-d",
+          "date-format": "%A, %B %-d",
           "enabled": true,
-          "time_format": "%H:%M"
+          "time-format": "%H:%M"
         },
         "controls": {
           "buttons": [
@@ -112,20 +111,21 @@
             "power"
           ]
         },
-        "css_path": "themes/lock.css",
-        "pam_service": "glimpse-lock"
+        "dim": 1.0,
+        "dim-dark": 1.0,
+        "pam-service": "glimpse-lock"
       }
     },
     "monitors": {
       "$ref": "#/$defs/Monitors",
       "default": {}
     },
-    "night_light": {
+    "night-light": {
       "$ref": "#/$defs/NightLight",
       "default": {
         "schedule": "automatic",
         "temperature": 4200,
-        "transition_minutes": 15
+        "transition-minutes": 15
       }
     },
     "panels": {
@@ -151,7 +151,7 @@
           "position": "top",
           "right": [
             "__dynamic__",
-            "next_event",
+            "next-event",
             "tray",
             "removable",
             "clipboard",
@@ -165,7 +165,6 @@
             "battery",
             "session"
           ],
-          "scheme": "dark",
           "size": 36
         }
       ],
@@ -176,16 +175,17 @@
     "power": {
       "$ref": "#/$defs/Power",
       "default": {
-        "lock_before_sleep": true,
-        "lock_on_request": true
+        "lock-before-sleep": true,
+        "lock-on-request": true
       }
     },
     "wallpaper": {
       "$ref": "#/$defs/Wallpaper",
       "default": {
-        "color": "#101010",
-        "fit": "cover",
-        "transition_ms": 800
+        "background": "",
+        "background-dark": "",
+        "color": "#000000",
+        "fit": "fill"
       }
     }
   },
@@ -194,13 +194,17 @@
     "Appearance": {
       "type": "object",
       "properties": {
-        "pack": {
+        "color-scheme": {
+          "$ref": "#/$defs/ColorScheme",
+          "default": "auto"
+        },
+        "theme": {
+          "type": "string",
+          "default": "adwaita"
+        },
+        "theme-variant": {
           "type": "string",
           "default": ""
-        },
-        "scheme": {
-          "$ref": "#/$defs/Scheme",
-          "default": "auto"
         }
       },
       "additionalProperties": false
@@ -225,7 +229,7 @@
     "Backdrop": {
       "type": "object",
       "properties": {
-        "blur_radius": {
+        "blur-radius": {
           "type": "integer",
           "format": "uint32",
           "default": 24,
@@ -234,45 +238,6 @@
         "enabled": {
           "type": "boolean",
           "default": true
-        },
-        "path": {
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "additionalProperties": false
-    },
-    "Background": {
-      "type": "object",
-      "properties": {
-        "blur_radius": {
-          "type": "integer",
-          "format": "uint32",
-          "default": 0,
-          "minimum": 0
-        },
-        "color": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "dim": {
-          "type": "number",
-          "format": "float",
-          "default": 0.3499999940395355
-        },
-        "fit": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Fit"
-            },
-            {
-              "type": "null"
-            }
-          ]
         },
         "path": {
           "type": [
@@ -296,7 +261,7 @@
     "Calendar": {
       "type": "object",
       "properties": {
-        "poll_interval": {
+        "poll-interval": {
           "type": "integer",
           "format": "uint64",
           "default": 600,
@@ -315,7 +280,7 @@
     "Clock": {
       "type": "object",
       "properties": {
-        "date_format": {
+        "date-format": {
           "type": "string",
           "default": "%A, %B %-d"
         },
@@ -323,12 +288,20 @@
           "type": "boolean",
           "default": true
         },
-        "time_format": {
+        "time-format": {
           "type": "string",
           "default": "%H:%M"
         }
       },
       "additionalProperties": false
+    },
+    "ColorScheme": {
+      "type": "string",
+      "enum": [
+        "light",
+        "dark",
+        "auto"
+      ]
     },
     "Controls": {
       "type": "object",
@@ -409,18 +382,18 @@
             "ac": {
               "listeners": [
                 {
-                  "on_idle": "/usr/share/glimpse/scripts/monitors off",
-                  "on_resume": "/usr/share/glimpse/scripts/monitors on",
+                  "on-idle": "/usr/share/glimpse/scripts/monitors off",
+                  "on-resume": "/usr/share/glimpse/scripts/monitors on",
                   "timeout": 600
                 },
                 {
-                  "on_idle": "loginctl lock-session",
-                  "on_resume": "",
+                  "on-idle": "loginctl lock-session",
+                  "on-resume": "",
                   "timeout": 900
                 },
                 {
-                  "on_idle": "systemctl suspend",
-                  "on_resume": "",
+                  "on-idle": "systemctl suspend",
+                  "on-resume": "",
                   "timeout": 3600
                 }
               ]
@@ -428,25 +401,25 @@
             "battery": {
               "listeners": [
                 {
-                  "on_idle": "/usr/share/glimpse/scripts/monitors off",
-                  "on_resume": "/usr/share/glimpse/scripts/monitors on",
+                  "on-idle": "/usr/share/glimpse/scripts/monitors off",
+                  "on-resume": "/usr/share/glimpse/scripts/monitors on",
                   "timeout": 300
                 },
                 {
-                  "on_idle": "loginctl lock-session",
-                  "on_resume": "",
+                  "on-idle": "loginctl lock-session",
+                  "on-resume": "",
                   "timeout": 900
                 },
                 {
-                  "on_idle": "systemctl suspend",
-                  "on_resume": "",
+                  "on-idle": "systemctl suspend",
+                  "on-resume": "",
                   "timeout": 1800
                 }
               ]
             }
           }
         },
-        "respect_inhibitors": {
+        "respect-inhibitors": {
           "type": "boolean",
           "default": true
         }
@@ -487,7 +460,7 @@
         "keyboard",
         "mpris",
         "network",
-        "next_event",
+        "next-event",
         "notifications",
         "pager",
         "privacy",
@@ -503,15 +476,15 @@
     "Listener": {
       "type": "object",
       "properties": {
-        "on_idle": {
+        "on-idle": {
           "type": "string",
           "default": ""
         },
-        "on_resume": {
+        "on-resume": {
           "type": "string",
           "default": ""
         },
-        "respect_inhibitors": {
+        "respect-inhibitors": {
           "type": [
             "boolean",
             "null"
@@ -530,18 +503,19 @@
       "type": "object",
       "properties": {
         "background": {
-          "$ref": "#/$defs/Background",
-          "default": {
-            "blur_radius": 0,
-            "dim": 0.3499999940395355
-          }
+          "type": "string",
+          "default": ""
+        },
+        "background-dark": {
+          "type": "string",
+          "default": ""
         },
         "clock": {
           "$ref": "#/$defs/Clock",
           "default": {
-            "date_format": "%A, %B %-d",
+            "date-format": "%A, %B %-d",
             "enabled": true,
-            "time_format": "%H:%M"
+            "time-format": "%H:%M"
           }
         },
         "controls": {
@@ -556,11 +530,17 @@
             ]
           }
         },
-        "css_path": {
-          "type": "string",
-          "default": "themes/lock.css"
+        "dim": {
+          "type": "number",
+          "format": "float",
+          "default": 1.0
         },
-        "pam_service": {
+        "dim-dark": {
+          "type": "number",
+          "format": "float",
+          "default": 1.0
+        },
+        "pam-service": {
           "type": "string",
           "default": "glimpse-lock"
         }
@@ -600,7 +580,7 @@
     "Monitors": {
       "type": "object",
       "properties": {
-        "builtin_connector": {
+        "builtin-connector": {
           "type": [
             "string",
             "null"
@@ -612,7 +592,7 @@
     "NightLight": {
       "type": "object",
       "properties": {
-        "end_time": {
+        "end-time": {
           "type": [
             "string",
             "null"
@@ -622,7 +602,7 @@
           "$ref": "#/$defs/Schedule",
           "default": "automatic"
         },
-        "start_time": {
+        "start-time": {
           "type": [
             "string",
             "null"
@@ -634,7 +614,7 @@
           "default": 4200,
           "minimum": 0
         },
-        "transition_minutes": {
+        "transition-minutes": {
           "type": "integer",
           "format": "uint32",
           "default": 15,
@@ -691,7 +671,7 @@
           "type": "array",
           "default": [
             "__dynamic__",
-            "next_event",
+            "next-event",
             "tray",
             "removable",
             "clipboard",
@@ -708,10 +688,6 @@
           "items": {
             "type": "string"
           }
-        },
-        "scheme": {
-          "$ref": "#/$defs/Scheme",
-          "default": "dark"
         },
         "size": {
           "type": "integer",
@@ -734,11 +710,11 @@
     "Power": {
       "type": "object",
       "properties": {
-        "lock_before_sleep": {
+        "lock-before-sleep": {
           "type": "boolean",
           "default": true
         },
-        "lock_on_request": {
+        "lock-on-request": {
           "type": "boolean",
           "default": true
         }
@@ -766,18 +742,18 @@
           "default": {
             "listeners": [
               {
-                "on_idle": "/usr/share/glimpse/scripts/monitors off",
-                "on_resume": "/usr/share/glimpse/scripts/monitors on",
+                "on-idle": "/usr/share/glimpse/scripts/monitors off",
+                "on-resume": "/usr/share/glimpse/scripts/monitors on",
                 "timeout": 600
               },
               {
-                "on_idle": "loginctl lock-session",
-                "on_resume": "",
+                "on-idle": "loginctl lock-session",
+                "on-resume": "",
                 "timeout": 900
               },
               {
-                "on_idle": "systemctl suspend",
-                "on_resume": "",
+                "on-idle": "systemctl suspend",
+                "on-resume": "",
                 "timeout": 3600
               }
             ]
@@ -788,18 +764,18 @@
           "default": {
             "listeners": [
               {
-                "on_idle": "/usr/share/glimpse/scripts/monitors off",
-                "on_resume": "/usr/share/glimpse/scripts/monitors on",
+                "on-idle": "/usr/share/glimpse/scripts/monitors off",
+                "on-resume": "/usr/share/glimpse/scripts/monitors on",
                 "timeout": 300
               },
               {
-                "on_idle": "loginctl lock-session",
-                "on_resume": "",
+                "on-idle": "loginctl lock-session",
+                "on-resume": "",
                 "timeout": 900
               },
               {
-                "on_idle": "systemctl suspend",
-                "on_resume": "",
+                "on-idle": "systemctl suspend",
+                "on-resume": "",
                 "timeout": 1800
               }
             ]
@@ -824,14 +800,6 @@
         "schedule"
       ]
     },
-    "Scheme": {
-      "type": "string",
-      "enum": [
-        "light",
-        "dark",
-        "auto"
-      ]
-    },
     "Source": {
       "type": "object",
       "properties": {
@@ -850,7 +818,7 @@
             "null"
           ]
         },
-        "poll_interval": {
+        "poll-interval": {
           "type": [
             "integer",
             "null"
@@ -882,25 +850,21 @@
     "Wallpaper": {
       "type": "object",
       "properties": {
+        "background": {
+          "type": "string",
+          "default": ""
+        },
+        "background-dark": {
+          "type": "string",
+          "default": ""
+        },
         "color": {
           "type": "string",
-          "default": "#101010"
+          "default": "#000000"
         },
         "fit": {
           "$ref": "#/$defs/Fit",
-          "default": "cover"
-        },
-        "path": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "transition_ms": {
-          "type": "integer",
-          "format": "uint32",
-          "default": 800,
-          "minimum": 0
+          "default": "fill"
         }
       },
       "additionalProperties": false
