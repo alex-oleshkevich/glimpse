@@ -158,6 +158,14 @@ build-release:
 build-crate CRATE:
     cargo build -p {{ CRATE }}
 
+[doc("build the shipped binaries with symbols, for perf; output in target/profiling/")]
+build-profiling:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    args=()
+    for b in {{ binaries }}; do args+=(-p "$b"); done
+    cargo build --profile profiling "${args[@]}"
+
 [doc("build only the shipped binaries, release — unlike build-release, doesn't need every workspace crate to compile")]
 build-release-binaries:
     #!/usr/bin/env bash
