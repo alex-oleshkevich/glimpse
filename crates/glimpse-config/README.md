@@ -247,14 +247,14 @@ A panel zone lists applets by name. `AppletKind::from_name` resolves one, deseri
 enum's own `rename_all` rather than matching on strings, so the spelling of every kind lives in one
 place and a renamed variant cannot leave a stale arm behind.
 
-The panel warns about a name that does not resolve, which makes an unresolvable entry in
-`Panel::default()` a warning on every start of an untouched installation — about an applet we
-shipped ourselves. `every_applet_named_by_the_default_panels_resolves` is what stops one landing.
-That is why `__dynamic__` was deleted rather than left as a reserved name: it headed the default
-`right` list, and reserving a name nothing honours costs a warning per start forever.
+A name that does not resolve is a typo, and the panel is expected to say so. That makes an
+unresolvable entry in `Panel::default()` a complaint about an applet we shipped ourselves, on every
+start of an untouched installation, which is why `every_applet_named_by_the_default_panels_resolves`
+guards it and why `__dynamic__` was deleted rather than kept as a reserved name — it headed the
+default `right` list, and a reserved name nothing honours costs that complaint forever.
 
-Resolving is not the same as being built. A name that maps to a kind the panel has no implementation
-for is ordinary and silent; only an unresolvable name is worth a warning.
+Resolving is not the same as being implemented, and this crate only answers the first. A name that
+maps to a kind no binary implements is an ordinary state, not a bad document.
 
 ## Not here
 
