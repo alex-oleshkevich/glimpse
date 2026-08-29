@@ -112,23 +112,34 @@ The caller decides what a failure means. At startup that is to log it and come u
 
 ## Themes
 
-A theme is a directory of stylesheets under `themes/<name>/`, looked up in `user_dir()` first and
-`DATA_DIR` second. Resolution is **per artifact, not per directory**: a user theme holding only
-`panel.css` still gets the rest from the installed copy, so tweaking one rule does not mean copying a
-package that then never picks up an upstream fix. A sheet the selected theme does not supply falls
-back to `DEFAULT_THEME`, which is why a theme may contain only the files it actually overrides.
+A theme is a directory of stylesheets under `<root>/<name>/`. The roots are `user_dir()/themes` then
+`DATA_DIR/themes`, unless `GLIMPSE_THEMES_DIR` names one, which replaces both — an explicit override
+replaces the stack rather than joining it, the same rule `--config` follows for configuration.
 
-`stylesheet(theme, name)` returns the first of `user/<theme>/<name>`, `data/<theme>/<name>`,
-`user/adwaita/<name>`, `data/adwaita/<name>` that is a regular file — `fs::metadata`, so a symlinked
-asset inside a package resolves. `user_stylesheet()` locates the user's own `styles.css`, which is
-optional and absent by default.
+**Resolution picks one directory, not one file at a time.** `theme_dir_for(theme)` returns the first
+of `user/<theme>`, `data/<theme>`, `user/adwaita`, `data/adwaita` that is a directory, and every sheet
+then comes from it. `stylesheet(theme, name)` is that directory joined with the name, kept only if it
+is a regular file — `fs::metadata`, so a symlinked asset inside a package resolves.
 
-`watch_theme(theme)` is `watch_all` over three directories: `user_dir()`, `user_dir()/themes` and
-`user_dir()/themes/<theme>`. The two ancestors are not decoration. `nearest_existing` walks up only
-as far as directories that are themselves in the requested set, so a watch armed on the theme
-directory alone reports `Unavailable` on a machine where the user has never created one, and a
-directory created later is never noticed. Passing the ancestors is what buys fall-back-and-descend,
-and it is the shape `watch_dirs_from` already uses for `config.d/`.
+The directory is the unit because CSS makes it one. `panel.css` and `lock.css` are each
+`@import url("base.css")`, and GTK resolves a relative import against the importing file's own
+directory, never through this resolver. A theme assembled from two roots therefore cannot import
+across them: `user/nord/panel.css` looks for `user/nord/base.css` and fails, whatever `data/nord`
+holds. Per-file resolution was tried and promised that a theme could ship one sheet and inherit the
+rest; the import makes that unreachable, so a theme is now all or nothing. Copy the whole directory
+to customise one rule.
+
+`user_stylesheet()` locates the user's own `styles.css`, which is optional, absent by default, and
+not part of any theme — it lives in `user_dir()` and always loads on top of the theme.
+
+`watch_theme(theme)` watches `user_dir()` for that `styles.css`, then every root and every
+`<root>/<theme>` beneath it, then the directory resolution actually chose. The roots are not
+decoration. `nearest_existing` walks up only as far as directories that are themselves in the
+requested set, so a watch armed on the theme directory alone reports `Unavailable` on a machine where
+the user has never created one, and a directory created later is never noticed. Passing the roots is
+what buys fall-back-and-descend, and it is the shape `watch_dirs_from` already uses for `config.d/`.
+Arming a root that does not exist costs nothing: `rearm` reports `Unavailable` only when *every* arm
+fails, so an uninstalled `DATA_DIR/themes` leaves the rest of the set working.
 
 The set is fixed at construction, so a caller changing `appearance.theme` drops the stream and builds
 another. Watching `user_dir()` for `styles.css` also means a `config.toml` write reports a theme

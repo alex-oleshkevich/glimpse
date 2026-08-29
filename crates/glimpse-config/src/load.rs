@@ -54,7 +54,7 @@ fn watch_dirs_from(
     dirs
 }
 
-fn push(dirs: &mut Vec<PathBuf>, dir: PathBuf) {
+pub(crate) fn push(dirs: &mut Vec<PathBuf>, dir: PathBuf) {
     if !dirs.contains(&dir) {
         dirs.push(dir);
     }
