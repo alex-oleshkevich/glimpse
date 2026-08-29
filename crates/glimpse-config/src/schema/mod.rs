@@ -149,6 +149,44 @@ mod tests {
     }
 
     #[test]
+    fn an_applet_table_with_no_settings_takes_the_defaults() {
+        let parsed: Config = toml::from_str("[applets.clock]\n").expect("settings are optional");
+
+        assert_eq!(
+            parsed.applets["clock"],
+            Applet::Clock(applets::Clock::default())
+        );
+    }
+
+    #[test]
+    fn the_schema_offers_every_applet_by_its_table_name() {
+        let schema: serde_json::Value =
+            serde_json::from_str(&crate::json_schema_document()).expect("the schema is JSON");
+        let applets = &schema["properties"]["applets"];
+        let by_name = applets["properties"]
+            .as_object()
+            .expect("one entry per applet, so an editor resolves [applets.clock] on its own");
+
+        assert_eq!(
+            by_name["clock"]["properties"]["format"]["default"],
+            serde_json::json!("%H:%M"),
+            "a by-name entry carries the applet's own settings"
+        );
+        assert_eq!(
+            by_name["clock"]["required"],
+            serde_json::json!([]),
+            "`extends` is not required when the table name already names the applet"
+        );
+        assert_eq!(
+            applets["additionalProperties"]["oneOf"]
+                .as_array()
+                .map(Vec::len),
+            Some(by_name.len()),
+            "an aliased table falls through to the tagged form"
+        );
+    }
+
+    #[test]
     fn extends_names_the_applet_so_one_kind_can_have_several_instances() {
         let parsed: Config = toml::from_str("[applets.clock-utc]\nextends = \"clock\"\n")
             .expect("extends wins over the key");
