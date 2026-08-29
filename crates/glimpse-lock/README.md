@@ -65,5 +65,13 @@ other binary has, and neither of them needs `glimpsed` alive.
 
 The process outlives its own startup even while the lock surfaces are unwritten. A locker that
 returns is an unlocked session, and under `Restart=always` returning immediately is a restart loop.
-Losing every reload trigger does not end it either — only `SIGTERM` or `SIGINT` may. `glimpse-sunset`
-runs the same loop for the same reason; the two are a line apart on purpose.
+Losing every reload trigger does not end it either. `RelmApp::run` supplies that: it blocks on the
+GTK main loop, and the hidden `adw::ApplicationWindow` keeps the `GtkApplication` alive with nothing
+on screen, so a dead watch cannot end the process.
+
+The binary is a relm4 application in the same shape as `glimpse-panel` and `glimpse-wallpaper` —
+`main.rs` parses, loads and calls `RelmApp::run`, and `app.rs` holds the component that owns the
+config watch, the theme watch, the daemon client and the CSS providers. It was a `tokio::select!`
+loop copied from `glimpse-sunset` until that shape ran out: sunset is genuinely headless, and this
+crate draws a surface on every output. What the loop was for survives the move; what it shared with
+a night-light service did not.

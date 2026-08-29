@@ -9,6 +9,7 @@
     "reveal": "never",
     "hide": "on_success",
     "env": {
+      "RUST_LOG": "debug",
       "GLIMPSE_CONFIG_PATH": "var/config/config.toml",
     },
   },
@@ -19,6 +20,7 @@
     "reveal": "never",
     "hide": "on_success",
     "env": {
+      "RUST_LOG": "debug",
       "GLIMPSE_PANEL_APP_ID": "me.aresa.GlimpsePanel.Dev",
       "GLIMPSE_CONFIG_PATH": "var/config/config.toml",
     },

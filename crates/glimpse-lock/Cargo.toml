@@ -7,6 +7,7 @@ license.workspace = true
 build = "build.rs"
 
 [dependencies]
+adw.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 colorchoice-clap.workspace = true
@@ -14,6 +15,9 @@ futures-util.workspace = true
 glimpse-config = { path = "../glimpse-config" }
 glimpse-ipc = { path = "../glimpse-ipc" }
 glimpse-utils = { path = "../glimpse-utils" }
+glimpse-widgets.workspace = true
+gtk4.workspace = true
+relm4.workspace = true
 shadow-rs.workspace = true
 tokio.workspace = true
 tracing.workspace = true

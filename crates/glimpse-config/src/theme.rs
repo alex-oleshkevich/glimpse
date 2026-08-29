@@ -40,6 +40,7 @@ fn theme_roots() -> Vec<PathBuf> {
         roots.push(user.join(THEMES_DIR));
     }
     roots.push(Path::new(DATA_DIR).join(THEMES_DIR));
+    tracing::debug!(?roots, "discovered theme files");
     roots
 }
 

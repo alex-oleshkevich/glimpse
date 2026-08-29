@@ -1,1 +1,5 @@
 @import url("base.css");
+
+.panel {
+    background-color: red;
+}
