@@ -24,14 +24,6 @@
     font-size: 0.75em;
 }
 
-.indicator--stale {
-    opacity: 0.5;
-}
-
-.indicator--degraded {
-    color: @warning_color;
-}
-
 .indicator--attention {
     color: @accent_bg_color;
 }

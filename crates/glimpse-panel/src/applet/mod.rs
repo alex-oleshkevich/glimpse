@@ -1,3 +1,5 @@
+pub mod runtime;
+
 use glimpse_contracts::{Command, Message};
 use glimpse_ipc::{Client, Event};
 use glimpse_widgets::IndicatorSpec;

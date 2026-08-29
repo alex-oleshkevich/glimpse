@@ -4,8 +4,6 @@ use gtk4::{
 use std::cell::{Cell, RefCell};
 use std::sync::OnceLock;
 
-use super::IndicatorState;
-
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/indicator.ui")]
 pub struct Indicator {
@@ -17,7 +15,6 @@ pub struct Indicator {
     pub badge: TemplateChild<gtk4::Label>,
     pub gicon: RefCell<Option<gio::Icon>>,
     pub accessible_name: RefCell<String>,
-    pub state: Cell<IndicatorState>,
     pub attention: Cell<bool>,
 }
 

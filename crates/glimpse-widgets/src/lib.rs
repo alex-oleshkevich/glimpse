@@ -3,7 +3,7 @@ mod indicator_group;
 mod panel;
 mod theme;
 
-pub use indicator::{Indicator, IndicatorSpec, IndicatorState};
+pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
 pub use panel::Panel;
 pub use theme::Styles;

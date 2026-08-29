@@ -10,17 +10,7 @@ glib::wrapper! {
 
 pub(crate) const LABEL_MAX_CHARS: usize = 64;
 pub(crate) const TOOLTIP_MAX_CHARS: usize = 256;
-const STALE_CLASS: &str = "indicator--stale";
-const DEGRADED_CLASS: &str = "indicator--degraded";
 const ATTENTION_CLASS: &str = "indicator--attention";
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum IndicatorState {
-    #[default]
-    Normal,
-    Stale,
-    Degraded,
-}
 
 #[derive(Debug, Default, Clone)]
 pub struct IndicatorSpec {
@@ -30,7 +20,6 @@ pub struct IndicatorSpec {
     pub tooltip: Option<String>,
     pub badge: Option<String>,
     pub attention: bool,
-    pub state: IndicatorState,
 }
 
 impl Default for Indicator {
@@ -56,7 +45,6 @@ impl Indicator {
         self.set_label(spec.label.as_deref());
         self.set_badge(spec.badge.as_deref());
         self.set_attention(spec.attention);
-        self.set_state(spec.state);
     }
 
     pub fn set_icon(&self, icon: Option<&gio::Icon>) {
@@ -89,19 +77,6 @@ impl Indicator {
             self.add_css_class(ATTENTION_CLASS);
         } else {
             self.remove_css_class(ATTENTION_CLASS);
-        }
-    }
-
-    pub fn set_state(&self, state: IndicatorState) {
-        if self.imp().state.replace(state) == state {
-            return;
-        }
-        self.remove_css_class(STALE_CLASS);
-        self.remove_css_class(DEGRADED_CLASS);
-        match state {
-            IndicatorState::Normal => {}
-            IndicatorState::Stale => self.add_css_class(STALE_CLASS),
-            IndicatorState::Degraded => self.add_css_class(DEGRADED_CLASS),
         }
     }
 

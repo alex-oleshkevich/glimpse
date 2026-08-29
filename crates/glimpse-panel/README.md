@@ -39,11 +39,12 @@ is otherwise silent.
 A programmatic state change must not re-emit its signal, or the handler that sends the command
 re-enters itself.
 
-A dead daemon is a normal state: widgets render empty, `stale` values render with reduced emphasis,
-and reconnection restores everything with no special handling. The connection is opened with
-`Client::open`, so a panel started before `glimpsed` waits for it rather than failing; the task that
-watches the connection state is what owns the client, because the connection stops when the last
-handle drops and no widget has a topic to read yet.
+A dead daemon is a normal state: events stop arriving, the last value stays on screen, and
+reconnection restores everything with no special handling. The panel does not dim or annotate a
+value whose producer is gone. The connection is opened with `Client::open`, so a panel started
+before `glimpsed` waits for it rather than failing; the task that watches the connection state is
+what owns the client, because the connection stops when the last handle drops and no widget has a
+topic to read yet.
 
 Configuration is the `[panel]` table of the shared `config.toml`, plus `panel.css`. Tables owned
 by other binaries are ignored, not validated. Schema in.

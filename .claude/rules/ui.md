@@ -29,8 +29,8 @@ General GTK4, libadwaita and relm4 craft is covered by the `relm4`, `gtk4-styles
 
 ## States
 
-- Every widget renders four states: value, empty, `stale`, `degraded`. The daemon publishes the last
-  two, and a widget that ignores them shows the user frozen data as if it were live.
+- A widget renders what it is given, and empty when it is given nothing. There is no `stale` or
+  `degraded` rendering: a dead daemon stops sending events and the last value stays on screen.
 - Data changes must not shift layout. A battery going 9% to 10%, a clock ticking, a track title
   changing — none of them may resize the bar. Reserve width, use tabular figures.
 
