@@ -25,6 +25,7 @@ pub struct AppInit {
 #[allow(clippy::large_enum_variant, clippy::enum_variant_names)]
 pub enum AppInput {
     ConfigChanged(Config),
+    Connected(Client),
     MonitorsChanged,
     ThemeChanged,
 }
@@ -34,6 +35,7 @@ pub struct App {
     panels: Vec<PanelState>,
     theme_watch: JoinHandle<()>,
     styles: Styles,
+    client: Option<Client>,
 }
 
 #[relm4::component(pub)]
@@ -57,7 +59,7 @@ impl SimpleComponent for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         tracing::info!("initializing app");
-        spawn_daemon_client(init.socket);
+        spawn_daemon_client(init.socket, sender.clone());
         watch_monitors(sender.clone());
         let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
         spawn_config_watch(init.config_path, init.config.clone(), sender);
@@ -67,6 +69,7 @@ impl SimpleComponent for App {
             panels: Default::default(),
             theme_watch,
             styles: Styles::install(),
+            client: None,
         };
         model.reload_styles();
 
@@ -86,10 +89,11 @@ impl SimpleComponent for App {
                     self.reload_styles();
                 }
             }
+            AppInput::Connected(client) => self.client = Some(client),
             AppInput::MonitorsChanged => {}
             AppInput::ThemeChanged => self.reload_styles(),
         }
-        reconcile_panels(&mut self.panels, &self.config);
+        reconcile_panels(&mut self.panels, &self.config, self.client.as_ref());
     }
 }
 
@@ -101,10 +105,11 @@ impl App {
     }
 }
 
-fn spawn_daemon_client(socket: PathBuf) {
+fn spawn_daemon_client(socket: PathBuf, sender: ComponentSender<App>) {
     relm4::spawn(async move {
         let client = Client::open(&socket).await;
         let mut states = client.watch_state();
+        sender.input(AppInput::Connected(client));
         while states.changed().await.is_ok() {
             tracing::debug!(state = ?*states.borrow_and_update(), "daemon connection");
         }
@@ -152,7 +157,7 @@ struct PanelState {
     pub controller: Controller<components::panel::Panel>,
 }
 
-fn reconcile_panels(panels: &mut Vec<PanelState>, config: &Config) {
+fn reconcile_panels(panels: &mut Vec<PanelState>, config: &Config, client: Option<&Client>) {
     tracing::debug!("reconciling panels");
     let mut existing: HashMap<Key, PanelState> = panels
         .drain(..)
@@ -182,6 +187,10 @@ fn reconcile_panels(panels: &mut Vec<PanelState>, config: &Config) {
                 position: cfg.position,
                 size: cfg.size,
                 monitor: monitor.clone(),
+                left: cfg.left.clone(),
+                center: cfg.center.clone(),
+                right: cfg.right.clone(),
+                client: client.cloned(),
             };
             let state = match existing.remove(&key) {
                 Some(state) => {

@@ -220,7 +220,6 @@ fn panic_reason(panic: &(dyn Any + Send)) -> &str {
 }
 
 pub struct AppletHandle {
-    pub name: String,
     pub group: IndicatorGroup,
     _controller: Controller<AppletRuntime>,
 }
@@ -229,14 +228,13 @@ impl AppletHandle {
     pub fn launch(name: String, client: Client, build: Builder) -> Self {
         let controller = AppletRuntime::builder()
             .launch(AppletInit {
-                name: name.clone(),
+                name,
                 client,
                 build,
             })
             .detach();
 
         Self {
-            name,
             group: controller.widget().clone(),
             _controller: controller,
         }

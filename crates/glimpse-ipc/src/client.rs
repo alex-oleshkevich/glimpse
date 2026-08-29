@@ -57,6 +57,14 @@ pub struct Client {
     state: watch::Receiver<ConnectionState>,
 }
 
+impl std::fmt::Debug for Client {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Client")
+            .field("state", &*self.state.borrow())
+            .finish_non_exhaustive()
+    }
+}
+
 impl Client {
     pub async fn connect(socket: &Path) -> Result<Self, ConnectError> {
         Ok(Self::start(socket, Some(dial(socket).await?)))
