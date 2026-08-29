@@ -3,19 +3,10 @@
 
 set shell := ["bash", "-uc"]
 
-# Single source of truth for install/uninstall/package-binary. Static TOML can't read this, so
-# the cargo-deb/cargo-generate-rpm asset lists and this script's own no-just fallback default
-# (scripts/package-binary.sh) still hand-duplicate it.
+# Single source of truth for install/uninstall/package-binary, passed to those scripts as
+# GLIMPSE_BINARIES. Static TOML can't read it, so the cargo-deb/cargo-generate-rpm asset lists
+# still hand-duplicate it, as do the scripts' own no-just fallback defaults.
 binaries := "glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset"
-
-prefix := env("PREFIX", "/usr")
-destdir := env("DESTDIR", "")
-bindir := destdir / prefix / "bin"
-unitdir := destdir / prefix / "lib/systemd/user"
-dbusdir := destdir / prefix / "share/dbus-1/services"
-pamdir := destdir / "/etc/pam.d"
-geocluedir := destdir / "/etc/geoclue/conf.d"
-sharedir := destdir / prefix / "share/glimpse"
 
 [doc("list recipes")]
 default:
@@ -214,22 +205,8 @@ clean-crate CRATE:
 
 [doc("install binaries and data, honours PREFIX and DESTDIR")]
 install: build-release
-    for b in {{ binaries }}; do install -Dm755 "target/release/$b" {{ bindir }}/"$b"; done
-    for f in data/systemd/*.service; do [ -e "$f" ] && install -Dm644 "$f" {{ unitdir }}/"$(basename $f)"; done
-    for f in data/dbus-1/services/*.service; do [ -e "$f" ] && install -Dm644 "$f" {{ dbusdir }}/"$(basename $f)"; done
-    for f in data/pam.d/*; do [ -e "$f" ] && [ "$(basename $f)" != .gitkeep ] && install -Dm644 "$f" {{ pamdir }}/"$(basename $f)"; done
-    for f in data/geoclue/conf.d/*.conf; do [ -e "$f" ] && install -Dm644 "$f" {{ geocluedir }}/"$(basename $f)"; done
-    install -Dm644 data/config.default.toml {{ sharedir }}/config.default.toml
-    install -Dm644 data/config.schema.json {{ sharedir }}/config.schema.json
-    install -Dm644 data/language-codes.json {{ sharedir }}/language-codes.json
-    for f in data/themes/*/*.css; do [ -e "$f" ] && install -Dm644 "$f" {{ sharedir }}/themes/"$(basename "$(dirname "$f")")"/"$(basename "$f")"; done
-    for f in wallpapers/*; do [ -e "$f" ] && install -Dm644 "$f" {{ sharedir }}/wallpapers/"$(basename $f)"; done
-    install -Dm644 LICENSE {{ sharedir }}/LICENSE
+    GLIMPSE_BINARIES="{{ binaries }}" scripts/install.sh
 
 [doc("remove installed files")]
 uninstall:
-    for b in {{ binaries }}; do rm -f {{ bindir }}/"$b"; done
-    rm -f {{ unitdir }}/glimpse*.service {{ dbusdir }}/org.kde.StatusNotifierWatcher.service
-    rm -f {{ dbusdir }}/org.freedesktop.Notifications.service {{ pamdir }}/glimpse-lock
-    rm -f {{ geocluedir }}/glimpse.conf
-    rm -rf {{ sharedir }}
+    GLIMPSE_BINARIES="{{ binaries }}" scripts/uninstall.sh
