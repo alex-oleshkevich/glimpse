@@ -1,0 +1,42 @@
+using Gtk 4.0;
+
+template $GlimpseIndicator: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: horizontal;
+    spacing: 4;
+  };
+
+  styles [
+    "indicator",
+  ]
+
+  Gtk.Image icon {
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "indicator__icon",
+    ]
+  }
+
+  Gtk.Label label {
+    single-line-mode: true;
+    ellipsize: end;
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "indicator__label",
+    ]
+  }
+
+  Gtk.Label badge {
+    single-line-mode: true;
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "indicator__badge",
+    ]
+  }
+}

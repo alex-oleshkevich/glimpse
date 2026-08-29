@@ -162,7 +162,7 @@ StatusNotifierItem, dbusmenu and Notifications.
 ```bash
 just verify          # fmt-check + check + lint + test — what CI runs
 just check           # type-check, fast
-just lint            # clippy, warnings are errors
+just lint            # rust, systemd units and blueprints, warnings are errors
 just test            # headless tests
 just fmt             # format in place
 just test-compositor # also runs the #[ignore] Wayland tests; needs a compositor

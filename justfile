@@ -22,9 +22,16 @@ check:
 check-crate CRATE:
     cargo check -p {{ CRATE }} --all-targets
 
-[doc("clippy, warnings are errors")]
-lint:
+[doc("rust, systemd units and blueprints; warnings are errors")]
+lint: lint-rust check-units lint-blueprints
+
+[doc("clippy on the workspace, warnings are errors")]
+lint-rust:
     cargo clippy --workspace --all-targets -- -D warnings
+
+[doc("blueprint templates")]
+lint-blueprints:
+    blueprint-compiler lint crates/*/blueprints/*.blp
 
 [doc("clippy on one crate")]
 lint-crate CRATE:

@@ -13,7 +13,10 @@ fn compile_blueprints(pairs: &[(&str, &str)]) {
 }
 
 fn main() {
-    compile_blueprints(&[("blueprints/panel.blp", "resources/widgets/panel.ui")]);
+    compile_blueprints(&[
+        ("blueprints/indicator.blp", "resources/widgets/indicator.ui"),
+        ("blueprints/panel.blp", "resources/widgets/panel.ui"),
+    ]);
 
     glib_build_tools::compile_resources(
         &["resources"],                          // source dirs (relative to build.rs)

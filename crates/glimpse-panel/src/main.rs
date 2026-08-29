@@ -1,5 +1,4 @@
 mod app;
-mod applet;
 mod applets;
 mod cli;
 mod components;

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <gresources>
     <gresource prefix="/me/aresa/GlimpseShell">
+        <file>widgets/indicator.ui</file>
         <file>widgets/panel.ui</file>
     </gresource>
 </gresources>
