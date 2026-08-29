@@ -125,21 +125,16 @@ impl AppletRuntime {
         if self.config.as_ref() == Some(&config) {
             return;
         }
-        self.config = Some(config);
 
-        let outcome = {
-            let Some(applet) = self.applet.as_mut() else {
-                return;
-            };
+        let outcome = self.applet.as_mut().map(|applet| {
             let ctx = &self.ctx;
-            let Some(config) = self.config.as_ref() else {
-                return;
-            };
-            catch_unwind(AssertUnwindSafe(|| applet.configure(ctx, config)))
-        };
-        if let Err(panic) = outcome {
+            catch_unwind(AssertUnwindSafe(|| applet.configure(ctx, &config)))
+        });
+        if let Some(Err(panic)) = outcome {
             self.stop(panic.as_ref());
         }
+
+        self.config = Some(config);
         tracing::debug!(applet = self.ctx.name(), "configured");
         self.deliver(None);
     }
@@ -311,6 +306,9 @@ mod tests {
         }
 
         fn configure(&mut self, _ctx: &Ctx, _config: &AppletConfig) {
+            if EXPLODE.with(Cell::get) {
+                panic!("the probe exploded while configuring");
+            }
             CONFIGURED.set(CONFIGURED.get() + 1);
         }
 
@@ -472,7 +470,7 @@ mod tests {
         shown(&["a", "b"]);
         let handle = AppletHandle::launch(
             "probe".to_owned(),
-            client,
+            client.clone(),
             || Box::new(Probe::start()),
             config("%H:%M"),
         );
@@ -528,11 +526,24 @@ mod tests {
             "a panicking applet empties its group"
         );
 
-        EXPLODE.set(false);
         press(&handle.group, "a", 1);
         assert!(
             seen().is_empty(),
             "a stopped applet receives no further input"
         );
+
+        let exploding = AppletHandle::launch(
+            "exploding".to_owned(),
+            client,
+            || Box::new(Probe::start()),
+            config("%H"),
+        );
+        settle();
+        assert!(
+            exploding.group.first_child().is_none(),
+            "an applet that panics while configuring is stopped too, not only one that panics \
+             while handling"
+        );
+        EXPLODE.set(false);
     }
 }
