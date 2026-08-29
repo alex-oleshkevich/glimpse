@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
 use futures_util::{Stream, StreamExt};
@@ -8,13 +9,14 @@ use crate::watch::{Update, watch_all};
 const THEMES_DIR: &str = "themes";
 const STYLES_FILE: &str = "styles.css";
 const THEMES_DIR_ENV: &str = "GLIMPSE_THEMES_DIR";
+const THEME_ENV: &str = "GLIMPSE_THEME";
 
 pub const DEFAULT_THEME: &str = "adwaita";
 pub const PANEL_STYLESHEET: &str = "panel.css";
 pub const WALLPAPER_STYLESHEET: &str = "wallpaper.css";
 pub const LOCK_STYLESHEET: &str = "lock.css";
 
-fn themes_dir_override() -> Option<PathBuf> {
+fn themes_dir_from_env() -> Option<PathBuf> {
     match std::env::var(THEMES_DIR_ENV) {
         Ok(dir) => Some(PathBuf::from(dir)),
         Err(std::env::VarError::NotPresent) => None,
@@ -25,8 +27,23 @@ fn themes_dir_override() -> Option<PathBuf> {
     }
 }
 
-fn theme_roots() -> Vec<PathBuf> {
-    if let Some(dir) = themes_dir_override() {
+fn theme_from_env() -> Option<String> {
+    match std::env::var(THEME_ENV) {
+        Ok(theme) => Some(theme),
+        Err(std::env::VarError::NotPresent) => None,
+        Err(error) => {
+            tracing::warn!(%error, "{THEME_ENV} is not readable; using the configured theme");
+            None
+        }
+    }
+}
+
+fn selected(theme: &str) -> Cow<'_, str> {
+    theme_from_env().map_or(Cow::Borrowed(theme), Cow::Owned)
+}
+
+fn theme_dirs() -> Vec<PathBuf> {
+    if let Some(dir) = themes_dir_from_env() {
         return vec![dir];
     }
 
@@ -82,7 +99,7 @@ fn watch_dirs_in(roots: &[PathBuf], user_dir: Option<&Path>, theme: &str) -> Vec
 }
 
 pub fn theme_dir_for(theme: &str) -> Option<PathBuf> {
-    theme_dir_in(&theme_roots(), theme)
+    theme_dir_in(&theme_dirs(), &selected(theme))
 }
 
 fn stylesheet_in(roots: &[PathBuf], theme: &str, name: &str) -> Option<PathBuf> {
@@ -91,7 +108,7 @@ fn stylesheet_in(roots: &[PathBuf], theme: &str, name: &str) -> Option<PathBuf> 
 }
 
 pub fn stylesheet(theme: &str, name: &str) -> Option<PathBuf> {
-    stylesheet_in(&theme_roots(), theme, name)
+    stylesheet_in(&theme_dirs(), &selected(theme), name)
 }
 
 pub fn user_stylesheet() -> Option<PathBuf> {
@@ -100,7 +117,7 @@ pub fn user_stylesheet() -> Option<PathBuf> {
 }
 
 pub fn watch_theme(theme: &str) -> impl Stream<Item = ()> + Send + 'static {
-    let dirs = watch_dirs_in(&theme_roots(), user_dir().as_deref(), theme);
+    let dirs = watch_dirs_in(&theme_dirs(), user_dir().as_deref(), &selected(theme));
     watch_all(dirs).filter_map(|update| async move {
         match update {
             Update::Changed(_) | Update::Rearmed => Some(()),

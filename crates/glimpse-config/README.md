@@ -116,6 +116,13 @@ A theme is a directory of stylesheets under `<root>/<name>/`. The roots are `use
 `DATA_DIR/themes`, unless `GLIMPSE_THEMES_DIR` names one, which replaces both — an explicit override
 replaces the stack rather than joining it, the same rule `--config` follows for configuration.
 
+Two environment variables sit above the configuration, and both replace rather than join:
+`GLIMPSE_THEMES_DIR` chooses the root, and `GLIMPSE_THEME` chooses the name, taking precedence over
+`appearance.theme`. The name is applied in `stylesheet`, `theme_dir_for` and `watch_theme` rather
+than in `load`, so `Config` keeps reporting the document on disk — a binary told to render one theme
+does not start claiming the user configured it. An empty `GLIMPSE_THEME` means the default theme,
+exactly as an empty `appearance.theme` does.
+
 **Resolution picks one directory, not one file at a time.** `theme_dir_for(theme)` returns the first
 of `user/<theme>`, `data/<theme>`, `user/adwaita`, `data/adwaita` that is a directory, and every sheet
 then comes from it. `stylesheet(theme, name)` is that directory joined with the name, kept only if it
