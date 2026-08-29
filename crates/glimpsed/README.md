@@ -136,3 +136,10 @@ against, not because glimpsed is special — the assets lists pull in all six bi
 wallpapers, units, and the license from the shared target dir and repo root. `data/pam.d` and
 `data/dbus-1/services` are still empty placeholders, so their contents aren't in the asset lists
 yet; add them once something real lands there.
+
+Themes are the one asset whose directory structure is load-bearing: `themes/<name>/panel.css` is
+found by name, so a flat glob into a single destination would collapse every theme's sheets on top of
+one another. `just install` and `scripts/package-binary.sh` therefore walk `data/themes/*/*.css` and
+rebuild `<name>/` from the source path, and generalise to any number of themes; the two static asset
+lists cannot compute a destination, so each shipped theme needs its own line in both. Only `adwaita`
+ships today.

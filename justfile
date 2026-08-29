@@ -222,6 +222,7 @@ install: build-release
     install -Dm644 data/config.default.toml {{ sharedir }}/config.default.toml
     install -Dm644 data/config.schema.json {{ sharedir }}/config.schema.json
     install -Dm644 data/language-codes.json {{ sharedir }}/language-codes.json
+    for f in data/themes/*/*.css; do [ -e "$f" ] && install -Dm644 "$f" {{ sharedir }}/themes/"$(basename "$(dirname "$f")")"/"$(basename "$f")"; done
     for f in wallpapers/*; do [ -e "$f" ] && install -Dm644 "$f" {{ sharedir }}/wallpapers/"$(basename $f)"; done
     install -Dm644 LICENSE {{ sharedir }}/LICENSE
 

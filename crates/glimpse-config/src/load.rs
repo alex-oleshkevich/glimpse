@@ -87,7 +87,10 @@ fn load_from(
     let mut builder = config::Config::builder();
     for path in files {
         let text = match read(&path) {
-            Ok(text) => text,
+            Ok(text) => {
+                tracing::info!(path = ?path, "load config");
+                text
+            }
             Err(error) if is_missing(&error) => continue,
             Err(error) => return Err(error),
         };

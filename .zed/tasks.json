@@ -1,0 +1,37 @@
+// Project tasks configuration. See https://zed.dev/docs/tasks for documentation.
+//
+// Example:
+[
+  {
+    "label": "glimpsed",
+    "command": "just",
+    "args": ["run-daemon"],
+    "reveal": "never",
+    "hide": "on_success",
+    "env": {
+      "GLIMPSE_CONFIG_PATH": "var/config/config.toml",
+    },
+  },
+  {
+    "label": "glimpse-panel",
+    "command": "just",
+    "args": ["run-panel"],
+    "reveal": "never",
+    "hide": "on_success",
+    "env": {
+      "GLIMPSE_PANEL_APP_ID": "me.aresa.GlimpsePanel.Dev",
+      "GLIMPSE_CONFIG_PATH": "var/config/config.toml",
+    },
+  },
+  {
+    "label": "glimpse-wallpaper",
+    "command": "just",
+    "args": ["run-panel"],
+    "reveal": "never",
+    "hide": "on_success",
+    "env": {
+      "GLIMPSE_WALLPAPER_APP_ID": "me.aresa.GlimpseWallpaper.Dev",
+      "GLIMPSE_CONFIG_PATH": "var/config/config.toml",
+    },
+  },
+]
