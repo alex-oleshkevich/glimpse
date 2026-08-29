@@ -7,9 +7,55 @@ Builds the binary named `glimpse`.
 ## Contents
 
 - `main.rs` — GTK application, layer-shell setup, one bar per output across hotplug
-- `panel.rs` — bar window, zones, applet placement
-- `applets/` — one module per applet
-- `popups/` — notification popups, OSD
+- `app.rs` — one bar per (panel config × monitor), the shared `Client`, config and theme watches
+- `components/panel.rs` — bar window, zones, applet reconciliation
+- `applet/` — the applet framework: the trait, `Ctx`, the relm4 runtime
+- `applets/` — one module per applet, plus the registration match
+- `popups/` — notification popups, OSD _(pending)_
+
+## Applets
+
+An applet owns exactly one `IndicatorGroup`, which renders 0..N `Indicator`s, so every applet's view
+is the same shape and only `Vec<IndicatorSpec>` varies. The trait is object-safe and the runtime
+stores `Box<dyn Applet>`:
+
+```rust
+fn topics(&self) -> &'static [&'static str]   // declared; the runtime subscribes
+fn start() -> Self
+fn handle(&mut self, ctx: &Ctx, input: &Input)
+fn indicators(&self) -> Vec<IndicatorSpec>
+```
+
+`indicators()` is a pull, called after every `handle`, and its result goes to `set_items`, which
+compares before writing. An empty vector hides the group, which is how an applet says it has nothing
+yet — never a placeholder.
+
+**`Ctx` owns every source.** `topics()` is a declaration, not an action; the runtime subscribes and
+holds the guards, so no applet holds one and `start` has no side effects. This is `Live<S>` in
+`glimpse-services` — no service holds a `SourceGuard` either. Teardown is `Ctx` dropping with the
+runtime, and a panicking applet gets `ctx.shutdown()`.
+
+**A panic stops one applet, not the panel.** `handle` and `indicators` run inside one `catch_unwind`;
+a panic logs, drops the applet, stops its sources and empties its group. Unwinding past a `&mut self`
+mid-mutation leaves state nobody can reason about, which is why `ServiceRuntime` stops a service
+rather than continuing with it.
+
+**Scroll reaches an applet as whole notches.** The `Indicator` emits raw deltas and a touchpad sends
+many small ones; the runtime accumulates per (indicator, axis) and drains in whole units, so a wheel
+detent is one notch and ten `0.4` deltas are four.
+
+**Zone reconciliation is keyed by `(zone, name)`.** `MonitorsChanged` and `ThemeChanged` both reach
+`reconcile_panels`, so the guard comparing the desired key sequence against the current one is what
+stops every applet being rebuilt on every theme write. A name with no implementation still occupies a
+`Slot` with `handle: None` — that is what keeps the sequences comparable, and skipping such names
+instead makes the guard never hold.
+
+An unresolvable *name* is a user typo and is logged at `warn`; a name that resolves to a kind nothing
+implements is expected and is `debug`. The shipped default config names nineteen applets, so
+collapsing the two severities means nineteen warnings on an untouched installation.
+
+There is deliberately no staleness, no `degraded`, no per-applet configuration, no timer and no
+applet `Output`. A dead daemon stops delivering events and the last value stays on screen.
 
 ## Rules
 

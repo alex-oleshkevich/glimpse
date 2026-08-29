@@ -251,6 +251,68 @@ impl AppletHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gtk4::prelude::*;
+    use std::cell::{Cell, RefCell};
+
+    thread_local! {
+        static SEEN: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+        static EXPLODE: Cell<bool> = const { Cell::new(false) };
+        static SHOWN: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+    }
+
+    struct Probe;
+
+    impl Applet for Probe {
+        fn start() -> Self {
+            Self
+        }
+
+        fn handle(&mut self, _ctx: &Ctx, input: &Input) {
+            if EXPLODE.with(Cell::get) {
+                panic!("the probe exploded");
+            }
+            if let Input::Pointer { indicator, pointer } = input {
+                SEEN.with(|seen| seen.borrow_mut().push(format!("{indicator}:{pointer:?}")));
+            }
+        }
+
+        fn indicators(&self) -> Vec<IndicatorSpec> {
+            SHOWN.with(|shown| shown.borrow().iter().map(|id| spec(id)).collect())
+        }
+    }
+
+    fn settle() {
+        let context = glib::MainContext::default();
+        for _ in 0..64 {
+            while context.iteration(false) {}
+        }
+    }
+
+    fn seen() -> Vec<String> {
+        SEEN.with(|seen| std::mem::take(&mut *seen.borrow_mut()))
+    }
+
+    fn press(group: &IndicatorGroup, indicator: &str, button: u32) {
+        let indicator = indicator.to_owned();
+        group.emit_by_name::<()>(
+            "pressed",
+            &[&indicator as &dyn gtk4::glib::value::ToValue, &button],
+        );
+        settle();
+    }
+
+    fn scroll(group: &IndicatorGroup, indicator: &str, dy: f64) {
+        let indicator = indicator.to_owned();
+        group.emit_by_name::<()>(
+            "scrolled",
+            &[&indicator as &dyn gtk4::glib::value::ToValue, &0.0f64, &dy],
+        );
+        settle();
+    }
+
+    fn shown(ids: &[&str]) {
+        SHOWN.with(|s| *s.borrow_mut() = ids.iter().map(|id| (*id).to_owned()).collect());
+    }
 
     fn drained(deltas: &[f64]) -> Vec<Direction> {
         let mut accumulated = 0.0;
@@ -337,5 +399,70 @@ mod tests {
             "the remainder is carried, not discarded"
         );
         assert_eq!(drained(&[2.5, 0.5]), [Direction::Down; 3]);
+    }
+
+    /// One function, because `gtk4::init()` binds GTK to the calling thread and cargo runs tests
+    /// in parallel.
+    #[test]
+    #[ignore = "needs a display"]
+    fn an_applet_reaches_its_group() {
+        if gtk4::init().is_err() {
+            return;
+        }
+        glimpse_widgets::register_resources().expect("resources");
+
+        let runtime = tokio::runtime::Runtime::new().expect("a tokio runtime");
+        let client = runtime.block_on(Client::open(std::path::Path::new(
+            "/nonexistent/glimpse-applet-test.sock",
+        )));
+
+        shown(&["a", "b"]);
+        let handle = AppletHandle::launch("probe".to_owned(), client, || Box::new(Probe::start()));
+        settle();
+
+        assert!(
+            handle.group.first_child().is_some(),
+            "the group renders what indicators() returned"
+        );
+
+        press(&handle.group, "a", 3);
+        assert_eq!(
+            seen(),
+            ["a:Press(Right)"],
+            "a press carries the indicator it hit and the decoded button"
+        );
+
+        scroll(&handle.group, "b", 0.6);
+        assert!(seen().is_empty(), "a partial gesture reaches no applet");
+
+        scroll(&handle.group, "b", 0.6);
+        assert_eq!(seen(), ["b:Scroll(Down)"], "the notch arrives once, whole");
+
+        scroll(&handle.group, "b", 0.7);
+        assert!(seen().is_empty(), "0.9 of a notch is still no notch");
+
+        shown(&["a"]);
+        press(&handle.group, "a", 1);
+        assert_eq!(seen(), ["a:Press(Left)"]);
+
+        scroll(&handle.group, "b", 0.6);
+        assert!(
+            seen().is_empty(),
+            "`b` stopped being rendered, so its 0.9 was dropped; resuming it would fire here"
+        );
+
+        EXPLODE.set(true);
+        press(&handle.group, "a", 1);
+        assert!(
+            handle.group.first_child().is_none(),
+            "a panicking applet empties its group"
+        );
+
+        EXPLODE.set(false);
+        press(&handle.group, "a", 1);
+        assert!(
+            seen().is_empty(),
+            "a stopped applet receives no further input"
+        );
     }
 }
