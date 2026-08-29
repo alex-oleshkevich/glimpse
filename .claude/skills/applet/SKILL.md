@@ -125,8 +125,17 @@ capped before it reaches a label. They are not repeated here. What follows is wh
 
 - **There is no staleness and no `degraded`.** A dead daemon stops sending events and the last value
   stays on screen. `IndicatorState` was deleted from `glimpse-widgets`; do not reintroduce dimming.
-- **There is no per-applet configuration yet.** `[applets.<name>]` and `extends` exist in
-  `glimpse-config` and nothing reads them. A name resolves to one instance of one kind.
+- **Configuration is typed and validated at load, not by the applet.** `glimpse_config::Applet` is
+  an internally-tagged enum on `extends`, one variant per applet, so a bad setting is a load error
+  naming the table and the key — the applet never deserializes anything and has no failure path.
+  `configure(&mut self, ctx, config: &AppletConfig)` destructures its own variant:
+  `let AppletConfig::Clock(cfg) = config else { return };`. The runtime compares the config before
+  calling, so an unchanged one never reaches the applet.
+
+  Adding settings to an applet means adding a config struct in `glimpse-config` and promoting the
+  variant from `Clock {}` to `Clock(Clock)`. **Never write a unit variant** (`Clock`) —
+  `deny_unknown_fields` has nothing to deny on one, so it silently swallows every key written under
+  it. An empty struct variant refuses them.
 - **There is no timer.** `ctx.interval` does not exist; it returns with the first applet that needs
   one, using `interval_at(next_boundary(period), period)` so a clock lands on the second boundary.
 - **There is no `Output`.** Commands leave through `ctx.call`; an empty group hides itself; nothing
@@ -137,7 +146,7 @@ capped before it reaches a label. They are not repeated here. What follows is wh
 ## Definition of done
 
 - The applet is one arm of the exhaustive `match` in `applets/mod.rs::build`, listing every unbuilt
-  `AppletKind` explicitly rather than `_ => None`, so a new kind is a compile error here.
+  `Applet` variant explicitly rather than `_ => None`, so a new applet is a compile error here.
 - Every indicator id is stable across renders — `IndicatorGroup` keys on it, and a changing id
   destroys and rebuilds the widget instead of updating it.
 - Text taken off a topic is capped before it reaches an `IndicatorSpec`. Tray titles, MPRIS metadata

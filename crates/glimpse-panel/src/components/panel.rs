@@ -43,15 +43,6 @@ pub struct Config {
 }
 
 impl Config {
-    fn settings(&self, name: &str) -> toml::Table {
-        self.applets
-            .get(name)
-            .map(|entry| entry.settings.clone())
-            .unwrap_or_default()
-    }
-}
-
-impl Config {
     fn zones(&self) -> [(Zone, &[String]); 3] {
         [
             (Zone::Start, &self.left),
@@ -173,7 +164,9 @@ impl Panel {
                     continue;
                 };
                 handle.group.set_orientation(orientation);
-                handle.configure(config.settings(&slot.name));
+                if let Some((applet, _)) = applets::resolve(&slot.name, &config.applets) {
+                    handle.configure(applet);
+                }
             }
             return;
         }
@@ -196,13 +189,8 @@ impl Panel {
                     .unwrap_or_else(|| Slot {
                         zone,
                         name: name.clone(),
-                        handle: applets::resolve(name, &config.applets).map(|build| {
-                            AppletHandle::launch(
-                                name.clone(),
-                                client.clone(),
-                                build,
-                                config.settings(name),
-                            )
+                        handle: applets::resolve(name, &config.applets).map(|(applet, build)| {
+                            AppletHandle::launch(name.clone(), client.clone(), build, applet)
                         }),
                     }),
             );

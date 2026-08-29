@@ -10,6 +10,7 @@ build = "build.rs"
 adw.workspace = true
 anstream.workspace = true
 anyhow.workspace = true
+chrono.workspace = true
 clap.workspace = true
 colorchoice-clap.workspace = true
 futures-util.workspace = true

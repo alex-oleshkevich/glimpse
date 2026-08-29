@@ -75,9 +75,9 @@ as a topic, not by reading someone else's table.
 
 An unknown key is an error wherever it lands, and the set of top-level table names is closed —
 `deny_unknown_fields` on `Config` is what catches a misspelled `[panle]` that every reader would
-otherwise ignore. The exception is any key besides `extends` in `[applets.<name>]`, whose shape
-belongs to the applet type rather than to this schema — written flat, alongside `extends`, not
-nested under a `.settings` sub-table.
+otherwise ignore. `[applets.<name>]` is no exception: its settings are written flat alongside
+`extends`, and they are checked, because `Applet` is an enum with one variant per applet rather than
+a free-form table.
 
 ## Reading a file
 
@@ -241,20 +241,31 @@ itself, which is one of the changes that most needs noticing. So an unrelated wr
 configuration directory does cost one debounced re-read — and then the equality gate absorbs it,
 which is the whole reason that gate is worth more than a content digest here.
 
-## Applet names
+## Applets
 
-A panel zone lists applets by name. `AppletKind::from_name` resolves one, deserializing through the
-enum's own `rename_all` rather than matching on strings, so the spelling of every kind lives in one
-place and a renamed variant cannot leave a stale arm behind.
+`Applet` is an internally-tagged enum on `extends`, one variant per applet, so an applet's settings
+are part of this document's schema rather than a free-form table nobody validates. A misspelled
+setting is a load error naming the table and the key; an `[applets.*]` table naming an applet that
+does not exist is a load error listing the ones that do.
 
-A name that does not resolve is a typo, and the panel is expected to say so. That makes an
-unresolvable entry in `Panel::default()` a complaint about an applet we shipped ourselves, on every
-start of an untouched installation, which is why `every_applet_named_by_the_default_panels_resolves`
-guards it and why `__dynamic__` was deleted rather than kept as a reserved name — it headed the
-default `right` list, and a reserved name nothing honours costs that complaint forever.
+**The table name supplies the tag when `extends` is absent.** `[applets.clock]` is the clock; only a
+second instance needs `extends`, as in `[applets.clock-utc] extends = "clock"`. A hand-written
+`Deserialize` on the `applets` field injects the key before handing the table to serde, which is why
+the common case stays free of a line that only restates the name.
 
-Resolving is not the same as being implemented, and this crate only answers the first. A name that
-maps to a kind no binary implements is an ordinary state, not a bad document.
+The emitted schema mirrors that exactly. `properties` carries one entry per applet keyed by its
+name, so an editor resolves `[applets.clock]` to the clock's own schema with no discrimination step;
+`additionalProperties` carries the tagged form, where `extends` is required, for aliases. JSON Schema
+applies the second only to keys the first did not match, which is the same rule the loader follows.
+
+**A variant with no settings is written `Clock {}`, never `Clock`.** `deny_unknown_fields` has
+nothing to deny on a unit variant, so a unit variant silently swallows every key written under it —
+the exact failure this design exists to remove. An empty struct variant refuses them.
+
+Resolving is not the same as being implemented. A name that resolves to an applet no binary builds
+is an ordinary state, not a bad document, and the panel says so at `debug` rather than `warn` —
+which is why `every_applet_named_by_the_default_panels_resolves` guards the shipped defaults, and
+why `__dynamic__` was deleted rather than kept as a reserved name.
 
 ## Not here
 

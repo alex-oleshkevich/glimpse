@@ -2,6 +2,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
+use glimpse_config::Applet as AppletConfig;
 use glimpse_ipc::{Client, Event};
 use glimpse_widgets::{IndicatorGroup, IndicatorSpec};
 use relm4::{Component, ComponentController, ComponentParts, ComponentSender, Controller};
@@ -16,12 +17,12 @@ pub struct AppletInit {
     pub name: String,
     pub client: Client,
     pub build: Builder,
-    pub settings: toml::Table,
+    pub config: AppletConfig,
 }
 
 #[derive(Debug)]
 pub enum HostInput {
-    Configured(toml::Table),
+    Configured(AppletConfig),
     Pressed { indicator: String, button: u32 },
     Scrolled { indicator: String, dx: f64, dy: f64 },
 }
@@ -31,7 +32,7 @@ pub struct AppletRuntime {
     ctx: Ctx,
     group: IndicatorGroup,
     scroll: Scroll,
-    settings: toml::Table,
+    config: Option<AppletConfig>,
 }
 
 impl Component for AppletRuntime {
@@ -88,9 +89,9 @@ impl Component for AppletRuntime {
             ctx,
             group: root,
             scroll: Scroll::default(),
-            settings: toml::Table::new(),
+            config: None,
         };
-        model.configure(init.settings);
+        model.configure(init.config);
         model.deliver(None);
 
         ComponentParts { model, widgets: () }
@@ -120,28 +121,26 @@ impl Component for AppletRuntime {
 }
 
 impl AppletRuntime {
-    fn configure(&mut self, settings: toml::Table) {
-        if settings == self.settings {
+    fn configure(&mut self, config: AppletConfig) {
+        if self.config.as_ref() == Some(&config) {
             return;
         }
-        self.settings = settings;
+        self.config = Some(config);
 
         let outcome = {
             let Some(applet) = self.applet.as_mut() else {
                 return;
             };
             let ctx = &self.ctx;
-            let settings = &self.settings;
-            catch_unwind(AssertUnwindSafe(|| applet.configure(ctx, settings)))
+            let Some(config) = self.config.as_ref() else {
+                return;
+            };
+            catch_unwind(AssertUnwindSafe(|| applet.configure(ctx, config)))
         };
         if let Err(panic) = outcome {
             self.stop(panic.as_ref());
         }
-        tracing::debug!(
-            applet = self.ctx.name(),
-            keys = self.settings.len(),
-            "configured"
-        );
+        tracing::debug!(applet = self.ctx.name(), "configured");
         self.deliver(None);
     }
 
@@ -267,13 +266,13 @@ pub struct AppletHandle {
 }
 
 impl AppletHandle {
-    pub fn launch(name: String, client: Client, build: Builder, settings: toml::Table) -> Self {
+    pub fn launch(name: String, client: Client, build: Builder, config: AppletConfig) -> Self {
         let controller = AppletRuntime::builder()
             .launch(AppletInit {
                 name,
                 client,
                 build,
-                settings,
+                config,
             })
             .detach();
 
@@ -283,11 +282,11 @@ impl AppletHandle {
         }
     }
 
-    pub fn configure(&self, settings: toml::Table) {
+    pub fn configure(&self, config: AppletConfig) {
         let _ = self
             ._controller
             .sender()
-            .send(HostInput::Configured(settings));
+            .send(HostInput::Configured(config));
     }
 }
 
@@ -311,7 +310,7 @@ mod tests {
             Self
         }
 
-        fn configure(&mut self, _ctx: &Ctx, _settings: &toml::Table) {
+        fn configure(&mut self, _ctx: &Ctx, _config: &AppletConfig) {
             CONFIGURED.set(CONFIGURED.get() + 1);
         }
 
@@ -358,10 +357,10 @@ mod tests {
         settle();
     }
 
-    fn settings(value: i64) -> toml::Table {
-        let mut table = toml::Table::new();
-        table.insert("n".to_owned(), toml::Value::Integer(value));
-        table
+    fn config(format: &str) -> AppletConfig {
+        AppletConfig::Clock(glimpse_config::ClockConfig {
+            format: format.to_owned(),
+        })
     }
 
     fn shown(ids: &[&str]) {
@@ -475,21 +474,21 @@ mod tests {
             "probe".to_owned(),
             client,
             || Box::new(Probe::start()),
-            settings(1),
+            config("%H:%M"),
         );
         settle();
 
         assert_eq!(CONFIGURED.get(), 1, "settings reach the applet at launch");
-        handle.configure(settings(1));
+        handle.configure(config("%H:%M"));
         settle();
         assert_eq!(
             CONFIGURED.get(),
             1,
-            "an unchanged table is not handed to the applet again"
+            "an unchanged configuration is not handed to the applet again"
         );
-        handle.configure(settings(2));
+        handle.configure(config("%H:%M:%S"));
         settle();
-        assert_eq!(CONFIGURED.get(), 2, "a changed table is");
+        assert_eq!(CONFIGURED.get(), 2, "a changed one is");
 
         assert!(
             handle.group.first_child().is_some(),

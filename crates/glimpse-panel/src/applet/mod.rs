@@ -1,5 +1,6 @@
 pub mod runtime;
 
+use glimpse_config::Applet as AppletConfig;
 use glimpse_contracts::{Command, Message};
 use glimpse_ipc::{Client, Event};
 use glimpse_widgets::IndicatorSpec;
@@ -16,8 +17,8 @@ pub trait Applet: 'static {
     where
         Self: Sized;
 
-    fn configure(&mut self, ctx: &Ctx, settings: &toml::Table) {
-        let _ = (ctx, settings);
+    fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
+        let _ = (ctx, config);
     }
 
     fn handle(&mut self, ctx: &Ctx, input: &Input);

@@ -2,11 +2,17 @@
 
 Four edits. The kind must exist before anything else compiles.
 
-## 1. The kind — `crates/glimpse-config/src/schema/applets.rs`
+## 1. The applet — `crates/glimpse-config/src/schema/applets.rs`
 
-Add a variant to `Kind`. Names are kebab-case through `#[serde(rename_all = "kebab-case")]`, and
-`Kind::from_name` deserializes through that rename rather than matching strings, so a variant rename
-cannot leave a stale arm behind.
+Add a variant to `Applet`, the internally-tagged enum on `extends`. Write `Thing {}` — an empty
+struct variant — not `Thing`: `deny_unknown_fields` has nothing to deny on a unit variant, so one
+silently swallows every setting written under it. Promote to `Thing(Thing)` when it gains settings,
+with the config struct beside it.
+
+Names are kebab-case through `rename_all`, and fields through `rename_all_fields`; without the
+latter the crate's `every_key_and_enum_value_is_kebab_case` test fails. `Applet::from_name`
+deserializes through those renames rather than matching strings, so a rename cannot leave a stale
+arm behind.
 
 Then regenerate both shipped documents:
 
@@ -45,6 +51,13 @@ impl Applet for Thing {
 
     fn start() -> Self {
         Self { value: None }
+    }
+
+    fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
+        let AppletConfig::Thing(settings) = config else {
+            return;
+        };
+        self.settings = settings.clone();
     }
 
     fn handle(&mut self, ctx: &Ctx, input: &Input) {
@@ -87,10 +100,10 @@ scroll all land there, and an applet that wants none of them says so once.
 mod thing;
 use thing::Thing;
 
-fn build(kind: AppletKind) -> Option<Builder> {
-    match kind {
-        AppletKind::Thing => Some(|| Box::new(Thing::start())),
-        AppletKind::Audio | /* every kind not yet built */ => None,
+fn build(config: &AppletConfig) -> Option<Builder> {
+    match config {
+        AppletConfig::Thing {} => Some(|| Box::new(Thing::start())),
+        AppletConfig::Audio {} | /* every applet not yet built */ => None,
     }
 }
 ```
@@ -100,7 +113,7 @@ pointer is what keeps `applet/runtime.rs` from depending on `applets/` — the f
 concrete applet. Bind it to a local before calling it: `init.build()` parses as a method call on
 `AppletInit`, and the project forbids the comment that would explain `(init.build)()`.
 
-**Never write `_ => None`.** The exhaustive match is what turns a new `AppletKind` into a compile
+**Never write `_ => None`.** The exhaustive match is what turns a new `Applet` variant into a compile
 error here instead of an applet that silently never appears.
 
 ## 4. Reaching the screen

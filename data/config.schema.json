@@ -13,8 +13,619 @@
     },
     "applets": {
       "type": "object",
+      "properties": {
+        "audio": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "audio"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "battery": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "battery"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "bluetooth": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "bluetooth"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "brightness": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "brightness"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "clipboard": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "clipboard"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "clock": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "clock"
+            },
+            "format": {
+              "type": "string",
+              "default": "%H:%M"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "command": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "command"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "display": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "display"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "exec": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "exec"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "heartbeat": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "heartbeat"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "idle": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "idle"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "keyboard": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "keyboard"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "mpris": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "mpris"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "network": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "network"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "next-event": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "next-event"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "notifications": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "notifications"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "pager": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "pager"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "printing": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "printing"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "privacy": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "privacy"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "removable": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "removable"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "session": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "session"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "tray": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "tray"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "weather": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "weather"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "window": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "window"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        },
+        "workspace": {
+          "type": "object",
+          "properties": {
+            "extends": {
+              "type": "string",
+              "const": "workspace"
+            }
+          },
+          "additionalProperties": false,
+          "required": []
+        }
+      },
       "additionalProperties": {
-        "$ref": "#/$defs/Applet"
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "audio"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "battery"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "bluetooth"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "brightness"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "clipboard"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "clock"
+              },
+              "format": {
+                "type": "string",
+                "default": "%H:%M"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "command"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "display"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "exec"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "heartbeat"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "idle"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "keyboard"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "mpris"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "network"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "next-event"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "notifications"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "pager"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "printing"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "privacy"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "removable"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "session"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "tray"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "weather"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "window"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "extends": {
+                "type": "string",
+                "const": "workspace"
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "extends"
+            ]
+          }
+        ]
       },
       "default": {}
     },
@@ -207,23 +818,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "Applet": {
-      "type": "object",
-      "properties": {
-        "extends": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Kind"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        }
-      },
-      "additionalProperties": true
     },
     "Backdrop": {
       "type": "object",
@@ -441,36 +1035,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "Kind": {
-      "type": "string",
-      "enum": [
-        "audio",
-        "battery",
-        "brightness",
-        "bluetooth",
-        "display",
-        "clipboard",
-        "clock",
-        "command",
-        "exec",
-        "heartbeat",
-        "idle",
-        "keyboard",
-        "mpris",
-        "network",
-        "next-event",
-        "notifications",
-        "pager",
-        "privacy",
-        "printing",
-        "removable",
-        "session",
-        "tray",
-        "weather",
-        "window",
-        "workspace"
-      ]
     },
     "Listener": {
       "type": "object",

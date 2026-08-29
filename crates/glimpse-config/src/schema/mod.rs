@@ -18,7 +18,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 pub use appearance::{Appearance, ColorScheme};
-pub use applets::{Applet, Kind as AppletKind};
+pub use applets::{Applet, Clock as ClockConfig};
 pub use backdrop::Backdrop;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};
 pub use geolocation::Geolocation;
@@ -46,6 +46,8 @@ pub struct Config {
     pub backdrop: Backdrop,
     pub lock: Lock,
     pub panels: Vec<Panel>,
+    #[serde(deserialize_with = "applets::deserialize")]
+    #[schemars(schema_with = "applets::schema")]
     pub applets: BTreeMap<String, Applet>,
 }
 
@@ -137,42 +139,49 @@ mod tests {
     }
 
     #[test]
-    fn applet_settings_are_flat_alongside_extends() {
-        let parsed: Config = toml::from_str(
-            "[applets.clock]\nextends = \"clock\"\ntimezones = [\"UTC\"]\nanything = 1\n",
-        )
-        .expect("free-form settings");
+    fn the_table_name_selects_the_applet_when_extends_is_absent() {
+        let parsed: Config = toml::from_str("[applets.clock]\n").expect("the key names the kind");
 
-        assert_eq!(parsed.applets["clock"].extends, Some(AppletKind::Clock));
         assert_eq!(
-            parsed.applets["clock"].settings["timezones"]
-                .as_array()
-                .map(Vec::len),
-            Some(1)
-        );
-        assert_eq!(
-            parsed.applets["clock"].settings["anything"].as_integer(),
-            Some(1)
+            parsed.applets["clock"],
+            Applet::Clock(applets::Clock::default())
         );
     }
 
     #[test]
-    fn extends_defaults_to_none_when_absent() {
-        let parsed: Config = toml::from_str("[applets.clock]\ntimezones = [\"UTC\"]\n")
-            .expect("extends is optional");
+    fn extends_names_the_applet_so_one_kind_can_have_several_instances() {
+        let parsed: Config = toml::from_str("[applets.clock-utc]\nextends = \"clock\"\n")
+            .expect("extends wins over the key");
 
-        assert_eq!(parsed.applets["clock"].extends, None);
         assert_eq!(
-            parsed.applets["clock"].settings["timezones"]
-                .as_array()
-                .map(Vec::len),
-            Some(1)
+            parsed.applets["clock-utc"],
+            Applet::Clock(applets::Clock::default())
         );
     }
 
     #[test]
-    fn an_unknown_extends_value_is_still_loud() {
-        toml::from_str::<Config>("[applets.clock]\nextends = \"not_a_type\"\n")
-            .expect_err("extends, when given, is still checked against Kind");
+    fn an_unresolvable_table_name_is_refused_and_lists_the_applets() {
+        let error = toml::from_str::<Config>("[applets.nonesuch]\n")
+            .expect_err("an applet nobody implements is a bad document, not a silent skip")
+            .to_string();
+
+        assert!(error.contains("nonesuch"), "{error}");
+        assert!(
+            error.contains("clock"),
+            "the message lists what is valid: {error}"
+        );
+    }
+
+    #[test]
+    fn a_setting_no_applet_declares_is_refused() {
+        let error = toml::from_str::<Config>("[applets.clock]\nfrmat = \"%H\"\n")
+            .expect_err("a typo is loud rather than ignored")
+            .to_string();
+
+        assert!(error.contains("frmat"), "{error}");
+        assert!(
+            error.contains("applets.clock"),
+            "it names the table: {error}"
+        );
     }
 }

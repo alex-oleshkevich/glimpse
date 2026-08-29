@@ -1,80 +1,120 @@
-use schemars::JsonSchema;
-use serde::de::value::{Error as ValueError, StrDeserializer};
-use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub struct Applet {
-    #[serde(default)]
-    pub extends: Option<Kind>,
-    #[serde(flatten)]
-    #[schemars(with = "serde_json::Map<String, serde_json::Value>")]
-    pub settings: toml::Table,
+use schemars::{JsonSchema, Schema, SchemaGenerator};
+use serde::de::Error as _;
+use serde::{Deserialize, Deserializer, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(
+    tag = "extends",
+    rename_all = "kebab-case",
+    rename_all_fields = "kebab-case",
+    deny_unknown_fields
+)]
+pub enum Applet {
+    Audio {},
+    Battery {},
+    Bluetooth {},
+    Brightness {},
+    Clipboard {},
+    Clock(Clock),
+    Command {},
+    Display {},
+    Exec {},
+    Heartbeat {},
+    Idle {},
+    Keyboard {},
+    Mpris {},
+    Network {},
+    NextEvent {},
+    Notifications {},
+    Pager {},
+    Printing {},
+    Privacy {},
+    Removable {},
+    Session {},
+    Tray {},
+    Weather {},
+    Window {},
+    Workspace {},
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum Kind {
-    Audio,
-    Battery,
-    Brightness,
-    Bluetooth,
-    Display,
-    Clipboard,
-    Clock,
-    Command,
-    Exec,
-    Heartbeat,
-    Idle,
-    Keyboard,
-    Mpris,
-    Network,
-    NextEvent,
-    Notifications,
-    Pager,
-    Privacy,
-    Printing,
-    Removable,
-    Session,
-    Tray,
-    Weather,
-    Window,
-    Workspace,
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Clock {
+    pub format: String,
 }
 
-impl Kind {
+impl Default for Clock {
+    fn default() -> Self {
+        Self {
+            format: "%H:%M".to_owned(),
+        }
+    }
+}
+
+impl Applet {
     pub fn from_name(name: &str) -> Option<Self> {
-        Self::deserialize(StrDeserializer::<ValueError>::new(name)).ok()
+        let mut table = toml::Table::new();
+        table.insert("extends".to_owned(), toml::Value::String(name.to_owned()));
+        Self::deserialize(table).ok()
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub fn deserialize<'de, D>(deserializer: D) -> Result<BTreeMap<String, Applet>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    BTreeMap::<String, toml::Table>::deserialize(deserializer)?
+        .into_iter()
+        .map(|(name, mut table)| {
+            table
+                .entry("extends")
+                .or_insert_with(|| toml::Value::String(name.clone()));
+            Applet::deserialize(table)
+                .map(|applet| (name.clone(), applet))
+                .map_err(|error| D::Error::custom(format!("[applets.{name}]: {error}")))
+        })
+        .collect()
+}
 
-    #[test]
-    fn a_zone_entry_resolves_to_the_kind_it_names() {
-        assert_eq!(Kind::from_name("clock"), Some(Kind::Clock));
-        assert_eq!(Kind::from_name("next-event"), Some(Kind::NextEvent));
-        assert_eq!(Kind::from_name("heartbeat"), Some(Kind::Heartbeat));
-        assert_eq!(Kind::from_name("Clock"), None, "names are kebab-case");
-        assert_eq!(Kind::from_name("nonesuch"), None);
+pub fn schema(generator: &mut SchemaGenerator) -> Schema {
+    let aliased = Applet::json_schema(generator);
+    let mut properties = serde_json::Map::new();
+
+    if let Some(branches) = aliased.get("oneOf").and_then(serde_json::Value::as_array) {
+        for branch in branches {
+            let Some(name) = branch
+                .pointer("/properties/extends/const")
+                .and_then(serde_json::Value::as_str)
+            else {
+                continue;
+            };
+            let mut by_key = branch.clone();
+            if let Some(required) = by_key.get_mut("required") {
+                *required = serde_json::Value::Array(
+                    required
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter(|value| value.as_str() != Some("extends"))
+                        .cloned()
+                        .collect(),
+                );
+            }
+            properties.insert(name.to_owned(), by_key);
+        }
     }
 
-    #[test]
-    fn every_applet_named_by_the_default_panels_resolves() {
-        let config = crate::Config::default();
-        let unresolved: Vec<&String> = config
-            .panels
-            .iter()
-            .flat_map(|panel| [&panel.left, &panel.center, &panel.right])
-            .flatten()
-            .filter(|name| Kind::from_name(name).is_none())
-            .collect();
-
-        assert!(
-            unresolved.is_empty(),
-            "unresolvable by default: {unresolved:?}"
-        );
-    }
+    let mut schema = serde_json::Map::new();
+    schema.insert(
+        "type".to_owned(),
+        serde_json::Value::String("object".to_owned()),
+    );
+    schema.insert(
+        "properties".to_owned(),
+        serde_json::Value::Object(properties),
+    );
+    schema.insert("additionalProperties".to_owned(), aliased.to_value());
+    Schema::from(schema)
 }

@@ -861,6 +861,7 @@ version = "0.16.0"
 dependencies = [
  "anstream",
  "anyhow",
+ "chrono",
  "clap",
  "colorchoice-clap",
  "futures-util",

@@ -47,7 +47,7 @@ If you add a source of pointer input, do not hand raw deltas to `handle`.
 
 ## A stock start prints a wall of warnings
 
-Two failures look alike and are not: a name that resolves to no `AppletKind` is a user typo and is
+Two failures look alike and are not: a zone name that resolves to no `Applet` variant is a typo and is
 `warn!`; a kind that resolves but has no arm in `build` is expected and is `debug!`. The default
 config names nineteen applets, so collapsing them into one severity means nineteen warnings on an
 untouched installation — which teaches people to ignore the line that will later matter.
