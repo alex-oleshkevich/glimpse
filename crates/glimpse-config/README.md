@@ -126,7 +126,9 @@ exactly as an empty `appearance.theme` does.
 **Resolution picks one directory, not one file at a time.** `theme_dir_for(theme)` returns the first
 of `user/<theme>`, `data/<theme>`, `user/adwaita`, `data/adwaita` that is a directory, and every sheet
 then comes from it. `stylesheet(theme, name)` is that directory joined with the name, kept only if it
-is a regular file — `fs::metadata`, so a symlinked asset inside a package resolves.
+is a regular file. Both checks are `Path::is_dir`/`Path::is_file`, which go through `metadata` rather
+than `symlink_metadata`, so a symlinked theme directory or a symlinked sheet inside a package
+resolves.
 
 The directory is the unit because CSS makes it one. `panel.css` and `lock.css` are each
 `@import url("base.css")`, and GTK resolves a relative import against the importing file's own

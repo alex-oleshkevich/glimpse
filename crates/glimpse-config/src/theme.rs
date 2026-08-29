@@ -55,30 +55,19 @@ fn theme_dirs() -> Vec<PathBuf> {
     roots
 }
 
-fn is_dir(path: &Path) -> bool {
-    std::fs::metadata(path).is_ok_and(|metadata| metadata.is_dir())
-}
-
-fn is_file(path: &Path) -> bool {
-    std::fs::metadata(path).is_ok_and(|metadata| metadata.is_file())
-}
-
-fn wanted(theme: &str) -> Vec<&str> {
-    let mut wanted = Vec::new();
+fn theme_dir_in(roots: &[PathBuf], theme: &str) -> Option<PathBuf> {
+    let mut names = Vec::new();
     if !theme.is_empty() {
-        wanted.push(theme);
+        names.push(theme);
     }
     if theme != DEFAULT_THEME {
-        wanted.push(DEFAULT_THEME);
+        names.push(DEFAULT_THEME);
     }
-    wanted
-}
 
-fn theme_dir_in(roots: &[PathBuf], theme: &str) -> Option<PathBuf> {
-    wanted(theme)
+    names
         .into_iter()
         .flat_map(|name| roots.iter().map(move |root| root.join(name)))
-        .find(|dir| is_dir(dir))
+        .find(|dir| dir.is_dir())
 }
 
 fn watch_dirs_in(roots: &[PathBuf], user_dir: Option<&Path>, theme: &str) -> Vec<PathBuf> {
@@ -104,7 +93,7 @@ pub fn theme_dir_for(theme: &str) -> Option<PathBuf> {
 
 fn stylesheet_in(roots: &[PathBuf], theme: &str, name: &str) -> Option<PathBuf> {
     let path = theme_dir_in(roots, theme)?.join(name);
-    is_file(&path).then_some(path)
+    path.is_file().then_some(path)
 }
 
 pub fn stylesheet(theme: &str, name: &str) -> Option<PathBuf> {
@@ -113,7 +102,7 @@ pub fn stylesheet(theme: &str, name: &str) -> Option<PathBuf> {
 
 pub fn user_stylesheet() -> Option<PathBuf> {
     let path = user_dir()?.join(STYLES_FILE);
-    is_file(&path).then_some(path)
+    path.is_file().then_some(path)
 }
 
 pub fn watch_theme(theme: &str) -> impl Stream<Item = ()> + Send + 'static {

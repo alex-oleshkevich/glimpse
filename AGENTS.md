@@ -191,6 +191,13 @@ layering, because an explicit path replaces the stack rather than joining it —
 resolve into it. Neither redirects the `/etc/glimpse` layer; a test that needs that layer builds it
 through `load_from`, which takes the system directory as an argument for exactly this reason.
 
+**Themes are redirected separately.** `--config` does not move them, because `theme_dir_for` resolves
+through `user_dir()` rather than through the configuration stack. `GLIMPSE_THEMES_DIR` names a themes
+root and replaces both the user and the installed one, for loading and for watching alike, so a theme
+test needs neither a fake `HOME` nor a writable `/usr/share/glimpse`. `GLIMPSE_THEME` overrides the
+selected name the same way, so a run can be pointed at a theme without writing a `config.toml` at
+all.
+
 **Send the log somewhere else as well.** `--config` watches that file's *parent directory*, so a run
 that redirects the daemon's output into it makes every line the daemon writes an event that makes it
 read the configuration again. With a document that will not parse, that is a closed loop running at
