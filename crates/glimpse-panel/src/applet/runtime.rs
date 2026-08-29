@@ -10,7 +10,7 @@ use super::{Applet, Button, Ctx, Direction, Input, Pointer};
 
 const NOTCH: f64 = 1.0;
 
-pub type Builder = fn(&Ctx) -> Box<dyn Applet>;
+pub type Builder = fn() -> Box<dyn Applet>;
 
 pub struct AppletInit {
     pub name: String,
@@ -70,8 +70,15 @@ impl Component for AppletRuntime {
 
         let build = init.build;
         let ctx = Ctx::new(init.name, init.client, sender.command_sender().clone());
-        let applet = build(&ctx);
-        tracing::debug!(applet = ctx.name(), "started");
+        let applet = build();
+        for topic in applet.topics() {
+            ctx.subscribe(topic);
+        }
+        tracing::debug!(
+            applet = ctx.name(),
+            topics = applet.topics().len(),
+            "started"
+        );
 
         let mut model = AppletRuntime {
             applet: Some(applet),

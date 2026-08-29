@@ -72,7 +72,13 @@ Path-scoped rules load automatically when the relevant files are opened:
 `.claude/rules/daemon.md` for `glimpsed`, `glimpse-services` and `glimpse-ipc`;
 `.claude/rules/ui.md` for the GTK crates. Writing or changing a service — the `Service` trait, `Ctx`
 sources, subscriptions, topics and commands, registration, headless tests — is covered by the
-project-local `service` skill in `.claude/skills/service/`. General GTK4, libadwaita and relm4 craft
+project-local `service` skill in `.claude/skills/service/`. Its panel counterpart is the `applet`
+skill, for the `Applet` trait, `Ctx` sources, pull-based indicators and the registration match;
+`widget` covers GObject subclasses, Blueprint templates and the three places a new template must be
+registered; `ipc-client` covers holding a `Client` from outside the daemon, where a request issued
+while `glimpsed` is unreachable fails rather than queues; and `testing` covers which tier a
+test belongs to, why GTK tests are one `#[ignore]`d function per crate, and the mutation check that
+decides whether an assertion is load-bearing. General GTK4, libadwaita and relm4 craft
 is covered by the `relm4`, `gtk4-styles` and `libadwaita-styles` skills. D-Bus work — every mirror service, plus the
 two names glimpsed owns — is covered by the project-local `zbus` skill in `.claude/skills/zbus/`,
 which carries introspected signatures for NetworkManager, BlueZ, logind, UPower, MPRIS,

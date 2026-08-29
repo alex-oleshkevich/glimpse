@@ -20,7 +20,7 @@ pub fn resolve(name: &str) -> Option<Builder> {
 
 fn build(kind: AppletKind) -> Option<Builder> {
     match kind {
-        AppletKind::Heartbeat => Some(|ctx| Box::new(Heartbeat::start(ctx))),
+        AppletKind::Heartbeat => Some(|| Box::new(Heartbeat::start())),
         AppletKind::Audio
         | AppletKind::Battery
         | AppletKind::Brightness

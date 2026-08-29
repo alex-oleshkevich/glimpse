@@ -1,4 +1,4 @@
-use glimpse_contracts::{HeartbeatReset, HeartbeatSetInterval, HeartbeatTick};
+use glimpse_contracts::{HeartbeatReset, HeartbeatSetInterval, HeartbeatTick, Message};
 use glimpse_widgets::IndicatorSpec;
 use gtk4::prelude::*;
 
@@ -18,8 +18,11 @@ pub struct Heartbeat {
 }
 
 impl Applet for Heartbeat {
-    fn start(ctx: &Ctx) -> Self {
-        ctx.subscribe::<HeartbeatTick>();
+    fn topics(&self) -> &'static [&'static str] {
+        &[HeartbeatTick::NAME]
+    }
+
+    fn start() -> Self {
         Self {
             count: None,
             period_ms: DEFAULT_PERIOD_MS,

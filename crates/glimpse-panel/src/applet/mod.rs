@@ -8,7 +8,11 @@ use std::cell::RefCell;
 use tokio::task::AbortHandle;
 
 pub trait Applet: 'static {
-    fn start(ctx: &Ctx) -> Self
+    fn topics(&self) -> &'static [&'static str] {
+        &[]
+    }
+
+    fn start() -> Self
     where
         Self: Sized;
 
@@ -100,7 +104,7 @@ impl Ctx {
         });
     }
 
-    pub fn subscribe<T: Message>(&self) {
+    pub(crate) fn subscribe(&self, topic: &'static str) {
         let client = self.client.clone();
         let events = self.events.clone();
         let applet = self.name.clone();
@@ -108,13 +112,13 @@ impl Ctx {
 
         let handle = relm4::spawn(async move {
             loop {
-                match client.subscribe(T::NAME).await {
+                match client.subscribe(topic).await {
                     Ok(mut subscription) => {
                         let matched = subscription.matched();
                         if matched == 0 {
-                            tracing::warn!(applet, topic = T::NAME, "no declared topic matched");
+                            tracing::warn!(applet, topic = topic, "no declared topic matched");
                         } else {
-                            tracing::debug!(applet, topic = T::NAME, matched, "subscribed");
+                            tracing::debug!(applet, topic = topic, matched, "subscribed");
                         }
                         while let Some(event) = subscription.next().await {
                             if events.send(event).is_err() {
@@ -124,7 +128,7 @@ impl Ctx {
                         return;
                     }
                     Err(error) => {
-                        tracing::debug!(applet, topic = T::NAME, %error, "subscribe refused, waiting");
+                        tracing::debug!(applet, topic = topic, %error, "subscribe refused, waiting");
                         if states.changed().await.is_err() {
                             return;
                         }
