@@ -16,10 +16,12 @@ pub struct AppletInit {
     pub name: String,
     pub client: Client,
     pub build: Builder,
+    pub settings: toml::Table,
 }
 
 #[derive(Debug)]
 pub enum HostInput {
+    Configured(toml::Table),
     Pressed { indicator: String, button: u32 },
     Scrolled { indicator: String, dx: f64, dy: f64 },
 }
@@ -29,6 +31,7 @@ pub struct AppletRuntime {
     ctx: Ctx,
     group: IndicatorGroup,
     scroll: Scroll,
+    settings: toml::Table,
 }
 
 impl Component for AppletRuntime {
@@ -85,7 +88,9 @@ impl Component for AppletRuntime {
             ctx,
             group: root,
             scroll: Scroll::default(),
+            settings: toml::Table::new(),
         };
+        model.configure(init.settings);
         model.deliver(None);
 
         ComponentParts { model, widgets: () }
@@ -93,6 +98,7 @@ impl Component for AppletRuntime {
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>, _root: &Self::Root) {
         match message {
+            HostInput::Configured(settings) => self.configure(settings),
             HostInput::Pressed { indicator, button } => self.deliver(Some(&Input::Pointer {
                 indicator,
                 pointer: Pointer::Press(Button::from_code(button)),
@@ -114,6 +120,41 @@ impl Component for AppletRuntime {
 }
 
 impl AppletRuntime {
+    fn configure(&mut self, settings: toml::Table) {
+        if settings == self.settings {
+            return;
+        }
+        self.settings = settings;
+
+        let outcome = {
+            let Some(applet) = self.applet.as_mut() else {
+                return;
+            };
+            let ctx = &self.ctx;
+            let settings = &self.settings;
+            catch_unwind(AssertUnwindSafe(|| applet.configure(ctx, settings)))
+        };
+        if let Err(panic) = outcome {
+            self.stop(panic.as_ref());
+        }
+        tracing::debug!(
+            applet = self.ctx.name(),
+            keys = self.settings.len(),
+            "configured"
+        );
+        self.deliver(None);
+    }
+
+    fn stop(&mut self, panic: &(dyn Any + Send)) {
+        tracing::error!(
+            applet = self.ctx.name(),
+            reason = panic_reason(panic),
+            "applet panicked, stopping it"
+        );
+        self.applet = None;
+        self.ctx.shutdown();
+    }
+
     fn deliver(&mut self, input: Option<&Input>) {
         match input {
             Some(Input::Topic(event)) => tracing::debug!(
@@ -145,13 +186,7 @@ impl AppletRuntime {
         let specs = match outcome {
             Ok(specs) => specs,
             Err(panic) => {
-                tracing::error!(
-                    applet = self.ctx.name(),
-                    reason = panic_reason(panic.as_ref()),
-                    "applet panicked, stopping it"
-                );
-                self.applet = None;
-                self.ctx.shutdown();
+                self.stop(panic.as_ref());
                 Vec::new()
             }
         };
@@ -232,12 +267,13 @@ pub struct AppletHandle {
 }
 
 impl AppletHandle {
-    pub fn launch(name: String, client: Client, build: Builder) -> Self {
+    pub fn launch(name: String, client: Client, build: Builder, settings: toml::Table) -> Self {
         let controller = AppletRuntime::builder()
             .launch(AppletInit {
                 name,
                 client,
                 build,
+                settings,
             })
             .detach();
 
@@ -245,6 +281,13 @@ impl AppletHandle {
             group: controller.widget().clone(),
             _controller: controller,
         }
+    }
+
+    pub fn configure(&self, settings: toml::Table) {
+        let _ = self
+            ._controller
+            .sender()
+            .send(HostInput::Configured(settings));
     }
 }
 
@@ -257,6 +300,7 @@ mod tests {
     thread_local! {
         static SEEN: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
         static EXPLODE: Cell<bool> = const { Cell::new(false) };
+        static CONFIGURED: Cell<u32> = const { Cell::new(0) };
         static SHOWN: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
     }
 
@@ -265,6 +309,10 @@ mod tests {
     impl Applet for Probe {
         fn start() -> Self {
             Self
+        }
+
+        fn configure(&mut self, _ctx: &Ctx, _settings: &toml::Table) {
+            CONFIGURED.set(CONFIGURED.get() + 1);
         }
 
         fn handle(&mut self, _ctx: &Ctx, input: &Input) {
@@ -308,6 +356,12 @@ mod tests {
             &[&indicator as &dyn gtk4::glib::value::ToValue, &0.0f64, &dy],
         );
         settle();
+    }
+
+    fn settings(value: i64) -> toml::Table {
+        let mut table = toml::Table::new();
+        table.insert("n".to_owned(), toml::Value::Integer(value));
+        table
     }
 
     fn shown(ids: &[&str]) {
@@ -417,8 +471,25 @@ mod tests {
         )));
 
         shown(&["a", "b"]);
-        let handle = AppletHandle::launch("probe".to_owned(), client, || Box::new(Probe::start()));
+        let handle = AppletHandle::launch(
+            "probe".to_owned(),
+            client,
+            || Box::new(Probe::start()),
+            settings(1),
+        );
         settle();
+
+        assert_eq!(CONFIGURED.get(), 1, "settings reach the applet at launch");
+        handle.configure(settings(1));
+        settle();
+        assert_eq!(
+            CONFIGURED.get(),
+            1,
+            "an unchanged table is not handed to the applet again"
+        );
+        handle.configure(settings(2));
+        settle();
+        assert_eq!(CONFIGURED.get(), 2, "a changed table is");
 
         assert!(
             handle.group.first_child().is_some(),

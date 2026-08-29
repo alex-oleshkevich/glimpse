@@ -16,6 +16,10 @@ pub trait Applet: 'static {
     where
         Self: Sized;
 
+    fn configure(&mut self, ctx: &Ctx, settings: &toml::Table) {
+        let _ = (ctx, settings);
+    }
+
     fn handle(&mut self, ctx: &Ctx, input: &Input);
 
     fn indicators(&self) -> Vec<IndicatorSpec>;

@@ -1,13 +1,18 @@
 mod heartbeat;
 
-use glimpse_config::AppletKind;
+use glimpse_config::{Applet as AppletConfig, AppletKind};
+use std::collections::BTreeMap;
 
 use crate::applet::Applet;
 use crate::applet::runtime::Builder;
 use heartbeat::Heartbeat;
 
-pub fn resolve(name: &str) -> Option<Builder> {
-    let Some(kind) = AppletKind::from_name(name) else {
+pub fn resolve(name: &str, configured: &BTreeMap<String, AppletConfig>) -> Option<Builder> {
+    let kind = configured
+        .get(name)
+        .and_then(|entry| entry.extends)
+        .or_else(|| AppletKind::from_name(name));
+    let Some(kind) = kind else {
         tracing::warn!(applet = name, "unknown applet, skipping");
         return None;
     };
@@ -52,9 +57,32 @@ fn build(kind: AppletKind) -> Option<Builder> {
 mod tests {
     use super::*;
 
+    fn configured(name: &str, extends: AppletKind) -> BTreeMap<String, AppletConfig> {
+        BTreeMap::from([(
+            name.to_owned(),
+            AppletConfig {
+                extends: Some(extends),
+                settings: toml::Table::new(),
+            },
+        )])
+    }
+
     #[test]
     fn a_name_the_panel_implements_resolves_to_a_builder() {
-        assert!(resolve("heartbeat").is_some());
+        assert!(resolve("heartbeat", &BTreeMap::new()).is_some());
+    }
+
+    #[test]
+    fn extends_names_the_kind_so_one_kind_can_have_several_instances() {
+        let configured = configured("pulse", AppletKind::Heartbeat);
+        assert!(
+            resolve("pulse", &configured).is_some(),
+            "`pulse` is not a kind; `extends` is what says which one it is"
+        );
+        assert!(
+            resolve("pulse", &BTreeMap::new()).is_none(),
+            "without the entry the same name is just unknown"
+        );
     }
 
     #[test]
@@ -65,6 +93,6 @@ mod tests {
         );
         assert!(build(AppletKind::Clock).is_none());
         assert!(AppletKind::from_name("nonesuch").is_none());
-        assert!(resolve("nonesuch").is_none());
+        assert!(resolve("nonesuch", &BTreeMap::new()).is_none());
     }
 }

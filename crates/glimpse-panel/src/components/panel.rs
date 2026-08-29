@@ -1,12 +1,12 @@
 use adw::gdk;
-use glimpse_config::Position;
+use glimpse_config::{Applet as AppletConfig, Position};
 use glimpse_ipc::Client;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, prelude::*},
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::applet::runtime::AppletHandle;
 use crate::applets;
@@ -38,7 +38,17 @@ pub struct Config {
     pub left: Vec<String>,
     pub center: Vec<String>,
     pub right: Vec<String>,
+    pub applets: BTreeMap<String, AppletConfig>,
     pub client: Option<Client>,
+}
+
+impl Config {
+    fn settings(&self, name: &str) -> toml::Table {
+        self.applets
+            .get(name)
+            .map(|entry| entry.settings.clone())
+            .unwrap_or_default()
+    }
 }
 
 impl Config {
@@ -158,8 +168,12 @@ impl Panel {
             .map(|slot| (slot.zone, &slot.name))
             .eq(desired.iter().copied())
         {
-            for handle in self.applets.iter().filter_map(|slot| slot.handle.as_ref()) {
+            for slot in &self.applets {
+                let Some(handle) = slot.handle.as_ref() else {
+                    continue;
+                };
                 handle.group.set_orientation(orientation);
+                handle.configure(config.settings(&slot.name));
             }
             return;
         }
@@ -176,14 +190,22 @@ impl Panel {
 
         let mut next = Vec::with_capacity(desired.len());
         for (zone, name) in desired {
-            next.push(existing.remove(&(zone, name.clone())).unwrap_or_else(|| {
-                Slot {
-                    zone,
-                    name: name.clone(),
-                    handle: applets::resolve(name)
-                        .map(|build| AppletHandle::launch(name.clone(), client.clone(), build)),
-                }
-            }));
+            next.push(
+                existing
+                    .remove(&(zone, name.clone()))
+                    .unwrap_or_else(|| Slot {
+                        zone,
+                        name: name.clone(),
+                        handle: applets::resolve(name, &config.applets).map(|build| {
+                            AppletHandle::launch(
+                                name.clone(),
+                                client.clone(),
+                                build,
+                                config.settings(name),
+                            )
+                        }),
+                    }),
+            );
         }
 
         for (zone, name) in existing
