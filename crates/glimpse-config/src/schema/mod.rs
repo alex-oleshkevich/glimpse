@@ -27,7 +27,7 @@ pub use keyboard::{Keyboard, Remember};
 pub use lock::{Button as LockButton, Clock as LockClock, Controls as LockControls, Lock};
 pub use monitors::Monitors;
 pub use night_light::{NightLight, Schedule};
-pub use panels::{DYNAMIC, Margin, Panel, Position};
+pub use panels::{Margin, Panel, Position};
 pub use power::Power;
 pub use wallpaper::{Fit, Wallpaper};
 

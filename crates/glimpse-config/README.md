@@ -241,10 +241,26 @@ itself, which is one of the changes that most needs noticing. So an unrelated wr
 configuration directory does cost one debounced re-read — and then the equality gate absorbs it,
 which is the whole reason that gate is worth more than a content digest here.
 
+## Applet names
+
+A panel zone lists applets by name. `AppletKind::from_name` resolves one, deserializing through the
+enum's own `rename_all` rather than matching on strings, so the spelling of every kind lives in one
+place and a renamed variant cannot leave a stale arm behind.
+
+The panel warns about a name that does not resolve, which makes an unresolvable entry in
+`Panel::default()` a warning on every start of an untouched installation — about an applet we
+shipped ourselves. `every_applet_named_by_the_default_panels_resolves` is what stops one landing.
+That is why `__dynamic__` was deleted rather than left as a reserved name: it headed the default
+`right` list, and reserving a name nothing honours costs a warning per start forever.
+
+Resolving is not the same as being built. A name that maps to a kind the panel has no implementation
+for is ordinary and silent; only an unresolvable name is worth a warning.
+
 ## Not here
 
-Semantic validation — `HH:MM` parsing, duplicate idle timeouts, a panel zone naming an applet that
-does not exist — which is not written yet.
+Semantic validation — `HH:MM` parsing, duplicate idle timeouts — which is not written yet. A panel
+zone naming an applet that does not exist is caught by the panel at build time, not here; this crate
+owns the name→kind mapping and not the question of whether anything implements it.
 
 `[geolocation]` is the exception, and it needs none: the table is one internally tagged enum, so
 `provider = "manual"` carries `latitude` and `longitude` in the variant that selects it. A

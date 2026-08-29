@@ -150,7 +150,6 @@
           },
           "position": "top",
           "right": [
-            "__dynamic__",
             "next-event",
             "tray",
             "removable",
@@ -454,8 +453,8 @@
         "clipboard",
         "clock",
         "command",
-        "dynamic",
         "exec",
+        "heartbeat",
         "idle",
         "keyboard",
         "mpris",
@@ -670,7 +669,6 @@
         "right": {
           "type": "array",
           "default": [
-            "__dynamic__",
             "next-event",
             "tray",
             "removable",

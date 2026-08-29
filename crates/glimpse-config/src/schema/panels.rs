@@ -1,8 +1,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub const DYNAMIC: &str = "__dynamic__";
-
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Panel {
@@ -26,7 +24,6 @@ impl Default for Panel {
             left: names(&["pager", "mpris"]),
             center: names(&["clock", "weather", "notifications", "privacy"]),
             right: names(&[
-                DYNAMIC,
                 "next-event",
                 "tray",
                 "removable",

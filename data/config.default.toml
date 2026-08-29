@@ -108,7 +108,6 @@ center = [
     "privacy",
 ]
 right = [
-    "__dynamic__",
     "next-event",
     "tray",
     "removable",
