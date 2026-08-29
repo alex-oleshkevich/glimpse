@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use glimpse_ipc::{Client, Event};
-use glimpse_widgets::IndicatorGroup;
+use glimpse_widgets::{IndicatorGroup, IndicatorSpec};
 use relm4::{Component, ComponentController, ComponentParts, ComponentSender, Controller};
 
 use super::{Applet, Button, Ctx, Direction, Input, Pointer};
@@ -25,11 +25,10 @@ pub enum HostInput {
 }
 
 pub struct AppletRuntime {
-    name: String,
     applet: Option<Box<dyn Applet>>,
     ctx: Ctx,
     group: IndicatorGroup,
-    scroll: HashMap<String, (f64, f64)>,
+    scroll: Scroll,
 }
 
 impl Component for AppletRuntime {
@@ -69,15 +68,16 @@ impl Component for AppletRuntime {
             }
         });
 
-        let ctx = Ctx::new(init.client, sender.command_sender().clone());
-        let applet = (init.build)(&ctx);
+        let build = init.build;
+        let ctx = Ctx::new(init.name, init.client, sender.command_sender().clone());
+        let applet = build(&ctx);
+        tracing::debug!(applet = ctx.name(), "started");
 
         let mut model = AppletRuntime {
-            name: init.name,
             applet: Some(applet),
             ctx,
             group: root,
-            scroll: HashMap::new(),
+            scroll: Scroll::default(),
         };
         model.deliver(None);
 
@@ -91,7 +91,7 @@ impl Component for AppletRuntime {
                 pointer: Pointer::Press(Button::from_code(button)),
             })),
             HostInput::Scrolled { indicator, dx, dy } => {
-                for direction in self.notches(&indicator, dx, dy) {
+                for direction in self.scroll.notches(&indicator, dx, dy) {
                     self.deliver(Some(&Input::Pointer {
                         indicator: indicator.clone(),
                         pointer: Pointer::Scroll(direction),
@@ -108,6 +108,20 @@ impl Component for AppletRuntime {
 
 impl AppletRuntime {
     fn deliver(&mut self, input: Option<&Input>) {
+        match input {
+            Some(Input::Topic(event)) => tracing::debug!(
+                applet = self.ctx.name(),
+                topic = event.topic,
+                seq = event.seq,
+                stale = event.stale,
+                "event"
+            ),
+            Some(Input::Pointer { indicator, pointer }) => {
+                tracing::debug!(applet = self.ctx.name(), indicator, ?pointer, "pointer")
+            }
+            None => {}
+        }
+
         let outcome = {
             let Some(applet) = self.applet.as_mut() else {
                 return;
@@ -125,20 +139,34 @@ impl AppletRuntime {
             Ok(specs) => specs,
             Err(panic) => {
                 tracing::error!(
-                    applet = self.name,
+                    applet = self.ctx.name(),
                     reason = panic_reason(panic.as_ref()),
                     "applet panicked, stopping it"
                 );
                 self.applet = None;
+                self.ctx.shutdown();
                 Vec::new()
             }
         };
 
+        tracing::debug!(
+            applet = self.ctx.name(),
+            indicators = specs.len(),
+            "rendered"
+        );
+        self.scroll.prune(&specs);
         self.group.set_items(&specs);
     }
+}
 
+#[derive(Default)]
+struct Scroll {
+    accumulated: HashMap<String, (f64, f64)>,
+}
+
+impl Scroll {
     fn notches(&mut self, indicator: &str, dx: f64, dy: f64) -> Vec<Direction> {
-        let accumulated = self.scroll.entry(indicator.to_owned()).or_default();
+        let accumulated = self.accumulated.entry(indicator.to_owned()).or_default();
         let mut out = Vec::new();
         drain(
             &mut accumulated.0,
@@ -155,6 +183,11 @@ impl AppletRuntime {
             &mut out,
         );
         out
+    }
+
+    fn prune(&mut self, specs: &[IndicatorSpec]) {
+        self.accumulated
+            .retain(|indicator, _| specs.iter().any(|spec| &spec.id == indicator));
     }
 }
 
@@ -227,6 +260,42 @@ mod tests {
             );
         }
         out
+    }
+
+    fn spec(id: &str) -> IndicatorSpec {
+        IndicatorSpec {
+            id: id.to_owned(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn each_indicator_accumulates_on_its_own() {
+        let mut scroll = Scroll::default();
+
+        assert!(scroll.notches("a", 0.0, 0.6).is_empty());
+        assert!(
+            scroll.notches("b", 0.0, 0.6).is_empty(),
+            "a second indicator must not inherit the first one's partial gesture"
+        );
+        assert_eq!(scroll.notches("a", 0.0, 0.6), [Direction::Down]);
+        assert!(scroll.notches("b", 0.0, 0.3).is_empty());
+    }
+
+    #[test]
+    fn an_indicator_that_stops_being_rendered_stops_being_tracked() {
+        let mut scroll = Scroll::default();
+        scroll.notches("a", 0.0, 0.6);
+        scroll.notches("b", 0.0, 0.6);
+
+        scroll.prune(&[spec("a")]);
+
+        assert_eq!(scroll.accumulated.len(), 1);
+        assert_eq!(
+            scroll.notches("b", 0.0, 0.6),
+            [],
+            "a re-added indicator starts from zero, not from what it left behind"
+        );
     }
 
     #[test]

@@ -4,6 +4,7 @@ use glimpse_contracts::{Command, Message};
 use glimpse_ipc::{Client, Event};
 use glimpse_widgets::IndicatorSpec;
 use serde::Deserialize;
+use std::cell::RefCell;
 use tokio::task::AbortHandle;
 
 pub trait Applet: 'static {
@@ -56,42 +57,64 @@ pub enum Direction {
 }
 
 pub struct Ctx {
+    name: String,
     client: Client,
     events: relm4::Sender<Event>,
+    sources: RefCell<Vec<SourceGuard>>,
 }
 
 impl Ctx {
-    pub(crate) fn new(client: Client, events: relm4::Sender<Event>) -> Self {
-        Self { client, events }
+    pub(crate) fn new(name: String, client: Client, events: relm4::Sender<Event>) -> Self {
+        Self {
+            name,
+            client,
+            events,
+            sources: RefCell::default(),
+        }
+    }
+
+    pub(crate) fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub(crate) fn shutdown(&self) {
+        let stopped = self.sources.borrow_mut().drain(..).count();
+        tracing::debug!(applet = self.name, stopped, "sources stopped");
     }
 
     pub fn call<C: Command>(&self, args: C::Args) {
         let client = self.client.clone();
+        let applet = self.name.clone();
+        tracing::debug!(applet, command = C::NAME, "calling");
         relm4::spawn(async move {
             let args = match serde_json::to_value(args) {
                 Ok(args) => args,
                 Err(error) => {
-                    tracing::error!(command = C::NAME, %error, "unserializable arguments");
+                    tracing::error!(applet, command = C::NAME, %error, "unserializable arguments");
                     return;
                 }
             };
             if let Err(error) = client.call(C::NAME, args).await {
-                tracing::warn!(command = C::NAME, %error, "command failed");
+                tracing::warn!(applet, command = C::NAME, %error, "command failed");
             }
         });
     }
 
-    pub fn subscribe<T: Message>(&self) -> SourceGuard {
+    pub fn subscribe<T: Message>(&self) {
         let client = self.client.clone();
         let events = self.events.clone();
+        let applet = self.name.clone();
         let mut states = client.watch_state();
 
         let handle = relm4::spawn(async move {
             loop {
                 match client.subscribe(T::NAME).await {
                     Ok(mut subscription) => {
-                        if subscription.matched() == 0 {
-                            tracing::warn!(topic = T::NAME, "no declared topic matched");
+                        let matched = subscription.matched();
+                        if matched == 0 {
+                            tracing::warn!(applet, topic = T::NAME, "no declared topic matched");
+                        } else {
+                            tracing::debug!(applet, topic = T::NAME, matched, "subscribed");
                         }
                         while let Some(event) = subscription.next().await {
                             if events.send(event).is_err() {
@@ -101,7 +124,7 @@ impl Ctx {
                         return;
                     }
                     Err(error) => {
-                        tracing::debug!(topic = T::NAME, %error, "subscribe refused, waiting");
+                        tracing::debug!(applet, topic = T::NAME, %error, "subscribe refused, waiting");
                         if states.changed().await.is_err() {
                             return;
                         }
@@ -110,15 +133,13 @@ impl Ctx {
             }
         });
 
-        SourceGuard {
+        self.sources.borrow_mut().push(SourceGuard {
             abort: handle.abort_handle(),
-        }
+        });
     }
 }
 
-#[must_use = "a source stops the moment its guard is dropped; hold it for as long as the source \
-              should live, and `let _ = ...` starts one that is aborted before it runs"]
-pub struct SourceGuard {
+struct SourceGuard {
     abort: AbortHandle,
 }
 
