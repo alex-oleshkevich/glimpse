@@ -36,19 +36,19 @@ impl Styles {
     }
 
     pub fn load(&self, theme: Option<&Path>, dropin: Option<&Path>) {
-        load(&self.theme, theme);
-        load(&self.dropin, dropin);
+        load("theme", &self.theme, theme);
+        load("drop-in", &self.dropin, dropin);
     }
 }
 
-fn load(provider: &CssProvider, path: Option<&Path>) {
+fn load(role: &str, provider: &CssProvider, path: Option<&Path>) {
     match path {
         Some(path) => {
-            tracing::debug!(path = %path.display(), "loading stylesheet");
+            tracing::debug!(role, path = %path.display(), "loading stylesheet");
             provider.load_from_path(path);
         }
         None => {
-            tracing::debug!("no stylesheet; clearing its provider");
+            tracing::debug!(role, "no stylesheet; clearing its provider");
             provider.load_from_string("");
         }
     }

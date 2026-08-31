@@ -174,6 +174,7 @@ impl Arm {
 
 impl Watch {
     fn new(wanted: Vec<PathBuf>) -> Self {
+        let wanted: Vec<PathBuf> = wanted.into_iter().map(absolute).collect();
         let (events_tx, events) = mpsc::channel(EVENTS);
         let mut watch = Self {
             allowed: wanted.clone(),
@@ -341,6 +342,10 @@ fn nearest_existing(dir: &Path, allowed: &[PathBuf]) -> Option<PathBuf> {
     }
 }
 
+fn absolute(dir: PathBuf) -> PathBuf {
+    std::path::absolute(&dir).unwrap_or(dir)
+}
+
 fn inode(dir: &Path) -> Option<u64> {
     std::fs::metadata(dir).ok().map(|metadata| metadata.ino())
 }
@@ -404,6 +409,22 @@ mod tests {
             }
             other => panic!("expected Changed, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn a_directory_named_relatively_reports_the_same_as_one_named_absolutely() {
+        let dir = tempfile::TempDir::new_in(".").expect("a temporary directory below this one");
+        let relative = PathBuf::from(dir.path().file_name().expect("a name"));
+        let mut updates: Updates = Box::pin(watch(relative.clone()));
+
+        std::fs::write(relative.join("config.toml"), "").expect("writes");
+
+        assert!(
+            next_changed(&mut updates)
+                .await
+                .iter()
+                .any(|path| path.ends_with("config.toml"))
+        );
     }
 
     /// The walk stops at the set it was given, so a directory that is missing and has no watched

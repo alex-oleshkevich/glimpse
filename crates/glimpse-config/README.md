@@ -203,6 +203,14 @@ configuration-specific, which is what will make stylesheets a caller rather than
   because there was nothing configured to reload. Deleting and restoring it wholesale is caught only
   when both happen inside one debounce window, which is what `rm -rf` immediately followed by a
   re-stow looks like; a restore that arrives seconds later needs a restart too.
+- **Every wanted directory is made absolute before it is armed.** `notify` resolves a relative path
+  against the working directory when it stores a watch, and reports every event under that absolute
+  root, so a relatively-named directory arms on the right inode and then matches none of its own
+  events — the watch reports nothing for the rest of its life and looks exactly like a directory
+  where nothing happens. This reached the tree: `GLIMPSE_THEMES_DIR=data/themes` armed correctly,
+  confirmed by its inode in `/proc/<pid>/fdinfo`, and never reloaded once. `std::path::absolute` is
+  what agrees with `notify`, because it is lexical and leaves symlinks alone exactly as `notify`'s
+  own `current_dir().join(path)` does.
 - **The watch re-arms when its directory is replaced.** A watch is bound to an inode rather than to
   a name, so `rm -rf ~/.config/glimpse` followed by a fresh clone otherwise leaves one armed on a
   directory nobody can reach: it reports nothing again, ever, and looks exactly like a directory

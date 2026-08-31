@@ -114,6 +114,11 @@ it — every `var()` in the built-in carries a fallback, and `theme::tests` lint
 `Styles` takes resolved paths rather than a theme name — locating them is `glimpse-config`'s job, and
 keeping it that way is what lets this crate stay free of the configuration schema.
 
+The built-in is compiled in, so editing `styles/glimpse.css` needs a rebuild. The hot loop for
+working on a rule is `GLIMPSE_THEMES_DIR=data/themes`, which points the theme provider at the
+repository's own pack and reloads it on every save; a rule written there overrides the built-in but
+cannot delete one, so the result is transcribed back into `styles/glimpse.css` when it settles.
+
 ### The token vocabulary
 
 Twenty-six tokens, all `--gl-` prefixed, declared once in the `:root` block of `styles/glimpse.css`.
