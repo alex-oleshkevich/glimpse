@@ -10,6 +10,7 @@ const PRIMARY_BUTTON: u32 = 1;
 #[derive(Debug, Default)]
 pub struct IndicatorGroup {
     pub items: RefCell<Vec<Indicator>>,
+    pub accessible_name: RefCell<String>,
 }
 
 #[glib::object_subclass]

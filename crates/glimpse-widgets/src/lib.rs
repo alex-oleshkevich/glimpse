@@ -19,6 +19,7 @@ pub fn register_resources() -> Result<(), glib::Error> {
 mod tests {
     use super::*;
     use gtk4::prelude::*;
+    use gtk4::subclass::prelude::*;
     use std::cell::{Cell, RefCell};
     use std::rc::Rc;
 
@@ -118,9 +119,41 @@ mod tests {
         );
         assert_eq!(*scrolled.borrow(), [(1.0f64, -2.0f64)]);
 
+        assert_eq!(
+            child_at(&group, 0).observe_controllers().n_items(),
+            0,
+            "a chip owns no input controller; the group is the one clickable thing"
+        );
+        assert_eq!(
+            group.observe_controllers().n_items(),
+            3,
+            "the group owns the click, scroll and key controllers"
+        );
+
+        group.set_items(&[spec("a"), spec("b")]);
+        assert_eq!(
+            *group.imp().accessible_name.borrow(),
+            "a b",
+            "the interactive element is named after everything it shows"
+        );
+        let hostile = "п".repeat(LABEL_MAX_CHARS * 2);
+        group.set_items(&[IndicatorSpec {
+            label: Some(hostile),
+            ..Default::default()
+        }]);
+        assert_eq!(
+            group.imp().accessible_name.borrow().chars().count(),
+            LABEL_MAX_CHARS,
+            "an unbounded label is capped before it reaches the accessible name"
+        );
+
         group.set_items(&[]);
         assert!(group.first_child().is_none());
         assert!(!group.is_visible(), "an empty group hides itself");
+        assert!(
+            group.imp().accessible_name.borrow().is_empty(),
+            "an empty group carries no stale name"
+        );
 
         let long = "ы".repeat(LABEL_MAX_CHARS * 2);
         let indicator = Indicator::new();

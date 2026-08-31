@@ -11,7 +11,6 @@ pub struct Indicator {
     #[template_child]
     pub badge: TemplateChild<gtk4::Label>,
     pub gicon: RefCell<Option<gio::Icon>>,
-    pub accessible_name: RefCell<String>,
     pub attention: Cell<bool>,
 }
 

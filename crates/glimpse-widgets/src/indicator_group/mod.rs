@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::indicator::{Indicator, IndicatorSpec};
+use crate::indicator::{Indicator, IndicatorSpec, LABEL_MAX_CHARS, truncate};
 
 glib::wrapper! {
     pub struct IndicatorGroup(ObjectSubclass<imp::IndicatorGroup>)
@@ -44,13 +44,33 @@ impl IndicatorGroup {
                 }
             }
 
-            while current.len() > items.len() {
-                if let Some(indicator) = current.pop() {
-                    indicator.unparent();
-                }
+            let keep = items.len().min(current.len());
+            for indicator in current.split_off(keep) {
+                indicator.unparent();
             }
         }
         self.set_visible(!items.is_empty());
+        self.sync_accessible_label(items);
+    }
+
+    fn sync_accessible_label(&self, items: &[IndicatorSpec]) {
+        let name = items
+            .iter()
+            .filter_map(|spec| spec.label.as_deref().or(spec.tooltip.as_deref()))
+            .map(|text| truncate(text, LABEL_MAX_CHARS))
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        let imp = self.imp();
+        if *imp.accessible_name.borrow() == name {
+            return;
+        }
+        imp.accessible_name.replace(name.clone());
+        if name.is_empty() {
+            self.reset_property(gtk4::AccessibleProperty::Label);
+        } else {
+            self.update_property(&[gtk4::accessible::Property::Label(&name)]);
+        }
     }
 
     pub fn connect_pressed<F: Fn(&Self, u32) + 'static>(&self, f: F) -> glib::SignalHandlerId {

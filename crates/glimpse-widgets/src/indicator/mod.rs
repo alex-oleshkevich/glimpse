@@ -61,7 +61,6 @@ impl Indicator {
 
     pub fn set_label(&self, label: Option<&str>) {
         set_text(&self.imp().label, label);
-        self.sync_accessible_label();
     }
 
     pub fn set_badge(&self, badge: Option<&str>) {
@@ -76,24 +75,6 @@ impl Indicator {
             self.add_css_class(ATTENTION_CLASS);
         } else {
             self.remove_css_class(ATTENTION_CLASS);
-        }
-    }
-
-    fn sync_accessible_label(&self) {
-        let label = self.imp().label.text();
-        let name = if label.is_empty() {
-            self.tooltip_text().unwrap_or_default().to_string()
-        } else {
-            label.to_string()
-        };
-        if *self.imp().accessible_name.borrow() == name {
-            return;
-        }
-        self.imp().accessible_name.replace(name.clone());
-        if name.is_empty() {
-            self.reset_property(gtk4::AccessibleProperty::Label);
-        } else {
-            self.update_property(&[gtk4::accessible::Property::Label(&name)]);
         }
     }
 }
@@ -115,6 +96,6 @@ fn set_text(label: &gtk4::Label, value: Option<&str>) {
     label.set_visible(!text.is_empty());
 }
 
-fn truncate(value: &str, max: usize) -> String {
+pub(crate) fn truncate(value: &str, max: usize) -> String {
     value.chars().take(max).collect()
 }

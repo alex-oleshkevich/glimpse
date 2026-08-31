@@ -25,7 +25,9 @@ instead silences the same warning by making a screen reader announce the name tw
 `Indicator` is one visible chip in a bar: an icon, an optional label, an optional badge. It takes
 values and emits nothing. Pointer and keyboard input belong to the group, not to the chip — an
 applet is one clickable thing however many chips it happens to render, so a chip has no gesture
-controller, no signals, and the `Generic` accessible role.
+controller, no signals, and the `Generic` accessible role. The accessible name moved up with the
+input: naming the chips would leave the one element assistive technology treats as a button
+unnamed, so the group composes its name from what its chips show.
 
 The icon is a single `Option<gio::Icon>` rather than one property per source. `gdk::Texture`
 implements `gio::Icon`, so a themed name (`gio::ThemedIcon`), a file (`gio::FileIcon`) and a
@@ -56,6 +58,9 @@ owns the click, scroll and key controllers, emitting `pressed(button)` and `scro
 Deciding what a press means belongs to whoever owns the group. Enter and Space emit `pressed` with
 button 1, so keyboard activation arrives as an ordinary left click rather than as a separate path
 every consumer has to handle.
+
+The group is focusable and `:focus-visible` is styled, because a focusable widget with no visible
+focus ring is worse than one that cannot be reached at all.
 
 `set_items` takes the whole desired list and reconciles it **by position**: index _n_ of the new
 list is applied to the widget already at index _n_, extras are created, and the tail is unparented.
