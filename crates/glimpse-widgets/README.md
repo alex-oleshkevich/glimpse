@@ -153,6 +153,30 @@ This matches what `.dimmed` does in every Adwaita application; **do not compensa
 `--border-color` is itself 0.12 / 0.15. The ratio form keeps the design's 1.5× separation between a
 hairline and a switch track, and inherits libadwaita's high-contrast bump on `--border-color`.
 
+### The panel and indicator rules
+
+Ported from the previous generation's `themes/base.css` rather than invented, so the bar reads the
+same: 6px of horizontal panel padding, a `0 1px 2px` shadow rather than a hard hairline, pill
+indicators at `4px 6px` in a 22px box, semibold, `line-height: 1`, and a badge that is accent at 18%
+carrying the panel's own foreground rather than a solid accent chip.
+
+Four things were deliberately not carried across:
+
+- **Thickness is `[[panels]] size`, not CSS.** The old sheet set `min-height` on the panel, and
+  `Panel::set_thickness` calls `set_size_request`, which is also a *minimum* — GTK takes the larger
+  of the two, so a stylesheet floor silently overrides any smaller configured size. Measured: with
+  the rule present, `size = 28` still rendered 36px. Nothing in this sheet sets panel thickness.
+- **The icon is not dimmed.** `--gl-muted` on `.indicator__icon` was a departure from the old bar,
+  where an indicator's icon, label and badge all inherited the panel foreground at full strength.
+- **`:active` keeps `--gl-active`.** The old sheet gave `:hover` and `:active` the same background
+  and left `--indicator-active-bg` declared but unread, so a press looked exactly like a hover.
+- **Font size is inherited.** The old bar's `11pt` was the system UI size restated; naming a size
+  here would override font scaling instead, which `.claude/rules/ui.md` forbids. `tabular-nums` sits
+  on `.panel` so a clock, a counter and a badge all get it from one declaration.
+
+`.panel label` is gone with them: `font-family` and `font-weight` inherit, so it only restated
+`.panel`.
+
 Spacing, type sizes and inner radii are **not** tokens. They are literals in the rule that reads
 them, because the design's rhythm is hand-tuned at 1px resolution — `3px`, `7px`, `9px` and `11px`
 all appear in load-bearing places, and the button and row radii differ by exactly one pixel. A

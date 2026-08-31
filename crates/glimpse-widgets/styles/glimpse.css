@@ -37,14 +37,9 @@
     background-color: var(--gl-panel);
     color: var(--gl-panel-fg);
     font-family: var(--gl-font-family);
-    font-weight: 500;
+    font-variant-numeric: tabular-nums;
     padding: 0 10px;
-    box-shadow: 0 1px 0 var(--gl-shadow);
-}
-
-.panel label {
-    font-family: var(--gl-font-family);
-    font-weight: 500;
+    box-shadow: 0 1px 2px alpha(var(--gl-shadow), 0.22);
 }
 
 .panel separator {
@@ -53,12 +48,8 @@
     min-width: 1px;
 }
 
-.panel--horizontal {
-    min-height: 36px;
-}
-
 .panel--vertical {
-    padding: 10px 0;
+    padding: 6px 0;
 }
 
 .panel--vertical separator {
@@ -68,9 +59,15 @@
 }
 
 .indicator-group {
-    padding: 0 9px;
-    border-radius: 8px;
-    transition: background-color var(--gl-duration) var(--gl-ease);
+    min-width: 22px;
+    min-height: 22px;
+    padding: 4px 6px;
+    border-radius: 999px;
+    font-weight: 600;
+    line-height: 1;
+    transition:
+        background-color var(--gl-duration) var(--gl-ease),
+        color var(--gl-duration) var(--gl-ease);
 }
 
 .indicator-group:hover {
@@ -91,21 +88,17 @@
 }
 
 .indicator__icon {
-    color: var(--gl-muted);
-}
-
-.indicator__label {
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
+    min-width: 22px;
+    min-height: 22px;
 }
 
 .indicator__badge {
-    background-color: var(--gl-accent);
-    color: var(--gl-accent-fg);
-    font-size: 10px;
-    font-weight: 700;
-    border-radius: 4px;
-    padding: 0 5px;
+    background-color: var(--gl-accent-soft);
+    border-radius: 999px;
+    font-size: 11px;
+    padding: 2px 8px;
+    min-width: 22px;
+    min-height: 22px;
     margin-left: 5px;
 }
 
