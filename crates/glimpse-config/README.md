@@ -130,13 +130,18 @@ is a regular file. Both checks are `Path::is_dir`/`Path::is_file`, which go thro
 than `symlink_metadata`, so a symlinked theme directory or a symlinked sheet inside a package
 resolves.
 
-The directory is the unit because CSS makes it one. `panel.css` and `lock.css` are each
-`@import url("base.css")`, and GTK resolves a relative import against the importing file's own
+The directory is the unit because CSS makes it one. A theme may split its sheets with
+`@import url("shared.css")`, and GTK resolves a relative import against the importing file's own
 directory, never through this resolver. A theme assembled from two roots therefore cannot import
-across them: `user/nord/panel.css` looks for `user/nord/base.css` and fails, whatever `data/nord`
+across them: `user/nord/panel.css` looks for `user/nord/shared.css` and fails, whatever `data/nord`
 holds. Per-file resolution was tried and promised that a theme could ship one sheet and inherit the
 rest; the import makes that unreachable, so a theme is now all or nothing. Copy the whole directory
 to customise one rule.
+
+The shipped `adwaita` theme is three empty files. Component rules and the token vocabulary live in
+`glimpse-widgets/styles/glimpse.css`, compiled into every UI binary at `APPLICATION` priority, so a
+theme that redefines nothing still renders correctly and a theme that redefines one token changes
+only that.
 
 `user_stylesheet()` locates the user's own `styles.css`, which is optional, absent by default, and
 not part of any theme — it lives in `user_dir()` and always loads on top of the theme.

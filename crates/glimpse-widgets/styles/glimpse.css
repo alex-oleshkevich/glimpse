@@ -1,0 +1,122 @@
+:root {
+    --gl-panel: var(--headerbar-bg-color, #2e2e32);
+    --gl-panel-fg: var(--window-fg-color, #ffffff);
+    --gl-surface: var(--popover-bg-color, #36363a);
+    --gl-surface-fg: var(--popover-fg-color, #ffffff);
+
+    --gl-muted: alpha(var(--gl-surface-fg), 0.55);
+    --gl-dim: alpha(var(--gl-surface-fg), 0.38);
+    --gl-faint: alpha(var(--gl-surface-fg), 0.22);
+
+    --gl-border: var(--border-color, rgb(255 255 255 / 0.15));
+    --gl-shadow: rgb(0 0 0 / 0.55);
+
+    --gl-accent: var(--accent-bg-color, #3584e4);
+    --gl-accent-fg: var(--accent-fg-color, #ffffff);
+    --gl-accent-text: var(--accent-color, #80d0ff);
+    --gl-accent-soft: alpha(var(--gl-accent), 0.18);
+
+    --gl-hover: alpha(var(--gl-surface-fg), 0.08);
+    --gl-active: alpha(var(--gl-surface-fg), 0.16);
+    --gl-control: alpha(var(--gl-border), 1.5);
+    --gl-knob: #ffffff;
+    --gl-scrim: rgb(0 0 0 / 0.55);
+
+    --gl-danger-text: var(--destructive-color, #ff938b);
+    --gl-danger-soft: alpha(var(--destructive-bg-color, #c01c28), 0.18);
+    --gl-warning-text: var(--warning-color, #ffc252);
+
+    --gl-radius: 14px;
+    --gl-duration: 150ms;
+    --gl-ease: cubic-bezier(0.2, 0, 0, 1);
+    --gl-font-family: "Adwaita Sans", system-ui, sans-serif;
+    --gl-disabled: var(--disabled-opacity, 0.5);
+}
+
+.panel {
+    background-color: var(--gl-panel);
+    color: var(--gl-panel-fg);
+    font-family: var(--gl-font-family);
+    font-weight: 500;
+    padding: 0 10px;
+    box-shadow: 0 1px 0 var(--gl-shadow);
+}
+
+.panel label {
+    font-family: var(--gl-font-family);
+    font-weight: 500;
+}
+
+.panel separator {
+    background-color: var(--gl-border);
+    margin: 9px 8px;
+    min-width: 1px;
+}
+
+.panel--horizontal {
+    min-height: 36px;
+}
+
+.panel--vertical {
+    padding: 10px 0;
+}
+
+.panel--vertical separator {
+    margin: 8px 9px;
+    min-width: 0;
+    min-height: 1px;
+}
+
+.indicator-group {
+    padding: 0 9px;
+    border-radius: 8px;
+    transition: background-color var(--gl-duration) var(--gl-ease);
+}
+
+.indicator-group:hover {
+    background-color: var(--gl-hover);
+}
+
+.indicator-group:active {
+    background-color: var(--gl-active);
+}
+
+.indicator-group:focus-visible {
+    outline: 2px solid var(--gl-accent-text);
+    outline-offset: -2px;
+}
+
+.indicator-group:disabled {
+    opacity: var(--gl-disabled);
+}
+
+.indicator__icon {
+    color: var(--gl-muted);
+}
+
+.indicator__label {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.indicator__badge {
+    background-color: var(--gl-accent);
+    color: var(--gl-accent-fg);
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 0 5px;
+    margin-left: 5px;
+}
+
+.indicator--attention .indicator__icon,
+.indicator--attention .indicator__label {
+    color: var(--gl-accent-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none;
+        animation: none;
+    }
+}

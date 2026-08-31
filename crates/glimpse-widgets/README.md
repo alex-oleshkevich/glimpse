@@ -83,18 +83,76 @@ because nothing varies it.
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them on the display **once**,
-and `load()` replaces their content in place — installing twice stacks every rule. Two providers, in
-cascade order: the theme's sheet for this surface at `STYLE_PROVIDER_PRIORITY_USER`, and the user's
-own `styles.css` one above it, so a drop-in always has the last word.
+and `load()` replaces their content in place — installing twice stacks every rule. Three providers,
+in cascade order:
+
+| Priority | Source | Holds |
+| --- | --- | --- |
+| `APPLICATION` | `styles/glimpse.css`, via `include_str!` | the token vocabulary and every component rule |
+| `USER` | the theme's sheet for this surface | token redefinitions |
+| `USER + 1` | the user's own `styles.css` | the last word |
+
+The built-in is compiled in rather than installed, because `load()` points the theme provider at
+**one** path: selecting a theme named `nord` loads `nord/panel.css` *instead of* the default's, not
+on top of it. A component rule living in a theme is a rule the first second theme deletes. It is
+`include_str!` rather than a gresource because only `glimpse-panel` calls `register_resources()`,
+and the lock screen and wallpaper need the same stylesheet.
+
+The shipped `adwaita` theme is therefore **empty**, and that is the test: if the panel renders
+correctly with three zero-byte sheets, the built-in stands alone.
 
 Each provider connects `parsing-error`, because GTK4's loaders return nothing and a malformed
-stylesheet is otherwise indistinguishable from a selector that does not match. Sheets load by path
-rather than by string: a theme's `panel.css` carries `@import url("base.css")`, and relative imports
-resolve only against a provider that was given a location. A sheet that does not resolve loads the
-empty string, which clears its provider.
+stylesheet is otherwise indistinguishable from a selector that does not match. Theme sheets load by
+path rather than by string, so a relative `@import` resolves against the importing file's directory.
+A sheet that does not resolve loads the empty string, which clears its provider.
+
+**`parsing-error` does not see a bad token.** Measured on GTK 4.22: a `var(--gl-sruface)` naming
+nothing, or an `alpha()` given a percentage, produces a `Gtk-WARNING` on stderr and never fires the
+signal. The surface renders transparent and nothing in the log says why. Two things guard against
+it — every `var()` in the built-in carries a fallback, and `theme::tests` lints the vocabulary.
 
 `Styles` takes resolved paths rather than a theme name — locating them is `glimpse-config`'s job, and
 keeping it that way is what lets this crate stay free of the configuration schema.
+
+### The token vocabulary
+
+Twenty-six tokens, all `--gl-` prefixed, declared once in the `:root` block of `styles/glimpse.css`.
+Three tiers, and a rule may only read the tier directly below it: libadwaita's tokens → `--gl-*` →
+component rules. A component rule that names `--accent-bg-color` or a literal colour is a test
+failure, not a style choice.
+
+| Group | Tokens |
+| --- | --- |
+| surfaces | `panel` `panel-fg` `surface` `surface-fg` `border` `shadow` |
+| text ramp | `muted` `dim` `faint` |
+| accent | `accent` `accent-fg` `accent-text` `accent-soft` |
+| state | `hover` `active` `control` `knob` `scrim` |
+| semantic | `danger-text` `danger-soft` `warning-text` |
+| other | `radius` `duration` `ease` `font-family` `disabled` |
+
+Eighteen derive from libadwaita, so the light/dark flip and the system accent cost nothing: setting
+the scheme on `AdwStyleManager` moves every one of them at once, which is why there is no
+`--dark-*` mirror and no `@media (prefers-color-scheme)` on a colour anywhere.
+
+Three are literal. `--gl-knob` is white in both schemes by design, `--gl-scrim` sits over a wallpaper
+rather than over an Adwaita surface, and `--gl-shadow` **cannot** be derived: `alpha()` multiplies
+rather than replaces, and `--shade-color` is already translucent at 0.07, so `alpha(shade, 0.55)`
+yields 0.04 and no visible shadow.
+
+That same multiplication is why every token derived from `--gl-surface-fg` resolves lower in light
+than in dark — Adwaita's light foreground carries 80%. `--gl-muted` is 0.44 light and 0.55 dark.
+This matches what `.dimmed` does in every Adwaita application; **do not compensate for it.**
+
+`--gl-control` reads `alpha(var(--gl-border), 1.5)` rather than a re-derived constant. Written as
+`alpha(var(--gl-surface-fg), 0.15)` it rendered pixel-identical to `--gl-border`, because
+`--border-color` is itself 0.12 / 0.15. The ratio form keeps the design's 1.5× separation between a
+hairline and a switch track, and inherits libadwaita's high-contrast bump on `--border-color`.
+
+Spacing, type sizes and inner radii are **not** tokens. They are literals in the rule that reads
+them, because the design's rhythm is hand-tuned at 1px resolution — `3px`, `7px`, `9px` and `11px`
+all appear in load-bearing places, and the button and row radii differ by exactly one pixel. A
+spacing scale would not preserve that rhythm, it would replace it with a rounder one. `--gl-radius`
+is the single exception: it rounds a surface, and nothing else moves.
 
 ## Rules
 

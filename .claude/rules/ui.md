@@ -38,8 +38,12 @@ General GTK4, libadwaita and relm4 craft is covered by the `relm4`, `gtk4-styles
 
 - Blueprint for structure, CSS for appearance, Rust for behaviour. No markup strings assembled in
   Rust, no colors hardcoded in Rust.
-- Colors come from libadwaita semantic variables such as `@theme_fg_color` and `@accent_bg_color`.
-  Literal hex breaks dark mode.
+- Colors come from the `--gl-*` tokens declared in `glimpse-widgets/styles/glimpse.css`, never from
+  a literal and never from a libadwaita token directly. `@theme_fg_color` and `@accent_bg_color` are
+  GTK's pre-4.16 namespace, are not what a theme can override, and `@theme_fg_color` resolves to the
+  *window's* foreground rather than the panel's. `theme::tests` fails the build on either mistake.
+- A misspelled token is invisible: GTK renders the surface transparent, and `parsing-error` does not
+  fire. Give every `var()` in the built-in stylesheet a fallback.
 - No fixed `width-request` or `height-request` to force a layout. The panel must survive font
   scaling and fractional output scale.
 
