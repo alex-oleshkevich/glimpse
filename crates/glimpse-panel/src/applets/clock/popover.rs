@@ -25,7 +25,7 @@ impl SimpleComponent for Popover {
     }
 
     fn init(
-        init: Self::Init,
+        _init: Self::Init,
         _root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
@@ -34,7 +34,7 @@ impl SimpleComponent for Popover {
         ComponentParts { model, widgets }
     }
 
-    fn update(&mut self, message: Self::PopoverInput, _sender: ComponentSender<Self>) {
+    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {}
     }
 }

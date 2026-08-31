@@ -38,8 +38,6 @@ use glimpse_contracts::Message;
 
 use crate::applet::{Applet, Button, Ctx, Input, Pointer, payload};
 
-const INDICATOR: &str = "value";
-
 pub struct Thing {
     value: Option<Value>,
 }
@@ -67,10 +65,10 @@ impl Applet for Thing {
                     self.value = Some(payload.value);
                 }
             }
-            Input::Pointer { pointer: Pointer::Press(Button::Left), .. } => {
+            Input::Pointer(Pointer::Press(Button::Left)) => {
                 ctx.call::<SomeCommand>(SomeCommand {})
             }
-            Input::Pointer { .. } => {}
+            Input::Pointer(_) => {}
         }
     }
 
@@ -79,7 +77,6 @@ impl Applet for Thing {
             return Vec::new();
         };
         vec![IndicatorSpec {
-            id: INDICATOR.to_owned(),
             label: Some(value.to_string()),
             ..Default::default()
         }]
@@ -91,22 +88,40 @@ impl Applet for Thing {
 Name topics through `T::NAME` rather than string literals — nothing checks that a declared topic and
 the `payload::<T>` decoding it agree, so sharing the symbol is the only link there is.
 
-`Input::Pointer { .. }` as a final arm is deliberate — middle click, right click and horizontal
-scroll all land there, and an applet that wants none of them says so once.
+`Input::Pointer(_)` as a final arm is deliberate — middle click, right click and horizontal scroll
+all land there, and an applet that wants none of them says so once. Pointer input names no
+indicator: the whole `IndicatorGroup` is one clickable target, so an applet rendering three chips is
+still one thing to click.
 
 ## 3. Registration — `crates/glimpse-panel/src/applets/mod.rs`
 
 ```rust
 mod thing;
-use thing::Thing;
 
 fn build(config: &AppletConfig) -> Option<Builder> {
     match config {
-        AppletConfig::Thing {} => Some(|| Box::new(Thing::start())),
+        AppletConfig::Thing {} => Some(|| Box::new(thing::Thing::start())),
         AppletConfig::Audio {} | /* every applet not yet built */ => None,
     }
 }
 ```
+
+**Reference an applet through its module — `thing::Thing`, `clock::Clock`, `clock::Popover` — never
+`use thing::Thing;` and then a bare `Thing`.** An applet is a directory module whose `mod.rs`
+re-exports from private submodules:
+
+```rust
+mod indicator;
+mod popover;
+
+pub use indicator::Clock;
+pub use popover::Popover;
+```
+
+The bare names collide and read as generic: every applet has a `Popover`, an `Init` and an `Input`,
+and none of them means anything without the module in front. The qualifier is what keeps the
+registration match readable as the list grows, and it keeps the submodule layout an internal detail
+rather than part of the path a caller types.
 
 The closure captures nothing, so it coerces to `Builder = fn() -> Box<dyn Applet>`. That function
 pointer is what keeps `applet/runtime.rs` from depending on `applets/` — the framework never names a

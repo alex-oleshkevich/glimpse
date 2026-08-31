@@ -4,8 +4,6 @@ use glimpse_widgets::IndicatorSpec;
 
 use crate::applet::{Applet, Ctx, Input};
 
-const INDICATOR: &str = "time";
-
 #[derive(Default)]
 pub struct Clock {
     config: ClockConfig,
@@ -27,7 +25,6 @@ impl Applet for Clock {
 
     fn indicators(&self) -> Vec<IndicatorSpec> {
         vec![IndicatorSpec {
-            id: INDICATOR.to_owned(),
             label: Some(Local::now().format(&self.config.format).to_string()),
             ..Default::default()
         }]

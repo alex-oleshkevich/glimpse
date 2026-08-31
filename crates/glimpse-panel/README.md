@@ -40,9 +40,14 @@ a panic logs, drops the applet, stops its sources and empties its group. Unwindi
 mid-mutation leaves state nobody can reason about, which is why `ServiceRuntime` stops a service
 rather than continuing with it.
 
-**Scroll reaches an applet as whole notches.** The `Indicator` emits raw deltas and a touchpad sends
-many small ones; the runtime accumulates per (indicator, axis) and drains in whole units, so a wheel
-detent is one notch and ten `0.4` deltas are four.
+**Scroll reaches an applet as whole notches.** The `IndicatorGroup` emits raw deltas and a touchpad
+sends many small ones; the runtime accumulates per axis and drains in whole units, so a wheel detent
+is one notch and ten `0.4` deltas are four. The accumulator belongs to the group, not to a chip, so
+it survives a re-render — an applet whose indicators change mid-gesture does not lose the remainder.
+
+**Pointer input names no indicator.** The whole group is one clickable target, so `Input::Pointer`
+carries only the button or direction. An applet that renders three chips is still one thing to
+click, which is what an applet is from the outside.
 
 **Zone reconciliation is keyed by `(zone, name)`.** `MonitorsChanged` and `ThemeChanged` both reach
 `reconcile_panels`, so the guard comparing the desired key sequence against the current one is what

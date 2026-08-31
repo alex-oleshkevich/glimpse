@@ -23,8 +23,9 @@ instead silences the same warning by making a screen reader announce the name tw
 ## Indicators
 
 `Indicator` is one visible chip in a bar: an icon, an optional label, an optional badge. It takes
-values and emits `pressed(button)` and `scrolled(dx, dy)`; deciding what a press means belongs to
-whoever owns it.
+values and emits nothing. Pointer and keyboard input belong to the group, not to the chip — an
+applet is one clickable thing however many chips it happens to render, so a chip has no gesture
+controller, no signals, and the `Generic` accessible role.
 
 The icon is a single `Option<gio::Icon>` rather than one property per source. `gdk::Texture`
 implements `gio::Icon`, so a themed name (`gio::ThemedIcon`), a file (`gio::FileIcon`) and a
@@ -50,11 +51,19 @@ task stays plain data — a name, a path, or pixel bytes — and becomes an icon
 actually needs: a tray shows one per running item, a privacy slot shows nothing at all while
 nothing is recording.
 
-`set_items` takes the whole desired list and reconciles it, keyed on `IndicatorSpec::id`. Matching
-on id is what keeps a value change to a property write instead of a rebuilt widget subtree, and it
-is also a correctness requirement: the signal closure connected when an indicator is built captures
-its id, so reusing a widget under a different id would report presses under the wrong one. Duplicate
-ids are skipped rather than collapsed, because collapsing them orphans a parented widget.
+The group is the interactive element: it is focusable, carries the `Button` accessible role, and
+owns the click, scroll and key controllers, emitting `pressed(button)` and `scrolled(dx, dy)`.
+Deciding what a press means belongs to whoever owns the group. Enter and Space emit `pressed` with
+button 1, so keyboard activation arrives as an ordinary left click rather than as a separate path
+every consumer has to handle.
+
+`set_items` takes the whole desired list and reconciles it **by position**: index _n_ of the new
+list is applied to the widget already at index _n_, extras are created, and the tail is unparented.
+An earlier version keyed on an `IndicatorSpec::id`, which existed only because each chip carried its
+own signal closure capturing that id — reusing a widget under a different id would have reported
+presses under the wrong one. With input owned by the group no closure captures anything, so the id
+had no second job and was removed along with the duplicate-id skip it required. Position reuse keeps
+a value change to a property write rather than a rebuilt subtree, which is all the id was buying.
 
 Placement is one `Widget::insert_after` call, which both parents a new child and reorders an
 existing one.

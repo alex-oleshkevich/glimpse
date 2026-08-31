@@ -45,7 +45,7 @@ concrete type is still known.
 ```rust
 pub enum Input {
     Topic(glimpse_ipc::Event),
-    Pointer { indicator: String, pointer: Pointer },
+    Pointer(Pointer),
 }
 
 pub enum Pointer { Press(Button), Scroll(Direction) }
@@ -147,8 +147,8 @@ capped before it reaches a label. They are not repeated here. What follows is wh
 
 - The applet is one arm of the exhaustive `match` in `applets/mod.rs::build`, listing every unbuilt
   `Applet` variant explicitly rather than `_ => None`, so a new applet is a compile error here.
-- Every indicator id is stable across renders — `IndicatorGroup` keys on it, and a changing id
-  destroys and rebuilds the widget instead of updating it.
+- `indicators()` returns chips in a stable order — `IndicatorGroup` reconciles by position, so a
+  list whose order churns rewrites every chip instead of updating the one that changed.
 - Text taken off a topic is capped before it reaches an `IndicatorSpec`. Tray titles, MPRIS metadata
   and SSIDs are attacker-controlled; `Indicator` truncates, but the cap belongs upstream too.
 - Pure logic is split out of anything needing a `Ctx` so it can be tested headlessly — see the

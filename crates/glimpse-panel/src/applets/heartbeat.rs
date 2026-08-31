@@ -4,7 +4,6 @@ use gtk4::prelude::*;
 
 use crate::applet::{Applet, Button, Ctx, Direction, Input, Pointer, payload};
 
-const INDICATOR: &str = "count";
 const ICON: &str = "emblem-synchronizing-symbolic";
 const DEFAULT_PERIOD_MS: u64 = 1000;
 const PERIOD_STEP_MS: u64 = 100;
@@ -37,15 +36,11 @@ impl Applet for Heartbeat {
                     self.count = Some(tick.count);
                 }
             }
-            Input::Pointer {
-                pointer: Pointer::Press(Button::Left),
-                ..
-            } => ctx.call::<HeartbeatReset>(HeartbeatReset {}),
-            Input::Pointer {
-                pointer: Pointer::Scroll(direction),
-                ..
-            } => self.retime(ctx, *direction),
-            Input::Pointer { .. } => {}
+            Input::Pointer(Pointer::Press(Button::Left)) => {
+                ctx.call::<HeartbeatReset>(HeartbeatReset {})
+            }
+            Input::Pointer(Pointer::Scroll(direction)) => self.retime(ctx, *direction),
+            Input::Pointer(_) => {}
         }
     }
 
@@ -54,7 +49,6 @@ impl Applet for Heartbeat {
             return Vec::new();
         };
         vec![IndicatorSpec {
-            id: INDICATOR.to_owned(),
             icon: Some(self.icon.clone()),
             label: Some(count.to_string()),
             tooltip: Some(format!("every {} ms", self.period_ms)),

@@ -69,6 +69,10 @@ test-crate CRATE:
 test-compositor:
     cargo test --workspace -- --include-ignored
 
+[doc("one crate's tests including those needing a compositor")]
+test-crate-compositor CRATE:
+    cargo test -p {{ CRATE }} -- --include-ignored
+
 [doc("everything CI runs")]
 verify: fmt-check check lint test
 

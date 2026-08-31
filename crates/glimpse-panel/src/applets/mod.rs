@@ -6,8 +6,6 @@ use std::collections::BTreeMap;
 
 use crate::applet::Applet;
 use crate::applet::runtime::Builder;
-use clock::Clock;
-use heartbeat::Heartbeat;
 
 pub fn resolve(
     name: &str,
@@ -30,8 +28,8 @@ pub fn resolve(
 
 fn build(config: &AppletConfig) -> Option<Builder> {
     match config {
-        AppletConfig::Clock(_) => Some(|| Box::new(Clock::start())),
-        AppletConfig::Heartbeat {} => Some(|| Box::new(Heartbeat::start())),
+        AppletConfig::Clock(_) => Some(|| Box::new(clock::Clock::start())),
+        AppletConfig::Heartbeat {} => Some(|| Box::new(heartbeat::Heartbeat::start())),
         AppletConfig::Audio {}
         | AppletConfig::Battery {}
         | AppletConfig::Brightness {}

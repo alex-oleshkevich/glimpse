@@ -22,10 +22,9 @@ mod tests {
     use std::cell::{Cell, RefCell};
     use std::rc::Rc;
 
-    fn spec(id: &str) -> IndicatorSpec {
+    fn spec(label: &str) -> IndicatorSpec {
         IndicatorSpec {
-            id: id.to_owned(),
-            label: Some(id.to_owned()),
+            label: Some(label.to_owned()),
             ..Default::default()
         }
     }
@@ -94,33 +93,30 @@ mod tests {
         group.set_items(&[spec("c"), spec("a")]);
         assert_eq!(labels(&group), ["c", "a"]);
         assert_eq!(
-            child_at(&group, 1),
+            child_at(&group, 0),
             first,
-            "an id that survives keeps its widget"
+            "a position reuses its widget rather than rebuilding it"
         );
 
         let pressed = Rc::new(RefCell::new(Vec::new()));
         group.connect_pressed({
             let pressed = Rc::clone(&pressed);
-            move |_, id, button| pressed.borrow_mut().push((id.to_owned(), button))
+            move |_, button| pressed.borrow_mut().push(button)
         });
         let scrolled = Rc::new(RefCell::new(Vec::new()));
         group.connect_scrolled({
             let scrolled = Rc::clone(&scrolled);
-            move |_, id, dx, dy| scrolled.borrow_mut().push((id.to_owned(), dx, dy))
+            move |_, dx, dy| scrolled.borrow_mut().push((dx, dy))
         });
 
-        child_at(&group, 1).emit_by_name::<()>("pressed", &[&3u32]);
-        child_at(&group, 0).emit_by_name::<()>("scrolled", &[&1.0f64, &-2.0f64]);
+        group.emit_by_name::<()>("pressed", &[&3u32]);
+        group.emit_by_name::<()>("scrolled", &[&1.0f64, &-2.0f64]);
         assert_eq!(
             *pressed.borrow(),
-            [("a".to_owned(), 3u32)],
-            "a reused indicator still reports its own id, exactly once"
+            [3u32],
+            "the whole group reports the press, exactly once"
         );
-        assert_eq!(*scrolled.borrow(), [("c".to_owned(), 1.0f64, -2.0f64)]);
-
-        group.set_items(&[spec("a"), spec("a")]);
-        assert_eq!(labels(&group), ["a"], "a duplicate id is skipped");
+        assert_eq!(*scrolled.borrow(), [(1.0f64, -2.0f64)]);
 
         group.set_items(&[]);
         assert!(group.first_child().is_none());
@@ -162,7 +158,6 @@ mod tests {
         assert!(!image.is_visible());
 
         indicator.apply(&IndicatorSpec {
-            id: "hostile".to_owned(),
             tooltip: Some("п".repeat(TOOLTIP_MAX_CHARS * 2)),
             ..Default::default()
         });

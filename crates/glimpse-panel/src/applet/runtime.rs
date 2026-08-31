@@ -1,10 +1,9 @@
 use std::any::Any;
-use std::collections::HashMap;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use glimpse_config::Applet as AppletConfig;
 use glimpse_ipc::{Client, Event};
-use glimpse_widgets::{IndicatorGroup, IndicatorSpec};
+use glimpse_widgets::IndicatorGroup;
 use relm4::{Component, ComponentController, ComponentParts, ComponentSender, Controller};
 
 use super::{Applet, Button, Ctx, Direction, Input, Pointer};
@@ -23,8 +22,8 @@ pub struct AppletInit {
 #[derive(Debug)]
 pub enum HostInput {
     Configured(AppletConfig),
-    Pressed { indicator: String, button: u32 },
-    Scrolled { indicator: String, dx: f64, dy: f64 },
+    Pressed { button: u32 },
+    Scrolled { dx: f64, dy: f64 },
 }
 
 pub struct AppletRuntime {
@@ -54,22 +53,11 @@ impl Component for AppletRuntime {
     ) -> ComponentParts<Self> {
         root.connect_pressed({
             let sender = sender.clone();
-            move |_, indicator, button| {
-                sender.input(HostInput::Pressed {
-                    indicator: indicator.to_owned(),
-                    button,
-                });
-            }
+            move |_, button| sender.input(HostInput::Pressed { button })
         });
         root.connect_scrolled({
             let sender = sender.clone();
-            move |_, indicator, dx, dy| {
-                sender.input(HostInput::Scrolled {
-                    indicator: indicator.to_owned(),
-                    dx,
-                    dy,
-                });
-            }
+            move |_, dx, dy| sender.input(HostInput::Scrolled { dx, dy })
         });
 
         let build = init.build;
@@ -100,16 +88,12 @@ impl Component for AppletRuntime {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>, _root: &Self::Root) {
         match message {
             HostInput::Configured(settings) => self.configure(settings),
-            HostInput::Pressed { indicator, button } => self.deliver(Some(&Input::Pointer {
-                indicator,
-                pointer: Pointer::Press(Button::from_code(button)),
-            })),
-            HostInput::Scrolled { indicator, dx, dy } => {
-                for direction in self.scroll.notches(&indicator, dx, dy) {
-                    self.deliver(Some(&Input::Pointer {
-                        indicator: indicator.clone(),
-                        pointer: Pointer::Scroll(direction),
-                    }));
+            HostInput::Pressed { button } => self.deliver(Some(&Input::Pointer(Pointer::Press(
+                Button::from_code(button),
+            )))),
+            HostInput::Scrolled { dx, dy } => {
+                for direction in self.scroll.notches(dx, dy) {
+                    self.deliver(Some(&Input::Pointer(Pointer::Scroll(direction))));
                 }
             }
         }
@@ -158,8 +142,8 @@ impl AppletRuntime {
                 stale = event.stale,
                 "event"
             ),
-            Some(Input::Pointer { indicator, pointer }) => {
-                tracing::debug!(applet = self.ctx.name(), indicator, ?pointer, "pointer")
+            Some(Input::Pointer(pointer)) => {
+                tracing::debug!(applet = self.ctx.name(), ?pointer, "pointer")
             }
             None => {}
         }
@@ -190,40 +174,34 @@ impl AppletRuntime {
             indicators = specs.len(),
             "rendered"
         );
-        self.scroll.prune(&specs);
         self.group.set_items(&specs);
     }
 }
 
 #[derive(Default)]
 struct Scroll {
-    accumulated: HashMap<String, (f64, f64)>,
+    horizontal: f64,
+    vertical: f64,
 }
 
 impl Scroll {
-    fn notches(&mut self, indicator: &str, dx: f64, dy: f64) -> Vec<Direction> {
-        let accumulated = self.accumulated.entry(indicator.to_owned()).or_default();
+    fn notches(&mut self, dx: f64, dy: f64) -> Vec<Direction> {
         let mut out = Vec::new();
         drain(
-            &mut accumulated.0,
+            &mut self.horizontal,
             dx,
             Direction::Left,
             Direction::Right,
             &mut out,
         );
         drain(
-            &mut accumulated.1,
+            &mut self.vertical,
             dy,
             Direction::Up,
             Direction::Down,
             &mut out,
         );
         out
-    }
-
-    fn prune(&mut self, specs: &[IndicatorSpec]) {
-        self.accumulated
-            .retain(|indicator, _| specs.iter().any(|spec| &spec.id == indicator));
     }
 }
 
@@ -288,6 +266,7 @@ impl AppletHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use glimpse_widgets::IndicatorSpec;
     use gtk4::prelude::*;
     use std::cell::{Cell, RefCell};
 
@@ -316,13 +295,13 @@ mod tests {
             if EXPLODE.with(Cell::get) {
                 panic!("the probe exploded");
             }
-            if let Input::Pointer { indicator, pointer } = input {
-                SEEN.with(|seen| seen.borrow_mut().push(format!("{indicator}:{pointer:?}")));
+            if let Input::Pointer(pointer) = input {
+                SEEN.with(|seen| seen.borrow_mut().push(format!("{pointer:?}")));
             }
         }
 
         fn indicators(&self) -> Vec<IndicatorSpec> {
-            SHOWN.with(|shown| shown.borrow().iter().map(|id| spec(id)).collect())
+            SHOWN.with(|shown| shown.borrow().iter().map(|label| spec(label)).collect())
         }
     }
 
@@ -337,21 +316,13 @@ mod tests {
         SEEN.with(|seen| std::mem::take(&mut *seen.borrow_mut()))
     }
 
-    fn press(group: &IndicatorGroup, indicator: &str, button: u32) {
-        let indicator = indicator.to_owned();
-        group.emit_by_name::<()>(
-            "pressed",
-            &[&indicator as &dyn gtk4::glib::value::ToValue, &button],
-        );
+    fn press(group: &IndicatorGroup, button: u32) {
+        group.emit_by_name::<()>("pressed", &[&button]);
         settle();
     }
 
-    fn scroll(group: &IndicatorGroup, indicator: &str, dy: f64) {
-        let indicator = indicator.to_owned();
-        group.emit_by_name::<()>(
-            "scrolled",
-            &[&indicator as &dyn gtk4::glib::value::ToValue, &0.0f64, &dy],
-        );
+    fn scroll(group: &IndicatorGroup, dy: f64) {
+        group.emit_by_name::<()>("scrolled", &[&0.0f64, &dy]);
         settle();
     }
 
@@ -361,8 +332,8 @@ mod tests {
         })
     }
 
-    fn shown(ids: &[&str]) {
-        SHOWN.with(|s| *s.borrow_mut() = ids.iter().map(|id| (*id).to_owned()).collect());
+    fn shown(labels: &[&str]) {
+        SHOWN.with(|s| *s.borrow_mut() = labels.iter().map(|label| (*label).to_owned()).collect());
     }
 
     fn drained(deltas: &[f64]) -> Vec<Direction> {
@@ -380,39 +351,38 @@ mod tests {
         out
     }
 
-    fn spec(id: &str) -> IndicatorSpec {
+    fn spec(label: &str) -> IndicatorSpec {
         IndicatorSpec {
-            id: id.to_owned(),
+            label: Some(label.to_owned()),
             ..Default::default()
         }
     }
 
     #[test]
-    fn each_indicator_accumulates_on_its_own() {
+    fn a_partial_gesture_is_carried_across_events_for_the_whole_group() {
         let mut scroll = Scroll::default();
 
-        assert!(scroll.notches("a", 0.0, 0.6).is_empty());
         assert!(
-            scroll.notches("b", 0.0, 0.6).is_empty(),
-            "a second indicator must not inherit the first one's partial gesture"
+            scroll.notches(0.0, 0.6).is_empty(),
+            "0.6 is not a notch yet"
         );
-        assert_eq!(scroll.notches("a", 0.0, 0.6), [Direction::Down]);
-        assert!(scroll.notches("b", 0.0, 0.3).is_empty());
+        assert_eq!(
+            scroll.notches(0.0, 0.6),
+            [Direction::Down],
+            "the carried remainder completes the notch"
+        );
+        assert!(scroll.notches(0.0, 0.3).is_empty());
     }
 
     #[test]
-    fn an_indicator_that_stops_being_rendered_stops_being_tracked() {
+    fn the_two_axes_accumulate_independently() {
         let mut scroll = Scroll::default();
-        scroll.notches("a", 0.0, 0.6);
-        scroll.notches("b", 0.0, 0.6);
 
-        scroll.prune(&[spec("a")]);
-
-        assert_eq!(scroll.accumulated.len(), 1);
+        assert!(scroll.notches(0.6, 0.6).is_empty());
         assert_eq!(
-            scroll.notches("b", 0.0, 0.6),
-            [],
-            "a re-added indicator starts from zero, not from what it left behind"
+            scroll.notches(0.6, 0.0),
+            [Direction::Right],
+            "a horizontal notch must not be completed by vertical travel"
         );
     }
 
@@ -493,40 +463,41 @@ mod tests {
             "the group renders what indicators() returned"
         );
 
-        press(&handle.group, "a", 3);
+        press(&handle.group, 3);
         assert_eq!(
             seen(),
-            ["a:Press(Right)"],
-            "a press carries the indicator it hit and the decoded button"
+            ["Press(Right)"],
+            "a press carries the decoded button and nothing about which chip it landed on"
         );
 
-        scroll(&handle.group, "b", 0.6);
+        scroll(&handle.group, 0.6);
         assert!(seen().is_empty(), "a partial gesture reaches no applet");
 
-        scroll(&handle.group, "b", 0.6);
-        assert_eq!(seen(), ["b:Scroll(Down)"], "the notch arrives once, whole");
+        scroll(&handle.group, 0.6);
+        assert_eq!(seen(), ["Scroll(Down)"], "the notch arrives once, whole");
 
-        scroll(&handle.group, "b", 0.7);
+        scroll(&handle.group, 0.7);
         assert!(seen().is_empty(), "0.9 of a notch is still no notch");
 
         shown(&["a"]);
-        press(&handle.group, "a", 1);
-        assert_eq!(seen(), ["a:Press(Left)"]);
+        press(&handle.group, 1);
+        assert_eq!(seen(), ["Press(Left)"]);
 
-        scroll(&handle.group, "b", 0.6);
-        assert!(
-            seen().is_empty(),
-            "`b` stopped being rendered, so its 0.9 was dropped; resuming it would fire here"
+        scroll(&handle.group, 0.3);
+        assert_eq!(
+            seen(),
+            ["Scroll(Down)"],
+            "the group keeps accumulating across a re-render, since no chip owns the gesture"
         );
 
         EXPLODE.set(true);
-        press(&handle.group, "a", 1);
+        press(&handle.group, 1);
         assert!(
             handle.group.first_child().is_none(),
             "a panicking applet empties its group"
         );
 
-        press(&handle.group, "a", 1);
+        press(&handle.group, 1);
         assert!(
             seen().is_empty(),
             "a stopped applet receives no further input"

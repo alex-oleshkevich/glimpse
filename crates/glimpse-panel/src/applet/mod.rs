@@ -1,9 +1,11 @@
+pub mod popover;
 pub mod runtime;
 
 use glimpse_config::Applet as AppletConfig;
 use glimpse_contracts::{Command, Message};
 use glimpse_ipc::{Client, Event};
 use glimpse_widgets::IndicatorSpec;
+use popover::{PopoverHandle, Seat};
 use serde::Deserialize;
 use std::cell::RefCell;
 use tokio::task::AbortHandle;
@@ -24,12 +26,17 @@ pub trait Applet: 'static {
     fn handle(&mut self, ctx: &Ctx, input: &Input);
 
     fn indicators(&self) -> Vec<IndicatorSpec>;
+
+    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+        let _ = seat;
+        None
+    }
 }
 
 #[derive(Debug)]
 pub enum Input {
     Topic(Event),
-    Pointer { indicator: String, pointer: Pointer },
+    Pointer(Pointer),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

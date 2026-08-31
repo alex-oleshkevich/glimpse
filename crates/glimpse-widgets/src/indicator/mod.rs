@@ -14,7 +14,6 @@ const ATTENTION_CLASS: &str = "indicator--attention";
 
 #[derive(Debug, Default, Clone)]
 pub struct IndicatorSpec {
-    pub id: String,
     pub icon: Option<gio::Icon>,
     pub label: Option<String>,
     pub tooltip: Option<String>,
@@ -78,25 +77,6 @@ impl Indicator {
         } else {
             self.remove_css_class(ATTENTION_CLASS);
         }
-    }
-
-    pub fn connect_pressed<F: Fn(&Self, u32) + 'static>(&self, f: F) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "pressed",
-            false,
-            glib::closure_local!(move |indicator: Self, button: u32| f(&indicator, button)),
-        )
-    }
-
-    pub fn connect_scrolled<F: Fn(&Self, f64, f64) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
-        self.connect_closure(
-            "scrolled",
-            false,
-            glib::closure_local!(move |indicator: Self, dx: f64, dy: f64| f(&indicator, dx, dy)),
-        )
     }
 
     fn sync_accessible_label(&self) {
