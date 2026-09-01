@@ -185,7 +185,7 @@ fn watch(
 }
 
 fn ensure_types() {
-    use glimpse_widgets::{Hero, Indicator, IndicatorGroup, Panel, PopoverShell, Row};
+    use glimpse_widgets::{Hero, Indicator, IndicatorGroup, Panel, Placeholder, PopoverShell, Row};
 
     for widget in [
         Hero::static_type(),
@@ -193,6 +193,7 @@ fn ensure_types() {
         Panel::static_type(),
         Indicator::static_type(),
         IndicatorGroup::static_type(),
+        Placeholder::static_type(),
         Row::static_type(),
     ] {
         let _ = widget;

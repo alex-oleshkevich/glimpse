@@ -206,6 +206,30 @@
     padding-top: 2px;
 }
 
+.placeholder {
+    padding: 20px 16px 22px 16px;
+}
+
+.placeholder__icon {
+    -gtk-icon-size: 1.75rem;
+    color: var(--gl-muted);
+}
+
+.placeholder__title {
+    font-size: var(--gl-text-body);
+    font-weight: 600;
+    color: var(--gl-muted);
+}
+
+.placeholder__description {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
+}
+
+.placeholder--error .placeholder__icon {
+    color: var(--gl-danger-text);
+}
+
 @media (prefers-reduced-motion: reduce) {
     * {
         transition: none;

@@ -1,0 +1,48 @@
+using Gtk 4.0;
+
+template $Placeholder: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: vertical;
+    spacing: 6;
+  };
+
+  styles [
+    "placeholder",
+  ]
+
+  Gtk.Image icon {
+    visible: false;
+    halign: center;
+    accessible-role: presentation;
+
+    styles [
+      "placeholder__icon",
+    ]
+  }
+
+  Gtk.Label title {
+    visible: false;
+    halign: center;
+    justify: center;
+    wrap: true;
+    wrap-mode: word_char;
+    max-width-chars: 28;
+
+    styles [
+      "placeholder__title",
+    ]
+  }
+
+  Gtk.Label description {
+    visible: false;
+    halign: center;
+    justify: center;
+    wrap: true;
+    wrap-mode: word_char;
+    max-width-chars: 32;
+
+    styles [
+      "placeholder__description",
+    ]
+  }
+}

@@ -4,6 +4,7 @@
         <file>widgets/hero.ui</file>
         <file>widgets/indicator.ui</file>
         <file>widgets/panel.ui</file>
+        <file>widgets/placeholder.ui</file>
         <file>widgets/popover_shell.ui</file>
         <file>widgets/row.ui</file>
     </gresource>

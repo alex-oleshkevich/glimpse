@@ -18,6 +18,10 @@ fn main() {
         ("blueprints/indicator.blp", "resources/widgets/indicator.ui"),
         ("blueprints/panel.blp", "resources/widgets/panel.ui"),
         (
+            "blueprints/placeholder.blp",
+            "resources/widgets/placeholder.ui",
+        ),
+        (
             "blueprints/popover_shell.blp",
             "resources/widgets/popover_shell.ui",
         ),

@@ -80,6 +80,43 @@ as a gap between its neighbours.
 Orientation is settable because `Panel` flips between horizontal and vertical; spacing is not,
 because nothing varies it.
 
+## Placeholder
+
+What stands where content would be: off, empty, unavailable, busy. An icon, a heading, a
+description, and an `error` flag.
+
+**One widget for all four situations, and `error` only recolours the icon.** The approved states
+matrix builds every column with the same `empty()` builder for exactly this reason — the shape a
+user learns for "nothing here" is the one they read for "broken", so recognition costs nothing the
+second time. A separate error widget would teach a second shape to say a neighbouring thing.
+
+**The action is not in the block.** "Retry", "Scan again", "Network settings…" go in the shell's
+footer. The block states the situation; the footer offers the way out. This is also what keeps the
+block usable when there is no way out — a machine with no battery has nothing to offer.
+
+**Why not `AdwStatusPage`.** It is the GNOME pattern for this and libadwaita documents `.compact`
+for "a sidebar or a popover", so it was measured before being rejected. In a 400px popover:
+
+| | height | title |
+| --- | --- | --- |
+| `AdwStatusPage` | 302px | 19.9px ultrabold |
+| `AdwStatusPage.compact` | 226px | 19.9px ultrabold |
+| this widget | 74px | `--gl-text-body`, 600, muted |
+
+`.compact` is still an application-page empty state — three times the height, and it fills a panel
+popover on its own. Adopting it means overriding its font size, weight, colour, icon size and every
+padding, which is everything it provides, while inheriting a widget free to change them. The
+measurement is the argument; without it this would just be preference.
+
+**It wraps rather than widens.** Both labels wrap with a capped `max-width-chars`, for the reason
+`Row` learned the hard way: an uncapped label's natural width is its whole string, so a long message
+grows the popover instead of flowing.
+
+**Not covered here:** an error that arrives *with* content — a stale weather reading, a degraded
+service — where the list still renders and a strip above it says so. That is `AdwBanner`'s pattern
+(GNOME HIG: persistent states, not events, "precise factual statements") and the mockups' `.status`
+row. It is a second widget and is not built.
+
 ## Row
 
 The list item every popover is made of: a Wi-Fi network, a Bluetooth device, a power profile, an
