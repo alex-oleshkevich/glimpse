@@ -3,11 +3,14 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::Duration;
 
+use clap::{Parser, ValueEnum};
 use gtk4::prelude::*;
 use gtk4::{gdk, gio, glib};
 
+/// Scoped to the preview's own window. On bare `window` it also paints every tooltip, popover and
+/// menu GTK creates, which then render transparent over the checkerboard.
 const CHECKERBOARD: &str = "
-window {
+window.preview {
   background-color: #888888;
   background-image:
     linear-gradient(45deg, #6f6f6f 25%, transparent 25%, transparent 75%, #6f6f6f 75%),
@@ -15,31 +18,76 @@ window {
   background-size: 24px 24px;
   background-position: 0 0, 12px 12px;
 }
-window > * { background-color: transparent; }
+window.preview > * { background-color: transparent; }
 ";
 
 const SETTLE: Duration = Duration::from_millis(40);
 
+#[derive(Parser)]
+#[command(about = "Render one blueprint with the real widgets, and reload it on every save.")]
+struct Cli {
+    /// Blueprint to render.
+    blueprint: PathBuf,
+
+    /// Sample data to put in after the build. Defaults to the blueprint's own name.
+    fixture: Option<String>,
+
+    /// Color scheme to render under. The whole token vocabulary flips at once, so a widget is not
+    /// checked until it has been seen under both.
+    #[arg(long, value_enum, default_value_t = Scheme::System)]
+    scheme: Scheme,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum Scheme {
+    System,
+    Light,
+    Dark,
+}
+
+impl From<Scheme> for adw::ColorScheme {
+    fn from(scheme: Scheme) -> Self {
+        match scheme {
+            Scheme::System => adw::ColorScheme::Default,
+            Scheme::Light => adw::ColorScheme::ForceLight,
+            Scheme::Dark => adw::ColorScheme::ForceDark,
+        }
+    }
+}
+
 fn main() -> glib::ExitCode {
-    let Some(blueprint) = std::env::args().nth(1).map(PathBuf::from) else {
-        eprintln!("usage: preview <blueprint.blp>");
-        return glib::ExitCode::FAILURE;
-    };
+    let cli = Cli::parse();
+    let fixture = cli.fixture.filter(|name| !name.is_empty()).or_else(|| {
+        cli.blueprint
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned())
+    });
 
     let app = adw::Application::builder()
         .application_id(format!(
             "me.aresa.WidgetPreview.{}",
-            blueprint.file_stem().unwrap_or_default().to_string_lossy()
+            cli.blueprint
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
         ))
         .flags(gio::ApplicationFlags::NON_UNIQUE)
         .build();
 
-    app.connect_activate(move |app| activate(app, &blueprint));
+    app.connect_activate(move |app| {
+        activate(app, &cli.blueprint, fixture.as_deref(), cli.scheme.into())
+    });
     app.run_with_args::<&str>(&["preview"])
 }
 
-fn activate(app: &adw::Application, blueprint: &Path) {
+fn activate(
+    app: &adw::Application,
+    blueprint: &Path,
+    fixture: Option<&str>,
+    scheme: adw::ColorScheme,
+) {
     let blueprint = &resolve(blueprint);
+    adw::StyleManager::default().set_color_scheme(scheme);
     glimpse_widgets::register_resources().expect("widget resources");
     ensure_types();
 
@@ -77,6 +125,7 @@ fn activate(app: &adw::Application, blueprint: &Path) {
         .application(app)
         .title(blueprint.file_name().unwrap_or_default().to_string_lossy())
         .child(&slot)
+        .css_classes(["preview"])
         .build();
 
     let keys = gtk4::EventControllerKey::new();
@@ -91,9 +140,9 @@ fn activate(app: &adw::Application, blueprint: &Path) {
     window.present();
 
     load_styles(&sheets);
-    build(&slot, blueprint);
+    build(&slot, blueprint, fixture);
 
-    let monitors = watch(blueprint, &slot, sheets);
+    let monitors = watch(blueprint, &slot, sheets, fixture.map(str::to_owned));
     unsafe { window.set_data("preview-monitors", monitors) };
 }
 
@@ -135,6 +184,7 @@ fn watch(
     blueprint: &Path,
     slot: &gtk4::Box,
     sheets: [(PathBuf, gtk4::CssProvider); 2],
+    fixture: Option<String>,
 ) -> Vec<gio::FileMonitor> {
     let sheets = Rc::new(sheets);
     let pending: Rc<RefCell<Option<glib::SourceId>>> = Rc::new(RefCell::new(None));
@@ -158,6 +208,7 @@ fn watch(
         let slot = slot.clone();
         let blueprint = blueprint.to_path_buf();
         let sheets = sheets.clone();
+        let fixture = fixture.clone();
         let pending = pending.clone();
         monitor.connect_changed(move |_, file, renamed_to, _| {
             let touched = [Some(file.clone()), renamed_to.cloned()]
@@ -171,11 +222,12 @@ fn watch(
                 source.remove();
             }
             let (slot, blueprint, sheets) = (slot.clone(), blueprint.clone(), sheets.clone());
+            let fixture = fixture.clone();
             let fired = pending.clone();
             let source = glib::timeout_add_local_once(SETTLE, move || {
                 fired.borrow_mut().take();
                 load_styles(sheets.as_ref());
-                build(&slot, &blueprint);
+                build(&slot, &blueprint, fixture.as_deref());
             });
             pending.replace(Some(source));
         });
@@ -184,10 +236,63 @@ fn watch(
     monitors
 }
 
+/// Some widgets cannot be filled from a `.blp` because their data is not a property — a calendar's
+/// events are a colour list per day. A named fixture puts sample data in after the build, so a
+/// states sheet stays a blueprint rather than becoming a second program.
+mod fixtures {
+    use gtk4::gdk;
+    use gtk4::prelude::*;
+
+    use glimpse_widgets::{Calendar, Ymd};
+
+    pub fn apply(name: &str, root: &gtk4::Widget) {
+        if name == "calendar"
+            && let Some(calendar) = find::<Calendar>(root)
+        {
+            calendar_events(&calendar);
+        }
+    }
+
+    fn calendar_events(calendar: &Calendar) {
+        let today = calendar.today();
+        let color = |hex: &str| hex.parse::<gdk::RGBA>().unwrap_or(gdk::RGBA::BLUE);
+        let work = color("#3584e4");
+        let home = color("#2ec27e");
+        let birthday = color("#e01b24");
+
+        let day = |day: u32| Ymd::new(today.year, today.month, day);
+        calendar.set_events(&[
+            (day(4), vec![work]),
+            (day(9), vec![work, home]),
+            (day(11), vec![work, home, birthday]),
+            (day(17), vec![home, birthday, work, home]),
+            (today, vec![work, birthday]),
+        ]);
+        calendar.select(day(17));
+    }
+
+    fn find<T: IsA<gtk4::Widget>>(widget: &gtk4::Widget) -> Option<T> {
+        if let Ok(found) = widget.clone().downcast::<T>() {
+            return Some(found);
+        }
+        let mut child = widget.first_child();
+        while let Some(node) = child {
+            if let Some(found) = find::<T>(&node) {
+                return Some(found);
+            }
+            child = node.next_sibling();
+        }
+        None
+    }
+}
+
 fn ensure_types() {
-    use glimpse_widgets::{Hero, Indicator, IndicatorGroup, Panel, Placeholder, PopoverShell, Row};
+    use glimpse_widgets::{
+        Calendar, Hero, Indicator, IndicatorGroup, Panel, Placeholder, PopoverShell, Row,
+    };
 
     for widget in [
+        Calendar::static_type(),
         Hero::static_type(),
         PopoverShell::static_type(),
         Panel::static_type(),
@@ -200,7 +305,7 @@ fn ensure_types() {
     }
 }
 
-fn build(slot: &gtk4::Box, blueprint: &Path) {
+fn build(slot: &gtk4::Box, blueprint: &Path, fixture: Option<&str>) {
     while let Some(child) = slot.first_child() {
         slot.remove(&child);
     }
@@ -227,6 +332,9 @@ fn build(slot: &gtk4::Box, blueprint: &Path) {
 
     match widget {
         Some(widget) => {
+            if let Some(fixture) = fixture {
+                fixtures::apply(fixture, &widget);
+            }
             widget.set_halign(gtk4::Align::Center);
             widget.set_valign(gtk4::Align::Center);
             slot.append(&widget);

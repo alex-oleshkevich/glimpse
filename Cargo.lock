@@ -960,6 +960,7 @@ dependencies = [
 name = "glimpse-widgets"
 version = "0.16.0"
 dependencies = [
+ "clap",
  "gio",
  "glib",
  "glib-build-tools",

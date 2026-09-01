@@ -14,6 +14,7 @@ fn compile_blueprints(pairs: &[(&str, &str)]) {
 
 fn main() {
     compile_blueprints(&[
+        ("blueprints/calendar.blp", "resources/widgets/calendar.ui"),
         ("blueprints/hero.blp", "resources/widgets/hero.ui"),
         ("blueprints/indicator.blp", "resources/widgets/indicator.ui"),
         ("blueprints/panel.blp", "resources/widgets/panel.ui"),

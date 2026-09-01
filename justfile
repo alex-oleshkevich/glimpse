@@ -145,8 +145,8 @@ ctl *ARGS:
     cargo run -q -p glimpsectl -- {{ ARGS }}
 
 [doc("render one blueprint with the real widgets; reloads on save")]
-preview BLUEPRINT:
-    cargo run -q -p glimpse-widgets --example preview -- {{ BLUEPRINT }}
+preview BLUEPRINT *ARGS:
+    cargo run -q -p glimpse-widgets --example preview -- {{ BLUEPRINT }} {{ ARGS }}
 
 [doc("nested niri in a window; run the panel inside it for a fast dev loop")]
 nested:

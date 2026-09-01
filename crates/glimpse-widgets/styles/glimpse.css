@@ -30,7 +30,7 @@
     --gl-text-body: 1rem;
     --gl-text-title: 1.2rem;
 
-    --gl-radius: 14px;
+    --gl-radius: 0.95rem;
     --gl-duration: 150ms;
     --gl-ease: cubic-bezier(0.2, 0, 0, 1);
     --gl-font-family: "Adwaita Sans", system-ui, sans-serif;
@@ -42,30 +42,30 @@
     color: var(--gl-panel-fg);
     font-family: var(--gl-font-family);
     font-variant-numeric: tabular-nums;
-    padding: 0 10px;
+    padding: 0 0.7rem;
     box-shadow: 0 1px 2px alpha(var(--gl-shadow), 0.22);
 }
 
 .panel separator {
     background-color: var(--gl-border);
-    margin: 9px 8px;
+    margin: 0.6rem 0.55rem;
     min-width: 1px;
 }
 
 .panel--vertical {
-    padding: 6px 0;
+    padding: 0.4rem 0;
 }
 
 .panel--vertical separator {
-    margin: 8px 9px;
+    margin: 0.55rem 0.6rem;
     min-width: 0;
     min-height: 1px;
 }
 
 .indicator-group {
-    min-width: 22px;
-    min-height: 22px;
-    padding: 4px 6px;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+    padding: 0.28rem 0.4rem;
     border-radius: 999px;
     font-weight: 600;
     line-height: 1;
@@ -92,18 +92,18 @@
 }
 
 .indicator__icon {
-    min-width: 22px;
-    min-height: 22px;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
 }
 
 .indicator__badge {
     background-color: var(--gl-accent-soft);
     border-radius: 999px;
     font-size: var(--gl-text-caption);
-    padding: 2px 8px;
-    min-width: 22px;
-    min-height: 22px;
-    margin-left: 5px;
+    padding: 0.15rem 0.55rem;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+    margin-left: 0.35rem;
 }
 
 .indicator--attention .indicator__icon,
@@ -112,8 +112,8 @@
 }
 
 .popover-shell {
-    --gl-popover-padding: 12px;
-    --gl-popover-min-width: 400px;
+    --gl-popover-padding: 0.8rem;
+    --gl-popover-min-width: 27rem;
     min-width: var(--gl-popover-min-width);
     background-color: var(--gl-surface);
     color: var(--gl-surface-fg);
@@ -124,18 +124,18 @@
 .popover-shell separator {
     background-color: var(--gl-border);
     min-height: 1px;
-    margin: 4px 8px;
+    margin: 0.28rem 0.55rem;
 }
 
 .popover-shell__hero,
 .popover-shell__footer {
-    padding: 8px 12px;
+    padding: 0.55rem 0.8rem;
 }
 
 .row {
-    --gl-row-height: 42px;
-    --gl-row-padding: 0 12px;
-    --gl-row-radius: 10px;
+    --gl-row-height: 2.85rem;
+    --gl-row-padding: 0 0.8rem;
+    --gl-row-radius: 0.7rem;
     min-height: var(--gl-row-height);
     padding: var(--gl-row-padding);
     border-radius: var(--gl-row-radius);
@@ -161,15 +161,15 @@
 }
 
 .row--two {
-    padding: 8px 12px;
+    padding: 0.55rem 0.8rem;
 }
 
 .row__check {
-    min-width: 16px;
+    min-width: 1.1rem;
 }
 
 .row__lead image {
-    -gtk-icon-size: 18px;
+    -gtk-icon-size: 1.25rem;
 }
 
 .row__title {
@@ -179,7 +179,7 @@
 .row__subtitle {
     font-size: var(--gl-text-caption);
     color: var(--gl-muted);
-    padding-top: 2px;
+    padding-top: 0.15rem;
 }
 
 .row--on .row__title {
@@ -191,7 +191,7 @@
 }
 
 .hero__icon {
-    -gtk-icon-size: 24px;
+    -gtk-icon-size: 1.65rem;
 }
 
 .hero__title {
@@ -203,11 +203,121 @@
 .hero__subtitle {
     font-size: var(--gl-text-caption);
     color: var(--gl-muted);
-    padding-top: 2px;
+    padding-top: 0.15rem;
+}
+
+.calendar {
+    --gl-calendar-control: 2.4rem;
+    --gl-calendar-cell: 3rem;
+    --gl-calendar-radius: 0.6rem;
+    --gl-calendar-gap: 0.2rem;
+}
+
+.calendar__header {
+    padding: 0.4rem 0.4rem 0.15rem 0.7rem;
+}
+
+.calendar__scope {
+    font-size: var(--gl-text-body);
+    font-weight: 600;
+    padding: 0 0.6rem;
+    min-height: var(--gl-calendar-control);
+    border-radius: var(--gl-calendar-radius);
+}
+
+.calendar__nav {
+    min-width: var(--gl-calendar-control);
+    min-height: var(--gl-calendar-control);
+    padding: 0;
+    border-radius: var(--gl-calendar-radius);
+    color: var(--gl-muted);
+}
+
+.calendar__nav image {
+    -gtk-icon-size: 1.25rem;
+}
+
+.calendar__today {
+    background-color: var(--gl-control);
+    border-radius: 999px;
+    padding: 0 0.7rem;
+    min-height: 1.75rem;
+    font-size: var(--gl-text-caption);
+    font-weight: 600;
+    color: var(--gl-accent-text);
+}
+
+.calendar__grid {
+    padding: 0.15rem 0.55rem 0.3rem 0.55rem;
+}
+
+.calendar__weekday {
+    font-size: var(--gl-text-body);
+    font-weight: normal;
+    color: var(--gl-surface-fg);
+    margin-bottom: 0.35rem;
+}
+
+.calendar__day,
+.calendar__month {
+    min-width: var(--gl-calendar-cell);
+    min-height: var(--gl-calendar-cell);
+    padding: 0;
+    border-radius: var(--gl-calendar-radius);
+    font-weight: normal;
+}
+
+.calendar__number {
+    font-size: var(--gl-text-body);
+    font-variant-numeric: tabular-nums;
+}
+
+.calendar__dots {
+    margin-top: var(--gl-calendar-gap);
+}
+
+.calendar__day:hover,
+.calendar__month:hover {
+    background-color: var(--gl-hover);
+}
+
+.calendar__day--weekend .calendar__number {
+    color: var(--gl-muted);
+}
+
+.calendar__day--out .calendar__number {
+    color: var(--gl-dim);
+}
+
+.calendar__cell--today {
+    background-color: var(--gl-accent);
+    color: var(--gl-accent-fg);
+}
+
+.calendar__cell--today .calendar__number {
+    color: var(--gl-accent-fg);
+    font-weight: 700;
+}
+
+.calendar__cell--selected {
+    box-shadow: inset 0 0 0 2px var(--gl-accent);
+}
+
+.calendar__cell--selected .calendar__number {
+    color: var(--gl-accent-text);
+    font-weight: 600;
+}
+
+.calendar__cell--today.calendar__cell--selected {
+    box-shadow: inset 0 0 0 2px var(--gl-knob);
+}
+
+.calendar__cell--today.calendar__cell--selected .calendar__number {
+    color: var(--gl-accent-fg);
 }
 
 .placeholder {
-    padding: 20px 16px 22px 16px;
+    padding: 1.35rem 1.1rem 1.5rem 1.1rem;
 }
 
 .placeholder__icon {

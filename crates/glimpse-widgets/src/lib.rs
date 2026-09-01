@@ -1,3 +1,4 @@
+mod calendar;
 mod hero;
 mod indicator;
 mod indicator_group;
@@ -7,6 +8,7 @@ mod popover_shell;
 mod row;
 mod theme;
 
+pub use calendar::{Calendar, Ymd};
 pub use hero::Hero;
 pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
@@ -393,6 +395,87 @@ mod tests {
              width and leaves the natural width at the full string."
         );
 
+        let calendar = Calendar::new();
+        calendar.set_today(Ymd::new(2026, 9, 23));
+        calendar.show_month(2026, 9);
+        let today_button = child_named::<gtk4::Button>(&calendar, "calendar__today");
+        assert!(
+            !today_button.is_visible(),
+            "Today is meaningless on the month that contains today"
+        );
+        calendar.step(1);
+        assert_eq!(calendar.shown(), (2026, 10));
+        assert!(today_button.is_visible());
+        calendar.step(-4);
+        assert_eq!(
+            calendar.shown(),
+            (2026, 6),
+            "stepping crosses months, not weeks"
+        );
+
+        let chosen = Rc::new(RefCell::new(Vec::new()));
+        calendar.connect_day_selected({
+            let chosen = Rc::clone(&chosen);
+            move |_, date| chosen.borrow_mut().push(date)
+        });
+        calendar.select(Ymd::new(2026, 6, 4));
+        assert_eq!(calendar.selected(), Some(Ymd::new(2026, 6, 4)));
+        assert_eq!(
+            chosen.borrow().as_slice(),
+            &[Ymd::new(2026, 6, 4)],
+            "selecting a day reports it once, with the day it was given"
+        );
+
+        let scope_button = child_named::<gtk4::Button>(&calendar, "calendar__scope");
+        let title = child_named::<gtk4::Label>(&calendar, "calendar__title");
+        scope_button.emit_clicked();
+        assert_eq!(
+            title.text().as_str(),
+            "2026",
+            "the title is the zoom control: clicking it widens the scope to the year"
+        );
+        let months = all_named(&calendar, "calendar__month");
+        assert_eq!(months.len(), 12);
+        assert!(
+            months[5].has_css_class("calendar__cell--selected"),
+            "the year view marks the month it was opened from, so widening the scope does not \
+             lose where you were"
+        );
+        assert!(
+            !months[0].has_css_class("calendar__cell--selected"),
+            "and marks only that one"
+        );
+
+        scope_button.emit_clicked();
+        assert_ne!(title.text().as_str(), "2026");
+
+        let repeats = Rc::new(Cell::new(0));
+        calendar.connect_day_selected({
+            let repeats = Rc::clone(&repeats);
+            move |calendar, date| {
+                repeats.set(repeats.get() + 1);
+                calendar.select(date);
+            }
+        });
+        calendar.select(Ymd::new(2026, 6, 11));
+        assert_eq!(
+            repeats.get(),
+            1,
+            "selecting the day that is already selected reports nothing, so a handler that \
+             reselects in response does not drive the signal round for ever"
+        );
+
+        calendar.clear_selection();
+        assert_eq!(calendar.selected(), None);
+
+        let red = gtk4::gdk::RGBA::new(1.0, 0.0, 0.0, 1.0);
+        calendar.set_events(&[(Ymd::new(2026, 6, 4), vec![red; 5])]);
+        assert_eq!(
+            calendar.events(Ymd::new(2026, 6, 4)).len(),
+            3,
+            "three dots is a cap, not a count: a fourth event adds nothing and shifts nothing"
+        );
+
         let placeholder = Placeholder::new();
         let empty_icon = child_named::<gtk4::Image>(&placeholder, "placeholder__icon");
         let empty_title = child_named::<gtk4::Label>(&placeholder, "placeholder__title");
@@ -450,6 +533,23 @@ mod tests {
                 found.push(widget);
             }
         }
+        found
+    }
+
+    fn all_named(parent: &impl IsA<gtk4::Widget>, class: &str) -> Vec<gtk4::Widget> {
+        fn walk(widget: &gtk4::Widget, class: &str, found: &mut Vec<gtk4::Widget>) {
+            if widget.has_css_class(class) {
+                found.push(widget.clone());
+            }
+            let mut child = widget.first_child();
+            while let Some(candidate) = child {
+                walk(&candidate, class, found);
+                child = candidate.next_sibling();
+            }
+        }
+
+        let mut found = Vec::new();
+        walk(parent.as_ref(), class, &mut found);
         found
     }
 

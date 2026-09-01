@@ -1,0 +1,102 @@
+using Gtk 4.0;
+
+template $Calendar: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: vertical;
+  };
+
+  styles [
+    "calendar",
+  ]
+
+  Gtk.Box header {
+    orientation: horizontal;
+    spacing: 4;
+
+    styles [
+      "calendar__header",
+    ]
+
+    Gtk.Button scope {
+      has-frame: false;
+      tooltip-text: _("Show the whole year");
+
+      styles [
+        "calendar__scope",
+      ]
+
+      Gtk.Label scope_label {
+        single-line-mode: true;
+        accessible-role: presentation;
+
+        styles [
+          "calendar__title",
+        ]
+      }
+    }
+
+    Gtk.Box {
+      hexpand: true;
+    }
+
+    Gtk.Button today {
+      label: _("Today");
+      has-frame: false;
+      visible: false;
+
+      styles [
+        "calendar__today",
+      ]
+    }
+
+    Gtk.Button previous {
+      icon-name: "go-previous-symbolic";
+      has-frame: false;
+      tooltip-text: _("Previous");
+
+      styles [
+        "calendar__nav",
+      ]
+    }
+
+    Gtk.Button next {
+      icon-name: "go-next-symbolic";
+      has-frame: false;
+      tooltip-text: _("Next");
+
+      styles [
+        "calendar__nav",
+      ]
+    }
+  }
+
+  Gtk.Stack views {
+    transition-type: crossfade;
+    interpolate-size: true;
+
+    Gtk.StackPage {
+      name: "month";
+
+      child: Gtk.Grid month {
+        column-homogeneous: true;
+
+        styles [
+          "calendar__grid",
+        ]
+      };
+    }
+
+    Gtk.StackPage {
+      name: "year";
+
+      child: Gtk.Grid year {
+        column-homogeneous: true;
+        row-homogeneous: true;
+
+        styles [
+          "calendar__grid",
+        ]
+      };
+    }
+  }
+}

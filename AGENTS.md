@@ -218,9 +218,18 @@ The window paints a checkerboard and every child stays transparent, so whatever 
 paint reads as pattern rather than as a flat background it never asked for. That is a diagnostic:
 libadwaita's `.card` is an 8% white overlay in dark mode, and against a plain window it looks solid.
 
+`--scheme dark` (or `light`) forces the color scheme; without it the preview follows the system. The whole token vocabulary flips at once, so a widget is not checked until it has been
+seen under both.
+
 It opens floating, through a `window-rule` on `^me\.aresa\.WidgetPreview` in the niri config. A
 preview is one widget sized to itself, and tiling it into a column tells you nothing about how it
 looks. Layer-shell was tried first and rendered nothing.
+
+Some widgets cannot be filled from a `.blp` at all, because their data is not a property — a
+calendar's events are a list of colours per day. `just preview <blp> [fixture]` runs a **named
+fixture** over the built tree, and the name defaults to the blueprint's own stem, so
+`calendar.blp` shows sample events by being opened rather than by being opened with an argument
+nobody knows about. The fixtures live in the preview example, not in the widgets.
 
 `var/widget_examples/` holds whole compositions — `popover_shell_full.blp` is a popover with every
 slot filled. An example is a top-level object, not a `template`: `Builder` cannot instantiate a

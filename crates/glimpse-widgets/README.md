@@ -80,6 +80,89 @@ as a gap between its neighbours.
 Orientation is settable because `Panel` flips between horizontal and vertical; spacing is not,
 because nothing varies it.
 
+## Calendar
+
+A month grid with a year view behind it. `var/design/calendar.md` holds the layout reasoning and the
+comparison against the approved mockup; what follows is what the code decides.
+
+**The grid is always six weeks.** A month needs four to six, and a grid that tracked that would
+resize the popover under the pointer that is scrolling it.
+
+**Four measurements are tokens on `.calendar` itself** — `--gl-calendar-control` for the header
+buttons, `--gl-calendar-cell` for a day or month, `--gl-calendar-radius` for both, and
+`--gl-calendar-gap` between a number and its dots. Each was written out in two or three rules, and
+they are the values anyone retuning the calendar reaches for first. A custom property inherits down
+the widget tree, so `.calendar__day` reads one declared on `.calendar`; the rest of the calendar's
+lengths appear once each and stay where they are used.
+
+The selection ring is deliberately **not** a token: it is `2px` inside a `box-shadow`, and
+`only_hairlines_and_borders_are_measured_in_pixels` allows `px` by property name. Hoisting it would
+move that `2px` into a custom-property declaration the rule can no longer recognise as a border.
+
+**The day cell is square**, 3.1rem — 45px at the default font, a little larger than the previous
+implementation's 40px because a panel popover is read at arm's length and clicked in passing. It is centred in its column rather than filling it: the grid is homogeneous and each
+column is wider than a cell, so a stretched button renders a square `min-width`/`min-height` as a
+rectangle. Geometry is `rem` rather than `px` throughout, so a cell grows with the text inside
+it; a fixed cell holding scaling text overflows at the first accessibility setting.
+
+**Today is a fill and selected is an outline**, so a day that is both still reads as both, and
+today-and-selected swaps the outline to `--gl-knob` against the accent. The previous implementation
+drew today as an outline, which leaves nothing distinct for selection.
+
+**`Today` appears only off the current month and reserves no width.** The controls are anchored to
+the right edge, so inserting it grows the group leftward and the arrows never move. `Row`'s check
+column needs reservation because a row is anchored left and the column precedes the label — opposite
+anchor, opposite answer.
+
+**Month names use `%OB`, not `%B`.** `%B` is the form a date is built from: in Polish, `września`
+("the 1st of September") against the standalone `wrzesień`. A title wants the standalone one. English
+does not distinguish them, which is exactly what makes this easy to ship broken — it was, and the
+first render caught it.
+
+**Three levels of emphasis, and they have to stay in that order**: a weekday in this month reads at
+full strength, a weekend at `--gl-muted`, a day outside the month at `--gl-dim`. The first version
+dimmed an out-of-month day twice — `--gl-faint` *and* `opacity: var(--gl-disabled)`, about 11% — and
+put weekends below out-of-month days, so an in-month Saturday looked less present than a day
+belonging to another month.
+
+**On today, the dots drop their own colours.** A calendar's colour can land on top of itself —
+a blue event on the blue accent fill is invisible, which the first render with sample events showed
+immediately. There the dots take the cell's foreground instead, read from CSS at snapshot time so it
+follows the theme rather than a copy of it. One day loses which-calendar information; the mockup made
+the same trade for the same reason.
+
+**Dots are drawn, not styled.** Up to three arbitrary `gdk::RGBA` per day cannot come from CSS
+classes, so `Dots` is a small widget that snapshots rounded rectangles. Its `measure` reports the
+same height whether or not the day has events, so a day gaining one does not resize the grid. Three
+is a cap rather than a count: a fourth event adds no fourth dot.
+
+**The arithmetic is not in the widget.** `grid.rs` turns a year and a month into 42 cells, steps
+months across year boundaries, and accumulates scroll deltas — all pure, all tested headlessly, none
+of it needing a display. Scroll accumulates because a touchpad sends fractional deltas and one step
+per event would run a month per frame.
+
+**`select` compares before it writes, and that guard is load-bearing.** It emits `day-selected`, so
+a handler that reacts by selecting — the obvious way to keep two views in step — drives the signal
+round for ever without it. Removing the guard overflows the stack in the test suite rather than
+failing an assertion. `clear_selection` is the other half; `selected` is an `Option` and nothing else
+could return it to `None`.
+
+**Weekdays are numbered as `glib::DateTime` numbers them**, Monday 1 through Sunday 7, everywhere:
+`first-weekday`, `month_grid`'s argument, and the `weekday` helper.
+
+**The current date is given, not read.** `set_today` exists so a test can stand on a month boundary
+without waiting for midnight.
+
+**The weekday letters come from January 2024**, whose 1st was a Monday, so day *n* of that month is
+weekday *n* in `glib::DateTime`'s numbering. That is the whole trick: `%a` on those seven dates, cut
+to two characters, gives the locale's own abbreviations without a table to translate — `Mo Tu We` in
+English, `po wt śr` in Polish, and a single character where a locale abbreviates to one.
+
+**`first-weekday` is a property and defaults to Monday.** Reading the locale's own first day needs
+`nl_langinfo(_NL_TIME_FIRST_WEEKDAY)`, which no crate in the workspace exposes; until one does, the
+caller sets it. The weekday *letters* are locale-correct already — they come from `%a`, truncated to
+one character, so a non-Latin locale gets its own.
+
 ## Placeholder
 
 What stands where content would be: off, empty, unavailable, busy. An icon, a heading, a
@@ -305,6 +388,13 @@ fails the build on one.
 | `--gl-text-caption` | 0.85rem | subtitles, badges, secondary facts |
 | `--gl-text-body` | 1rem | row titles, panel labels — the default |
 | `--gl-text-title` | 1.2rem | a hero's title, a section heading |
+
+**Lengths follow the same rule.** Padding, margins, `min-width`, `min-height`, `border-radius` and
+`-gtk-icon-size` are `rem`, so a box grows with the type it holds. `px` is kept for a hairline, a
+border, an outline and a `999px` pill — things that are not proportional to text. Measured: a
+two-line row specified in `px` reaches 83px at 200% text scaling against 148px for the same row in
+`rem`. It does not clip, because a `min-height` is a minimum and GTK grows the box; what it loses is
+the proportion, ending up as doubled type inside untouched 8px padding.
 
 The base is the user's own font, because `rem` resolves against the root, and the root's font is
 `gtk-font-name`. Nothing sets a base size; body text in a shell popover *is* the system UI size, and

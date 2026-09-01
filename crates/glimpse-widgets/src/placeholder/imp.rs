@@ -34,6 +34,9 @@ impl Placeholder {
     }
 
     fn set_icon_name(&self, name: Option<String>) {
+        if self.icon_name() == name {
+            return;
+        }
         self.icon.set_icon_name(name.as_deref());
         self.icon.set_visible(name.is_some());
     }

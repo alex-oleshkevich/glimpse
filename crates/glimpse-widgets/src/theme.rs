@@ -93,9 +93,6 @@ mod tests {
             .collect()
     }
 
-    /// A token may be declared in `:root`, which is the shared vocabulary, or in the single rule
-    /// that reads it, which is a measurement only that rule cares about. Both are declarations; an
-    /// undeclared one is the defect, because GTK renders it as nothing and reports it nowhere.
     #[test]
     fn every_glimpse_token_the_stylesheet_reads_is_declared() {
         let (block, rules) = split(BUILTIN);
@@ -132,10 +129,6 @@ mod tests {
         }
     }
 
-    /// A `px` font size ignores the user's font entirely: at 200% text scaling every other
-    /// application's text doubles and ours does not move. `rem` is relative to the root font, so it
-    /// follows that setting; `em` would too, but it compounds through nesting and a size then
-    /// depends on where the widget happens to sit.
     #[test]
     fn no_rule_sets_a_pixel_font_size() {
         let (_, rules) = split(BUILTIN);
@@ -143,6 +136,24 @@ mod tests {
             assert!(
                 !line.starts_with("font-size:") || !line.contains("px"),
                 "a font size in px cannot follow the user's font: {line}"
+            );
+        }
+    }
+
+    #[test]
+    fn only_hairlines_and_borders_are_measured_in_pixels() {
+        const BORDERS: [&str; 4] = ["outline:", "outline-offset:", "box-shadow:", "border:"];
+        let (_, rules) = split(BUILTIN);
+
+        for line in rules.lines().map(str::trim) {
+            if !line.contains("px") {
+                continue;
+            }
+            let border = BORDERS.iter().any(|property| line.starts_with(property));
+            let hairline = line.ends_with(": 1px;") || line.ends_with(": 999px;");
+            assert!(
+                border || hairline,
+                "a length in px does not follow the user's text size: {line}"
             );
         }
     }

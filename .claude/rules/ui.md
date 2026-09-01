@@ -45,6 +45,12 @@ General GTK4, libadwaita and relm4 craft is covered by the `relm4`, `gtk4-styles
 - Font sizes come from `--gl-text-caption` / `--gl-text-body` / `--gl-text-title`, never from a `px`
   literal. A `px` size does not move when the user scales their text, so the shell keeps its own
   size on a desktop that has doubled. The three tokens are `rem`, which follows `gtk-font-name`.
+- **Every length that belongs to the type is `rem` too** — padding, margins, `min-width`,
+  `min-height`, `border-radius`, `-gtk-icon-size`. `px` survives only for a hairline, a border, an
+  outline and a `999px` pill, none of which are proportional to anything. GTK and libadwaita use
+  `px` throughout and it is right for HiDPI, because a GTK pixel is a logical one already multiplied
+  by the output scale — but it does not follow *text* scaling, so a layout in `px` keeps its 8px
+  padding while the type inside it doubles. `theme::tests` fails the build on either mistake.
 - A misspelled token is invisible: GTK renders the surface transparent, and `parsing-error` does not
   fire. Give every `var()` in the built-in stylesheet a fallback.
 - No fixed `width-request` or `height-request` to force a layout. The panel must survive font
