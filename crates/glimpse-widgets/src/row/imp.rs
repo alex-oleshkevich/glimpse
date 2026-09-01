@@ -14,11 +14,15 @@ pub struct Row {
     #[template_child]
     pub check: TemplateChild<gtk4::Image>,
     #[template_child]
+    pub icon: TemplateChild<gtk4::Image>,
+    #[template_child]
     pub lead: TemplateChild<gtk4::Box>,
     #[template_child]
     pub title: TemplateChild<gtk4::Label>,
     #[template_child]
     pub subtitle: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub value: TemplateChild<gtk4::Label>,
     #[template_child]
     pub trail: TemplateChild<gtk4::Box>,
 
@@ -26,6 +30,10 @@ pub struct Row {
     title_text: PhantomData<Option<String>>,
     #[property(name = "subtitle", get = Self::subtitle, set = Self::set_subtitle, nullable)]
     subtitle_text: PhantomData<Option<String>>,
+    #[property(name = "icon-name", get = Self::icon_name, set = Self::set_icon_name, nullable)]
+    icon_name: PhantomData<Option<String>>,
+    #[property(name = "value", get = Self::value, set = Self::set_value, nullable)]
+    value_text: PhantomData<Option<String>>,
     #[property(name = "selectable", get = Self::selectable, set = Self::set_selectable)]
     selectable: PhantomData<bool>,
     #[property(name = "selected", get = Self::selected, set = Self::set_selected)]
@@ -56,6 +64,28 @@ impl Row {
     fn set_subtitle(&self, subtitle: Option<String>) {
         set_text(&self.subtitle, subtitle.as_deref());
         set_css_class(&*self.obj(), TWO_LINE, self.subtitle.get_visible());
+    }
+
+    fn icon_name(&self) -> Option<String> {
+        self.icon.icon_name().map(|name| name.to_string())
+    }
+
+    fn set_icon_name(&self, name: Option<String>) {
+        if self.icon_name() == name {
+            return;
+        }
+        self.icon.set_icon_name(name.as_deref());
+        self.icon.set_visible(name.is_some());
+    }
+
+    fn value(&self) -> Option<String> {
+        self.value
+            .get_visible()
+            .then(|| self.value.text().to_string())
+    }
+
+    fn set_value(&self, value: Option<String>) {
+        set_text(&self.value, value.as_deref());
     }
 
     fn selectable(&self) -> bool {

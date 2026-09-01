@@ -20,6 +20,15 @@ template $Row: Gtk.Button {
       ]
     }
 
+    Gtk.Image icon {
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "row__icon",
+      ]
+    }
+
     Gtk.Box lead {
       orientation: horizontal;
       valign: center;
@@ -61,6 +70,17 @@ template $Row: Gtk.Button {
           "row__subtitle",
         ]
       }
+    }
+
+    Gtk.Label value {
+      single-line-mode: true;
+      xalign: 1;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "row__value",
+      ]
     }
 
     Gtk.Box trail {

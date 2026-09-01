@@ -168,8 +168,10 @@
     min-width: 1.1rem;
 }
 
+.row__icon,
 .row__lead image {
     -gtk-icon-size: 1.25rem;
+    color: var(--gl-muted);
 }
 
 .row__trail image {
@@ -185,6 +187,12 @@
     font-size: var(--gl-text-caption);
     color: var(--gl-muted);
     padding-top: 0.15rem;
+}
+
+.row__value {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
+    font-variant-numeric: tabular-nums;
 }
 
 .row--on .row__title {

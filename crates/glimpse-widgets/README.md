@@ -230,6 +230,14 @@ before it unparents anything, which matters because `EventList` and `WorldClock`
 slot on every render: without it, a list of ten rows unparents and reparents twenty widgets each
 time a minute ticks.
 
+**`icon-name` and `value` are properties; `lead` and `trail` stay slots.** Both are the same
+argument that gave `Hero` its properties: without them a `.blp` can name the type and nothing else,
+so every leading icon and every trailing fact has to be a hand-built child. Counted across the two
+worked popover examples: 71 lead icons at four lines each and 45 value labels at twelve, which is
+27% of 1975 lines of blueprint. They are separate widgets from the slots rather than fillings of
+them, so `set_lead` and `set_icon_name` never fight over the same box, and a row can carry a value
+*and* a chevron — which the network example needs and a single trailing slot cannot express.
+
 **`lead` and `trail` take any widget** and the row never learns what it was given: a signal icon, a
 lock, a spinner, the word `connecting`, `72%`, a chevron. One mechanism instead of a property per
 kind of trailing thing. There is deliberately no second trailing slot for a value — no composition

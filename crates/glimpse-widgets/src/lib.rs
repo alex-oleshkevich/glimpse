@@ -388,6 +388,41 @@ mod tests {
             "an SSID is another application's string: capped without slicing a character"
         );
 
+        let row_icon = child_named::<gtk4::Image>(&row, "row__icon");
+        let row_value = child_named::<gtk4::Label>(&row, "row__value");
+        assert!(
+            !row_icon.get_visible() && !row_value.get_visible(),
+            "a row with neither reserves space for neither"
+        );
+        row.set_icon_name(Some("network-wireless-symbolic"));
+        row.set_value(Some("WPA3"));
+        assert!(row_icon.get_visible() && row_value.get_visible());
+
+        let icon_changes = Rc::new(Cell::new(0u32));
+        row_icon.connect_icon_name_notify({
+            let icon_changes = Rc::clone(&icon_changes);
+            move |_| icon_changes.set(icon_changes.get() + 1)
+        });
+        row.set_icon_name(Some("network-wireless-symbolic"));
+        assert_eq!(
+            icon_changes.get(),
+            0,
+            "an equal icon name is not reapplied, so a list re-rendering itself restyles nothing"
+        );
+
+        row.set_value(Some("ё".repeat(TEXT_MAX_CHARS * 2)));
+        assert_eq!(
+            row_value.text().chars().count(),
+            TEXT_MAX_CHARS,
+            "a value is another application's string too"
+        );
+        row.set_value(None::<&str>);
+        assert!(
+            !row_value.get_visible(),
+            "a cleared value gives its width back rather than leaving a gap before the chevron"
+        );
+        row.set_icon_name(None::<&str>);
+
         let signal = gtk4::Image::from_icon_name("network-wireless-symbolic");
         let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
         let reparented = Rc::new(Cell::new(0u32));

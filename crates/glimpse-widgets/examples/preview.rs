@@ -127,7 +127,6 @@ fn activate(
         .title(blueprint.file_name().unwrap_or_default().to_string_lossy())
         .child(&slot)
         .css_classes(["preview"])
-        .resizable(false)
         .build();
 
     let keys = gtk4::EventControllerKey::new();
@@ -245,7 +244,10 @@ mod fixtures {
     use gtk4::gdk;
     use gtk4::prelude::*;
 
-    use glimpse_widgets::{Calendar, Event, EventList, WorldClock, Ymd, Zone};
+    use glimpse_widgets::{Calendar, Event, EventList, Row, WorldClock, Ymd, Zone};
+    use std::rc::Rc;
+
+    const NAV: &str = "nav__";
 
     pub fn apply(name: &str, root: &gtk4::Widget) {
         match name {
@@ -265,8 +267,65 @@ mod fixtures {
                     world_clock(&clocks);
                 }
             }
+            "network" | "bluetooth" => drawer_nav(root),
             _ => {}
         }
+    }
+
+    fn drawer_nav(root: &gtk4::Widget) {
+        let Some(drawer) = find::<gtk4::Revealer>(root) else {
+            return;
+        };
+        let Some(stack) = drawer.child().and_then(|child| find::<gtk4::Stack>(&child)) else {
+            return;
+        };
+
+        let rows: Rc<Vec<(Row, String)>> = Rc::new(
+            collect::<Row>(root)
+                .into_iter()
+                .filter_map(|row| {
+                    let page = row
+                        .css_classes()
+                        .iter()
+                        .find_map(|class| class.as_str().strip_prefix(NAV).map(str::to_owned))?;
+                    stack.child_by_name(&page).map(|_| (row, page))
+                })
+                .collect(),
+        );
+
+        for (index, (row, page)) in rows.iter().enumerate() {
+            let drawer = drawer.clone();
+            let stack = stack.clone();
+            let all = Rc::clone(&rows);
+            let page = page.clone();
+            row.connect_clicked(move |_| {
+                let showing = drawer.reveals_child()
+                    && stack.visible_child_name().as_deref() == Some(page.as_str());
+                for (other, _) in all.iter() {
+                    other.set_selected(false);
+                }
+                if showing {
+                    drawer.set_reveal_child(false);
+                    return;
+                }
+                stack.set_visible_child_name(&page);
+                all[index].0.set_selected(true);
+                drawer.set_reveal_child(true);
+            });
+        }
+    }
+
+    fn collect<T: IsA<gtk4::Widget>>(widget: &gtk4::Widget) -> Vec<T> {
+        let mut found = Vec::new();
+        if let Ok(this) = widget.clone().downcast::<T>() {
+            found.push(this);
+        }
+        let mut child = widget.first_child();
+        while let Some(node) = child {
+            found.extend(collect::<T>(&node));
+            child = node.next_sibling();
+        }
+        found
     }
 
     fn agenda(events: &EventList, drawer: Option<gtk4::Revealer>) {
