@@ -50,7 +50,7 @@ impl Calendar {
 
     pub fn show_month(&self, year: i32, month: u32) {
         let imp = self.imp();
-        imp.shown.set((year, month));
+        imp.shown.set((year, month.clamp(1, 12)));
         imp.render();
     }
 

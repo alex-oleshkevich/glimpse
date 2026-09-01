@@ -4,7 +4,7 @@ pub const COLUMNS: usize = 7;
 pub const WEEKS: usize = 6;
 pub const CELLS: usize = COLUMNS * WEEKS;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Ymd {
     pub year: i32,
     pub month: u32,
@@ -23,7 +23,7 @@ pub struct Cell {
     pub in_month: bool,
 }
 
-pub fn days_in_month(year: i32, month: u32) -> u32 {
+fn days_in_month(year: i32, month: u32) -> u32 {
     let first = glib::DateTime::from_utc(year, month as i32, 1, 0, 0, 0.0);
     let last = first
         .and_then(|first| first.add_months(1))
@@ -77,20 +77,6 @@ pub fn month_grid(year: i32, month: u32, first_weekday: u32) -> [Cell; CELLS] {
         };
     }
     cells
-}
-
-#[derive(Debug, Default)]
-pub struct Scroll {
-    carried: f64,
-}
-
-impl Scroll {
-    pub fn accumulate(&mut self, delta: f64) -> i32 {
-        self.carried += delta;
-        let steps = self.carried.trunc();
-        self.carried -= steps;
-        steps as i32
-    }
 }
 
 #[cfg(test)]
@@ -159,18 +145,5 @@ mod tests {
         assert_eq!(days_in_month(2026, 2), 28);
         assert_eq!(days_in_month(2000, 2), 29);
         assert_eq!(days_in_month(1900, 2), 28);
-    }
-
-    #[test]
-    fn scrolling_carries_a_remainder_instead_of_stepping_per_event() {
-        let mut scroll = Scroll::default();
-        assert_eq!(scroll.accumulate(0.3), 0);
-        assert_eq!(scroll.accumulate(0.3), 0);
-        assert_eq!(
-            scroll.accumulate(0.5),
-            1,
-            "three tenths at a time still reaches one step"
-        );
-        assert_eq!(scroll.accumulate(-1.2), -1);
     }
 }

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 
 use super::dots::Dots;
-use super::grid::{CELLS, COLUMNS, Scroll, Ymd, month_grid, step_month};
+use super::grid::{CELLS, COLUMNS, Ymd, month_grid, step_month};
 use crate::set_css_class;
 
 const TODAY: &str = "calendar__cell--today";
@@ -21,7 +21,7 @@ pub struct Day {
     pub date: Cell<Ymd>,
 }
 
-#[derive(CompositeTemplate, glib::Properties)]
+#[derive(Default, CompositeTemplate, glib::Properties)]
 #[properties(wrapper_type = super::Calendar)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/calendar.ui")]
 pub struct Calendar {
@@ -46,7 +46,6 @@ pub struct Calendar {
     pub months: RefCell<Vec<gtk4::Button>>,
     pub weekdays: RefCell<Vec<gtk4::Label>>,
     pub events: RefCell<HashMap<Ymd, Vec<gdk::RGBA>>>,
-    pub scroll: RefCell<Scroll>,
 
     pub shown: Cell<(i32, u32)>,
     pub today: Cell<Ymd>,
@@ -56,37 +55,9 @@ pub struct Calendar {
     weekday_start: Cell<u32>,
 }
 
-impl Default for Calendar {
-    fn default() -> Self {
-        let today = glib::DateTime::now_local()
-            .or_else(|_| glib::DateTime::now_utc())
-            .map(|now| Ymd::new(now.year(), now.month() as u32, now.day_of_month() as u32))
-            .unwrap_or_else(|_| Ymd::new(1970, 1, 1));
-        Self {
-            scope: Default::default(),
-            scope_label: Default::default(),
-            today_button: Default::default(),
-            previous: Default::default(),
-            next: Default::default(),
-            views: Default::default(),
-            month: Default::default(),
-            year: Default::default(),
-            days: Default::default(),
-            months: Default::default(),
-            weekdays: Default::default(),
-            events: Default::default(),
-            scroll: Default::default(),
-            shown: Cell::new((today.year, today.month)),
-            today: Cell::new(today),
-            selected: Cell::new(None),
-            weekday_start: Cell::new(1),
-        }
-    }
-}
-
 impl Calendar {
     fn first_weekday(&self) -> u32 {
-        self.weekday_start.get()
+        self.weekday_start.get().max(1)
     }
 
     fn set_first_weekday(&self, first: u32) {
@@ -155,11 +126,11 @@ impl Calendar {
         self.today_button.set_visible(!on_today);
 
         for (index, label) in self.weekdays.borrow().iter().enumerate() {
-            let weekday = (self.weekday_start.get() - 1 + index as u32) % COLUMNS as u32 + 1;
+            let weekday = (self.first_weekday() - 1 + index as u32) % COLUMNS as u32 + 1;
             label.set_text(&format_weekday(weekday));
         }
 
-        let cells = month_grid(year, month, self.weekday_start.get());
+        let cells = month_grid(year, month, self.first_weekday());
         let events = self.events.borrow();
         for (day, cell) in self.days.borrow().iter().zip(cells.iter()) {
             day.date.set(cell.date);
@@ -237,6 +208,12 @@ impl ObjectImpl for Calendar {
 
     fn constructed(&self) {
         self.parent_constructed();
+        let today = glib::DateTime::now_local()
+            .or_else(|_| glib::DateTime::now_utc())
+            .map(|now| Ymd::new(now.year(), now.month() as u32, now.day_of_month() as u32))
+            .unwrap_or_else(|_| Ymd::new(1970, 1, 1));
+        self.today.set(today);
+        self.shown.set((today.year, today.month));
         self.build_month();
         self.build_year();
         self.wire();
@@ -352,10 +329,9 @@ impl Calendar {
         );
         let calendar = self.obj().clone();
         scrolling.connect_scroll(move |_, _, delta| {
-            let imp = calendar.imp();
-            let steps = imp.scroll.borrow_mut().accumulate(delta);
+            let steps = delta as i32;
             if steps != 0 {
-                imp.step(steps);
+                calendar.imp().step(steps);
             }
             glib::Propagation::Stop
         });

@@ -136,10 +136,15 @@ classes, so `Dots` is a small widget that snapshots rounded rectangles. Its `mea
 same height whether or not the day has events, so a day gaining one does not resize the grid. Three
 is a cap rather than a count: a fourth event adds no fourth dot.
 
-**The arithmetic is not in the widget.** `grid.rs` turns a year and a month into 42 cells, steps
-months across year boundaries, and accumulates scroll deltas — all pure, all tested headlessly, none
-of it needing a display. Scroll accumulates because a touchpad sends fractional deltas and one step
-per event would run a month per frame.
+**The arithmetic is not in the widget.** `grid.rs` turns a year and a month into 42 cells and steps
+months across year boundaries — pure, tested headlessly, none of it needing a display.
+
+**Scrolling is GTK's to accumulate, not ours.** `EventControllerScrollFlags::DISCRETE` emits only
+whole-number deltas, so GTK has already turned a touchpad's fractional stream into steps. An
+accumulator of our own sat on top of that for a while, carrying a remainder that was always zero.
+
+**The Today button is `valign: center`.** Without it GTK stretches the button to the height of the
+tallest control in the header row, and a pill that should hug its label becomes a slab.
 
 **`select` compares before it writes, and that guard is load-bearing.** It emits `day-selected`, so
 a handler that reacts by selecting — the obvious way to keep two views in step — drives the signal

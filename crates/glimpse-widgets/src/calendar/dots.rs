@@ -83,10 +83,6 @@ impl Dots {
         self.queue_draw();
     }
 
-    pub fn colors(&self) -> Vec<gdk::RGBA> {
-        self.imp().colors.borrow().clone()
-    }
-
     pub fn set_uniform(&self, uniform: bool) {
         if self.imp().uniform.replace(uniform) != uniform {
             self.queue_draw();
