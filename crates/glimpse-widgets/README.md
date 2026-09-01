@@ -80,6 +80,53 @@ as a gap between its neighbours.
 Orientation is settable because `Panel` flips between horizontal and vertical; spacing is not,
 because nothing varies it.
 
+## Row
+
+The list item every popover is made of: a Wi-Fi network, a Bluetooth device, a power profile, an
+audio output.
+
+```
+[ check ] [ lead ] [ title    ]  ←space→  [ trail ]
+                   [ subtitle ]
+```
+
+**It navigates, it does not expand.** A trailing chevron pushes a page; nothing in this widget
+reveals content in place. Two reasons, and the second is the one that decides it: a popover's height
+is capped by the work area, so expanding row 15 of 20 grows it past the fold and hides the thing
+just revealed — and the content being revealed is not small. A Wi-Fi detail is four facts, two
+settings and two buttons. That is a page. `var/design/row.md` records the evidence from the approved
+mockups, which reached the same answer.
+
+Expanding is right only when the revealed content is one or two rows *and* the list cannot grow —
+an audio output revealing its volume slider. Build the expander when such a case appears.
+
+**`lead` and `trail` take any widget** and the row never learns what it was given: a signal icon, a
+lock, a spinner, the word `connecting`, `72%`, a chevron. One mechanism instead of a property per
+kind of trailing thing. There is deliberately no second trailing slot for a value — no composition
+in the approved mockups uses both, and two slots that mean "the right side" is the ambiguity `Hero`
+already avoided.
+
+**`selectable` and `selected` are separate**, which is the whole point of the check column. A
+selectable row reserves 14px *before* anything is selected, so selecting one does not shift every
+label in the list — the same rule as `ui.md`'s "data changes must not shift layout". A row that is
+not selectable omits the column and starts at its lead. Both spellings appear in the approved
+battery popover: Power mode reserves the column, Devices below it does not.
+
+**A subtitle is what makes a row two lines.** Setting one adds `.row--two` and its taller metrics;
+nothing else has to be told, and nothing can disagree.
+
+**It is a `Gtk.Button`,** so activation, keyboard, focus and `:hover` / `:active` /
+`:focus-visible` are GTK's rather than ours — `.row.hover` in the design mockups was a stand-in for
+a state we now get for free. `activatable: false` drops `can-target` and `can-focus` together, so a
+read-only fact row on a detail page neither lights up under the pointer nor stops the keyboard on
+its way past. It is not made insensitive, which would dim it and say something untrue.
+
+**`.row` must reset `font-weight`.** libadwaita styles bare `button` with `font-weight: bold`, and
+weight inherits into any label placed inside one. Left alone, every row renders bold — and since the
+grammar distinguishes a selected row with `font-weight: 600`, every row would read as selected. A
+`Gtk.Button` is not a neutral container: it arrives carrying padding, min-height, radius and weight
+that a custom design has to undo on purpose.
+
 ## PopoverShell and Hero
 
 `PopoverShell` is the frame every applet popover sits in: an optional hero, one content child, an

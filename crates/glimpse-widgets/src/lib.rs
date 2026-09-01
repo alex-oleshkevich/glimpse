@@ -3,6 +3,7 @@ mod indicator;
 mod indicator_group;
 mod panel;
 mod popover_shell;
+mod row;
 mod theme;
 
 pub use hero::Hero;
@@ -10,18 +11,39 @@ pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
 pub use panel::Panel;
 pub use popover_shell::PopoverShell;
+pub use row::Row;
 pub use theme::Styles;
 
 #[cfg(test)]
-use hero::TEXT_MAX_CHARS;
-#[cfg(test)]
 use indicator::{LABEL_MAX_CHARS, TOOLTIP_MAX_CHARS};
+
+pub(crate) const TEXT_MAX_CHARS: usize = 128;
 
 pub(crate) fn clear_children(container: &gtk4::Box) {
     use gtk4::prelude::*;
 
     while let Some(child) = container.first_child() {
         container.remove(&child);
+    }
+}
+
+pub(crate) fn set_text(label: &gtk4::Label, value: Option<&str>) {
+    use gtk4::prelude::*;
+
+    let text = indicator::truncate(value.unwrap_or_default(), TEXT_MAX_CHARS);
+    if label.text().as_str() == text {
+        return;
+    }
+    label.set_text(&text);
+    label.set_visible(!text.is_empty());
+}
+
+pub(crate) fn set_css_class(widget: &impl gtk4::prelude::IsA<gtk4::Widget>, name: &str, on: bool) {
+    use gtk4::prelude::*;
+
+    match on {
+        true => widget.add_css_class(name),
+        false => widget.remove_css_class(name),
     }
 }
 
@@ -302,6 +324,69 @@ mod tests {
         shell.clear_footer();
         assert!(!footer_box.is_visible() && !rules[1].is_visible());
         assert!(button.parent().is_none());
+
+        let row = Row::new();
+        let check = child_named::<gtk4::Image>(&row, "row__check");
+        let row_title = child_named::<gtk4::Label>(&row, "row__title");
+        let row_subtitle = child_named::<gtk4::Label>(&row, "row__subtitle");
+
+        assert!(
+            !check.is_visible(),
+            "a row that cannot be selected spends no width on the column"
+        );
+        row.set_selectable(true);
+        assert!(
+            check.is_visible() && check.icon_name().is_none(),
+            "a selectable row reserves the column before anything is selected, so a later \
+             selection does not shift the label"
+        );
+        row.set_selected(true);
+        assert_eq!(check.icon_name().as_deref(), Some("object-select-symbolic"));
+        assert!(row.has_css_class("row--on"));
+        row.set_selected(false);
+        assert!(check.icon_name().is_none() && !row.has_css_class("row--on"));
+
+        assert!(!row_subtitle.is_visible());
+        row.set_title(Some("Tenda_4A21F0"));
+        row.set_subtitle(Some("WPA2 · 5 GHz"));
+        assert!(row_subtitle.is_visible());
+        assert!(
+            row.has_css_class("row--two"),
+            "a subtitle is what makes a row two lines; nothing else has to be told"
+        );
+        row.set_subtitle(None::<&str>);
+        assert!(!row.has_css_class("row--two"));
+
+        row.set_title(Some("ё".repeat(TEXT_MAX_CHARS * 2)));
+        assert_eq!(
+            row_title.text().chars().count(),
+            TEXT_MAX_CHARS,
+            "an SSID is another application's string: capped without slicing a character"
+        );
+
+        let signal = gtk4::Image::from_icon_name("network-wireless-symbolic");
+        let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
+        row.set_lead(&signal);
+        row.set_trail(&chevron);
+        assert_eq!(
+            signal.parent().and_then(|slot| slot.parent()),
+            chevron.parent().and_then(|slot| slot.parent()),
+            "both slots hang off the same row"
+        );
+        row.clear_trail();
+        assert!(chevron.parent().is_none());
+        assert!(
+            signal.parent().is_some(),
+            "clearing one slot leaves the other alone"
+        );
+
+        assert!(row.can_target() && row.activatable());
+        row.set_activatable(false);
+        assert!(
+            !row.can_target() && !row.can_focus(),
+            "a row that does nothing takes neither the pointer nor the focus, so it cannot \
+             light up under a hover that leads nowhere"
+        );
     }
 
     fn children_of<T: IsA<gtk4::Widget>>(parent: &impl IsA<gtk4::Widget>) -> Vec<T> {

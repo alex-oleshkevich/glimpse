@@ -3,15 +3,12 @@ mod imp;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::clear_children;
-use crate::indicator::truncate;
 
 glib::wrapper! {
     pub struct Hero(ObjectSubclass<imp::Hero>)
         @extends gtk4::Widget,
         @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget;
 }
-
-pub(crate) const TEXT_MAX_CHARS: usize = 128;
 
 impl Default for Hero {
     fn default() -> Self {
@@ -57,13 +54,4 @@ fn icons_equal(current: Option<&gio::Icon>, next: Option<&gio::Icon>) -> bool {
         (Some(current), Some(next)) => current.equal(Some(next)),
         _ => false,
     }
-}
-
-pub(crate) fn set_text(label: &gtk4::Label, value: Option<&str>) {
-    let text = truncate(value.unwrap_or_default(), TEXT_MAX_CHARS);
-    if label.text().as_str() == text {
-        return;
-    }
-    label.set_text(&text);
-    label.set_visible(!text.is_empty());
 }

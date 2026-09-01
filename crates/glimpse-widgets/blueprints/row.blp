@@ -1,0 +1,74 @@
+using Gtk 4.0;
+
+template $Row: Gtk.Button {
+  has-frame: false;
+
+  styles [
+    "row",
+  ]
+
+  Gtk.Box {
+    orientation: horizontal;
+    spacing: 10;
+
+    Gtk.Image check {
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "row__check",
+      ]
+    }
+
+    Gtk.Box lead {
+      orientation: horizontal;
+      valign: center;
+      visible: false;
+
+      styles [
+        "row__lead",
+      ]
+    }
+
+    Gtk.Box text {
+      orientation: vertical;
+      valign: center;
+      hexpand: true;
+      halign: fill;
+
+      Gtk.Label title {
+        single-line-mode: true;
+        ellipsize: end;
+        xalign: 0;
+        visible: false;
+        accessible-role: presentation;
+
+        styles [
+          "row__title",
+        ]
+      }
+
+      Gtk.Label subtitle {
+        single-line-mode: true;
+        ellipsize: end;
+        xalign: 0;
+        visible: false;
+        accessible-role: presentation;
+
+        styles [
+          "row__subtitle",
+        ]
+      }
+    }
+
+    Gtk.Box trail {
+      orientation: horizontal;
+      valign: center;
+      visible: false;
+
+      styles [
+        "row__trail",
+      ]
+    }
+  }
+}

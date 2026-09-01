@@ -34,7 +34,7 @@ impl Hero {
     }
 
     fn set_title(&self, title: Option<String>) {
-        super::set_text(&self.title, title.as_deref());
+        crate::set_text(&self.title, title.as_deref());
     }
 
     fn subtitle(&self) -> Option<String> {
@@ -42,7 +42,7 @@ impl Hero {
     }
 
     fn set_subtitle(&self, subtitle: Option<String>) {
-        super::set_text(&self.subtitle, subtitle.as_deref());
+        crate::set_text(&self.subtitle, subtitle.as_deref());
     }
 
     fn icon_name(&self) -> Option<String> {
