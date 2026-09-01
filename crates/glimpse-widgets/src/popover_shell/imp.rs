@@ -17,7 +17,7 @@ pub struct PopoverShell {
 
 #[glib::object_subclass]
 impl ObjectSubclass for PopoverShell {
-    const NAME: &'static str = "GlimpsePopoverShell";
+    const NAME: &'static str = "PopoverShell";
     type Type = super::PopoverShell;
     type ParentType = gtk4::Widget;
 

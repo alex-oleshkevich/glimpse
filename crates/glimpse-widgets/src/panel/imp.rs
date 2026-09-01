@@ -17,7 +17,7 @@ pub struct Panel {
 
 #[glib::object_subclass]
 impl ObjectSubclass for Panel {
-    const NAME: &'static str = "GlimpsePanel";
+    const NAME: &'static str = "Panel";
     type Type = super::Panel;
     type ParentType = gtk4::Widget;
 

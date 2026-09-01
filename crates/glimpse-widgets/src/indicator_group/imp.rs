@@ -15,7 +15,7 @@ pub struct IndicatorGroup {
 
 #[glib::object_subclass]
 impl ObjectSubclass for IndicatorGroup {
-    const NAME: &'static str = "GlimpseIndicatorGroup";
+    const NAME: &'static str = "IndicatorGroup";
     type Type = super::IndicatorGroup;
     type ParentType = gtk4::Widget;
 

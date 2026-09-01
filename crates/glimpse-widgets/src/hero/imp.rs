@@ -19,7 +19,7 @@ pub struct Hero {
 
 #[glib::object_subclass]
 impl ObjectSubclass for Hero {
-    const NAME: &'static str = "GlimpseHero";
+    const NAME: &'static str = "Hero";
     type Type = super::Hero;
     type ParentType = gtk4::Widget;
 
