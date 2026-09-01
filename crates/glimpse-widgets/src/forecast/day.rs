@@ -15,7 +15,7 @@ mod imp {
         #[template_child]
         pub low: TemplateChild<gtk4::Label>,
         #[template_child]
-        pub bar: TemplateChild<gtk4::Box>,
+        pub bar: TemplateChild<RangeBar>,
         #[template_child]
         pub high: TemplateChild<gtk4::Label>,
 
@@ -74,11 +74,6 @@ mod imp {
 
     #[glib::derived_properties]
     impl ObjectImpl for ForecastDay {
-        fn constructed(&self) {
-            self.parent_constructed();
-            self.bar.append(&RangeBar::new());
-        }
-
         fn dispose(&self) {
             self.dispose_template();
         }
@@ -107,10 +102,6 @@ impl ForecastDay {
     }
 
     pub fn bar(&self) -> RangeBar {
-        self.imp()
-            .bar
-            .first_child()
-            .and_downcast()
-            .expect("range bar")
+        self.imp().bar.get()
     }
 }
