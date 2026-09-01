@@ -127,6 +127,7 @@ fn activate(
         .title(blueprint.file_name().unwrap_or_default().to_string_lossy())
         .child(&slot)
         .css_classes(["preview"])
+        .resizable(false)
         .build();
 
     let keys = gtk4::EventControllerKey::new();
@@ -258,7 +259,7 @@ mod fixtures {
                     calendar_events(&calendar);
                 }
                 if let Some(events) = find::<EventList>(root) {
-                    agenda(&events);
+                    agenda(&events, find::<gtk4::Revealer>(root));
                 }
                 if let Some(clocks) = find::<WorldClock>(root) {
                     world_clock(&clocks);
@@ -268,7 +269,7 @@ mod fixtures {
         }
     }
 
-    fn agenda(events: &EventList) {
+    fn agenda(events: &EventList, drawer: Option<gtk4::Revealer>) {
         let color = |hex: &str| hex.parse::<gdk::RGBA>().unwrap_or(gdk::RGBA::BLUE);
         let work = color("#3584e4");
         let home = color("#2ec27e");
@@ -281,8 +282,7 @@ mod fixtures {
             color: Some(color),
         };
 
-        events.set_max_rows(4);
-        events.set_events(&[
+        let today = [
             event("Company all-hands", "All day", "—", work),
             event("Team standup", "Daily · Google Meet", "09:30", work),
             event(
@@ -293,20 +293,46 @@ mod fixtures {
             ),
             event("Marta's birthday", "All day", "—", birthday),
             event("Pick up the parcel", "Antakalnio g. 18", "18:00", home),
-        ]);
+        ];
+
+        events.set_max_rows(4);
+        events.set_events(&today);
+
+        if let Some(drawer) = drawer.as_ref()
+            && let Some(child) = drawer.child()
+            && let Some(all) = find::<EventList>(&child)
+        {
+            all.set_events(&today);
+        }
+        events.connect_overflow(move |_| {
+            if let Some(drawer) = drawer.as_ref() {
+                drawer.set_reveal_child(!drawer.reveals_child());
+            }
+        });
     }
 
     fn world_clock(clocks: &WorldClock) {
-        let zone = |label: &str, timezone: &str, note: &str| Zone {
+        let zone = |label: &str, timezone: &str, note: &str, icon_name: &str| Zone {
             label: label.to_owned(),
             timezone: timezone.to_owned(),
             note: note.to_owned(),
+            icon_name: icon_name.to_owned(),
         };
         clocks.set_zones(&[
-            zone("Vilnius", "Europe/Vilnius", "18° · Light rain"),
-            zone("Berlin", "Europe/Berlin", ""),
-            zone("San Francisco", "America/Los_Angeles", ""),
-            zone("Auckland", "Pacific/Auckland", "9° · Clear"),
+            zone(
+                "Vilnius",
+                "Europe/Vilnius",
+                "18° · Light rain",
+                "weather-showers-scattered-symbolic",
+            ),
+            zone("Berlin", "Europe/Berlin", "", ""),
+            zone("San Francisco", "America/Los_Angeles", "", ""),
+            zone(
+                "Auckland",
+                "Pacific/Auckland",
+                "9° · Clear",
+                "weather-clear-night-symbolic",
+            ),
         ]);
     }
 

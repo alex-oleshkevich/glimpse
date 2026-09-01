@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::clear_children;
+use crate::{clear_children, fill_slot};
 
 glib::wrapper! {
     pub struct Row(ObjectSubclass<imp::Row>)
@@ -39,8 +39,7 @@ impl Row {
 }
 
 fn fill(slot: &gtk4::Box, widget: &impl IsA<gtk4::Widget>) {
-    clear_children(slot);
-    slot.append(widget);
+    fill_slot(slot, widget);
     slot.set_visible(true);
 }
 

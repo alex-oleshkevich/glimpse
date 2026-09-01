@@ -225,6 +225,11 @@ mockups, which reached the same answer.
 Expanding is right only when the revealed content is one or two rows *and* the list cannot grow —
 an audio output revealing its volume slider. Build the expander when such a case appears.
 
+**A slot ignores a widget it is already holding.** `fill_slot` compares against `first_child`
+before it unparents anything, which matters because `EventList` and `WorldClock` re-apply every
+slot on every render: without it, a list of ten rows unparents and reparents twenty widgets each
+time a minute ticks.
+
 **`lead` and `trail` take any widget** and the row never learns what it was given: a signal icon, a
 lock, a spinner, the word `connecting`, `72%`, a chevron. One mechanism instead of a property per
 kind of trailing thing. There is deliberately no second trailing slot for a value — no composition
@@ -330,9 +335,12 @@ signal exists so the applet can push a page or open the calendar application; th
 nowhere to navigate to, which is why clicking it there does nothing, exactly as `Open calendar` in
 the same footer does nothing.
 
-**Both lists are activatable only on request.** `EventList` defaults to inert: a hover highlight is
-a promise that clicking does something, and until a caller connects `activated` and says
-`set_activatable(true)`, clicking does nothing. `WorldClock` rows stay targetable, because taking the
+**`EventList` defaults to inert.** A hover highlight is a promise that clicking does something, and
+until a caller connects `activated` and says `set_activatable(true)`, an event row takes neither the
+pointer nor the focus. **The overflow row is exempt**, because it is a control rather than an event:
+it exists only because the caller capped the list, clicking it is the entire reason it is there, and
+gating it on a flag that describes event rows made it inert in exactly the case that put it on
+screen. `WorldClock` rows stay targetable, because taking the
 pointer is what raises a tooltip — `Europe/Berlin · CEST (UTC+02:00)`, the zone the label actually
 resolved to and the offset that makes the time checkable — but they paint no hover or active state
 and are not tab stops. A tooltip is the whole of what the row offers, so the highlight and the focus
@@ -340,17 +348,26 @@ ring would both promise more than the click can keep. **`set_activatable(false)`
 here**: it drops `can-target`, and a widget that is not a pointer target never gets a tooltip
 either.
 
-**The lead is day or night.** `weather-clear-symbolic` when the local hour there is 07:00–19:00,
-`weather-clear-night-symbolic` otherwise, and nothing at all for a zone that did not resolve. It
-answers the question the list is actually consulted for — *can I call them now* — which the digits
-alone do not, and it is the one thing worth the lead column on a row whose label is a city. The hour
+**The lead is the zone's own icon, or day/night.** A `Zone` may carry `icon_name`; without one the
+row falls back to `weather-clear-symbolic` when the local hour there is 07:00–19:00,
+`weather-clear-night-symbolic` otherwise, and to nothing at all when the zone did not resolve. The
+fallback answers the question the list is consulted for — *can I call them now* — which the digits
+do not, and it is the only thing worth the lead column on a row whose label is a city. The hour
 threshold is a hint, not astronomy: real sunrise and sunset need coordinates, and `glimpse-sunset`
 already computes them, so this upgrades once a zone carries a location.
 
-**`Zone::note` is a free second line the widget knows nothing about.** Weather is the case it was
-added for — `18° · Light rain` — but the widget never learns that; it takes a string and shares the
-second line with the day note, `Tomorrow · 9° · Clear`, rather than taking a third. A third line is
-what stops a clock list being glanceable.
+**`Zone::note` and `Zone::icon_name` are a second line and a glyph the widget knows nothing about.**
+Weather is what they were added for — `18° · Light rain` under a showers icon — but the widget never
+learns that: it takes a string and an icon name, and shares the second line with the day note,
+`Tomorrow · 9° · Clear`, rather than taking a third. A third line is what stops a clock list being
+glanceable. **The two travel together on purpose.** A zone that knows its weather draws it, because
+a sun sitting above the words "light rain" is a contradiction the row states about itself — and it
+is what the first version rendered.
+
+The icon carries no colour of its own. Tinting daylight amber was decoration with no evidence behind
+it, and it turns a daytime rain glyph into something that reads as a warning; the mockup's
+`.row image { color: var(--muted) }` says the same thing. Shape carries the meaning, and GNOME's
+weather icon set already has `-night` variants for a caller that wants to encode both.
 
 **All rows are one height.** `.world-clock .row` and `.row--two` share a `min-height`, so a zone that
 crosses midnight and gains `Tomorrow` does not grow and shove everything under it. For a clock that

@@ -390,10 +390,6 @@
 }
 
 .world-clock__phase {
-    -gtk-icon-size: 1.05rem;
-    color: var(--gl-dim);
-}
-
-.world-clock__phase--day {
-    color: var(--gl-warning-text);
+    -gtk-icon-size: 1.15rem;
+    color: var(--gl-muted);
 }

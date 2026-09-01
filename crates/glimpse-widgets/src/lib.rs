@@ -40,6 +40,16 @@ pub(crate) fn clear_children(container: &gtk4::Box) {
 
 pub(crate) use indicator::truncate;
 
+pub(crate) fn fill_slot(slot: &gtk4::Box, widget: &impl gtk4::prelude::IsA<gtk4::Widget>) {
+    use gtk4::prelude::*;
+
+    if slot.first_child().as_ref() == Some(widget.as_ref()) {
+        return;
+    }
+    clear_children(slot);
+    slot.append(widget);
+}
+
 pub(crate) fn set_text(label: &gtk4::Label, value: Option<&str>) {
     use gtk4::prelude::*;
 
@@ -380,7 +390,19 @@ mod tests {
 
         let signal = gtk4::Image::from_icon_name("network-wireless-symbolic");
         let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
+        let reparented = Rc::new(Cell::new(0u32));
+        signal.connect_parent_notify({
+            let reparented = Rc::clone(&reparented);
+            move |_| reparented.set(reparented.get() + 1)
+        });
         row.set_lead(&signal);
+        row.set_lead(&signal);
+        assert_eq!(
+            reparented.get(),
+            1,
+            "filling a slot with the widget already in it does not unparent and reparent it, \
+             which is what a list re-rendering the same rows would otherwise do every update"
+        );
         row.set_trail(&chevron);
         assert_eq!(
             signal.parent().and_then(|slot| slot.parent()),
@@ -564,6 +586,19 @@ mod tests {
         );
         section.set_empty(false);
         assert!(section_count.get_visible());
+        assert_eq!(
+            *section.imp().accessible_name.borrow(),
+            "Today 3",
+            "the count is information, not decoration, so it reaches a screen reader even though \
+             the label that draws it is marked presentational"
+        );
+        section.set_empty(true);
+        assert_eq!(
+            *section.imp().accessible_name.borrow(),
+            "Today",
+            "and goes away with it, rather than announcing three of nothing"
+        );
+        section.set_empty(false);
 
         let first_body = gtk4::Label::new(Some("body"));
         section.set_content(Some(&first_body));
@@ -643,6 +678,7 @@ mod tests {
             event("Three", "11:00", None),
             event("Four", "12:00", None),
         ]);
+        events.set_activatable(false);
         events.set_max_rows(3);
         let capped: Vec<Row> = children_of(&events);
         assert_eq!(
@@ -651,6 +687,11 @@ mod tests {
             "three events plus the row that counts the rest"
         );
         assert!(capped[3].has_css_class("row--quiet"));
+        assert!(
+            capped[3].activatable() && !capped[0].activatable(),
+            "the overflow row is a control, not an event: it exists only because the caller \
+             capped the list, and clicking it is the whole reason it is there"
+        );
         assert_eq!(
             capped[3].title().as_deref(),
             Some("1 more event"),
@@ -725,6 +766,7 @@ mod tests {
             label: label.to_owned(),
             timezone: timezone.to_owned(),
             note: String::new(),
+            icon_name: String::new(),
         };
         clock.set_zones(&[
             zone("Berlin", "Europe/Berlin"),
@@ -759,32 +801,30 @@ mod tests {
         assert_eq!(clock_rows[3].subtitle(), None);
 
         let phase_of = |row: &Row| {
-            let phase = child_named::<gtk4::Image>(row, "world-clock__phase");
-            (
-                phase.icon_name().map(|name| name.to_string()),
-                phase.has_css_class("world-clock__phase--day"),
-            )
+            child_named::<gtk4::Image>(row, "world-clock__phase")
+                .icon_name()
+                .map(|name| name.to_string())
         };
         assert_eq!(
             phase_of(&clock_rows[0]),
-            (Some("weather-clear-symbolic".to_owned()), true),
+            Some("weather-clear-symbolic".to_owned()),
             "14:00 in Berlin is daylight, which is the one thing a world clock is consulted for"
         );
         assert_eq!(
             phase_of(&clock_rows[1]),
-            (Some("weather-clear-night-symbolic".to_owned()), false),
+            Some("weather-clear-night-symbolic".to_owned()),
             "00:00 in Auckland is not"
         );
         assert_eq!(
             phase_of(&clock_rows[3]),
-            (None, false),
+            None,
             "a zone that did not resolve claims nothing about daylight"
         );
 
         clock.set_now(&glib::DateTime::from_utc(2026, 9, 1, 5, 0, 0.0).expect("instant"));
         assert_eq!(clock_rows[2].subtitle().as_deref(), Some("Yesterday"));
         assert_eq!(
-            phase_of(&clock_rows[1]).0,
+            phase_of(&clock_rows[1]),
             Some("weather-clear-symbolic".to_owned()),
             "17:00 in Auckland is daylight, so the icon follows the clock rather than the zone"
         );
@@ -823,6 +863,7 @@ mod tests {
         clock.set_zones(&[
             Zone {
                 note: "12° · Light rain".to_owned(),
+                icon_name: "weather-showers-symbolic".to_owned(),
                 ..zone("Berlin", "Europe/Berlin")
             },
             Zone {
@@ -834,6 +875,17 @@ mod tests {
             clock_rows[0].subtitle().as_deref(),
             Some("12° · Light rain"),
             "a zone with something to add carries it on the second line"
+        );
+        assert_eq!(
+            phase_of(&clock_rows[0]),
+            Some("weather-showers-symbolic".to_owned()),
+            "and a zone that knows its weather draws that instead of the sun, so the icon cannot \
+             contradict the line under it"
+        );
+        assert_eq!(
+            phase_of(&clock_rows[1]),
+            Some("weather-clear-night-symbolic".to_owned()),
+            "a zone with no icon of its own still falls back to daylight"
         );
         assert_eq!(
             clock_rows[1].subtitle().as_deref(),

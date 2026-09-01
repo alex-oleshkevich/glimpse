@@ -2,7 +2,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, accessible, glib, prelude::*,
     subclass::prelude::*,
 };
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::marker::PhantomData;
 
 use crate::set_text;
@@ -28,6 +28,7 @@ pub struct Section {
     count_text: PhantomData<Option<String>>,
     #[property(name = "empty", get = Self::empty, set = Self::set_empty)]
     empty: Cell<bool>,
+    pub accessible_name: RefCell<String>,
 }
 
 impl Section {
@@ -39,8 +40,7 @@ impl Section {
     fn set_title(&self, title: Option<String>) {
         set_text(&self.title, title.as_deref());
         self.header.set_visible(!self.title.text().is_empty());
-        self.obj()
-            .update_property(&[accessible::Property::Label(self.title.text().as_str())]);
+        self.sync_accessible_label();
     }
 
     fn count(&self) -> Option<String> {
@@ -56,6 +56,21 @@ impl Section {
     fn sync_count(&self) {
         self.count
             .set_visible(!self.count.text().is_empty() && !self.empty());
+        self.sync_accessible_label();
+    }
+
+    fn sync_accessible_label(&self) {
+        let title = self.title.text();
+        let label = match self.count.get_visible() {
+            true => format!("{title} {}", self.count.text()),
+            false => title.to_string(),
+        };
+        if *self.accessible_name.borrow() == label {
+            return;
+        }
+        self.accessible_name.replace(label.clone());
+        self.obj()
+            .update_property(&[accessible::Property::Label(&label)]);
     }
 
     fn empty(&self) -> bool {

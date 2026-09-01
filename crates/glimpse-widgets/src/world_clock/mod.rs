@@ -18,6 +18,7 @@ pub struct Zone {
     pub label: String,
     pub timezone: String,
     pub note: String,
+    pub icon_name: String,
 }
 
 glib::wrapper! {
@@ -92,7 +93,7 @@ impl WorldClock {
             }
             let day = there.as_ref().and_then(|there| day_note(&now, there));
             entry.row.set_subtitle(subtitle(day, &zone.note).as_deref());
-            set_phase(&entry.phase, there.as_ref());
+            set_phase(&entry.phase, there.as_ref(), &zone.icon_name);
             set_tooltip(&entry.row, &zone.timezone, there.as_ref());
         }
 
@@ -122,19 +123,18 @@ fn build_row() -> Entry {
     Entry { row, time, phase }
 }
 
-fn set_phase(phase: &gtk4::Image, there: Option<&glib::DateTime>) {
-    let daylight = there.map(|there| DAY.contains(&there.hour()));
-    let icon = match daylight {
-        Some(true) => Some(DAY_ICON),
-        Some(false) => Some(NIGHT_ICON),
-        None => None,
+fn set_phase(phase: &gtk4::Image, there: Option<&glib::DateTime>, icon_name: &str) {
+    let icon = match (icon_name.is_empty(), there) {
+        (false, _) => Some(icon_name),
+        (true, Some(there)) if DAY.contains(&there.hour()) => Some(DAY_ICON),
+        (true, Some(_)) => Some(NIGHT_ICON),
+        (true, None) => None,
     };
     if phase.icon_name().as_deref() == icon {
         return;
     }
     phase.set_icon_name(icon);
     phase.set_visible(icon.is_some());
-    crate::set_css_class(phase, "world-clock__phase--day", daylight == Some(true));
 }
 
 fn set_tooltip(row: &Row, timezone: &str, there: Option<&glib::DateTime>) {

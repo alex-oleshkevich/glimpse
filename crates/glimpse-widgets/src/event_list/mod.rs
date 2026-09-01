@@ -96,8 +96,9 @@ impl EventList {
             let entry = &rows[index];
             entry.row.set_title(Some(event.summary.as_str()));
             entry.row.set_subtitle(none_if_empty(&event.detail));
-            crate::set_text(&entry.time, none_if_empty(&event.when));
-            match none_if_empty(&event.when) {
+            let when = none_if_empty(&event.when);
+            crate::set_text(&entry.time, when);
+            match when {
                 Some(_) => entry.row.set_trail(&entry.time),
                 None => entry.row.clear_trail(),
             }
@@ -151,13 +152,16 @@ impl EventList {
             return;
         }
 
-        let row = match imp.overflow.borrow().clone() {
+        let existing = imp.overflow.borrow().clone();
+        let row = match existing {
             Some(row) => row,
-            None => self.build_overflow(),
+            None => {
+                let row = self.build_overflow();
+                imp.overflow.replace(Some(row.clone()));
+                row
+            }
         };
-        imp.overflow.replace(Some(row.clone()));
 
-        row.set_activatable(imp.activatable.get());
         row.set_title(Some(match hidden {
             1 => "1 more event".to_owned(),
             hidden => format!("{hidden} more events"),

@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::clear_children;
+use crate::{clear_children, fill_slot};
 
 glib::wrapper! {
     pub struct Section(ObjectSubclass<imp::Section>)
@@ -31,8 +31,8 @@ impl Section {
 }
 
 fn fill(slot: &gtk4::Box, widget: Option<&impl IsA<gtk4::Widget>>) {
-    clear_children(slot);
-    if let Some(widget) = widget {
-        slot.append(widget);
+    match widget {
+        Some(widget) => fill_slot(slot, widget),
+        None => clear_children(slot),
     }
 }
