@@ -1,0 +1,26 @@
+using Gtk 4.0;
+
+template $ClockRow: $Row {
+  [lead]
+  Gtk.Image phase {
+    visible: false;
+    valign: center;
+    accessible-role: presentation;
+
+    styles [
+      "world-clock__phase",
+    ]
+  }
+
+  [trail]
+  Gtk.Label time {
+    single-line-mode: true;
+    xalign: 1;
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "world-clock__time",
+    ]
+  }
+}

@@ -2,11 +2,17 @@
 <gresources>
     <gresource prefix="/me/aresa/GlimpseShell">
         <file>widgets/calendar.ui</file>
+        <file>widgets/clock_row.ui</file>
+        <file>widgets/event_row.ui</file>
+        <file>widgets/forecast_day.ui</file>
+        <file>widgets/forecast_hour.ui</file>
         <file>widgets/hero.ui</file>
         <file>widgets/indicator.ui</file>
+        <file>widgets/notice.ui</file>
         <file>widgets/panel.ui</file>
         <file>widgets/placeholder.ui</file>
         <file>widgets/popover_shell.ui</file>
+        <file>widgets/readout.ui</file>
         <file>widgets/row.ui</file>
         <file>widgets/section.ui</file>
     </gresource>

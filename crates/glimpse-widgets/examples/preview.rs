@@ -91,9 +91,10 @@ fn activate(
     glimpse_widgets::register_resources().expect("widget resources");
     ensure_types();
 
-    let sheets = [
+    let sheets = vec![
         (resolve(&builtin_css()), provider()),
         (resolve(&theme_css()), provider()),
+        (resolve(&blueprint.with_extension("css")), provider()),
     ];
     let checkerboard = provider();
     checkerboard.load_from_string(CHECKERBOARD);
@@ -102,6 +103,7 @@ fn activate(
         let priorities = [
             gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
             gtk4::STYLE_PROVIDER_PRIORITY_USER,
+            gtk4::STYLE_PROVIDER_PRIORITY_USER + 1,
         ];
         for ((_, provider), priority) in sheets.iter().zip(priorities) {
             gtk4::style_context_add_provider_for_display(&display, provider, priority);
@@ -169,6 +171,7 @@ fn load_styles(sheets: &[(PathBuf, gtk4::CssProvider)]) {
     for (path, provider) in sheets {
         match std::fs::read_to_string(path) {
             Ok(css) => provider.load_from_string(&css),
+            Err(_) if !path.exists() => provider.load_from_string(""),
             Err(error) => eprintln!("{}: {error}", path.display()),
         }
     }
@@ -184,7 +187,7 @@ fn load_styles(sheets: &[(PathBuf, gtk4::CssProvider)]) {
 fn watch(
     blueprint: &Path,
     slot: &gtk4::Box,
-    sheets: [(PathBuf, gtk4::CssProvider); 2],
+    sheets: Vec<(PathBuf, gtk4::CssProvider)>,
     fixture: Option<String>,
 ) -> Vec<gio::FileMonitor> {
     let sheets = Rc::new(sheets);
@@ -244,7 +247,10 @@ mod fixtures {
     use gtk4::gdk;
     use gtk4::prelude::*;
 
-    use glimpse_widgets::{Calendar, Event, EventList, Row, WorldClock, Ymd, Zone};
+    use glimpse_widgets::{
+        Calendar, Day, Event, EventList, Fact, FactList, ForecastList, ForecastStrip, Hour,
+        Placeholder, Row, Section, WorldClock, Ymd, Zone,
+    };
     use std::rc::Rc;
 
     const NAV: &str = "nav__";
@@ -268,8 +274,283 @@ mod fixtures {
                 }
             }
             "network" | "bluetooth" => drawer_nav(root),
+            "weather" => {
+                weather(root);
+                drawer_nav(root);
+            }
             _ => {}
         }
+    }
+
+    struct Forecast {
+        label: &'static str,
+        date: &'static str,
+        icon_name: &'static str,
+        condition: &'static str,
+        precipitation: Option<u32>,
+        low: f64,
+        high: f64,
+    }
+
+    const fn forecast(
+        label: &'static str,
+        date: &'static str,
+        icon_name: &'static str,
+        condition: &'static str,
+        precipitation: Option<u32>,
+        low: f64,
+        high: f64,
+    ) -> Forecast {
+        Forecast {
+            label,
+            date,
+            icon_name,
+            condition,
+            precipitation,
+            low,
+            high,
+        }
+    }
+
+    const DAYS: [Forecast; 10] = [
+        forecast(
+            "Today",
+            "Fri 1 Sep",
+            "weather-showers-symbolic",
+            "Light rain",
+            Some(60),
+            12.0,
+            18.0,
+        ),
+        forecast(
+            "Tomorrow",
+            "Sat 2 Sep",
+            "weather-overcast-symbolic",
+            "Overcast",
+            Some(20),
+            11.0,
+            20.0,
+        ),
+        forecast(
+            "Sunday",
+            "Sun 3 Sep",
+            "weather-clear-symbolic",
+            "Clear",
+            None,
+            10.0,
+            23.0,
+        ),
+        forecast(
+            "Monday",
+            "Mon 4 Sep",
+            "weather-clear-symbolic",
+            "Clear",
+            None,
+            12.0,
+            25.0,
+        ),
+        forecast(
+            "Tuesday",
+            "Tue 5 Sep",
+            "weather-few-clouds-symbolic",
+            "Sunny spells",
+            Some(10),
+            14.0,
+            26.0,
+        ),
+        forecast(
+            "Wednesday",
+            "Wed 6 Sep",
+            "weather-showers-symbolic",
+            "Showers",
+            Some(70),
+            13.0,
+            21.0,
+        ),
+        forecast(
+            "Thursday",
+            "Thu 7 Sep",
+            "weather-storm-symbolic",
+            "Thunderstorms",
+            Some(80),
+            12.0,
+            19.0,
+        ),
+        forecast(
+            "Friday",
+            "Fri 8 Sep",
+            "weather-overcast-symbolic",
+            "Overcast",
+            Some(30),
+            10.0,
+            17.0,
+        ),
+        forecast(
+            "Saturday",
+            "Sat 9 Sep",
+            "weather-clear-symbolic",
+            "Clear",
+            None,
+            8.0,
+            16.0,
+        ),
+        forecast(
+            "Sunday",
+            "Sun 10 Sep",
+            "weather-fog-symbolic",
+            "Fog",
+            Some(20),
+            7.0,
+            15.0,
+        ),
+    ];
+
+    const DETAILS: [(&str, &str); 12] = [
+        ("Feels like", "16°"),
+        ("Humidity", "78%"),
+        ("Wind", "14 km/h NW"),
+        ("Gusts", "28 km/h"),
+        ("UV index", "2 · Low"),
+        ("Air quality", "32 · Good"),
+        ("Pressure", "1008 hPa"),
+        ("Visibility", "9 km"),
+        ("Dew point", "14°"),
+        ("Sunrise", "06:21"),
+        ("Sunset", "20:14"),
+        ("Day length", "13 h 53 m"),
+    ];
+
+    fn weather(root: &gtk4::Widget) {
+        if let Some(strip) = find::<ForecastStrip>(root) {
+            let hour = |label: &str, icon_name: &str, temperature, now| Hour {
+                label: label.to_owned(),
+                icon_name: icon_name.to_owned(),
+                temperature,
+                now,
+            };
+            strip.set_hours(&[
+                hour("Now", "weather-showers-symbolic", 18.0, true),
+                hour("16:00", "weather-showers-symbolic", 17.0, false),
+                hour("17:00", "weather-few-clouds-symbolic", 17.0, false),
+                hour("18:00", "weather-clear-symbolic", 16.0, false),
+            ]);
+        }
+
+        let Some(list) = find::<ForecastList>(root) else {
+            return;
+        };
+        list.set_days(
+            &DAYS
+                .iter()
+                .map(|day| Day {
+                    label: day.label.to_owned(),
+                    icon_name: day.icon_name.to_owned(),
+                    precipitation: day.precipitation,
+                    low: day.low,
+                    high: day.high,
+                })
+                .collect::<Vec<_>>(),
+        );
+
+        let Some(drawer) = find::<gtk4::Revealer>(root) else {
+            return;
+        };
+        let Some(stack) = drawer.child().and_then(|child| find::<gtk4::Stack>(&child)) else {
+            return;
+        };
+
+        stack.add_named(
+            &page("Right now", Some("Light rain"), None, &DETAILS),
+            Some("details"),
+        );
+        stack.add_named(
+            &page(
+                "Thunderstorm warning",
+                Some("yellow"),
+                Some(alert_placeholder()),
+                &[
+                    ("Issued", "14:05"),
+                    ("Expires", "21:00"),
+                    ("Source", "LHMT"),
+                ],
+            ),
+            Some("alert"),
+        );
+        for (index, day) in DAYS.iter().enumerate() {
+            let facts = [
+                ("Condition", day.condition.to_owned()),
+                ("High", format!("{}°", day.high)),
+                ("Low", format!("{}°", day.low)),
+                (
+                    "Chance of rain",
+                    format!("{}%", day.precipitation.unwrap_or_default()),
+                ),
+                ("Wind", "14 km/h NW".to_owned()),
+                ("Humidity", "78%".to_owned()),
+                ("Sunrise", "06:21".to_owned()),
+                ("Sunset", "20:14".to_owned()),
+            ];
+            let facts: Vec<(&str, &str)> = facts
+                .iter()
+                .map(|(label, value)| (*label, value.as_str()))
+                .collect();
+            stack.add_named(
+                &page(day.label, Some(day.date), None, &facts),
+                Some(&format!("day{index}")),
+            );
+        }
+        stack.set_visible_child_name("details");
+
+        list.connect_activated(glib::clone!(
+            #[weak]
+            drawer,
+            #[weak]
+            stack,
+            move |_, index| {
+                stack.set_visible_child_name(&format!("day{index}"));
+                drawer.set_reveal_child(true);
+            }
+        ));
+    }
+
+    fn alert_placeholder() -> gtk4::Widget {
+        let placeholder = Placeholder::new();
+        placeholder.set_icon_name(Some("weather-storm-symbolic"));
+        placeholder.set_title(Some("Thunderstorms until 21:00"));
+        placeholder.set_description(Some(
+            "Frequent lightning and gusts to 80 km/h are expected. Avoid open water.",
+        ));
+        placeholder.set_error(true);
+        placeholder.upcast()
+    }
+
+    fn page(
+        title: &str,
+        count: Option<&str>,
+        lead: Option<gtk4::Widget>,
+        facts: &[(&str, &str)],
+    ) -> gtk4::Widget {
+        let body = gtk4::Box::builder()
+            .orientation(gtk4::Orientation::Vertical)
+            .valign(gtk4::Align::Start)
+            .build();
+        if let Some(lead) = lead {
+            body.append(&lead);
+        }
+        let list = FactList::new();
+        list.set_facts(
+            &facts
+                .iter()
+                .map(|(label, value)| Fact::new(*label, *value))
+                .collect::<Vec<_>>(),
+        );
+        body.append(&list);
+
+        let section = Section::new();
+        section.set_title(Some(title));
+        section.set_count(count);
+        section.set_content(Some(&body));
+        section.upcast()
     }
 
     fn drawer_nav(root: &gtk4::Widget) {
@@ -280,8 +561,8 @@ mod fixtures {
             return;
         };
 
-        let rows: Rc<Vec<(Row, String)>> = Rc::new(
-            collect::<Row>(root)
+        let rows: Rc<Vec<(gtk4::Button, String)>> = Rc::new(
+            collect::<gtk4::Button>(root)
                 .into_iter()
                 .filter_map(|row| {
                     let page = row
@@ -302,14 +583,18 @@ mod fixtures {
                 let showing = drawer.reveals_child()
                     && stack.visible_child_name().as_deref() == Some(page.as_str());
                 for (other, _) in all.iter() {
-                    other.set_selected(false);
+                    if let Some(row) = other.downcast_ref::<Row>() {
+                        row.set_selected(false);
+                    }
                 }
                 if showing {
                     drawer.set_reveal_child(false);
                     return;
                 }
                 stack.set_visible_child_name(&page);
-                all[index].0.set_selected(true);
+                if let Some(row) = all[index].0.downcast_ref::<Row>() {
+                    row.set_selected(true);
+                }
                 drawer.set_reveal_child(true);
             });
         }
@@ -430,12 +715,23 @@ mod fixtures {
 
 fn ensure_types() {
     use glimpse_widgets::{
-        Calendar, EventList, Hero, Indicator, IndicatorGroup, Panel, Placeholder, PopoverShell,
-        Row, Section, WorldClock,
+        Calendar, ClockRow, EventList, EventRow, FactList, ForecastDay, ForecastHour, ForecastList,
+        ForecastStrip, Hero, Indicator, IndicatorGroup, Notice, Panel, Placeholder, PopoverShell,
+        RangeBar, Readout, Row, Section, WorldClock,
     };
 
     for widget in [
         Calendar::static_type(),
+        ClockRow::static_type(),
+        EventRow::static_type(),
+        FactList::static_type(),
+        ForecastDay::static_type(),
+        ForecastHour::static_type(),
+        ForecastList::static_type(),
+        ForecastStrip::static_type(),
+        Notice::static_type(),
+        RangeBar::static_type(),
+        Readout::static_type(),
         EventList::static_type(),
         Section::static_type(),
         WorldClock::static_type(),

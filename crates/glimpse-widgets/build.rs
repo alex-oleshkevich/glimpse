@@ -15,8 +15,19 @@ fn compile_blueprints(pairs: &[(&str, &str)]) {
 fn main() {
     compile_blueprints(&[
         ("blueprints/calendar.blp", "resources/widgets/calendar.ui"),
+        ("blueprints/clock_row.blp", "resources/widgets/clock_row.ui"),
+        ("blueprints/event_row.blp", "resources/widgets/event_row.ui"),
+        (
+            "blueprints/forecast_day.blp",
+            "resources/widgets/forecast_day.ui",
+        ),
+        (
+            "blueprints/forecast_hour.blp",
+            "resources/widgets/forecast_hour.ui",
+        ),
         ("blueprints/hero.blp", "resources/widgets/hero.ui"),
         ("blueprints/indicator.blp", "resources/widgets/indicator.ui"),
+        ("blueprints/notice.blp", "resources/widgets/notice.ui"),
         ("blueprints/panel.blp", "resources/widgets/panel.ui"),
         (
             "blueprints/placeholder.blp",
@@ -26,6 +37,7 @@ fn main() {
             "blueprints/popover_shell.blp",
             "resources/widgets/popover_shell.ui",
         ),
+        ("blueprints/readout.blp", "resources/widgets/readout.ui"),
         ("blueprints/row.blp", "resources/widgets/row.ui"),
         ("blueprints/section.blp", "resources/widgets/section.ui"),
     ]);

@@ -240,6 +240,14 @@ fixture** over the built tree, and the name defaults to the blueprint's own stem
 `calendar.blp` shows sample events by being opened rather than by being opened with an argument
 nobody knows about. The fixtures live in the preview example, not in the widgets.
 
+**An example may carry its own stylesheet.** `just preview <name>.blp` also loads and watches
+`<name>.css` beside it, at `STYLE_PROVIDER_PRIORITY_USER + 1`, and silently loads nothing when the
+file is absent. This is what keeps demo-only rules — a weather range bar, a temperature display —
+out of `glimpse-widgets/styles/glimpse.css`, which is the shipped sheet and not a scratchpad. It is
+also the answer to the `width-request` in the drawer examples: a blueprint has nowhere to put CSS,
+so a layout floor became a pixel literal that `ui.md` forbids. An example stylesheet can express it
+as `min-width` in `rem` instead.
+
 `var/widget_examples/` holds whole compositions — `popover_shell_full.blp` is a popover with every
 slot filled. An example is a top-level object, not a `template`: `Builder` cannot instantiate a
 template whose class does not exist, so a `template` root renders as nothing at all.
@@ -259,6 +267,16 @@ and panics on an unbound `TemplateChild` before the widget exists. The guard is
 implements — `Gtk.Widget` implements `Gtk.Buildable`, so a `do_add_child` on a Python subclass is
 accepted, never called, and children land wherever the default put them. Measured, not assumed. Any
 preview host that needs real widgets has to be Rust.
+
+**`blueprint-compiler lint` false-positives on every `$CustomType` it cannot resolve.** It reports
+`scrollable_parent` — "Scrollable widget should be placed in a scroll container" — for any extern
+type inside a container, verified with a `$Foo` that does not exist. There is no way to exclude a
+single rule (`-c`/`-r` are allowlists, and an unknown category silently lints nothing), so a crate
+blueprint that embeds one of our own widgets fails `just lint`. The examples in `var/widget_examples/`
+are full of `$Row` and `$Section` and never hit this because the recipe only lints
+`crates/*/blueprints/*.blp`. Where a template needs one of our widgets inside it, declare a
+`Gtk.Box` slot and append the widget in `constructed()` — the structure stays declarative and the
+one line of composition moves to Rust.
 
 **Never run a test against the live configuration.** `~/.config/glimpse/config.toml` is the user's
 own, it is edited outside this repository, and a daemon started without `--config` both reads it and

@@ -1,10 +1,11 @@
 mod imp;
+mod row;
+
+pub use row::EventRow;
 
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 use crate::Row;
-use crate::dots::Dots;
-use imp::Entry;
 
 const OVERFLOW_ICON: &str = "go-next-symbolic";
 const QUIET: &str = "row--quiet";
@@ -87,31 +88,21 @@ impl EventList {
         let mut rows = imp.rows.borrow_mut();
         for (index, event) in events.iter().take(shown).enumerate() {
             if rows.len() == index {
-                let entry = self.build_row(index as u32);
-                entry
-                    .row
-                    .insert_after(self, rows.last().map(|entry| &entry.row));
-                rows.push(entry);
+                let row = self.build_row(index as u32);
+                row.insert_after(self, rows.last());
+                rows.push(row);
             }
-            let entry = &rows[index];
-            entry.row.set_title(Some(event.summary.as_str()));
-            entry.row.set_subtitle(none_if_empty(&event.detail));
-            let when = none_if_empty(&event.when);
-            crate::set_text(&entry.time, when);
-            match when {
-                Some(_) => entry.row.set_trail(&entry.time),
-                None => entry.row.clear_trail(),
-            }
-            entry.row.set_activatable(activatable);
-            entry.dot.set_colors(event.color.as_slice());
-            match leads {
-                true => entry.row.set_lead(&entry.dot),
-                false => entry.row.clear_lead(),
-            }
+            let row = &rows[index];
+            let item: &Row = row.upcast_ref();
+            item.set_title(Some(event.summary.as_str()));
+            item.set_subtitle(none_if_empty(&event.detail));
+            item.set_activatable(activatable);
+            row.set_when(none_if_empty(&event.when));
+            row.set_color(event.color, leads);
         }
 
-        for entry in rows.split_off(shown) {
-            entry.row.unparent();
+        for row in rows.split_off(shown) {
+            row.unparent();
         }
 
         let hidden = events.len() - shown;
@@ -120,27 +111,14 @@ impl EventList {
         self.sync_overflow(hidden);
     }
 
-    fn build_row(&self, index: u32) -> Entry {
-        let row = Row::new();
+    fn build_row(&self, index: u32) -> EventRow {
+        let row = EventRow::new();
         row.connect_clicked(glib::clone!(
             #[weak(rename_to = list)]
             self,
             move |_| list.emit_by_name::<()>("activated", &[&index])
         ));
-
-        let dot = Dots::new();
-        dot.add_css_class("event-list__dot");
-        dot.set_max(1);
-        dot.set_size(crate::dots::SIZE * 3.0);
-        dot.set_valign(gtk4::Align::Center);
-
-        let time = gtk4::Label::builder()
-            .xalign(1.0)
-            .single_line_mode(true)
-            .css_classes(["event-list__time"])
-            .build();
-
-        Entry { row, dot, time }
+        row
     }
 
     fn sync_overflow(&self, hidden: usize) {
@@ -167,7 +145,7 @@ impl EventList {
             hidden => format!("{hidden} more events"),
         }));
         let rows = imp.rows.borrow();
-        row.insert_after(self, rows.last().map(|entry| &entry.row));
+        row.insert_after(self, rows.last());
     }
 
     fn build_overflow(&self) -> Row {

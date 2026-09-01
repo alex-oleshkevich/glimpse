@@ -1,0 +1,15 @@
+using Gtk 4.0;
+
+template $EventRow: $Row {
+  [trail]
+  Gtk.Label time {
+    single-line-mode: true;
+    xalign: 1;
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "event-list__time",
+    ]
+  }
+}

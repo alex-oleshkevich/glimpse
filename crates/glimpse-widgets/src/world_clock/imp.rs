@@ -1,20 +1,12 @@
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 use std::cell::{Cell, RefCell};
 
-use super::Zone;
-use crate::Row;
-
-#[derive(Debug)]
-pub struct Entry {
-    pub row: Row,
-    pub time: gtk4::Label,
-    pub phase: gtk4::Image,
-}
+use super::{ClockRow, Zone};
 
 #[derive(Debug, Default)]
 pub struct WorldClock {
     pub zones: RefCell<Vec<Zone>>,
-    pub rows: RefCell<Vec<Entry>>,
+    pub rows: RefCell<Vec<ClockRow>>,
     pub now: RefCell<Option<glib::DateTime>>,
     pub twelve_hour: Cell<bool>,
 }
@@ -47,8 +39,8 @@ impl ObjectImpl for WorldClock {
     }
 
     fn dispose(&self) {
-        for entry in self.rows.borrow_mut().drain(..) {
-            entry.row.unparent();
+        for row in self.rows.borrow_mut().drain(..) {
+            row.unparent();
         }
     }
 }

@@ -1,0 +1,32 @@
+using Gtk 4.0;
+
+template $Readout: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: horizontal;
+    baseline-position: center;
+  };
+
+  styles [
+    "readout",
+  ]
+
+  Gtk.Label value {
+    valign: baseline;
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "readout__value",
+    ]
+  }
+
+  Gtk.Label unit {
+    valign: baseline;
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "readout__unit",
+    ]
+  }
+}

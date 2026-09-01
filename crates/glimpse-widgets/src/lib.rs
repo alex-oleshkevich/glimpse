@@ -1,29 +1,39 @@
 mod calendar;
 mod dots;
 mod event_list;
+mod fact_list;
+mod forecast;
 mod hero;
 mod indicator;
 mod indicator_group;
+mod notice;
 mod panel;
 mod placeholder;
 mod popover_shell;
-mod row;
+mod range_bar;
+mod readout;
+pub(crate) mod row;
 mod section;
 mod theme;
 mod world_clock;
 
 pub use calendar::{Calendar, Ymd};
-pub use event_list::{Event, EventList};
+pub use event_list::{Event, EventList, EventRow};
+pub use fact_list::{Fact, FactList};
+pub use forecast::{Day, ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hour};
 pub use hero::Hero;
 pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
+pub use notice::{Notice, Severity};
 pub use panel::Panel;
 pub use placeholder::Placeholder;
 pub use popover_shell::PopoverShell;
+pub use range_bar::RangeBar;
+pub use readout::Readout;
 pub use row::Row;
 pub use section::Section;
 pub use theme::Styles;
-pub use world_clock::{WorldClock, Zone};
+pub use world_clock::{ClockRow, WorldClock, Zone};
 
 #[cfg(test)]
 use indicator::{LABEL_MAX_CHARS, TOOLTIP_MAX_CHARS};
@@ -394,7 +404,7 @@ mod tests {
             !row_icon.get_visible() && !row_value.get_visible(),
             "a row with neither reserves space for neither"
         );
-        row.set_icon_name(Some("network-wireless-symbolic"));
+        row.set_lead_icon(Some("network-wireless-symbolic"));
         row.set_value(Some("WPA3"));
         assert!(row_icon.get_visible() && row_value.get_visible());
 
@@ -403,7 +413,7 @@ mod tests {
             let icon_changes = Rc::clone(&icon_changes);
             move |_| icon_changes.set(icon_changes.get() + 1)
         });
-        row.set_icon_name(Some("network-wireless-symbolic"));
+        row.set_lead_icon(Some("network-wireless-symbolic"));
         assert_eq!(
             icon_changes.get(),
             0,
@@ -421,7 +431,7 @@ mod tests {
             !row_value.get_visible(),
             "a cleared value gives its width back rather than leaving a gap before the chevron"
         );
-        row.set_icon_name(None::<&str>);
+        row.set_lead_icon(None::<&str>);
 
         let signal = gtk4::Image::from_icon_name("network-wireless-symbolic");
         let chevron = gtk4::Image::from_icon_name("go-next-symbolic");
@@ -542,6 +552,187 @@ mod tests {
             3,
             "three dots is a cap, not a count: a fourth event adds nothing and shifts nothing"
         );
+
+        let notice = Notice::new();
+        let notice_icon = child_named::<gtk4::Image>(&notice, "notice__icon");
+        let notice_chevron = child_named::<gtk4::Image>(&notice, "notice__chevron");
+        assert!(
+            !notice.can_target() && !notice_chevron.get_visible(),
+            "a notice that only states something takes no click and promises none"
+        );
+        notice.set_activatable(true);
+        assert!(
+            notice.can_target() && notice_chevron.get_visible(),
+            "and one that leads somewhere shows the chevron that says so"
+        );
+
+        notice.set_title(Some("Thunderstorm warning until 21:00"));
+        notice.set_icon_name(Some("dialog-warning-symbolic"));
+        assert_eq!(notice.severity(), Severity::Info);
+        assert!(!notice.has_css_class("notice--warning"));
+        notice.set_severity(Severity::Warning);
+        assert!(notice.has_css_class("notice--warning") && !notice.has_css_class("notice--error"));
+        notice.set_severity(Severity::Error);
+        assert!(
+            notice.has_css_class("notice--error") && !notice.has_css_class("notice--warning"),
+            "severity is one state, not a set of flags that can disagree"
+        );
+        notice.set_severity(Severity::Info);
+        assert!(!notice.has_css_class("notice--error"));
+
+        let notice_changes = Rc::new(Cell::new(0u32));
+        notice_icon.connect_icon_name_notify({
+            let notice_changes = Rc::clone(&notice_changes);
+            move |_| notice_changes.set(notice_changes.get() + 1)
+        });
+        notice.set_icon_name(Some("dialog-warning-symbolic"));
+        assert_eq!(notice_changes.get(), 0, "an equal icon is not reapplied");
+
+        let readout = Readout::new();
+        let readout_value = child_named::<gtk4::Label>(&readout, "readout__value");
+        let readout_unit = child_named::<gtk4::Label>(&readout, "readout__unit");
+        assert!(!readout_value.get_visible() && !readout_unit.get_visible());
+        readout.set_value(Some("18"));
+        readout.set_unit(Some("°"));
+        assert!(readout_value.get_visible() && readout_unit.get_visible());
+        assert_eq!(
+            *readout.imp().value.text(),
+            *"18",
+            "the value and the unit are separate labels so each can carry its own size"
+        );
+        readout.set_unit(None::<&str>);
+        assert!(
+            !readout_unit.get_visible(),
+            "a value with no unit reserves no width for one"
+        );
+
+        let bar = RangeBar::new();
+        bar.set_scale(7.0, 26.0);
+        bar.set_range(12.0, 18.0);
+        assert_eq!(bar.range(), (12.0, 18.0));
+        assert_eq!(bar.scale(), (7.0, 26.0));
+        bar.set_range(20.0, 5.0);
+        assert_eq!(
+            bar.range(),
+            (20.0, 20.0),
+            "a high below its low is clamped rather than drawn backwards"
+        );
+
+        let facts = FactList::new();
+        facts.set_facts(&[Fact::new("Humidity", "78%"), Fact::new("Wind", "14 km/h")]);
+        let fact_rows: Vec<Row> = children_of(&facts);
+        assert_eq!(fact_rows.len(), 2);
+        assert_eq!(fact_rows[0].title().as_deref(), Some("Humidity"));
+        assert_eq!(fact_rows[1].value().as_deref(), Some("14 km/h"));
+        assert!(
+            !fact_rows[0].activatable(),
+            "a fact states something; it does not lead anywhere, so it does not light up"
+        );
+        facts.set_facts(&[Fact::new("Humidity", "80%")]);
+        assert_eq!(children_of::<Row>(&facts).len(), 1);
+        assert_eq!(
+            fact_rows[0],
+            children_of::<Row>(&facts)[0],
+            "a position reuses its row"
+        );
+
+        let subclassed = ForecastDay::new();
+        let inherited: &Row = subclassed.upcast_ref();
+        inherited.set_lead_icon(Some("weather-clear-symbolic"));
+        assert_eq!(
+            child_named::<gtk4::Image>(&subclassed, "row__icon")
+                .icon_name()
+                .as_deref(),
+            Some("weather-clear-symbolic"),
+            "a Row subclass fills the lead through `lead-icon`; `icon-name` on a Gtk.Button is \
+             the parent's own property and would replace the row's child instead"
+        );
+        assert!(
+            child_named::<crate::RangeBar>(&subclassed, "range-bar")
+                .parent()
+                .is_some(),
+            "and its template children land in the trail the parent declared"
+        );
+
+        let strip = ForecastStrip::new();
+        strip.set_hours(&[
+            Hour {
+                label: "Now".to_owned(),
+                icon_name: "weather-showers-symbolic".to_owned(),
+                temperature: 18.4,
+                now: true,
+            },
+            Hour {
+                label: "16:00".to_owned(),
+                icon_name: "weather-clear-symbolic".to_owned(),
+                temperature: 16.6,
+                now: false,
+            },
+        ]);
+        let times = all_named(&strip, "forecast__time");
+        assert_eq!(times.len(), 2);
+        assert!(
+            times[0].has_css_class("forecast__now") && !times[1].has_css_class("forecast__now"),
+            "exactly one column is now"
+        );
+        let temperatures = all_named(&strip, "forecast__temperature");
+        assert_eq!(
+            temperatures[0]
+                .clone()
+                .downcast::<gtk4::Label>()
+                .expect("label")
+                .text(),
+            "18°",
+            "the strip owns the rounding and the unit, so two columns cannot disagree"
+        );
+
+        let forecast = ForecastList::new();
+        let day = |label: &str, precipitation, low: f64, high: f64| Day {
+            label: label.to_owned(),
+            icon_name: "weather-clear-symbolic".to_owned(),
+            precipitation,
+            low,
+            high,
+        };
+        forecast.set_days(&[
+            day("Today", Some(60), 12.0, 18.0),
+            day("Tomorrow", Some(0), 11.0, 20.0),
+            day("Sunday", None, 7.0, 26.0),
+        ]);
+        assert_eq!(
+            forecast.scale(),
+            (7.0, 26.0),
+            "the list owns the scale, so every bar is measured against the same span"
+        );
+        let bars: Vec<gtk4::Widget> = all_named(&forecast, "range-bar");
+        assert_eq!(bars.len(), 3);
+        for bar in &bars {
+            assert_eq!(
+                bar.clone().downcast::<RangeBar>().expect("bar").scale(),
+                (7.0, 26.0)
+            );
+        }
+        let chances = all_named(&forecast, "forecast__precipitation");
+        let chance = |index: usize| {
+            chances[index]
+                .clone()
+                .downcast::<gtk4::Label>()
+                .expect("label")
+                .get_visible()
+        };
+        assert!(chance(0));
+        assert!(
+            !chance(1) && !chance(2),
+            "a zero chance of rain says nothing, and neither does an unknown one"
+        );
+
+        let chosen = Rc::new(RefCell::new(Vec::new()));
+        forecast.connect_activated({
+            let chosen = Rc::clone(&chosen);
+            move |_, index| chosen.borrow_mut().push(index)
+        });
+        children_of::<Row>(&forecast)[1].emit_clicked();
+        assert_eq!(*chosen.borrow(), [1u32]);
 
         let placeholder = Placeholder::new();
         let empty_icon = child_named::<gtk4::Image>(&placeholder, "placeholder__icon");

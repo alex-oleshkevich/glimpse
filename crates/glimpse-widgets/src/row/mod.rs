@@ -4,6 +4,10 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{clear_children, fill_slot};
 
+pub trait RowImpl: gtk4::subclass::prelude::ButtonImpl {}
+
+unsafe impl<T: RowImpl> gtk4::subclass::prelude::IsSubclassable<T> for Row {}
+
 glib::wrapper! {
     pub struct Row(ObjectSubclass<imp::Row>)
         @extends gtk4::Button, gtk4::Widget,
@@ -23,6 +27,10 @@ impl Row {
 
     pub fn set_lead(&self, widget: &impl IsA<gtk4::Widget>) {
         fill(&self.imp().lead, widget);
+    }
+
+    pub fn lead(&self) -> Option<gtk4::Widget> {
+        self.imp().lead.first_child()
     }
 
     pub fn clear_lead(&self) {

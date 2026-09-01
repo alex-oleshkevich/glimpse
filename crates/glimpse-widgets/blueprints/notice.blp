@@ -1,0 +1,67 @@
+using Gtk 4.0;
+
+template $Notice: Gtk.Button {
+  has-frame: false;
+
+  styles [
+    "notice",
+  ]
+
+  Gtk.Box {
+    orientation: horizontal;
+    spacing: 10;
+
+    Gtk.Image icon {
+      visible: false;
+      valign: center;
+      accessible-role: presentation;
+
+      styles [
+        "notice__icon",
+      ]
+    }
+
+    Gtk.Box {
+      orientation: vertical;
+      valign: center;
+      hexpand: true;
+
+      Gtk.Label title {
+        xalign: 0;
+        wrap: true;
+        wrap-mode: word_char;
+        max-width-chars: 30;
+        visible: false;
+        accessible-role: presentation;
+
+        styles [
+          "notice__title",
+        ]
+      }
+
+      Gtk.Label subtitle {
+        xalign: 0;
+        wrap: true;
+        wrap-mode: word_char;
+        max-width-chars: 34;
+        visible: false;
+        accessible-role: presentation;
+
+        styles [
+          "notice__subtitle",
+        ]
+      }
+    }
+
+    Gtk.Image chevron {
+      icon-name: "go-next-symbolic";
+      visible: false;
+      valign: center;
+      accessible-role: presentation;
+
+      styles [
+        "notice__chevron",
+      ]
+    }
+  }
+}

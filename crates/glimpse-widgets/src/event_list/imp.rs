@@ -2,21 +2,13 @@ use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 use std::cell::{Cell, RefCell};
 use std::sync::OnceLock;
 
-use super::Event;
+use super::{Event, EventRow};
 use crate::Row;
-use crate::dots::Dots;
-
-#[derive(Debug)]
-pub struct Entry {
-    pub row: Row,
-    pub dot: Dots,
-    pub time: gtk4::Label,
-}
 
 #[derive(Debug, Default)]
 pub struct EventList {
     pub events: RefCell<Vec<Event>>,
-    pub rows: RefCell<Vec<Entry>>,
+    pub rows: RefCell<Vec<EventRow>>,
     pub overflow: RefCell<Option<Row>>,
     pub max_rows: Cell<u32>,
     pub activatable: Cell<bool>,
@@ -57,8 +49,8 @@ impl ObjectImpl for EventList {
     }
 
     fn dispose(&self) {
-        for entry in self.rows.borrow_mut().drain(..) {
-            entry.row.unparent();
+        for row in self.rows.borrow_mut().drain(..) {
+            row.unparent();
         }
         if let Some(row) = self.overflow.take() {
             row.unparent();

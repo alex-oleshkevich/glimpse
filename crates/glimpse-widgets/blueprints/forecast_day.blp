@@ -1,0 +1,55 @@
+using Gtk 4.0;
+
+template $ForecastDay: $Row {
+  styles [
+    "forecast-day",
+  ]
+
+  [trail]
+  Gtk.Box {
+    orientation: horizontal;
+    valign: center;
+    spacing: 8;
+
+    Gtk.Label precipitation {
+      single-line-mode: true;
+      width-request: 34;
+      xalign: 1;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "forecast__precipitation",
+      ]
+    }
+
+    Gtk.Label low {
+      single-line-mode: true;
+      width-request: 30;
+      xalign: 1;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "row__value",
+      ]
+    }
+
+    Gtk.Box bar {
+      orientation: horizontal;
+      valign: center;
+    }
+
+    Gtk.Label high {
+      single-line-mode: true;
+      width-request: 30;
+      xalign: 0;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "row__value",
+      ]
+    }
+  }
+}

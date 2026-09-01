@@ -420,6 +420,99 @@ The sync banner — the mockup's `status()` strip, "Last synced 4 h ago · Retry
 is still shown — is not built. That is an error arriving **with** data, which `Placeholder`
 deliberately does not cover, and it needs an action-signal design.
 
+## Notice
+
+An error, a warning or a fact that arrives **with** content that still works — which is exactly what
+`Placeholder` refuses to be. Four designs asked for it before it existed: a weather alert, a weather
+nowcast, a captive portal's "sign in required", and a pairing confirmation, plus the approved
+mockup's `Last synced 4 h ago · Retry` strip.
+
+**Severity is one state, not a set of flags.** `info` / `warning` / `error` as a `glib::Enum`, each
+adding at most one class, so `.notice--warning` and `.notice--error` can never both be on. Two
+booleans would have allowed a notice to be both.
+
+**Not clickable by default.** A notice usually only states something, and a hover highlight is a
+promise that clicking does something — `EventList`'s rule applied again. `activatable: true` takes
+the pointer and the focus *and* reveals the chevron, so the affordance and the behaviour cannot
+disagree.
+
+**The nowcast and the alert are the same widget.** They differ in provenance — one is issued by a
+weather service with an expiry and a colour code, the other is derived from radar and lives for
+minutes — but not in shape. `severity` is the whole of the difference.
+
+## Readout
+
+The large number in a hero slot: a temperature, a battery percentage, a volume. `value` and `unit`
+are separate labels so the unit can be smaller and dimmer than the figure, and so a value with no
+unit reserves no width for one. Both sit on a shared baseline.
+
+## RangeBar
+
+A `(low, high)` segment drawn on a `(minimum, maximum)` track — a day's temperature against the
+week's, and equally a battery range, a disk-usage span or a volume window.
+
+**It is drawn, not styled**, because the geometry depends on data the stylesheet cannot see. It
+takes its colour from CSS `color` and derives the track from that at 22% alpha, so a caller restyles
+it the ordinary way; only the 4px thickness and the 24/96px width hints are literals, which is the
+same limitation `Dots` carries and for the same reason.
+
+**A high below its low is clamped, not drawn backwards**, and the clamp happens before the
+compare-before-write guard — otherwise a clamped range never short-circuits, because the guard would
+be comparing the requested value against the stored one.
+
+Its `range()` and `scale()` getters exist so a snapshot-drawn widget has a test seam at all; there is
+no other way to observe it without rendering pixels.
+
+## FactList
+
+`&[Fact]` — a label and a value — rendered as non-activatable `Row`s. It is the detail pane of every
+popover: 45 hand-written fact rows existed across the network and bluetooth examples before it.
+
+## ForecastStrip and ForecastList
+
+`ForecastStrip` is the hourly columns, `ForecastList` the daily rows with a `RangeBar` in each trail.
+
+**The list owns the scale.** `scale()` is the span of every day it holds, and `render` passes the
+same pair to every bar, so two rows cannot be measured against different spans. A caller cannot get
+this wrong because it is never asked.
+
+**`ForecastHour` and `ForecastDay` are templates, and `ForecastStrip`/`ForecastList` are not.** A
+template earns itself when the structure is static: an hour column is always time, icon,
+temperature, and a day row is always precipitation, low, bar, high. How *many* of them there are is
+data, so the two containers build their children at runtime with no template of their own — exactly
+the `IndicatorGroup` builds `Indicator` shape.
+
+**`ForecastDay` subclasses `Row`**, which needs three things that are easy to get wrong. `Row` must
+be `IsSubclassable` (a `RowImpl` marker trait), the subclass's `[trail]` children route through
+`Row`'s own `Buildable` — which works because the parent's template children are bound before the
+subclass's are added — and `Row`'s property setters are **inherent methods on the wrapper, not a
+trait**, so a subclass reaches them with `upcast_ref::<Row>()` rather than calling them directly.
+
+**Row's lead icon is `lead-icon`, not `icon-name`.** `Gtk.Button` already owns an `icon-name`
+property that replaces the button's child. A subclass calling `set_icon_name` therefore resolves the
+*parent's* setter and destroys the row's template — which is exactly what happened the first time
+`ForecastDay` was written. Shadowing a parent property with a different meaning is a trap that
+recurs for every future subclass, so the property was renamed rather than documented around.
+`Hero`, `Notice`, `Placeholder` and `ForecastHour` keep `icon-name`: they extend `Gtk.Widget`, which
+owns no such property.
+
+**There is no hour item and no day item widget beyond those two.** An hour column is three labels with no state and
+no life outside the strip; a day row is already `Row`. A group/item split earns itself when the item
+has state, signals, or standalone use — `Indicator` is separate from `IndicatorGroup` because the
+panel places one on its own. Neither of these does.
+
+**A zero chance of rain shows nothing**, and so does an unknown one: `Option<u32>` distinguishes
+"no data" from "0%", and both render as an empty column rather than a `0%` that means neither.
+
+**Temperatures are formatted here**, rounded with a `°` suffix, because `RangeBar` needs the numbers
+and a caller passing strings would have thrown them away. There is deliberately no unit setter yet —
+it belongs in the change that adds the °C/°F configuration, not before it.
+
+**A runtime-built label handed to `set_text` must start `visible: false`.** `set_text` derives
+visibility from the text and returns early when the text is unchanged, so a label created visible
+with empty text is inconsistent from birth and never gets hidden. Blueprint children declare
+`visible: false` and so are fine; every label built in Rust has to say the same thing.
+
 ## PopoverShell and Hero
 
 `PopoverShell` is the frame every applet popover sits in: an optional hero, one content child, an

@@ -1,0 +1,43 @@
+using Gtk 4.0;
+
+template $ForecastHour: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: vertical;
+    spacing: 4;
+  };
+
+  halign: center;
+
+  styles [
+    "forecast-hour",
+  ]
+
+  Gtk.Label time {
+    single-line-mode: true;
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "forecast__time",
+    ]
+  }
+
+  Gtk.Image icon {
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "forecast__icon",
+    ]
+  }
+
+  Gtk.Label temperature {
+    single-line-mode: true;
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "forecast__temperature",
+    ]
+  }
+}
