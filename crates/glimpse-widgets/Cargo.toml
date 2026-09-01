@@ -11,5 +11,8 @@ glib.workspace = true
 gtk4.workspace = true
 tracing.workspace = true
 
+[dev-dependencies]
+adw.workspace = true
+
 [build-dependencies]
 glib-build-tools.workspace = true

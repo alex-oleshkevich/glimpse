@@ -1,4 +1,6 @@
-use gtk4::{AccessibleRole, CompositeTemplate, TemplateChild, glib, subclass::prelude::*};
+use gtk4::{
+    AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
+};
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/popover_shell.ui")]
@@ -20,6 +22,7 @@ impl ObjectSubclass for PopoverShell {
     const NAME: &'static str = "PopoverShell";
     type Type = super::PopoverShell;
     type ParentType = gtk4::Widget;
+    type Interfaces = (gtk4::Buildable,);
 
     fn class_init(klass: &mut Self::Class) {
         klass.bind_template();
@@ -38,3 +41,17 @@ impl ObjectImpl for PopoverShell {
 }
 
 impl WidgetImpl for PopoverShell {}
+
+impl BuildableImpl for PopoverShell {
+    fn add_child(&self, builder: &gtk4::Builder, child: &glib::Object, kind: Option<&str>) {
+        let own_template = self.content_box.try_get().is_none();
+        let shell = self.obj();
+        match (kind, child.downcast_ref::<gtk4::Widget>()) {
+            _ if own_template => self.parent_add_child(builder, child, kind),
+            (Some("hero"), Some(widget)) => shell.set_hero(widget),
+            (Some("footer"), Some(widget)) => shell.append_to_footer(widget),
+            (None, Some(widget)) => shell.set_content(widget),
+            _ => self.parent_add_child(builder, child, kind),
+        }
+    }
+}

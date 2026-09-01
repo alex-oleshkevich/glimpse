@@ -224,7 +224,7 @@ mod tests {
         hero.set_subtitle(Some("Connected"));
         assert_eq!(subtitle.text(), "Connected");
 
-        hero.set_title(Some(&"ё".repeat(TEXT_MAX_CHARS * 2)));
+        hero.set_title(Some("ё".repeat(TEXT_MAX_CHARS * 2)));
         assert_eq!(
             title.text().chars().count(),
             TEXT_MAX_CHARS,

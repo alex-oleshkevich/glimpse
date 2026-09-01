@@ -103,6 +103,38 @@ Content is a single child and the footer is append/clear, and the asymmetry is d
 owns the footer's box, so it owns its orientation and spacing, while content's layout belongs to
 whoever built it. A second `set_content` unparents the first.
 
+**Both widgets are declarable.** `PopoverShell` and `Hero` implement `Gtk.Buildable`, so a popover
+can be written in Blueprint rather than assembled in Rust:
+
+```
+$PopoverShell {
+  [hero]
+  $Hero { title: "Wi-Fi"; subtitle: "Tenda_4A21F0"; icon-name: "network-wireless-symbolic";
+    [slot] Gtk.Switch { active: true; } }
+
+  Gtk.Box { }        // no annotation: the content child
+
+  [footer]
+  Gtk.Button { label: "Network Settings"; }
+}
+```
+
+`Hero`'s `title`, `subtitle` and `icon-name` are properties routed through the same setters Rust
+calls, so the character cap applies to a value that arrives from a `.blp` exactly as it does to one
+that arrives from a topic. `icon-name` is the declarative spelling of `set_icon`, not a second piece
+of state — it reads back out of the same `gio::Icon`.
+
+`add_child` ignores the widget's own template children, guarded by `try_get().is_none()`. This is
+not defensive coding: `init_template` adds those children through `Gtk.Buildable` itself, so an
+unguarded override routes `hero_box` into `content_box` and panics on an unbound `TemplateChild`
+before the widget finishes being constructed.
+
+**The shell paints its own surface** — `--gl-surface`, `--gl-surface-fg`, `--gl-radius`, all three
+of which sat declared and unread until it did. It draws no shadow: inside a `Gtk.Popover` the
+`contents` node already draws one, and a second is visible. Whatever ends up hosting the shell must
+therefore either be transparent or agree with `--gl-radius`, because two rounded surfaces of
+different radii stacked on each other show the mismatch at every corner.
+
 **The shell does not scroll.** Capping height against the monitor belongs to whatever hosts it,
 because only that knows the anchor's work area. Keeping it out is what lets the shell be built in a
 test with no display behind it.

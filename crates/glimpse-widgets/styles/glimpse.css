@@ -4,7 +4,7 @@
     --gl-surface: var(--popover-bg-color, #36363a);
     --gl-surface-fg: var(--popover-fg-color, #ffffff);
 
-    --gl-muted: alpha(var(--gl-surface-fg), 0.55);
+    --gl-muted: alpha(var(--gl-surface-fg), 0.65);
     --gl-dim: alpha(var(--gl-surface-fg), 0.38);
     --gl-faint: alpha(var(--gl-surface-fg), 0.22);
 
@@ -108,10 +108,13 @@
 }
 
 .popover-shell {
+    --gl-popover-padding: 12px;
+    --gl-popover-min-width: 400px;
+    min-width: var(--gl-popover-min-width);
     background-color: var(--gl-surface);
     color: var(--gl-surface-fg);
     border-radius: var(--gl-radius);
-    padding: 6px;
+    padding: var(--gl-popover-padding);
 }
 
 .popover-shell separator {
@@ -122,7 +125,7 @@
 
 .popover-shell__hero,
 .popover-shell__footer {
-    padding: 7px 10px;
+    padding: 8px 12px;
 }
 
 .hero__icon {
@@ -136,7 +139,7 @@
 }
 
 .hero__subtitle {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--gl-muted);
     padding-top: 2px;
 }

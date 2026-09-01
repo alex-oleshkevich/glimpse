@@ -37,14 +37,6 @@ impl Hero {
         imp.icon.set_visible(icon.is_some());
     }
 
-    pub fn set_title(&self, title: Option<&str>) {
-        set_text(&self.imp().title, title);
-    }
-
-    pub fn set_subtitle(&self, subtitle: Option<&str>) {
-        set_text(&self.imp().subtitle, subtitle);
-    }
-
     pub fn set_slot(&self, slot: &impl IsA<gtk4::Widget>) {
         let imp = self.imp();
         self.clear_slot();
@@ -67,7 +59,7 @@ fn icons_equal(current: Option<&gio::Icon>, next: Option<&gio::Icon>) -> bool {
     }
 }
 
-fn set_text(label: &gtk4::Label, value: Option<&str>) {
+pub(crate) fn set_text(label: &gtk4::Label, value: Option<&str>) {
     let text = truncate(value.unwrap_or_default(), TEXT_MAX_CHARS);
     if label.text().as_str() == text {
         return;

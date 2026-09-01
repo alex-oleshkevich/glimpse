@@ -40,22 +40,22 @@ glimpse/
 └── _old/         the previous implementation, kept for reference only
 ```
 
-| Crate               | Role                                                                     |
-| ------------------- | ------------------------------------------------------------------------ |
-| `glimpse-ipc`       | wire frames, codec, errors, client, server                              |
-| `glimpse-contracts` | `Message` and `Command`, every topic and command payload                |
-| `glimpse-dbus`      | D-Bus proxies and the shared bus connections                            |
-| `glimpse-config`    | layered TOML load, drop-ins, merge, validate, watch                      |
+| Crate                 | Role                                                                              |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `glimpse-ipc`         | wire frames, codec, errors, client, server                                        |
+| `glimpse-contracts`   | `Message` and `Command`, every topic and command payload                          |
+| `glimpse-dbus`        | D-Bus proxies and the shared bus connections                                      |
+| `glimpse-config`      | layered TOML load, drop-ins, merge, validate, watch                               |
 | `glimpse-compositors` | niri and Hyprland IPC: snapshot, events, keyboard/workspace/window/output control |
-| `glimpse-services`  | service framework and every service implementation                       |
-| `glimpse-widgets`   | GObject subclasses, Blueprint templates, shared CSS                      |
-| `glimpse-utils`     | shared CLI arg structs and tracing/log setup used by every binary        |
-| `glimpsed`          | broker, `WaylandEdge` impl                                               |
-| `glimpse-panel`     | panel and applets                                                        |
-| `glimpse-wallpaper` | background layer surface, decode cache, transitions                      |
-| `glimpse-lock`      | `ext-session-lock-v1` surfaces, PAM                                      |
-| `glimpse-sunset`    | night-light service                                                      |
-| `glimpsectl`        | CLI and TUI                                                              |
+| `glimpse-services`    | service framework and every service implementation                                |
+| `glimpse-widgets`     | GObject subclasses, Blueprint templates, shared CSS                               |
+| `glimpse-utils`       | shared CLI arg structs and tracing/log setup used by every binary                 |
+| `glimpsed`            | broker, `WaylandEdge` impl                                                        |
+| `glimpse-panel`       | panel and applets                                                                 |
+| `glimpse-wallpaper`   | background layer surface, decode cache, transitions                               |
+| `glimpse-lock`        | `ext-session-lock-v1` surfaces, PAM                                               |
+| `glimpse-sunset`      | night-light service                                                               |
+| `glimpsectl`          | CLI and TUI                                                                       |
 
 ## Stack
 
@@ -123,6 +123,10 @@ StatusNotifierItem, dbusmenu and Notifications.
 - Topics are `domain.name`, lower snake case, dots as separators: `audio.volume`,
   `tray.item.{id}.menu`
 - Commands are `domain.verb_object`: `audio.set_volume`, `tray.menu_about_to_show`
+- **Never prefix a type with `Glimpse`.** A GObject type name and the blueprint template that binds
+  to it are `Hero`, `PopoverShell`, `Panel`, `IndicatorGroup` — the crate already says whose they
+  are, and the prefix only makes every name longer than the thing it names. It survives solely where
+  a reverse-DNS identifier demands it: application IDs, D-Bus names, the gresource path.
 - **Never build a glimpse path by hand.** `glimpse-config` owns where glimpse files live and
   exports it: `user_dir()` for `~/.config/glimpse`, `DATA_DIR` for `/usr/share/glimpse`. Writing
   `dirs::config_dir().join("glimpse")` or `"/usr/share/glimpse/..."` in another crate makes a second
@@ -135,13 +139,13 @@ StatusNotifierItem, dbusmenu and Notifications.
 
 **File placement**
 
-| Kind of file                                            | Goes in                          |
-| ------------------------------------------------------- | -------------------------------- |
-| wire payload type                                       | `glimpse-contracts/src/`         |
-| service implementation                                  | `glimpse-services/src/services/` |
-| anything touching a `wl_` object                        | `glimpsed/src/wayland/`          |
-| anything touching GTK                                   | a UI crate or `glimpse-widgets`  |
-| systemd unit, D-Bus service file, pam.d entry, GeoClue policy, defaults | `data/`              |
+| Kind of file                                                            | Goes in                          |
+| ----------------------------------------------------------------------- | -------------------------------- |
+| wire payload type                                                       | `glimpse-contracts/src/`         |
+| service implementation                                                  | `glimpse-services/src/services/` |
+| anything touching a `wl_` object                                        | `glimpsed/src/wayland/`          |
+| anything touching GTK                                                   | a UI crate or `glimpse-widgets`  |
+| systemd unit, D-Bus service file, pam.d entry, GeoClue policy, defaults | `data/`                          |
 
 **Services**
 
@@ -182,35 +186,61 @@ window for a dev loop that does not disturb the running session.
 A recipe that is missing or wrong gets fixed in the `justfile`. Do not work around it with a raw
 cargo invocation.
 
-**Previewing a widget without building the app.** `var/widget_preview.py <blueprint.blp>` opens one
-blueprint over a checkerboard and reloads it whenever the blueprint or any stylesheet it reads is
-saved. It compiles the `.blp`, registers the template under a fresh GType each reload, and loads
-`glimpse-widgets/styles/glimpse.css` at `APPLICATION` with `data/themes/adwaita/` above it, so what
-it renders is what the binaries render. The window paints the checkerboard and every child stays
-transparent, so whatever the widget does not paint reads as pattern rather than as a flat background
-it never asked for. `--scheme light|dark|system` forces the color scheme, because
-the whole token vocabulary flips at once and a widget must be checked under both.
+**Previewing a widget.** `just preview <blueprint.blp>` renders one blueprint with the **real
+widgets** and reloads it whenever the blueprint or the theme is saved. It is a cargo example in
+`glimpse-widgets`, so it links the crate: `Gtk.Builder` resolves `$PopoverShell` and `$Hero` to the
+Rust types, not to look-alikes. `Esc` closes it.
 
-It calls `Adw.init()` and it has to: without libadwaita every `var(--popover-fg-color, #ffffff)` in
-the built-in falls back to its dark-mode literal while GTK paints a light window, which renders white
-text on a white surface and reads convincingly as a *layout* bug. Half an hour was spent chasing a
-phantom overlap that was this and nothing else.
+Four things it must do, every one of which fails silently otherwise:
 
-It renders one template, so a container with no children of its own — `popover_shell.blp` — comes up
-empty and correct. Structure across two widgets belongs in the GTK test, not here.
+- **Touch every widget type before building.** A Rust GType registers lazily, so a `$Hero` that
+  nothing has instantiated is simply an unknown class to `Builder`. `ensure_types` names them all.
+- **Take `ApplicationFlags::NON_UNIQUE`.** The application ID is on the session bus, which is shared
+  across displays — a second preview otherwise hands off to the first, which may be on another
+  monitor or in another compositor, and exits 0 with no window and no message.
+- **Read `glimpse.css` from disk, not through `Styles::install`.** That loads the sheet with
+  `include_str!`, so a preview built on it renders a *compiled-in copy* and no edit can ever reach
+  it. The preview installs its own providers at the same priorities, which also means a deleted rule
+  actually disappears.
+- **Spell a watched path the way the file monitor spells it back.** A relative argument or a `..`
+  component compares unequal to the absolute, resolved path GIO reports, so every event is
+  discarded. `resolve` canonicalises both the blueprint and each stylesheet. This is the same defect
+  that made `glimpse-config`'s watcher silently dead, in a different library.
 
-`var/widget_examples/` holds whole compositions for judging the finished look — `popover_shell_full.blp`
-is a popover with every slot filled. An example **mirrors** a widget's node structure and CSS classes
-rather than instantiating it: the previewer can only construct types GTK knows, and `PopoverShell` and
-`Hero` fill their slots through Rust methods, which no `.blp` can reach. So an example proves how the
-stylesheet renders, never that the Rust widget builds that tree — change a widget's blueprint and its
-example must be changed with it.
+Live reload watches each file's **directory**, not the file, and treats a rename onto the path as a
+change. An editor that saves by writing a temporary file and renaming it over the original destroys
+the inode a file monitor holds, and GIO then reports the write on a two-second timer — which is what
+a laggy reload actually is. The rename arrives as `RENAMED`, whose *first* argument is the temporary
+path and whose `other_file` is the one you asked for, so matching only the first argument ignores
+every such save. Both paths are checked, and events are coalesced over 40ms.
 
-A `.css` beside an example, named for it, is loaded above the theme and watched with it. That is where
-the surface a production container would supply belongs: a popover shell paints no background of its
-own, so without `popover_shell_full.css` giving it `--popover-bg-color` the example renders as loose
-text on the checkerboard. Do not reach for libadwaita's `.card` for this — in dark mode it is an 8%
-white overlay, so the checkerboard shows straight through it.
+The window paints a checkerboard and every child stays transparent, so whatever the widget does not
+paint reads as pattern rather than as a flat background it never asked for. That is a diagnostic:
+libadwaita's `.card` is an 8% white overlay in dark mode, and against a plain window it looks solid.
+
+It opens floating, through a `window-rule` on `^me\.aresa\.WidgetPreview` in the niri config. A
+preview is one widget sized to itself, and tiling it into a column tells you nothing about how it
+looks. Layer-shell was tried first and rendered nothing.
+
+`var/widget_examples/` holds whole compositions — `popover_shell_full.blp` is a popover with every
+slot filled. An example is a top-level object, not a `template`: `Builder` cannot instantiate a
+template whose class does not exist, so a `template` root renders as nothing at all.
+
+**A widget is only declarable if it says so.** `PopoverShell` and `Hero` implement `Gtk.Buildable`,
+which is what makes `[hero]`, `[footer]` and `[slot]` land in the right internal box, and `Hero`
+exposes `title`, `subtitle` and `icon-name` as properties so a `.blp` can set them through the same
+capped setters Rust uses. Without both, a `.blp` can name the type and nothing else, and the only
+way to preview a composition is to hand-copy its structure — which is a copy, not the widget.
+
+`add_child` must ignore the widget's **own** template children. `init_template` adds them through
+the very interface being overridden, so an unguarded override routes `hero_box` into `content_box`
+and panics on an unbound `TemplateChild` before the widget exists. The guard is
+`self.content_box.try_get().is_none()`.
+
+**PyGObject cannot do this.** It cannot override an interface vfunc that the parent already
+implements — `Gtk.Widget` implements `Gtk.Buildable`, so a `do_add_child` on a Python subclass is
+accepted, never called, and children land wherever the default put them. Measured, not assumed. Any
+preview host that needs real widgets has to be Rust.
 
 **Never run a test against the live configuration.** `~/.config/glimpse/config.toml` is the user's
 own, it is edited outside this repository, and a daemon started without `--config` both reads it and
@@ -234,7 +264,7 @@ test needs neither a fake `HOME` nor a writable `/usr/share/glimpse`. `GLIMPSE_T
 selected name the same way, so a run can be pointed at a theme without writing a `config.toml` at
 all.
 
-**Send the log somewhere else as well.** `--config` watches that file's *parent directory*, so a run
+**Send the log somewhere else as well.** `--config` watches that file's _parent directory_, so a run
 that redirects the daemon's output into it makes every line the daemon writes an event that makes it
 read the configuration again. With a document that will not parse, that is a closed loop running at
 exactly `DEBOUNCE` — it looks precisely like a watcher retrying, and it is not.
@@ -313,7 +343,7 @@ What is genuinely dead, and is the cut to make in whichever change next touches 
   is "something happened" against "the watch is dead" — so those paths are collected in `forward`,
   carried through the channel and filtered in `Watch::next` to build a value nobody reads.
 
-Both defects found in this file in August 2026 were in the *simple* 18% that decides whether to
+Both defects found in this file in August 2026 were in the _simple_ 18% that decides whether to
 reload and whether to complain, or in the harness testing it — not in the machinery. Its size is not
 by itself a reason to rewrite it. Bead `glimpse-aqi5` records the one limitation the design knowingly
 accepts.
@@ -354,6 +384,10 @@ costs more than the document saved.
   responsibility — all of it lands in the README alongside the code.
 - Remove instructions that stop being true rather than adding a caveat beside them. Two rules on the
   same topic produce worse behaviour than one.
+
+## Other rules
+
+- spawn desktop windows on `glimpse` niri workspace, do not steal focus
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
 
