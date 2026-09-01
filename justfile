@@ -144,6 +144,10 @@ run-sunset *ARGS:
 ctl *ARGS:
     cargo run -q -p glimpsectl -- {{ ARGS }}
 
+[doc("render one blueprint with the real widgets; reloads on save")]
+preview BLUEPRINT:
+    cargo run -q -p glimpse-widgets --example preview -- {{ BLUEPRINT }}
+
 [doc("nested niri in a window; run the panel inside it for a fast dev loop")]
 nested:
     niri
