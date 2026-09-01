@@ -1,0 +1,62 @@
+using Gtk 4.0;
+
+template $Section: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: vertical;
+  };
+
+  styles [
+    "section",
+  ]
+
+  Gtk.Box header {
+    orientation: horizontal;
+    visible: false;
+
+    styles [
+      "section__header",
+    ]
+
+    Gtk.Label title {
+      single-line-mode: true;
+      ellipsize: end;
+      max-width-chars: 24;
+      xalign: 0;
+      hexpand: true;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "section__title",
+      ]
+    }
+
+    Gtk.Label count {
+      single-line-mode: true;
+      xalign: 1;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "section__count",
+      ]
+    }
+  }
+
+  Gtk.Box content {
+    orientation: vertical;
+
+    styles [
+      "section__content",
+    ]
+  }
+
+  Gtk.Box placeholder {
+    orientation: vertical;
+    visible: false;
+
+    styles [
+      "section__placeholder",
+    ]
+  }
+}

@@ -18,7 +18,7 @@ window.preview {
   background-size: 24px 24px;
   background-position: 0 0, 12px 12px;
 }
-window.preview > * { background-color: transparent; }
+window.preview > .preview__slot { background-color: transparent; }
 ";
 
 const SETTLE: Duration = Duration::from_millis(40);
@@ -114,6 +114,7 @@ fn activate(
     }
 
     let slot = gtk4::Box::builder()
+        .css_classes(["preview__slot"])
         .orientation(gtk4::Orientation::Vertical)
         .margin_top(24)
         .margin_bottom(24)
@@ -243,14 +244,70 @@ mod fixtures {
     use gtk4::gdk;
     use gtk4::prelude::*;
 
-    use glimpse_widgets::{Calendar, Ymd};
+    use glimpse_widgets::{Calendar, Event, EventList, WorldClock, Ymd, Zone};
 
     pub fn apply(name: &str, root: &gtk4::Widget) {
-        if name == "calendar"
-            && let Some(calendar) = find::<Calendar>(root)
-        {
-            calendar_events(&calendar);
+        match name {
+            "calendar" => {
+                if let Some(calendar) = find::<Calendar>(root) {
+                    calendar_events(&calendar);
+                }
+            }
+            "agenda" => {
+                if let Some(calendar) = find::<Calendar>(root) {
+                    calendar_events(&calendar);
+                }
+                if let Some(events) = find::<EventList>(root) {
+                    agenda(&events);
+                }
+                if let Some(clocks) = find::<WorldClock>(root) {
+                    world_clock(&clocks);
+                }
+            }
+            _ => {}
         }
+    }
+
+    fn agenda(events: &EventList) {
+        let color = |hex: &str| hex.parse::<gdk::RGBA>().unwrap_or(gdk::RGBA::BLUE);
+        let work = color("#3584e4");
+        let home = color("#2ec27e");
+        let birthday = color("#e01b24");
+
+        let event = |summary: &str, detail: &str, when: &str, color| Event {
+            summary: summary.to_owned(),
+            detail: detail.to_owned(),
+            when: when.to_owned(),
+            color: Some(color),
+        };
+
+        events.set_max_rows(4);
+        events.set_events(&[
+            event("Company all-hands", "All day", "—", work),
+            event("Team standup", "Daily · Google Meet", "09:30", work),
+            event(
+                "Vilnius ↔ Berlin design review with the platform group",
+                "Meeting room Kaunas",
+                "14:00",
+                work,
+            ),
+            event("Marta's birthday", "All day", "—", birthday),
+            event("Pick up the parcel", "Antakalnio g. 18", "18:00", home),
+        ]);
+    }
+
+    fn world_clock(clocks: &WorldClock) {
+        let zone = |label: &str, timezone: &str, note: &str| Zone {
+            label: label.to_owned(),
+            timezone: timezone.to_owned(),
+            note: note.to_owned(),
+        };
+        clocks.set_zones(&[
+            zone("Vilnius", "Europe/Vilnius", "18° · Light rain"),
+            zone("Berlin", "Europe/Berlin", ""),
+            zone("San Francisco", "America/Los_Angeles", ""),
+            zone("Auckland", "Pacific/Auckland", "9° · Clear"),
+        ]);
     }
 
     fn calendar_events(calendar: &Calendar) {
@@ -288,11 +345,15 @@ mod fixtures {
 
 fn ensure_types() {
     use glimpse_widgets::{
-        Calendar, Hero, Indicator, IndicatorGroup, Panel, Placeholder, PopoverShell, Row,
+        Calendar, EventList, Hero, Indicator, IndicatorGroup, Panel, Placeholder, PopoverShell,
+        Row, Section, WorldClock,
     };
 
     for widget in [
         Calendar::static_type(),
+        EventList::static_type(),
+        Section::static_type(),
+        WorldClock::static_type(),
         Hero::static_type(),
         PopoverShell::static_type(),
         Panel::static_type(),

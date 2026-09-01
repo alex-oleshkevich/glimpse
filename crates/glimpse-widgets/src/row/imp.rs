@@ -37,7 +37,7 @@ pub struct Row {
 impl Row {
     fn title(&self) -> Option<String> {
         self.title
-            .is_visible()
+            .get_visible()
             .then(|| self.title.text().to_string())
     }
 
@@ -49,17 +49,17 @@ impl Row {
 
     fn subtitle(&self) -> Option<String> {
         self.subtitle
-            .is_visible()
+            .get_visible()
             .then(|| self.subtitle.text().to_string())
     }
 
     fn set_subtitle(&self, subtitle: Option<String>) {
         set_text(&self.subtitle, subtitle.as_deref());
-        set_css_class(&*self.obj(), TWO_LINE, self.subtitle.is_visible());
+        set_css_class(&*self.obj(), TWO_LINE, self.subtitle.get_visible());
     }
 
     fn selectable(&self) -> bool {
-        self.check.is_visible()
+        self.check.get_visible()
     }
 
     fn set_selectable(&self, selectable: bool) {

@@ -1,4 +1,6 @@
 mod calendar;
+mod dots;
+mod event_list;
 mod hero;
 mod indicator;
 mod indicator_group;
@@ -6,9 +8,12 @@ mod panel;
 mod placeholder;
 mod popover_shell;
 mod row;
+mod section;
 mod theme;
+mod world_clock;
 
 pub use calendar::{Calendar, Ymd};
+pub use event_list::{Event, EventList};
 pub use hero::Hero;
 pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
@@ -16,7 +21,9 @@ pub use panel::Panel;
 pub use placeholder::Placeholder;
 pub use popover_shell::PopoverShell;
 pub use row::Row;
+pub use section::Section;
 pub use theme::Styles;
+pub use world_clock::{WorldClock, Zone};
 
 #[cfg(test)]
 use indicator::{LABEL_MAX_CHARS, TOOLTIP_MAX_CHARS};
@@ -31,10 +38,12 @@ pub(crate) fn clear_children(container: &gtk4::Box) {
     }
 }
 
+pub(crate) use indicator::truncate;
+
 pub(crate) fn set_text(label: &gtk4::Label, value: Option<&str>) {
     use gtk4::prelude::*;
 
-    let text = indicator::truncate(value.unwrap_or_default(), TEXT_MAX_CHARS);
+    let text = truncate(value.unwrap_or_default(), TEXT_MAX_CHARS);
     if label.text().as_str() == text {
         return;
     }
@@ -58,6 +67,7 @@ pub fn register_resources() -> Result<(), glib::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gtk4::gdk;
     use gtk4::prelude::*;
     use gtk4::subclass::prelude::*;
     use std::cell::{Cell, RefCell};
@@ -521,6 +531,315 @@ mod tests {
             !row.can_target() && !row.can_focus(),
             "a row that does nothing takes neither the pointer nor the focus, so it cannot \
              light up under a hover that leads nowhere"
+        );
+
+        let section = Section::new();
+        let header = child_named::<gtk4::Box>(&section, "section__header");
+        let section_count = child_named::<gtk4::Label>(&section, "section__count");
+        let section_content = child_named::<gtk4::Box>(&section, "section__content");
+        let section_placeholder = child_named::<gtk4::Box>(&section, "section__placeholder");
+
+        assert!(
+            !header.get_visible(),
+            "an untitled section spends no height on an empty header"
+        );
+        section.set_title(Some("Today"));
+        section.set_count(Some("3"));
+        assert!(header.get_visible() && section_count.get_visible());
+        assert!(section_content.get_visible() && !section_placeholder.get_visible());
+
+        section.set_empty(true);
+        assert!(
+            !section_content.get_visible() && section_placeholder.get_visible(),
+            "an empty section swaps its content for the placeholder rather than stacking both"
+        );
+        assert!(
+            !section_count.get_visible(),
+            "a count of nothing beside an empty state says the same thing twice"
+        );
+        assert_eq!(
+            section.count().as_deref(),
+            Some("3"),
+            "the count is hidden, not forgotten, so restoring content restores it"
+        );
+        section.set_empty(false);
+        assert!(section_count.get_visible());
+
+        let first_body = gtk4::Label::new(Some("body"));
+        section.set_content(Some(&first_body));
+        section.set_content(Some(&gtk4::Label::new(Some("body again"))));
+        assert!(
+            first_body.parent().is_none(),
+            "content is one child, so a second setter unparents the first"
+        );
+
+        let event = |summary: &str, when: &str, color: Option<gdk::RGBA>| Event {
+            summary: summary.to_owned(),
+            detail: String::new(),
+            when: when.to_owned(),
+            color,
+        };
+        let blue = gdk::RGBA::new(0.2, 0.5, 0.9, 1.0);
+
+        let events = EventList::new();
+        events.set_events(&[
+            event("Team standup", "09:30", Some(blue)),
+            event("Design review", "14:00", None),
+        ]);
+        let event_rows: Vec<Row> = children_of(&events);
+        assert_eq!(event_rows.len(), 2);
+        assert_eq!(event_rows[0].title().as_deref(), Some("Team standup"));
+        assert!(
+            event_rows[1].imp().lead.get_visible(),
+            "one event with a color gives every row the same lead column, so the summaries \
+             still line up"
+        );
+
+        assert_eq!(
+            event_rows[0]
+                .imp()
+                .lead
+                .measure(gtk4::Orientation::Horizontal, -1)
+                .1,
+            (dots::SIZE * 3.0) as i32,
+            "an event carries one color, so its lead is one dot wide rather than the three the \
+             calendar reserves"
+        );
+
+        assert!(
+            !event_rows[0].can_target(),
+            "an event list nobody is listening to does not light up under the pointer: a hover \
+             is a promise that clicking does something"
+        );
+        events.set_activatable(true);
+        assert!(event_rows[0].can_target());
+
+        let activated = Rc::new(RefCell::new(Vec::new()));
+        events.connect_activated({
+            let activated = Rc::clone(&activated);
+            move |_, index| activated.borrow_mut().push(index)
+        });
+        event_rows[1].emit_clicked();
+        assert_eq!(*activated.borrow(), [1u32]);
+
+        events.set_events(&[event("Team standup", "09:30", None)]);
+        assert!(
+            !children_of::<Row>(&events)[0].imp().lead.get_visible(),
+            "with no color anywhere the lead column goes away rather than sitting empty"
+        );
+        assert_eq!(
+            event_rows[0],
+            children_of::<Row>(&events)[0],
+            "a position reuses its row rather than rebuilding it"
+        );
+        assert!(
+            event_rows[1].parent().is_none(),
+            "a shorter list unparents the rows it no longer has events for"
+        );
+
+        events.set_events(&[
+            event("One", "09:30", None),
+            event("Two", "10:00", None),
+            event("Three", "11:00", None),
+            event("Four", "12:00", None),
+        ]);
+        events.set_max_rows(3);
+        let capped: Vec<Row> = children_of(&events);
+        assert_eq!(
+            capped.len(),
+            4,
+            "three events plus the row that counts the rest"
+        );
+        assert!(capped[3].has_css_class("row--quiet"));
+        assert_eq!(
+            capped[3].title().as_deref(),
+            Some("1 more event"),
+            "one hidden event is not `1 more events`"
+        );
+        assert_eq!(capped[2].title().as_deref(), Some("Three"));
+
+        events.set_events(&[event("One", "09:30", None)]);
+        assert_eq!(
+            children_of::<Row>(&events).len(),
+            1,
+            "a list that now fits drops the overflow row"
+        );
+        events.set_events(&[
+            event("One", "09:30", None),
+            event("Two", "10:00", None),
+            event("Three", "11:00", None),
+            event("Four", "12:00", None),
+            event("Five", "13:00", None),
+        ]);
+        let regrown: Vec<Row> = children_of(&events);
+        assert_eq!(regrown.len(), 4);
+        assert!(
+            regrown[3].has_css_class("row--quiet")
+                && regrown[3].title().as_deref() == Some("2 more events"),
+            "the overflow row stays last when the list grows back under it"
+        );
+
+        let overflowed = Rc::new(Cell::new(0u32));
+        events.connect_overflow({
+            let overflowed = Rc::clone(&overflowed);
+            move |_| overflowed.set(overflowed.get() + 1)
+        });
+        regrown[3].emit_clicked();
+        assert_eq!(overflowed.get(), 1);
+
+        events.set_max_rows(0);
+        assert_eq!(
+            children_of::<Row>(&events).len(),
+            5,
+            "no cap shows everything, with nothing left to count"
+        );
+
+        events.set_events(&[event(&"ё".repeat(TEXT_MAX_CHARS * 2), "09:30", None)]);
+        assert_eq!(
+            children_of::<Row>(&events)[0]
+                .title()
+                .unwrap_or_default()
+                .chars()
+                .count(),
+            TEXT_MAX_CHARS,
+            "a calendar summary is another application's string: capped without slicing a \
+             multi-byte character"
+        );
+
+        let buried = Section::new();
+        buried.set_content(Some(&events));
+        buried.set_empty(true);
+        assert_eq!(
+            children_of::<Row>(&events)[0]
+                .title()
+                .unwrap_or_default()
+                .chars()
+                .count(),
+            TEXT_MAX_CHARS,
+            "a row inside a hidden section still reports what it was given: a widget's own \
+             `visible` flag is not the same question as whether an ancestor is showing"
+        );
+
+        let clock = WorldClock::new();
+        let zone = |label: &str, timezone: &str| Zone {
+            label: label.to_owned(),
+            timezone: timezone.to_owned(),
+            note: String::new(),
+        };
+        clock.set_zones(&[
+            zone("Berlin", "Europe/Berlin"),
+            zone("Auckland", "Pacific/Auckland"),
+            zone("Midway", "Pacific/Midway"),
+            zone("Nowhere", "Not/AZone"),
+        ]);
+        clock.set_now(&glib::DateTime::from_utc(2026, 9, 1, 12, 0, 0.0).expect("instant"));
+
+        let clock_rows: Vec<Row> = children_of(&clock);
+        let time_of = |row: &Row| {
+            child_named::<gtk4::Label>(row, "world-clock__time")
+                .text()
+                .to_string()
+        };
+        assert_eq!(clock_rows.len(), 4);
+        assert_eq!(time_of(&clock_rows[0]), "14:00");
+        assert_eq!(time_of(&clock_rows[1]), "00:00");
+        assert_eq!(
+            time_of(&clock_rows[3]),
+            "—",
+            "a timezone the system cannot resolve reads as unknown rather than silently as UTC"
+        );
+
+        assert_eq!(
+            clock_rows[0].subtitle(),
+            None,
+            "a zone on the same date says nothing, so a list of neighbours stays one line each"
+        );
+        assert_eq!(clock_rows[1].subtitle().as_deref(), Some("Tomorrow"));
+        assert_eq!(clock_rows[2].subtitle(), None);
+        assert_eq!(clock_rows[3].subtitle(), None);
+
+        let phase_of = |row: &Row| {
+            let phase = child_named::<gtk4::Image>(row, "world-clock__phase");
+            (
+                phase.icon_name().map(|name| name.to_string()),
+                phase.has_css_class("world-clock__phase--day"),
+            )
+        };
+        assert_eq!(
+            phase_of(&clock_rows[0]),
+            (Some("weather-clear-symbolic".to_owned()), true),
+            "14:00 in Berlin is daylight, which is the one thing a world clock is consulted for"
+        );
+        assert_eq!(
+            phase_of(&clock_rows[1]),
+            (Some("weather-clear-night-symbolic".to_owned()), false),
+            "00:00 in Auckland is not"
+        );
+        assert_eq!(
+            phase_of(&clock_rows[3]),
+            (None, false),
+            "a zone that did not resolve claims nothing about daylight"
+        );
+
+        clock.set_now(&glib::DateTime::from_utc(2026, 9, 1, 5, 0, 0.0).expect("instant"));
+        assert_eq!(clock_rows[2].subtitle().as_deref(), Some("Yesterday"));
+        assert_eq!(
+            phase_of(&clock_rows[1]).0,
+            Some("weather-clear-symbolic".to_owned()),
+            "17:00 in Auckland is daylight, so the icon follows the clock rather than the zone"
+        );
+        assert_eq!(clock_rows[1].subtitle(), None);
+
+        clock.set_twelve_hour(true);
+        assert!(
+            time_of(&clock_rows[0]).starts_with("7:00"),
+            "twelve-hour drops the padding strftime leaves in front of a single digit"
+        );
+        clock.set_twelve_hour(false);
+        assert_eq!(time_of(&clock_rows[0]), "07:00");
+
+        assert_eq!(
+            clock_rows[0].tooltip_text().as_deref(),
+            Some("Europe/Berlin · CEST (UTC+02:00)"),
+            "the label is the city a user named; the tooltip is the zone it actually resolved \
+             to, with the offset that makes the time checkable"
+        );
+        assert_eq!(
+            clock_rows[3].tooltip_text().as_deref(),
+            Some("Not/AZone"),
+            "a zone that does not resolve still names itself, because that is the diagnostic"
+        );
+        assert!(
+            clock_rows[0].can_target(),
+            "a clock row still takes the pointer, because that is what raises the tooltip; it \
+             just does not light up, since the tooltip is all the click would have given"
+        );
+        assert!(
+            !clock_rows[0].can_focus(),
+            "and it is not a tab stop, because there is nothing to activate once you reach it"
+        );
+
+        clock.set_now(&glib::DateTime::from_utc(2026, 9, 1, 12, 0, 0.0).expect("instant"));
+        clock.set_zones(&[
+            Zone {
+                note: "12° · Light rain".to_owned(),
+                ..zone("Berlin", "Europe/Berlin")
+            },
+            Zone {
+                note: "9° · Clear".to_owned(),
+                ..zone("Auckland", "Pacific/Auckland")
+            },
+        ]);
+        assert_eq!(
+            clock_rows[0].subtitle().as_deref(),
+            Some("12° · Light rain"),
+            "a zone with something to add carries it on the second line"
+        );
+        assert_eq!(
+            clock_rows[1].subtitle().as_deref(),
+            Some("Tomorrow · 9° · Clear"),
+            "and shares that line with the day note rather than taking a third, because a third \
+             is what makes a clock list stop being glanceable"
         );
     }
 

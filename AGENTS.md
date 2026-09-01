@@ -218,6 +218,15 @@ The window paints a checkerboard and every child stays transparent, so whatever 
 paint reads as pattern rather than as a flat background it never asked for. That is a diagnostic:
 libadwaita's `.card` is an 8% white overlay in dark mode, and against a plain window it looks solid.
 
+**Both halves of the checkerboard rule must be scoped to `window.preview`, not just the first.**
+GTK4 parents a tooltip, a popover and a drag icon *into the widget tree*, as direct children of the
+window — measured: a `Gtk.Popover` given `set_parent(window)` appears in that window's child list
+beside its `child`. So a companion `window.preview > * { background-color: transparent; }` matches
+every one of them, at `STYLE_PROVIDER_PRIORITY_USER + 2` against libadwaita's `tooltip.background`
+at `THEME`, and blanks it. The symptom is a tooltip with no background at all, in a preview whose
+checkerboard rule already looks correctly scoped. The transparency rule names the preview's own slot
+instead.
+
 `--scheme dark` (or `light`) forces the color scheme; without it the preview follows the system. The whole token vocabulary flips at once, so a widget is not checked until it has been
 seen under both.
 

@@ -8,5 +8,6 @@
         <file>widgets/placeholder.ui</file>
         <file>widgets/popover_shell.ui</file>
         <file>widgets/row.ui</file>
+        <file>widgets/section.ui</file>
     </gresource>
 </gresources>

@@ -43,7 +43,7 @@ impl Placeholder {
 
     fn title(&self) -> Option<String> {
         self.title
-            .is_visible()
+            .get_visible()
             .then(|| self.title.text().to_string())
     }
 
@@ -53,7 +53,7 @@ impl Placeholder {
 
     fn description(&self) -> Option<String> {
         self.description
-            .is_visible()
+            .get_visible()
             .then(|| self.description.text().to_string())
     }
 

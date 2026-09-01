@@ -1,4 +1,3 @@
-mod dots;
 mod grid;
 mod imp;
 
@@ -72,7 +71,10 @@ impl Calendar {
         let mut stored = imp.events.borrow_mut();
         stored.clear();
         for (date, colors) in events {
-            stored.insert(*date, colors.iter().copied().take(dots::MAX).collect());
+            stored.insert(
+                *date,
+                colors.iter().copied().take(crate::dots::MAX).collect(),
+            );
         }
         drop(stored);
         imp.render();

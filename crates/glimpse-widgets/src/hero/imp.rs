@@ -61,7 +61,7 @@ impl Hero {
 }
 
 fn visible_text(label: &TemplateChild<gtk4::Label>) -> Option<String> {
-    label.is_visible().then(|| label.text().to_string())
+    label.get_visible().then(|| label.text().to_string())
 }
 
 #[glib::object_subclass]

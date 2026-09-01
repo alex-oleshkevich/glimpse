@@ -265,6 +265,136 @@ grammar distinguishes a selected row with `font-weight: 600`, every row would re
 `Gtk.Button` is not a neutral container: it arrives carrying padding, min-height, radius and weight
 that a custom design has to undo on purpose.
 
+## Section, EventList and WorldClock
+
+The agenda under the calendar, split where the mockups split it.
+
+```
+ Section        Today                                    3
+               ─────────────────────────────────────────────
+ EventList      ●  Team standup                      09:30
+                   Daily · Google Meet
+                ●  Marta's birthday                      —
+                   All day
+                   4 more events                         ›
+```
+
+**`Section` is not event-specific, and that is deliberate.** `menu.py:45`'s `heading(text, state)`
+renders **Today** in the calendar mockup and **World clock**, **Tray**, **Devices** and **Networks**
+elsewhere. Naming the shell `EventListShell` would mean writing it again, slightly differently, the
+next four times a popover needs a titled group — the drift `PopoverShell` exists to prevent.
+
+**`empty` is set by the caller, not detected.** `Section` cannot ask an arbitrary content child
+whether it has anything in it. An explicit flag also lets a caller show the placeholder while
+content is merely *stale*, which is the syncing state the mockup renders: a placeholder saying
+"Showing what was cached at 20:41" over a grid that still holds data.
+
+**The count hides with the content.** A count of zero beside an empty state says the same thing
+twice, so `set_empty(true)` hides it whatever `count` holds — hidden, not forgotten, so restoring
+content restores it.
+
+**Visibility toggle, not a `Gtk.Stack`.** A stack sizes to its largest page, so a placeholder would
+reserve its height under a four-row agenda and the popover would never shrink. `Calendar` uses a
+stack for month/year because there both pages *want* the same size.
+
+**Event rows are `Row`.** `row2(summary, sub, icon, time=)` in the mockup is title + subtitle + lead
++ trailing label, down to the same 24/34 `max-width-chars` pair. An `EventRow` would fork the hover,
+focus and activation of a widget that already has them.
+
+**`when` arrives formatted; a `Zone` does not.** The two widgets take opposite kinds of input, and
+the rule behind it is: *derive in the widget when formatting destroys the derivation.* A caller
+handing `WorldClock` the string `"00:47"` has already thrown away the fact that it is tomorrow
+there, and would have to recompute it to pass that too — at which point the widget is a
+`Gtk.Label`. An event's start time carries no such hidden fact; whether it reads `09:30`, `—`,
+`in 20 min` or spans midnight is applet policy read off config.
+
+**The lead is a colour dot, not an icon.** The mockup repeats `appointment-soon-symbolic` on every
+row, which spends the lead column saying "this is an event" ten times in a list of events. One dot
+in the calendar's colour says *which* calendar, and matches the dots under that date in the month
+grid. The column appears when *any* shown event carries a colour, so summaries still line up when
+only some do. `Dots` moved out of `calendar/` for this and grew `set_max` and `set_size`: the
+calendar reserves three 4px dots, an event draws one at three times that. Both are device pixels and
+so do not follow text scaling — the one place in the crate that is true, because the dots are
+snapshot-drawn rather than styled.
+
+**Overflow belongs to the list.** Only `EventList` knows how many events it was handed against how
+many it drew, so `"4 more events"` is computed once rather than at four call sites. It is a `Row`
+with `.row--quiet`, it emits `overflow` rather than deciding what "open the rest" means, and
+`max_rows == 0` means no cap.
+
+**It navigates; it does not expand.** Lifting the cap in place fails twice, and both failures are
+one click away: the list grows past the bottom of the screen, and there is no way back — the row
+that would collapse it is the row that just disappeared. This is `Row`'s rule (`var/design/row.md`)
+applied to a list rather than to one item, and the popover's height cap is what decides it. The
+signal exists so the applet can push a page or open the calendar application; the preview has
+nowhere to navigate to, which is why clicking it there does nothing, exactly as `Open calendar` in
+the same footer does nothing.
+
+**Both lists are activatable only on request.** `EventList` defaults to inert: a hover highlight is
+a promise that clicking does something, and until a caller connects `activated` and says
+`set_activatable(true)`, clicking does nothing. `WorldClock` rows stay targetable, because taking the
+pointer is what raises a tooltip — `Europe/Berlin · CEST (UTC+02:00)`, the zone the label actually
+resolved to and the offset that makes the time checkable — but they paint no hover or active state
+and are not tab stops. A tooltip is the whole of what the row offers, so the highlight and the focus
+ring would both promise more than the click can keep. **`set_activatable(false)` cannot be used
+here**: it drops `can-target`, and a widget that is not a pointer target never gets a tooltip
+either.
+
+**The lead is day or night.** `weather-clear-symbolic` when the local hour there is 07:00–19:00,
+`weather-clear-night-symbolic` otherwise, and nothing at all for a zone that did not resolve. It
+answers the question the list is actually consulted for — *can I call them now* — which the digits
+alone do not, and it is the one thing worth the lead column on a row whose label is a city. The hour
+threshold is a hint, not astronomy: real sunrise and sunset need coordinates, and `glimpse-sunset`
+already computes them, so this upgrades once a zone carries a location.
+
+**`Zone::note` is a free second line the widget knows nothing about.** Weather is the case it was
+added for — `18° · Light rain` — but the widget never learns that; it takes a string and shares the
+second line with the day note, `Tomorrow · 9° · Clear`, rather than taking a third. A third line is
+what stops a clock list being glanceable.
+
+**All rows are one height.** `.world-clock .row` and `.row--two` share a `min-height`, so a zone that
+crosses midnight and gains `Tomorrow` does not grow and shove everything under it. For a clock that
+is the strongest form of `ui.md`'s "data changes must not shift layout": the change happens while
+the user is looking at it.
+
+**A second line appears only when the date differs.** Same-day zones stay one line, so a list of
+European cities has no subtitles and the block is four rows rather than eight. The comparison is
+`(year, day_of_year)` against the instant the caller passed, *in that instant's own timezone* — so
+pass a local `DateTime`, not a UTC one, or every row is compared against UTC's date.
+
+**A zone that does not resolve reads `—`.** `g_time_zone_new_identifier` returns NULL for an
+unknown identifier, which is why `glib`'s `v2_68` feature is enabled in the workspace: the older
+`g_time_zone_new` silently returns UTC, and a clock that is confidently wrong is worse than one that
+says it does not know. The tooltip still names the identifier, because that is the diagnostic.
+
+**No timer.** `set_now` is the caller's tick. A popover that is shut still owning a source that
+re-renders four labels a minute is exactly what `ui.md`'s widget-boundary rule exists to prevent,
+and the applet has to own the tick anyway to know when the popover is visible.
+
+Both right-hand columns take `--gl-muted`, not the mockup's two different greys. Within one popover
+an event's time and a clock's time are the same kind of thing in the same column, and two weights of
+grey read as a distinction that is not there.
+
+**Times use `font-variant-numeric: tabular-nums`, and it is load-bearing.** Measured at 20px Adwaita
+Sans: `11:11` / `20:41` / `09:30` request 39 / 51 / 56 px proportionally and 58 / 58 / 58 tabular. A
+right-aligned time column without it moves by up to 17px depending on which digits the clock happens
+to be showing — and unlike most jitter this one is animated. libadwaita ships a `.numeric` class
+doing the same thing and applies it to `calendar` itself.
+
+**`is_visible()` is not `get_visible()`.** The first is `gtk_widget_is_visible`, true only when every
+ancestor is visible too; the second is the widget's own flag. Every getter that reports a value by
+asking whether its label is showing must use `get_visible()`, or a `Row` inside a `Section` marked
+empty reports `title() == None` for a title it is holding. `Section` hiding its content box is what
+made this reachable; the same defect was already latent in `Row`, `Hero` and `Placeholder`.
+
+**Neither list shares a base class with the other.** What they share is four lines of
+clear-and-append; what differs is every slot. A `RowList` with two implementations is the ceremony
+the finishing pass exists to cut.
+
+The sync banner — the mockup's `status()` strip, "Last synced 4 h ago · Retry" *above* content that
+is still shown — is not built. That is an error arriving **with** data, which `Placeholder`
+deliberately does not cover, and it needs an action-signal design.
+
 ## PopoverShell and Hero
 
 `PopoverShell` is the frame every applet popover sits in: an optional hero, one content child, an

@@ -25,7 +25,7 @@ dirs = "6"
 futures-util = { version = "0.3", features = ["sink"] }
 gio = "0.22"
 gio-unix = "0.22"
-glib = "0.22"
+glib = { version = "0.22", features = ["v2_68"] }
 glib-build-tools = "0.22"
 glimpse-compositors = { path = "crates/glimpse-compositors" }
 glimpse-config = { path = "crates/glimpse-config" }

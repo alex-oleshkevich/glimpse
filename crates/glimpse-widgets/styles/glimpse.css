@@ -172,6 +172,11 @@
     -gtk-icon-size: 1.25rem;
 }
 
+.row__trail image {
+    -gtk-icon-size: 1.05rem;
+    color: var(--gl-muted);
+}
+
 .row__title {
     font-size: var(--gl-text-body);
 }
@@ -345,4 +350,50 @@
         transition: none;
         animation: none;
     }
+}
+
+.section__header {
+    padding: 0.75rem 0.65rem 0.2rem 0.65rem;
+}
+
+.section__title {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
+}
+
+.section__count {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-dim);
+}
+
+.row--quiet .row__title {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
+}
+
+.event-list__time,
+.world-clock__time {
+    font-size: var(--gl-text-caption);
+    font-variant-numeric: tabular-nums;
+    color: var(--gl-muted);
+}
+
+.world-clock .row,
+.world-clock .row--two {
+    min-height: 3.2rem;
+    padding: 0 0.8rem;
+}
+
+.world-clock .row:hover,
+.world-clock .row:active {
+    background-color: transparent;
+}
+
+.world-clock__phase {
+    -gtk-icon-size: 1.05rem;
+    color: var(--gl-dim);
+}
+
+.world-clock__phase--day {
+    color: var(--gl-warning-text);
 }

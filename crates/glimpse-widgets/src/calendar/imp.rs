@@ -5,8 +5,8 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use super::dots::Dots;
 use super::grid::{CELLS, COLUMNS, Ymd, month_grid, step_month};
+use crate::dots::Dots;
 use crate::set_css_class;
 
 const TODAY: &str = "calendar__cell--today";

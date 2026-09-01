@@ -27,6 +27,7 @@ fn main() {
             "resources/widgets/popover_shell.ui",
         ),
         ("blueprints/row.blp", "resources/widgets/row.ui"),
+        ("blueprints/section.blp", "resources/widgets/section.ui"),
     ]);
 
     glib_build_tools::compile_resources(
