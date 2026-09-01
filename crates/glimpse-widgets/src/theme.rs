@@ -93,10 +93,13 @@ mod tests {
             .collect()
     }
 
+    /// A token may be declared in `:root`, which is the shared vocabulary, or in the single rule
+    /// that reads it, which is a measurement only that rule cares about. Both are declarations; an
+    /// undeclared one is the defect, because GTK renders it as nothing and reports it nowhere.
     #[test]
     fn every_glimpse_token_the_stylesheet_reads_is_declared() {
         let (block, rules) = split(BUILTIN);
-        let declared = declared(block);
+        let declared: Vec<&str> = declared(block).into_iter().chain(declared(rules)).collect();
         let read = referenced(block).into_iter().chain(referenced(rules));
 
         for name in read.filter(|name| name.starts_with(PREFIX)) {
@@ -129,6 +132,21 @@ mod tests {
         }
     }
 
+    /// A `px` font size ignores the user's font entirely: at 200% text scaling every other
+    /// application's text doubles and ours does not move. `rem` is relative to the root font, so it
+    /// follows that setting; `em` would too, but it compounds through nesting and a size then
+    /// depends on where the widget happens to sit.
+    #[test]
+    fn no_rule_sets_a_pixel_font_size() {
+        let (_, rules) = split(BUILTIN);
+        for line in rules.lines().map(str::trim) {
+            assert!(
+                !line.starts_with("font-size:") || !line.contains("px"),
+                "a font size in px cannot follow the user's font: {line}"
+            );
+        }
+    }
+
     #[test]
     fn no_rule_names_a_literal_color() {
         let (_, rules) = split(BUILTIN);
@@ -144,6 +162,6 @@ mod tests {
     #[test]
     fn the_declared_vocabulary_is_the_documented_size() {
         let (block, _) = split(BUILTIN);
-        assert_eq!(declared(block).len(), 26);
+        assert_eq!(declared(block).len(), 29);
     }
 }

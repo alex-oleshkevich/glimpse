@@ -26,6 +26,10 @@
     --gl-danger-soft: alpha(var(--destructive-bg-color, #c01c28), 0.18);
     --gl-warning-text: var(--warning-color, #ffc252);
 
+    --gl-text-caption: 0.85rem;
+    --gl-text-body: 1rem;
+    --gl-text-title: 1.2rem;
+
     --gl-radius: 14px;
     --gl-duration: 150ms;
     --gl-ease: cubic-bezier(0.2, 0, 0, 1);
@@ -95,7 +99,7 @@
 .indicator__badge {
     background-color: var(--gl-accent-soft);
     border-radius: 999px;
-    font-size: 11px;
+    font-size: var(--gl-text-caption);
     padding: 2px 8px;
     min-width: 22px;
     min-height: 22px;
@@ -129,9 +133,12 @@
 }
 
 .row {
-    min-height: 34px;
-    padding: 0 10px;
-    border-radius: 8px;
+    --gl-row-height: 42px;
+    --gl-row-padding: 0 12px;
+    --gl-row-radius: 10px;
+    min-height: var(--gl-row-height);
+    padding: var(--gl-row-padding);
+    border-radius: var(--gl-row-radius);
     font-weight: normal;
     transition: background-color var(--gl-duration) var(--gl-ease);
 }
@@ -154,20 +161,23 @@
 }
 
 .row--two {
-    min-height: 48px;
-    padding: 6px 10px;
+    padding: 8px 12px;
 }
 
 .row__check {
-    min-width: 14px;
+    min-width: 16px;
+}
+
+.row__lead image {
+    -gtk-icon-size: 18px;
 }
 
 .row__title {
-    font-size: 13px;
+    font-size: var(--gl-text-body);
 }
 
 .row__subtitle {
-    font-size: 11px;
+    font-size: var(--gl-text-caption);
     color: var(--gl-muted);
     padding-top: 2px;
 }
@@ -185,13 +195,13 @@
 }
 
 .hero__title {
-    font-size: 15px;
+    font-size: var(--gl-text-title);
     font-weight: 600;
     letter-spacing: -0.01em;
 }
 
 .hero__subtitle {
-    font-size: 13px;
+    font-size: var(--gl-text-caption);
     color: var(--gl-muted);
     padding-top: 2px;
 }

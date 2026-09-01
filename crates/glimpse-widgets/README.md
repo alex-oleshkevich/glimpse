@@ -121,6 +121,19 @@ a state we now get for free. `activatable: false` drops `can-target` and `can-fo
 read-only fact row on a detail page neither lights up under the pointer nor stops the keyboard on
 its way past. It is not made insensitive, which would dim it and say something untrue.
 
+**Both labels cap their natural width** (`max-width-chars` 24 and 34, the numbers the approved
+mockups used). `ellipsize` alone does not bound a row: it lowers the label's *minimum* width and
+leaves the natural width at the full string, so an overlong SSID does not ellipsize — it widens the
+popover around it. Measured: 447px natural for one 59-character title, 216px with the cap. The row
+asserts this directly, by requiring that a 120-character title ask for no more width than a
+40-character one.
+
+**Sizes are rule-scoped tokens.** `--gl-row-height`, `--gl-row-padding` and `--gl-row-radius` are
+declared in `.row` itself rather than in `:root`, because they are this rule's own measurements and
+nothing else reads them. `:root` stays the shared vocabulary. `every_glimpse_token_the_stylesheet_reads_is_declared`
+accepts both, since what it exists to catch is a token that is declared *nowhere* — GTK renders that
+as a transparent surface and reports it nowhere.
+
 **`.row` must reset `font-weight`.** libadwaita styles bare `button` with `font-weight: bold`, and
 weight inherits into any label placed inside one. Left alone, every row renders bold — and since the
 grammar distinguishes a selected row with `font-weight: 600`, every row would read as selected. A
@@ -242,7 +255,31 @@ failure, not a style choice.
 | accent | `accent` `accent-fg` `accent-text` `accent-soft` |
 | state | `hover` `active` `control` `knob` `scrim` |
 | semantic | `danger-text` `danger-soft` `warning-text` |
+| type | `text-caption` `text-body` `text-title` |
 | other | `radius` `duration` `ease` `font-family` `disabled` |
+
+## The type scale
+
+Three sizes, all `rem`, and **no rule may write a font size in `px`** — `no_rule_sets_a_pixel_font_size`
+fails the build on one.
+
+| token | | role |
+| --- | --- | --- |
+| `--gl-text-caption` | 0.85rem | subtitles, badges, secondary facts |
+| `--gl-text-body` | 1rem | row titles, panel labels — the default |
+| `--gl-text-title` | 1.2rem | a hero's title, a section heading |
+
+The base is the user's own font, because `rem` resolves against the root, and the root's font is
+`gtk-font-name`. Nothing sets a base size; body text in a shell popover *is* the system UI size, and
+choosing a different one second-guesses a preference the user already stated.
+
+`px` was measured and rejected: at 200% text scaling GTK moves the root from 14.67px to 29.33px and
+a `font-size: 14px` label does not move at all, so the shell would keep shell-sized text on a
+desktop that had doubled. `em` scales correctly but **compounds** — 1.2em inside 1.5em is 1.8× — so a
+size would depend on where the widget happened to sit. `rem` scales and does not compound.
+
+A theme changes the scale by redefining the three tokens; there is no separate scale factor, because
+the tokens already are one.
 
 Eighteen derive from libadwaita, so the light/dark flip and the system accent cost nothing: setting
 the scheme on `AdwStyleManager` moves every one of them at once, which is why there is no

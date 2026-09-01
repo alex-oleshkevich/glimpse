@@ -380,6 +380,17 @@ mod tests {
             "clearing one slot leaves the other alone"
         );
 
+        row.set_title(Some("W".repeat(40)));
+        let wide = row.measure(gtk4::Orientation::Horizontal, -1).1;
+        row.set_title(Some("W".repeat(120)));
+        assert_eq!(
+            row.measure(gtk4::Orientation::Horizontal, -1).1,
+            wide,
+            "past the cap a longer title asks for no more width, so an SSID cannot widen the \
+             popover it sits in. `ellipsize` alone does not do this — it lowers the minimum \
+             width and leaves the natural width at the full string."
+        );
+
         assert!(row.can_target() && row.activatable());
         row.set_activatable(false);
         assert!(

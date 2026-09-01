@@ -42,6 +42,9 @@ General GTK4, libadwaita and relm4 craft is covered by the `relm4`, `gtk4-styles
   a literal and never from a libadwaita token directly. `@theme_fg_color` and `@accent_bg_color` are
   GTK's pre-4.16 namespace, are not what a theme can override, and `@theme_fg_color` resolves to the
   *window's* foreground rather than the panel's. `theme::tests` fails the build on either mistake.
+- Font sizes come from `--gl-text-caption` / `--gl-text-body` / `--gl-text-title`, never from a `px`
+  literal. A `px` size does not move when the user scales their text, so the shell keeps its own
+  size on a desktop that has doubled. The three tokens are `rem`, which follows `gtk-font-name`.
 - A misspelled token is invisible: GTK renders the surface transparent, and `parsing-error` does not
   fire. Give every `var()` in the built-in stylesheet a fallback.
 - No fixed `width-request` or `height-request` to force a layout. The panel must survive font
