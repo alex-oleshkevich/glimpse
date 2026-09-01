@@ -80,6 +80,36 @@ as a gap between its neighbours.
 Orientation is settable because `Panel` flips between horizontal and vertical; spacing is not,
 because nothing varies it.
 
+## PopoverShell and Hero
+
+`PopoverShell` is the frame every applet popover sits in: an optional hero, one content child, an
+optional footer, and a `Gtk.Separator` between each pair. A section and its hairline are shown and
+hidden together — hiding the section alone leaves a line floating against nothing, which is the one
+mistake this widget exists to make impossible.
+
+**The shell takes any widget as its hero.** It does not require a `Hero`, and does not know whether
+it was given one. That is what lets an applet with something specific to show — a battery gauge, a
+now-playing thumbnail — compose its own header without an escape hatch bolted onto the standard one.
+`Hero` is the common case, not the required one.
+
+`Hero` is `[ icon ] [ title / subtitle ] ←space→ [ slot ]`. The slot takes any widget, usually a
+`Gtk.Switch`. There is deliberately no `set_toggle` convenience beside it: the previous generation
+had both a `toggle: Option<bool>` field and a generic `trailing` slot, which is two ways to put a
+switch on the right and no rule saying which.
+
+The hero replaces the earlier design's split title row and lede. One header concept, not three.
+
+Content is a single child and the footer is append/clear, and the asymmetry is deliberate: the shell
+owns the footer's box, so it owns its orientation and spacing, while content's layout belongs to
+whoever built it. A second `set_content` unparents the first.
+
+**The shell does not scroll.** Capping height against the monitor belongs to whatever hosts it,
+because only that knows the anchor's work area. Keeping it out is what lets the shell be built in a
+test with no display behind it.
+
+Title and subtitle are capped at `TEXT_MAX_CHARS` and set as plain text. A hero title carries
+network SSIDs and MPRIS metadata, which are unbounded and come from other applications.
+
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them on the display **once**,

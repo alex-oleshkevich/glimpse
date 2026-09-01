@@ -182,6 +182,36 @@ window for a dev loop that does not disturb the running session.
 A recipe that is missing or wrong gets fixed in the `justfile`. Do not work around it with a raw
 cargo invocation.
 
+**Previewing a widget without building the app.** `var/widget_preview.py <blueprint.blp>` opens one
+blueprint over a checkerboard and reloads it whenever the blueprint or any stylesheet it reads is
+saved. It compiles the `.blp`, registers the template under a fresh GType each reload, and loads
+`glimpse-widgets/styles/glimpse.css` at `APPLICATION` with `data/themes/adwaita/` above it, so what
+it renders is what the binaries render. The window paints the checkerboard and every child stays
+transparent, so whatever the widget does not paint reads as pattern rather than as a flat background
+it never asked for. `--scheme light|dark|system` forces the color scheme, because
+the whole token vocabulary flips at once and a widget must be checked under both.
+
+It calls `Adw.init()` and it has to: without libadwaita every `var(--popover-fg-color, #ffffff)` in
+the built-in falls back to its dark-mode literal while GTK paints a light window, which renders white
+text on a white surface and reads convincingly as a *layout* bug. Half an hour was spent chasing a
+phantom overlap that was this and nothing else.
+
+It renders one template, so a container with no children of its own — `popover_shell.blp` — comes up
+empty and correct. Structure across two widgets belongs in the GTK test, not here.
+
+`var/widget_examples/` holds whole compositions for judging the finished look — `popover_shell_full.blp`
+is a popover with every slot filled. An example **mirrors** a widget's node structure and CSS classes
+rather than instantiating it: the previewer can only construct types GTK knows, and `PopoverShell` and
+`Hero` fill their slots through Rust methods, which no `.blp` can reach. So an example proves how the
+stylesheet renders, never that the Rust widget builds that tree — change a widget's blueprint and its
+example must be changed with it.
+
+A `.css` beside an example, named for it, is loaded above the theme and watched with it. That is where
+the surface a production container would supply belongs: a popover shell paints no background of its
+own, so without `popover_shell_full.css` giving it `--popover-bg-color` the example renders as loose
+text on the checkerboard. Do not reach for libadwaita's `.card` for this — in dark mode it is an 8%
+white overlay, so the checkerboard shows straight through it.
+
 **Never run a test against the live configuration.** `~/.config/glimpse/config.toml` is the user's
 own, it is edited outside this repository, and a daemon started without `--config` both reads it and
 watches it. Point every run at a scratch file instead:

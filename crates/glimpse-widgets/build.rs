@@ -14,8 +14,13 @@ fn compile_blueprints(pairs: &[(&str, &str)]) {
 
 fn main() {
     compile_blueprints(&[
+        ("blueprints/hero.blp", "resources/widgets/hero.ui"),
         ("blueprints/indicator.blp", "resources/widgets/indicator.ui"),
         ("blueprints/panel.blp", "resources/widgets/panel.ui"),
+        (
+            "blueprints/popover_shell.blp",
+            "resources/widgets/popover_shell.ui",
+        ),
     ]);
 
     glib_build_tools::compile_resources(

@@ -107,6 +107,40 @@
     color: var(--gl-accent-text);
 }
 
+.popover-shell {
+    background-color: var(--gl-surface);
+    color: var(--gl-surface-fg);
+    border-radius: var(--gl-radius);
+    padding: 6px;
+}
+
+.popover-shell separator {
+    background-color: var(--gl-border);
+    min-height: 1px;
+    margin: 4px 8px;
+}
+
+.popover-shell__hero,
+.popover-shell__footer {
+    padding: 7px 10px;
+}
+
+.hero__icon {
+    -gtk-icon-size: 24px;
+}
+
+.hero__title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.hero__subtitle {
+    font-size: 12px;
+    color: var(--gl-muted);
+    padding-top: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
     * {
         transition: none;

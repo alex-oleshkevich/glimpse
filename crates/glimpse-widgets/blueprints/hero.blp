@@ -1,0 +1,67 @@
+using Gtk 4.0;
+
+template $GlimpseHero: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: horizontal;
+    spacing: 10;
+  };
+
+  styles [
+    "hero",
+  ]
+
+  Gtk.Image icon {
+    visible: false;
+    valign: center;
+    accessible-role: presentation;
+
+    styles [
+      "hero__icon",
+    ]
+  }
+
+  Gtk.Box text {
+    orientation: vertical;
+    valign: center;
+    hexpand: true;
+    halign: fill;
+
+    styles [
+      "hero__text",
+    ]
+
+    Gtk.Label title {
+      single-line-mode: true;
+      ellipsize: end;
+      xalign: 0;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "hero__title",
+      ]
+    }
+
+    Gtk.Label subtitle {
+      single-line-mode: true;
+      ellipsize: end;
+      xalign: 0;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "hero__subtitle",
+      ]
+    }
+  }
+
+  Gtk.Box slot {
+    orientation: horizontal;
+    valign: center;
+    visible: false;
+
+    styles [
+      "hero__slot",
+    ]
+  }
+}

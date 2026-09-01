@@ -1,0 +1,49 @@
+using Gtk 4.0;
+
+template $GlimpsePopoverShell: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: vertical;
+  };
+
+  styles [
+    "popover-shell",
+  ]
+
+  Gtk.Box hero_box {
+    orientation: vertical;
+    visible: false;
+
+    styles [
+      "popover-shell__hero",
+    ]
+  }
+
+  Gtk.Separator hero_rule {
+    orientation: horizontal;
+    visible: false;
+  }
+
+  Gtk.Box content_box {
+    orientation: vertical;
+    vexpand: true;
+
+    styles [
+      "popover-shell__content",
+    ]
+  }
+
+  Gtk.Separator footer_rule {
+    orientation: horizontal;
+    visible: false;
+  }
+
+  Gtk.Box footer_box {
+    orientation: horizontal;
+    spacing: 6;
+    visible: false;
+
+    styles [
+      "popover-shell__footer",
+    ]
+  }
+}
