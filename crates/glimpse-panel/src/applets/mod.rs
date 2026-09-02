@@ -1,5 +1,6 @@
 mod clock;
 mod heartbeat;
+mod pager;
 
 use glimpse_config::Applet as AppletConfig;
 use std::collections::BTreeMap;
@@ -30,6 +31,7 @@ fn build(config: &AppletConfig) -> Option<Builder> {
     match config {
         AppletConfig::Clock(_) => Some(|| Box::new(clock::Clock::start())),
         AppletConfig::Heartbeat {} => Some(|| Box::new(heartbeat::Heartbeat::start())),
+        AppletConfig::Pager(_) => Some(|| Box::new(pager::Pager::start())),
         AppletConfig::Audio {}
         | AppletConfig::Battery {}
         | AppletConfig::Brightness {}
@@ -44,15 +46,12 @@ fn build(config: &AppletConfig) -> Option<Builder> {
         | AppletConfig::Network {}
         | AppletConfig::NextEvent {}
         | AppletConfig::Notifications {}
-        | AppletConfig::Pager {}
         | AppletConfig::Privacy {}
         | AppletConfig::Printing {}
         | AppletConfig::Removable {}
         | AppletConfig::Session {}
         | AppletConfig::Tray {}
-        | AppletConfig::Weather {}
-        | AppletConfig::Window {}
-        | AppletConfig::Workspace {} => None,
+        | AppletConfig::Weather {} => None,
     }
 }
 

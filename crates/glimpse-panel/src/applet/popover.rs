@@ -7,17 +7,23 @@ use super::Ctx;
 #[derive(Clone)]
 pub struct Seat {
     name: String,
+    output: Option<String>,
     client: Client,
 }
 
 impl Seat {
-    pub(crate) fn new(name: String, client: Client) -> Self {
-        Self { name, client }
+    pub(crate) fn new(name: String, output: Option<String>, client: Client) -> Self {
+        Self {
+            name,
+            output,
+            client,
+        }
     }
 
     pub fn ctx(&self, events: relm4::Sender<Event>) -> Ctx {
         Ctx::new(
             format!("{}.popover", self.name),
+            self.output.clone(),
             self.client.clone(),
             events,
         )

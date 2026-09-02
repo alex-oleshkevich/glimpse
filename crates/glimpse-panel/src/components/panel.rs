@@ -23,6 +23,16 @@ struct Slot {
     handle: Option<AppletHandle>,
 }
 
+fn settle(slot: &Slot, config: &Config, orientation: gtk::Orientation) {
+    let Some(handle) = slot.handle.as_ref() else {
+        return;
+    };
+    handle.set_orientation(orientation);
+    if let Some((applet, _)) = applets::resolve(&slot.name, &config.applets) {
+        handle.configure(applet);
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Zone {
     Start,
@@ -160,16 +170,12 @@ impl Panel {
             .eq(desired.iter().copied())
         {
             for slot in &self.applets {
-                let Some(handle) = slot.handle.as_ref() else {
-                    continue;
-                };
-                handle.group.set_orientation(orientation);
-                if let Some((applet, _)) = applets::resolve(&slot.name, &config.applets) {
-                    handle.configure(applet);
-                }
+                settle(slot, config, orientation);
             }
             return;
         }
+
+        let connector = config.monitor.connector().map(String::from);
 
         self.bar.clear_start();
         self.bar.clear_center();
@@ -190,7 +196,13 @@ impl Panel {
                         zone,
                         name: name.clone(),
                         handle: applets::resolve(name, &config.applets).map(|(applet, build)| {
-                            AppletHandle::launch(name.clone(), client.clone(), build, applet)
+                            AppletHandle::launch(
+                                name.clone(),
+                                connector.clone(),
+                                client.clone(),
+                                build,
+                                applet,
+                            )
                         }),
                     }),
             );
@@ -204,14 +216,14 @@ impl Panel {
         }
 
         for slot in &next {
+            settle(slot, config, orientation);
             let Some(handle) = slot.handle.as_ref() else {
                 continue;
             };
-            handle.group.set_orientation(orientation);
             match slot.zone {
-                Zone::Start => self.bar.append_to_start(&handle.group),
-                Zone::Center => self.bar.append_to_center(&handle.group),
-                Zone::End => self.bar.append_to_end(&handle.group),
+                Zone::Start => self.bar.append_to_start(&handle.widget),
+                Zone::Center => self.bar.append_to_center(&handle.widget),
+                Zone::End => self.bar.append_to_end(&handle.widget),
             }
         }
         self.applets = next;

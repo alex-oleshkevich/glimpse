@@ -10,21 +10,49 @@ Builds the binary named `glimpse`.
 - `app.rs` — one bar per (panel config × monitor), the shared `Client`, config and theme watches
 - `components/panel.rs` — bar window, zones, applet reconciliation
 - `applet/` — the applet framework: the trait, `Ctx`, the relm4 runtime
-- `applets/` — one module per applet, plus the registration match
+- `applets/` — one module per applet, plus the registration match; `pager/` renders workspaces or
+  windows into its own `Pager` widget rather than into indicators
 - `popups/` — notification popups, OSD _(pending)_
 
 ## Applets
 
-An applet owns exactly one `IndicatorGroup`, which renders 0..N `Indicator`s, so every applet's view
-is the same shape and only `Vec<IndicatorSpec>` varies. The trait is object-safe and the runtime
-stores `Box<dyn Applet>`:
+Most applets own exactly one `IndicatorGroup`, which renders 0..N `Indicator`s, so their view is the
+same shape and only `Vec<IndicatorSpec>` varies. The trait is object-safe and the runtime stores
+`Box<dyn Applet>`:
 
 ```rust
 fn topics(&self) -> &'static [&'static str]   // declared; the runtime subscribes
 fn start() -> Self
 fn handle(&mut self, ctx: &Ctx, input: &Input)
+fn view(&mut self, ctx: &Ctx) -> Option<gtk4::Widget>   // None: the runtime supplies the group
 fn indicators(&self) -> Vec<IndicatorSpec>
 ```
+
+## An applet may supply its own widget
+
+`view()` returning `Some` replaces the group entirely, and `indicators()` is then never called. The
+pager is the first case: it takes a click *per slot* over a list whose length changes, and
+`IndicatorGroup` takes one click for the whole row. A graph or a strip will not be the last.
+
+**The root is a `gtk4::Box` carrying the `applet` class, not the group.** relm4's `init_root()` takes
+no arguments, so the root cannot depend on an applet that is built later in `init()`. The box is that
+socket, and it gives every applet a uniform CSS hook the group-as-root never did.
+
+**An applet that supplies a view receives no `Input::Pointer`.** It supplied the widget; the widget
+owns its pointer, which is what lets the pager give each slot its own `Gtk.Button` and its own scroll
+axes without fighting a controller the runtime installed over the top.
+
+**Orientation reaches a view through its layout manager.** The runtime sets it on the box, and on the
+view's own `BoxLayout` when it has one. Anything with a different layout manager orients itself.
+
+**Signals are wired in `view`, which is called once**, before the first `configure`. A GTK callback
+outlives any `&Ctx`, so `ctx.caller()` hands out a `Caller` — name plus `Client`, cheap to clone —
+carrying only `call`. Settings a callback needs at click time live behind an `Rc<Cell<_>>` the applet
+updates in `configure`; capturing them by value would freeze them at wiring time.
+
+**`ctx.output()` is the connector this bar is on**, `None` when the monitor has no name. It exists
+for the pager's `scope = "output"` and is the `Placement` the applet skill said would arrive with the
+first applet that needed it.
 
 `indicators()` is a pull, called after every `handle`, and its result goes to `set_items`, which
 compares before writing. An empty vector hides the group, which is how an applet says it has nothing
@@ -61,6 +89,19 @@ collapsing the two severities means nineteen warnings on an untouched installati
 
 There is deliberately no staleness, no `degraded`, no per-applet configuration, no timer and no
 applet `Output`. A dead daemon stops delivering events and the last value stays on screen.
+
+## Reconciliation settles every slot, on both paths
+
+`reconcile_applets` has two: one for a config change that left the applet list alone, and one that
+rebuilds it. A slot that survives a rebuild is moved across as it stands, so the rebuild path used
+to append it without ever handing it the new configuration — an edit that added an applet *and*
+changed another applet's settings applied only the first half, and the surviving applet kept the
+settings it started with. Both paths now go through one `settle`, which orients the handle and
+hands it its configuration; the runtime compares before writing, so settling a slot that was just
+launched with that same configuration costs nothing.
+
+Two loops doing almost the same thing is what let them drift, so the shape is the fix: there is one
+place to change and no way to change half of it.
 
 ## Rules
 

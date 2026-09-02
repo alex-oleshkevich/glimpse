@@ -4,6 +4,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use glimpse_config::Applet as AppletConfig;
 use glimpse_ipc::{Client, Event};
 use glimpse_widgets::IndicatorGroup;
+use gtk4::prelude::*;
 use relm4::{Component, ComponentController, ComponentParts, ComponentSender, Controller};
 
 use super::{Applet, Button, Ctx, Direction, Input, Pointer};
@@ -14,6 +15,7 @@ pub type Builder = fn() -> Box<dyn Applet>;
 
 pub struct AppletInit {
     pub name: String,
+    pub output: Option<String>,
     pub client: Client,
     pub build: Builder,
     pub config: AppletConfig,
@@ -22,6 +24,7 @@ pub struct AppletInit {
 #[derive(Debug)]
 pub enum HostInput {
     Configured(AppletConfig),
+    Oriented(gtk4::Orientation),
     Pressed { button: u32 },
     Scrolled { dx: f64, dy: f64 },
 }
@@ -29,7 +32,8 @@ pub enum HostInput {
 pub struct AppletRuntime {
     applet: Option<Box<dyn Applet>>,
     ctx: Ctx,
-    group: IndicatorGroup,
+    root: gtk4::Box,
+    group: Option<IndicatorGroup>,
     scroll: Scroll,
     config: Option<AppletConfig>,
 }
@@ -39,11 +43,13 @@ impl Component for AppletRuntime {
     type Input = HostInput;
     type Output = ();
     type CommandOutput = Event;
-    type Root = IndicatorGroup;
+    type Root = gtk4::Box;
     type Widgets = ();
 
     fn init_root() -> Self::Root {
-        IndicatorGroup::new()
+        let root = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+        root.add_css_class("applet");
+        root
     }
 
     fn init(
@@ -51,31 +57,50 @@ impl Component for AppletRuntime {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        root.connect_pressed({
-            let sender = sender.clone();
-            move |_, button| sender.input(HostInput::Pressed { button })
-        });
-        root.connect_scrolled({
-            let sender = sender.clone();
-            move |_, dx, dy| sender.input(HostInput::Scrolled { dx, dy })
-        });
-
         let build = init.build;
-        let ctx = Ctx::new(init.name, init.client, sender.command_sender().clone());
-        let applet = build();
+        let ctx = Ctx::new(
+            init.name,
+            init.output,
+            init.client,
+            sender.command_sender().clone(),
+        );
+        let mut applet = build();
         for topic in applet.topics() {
             ctx.subscribe(topic);
         }
+
+        let group = match applet.view(&ctx) {
+            Some(view) => {
+                root.append(&view);
+                None
+            }
+            None => {
+                let group = IndicatorGroup::new();
+                group.connect_pressed({
+                    let sender = sender.clone();
+                    move |_, button| sender.input(HostInput::Pressed { button })
+                });
+                group.connect_scrolled({
+                    let sender = sender.clone();
+                    move |_, dx, dy| sender.input(HostInput::Scrolled { dx, dy })
+                });
+                root.append(&group);
+                Some(group)
+            }
+        };
+
         tracing::debug!(
             applet = ctx.name(),
             topics = applet.topics().len(),
+            own_view = group.is_none(),
             "started"
         );
 
         let mut model = AppletRuntime {
             applet: Some(applet),
             ctx,
-            group: root,
+            root,
+            group,
             scroll: Scroll::default(),
             config: None,
         };
@@ -88,6 +113,7 @@ impl Component for AppletRuntime {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>, _root: &Self::Root) {
         match message {
             HostInput::Configured(settings) => self.configure(settings),
+            HostInput::Oriented(orientation) => self.orient(orientation),
             HostInput::Pressed { button } => self.deliver(Some(&Input::Pointer(Pointer::Press(
                 Button::from_code(button),
             )))),
@@ -123,6 +149,22 @@ impl AppletRuntime {
         self.deliver(None);
     }
 
+    fn orient(&mut self, orientation: gtk4::Orientation) {
+        self.root.set_orientation(orientation);
+        if let Some(group) = self.group.as_ref() {
+            group.set_orientation(orientation);
+            return;
+        }
+        if let Some(layout) = self
+            .root
+            .first_child()
+            .and_then(|view| view.layout_manager())
+            .and_downcast::<gtk4::BoxLayout>()
+        {
+            layout.set_orientation(orientation);
+        }
+    }
+
     fn stop(&mut self, panic: &(dyn Any + Send)) {
         tracing::error!(
             applet = self.ctx.name(),
@@ -131,6 +173,12 @@ impl AppletRuntime {
         );
         self.applet = None;
         self.ctx.shutdown();
+
+        if self.group.is_none()
+            && let Some(view) = self.root.first_child()
+        {
+            self.root.remove(&view);
+        }
     }
 
     fn deliver(&mut self, input: Option<&Input>) {
@@ -169,12 +217,15 @@ impl AppletRuntime {
             }
         };
 
+        let Some(group) = self.group.as_ref() else {
+            return;
+        };
         tracing::debug!(
             applet = self.ctx.name(),
             indicators = specs.len(),
             "rendered"
         );
-        self.group.set_items(&specs);
+        group.set_items(&specs);
     }
 }
 
@@ -234,15 +285,22 @@ fn panic_reason(panic: &(dyn Any + Send)) -> &str {
 }
 
 pub struct AppletHandle {
-    pub group: IndicatorGroup,
+    pub widget: gtk4::Box,
     _controller: Controller<AppletRuntime>,
 }
 
 impl AppletHandle {
-    pub fn launch(name: String, client: Client, build: Builder, config: AppletConfig) -> Self {
+    pub fn launch(
+        name: String,
+        output: Option<String>,
+        client: Client,
+        build: Builder,
+        config: AppletConfig,
+    ) -> Self {
         let controller = AppletRuntime::builder()
             .launch(AppletInit {
                 name,
+                output,
                 client,
                 build,
                 config,
@@ -250,7 +308,7 @@ impl AppletHandle {
             .detach();
 
         Self {
-            group: controller.widget().clone(),
+            widget: controller.widget().clone(),
             _controller: controller,
         }
     }
@@ -261,13 +319,19 @@ impl AppletHandle {
             .sender()
             .send(HostInput::Configured(config));
     }
+
+    pub fn set_orientation(&self, orientation: gtk4::Orientation) {
+        let _ = self
+            ._controller
+            .sender()
+            .send(HostInput::Oriented(orientation));
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use glimpse_widgets::IndicatorSpec;
-    use gtk4::prelude::*;
     use std::cell::{Cell, RefCell};
 
     thread_local! {
@@ -303,6 +367,36 @@ mod tests {
         fn indicators(&self) -> Vec<IndicatorSpec> {
             SHOWN.with(|shown| shown.borrow().iter().map(|label| spec(label)).collect())
         }
+    }
+
+    struct Strip;
+
+    impl Applet for Strip {
+        fn start() -> Self {
+            Self
+        }
+
+        fn configure(&mut self, _ctx: &Ctx, _config: &AppletConfig) {
+            if EXPLODE.with(Cell::get) {
+                panic!("the strip exploded while configuring");
+            }
+        }
+
+        fn handle(&mut self, _ctx: &Ctx, _input: &Input) {}
+
+        fn view(&mut self, _ctx: &Ctx) -> Option<gtk4::Widget> {
+            let own = gtk4::Label::new(Some("strip"));
+            own.add_css_class("own-view");
+            Some(own.upcast())
+        }
+    }
+
+    fn group(handle: &AppletHandle) -> IndicatorGroup {
+        handle
+            .widget
+            .first_child()
+            .and_downcast::<IndicatorGroup>()
+            .expect("an applet with no view of its own gets the group")
     }
 
     fn settle() {
@@ -440,6 +534,7 @@ mod tests {
         shown(&["a", "b"]);
         let handle = AppletHandle::launch(
             "probe".to_owned(),
+            Some("DP-1".to_owned()),
             client.clone(),
             || Box::new(Probe::start()),
             config("%H:%M"),
@@ -459,31 +554,31 @@ mod tests {
         assert_eq!(CONFIGURED.get(), 2, "a changed one is");
 
         assert!(
-            handle.group.first_child().is_some(),
+            group(&handle).first_child().is_some(),
             "the group renders what indicators() returned"
         );
 
-        press(&handle.group, 3);
+        press(&group(&handle), 3);
         assert_eq!(
             seen(),
             ["Press(Right)"],
             "a press carries the decoded button and nothing about which chip it landed on"
         );
 
-        scroll(&handle.group, 0.6);
+        scroll(&group(&handle), 0.6);
         assert!(seen().is_empty(), "a partial gesture reaches no applet");
 
-        scroll(&handle.group, 0.6);
+        scroll(&group(&handle), 0.6);
         assert_eq!(seen(), ["Scroll(Down)"], "the notch arrives once, whole");
 
-        scroll(&handle.group, 0.7);
+        scroll(&group(&handle), 0.7);
         assert!(seen().is_empty(), "0.9 of a notch is still no notch");
 
         shown(&["a"]);
-        press(&handle.group, 1);
+        press(&group(&handle), 1);
         assert_eq!(seen(), ["Press(Left)"]);
 
-        scroll(&handle.group, 0.3);
+        scroll(&group(&handle), 0.3);
         assert_eq!(
             seen(),
             ["Scroll(Down)"],
@@ -491,13 +586,13 @@ mod tests {
         );
 
         EXPLODE.set(true);
-        press(&handle.group, 1);
+        press(&group(&handle), 1);
         assert!(
-            handle.group.first_child().is_none(),
+            group(&handle).first_child().is_none(),
             "a panicking applet empties its group"
         );
 
-        press(&handle.group, 1);
+        press(&group(&handle), 1);
         assert!(
             seen().is_empty(),
             "a stopped applet receives no further input"
@@ -505,16 +600,54 @@ mod tests {
 
         let exploding = AppletHandle::launch(
             "exploding".to_owned(),
-            client,
+            None,
+            client.clone(),
             || Box::new(Probe::start()),
             config("%H"),
         );
         settle();
         assert!(
-            exploding.group.first_child().is_none(),
+            group(&exploding).first_child().is_none(),
             "an applet that panics while configuring is stopped too, not only one that panics \
              while handling"
         );
         EXPLODE.set(false);
+
+        let strip = AppletHandle::launch(
+            "strip".to_owned(),
+            None,
+            client,
+            || Box::new(Strip::start()),
+            config("%H"),
+        );
+        settle();
+
+        let own = strip.widget.first_child().expect("the view is parented");
+        assert!(
+            own.has_css_class("own-view"),
+            "an applet that supplies a view gets that widget, not an IndicatorGroup wrapping it"
+        );
+        assert!(
+            own.downcast_ref::<IndicatorGroup>().is_none(),
+            "and the group is never built, so indicators() is never asked for"
+        );
+
+        strip.set_orientation(gtk4::Orientation::Vertical);
+        settle();
+        assert_eq!(
+            strip.widget.orientation(),
+            gtk4::Orientation::Vertical,
+            "a vertical bar has to reach an applet that renders its own strip"
+        );
+
+        EXPLODE.set(true);
+        strip.configure(config("%M"));
+        settle();
+        EXPLODE.set(false);
+        assert!(
+            strip.widget.first_child().is_none(),
+            "a panicking applet gives its space back whether the group or the applet owned the \
+             widget; only the group empties itself"
+        );
     }
 }

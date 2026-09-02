@@ -25,7 +25,14 @@ pub trait Applet: 'static {
 
     fn handle(&mut self, ctx: &Ctx, input: &Input);
 
-    fn indicators(&self) -> Vec<IndicatorSpec>;
+    fn view(&mut self, ctx: &Ctx) -> Option<gtk4::Widget> {
+        let _ = ctx;
+        None
+    }
+
+    fn indicators(&self) -> Vec<IndicatorSpec> {
+        Vec::new()
+    }
 
     fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let _ = seat;
@@ -73,31 +80,19 @@ pub enum Direction {
 }
 
 pub struct Ctx {
-    name: String,
-    client: Client,
+    caller: Caller,
+    output: Option<String>,
     events: relm4::Sender<Event>,
     sources: RefCell<Vec<SourceGuard>>,
 }
 
-impl Ctx {
-    pub(crate) fn new(name: String, client: Client, events: relm4::Sender<Event>) -> Self {
-        Self {
-            name,
-            client,
-            events,
-            sources: RefCell::default(),
-        }
-    }
+#[derive(Clone)]
+pub struct Caller {
+    name: String,
+    client: Client,
+}
 
-    pub(crate) fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub(crate) fn shutdown(&self) {
-        let stopped = self.sources.borrow_mut().drain(..).count();
-        tracing::debug!(applet = self.name, stopped, "sources stopped");
-    }
-
+impl Caller {
     pub fn call<C: Command>(&self, args: C::Args) {
         let client = self.client.clone();
         let applet = self.name.clone();
@@ -115,11 +110,48 @@ impl Ctx {
             }
         });
     }
+}
+
+impl Ctx {
+    pub(crate) fn new(
+        name: String,
+        output: Option<String>,
+        client: Client,
+        events: relm4::Sender<Event>,
+    ) -> Self {
+        Self {
+            caller: Caller { name, client },
+            output,
+            events,
+            sources: RefCell::default(),
+        }
+    }
+
+    pub(crate) fn name(&self) -> &str {
+        &self.caller.name
+    }
+
+    pub fn caller(&self) -> Caller {
+        self.caller.clone()
+    }
+
+    pub fn output(&self) -> Option<&str> {
+        self.output.as_deref()
+    }
+
+    pub(crate) fn shutdown(&self) {
+        let stopped = self.sources.borrow_mut().drain(..).count();
+        tracing::debug!(applet = self.caller.name, stopped, "sources stopped");
+    }
+
+    pub fn call<C: Command>(&self, args: C::Args) {
+        self.caller.call::<C>(args);
+    }
 
     pub(crate) fn subscribe(&self, topic: &'static str) {
-        let client = self.client.clone();
+        let client = self.caller.client.clone();
         let events = self.events.clone();
-        let applet = self.name.clone();
+        let applet = self.caller.name.clone();
         let mut states = client.watch_state();
 
         let handle = relm4::spawn(async move {
