@@ -47,3 +47,59 @@ pub struct MethodReport {
 pub struct HeartbeatInterval {
     pub previous_ms: u64,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceInfo {
+    pub id: u64,
+    pub index: Option<u8>,
+    pub name: Option<String>,
+    pub output: Option<String>,
+    pub active: bool,
+    pub focused: bool,
+    pub urgent: bool,
+    pub windows: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WindowInfo {
+    pub id: u64,
+    pub title: Option<String>,
+    pub app_id: Option<String>,
+    pub workspace: Option<u64>,
+    pub focused: bool,
+    pub floating: bool,
+    pub urgent: bool,
+    pub order: Option<u16>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OutputInfo {
+    pub connector: String,
+    pub label: Option<String>,
+    pub built_in: bool,
+    pub focused: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CompositorCapabilities {
+    pub floating: bool,
+    pub workspace_reorder: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "by", rename_all = "snake_case")]
+pub enum WorkspaceRef {
+    Id { id: u64 },
+    Index { index: u8 },
+    Name { name: String },
+    Next,
+    Prev,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "by", rename_all = "snake_case")]
+pub enum WindowRef {
+    Id { id: u64 },
+    Next,
+    Prev,
+}

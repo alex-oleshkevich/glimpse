@@ -62,4 +62,16 @@ topics! {
 
     #[name = "heartbeat.tick"]
     pub struct HeartbeatTick { count: u64 }
+
+    #[name = "compositor.status"]
+    pub struct CompositorStatus { name: String, capabilities: CompositorCapabilities }
+
+    #[name = "compositor.workspaces"]
+    pub struct CompositorWorkspaces { workspaces: Vec<WorkspaceInfo> }
+
+    #[name = "compositor.windows"]
+    pub struct CompositorWindows { windows: Vec<WindowInfo> }
+
+    #[name = "compositor.outputs"]
+    pub struct CompositorOutputs { outputs: Vec<OutputInfo> }
 }
