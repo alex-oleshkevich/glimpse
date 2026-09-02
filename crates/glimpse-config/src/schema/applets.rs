@@ -28,21 +28,66 @@ pub enum Applet {
     Network {},
     NextEvent {},
     Notifications {},
-    Pager {},
+    Pager(Pager),
     Printing {},
     Privacy {},
     Removable {},
     Session {},
     Tray {},
     Weather {},
-    Window {},
-    Workspace {},
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Clock {
     pub format: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Pager {
+    pub mode: PagerMode,
+    pub shape: PagerShape,
+    pub scope: PagerScope,
+    pub label: String,
+    pub focused_label: String,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum PagerMode {
+    #[default]
+    Workspaces,
+    Windows,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum PagerShape {
+    #[default]
+    Dots,
+    Numbers,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum PagerScope {
+    Current,
+    #[default]
+    Output,
+    Session,
+}
+
+impl Default for Pager {
+    fn default() -> Self {
+        Self {
+            mode: PagerMode::default(),
+            shape: PagerShape::default(),
+            scope: PagerScope::default(),
+            label: "{index}".to_owned(),
+            focused_label: "{index}".to_owned(),
+        }
+    }
 }
 
 impl Default for Clock {

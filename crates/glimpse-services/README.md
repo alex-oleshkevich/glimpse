@@ -49,6 +49,49 @@ Two details are load-bearing:
 - **Without a location it publishes nothing** and reports `degraded`. `SolarStatus.phase` is not
   optional and `Day` is not a safe guess to make at three in the morning.
 
+## The compositor service
+
+Mirrors `glimpse-compositors` onto four topics — `compositor.status`, `compositor.workspaces`,
+`compositor.windows`, `compositor.outputs` — and passes eight commands straight through. It reads a
+snapshot once, follows the event stream, and re-reads the whole snapshot on a `Resync`.
+
+**There is no `compositor.focus` topic.** A focus change already mutates the `focused` flag inside
+the workspace and window lists, so those republish anyway and a separate topic would be a second
+answer to a question that already has one.
+
+**The whole snapshot is re-read on a resync, not the named part.** `Snapshot` fetches every part
+concurrently in one call, and `Publisher` drops a topic whose value did not change, so re-reading
+everything costs one round trip and publishes only what actually moved. Per-part refetching would be
+three code paths to keep in step with the event enum.
+
+**A resync is a declared source keyed by an attempt counter**, the way geolocation's retry is. A
+resync arriving mid-fetch bumps the key, which tears the in-flight read down and starts a current
+one — that is the coalescing, and it needs no `fetching`/`pending` bookkeeping.
+
+**Urgency is derived here so every client sees one answer.** A window is urgent when the compositor
+says so; a workspace is urgent when the compositor says so *or* when any window on it is. The `or`
+is what makes Hyprland work at all, since it never marks a workspace urgent. Deriving it rather than
+caching it per workspace is also what keeps the two consistent when a window moves, which Hyprland
+reports as a bare `Resync(Structure)`.
+
+**A focused window's urgency is cleared locally.** Hyprland's `urgent>>address` only ever arrives as
+"became urgent" — it drops its own `urgencyHint` on focus and says nothing on the socket. Without
+the local clear the dot stays warm until the window closes. niri clears it itself, and the next
+snapshot is authoritative on both.
+
+**Workspaces are ordered here**, by output and then by `index` falling back to `id`. Only niri fills
+`idx`; a Hyprland workspace's id is its number. Ordering once in the producer is what stops every
+client from arriving at a different answer.
+
+**`OutputInfo.label` is composed.** niri leaves `description` null and fills `make`/`model`;
+Hyprland fills `description` and pads nothing. A popover row headed `Move to display` has nothing to
+render unless one of them is turned into a label here.
+
+**Commands are awaited inline rather than spawned.** A compositor command is a round trip on a local
+socket, and a compositor that cannot answer has taken the session with it. Awaiting keeps a command
+and the events it causes in the order they happened, which is worth more than isolating a hang that
+cannot occur without the session already being over.
+
 ## Rules
 
 The dependency arrow points from `glimpsed` to here and never back. Anything the framework needs

@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 chrono.workspace = true
 futures-util.workspace = true
+glimpse-compositors.workspace = true
 glimpse-config.workspace = true
 glimpse-contracts.workspace = true
 glimpse-dbus.workspace = true

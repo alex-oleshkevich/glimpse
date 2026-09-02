@@ -18,7 +18,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 pub use appearance::{Appearance, ColorScheme};
-pub use applets::{Applet, Clock as ClockConfig};
+pub use applets::{
+    Applet, Clock as ClockConfig, Pager as PagerConfig, PagerMode, PagerScope, PagerShape,
+};
 pub use backdrop::Backdrop;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};
 pub use geolocation::Geolocation;
@@ -195,6 +197,59 @@ mod tests {
             parsed.applets["clock-utc"],
             Applet::Clock(applets::Clock::default())
         );
+    }
+
+    #[test]
+    fn the_pager_defaults_to_dots_of_workspaces_on_this_output() {
+        let parsed: Config = toml::from_str("[applets.pager]\n").expect("settings are optional");
+
+        assert_eq!(
+            parsed.applets["pager"],
+            Applet::Pager(applets::Pager {
+                mode: PagerMode::Workspaces,
+                shape: PagerShape::Dots,
+                scope: PagerScope::Output,
+                label: "{index}".to_owned(),
+                focused_label: "{index}".to_owned(),
+            }),
+            "the old applet defaulted to windows, which is the surprising one"
+        );
+    }
+
+    #[test]
+    fn the_pager_reads_its_settings_in_kebab_case() {
+        let parsed: Config = toml::from_str(
+            "[applets.pager]\nmode = \"windows\"\nshape = \"numbers\"\nscope = \"session\"\nfocused-label = \"{name}\"\n",
+        )
+        .expect("a full table");
+
+        let Applet::Pager(pager) = &parsed.applets["pager"] else {
+            panic!("the table names the pager");
+        };
+        assert_eq!(pager.mode, PagerMode::Windows);
+        assert_eq!(pager.shape, PagerShape::Numbers);
+        assert_eq!(pager.scope, PagerScope::Session);
+        assert_eq!(pager.focused_label, "{name}");
+    }
+
+    #[test]
+    fn the_pager_refuses_a_setting_it_does_not_have() {
+        assert!(
+            toml::from_str::<Config>("[applets.pager]\nappearance = \"dots\"\n").is_err(),
+            "`appearance` was the old name for `shape`; a silently ignored key is a setting that \
+             never took effect"
+        );
+    }
+
+    #[test]
+    fn the_workspace_and_window_applets_are_gone_rather_than_unimplemented() {
+        for name in ["workspace", "window"] {
+            assert!(
+                toml::from_str::<Config>(&format!("[applets.{name}]\n")).is_err(),
+                "`{name}` folded into the pager as a mode and a scope; leaving the name resolvable \
+                 would leave a second way to ask for the same strip"
+            );
+        }
     }
 
     #[test]
