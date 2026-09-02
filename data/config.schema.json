@@ -200,6 +200,26 @@
             "extends": {
               "type": "string",
               "const": "pager"
+            },
+            "focused-label": {
+              "type": "string",
+              "default": "{index}"
+            },
+            "label": {
+              "type": "string",
+              "default": "{index}"
+            },
+            "mode": {
+              "$ref": "#/$defs/PagerMode",
+              "default": "workspaces"
+            },
+            "scope": {
+              "$ref": "#/$defs/PagerScope",
+              "default": "output"
+            },
+            "shape": {
+              "$ref": "#/$defs/PagerShape",
+              "default": "dots"
             }
           },
           "additionalProperties": false,
@@ -266,28 +286,6 @@
             "extends": {
               "type": "string",
               "const": "weather"
-            }
-          },
-          "additionalProperties": false,
-          "required": []
-        },
-        "window": {
-          "type": "object",
-          "properties": {
-            "extends": {
-              "type": "string",
-              "const": "window"
-            }
-          },
-          "additionalProperties": false,
-          "required": []
-        },
-        "workspace": {
-          "type": "object",
-          "properties": {
-            "extends": {
-              "type": "string",
-              "const": "workspace"
             }
           },
           "additionalProperties": false,
@@ -514,6 +512,26 @@
               "extends": {
                 "type": "string",
                 "const": "pager"
+              },
+              "focused-label": {
+                "type": "string",
+                "default": "{index}"
+              },
+              "label": {
+                "type": "string",
+                "default": "{index}"
+              },
+              "mode": {
+                "$ref": "#/$defs/PagerMode",
+                "default": "workspaces"
+              },
+              "scope": {
+                "$ref": "#/$defs/PagerScope",
+                "default": "output"
+              },
+              "shape": {
+                "$ref": "#/$defs/PagerShape",
+                "default": "dots"
               }
             },
             "additionalProperties": false,
@@ -592,32 +610,6 @@
               "extends": {
                 "type": "string",
                 "const": "weather"
-              }
-            },
-            "additionalProperties": false,
-            "required": [
-              "extends"
-            ]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "extends": {
-                "type": "string",
-                "const": "window"
-              }
-            },
-            "additionalProperties": false,
-            "required": [
-              "extends"
-            ]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "extends": {
-                "type": "string",
-                "const": "workspace"
               }
             },
             "additionalProperties": false,
@@ -1185,6 +1177,28 @@
         }
       },
       "additionalProperties": false
+    },
+    "PagerMode": {
+      "type": "string",
+      "enum": [
+        "workspaces",
+        "windows"
+      ]
+    },
+    "PagerScope": {
+      "type": "string",
+      "enum": [
+        "current",
+        "output",
+        "session"
+      ]
+    },
+    "PagerShape": {
+      "type": "string",
+      "enum": [
+        "dots",
+        "numbers"
+      ]
     },
     "Panel": {
       "type": "object",
