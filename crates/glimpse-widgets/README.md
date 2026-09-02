@@ -153,6 +153,18 @@ from `tooltip-text` on its own — `set_slot` sets the accessible label explicit
 with neither a tooltip nor a label is an unnamed button, which is the one way to use this widget
 inaccessibly.
 
+### Hover must not outrank the state it sits on
+
+`:hover` adds a pseudo-class to the selector, so `.pager-item:hover` is *more* specific than
+`.pager-item--here` and wins no matter which comes later in the file. Left alone, hovering the
+current workspace makes it render as if it were not current, and hovering an urgent one hides the
+urgency — which is the single thing the strip exists to surface. Both hover rules therefore exclude
+those two states with `:not()`, which this GTK honours chained: measured `min-width` 90 against 10
+on a label carrying one of the excluded classes.
+
+`--elsewhere` is deliberately not excluded. It already paints the same colour hover would, so the
+two are indistinguishable and an extra clause would be specificity nobody can see.
+
 ## Calendar
 
 A month grid with a year view behind it. `var/design/calendar.md` holds the layout reasoning and the

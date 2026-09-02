@@ -136,7 +136,7 @@
         color var(--gl-duration) var(--gl-ease);
 }
 
-.pager-item:hover {
+.pager-item:not(.pager-item--here):not(.pager-item--urgent):hover {
     background-color: var(--gl-pager-occupied);
 }
 
@@ -180,7 +180,7 @@
     font-variant-numeric: tabular-nums;
 }
 
-.pager--numbers .pager-item:hover {
+.pager--numbers .pager-item:not(.pager-item--here):not(.pager-item--urgent):hover {
     background-color: var(--gl-hover);
     color: var(--gl-panel-fg);
 }

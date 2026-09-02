@@ -365,6 +365,15 @@ there rather than against the live session. A Unix socket path is capped at `SUN
 bytes, so a daemon under test gets its socket in `$XDG_RUNTIME_DIR`, never in a scratch directory
 whose path is already long.
 
+**Urgency is set directly under niri and cannot be under Hyprland.** `niri msg action
+set-window-urgent --id <id>` marks a window, and `unset-window-urgent` clears it, which is what
+`scripts/urgency-test.sh` wraps — the workspace then goes urgent through the service's own
+derivation rather than because anything marked it. Hyprland has no such dispatcher: there, urgency
+only ever arrives from an `xdg_activation_v1` request it declines, so it has to come from a real
+application asking for attention. A GTK window calling `present()` does **not** produce one —
+measured: on Wayland GTK sends an activation request only when it already holds a token, so a
+window that asks for itself sends nothing at all and the compositor never hears about it.
+
 `scripts/` still holds helpers written. Several are useful as-is —
 `mpris-fake-players.py`, `network-test-fixtures.sh`, the `privacy-test-*` probes, and
 `glimpse-lock-rescue-pam.sh`.

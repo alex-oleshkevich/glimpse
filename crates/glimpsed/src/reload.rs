@@ -67,7 +67,7 @@ mod tests {
     async fn a_changed_document_reaches_every_sink() {
         let dir = tempfile::tempdir().expect("a temporary directory");
         let path = dir.path().join("config.toml");
-        std::fs::write(&path, "[night_light]\ntemperature = 4200\n").expect("writes");
+        std::fs::write(&path, "[night-light]\ntemperature = 4200\n").expect("writes");
 
         let (first, seen_first) = recorder();
         let (second, seen_second) = recorder();
@@ -85,7 +85,7 @@ mod tests {
         for _ in 0..8 {
             tokio::task::yield_now().await;
         }
-        std::fs::write(&path, "[night_light]\ntemperature = 3000\n").expect("changes");
+        std::fs::write(&path, "[night-light]\ntemperature = 3000\n").expect("changes");
         tokio::time::timeout(SETTLE, async {
             while seen_first.lock().expect("not poisoned").is_empty() {
                 tokio::time::sleep(Duration::from_millis(25)).await;
