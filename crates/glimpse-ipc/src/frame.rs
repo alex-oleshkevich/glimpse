@@ -92,6 +92,7 @@ pub enum ErrorCode {
     InvalidArgs,
     NotReady,
     Unavailable,
+    Unsupported,
     Timeout,
     LimitExceeded,
     Internal,
