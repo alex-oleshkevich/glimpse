@@ -91,7 +91,7 @@ impl Pager {
         let settings = self.settings.borrow();
         self.strip.set_shape(match settings.shape {
             PagerShape::Dots => Shape::Dots,
-            PagerShape::Numbers => Shape::Numbers,
+            PagerShape::Labels => Shape::Labels,
         });
         self.strip.set_slots(&self.slots(&settings));
     }
@@ -375,7 +375,7 @@ mod tests {
             workspace_slot(&settings, &named).label,
             "chat",
             "focused-label exists so the current workspace can show its name while the rest \
-             stay numbers"
+             stay plain"
         );
     }
 

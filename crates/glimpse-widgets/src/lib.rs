@@ -1586,13 +1586,13 @@ mod tests {
             !label.is_visible(),
             "a dot carries no text, so the label stays out of the measurement"
         );
-        pager.set_shape(Shape::Numbers);
+        pager.set_shape(Shape::Labels);
         assert!(
             label.is_visible(),
-            "numbers is the shape that shows the label"
+            "labels is the shape that shows the label"
         );
         assert!(
-            pager.has_css_class("pager--numbers") && !pager.has_css_class("pager--dots"),
+            pager.has_css_class("pager--labels") && !pager.has_css_class("pager--dots"),
             "the shape is one class, so a stylesheet never sees both at once"
         );
 

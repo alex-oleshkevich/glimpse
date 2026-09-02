@@ -172,40 +172,40 @@
     background-color: var(--gl-warning-text);
 }
 
-.pager--numbers .pager-item {
+.pager--labels .pager-item {
     min-width: var(--gl-pager-pill, 1.8rem);
     min-height: var(--gl-pager-pill, 1.8rem);
     background-color: transparent;
     color: var(--gl-pager-text);
 }
 
-.pager--numbers .pager-item__label {
+.pager--labels .pager-item__label {
     padding: 0 0.3rem;
     font-size: var(--gl-text-caption);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
 
-.pager--numbers .pager-item:not(.pager-item--here):not(.pager-item--urgent):hover {
+.pager--labels .pager-item:not(.pager-item--here):not(.pager-item--urgent):hover {
     background-color: var(--gl-hover);
     color: var(--gl-panel-fg);
 }
 
-.pager--numbers .pager-item--occupied {
+.pager--labels .pager-item--occupied {
     color: var(--gl-panel-fg);
 }
 
-.pager--numbers .pager-item--elsewhere {
+.pager--labels .pager-item--elsewhere {
     background-color: var(--gl-hover);
     color: var(--gl-panel-fg);
 }
 
-.pager--numbers .pager-item--here {
+.pager--labels .pager-item--here {
     background-color: var(--gl-accent);
     color: var(--gl-accent-fg);
 }
 
-.pager--numbers .pager-item--urgent {
+.pager--labels .pager-item--urgent {
     background-color: var(--gl-warning-text);
     color: var(--gl-panel);
 }

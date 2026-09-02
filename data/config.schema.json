@@ -227,7 +227,7 @@
               ]
             },
             "label": {
-              "description": "What a slot reads, when the shape is `numbers`, and the fallback for every state below.\nUnderstands `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.\n`{index}` falls back to the id, because only niri numbers its workspaces separately from\ntheir ids; in `windows` mode it is the slot's position and `{name}` is the window's app\nid, which is why `{workspace-name}` exists.",
+              "description": "What a slot reads, when the shape is `labels`, and the fallback for every state below.\nUnderstands `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.\n`{index}` falls back to the id, because only niri numbers its workspaces separately from\ntheir ids; in `windows` mode it is the slot's position and `{name}` is the window's app\nid, which is why `{workspace-name}` exists.",
               "type": "string",
               "default": "{index}"
             },
@@ -585,7 +585,7 @@
                 ]
               },
               "label": {
-                "description": "What a slot reads, when the shape is `numbers`, and the fallback for every state below.\nUnderstands `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.\n`{index}` falls back to the id, because only niri numbers its workspaces separately from\ntheir ids; in `windows` mode it is the slot's position and `{name}` is the window's app\nid, which is why `{workspace-name}` exists.",
+                "description": "What a slot reads, when the shape is `labels`, and the fallback for every state below.\nUnderstands `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.\n`{index}` falls back to the id, because only niri numbers its workspaces separately from\ntheir ids; in `windows` mode it is the slot's position and `{name}` is the window's app\nid, which is why `{workspace-name}` exists.",
                 "type": "string",
                 "default": "{index}"
               },
@@ -1287,11 +1287,11 @@
       ]
     },
     "PagerShape": {
-      "description": "How a slot is drawn: `dots` for a dot each with the current one drawn longer, which takes the\nleast room on the bar, or `numbers` for the slot's label in a pill.",
+      "description": "How a slot is drawn: `dots` for a dot each with the current one drawn longer, which takes\nthe least room on the bar, or `labels` for the slot's label in a pill.",
       "type": "string",
       "enum": [
         "dots",
-        "numbers"
+        "labels"
       ]
     },
     "Panel": {

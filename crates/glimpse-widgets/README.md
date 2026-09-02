@@ -94,7 +94,7 @@ whether the output holding it is the focused one, and naming them as opposites m
 CSS unreadable. Occupancy and urgency stay flags rather than more `Focus` variants, so an urgent
 workspace that is also current draws both.
 
-`Shape` is `Dots` or `Numbers`, and it is the only thing that decides whether the label is visible.
+`Shape` is `Dots` or `Labels`, and it is the only thing that decides whether the label is visible.
 The two are independent of what the slots *are*: dots of windows is a useful reading of a scrolling
 layout, and numbered workspaces is the traditional one.
 
@@ -120,7 +120,7 @@ dimension.** So the same gesture reads the same way in both modes — a wheel al
 slots in front of you, which is also the only axis a plain mouse produces — and the sideways gesture
 is always the one that leaves the strip.
 
-The numbers shape is sized so that **one token drives both dimensions**. GTK4's `min-width` and
+The labels shape is sized so that **one token drives both dimensions**. GTK4's `min-width` and
 `min-height` bound the *content* box and padding is added outside it, so `min-width: 1.6rem` with
 `padding: 0 0.35rem` measured 40 × 26 — an ellipse, visible only on the selected item because it is
 the only one with a background. The padding moved onto `.pager-item__label`, where it is inside the

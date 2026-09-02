@@ -1103,14 +1103,14 @@ mod fixtures {
                 windows[1].focus = Focus::Here;
                 (Shape::Dots, windows, true)
             }
-            "numbers" => (Shape::Numbers, slots, false),
+            "labels" => (Shape::Labels, slots, false),
             "named" => {
                 let named = ["Browsing", "glimpse", "Notes", "4"];
                 for (slot, name) in slots.iter_mut().zip(named) {
                     slot.label = name.to_owned();
                 }
                 slots[2].urgent = true;
-                (Shape::Numbers, slots, false)
+                (Shape::Labels, slots, false)
             }
             "empty" => (Shape::Dots, Vec::new(), false),
             _ => {

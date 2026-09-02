@@ -71,7 +71,7 @@ impl PagerItem {
 
         let label = truncate(&slot.label, LABEL_MAX_CHARS);
         imp.label
-            .set_visible(shape == Shape::Numbers && !label.is_empty());
+            .set_visible(shape == Shape::Labels && !label.is_empty());
         imp.label.set_text(&label);
 
         let described = match slot.tooltip.is_empty() {

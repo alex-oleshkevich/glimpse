@@ -6,14 +6,14 @@ pub use item::PagerItem;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 const DOTS: &str = "pager--dots";
-const NUMBERS: &str = "pager--numbers";
+const LABELS: &str = "pager--labels";
 const VERTICAL: &str = "pager--vertical";
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Shape {
     #[default]
     Dots,
-    Numbers,
+    Labels,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -110,8 +110,8 @@ impl Pager {
 
     fn apply_shape(&self) {
         let (add, remove) = match self.imp().shape.get() {
-            Shape::Numbers => (NUMBERS, DOTS),
-            Shape::Dots => (DOTS, NUMBERS),
+            Shape::Labels => (LABELS, DOTS),
+            Shape::Dots => (DOTS, LABELS),
         };
         self.remove_css_class(remove);
         self.add_css_class(add);

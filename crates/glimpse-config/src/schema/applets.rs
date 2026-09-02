@@ -82,7 +82,7 @@ pub struct Pager {
     pub shape: PagerShape,
     /// How much of the session the strip covers.
     pub scope: PagerScope,
-    /// What a slot reads, when the shape is `numbers`, and the fallback for every state below.
+    /// What a slot reads, when the shape is `labels`, and the fallback for every state below.
     /// Understands `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.
     /// `{index}` falls back to the id, because only niri numbers its workspaces separately from
     /// their ids; in `windows` mode it is the slot's position and `{name}` is the window's app
@@ -114,13 +114,13 @@ pub enum PagerMode {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-/// How a slot is drawn: `dots` for a dot each with the current one drawn longer, which takes the
-/// least room on the bar, or `numbers` for the slot's label in a pill.
+/// How a slot is drawn: `dots` for a dot each with the current one drawn longer, which takes
+/// the least room on the bar, or `labels` for the slot's label in a pill.
 #[serde(rename_all = "kebab-case")]
 pub enum PagerShape {
     #[default]
     Dots,
-    Numbers,
+    Labels,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]

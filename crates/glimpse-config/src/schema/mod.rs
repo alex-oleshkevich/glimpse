@@ -221,7 +221,7 @@ mod tests {
     #[test]
     fn the_pager_reads_its_settings_in_kebab_case() {
         let parsed: Config = toml::from_str(
-            "[applets.pager]\nmode = \"windows\"\nshape = \"numbers\"\nscope = \"session\"\nfocused-label = \"{name}\"\n",
+            "[applets.pager]\nmode = \"windows\"\nshape = \"labels\"\nscope = \"session\"\nfocused-label = \"{name}\"\n",
         )
         .expect("a full table");
 
@@ -229,7 +229,7 @@ mod tests {
             panic!("the table names the pager");
         };
         assert_eq!(pager.mode, PagerMode::Windows);
-        assert_eq!(pager.shape, PagerShape::Numbers);
+        assert_eq!(pager.shape, PagerShape::Labels);
         assert_eq!(pager.scope, PagerScope::Session);
         assert_eq!(pager.focused_label.as_deref(), Some("{name}"));
     }
