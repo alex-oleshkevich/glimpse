@@ -82,14 +82,25 @@ pub struct Pager {
     pub shape: PagerShape,
     /// How much of the session the strip covers.
     pub scope: PagerScope,
-    /// What a slot reads, when the shape is `numbers`. Understands `{index}`, `{id}`, `{name}`,
-    /// `{name-or-index}` and `{workspace-name}`. `{index}` falls back to the id, because only
-    /// niri numbers its workspaces separately from their ids; in `windows` mode it is the slot's
-    /// position and `{name}` is the window's app id, which is why `{workspace-name}` exists.
+    /// What a slot reads, when the shape is `numbers`, and the fallback for every state below.
+    /// Understands `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.
+    /// `{index}` falls back to the id, because only niri numbers its workspaces separately from
+    /// their ids; in `windows` mode it is the slot's position and `{name}` is the window's app
+    /// id, which is why `{workspace-name}` exists.
     pub label: String,
-    /// The label for the slot the user is currently on, so the current workspace can show its
-    /// name while the rest stay numbers. Same tokens as `label`.
-    pub focused_label: String,
+    /// The label for the slot the user is on, so the current workspace can show its name while
+    /// the rest stay numbers. Same tokens as `label`; unset falls back to it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub focused_label: Option<String>,
+    /// The label for every slot the user is not on. Same tokens as `label`; unset falls back
+    /// to it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unfocused_label: Option<String>,
+    /// The label for a slot asking for attention. Takes precedence over the other two, because a
+    /// window wanting attention is the one thing the strip exists to surface. Same tokens as
+    /// `label`; unset falls back to it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub urgent_label: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
@@ -131,7 +142,9 @@ impl Default for Pager {
             shape: PagerShape::default(),
             scope: PagerScope::default(),
             label: "{index}".to_owned(),
-            focused_label: "{index}".to_owned(),
+            focused_label: None,
+            unfocused_label: None,
+            urgent_label: None,
         }
     }
 }

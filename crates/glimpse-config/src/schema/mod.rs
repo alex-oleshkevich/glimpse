@@ -210,7 +210,9 @@ mod tests {
                 shape: PagerShape::Dots,
                 scope: PagerScope::Output,
                 label: "{index}".to_owned(),
-                focused_label: "{index}".to_owned(),
+                focused_label: None,
+                unfocused_label: None,
+                urgent_label: None,
             }),
             "the old applet defaulted to windows, which is the surprising one"
         );
@@ -229,7 +231,7 @@ mod tests {
         assert_eq!(pager.mode, PagerMode::Windows);
         assert_eq!(pager.shape, PagerShape::Numbers);
         assert_eq!(pager.scope, PagerScope::Session);
-        assert_eq!(pager.focused_label, "{name}");
+        assert_eq!(pager.focused_label.as_deref(), Some("{name}"));
     }
 
     #[test]

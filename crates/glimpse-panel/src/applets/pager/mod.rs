@@ -118,7 +118,7 @@ impl Pager {
                     showing
                         .iter()
                         .find(|workspace| workspace.id == id)
-                        .and_then(|workspace| workspace.name.as_deref())
+                        .map(|workspace| workspace_token(workspace))
                 };
 
                 self.windows
@@ -130,7 +130,8 @@ impl Pager {
                     })
                     .enumerate()
                     .map(|(position, window)| {
-                        window_slot(settings, position, window, window.workspace.and_then(named))
+                        let workspace = window.workspace.and_then(named);
+                        window_slot(settings, position, window, workspace.as_deref())
                     })
                     .collect()
             }
@@ -138,24 +139,30 @@ impl Pager {
     }
 }
 
-fn template(settings: &PagerConfig, focused: bool) -> &str {
-    match focused {
-        true => &settings.focused_label,
-        false => &settings.label,
-    }
+fn template(settings: &PagerConfig, focused: bool, urgent: bool) -> &str {
+    let chosen = match (urgent, focused) {
+        (true, _) => settings.urgent_label.as_deref(),
+        (false, true) => settings.focused_label.as_deref(),
+        (false, false) => settings.unfocused_label.as_deref(),
+    };
+    chosen.unwrap_or(&settings.label)
 }
 
 fn workspace_slot(settings: &PagerConfig, workspace: &WorkspaceInfo) -> Slot {
+    let named = workspace_token(workspace);
     let facts = Facts {
         index: workspace.index.map(u64::from),
         id: workspace.id,
         name: workspace.name.as_deref(),
-        workspace: workspace.name.as_deref(),
+        workspace: Some(&named),
     };
 
     Slot {
         id: workspace.id,
-        label: render(template(settings, workspace.focused), &facts),
+        label: render(
+            template(settings, workspace.focused, workspace.urgent),
+            &facts,
+        ),
         tooltip: render("{name-or-index}", &facts),
         focus: match (workspace.focused, workspace.active) {
             (true, _) => Focus::Here,
@@ -182,7 +189,7 @@ fn window_slot(
 
     Slot {
         id: window.id,
-        label: render(template(settings, window.focused), &facts),
+        label: render(template(settings, window.focused, window.urgent), &facts),
         tooltip: window
             .title
             .clone()
@@ -194,6 +201,15 @@ fn window_slot(
         },
         occupied: true,
         urgent: window.urgent,
+    }
+}
+
+fn workspace_token(workspace: &WorkspaceInfo) -> String {
+    match workspace.name.as_deref() {
+        Some(name) if !name.is_empty() => name.to_owned(),
+        _ => workspace
+            .index
+            .map_or_else(|| workspace.id.to_string(), |index| index.to_string()),
     }
 }
 
@@ -273,7 +289,7 @@ mod tests {
     fn labelled(label: &str, focused_label: &str) -> PagerConfig {
         PagerConfig {
             label: label.to_owned(),
-            focused_label: focused_label.to_owned(),
+            focused_label: Some(focused_label.to_owned()),
             ..PagerConfig::default()
         }
     }
@@ -293,6 +309,41 @@ mod tests {
         );
         assert_eq!(slot.tooltip, "a terminal");
         assert_eq!(slot.id, 94_388_234_684_768);
+    }
+
+    #[test]
+    fn an_unnamed_workspace_is_named_by_its_index() {
+        let mut unnamed = workspace(7, "DP-1", false, false);
+        unnamed.index = Some(4);
+        unnamed.name = None;
+
+        assert_eq!(workspace_token(&unnamed), "4");
+
+        unnamed.name = Some(String::new());
+        assert_eq!(
+            workspace_token(&unnamed),
+            "4",
+            "a workspace renamed to nothing is unnamed, not named the empty string"
+        );
+
+        unnamed.name = Some("work".to_owned());
+        assert_eq!(workspace_token(&unnamed), "work");
+    }
+
+    #[test]
+    fn a_workspace_slot_renders_the_index_where_it_has_no_name() {
+        let settings = PagerConfig {
+            label: "{workspace-name}".to_owned(),
+            ..PagerConfig::default()
+        };
+        let mut unnamed = workspace(7, "DP-1", false, false);
+        unnamed.index = Some(4);
+
+        assert_eq!(
+            workspace_slot(&settings, &unnamed).label,
+            "4",
+            "an empty slot reads as a broken template, not as an unnamed workspace"
+        );
     }
 
     #[test]
@@ -326,6 +377,38 @@ mod tests {
             "focused-label exists so the current workspace can show its name while the rest \
              stay numbers"
         );
+    }
+
+    #[test]
+    fn each_state_reads_its_own_template_and_falls_back_to_the_plain_one() {
+        let settings = PagerConfig {
+            label: "{index}".to_owned(),
+            focused_label: Some("[{index}]".to_owned()),
+            unfocused_label: Some("-{index}-".to_owned()),
+            urgent_label: Some("!{index}".to_owned()),
+            ..PagerConfig::default()
+        };
+
+        assert_eq!(template(&settings, true, false), "[{index}]");
+        assert_eq!(template(&settings, false, false), "-{index}-");
+        assert_eq!(template(&settings, false, true), "!{index}");
+        assert_eq!(
+            template(&settings, true, true),
+            "!{index}",
+            "urgency outranks focus, because it is the one state the strip exists to surface"
+        );
+
+        let bare = PagerConfig {
+            label: "{index}".to_owned(),
+            ..PagerConfig::default()
+        };
+        for (focused, urgent) in [(true, true), (true, false), (false, true), (false, false)] {
+            assert_eq!(
+                template(&bare, focused, urgent),
+                "{index}",
+                "every state falls back to `label`, so setting one does not blank the others"
+            );
+        }
     }
 
     #[test]

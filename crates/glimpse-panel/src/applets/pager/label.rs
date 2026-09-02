@@ -118,6 +118,23 @@ mod tests {
     }
 
     #[test]
+    fn an_unnamed_workspace_falls_back_to_its_index() {
+        let unnamed = Facts {
+            index: Some(4),
+            id: 7,
+            name: None,
+            workspace: Some("4"),
+        };
+
+        assert_eq!(
+            render("{workspace-name}", &unnamed),
+            "4",
+            "an empty slot where a name would be reads as a broken template, not as an unnamed \
+             workspace"
+        );
+    }
+
+    #[test]
     fn workspace_name_is_the_only_way_to_name_the_workspace_while_showing_windows() {
         let window = Facts {
             index: Some(2),

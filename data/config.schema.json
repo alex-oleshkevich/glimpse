@@ -220,12 +220,14 @@
               "const": "pager"
             },
             "focused-label": {
-              "description": "The label for the slot the user is currently on, so the current workspace can show its\nname while the rest stay numbers. Same tokens as `label`.",
-              "type": "string",
-              "default": "{index}"
+              "description": "The label for the slot the user is on, so the current workspace can show its name while\nthe rest stay numbers. Same tokens as `label`; unset falls back to it.",
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "label": {
-              "description": "What a slot reads, when the shape is `numbers`. Understands `{index}`, `{id}`, `{name}`,\n`{name-or-index}` and `{workspace-name}`. `{index}` falls back to the id, because only\nniri numbers its workspaces separately from their ids; in `windows` mode it is the slot's\nposition and `{name}` is the window's app id, which is why `{workspace-name}` exists.",
+              "description": "What a slot reads, when the shape is `numbers`, and the fallback for every state below.\nUnderstands `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.\n`{index}` falls back to the id, because only niri numbers its workspaces separately from\ntheir ids; in `windows` mode it is the slot's position and `{name}` is the window's app\nid, which is why `{workspace-name}` exists.",
               "type": "string",
               "default": "{index}"
             },
@@ -243,6 +245,20 @@
               "description": "Whether a slot is drawn as a dot or as its label in a pill.",
               "$ref": "#/$defs/PagerShape",
               "default": "dots"
+            },
+            "unfocused-label": {
+              "description": "The label for every slot the user is not on. Same tokens as `label`; unset falls back\nto it.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "urgent-label": {
+              "description": "The label for a slot asking for attention. Takes precedence over the other two, because a\nwindow wanting attention is the one thing the strip exists to surface. Same tokens as\n`label`; unset falls back to it.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -562,12 +578,14 @@
                 "const": "pager"
               },
               "focused-label": {
-                "description": "The label for the slot the user is currently on, so the current workspace can show its\nname while the rest stay numbers. Same tokens as `label`.",
-                "type": "string",
-                "default": "{index}"
+                "description": "The label for the slot the user is on, so the current workspace can show its name while\nthe rest stay numbers. Same tokens as `label`; unset falls back to it.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "label": {
-                "description": "What a slot reads, when the shape is `numbers`. Understands `{index}`, `{id}`, `{name}`,\n`{name-or-index}` and `{workspace-name}`. `{index}` falls back to the id, because only\nniri numbers its workspaces separately from their ids; in `windows` mode it is the slot's\nposition and `{name}` is the window's app id, which is why `{workspace-name}` exists.",
+                "description": "What a slot reads, when the shape is `numbers`, and the fallback for every state below.\nUnderstands `{index}`, `{id}`, `{name}`, `{name-or-index}` and `{workspace-name}`.\n`{index}` falls back to the id, because only niri numbers its workspaces separately from\ntheir ids; in `windows` mode it is the slot's position and `{name}` is the window's app\nid, which is why `{workspace-name}` exists.",
                 "type": "string",
                 "default": "{index}"
               },
@@ -585,6 +603,20 @@
                 "description": "Whether a slot is drawn as a dot or as its label in a pill.",
                 "$ref": "#/$defs/PagerShape",
                 "default": "dots"
+              },
+              "unfocused-label": {
+                "description": "The label for every slot the user is not on. Same tokens as `label`; unset falls back\nto it.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "urgent-label": {
+                "description": "The label for a slot asking for attention. Takes precedence over the other two, because a\nwindow wanting attention is the one thing the strip exists to surface. Same tokens as\n`label`; unset falls back to it.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
