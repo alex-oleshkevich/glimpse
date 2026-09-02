@@ -254,7 +254,11 @@ exists to prevent, and shaping the width would mean editing seventeen files. `_s
 in exactly one example (`.swatch--e0563f`) stays in that example's own sheet.
 
 `var/widget_examples/` holds whole compositions — `popover_shell_full.blp` is a popover with every
-slot filled, and there is one per applet popover. An example is a top-level object, not a
+slot filled, and there is one per applet popover. It also holds a **states board per widget**,
+`<widget>_states.blp`, which shows one instance per state under a caption naming it. A states board
+is pure Blueprint whenever the state is a property or a child, which is most widgets and needs no
+fixture at all; a widget whose data arrives through a Rust struct setter — `set_slots`, `set_events`,
+`set_facts` — cannot have one until something supplies that data. An example is a top-level object, not a
 `template`: `Builder` cannot instantiate a template whose class does not exist, so a `template`
 root renders as nothing at all. `just check-examples` compiles every one of them, which the
 preview otherwise only does one at a time.
