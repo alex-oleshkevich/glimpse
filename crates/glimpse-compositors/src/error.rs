@@ -4,6 +4,8 @@ use std::path::PathBuf;
 pub enum CompositorError {
     #[error("no supported compositor: {0}")]
     Unsupported(&'static str),
+    #[error("this compositor cannot {0}")]
+    Unavailable(&'static str),
     #[error("compositor socket {path}: {source}")]
     Connect {
         path: PathBuf,

@@ -14,12 +14,15 @@ use tokio::net::UnixStream;
 use crate::error::CompositorError;
 use crate::event::Event;
 use crate::model::{
-    LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowTarget, Workspace, WorkspaceId,
-    WorkspaceTarget, is_built_in,
+    LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget, Workspace,
+    WorkspaceId, WorkspaceTarget, is_built_in,
 };
 use event::{EventState, WireLayouts};
 
-pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities { floating: false };
+pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
+    floating: false,
+    workspace_reorder: true,
+};
 
 /// Niri answers one request per connection and then closes it, so there is no connection to hold —
 /// only the path to open the next one at. `EventStream` is the single exception, and it owns its
@@ -101,6 +104,38 @@ impl Niri {
 
     pub(crate) async fn focus_window(&self, to: WindowTarget) -> Result<(), CompositorError> {
         self.act(&window_action(to)).await
+    }
+
+    pub(crate) async fn move_workspace_to_output(
+        &self,
+        id: WorkspaceId,
+        connector: &str,
+    ) -> Result<(), CompositorError> {
+        self.act(&move_to_output_action(id, connector)).await
+    }
+
+    pub(crate) async fn reorder_workspace(
+        &self,
+        id: WorkspaceId,
+        index: u8,
+    ) -> Result<(), CompositorError> {
+        self.act(&reorder_action(id, index)).await
+    }
+
+    pub(crate) async fn move_window_to_workspace(
+        &self,
+        window: WindowId,
+        to: &WorkspaceTarget,
+    ) -> Result<(), CompositorError> {
+        self.act(&move_window_action(window, to)?).await
+    }
+
+    pub(crate) async fn close_window(&self, id: WindowId) -> Result<(), CompositorError> {
+        self.act(&close_action(id)).await
+    }
+
+    pub(crate) async fn focus_output(&self, connector: &str) -> Result<(), CompositorError> {
+        self.act(&focus_output_action(connector)).await
     }
 
     pub(crate) async fn set_output_enabled(
@@ -270,6 +305,40 @@ fn rename_action(id: WorkspaceId, name: Option<&str>) -> Value {
     }
 }
 
+fn workspace_reference(to: &WorkspaceTarget) -> Result<Value, CompositorError> {
+    match to {
+        WorkspaceTarget::Id(id) => Ok(json!({ "Id": id.0 })),
+        WorkspaceTarget::Index(index) => Ok(json!({ "Index": index })),
+        WorkspaceTarget::Name(name) => Ok(json!({ "Name": name })),
+        WorkspaceTarget::Next | WorkspaceTarget::Prev => Err(CompositorError::Unavailable(
+            "move a window to a workspace named only as next or previous",
+        )),
+    }
+}
+
+fn move_to_output_action(id: WorkspaceId, connector: &str) -> Value {
+    json!({ "MoveWorkspaceToMonitor": { "output": connector, "reference": { "Id": id.0 } } })
+}
+
+fn reorder_action(id: WorkspaceId, index: u8) -> Value {
+    json!({ "MoveWorkspaceToIndex": { "index": index, "reference": { "Id": id.0 } } })
+}
+
+fn move_window_action(window: WindowId, to: &WorkspaceTarget) -> Result<Value, CompositorError> {
+    let reference = workspace_reference(to)?;
+    Ok(json!({
+        "MoveWindowToWorkspace": { "reference": reference, "window_id": window.0, "focus": false }
+    }))
+}
+
+fn close_action(id: WindowId) -> Value {
+    json!({ "CloseWindow": { "id": id.0 } })
+}
+
+fn focus_output_action(connector: &str) -> Value {
+    json!({ "FocusMonitor": { "output": connector } })
+}
+
 fn output_request(connector: &str, on: bool) -> Value {
     let action = match on {
         true => "On",
@@ -436,6 +505,51 @@ mod tests {
 
     /// The one test that catches an upstream rename: every target, against the literal JSON niri
     /// 26.04 accepts.
+    #[test]
+    fn every_addon_names_its_subject_rather_than_acting_on_the_focused_one() {
+        assert_eq!(
+            move_to_output_action(WorkspaceId(4), "DP-3"),
+            json!({ "MoveWorkspaceToMonitor": { "output": "DP-3", "reference": { "Id": 4 } } })
+        );
+        assert_eq!(
+            reorder_action(WorkspaceId(4), 2),
+            json!({ "MoveWorkspaceToIndex": { "index": 2, "reference": { "Id": 4 } } })
+        );
+        assert_eq!(
+            close_action(WindowId(9)),
+            json!({ "CloseWindow": { "id": 9 } })
+        );
+        assert_eq!(
+            focus_output_action("DP-3"),
+            json!({ "FocusMonitor": { "output": "DP-3" } })
+        );
+    }
+
+    #[test]
+    fn moving_a_window_to_a_workspace_does_not_follow_it_there() {
+        let action = move_window_action(WindowId(9), &WorkspaceTarget::Id(WorkspaceId(4)))
+            .expect("an id is a reference");
+        assert_eq!(
+            action,
+            json!({
+                "MoveWindowToWorkspace": {
+                    "reference": { "Id": 4 },
+                    "window_id": 9,
+                    "focus": false
+                }
+            }),
+            "niri defaults focus to true, which would drag the user after the window"
+        );
+    }
+
+    #[test]
+    fn a_relative_workspace_is_not_a_reference_a_window_can_be_moved_to() {
+        assert!(matches!(
+            move_window_action(WindowId(9), &WorkspaceTarget::Next),
+            Err(CompositorError::Unavailable(_))
+        ));
+    }
+
     #[test]
     fn every_target_serializes_to_the_action_niri_expects() {
         assert_eq!(

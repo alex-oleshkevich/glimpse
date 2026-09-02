@@ -22,16 +22,17 @@ pub use niri::Niri;
 
 use futures_util::stream::BoxStream;
 
-/// What a caller can do that depends on which compositor is running. One field, because `floating`
-/// is the only thing niri and Hyprland disagree on that anything acts upon — the rest of what a
-/// compositor supports is answered by whether it is `Unsupported`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Capabilities {
     pub floating: bool,
+    pub workspace_reorder: bool,
 }
 
 impl Capabilities {
-    pub const NONE: Self = Self { floating: false };
+    pub const NONE: Self = Self {
+        floating: false,
+        workspace_reorder: false,
+    };
 }
 
 /// The compositor this session is running under, or `Unsupported`. Never fails: a session under
@@ -120,6 +121,45 @@ impl Compositor {
             .focus_window(to))
     }
 
+    pub async fn move_workspace_to_output(
+        &self,
+        id: WorkspaceId,
+        connector: &str,
+    ) -> Result<(), CompositorError> {
+        delegate!(self, "cannot move a workspace to an output", |backend| {
+            backend.move_workspace_to_output(id, connector)
+        })
+    }
+
+    pub async fn reorder_workspace(
+        &self,
+        id: WorkspaceId,
+        index: u8,
+    ) -> Result<(), CompositorError> {
+        delegate!(self, "cannot reorder a workspace", |backend| backend
+            .reorder_workspace(id, index))
+    }
+
+    pub async fn move_window_to_workspace(
+        &self,
+        window: WindowId,
+        to: WorkspaceTarget,
+    ) -> Result<(), CompositorError> {
+        delegate!(self, "cannot move a window to a workspace", |backend| {
+            backend.move_window_to_workspace(window, &to)
+        })
+    }
+
+    pub async fn close_window(&self, id: WindowId) -> Result<(), CompositorError> {
+        delegate!(self, "cannot close a window", |backend| backend
+            .close_window(id))
+    }
+
+    pub async fn focus_output(&self, connector: &str) -> Result<(), CompositorError> {
+        delegate!(self, "cannot focus an output", |backend| backend
+            .focus_output(connector))
+    }
+
     pub async fn set_output_enabled(
         &self,
         connector: &str,
@@ -157,19 +197,29 @@ mod tests {
             compositor.set_output_enabled("eDP-1", true).await,
             Err(CompositorError::Unsupported(_))
         ));
+        assert!(matches!(
+            compositor.close_window(WindowId(1)).await,
+            Err(CompositorError::Unsupported(_))
+        ));
+        assert!(matches!(
+            compositor.reorder_workspace(WorkspaceId(1), 0).await,
+            Err(CompositorError::Unsupported(_))
+        ));
+        assert!(matches!(
+            compositor.focus_output("eDP-1").await,
+            Err(CompositorError::Unsupported(_))
+        ));
     }
 
     #[test]
-    fn the_two_backends_disagree_only_about_floating() {
+    fn the_two_backends_disagree_about_floating_and_about_reordering() {
+        let niri = Compositor::Niri(Niri::at("/nonexistent")).capabilities();
+        let hyprland = Compositor::Hyprland(Hyprland::at("/nonexistent")).capabilities();
+
+        assert!(!niri.floating && niri.workspace_reorder);
         assert!(
-            !Compositor::Niri(Niri::at("/nonexistent"))
-                .capabilities()
-                .floating
-        );
-        assert!(
-            Compositor::Hyprland(Hyprland::at("/nonexistent"))
-                .capabilities()
-                .floating
+            hyprland.floating && !hyprland.workspace_reorder,
+            "a Hyprland workspace's index is its identity, so there is no position to change"
         );
     }
 }

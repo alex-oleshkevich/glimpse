@@ -15,12 +15,16 @@ use tokio::net::UnixStream;
 use crate::error::CompositorError;
 use crate::event::Event;
 use crate::model::{
-    KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowTarget,
-    Workspace, WorkspaceId, WorkspaceTarget, capped_app_id_str, capped_title_str, is_built_in,
+    KeyboardLayouts, LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget,
+    Workspace, WorkspaceId, WorkspaceTarget, capped_app_id_str, capped_name_str, capped_title_str,
+    is_built_in,
 };
 use event::{EventState, address, layout_index};
 
-pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities { floating: true };
+pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
+    floating: true,
+    workspace_reorder: false,
+};
 
 const CONTROL_SOCKET: &str = ".socket.sock";
 const EVENT_SOCKET: &str = ".socket2.sock";
@@ -96,9 +100,7 @@ impl Hyprland {
         let codes = self.keyboard_layouts().await.unwrap_or_default().codes;
 
         let path = self.dir.join(EVENT_SOCKET);
-        let stream = UnixStream::connect(&path)
-            .await
-            .map_err(|error| CompositorError::connect(&path, error))?;
+        let stream = connect(&path).await?;
 
         let start = (
             BufReader::new(stream).lines(),
@@ -140,6 +142,38 @@ impl Hyprland {
 
     pub(crate) async fn focus_window(&self, to: WindowTarget) -> Result<(), CompositorError> {
         self.dispatch(&window_command(to)).await
+    }
+
+    pub(crate) async fn move_workspace_to_output(
+        &self,
+        id: WorkspaceId,
+        connector: &str,
+    ) -> Result<(), CompositorError> {
+        self.dispatch(&move_to_output_command(id, connector)).await
+    }
+
+    pub(crate) async fn reorder_workspace(
+        &self,
+        _id: WorkspaceId,
+        _index: u8,
+    ) -> Result<(), CompositorError> {
+        Err(CompositorError::Unavailable("reorder a workspace"))
+    }
+
+    pub(crate) async fn move_window_to_workspace(
+        &self,
+        window: WindowId,
+        to: &WorkspaceTarget,
+    ) -> Result<(), CompositorError> {
+        self.dispatch(&move_window_command(window, to)).await
+    }
+
+    pub(crate) async fn close_window(&self, id: WindowId) -> Result<(), CompositorError> {
+        self.dispatch(&close_command(id)).await
+    }
+
+    pub(crate) async fn focus_output(&self, connector: &str) -> Result<(), CompositorError> {
+        self.dispatch(&focus_output_command(connector)).await
     }
 
     pub(crate) async fn set_output_enabled(
@@ -222,9 +256,7 @@ impl Hyprland {
 
     async fn control(&self, command: &str) -> Result<String, CompositorError> {
         let path = self.dir.join(CONTROL_SOCKET);
-        let mut stream = UnixStream::connect(&path)
-            .await
-            .map_err(|error| CompositorError::connect(&path, error))?;
+        let mut stream = connect(&path).await?;
 
         stream
             .write_all(command.as_bytes())
@@ -243,6 +275,25 @@ impl Hyprland {
             false => Ok(reply),
         }
     }
+}
+
+const CONNECT_ATTEMPTS: u32 = 8;
+const CONNECT_BACKOFF: tokio::time::Duration = tokio::time::Duration::from_millis(4);
+
+async fn connect(path: &std::path::Path) -> Result<UnixStream, CompositorError> {
+    for attempt in 1..CONNECT_ATTEMPTS {
+        match UnixStream::connect(path).await {
+            Ok(stream) => return Ok(stream),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                tokio::time::sleep(CONNECT_BACKOFF * attempt).await;
+            }
+            Err(error) => return Err(CompositorError::connect(path, error)),
+        }
+    }
+
+    UnixStream::connect(path)
+        .await
+        .map_err(|error| CompositorError::connect(path, error))
 }
 
 pub(crate) fn from_env() -> Option<Hyprland> {
@@ -403,7 +454,7 @@ impl WireMonitor {
             }),
             current_mode: current_mode.flatten(),
             connector: self.name,
-            description: self.description,
+            description: self.description.as_deref().and_then(capped_name_str),
             make: self.make,
             model: self.model,
             enabled,
@@ -427,7 +478,7 @@ impl WireWorkspace {
         Workspace {
             id: WorkspaceId(self.id),
             idx: None,
-            name: (!self.name.is_empty()).then_some(self.name),
+            name: capped_name_str(&self.name),
             output: self.monitor,
             is_active: active.contains_key(&self.id),
             is_focused: active.get(&self.id).copied().unwrap_or(false),
@@ -486,14 +537,38 @@ fn layout_command(to: LayoutTarget) -> String {
     format!("dispatch switchxkblayout all {target}")
 }
 
-fn workspace_command(to: &WorkspaceTarget) -> String {
+fn workspace_selector(to: &WorkspaceTarget) -> String {
     match to {
-        WorkspaceTarget::Next => "dispatch workspace +1".to_owned(),
-        WorkspaceTarget::Prev => "dispatch workspace -1".to_owned(),
-        WorkspaceTarget::Id(id) => format!("dispatch workspace {}", id.0),
-        WorkspaceTarget::Index(index) => format!("dispatch workspace {index}"),
-        WorkspaceTarget::Name(name) => format!("dispatch workspace name:{name}"),
+        WorkspaceTarget::Next => "+1".to_owned(),
+        WorkspaceTarget::Prev => "-1".to_owned(),
+        WorkspaceTarget::Id(id) => id.0.to_string(),
+        WorkspaceTarget::Index(index) => index.to_string(),
+        WorkspaceTarget::Name(name) => format!("name:{name}"),
     }
+}
+
+fn workspace_command(to: &WorkspaceTarget) -> String {
+    format!("dispatch workspace {}", workspace_selector(to))
+}
+
+fn move_to_output_command(id: WorkspaceId, connector: &str) -> String {
+    format!("dispatch moveworkspacetomonitor {} {connector}", id.0)
+}
+
+fn move_window_command(window: WindowId, to: &WorkspaceTarget) -> String {
+    format!(
+        "dispatch movetoworkspacesilent {},address:0x{:x}",
+        workspace_selector(to),
+        window.0
+    )
+}
+
+fn close_command(id: WindowId) -> String {
+    format!("dispatch closewindow address:0x{:x}", id.0)
+}
+
+fn focus_output_command(connector: &str) -> String {
+    format!("dispatch focusmonitor {connector}")
 }
 
 fn window_command(to: WindowTarget) -> String {
@@ -529,7 +604,7 @@ mod tests {
                       "model": "ATNA60CL10", "width": 2880, "height": 1800,
                       "refreshRate": 120.001, "x": 0, "y": 0, "scale": 1.25, "transform": 0,
                       "focused": true, "disabled": false, "activeWorkspace": { "id": 5 } },
-                    { "name": "DP-3", "disabled": true }
+                    { "name": "DP-3", "description": "", "disabled": true }
                 ])
                 .to_string(),
                 "j/workspaces" => json!([
@@ -656,6 +731,11 @@ mod tests {
         assert!(!external.enabled);
         assert_eq!(external.current_mode, None);
         assert_eq!(external.logical, None);
+        assert_eq!(
+            external.description, None,
+            "Hyprland sends an absent description as an empty string; a caller must not have to \
+             know which compositor it came from to read one"
+        );
     }
 
     /// Hyprland gives xkb codes and a display name from opposite ends, so both halves have to be
@@ -709,6 +789,37 @@ mod tests {
                 .to_string()
                 .contains("/nonexistent/hypr/.socket.sock"),
             "expected the path in {failure}"
+        );
+    }
+
+    #[test]
+    fn every_addon_serializes_to_the_dispatch_hyprland_expects() {
+        assert_eq!(
+            move_to_output_command(WorkspaceId(4), "DP-3"),
+            "dispatch moveworkspacetomonitor 4 DP-3"
+        );
+        assert_eq!(
+            move_window_command(WindowId(0x5b), &WorkspaceTarget::Id(WorkspaceId(4))),
+            "dispatch movetoworkspacesilent 4,address:0x5b",
+            "the silent form is what keeps focus where the user left it"
+        );
+        assert_eq!(
+            close_command(WindowId(0x5b)),
+            "dispatch closewindow address:0x5b"
+        );
+        assert_eq!(focus_output_command("DP-3"), "dispatch focusmonitor DP-3");
+    }
+
+    #[tokio::test]
+    async fn reordering_a_workspace_is_refused_rather_than_dispatched() {
+        let error = Hyprland::at("/nonexistent")
+            .reorder_workspace(WorkspaceId(4), 2)
+            .await
+            .expect_err("refused");
+
+        assert!(
+            matches!(error, CompositorError::Unavailable(_)),
+            "a dispatch would have failed to connect first, so this is what proves nothing was sent"
         );
     }
 

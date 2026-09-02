@@ -893,6 +893,7 @@ version = "0.16.0"
 dependencies = [
  "chrono",
  "futures-util",
+ "glimpse-compositors",
  "glimpse-config",
  "glimpse-contracts",
  "glimpse-dbus",

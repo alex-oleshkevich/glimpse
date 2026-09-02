@@ -13,7 +13,7 @@ pub struct Workspace {
     pub id: WorkspaceId,
     #[serde(default)]
     pub idx: Option<u8>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "capped_name")]
     pub name: Option<String>,
     #[serde(default)]
     pub output: Option<String>,
@@ -123,6 +123,7 @@ pub enum WindowTarget {
 
 const TITLE_CAP: usize = 512;
 const APP_ID_CAP: usize = 128;
+const NAME_CAP: usize = 128;
 
 /// Titles and app ids belong to other applications: unbounded, and in practice already carrying
 /// bidi overrides that would reorder whatever a panel draws next to them.
@@ -145,6 +146,10 @@ fn capped_app_id<'de, D: Deserializer<'de>>(input: D) -> Result<Option<String>, 
     Ok(Option::<String>::deserialize(input)?.map(|text| sanitize(&text, APP_ID_CAP)))
 }
 
+fn capped_name<'de, D: Deserializer<'de>>(input: D) -> Result<Option<String>, D::Error> {
+    Ok(Option::<String>::deserialize(input)?.and_then(|text| non_empty(sanitize(&text, NAME_CAP))))
+}
+
 /// Hyprland sends an absent title or class as `""` where niri sends `null`, so both have to
 /// arrive as `None` or a caller sees a difference that is not about the window.
 pub(crate) fn capped_title_str(text: &str) -> Option<String> {
@@ -153,6 +158,10 @@ pub(crate) fn capped_title_str(text: &str) -> Option<String> {
 
 pub(crate) fn capped_app_id_str(text: &str) -> Option<String> {
     non_empty(sanitize(text, APP_ID_CAP))
+}
+
+pub(crate) fn capped_name_str(text: &str) -> Option<String> {
+    non_empty(sanitize(text, NAME_CAP))
 }
 
 fn non_empty(text: String) -> Option<String> {
@@ -209,6 +218,17 @@ mod tests {
 
         assert_eq!(sanitize(&long, APP_ID_CAP).len(), APP_ID_CAP);
         assert_eq!(sanitize(&long, TITLE_CAP).len(), TITLE_CAP);
+    }
+
+    #[test]
+    fn a_workspace_name_is_capped_and_sanitized_like_a_window_title() {
+        assert_eq!(capped_name_str("a\nb"), Some("ab".to_owned()));
+        assert_eq!(capped_name_str(""), None);
+        assert_eq!(
+            capped_name_str(&"x".repeat(NAME_CAP + 10)),
+            Some("x".repeat(NAME_CAP)),
+            "a workspace name is set by whatever ran renameworkspace, not only by hand"
+        );
     }
 
     #[test]

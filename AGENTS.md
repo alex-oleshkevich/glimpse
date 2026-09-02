@@ -355,6 +355,16 @@ that redirects the daemon's output into it makes every line the daemon writes an
 read the configuration again. With a document that will not parse, that is a closed loop running at
 exactly `DEBOUNCE` — it looks precisely like a watcher retrying, and it is not.
 
+**Testing against a compositor.** `crates/glimpse-compositors/tests/live.rs` runs against whatever
+compositor the environment names — `just test-compositor`. Point it somewhere else by setting
+`NIRI_SOCKET` or `HYPRLAND_INSTANCE_SIGNATURE` (and unsetting the other), which is how a **nested**
+compositor is tested without touching the session: spawn `niri -c <config>` or `Hyprland -c <config>`,
+find the socket it created by diffing `$XDG_RUNTIME_DIR` before and after, and export it. Neither
+compositor has a headless mode, so a nested instance always opens a window — do the mutating tests
+there rather than against the live session. A Unix socket path is capped at `SUN_LEN`, about 108
+bytes, so a daemon under test gets its socket in `$XDG_RUNTIME_DIR`, never in a scratch directory
+whose path is already long.
+
 `scripts/` still holds helpers written. Several are useful as-is —
 `mpris-fake-players.py`, `network-test-fixtures.sh`, the `privacy-test-*` probes, and
 `glimpse-lock-rescue-pam.sh`.
