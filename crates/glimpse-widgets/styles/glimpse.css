@@ -111,6 +111,99 @@
     color: var(--gl-accent-text);
 }
 
+.pager {
+    --gl-pager-dot: 0.5rem;
+    --gl-pager-wide: 1.3rem;
+    --gl-pager-pill: 1.8rem;
+    --gl-pager-gap: 0.18rem;
+    --gl-pager-idle: alpha(var(--gl-panel-fg), 0.25);
+    --gl-pager-occupied: alpha(var(--gl-panel-fg), 0.5);
+    --gl-pager-here: alpha(var(--gl-panel-fg), 0.9);
+    --gl-pager-text: alpha(var(--gl-panel-fg), 0.55);
+    padding: 0 0.2rem;
+}
+
+.pager-item {
+    min-width: var(--gl-pager-dot, 0.5rem);
+    min-height: var(--gl-pager-dot, 0.5rem);
+    margin: var(--gl-pager-gap, 0.18rem);
+    padding: 0;
+    border-radius: 999px;
+    background-color: var(--gl-pager-idle);
+    transition:
+        min-width var(--gl-duration) var(--gl-ease),
+        background-color var(--gl-duration) var(--gl-ease),
+        color var(--gl-duration) var(--gl-ease);
+}
+
+.pager-item:hover {
+    background-color: var(--gl-pager-occupied);
+}
+
+.pager-item:focus-visible {
+    outline: 1px solid var(--gl-accent-text);
+    outline-offset: 1px;
+}
+
+.pager-item--occupied {
+    background-color: var(--gl-pager-occupied);
+}
+
+.pager-item--elsewhere {
+    background-color: var(--gl-pager-occupied);
+}
+
+.pager-item--here {
+    background-color: var(--gl-pager-here);
+}
+
+.pager--dots .pager-item--elsewhere,
+.pager--dots .pager-item--here {
+    min-width: var(--gl-pager-wide, 1.3rem);
+}
+
+.pager-item--urgent {
+    background-color: var(--gl-warning-text);
+}
+
+.pager--numbers .pager-item {
+    min-width: var(--gl-pager-pill, 1.8rem);
+    min-height: var(--gl-pager-pill, 1.8rem);
+    background-color: transparent;
+    color: var(--gl-pager-text);
+}
+
+.pager--numbers .pager-item__label {
+    padding: 0 0.3rem;
+    font-size: var(--gl-text-caption);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.pager--numbers .pager-item:hover {
+    background-color: var(--gl-hover);
+    color: var(--gl-panel-fg);
+}
+
+.pager--numbers .pager-item--occupied {
+    color: var(--gl-panel-fg);
+}
+
+.pager--numbers .pager-item--elsewhere {
+    background-color: var(--gl-hover);
+    color: var(--gl-panel-fg);
+}
+
+.pager--numbers .pager-item--here {
+    background-color: var(--gl-accent);
+    color: var(--gl-accent-fg);
+}
+
+.pager--numbers .pager-item--urgent {
+    background-color: var(--gl-warning-text);
+    color: var(--gl-panel);
+}
+
 .popover-shell {
     --gl-popover-padding: 0.8rem;
     --gl-popover-min-width: 27rem;

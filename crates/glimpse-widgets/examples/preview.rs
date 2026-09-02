@@ -251,9 +251,9 @@ mod fixtures {
     use gtk4::prelude::*;
 
     use glimpse_widgets::{
-        Calendar, Choice, ChoiceList, Day, Event, EventList, Fact, FactList, ForecastList,
-        ForecastStrip, Hour, NowPlaying, Placeholder, Player, PlayerList, Repeat, Row, Section,
-        SplitRow, TransportAction, WorldClock, Ymd, Zone,
+        Calendar, Choice, ChoiceList, Day, Event, EventList, Fact, FactList, Focus, ForecastList,
+        ForecastStrip, Hour, NowPlaying, Pager, Placeholder, Player, PlayerList, Repeat, Row,
+        Section, Shape, Slot, SplitRow, TransportAction, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::RefCell;
@@ -262,6 +262,8 @@ mod fixtures {
 
     const NAV: &str = "nav__";
     const EXPAND: &str = "expander";
+    const ACTION: &str = "action__";
+    const DEMO: &str = "demo__";
 
     pub fn apply(name: &str, root: &gtk4::Widget) {
         match name {
@@ -283,10 +285,12 @@ mod fixtures {
             }
             "mpris" => mpris(root),
             "weather" => weather(root),
+            "pager" => pager(root),
             _ => {}
         }
         drawer_nav(root);
         expanders(root);
+        actions(root);
     }
 
     struct Forecast {
@@ -973,6 +977,149 @@ mod fixtures {
         }
     }
 
+    fn actions(root: &gtk4::Widget) {
+        for widget in collect::<gtk4::Widget>(root) {
+            let Some(name) = widget
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(ACTION).map(str::to_owned))
+            else {
+                continue;
+            };
+
+            if let Some(split) = widget.downcast_ref::<SplitRow>() {
+                split.connect_activated(move |_| eprintln!("action: {name}"));
+            } else if let Some(button) = widget.downcast_ref::<gtk4::Button>() {
+                button.connect_clicked(move |_| eprintln!("action: {name}"));
+            } else {
+                eprintln!(
+                    "{ACTION}{name} sits on a {}, which nothing clicks",
+                    widget.type_().name()
+                );
+            }
+        }
+    }
+
+    fn pager(root: &gtk4::Widget) {
+        for pager in collect::<Pager>(root) {
+            let Some(case) = pager
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+            else {
+                eprintln!("a $Pager carries no {DEMO} class, so it stays empty");
+                continue;
+            };
+
+            let (shape, slots, windows) = pager_case(&case);
+            pager.set_shape(shape);
+            pager.set_slots(&slots);
+
+            pager.connect_activated({
+                let case = case.clone();
+                move |_, id| eprintln!("pager: {case} activates slot {id}")
+            });
+
+            let state = Rc::new(RefCell::new(slots));
+            pager.connect_stepped(move |pager, horizontal, forward| {
+                let way = if forward { "next" } else { "previous" };
+                let (strip, other) = match windows {
+                    true => ("window", "workspace"),
+                    false => ("workspace", "window"),
+                };
+
+                if horizontal {
+                    eprintln!("pager: {case} focuses the {way} {other}");
+                    return;
+                }
+
+                let mut slots = state.borrow_mut();
+                if slots.is_empty() {
+                    return;
+                }
+                advance(&mut slots, forward);
+                pager.set_slots(&slots);
+                eprintln!("pager: {case} focuses the {way} {strip}");
+            });
+        }
+    }
+
+    fn advance(slots: &mut [Slot], forward: bool) {
+        let count = slots.len();
+        let at = slots
+            .iter()
+            .position(|slot| slot.focus != Focus::None)
+            .unwrap_or(0);
+        let next = match forward {
+            true => (at + 1) % count,
+            false => (at + count - 1) % count,
+        };
+        if next != at {
+            slots[next].focus = slots[at].focus;
+            slots[at].focus = Focus::None;
+        }
+    }
+
+    fn workspace(id: u64, label: &str, tooltip: &str) -> Slot {
+        Slot {
+            id,
+            label: label.to_owned(),
+            tooltip: tooltip.to_owned(),
+            ..Slot::default()
+        }
+    }
+
+    fn pager_case(case: &str) -> (Shape, Vec<Slot>, bool) {
+        let mut slots = vec![
+            workspace(1, "1", "Workspace 1 · Browsing"),
+            workspace(2, "2", "Workspace 2 · glimpse"),
+            workspace(3, "3", "Workspace 3 · Notes"),
+            workspace(4, "4", "Workspace 4 · empty"),
+        ];
+        for slot in slots.iter_mut().take(3) {
+            slot.occupied = true;
+        }
+        slots[1].focus = Focus::Here;
+
+        match case {
+            "workspaces" => (Shape::Dots, slots, false),
+            "elsewhere" => {
+                slots[1].focus = Focus::Elsewhere;
+                (Shape::Dots, slots, false)
+            }
+            "urgent" => {
+                slots[2].urgent = true;
+                (Shape::Dots, slots, false)
+            }
+            "windows" => {
+                let mut windows = vec![
+                    workspace(11, "1", "Alacritty · just verify"),
+                    workspace(12, "2", "Zed · preview.rs — glimpse"),
+                    workspace(13, "3", "Nautilus · widget_examples"),
+                ];
+                for window in windows.iter_mut() {
+                    window.occupied = true;
+                }
+                windows[1].focus = Focus::Here;
+                (Shape::Dots, windows, true)
+            }
+            "numbers" => (Shape::Numbers, slots, false),
+            "named" => {
+                let named = ["Browsing", "glimpse", "Notes", "4"];
+                for (slot, name) in slots.iter_mut().zip(named) {
+                    slot.label = name.to_owned();
+                }
+                slots[2].urgent = true;
+                (Shape::Numbers, slots, false)
+            }
+            "empty" => (Shape::Dots, Vec::new(), false),
+            _ => {
+                eprintln!("{DEMO}{case} names no pager case");
+                (Shape::Dots, Vec::new(), false)
+            }
+        }
+    }
+
     fn set_selected(widget: &gtk4::Widget, selected: bool) {
         if let Some(row) = widget.downcast_ref::<Row>() {
             row.set_selected(selected);
@@ -1111,8 +1258,8 @@ mod fixtures {
 fn ensure_types() {
     use glimpse_widgets::{
         Calendar, ChoiceList, ClockRow, EventList, EventRow, FactList, ForecastDay, ForecastHour,
-        ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, Notice, NowPlaying, Panel,
-        Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row, Scrubber,
+        ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, Notice, NowPlaying, Pager,
+        Panel, Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row, Scrubber,
         Section, SplitRow, Transport, WorldClock,
     };
 
@@ -1140,6 +1287,7 @@ fn ensure_types() {
         WorldClock::static_type(),
         Hero::static_type(),
         PopoverShell::static_type(),
+        Pager::static_type(),
         Panel::static_type(),
         Indicator::static_type(),
         IndicatorGroup::static_type(),

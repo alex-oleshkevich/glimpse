@@ -32,6 +32,10 @@ fn main() {
             "blueprints/now_playing.blp",
             "resources/widgets/now_playing.ui",
         ),
+        (
+            "blueprints/pager_item.blp",
+            "resources/widgets/pager_item.ui",
+        ),
         ("blueprints/panel.blp", "resources/widgets/panel.ui"),
         (
             "blueprints/placeholder.blp",

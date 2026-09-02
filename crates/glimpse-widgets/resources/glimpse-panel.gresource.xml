@@ -10,6 +10,7 @@
         <file>widgets/indicator.ui</file>
         <file>widgets/notice.ui</file>
         <file>widgets/now_playing.ui</file>
+        <file>widgets/pager_item.ui</file>
         <file>widgets/panel.ui</file>
         <file>widgets/placeholder.ui</file>
         <file>widgets/player_row.ui</file>

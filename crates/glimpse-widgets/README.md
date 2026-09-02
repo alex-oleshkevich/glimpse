@@ -80,6 +80,79 @@ as a gap between its neighbours.
 Orientation is settable because `Panel` flips between horizontal and vertical; spacing is not,
 because nothing varies it.
 
+## Pager
+
+A strip of one `PagerItem` per slot, where a slot is a workspace or a window. It is the first
+indicator that is not an `IndicatorGroup`: a group takes one click for the whole row and renders a
+fixed list of `IndicatorSpec`s, and a pager needs a click *per slot* over a list whose length
+changes as workspaces come and go.
+
+`Slot` carries `id`, `label`, `tooltip` and three independent states — `focus`, `occupied`,
+`urgent`. `Focus` is `Here`, `Elsewhere` or `None`, which replaces the previous generation's
+`active`/`inactive` pair: both of those meant "this is the current workspace", differing only in
+whether the output holding it is the focused one, and naming them as opposites made the strip's own
+CSS unreadable. Occupancy and urgency stay flags rather than more `Focus` variants, so an urgent
+workspace that is also current draws both.
+
+`Shape` is `Dots` or `Numbers`, and it is the only thing that decides whether the label is visible.
+The two are independent of what the slots *are*: dots of windows is a useful reading of a scrolling
+layout, and numbered workspaces is the traditional one.
+
+Each item is a `Gtk.Button`. The old implementation used a `Gtk.Box` with a `GestureClick` that
+claimed the sequence on press specifically to beat the ancestor indicator's own gesture; a button
+child wins that race by construction, because its gesture claims in the bubble phase before the
+parent's, and it brings `:hover`, `:active`, `:focus-visible` and keyboard activation with it. That
+is the same nested-button isolation `PlayerRow` relies on.
+
+An item reports the id **currently at its position**, read from the slot list when the click
+arrives, rather than the id it was built with. Items are reused across `set_slots`, so a closure
+capturing the id would fire the wrong workspace after the first change that shifts the list.
+
+`set_slots(&[])` hides the widget. A pager on a session that has not enumerated yet otherwise
+reserves width on the bar and leaves a gap when it fills.
+
+Scrolling emits `stepped(horizontal, forward)`, not a raw delta. Picking the dominant axis is
+arithmetic, so it lives in a free `step(dx, dy)` that is tested headlessly rather than in the
+controller closure, where asserting it would need a synthesized event; a touchpad sends both deltas
+at once and an equal diagonal resolves to the vertical axis. What a step *means* stays with the
+applet, under one rule: **vertical steps whatever the strip is showing, horizontal steps the other
+dimension.** So the same gesture reads the same way in both modes — a wheel always moves along the
+slots in front of you, which is also the only axis a plain mouse produces — and the sideways gesture
+is always the one that leaves the strip.
+
+The numbers shape is sized so that **one token drives both dimensions**. GTK4's `min-width` and
+`min-height` bound the *content* box and padding is added outside it, so `min-width: 1.6rem` with
+`padding: 0 0.35rem` measured 40 × 26 — an ellipse, visible only on the selected item because it is
+the only one with a background. The padding moved onto `.pager-item__label`, where it is inside the
+content box: a one- or two-digit label leaves the item square, and a `{name}` label grows it into a
+pill with the breathing room intact. The item's margin is symmetric for the same reason — `measure()`
+includes a widget's own margin, so an asymmetric one makes the two axes incomparable.
+
+**`PagerItem` deliberately has no `dispose`.** Its template's root child is the bound
+`TemplateChild<Gtk.Label>`, and `gtk4::Button` already unparents its own child; adding
+`dispose_template()` on top unparents it twice. Measured, one `PagerItem` per critical:
+
+| template root child | `ParentType` | `dispose_template()` | `gtk_widget_unparent` criticals |
+| --- | --- | --- | --- |
+| named (`Gtk.Label label`) | `Gtk.Button` | yes | one per instance finalized |
+| named | `Gtk.Button` | no | none |
+| unnamed wrapper `Gtk.Box` | `Gtk.Button` | yes | none |
+| named (`Hero`, `Readout`) | `gtk4::Widget` | yes | none |
+
+Naming the root child is what triggers it, not the child's type — a named `Gtk.Box` wrapper brings
+the criticals back. `Row` and `Notice` are also `Gtk.Button` templates that call `dispose_template()`
+and are correct, because both wrap their contents in an *unnamed* box, so nothing else in the crate
+had ever hit it. A `gtk4::Widget` subclass owns no child of its own and always needs the call.
+
+The label is capped at `LABEL_MAX_CHARS` and the tooltip at `TEXT_MAX_CHARS`, because a workspace
+name is set by whatever renamed it and the `{name}` label format puts it on the bar.
+
+**A slot's `tooltip` is its accessible name.** In the dots shape the label is hidden, so a
+`Gtk.Button` with a hidden child has nothing for a screen reader to announce and GTK derives nothing
+from `tooltip-text` on its own — `set_slot` sets the accessible label explicitly. A slot supplied
+with neither a tooltip nor a label is an unnamed button, which is the one way to use this widget
+inaccessibly.
+
 ## Calendar
 
 A month grid with a year view behind it. `var/design/calendar.md` holds the layout reasoning and the

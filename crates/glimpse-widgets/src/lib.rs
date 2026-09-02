@@ -9,6 +9,7 @@ mod indicator;
 mod indicator_group;
 mod notice;
 mod now_playing;
+mod pager;
 mod panel;
 mod placeholder;
 mod player_list;
@@ -33,6 +34,7 @@ pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
 pub use notice::{Notice, Severity};
 pub use now_playing::NowPlaying;
+pub use pager::{Focus, Pager, PagerItem, Shape, Slot};
 pub use panel::Panel;
 pub use placeholder::Placeholder;
 pub use player_list::{Player, PlayerList, PlayerRow};
@@ -1530,6 +1532,115 @@ mod tests {
             ["activated", "details"],
             "the detail button is the only way in, and does not also act"
         );
+
+        let pager = Pager::new();
+        assert!(
+            !pager.is_visible(),
+            "a pager with no slots hides itself rather than reserving width on the bar"
+        );
+
+        let slot = |id: u64, label: &str| Slot {
+            id,
+            label: label.to_owned(),
+            ..Slot::default()
+        };
+        pager.set_slots(&[slot(4, "1"), slot(7, "2"), slot(9, "3")]);
+        assert!(pager.is_visible(), "a pager with slots shows itself");
+        assert_eq!(
+            children_of::<PagerItem>(&pager).len(),
+            3,
+            "one item per slot, built once and reused"
+        );
+
+        pager.set_slots(&[slot(4, "1")]);
+        assert_eq!(
+            children_of::<PagerItem>(&pager).len(),
+            1,
+            "a shorter list unparents the items it no longer has data for"
+        );
+
+        let activated: Rc<RefCell<Vec<u64>>> = Rc::new(RefCell::new(Vec::new()));
+        pager.connect_activated({
+            let activated = Rc::clone(&activated);
+            move |_, id| activated.borrow_mut().push(id)
+        });
+        pager.set_slots(&[slot(21, "1"), slot(22, "2")]);
+        children_of::<PagerItem>(&pager)[0].emit_clicked();
+        assert_eq!(
+            *activated.borrow(),
+            [21],
+            "an item reports the id currently at its position, not the one it was built with"
+        );
+
+        let untouched = child_named::<gtk4::Label>(&pager, "pager-item__label");
+        untouched.set_text("tampered");
+        pager.set_slots(&[slot(21, "1"), slot(22, "renamed")]);
+        assert_eq!(
+            untouched.text(),
+            "tampered",
+            "one changed slot rewrites one item; the rest never reach GTK"
+        );
+
+        let label = child_named::<gtk4::Label>(&pager, "pager-item__label");
+        assert!(
+            !label.is_visible(),
+            "a dot carries no text, so the label stays out of the measurement"
+        );
+        pager.set_shape(Shape::Numbers);
+        assert!(
+            label.is_visible(),
+            "numbers is the shape that shows the label"
+        );
+        assert!(
+            pager.has_css_class("pager--numbers") && !pager.has_css_class("pager--dots"),
+            "the shape is one class, so a stylesheet never sees both at once"
+        );
+
+        let pill = &children_of::<PagerItem>(&pager)[0];
+        let (wide, ..) = pill.measure(gtk4::Orientation::Horizontal, -1);
+        let (tall, ..) = pill.measure(gtk4::Orientation::Vertical, -1);
+        assert_eq!(
+            wide, tall,
+            "a one-character number sits in a circle, so padding and min-width are chosen together"
+        );
+
+        pager.set_slots(&[Slot {
+            id: 21,
+            label: "1".to_owned(),
+            urgent: true,
+            focus: Focus::Here,
+            ..Slot::default()
+        }]);
+        let item = &children_of::<PagerItem>(&pager)[0];
+        assert!(
+            item.has_css_class("pager-item--urgent") && item.has_css_class("pager-item--here"),
+            "urgency is drawn on top of focus rather than replacing it"
+        );
+
+        let stepped: Rc<RefCell<Vec<(bool, bool)>>> = Rc::new(RefCell::new(Vec::new()));
+        pager.connect_stepped({
+            let stepped = Rc::clone(&stepped);
+            move |_, horizontal, forward| stepped.borrow_mut().push((horizontal, forward))
+        });
+        pager.emit_by_name::<()>("stepped", &[&true, &false]);
+        assert_eq!(
+            *stepped.borrow(),
+            [(true, false)],
+            "the typed wrapper agrees with the declared parameters, which nothing checks at compile time"
+        );
+
+        for make in [
+            (|| Row::new().upcast::<gtk4::Widget>()) as fn() -> gtk4::Widget,
+            || Notice::new().upcast(),
+            || EventRow::new().upcast(),
+            || PlayerRow::new().upcast(),
+            || ClockRow::new().upcast(),
+            || ForecastDay::new().upcast(),
+            || ForecastHour::new().upcast(),
+            || Hero::new().upcast(),
+        ] {
+            drop(make());
+        }
     }
 
     fn children_of<T: IsA<gtk4::Widget>>(parent: &impl IsA<gtk4::Widget>) -> Vec<T> {

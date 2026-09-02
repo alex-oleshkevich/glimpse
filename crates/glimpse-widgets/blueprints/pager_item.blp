@@ -1,0 +1,18 @@
+using Gtk 4.0;
+
+template $PagerItem: Gtk.Button {
+  has-frame: false;
+
+  styles [
+    "pager-item",
+  ]
+
+  Gtk.Label label {
+    single-line-mode: true;
+    visible: false;
+
+    styles [
+      "pager-item__label",
+    ]
+  }
+}

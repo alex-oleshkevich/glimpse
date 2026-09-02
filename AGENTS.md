@@ -273,6 +273,19 @@ and rows carrying `nav__<page>` — navigates with no Rust at all. Gating it on 
 made a new example's drawer silently inert, and it is the same defect as a `nav__` class with no
 page behind it, which `drawer_nav` now reports on stderr.
 
+**A row carrying `action__<name>` logs `action: <name>` on stderr when it fires.** `fixtures::actions`
+runs for every example, like the drawer, and gives an example a way to show a *command* — focus this
+workspace, rename it, close that window — without a fixture per popover and without the example
+pretending the command already exists. On a `$SplitRow` it connects `activated`, so the body acts
+while `nav__` on the same row keeps the chevron opening the drawer; on anything else that is a
+`Gtk.Button` it connects `clicked`. A class on something clickable by neither is reported, because
+the alternative is a row that silently does nothing.
+
+**`$Pager` is filled by a fixture keyed on `demo__<case>`.** Its slots come from Rust, so like
+`Calendar` it cannot be filled from a `.blp` at all; `var/widget_examples/pager.blp` declares one
+pager per state and `fixtures::pager` fills each from its `demo__` class. An unrecognised case and a
+pager with no `demo__` class are both reported rather than left blank.
+
 **A widget is only declarable if it says so.** `PopoverShell` and `Hero` implement `Gtk.Buildable`,
 which is what makes `[hero]`, `[footer]` and `[slot]` land in the right internal box, and `Hero`
 exposes `title`, `subtitle` and `icon-name` as properties so a `.blp` can set them through the same
