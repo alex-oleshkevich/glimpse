@@ -1,0 +1,71 @@
+using Gtk 4.0;
+
+template $Transport: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: horizontal;
+    spacing: 4;
+  };
+
+  halign: center;
+
+  styles [
+    "transport",
+  ]
+
+  Gtk.Button shuffle {
+    icon-name: "media-playlist-shuffle-symbolic";
+    has-frame: false;
+    valign: center;
+    visible: false;
+    tooltip-text: _("Shuffle");
+
+    styles [
+      "transport__side",
+    ]
+  }
+
+  Gtk.Button previous {
+    icon-name: "media-skip-backward-symbolic";
+    has-frame: false;
+    valign: center;
+    tooltip-text: _("Previous");
+
+    styles [
+      "transport__side",
+    ]
+  }
+
+  Gtk.Button play {
+    icon-name: "media-playback-start-symbolic";
+    has-frame: false;
+    valign: center;
+    tooltip-text: _("Play");
+
+    styles [
+      "transport__play",
+    ]
+  }
+
+  Gtk.Button next {
+    icon-name: "media-skip-forward-symbolic";
+    has-frame: false;
+    valign: center;
+    tooltip-text: _("Next");
+
+    styles [
+      "transport__side",
+    ]
+  }
+
+  Gtk.Button repeat {
+    icon-name: "media-playlist-repeat-symbolic";
+    has-frame: false;
+    valign: center;
+    visible: false;
+    tooltip-text: _("Repeat");
+
+    styles [
+      "transport__side",
+    ]
+  }
+}

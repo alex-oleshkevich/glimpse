@@ -9,11 +9,16 @@
         <file>widgets/hero.ui</file>
         <file>widgets/indicator.ui</file>
         <file>widgets/notice.ui</file>
+        <file>widgets/now_playing.ui</file>
         <file>widgets/panel.ui</file>
         <file>widgets/placeholder.ui</file>
+        <file>widgets/player_row.ui</file>
         <file>widgets/popover_shell.ui</file>
         <file>widgets/readout.ui</file>
         <file>widgets/row.ui</file>
+        <file>widgets/scrubber.ui</file>
         <file>widgets/section.ui</file>
+        <file>widgets/split_row.ui</file>
+        <file>widgets/transport.ui</file>
     </gresource>
 </gresources>

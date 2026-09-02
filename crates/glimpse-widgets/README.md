@@ -259,6 +259,15 @@ a state we now get for free. `activatable: false` drops `can-target` and `can-fo
 read-only fact row on a detail page neither lights up under the pointer nor stops the keyboard on
 its way past. It is not made insensitive, which would dim it and say something untrue.
 
+**`activatable: false` and an interactive trailing widget are incompatible.** Dropping `can-target`
+takes the row out of picking entirely, and `gtk_widget_pick` does not descend into a widget that is
+not a target — so a `Gtk.Switch` in the trail slot of a non-activatable row cannot be clicked, even
+though its own `can-target` is still true. Measured both ways: the switch picks as itself at
+`activatable: true` and picks as nothing at `false`. A row whose trail is a control therefore stays
+activatable, and the click that lands on the row rather than on the switch has to mean something —
+which is the whole argument for a switch row being a widget rather than a pairing written by hand
+54 times across the popover examples.
+
 **Both labels cap their natural width** (`max-width-chars` 24 and 34, the numbers the approved
 mockups used). `ellipsize` alone does not bound a row: it lowers the label's *minimum* width and
 leaves the natural width at the full string, so an overlong SSID does not ellipsize — it widens the
@@ -277,6 +286,45 @@ weight inherits into any label placed inside one. Left alone, every row renders 
 grammar distinguishes a selected row with `font-weight: 600`, every row would read as selected. A
 `Gtk.Button` is not a neutral container: it arrives carrying padding, min-height, radius and weight
 that a custom design has to undo on purpose.
+
+## SplitRow
+
+A `Row` and a trailing button, divided by a hairline. The body is the primary action; the button is
+the way in.
+
+```
+[ lead ] [ title    ]  ←space→  [ value ] │ ›
+         [ subtitle ]                     │
+```
+
+**It exists because one click cannot mean two things.** `Row` navigates *or* acts — a display row
+that both turns the output off and opens its detail page had three targets competing for one
+gesture, and the trailing chevron was decoration rather than a control. Splitting the surface makes
+the affordance and the behaviour agree: the hairline is the promise that the two halves do different
+things.
+
+**It wraps a `Row`, it does not subclass one.** `title`, `subtitle`, `lead-icon`, `value`,
+`selectable` and `selected` forward to the inner row, and `[lead]` and `[trail]` land inside it
+through `Gtk.Buildable`, so a switch in the trail is still the row's and the detail button stays
+last. Subclassing would have put the button inside the row's own box, where `Row` would have to
+know about it.
+
+**Two signals, and neither is `clicked`.** `activated` is the body, `details` is the button. A
+caller that connects only one gets no behaviour from the other, which is the point.
+
+**There is no `activatable` property.** `Row`'s drops `can-target`, and a row that is not a pointer
+target does not pass the pointer to its children either — measured, and the reason 59 rows across
+the popover examples had a dead switch in them. A `SplitRow` whose body should do nothing is a
+`FactList` row with a chevron, not this widget.
+
+The hairline is a `Gtk.Separator`, not a `border-left`. `theme::tests::only_hairlines_and_borders_are_measured_in_pixels`
+allows `border:` and a bare `1px`, not `border-left: 1px solid …`, and a separator is what
+`PopoverShell` already uses for the same job — so the rule did not need widening.
+
+**Not covered by a test:** that a pointer press on the switch reaches the switch rather than the
+row. Nested-button isolation is GTK's, `PlayerRow` relies on it too, and neither can be asserted
+without a display and a synthetic pointer. The signal wiring, the property forwarding and the
+`[trail]` routing all are.
 
 ## Section, EventList and WorldClock
 
@@ -468,6 +516,25 @@ no other way to observe it without rendering pixels.
 `&[Fact]` — a label and a value — rendered as non-activatable `Row`s. It is the detail pane of every
 popover: 45 hand-written fact rows existed across the network and bluetooth examples before it.
 
+## ChoiceList
+
+`&[Choice]` — a label, an optional detail line and an icon — rendered as `Row`s with the check
+reserved, plus one `selected` index. It is the "pick exactly one" list: an audio output, an input,
+a connection method. `FactList` is its read-only counterpart.
+
+**The check moves on click, before anyone handles it.** A list that waits for the backend to
+confirm leaves the old row checked for a whole round trip, which is what `ui.md` means by never
+letting UI state wait on a round trip. `set_selected` then reconciles, and re-asserting the old
+value after a rejected click puts the check back.
+
+**Selection is positional, so any change to the list drops it.** `set_choices` clears the index
+whenever the data differs — index 0 named the headphones a moment ago and names the speakers now.
+An unchanged list short-circuits before that, so the common case of an applet re-sending identical
+state keeps its check. A caller that changes the list re-sends the selection with it.
+
+**Nothing is chosen until something says so.** An untouched list shows no check rather than
+defaulting to the first row, because the first row is not a claim the widget is entitled to make.
+
 ## ForecastStrip and ForecastList
 
 `ForecastStrip` is the hourly columns, `ForecastList` the daily rows with a `RangeBar` in each trail.
@@ -512,6 +579,121 @@ it belongs in the change that adds the °C/°F configuration, not before it.
 visibility from the text and returns early when the text is unchanged, so a label created visible
 with empty text is inconsistent from birth and never gets hidden. Blueprint children declare
 `visible: false` and so are fine; every label built in Rust has to say the same thing.
+
+## NowPlaying, Scrubber, Transport and PlayerList
+
+The media popover, split where the seams actually are: one player shown in full, the rest as a list.
+
+`NowPlaying` is the full one — artwork, the application it came from, title, artist, album, and
+below them a `Scrubber` and a `Transport`. It is built to be a `PopoverShell` **hero**, not its
+content, which is the whole reason `set_hero` takes any widget rather than a `Hero`.
+
+**It exposes the two children rather than proxying them.** `scrubber()` and `transport()` return the
+real widgets, so `NowPlaying` carries five metadata properties instead of the fifteen it would need
+to forward position, duration, seekability and six capability flags. `ForecastDay::bar()` is the
+same decision.
+
+### Scrubber
+
+A `Gtk.Scale` with the elapsed and remaining figures beneath it. `position`, `duration` and
+`seekable` in, a `seek` signal out.
+
+**A `Gtk.Scale`, not a drawn bar.** A scrubber has to be draggable and reachable from the keyboard,
+and `Gtk.Range` brings the drag, the arrow keys, the focus ring and the accessible role with it.
+`RangeBar` is drawn because its geometry is data a stylesheet cannot see; a scrubber's is a single
+fraction, which CSS handles.
+
+**`set_position` is ignored while the pointer is down.** A player reporting its position once a
+second would otherwise yank the slider out from under a drag in progress. The hold is tracked with a
+`Gtk.EventControllerLegacy` in the capture phase, because a `Gtk.GestureClick` there is *cancelled*
+the moment `Gtk.Range` claims the sequence — it would report the press and never the release. The
+legacy controller never claims and so is never cancelled.
+
+**A drag emits one `seek`, at the end.** `change-value` fires continuously while dragging, and one
+D-Bus call per motion event is not a design. So a press records the value it started from, and the
+release emits only if it actually moved; a keyboard or scroll change is not a drag and emits
+immediately.
+
+**A press whose release never arrives would freeze the widget**, so `unmap` clears the hold — a
+popover that closes mid-drag is not a rare case, it is how a popover closes.
+
+The GTK test reaches `held` directly, which is why the rule that depends on it is covered and the
+three things that set it are not: synthesising a button press is not something this tier can do, so
+the capture controller, the one-seek-per-drag and the unmap reset are all verified by hand in the
+preview.
+
+**The range belongs to the adjustment.** `set_position` does not clamp: `Gtk.Adjustment` already
+does, and a duplicate clamp survived every mutation aimed at it, which is what proved it dead.
+
+**The step and page increments are set in Rust, not the template.** `blueprint-compiler lint`
+rejects a `Gtk.Adjustment` carrying anything besides `lower`, `upper` and `value` — measured, and
+independent of the order they are written in. They are the arrow-key and Page-Up distances, so
+losing them silently kills keyboard seeking; the GTK test asserts both.
+
+**Zero duration means a live stream**, and the track disappears rather than sitting at either end
+claiming something untrue. The elapsed figure stays, because a stream still has a running time.
+
+### Transport
+
+Five buttons and one `action` signal carrying which was pressed, so a caller writes one handler
+rather than five. It holds no state it is not given: pressing shuffle emits, it does not toggle —
+whoever owns the player decides and sets `shuffle` back.
+
+**Previous, next and play dim; shuffle and repeat hide.** A capability the player lacks is still one
+of the three buttons under the pointer, and removing it would move the other two between one track
+and the next. Shuffle and repeat are different: a player without them has no state for them to show,
+and a permanently dead icon is worse than none.
+
+**Repeat is a three-state enum, not a flag.** MPRIS `LoopStatus` is None, Track or Playlist, and
+repeat-one is a different icon rather than a different shade of the same one.
+
+**The capability setters carry no compare-before-write guard**, unlike every other setter in this
+crate. They forward to `set_sensitive` and `set_visible`, both of which already return early when
+the value is unchanged — a guard on top of them would be a second copy of GTK's, which is the same
+duplication that made `Scrubber`'s position clamp dead. The rule holds wherever the setter does
+more than one thing: `set_playing` and `set_repeat` both write an icon *and* a class, so both
+guard.
+
+### PlayerList and PlayerRow
+
+`&[Player]` rendered as `PlayerRow`s — a `Row` subclass whose `[trail]` is a play/pause button.
+Clicking the row emits `activated`, clicking the button emits `toggled`, both carrying the index, so
+promoting a player and pausing it in place stay separate gestures on one widget.
+
+**The second line is composed here.** `Player` keeps `artist` and `name` apart because a caller has
+them apart; the row joins what it has and omits what it does not, so a video with no artist reads
+`VLC` rather than ` · VLC`.
+
+**No artwork on a row.** A thumbnail per row is a decode per row for something the eye reads as the
+application icon anyway; the row carries `lead-icon` and the hero carries the cover.
+
+### Artwork
+
+`set_art` takes a `gdk::Paintable` and falls back to a symbolic icon when there is none — one
+`Gtk.Image`, not a `Gtk.Picture` beside a placeholder.
+
+**A `Gtk.Image`, because it is the only one that can be told how big to be.** Measured with a
+192px texture: `Gtk.Picture` reports a natural width of 192 — the paintable's own size, and
+`can-shrink` does not change it, it only drops the *minimum* to zero — so a cover would set the
+popover's width. `Gtk.Image` reports 16, its icon size, and takes that size from CSS. That keeps
+the square in `rem`, following text scale like everything else. `overflow: hidden` plus a
+`border-radius` is what rounds it — GTK clips a widget's own content there, not only its children.
+
+**Two CSS rules, doing two jobs.** `min-width`/`min-height` set the box; `-gtk-icon-size` caps what
+goes in it. They carry the same number because a cover should fill its square, which is why
+removing either one alone changes nothing — the GTK test catches only their removal together, and
+claims no more than that.
+
+**The empty state is a class, not a second widget.** `now-playing__art--empty` only shrinks and dims
+the glyph; the box is already pinned, so the two states cannot drift apart the way they did when the
+placeholder's size was reconstructed from padding plus a smaller icon. The test asserts the measured
+width is the same empty, with a cover, and empty again — a late-loading cover that resizes the
+popover around it is the defect all of this exists for.
+
+**A widget built before `Styles::install()` never picks any of it up.** Rooting is not what matters
+— measured, an unparented widget is styled fine — the *order* is. That is why the GTK test installs
+the stylesheet once at the top, and why it asserts the square is bigger than an icon before
+comparing anything to it.
 
 ## PopoverShell and Hero
 

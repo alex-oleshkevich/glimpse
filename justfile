@@ -40,6 +40,20 @@ lint-blueprints:
         exit 1
     fi
 
+[doc("compile every widget example blueprint; the preview does this one at a time")]
+check-examples:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    shopt -s nullglob
+    status=0
+    for blp in var/widget_examples/*.blp; do
+        if ! out=$(blueprint-compiler compile --output /dev/null "$blp" 2>&1); then
+            printf '%s\n%s\n' "$blp" "$out"
+            status=1
+        fi
+    done
+    exit "$status"
+
 [doc("clippy on one crate")]
 lint-crate CRATE:
     cargo clippy -p {{ CRATE }} --all-targets -- -D warnings

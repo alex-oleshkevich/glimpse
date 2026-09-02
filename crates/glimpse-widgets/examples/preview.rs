@@ -91,9 +91,11 @@ fn activate(
     glimpse_widgets::register_resources().expect("widget resources");
     ensure_types();
 
+    let shared = blueprint.with_file_name("_shared.css");
     let sheets = vec![
         (resolve(&builtin_css()), provider()),
         (resolve(&theme_css()), provider()),
+        (resolve(&shared), provider()),
         (resolve(&blueprint.with_extension("css")), provider()),
     ];
     let checkerboard = provider();
@@ -104,6 +106,7 @@ fn activate(
             gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
             gtk4::STYLE_PROVIDER_PRIORITY_USER,
             gtk4::STYLE_PROVIDER_PRIORITY_USER + 1,
+            gtk4::STYLE_PROVIDER_PRIORITY_USER + 2,
         ];
         for ((_, provider), priority) in sheets.iter().zip(priorities) {
             gtk4::style_context_add_provider_for_display(&display, provider, priority);
@@ -111,7 +114,7 @@ fn activate(
         gtk4::style_context_add_provider_for_display(
             &display,
             &checkerboard,
-            gtk4::STYLE_PROVIDER_PRIORITY_USER + 2,
+            gtk4::STYLE_PROVIDER_PRIORITY_USER + 3,
         );
     }
 
@@ -248,12 +251,17 @@ mod fixtures {
     use gtk4::prelude::*;
 
     use glimpse_widgets::{
-        Calendar, Day, Event, EventList, Fact, FactList, ForecastList, ForecastStrip, Hour,
-        Placeholder, Row, Section, WorldClock, Ymd, Zone,
+        Calendar, Choice, ChoiceList, Day, Event, EventList, Fact, FactList, ForecastList,
+        ForecastStrip, Hour, NowPlaying, Placeholder, Player, PlayerList, Repeat, Row, Section,
+        SplitRow, TransportAction, WorldClock, Ymd, Zone,
     };
+    use gtk4::glib;
+    use std::cell::RefCell;
     use std::rc::Rc;
+    use std::time::Duration;
 
     const NAV: &str = "nav__";
+    const EXPAND: &str = "expander";
 
     pub fn apply(name: &str, root: &gtk4::Widget) {
         match name {
@@ -273,13 +281,12 @@ mod fixtures {
                     world_clock(&clocks);
                 }
             }
-            "network" | "bluetooth" => drawer_nav(root),
-            "weather" => {
-                weather(root);
-                drawer_nav(root);
-            }
+            "mpris" => mpris(root),
+            "weather" => weather(root),
             _ => {}
         }
+        drawer_nav(root);
+        expanders(root);
     }
 
     struct Forecast {
@@ -452,10 +459,7 @@ mod fixtures {
                 .collect::<Vec<_>>(),
         );
 
-        let Some(drawer) = find::<gtk4::Revealer>(root) else {
-            return;
-        };
-        let Some(stack) = drawer.child().and_then(|child| find::<gtk4::Stack>(&child)) else {
+        let Some((drawer, stack)) = page_stack(root) else {
             return;
         };
 
@@ -513,6 +517,350 @@ mod fixtures {
         ));
     }
 
+    struct Song {
+        title: &'static str,
+        artist: &'static str,
+        album: &'static str,
+        duration: f64,
+    }
+
+    const fn song(
+        title: &'static str,
+        artist: &'static str,
+        album: &'static str,
+        duration: f64,
+    ) -> Song {
+        Song {
+            title,
+            artist,
+            album,
+            duration,
+        }
+    }
+
+    struct Source {
+        name: &'static str,
+        icon_name: &'static str,
+        seekable: bool,
+        art: (u8, u8, u8),
+        songs: &'static [Song],
+    }
+
+    const SOURCES: [Source; 4] = [
+        Source {
+            name: "Spotify",
+            icon_name: "audio-x-generic-symbolic",
+            seekable: true,
+            art: (196, 108, 62),
+            songs: &[
+                song(
+                    "Dayvan Cowboy",
+                    "Boards of Canada",
+                    "The Campfire Headphase",
+                    285.0,
+                ),
+                song(
+                    "Roygbiv",
+                    "Boards of Canada",
+                    "Music Has the Right to Children",
+                    149.0,
+                ),
+                song(
+                    "Everything You Do Is a Balloon",
+                    "Boards of Canada",
+                    "Hi Scores",
+                    397.0,
+                ),
+            ],
+        },
+        Source {
+            name: "Firefox",
+            icon_name: "web-browser-symbolic",
+            seekable: true,
+            art: (74, 108, 168),
+            songs: &[
+                song(
+                    "How the Chip Shortage Ends",
+                    "Odd Lots",
+                    "Episode 412",
+                    2731.0,
+                ),
+                song("The Housing Trap", "Odd Lots", "Episode 411", 2504.0),
+            ],
+        },
+        Source {
+            name: "VLC",
+            icon_name: "video-x-generic-symbolic",
+            seekable: true,
+            art: (92, 92, 104),
+            songs: &[song("The Wire — S03E04", "", "Hamsterdam", 3320.0)],
+        },
+        Source {
+            name: "Amberol",
+            icon_name: "audio-headphones-symbolic",
+            seekable: false,
+            art: (64, 128, 118),
+            songs: &[song(
+                "Sleep Walk",
+                "Santo & Johnny",
+                "Santo & Johnny",
+                142.0,
+            )],
+        },
+    ];
+
+    /// A rewind past this many seconds restarts the track instead of stepping back a track, which
+    /// is what every player does and what makes the button feel right rather than jumpy.
+    const RESTART_AFTER: f64 = 3.0;
+
+    struct Entry {
+        source: usize,
+        track: usize,
+        position: f64,
+        playing: bool,
+    }
+
+    impl Entry {
+        fn source(&self) -> &'static Source {
+            &SOURCES[self.source]
+        }
+
+        fn song(&self) -> &'static Song {
+            &self.source().songs[self.track]
+        }
+
+        fn step(&mut self, forward: bool) {
+            let count = self.source().songs.len();
+            match forward {
+                true => self.track = (self.track + 1) % count,
+                false if self.position > RESTART_AFTER => {}
+                false => self.track = (self.track + count - 1) % count,
+            }
+            self.position = 0.0;
+        }
+    }
+
+    struct Media {
+        entries: Vec<Entry>,
+        covers: Vec<gdk::Texture>,
+        shuffle: bool,
+        repeat: Repeat,
+    }
+
+    impl Media {
+        fn new() -> Self {
+            let entry = |source, position, playing| Entry {
+                source,
+                track: 0,
+                position,
+                playing,
+            };
+            Self {
+                entries: vec![
+                    entry(0, 167.0, true),
+                    entry(1, 0.0, false),
+                    entry(2, 0.0, true),
+                    entry(3, 0.0, false),
+                ],
+                covers: SOURCES.iter().map(|source| artwork(source.art)).collect(),
+                shuffle: false,
+                repeat: Repeat::Off,
+            }
+        }
+    }
+
+    fn cycle(repeat: Repeat) -> Repeat {
+        match repeat {
+            Repeat::Off => Repeat::Playlist,
+            Repeat::Playlist => Repeat::Track,
+            Repeat::Track => Repeat::Off,
+        }
+    }
+
+    const OUTPUTS: [(&str, &str, &str); 3] = [
+        ("WH-1000XM5", "", "audio-headphones-symbolic"),
+        ("Built-in speakers", "", "audio-speakers-symbolic"),
+        ("Living room", "", "video-display-symbolic"),
+    ];
+
+    fn mpris(root: &gtk4::Widget) {
+        let (Some(player), Some(list)) = (find::<NowPlaying>(root), find::<PlayerList>(root))
+        else {
+            return;
+        };
+
+        if let Some(outputs) = find::<ChoiceList>(root) {
+            outputs.set_choices(
+                &OUTPUTS
+                    .iter()
+                    .map(|(label, detail, icon_name)| Choice {
+                        label: (*label).to_owned(),
+                        detail: (*detail).to_owned(),
+                        icon_name: (*icon_name).to_owned(),
+                    })
+                    .collect::<Vec<_>>(),
+            );
+            outputs.set_selected(Some(0));
+        }
+
+        let media = Rc::new(RefCell::new(Media::new()));
+        show(&media.borrow(), &player, &list);
+
+        player.transport().connect_action(glib::clone!(
+            #[strong]
+            media,
+            #[weak]
+            player,
+            #[weak]
+            list,
+            move |_, action| {
+                {
+                    let mut media = media.borrow_mut();
+                    match action {
+                        TransportAction::PlayPause => {
+                            media.entries[0].playing = !media.entries[0].playing;
+                        }
+                        TransportAction::Next => media.entries[0].step(true),
+                        TransportAction::Previous => media.entries[0].step(false),
+                        TransportAction::Shuffle => media.shuffle = !media.shuffle,
+                        TransportAction::Repeat => media.repeat = cycle(media.repeat),
+                    }
+                }
+                show(&media.borrow(), &player, &list);
+            }
+        ));
+
+        player.scrubber().connect_seek(glib::clone!(
+            #[strong]
+            media,
+            move |_, seconds| media.borrow_mut().entries[0].position = seconds
+        ));
+
+        list.connect_activated(glib::clone!(
+            #[strong]
+            media,
+            #[weak]
+            player,
+            #[weak]
+            list,
+            move |_, index| {
+                media.borrow_mut().entries.swap(0, index as usize + 1);
+                show(&media.borrow(), &player, &list);
+            }
+        ));
+
+        list.connect_toggled(glib::clone!(
+            #[strong]
+            media,
+            #[weak]
+            player,
+            #[weak]
+            list,
+            move |_, index| {
+                {
+                    let mut media = media.borrow_mut();
+                    let entry = &mut media.entries[index as usize + 1];
+                    entry.playing = !entry.playing;
+                }
+                show(&media.borrow(), &player, &list);
+            }
+        ));
+
+        glib::timeout_add_local(
+            Duration::from_secs(1),
+            glib::clone!(
+                #[strong]
+                media,
+                #[weak]
+                player,
+                #[weak]
+                list,
+                #[upgrade_or]
+                glib::ControlFlow::Break,
+                move || {
+                    {
+                        let mut media = media.borrow_mut();
+                        if !media.entries[0].playing {
+                            return glib::ControlFlow::Continue;
+                        }
+                        let repeat = media.repeat;
+                        let entry = &mut media.entries[0];
+                        entry.position += 1.0;
+                        if entry.position >= entry.song().duration {
+                            match repeat {
+                                Repeat::Track => entry.position = 0.0,
+                                _ => entry.step(true),
+                            }
+                        }
+                    }
+                    show(&media.borrow(), &player, &list);
+                    glib::ControlFlow::Continue
+                }
+            ),
+        );
+    }
+
+    fn show(media: &Media, player: &NowPlaying, list: &PlayerList) {
+        let current = &media.entries[0];
+        let song = current.song();
+        let source = current.source();
+
+        player.set_source(Some(source.name));
+        player.set_icon_name(Some(source.icon_name));
+        player.set_title(Some(song.title));
+        player.set_artist(Some(song.artist));
+        player.set_album(Some(song.album));
+        player.set_art(Some(&media.covers[current.source]));
+
+        let scrubber = player.scrubber();
+        scrubber.set_duration(song.duration);
+        scrubber.set_position(current.position);
+        scrubber.set_seekable(source.seekable);
+
+        let transport = player.transport();
+        transport.set_playing(current.playing);
+        transport.set_can_next(source.songs.len() > 1);
+        transport.set_can_shuffle(true);
+        transport.set_can_repeat(true);
+        transport.set_shuffle(media.shuffle);
+        transport.set_repeat(media.repeat);
+
+        let players: Vec<Player> = media.entries[1..]
+            .iter()
+            .map(|entry| Player {
+                name: entry.source().name.to_owned(),
+                icon_name: entry.source().icon_name.to_owned(),
+                title: entry.song().title.to_owned(),
+                artist: entry.song().artist.to_owned(),
+                playing: entry.playing,
+            })
+            .collect();
+        list.set_players(&players);
+    }
+
+    /// Nothing in a preview can reach a real `mpris:artUrl`, so the cover is generated: a diagonal
+    /// blend between the source's colour and a darkened version of it. It exists to prove the
+    /// rounded clip and the fallback swap, not to look like a record sleeve.
+    fn artwork((r, g, b): (u8, u8, u8)) -> gdk::Texture {
+        const SIZE: usize = 192;
+        let mut pixels = Vec::with_capacity(SIZE * SIZE * 4);
+        for y in 0..SIZE {
+            for x in 0..SIZE {
+                let blend = (x + y) as f32 / (2 * SIZE) as f32;
+                let shade = |channel: u8| (channel as f32 * (1.0 - 0.55 * blend)) as u8;
+                pixels.extend_from_slice(&[shade(r), shade(g), shade(b), u8::MAX]);
+            }
+        }
+        gdk::MemoryTexture::new(
+            SIZE as i32,
+            SIZE as i32,
+            gdk::MemoryFormat::R8g8b8a8,
+            &glib::Bytes::from_owned(pixels),
+            SIZE * 4,
+        )
+        .upcast()
+    }
+
     fn alert_placeholder() -> gtk4::Widget {
         let placeholder = Placeholder::new();
         placeholder.set_icon_name(Some("weather-storm-symbolic"));
@@ -553,50 +901,97 @@ mod fixtures {
         section.upcast()
     }
 
+    fn page_stack(root: &gtk4::Widget) -> Option<(gtk4::Revealer, gtk4::Stack)> {
+        collect::<gtk4::Revealer>(root)
+            .into_iter()
+            .find_map(|revealer| {
+                let stack = revealer
+                    .child()
+                    .and_then(|child| find::<gtk4::Stack>(&child))?;
+                Some((revealer, stack))
+            })
+    }
+
     fn drawer_nav(root: &gtk4::Widget) {
-        let Some(drawer) = find::<gtk4::Revealer>(root) else {
-            return;
-        };
-        let Some(stack) = drawer.child().and_then(|child| find::<gtk4::Stack>(&child)) else {
+        let Some((drawer, stack)) = page_stack(root) else {
+            if collect::<gtk4::Button>(root)
+                .iter()
+                .any(|row| row.css_classes().iter().any(|c| c.starts_with(NAV)))
+            {
+                eprintln!("no Gtk.Revealer holds a Gtk.Stack; every {NAV} row is dead");
+            }
             return;
         };
 
-        let rows: Rc<Vec<(gtk4::Button, String)>> = Rc::new(
-            collect::<gtk4::Button>(root)
+        let rows: Rc<Vec<(gtk4::Widget, String)>> = Rc::new(
+            collect::<gtk4::Widget>(root)
                 .into_iter()
+                .filter(|widget| widget.is::<gtk4::Button>() || widget.is::<SplitRow>())
                 .filter_map(|row| {
                     let page = row
                         .css_classes()
                         .iter()
                         .find_map(|class| class.as_str().strip_prefix(NAV).map(str::to_owned))?;
-                    stack.child_by_name(&page).map(|_| (row, page))
+                    if stack.child_by_name(&page).is_none() {
+                        eprintln!("{NAV}{page} names no page in the stack; that row is dead");
+                        return None;
+                    }
+                    Some((row, page))
                 })
                 .collect(),
         );
 
         for (index, (row, page)) in rows.iter().enumerate() {
-            let drawer = drawer.clone();
-            let stack = stack.clone();
             let all = Rc::clone(&rows);
             let page = page.clone();
-            row.connect_clicked(move |_| {
+            let drawer = drawer.clone();
+            let stack = stack.clone();
+            let show = move || {
                 let showing = drawer.reveals_child()
                     && stack.visible_child_name().as_deref() == Some(page.as_str());
                 for (other, _) in all.iter() {
-                    if let Some(row) = other.downcast_ref::<Row>() {
-                        row.set_selected(false);
-                    }
+                    set_selected(other, false);
                 }
                 if showing {
                     drawer.set_reveal_child(false);
                     return;
                 }
                 stack.set_visible_child_name(&page);
-                if let Some(row) = all[index].0.downcast_ref::<Row>() {
-                    row.set_selected(true);
-                }
+                set_selected(&all[index].0, true);
                 drawer.set_reveal_child(true);
-            });
+            };
+
+            match row.downcast_ref::<SplitRow>() {
+                Some(split) => {
+                    split.connect_details(move |_| show());
+                }
+                None => {
+                    let button = row.downcast_ref::<gtk4::Button>().expect("filtered above");
+                    button.connect_clicked(move |_| show());
+                }
+            }
+        }
+    }
+
+    fn set_selected(widget: &gtk4::Widget, selected: bool) {
+        if let Some(row) = widget.downcast_ref::<Row>() {
+            row.set_selected(selected);
+        }
+        if let Some(split) = widget.downcast_ref::<SplitRow>() {
+            split.set_selected(selected);
+        }
+    }
+
+    fn expanders(root: &gtk4::Widget) {
+        for row in collect::<gtk4::Button>(root) {
+            if !row.has_css_class(EXPAND) {
+                continue;
+            }
+            let Some(revealer) = row.next_sibling().and_downcast::<gtk4::Revealer>() else {
+                eprintln!("a .{EXPAND} row has no Gtk.Revealer after it; it expands nothing");
+                continue;
+            };
+            row.connect_clicked(move |_| revealer.set_reveal_child(!revealer.reveals_child()));
         }
     }
 
@@ -715,13 +1110,15 @@ mod fixtures {
 
 fn ensure_types() {
     use glimpse_widgets::{
-        Calendar, ClockRow, EventList, EventRow, FactList, ForecastDay, ForecastHour, ForecastList,
-        ForecastStrip, Hero, Indicator, IndicatorGroup, Notice, Panel, Placeholder, PopoverShell,
-        RangeBar, Readout, Row, Section, WorldClock,
+        Calendar, ChoiceList, ClockRow, EventList, EventRow, FactList, ForecastDay, ForecastHour,
+        ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, Notice, NowPlaying, Panel,
+        Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row, Scrubber,
+        Section, SplitRow, Transport, WorldClock,
     };
 
     for widget in [
         Calendar::static_type(),
+        ChoiceList::static_type(),
         ClockRow::static_type(),
         EventRow::static_type(),
         FactList::static_type(),
@@ -730,10 +1127,16 @@ fn ensure_types() {
         ForecastList::static_type(),
         ForecastStrip::static_type(),
         Notice::static_type(),
+        NowPlaying::static_type(),
+        PlayerList::static_type(),
+        PlayerRow::static_type(),
+        Scrubber::static_type(),
+        Transport::static_type(),
         RangeBar::static_type(),
         Readout::static_type(),
         EventList::static_type(),
         Section::static_type(),
+        SplitRow::static_type(),
         WorldClock::static_type(),
         Hero::static_type(),
         PopoverShell::static_type(),

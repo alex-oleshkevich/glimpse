@@ -1,4 +1,5 @@
 mod calendar;
+mod choice_list;
 mod dots;
 mod event_list;
 mod fact_list;
@@ -7,17 +8,23 @@ mod hero;
 mod indicator;
 mod indicator_group;
 mod notice;
+mod now_playing;
 mod panel;
 mod placeholder;
+mod player_list;
 mod popover_shell;
 mod range_bar;
 mod readout;
 pub(crate) mod row;
+mod scrubber;
 mod section;
+mod split_row;
 mod theme;
+mod transport;
 mod world_clock;
 
 pub use calendar::{Calendar, Ymd};
+pub use choice_list::{Choice, ChoiceList};
 pub use event_list::{Event, EventList, EventRow};
 pub use fact_list::{Fact, FactList};
 pub use forecast::{Day, ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hour};
@@ -25,14 +32,19 @@ pub use hero::Hero;
 pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
 pub use notice::{Notice, Severity};
+pub use now_playing::NowPlaying;
 pub use panel::Panel;
 pub use placeholder::Placeholder;
+pub use player_list::{Player, PlayerList, PlayerRow};
 pub use popover_shell::PopoverShell;
 pub use range_bar::RangeBar;
 pub use readout::Readout;
 pub use row::Row;
+pub use scrubber::Scrubber;
 pub use section::Section;
+pub use split_row::SplitRow;
 pub use theme::Styles;
+pub use transport::{Repeat, Transport, TransportAction};
 pub use world_clock::{ClockRow, WorldClock, Zone};
 
 #[cfg(test)]
@@ -69,6 +81,17 @@ pub(crate) fn set_text(label: &gtk4::Label, value: Option<&str>) {
     }
     label.set_text(&text);
     label.set_visible(!text.is_empty());
+}
+
+pub(crate) fn set_play_pause(button: &gtk4::Button, playing: bool) {
+    use gtk4::prelude::*;
+
+    let (icon, tooltip) = match playing {
+        true => ("media-playback-pause-symbolic", "Pause"),
+        false => ("media-playback-start-symbolic", "Play"),
+    };
+    button.set_icon_name(icon);
+    button.set_tooltip_text(Some(tooltip));
 }
 
 pub(crate) fn set_css_class(widget: &impl gtk4::prelude::IsA<gtk4::Widget>, name: &str, on: bool) {
@@ -140,6 +163,7 @@ mod tests {
             return;
         }
         register_resources().expect("resources");
+        let _styles = Styles::install();
 
         let group = IndicatorGroup::new();
         assert!(!group.is_visible(), "an untouched group starts hidden");
@@ -1118,6 +1142,393 @@ mod tests {
             Some("Tomorrow · 9° · Clear"),
             "and shares that line with the day note rather than taking a third, because a third \
              is what makes a clock list stop being glanceable"
+        );
+
+        let scrubber = Scrubber::new();
+        let track = child_named::<gtk4::Scale>(&scrubber, "scrubber__track");
+        let times = all_named(&scrubber, "scrubber__time");
+        let elapsed = times[0].clone().downcast::<gtk4::Label>().expect("elapsed");
+        let remaining = times[1]
+            .clone()
+            .downcast::<gtk4::Label>()
+            .expect("remaining");
+
+        assert!(
+            !scrubber.seekable() && !track.is_sensitive(),
+            "a scrubber starts unseekable, matching a template whose scale is already insensitive; \
+             a widget that disagrees with its own blueprint at birth is wrong before anyone \
+             touches it"
+        );
+        scrubber.set_seekable(true);
+        assert!(track.is_sensitive());
+
+        scrubber.set_duration(405.0);
+        scrubber.set_position(167.0);
+        assert_eq!(elapsed.text(), "2:47");
+        assert_eq!(
+            remaining.text(),
+            "\u{2212}3:58",
+            "the right-hand figure counts down, with a real minus sign rather than a hyphen"
+        );
+        assert_eq!(scrubber.position(), 167.0);
+
+        assert_eq!(
+            (
+                track.adjustment().step_increment(),
+                track.adjustment().page_increment()
+            ),
+            (5.0, 30.0),
+            "an arrow key moves five seconds and Page Up thirty. These are set from Rust because \
+             blueprint-compiler's adjustment rule rejects an adjustment carrying anything besides \
+             lower, upper and value, so nothing in the template guards them"
+        );
+
+        scrubber.imp().held.set(Some(167.0));
+        scrubber.set_position(300.0);
+        assert_eq!(
+            scrubber.position(),
+            167.0,
+            "a player reporting its position once a second loses to a drag in progress, or the \
+             slider is pulled out from under the pointer every time one lands"
+        );
+        scrubber.imp().held.set(None);
+        scrubber.set_position(300.0);
+        assert_eq!(scrubber.position(), 300.0);
+        scrubber.set_position(167.0);
+
+        let seeks = Rc::new(RefCell::new(Vec::new()));
+        scrubber.connect_seek({
+            let seeks = Rc::clone(&seeks);
+            move |_, seconds| seeks.borrow_mut().push(seconds)
+        });
+        scrubber.emit_by_name::<()>("seek", &[&12.0f64]);
+        assert_eq!(*seeks.borrow(), [12.0f64]);
+
+        scrubber.set_duration(0.0);
+        assert!(
+            !track.get_visible(),
+            "a stream with no length has nothing to scrub, so the track goes rather than sitting \
+             there full or empty and lying about it"
+        );
+        assert!(
+            !remaining.get_visible(),
+            "and nothing remains of a length nobody knows"
+        );
+
+        let transport = Transport::new();
+        let buttons = children_of::<gtk4::Button>(&transport);
+        let [shuffle, previous, play, next, repeat] =
+            <[gtk4::Button; 5]>::try_from(buttons).expect("five transport buttons");
+        assert!(
+            play.has_css_class("transport__play"),
+            "play is the middle of five, and the order shuffle-previous-play-next-repeat is the \
+             layout rather than an accident of how they were declared"
+        );
+
+        assert_eq!(
+            play.icon_name().as_deref(),
+            Some("media-playback-start-symbolic")
+        );
+        transport.set_playing(true);
+        assert_eq!(
+            play.icon_name().as_deref(),
+            Some("media-playback-pause-symbolic")
+        );
+
+        transport.set_can_next(false);
+        assert!(
+            next.get_visible() && !next.is_sensitive(),
+            "a capability a player lacks dims its button; removing it would move the other four \
+             under the pointer between one track and the next"
+        );
+
+        assert!(
+            !shuffle.get_visible() && !repeat.get_visible(),
+            "shuffle and repeat are the two that hide instead, because a player without them has \
+             no state for them to show and a permanently dead icon is worse than none"
+        );
+        transport.set_can_shuffle(true);
+        transport.set_can_repeat(true);
+        assert!(shuffle.get_visible() && repeat.get_visible());
+
+        transport.set_repeat(Repeat::Track);
+        assert_eq!(
+            repeat.icon_name().as_deref(),
+            Some("media-playlist-repeat-song-symbolic"),
+            "repeat-one is a different icon, not a different shade of the same one"
+        );
+        assert!(repeat.has_css_class("transport--on"));
+        transport.set_repeat(Repeat::Playlist);
+        assert_eq!(
+            repeat.icon_name().as_deref(),
+            Some("media-playlist-repeat-symbolic")
+        );
+        assert!(repeat.has_css_class("transport--on"));
+        transport.set_repeat(Repeat::Off);
+        assert!(!repeat.has_css_class("transport--on"));
+
+        let actions = Rc::new(RefCell::new(Vec::new()));
+        transport.connect_action({
+            let actions = Rc::clone(&actions);
+            move |_, action| actions.borrow_mut().push(action)
+        });
+        previous.emit_clicked();
+        play.emit_clicked();
+        next.emit_clicked();
+        shuffle.emit_clicked();
+        repeat.emit_clicked();
+        assert_eq!(
+            *actions.borrow(),
+            [
+                TransportAction::Previous,
+                TransportAction::PlayPause,
+                TransportAction::Next,
+                TransportAction::Shuffle,
+                TransportAction::Repeat,
+            ],
+            "every button reports which one it was, so one handler covers the whole row"
+        );
+
+        let playing = NowPlaying::new();
+        let art = child_named::<gtk4::Image>(&playing, "now-playing__art");
+        assert_eq!(
+            (
+                art.icon_name().as_deref(),
+                art.has_css_class("now-playing__art--empty")
+            ),
+            (Some("audio-x-generic-symbolic"), true),
+            "a player with no cover yet looks the same as one that lost its cover; the template \
+             has to be born in the state set_art(None) would put it in, or the first frame is an \
+             empty square nothing ever fills"
+        );
+        let source_icon = child_named::<gtk4::Image>(&playing, "now-playing__source-icon");
+        let source_line = source_icon
+            .parent()
+            .and_downcast::<gtk4::Box>()
+            .expect("source line");
+
+        assert!(
+            !source_line.get_visible(),
+            "the line above the title is gone entirely until there is an application to name, \
+             rather than holding open a gap the title then sits below"
+        );
+        playing.set_source(Some("Spotify"));
+        assert!(source_line.get_visible());
+        playing.set_icon_name(Some("audio-x-generic-symbolic"));
+        assert!(source_icon.get_visible());
+        playing.set_source(None::<&str>);
+        assert!(
+            source_line.get_visible(),
+            "an icon alone still earns the line; it is emptiness of both that removes it"
+        );
+        playing.set_icon_name(None::<&str>);
+        assert!(!source_line.get_visible());
+
+        assert_eq!(
+            playing.scrubber(),
+            child_named::<Scrubber>(&playing, "scrubber")
+        );
+        assert_eq!(
+            playing.transport(),
+            child_named::<Transport>(&playing, "transport")
+        );
+
+        let empty = art.measure(gtk4::Orientation::Horizontal, -1).1;
+        assert!(
+            empty > 32,
+            "the square is the stylesheet's, and a widget built before the providers were \
+             installed never picks it up — GtkImage then measures its 16px default for every \
+             case and the comparison below compares nothing"
+        );
+        let cover = gdk::MemoryTexture::new(
+            192,
+            192,
+            gdk::MemoryFormat::R8g8b8a8,
+            &glib::Bytes::from_owned(vec![0u8; 192 * 192 * 4]),
+            192 * 4,
+        );
+        playing.set_art(Some(&cover));
+        assert!(
+            !art.has_css_class("now-playing__art--empty"),
+            "real art drops the inset that makes the placeholder glyph sit small in its square"
+        );
+        assert_eq!(
+            art.measure(gtk4::Orientation::Horizontal, -1).1,
+            empty,
+            "and it occupies exactly the square the placeholder held, so a cover arriving late \
+             cannot resize the popover around it"
+        );
+
+        playing.set_art(None::<&gdk::Paintable>);
+        assert_eq!(art.icon_name().as_deref(), Some("audio-x-generic-symbolic"));
+        assert!(art.has_css_class("now-playing__art--empty"));
+        assert_eq!(
+            art.measure(gtk4::Orientation::Horizontal, -1).1,
+            empty,
+            "and the placeholder comes back to the same square, so losing a cover does not \
+             resize the popover either"
+        );
+
+        let outputs = ChoiceList::new();
+        let choice = |label: &str, detail: &str| Choice {
+            label: label.to_owned(),
+            detail: detail.to_owned(),
+            icon_name: "audio-headphones-symbolic".to_owned(),
+        };
+        outputs.set_choices(&[
+            choice("WH-1000XM5", "Bluetooth"),
+            choice("Built-in speakers", ""),
+        ]);
+        let choice_rows = children_of::<Row>(&outputs);
+        assert_eq!(choice_rows.len(), 2);
+        assert_eq!(choice_rows[0].subtitle().as_deref(), Some("Bluetooth"));
+        assert_eq!(choice_rows[1].subtitle(), None);
+        assert!(
+            choice_rows.iter().all(|row| row.selectable()),
+            "every row reserves the check, so choosing one does not shunt the labels sideways"
+        );
+        assert!(
+            !choice_rows[0].selected() && !choice_rows[1].selected(),
+            "a list nobody has chosen from shows no check at all rather than defaulting to the \
+             first, which would claim something untrue about the backend"
+        );
+
+        outputs.set_selected(Some(1));
+        assert!(!choice_rows[0].selected() && choice_rows[1].selected());
+
+        outputs.connect_activated(|list, index| {
+            assert_eq!(
+                list.selected(),
+                Some(index),
+                "the check has already moved by the time the handler runs; a list that waits for \
+                 the backend to confirm shows the old row as chosen for a whole round trip"
+            );
+        });
+        choice_rows[0].emit_clicked();
+        assert_eq!(outputs.selected(), Some(0));
+        assert!(choice_rows[0].selected() && !choice_rows[1].selected());
+
+        outputs.set_choices(&[choice("Built-in speakers", "")]);
+        assert_eq!(
+            outputs.selected(),
+            None,
+            "any change to the list drops the selection, because it is positional: index 0 \
+             named the headphones a moment ago and names the speakers now, so keeping it would \
+             quietly check the wrong device"
+        );
+        assert_eq!(children_of::<Row>(&outputs).len(), 1);
+
+        outputs.set_selected(Some(7));
+        assert_eq!(
+            outputs.selected(),
+            None,
+            "and an index past the end is refused rather than stored to confuse the next render"
+        );
+
+        let players = PlayerList::new();
+        players.set_players(&[
+            Player {
+                name: "Firefox".to_owned(),
+                icon_name: "web-browser-symbolic".to_owned(),
+                title: "How the Chip Shortage Ends".to_owned(),
+                artist: "Odd Lots".to_owned(),
+                playing: false,
+            },
+            Player {
+                name: "VLC".to_owned(),
+                icon_name: "video-x-generic-symbolic".to_owned(),
+                title: "The Wire".to_owned(),
+                artist: String::new(),
+                playing: true,
+            },
+        ]);
+        let player_rows = children_of::<PlayerRow>(&players);
+        assert_eq!(player_rows.len(), 2);
+
+        let first: &Row = player_rows[0].upcast_ref();
+        let second: &Row = player_rows[1].upcast_ref();
+        assert_eq!(first.subtitle().as_deref(), Some("Odd Lots · Firefox"));
+        assert_eq!(
+            second.subtitle().as_deref(),
+            Some("VLC"),
+            "a video with no artist says which application is playing it rather than showing a \
+             bare separator"
+        );
+
+        let toggle = child_named::<gtk4::Button>(&player_rows[1], "player-row__toggle");
+        assert_eq!(
+            toggle.icon_name().as_deref(),
+            Some("media-playback-pause-symbolic")
+        );
+
+        let promoted = Rc::new(RefCell::new(Vec::new()));
+        players.connect_activated({
+            let promoted = Rc::clone(&promoted);
+            move |_, index| promoted.borrow_mut().push(index)
+        });
+        let toggled = Rc::new(RefCell::new(Vec::new()));
+        players.connect_toggled({
+            let toggled = Rc::clone(&toggled);
+            move |_, index| toggled.borrow_mut().push(index)
+        });
+        player_rows[1].emit_clicked();
+        toggle.emit_clicked();
+        assert_eq!(*promoted.borrow(), [1u32]);
+        assert_eq!(
+            *toggled.borrow(),
+            [1u32],
+            "the button in the trail is a second gesture on the same row, and each carries the \
+             same index so one list handles both"
+        );
+
+        let split = SplitRow::new();
+        split.set_title(Some("DP-1 · DELL U2720Q"));
+        split.set_value(Some("144 Hz"));
+        assert_eq!(
+            split.row().title().as_deref(),
+            Some("DP-1 · DELL U2720Q"),
+            "a forwarded property reaches the row rather than living twice"
+        );
+
+        let built = gtk4::Builder::from_string(
+            r#"<interface><object class="SplitRow" id="split">
+                 <child type="trail"><object class="GtkSwitch" id="knob"/></child>
+               </object></interface>"#,
+        );
+        let declared: SplitRow = built.object("split").expect("SplitRow builds from a .ui");
+        let knob: gtk4::Switch = built.object("knob").expect("the trail child builds");
+        assert_eq!(
+            knob.ancestor(Row::static_type()),
+            Some(declared.row().upcast::<gtk4::Widget>()),
+            "a [trail] child lands inside the row, so the detail button stays last"
+        );
+        assert_eq!(
+            split.detail().parent().as_ref(),
+            Some(split.upcast_ref::<gtk4::Widget>()),
+            "the detail button is the wrapper's own child, never the row's"
+        );
+
+        let fired: Rc<RefCell<Vec<&str>>> = Rc::new(RefCell::new(Vec::new()));
+        split.connect_activated({
+            let fired = Rc::clone(&fired);
+            move |_| fired.borrow_mut().push("activated")
+        });
+        split.connect_details({
+            let fired = Rc::clone(&fired);
+            move |_| fired.borrow_mut().push("details")
+        });
+
+        split.row().emit_clicked();
+        assert_eq!(
+            *fired.borrow(),
+            ["activated"],
+            "the row body is the primary action and says nothing about details"
+        );
+        split.detail().emit_clicked();
+        assert_eq!(
+            *fired.borrow(),
+            ["activated", "details"],
+            "the detail button is the only way in, and does not also act"
         );
     }
 

@@ -240,17 +240,38 @@ fixture** over the built tree, and the name defaults to the blueprint's own stem
 `calendar.blp` shows sample events by being opened rather than by being opened with an argument
 nobody knows about. The fixtures live in the preview example, not in the widgets.
 
-**An example may carry its own stylesheet.** `just preview <name>.blp` also loads and watches
-`<name>.css` beside it, at `STYLE_PROVIDER_PRIORITY_USER + 1`, and silently loads nothing when the
-file is absent. This is what keeps demo-only rules — a weather range bar, a temperature display —
-out of `glimpse-widgets/styles/glimpse.css`, which is the shipped sheet and not a scratchpad. It is
-also the answer to the `width-request` in the drawer examples: a blueprint has nowhere to put CSS,
-so a layout floor became a pixel literal that `ui.md` forbids. An example stylesheet can express it
-as `min-width` in `rem` instead.
+**An example may carry its own stylesheet, and its directory carries a shared one.** `just preview
+<name>.blp` loads and watches `_shared.css` beside it at `STYLE_PROVIDER_PRIORITY_USER + 1` and
+`<name>.css` at `USER + 2`, and silently loads nothing when either is absent; the checkerboard sits
+above both at `USER + 3`. This is what keeps demo-only rules — a weather range bar, a color swatch
+— out of `glimpse-widgets/styles/glimpse.css`, which is the shipped sheet and not a scratchpad.
+
+The shared sheet is what the per-example one could not be. Every popover example needs the same
+column and drawer floors, and `width-request: 400` was that floor written as a pixel literal
+`ui.md` forbids — but seventeen copies of `.column { min-width: 25rem }` is the drift a shared file
+exists to prevent, and shaping the width would mean editing seventeen files. `_shared.css` holds
+`.column`, `.drawer-page`, `.block`, `.caption`, `.slider` and `.mute`; a name that means something
+in exactly one example (`.swatch--e0563f`) stays in that example's own sheet.
 
 `var/widget_examples/` holds whole compositions — `popover_shell_full.blp` is a popover with every
-slot filled. An example is a top-level object, not a `template`: `Builder` cannot instantiate a
-template whose class does not exist, so a `template` root renders as nothing at all.
+slot filled, and there is one per applet popover. An example is a top-level object, not a
+`template`: `Builder` cannot instantiate a template whose class does not exist, so a `template`
+root renders as nothing at all. `just check-examples` compiles every one of them, which the
+preview otherwise only does one at a time.
+
+**A row followed by a `Gtk.Revealer` expands it.** `fixtures::expanders` gives any row carrying
+`.expander` a click handler toggling its **next sibling**, and complains on stderr when that
+sibling is not a `Gtk.Revealer`. Matching on position rather than on a name is what keeps it out of
+the blueprint: the row and the thing it reveals are already siblings in the section's box, so there
+is nothing to keep in sync. `Row`'s rule is still that it navigates rather than expands — this is
+the exception the README names, an audio stream revealing its volume slider.
+
+**The drawer is wired for every example, not a named list.** `fixtures::apply` runs its named
+fixture and then calls `drawer_nav` unconditionally, which returns immediately when the tree holds
+no `Gtk.Revealer`. So a popover written entirely in Blueprint — a `Revealer` holding a `Gtk.Stack`,
+and rows carrying `nav__<page>` — navigates with no Rust at all. Gating it on a match arm is what
+made a new example's drawer silently inert, and it is the same defect as a `nav__` class with no
+page behind it, which `drawer_nav` now reports on stderr.
 
 **A widget is only declarable if it says so.** `PopoverShell` and `Hero` implement `Gtk.Buildable`,
 which is what makes `[hero]`, `[footer]` and `[slot]` land in the right internal box, and `Hero`
@@ -271,12 +292,24 @@ preview host that needs real widgets has to be Rust.
 **`blueprint-compiler lint` false-positives on every `$CustomType` it cannot resolve.** It reports
 `scrollable_parent` — "Scrollable widget should be placed in a scroll container" — for any extern
 type inside a container, verified with a `$Foo` that does not exist. There is no way to exclude a
-single rule (`-c`/`-r` are allowlists, and an unknown category silently lints nothing), so a crate
-blueprint that embeds one of our own widgets fails `just lint`. The examples in `var/widget_examples/`
-are full of `$Row` and `$Section` and never hit this because the recipe only lints
-`crates/*/blueprints/*.blp`. Where a template needs one of our widgets inside it, declare a
-`Gtk.Box` slot and append the widget in `constructed()` — the structure stays declarative and the
-one line of composition moves to Rust.
+single rule (`-c`/`-r` are allowlists, and an unknown category silently lints nothing), so the
+`lint-blueprints` recipe strips ANSI colour from the report and fails only on a `warning:`/`error:`
+line that is *not* `scrollable_parent`. **Embed our own widgets declaratively** — `$RangeBar bar {}`
+inside `forecast_day.blp`, `$Scrubber scrubber {}` inside `now_playing.blp` — and bind them as
+ordinary `TemplateChild`s. Working around the linter instead costs a compile-checked child and buys
+a runtime `expect()`; the recipe is where a broken tool gets handled.
+
+An embedded type needs **no** `ensure_type()` call: `#[template_child] TemplateChild<Scrubber>`
+names the type in Rust, and binding it registers the GType before `init_template` resolves the
+class by name. Measured both ways in a fresh process. The preview still needs its own
+`ensure_types()`, because a blueprint *example* names `$Scrubber` with nothing in Rust touching it
+at all — that is the case where lazy registration actually bites.
+
+**`blueprint-compiler lint` also rejects a `Gtk.Adjustment` carrying anything besides `lower`,
+`upper` and `value`.** It reports `adjustment_prop_order` — "properties should be ordered as lower,
+upper, and then value" — but the order is not what it checks: measured, `lower/upper/value` passes
+and adding `step-increment` fires it regardless of position. Set the increments from Rust, and
+assert them, because nothing in the template guards them any more.
 
 **Never run a test against the live configuration.** `~/.config/glimpse/config.toml` is the user's
 own, it is edited outside this repository, and a daemon started without `--config` both reads it and

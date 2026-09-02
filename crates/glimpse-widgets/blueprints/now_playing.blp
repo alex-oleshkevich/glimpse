@@ -1,0 +1,105 @@
+using Gtk 4.0;
+
+template $NowPlaying: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: vertical;
+  };
+
+  styles [
+    "now-playing",
+  ]
+
+  Gtk.Box {
+    orientation: horizontal;
+    spacing: 12;
+
+    Gtk.Image art {
+      icon-name: "audio-x-generic-symbolic";
+      overflow: hidden;
+      valign: start;
+      accessible-role: presentation;
+
+      styles [
+        "now-playing__art",
+        "now-playing__art--empty",
+      ]
+    }
+
+    Gtk.Box {
+      orientation: vertical;
+      valign: center;
+      hexpand: true;
+
+      Gtk.Box source_line {
+        orientation: horizontal;
+        spacing: 6;
+        visible: false;
+
+        Gtk.Image source_icon {
+          visible: false;
+          accessible-role: presentation;
+
+          styles [
+            "now-playing__source-icon",
+          ]
+        }
+
+        Gtk.Label source {
+          single-line-mode: true;
+          ellipsize: end;
+          max-width-chars: 20;
+          xalign: 0;
+          visible: false;
+          accessible-role: presentation;
+
+          styles [
+            "now-playing__source",
+          ]
+        }
+      }
+
+      Gtk.Label title {
+        single-line-mode: true;
+        ellipsize: end;
+        max-width-chars: 22;
+        xalign: 0;
+        visible: false;
+        accessible-role: presentation;
+
+        styles [
+          "now-playing__title",
+        ]
+      }
+
+      Gtk.Label artist {
+        single-line-mode: true;
+        ellipsize: end;
+        max-width-chars: 26;
+        xalign: 0;
+        visible: false;
+        accessible-role: presentation;
+
+        styles [
+          "now-playing__artist",
+        ]
+      }
+
+      Gtk.Label album {
+        single-line-mode: true;
+        ellipsize: end;
+        max-width-chars: 30;
+        xalign: 0;
+        visible: false;
+        accessible-role: presentation;
+
+        styles [
+          "now-playing__album",
+        ]
+      }
+    }
+  }
+
+  $Scrubber scrubber {}
+
+  $Transport transport {}
+}

@@ -28,10 +28,18 @@ fn main() {
         ("blueprints/hero.blp", "resources/widgets/hero.ui"),
         ("blueprints/indicator.blp", "resources/widgets/indicator.ui"),
         ("blueprints/notice.blp", "resources/widgets/notice.ui"),
+        (
+            "blueprints/now_playing.blp",
+            "resources/widgets/now_playing.ui",
+        ),
         ("blueprints/panel.blp", "resources/widgets/panel.ui"),
         (
             "blueprints/placeholder.blp",
             "resources/widgets/placeholder.ui",
+        ),
+        (
+            "blueprints/player_row.blp",
+            "resources/widgets/player_row.ui",
         ),
         (
             "blueprints/popover_shell.blp",
@@ -39,7 +47,10 @@ fn main() {
         ),
         ("blueprints/readout.blp", "resources/widgets/readout.ui"),
         ("blueprints/row.blp", "resources/widgets/row.ui"),
+        ("blueprints/scrubber.blp", "resources/widgets/scrubber.ui"),
         ("blueprints/section.blp", "resources/widgets/section.ui"),
+        ("blueprints/split_row.blp", "resources/widgets/split_row.ui"),
+        ("blueprints/transport.blp", "resources/widgets/transport.ui"),
     ]);
 
     glib_build_tools::compile_resources(

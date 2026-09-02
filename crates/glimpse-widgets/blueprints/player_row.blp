@@ -1,0 +1,19 @@
+using Gtk 4.0;
+
+template $PlayerRow: $Row {
+  styles [
+    "player-row",
+  ]
+
+  [trail]
+  Gtk.Button toggle {
+    icon-name: "media-playback-start-symbolic";
+    has-frame: false;
+    valign: center;
+    tooltip-text: _("Play");
+
+    styles [
+      "player-row__toggle",
+    ]
+  }
+}

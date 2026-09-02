@@ -1,0 +1,33 @@
+using Gtk 4.0;
+
+template $SplitRow: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: horizontal;
+  };
+
+  styles [
+    "split-row",
+  ]
+
+  $Row row {
+    hexpand: true;
+  }
+
+  Gtk.Separator rule {
+    orientation: vertical;
+
+    styles [
+      "split-row__rule",
+    ]
+  }
+
+  Gtk.Button detail {
+    icon-name: "go-next-symbolic";
+    has-frame: false;
+    tooltip-text: _("Details");
+
+    styles [
+      "split-row__detail",
+    ]
+  }
+}

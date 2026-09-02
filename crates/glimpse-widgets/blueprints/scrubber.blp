@@ -1,0 +1,56 @@
+using Gtk 4.0;
+
+template $Scrubber: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: vertical;
+  };
+
+  styles [
+    "scrubber",
+  ]
+
+  Gtk.Scale track {
+    orientation: horizontal;
+    draw-value: false;
+    sensitive: false;
+    hexpand: true;
+    tooltip-text: _("Seek");
+
+    adjustment: Gtk.Adjustment {
+      lower: 0;
+      upper: 1;
+      value: 0;
+    };
+
+    styles [
+      "scrubber__track",
+    ]
+  }
+
+  Gtk.Box {
+    orientation: horizontal;
+
+    Gtk.Label elapsed {
+      single-line-mode: true;
+      xalign: 0;
+      hexpand: true;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "scrubber__time",
+      ]
+    }
+
+    Gtk.Label remaining {
+      single-line-mode: true;
+      xalign: 1;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "scrubber__time",
+      ]
+    }
+  }
+}
