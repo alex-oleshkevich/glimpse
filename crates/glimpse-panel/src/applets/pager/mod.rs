@@ -57,6 +57,10 @@ impl Applet for Pager {
         Some(self.strip.clone().upcast())
     }
 
+    fn orient(&mut self, orientation: gtk4::Orientation) {
+        self.strip.set_orientation(orientation);
+    }
+
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
         let AppletConfig::Pager(settings) = config else {
             return;

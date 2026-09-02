@@ -155,13 +155,13 @@ impl AppletRuntime {
             group.set_orientation(orientation);
             return;
         }
-        if let Some(layout) = self
-            .root
-            .first_child()
-            .and_then(|view| view.layout_manager())
-            .and_downcast::<gtk4::BoxLayout>()
-        {
-            layout.set_orientation(orientation);
+
+        let outcome = self
+            .applet
+            .as_mut()
+            .map(|applet| catch_unwind(AssertUnwindSafe(|| applet.orient(orientation))));
+        if let Some(Err(panic)) = outcome {
+            self.stop(panic.as_ref());
         }
     }
 

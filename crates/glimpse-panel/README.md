@@ -42,8 +42,12 @@ socket, and it gives every applet a uniform CSS hook the group-as-root never did
 owns its pointer, which is what lets the pager give each slot its own `Gtk.Button` and its own scroll
 axes without fighting a controller the runtime installed over the top.
 
-**Orientation reaches a view through its layout manager.** The runtime sets it on the box, and on the
-view's own `BoxLayout` when it has one. Anything with a different layout manager orients itself.
+**Orientation is handed to the applet, not applied behind its back.** `orient` sets the box, then the
+`IndicatorGroup` when there is one and `Applet::orient` otherwise. Reaching into the view's own
+`BoxLayout` was tried first and is wrong: it turns the widget sideways without telling it, so the
+widget cannot restyle for the new axis. Measured on the pager — a vertical bar stretched every dot
+across the column and lost the shape that says which workspace is current, because the rule that
+lengthens the active one is keyed on `min-width`. A widget has to know its axis to draw for it.
 
 **Signals are wired in `view`, which is called once**, before the first `configure`. A GTK callback
 outlives any `&Ctx`, so `ctx.caller()` hands out a `Caller` — name plus `Client`, cheap to clone —

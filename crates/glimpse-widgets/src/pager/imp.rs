@@ -42,7 +42,7 @@ impl ObjectImpl for Pager {
         self.parent_constructed();
         let pager = self.obj();
         pager.add_css_class("pager");
-        pager.set_valign(gtk4::Align::Center);
+        pager.set_orientation(gtk4::Orientation::Horizontal);
         pager.set_visible(false);
         pager.apply_shape();
 

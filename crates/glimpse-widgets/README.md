@@ -153,6 +153,19 @@ from `tooltip-text` on its own — `set_slot` sets the accessible label explicit
 with neither a tooltip nor a label is an unnamed button, which is the one way to use this widget
 inaccessibly.
 
+### A vertical strip is a different shape, not the same one rotated
+
+`set_orientation` moves the layout, swaps the alignment and toggles `pager--vertical`, and all three
+are load-bearing. The alignment because a vertical strip left at `halign: Fill` takes the whole bar
+width and every dot stretches into a bar of its own. The class because the active item lengthens
+*along* the strip: horizontally that is `min-width`, vertically it has to become `min-height`, and
+the horizontal rule applied to a vertical strip just widens the column and erases the cue entirely.
+Both were seen on a real `position = "left"` panel before they were fixed.
+
+`set_orientation` is called from `constructed` with `Horizontal`, so the starting alignment and the
+running one come from one place rather than from a `set_valign` that a later orientation change
+would contradict.
+
 ### Hover must not outrank the state it sits on
 
 `:hover` adds a pseudo-class to the selector, so `.pager-item:hover` is *more* specific than

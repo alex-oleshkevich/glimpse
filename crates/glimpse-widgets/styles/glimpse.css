@@ -162,6 +162,12 @@
     min-width: var(--gl-pager-wide, 1.3rem);
 }
 
+.pager--vertical.pager--dots .pager-item--elsewhere,
+.pager--vertical.pager--dots .pager-item--here {
+    min-width: var(--gl-pager-dot, 0.5rem);
+    min-height: var(--gl-pager-wide, 1.3rem);
+}
+
 .pager-item--urgent {
     background-color: var(--gl-warning-text);
 }

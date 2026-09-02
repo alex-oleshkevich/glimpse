@@ -30,6 +30,10 @@ pub trait Applet: 'static {
         None
     }
 
+    fn orient(&mut self, orientation: gtk4::Orientation) {
+        let _ = orientation;
+    }
+
     fn indicators(&self) -> Vec<IndicatorSpec> {
         Vec::new()
     }

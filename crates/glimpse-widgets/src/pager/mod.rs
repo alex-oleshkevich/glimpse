@@ -7,6 +7,7 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 const DOTS: &str = "pager--dots";
 const NUMBERS: &str = "pager--numbers";
+const VERTICAL: &str = "pager--vertical";
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Shape {
@@ -57,6 +58,25 @@ impl Pager {
         }
         imp.slots.replace(slots.to_vec());
         self.render();
+    }
+
+    pub fn set_orientation(&self, orientation: gtk4::Orientation) {
+        if let Some(layout) = self.layout_manager().and_downcast::<gtk4::BoxLayout>() {
+            layout.set_orientation(orientation);
+        }
+
+        let vertical = orientation == gtk4::Orientation::Vertical;
+        crate::set_css_class(self, VERTICAL, vertical);
+        match vertical {
+            true => {
+                self.set_halign(gtk4::Align::Center);
+                self.set_valign(gtk4::Align::Fill);
+            }
+            false => {
+                self.set_halign(gtk4::Align::Fill);
+                self.set_valign(gtk4::Align::Center);
+            }
+        }
     }
 
     pub fn set_shape(&self, shape: Shape) {

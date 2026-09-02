@@ -1629,6 +1629,29 @@ mod tests {
             "the typed wrapper agrees with the declared parameters, which nothing checks at compile time"
         );
 
+        assert!(
+            !pager.has_css_class("pager--vertical") && pager.valign() == gtk4::Align::Center,
+            "a pager starts on a horizontal bar, centered across it"
+        );
+
+        pager.set_orientation(gtk4::Orientation::Vertical);
+        assert!(
+            pager.has_css_class("pager--vertical"),
+            "the strip has to say which way it runs, because the active dot lengthens along it \
+             and a rule keyed on width alone widens the whole column instead"
+        );
+        assert_eq!(
+            pager.halign(),
+            gtk4::Align::Center,
+            "a vertical strip that fills the bar's width stretches every dot into a bar of its own"
+        );
+
+        pager.set_orientation(gtk4::Orientation::Horizontal);
+        assert!(
+            !pager.has_css_class("pager--vertical") && pager.valign() == gtk4::Align::Center,
+            "and back, since a panel's position is a setting that changes under a running applet"
+        );
+
         for make in [
             (|| Row::new().upcast::<gtk4::Widget>()) as fn() -> gtk4::Widget,
             || Notice::new().upcast(),
