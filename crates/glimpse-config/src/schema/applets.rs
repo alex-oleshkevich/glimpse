@@ -4,6 +4,9 @@ use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
+/// One applet on a bar. The table name is the applet's name, and `extends` says which kind it is
+/// when the two differ — which is how one kind can appear more than once, as `[applets.clock-utc]`
+/// with `extends = "clock"`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(
     tag = "extends",
@@ -12,48 +15,86 @@ use serde::{Deserialize, Deserializer, Serialize};
     deny_unknown_fields
 )]
 pub enum Applet {
+    /// Output volume, with the default sink and per-application streams in its popover.
     Audio {},
+    /// Charge level and time remaining, with the power profile in its popover.
     Battery {},
+    /// Adapter state and paired devices.
     Bluetooth {},
+    /// Display backlight level.
     Brightness {},
+    /// Clipboard history.
     Clipboard {},
+    /// The time and date, with a calendar in its popover.
     Clock(Clock),
+    /// Runs a command and renders its output on the bar.
     Command {},
+    /// Connected outputs, their modes and their arrangement.
     Display {},
+    /// Hosts a third-party applet binary that draws its own popover.
     Exec {},
+    /// A counter that ticks once a second. A development fixture: it proves the daemon is
+    /// reachable and events are arriving, and is not meant for a real bar.
     Heartbeat {},
+    /// Idle inhibition, for keeping the screen awake.
     Idle {},
+    /// The active keyboard layout, and switches between the configured ones.
     Keyboard {},
+    /// The currently playing track, with transport controls in its popover.
     Mpris {},
+    /// Connection state, with the available networks in its popover.
     Network {},
+    /// The next entry from the configured calendars.
     NextEvent {},
+    /// Unread notifications, with their history in its popover.
     Notifications {},
+    /// A strip of workspaces or windows, one slot each, that switches between them on a click.
     Pager(Pager),
+    /// Active print jobs.
     Printing {},
+    /// Shows when the microphone, camera or screen is in use.
     Privacy {},
+    /// Mounted removable drives, and unmounts them.
     Removable {},
+    /// Log out, suspend, restart and shut down.
     Session {},
+    /// The system tray: icons from applications that ask for one.
     Tray {},
+    /// Current conditions, with the forecast in its popover.
     Weather {},
 }
 
+/// Settings for the clock applet.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Clock {
+    /// A `strftime` format string, such as `%H:%M` or `%a %d %b %H:%M`.
     pub format: String,
 }
 
+/// Settings for the pager applet.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Pager {
+    /// Whether each slot is a workspace or a window.
     pub mode: PagerMode,
+    /// Whether a slot is drawn as a dot or as its label in a pill.
     pub shape: PagerShape,
+    /// How much of the session the strip covers.
     pub scope: PagerScope,
+    /// What a slot reads, when the shape is `numbers`. Understands `{index}`, `{id}`, `{name}`,
+    /// `{name-or-index}` and `{workspace-name}`. `{index}` falls back to the id, because only
+    /// niri numbers its workspaces separately from their ids; in `windows` mode it is the slot's
+    /// position and `{name}` is the window's app id, which is why `{workspace-name}` exists.
     pub label: String,
+    /// The label for the slot the user is currently on, so the current workspace can show its
+    /// name while the rest stay numbers. Same tokens as `label`.
     pub focused_label: String,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+/// What each slot stands for: `workspaces` for one slot per workspace, `windows` for one slot per
+/// window on the current workspace.
 #[serde(rename_all = "kebab-case")]
 pub enum PagerMode {
     #[default]
@@ -62,6 +103,8 @@ pub enum PagerMode {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+/// How a slot is drawn: `dots` for a dot each with the current one drawn longer, which takes the
+/// least room on the bar, or `numbers` for the slot's label in a pill.
 #[serde(rename_all = "kebab-case")]
 pub enum PagerShape {
     #[default]
@@ -70,6 +113,9 @@ pub enum PagerShape {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+/// How much of the session the strip covers: `current` for only the workspace the user is on,
+/// `output` for the workspaces on this panel's monitor, `session` for every workspace on every
+/// monitor.
 #[serde(rename_all = "kebab-case")]
 pub enum PagerScope {
     Current,

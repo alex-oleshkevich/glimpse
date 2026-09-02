@@ -109,17 +109,29 @@ impl Pager {
                 .map(|workspace| workspace_slot(settings, workspace))
                 .collect(),
             PagerMode::Windows => {
-                let showing: Vec<u64> = scoped
+                let showing: Vec<&WorkspaceInfo> = scoped
                     .iter()
                     .filter(|workspace| workspace.active)
-                    .map(|workspace| workspace.id)
+                    .copied()
                     .collect();
+                let named = |id: u64| {
+                    showing
+                        .iter()
+                        .find(|workspace| workspace.id == id)
+                        .and_then(|workspace| workspace.name.as_deref())
+                };
 
                 self.windows
                     .iter()
-                    .filter(|window| window.workspace.is_some_and(|id| showing.contains(&id)))
+                    .filter(|window| {
+                        window
+                            .workspace
+                            .is_some_and(|id| showing.iter().any(|it| it.id == id))
+                    })
                     .enumerate()
-                    .map(|(position, window)| window_slot(settings, position, window))
+                    .map(|(position, window)| {
+                        window_slot(settings, position, window, window.workspace.and_then(named))
+                    })
                     .collect()
             }
         }
@@ -138,6 +150,7 @@ fn workspace_slot(settings: &PagerConfig, workspace: &WorkspaceInfo) -> Slot {
         index: workspace.index.map(u64::from),
         id: workspace.id,
         name: workspace.name.as_deref(),
+        workspace: workspace.name.as_deref(),
     };
 
     Slot {
@@ -154,11 +167,17 @@ fn workspace_slot(settings: &PagerConfig, workspace: &WorkspaceInfo) -> Slot {
     }
 }
 
-fn window_slot(settings: &PagerConfig, position: usize, window: &WindowInfo) -> Slot {
+fn window_slot(
+    settings: &PagerConfig,
+    position: usize,
+    window: &WindowInfo,
+    workspace: Option<&str>,
+) -> Slot {
     let facts = Facts {
         index: Some(position as u64 + 1),
         id: window.id,
         name: window.app_id.as_deref(),
+        workspace,
     };
 
     Slot {
@@ -265,6 +284,7 @@ mod tests {
             &labelled("w{index}", "w{index}"),
             1,
             &window(94_388_234_684_768, false),
+            Some("work"),
         );
 
         assert_eq!(
@@ -273,6 +293,22 @@ mod tests {
         );
         assert_eq!(slot.tooltip, "a terminal");
         assert_eq!(slot.id, 94_388_234_684_768);
+    }
+
+    #[test]
+    fn a_window_slot_can_still_name_the_workspace_it_sits_on() {
+        let slot = window_slot(
+            &labelled("{workspace-name}", "{workspace-name}"),
+            0,
+            &window(94_388_234_684_768, false),
+            Some("work"),
+        );
+
+        assert_eq!(
+            slot.label, "work",
+            "windows mode makes the name token the window's app id, so without this one there is \
+             no way to show which workspace the strip is showing"
+        );
     }
 
     #[test]

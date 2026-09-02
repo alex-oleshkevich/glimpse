@@ -15,6 +15,7 @@
       "type": "object",
       "properties": {
         "audio": {
+          "description": "Output volume, with the default sink and per-application streams in its popover.",
           "type": "object",
           "properties": {
             "extends": {
@@ -26,6 +27,7 @@
           "required": []
         },
         "battery": {
+          "description": "Charge level and time remaining, with the power profile in its popover.",
           "type": "object",
           "properties": {
             "extends": {
@@ -37,6 +39,7 @@
           "required": []
         },
         "bluetooth": {
+          "description": "Adapter state and paired devices.",
           "type": "object",
           "properties": {
             "extends": {
@@ -48,6 +51,7 @@
           "required": []
         },
         "brightness": {
+          "description": "Display backlight level.",
           "type": "object",
           "properties": {
             "extends": {
@@ -59,6 +63,7 @@
           "required": []
         },
         "clipboard": {
+          "description": "Clipboard history.",
           "type": "object",
           "properties": {
             "extends": {
@@ -70,6 +75,7 @@
           "required": []
         },
         "clock": {
+          "description": "The time and date, with a calendar in its popover.",
           "type": "object",
           "properties": {
             "extends": {
@@ -77,6 +83,7 @@
               "const": "clock"
             },
             "format": {
+              "description": "A `strftime` format string, such as `%H:%M` or `%a %d %b %H:%M`.",
               "type": "string",
               "default": "%H:%M"
             }
@@ -85,6 +92,7 @@
           "required": []
         },
         "command": {
+          "description": "Runs a command and renders its output on the bar.",
           "type": "object",
           "properties": {
             "extends": {
@@ -96,6 +104,7 @@
           "required": []
         },
         "display": {
+          "description": "Connected outputs, their modes and their arrangement.",
           "type": "object",
           "properties": {
             "extends": {
@@ -107,6 +116,7 @@
           "required": []
         },
         "exec": {
+          "description": "Hosts a third-party applet binary that draws its own popover.",
           "type": "object",
           "properties": {
             "extends": {
@@ -118,6 +128,7 @@
           "required": []
         },
         "heartbeat": {
+          "description": "A counter that ticks once a second. A development fixture: it proves the daemon is\nreachable and events are arriving, and is not meant for a real bar.",
           "type": "object",
           "properties": {
             "extends": {
@@ -129,6 +140,7 @@
           "required": []
         },
         "idle": {
+          "description": "Idle inhibition, for keeping the screen awake.",
           "type": "object",
           "properties": {
             "extends": {
@@ -140,6 +152,7 @@
           "required": []
         },
         "keyboard": {
+          "description": "The active keyboard layout, and switches between the configured ones.",
           "type": "object",
           "properties": {
             "extends": {
@@ -151,6 +164,7 @@
           "required": []
         },
         "mpris": {
+          "description": "The currently playing track, with transport controls in its popover.",
           "type": "object",
           "properties": {
             "extends": {
@@ -162,6 +176,7 @@
           "required": []
         },
         "network": {
+          "description": "Connection state, with the available networks in its popover.",
           "type": "object",
           "properties": {
             "extends": {
@@ -173,6 +188,7 @@
           "required": []
         },
         "next-event": {
+          "description": "The next entry from the configured calendars.",
           "type": "object",
           "properties": {
             "extends": {
@@ -184,6 +200,7 @@
           "required": []
         },
         "notifications": {
+          "description": "Unread notifications, with their history in its popover.",
           "type": "object",
           "properties": {
             "extends": {
@@ -195,6 +212,7 @@
           "required": []
         },
         "pager": {
+          "description": "A strip of workspaces or windows, one slot each, that switches between them on a click.",
           "type": "object",
           "properties": {
             "extends": {
@@ -202,22 +220,27 @@
               "const": "pager"
             },
             "focused-label": {
+              "description": "The label for the slot the user is currently on, so the current workspace can show its\nname while the rest stay numbers. Same tokens as `label`.",
               "type": "string",
               "default": "{index}"
             },
             "label": {
+              "description": "What a slot reads, when the shape is `numbers`. Understands `{index}`, `{id}`, `{name}`,\n`{name-or-index}` and `{workspace-name}`. `{index}` falls back to the id, because only\nniri numbers its workspaces separately from their ids; in `windows` mode it is the slot's\nposition and `{name}` is the window's app id, which is why `{workspace-name}` exists.",
               "type": "string",
               "default": "{index}"
             },
             "mode": {
+              "description": "Whether each slot is a workspace or a window.",
               "$ref": "#/$defs/PagerMode",
               "default": "workspaces"
             },
             "scope": {
+              "description": "How much of the session the strip covers.",
               "$ref": "#/$defs/PagerScope",
               "default": "output"
             },
             "shape": {
+              "description": "Whether a slot is drawn as a dot or as its label in a pill.",
               "$ref": "#/$defs/PagerShape",
               "default": "dots"
             }
@@ -226,6 +249,7 @@
           "required": []
         },
         "printing": {
+          "description": "Active print jobs.",
           "type": "object",
           "properties": {
             "extends": {
@@ -237,6 +261,7 @@
           "required": []
         },
         "privacy": {
+          "description": "Shows when the microphone, camera or screen is in use.",
           "type": "object",
           "properties": {
             "extends": {
@@ -248,6 +273,7 @@
           "required": []
         },
         "removable": {
+          "description": "Mounted removable drives, and unmounts them.",
           "type": "object",
           "properties": {
             "extends": {
@@ -259,6 +285,7 @@
           "required": []
         },
         "session": {
+          "description": "Log out, suspend, restart and shut down.",
           "type": "object",
           "properties": {
             "extends": {
@@ -270,6 +297,7 @@
           "required": []
         },
         "tray": {
+          "description": "The system tray: icons from applications that ask for one.",
           "type": "object",
           "properties": {
             "extends": {
@@ -281,6 +309,7 @@
           "required": []
         },
         "weather": {
+          "description": "Current conditions, with the forecast in its popover.",
           "type": "object",
           "properties": {
             "extends": {
@@ -293,8 +322,10 @@
         }
       },
       "additionalProperties": {
+        "description": "One applet on a bar. The table name is the applet's name, and `extends` says which kind it is\nwhen the two differ — which is how one kind can appear more than once, as `[applets.clock-utc]`\nwith `extends = \"clock\"`.",
         "oneOf": [
           {
+            "description": "Output volume, with the default sink and per-application streams in its popover.",
             "type": "object",
             "properties": {
               "extends": {
@@ -308,6 +339,7 @@
             ]
           },
           {
+            "description": "Charge level and time remaining, with the power profile in its popover.",
             "type": "object",
             "properties": {
               "extends": {
@@ -321,6 +353,7 @@
             ]
           },
           {
+            "description": "Adapter state and paired devices.",
             "type": "object",
             "properties": {
               "extends": {
@@ -334,6 +367,7 @@
             ]
           },
           {
+            "description": "Display backlight level.",
             "type": "object",
             "properties": {
               "extends": {
@@ -347,6 +381,7 @@
             ]
           },
           {
+            "description": "Clipboard history.",
             "type": "object",
             "properties": {
               "extends": {
@@ -360,6 +395,7 @@
             ]
           },
           {
+            "description": "The time and date, with a calendar in its popover.",
             "type": "object",
             "properties": {
               "extends": {
@@ -367,6 +403,7 @@
                 "const": "clock"
               },
               "format": {
+                "description": "A `strftime` format string, such as `%H:%M` or `%a %d %b %H:%M`.",
                 "type": "string",
                 "default": "%H:%M"
               }
@@ -377,6 +414,7 @@
             ]
           },
           {
+            "description": "Runs a command and renders its output on the bar.",
             "type": "object",
             "properties": {
               "extends": {
@@ -390,6 +428,7 @@
             ]
           },
           {
+            "description": "Connected outputs, their modes and their arrangement.",
             "type": "object",
             "properties": {
               "extends": {
@@ -403,6 +442,7 @@
             ]
           },
           {
+            "description": "Hosts a third-party applet binary that draws its own popover.",
             "type": "object",
             "properties": {
               "extends": {
@@ -416,6 +456,7 @@
             ]
           },
           {
+            "description": "A counter that ticks once a second. A development fixture: it proves the daemon is\nreachable and events are arriving, and is not meant for a real bar.",
             "type": "object",
             "properties": {
               "extends": {
@@ -429,6 +470,7 @@
             ]
           },
           {
+            "description": "Idle inhibition, for keeping the screen awake.",
             "type": "object",
             "properties": {
               "extends": {
@@ -442,6 +484,7 @@
             ]
           },
           {
+            "description": "The active keyboard layout, and switches between the configured ones.",
             "type": "object",
             "properties": {
               "extends": {
@@ -455,6 +498,7 @@
             ]
           },
           {
+            "description": "The currently playing track, with transport controls in its popover.",
             "type": "object",
             "properties": {
               "extends": {
@@ -468,6 +512,7 @@
             ]
           },
           {
+            "description": "Connection state, with the available networks in its popover.",
             "type": "object",
             "properties": {
               "extends": {
@@ -481,6 +526,7 @@
             ]
           },
           {
+            "description": "The next entry from the configured calendars.",
             "type": "object",
             "properties": {
               "extends": {
@@ -494,6 +540,7 @@
             ]
           },
           {
+            "description": "Unread notifications, with their history in its popover.",
             "type": "object",
             "properties": {
               "extends": {
@@ -507,6 +554,7 @@
             ]
           },
           {
+            "description": "A strip of workspaces or windows, one slot each, that switches between them on a click.",
             "type": "object",
             "properties": {
               "extends": {
@@ -514,22 +562,27 @@
                 "const": "pager"
               },
               "focused-label": {
+                "description": "The label for the slot the user is currently on, so the current workspace can show its\nname while the rest stay numbers. Same tokens as `label`.",
                 "type": "string",
                 "default": "{index}"
               },
               "label": {
+                "description": "What a slot reads, when the shape is `numbers`. Understands `{index}`, `{id}`, `{name}`,\n`{name-or-index}` and `{workspace-name}`. `{index}` falls back to the id, because only\nniri numbers its workspaces separately from their ids; in `windows` mode it is the slot's\nposition and `{name}` is the window's app id, which is why `{workspace-name}` exists.",
                 "type": "string",
                 "default": "{index}"
               },
               "mode": {
+                "description": "Whether each slot is a workspace or a window.",
                 "$ref": "#/$defs/PagerMode",
                 "default": "workspaces"
               },
               "scope": {
+                "description": "How much of the session the strip covers.",
                 "$ref": "#/$defs/PagerScope",
                 "default": "output"
               },
               "shape": {
+                "description": "Whether a slot is drawn as a dot or as its label in a pill.",
                 "$ref": "#/$defs/PagerShape",
                 "default": "dots"
               }
@@ -540,6 +593,7 @@
             ]
           },
           {
+            "description": "Active print jobs.",
             "type": "object",
             "properties": {
               "extends": {
@@ -553,6 +607,7 @@
             ]
           },
           {
+            "description": "Shows when the microphone, camera or screen is in use.",
             "type": "object",
             "properties": {
               "extends": {
@@ -566,6 +621,7 @@
             ]
           },
           {
+            "description": "Mounted removable drives, and unmounts them.",
             "type": "object",
             "properties": {
               "extends": {
@@ -579,6 +635,7 @@
             ]
           },
           {
+            "description": "Log out, suspend, restart and shut down.",
             "type": "object",
             "properties": {
               "extends": {
@@ -592,6 +649,7 @@
             ]
           },
           {
+            "description": "The system tray: icons from applications that ask for one.",
             "type": "object",
             "properties": {
               "extends": {
@@ -605,6 +663,7 @@
             ]
           },
           {
+            "description": "Current conditions, with the forecast in its popover.",
             "type": "object",
             "properties": {
               "extends": {
@@ -1179,6 +1238,7 @@
       "additionalProperties": false
     },
     "PagerMode": {
+      "description": "What each slot stands for: `workspaces` for one slot per workspace, `windows` for one slot per\nwindow on the current workspace.",
       "type": "string",
       "enum": [
         "workspaces",
@@ -1186,6 +1246,7 @@
       ]
     },
     "PagerScope": {
+      "description": "How much of the session the strip covers: `current` for only the workspace the user is on,\n`output` for the workspaces on this panel's monitor, `session` for every workspace on every\nmonitor.",
       "type": "string",
       "enum": [
         "current",
@@ -1194,6 +1255,7 @@
       ]
     },
     "PagerShape": {
+      "description": "How a slot is drawn: `dots` for a dot each with the current one drawn longer, which takes the\nleast room on the bar, or `numbers` for the slot's label in a pill.",
       "type": "string",
       "enum": [
         "dots",
