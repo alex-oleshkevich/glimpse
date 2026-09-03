@@ -291,9 +291,16 @@ fn apply(state: &mut Snapshot, change: Change) -> bool {
         }
         Change::WindowsChanged(windows) => state.windows = windows,
         Change::WindowOpenedOrChanged(window) => {
-            match state.windows.iter_mut().find(|it| it.id == window.id) {
+            let (id, focused) = (window.id, window.is_focused);
+            match state.windows.iter_mut().find(|it| it.id == id) {
                 Some(found) => *found = window,
                 None => state.windows.push(window),
+            }
+            if focused {
+                state.focused_window = Some(id);
+                for other in &mut state.windows {
+                    other.is_focused = other.id == id;
+                }
             }
         }
         Change::WindowClosed(id) => state.windows.retain(|window| window.id != id),
@@ -482,6 +489,56 @@ mod tests {
             is_urgent: false,
             layout_order: None,
         }
+    }
+
+    #[test]
+    fn a_window_that_opens_focused_takes_focus_from_whatever_had_it() {
+        let mut had_focus = window(1, 4);
+        had_focus.is_focused = true;
+        let mut opening = window(3, 4);
+        opening.is_focused = true;
+
+        let mut state = Snapshot {
+            windows: vec![had_focus, window(2, 4)],
+            focused_window: Some(WindowId(1)),
+            ..Snapshot::default()
+        };
+
+        apply(&mut state, Change::WindowOpenedOrChanged(opening));
+
+        assert_eq!(
+            state
+                .windows
+                .iter()
+                .filter(|window| window.is_focused)
+                .map(|window| window.id)
+                .collect::<Vec<WindowId>>(),
+            [WindowId(3)],
+            "a session focuses one window, so a popover listing them must never tick two rows"
+        );
+        assert_eq!(state.focused_window, Some(WindowId(3)));
+    }
+
+    #[test]
+    fn a_window_changing_without_focus_leaves_focus_where_it_is() {
+        let mut had_focus = window(1, 4);
+        had_focus.is_focused = true;
+        let mut retitled = window(2, 4);
+        retitled.title = Some("vim".to_owned());
+
+        let mut state = Snapshot {
+            windows: vec![had_focus, window(2, 4)],
+            focused_window: Some(WindowId(1)),
+            ..Snapshot::default()
+        };
+
+        apply(&mut state, Change::WindowOpenedOrChanged(retitled));
+
+        assert_eq!(state.focused_window, Some(WindowId(1)));
+        assert!(
+            state.windows[0].is_focused,
+            "a title arriving on an unfocused window must not move focus onto nothing"
+        );
     }
 
     fn output(connector: &str, enabled: bool) -> Output {
