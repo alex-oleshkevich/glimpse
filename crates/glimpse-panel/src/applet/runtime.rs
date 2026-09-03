@@ -48,6 +48,7 @@ pub struct AppletRuntime {
     config: Option<AppletConfig>,
     popover: Option<gtk4::Popover>,
     shown: Option<Box<dyn PopoverHandle>>,
+    anchored: Option<gtk4::gdk::Rectangle>,
     inside: bool,
 }
 
@@ -125,6 +126,7 @@ impl Component for AppletRuntime {
             config: None,
             popover: None,
             shown: None,
+            anchored: None,
             inside: false,
         };
         model.configure(init.config);
@@ -209,6 +211,7 @@ impl AppletRuntime {
         popover.set_parent(&self.root);
         let anchor = self.anchor();
         popover.set_pointing_to(anchor.as_ref());
+        self.anchored = anchor;
 
         let leave = gtk4::EventControllerMotion::new();
         leave.connect_leave({
@@ -236,6 +239,18 @@ impl AppletRuntime {
         );
     }
 
+    fn follow_anchor(&mut self) {
+        let Some(popover) = self.popover.clone() else {
+            return;
+        };
+        let anchor = self.anchor();
+        if anchor == self.anchored {
+            return;
+        }
+        self.anchored = anchor;
+        popover.set_pointing_to(self.anchored.as_ref());
+    }
+
     fn anchor(&self) -> Option<gtk4::gdk::Rectangle> {
         let bounds = self.applet.as_ref()?.anchor()?.compute_bounds(&self.root)?;
         Some(gtk4::gdk::Rectangle::new(
@@ -251,6 +266,7 @@ impl AppletRuntime {
             return;
         }
         self.inside = false;
+        self.anchored = None;
         tracing::debug!(applet = self.ctx.name(), "popover closed");
         if let Some(popover) = self.popover.take() {
             popover.popdown();
@@ -326,6 +342,8 @@ impl AppletRuntime {
                 Vec::new()
             }
         };
+
+        self.follow_anchor();
 
         let Some(group) = self.group.as_ref() else {
             return;

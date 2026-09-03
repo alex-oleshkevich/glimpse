@@ -22,7 +22,7 @@ pub struct WorkspacesPopover {
     #[template_child]
     pub page: TemplateChild<gtk4::Box>,
     pub opened: std::cell::Cell<Option<u64>>,
-    pub rows: std::cell::RefCell<Vec<crate::Row>>,
+    pub rows: std::cell::RefCell<Vec<(u64, crate::Row)>>,
     pub workspaces: std::cell::RefCell<Vec<crate::Workspace>>,
 }
 

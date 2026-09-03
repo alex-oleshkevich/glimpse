@@ -2,6 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
+use crate::reconcile::by_key;
 use crate::{Row, Workspace};
 
 glib::wrapper! {
@@ -43,35 +44,22 @@ impl WorkspacesPopover {
             return self.close_drawer();
         };
 
-        imp.detail.set_title(Some(workspace.label.as_str()));
         imp.detail.set_empty(workspace.windows.is_empty());
 
         let mut rows = imp.rows.borrow_mut();
-        for (index, window) in workspace.windows.iter().enumerate() {
-            if rows.len() == index {
-                let row = Row::new();
-                row.connect_clicked(glib::clone!(
-                    #[weak(rename_to = popover)]
-                    self,
-                    move |_| {
-                        if let Some(id) = popover.window_at(index) {
-                            popover.emit_by_name::<()>("window-activated", &[&id]);
-                        }
-                    }
-                ));
-                imp.page.append(&row);
-                rows.push(row);
-            }
-            let row = &rows[index];
-            row.set_title(Some(window.title.as_str()));
-            row.set_subtitle((!window.app_id.is_empty()).then_some(window.app_id.as_str()));
-            row.set_selectable(true);
-            row.set_selected(window.focused);
-        }
-
-        for row in rows.split_off(workspace.windows.len()) {
-            imp.page.remove(&row);
-        }
+        by_key(
+            &*imp.page,
+            &mut rows,
+            &workspace.windows,
+            |window| window.id,
+            |window| self.row_for(window.id),
+            |row, window| {
+                row.set_title(Some(window.title.as_str()));
+                row.set_subtitle((!window.app_id.is_empty()).then_some(window.app_id.as_str()));
+                row.set_selectable(true);
+                row.set_selected(window.focused);
+            },
+        );
 
         drop(rows);
         drop(workspaces);
@@ -79,18 +67,20 @@ impl WorkspacesPopover {
         imp.drawer.set_reveal_child(true);
     }
 
+    fn row_for(&self, id: u64) -> Row {
+        let row = Row::new();
+        row.connect_clicked(glib::clone!(
+            #[weak(rename_to = popover)]
+            self,
+            move |_| popover.emit_by_name::<()>("window-activated", &[&id])
+        ));
+        row
+    }
+
     fn close_drawer(&self) {
         let imp = self.imp();
         imp.opened.set(None);
         imp.drawer.set_reveal_child(false);
-    }
-
-    fn window_at(&self, index: usize) -> Option<u64> {
-        let imp = self.imp();
-        let opened = imp.opened.get()?;
-        let workspaces = imp.workspaces.borrow();
-        let workspace = workspaces.iter().find(|workspace| workspace.id == opened)?;
-        workspace.windows.get(index).map(|window| window.id)
     }
 
     pub fn toggle_detail(&self, id: u64) {

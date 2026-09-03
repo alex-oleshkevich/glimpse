@@ -8,6 +8,7 @@
         <file>widgets/forecast_hour.ui</file>
         <file>widgets/hero.ui</file>
         <file>widgets/workspaces_popover.ui</file>
+        <file>widgets/workspace_section.ui</file>
         <file>widgets/indicator.ui</file>
         <file>widgets/notice.ui</file>
         <file>widgets/now_playing.ui</file>

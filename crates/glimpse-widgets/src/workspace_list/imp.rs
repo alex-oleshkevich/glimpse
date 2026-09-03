@@ -4,11 +4,12 @@ use std::sync::OnceLock;
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 
 use super::Workspace;
+use crate::WorkspaceSection;
 
 #[derive(Debug, Default)]
 pub struct WorkspaceList {
     pub workspaces: RefCell<Vec<Workspace>>,
-    pub sections: RefCell<Vec<crate::Section>>,
+    pub sections: RefCell<Vec<(String, WorkspaceSection)>>,
 }
 
 #[glib::object_subclass]
@@ -48,7 +49,7 @@ impl ObjectImpl for WorkspaceList {
     }
 
     fn dispose(&self) {
-        for section in self.sections.borrow_mut().drain(..) {
+        for (_, section) in self.sections.borrow_mut().drain(..) {
             section.unparent();
         }
     }

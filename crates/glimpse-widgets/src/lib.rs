@@ -16,6 +16,7 @@ mod player_list;
 mod popover_shell;
 mod range_bar;
 mod readout;
+mod reconcile;
 pub(crate) mod row;
 mod scrubber;
 mod section;
@@ -23,6 +24,7 @@ mod split_row;
 mod theme;
 mod transport;
 mod workspace_list;
+mod workspace_section;
 mod workspaces_popover;
 mod world_clock;
 
@@ -50,6 +52,7 @@ pub use split_row::SplitRow;
 pub use theme::Styles;
 pub use transport::{Repeat, Transport, TransportAction};
 pub use workspace_list::{Window as WorkspaceWindow, Workspace, WorkspaceList};
+pub use workspace_section::WorkspaceSection;
 pub use workspaces_popover::WorkspacesPopover;
 pub use world_clock::{ClockRow, WorldClock, Zone};
 
@@ -1726,8 +1729,10 @@ mod tests {
         };
         popover.set_workspaces(&session("a terminal"));
 
-        let sections =
-            children_of::<Section>(&child_named::<WorkspaceList>(&popover, "workspace-list"));
+        let sections = children_of::<WorkspaceSection>(&child_named::<WorkspaceList>(
+            &popover,
+            "workspace-list",
+        ));
         assert_eq!(
             sections.len(),
             2,
@@ -1804,8 +1809,10 @@ mod tests {
         );
 
         let first_row = || {
-            let listed =
-                children_of::<Section>(&child_named::<WorkspaceList>(&popover, "workspace-list"));
+            let listed = children_of::<WorkspaceSection>(&child_named::<WorkspaceList>(
+                &popover,
+                "workspace-list",
+            ));
             let column = child_named::<gtk4::Box>(&listed[0], "section__content")
                 .first_child()
                 .and_downcast::<gtk4::Box>()
@@ -1832,19 +1839,25 @@ mod tests {
             "a window retitling itself must not rebuild the workspace list under the pointer, and \
              a title changes on every keystroke"
         );
+        assert_eq!(
+            children_of::<Row>(&child_named::<gtk4::Box>(&popover, "drawer-page"))[0],
+            windows[0],
+            "and it keeps its own row too: the drawer reconciles by window id, so a retitle \
+             rewrites a label rather than replacing the row under the pointer"
+        );
 
         rows[1].emit_by_name::<()>("details", &[]);
-        let reused = children_of::<Row>(&child_named::<gtk4::Box>(&popover, "drawer-page"));
-        assert_eq!(
-            reused[0], windows[0],
-            "a drawer reuses its rows across workspaces rather than rebuilding them"
+        let switched = children_of::<Row>(&child_named::<gtk4::Box>(&popover, "drawer-page"));
+        assert_ne!(
+            switched[0], windows[0],
+            "another workspace's window is another row, not the first one refilled"
         );
-        reused[0].emit_by_name::<()>("clicked", &[]);
+        switched[0].emit_by_name::<()>("clicked", &[]);
         assert_eq!(
             *focused.borrow(),
             [9, 11],
-            "a reused row reports the window standing at its position, not the one it was built \
-             for"
+            "a row is only ever reused for the window it was built for, so it can report that \
+             window without consulting anything"
         );
 
         rows[1].emit_by_name::<()>("details", &[]);

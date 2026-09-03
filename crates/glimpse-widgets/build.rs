@@ -30,6 +30,10 @@ fn main() {
             "blueprints/workspaces_popover.blp",
             "resources/widgets/workspaces_popover.ui",
         ),
+        (
+            "blueprints/workspace_section.blp",
+            "resources/widgets/workspace_section.ui",
+        ),
         ("blueprints/indicator.blp", "resources/widgets/indicator.ui"),
         ("blueprints/notice.blp", "resources/widgets/notice.ui"),
         (

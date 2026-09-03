@@ -71,21 +71,17 @@ impl Applet for Pager {
         shown.set_workspaces(&self.rows());
 
         let caller = seat.caller();
-        let opener = seat.opener();
         shown.connect_activated(move |id| {
             caller.call::<FocusWorkspace>(FocusWorkspace {
                 target: WorkspaceRef::Id { id },
             });
-            opener.close_popover();
         });
 
         let caller = seat.caller();
-        let opener = seat.opener();
         shown.connect_window_activated(move |id| {
             caller.call::<FocusWindow>(FocusWindow {
                 target: WindowRef::Id { id },
             });
-            opener.close_popover();
         });
 
         self.shown.set(Some(&shown));

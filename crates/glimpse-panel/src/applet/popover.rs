@@ -6,6 +6,7 @@ use super::Opener;
 pub struct Seat {
     name: String,
     client: Client,
+    #[allow(dead_code, reason = "read by opener()")]
     host: relm4::Sender<super::runtime::HostInput>,
 }
 
@@ -18,6 +19,10 @@ impl Seat {
         Self { name, client, host }
     }
 
+    #[allow(
+        dead_code,
+        reason = "an applet's half of dismissal; no applet dismisses its own yet"
+    )]
     pub fn opener(&self) -> Opener {
         Opener(self.host.clone())
     }
