@@ -1,0 +1,54 @@
+using Gtk 4.0;
+
+template $WorkspacesPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "workspaces-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      title: _("Workspaces");
+      icon-name: "view-grid-symbolic";
+    }
+
+    Gtk.Box {
+      orientation: horizontal;
+
+      $WorkspaceList list {
+        hexpand: true;
+
+        styles [
+          "column",
+        ]
+      }
+
+      Gtk.Revealer drawer {
+        transition-type: slide_right;
+        reveal-child: false;
+
+        Gtk.Box {
+          orientation: horizontal;
+
+          Gtk.Separator {
+            orientation: vertical;
+          }
+
+          $Section detail {
+            valign: start;
+
+            Gtk.Box page {
+              orientation: vertical;
+
+              styles [
+                "drawer-page",
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

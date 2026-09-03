@@ -3,7 +3,7 @@ mod item;
 
 pub use item::PagerItem;
 
-use gtk4::{glib, prelude::*, subclass::prelude::*};
+use gtk4::{glib, graphene, prelude::*, subclass::prelude::*};
 
 const DOTS: &str = "pager--dots";
 const LABELS: &str = "pager--labels";
@@ -87,11 +87,28 @@ impl Pager {
         self.render();
     }
 
-    pub fn connect_activated<F: Fn(&Self, u64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+    pub fn anchor(&self) -> Option<gtk4::Widget> {
+        self.imp().pressed.upgrade().map(Cast::upcast)
+    }
+
+    pub(crate) fn item_at(&self, x: f64, y: f64) -> Option<PagerItem> {
+        let point = graphene::Point::new(x as f32, y as f32);
+        self.imp()
+            .items
+            .borrow()
+            .iter()
+            .find(|item| {
+                item.compute_bounds(self)
+                    .is_some_and(|bounds| bounds.contains_point(&point))
+            })
+            .cloned()
+    }
+
+    pub fn connect_pressed<F: Fn(&Self) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
-            "activated",
+            "pressed",
             false,
-            glib::closure_local!(move |pager: Self, id: u64| f(&pager, id)),
+            glib::closure_local!(move |pager: Self| f(&pager)),
         )
     }
 
@@ -125,7 +142,7 @@ impl Pager {
         let mut items = imp.items.borrow_mut();
         for (index, slot) in slots.iter().enumerate() {
             if items.len() == index {
-                let item = self.build_item(index);
+                let item = PagerItem::new();
                 item.insert_after(self, items.last());
                 items.push(item);
             }
@@ -140,21 +157,6 @@ impl Pager {
         drop(items);
         drop(slots);
         self.set_visible(any);
-    }
-
-    fn build_item(&self, index: usize) -> PagerItem {
-        let item = PagerItem::new();
-        item.connect_clicked(glib::clone!(
-            #[weak(rename_to = pager)]
-            self,
-            move |_| {
-                let Some(id) = pager.imp().slots.borrow().get(index).map(|slot| slot.id) else {
-                    return;
-                };
-                pager.emit_by_name::<()>("activated", &[&id]);
-            }
-        ));
-        item
     }
 }
 

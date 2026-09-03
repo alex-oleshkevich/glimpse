@@ -98,15 +98,22 @@ workspace that is also current draws both.
 The two are independent of what the slots *are*: dots of windows is a useful reading of a scrolling
 layout, and numbered workspaces is the traditional one.
 
-Each item is a `Gtk.Button`. The old implementation used a `Gtk.Box` with a `GestureClick` that
-claimed the sequence on press specifically to beat the ancestor indicator's own gesture; a button
-child wins that race by construction, because its gesture claims in the bubble phase before the
-parent's, and it brings `:hover`, `:active`, `:focus-visible` and keyboard activation with it. That
-is the same nested-button isolation `PlayerRow` relies on.
+**An item takes no click of its own.** It was a `Gtk.Button` at first, one per slot, so a slot could
+be activated directly — but `GtkButton` restricts its gesture to the primary button, measured
+through `observe_controllers`, and that is the button every applet's popover opens on. A button per
+slot swallowed it. The rule that every applet opens on primary click has no exceptions, so the
+per-slot action is what gave way: `PagerItem` is a plain `Gtk.Widget` with a `BinLayout`, the strip
+is one click target, and acting on a single workspace happens in the popover instead. Dropping the
+button also removed the `:hover` rules, which out-specified `--here` and `--urgent` no matter which
+came later in the file.
 
-An item reports the id **currently at its position**, read from the slot list when the click
-arrives, rather than the id it was built with. Items are reused across `set_slots`, so a closure
-capturing the id would fire the wrong workspace after the first change that shifts the list.
+The strip remembers which item the press landed on and exposes it as `anchor()`, which is what the
+popover's arrow points at. Resolution is a bounds test over the item list rather than
+`Gtk.Widget::pick`: `pick` needs a mapped widget and a bounds test needs only an allocated one, and
+that difference is what makes it assertable without opening a window. A press that landed between
+items anchors nothing and the arrow falls back to the strip's center. The reference is weak, so an
+item that leaves the strip stops being an anchor rather than pinning the arrow to a workspace that
+is gone.
 
 `set_slots(&[])` hides the widget. A pager on a session that has not enumerated yet otherwise
 reserves width on the bar and leaves a gap when it fills.
@@ -854,6 +861,60 @@ test with no display behind it.
 
 Title and subtitle are capped at `TEXT_MAX_CHARS` and set as plain text. A hero title carries
 network SSIDs and MPRIS metadata, which are unbounded and come from other applications.
+
+## WorkspaceList and WorkspacesPopover
+
+`WorkspacesPopover` is the pager's popover, built from `PopoverShell` + `Hero` + `WorkspaceList` and
+a `Gtk.Revealer` drawer. `WorkspaceList` groups workspaces into one `Section` per output and renders
+a `SplitRow` each: the body activates the workspace, the chevron opens the drawer on that
+workspace's windows. Both are emitted as ids — `activated(u64)` and `details(u64)` — because a row
+is rebuilt whenever the list changes and a closure capturing a widget would outlive it.
+
+**One `Workspace` struct carries more than the list renders**, and that distinction is load-bearing.
+The list shows a workspace's label, detail, output, focus and urgency; the drawer shows its
+`windows`. A window's title changes on every keystroke, so comparing the whole struct made every
+keystroke rebuild every `SplitRow` — destroying the row the pointer was resting on several times a
+second. `same_rows` compares only what the list draws, so window traffic reaches the drawer and
+stops at the list. The popover's own guard still compares everything, which is what lets an open
+drawer follow the session.
+
+**The drawer opens to the side, never downwards.** It is a `Gtk.Revealer` with
+`transition-type: slide_right`, laid out as the second child of a *horizontal* box whose first child
+is the list. Revealing it grows the popover sideways, where there is room, and the row that opened it
+stays on screen and stays the row that closes it — the shape `var/design/popover_drawer.md` settled
+after rejecting expand-in-place (the list walks off the bottom of the screen and the control that
+would collapse it is the row that just vanished) and push-a-page (the list you were comparing
+against goes away).
+
+Two lengths make that layout work, and both were found by getting them wrong:
+
+- **The list carries `hexpand: true`.** A horizontal content box does not stretch its children the
+  way a vertical one does, so without it the slack falls out at the right edge and reads as a stray
+  right padding.
+- **`.column` carries the width floor, not `.popover-shell`.** `Row` ellipsizes, which drops a
+  label's minimum width to near zero, so an unfloored column simply compresses and the drawer takes
+  its width *out of* the list instead of growing the popover. With a drawer open the shell's minimum
+  is column plus drawer, so a floor on the shell alone constrains the wrong thing.
+
+**A drawer row reports the window standing at its position**, read from the open workspace when the
+click arrives, rather than the window it was built for. Rows are reused across workspaces — opening
+a second workspace's drawer reuses the first one's `Row` objects — so a closure capturing the id
+would focus the wrong window from the second drawer onward. This is the same rule `Pager` follows
+for its slots, and it is the reason `window-activated` carries an id rather than a widget.
+
+**An open drawer is re-revealed on every update**, because the workspace it is showing has just been
+replaced under it. A drawer whose workspace has disappeared closes rather than showing the last
+thing it had.
+
+**Neither the list nor the drawer counts anything.** `Section` still has a `count` property and
+other popovers use it; these two do not. A workspace already carries its own window count as the
+row's value, and repeating it in the section header above and again in the drawer header beside
+means three numbers for one fact.
+
+**`.workspace-row--urgent` is set on the `SplitRow`, not on the `Row`**, so the whole row including
+the chevron carries the state. Urgency in the popover has to be drawn somewhere: the strip is the
+thing that surfaces it, and a popover that lists the same workspaces without it contradicts the bar
+above it.
 
 ## Stylesheets
 

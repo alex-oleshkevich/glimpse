@@ -136,10 +136,6 @@
         color var(--gl-duration) var(--gl-ease);
 }
 
-.pager-item:not(.pager-item--here):not(.pager-item--urgent):hover {
-    background-color: var(--gl-pager-occupied);
-}
-
 .pager-item:focus-visible {
     outline: 1px solid var(--gl-accent-text);
     outline-offset: 1px;
@@ -184,11 +180,6 @@
     font-size: var(--gl-text-caption);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-}
-
-.pager--labels .pager-item:not(.pager-item--here):not(.pager-item--urgent):hover {
-    background-color: var(--gl-hover);
-    color: var(--gl-panel-fg);
 }
 
 .pager--labels .pager-item--occupied {
@@ -501,6 +492,18 @@
 
 .split-row__detail:disabled {
     opacity: var(--gl-disabled);
+}
+
+.popover-shell .column {
+    min-width: var(--gl-popover-min-width, 27rem);
+}
+
+.drawer-page {
+    min-width: 19rem;
+}
+
+.workspace-row--urgent .row__title {
+    color: var(--gl-warning-text);
 }
 
 .row--quiet .row__title {

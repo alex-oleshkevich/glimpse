@@ -1015,9 +1015,9 @@ mod fixtures {
             pager.set_shape(shape);
             pager.set_slots(&slots);
 
-            pager.connect_activated({
+            pager.connect_pressed({
                 let case = case.clone();
-                move |_, id| eprintln!("pager: {case} activates slot {id}")
+                move |_| eprintln!("pager: {case} opens the popover")
             });
 
             let state = Rc::new(RefCell::new(slots));

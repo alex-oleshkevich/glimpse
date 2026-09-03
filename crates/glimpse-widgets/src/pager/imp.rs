@@ -9,6 +9,7 @@ pub struct Pager {
     pub slots: RefCell<Vec<Slot>>,
     pub items: RefCell<Vec<PagerItem>>,
     pub shape: Cell<Shape>,
+    pub pressed: glib::WeakRef<PagerItem>,
 }
 
 #[glib::object_subclass]
@@ -28,9 +29,7 @@ impl ObjectImpl for Pager {
         static SIGNALS: OnceLock<Vec<glib::subclass::Signal>> = OnceLock::new();
         SIGNALS.get_or_init(|| {
             vec![
-                glib::subclass::Signal::builder("activated")
-                    .param_types([u64::static_type()])
-                    .build(),
+                glib::subclass::Signal::builder("pressed").build(),
                 glib::subclass::Signal::builder("stepped")
                     .param_types([bool::static_type(), bool::static_type()])
                     .build(),
@@ -45,6 +44,18 @@ impl ObjectImpl for Pager {
         pager.set_orientation(gtk4::Orientation::Horizontal);
         pager.set_visible(false);
         pager.apply_shape();
+
+        let click = gtk4::GestureClick::new();
+        click.set_button(gtk4::gdk::BUTTON_PRIMARY);
+        click.connect_released(glib::clone!(
+            #[weak]
+            pager,
+            move |_, _, x, y| {
+                pager.imp().pressed.set(pager.item_at(x, y).as_ref());
+                pager.emit_by_name::<()>("pressed", &[]);
+            }
+        ));
+        pager.add_controller(click);
 
         let scroll = gtk4::EventControllerScroll::new(gtk4::EventControllerScrollFlags::BOTH_AXES);
         scroll.connect_scroll(glib::clone!(

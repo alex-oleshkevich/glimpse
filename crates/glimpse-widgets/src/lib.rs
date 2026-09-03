@@ -22,6 +22,8 @@ mod section;
 mod split_row;
 mod theme;
 mod transport;
+mod workspace_list;
+mod workspaces_popover;
 mod world_clock;
 
 pub use calendar::{Calendar, Ymd};
@@ -47,6 +49,8 @@ pub use section::Section;
 pub use split_row::SplitRow;
 pub use theme::Styles;
 pub use transport::{Repeat, Transport, TransportAction};
+pub use workspace_list::{Window as WorkspaceWindow, Workspace, WorkspaceList};
+pub use workspaces_popover::WorkspacesPopover;
 pub use world_clock::{ClockRow, WorldClock, Zone};
 
 #[cfg(test)]
@@ -1559,17 +1563,41 @@ mod tests {
             "a shorter list unparents the items it no longer has data for"
         );
 
-        let activated: Rc<RefCell<Vec<u64>>> = Rc::new(RefCell::new(Vec::new()));
-        pager.connect_activated({
-            let activated = Rc::clone(&activated);
-            move |_, id| activated.borrow_mut().push(id)
-        });
         pager.set_slots(&[slot(21, "1"), slot(22, "2")]);
-        children_of::<PagerItem>(&pager)[0].emit_clicked();
+        let item = &children_of::<PagerItem>(&pager)[0];
+        assert!(
+            item.observe_controllers().n_items() == 0,
+            "a slot takes no click of its own: the strip is one surface, and a button per slot \
+             would swallow the primary press the popover opens on"
+        );
+
+        let pressed: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
+        pager.connect_pressed({
+            let pressed = Rc::clone(&pressed);
+            move |_| *pressed.borrow_mut() += 1
+        });
+        pager.emit_by_name::<()>("pressed", &[]);
+        assert_eq!(*pressed.borrow(), 1);
+
+        assert!(
+            pager.anchor().is_none(),
+            "a strip nobody has pressed anchors the arrow on itself rather than on a stale item"
+        );
+
+        pager.allocate(120, 24, -1, None);
+        let items = children_of::<PagerItem>(&pager);
+        let second = items[1].compute_bounds(&pager).expect("allocated item");
         assert_eq!(
-            *activated.borrow(),
-            [21],
-            "an item reports the id currently at its position, not the one it was built with"
+            pager.item_at(
+                f64::from(second.x() + second.width() / 2.0),
+                f64::from(second.y() + second.height() / 2.0),
+            ),
+            Some(items[1].clone()),
+            "the arrow points at the workspace that was pressed, so a press resolves to its item"
+        );
+        assert!(
+            pager.item_at(-1.0, -1.0).is_none(),
+            "a press that landed on no item anchors nothing rather than the first one"
         );
 
         let untouched = child_named::<gtk4::Label>(&pager, "pager-item__label");
@@ -1650,6 +1678,179 @@ mod tests {
         assert!(
             !pager.has_css_class("pager--vertical") && pager.valign() == gtk4::Align::Center,
             "and back, since a panel's position is a setting that changes under a running applet"
+        );
+
+        let popover = WorkspacesPopover::new();
+        let session = |title: &str| {
+            vec![
+                Workspace {
+                    id: 1,
+                    label: "chats".to_owned(),
+                    detail: "1 window".to_owned(),
+                    output: "DP-2".to_owned(),
+                    focused: false,
+                    urgent: false,
+                    windows: vec![WorkspaceWindow {
+                        id: 9,
+                        title: title.to_owned(),
+                        app_id: "ghostty".to_owned(),
+                        focused: false,
+                        urgent: false,
+                    }],
+                },
+                Workspace {
+                    id: 2,
+                    label: "browser".to_owned(),
+                    detail: "1 window".to_owned(),
+                    output: "DP-2".to_owned(),
+                    focused: true,
+                    urgent: false,
+                    windows: vec![WorkspaceWindow {
+                        id: 11,
+                        title: "a browser".to_owned(),
+                        app_id: "chrome".to_owned(),
+                        focused: true,
+                        urgent: false,
+                    }],
+                },
+                Workspace {
+                    id: 5,
+                    label: "1".to_owned(),
+                    detail: "empty".to_owned(),
+                    output: "eDP-1".to_owned(),
+                    focused: false,
+                    urgent: false,
+                    windows: Vec::new(),
+                },
+            ]
+        };
+        popover.set_workspaces(&session("a terminal"));
+
+        let sections =
+            children_of::<Section>(&child_named::<WorkspaceList>(&popover, "workspace-list"));
+        assert_eq!(
+            sections.len(),
+            2,
+            "workspaces are grouped by the display they are on, which is half of what the list \
+             is for"
+        );
+
+        let chosen: Rc<RefCell<Vec<u64>>> = Rc::new(RefCell::new(Vec::new()));
+        popover.connect_activated({
+            let chosen = Rc::clone(&chosen);
+            move |id| chosen.borrow_mut().push(id)
+        });
+        let column = child_named::<gtk4::Box>(&sections[0], "section__content")
+            .first_child()
+            .and_downcast::<gtk4::Box>()
+            .expect("a section holds one column of rows");
+        let rows = children_of::<SplitRow>(&column);
+        assert_eq!(rows.len(), 2, "DP-2 carries two of the three workspaces");
+        rows[1].emit_by_name::<()>("activated", &[]);
+        assert_eq!(
+            *chosen.borrow(),
+            [2],
+            "a row reports the workspace it stands for, which is the id the focus command needs"
+        );
+
+        let drawer = child_named::<gtk4::Box>(&popover, "drawer-page")
+            .ancestor(gtk4::Revealer::static_type())
+            .and_downcast::<gtk4::Revealer>()
+            .expect("the page sits inside the drawer");
+        assert!(
+            !drawer.reveals_child(),
+            "a popover opens showing the list, not one workspace's detail"
+        );
+        assert_eq!(
+            drawer
+                .parent()
+                .and_downcast::<gtk4::Box>()
+                .expect("the drawer is laid out beside the list")
+                .orientation(),
+            gtk4::Orientation::Horizontal,
+            "the drawer opens to the side: pushing it underneath walks the list off the bottom of \
+             the screen and takes the row that would close it with it"
+        );
+        assert_eq!(
+            drawer.transition_type(),
+            gtk4::RevealerTransitionType::SlideRight,
+            "and it slides in along the axis it grows on"
+        );
+
+        rows[0].emit_by_name::<()>("details", &[]);
+        assert!(
+            drawer.reveals_child(),
+            "the chevron is the only way into a workspace's windows, so it has to open the drawer"
+        );
+        let windows = children_of::<Row>(&child_named::<gtk4::Box>(&popover, "drawer-page"));
+        assert_eq!(
+            windows.len(),
+            1,
+            "the drawer lists the windows of the workspace whose chevron was pressed"
+        );
+        assert_eq!(windows[0].title().as_deref(), Some("a terminal"));
+
+        let focused: Rc<RefCell<Vec<u64>>> = Rc::new(RefCell::new(Vec::new()));
+        popover.connect_window_activated({
+            let focused = Rc::clone(&focused);
+            move |id| focused.borrow_mut().push(id)
+        });
+        windows[0].emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            *focused.borrow(),
+            [9],
+            "a window in the drawer is the only place a single window can be focused from, now \
+             that the strip itself opens the popover"
+        );
+
+        let first_row = || {
+            let listed =
+                children_of::<Section>(&child_named::<WorkspaceList>(&popover, "workspace-list"));
+            let column = child_named::<gtk4::Box>(&listed[0], "section__content")
+                .first_child()
+                .and_downcast::<gtk4::Box>()
+                .expect("a section holds one column of rows");
+            children_of::<SplitRow>(&column)[0].clone()
+        };
+
+        let standing = first_row();
+        popover.set_workspaces(&session("a browser"));
+        assert!(
+            drawer.reveals_child(),
+            "an event arriving must not close a drawer the user opened"
+        );
+        assert_eq!(
+            children_of::<Row>(&child_named::<gtk4::Box>(&popover, "drawer-page"))[0]
+                .title()
+                .as_deref(),
+            Some("a browser"),
+            "an open drawer follows the session: a window renaming itself shows through"
+        );
+        assert_eq!(
+            standing,
+            first_row(),
+            "a window retitling itself must not rebuild the workspace list under the pointer, and \
+             a title changes on every keystroke"
+        );
+
+        rows[1].emit_by_name::<()>("details", &[]);
+        let reused = children_of::<Row>(&child_named::<gtk4::Box>(&popover, "drawer-page"));
+        assert_eq!(
+            reused[0], windows[0],
+            "a drawer reuses its rows across workspaces rather than rebuilding them"
+        );
+        reused[0].emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            *focused.borrow(),
+            [9, 11],
+            "a reused row reports the window standing at its position, not the one it was built \
+             for"
+        );
+
+        rows[1].emit_by_name::<()>("details", &[]);
+        assert!(
+            !drawer.reveals_child(),
+            "the same chevron closes what it opened"
         );
 
         for make in [

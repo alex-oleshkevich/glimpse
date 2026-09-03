@@ -1,4 +1,6 @@
-use gtk4::{CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*};
+use gtk4::{
+    AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
+};
 use std::cell::{Cell, RefCell};
 
 use super::{Focus, Shape, Slot};
@@ -27,10 +29,11 @@ mod imp {
     impl ObjectSubclass for PagerItem {
         const NAME: &'static str = "PagerItem";
         type Type = super::PagerItem;
-        type ParentType = gtk4::Button;
+        type ParentType = gtk4::Widget;
 
         fn class_init(klass: &mut Self::Class) {
             klass.bind_template();
+            klass.set_accessible_role(AccessibleRole::Generic);
         }
 
         fn instance_init(object: &glib::subclass::InitializingObject<Self>) {
@@ -38,16 +41,19 @@ mod imp {
         }
     }
 
-    impl ObjectImpl for PagerItem {}
+    impl ObjectImpl for PagerItem {
+        fn dispose(&self) {
+            self.dispose_template();
+        }
+    }
 
     impl WidgetImpl for PagerItem {}
-    impl ButtonImpl for PagerItem {}
 }
 
 glib::wrapper! {
     pub struct PagerItem(ObjectSubclass<imp::PagerItem>)
-        @extends gtk4::Button, gtk4::Widget,
-        @implements gtk4::Accessible, gtk4::Actionable, gtk4::Buildable, gtk4::ConstraintTarget;
+        @extends gtk4::Widget,
+        @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget;
 }
 
 impl Default for PagerItem {

@@ -94,6 +94,32 @@ collapsing the two severities means nineteen warnings on an untouched installati
 There is deliberately no staleness, no `degraded`, no per-applet configuration, no timer and no
 applet `Output`. A dead daemon stops delivering events and the last value stays on screen.
 
+## The popover
+
+`Applet::popover(&Seat)` builds the tree on open and the runtime drops it on close. Nothing is
+cached, so a dismissed popover leaves no widget tree behind and the next open starts from the
+current session rather than from wherever the last one stopped.
+
+An open popover still follows events: the applet keeps a `glib::WeakRef` to what it built and
+pushes every render into it. Weak on purpose — a strong reference would hold the tree alive past
+dismissal, which is the thing destroy-on-close exists to prevent.
+
+**`autohide` stays off.** A GTK popover with autohide takes a keyboard grab, and on a layer surface
+that moves focus off whatever the user was working in — measured: opening the pager took focus from
+the browser. Dismissal is explicit instead. A second press on the applet toggles it, acting on a row
+closes it, and the pointer leaving closes it after `LINGER`, which is long enough to cross the gap
+between the bar and the popover. The cost is that `Escape` dismisses nothing, because nothing holds
+the keyboard.
+
+**The arrow points at what was pressed, not at the applet.** GTK aims a popover at its parent's
+center and the parent is the applet's whole box, so a strip of seven workspaces would draw the arrow
+in the middle whichever one was clicked. `Applet::anchor` names a widget inside the view; the runtime
+translates it into the box's coordinates with `compute_bounds` and hands the result to
+`set_pointing_to`, which moves the popover as well as the arrow. An applet that names nothing keeps
+the centered arrow, which is already right for a single indicator. The translation belongs to the
+runtime because only it knows the box the popover is parented to — the applet just names a widget it
+already owns.
+
 ## Reconciliation settles every slot, on both paths
 
 `reconcile_applets` has two: one for a config change that left the applet list alone, and one that

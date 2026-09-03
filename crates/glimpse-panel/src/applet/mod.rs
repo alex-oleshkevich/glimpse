@@ -42,6 +42,10 @@ pub trait Applet: 'static {
         let _ = seat;
         None
     }
+
+    fn anchor(&self) -> Option<gtk4::Widget> {
+        None
+    }
 }
 
 #[derive(Debug)]
@@ -87,7 +91,21 @@ pub struct Ctx {
     caller: Caller,
     output: Option<String>,
     events: relm4::Sender<Event>,
+    host: relm4::Sender<runtime::HostInput>,
     sources: RefCell<Vec<SourceGuard>>,
+}
+
+#[derive(Clone)]
+pub struct Opener(relm4::Sender<runtime::HostInput>);
+
+impl Opener {
+    pub fn open_popover(&self) {
+        let _ = self.0.send(runtime::HostInput::PopoverRequested);
+    }
+
+    pub fn close_popover(&self) {
+        let _ = self.0.send(runtime::HostInput::PopoverClosed);
+    }
 }
 
 #[derive(Clone)]
@@ -122,13 +140,19 @@ impl Ctx {
         output: Option<String>,
         client: Client,
         events: relm4::Sender<Event>,
+        host: relm4::Sender<runtime::HostInput>,
     ) -> Self {
         Self {
             caller: Caller { name, client },
             output,
             events,
+            host,
             sources: RefCell::default(),
         }
+    }
+
+    pub fn opener(&self) -> Opener {
+        Opener(self.host.clone())
     }
 
     pub(crate) fn name(&self) -> &str {

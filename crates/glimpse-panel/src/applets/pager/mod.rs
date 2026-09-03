@@ -8,14 +8,19 @@ use glimpse_contracts::{
     CompositorWindows, CompositorWorkspaces, FocusWindow, FocusWorkspace, Message, WindowInfo,
     WindowRef, WorkspaceInfo, WorkspaceRef,
 };
-use glimpse_widgets::{Focus, Pager as Strip, Shape, Slot};
+use glimpse_widgets::{
+    Focus, Pager as Strip, Shape, Slot, Workspace, WorkspaceWindow, WorkspacesPopover,
+};
+use gtk4::glib;
 use gtk4::prelude::*;
 
+use crate::applet::popover::{PopoverHandle, Seat};
 use crate::applet::{Applet, Caller, Ctx, Input, payload};
 use label::{Facts, render};
 
 pub struct Pager {
     strip: Strip,
+    shown: glib::WeakRef<WorkspacesPopover>,
     settings: Rc<RefCell<PagerConfig>>,
     output: Option<String>,
     workspaces: Vec<WorkspaceInfo>,
@@ -30,6 +35,7 @@ impl Applet for Pager {
     fn start() -> Self {
         Self {
             strip: Strip::new(),
+            shown: glib::WeakRef::new(),
             settings: Rc::new(RefCell::new(PagerConfig::default())),
             output: None,
             workspaces: Vec::new(),
@@ -40,10 +46,9 @@ impl Applet for Pager {
     fn view(&mut self, ctx: &Ctx) -> Option<gtk4::Widget> {
         self.output = ctx.output().map(str::to_owned);
 
-        self.strip.connect_activated({
-            let caller = ctx.caller();
-            let settings = self.settings.clone();
-            move |_, id| focus(&caller, settings.borrow().mode, id)
+        self.strip.connect_pressed({
+            let ctx = ctx.opener();
+            move |_| ctx.open_popover()
         });
 
         self.strip.connect_stepped({
@@ -59,6 +64,36 @@ impl Applet for Pager {
 
     fn orient(&mut self, orientation: gtk4::Orientation) {
         self.strip.set_orientation(orientation);
+    }
+
+    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+        let shown = WorkspacesPopover::new();
+        shown.set_workspaces(&self.rows());
+
+        let caller = seat.caller();
+        let opener = seat.opener();
+        shown.connect_activated(move |id| {
+            caller.call::<FocusWorkspace>(FocusWorkspace {
+                target: WorkspaceRef::Id { id },
+            });
+            opener.close_popover();
+        });
+
+        let caller = seat.caller();
+        let opener = seat.opener();
+        shown.connect_window_activated(move |id| {
+            caller.call::<FocusWindow>(FocusWindow {
+                target: WindowRef::Id { id },
+            });
+            opener.close_popover();
+        });
+
+        self.shown.set(Some(&shown));
+        Some(Box::new(Shown(shown)))
+    }
+
+    fn anchor(&self) -> Option<gtk4::Widget> {
+        self.strip.anchor()
     }
 
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
@@ -87,6 +122,43 @@ impl Applet for Pager {
 }
 
 impl Pager {
+    fn rows(&self) -> Vec<Workspace> {
+        self.workspaces
+            .iter()
+            .map(|workspace| Workspace {
+                id: workspace.id,
+                label: workspace_token(workspace),
+                detail: match workspace.windows {
+                    0 => "empty".to_owned(),
+                    1 => "1 window".to_owned(),
+                    many => format!("{many} windows"),
+                },
+                output: workspace.output.clone().unwrap_or_default(),
+                focused: workspace.focused,
+                urgent: workspace.urgent,
+                windows: self.windows_on(workspace.id),
+            })
+            .collect()
+    }
+
+    fn windows_on(&self, workspace: u64) -> Vec<WorkspaceWindow> {
+        self.windows
+            .iter()
+            .filter(|window| window.workspace == Some(workspace))
+            .map(|window| WorkspaceWindow {
+                id: window.id,
+                title: window
+                    .title
+                    .clone()
+                    .or_else(|| window.app_id.clone())
+                    .unwrap_or_default(),
+                app_id: window.app_id.clone().unwrap_or_default(),
+                focused: window.focused,
+                urgent: window.urgent,
+            })
+            .collect()
+    }
+
     fn render(&self) {
         let settings = self.settings.borrow();
         self.strip.set_shape(match settings.shape {
@@ -94,6 +166,10 @@ impl Pager {
             PagerShape::Labels => Shape::Labels,
         });
         self.strip.set_slots(&self.slots(&settings));
+
+        if let Some(shown) = self.shown.upgrade() {
+            shown.set_workspaces(&self.rows());
+        }
     }
 
     fn slots(&self, settings: &PagerConfig) -> Vec<Slot> {
@@ -204,6 +280,14 @@ fn window_slot(
     }
 }
 
+struct Shown(WorkspacesPopover);
+
+impl PopoverHandle for Shown {
+    fn root(&self) -> gtk4::Widget {
+        self.0.clone().upcast()
+    }
+}
+
 fn workspace_token(workspace: &WorkspaceInfo) -> String {
     match workspace.name.as_deref() {
         Some(name) if !name.is_empty() => name.to_owned(),
@@ -221,17 +305,6 @@ fn in_scope(workspace: &WorkspaceInfo, scope: PagerScope, output: Option<&str>) 
             Some(connector) => workspace.output.as_deref() == Some(connector),
             None => true,
         },
-    }
-}
-
-fn focus(caller: &Caller, mode: PagerMode, id: u64) {
-    match mode {
-        PagerMode::Workspaces => caller.call::<FocusWorkspace>(FocusWorkspace {
-            target: WorkspaceRef::Id { id },
-        }),
-        PagerMode::Windows => caller.call::<FocusWindow>(FocusWindow {
-            target: WindowRef::Id { id },
-        }),
     }
 }
 

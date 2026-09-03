@@ -1,57 +1,35 @@
-use glimpse_ipc::{Client, Event};
-use gtk4::prelude::*;
-use relm4::{Component, ComponentController, Controller};
+use glimpse_ipc::Client;
 
-use super::Ctx;
+use super::Opener;
 
 #[derive(Clone)]
 pub struct Seat {
     name: String,
-    output: Option<String>,
     client: Client,
+    host: relm4::Sender<super::runtime::HostInput>,
 }
 
 impl Seat {
-    pub(crate) fn new(name: String, output: Option<String>, client: Client) -> Self {
-        Self {
-            name,
-            output,
-            client,
-        }
+    pub(crate) fn new(
+        name: String,
+        client: Client,
+        host: relm4::Sender<super::runtime::HostInput>,
+    ) -> Self {
+        Self { name, client, host }
     }
 
-    pub fn ctx(&self, events: relm4::Sender<Event>) -> Ctx {
-        Ctx::new(
-            format!("{}.popover", self.name),
-            self.output.clone(),
-            self.client.clone(),
-            events,
-        )
+    pub fn opener(&self) -> Opener {
+        Opener(self.host.clone())
+    }
+
+    pub fn caller(&self) -> super::Caller {
+        super::Caller {
+            name: format!("{}.popover", self.name),
+            client: self.client.clone(),
+        }
     }
 }
 
 pub trait PopoverHandle {
     fn root(&self) -> gtk4::Widget;
-}
-
-pub struct Live<C: Component>(Controller<C>);
-
-impl<C> Live<C>
-where
-    C: Component,
-    C::Root: IsA<gtk4::Widget>,
-{
-    pub fn boxed(controller: Controller<C>) -> Box<dyn PopoverHandle> {
-        Box::new(Self(controller))
-    }
-}
-
-impl<C> PopoverHandle for Live<C>
-where
-    C: Component,
-    C::Root: IsA<gtk4::Widget>,
-{
-    fn root(&self) -> gtk4::Widget {
-        self.0.widget().clone().upcast()
-    }
 }
