@@ -111,6 +111,12 @@ StatusNotifierItem, dbusmenu and Notifications.
   `trait Command`; no zbus, no GTK, no backend type reaches either. `glimpse-contracts` and
   `glimpse-ipc/src/frame.rs` are the input to `schemars` for the Python, TypeScript and Go SDK
   types.
+- **A workspace dependency nothing uses yet is unverified.** Cargo does not resolve features for an
+  entry no crate inherits, so a wrong feature name sits in the root `Cargo.toml` looking correct
+  until the first `workspace = true` that names it. `reqwest` was declared with `rustls-tls`, which
+  0.13 renamed to `rustls`; the failure surfaced as `cargo fetch` refusing to resolve, in a change
+  that had not touched that line. When you first use a declared-and-unused dependency, expect its
+  features to be a version stale.
 - Errors: `thiserror` in a library, whose caller must branch on the failure; `anyhow` in a binary,
   where every failure ends at one message and one exit code.
 - Nothing depends on `glimpsed`. It is a leaf. Shared code goes in proto, client, config, services
@@ -445,10 +451,11 @@ not exist. Every branch of it has a test, and it has not been the source of a bu
 
 What is genuinely dead, and is the cut to make in whichever change next touches the file:
 
-- `Update`, `watch` and `watch_all` are `pub` and re-exported from `lib.rs`, and have **no consumer
-  anywhere outside this module's own tests**. Every binary in the tree reloads through
-  `watch_config`. Verified by grep across `crates/`; the apparent hits are solar's own
-  `Event::Update` and `watch_config` imports.
+- `watch_all` is `pub` and re-exported from `lib.rs` with **no consumer outside this module's own
+  tests**. `watch` and `Update` had none either until September 2026, when the calendar service's
+  directory sources became the first: `glimpse-services/src/services/calendar.rs` maps
+  `watch(dir)` straight into a `Sub::stream`, which is what that signature turns out to be for.
+  Every binary still reloads its configuration through `watch_config`.
 - `watch_config` is therefore the only reader of `Update`, and it discards `Changed`'s
   `Vec<PathBuf>` and treats `Changed` and `Rearmed` as one arm. The only distinction the tree draws
   is "something happened" against "the watch is dead" — so those paths are collected in `forward`,
@@ -583,3 +590,31 @@ bd prime                # Refresh Beads context
 
 **Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
 <!-- END BEADS CODEX SETUP -->
+
+<!-- gortex:communities:start -->
+## Community Skills
+
+| Area | Description | Explore |
+|------|-------------|---------|
+| Src Schema 26 Dirs | 474 symbols | `analyze(operation:"communities", id:"community-25")` |
+| Glimpse Widgets Src 29 Dirs | 381 symbols | `analyze(operation:"communities", id:"community-146")` |
+| Demo Components 3 Dirs | 247 symbols | `analyze(operation:"communities", id:"community-249")` |
+| Src Calendar 8 Dirs | 196 symbols | `analyze(operation:"communities", id:"community-86")` |
+| Src Applet 16 Dirs | 172 symbols | `analyze(operation:"communities", id:"community-102")` |
+| Glimpse Ipc Src 5 Dirs | 162 symbols | `analyze(operation:"communities", id:"community-71")` |
+| Glimpse Services Src 2 Dirs | 139 symbols | `analyze(operation:"communities", id:"community-104")` |
+| Glimpse Lock Src 15 Dirs | 101 symbols | `analyze(operation:"communities", id:"community-101")` |
+| Src Commands 2 Dirs | 94 symbols | `analyze(operation:"communities", id:"community-182")` |
+| Glimpse Services Src 3 Dirs | 92 symbols | `analyze(operation:"communities", id:"community-105")` |
+| Component App Src 3 Dirs | 83 symbols | `analyze(operation:"communities", id:"community-1")` |
+| Glimpse Compositors Src 4 Dirs Event | 82 symbols | `analyze(operation:"communities", id:"community-3")` |
+| Glimpse Compositors Src 4 Dirs Workspace | 77 symbols | `analyze(operation:"communities", id:"community-112")` |
+| Glimpse Widgets Transport | 74 symbols | `analyze(operation:"communities", id:"community-131")` |
+| Src Hyprland 3 Dirs | 72 symbols | `analyze(operation:"communities", id:"community-4")` |
+| 3 Dirs Gi Repository Gtk | 66 symbols | `analyze(operation:"communities", id:"community-246")` |
+| Scripts 1 Dirs Run Counter Contract | 63 symbols | `analyze(operation:"communities", id:"community-231")` |
+| Src Applet Update | 61 symbols | `analyze(operation:"communities", id:"community-84")` |
+| Src Broker Handle | 60 symbols | `analyze(operation:"communities", id:"community-187")` |
+| Glimpse Widgets Find | 60 symbols | `analyze(operation:"communities", id:"community-128")` |
+
+<!-- gortex:communities:end -->

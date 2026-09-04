@@ -48,7 +48,7 @@ pub struct Source {
 }
 
 /// What a source's `uri` points at.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum SourceKind {
     /// An iCalendar subscription feed, over `https://` or `file://`.

@@ -8,7 +8,7 @@ topic name.
 - `topics.rs` — `trait Message`, the `topic!` / `topics!` macros, and every topic payload
 - `commands.rs` — `trait Command`, the `commands!` macro, and every command
 - `types.rs` — the component types the other two are built from: `SolarPhase`, `GeoCoordinates`,
-  `ServiceState`, `TopicReport`, `MethodReport`, `HeartbeatInterval`
+  `ServiceState`, `TopicReport`, `MethodReport`, `HeartbeatInterval`, `CalendarEvent`
 
 The split is by direction first, then payload against part. State the daemon publishes is a topic;
 something a client asks the daemon to do is a command; a type that only appears *inside* one of
@@ -78,6 +78,18 @@ so: a newer daemon and an older client survive a version skew instead of failing
 
 **No backend type reaches a payload.** A `zbus` value or a `gtk` type here could not be generated
 for Python, TypeScript or Go, and this crate is the input those generators read.
+
+`chrono` is the one exception, and it is not a backend type: `DateTime<Utc>` serializes as an
+RFC 3339 string, which every generator already has a date type for, and both ends of the socket
+were converting timestamps by hand without it. It arrived with `CalendarEvent`.
+
+**`CalendarEvent.end` is the last instant the entry covers, not iCalendar's exclusive bound.** A
+single all-day entry runs from local midnight to a second before the next one, so `end.date_naive()`
+answers "which day is this on" and a surface renders a multi-day entry without knowing what a
+`DTEND` is. `start` and `end` are always UTC; the daemon and every UI binary share a machine, so
+converting to local on arrival round-trips exactly. `color` is the hex string the source was
+configured with, carried per event because a UI binary reads only the tables it owns and `[calendar]`
+is not one of them.
 
 `topics!` and `commands!` are each invoked once for the whole tree and emit `ALL_TOPICS` and
 `ALL_COMMANDS` beside the types they generate. A second invocation of either is a duplicate

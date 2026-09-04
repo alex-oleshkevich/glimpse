@@ -15,7 +15,7 @@ anstream = "1"
 anstyle = "1.0.14"
 anyhow = "1"
 async-trait = "0.1"
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
 clap = { version = "4", features = ["derive", "env"] }
 colorchoice-clap = "1.0.1"
@@ -38,11 +38,12 @@ glimpse-widgets = { path = "crates/glimpse-widgets" }
 gtk4 = { package = "gtk4", version = "0.11", features = ["v4_22"] }
 gtk4-layer-shell = "0.8"
 gtk4-session-lock = { version = "0.4", features = ["v1_1"] }
+icalendar = { version = "0.17.13", features = ["recurrence"] }
 notify = "8.2"
 owo-colors = "4"
 regex = "1"
 relm4 = { version = "0.11", features = ["gnome_50", "libadwaita"] }
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 rrule = "0.14"
 schemars = "1.2.2"
 serde = { version = "1", features = ["derive"] }

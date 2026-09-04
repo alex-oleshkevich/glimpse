@@ -74,4 +74,7 @@ commands! {
 
     #[name = "compositor.close_window"]
     pub struct CloseWindow { id: u64 } -> ();
+
+    #[name = "calendar.refresh"]
+    pub struct CalendarRefresh {} -> ();
 }

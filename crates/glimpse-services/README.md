@@ -92,6 +92,61 @@ socket, and a compositor that cannot answer has taken the session with it. Await
 and the events it causes in the order they happened, which is worth more than isolating a hang that
 cannot occur without the session already being over.
 
+## The calendar service
+
+One topic, `calendar.events`, carrying every occurrence from every configured source as one sorted
+list, and one command, `calendar.refresh`. Each `[[calendar.sources]]` entry is its own declared
+`Sub::interval`, keyed on the source's id, uri, kind, poll period and the shared refresh counter —
+so editing one source restarts one poller, and `calendar.refresh` restarts all of them by bumping
+the counter the way geolocation's retry does.
+
+**A per-entity topic cannot be declared, so one topic carries the collection.** `TOPICS` is
+`&'static [&'static str]` and the broker drops a publish to a name nothing declared, so there is no
+`calendar.source.{id}.events`. The cost is honest: one source changing republishes every event. The
+shape is what `next-event` will read later — it wants the earliest entry across all sources, which
+is the first element of a list already sorted by start.
+
+**A failing source degrades the service and keeps its last events.** A feed that 404s or a directory
+that disappears lands in a failure map; the events fetched before it broke stay published, and
+`system.services` names which source failed and why. There is no retry loop on top of the poll
+interval — the next tick is the retry.
+
+**The reason a failure reports never contains the uri.** A provider's iCalendar URL is a bearer
+token: whoever holds it reads the calendar without signing in. So a transport failure goes through
+`reqwest::Error::without_url`, a filesystem failure reports `io::ErrorKind` rather than the path, and
+the degraded reason names the source's `id`. A test asserts the uri is absent, because this is the
+kind of leak that is invisible until someone pastes a health report into a bug.
+
+**`file://` is read twice over.** The schema offers a sidecar file so the secret URL never enters
+`config.toml`, and also calls `file://` a feed. Both are honored by looking at the content: a single
+line under 2 KiB that parses as an `http(s)` URL is a sidecar and is fetched; anything else is
+parsed as iCalendar. A calendar document is never one line, so the two cannot be confused. Any other
+scheme — `webcal://` included — is an error rather than a path, because falling through to the
+filesystem would report "cannot read the file" for something that was never a file.
+
+**Recurrence is `icalendar`'s, not ours.** `CalendarEvent::get_recurrence` builds an
+`rrule::RRuleSet` out of `DTSTART`, `RRULE`, `RDATE` and `EXDATE`, and a component with no `RRULE`
+still yields its `DTSTART` as one occurrence — so a single entry and a weekly standup take the same
+code path. Occurrences are queried over a window of seven days back to sixty-two days ahead, capped
+at 512 per series and 512 per source. The window is re-anchored on every poll, which is what keeps
+it from drifting as days pass.
+
+**A `DURATION` with no `DTEND` reads as a zero-length entry.** `icalendar` exposes `DTEND` and not
+`DURATION`, and the entries Google and Nextcloud emit always carry `DTEND`. This is a known gap, not
+a decision.
+
+**The poll interval has a floor of sixty seconds.** `Duration::from_secs(0)` makes
+`tokio::time::interval` panic, so `poll-interval = 0` would take the service down on the first
+declaration rather than at some later edge; every value under the floor is also a request the
+provider would answer by rate-limiting us. The clamp is in the `From<&Config>` impl, with the
+duplicate-id filter beside it — two sources sharing an id would share a subscription key, so the
+second would never run while silently overwriting the first's events.
+
+**Summaries and locations are capped before they are published.** A feed is another application's
+text: unbounded, and attacker-controlled when the feed is shared. `clean` collapses whitespace,
+turns a control character into a separator rather than dropping it — dropping one splices two words
+together — and ellipsizes on a character boundary.
+
 ## Rules
 
 The dependency arrow points from `glimpsed` to here and never back. Anything the framework needs

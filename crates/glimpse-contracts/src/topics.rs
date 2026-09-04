@@ -74,4 +74,7 @@ topics! {
 
     #[name = "compositor.outputs"]
     pub struct CompositorOutputs { outputs: Vec<OutputInfo> }
+
+    #[name = "calendar.events"]
+    pub struct CalendarEvents { events: Vec<CalendarEvent> }
 }

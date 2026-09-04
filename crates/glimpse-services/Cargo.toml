@@ -13,6 +13,9 @@ glimpse-config.workspace = true
 glimpse-contracts.workspace = true
 glimpse-dbus.workspace = true
 glimpse-ipc.workspace = true
+icalendar.workspace = true
+reqwest.workspace = true
+rrule.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sunrise.workspace = true
@@ -21,3 +24,6 @@ tokio.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
 zbus.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
