@@ -225,6 +225,30 @@ One CSS length drives all three of the arrow's size, its inset from the corner a
 gutter, because it is read back from the measured arrow. That is deliberate: they are proportional
 to each other visually, and none of them is written in Rust.
 
+### Placement waits for the window, not for the slot
+
+`settle` needs the room the surface has, and a hidden layer surface has none until the compositor
+configures it again. The first open worked because everything started at zero and the tick callback
+waited for `slot.width() > 0`; every open after it did not, because closing hides the window while
+the slot keeps its previous allocation. So the guard passed on stale data, `placement` clamped
+`start` into `0..=0`, and the popover jumped to the panel's leading edge.
+
+Measured across two opens, with only one input different:
+
+| | center | extent | room | slot | start |
+| --- | --- | --- | --- | --- | --- |
+| first open | 1537 | 418 | 3072 | 418 | 1328 |
+| every reopen | 1537 | 418 | **0** | 418 | **0** |
+
+The guard now waits on `room()` — the window's own extent along the axis that matters — and `settle`
+returns without touching a margin when the room is still zero, so nothing can place a popover
+against a size it has not been told yet. The anchor was never involved; `center` was right both
+times, which is why this looked like an anchoring bug and was not one.
+
+Nothing asserts it: reproducing it needs a mapped layer surface that has been hidden and shown
+again. `placement` already answers `(0, 0)` for an unmeasured surface and is tested for it — the
+defect was calling it at all.
+
 ### The animation is `AdwTimedAnimation`, not a CSS transition
 
 The fade is `opacity` on the slot, driven by `adw::TimedAnimation` with a
@@ -287,6 +311,46 @@ can be tested headlessly, and the six tests beside it are the whole of the autom
 Opening, the fade, dismissal and the side-change teardown all need a mapped layer surface, which a
 test must not create on the user's session — they are checked by running the panel and reading the
 screen, and they are not covered.
+
+## The clock's popover
+
+`CalendarPopover` owns the structure; the applet owns every string in it. The split falls where it
+does because an event's time is not a value but a *sentence about now* — `now · ends 10:00`,
+`in 12 min · 1 h`, `ended 12 min ago` — and which of the eleven sentences applies changes while the
+popover is open.
+
+**`when` is a free function over `(now, day, event, clock)`**, with one test per state, because that
+is the whole of the logic and none of it needs a widget. The ladder is ordered so the first match
+wins, and three of its rungs exist to fix things the previous generation got wrong: an event that
+ended stays "ended 12 min ago" for an hour before falling back to "over"; an event starting within
+the minute reads "starting now" rather than "in 0 min"; and a timed event crossing midnight names
+the day it ends rather than reporting a 36-hour duration.
+
+**The popover is rebuilt on every open and dropped on close**, which the catcher requires, so it
+holds no state between openings. What survives is on the applet: the selected day and the events,
+both behind an `Rc` so the `day-selected` closure and the tick can each render without borrowing
+`&mut self` — the same shape the pager uses for its settings.
+
+**The tick re-renders an open popover.** It has to: every relative string in it is a function of
+`now`. `handle` upgrades a `WeakRef` to the shown popover and does nothing when it has been dropped.
+
+**The popover is always local time, even on a clock with a `timezone`.** That setting moves the bar
+label alone. A second clock showing Tokyo should not also claim your calendar is in Tokyo, and the
+events it lists are local by definition.
+
+**Events are a fixture until the service exists.** `popover::fixture` builds a day's worth relative
+to today, enough to reach the overflow row and the empty state. It goes when the calendar service
+lands.
+
+**An applet on the runtime's `IndicatorGroup` must ask for its own popover.** The press arrives as
+`Input::Pointer(Pointer::Press(Button::Left))` and `ctx.opener().open_popover()` is what opens it —
+nothing in the runtime does that for you. The pager is not the example to copy here: it supplies its
+own widget and wires the click inside `view()`, so it never sees the press in `handle`. A clock whose
+`handle` only matched `Input::Tick` compiled, passed every test, and did nothing at all when clicked.
+
+**What no test covers:** that the click reaches the applet and the catcher shows the popover. It was
+verified by hand — the panel run against a scratch configuration, the indicator clicked, and the
+result read off the screen and out of the debug log.
 
 ## Reconciliation settles every slot, on both paths
 

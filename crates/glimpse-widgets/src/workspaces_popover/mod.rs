@@ -64,7 +64,7 @@ impl WorkspacesPopover {
         drop(rows);
         drop(workspaces);
         imp.opened.set(Some(id));
-        imp.drawer.set_reveal_child(true);
+        crate::drawer::set(&imp.drawer, true);
     }
 
     fn row_for(&self, id: u64) -> Row {
@@ -80,7 +80,7 @@ impl WorkspacesPopover {
     fn close_drawer(&self) {
         let imp = self.imp();
         imp.opened.set(None);
-        imp.drawer.set_reveal_child(false);
+        crate::drawer::set(&imp.drawer, false);
     }
 
     pub fn toggle_detail(&self, id: u64) {

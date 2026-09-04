@@ -1,0 +1,92 @@
+using Gtk 4.0;
+
+template $CalendarPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "calendar-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "x-office-calendar-symbolic";
+    }
+
+    Gtk.Box {
+      orientation: horizontal;
+
+      Gtk.Box {
+        orientation: vertical;
+        hexpand: true;
+
+        styles [
+          "column",
+        ]
+
+        $Calendar calendar {}
+
+        $Section day {
+          $EventList events {
+            styles [
+              "calendar-popover__events",
+            ]
+          }
+
+          [placeholder]
+          $Placeholder nothing {
+            icon-name: "appointment-soon-symbolic";
+            title: _("Nothing scheduled");
+            description: _("The rest of the day is yours.");
+          }
+        }
+
+        $Section zones {
+          title: _("World clock");
+
+          styles [
+            "calendar-popover__zones",
+          ]
+
+          $WorldClock clocks {}
+        }
+      }
+
+      Gtk.Revealer drawer {
+        transition-type: slide_right;
+        reveal-child: false;
+
+        styles [
+          "calendar-popover__drawer",
+        ]
+
+        Gtk.Box {
+          orientation: horizontal;
+
+          Gtk.Separator {
+            orientation: vertical;
+          }
+
+          $Section everything {
+            valign: start;
+
+            styles [
+              "drawer-page",
+            ]
+
+            $EventList all {}
+          }
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+
+      styles [
+        "calendar-popover__footer",
+      ]
+    }
+  }
+}

@@ -1,6 +1,8 @@
 mod calendar;
+mod calendar_popover;
 mod choice_list;
 mod dots;
+mod drawer;
 mod event_list;
 mod fact_list;
 mod forecast;
@@ -29,6 +31,7 @@ mod workspaces_popover;
 mod world_clock;
 
 pub use calendar::{Calendar, Ymd};
+pub use calendar_popover::CalendarPopover;
 pub use choice_list::{Choice, ChoiceList};
 pub use event_list::{Event, EventList, EventRow};
 pub use fact_list::{Fact, FactList};
@@ -1878,6 +1881,75 @@ mod tests {
         ] {
             drop(make());
         }
+
+        let popover = CalendarPopover::new();
+        let event = |summary: &str| Event {
+            summary: summary.to_owned(),
+            detail: String::new(),
+            when: "09:00 · 1 h".to_owned(),
+            color: None,
+        };
+        let drawer = || child_named::<gtk4::Revealer>(&popover, "calendar-popover__drawer");
+
+        let footer = || child_named::<gtk4::Box>(&popover, "popover-shell__footer");
+
+        popover.set_footer(None);
+        assert!(
+            !child_named::<Row>(&popover, "calendar-popover__footer").is_visible(),
+            "a footer with no label is a row that would do nothing when clicked"
+        );
+        assert!(
+            !footer().is_visible(),
+            "an empty footer still costs its own padding and the hairline above it"
+        );
+
+        popover.set_footer(Some("Open calendar"));
+        assert!(child_named::<Row>(&popover, "calendar-popover__footer").is_visible());
+        assert!(footer().is_visible());
+
+        popover.set_zones(&[]);
+        assert!(
+            !child_named::<Section>(&popover, "calendar-popover__zones").is_visible(),
+            "an empty world clock is a section heading over nothing"
+        );
+
+        let few: Vec<Event> = (0..3)
+            .map(|index| event(&format!("event {index}")))
+            .collect();
+        popover.set_day("Today", "Everything", &few);
+        assert!(
+            !drawer().reveals_child(),
+            "three events fit, so nothing was hidden and the drawer has nothing to hold"
+        );
+
+        let many: Vec<Event> = (0..9)
+            .map(|index| event(&format!("event {index}")))
+            .collect();
+        popover.set_day("Today", "Everything", &many);
+        assert!(
+            !drawer().reveals_child(),
+            "the overflow row is an offer, not a drawer that springs open on its own"
+        );
+
+        let overflow = child_named::<EventList>(&popover, "calendar-popover__events");
+        overflow.emit_by_name::<()>("overflow", &[]);
+        assert!(
+            drawer().reveals_child(),
+            "taking that offer is what the drawer is wired to"
+        );
+
+        overflow.emit_by_name::<()>("overflow", &[]);
+        assert!(
+            !drawer().reveals_child(),
+            "the control that opens a drawer is the one that closes it"
+        );
+        overflow.emit_by_name::<()>("overflow", &[]);
+
+        popover.set_day("Today", "Everything", &few);
+        assert!(
+            !drawer().reveals_child(),
+            "back under the cap the drawer closes rather than standing open on nothing"
+        );
     }
 
     fn children_of<T: IsA<gtk4::Widget>>(parent: &impl IsA<gtk4::Widget>) -> Vec<T> {

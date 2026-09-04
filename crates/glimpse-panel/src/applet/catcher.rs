@@ -156,7 +156,7 @@ impl Catcher {
             {
                 return glib::ControlFlow::Break;
             }
-            if slot.width() == 0 {
+            if catcher.room() == 0 || slot.width() == 0 {
                 return glib::ControlFlow::Continue;
             }
             catcher.settle();
@@ -245,14 +245,22 @@ impl Catcher {
         self.settle();
     }
 
+    fn room(&self) -> i32 {
+        match self.horizontal() {
+            true => self.window.width(),
+            false => self.window.height(),
+        }
+    }
+
     fn settle(&self) {
-        let (extent, room, arrow) = match self.horizontal() {
-            true => (self.body.width(), self.window.width(), self.arrow.width()),
-            false => (
-                self.body.height(),
-                self.window.height(),
-                self.arrow.height(),
-            ),
+        let room = self.room();
+        if room == 0 {
+            return;
+        }
+
+        let (extent, arrow) = match self.horizontal() {
+            true => (self.body.width(), self.arrow.width()),
+            false => (self.body.height(), self.arrow.height()),
         };
         let (start, offset) = placement(self.center.get(), extent, room, arrow);
         match self.horizontal() {

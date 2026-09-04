@@ -15,6 +15,10 @@ fn compile_blueprints(pairs: &[(&str, &str)]) {
 fn main() {
     compile_blueprints(&[
         ("blueprints/calendar.blp", "resources/widgets/calendar.ui"),
+        (
+            "blueprints/calendar_popover.blp",
+            "resources/widgets/calendar_popover.ui",
+        ),
         ("blueprints/clock_row.blp", "resources/widgets/clock_row.ui"),
         ("blueprints/event_row.blp", "resources/widgets/event_row.ui"),
         (

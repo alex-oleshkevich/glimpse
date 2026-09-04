@@ -998,6 +998,47 @@ no log line. Two identical boxes in one preview window, one carrying the literal
 `var(--gl-elevation-floating)`, rendered with a maximum single-channel difference of 3/255 — the
 substitution survives both the two-shadow comma list and the nested `alpha(var(--gl-shadow), …)`.
 
+## `CalendarPopover`
+
+The clock applet's popover, assembled from `PopoverShell`, `Hero`, `Calendar`, `Section`,
+`EventList`, `WorldClock`, `Placeholder` and `Row`. It owns the structure — the composition recorded
+in `var/widget_examples/agenda.blp` — and none of the content: every string it shows is handed to it
+already formatted, because what an event's time *says* depends on `now`, which is the applet's
+problem and not a widget's.
+
+**The drawer is an offer, not an automatic reveal, and the offer toggles.** `EventList` emits
+`overflow` when the viewer clicks the "N more events" row it grows past `MAX_ROWS`, not when
+overflow merely exists — so the popover flips the drawer on that signal. Clicking the row again
+closes it: a trigger that only opens leaves the viewer with no way back, which is why nothing here
+calls `set_reveal_child` directly and both popovers go through `drawer::toggle` / `drawer::set`.
+`set_day` closes it too when a shorter list no longer overflows, which is what stops the drawer
+standing open on nothing after the selection moves to a quieter day.
+
+**A section with nothing in it hides rather than emptying, and so does the slot holding it.** The
+world clock disappears when no zones are configured, and the footer row when no `settings-label` is
+set — a heading over nothing, or a row that does nothing when clicked, are both worse than the space
+they save. `PopoverShell` then drops the footer slot and the hairline above it, because an empty
+footer still costs its padding and leaves a border with nothing under it.
+
+**No counts.** The day and drawer headings carry a title and nothing else. `Section` can show one
+and the design sketch in `agenda.blp` does, but a number nobody asked for is noise that has to be
+kept correct as well as read.
+
+`set_day` takes two titles rather than composing one. The day section reads "Today" or a weekday and
+the drawer reads "Everything"; building the second out of the first would be string surgery on
+translated text.
+
+**Every type the template names must be bound as a `TemplateChild`, including the ones Rust never
+touches.** Binding is what registers the Rust GType before `init_template` resolves the class name;
+without it `Builder` reports `Invalid object type 'PopoverShell'` and the constructor panics.
+`shell` and `nothing` are bound for that reason alone. This is the one defect the crate's GTK test
+cannot catch: it builds every widget in one function, so by the time it reaches `CalendarPopover`
+the missing types have already been registered by their own assertions and the popover constructs
+happily. It failed the moment the panel built one on its own.
+
+The error placeholder that `agenda.blp` draws — "Cannot reach the calendar service" — is deliberately
+not implemented yet. It arrives with the service that can fail.
+
 ## The type scale
 
 Three sizes, all `rem`, and **no rule may write a font size in `px`** — `no_rule_sets_a_pixel_font_size`

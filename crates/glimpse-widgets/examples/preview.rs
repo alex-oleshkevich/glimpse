@@ -1257,14 +1257,15 @@ mod fixtures {
 
 fn ensure_types() {
     use glimpse_widgets::{
-        Calendar, ChoiceList, ClockRow, EventList, EventRow, FactList, ForecastDay, ForecastHour,
-        ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup, Notice, NowPlaying, Pager,
-        Panel, Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row, Scrubber,
-        Section, SplitRow, Transport, WorldClock,
+        Calendar, CalendarPopover, ChoiceList, ClockRow, EventList, EventRow, FactList,
+        ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup,
+        Notice, NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow, PopoverShell,
+        RangeBar, Readout, Row, Scrubber, Section, SplitRow, Transport, WorldClock,
     };
 
     for widget in [
         Calendar::static_type(),
+        CalendarPopover::static_type(),
         ChoiceList::static_type(),
         ClockRow::static_type(),
         EventRow::static_type(),

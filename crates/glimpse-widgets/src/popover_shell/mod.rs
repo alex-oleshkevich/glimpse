@@ -44,14 +44,22 @@ impl PopoverShell {
     }
 
     pub fn append_to_footer(&self, widget: &impl IsA<gtk4::Widget>) {
-        let imp = self.imp();
-        imp.footer_box.append(widget);
-        self.show_footer(true);
+        self.imp().footer_box.append(widget);
+        widget.as_ref().connect_visible_notify(glib::clone!(
+            #[weak(rename_to = shell)]
+            self,
+            move |_| shell.settle_footer()
+        ));
+        self.settle_footer();
     }
 
     pub fn clear_footer(&self) {
         clear_children(&self.imp().footer_box);
-        self.show_footer(false);
+        self.settle_footer();
+    }
+
+    fn settle_footer(&self) {
+        self.show_footer(shows_anything(&self.imp().footer_box));
     }
 
     fn show_hero(&self, visible: bool) {
@@ -65,4 +73,15 @@ impl PopoverShell {
         imp.footer_box.set_visible(visible);
         imp.footer_rule.set_visible(visible);
     }
+}
+
+fn shows_anything(container: &gtk4::Box) -> bool {
+    let mut child = container.first_child();
+    while let Some(widget) = child {
+        if widget.get_visible() {
+            return true;
+        }
+        child = widget.next_sibling();
+    }
+    false
 }

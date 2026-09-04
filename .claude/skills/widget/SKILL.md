@@ -67,7 +67,25 @@ A binary that constructs one of these must have called `register_resources()` fi
    GTK runtime warning. Template-based widgets call `dispose_template()`; container widgets unparent
    every remaining child.
 
-8. **Decorative children take `accessible-role: presentation`.** An icon beside a labelled indicator
+8. **A drawer is a toggle, and nothing calls `set_reveal_child` directly.** The control that opens a
+   `Gtk.Revealer` is the one that closes it; a trigger that only opens leaves the viewer with no way
+   back. `crate::drawer::toggle` and `crate::drawer::set` are the single definition, and a drawer
+   also closes when its content goes away — a list that stops overflowing must not leave its drawer
+   standing open on nothing. Assert both directions: firing the trigger twice opens then closes.
+
+9. **A slot with no visible content renders nothing — including its hairline.** An empty footer
+   still costs its padding and leaves a stray border that reads as a broken edge. `PopoverShell`
+   watches `notify::visible` on what is appended to a slot, so the slot follows its children rather
+   than the fact that something was appended once. Use `get_visible` (the widget's own flag), never
+   `is_visible`, which walks ancestors — a slot that starts hidden makes every child report
+   invisible, and it can then never show itself.
+
+10. **Never add a count, badge or other adornment nobody asked for.** `Section` has a `count`
+    property and the design examples in `var/widget_examples/` sometimes fill it; neither is
+    permission. Render what was specified — an unrequested number is noise that also has to be kept
+    correct.
+
+11. **Decorative children take `accessible-role: presentation`.** An icon beside a labelled indicator
    is otherwise announced twice. The blueprint linter catches the missing case
    (`missing_descriptive_text`) and `just lint` runs it — `build.rs` only compiles, it does not lint.
 
