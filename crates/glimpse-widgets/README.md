@@ -9,10 +9,10 @@ Used by the panel and the lock screen.
 - `src/<widget>/` — one directory per widget, `mod.rs` plus `imp.rs` for the GObject boilerplate
 - `blueprints/` — `.blp` templates, compiled by `build.rs` through `blueprint-compiler`
 - `resources/widgets/` — the `.ui` files that compilation produces, bundled into
-  `glimpse-panel.gresource` by `glib-build-tools`. Generated; never edited by hand.
+  `glimpse-widgets.gresource` by `glib-build-tools`. Generated; never edited by hand.
 
 Every template is bundled under the resource prefix `/me/aresa/GlimpseShell`, so a `.blp` is only
-reachable once its `.ui` is listed in `resources/glimpse-panel.gresource.xml`. Adding a blueprint
+reachable once its `.ui` is listed in `resources/glimpse-widgets.gresource.xml`. Adding a blueprint
 means adding both the `build.rs` pair and the manifest entry.
 
 `build.rs` only compiles; it does not lint, so `just lint` runs `blueprint-compiler lint` over every
@@ -957,7 +957,7 @@ cannot delete one, so the result is transcribed back into `styles/glimpse.css` w
 
 ### The token vocabulary
 
-Twenty-six tokens, all `--gl-` prefixed, declared once in the `:root` block of `styles/glimpse.css`.
+Thirty-one tokens, all `--gl-` prefixed, declared once in the `:root` block of `styles/glimpse.css`.
 Three tiers, and a rule may only read the tier directly below it: libadwaita's tokens → `--gl-*` →
 component rules. A component rule that names `--accent-bg-color` or a literal colour is a test
 failure, not a style choice.
@@ -965,12 +965,38 @@ failure, not a style choice.
 | Group | Tokens |
 | --- | --- |
 | surfaces | `panel` `panel-fg` `surface` `surface-fg` `border` `shadow` |
+| elevation | `elevation-raised` `elevation-floating` |
 | text ramp | `muted` `dim` `faint` |
 | accent | `accent` `accent-fg` `accent-text` `accent-soft` |
 | state | `hover` `active` `control` `knob` `scrim` |
 | semantic | `danger-text` `danger-soft` `warning-text` |
 | type | `text-caption` `text-body` `text-title` |
 | other | `radius` `duration` `ease` `font-family` `disabled` |
+
+### Elevation is a closed set of two
+
+`--gl-elevation-raised` is a surface lying on the desktop — the bar. `--gl-elevation-floating` is one
+detached from it — a popover. Every rule that casts a shadow reads one of the two, and
+`every_drop_shadow_reads_an_elevation_token` fails the build on a rule that writes its own: a
+`box-shadow` in a component rule may be `inset` (a ring, not a shadow — see the calendar's selection
+ring) or `var(--gl-elevation-*)`, and nothing else. Both values were already in the sheet, written
+out longhand at the two sites that use them; what was missing was anything stopping a third surface
+from inventing a fourth depth by eye.
+
+**A third elevation arrives with the change that needs it**, not before. The lock screen's auth card
+wants a much larger shadow, and it gets `--gl-elevation-overlay` when it is written.
+
+**This deliberately moves `px` out of the linted half of the sheet.** `only_hairlines_and_borders_are_measured_in_pixels`
+scans only what follows the `:root` block, so a `1px` blur inside a token declaration is never seen
+by it — the same property the calendar's ring note calls out. That is the trade: the offsets and
+blurs stop being checked individually, and in exchange there are only two of them and the elevation
+test proves every rule reads one.
+
+**`var()` does expand into `box-shadow`.** This had to be measured rather than assumed, because
+`rem` lengths in a `box-shadow` parse cleanly and paint nothing at all, with no `parsing-error` and
+no log line. Two identical boxes in one preview window, one carrying the literal value and one
+`var(--gl-elevation-floating)`, rendered with a maximum single-channel difference of 3/255 — the
+substitution survives both the two-shadow comma list and the nested `alpha(var(--gl-shadow), …)`.
 
 ## The type scale
 

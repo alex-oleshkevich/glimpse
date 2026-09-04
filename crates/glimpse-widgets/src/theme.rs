@@ -159,6 +159,21 @@ mod tests {
     }
 
     #[test]
+    fn every_drop_shadow_reads_an_elevation_token() {
+        let (_, rules) = split(BUILTIN);
+        for line in rules.lines().map(str::trim) {
+            let Some(value) = line.strip_prefix("box-shadow:") else {
+                continue;
+            };
+            let value = value.trim();
+            assert!(
+                value.starts_with("inset ") || value.starts_with("var(--gl-elevation-"),
+                "a surface invents its own depth; read an elevation token: {line}"
+            );
+        }
+    }
+
+    #[test]
     fn no_rule_names_a_literal_color() {
         let (_, rules) = split(BUILTIN);
         for line in rules.lines() {
@@ -173,6 +188,6 @@ mod tests {
     #[test]
     fn the_declared_vocabulary_is_the_documented_size() {
         let (block, _) = split(BUILTIN);
-        assert_eq!(declared(block).len(), 29);
+        assert_eq!(declared(block).len(), 31);
     }
 }

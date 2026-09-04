@@ -56,8 +56,12 @@ General GTK4, libadwaita and relm4 craft is covered by the `relm4`, `gtk4-styles
   same rule as `0 0 0 12px #ff0000` painted the full spread. It fails **silently** — no
   `parsing-error`, no warning on stderr, nothing in the log — so the symptom is a popover that has
   simply lost its shadow, with no clue where it went. `theme::tests` already allows `px` on a
-  `box-shadow:` line, and this is why. It matches only a line *starting* with the property, so keep
-  a multi-shadow value on one line rather than splitting it across continuations.
+  `box-shadow:` line, and this is why.
+- **A drop shadow comes from `--gl-elevation-raised` or `--gl-elevation-floating`, never from a value
+  written at the rule.** Those two are the whole vocabulary of depth;
+  `every_drop_shadow_reads_an_elevation_token` fails the build on a rule that invents a third. An
+  `inset` `box-shadow` is exempt because it is a ring, not a shadow. A new depth is a new token,
+  proposed and added once, not a value tuned by eye at a new surface.
 - A misspelled token is invisible: GTK renders the surface transparent, and `parsing-error` does not
   fire. Give every `var()` in the built-in stylesheet a fallback.
 - No fixed `width-request` or `height-request` to force a layout. The panel must survive font

@@ -28,7 +28,7 @@ Subclass `gtk4::Widget`, not `gtk4::Box`, when the contents are computed — it 
 ## Registering a new template — three places, all easy to miss
 
 1. `build.rs` — add the pair to the existing `compile_blueprints(&[...])` slice.
-2. `resources/glimpse-panel.gresource.xml` — add `<file>widgets/<name>.ui</file>`.
+2. `resources/glimpse-widgets.gresource.xml` — add `<file>widgets/<name>.ui</file>`.
 3. `src/lib.rs` — declare the module and re-export the type.
 
 The path in `#[template(resource = ...)]` must be `/me/aresa/GlimpseShell/widgets/<name>.ui`, matching

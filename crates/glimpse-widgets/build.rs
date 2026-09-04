@@ -66,8 +66,8 @@ fn main() {
     ]);
 
     glib_build_tools::compile_resources(
-        &["resources"],                          // source dirs (relative to build.rs)
-        "resources/glimpse-panel.gresource.xml", // manifest
-        "glimpse-panel.gresource",               // output name (placed in OUT_DIR)
+        &["resources"],                            // source dirs (relative to build.rs)
+        "resources/glimpse-widgets.gresource.xml", // manifest
+        "glimpse-widgets.gresource",               // output name (placed in OUT_DIR)
     );
 }

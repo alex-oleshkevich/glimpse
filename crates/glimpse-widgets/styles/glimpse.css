@@ -10,6 +10,8 @@
 
     --gl-border: var(--border-color, rgb(255 255 255 / 0.15));
     --gl-shadow: rgb(0 0 0 / 0.55);
+    --gl-elevation-raised: 0 1px 2px alpha(var(--gl-shadow), 0.22);
+    --gl-elevation-floating: 0 1px 3px alpha(var(--gl-shadow), 0.6), 0 6px 20px alpha(var(--gl-shadow), 0.7);
 
     --gl-accent: var(--accent-bg-color, #3584e4);
     --gl-accent-fg: var(--accent-fg-color, #ffffff);
@@ -43,7 +45,7 @@
     font-family: var(--gl-font-family);
     font-variant-numeric: tabular-nums;
     padding: 0 0.7rem;
-    box-shadow: 0 1px 2px alpha(var(--gl-shadow), 0.22);
+    box-shadow: var(--gl-elevation-raised);
 }
 
 .panel separator {
@@ -219,7 +221,7 @@
 .applet-popover__body {
     background-color: var(--gl-surface);
     border-radius: var(--gl-radius);
-    box-shadow: 0 1px 3px alpha(var(--gl-shadow), 0.6), 0 6px 20px alpha(var(--gl-shadow), 0.7);
+    box-shadow: var(--gl-elevation-floating);
 }
 
 .popover-shell {

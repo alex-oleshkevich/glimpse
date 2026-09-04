@@ -113,7 +113,7 @@ pub(crate) fn set_css_class(widget: &impl gtk4::prelude::IsA<gtk4::Widget>, name
 }
 
 pub fn register_resources() -> Result<(), glib::Error> {
-    gio::resources_register_include!("glimpse-panel.gresource")
+    gio::resources_register_include!("glimpse-widgets.gresource")
 }
 
 #[cfg(test)]
