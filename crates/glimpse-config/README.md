@@ -267,6 +267,13 @@ second instance needs `extends`, as in `[applets.clock-utc] extends = "clock"`. 
 `Deserialize` on the `applets` field injects the key before handing the table to serde, which is why
 the common case stays free of a line that only restates the name.
 
+**The common settings are inlined into every branch of the emitted schema, not shared by `$ref`.**
+That is why the document is large: three properties repeated across every applet. Factoring them
+into an `allOf` against one definition would break validation rather than tidy it — each branch
+carries `additionalProperties: false` from `deny_unknown_fields`, and `additionalProperties` does
+not see properties contributed by an `allOf` sibling, so every common key would be rejected as
+unknown. The repetition is what makes the schema agree with the loader.
+
 The emitted schema mirrors that exactly. `properties` carries one entry per applet keyed by its
 name, so an editor resolves `[applets.clock]` to the clock's own schema with no discrimination step;
 `additionalProperties` carries the tagged form, where `extends` is required, for aliases. JSON Schema

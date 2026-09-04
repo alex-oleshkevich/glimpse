@@ -251,6 +251,44 @@ mod tests {
     }
 
     #[test]
+    fn a_configured_applet_survives_being_written_back_out() {
+        let parsed: Config = toml::from_str(
+            "[applets.clock]\nlabel-format = \"%H\"\ntooltip-format = \"%A\"\nsettings-label = \"Open\"\nsettings-command = [\"gnome-calendar\"]\n",
+        )
+        .expect("a table carrying both halves");
+
+        let written = toml::to_string(&parsed).expect("the document serializes");
+        let again: Config = toml::from_str(&written).expect("what was written parses again");
+
+        assert_eq!(
+            parsed.applets, again.applets,
+            "`glimpsectl config show` writes this document out, and both halves are flattened \
+             into one table on the way"
+        );
+    }
+
+    #[test]
+    fn a_setting_a_nested_table_lacks_is_not_blamed_on_a_common_one() {
+        let error = toml::from_str::<Config>(
+            "[applets.clock]\n[[applets.clock.timezones]]\nlabel = \"T\"\ntimezone = \"Asia/Tokyo\"\nnonesuch = 1\n",
+        )
+        .expect_err("a key the timezone entry does not have")
+        .to_string();
+        assert!(
+            !error.contains("tooltip-format"),
+            "a common setting is not valid inside a timezone entry: {error}"
+        );
+    }
+
+    #[test]
+    fn a_settings_command_that_names_no_program_is_refused() {
+        let parsed = toml::from_str::<Config>(
+            "[applets.clock]\nsettings-label = \"Open\"\nsettings-command = [\"\"]\n",
+        );
+        assert!(parsed.is_err(), "an empty program name was accepted");
+    }
+
+    #[test]
     fn the_schema_offers_every_applet_by_its_table_name() {
         let schema: serde_json::Value =
             serde_json::from_str(&crate::json_schema_document()).expect("the schema is JSON");

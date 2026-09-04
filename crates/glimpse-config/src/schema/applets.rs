@@ -300,16 +300,23 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
     table
         .entry("extends")
         .or_insert_with(|| toml::Value::String(name.to_owned()));
+    let keys: Vec<String> = table.keys().cloned().collect();
     Ok(Applet {
         common,
-        kind: Kind::deserialize(table).map_err(name_the_common_settings)?,
+        kind: Kind::deserialize(table).map_err(|error| name_the_common_settings(error, &keys))?,
     })
 }
 
-fn name_the_common_settings(error: toml::de::Error) -> toml::de::Error {
+fn name_the_common_settings(error: toml::de::Error, keys: &[String]) -> toml::de::Error {
     let message = error.to_string();
     let message = message.trim_end();
-    if !message.starts_with("unknown field") {
+    let Some(field) = message
+        .strip_prefix("unknown field `")
+        .and_then(|rest| rest.split('`').next())
+    else {
+        return error;
+    };
+    if !keys.iter().any(|key| key == field) {
         return error;
     }
     let common = COMMON.map(|key| format!("`{key}`")).join(", ");
@@ -329,6 +336,16 @@ fn take_common(table: &mut toml::Table) -> Result<Common, toml::de::Error> {
         return Err(toml::de::Error::custom(
             "settings-label and settings-command are set together: a label with no command is a \
              row that does nothing, and a command with no label is a row nobody can see",
+        ));
+    }
+    if common
+        .settings_command
+        .first()
+        .is_some_and(|program| program.trim().is_empty())
+    {
+        return Err(toml::de::Error::custom(
+            "settings-command names no program: its first element is what runs, and the rest are \
+             that program's arguments",
         ));
     }
     Ok(common)
@@ -382,7 +399,7 @@ fn with_common(generator: &mut SchemaGenerator) -> Schema {
         .cloned()
         .unwrap_or_default();
 
-    let mut kinds = Kind::json_schema(generator).to_value();
+    let mut kinds = Kind::json_schema(generator);
     if let Some(branches) = kinds
         .get_mut("oneOf")
         .and_then(serde_json::Value::as_array_mut)
@@ -399,7 +416,7 @@ fn with_common(generator: &mut SchemaGenerator) -> Schema {
             }
         }
     }
-    Schema::try_from(kinds).unwrap_or_else(|_| Kind::json_schema(generator))
+    kinds
 }
 
 #[cfg(test)]
