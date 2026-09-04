@@ -43,6 +43,13 @@ a late one. Measured live with the tick instrumented: every tick landed 0–1 ms
 second. Exactly on a boundary the wait is a whole period rather than zero, so nothing renders the
 same instant twice.
 
+**A missed tick is skipped, not burst.** tokio's default is
+`MissedTickBehavior::Burst`, which fires one tick for every period that went by while the timer was
+not polled — so resuming from an hour's suspend would deliver 3600 ticks in a single pass of the
+main loop, each one a full re-render. `Skip` is also the only behaviour that keeps the phase: it
+snaps back onto the original schedule rather than restarting it from wherever the stall ended, which
+is what `Delay` does.
+
 **Calling it again replaces the timer rather than adding one.** `Ctx` holds it in its own slot,
 separate from the subscription guards, because `configure` runs on every configuration change and an
 applet that asked for a tick each time would otherwise accumulate one per reload. Dropping the guard
@@ -56,6 +63,11 @@ aborts the task, and `shutdown` counts it alongside the subscriptions.
 specifier that moves faster than a minute — `%S %T %X %r %c %+ %s %f`. A setting would be a second
 way to say what the format already says, and the two could disagree.
 
+Two of those are deliberate over-approximations, because ticking too often is a wasted render and
+ticking too seldom is a wrong number on screen. `%X` is the locale's own time and need not carry
+seconds — it does under `pl_PL`, measured — and `%f` is sub-second, which a one-second tick cannot
+follow anyway; it is in the set so that a format built on it moves at all.
+
 The scan reads specifiers rather than searching for substrings, which matters twice: `%-S` carries a
 padding modifier between the `%` and the `S`, so `contains("%S")` misses it, and `%%S` is a literal
 percent followed by an `S`, so `contains("%S")` matches something that is not a specifier at all.
@@ -67,6 +79,10 @@ panic — which, under the runtime's `catch_unwind`, stops the applet permanentl
 `label-format` would have killed the clock for the session. It renders through `write!` into a
 `String` instead, returns `None` on failure, and the applet returns an empty `Vec` so the group
 hides itself. The warning is logged once per configuration change, not once per tick.
+
+Ticks are logged at `trace`, not `debug`: a second-long period would otherwise put a line a second
+into a `--log debug` run, and the one thing worth seeing at `debug` — that the timer started, and
+with what period — is already logged once by `interval`.
 
 **What no test covers:** that `configure` actually calls `ctx.interval`, and that a tick reaches
 `indicators()`. Both need the relm4 runtime and a mapped panel. The arithmetic and the format

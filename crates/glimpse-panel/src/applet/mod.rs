@@ -177,9 +177,14 @@ impl Ctx {
     }
 
     pub(crate) fn shutdown(&self) {
-        let stopped =
-            self.sources.borrow_mut().drain(..).count() + self.ticks.take().is_some() as usize;
-        tracing::debug!(applet = self.caller.name, stopped, "sources stopped");
+        let stopped = self.sources.borrow_mut().drain(..).count();
+        let ticking = self.ticks.take().is_some();
+        tracing::debug!(
+            applet = self.caller.name,
+            stopped,
+            ticking,
+            "sources stopped"
+        );
     }
 
     pub fn interval(&self, period: Duration) {
@@ -192,11 +197,13 @@ impl Ctx {
         }
 
         let host = self.host.clone();
+        let applet = self.caller.name.clone();
         let start = tokio::time::Instant::now() + until_boundary(since_epoch(), period);
         let handle = relm4::spawn(async move {
-            let mut ticks = tokio::time::interval_at(start, period);
+            let mut ticks = ticker(start, period);
             loop {
                 ticks.tick().await;
+                tracing::trace!(applet, "tick");
                 if host.send(runtime::HostInput::Ticked).is_err() {
                     return;
                 }
@@ -256,6 +263,12 @@ fn since_epoch() -> Duration {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
+}
+
+fn ticker(start: tokio::time::Instant, period: Duration) -> tokio::time::Interval {
+    let mut ticks = tokio::time::interval_at(start, period);
+    ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    ticks
 }
 
 fn until_boundary(since_epoch: Duration, period: Duration) -> Duration {
@@ -318,6 +331,18 @@ mod tests {
 
         let broken = event(HeartbeatTick::NAME, serde_json::json!({ "count": "many" }));
         assert!(payload::<HeartbeatTick>(&broken).is_none());
+    }
+
+    #[tokio::test]
+    async fn a_stalled_timer_skips_what_it_missed_rather_than_firing_all_of_it() {
+        let ticks = ticker(tokio::time::Instant::now(), Duration::from_secs(1));
+
+        assert_eq!(
+            ticks.missed_tick_behavior(),
+            tokio::time::MissedTickBehavior::Skip,
+            "tokio defaults to Burst, which after a suspend would deliver one tick per second \
+             slept, all in one pass; Skip is also the only behaviour that keeps the phase"
+        );
     }
 
     #[test]
