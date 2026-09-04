@@ -1,5 +1,5 @@
 use chrono::Local;
-use glimpse_config::{Applet as AppletConfig, ClockConfig};
+use glimpse_config::{Applet as AppletConfig, AppletKind, ClockConfig};
 use glimpse_widgets::IndicatorSpec;
 
 use crate::applet::{Applet, Ctx, Input};
@@ -15,7 +15,7 @@ impl Applet for Clock {
     }
 
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
-        let AppletConfig::Clock(clock) = config else {
+        let AppletKind::Clock(clock) = &config.kind else {
             return;
         };
         self.config = clock.clone();
@@ -25,7 +25,7 @@ impl Applet for Clock {
 
     fn indicators(&self) -> Vec<IndicatorSpec> {
         vec![IndicatorSpec {
-            label: Some(Local::now().format(&self.config.format).to_string()),
+            label: Some(Local::now().format(&self.config.label_format).to_string()),
             ..Default::default()
         }]
     }

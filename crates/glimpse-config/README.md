@@ -256,10 +256,11 @@ which is the whole reason that gate is worth more than a content digest here.
 
 ## Applets
 
-`Applet` is an internally-tagged enum on `extends`, one variant per applet, so an applet's settings
-are part of this document's schema rather than a free-form table nobody validates. A misspelled
-setting is a load error naming the table and the key; an `[applets.*]` table naming an applet that
-does not exist is a load error listing the ones that do.
+`Applet` is one applet's whole configuration: a `Common`, holding the settings every applet
+understands, and a `Kind`, the internally-tagged enum on `extends` that carries the settings one
+applet alone understands. Both halves are part of this document's schema rather than a free-form
+table nobody validates. A misspelled setting is a load error naming the table and the key; an
+`[applets.*]` table naming an applet that does not exist is a load error listing the ones that do.
 
 **The table name supplies the tag when `extends` is absent.** `[applets.clock]` is the clock; only a
 second instance needs `extends`, as in `[applets.clock-utc] extends = "clock"`. A hand-written
@@ -270,6 +271,60 @@ The emitted schema mirrors that exactly. `properties` carries one entry per appl
 name, so an editor resolves `[applets.clock]` to the clock's own schema with no discrimination step;
 `additionalProperties` carries the tagged form, where `extends` is required, for aliases. JSON Schema
 applies the second only to keys the first did not match, which is the same rule the loader follows.
+
+### Settings every applet has
+
+`tooltip-format`, `settings-label` and `settings-command` are common: every applet reads them, and
+they sit in the same flat table as the kind's own settings. `[applets.clock]` carries
+`label-format` beside `tooltip-format` and nothing is nested.
+
+**They are split off the table before the kind sees it.** The obvious way to write this —
+`#[serde(flatten)]` on a `Common` field inside each variant — does not compile: `flatten` works by
+collecting the keys a struct did not claim, and `deny_unknown_fields` works by rejecting them, so
+serde refuses both on one type. Choosing between a shared setting and typo protection would have
+been the wrong trade, and it is not the one on offer: `applets::deserialize` already takes each
+table as a raw `toml::Table` to inject `extends`, so `take_common` removes the common keys there and
+`Kind` deserializes the remainder. Both halves keep `deny_unknown_fields`, and typo protection is
+better than `flatten` would have given — a misspelled common key is not taken, so it survives into
+the table the kind is denying against and fails the load by name.
+
+The cost is a list, `COMMON`, that has to agree with `Common`'s fields; a field added to one and not
+the other would reach the kind and be refused as unknown. `every_common_setting_is_taken_off_the_table`
+compares the list against the struct's own schema, in both directions.
+
+**`settings-command` is a list, never one string.** `["xdg-open", "https://example.com/"]` has no
+quoting rules to get wrong, no word splitting, and no shell — an argument containing a space is one
+element. A single string would need a shell to interpret it, and a shell is an injection surface
+for something with no reason to have one. The panel spawns it with `gio::Subprocess`; this is not
+the rule in `AGENTS.md` against shelling out, which forbids reaching `systemctl` or `nmcli` through
+a subprocess instead of their real interfaces. There is no interface to prefer for "the calendar
+application the user named".
+
+Setting a label without a command, or a command without a label, is a load error. One is a row that
+does nothing and the other is a row nobody can see.
+
+## Asking the system: the `locale` convention
+
+A setting whose correct value the system already knows takes an enum with a `locale` variant, and
+`locale` is the default. It means "ask the system, do not decide here" — `hour-format` is the first.
+
+Two conditions keep that honest:
+
+- **A setting only gets `locale` if the system can actually be asked.** A `locale` that falls back
+  to a hardcoded value is worse than naming that value, because the user sets nothing, gets an
+  answer, and cannot tell which of the two produced it.
+- **Resolution is measured per setting, not assumed.** `hour-format` resolves: measured under
+  `LC_TIME=pl_PL.utf8`, GLib's `%X` renders `15:30:00`, so the locale's own preference is readable.
+
+`first-day` has **no** `locale` variant, and that is the convention working rather than an
+omission. Both ways to ask came up short when they were measured: GTK's translated
+`calendar:week_start:0` came back as the untranslated msgid, which means Sunday, under an `LC_TIME`
+whose answer is Monday; and glibc's `_NL_TIME_FIRST_WEEKDAY` needs a `libc` dependency and a
+non-portable constant. So it defaults to `monday` and says so. A silently wrong `locale` and a
+correct one are indistinguishable from the outside, which is the whole reason for the first
+condition.
+
+Two enums and this paragraph are the entire mechanism. There is no `Localized<T>`.
 
 **A variant with no settings is written `Clock {}`, never `Clock`.** `deny_unknown_fields` has
 nothing to deny on a unit variant, so a unit variant silently swallows every key written under it —

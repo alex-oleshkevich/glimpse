@@ -52,7 +52,7 @@ impl Applet for Thing {
     }
 
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
-        let AppletConfig::Thing(settings) = config else {
+        let AppletKind::Thing(settings) = &config.kind else {
             return;
         };
         self.settings = settings.clone();
@@ -99,9 +99,9 @@ still one thing to click.
 mod thing;
 
 fn build(config: &AppletConfig) -> Option<Builder> {
-    match config {
-        AppletConfig::Thing {} => Some(|| Box::new(thing::Thing::start())),
-        AppletConfig::Audio {} | /* every applet not yet built */ => None,
+    match &config.kind {
+        AppletKind::Thing {} => Some(|| Box::new(thing::Thing::start())),
+        AppletKind::Audio {} | /* every applet not yet built */ => None,
     }
 }
 ```

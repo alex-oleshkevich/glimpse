@@ -199,7 +199,7 @@ Four things it must do, every one of which fails silently otherwise:
   across displays — a second preview otherwise hands off to the first, which may be on another
   monitor or in another compositor, and exits 0 with no window and no message.
 - **Read `glimpse.css` from disk, not through `Styles::install`.** That loads the sheet with
-  `include_str!`, so a preview built on it renders a *compiled-in copy* and no edit can ever reach
+  `include_str!`, so a preview built on it renders a _compiled-in copy_ and no edit can ever reach
   it. The preview installs its own providers at the same priorities, which also means a deleted rule
   actually disappears.
 - **Spell a watched path the way the file monitor spells it back.** A relative argument or a `..`
@@ -210,7 +210,7 @@ Four things it must do, every one of which fails silently otherwise:
 Live reload watches each file's **directory**, not the file, and treats a rename onto the path as a
 change. An editor that saves by writing a temporary file and renaming it over the original destroys
 the inode a file monitor holds, and GIO then reports the write on a two-second timer — which is what
-a laggy reload actually is. The rename arrives as `RENAMED`, whose *first* argument is the temporary
+a laggy reload actually is. The rename arrives as `RENAMED`, whose _first_ argument is the temporary
 path and whose `other_file` is the one you asked for, so matching only the first argument ignores
 every such save. Both paths are checked, and events are coalesced over 40ms.
 
@@ -219,7 +219,7 @@ paint reads as pattern rather than as a flat background it never asked for. That
 libadwaita's `.card` is an 8% white overlay in dark mode, and against a plain window it looks solid.
 
 **Both halves of the checkerboard rule must be scoped to `window.preview`, not just the first.**
-GTK4 parents a tooltip, a popover and a drag icon *into the widget tree*, as direct children of the
+GTK4 parents a tooltip, a popover and a drag icon _into the widget tree_, as direct children of the
 window — measured: a `Gtk.Popover` given `set_parent(window)` appears in that window's child list
 beside its `child`. So a companion `window.preview > * { background-color: transparent; }` matches
 every one of them, at `STYLE_PROVIDER_PRIORITY_USER + 2` against libadwaita's `tooltip.background`
@@ -278,7 +278,7 @@ made a new example's drawer silently inert, and it is the same defect as a `nav_
 page behind it, which `drawer_nav` now reports on stderr.
 
 **A row carrying `action__<name>` logs `action: <name>` on stderr when it fires.** `fixtures::actions`
-runs for every example, like the drawer, and gives an example a way to show a *command* — focus this
+runs for every example, like the drawer, and gives an example a way to show a _command_ — focus this
 workspace, rename it, close that window — without a fixture per popover and without the example
 pretending the command already exists. On a `$SplitRow` it connects `activated`, so the body acts
 while `nav__` on the same row keeps the chevron opening the drawer; on anything else that is a
@@ -311,7 +311,7 @@ preview host that needs real widgets has to be Rust.
 type inside a container, verified with a `$Foo` that does not exist. There is no way to exclude a
 single rule (`-c`/`-r` are allowlists, and an unknown category silently lints nothing), so the
 `lint-blueprints` recipe strips ANSI colour from the report and fails only on a `warning:`/`error:`
-line that is *not* `scrollable_parent`. **Embed our own widgets declaratively** — `$RangeBar bar {}`
+line that is _not_ `scrollable_parent`. **Embed our own widgets declaratively** — `$RangeBar bar {}`
 inside `forecast_day.blp`, `$Scrubber scrubber {}` inside `now_playing.blp` — and bind them as
 ordinary `TemplateChild`s. Working around the linter instead costs a compile-checked child and buys
 a runtime `expect()`; the recipe is where a broken tool gets handled.
@@ -319,7 +319,7 @@ a runtime `expect()`; the recipe is where a broken tool gets handled.
 An embedded type needs **no** `ensure_type()` call: `#[template_child] TemplateChild<Scrubber>`
 names the type in Rust, and binding it registers the GType before `init_template` resolves the
 class by name. Measured both ways in a fresh process. The preview still needs its own
-`ensure_types()`, because a blueprint *example* names `$Scrubber` with nothing in Rust touching it
+`ensure_types()`, because a blueprint _example_ names `$Scrubber` with nothing in Rust touching it
 at all — that is the case where lazy registration actually bites.
 
 **`blueprint-compiler lint` also rejects a `Gtk.Adjustment` carrying anything besides `lower`,
@@ -377,6 +377,12 @@ window that asks for itself sends nothing at all and the compositor never hears 
 `scripts/` still holds helpers written. Several are useful as-is —
 `mpris-fake-players.py`, `network-test-fixtures.sh`, the `privacy-test-*` probes, and
 `glimpse-lock-rescue-pam.sh`.
+
+## Work Rules
+
+- Work on one feature at a time
+- Only start the next feature after the current one passes end-to-end verification
+- Don't "also refactor" feature B while implementing feature A
 
 ## Critical constraints
 

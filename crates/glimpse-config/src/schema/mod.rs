@@ -19,7 +19,8 @@ use serde::{Deserialize, Serialize};
 
 pub use appearance::{Appearance, ColorScheme};
 pub use applets::{
-    Applet, Clock as ClockConfig, Pager as PagerConfig, PagerMode, PagerScope, PagerShape,
+    Applet, Clock as ClockConfig, Common as AppletCommon, FirstDay, HourFormat, Kind as AppletKind,
+    Pager as PagerConfig, PagerMode, PagerScope, PagerShape, Timezone as ClockTimezone,
 };
 pub use backdrop::Backdrop;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};
@@ -146,7 +147,7 @@ mod tests {
 
         assert_eq!(
             parsed.applets["clock"],
-            Applet::Clock(applets::Clock::default())
+            Applet::from(AppletKind::Clock(applets::Clock::default()))
         );
     }
 
@@ -156,8 +157,97 @@ mod tests {
 
         assert_eq!(
             parsed.applets["clock"],
-            Applet::Clock(applets::Clock::default())
+            Applet::from(AppletKind::Clock(applets::Clock::default()))
         );
+    }
+
+    #[test]
+    fn a_common_setting_sits_beside_the_kinds_own() {
+        let parsed: Config =
+            toml::from_str("[applets.clock]\nlabel-format = \"%H\"\ntooltip-format = \"%A\"\n")
+                .expect("common and kind settings share one flat table");
+
+        assert_eq!(
+            parsed.applets["clock"].common.tooltip_format.as_deref(),
+            Some("%A")
+        );
+        let AppletKind::Clock(clock) = &parsed.applets["clock"].kind else {
+            panic!("the table names the clock");
+        };
+        assert_eq!(clock.label_format, "%H");
+    }
+
+    #[test]
+    fn a_misspelled_common_setting_is_still_a_load_error() {
+        assert!(
+            toml::from_str::<Config>("[applets.clock]\ntooltipformat = \"%A\"\n").is_err(),
+            "the splitter leaves what it does not recognise in the table, so the kind refuses it"
+        );
+    }
+
+    #[test]
+    fn an_unknown_setting_names_the_common_ones_too() {
+        let error = toml::from_str::<Config>("[applets.clock]\ntooltipformat = \"%A\"\n")
+            .expect_err("a misspelled key is refused")
+            .to_string();
+
+        assert!(
+            error.contains("`tooltip-format`"),
+            "the kind cannot list a setting it does not own, so the message has to name the one \
+             the user meant: {error}"
+        );
+    }
+
+    #[test]
+    fn a_settings_row_needs_a_label_and_a_command() {
+        assert!(
+            toml::from_str::<Config>("[applets.clock]\nsettings-label = \"Open\"\n").is_err(),
+            "a label with no command is a row that does nothing"
+        );
+        assert!(
+            toml::from_str::<Config>("[applets.clock]\nsettings-command = [\"x\"]\n").is_err(),
+            "a command with no label is a row nobody can see"
+        );
+        let parsed: Config = toml::from_str(
+            "[applets.clock]\nsettings-label = \"Open\"\nsettings-command = [\"gnome-calendar\"]\n",
+        )
+        .expect("both halves together");
+        assert_eq!(
+            parsed.applets["clock"].common.settings(),
+            Some(("Open", ["gnome-calendar".to_owned()].as_slice()))
+        );
+    }
+
+    #[test]
+    fn the_clock_still_reads_the_key_it_used_to_call_format() {
+        let parsed: Config =
+            toml::from_str("[applets.clock]\nformat = \"%H\"\n").expect("the alias parses");
+
+        let AppletKind::Clock(clock) = &parsed.applets["clock"].kind else {
+            panic!("the table names the clock");
+        };
+        assert_eq!(clock.label_format, "%H");
+    }
+
+    #[test]
+    fn a_clock_reads_its_world_clock_zones() {
+        let parsed: Config = toml::from_str(
+            "[applets.clock]\nhour-format = \"24h\"\n[[applets.clock.timezones]]\nlabel = \"Tokyo\"\ntimezone = \"Asia/Tokyo\"\n",
+        )
+        .expect("a full table");
+
+        let AppletKind::Clock(clock) = &parsed.applets["clock"].kind else {
+            panic!("the table names the clock");
+        };
+        assert_eq!(clock.hour_format, HourFormat::TwentyFour);
+        assert_eq!(
+            clock.first_day,
+            FirstDay::Monday,
+            "first-day has no locale variant, so the default has to say what it is"
+        );
+        assert_eq!(clock.timezones.len(), 1);
+        assert_eq!(clock.timezones[0].label, "Tokyo");
+        assert_eq!(clock.timezones[0].note, None);
     }
 
     #[test]
@@ -170,7 +260,7 @@ mod tests {
             .expect("one entry per applet, so an editor resolves [applets.clock] on its own");
 
         assert_eq!(
-            by_name["clock"]["properties"]["format"]["default"],
+            by_name["clock"]["properties"]["label-format"]["default"],
             serde_json::json!("%H:%M"),
             "a by-name entry carries the applet's own settings"
         );
@@ -195,7 +285,7 @@ mod tests {
 
         assert_eq!(
             parsed.applets["clock-utc"],
-            Applet::Clock(applets::Clock::default())
+            Applet::from(AppletKind::Clock(applets::Clock::default()))
         );
     }
 
@@ -205,7 +295,7 @@ mod tests {
 
         assert_eq!(
             parsed.applets["pager"],
-            Applet::Pager(applets::Pager {
+            Applet::from(AppletKind::Pager(applets::Pager {
                 mode: PagerMode::Workspaces,
                 shape: PagerShape::Dots,
                 scope: PagerScope::Output,
@@ -213,7 +303,7 @@ mod tests {
                 focused_label: None,
                 unfocused_label: None,
                 urgent_label: None,
-            }),
+            })),
             "the old applet defaulted to windows, which is the surprising one"
         );
     }
@@ -225,7 +315,7 @@ mod tests {
         )
         .expect("a full table");
 
-        let Applet::Pager(pager) = &parsed.applets["pager"] else {
+        let AppletKind::Pager(pager) = &parsed.applets["pager"].kind else {
             panic!("the table names the pager");
         };
         assert_eq!(pager.mode, PagerMode::Windows);

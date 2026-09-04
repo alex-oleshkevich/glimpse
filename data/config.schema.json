@@ -21,6 +21,27 @@
             "extends": {
               "type": "string",
               "const": "audio"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -33,6 +54,27 @@
             "extends": {
               "type": "string",
               "const": "battery"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -45,6 +87,27 @@
             "extends": {
               "type": "string",
               "const": "bluetooth"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -57,6 +120,27 @@
             "extends": {
               "type": "string",
               "const": "brightness"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -69,6 +153,27 @@
             "extends": {
               "type": "string",
               "const": "clipboard"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -82,10 +187,60 @@
               "type": "string",
               "const": "clock"
             },
-            "format": {
-              "description": "A `strftime` format string, such as `%H:%M` or `%a %d %b %H:%M`.",
+            "first-day": {
+              "description": "Which day a calendar week starts on.",
+              "$ref": "#/$defs/FirstDay",
+              "default": "monday"
+            },
+            "hour-format": {
+              "description": "How a time of day reads wherever the applet composes one itself — the world clock rows and\nthe times inside event rows. `label-format` and `tooltip-format` are yours and are not\naffected by it.",
+              "$ref": "#/$defs/HourFormat",
+              "default": "locale"
+            },
+            "label-format": {
+              "description": "A `strftime` format string for the bar, such as `%H:%M` or `%a %d %b %H:%M`.",
               "type": "string",
               "default": "%H:%M"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "timezone": {
+              "description": "The IANA zone this clock reads, such as `UTC` or `Asia/Tokyo`. Unset is the local zone;\nnaming one is how a second `[applets.clock-utc]` shows somewhere else.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "timezones": {
+              "description": "The other zones the popover lists under its world clock. Empty hides the section.",
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Timezone"
+              }
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "week-numbers": {
+              "description": "Whether the popover names the ISO week the shown month belongs to.",
+              "type": "boolean",
+              "default": true
             }
           },
           "additionalProperties": false,
@@ -98,6 +253,27 @@
             "extends": {
               "type": "string",
               "const": "command"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -110,6 +286,27 @@
             "extends": {
               "type": "string",
               "const": "display"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -122,6 +319,27 @@
             "extends": {
               "type": "string",
               "const": "exec"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -134,6 +352,27 @@
             "extends": {
               "type": "string",
               "const": "heartbeat"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -146,6 +385,27 @@
             "extends": {
               "type": "string",
               "const": "idle"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -158,6 +418,27 @@
             "extends": {
               "type": "string",
               "const": "keyboard"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -170,6 +451,27 @@
             "extends": {
               "type": "string",
               "const": "mpris"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -182,6 +484,27 @@
             "extends": {
               "type": "string",
               "const": "network"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -194,6 +517,27 @@
             "extends": {
               "type": "string",
               "const": "next-event"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -206,6 +550,27 @@
             "extends": {
               "type": "string",
               "const": "notifications"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -241,10 +606,31 @@
               "$ref": "#/$defs/PagerScope",
               "default": "output"
             },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "shape": {
               "description": "Whether a slot is drawn as a dot or as its label in a pill.",
               "$ref": "#/$defs/PagerShape",
               "default": "dots"
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "unfocused-label": {
               "description": "The label for every slot the user is not on. Same tokens as `label`; unset falls back\nto it.",
@@ -271,6 +657,27 @@
             "extends": {
               "type": "string",
               "const": "printing"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -283,6 +690,27 @@
             "extends": {
               "type": "string",
               "const": "privacy"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -295,6 +723,27 @@
             "extends": {
               "type": "string",
               "const": "removable"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -307,6 +756,27 @@
             "extends": {
               "type": "string",
               "const": "session"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -319,6 +789,27 @@
             "extends": {
               "type": "string",
               "const": "tray"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -331,6 +822,27 @@
             "extends": {
               "type": "string",
               "const": "weather"
+            },
+            "settings-command": {
+              "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "settings-label": {
+              "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "tooltip-format": {
+              "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false,
@@ -338,7 +850,7 @@
         }
       },
       "additionalProperties": {
-        "description": "One applet on a bar. The table name is the applet's name, and `extends` says which kind it is\nwhen the two differ — which is how one kind can appear more than once, as `[applets.clock-utc]`\nwith `extends = \"clock\"`.",
+        "description": "Which kind of applet this is, and the settings that kind alone understands.",
         "oneOf": [
           {
             "description": "Output volume, with the default sink and per-application streams in its popover.",
@@ -347,6 +859,27 @@
               "extends": {
                 "type": "string",
                 "const": "audio"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -361,6 +894,27 @@
               "extends": {
                 "type": "string",
                 "const": "battery"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -375,6 +929,27 @@
               "extends": {
                 "type": "string",
                 "const": "bluetooth"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -389,6 +964,27 @@
               "extends": {
                 "type": "string",
                 "const": "brightness"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -403,6 +999,27 @@
               "extends": {
                 "type": "string",
                 "const": "clipboard"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -418,10 +1035,60 @@
                 "type": "string",
                 "const": "clock"
               },
-              "format": {
-                "description": "A `strftime` format string, such as `%H:%M` or `%a %d %b %H:%M`.",
+              "first-day": {
+                "description": "Which day a calendar week starts on.",
+                "$ref": "#/$defs/FirstDay",
+                "default": "monday"
+              },
+              "hour-format": {
+                "description": "How a time of day reads wherever the applet composes one itself — the world clock rows and\nthe times inside event rows. `label-format` and `tooltip-format` are yours and are not\naffected by it.",
+                "$ref": "#/$defs/HourFormat",
+                "default": "locale"
+              },
+              "label-format": {
+                "description": "A `strftime` format string for the bar, such as `%H:%M` or `%a %d %b %H:%M`.",
                 "type": "string",
                 "default": "%H:%M"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "timezone": {
+                "description": "The IANA zone this clock reads, such as `UTC` or `Asia/Tokyo`. Unset is the local zone;\nnaming one is how a second `[applets.clock-utc]` shows somewhere else.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "timezones": {
+                "description": "The other zones the popover lists under its world clock. Empty hides the section.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/Timezone"
+                }
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "week-numbers": {
+                "description": "Whether the popover names the ISO week the shown month belongs to.",
+                "type": "boolean",
+                "default": true
               }
             },
             "additionalProperties": false,
@@ -436,6 +1103,27 @@
               "extends": {
                 "type": "string",
                 "const": "command"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -450,6 +1138,27 @@
               "extends": {
                 "type": "string",
                 "const": "display"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -464,6 +1173,27 @@
               "extends": {
                 "type": "string",
                 "const": "exec"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -478,6 +1208,27 @@
               "extends": {
                 "type": "string",
                 "const": "heartbeat"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -492,6 +1243,27 @@
               "extends": {
                 "type": "string",
                 "const": "idle"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -506,6 +1278,27 @@
               "extends": {
                 "type": "string",
                 "const": "keyboard"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -520,6 +1313,27 @@
               "extends": {
                 "type": "string",
                 "const": "mpris"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -534,6 +1348,27 @@
               "extends": {
                 "type": "string",
                 "const": "network"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -548,6 +1383,27 @@
               "extends": {
                 "type": "string",
                 "const": "next-event"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -562,6 +1418,27 @@
               "extends": {
                 "type": "string",
                 "const": "notifications"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -599,10 +1476,31 @@
                 "$ref": "#/$defs/PagerScope",
                 "default": "output"
               },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "shape": {
                 "description": "Whether a slot is drawn as a dot or as its label in a pill.",
                 "$ref": "#/$defs/PagerShape",
                 "default": "dots"
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "unfocused-label": {
                 "description": "The label for every slot the user is not on. Same tokens as `label`; unset falls back\nto it.",
@@ -631,6 +1529,27 @@
               "extends": {
                 "type": "string",
                 "const": "printing"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -645,6 +1564,27 @@
               "extends": {
                 "type": "string",
                 "const": "privacy"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -659,6 +1599,27 @@
               "extends": {
                 "type": "string",
                 "const": "removable"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -673,6 +1634,27 @@
               "extends": {
                 "type": "string",
                 "const": "session"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -687,6 +1669,27 @@
               "extends": {
                 "type": "string",
                 "const": "tray"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -701,6 +1704,27 @@
               "extends": {
                 "type": "string",
                 "const": "weather"
+              },
+              "settings-command": {
+                "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "settings-label": {
+                "description": "The label on the row the applet's popover puts in its footer. Set it together with\n`settings-command`.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tooltip-format": {
+                "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false,
@@ -935,15 +1959,18 @@
       ]
     },
     "Calendar": {
+      "description": "Where calendar events come from. One list, read by every surface that shows an event: the\nclock popover, the day markers on its grid, and the `next-event` applet.",
       "type": "object",
       "properties": {
         "poll-interval": {
+          "description": "How often a source is read again, in seconds, unless it names its own.",
           "type": "integer",
           "format": "uint64",
           "default": 600,
           "minimum": 0
         },
         "sources": {
+          "description": "The sources themselves. Every one listed is active; remove it to stop reading it.",
           "type": "array",
           "default": [],
           "items": {
@@ -998,6 +2025,14 @@
       },
       "additionalProperties": false
     },
+    "FirstDay": {
+      "description": "Which day a calendar week starts on. There is deliberately no `locale` here, unlike\n`hour-format`: the two ways to ask the system are GTK's translated `calendar:week_start:0`,\nwhich came back untranslated when it was measured and would have answered Sunday under an\n`LC_TIME` that means Monday, and glibc's `_NL_TIME_FIRST_WEEKDAY`, which is not portable. A\n`locale` that quietly answers wrong is worse than a default that says what it is.",
+      "type": "string",
+      "enum": [
+        "monday",
+        "sunday"
+      ]
+    },
     "Fit": {
       "type": "string",
       "enum": [
@@ -1042,6 +2077,26 @@
             "latitude",
             "longitude"
           ]
+        }
+      ]
+    },
+    "HourFormat": {
+      "description": "How a time of day reads.",
+      "oneOf": [
+        {
+          "description": "Follow `LC_TIME`, which is what the locale's own `%X` resolves to.",
+          "type": "string",
+          "const": "locale"
+        },
+        {
+          "description": "`3:30 PM`.",
+          "type": "string",
+          "const": "12h"
+        },
+        {
+          "description": "`15:30`.",
+          "type": "string",
+          "const": "24h"
         }
       ]
     },
@@ -1471,24 +2526,29 @@
       ]
     },
     "Source": {
+      "description": "One calendar to read.",
       "type": "object",
       "properties": {
         "color": {
+          "description": "The dot beside this calendar's events, as a hex color.",
           "type": [
             "string",
             "null"
           ]
         },
         "id": {
+          "description": "What this source is called internally. It has to be unique, and it is what an event\ncarries so a surface can tell which calendar it came from.",
           "type": "string"
         },
         "name": {
+          "description": "What to call this calendar on screen. Unset falls back to `id`.",
           "type": [
             "string",
             "null"
           ]
         },
         "poll-interval": {
+          "description": "How often to read this one, in seconds, overriding the shared interval.",
           "type": [
             "integer",
             "null"
@@ -1497,9 +2557,11 @@
           "minimum": 0
         },
         "type": {
+          "description": "Whether `uri` names a subscription feed or a directory of `.ics` files.",
           "$ref": "#/$defs/SourceKind"
         },
         "uri": {
+          "description": "The feed or directory. A provider's iCalendar URL behaves like a read-only access\ntoken — anyone holding it can usually read the calendar without signing in — so a\n`file://` path to a one-line sidecar file is offered as an alternative to writing a\nsecret URL into a configuration file that gets shared or committed.",
           "type": "string"
         }
       },
@@ -1511,10 +2573,51 @@
       ]
     },
     "SourceKind": {
-      "type": "string",
-      "enum": [
-        "ical",
-        "directory"
+      "description": "What a source's `uri` points at.",
+      "oneOf": [
+        {
+          "description": "An iCalendar subscription feed, over `https://` or `file://`.",
+          "type": "string",
+          "const": "ical"
+        },
+        {
+          "description": "A directory of `.ics` files.",
+          "type": "string",
+          "const": "directory"
+        }
+      ]
+    },
+    "Timezone": {
+      "description": "One zone in the clock popover's world clock.",
+      "type": "object",
+      "properties": {
+        "icon": {
+          "description": "An icon name replacing the sun or moon the row picks from the hour it is showing.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "description": "What the row is called, such as `Tokyo`.",
+          "type": "string"
+        },
+        "note": {
+          "description": "A note after the `tomorrow` or `yesterday` the row works out for itself, such as\n`the office`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timezone": {
+          "description": "The IANA zone the row reads, such as `Asia/Tokyo`.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "timezone"
       ]
     },
     "Wallpaper": {

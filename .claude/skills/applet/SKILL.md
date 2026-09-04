@@ -126,11 +126,18 @@ capped before it reaches a label. They are not repeated here. What follows is wh
 - **There is no staleness and no `degraded`.** A dead daemon stops sending events and the last value
   stays on screen. `IndicatorState` was deleted from `glimpse-widgets`; do not reintroduce dimming.
 - **Configuration is typed and validated at load, not by the applet.** `glimpse_config::Applet` is
-  an internally-tagged enum on `extends`, one variant per applet, so a bad setting is a load error
-  naming the table and the key — the applet never deserializes anything and has no failure path.
-  `configure(&mut self, ctx, config: &AppletConfig)` destructures its own variant:
-  `let AppletConfig::Clock(cfg) = config else { return };`. The runtime compares the config before
-  calling, so an unchanged one never reaches the applet.
+  one applet's whole configuration: `common`, the settings every applet understands, and `kind`, an
+  internally-tagged enum on `extends` carrying the settings this applet alone understands. A bad
+  setting in either half is a load error naming the table and the key — the applet never
+  deserializes anything and has no failure path. `configure(&mut self, ctx, config: &AppletConfig)`
+  destructures its own variant off `kind`:
+  `let AppletKind::Clock(cfg) = &config.kind else { return };`. The runtime compares the config
+  before calling, so an unchanged one never reaches the applet.
+
+  **`config.common` is read the same way by every applet**, and reading it is not optional where it
+  applies: `tooltip_format` fills `IndicatorSpec.tooltip`, and `common.settings()` returns the
+  label and argv for the row an applet's popover puts in its footer, or `None` when the user set
+  neither. The loader guarantees they are set together, so an applet never handles a half-set pair.
 
   Adding settings to an applet means adding a config struct in `glimpse-config` and promoting the
   variant from `Clock {}` to `Clock(Clock)`. **Never write a unit variant** (`Clock`) —

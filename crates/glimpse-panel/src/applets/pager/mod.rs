@@ -3,7 +3,9 @@ mod label;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use glimpse_config::{Applet as AppletConfig, PagerConfig, PagerMode, PagerScope, PagerShape};
+use glimpse_config::{
+    Applet as AppletConfig, AppletKind, PagerConfig, PagerMode, PagerScope, PagerShape,
+};
 use glimpse_contracts::{
     CompositorWindows, CompositorWorkspaces, FocusWindow, FocusWorkspace, Message, WindowInfo,
     WindowRef, WorkspaceInfo, WorkspaceRef,
@@ -93,7 +95,7 @@ impl Applet for Pager {
     }
 
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
-        let AppletConfig::Pager(settings) = config else {
+        let AppletKind::Pager(settings) = &config.kind else {
             return;
         };
         self.settings.replace(settings.clone());

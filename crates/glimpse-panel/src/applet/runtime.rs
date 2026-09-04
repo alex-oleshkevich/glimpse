@@ -519,9 +519,11 @@ mod tests {
     }
 
     fn config(format: &str) -> AppletConfig {
-        AppletConfig::Clock(glimpse_config::ClockConfig {
-            format: format.to_owned(),
+        glimpse_config::AppletKind::Clock(glimpse_config::ClockConfig {
+            label_format: format.to_owned(),
+            ..Default::default()
         })
+        .into()
     }
 
     fn shown(labels: &[&str]) {
