@@ -2,7 +2,7 @@ mod calendar;
 mod calendar_popover;
 mod choice_list;
 mod dots;
-mod drawer;
+pub mod drawer;
 mod event_list;
 mod fact_list;
 mod forecast;
@@ -514,8 +514,22 @@ mod tests {
         let today_button = child_named::<gtk4::Button>(&calendar, "calendar__today");
         assert!(
             !today_button.is_visible(),
-            "Today is meaningless on the month that contains today"
+            "Today is meaningless while today's month is shown and nothing else is selected"
         );
+
+        calendar.select(Ymd::new(2026, 9, 17));
+        assert!(
+            today_button.is_visible(),
+            "the way back has to be offered whenever the selection is not today, even on today's \
+             own month"
+        );
+        today_button.emit_clicked();
+        assert_eq!(calendar.selected(), Some(Ymd::new(2026, 9, 23)));
+        assert!(
+            !today_button.is_visible(),
+            "taking the way back leaves nothing to go back to"
+        );
+
         calendar.step(1);
         assert_eq!(calendar.shown(), (2026, 10));
         assert!(today_button.is_visible());
@@ -1916,7 +1930,7 @@ mod tests {
         let few: Vec<Event> = (0..3)
             .map(|index| event(&format!("event {index}")))
             .collect();
-        popover.set_day("Today", "Everything", &few);
+        popover.set_day("Today", &few);
         assert!(
             !drawer().reveals_child(),
             "three events fit, so nothing was hidden and the drawer has nothing to hold"
@@ -1925,7 +1939,7 @@ mod tests {
         let many: Vec<Event> = (0..9)
             .map(|index| event(&format!("event {index}")))
             .collect();
-        popover.set_day("Today", "Everything", &many);
+        popover.set_day("Today", &many);
         assert!(
             !drawer().reveals_child(),
             "the overflow row is an offer, not a drawer that springs open on its own"
@@ -1945,7 +1959,7 @@ mod tests {
         );
         overflow.emit_by_name::<()>("overflow", &[]);
 
-        popover.set_day("Today", "Everything", &few);
+        popover.set_day("Today", &few);
         assert!(
             !drawer().reveals_child(),
             "back under the cap the drawer closes rather than standing open on nothing"

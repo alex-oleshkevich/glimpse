@@ -1192,7 +1192,7 @@ mod fixtures {
         }
         events.connect_overflow(move |_| {
             if let Some(drawer) = drawer.as_ref() {
-                drawer.set_reveal_child(!drawer.reveals_child());
+                glimpse_widgets::drawer::toggle(drawer);
             }
         });
     }

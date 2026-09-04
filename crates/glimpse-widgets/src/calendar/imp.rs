@@ -119,11 +119,13 @@ impl Calendar {
             false => format_month(year, month),
         });
 
-        let on_today = match year_view {
+        let showing_today = match year_view {
             true => year == today.year,
             false => (year, month) == (today.year, today.month),
         };
-        self.today_button.set_visible(!on_today);
+        let selection_is_today = selected.is_none_or(|day| day == today);
+        self.today_button
+            .set_visible(!(showing_today && selection_is_today));
 
         for (index, label) in self.weekdays.borrow().iter().enumerate() {
             let weekday = (self.first_weekday() - 1 + index as u32) % COLUMNS as u32 + 1;

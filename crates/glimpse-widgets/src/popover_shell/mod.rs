@@ -25,12 +25,13 @@ impl PopoverShell {
         let imp = self.imp();
         clear_children(&imp.hero_box);
         imp.hero_box.append(hero);
-        self.show_hero(true);
+        self.watch(hero);
+        self.settle();
     }
 
     pub fn clear_hero(&self) {
         clear_children(&self.imp().hero_box);
-        self.show_hero(false);
+        self.settle();
     }
 
     pub fn set_content(&self, content: &impl IsA<gtk4::Widget>) {
@@ -45,43 +46,37 @@ impl PopoverShell {
 
     pub fn append_to_footer(&self, widget: &impl IsA<gtk4::Widget>) {
         self.imp().footer_box.append(widget);
-        widget.as_ref().connect_visible_notify(glib::clone!(
-            #[weak(rename_to = shell)]
-            self,
-            move |_| shell.settle_footer()
-        ));
-        self.settle_footer();
+        self.watch(widget);
+        self.settle();
     }
 
     pub fn clear_footer(&self) {
         clear_children(&self.imp().footer_box);
-        self.settle_footer();
+        self.settle();
     }
 
-    fn settle_footer(&self) {
-        self.show_footer(shows_anything(&self.imp().footer_box));
+    fn watch(&self, widget: &impl IsA<gtk4::Widget>) {
+        widget.as_ref().connect_visible_notify(glib::clone!(
+            #[weak(rename_to = shell)]
+            self,
+            move |_| shell.settle()
+        ));
     }
 
-    fn show_hero(&self, visible: bool) {
+    fn settle(&self) {
         let imp = self.imp();
-        imp.hero_box.set_visible(visible);
-        imp.hero_rule.set_visible(visible);
-    }
-
-    fn show_footer(&self, visible: bool) {
-        let imp = self.imp();
-        imp.footer_box.set_visible(visible);
-        imp.footer_rule.set_visible(visible);
+        for (slot, rule) in [
+            (&*imp.hero_box, &*imp.hero_rule),
+            (&*imp.footer_box, &*imp.footer_rule),
+        ] {
+            let shown = shows_anything(slot);
+            slot.set_visible(shown);
+            rule.set_visible(shown);
+        }
     }
 }
 
 fn shows_anything(container: &gtk4::Box) -> bool {
-    let mut child = container.first_child();
-    while let Some(widget) = child {
-        if widget.get_visible() {
-            return true;
-        }
-        child = widget.next_sibling();
-    }
-    false
+    std::iter::successors(container.first_child(), |child| child.next_sibling())
+        .any(|child| child.get_visible())
 }

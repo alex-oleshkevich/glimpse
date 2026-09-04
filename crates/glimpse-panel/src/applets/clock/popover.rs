@@ -1,19 +1,13 @@
+use std::collections::BTreeMap;
+
 use chrono::{DateTime, Datelike, Local, NaiveDate, TimeDelta};
 use glimpse_widgets::{CalendarPopover, Event, Ymd, Zone};
-use gtk4::{glib, prelude::*};
+use gtk4::glib;
 
 use super::agenda::{Occasion, when};
 
-pub const TWENTY_FOUR: &str = "%H:%M";
-pub const TWELVE: &str = "%l:%M %p";
-
-pub struct Shown(pub CalendarPopover);
-
-impl crate::applet::popover::PopoverHandle for Shown {
-    fn root(&self) -> gtk4::Widget {
-        self.0.clone().upcast()
-    }
-}
+const TWENTY_FOUR: &str = "%H:%M";
+const TWELVE: &str = "%l:%M %p";
 
 pub fn locale_is_twelve_hour() -> bool {
     let Ok(afternoon) = glib::DateTime::from_local(2026, 1, 1, 15, 30, 0.0) else {
@@ -52,7 +46,9 @@ pub fn day_title(day: NaiveDate, today: NaiveDate) -> String {
 }
 
 pub fn rows(now: DateTime<Local>, day: NaiveDate, events: &[Occasion], clock: &str) -> Vec<Event> {
-    on_day(day, events)
+    events
+        .iter()
+        .filter(|event| covers(event, day))
         .map(|event| Event {
             summary: event.summary.clone(),
             detail: event.detail.clone(),
@@ -63,19 +59,15 @@ pub fn rows(now: DateTime<Local>, day: NaiveDate, events: &[Occasion], clock: &s
 }
 
 pub fn markers(events: &[Occasion]) -> Vec<(Ymd, Vec<gtk4::gdk::RGBA>)> {
-    let mut marked: Vec<(NaiveDate, Vec<gtk4::gdk::RGBA>)> = Vec::new();
+    let mut marked: BTreeMap<NaiveDate, Vec<gtk4::gdk::RGBA>> = BTreeMap::new();
     for event in events {
         let Some(color) = event.color else {
             continue;
         };
         for day in days(event) {
-            match marked.iter_mut().find(|(seen, _)| *seen == day) {
-                Some((_, colors)) => {
-                    if !colors.contains(&color) {
-                        colors.push(color);
-                    }
-                }
-                None => marked.push((day, vec![color])),
+            let colors = marked.entry(day).or_default();
+            if !colors.contains(&color) {
+                colors.push(color);
             }
         }
     }
@@ -85,19 +77,15 @@ pub fn markers(events: &[Occasion]) -> Vec<(Ymd, Vec<gtk4::gdk::RGBA>)> {
         .collect()
 }
 
-fn on_day(day: NaiveDate, events: &[Occasion]) -> impl Iterator<Item = &Occasion> {
-    events
-        .iter()
-        .filter(move |event| days(event).any(|covered| covered == day))
+fn covers(event: &Occasion, day: NaiveDate) -> bool {
+    let first = event.start.date_naive();
+    (first..=event.end.date_naive().max(first)).contains(&day)
 }
 
 fn days(event: &Occasion) -> impl Iterator<Item = NaiveDate> {
     let first = event.start.date_naive();
     let last = event.end.date_naive().max(first);
-    (0..=(last - first).num_days()).filter_map(move |offset| {
-        let offset = u64::try_from(offset).ok()?;
-        first.checked_add_days(chrono::Days::new(offset))
-    })
+    first.iter_days().take_while(move |day| *day <= last)
 }
 
 pub fn render(
@@ -105,17 +93,20 @@ pub fn render(
     now: DateTime<Local>,
     day: NaiveDate,
     events: &[Occasion],
-    clock: &str,
+    twelve: bool,
     week_numbers: bool,
 ) {
+    let clock = match twelve {
+        true => TWELVE,
+        false => TWENTY_FOUR,
+    };
     let (title, week) = heading(day, week_numbers);
-    shown.set_heading(Some(&title), week.as_deref());
+    shown.set_heading(&title, week.as_deref());
     shown.set_day(
         &day_title(day, now.date_naive()),
-        "Everything",
         &rows(now, day, events, clock),
     );
-    if let Ok(instant) = glib::DateTime::now_local() {
+    if let Ok(instant) = glib::DateTime::from_unix_local(now.timestamp()) {
         shown.set_now(&instant);
     }
 }
@@ -123,92 +114,40 @@ pub fn render(
 pub fn fixture(today: NaiveDate) -> Vec<Occasion> {
     let work = gtk4::gdk::RGBA::new(0.88, 0.11, 0.14, 1.0);
     let personal = gtk4::gdk::RGBA::new(0.26, 0.52, 0.96, 1.0);
+    let tomorrow = today.succ_opt().unwrap_or(today);
     let at = |day: NaiveDate, hour: u32, minute: u32| {
         day.and_hms_opt(hour, minute, 0)
             .and_then(|naive| naive.and_local_timezone(Local).single())
     };
 
-    let mut events = Vec::new();
-    let mut add = |summary: &str, detail: &str, start, end, all_day, color| {
-        if let (Some(start), Some(end)) = (start, end) {
-            events.push(Occasion {
-                summary: summary.to_owned(),
-                detail: detail.to_owned(),
-                start,
-                end,
-                all_day,
-                color: Some(color),
-            });
-        }
-    };
-
-    add(
-        "Standup",
-        "Meeting room 2",
-        at(today, 9, 0),
-        at(today, 9, 15),
-        false,
-        work,
-    );
-    add(
-        "Design review",
-        "",
-        at(today, 11, 0),
-        at(today, 12, 0),
-        false,
-        work,
-    );
-    add(
-        "Lunch",
-        "",
-        at(today, 12, 30),
-        at(today, 13, 15),
-        false,
-        personal,
-    );
-    add(
-        "One to one",
-        "",
-        at(today, 14, 0),
-        at(today, 14, 30),
-        false,
-        work,
-    );
-    add(
-        "Gym",
-        "",
-        at(today, 18, 0),
-        at(today, 19, 0),
-        false,
-        personal,
-    );
-    add(
-        "Retrospective",
-        "",
-        at(today, 16, 0),
-        at(today, 17, 0),
-        false,
-        work,
-    );
-
-    let tomorrow = today.succ_opt().unwrap_or(today);
-    add(
-        "Conference",
-        "",
-        at(today, 0, 0),
-        at(tomorrow, 0, 0),
-        true,
-        personal,
-    );
-    add(
-        "Dentist",
-        "",
-        at(tomorrow, 8, 30),
-        at(tomorrow, 9, 0),
-        false,
-        personal,
-    );
-    events
+    [
+        (
+            "Standup",
+            "Meeting room 2",
+            (today, 9, 0),
+            (today, 9, 15),
+            work,
+        ),
+        ("Design review", "", (today, 11, 0), (today, 12, 0), work),
+        ("Lunch", "", (today, 12, 30), (today, 13, 15), personal),
+        ("One to one", "", (today, 14, 0), (today, 14, 30), work),
+        ("Retrospective", "", (today, 16, 0), (today, 17, 0), work),
+        ("Gym", "", (today, 18, 0), (today, 19, 0), personal),
+        ("Conference", "", (today, 0, 0), (tomorrow, 0, 0), personal),
+        ("Dentist", "", (tomorrow, 8, 30), (tomorrow, 9, 0), personal),
+    ]
+    .into_iter()
+    .filter_map(|(summary, detail, start, end, color)| {
+        Some(Occasion {
+            summary: summary.to_owned(),
+            detail: detail.to_owned(),
+            start: at(start.0, start.1, start.2)?,
+            end: at(end.0, end.1, end.2)?,
+            all_day: summary == "Conference",
+            color: Some(color),
+        })
+    })
+    .collect()
 }
 
 pub fn zones(configured: &[glimpse_config::ClockTimezone]) -> Vec<Zone> {
@@ -224,16 +163,10 @@ pub fn zones(configured: &[glimpse_config::ClockTimezone]) -> Vec<Zone> {
 }
 
 pub fn run(command: &[String]) {
-    let Some((program, arguments)) = command.split_first() else {
+    let Some(program) = command.first() else {
         return;
     };
-    let mut argv: Vec<&std::ffi::OsStr> = Vec::with_capacity(command.len());
-    argv.push(std::ffi::OsStr::new(program.as_str()));
-    argv.extend(
-        arguments
-            .iter()
-            .map(|argument| std::ffi::OsStr::new(argument.as_str())),
-    );
+    let argv: Vec<&std::ffi::OsStr> = command.iter().map(|argument| argument.as_ref()).collect();
 
     if let Err(error) = gtk4::gio::Subprocess::newv(&argv, gtk4::gio::SubprocessFlags::NONE) {
         tracing::warn!(program, %error, "settings-command did not start");

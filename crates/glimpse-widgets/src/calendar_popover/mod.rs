@@ -23,10 +23,14 @@ impl CalendarPopover {
         glib::Object::new()
     }
 
-    pub fn set_heading(&self, title: Option<&str>, subtitle: Option<&str>) {
+    pub fn set_heading(&self, title: &str, subtitle: Option<&str>) {
         let imp = self.imp();
-        imp.hero.set_title(title);
+        imp.hero.set_title(Some(title));
         imp.hero.set_subtitle(subtitle);
+    }
+
+    pub fn selected(&self) -> Option<Ymd> {
+        self.imp().calendar.selected()
     }
 
     pub fn open_on(&self, today: Ymd) {
@@ -39,17 +43,15 @@ impl CalendarPopover {
         self.imp().calendar.set_events(markers);
     }
 
-    pub fn set_day(&self, title: &str, overflow: &str, events: &[Event]) {
+    pub fn set_day(&self, title: &str, events: &[Event]) {
         let imp = self.imp();
 
         imp.day.set_title(Some(title));
         imp.day.set_empty(events.is_empty());
         imp.events.set_events(events);
-
-        imp.everything.set_title(Some(overflow));
         imp.all.set_events(events);
 
-        if events.len() <= MAX_ROWS as usize {
+        if !imp.events.overflows() {
             crate::drawer::set(&imp.drawer, false);
         }
     }

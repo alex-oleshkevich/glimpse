@@ -1,6 +1,8 @@
 mod grid;
 mod imp;
 
+use std::collections::HashMap;
+
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 pub use grid::Ymd;
@@ -68,15 +70,20 @@ impl Calendar {
 
     pub fn set_events(&self, events: &[(Ymd, Vec<gdk::RGBA>)]) {
         let imp = self.imp();
-        let mut stored = imp.events.borrow_mut();
-        stored.clear();
-        for (date, colors) in events {
-            stored.insert(
-                *date,
-                colors.iter().copied().take(crate::dots::MAX).collect(),
-            );
+        let marked: HashMap<Ymd, Vec<gdk::RGBA>> = events
+            .iter()
+            .map(|(date, colors)| {
+                (
+                    *date,
+                    colors.iter().copied().take(crate::dots::MAX).collect(),
+                )
+            })
+            .collect();
+
+        if *imp.events.borrow() == marked {
+            return;
         }
-        drop(stored);
+        imp.events.replace(marked);
         imp.render();
     }
 

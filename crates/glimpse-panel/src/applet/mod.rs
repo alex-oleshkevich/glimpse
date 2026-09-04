@@ -55,6 +55,7 @@ pub enum Input {
     Topic(Event),
     Pointer(Pointer),
     Tick,
+    Woken,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,6 +106,10 @@ pub struct Opener(relm4::Sender<runtime::HostInput>);
 impl Opener {
     pub fn open_popover(&self) {
         let _ = self.0.send(runtime::HostInput::PopoverRequested);
+    }
+
+    pub fn wake(&self) {
+        let _ = self.0.send(runtime::HostInput::Woken);
     }
 
     #[allow(

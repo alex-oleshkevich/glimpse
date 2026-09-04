@@ -35,6 +35,7 @@ pub enum HostInput {
     PopoverDismissed,
     Oriented(gtk4::Orientation),
     Pressed { button: u32 },
+    Woken,
     Scrolled { dx: f64, dy: f64 },
     Ticked,
 }
@@ -151,9 +152,14 @@ impl Component for AppletRuntime {
             HostInput::Configured(settings) => self.configure(settings),
             HostInput::Oriented(orientation) => self.orient(orientation),
             HostInput::Ticked => self.deliver(Some(&Input::Tick)),
-            HostInput::Pressed { button } => self.deliver(Some(&Input::Pointer(Pointer::Press(
-                Button::from_code(button),
-            )))),
+            HostInput::Woken => self.deliver(Some(&Input::Woken)),
+            HostInput::Pressed { button } => {
+                let button = Button::from_code(button);
+                self.deliver(Some(&Input::Pointer(Pointer::Press(button))));
+                if button == Button::Left {
+                    self.show_popover(&sender);
+                }
+            }
             HostInput::Scrolled { dx, dy } => {
                 for direction in self.scroll.notches(dx, dy) {
                     self.deliver(Some(&Input::Pointer(Pointer::Scroll(direction))));
@@ -189,7 +195,7 @@ impl AppletRuntime {
     fn owns(&self) -> bool {
         self.shown
             .as_ref()
-            .is_some_and(|shown| self.catcher.holds(&shown.root()))
+            .is_some_and(|shown| self.catcher.holds(&shown.widget()))
     }
 
     fn show_popover(&mut self, sender: &ComponentSender<Self>) {
@@ -209,7 +215,7 @@ impl AppletRuntime {
         };
 
         let at = self.anchor().unwrap_or(0);
-        self.catcher.open(&shown.root(), at, {
+        self.catcher.open(&shown.widget(), at, {
             let sender = sender.clone();
             move || sender.input(HostInput::PopoverDismissed)
         });
@@ -289,7 +295,7 @@ impl AppletRuntime {
             Some(Input::Pointer(pointer)) => {
                 tracing::debug!(applet = self.ctx.name(), ?pointer, "pointer")
             }
-            Some(Input::Tick) | None => {}
+            Some(Input::Tick | Input::Woken) | None => {}
         }
 
         let outcome = {

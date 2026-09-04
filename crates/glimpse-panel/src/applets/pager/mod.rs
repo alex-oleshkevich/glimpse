@@ -87,7 +87,7 @@ impl Applet for Pager {
         });
 
         self.shown.set(Some(&shown));
-        Some(Box::new(Shown(shown)))
+        Some(Box::new(shown))
     }
 
     fn anchor(&self) -> Option<gtk4::Widget> {
@@ -275,14 +275,6 @@ fn window_slot(
         },
         occupied: true,
         urgent: window.urgent,
-    }
-}
-
-struct Shown(WorkspacesPopover);
-
-impl PopoverHandle for Shown {
-    fn root(&self) -> gtk4::Widget {
-        self.0.clone().upcast()
     }
 }
 

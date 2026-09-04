@@ -3,6 +3,7 @@ use gtk4::gdk;
 
 const SOON: i64 = 15;
 const NEAR: i64 = 60;
+const HOUR: i64 = 60;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Occasion {
@@ -63,19 +64,19 @@ pub fn when(now: DateTime<Local>, day: NaiveDate, event: &Occasion, clock: &str)
     }
     if until <= TimeDelta::minutes(NEAR) {
         return format!("in {} · {length}", span(until));
-    e
+    }
     format!("{started} · {length}")
 }
 
 fn span(length: TimeDelta) -> String {
     let minutes = length.num_minutes().max(0);
-    if minutes < NEAR {
+    if minutes < HOUR {
         return format!("{minutes} min");
     }
 
-    let hours = minutes / NEAR;
+    let hours = minutes / HOUR;
     if hours < 24 {
-        return match minutes % NEAR {
+        return match minutes % HOUR {
             0 => format!("{hours} h"),
             rest => format!("{hours} h {rest} min"),
         };

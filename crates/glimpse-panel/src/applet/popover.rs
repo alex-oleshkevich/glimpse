@@ -35,5 +35,12 @@ impl Seat {
 }
 
 pub trait PopoverHandle {
-    fn root(&self) -> gtk4::Widget;
+    fn widget(&self) -> gtk4::Widget;
+}
+
+impl<W: gtk4::prelude::IsA<gtk4::Widget> + Clone> PopoverHandle for W {
+    fn widget(&self) -> gtk4::Widget {
+        use gtk4::prelude::Cast as _;
+        self.clone().upcast()
+    }
 }

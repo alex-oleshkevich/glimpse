@@ -50,7 +50,17 @@ impl WorldClock {
     }
 
     pub fn set_now(&self, now: &glib::DateTime) {
-        self.imp().now.replace(Some(now.clone()));
+        let imp = self.imp();
+        let minute = now.to_unix() / 60;
+        if imp
+            .now
+            .borrow()
+            .as_ref()
+            .is_some_and(|shown| shown.to_unix() / 60 == minute)
+        {
+            return;
+        }
+        imp.now.replace(Some(now.clone()));
         self.render();
     }
 
