@@ -40,7 +40,7 @@ impl Applet for Heartbeat {
                 ctx.call::<HeartbeatReset>(HeartbeatReset {})
             }
             Input::Pointer(Pointer::Scroll(direction)) => self.retime(ctx, *direction),
-            Input::Pointer(_) => {}
+            Input::Pointer(_) | Input::Tick => {}
         }
     }
 

@@ -46,6 +46,7 @@ concrete type is still known.
 pub enum Input {
     Topic(glimpse_ipc::Event),
     Pointer(Pointer),
+    Tick,
 }
 
 pub enum Pointer { Press(Button), Scroll(Direction) }
@@ -54,6 +55,7 @@ pub enum Direction { Up, Down, Left, Right }
 
 impl Ctx {
     pub fn call<C: Command>(&self, args: C::Args);       // spawned, fire-and-forget
+    pub fn interval(&self, period: Duration);            // delivers Input::Tick, wall-clock aligned
 }
 
 pub fn payload<T: Message>(event: &Event) -> Option<T::Payload>;
@@ -117,7 +119,15 @@ capped before it reaches a label. They are not repeated here. What follows is wh
    pixmap is theirs to choose, and it is rendered as given. `gdk::Texture` implements `gio::Icon`,
    which is why one `Option<gio::Icon>` covers a themed name, a file path and a raw pixmap.
 
-8. **`ctx.call` is fire-and-forget and its reply is discarded.** Topics reconcile, and UI state never
+8. **`ctx.interval(period)` is the only timer, and it aligns to the wall clock.** It delivers
+   `Input::Tick`. The wait is the time since the epoch modulo the period, so a minute-long period
+   fires at `:00` rather than wherever the panel happened to start — a `%H:%M` clock changing up to
+   a minute late reads as broken, not as late. Calling it again **replaces** the timer rather than
+   adding one, which is what makes it safe to ask for from `configure`, and `configure` runs on
+   every configuration change. A zero period is refused and logged. Never reach for
+   `glib::timeout_add` instead: `.claude/rules/ui.md` reserves that for animation.
+
+9. **`ctx.call` is fire-and-forget and its reply is discarded.** Topics reconcile, and UI state never
    waits on a round trip. An applet that tracks a value it only ever *sets* can drift from the
    daemon; that is the accepted cost, and the case that will justify `ctx.ask` when one appears.
 
@@ -143,8 +153,6 @@ capped before it reaches a label. They are not repeated here. What follows is wh
   variant from `Clock {}` to `Clock(Clock)`. **Never write a unit variant** (`Clock`) —
   `deny_unknown_fields` has nothing to deny on one, so it silently swallows every key written under
   it. An empty struct variant refuses them.
-- **There is no timer.** `ctx.interval` does not exist; it returns with the first applet that needs
-  one, using `interval_at(next_boundary(period), period)` so a clock lands on the second boundary.
 - **There is no `Output`.** Commands leave through `ctx.call`; an empty group hides itself; nothing
   is reported to the panel.
 - **An applet is not told about orientation, position or its monitor.** The panel sets orientation on

@@ -9,6 +9,7 @@ use glimpse_widgets::IndicatorSpec;
 use popover::{PopoverHandle, Seat};
 use serde::Deserialize;
 use std::cell::RefCell;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::task::AbortHandle;
 
 pub trait Applet: 'static {
@@ -53,6 +54,7 @@ pub trait Applet: 'static {
 pub enum Input {
     Topic(Event),
     Pointer(Pointer),
+    Tick,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -94,6 +96,7 @@ pub struct Ctx {
     events: relm4::Sender<Event>,
     host: relm4::Sender<runtime::HostInput>,
     sources: RefCell<Vec<SourceGuard>>,
+    ticks: RefCell<Option<SourceGuard>>,
 }
 
 #[derive(Clone)]
@@ -153,6 +156,7 @@ impl Ctx {
             events,
             host,
             sources: RefCell::default(),
+            ticks: RefCell::default(),
         }
     }
 
@@ -173,8 +177,36 @@ impl Ctx {
     }
 
     pub(crate) fn shutdown(&self) {
-        let stopped = self.sources.borrow_mut().drain(..).count();
+        let stopped =
+            self.sources.borrow_mut().drain(..).count() + self.ticks.take().is_some() as usize;
         tracing::debug!(applet = self.caller.name, stopped, "sources stopped");
+    }
+
+    pub fn interval(&self, period: Duration) {
+        if period.is_zero() {
+            tracing::error!(
+                applet = self.caller.name,
+                "a zero interval would spin; ignored"
+            );
+            return;
+        }
+
+        let host = self.host.clone();
+        let start = tokio::time::Instant::now() + until_boundary(since_epoch(), period);
+        let handle = relm4::spawn(async move {
+            let mut ticks = tokio::time::interval_at(start, period);
+            loop {
+                ticks.tick().await;
+                if host.send(runtime::HostInput::Ticked).is_err() {
+                    return;
+                }
+            }
+        });
+
+        self.ticks.replace(Some(SourceGuard {
+            abort: handle.abort_handle(),
+        }));
+        tracing::debug!(applet = self.caller.name, ?period, "ticking");
     }
 
     pub fn call<C: Command>(&self, args: C::Args) {
@@ -218,6 +250,21 @@ impl Ctx {
             abort: handle.abort_handle(),
         });
     }
+}
+
+fn since_epoch() -> Duration {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+}
+
+fn until_boundary(since_epoch: Duration, period: Duration) -> Duration {
+    let step = period.as_nanos();
+    if step == 0 {
+        return period;
+    }
+    let past = since_epoch.as_nanos() % step;
+    Duration::from_nanos(u64::try_from(step - past).unwrap_or(u64::MAX))
 }
 
 struct SourceGuard {
@@ -271,6 +318,50 @@ mod tests {
 
         let broken = event(HeartbeatTick::NAME, serde_json::json!({ "count": "many" }));
         assert!(payload::<HeartbeatTick>(&broken).is_none());
+    }
+
+    #[test]
+    fn a_tick_lands_on_the_boundary_rather_than_where_the_panel_happened_to_start() {
+        let period = Duration::from_secs(60);
+        let started = Duration::from_millis(12_400);
+
+        assert_eq!(
+            until_boundary(started, period),
+            Duration::from_millis(47_600),
+            "starting 12.4s into a minute must wait out the rest of it, not a whole minute"
+        );
+        assert_eq!(
+            (started + until_boundary(started, period)).as_nanos() % period.as_nanos(),
+            0
+        );
+    }
+
+    #[test]
+    fn a_tick_exactly_on_the_boundary_waits_a_whole_period() {
+        let period = Duration::from_secs(60);
+
+        assert_eq!(
+            until_boundary(Duration::from_secs(120), period),
+            period,
+            "waiting zero would render the same value twice in one instant"
+        );
+    }
+
+    #[test]
+    fn a_second_long_period_aligns_to_the_second() {
+        assert_eq!(
+            until_boundary(Duration::from_millis(1_250), Duration::from_secs(1)),
+            Duration::from_millis(750)
+        );
+    }
+
+    #[test]
+    fn a_zero_period_cannot_be_aligned_and_asks_for_no_wait() {
+        assert_eq!(
+            until_boundary(Duration::from_secs(5), Duration::ZERO),
+            Duration::ZERO,
+            "Ctx::interval refuses a zero period before it gets here"
+        );
     }
 
     #[test]

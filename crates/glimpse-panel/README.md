@@ -28,6 +28,51 @@ fn view(&mut self, ctx: &Ctx) -> Option<gtk4::Widget>   // None: the runtime sup
 fn indicators(&self) -> Vec<IndicatorSpec>
 ```
 
+## The tick
+
+`ctx.interval(period)` is the only timer an applet gets. It delivers `Input::Tick`, and the clock is
+what brought it in — `indicators()` is a pull the runtime makes after every `handle`, so an applet
+whose value is the wall clock had nothing to make it run and rendered whatever the time was when the
+panel started.
+
+**A tick lands on the boundary, not on whenever the panel happened to start.** `until_boundary`
+takes the time since the Unix epoch modulo the period, and `interval_at` starts there, so a
+minute-long period fires at `:00` rather than 12.4s into every minute. Without it a clock reading
+`%H:%M` would change up to a minute after the minute did, which reads as a broken clock rather than
+a late one. Measured live with the tick instrumented: every tick landed 0–1 ms past the whole
+second. Exactly on a boundary the wait is a whole period rather than zero, so nothing renders the
+same instant twice.
+
+**Calling it again replaces the timer rather than adding one.** `Ctx` holds it in its own slot,
+separate from the subscription guards, because `configure` runs on every configuration change and an
+applet that asked for a tick each time would otherwise accumulate one per reload. Dropping the guard
+aborts the task, and `shutdown` counts it alongside the subscriptions.
+
+**A period of zero is refused** and logged, rather than spinning the main loop.
+
+### The clock derives its period; it is not configured
+
+`%H:%M` ticks once a minute and `%H:%M:%S` once a second, worked out by scanning the format for a
+specifier that moves faster than a minute — `%S %T %X %r %c %+ %s %f`. A setting would be a second
+way to say what the format already says, and the two could disagree.
+
+The scan reads specifiers rather than searching for substrings, which matters twice: `%-S` carries a
+padding modifier between the `%` and the `S`, so `contains("%S")` misses it, and `%%S` is a literal
+percent followed by an `S`, so `contains("%S")` matches something that is not a specifier at all.
+Both are pinned by tests.
+
+**A format string that cannot render is not allowed to panic.** chrono's `Display` for
+`DelayedFormat` *returns an error* for an unknown specifier, and `to_string()` turns that into a
+panic — which, under the runtime's `catch_unwind`, stops the applet permanently. So a `%Q` in
+`label-format` would have killed the clock for the session. It renders through `write!` into a
+`String` instead, returns `None` on failure, and the applet returns an empty `Vec` so the group
+hides itself. The warning is logged once per configuration change, not once per tick.
+
+**What no test covers:** that `configure` actually calls `ctx.interval`, and that a tick reaches
+`indicators()`. Both need the relm4 runtime and a mapped panel. The arithmetic and the format
+scanning are covered headlessly; the wiring was verified by running the panel against a scratch
+configuration and watching the bar advance, and by instrumenting the tick to measure its alignment.
+
 ## An applet may supply its own widget
 
 `view()` returning `Some` replaces the group entirely, and `indicators()` is then never called. The

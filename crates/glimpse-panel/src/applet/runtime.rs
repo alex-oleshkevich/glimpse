@@ -36,6 +36,7 @@ pub enum HostInput {
     Oriented(gtk4::Orientation),
     Pressed { button: u32 },
     Scrolled { dx: f64, dy: f64 },
+    Ticked,
 }
 
 pub struct AppletRuntime {
@@ -149,6 +150,7 @@ impl Component for AppletRuntime {
             }
             HostInput::Configured(settings) => self.configure(settings),
             HostInput::Oriented(orientation) => self.orient(orientation),
+            HostInput::Ticked => self.deliver(Some(&Input::Tick)),
             HostInput::Pressed { button } => self.deliver(Some(&Input::Pointer(Pointer::Press(
                 Button::from_code(button),
             )))),
@@ -287,7 +289,7 @@ impl AppletRuntime {
             Some(Input::Pointer(pointer)) => {
                 tracing::debug!(applet = self.ctx.name(), ?pointer, "pointer")
             }
-            None => {}
+            Some(Input::Tick) | None => {}
         }
 
         let outcome = {
