@@ -51,6 +51,13 @@ General GTK4, libadwaita and relm4 craft is covered by the `relm4`, `gtk4-styles
   `px` throughout and it is right for HiDPI, because a GTK pixel is a logical one already multiplied
   by the output scale — but it does not follow *text* scaling, so a layout in `px` keeps its 8px
   padding while the type inside it doubles. `theme::tests` fails the build on either mistake.
+- **`box-shadow` lengths must be `px`, because `rem` in a `box-shadow` renders nothing at all.**
+  Measured: `box-shadow: 0 0 0 0.8rem #ff0000` on a `Gtk.Box` painted no pixel anywhere, and the
+  same rule as `0 0 0 12px #ff0000` painted the full spread. It fails **silently** — no
+  `parsing-error`, no warning on stderr, nothing in the log — so the symptom is a popover that has
+  simply lost its shadow, with no clue where it went. `theme::tests` already allows `px` on a
+  `box-shadow:` line, and this is why. It matches only a line *starting* with the property, so keep
+  a multi-shadow value on one line rather than splitting it across continuations.
 - A misspelled token is invisible: GTK renders the surface transparent, and `parsing-error` does not
   fire. Give every `var()` in the built-in stylesheet a fallback.
 - No fixed `width-request` or `height-request` to force a layout. The panel must survive font

@@ -201,6 +201,27 @@
     color: var(--gl-panel);
 }
 
+.popover-catcher {
+    background: none;
+}
+
+.applet-popover__arrow {
+    color: var(--gl-surface);
+    min-width: 1.2rem;
+    min-height: 0.6rem;
+}
+
+.applet-popover__arrow--sideways {
+    min-width: 0.6rem;
+    min-height: 1.2rem;
+}
+
+.applet-popover__body {
+    background-color: var(--gl-surface);
+    border-radius: var(--gl-radius);
+    box-shadow: 0 1px 3px alpha(var(--gl-shadow), 0.6), 0 6px 20px alpha(var(--gl-shadow), 0.7);
+}
+
 .popover-shell {
     --gl-popover-padding: 0.8rem;
     --gl-popover-min-width: 27rem;

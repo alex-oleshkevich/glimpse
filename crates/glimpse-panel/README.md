@@ -104,21 +104,128 @@ An open popover still follows events: the applet keeps a `glib::WeakRef` to what
 pushes every render into it. Weak on purpose — a strong reference would hold the tree alive past
 dismissal, which is the thing destroy-on-close exists to prevent.
 
-**`autohide` stays off.** A GTK popover with autohide takes a keyboard grab, and on a layer surface
-that moves focus off whatever the user was working in — measured: opening the pager took focus from
-the browser. Dismissal is explicit instead. A second press on the applet toggles it, acting on a row
-closes it, and the pointer leaving closes it after `LINGER`, which is long enough to cross the gap
-between the bar and the popover. The cost is that `Escape` dismisses nothing, because nothing holds
-the keyboard.
+### It is not a `Gtk.Popover`
 
-**The arrow points at what was pressed, not at the applet.** GTK aims a popover at its parent's
-center and the parent is the applet's whole box, so a strip of seven workspaces would draw the arrow
-in the middle whichever one was clicked. `Applet::anchor` names a widget inside the view; the runtime
-translates it into the box's coordinates with `compute_bounds` and hands the result to
-`set_pointing_to`, which moves the popover as well as the arrow. An applet that names nothing keeps
-the centered arrow, which is already right for a single indicator. The translation belongs to the
-runtime because only it knows the box the popover is parented to — the applet just names a widget it
-already owns.
+`applet/catcher.rs` holds the container: a second layer surface, anchored to all four edges of the
+panel's own monitor, covering every part of it the bars have not reserved, and mapped only while a
+popover is up. The applet's tree goes inside it. This is the pattern eww and AGS both settle on, and
+the panel takes it for one reason: **a `Gtk.Popover` on a layer surface cannot be dismissed by a
+click on another application.** That dismissal is `xdg_popup.grab`, `autohide` is how GTK asks for
+it, and the grab costs the keyboard — measured, `KeyboardMode::OnDemand` plus `autohide(true)`
+leaves `focused-window` at `None` for as long as the popover is open, which is the focus theft the
+previous generation was reported for. Owning the surface buys outside-click dismissal, one popover
+at a time and an exit animation, and costs hand-rolled placement and a drawn arrow.
+
+One catcher per panel, shared by every applet on it (`Panel` holds the `Rc` and hands a clone to
+each `AppletHandle::launch`). **One popover at a time is therefore structural** rather than a rule
+someone has to enforce: there is one slot, and `open` tears down whatever was in it.
+
+**`KeyboardMode::None`, so nothing is ever taken from the focused window.** The cost is that
+`Escape` dismisses nothing — there is no keyboard to hear it.
+
+### Dismissal
+
+A `GestureClick` on the catcher window `pick`s the press and closes unless it landed inside the
+content. Because the surface covers the output, a click anywhere else on the desktop is a press on
+*us*, which is the whole point: the event exists to react to, where under a popover it did not.
+
+`open` takes the dismissal callback, so only the applet that owns the current popover hears about
+it. Registering one listener per applet for the life of the panel was the earlier shape and leaked:
+an applet removed by a config change left its closure — and its `Sender` — in the catcher forever.
+
+The runtime asks `Catcher::holds` before acting on anything. `shown` alone is not enough, because a
+replaced applet still holds its handle until the queued `PopoverDismissed` reaches it, and in that
+window a press on it would otherwise close *someone else's* popover.
+
+### Placement
+
+`Applet::anchor` names a widget inside the view; the runtime turns it into a centre coordinate in
+panel-window space with `compute_bounds`, along whichever axis the panel's edge implies. An applet
+that names nothing anchors to its whole box, which is already right for a single indicator.
+
+`placement()` is the whole arithmetic, and it is a free function so it can be asserted without a
+display. It returns two numbers — where the body starts, and where the arrow sits inside it — and
+holds four properties, one test each:
+
+- the arrow's centre is the pressed item's centre;
+- the body never leaves the output;
+- the body keeps a **gutter** from the output edge rather than sitting flush in the corner;
+- the arrow never sits on the body's rounded corner.
+
+**The gutter yields to the arrow, and that ordering is the design.** A 418px popover anchored 28px
+from the edge cannot both keep a gutter and put its arrow over the item — the arrow would have to
+start inside the corner radius. Clamping to zero and letting the arrow win was the first version and
+looked broken; a fixed gutter was the second and slid the arrow 17px off the item. So the gutter is
+`arrow`, shrunk to whatever still lets the arrow reach: centred items get the full gutter, and only
+an item closer to the edge than `arrow × 2.5` gives any of it up. Both mutations — a gutter that
+never yields, and no gutter at all — fail a test.
+
+One CSS length drives all three of the arrow's size, its inset from the corner and the body's
+gutter, because it is read back from the measured arrow. That is deliberate: they are proportional
+to each other visually, and none of them is written in Rust.
+
+### The animation is `AdwTimedAnimation`, not a CSS transition
+
+The fade is `opacity` on the slot, driven by `adw::TimedAnimation` with a
+`PropertyAnimationTarget`. Measured in a nested niri: `0 → 0.702 at 58ms → 1.000 at 158ms` opening,
+`0.961 → 0.157 at 50ms → 0.000 at 148ms` closing, then `dismissed` and the child unparented.
+
+A CSS `transition: opacity` on the same node was tried first and did not animate. Two properties of
+libadwaita's animation are the reason not to go back: `done` is an exact clock, so the teardown
+timer and its duplicated duration constant are gone; and an unmapped widget or
+`gtk-enable-animations: false` makes `play()` skip straight to the end and emit `done` synchronously,
+which is what lets the state machine be one path instead of two.
+
+**A layer surface has no size and is not mapped until the compositor configures it.** An idle right
+after `present()` measures `width=0` on an unmapped widget: nothing to centre against, and GTK skips
+animating what is not on screen. `open` waits on a tick callback for a real allocation, settles, and
+only then plays. This one fact caused three separate bug reports — popover at the screen edge, no
+arrow, no animation — before it was found.
+
+**The shadow is in `px`, and it has to be.** `box-shadow` with `rem` lengths renders **nothing** in
+GTK4 — measured both ways with an opaque spread — and it fails silently, so the symptom is a popover
+with no shadow and no diagnostic. `.claude/rules/ui.md` carries the rule; this is the change that
+found it.
+
+**The arrow is a `Gtk.DrawingArea`, not a rotated box.** GTK4 has no triangle, and a square with
+`transform: rotate(45deg)` overflows its allocation into the bar. Four lines of cairo point it at
+whichever edge the panel is on; its size and colour still come from CSS
+(`.applet-popover__arrow`, `--sideways` for a vertical panel), and the fill reads
+`gtk_widget_get_color`, so no colour is written in Rust.
+
+**The catcher never computes where the bar ends — it takes `set_exclusive_zone(0)` and lets the
+compositor place it.** This is the whole of its vertical positioning: no margin, no thickness, no
+measurement of the bar.
+
+Everything else was tried and is wrong. `set_exclusive_zone(-1)` plus a top margin of `config.size`
+assumes two things that are both false. `Panel::set_thickness` calls `set_size_request`, a
+**minimum**, so a bar whose applets need more room is taller than the configured number. And, worse,
+the panel is not necessarily at the top of the output at all: anything else holding an exclusive
+zone pushes it down. Measured on a session also running the previous generation — legacy bar at
+logical `0..36`, this panel at `36..72` — a catcher margined by `36` put the popover at `y = 36`,
+directly behind the panel's own bar. The 9px arrow was completely hidden and only the shadow, which
+falls downward, escaped. That is a popover that looks like it has no arrow and sits in the wrong
+place, and no arithmetic over `config.size` can fix it, because the missing number is the sum of
+every *other* surface's exclusive zone.
+
+`exclusive_zone(0)` means "reserve nothing, but respect what others reserved". The catcher's content
+area is then exactly the free region under every bar, its origin lines up with the panel's own along
+the anchor axis, and `room` in `placement()` is the usable extent rather than the whole output.
+
+**A position change closes an open popover.** The anchor is a coordinate on one axis, and the applet
+is the only thing that can recompute it for the other; re-placing a `Top` popover's x as a `Left`
+popover's y puts it somewhere arbitrary. Closing is honest, and the next press reopens it correctly.
+
+**Every panel position is a different layout.** The catcher takes the panel's `Position` and derives
+the slot's orientation, which side the arrow sits on, which way it points, and which axis
+`placement` works along. `Top` is verified on a live session; `Bottom` and `Left` were verified in a
+nested compositor and `Right` not at all.
+
+**Nothing asserts the state machine.** `placement` is a free function precisely so the arithmetic
+can be tested headlessly, and the six tests beside it are the whole of the automated coverage.
+Opening, the fade, dismissal and the side-change teardown all need a mapped layer surface, which a
+test must not create on the user's session — they are checked by running the panel and reading the
+screen, and they are not covered.
 
 ## Reconciliation settles every slot, on both paths
 

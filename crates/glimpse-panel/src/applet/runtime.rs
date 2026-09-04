@@ -4,6 +4,9 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use glimpse_config::Applet as AppletConfig;
 use glimpse_ipc::{Client, Event};
 use glimpse_widgets::IndicatorGroup;
+use std::rc::Rc;
+
+use super::catcher::Catcher;
 use gtk4::prelude::*;
 
 use super::popover::{PopoverHandle, Seat};
@@ -13,8 +16,6 @@ use super::{Applet, Button, Ctx, Direction, Input, Pointer};
 
 const NOTCH: f64 = 1.0;
 
-const LINGER: std::time::Duration = std::time::Duration::from_millis(400);
-
 pub type Builder = fn() -> Box<dyn Applet>;
 
 pub struct AppletInit {
@@ -23,6 +24,7 @@ pub struct AppletInit {
     pub client: Client,
     pub build: Builder,
     pub config: AppletConfig,
+    pub catcher: Rc<Catcher>,
 }
 
 #[derive(Debug)]
@@ -30,9 +32,7 @@ pub enum HostInput {
     Configured(AppletConfig),
     PopoverRequested,
     PopoverClosed,
-    PopoverLeft,
-    PopoverEntered,
-    PopoverLingered,
+    PopoverDismissed,
     Oriented(gtk4::Orientation),
     Pressed { button: u32 },
     Scrolled { dx: f64, dy: f64 },
@@ -46,10 +46,9 @@ pub struct AppletRuntime {
     group: Option<IndicatorGroup>,
     scroll: Scroll,
     config: Option<AppletConfig>,
-    popover: Option<gtk4::Popover>,
+    catcher: Rc<Catcher>,
     shown: Option<Box<dyn PopoverHandle>>,
-    anchored: Option<gtk4::gdk::Rectangle>,
-    inside: bool,
+    anchored: Option<i32>,
 }
 
 impl Component for AppletRuntime {
@@ -124,10 +123,9 @@ impl Component for AppletRuntime {
             group,
             scroll: Scroll::default(),
             config: None,
-            popover: None,
+            catcher: init.catcher,
             shown: None,
             anchored: None,
-            inside: false,
         };
         model.configure(init.config);
         model.deliver(None);
@@ -138,18 +136,15 @@ impl Component for AppletRuntime {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
         match message {
             HostInput::PopoverRequested => self.show_popover(&sender),
-            HostInput::PopoverClosed => self.hide_popover(),
-            HostInput::PopoverEntered => self.inside = true,
-            HostInput::PopoverLeft => {
-                self.inside = false;
-                let sender = sender.clone();
-                glib::timeout_add_local_once(LINGER, move || {
-                    sender.input(HostInput::PopoverLingered)
-                });
+            HostInput::PopoverClosed => {
+                if self.owns() {
+                    self.catcher.close();
+                }
             }
-            HostInput::PopoverLingered => {
-                if !self.inside {
-                    self.hide_popover();
+            HostInput::PopoverDismissed => {
+                if !self.owns() {
+                    self.shown = None;
+                    self.anchored = None;
                 }
             }
             HostInput::Configured(settings) => self.configure(settings),
@@ -189,9 +184,15 @@ impl AppletRuntime {
         self.deliver(None);
     }
 
+    fn owns(&self) -> bool {
+        self.shown
+            .as_ref()
+            .is_some_and(|shown| self.catcher.holds(&shown.root()))
+    }
+
     fn show_popover(&mut self, sender: &ComponentSender<Self>) {
-        if self.popover.is_some() {
-            return self.hide_popover();
+        if self.owns() {
+            return self.catcher.close();
         }
 
         let seat = self.seat.clone();
@@ -205,74 +206,41 @@ impl AppletRuntime {
             _ => return,
         };
 
-        let popover = gtk4::Popover::new();
-        popover.set_child(Some(&shown.root()));
-        popover.set_autohide(false);
-        popover.set_parent(&self.root);
-        let anchor = self.anchor();
-        popover.set_pointing_to(anchor.as_ref());
-        self.anchored = anchor;
-
-        let leave = gtk4::EventControllerMotion::new();
-        leave.connect_leave({
+        let at = self.anchor().unwrap_or(0);
+        self.catcher.open(&shown.root(), at, {
             let sender = sender.clone();
-            move |_| sender.input(HostInput::PopoverLeft)
+            move || sender.input(HostInput::PopoverDismissed)
         });
-        leave.connect_enter({
-            let sender = sender.clone();
-            move |_, _, _| sender.input(HostInput::PopoverEntered)
-        });
-        popover.add_controller(leave);
-        popover.connect_closed({
-            let sender = sender.clone();
-            move |_| sender.input(HostInput::PopoverClosed)
-        });
-
-        self.popover = Some(popover.clone());
+        self.anchored = Some(at);
         self.shown = Some(shown);
-        popover.popup();
-        tracing::debug!(
-            applet = self.ctx.name(),
-            visible = popover.is_visible(),
-            anchor = ?anchor,
-            "popover opened"
-        );
+        tracing::debug!(applet = self.ctx.name(), at, "popover opened");
     }
 
     fn follow_anchor(&mut self) {
-        let Some(popover) = self.popover.clone() else {
+        if !self.owns() {
             return;
+        }
+        let at = self.anchor();
+        if at == self.anchored || at.is_none() {
+            return;
+        }
+        self.anchored = at;
+        if let Some(at) = at {
+            self.catcher.place(at);
+        }
+    }
+
+    fn anchor(&self) -> Option<i32> {
+        let target = self.root.root()?;
+        let widget = match self.applet.as_ref()?.anchor() {
+            Some(widget) => widget,
+            None => self.root.clone().upcast(),
         };
-        let anchor = self.anchor();
-        if anchor == self.anchored {
-            return;
-        }
-        self.anchored = anchor;
-        popover.set_pointing_to(self.anchored.as_ref());
-    }
-
-    fn anchor(&self) -> Option<gtk4::gdk::Rectangle> {
-        let bounds = self.applet.as_ref()?.anchor()?.compute_bounds(&self.root)?;
-        Some(gtk4::gdk::Rectangle::new(
-            bounds.x().round() as i32,
-            bounds.y().round() as i32,
-            bounds.width().round() as i32,
-            bounds.height().round() as i32,
-        ))
-    }
-
-    fn hide_popover(&mut self) {
-        if self.popover.is_none() {
-            return;
-        }
-        self.inside = false;
-        self.anchored = None;
-        tracing::debug!(applet = self.ctx.name(), "popover closed");
-        if let Some(popover) = self.popover.take() {
-            popover.popdown();
-            popover.unparent();
-        }
-        self.shown = None;
+        let bounds = widget.compute_bounds(target.upcast_ref::<gtk4::Widget>())?;
+        Some(match self.catcher.horizontal() {
+            true => (bounds.x() + bounds.width() / 2.0).round() as i32,
+            false => (bounds.y() + bounds.height() / 2.0).round() as i32,
+        })
     }
 
     fn orient(&mut self, orientation: gtk4::Orientation) {
@@ -424,6 +392,7 @@ impl AppletHandle {
         client: Client,
         build: Builder,
         config: AppletConfig,
+        catcher: Rc<Catcher>,
     ) -> Self {
         let controller = AppletRuntime::builder()
             .launch(AppletInit {
@@ -432,6 +401,7 @@ impl AppletHandle {
                 client,
                 build,
                 config,
+                catcher,
             })
             .detach();
 
@@ -666,6 +636,7 @@ mod tests {
             client.clone(),
             || Box::new(Probe::start()),
             config("%H:%M"),
+            Catcher::new(None, glimpse_config::Position::Top),
         );
         settle();
 
@@ -732,6 +703,7 @@ mod tests {
             client.clone(),
             || Box::new(Probe::start()),
             config("%H"),
+            Catcher::new(None, glimpse_config::Position::Top),
         );
         settle();
         assert!(
@@ -747,6 +719,7 @@ mod tests {
             client,
             || Box::new(Strip::start()),
             config("%H"),
+            Catcher::new(None, glimpse_config::Position::Top),
         );
         settle();
 

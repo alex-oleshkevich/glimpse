@@ -6,7 +6,6 @@ use super::Opener;
 pub struct Seat {
     name: String,
     client: Client,
-    #[allow(dead_code, reason = "read by opener()")]
     host: relm4::Sender<super::runtime::HostInput>,
 }
 

@@ -8,6 +8,9 @@ use relm4::{
 };
 use std::collections::{BTreeMap, HashMap};
 
+use std::rc::Rc;
+
+use crate::applet::catcher::Catcher;
 use crate::applet::runtime::AppletHandle;
 use crate::applets;
 
@@ -15,6 +18,7 @@ pub struct Panel {
     window: gtk::Window,
     bar: glimpse_widgets::Panel,
     applets: Vec<Slot>,
+    catcher: Rc<Catcher>,
 }
 
 struct Slot {
@@ -97,6 +101,7 @@ impl SimpleComponent for Panel {
             window: window.clone(),
             bar: widgets.bar.clone(),
             applets: Vec::new(),
+            catcher: Catcher::new(Some(&config.monitor), config.position),
         };
 
         model.apply(&config);
@@ -141,6 +146,7 @@ impl Panel {
         }
         self.bar.set_orientation(orientation);
         self.bar.set_thickness(config.size);
+        self.catcher.reconfigure(&config.monitor, config.position);
         self.reconcile_applets(config, orientation);
 
         tracing::debug!(
@@ -202,6 +208,7 @@ impl Panel {
                                 client.clone(),
                                 build,
                                 applet,
+                                Rc::clone(&self.catcher),
                             )
                         }),
                     }),
