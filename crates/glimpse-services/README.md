@@ -95,10 +95,53 @@ cannot occur without the session already being over.
 ## The calendar service
 
 One topic, `calendar.events`, carrying every occurrence from every configured source as one sorted
-list, and one command, `calendar.refresh`. Each `[[calendar.sources]]` entry is its own declared
-`Sub::interval`, keyed on the source's id, uri, kind, poll period and the shared refresh counter —
-so editing one source restarts one poller, and `calendar.refresh` restarts all of them by bumping
-the counter the way geolocation's retry does.
+list, and one command, `calendar.refresh`. Each `[[calendar.sources]]` entry declares its own
+sources — a watch, a timer, or for a sidecar both — keyed on the source's id, uri and the shared
+refresh counter, so editing one source disturbs only that one and `calendar.refresh` restarts all
+of them by bumping the counter the way geolocation's retry does.
+
+**Whether a source is watched or fetched follows the uri, not the kind.** `declares` is the whole
+rule and is one function for exactly that reason:
+
+| source | watched | timer |
+| --- | --- | --- |
+| `directory`, any local path | yes | no |
+| `ical`, a path or `file://` holding a calendar | yes | no |
+| `ical`, `http(s)://` | no | yes |
+| `ical`, `file://` holding a one-line feed URL | yes | yes |
+| `directory` given a feed, `ical` with an unknown scheme | reports the mistake | |
+
+The watch is `glimpse-config`'s. `watch(dir)` returns `impl Stream<Item = Update> + Send + 'static`,
+which is exactly the shape `Sub::stream` takes, so an edited `.ics` re-reads that one source within
+the watcher's 250 ms debounce. A file is watched through its parent directory, because that is what
+inotify gives you.
+
+The last row is the sidecar, and it is the reason the rule cannot be read off the configuration
+alone: a `file://` pointing at a one-line URL is a local file whose calendar is on the network, so
+it needs both — the watch reports the pointer changing, the timer re-fetches what it points at.
+Which it is only becomes known by reading the file, so `resolve` answers that question before any
+fetch happens and `Fetching::remote` is derived from its answer rather than written out again
+beside the request. The service remembers the ids that came back remote and declares their timers
+on the next reconcile.
+
+Three consequences follow from a watched source having no timer:
+
+- **The stream opens with a read.** A watch only speaks when something changes, so without a
+  leading `stream::once` a watched source would publish nothing until its first edit. That read is
+  also what `calendar.refresh` triggers, because the refresh counter is in the watch's key and a
+  restarted stream leads with it again.
+- **`Update::Unavailable` is a failure, not a warning.** With no timer there is no second reader to
+  fall back on, so an unarmable watch degrades the service and names the source. So does a
+  `directory` whose uri turns out to be a feed — silence would be the only other answer, and it is
+  the wrong one.
+- **`poll-interval` only describes the network.** Both the shared value and a source's own are read
+  by sources that are fetched; the schema says so. A setting that looks like it works and does not
+  is worse than one documented as inapplicable.
+
+**`read` is handed its clock rather than reading one.** The occurrence window is anchored on the
+instant passed in, which is `Utc::now()` at both call sites and a fixed instant in tests. A `read`
+that called `Utc::now()` itself made every fixture-dated test expire sixty-two days after it was
+written.
 
 **A per-entity topic cannot be declared, so one topic carries the collection.** `TOPICS` is
 `&'static [&'static str]` and the broker drops a publish to a name nothing declared, so there is no

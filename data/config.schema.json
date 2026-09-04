@@ -1963,7 +1963,7 @@
       "type": "object",
       "properties": {
         "poll-interval": {
-          "description": "How often a source is read again, in seconds, unless it names its own.",
+          "description": "How often a source that lives on the network is fetched again, in seconds, unless it\nnames its own. Anything local is watched instead and ignores this: a `directory`, and an\n`ical` whose `uri` is a path or a `file://`. The exception is a `file://` holding a\none-line feed URL, which is both — watched for the URL changing, fetched on this interval\nfor the calendar behind it.",
           "type": "integer",
           "format": "uint64",
           "default": 600,
@@ -2548,7 +2548,7 @@
           ]
         },
         "poll-interval": {
-          "description": "How often to read this one, in seconds, overriding the shared interval.",
+          "description": "How often to fetch this one, in seconds, overriding the shared interval. Ignored by a\nsource that is watched rather than fetched, the way the shared one is.",
           "type": [
             "integer",
             "null"
@@ -2576,12 +2576,12 @@
       "description": "What a source's `uri` points at.",
       "oneOf": [
         {
-          "description": "An iCalendar subscription feed, over `https://` or `file://`.",
+          "description": "One iCalendar document: an `https://` feed, a local `.ics`, or a `file://` holding a\none-line feed URL. A local one is watched; a remote one is fetched on `poll-interval`.",
           "type": "string",
           "const": "ical"
         },
         {
-          "description": "A directory of `.ics` files.",
+          "description": "A directory of `.ics` files, watched for changes rather than polled.",
           "type": "string",
           "const": "directory"
         }
