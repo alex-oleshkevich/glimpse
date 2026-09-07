@@ -33,7 +33,6 @@ impl NextEventPopover {
         imp.hero.set_title(Some(title.as_str()));
         imp.hero.set_subtitle(Some(subtitle.as_str()));
         self.set_countdown(None);
-        self.set_upcoming(&[]);
     }
 
     pub fn set_countdown(&self, countdown: Option<(&str, &str)>) {

@@ -174,6 +174,11 @@ pub struct NextEvent {
     /// has nothing to say about it. An event that has already started stays until it ends,
     /// however long it has been running, so `0` shows only what is under way.
     pub within: u64,
+    /// How close an event has to be before the bar spells out how long is left, in minutes. Inside
+    /// it the indicator reads `Design review in 12 min`, or `ends in 25 min` once it has started;
+    /// outside it the title stands alone. Set it below `within` to have an entry appear quietly and
+    /// start counting only as it approaches; `0` never counts.
+    pub countdown: u64,
     /// How far ahead the popover's list reaches, in minutes. This is the second of two windows and
     /// the wider one: `within` decides when the bar lights up, `horizon` decides what the list
     /// holds once you open it. The default 720 is twelve hours, so a late-afternoon glance still
@@ -270,6 +275,7 @@ impl Default for NextEvent {
     fn default() -> Self {
         Self {
             within: 60,
+            countdown: 60,
             horizon: 720,
             all_day: false,
             upcoming: 5,

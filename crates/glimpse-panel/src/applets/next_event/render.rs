@@ -3,7 +3,7 @@ use glimpse_widgets::Event;
 
 use crate::applets::agenda::{self, Occasion};
 
-const UPCOMING: usize = 20;
+const MOST_ROWS: usize = 20;
 const TITLE: usize = 24;
 const ELLIPSIS: char = '…';
 const HOUR_MINUTES: i64 = 60;
@@ -49,12 +49,19 @@ fn inside(now: DateTime<Local>, event: &Occasion, edge: DateTime<Local>) -> bool
     event.end > now && event.start <= edge
 }
 
-pub fn label(event: &Occasion) -> String {
-    let mut label: String = event.summary.chars().take(TITLE).collect();
+pub fn label(now: DateTime<Local>, event: &Occasion, counting: TimeDelta) -> String {
+    let mut title: String = event.summary.chars().take(TITLE).collect();
     if event.summary.chars().nth(TITLE).is_some() {
-        label.push(ELLIPSIS);
+        title.push(ELLIPSIS);
     }
-    label
+
+    match inside(now, event, edge(now, counting)) {
+        true => match countdown(now, event) {
+            Some(countdown) => format!("{title} {}", countdown.beside()),
+            None => title,
+        },
+        false => title,
+    }
 }
 
 pub fn heading(now: DateTime<Local>, event: &Occasion, clock: &str) -> (String, String) {
@@ -66,6 +73,10 @@ pub fn heading(now: DateTime<Local>, event: &Occasion, clock: &str) -> (String, 
     (event.summary.clone(), subtitle)
 }
 
+pub fn reading(now: DateTime<Local>, event: &Occasion, clock: &str) -> String {
+    agenda::when(now, shown_day(now, event), event, clock)
+}
+
 fn shown_day(now: DateTime<Local>, event: &Occasion) -> NaiveDate {
     let first = event.start.date_naive();
     now.date_naive()
@@ -75,7 +86,7 @@ fn shown_day(now: DateTime<Local>, event: &Occasion) -> NaiveDate {
 fn extent(now: DateTime<Local>, event: &Occasion, clock: &str) -> String {
     let started = event.start.date_naive();
     let body = match event.all_day {
-        true => agenda::when(now, shown_day(now, event), event, clock),
+        true => reading(now, event, clock),
         false => {
             let ends = match event.end.date_naive() == started {
                 true => at(event.end, clock),
@@ -95,24 +106,54 @@ fn at(instant: DateTime<Local>, clock: &str) -> String {
     instant.format(clock).to_string()
 }
 
-pub fn countdown(now: DateTime<Local>, event: &Occasion) -> Option<(String, String)> {
+pub struct Countdown {
+    value: String,
+    unit: &'static str,
+    running: bool,
+}
+
+impl Countdown {
+    pub fn readout(&self) -> (&str, &str) {
+        match self.running {
+            true => (&self.value, "min left"),
+            false => (&self.value, self.unit),
+        }
+    }
+
+    fn beside(&self) -> String {
+        match self.running {
+            true => format!("ends in {} {}", self.value, self.unit),
+            false => format!("in {} {}", self.value, self.unit),
+        }
+    }
+}
+
+pub fn countdown(now: DateTime<Local>, event: &Occasion) -> Option<Countdown> {
     if event.all_day {
         return None;
     }
 
-    if now >= event.start {
+    let running = now >= event.start;
+    if running {
         let left = (event.end - now).num_minutes().max(0);
-        return Some((left.to_string(), "min left".to_owned()));
+        return Some(Countdown {
+            value: left.to_string(),
+            unit: "min",
+            running,
+        });
     }
 
     let until = event.start - now;
-    if until.num_minutes() < HOUR_MINUTES {
-        return Some((until.num_minutes().max(0).to_string(), "min".to_owned()));
-    }
-    if until.num_hours() < DAY_HOURS {
-        return Some((until.num_hours().to_string(), "h".to_owned()));
-    }
-    Some((until.num_days().to_string(), "d".to_owned()))
+    let (value, unit) = match until {
+        _ if until.num_minutes() < HOUR_MINUTES => (until.num_minutes().max(0), "min"),
+        _ if until.num_hours() < DAY_HOURS => (until.num_hours(), "h"),
+        _ => (until.num_days(), "d"),
+    };
+    Some(Countdown {
+        value: value.to_string(),
+        unit,
+        running,
+    })
 }
 
 pub fn upcoming(
@@ -132,7 +173,7 @@ pub fn upcoming(
         .collect();
     rest.sort_by_key(|event| (event.start.max(now), event.end));
     rest.into_iter()
-        .take(limit.min(UPCOMING))
+        .take(limit.min(MOST_ROWS))
         .map(|event| row(now, event, clock))
         .collect()
 }
@@ -227,6 +268,67 @@ mod tests {
         assert_eq!(
             heading(at(10, 12, 0), &trip, TWENTY_FOUR).1,
             "All day · day 3 of 3"
+        );
+    }
+
+    /// The bar spells out how long is left only once the event is close enough to be worth the
+    /// width; outside that window the title stands alone.
+    #[test]
+    fn the_bar_counts_down_only_inside_its_own_window() {
+        let meeting = event("Design review", at(4, 14, 0), at(4, 15, 0));
+        let counting = TimeDelta::hours(1);
+
+        assert_eq!(
+            label(at(4, 13, 48), &meeting, counting),
+            "Design review in 12 min"
+        );
+        assert_eq!(
+            label(at(4, 9, 0), &meeting, counting),
+            "Design review",
+            "five hours out is past the window, so the title stands alone"
+        );
+        assert_eq!(
+            label(at(4, 14, 35), &meeting, counting),
+            "Design review ends in 25 min",
+            "a running event counts down to its end"
+        );
+        assert_eq!(
+            label(at(4, 13, 48), &meeting, TimeDelta::zero()),
+            "Design review",
+            "a zero window never counts"
+        );
+        assert_eq!(
+            label(at(4, 9, 0), &all_day("Conference", 4), counting),
+            "Conference",
+            "an all-day entry has no minute to count, whatever the window"
+        );
+    }
+
+    /// The suffix is added after the title is cut, so a long summary cannot eat the time.
+    #[test]
+    fn the_countdown_survives_a_title_long_enough_to_be_truncated() {
+        let long = event(
+            "Ünicöde tîtle that runs on well past the bar",
+            at(4, 14, 0),
+            at(4, 15, 0),
+        );
+
+        let shown = label(at(4, 13, 48), &long, TimeDelta::hours(1));
+        assert!(shown.ends_with("in 12 min"), "{shown}");
+        assert!(shown.contains(ELLIPSIS), "{shown}");
+    }
+
+    /// The bar's tooltip and the popover's hero describe the same event, so they have to pick the
+    /// same day of it. Anchoring the tooltip to the event's start had them disagree mid-trip.
+    #[test]
+    fn the_tooltip_and_the_hero_agree_on_which_day_a_trip_is_on() {
+        let trip = spanning("Vilnius trip", 8, 10);
+        let now = at(9, 12, 0);
+
+        assert_eq!(reading(now, &trip, TWENTY_FOUR), "All day · day 2 of 3");
+        assert!(
+            heading(now, &trip, TWENTY_FOUR).1.contains("day 2 of 3"),
+            "the hero says the same day the tooltip does"
         );
     }
 
@@ -358,27 +460,23 @@ mod tests {
     #[test]
     fn a_countdown_grows_through_minutes_hours_and_days() {
         let meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
+        let readout = |now| {
+            countdown(now, &meeting).map(|c| (c.readout().0.to_owned(), c.readout().1.to_owned()))
+        };
 
         assert_eq!(
-            countdown(at(4, 13, 48), &meeting),
+            readout(at(4, 13, 48)),
             Some(("12".to_owned(), "min".to_owned()))
         );
+        assert_eq!(readout(at(4, 9, 0)), Some(("5".to_owned(), "h".to_owned())));
+        assert_eq!(readout(at(1, 9, 0)), Some(("3".to_owned(), "d".to_owned())));
         assert_eq!(
-            countdown(at(4, 9, 0), &meeting),
-            Some(("5".to_owned(), "h".to_owned()))
-        );
-        assert_eq!(
-            countdown(at(1, 9, 0), &meeting),
-            Some(("3".to_owned(), "d".to_owned()))
-        );
-        assert_eq!(
-            countdown(at(4, 14, 30), &meeting),
+            readout(at(4, 14, 30)),
             Some(("30".to_owned(), "min left".to_owned())),
             "a running event counts down to its end rather than up from its start"
         );
-        assert_eq!(
-            countdown(at(4, 9, 0), &all_day("Conference", 4)),
-            None,
+        assert!(
+            countdown(at(4, 9, 0), &all_day("Conference", 4)).is_none(),
             "an all-day entry has no minute to count"
         );
     }
@@ -456,7 +554,7 @@ mod tests {
         );
         assert_eq!(
             upcoming(at(4, 9, 0), &events, None, reach, usize::MAX, TWENTY_FOUR).len(),
-            UPCOMING,
+            MOST_ROWS,
             "a configured length nobody could mean is still a popover that fits on screen"
         );
     }
@@ -499,13 +597,13 @@ mod tests {
         );
         long.summary.push('é');
 
-        let cut = label(&long);
+        let cut = label(at(4, 9, 0), &long, TimeDelta::zero());
         assert_eq!(cut.chars().count(), TITLE + 1);
         assert!(cut.ends_with(ELLIPSIS), "{cut}");
 
         let short = event("Standup", at(4, 14, 0), at(4, 15, 0));
         assert_eq!(
-            label(&short),
+            label(at(4, 9, 0), &short, TimeDelta::zero()),
             "Standup",
             "a title that fits is not marked as cut"
         );

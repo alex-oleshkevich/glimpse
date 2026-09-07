@@ -519,6 +519,13 @@
               "type": "boolean",
               "default": false
             },
+            "countdown": {
+              "description": "How close an event has to be before the bar spells out how long is left, in minutes. Inside\nit the indicator reads `Design review in 12 min`, or `ends in 25 min` once it has started;\noutside it the title stands alone. Set it below `within` to have an entry appear quietly and\nstart counting only as it approaches; `0` never counts.",
+              "type": "integer",
+              "format": "uint64",
+              "default": 60,
+              "minimum": 0
+            },
             "extends": {
               "type": "string",
               "const": "next-event"
@@ -1410,6 +1417,13 @@
                 "description": "Whether an all-day entry may take the bar. A timed event always wins over one, so this\nonly decides what happens on a day holding nothing else — leaving it off keeps a week of\nleave from pinning the applet open for the whole week.",
                 "type": "boolean",
                 "default": false
+              },
+              "countdown": {
+                "description": "How close an event has to be before the bar spells out how long is left, in minutes. Inside\nit the indicator reads `Design review in 12 min`, or `ends in 25 min` once it has started;\noutside it the title stands alone. Set it below `within` to have an entry appear quietly and\nstart counting only as it approaches; `0` never counts.",
+                "type": "integer",
+                "format": "uint64",
+                "default": 60,
+                "minimum": 0
               },
               "extends": {
                 "type": "string",

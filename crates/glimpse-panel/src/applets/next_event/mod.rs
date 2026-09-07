@@ -90,6 +90,10 @@ impl NextEvent {
         render::window(self.settings.within)
     }
 
+    fn counting(&self) -> TimeDelta {
+        render::window(self.settings.countdown)
+    }
+
     fn horizon(&self) -> TimeDelta {
         render::window(self.settings.horizon.max(self.settings.within))
     }
@@ -115,33 +119,17 @@ impl NextEvent {
         let event = self.events.get(self.chosen?)?;
         Some(IndicatorSpec {
             dot: event.color,
-            label: Some(render::label(event)),
+            label: Some(render::label(now, event, self.counting())),
             tooltip: self.tooltip_format.as_deref().map(|format| {
-                let reading = agenda::when(now, event.start.date_naive(), event, self.clock());
-                render::tooltip(format, event, &reading)
+                render::tooltip(format, event, &render::reading(now, event, self.clock()))
             }),
             ..Default::default()
         })
     }
 
     fn dress(&self, now: DateTime<Local>, shown: &NextEventPopover) {
-        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
-
-        let Some(event) = self.chosen.and_then(|index| self.events.get(index)) else {
-            shown.set_nothing();
-            return;
-        };
-
         let clock = self.clock();
-        let (title, subtitle) = render::heading(now, event, clock);
-        let countdown = render::countdown(now, event);
-
-        shown.set_heading(&title, Some(subtitle.as_str()));
-        shown.set_countdown(
-            countdown
-                .as_ref()
-                .map(|(value, unit)| (value.as_str(), unit.as_str())),
-        );
+        shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
         shown.set_upcoming(&render::upcoming(
             now,
             &self.events,
@@ -150,6 +138,17 @@ impl NextEvent {
             self.settings.upcoming,
             clock,
         ));
+
+        let Some(event) = self.chosen.and_then(|index| self.events.get(index)) else {
+            shown.set_nothing();
+            return;
+        };
+
+        let (title, subtitle) = render::heading(now, event, clock);
+        let countdown = render::countdown(now, event);
+
+        shown.set_heading(&title, Some(subtitle.as_str()));
+        shown.set_countdown(countdown.as_ref().map(render::Countdown::readout));
     }
 }
 

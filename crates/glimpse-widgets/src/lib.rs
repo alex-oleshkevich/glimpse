@@ -2052,7 +2052,11 @@ mod tests {
             "the last event ending restores the wording rather than leaving a finished one up"
         );
         assert!(!next.imp().countdown.get_visible());
-        assert!(next.imp().upcoming.empty());
+        assert!(
+            !next.imp().upcoming.empty(),
+            "nothing is *next* — the list reaches further than the bar does, so emptying it here \
+             would wipe entries the horizon still holds"
+        );
 
         popover.imp().calendar.select(Ymd::new(2027, 2, 3));
         assert_eq!(

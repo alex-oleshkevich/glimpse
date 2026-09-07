@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn the_next_event_applet_carries_its_own_settings() {
         let parsed: Config = toml::from_str(
-            "[applets.next-event]\nwithin = 15\nhorizon = 240\nall-day = true\nupcoming = 3\n",
+            "[applets.next-event]\nwithin = 15\ncountdown = 5\nhorizon = 240\nall-day = true\nupcoming = 3\n",
         )
         .expect("the table names the kind and the keys are its own");
 
@@ -173,6 +173,7 @@ mod tests {
             panic!("the table names the next-event applet");
         };
         assert_eq!(settings.within, 15);
+        assert_eq!(settings.countdown, 5);
         assert_eq!(settings.horizon, 240);
         assert!(settings.all_day);
         assert_eq!(settings.upcoming, 3);
