@@ -96,6 +96,19 @@ impl Calendar {
             .unwrap_or_default()
     }
 
+    pub fn connect_month_shown<F: Fn(&Self, i32, u32) + 'static>(
+        &self,
+        handler: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "month-shown",
+            false,
+            glib::closure_local!(move |calendar: Self, year: i32, month: u32| {
+                handler(&calendar, year, month);
+            }),
+        )
+    }
+
     pub fn connect_day_selected<F: Fn(&Self, Ymd) + 'static>(
         &self,
         handler: F,

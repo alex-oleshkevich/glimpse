@@ -1,13 +1,16 @@
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Datelike, Local, NaiveDate, TimeDelta};
-use glimpse_widgets::{CalendarPopover, Event, Ymd, Zone};
-use gtk4::glib;
+use chrono::{
+    DateTime, Datelike, Local, Months, NaiveDate, NaiveTime, TimeDelta, TimeZone as _, Utc,
+};
+use glimpse_contracts::CalendarEvent;
+use glimpse_widgets::{Event, Ymd, Zone};
+use gtk4::{gdk, glib};
 
 use super::agenda::{Occasion, when};
 
-const TWENTY_FOUR: &str = "%H:%M";
-const TWELVE: &str = "%l:%M %p";
+pub const TWENTY_FOUR: &str = "%H:%M";
+pub const TWELVE: &str = "%l:%M %p";
 
 pub fn locale_is_twelve_hour() -> bool {
     let Ok(afternoon) = glib::DateTime::from_local(2026, 1, 1, 15, 30, 0.0) else {
@@ -43,6 +46,42 @@ pub fn day_title(day: NaiveDate, today: NaiveDate) -> String {
         difference if difference == TimeDelta::days(-1) => "Yesterday".to_owned(),
         _ => day.format("%A").to_string(),
     }
+}
+
+pub fn occasions(events: &[CalendarEvent]) -> Vec<Occasion> {
+    events
+        .iter()
+        .map(|event| Occasion {
+            summary: event.summary.clone(),
+            detail: event.detail.clone(),
+            start: event.start.with_timezone(&Local),
+            end: event.end.with_timezone(&Local),
+            all_day: event.all_day,
+            color: event
+                .color
+                .as_deref()
+                .and_then(|text| gdk::RGBA::parse(text).ok()),
+        })
+        .collect()
+}
+
+pub fn truncated(day: NaiveDate, truncated_from: Option<DateTime<Utc>>) -> bool {
+    truncated_from.is_some_and(|from| day >= from.with_timezone(&Local).date_naive())
+}
+
+pub fn month_pair(year: i32, month: u32) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
+    let first = NaiveDate::from_ymd_opt(year, month, 1)?;
+    let after = first.checked_add_months(Months::new(2))?;
+    Some((midnight(first), midnight(after)))
+}
+
+fn midnight(day: NaiveDate) -> DateTime<Utc> {
+    let local = day.and_time(NaiveTime::MIN);
+    Local
+        .from_local_datetime(&local)
+        .earliest()
+        .map(|instant| instant.with_timezone(&Utc))
+        .unwrap_or_else(|| Utc.from_utc_datetime(&local))
 }
 
 pub fn rows(now: DateTime<Local>, day: NaiveDate, events: &[Occasion], clock: &str) -> Vec<Event> {
@@ -86,68 +125,6 @@ fn days(event: &Occasion) -> impl Iterator<Item = NaiveDate> {
     let first = event.start.date_naive();
     let last = event.end.date_naive().max(first);
     first.iter_days().take_while(move |day| *day <= last)
-}
-
-pub fn render(
-    shown: &CalendarPopover,
-    now: DateTime<Local>,
-    day: NaiveDate,
-    events: &[Occasion],
-    twelve: bool,
-    week_numbers: bool,
-) {
-    let clock = match twelve {
-        true => TWELVE,
-        false => TWENTY_FOUR,
-    };
-    let (title, week) = heading(day, week_numbers);
-    shown.set_heading(&title, week.as_deref());
-    shown.set_day(
-        &day_title(day, now.date_naive()),
-        &rows(now, day, events, clock),
-    );
-    if let Ok(instant) = glib::DateTime::from_unix_local(now.timestamp()) {
-        shown.set_now(&instant);
-    }
-}
-
-pub fn fixture(today: NaiveDate) -> Vec<Occasion> {
-    let work = gtk4::gdk::RGBA::new(0.88, 0.11, 0.14, 1.0);
-    let personal = gtk4::gdk::RGBA::new(0.26, 0.52, 0.96, 1.0);
-    let tomorrow = today.succ_opt().unwrap_or(today);
-    let at = |day: NaiveDate, hour: u32, minute: u32| {
-        day.and_hms_opt(hour, minute, 0)
-            .and_then(|naive| naive.and_local_timezone(Local).single())
-    };
-
-    [
-        (
-            "Standup",
-            "Meeting room 2",
-            (today, 9, 0),
-            (today, 9, 15),
-            work,
-        ),
-        ("Design review", "", (today, 11, 0), (today, 12, 0), work),
-        ("Lunch", "", (today, 12, 30), (today, 13, 15), personal),
-        ("One to one", "", (today, 14, 0), (today, 14, 30), work),
-        ("Retrospective", "", (today, 16, 0), (today, 17, 0), work),
-        ("Gym", "", (today, 18, 0), (today, 19, 0), personal),
-        ("Conference", "", (today, 0, 0), (tomorrow, 0, 0), personal),
-        ("Dentist", "", (tomorrow, 8, 30), (tomorrow, 9, 0), personal),
-    ]
-    .into_iter()
-    .filter_map(|(summary, detail, start, end, color)| {
-        Some(Occasion {
-            summary: summary.to_owned(),
-            detail: detail.to_owned(),
-            start: at(start.0, start.1, start.2)?,
-            end: at(end.0, end.1, end.2)?,
-            all_day: summary == "Conference",
-            color: Some(color),
-        })
-    })
-    .collect()
 }
 
 pub fn zones(configured: &[glimpse_config::ClockTimezone]) -> Vec<Zone> {
@@ -204,6 +181,72 @@ mod tests {
             !reads_as_twelve_hour("15:30:00", ""),
             "a locale with no meridiem string makes `contains` trivially true"
         );
+    }
+
+    /// The mark is the first instant the daemon's list stops being complete, so the day holding
+    /// it is already incomplete and must not read as "nothing scheduled".
+    #[test]
+    fn a_day_at_or_after_the_truncation_mark_is_truncated() {
+        let from = at(6, 22).with_timezone(&Utc);
+        let day = at(6, 12).date_naive();
+
+        assert!(!truncated(day - TimeDelta::days(1), Some(from)));
+        assert!(
+            truncated(day, Some(from)),
+            "the day the mark falls on is already missing entries"
+        );
+        assert!(truncated(day + TimeDelta::days(1), Some(from)));
+        assert!(
+            !truncated(day + TimeDelta::days(400), None),
+            "an untruncated list leaves every day loaded"
+        );
+    }
+
+    /// The panel asks for the month it is showing and the one after it, so an event that starts
+    /// on the last day of the shown month and runs into the next is still in the answer.
+    #[test]
+    fn a_month_pair_starts_at_its_own_first_day_and_ends_two_months_later() {
+        let (from, to) = month_pair(2026, 12).expect("December is a month");
+
+        assert_eq!(
+            from.with_timezone(&Local).date_naive(),
+            NaiveDate::from_ymd_opt(2026, 12, 1).expect("the first of December")
+        );
+        assert_eq!(
+            to.with_timezone(&Local).date_naive(),
+            NaiveDate::from_ymd_opt(2027, 2, 1).expect("the first of February"),
+            "two months on from December is February, across the year boundary"
+        );
+        assert!(
+            month_pair(2026, 13).is_none(),
+            "there is no thirteenth month"
+        );
+    }
+
+    /// A colour that will not parse must cost its event a dot, not the whole popover.
+    #[test]
+    fn an_event_converts_from_the_wire_and_survives_a_bad_color() {
+        let wire = |color: Option<&str>| glimpse_contracts::CalendarEvent {
+            source: "work".to_owned(),
+            summary: "Standup".to_owned(),
+            detail: "Room 2".to_owned(),
+            start: at(4, 9).with_timezone(&Utc),
+            end: at(4, 10).with_timezone(&Utc),
+            all_day: false,
+            color: color.map(str::to_owned),
+        };
+
+        let converted = occasions(&[wire(Some("#e0563f")), wire(Some("nonsense")), wire(None)]);
+
+        assert_eq!(converted.len(), 3);
+        assert_eq!(converted[0].summary, "Standup");
+        assert_eq!(converted[0].start, at(4, 9));
+        assert!(converted[0].color.is_some(), "a hex colour parses");
+        assert!(
+            converted[1].color.is_none(),
+            "an unparseable colour is dropped"
+        );
+        assert!(converted[2].color.is_none());
     }
 
     #[test]

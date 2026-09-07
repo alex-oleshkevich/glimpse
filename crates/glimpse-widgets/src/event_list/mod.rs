@@ -163,6 +163,22 @@ impl EventList {
         ));
         row
     }
+
+    fn summary_at(&self, y: i32) -> Option<String> {
+        let imp = self.imp();
+        let index = imp.rows.borrow().iter().position(|row| {
+            let top = row
+                .compute_bounds(self)
+                .map(|bounds| bounds.y())
+                .unwrap_or(0.0);
+            let bottom = top + row.height() as f32;
+            (top..bottom).contains(&(y as f32))
+        })?;
+        imp.events
+            .borrow()
+            .get(index)
+            .map(|event| event.summary.clone())
+    }
 }
 
 fn none_if_empty(text: &str) -> Option<&str> {

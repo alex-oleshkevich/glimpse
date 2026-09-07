@@ -34,10 +34,26 @@ template $CalendarPopover: Gtk.Widget {
           }
 
           [placeholder]
-          $Placeholder nothing {
-            icon-name: "appointment-soon-symbolic";
-            title: _("Nothing scheduled");
-            description: _("The rest of the day is yours.");
+          Gtk.Stack states {
+            Gtk.StackPage {
+              name: "nothing";
+
+              child: $Placeholder nothing {
+                icon-name: "appointment-soon-symbolic";
+                title: _("Nothing scheduled");
+                description: _("The rest of the day is yours.");
+              };
+            }
+
+            Gtk.StackPage {
+              name: "truncated";
+
+              child: $Placeholder {
+                icon-name: "view-more-horizontal-symbolic";
+                title: _("Too many events");
+                description: _("More events start here than the daemon can send at once.");
+              };
+            }
           }
         }
 
@@ -68,7 +84,6 @@ template $CalendarPopover: Gtk.Widget {
           }
 
           $Section everything {
-            title: _("Everything");
             valign: start;
 
             styles [

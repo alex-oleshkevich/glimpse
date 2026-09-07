@@ -1,12 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, NaiveDateTime, NaiveTime, TimeDelta, TimeZone as _, Utc};
 use futures_util::{StreamExt as _, stream, stream::BoxStream};
 use glimpse_config::{CalendarSource, CalendarSourceKind, Update};
 use glimpse_contracts::{
-    CalendarEvent, CalendarEvents, CalendarRefresh, Command as _, Message as _,
+    CalendarEvent, CalendarEvents, CalendarRefresh, CalendarSetRange, Command as _, Message as _,
 };
 use glimpse_ipc::CallError;
 use icalendar::{
@@ -20,12 +21,13 @@ use tokio::fs;
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{Input, Service, ServiceError, unknown_command},
+    service::{Input, Service, ServiceError, decode_args, unknown_command},
     subscription::Sub,
 };
 
-const BACK: i64 = 7;
+const BACK: i64 = 31;
 const AHEAD: i64 = 62;
+const SPAN: i64 = 400;
 const OCCURRENCES: u16 = 512;
 const EVENTS: usize = 512;
 const FILES: usize = 256;
@@ -40,6 +42,10 @@ const AGENT: &str = concat!("glimpse/", env!("CARGO_PKG_VERSION"));
 #[derive(Debug, PartialEq)]
 pub enum Command {
     Refresh,
+    Range {
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    },
 }
 
 pub enum Event {
@@ -47,11 +53,37 @@ pub enum Event {
         id: String,
         result: Result<Fetch, String>,
     },
+    Expanded {
+        generation: u64,
+        payload: CalendarEvents,
+    },
 }
 
 pub struct Fetch {
-    occurrences: Vec<Occurrence>,
+    calendars: Vec<Arc<ICalendar>>,
     remote: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Window {
+    from: DateTime<Utc>,
+    to: DateTime<Utc>,
+}
+
+impl Window {
+    fn around(now: DateTime<Utc>) -> Self {
+        Self {
+            from: now - TimeDelta::days(BACK),
+            to: now + TimeDelta::days(AHEAD),
+        }
+    }
+
+    fn asked(from: DateTime<Utc>, to: DateTime<Utc>) -> Self {
+        Self {
+            from,
+            to: to.clamp(from, from + TimeDelta::days(SPAN)),
+        }
+    }
 }
 
 pub struct Occurrence {
@@ -91,11 +123,11 @@ struct Declares {
     timer: bool,
 }
 
-fn declares(source: &CalendarSource, remote: &BTreeSet<String>) -> Declares {
+fn declares(source: &CalendarSource, remote: bool) -> Declares {
     let local = matches!(location(&source.uri), Ok(Location::Local(_)));
     Declares {
         watch: local || source.kind == CalendarSourceKind::Directory,
-        timer: source.kind == CalendarSourceKind::Ical && (!local || remote.contains(&source.id)),
+        timer: source.kind == CalendarSourceKind::Ical && (!local || remote),
     }
 }
 
@@ -112,6 +144,9 @@ pub enum Watch {
         uri: String,
         attempt: u64,
     },
+    Expand {
+        generation: u64,
+    },
 }
 
 pub struct Calendar {
@@ -120,15 +155,16 @@ pub struct Calendar {
     sources: Vec<CalendarSource>,
     poll: u64,
     attempt: u64,
-    fetched: BTreeMap<String, Vec<Occurrence>>,
+    generation: u64,
+    window: Window,
+    fetched: BTreeMap<String, Fetch>,
     failures: BTreeMap<String, String>,
-    remote: BTreeSet<String>,
 }
 
 impl Service for Calendar {
     const NAME: &'static str = "calendar";
     const TOPICS: &'static [&'static str] = &[CalendarEvents::NAME];
-    const METHODS: &'static [&'static str] = &[CalendarRefresh::NAME];
+    const METHODS: &'static [&'static str] = &[CalendarRefresh::NAME, CalendarSetRange::NAME];
 
     type Config = Config;
     type Command = Command;
@@ -139,7 +175,11 @@ impl Service for Calendar {
         let mut declared = Vec::new();
 
         for source in &self.sources {
-            let declares = declares(source, &self.remote);
+            let remote = self
+                .fetched
+                .get(&source.id)
+                .is_some_and(|fetch| fetch.remote);
+            let declares = declares(source, remote);
 
             if declares.watch {
                 let client = self.client.clone();
@@ -181,12 +221,42 @@ impl Service for Calendar {
             }
         }
 
+        let generation = self.generation;
+        let window = self.window;
+        let loaded = self.loaded();
+
+        declared.push(Sub::stream(
+            Watch::Expand { generation },
+            move |_ctx| async move {
+                let expansion =
+                    tokio::task::spawn_blocking(move || expanding(generation, loaded, window));
+                stream::once(expansion)
+                    .filter_map(|joined| async move {
+                        match joined {
+                            Ok(event) => Some(event),
+                            Err(error) => {
+                                tracing::error!(%error, "expanding the calendar panicked");
+                                None
+                            }
+                        }
+                    })
+                    .boxed()
+            },
+        ));
+
         declared
     }
 
-    fn decode(method: &str, _args: Value) -> Result<Self::Command, CallError> {
+    fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> {
         match method {
             CalendarRefresh::NAME => Ok(Command::Refresh),
+            CalendarSetRange::NAME => {
+                let asked: CalendarSetRange = decode_args(args)?;
+                Ok(Command::Range {
+                    from: asked.from,
+                    to: asked.to,
+                })
+            }
             _ => Err(unknown_command(Self::NAME, method)),
         }
     }
@@ -204,40 +274,38 @@ impl Service for Calendar {
             }
         };
 
-        let mut service = Self {
+        Ok(Self {
             events: ctx.publisher::<CalendarEvents>(),
             client,
             sources: config.sources,
             poll: config.poll_interval,
             attempt: 0,
+            generation: 0,
+            window: Window::around(Utc::now()),
             fetched: BTreeMap::new(),
             failures: BTreeMap::new(),
-            remote: BTreeSet::new(),
-        };
-        service.publish();
-        Ok(service)
+        })
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
             Input::Event(Event::Fetched { id, .. }) if !self.knows(&id) => {}
+            Input::Event(Event::Expanded { generation, .. }) if generation != self.generation => {}
             Input::Event(Event::Fetched { id, result }) => {
                 match result {
                     Ok(fetch) => {
                         self.failures.remove(&id);
-                        if fetch.remote {
-                            self.remote.insert(id.clone());
-                        } else {
-                            self.remote.remove(&id);
-                        }
-                        self.fetched.insert(id, fetch.occurrences);
+                        self.fetched.insert(id, fetch);
                     }
                     Err(reason) => {
                         self.failures.insert(id, reason);
                     }
                 }
                 self.report(ctx);
-                self.publish();
+                self.generation += 1;
+            }
+            Input::Event(Event::Expanded { payload, .. }) => {
+                self.events.set(payload);
             }
             Input::Config(config) => {
                 self.poll = config.poll_interval;
@@ -249,12 +317,19 @@ impl Service for Calendar {
                     .collect();
                 self.fetched.retain(|id, _| known.contains(id));
                 self.failures.retain(|id, _| known.contains(id));
-                self.remote.retain(|id| known.contains(id));
                 self.report(ctx);
-                self.publish();
+                self.generation += 1;
             }
             Input::Command(Command::Refresh, responder) => {
                 self.attempt += 1;
+                responder.ok(());
+            }
+            Input::Command(Command::Range { from, to }, responder) => {
+                let window = Window::asked(from, to);
+                if window != self.window {
+                    self.window = window;
+                    self.generation += 1;
+                }
                 responder.ok(());
             }
         }
@@ -280,32 +355,58 @@ impl Calendar {
         ctx.degraded(clean(&reasons, REASON));
     }
 
-    fn publish(&mut self) {
-        let mut events: Vec<CalendarEvent> = self
-            .sources
+    fn loaded(&self) -> Vec<Loaded> {
+        self.sources
             .iter()
-            .flat_map(|source| {
-                self.fetched
-                    .get(&source.id)
-                    .into_iter()
-                    .flatten()
-                    .map(|occurrence| CalendarEvent {
-                        source: source.id.clone(),
-                        summary: occurrence.summary.clone(),
-                        detail: occurrence.detail.clone(),
-                        start: occurrence.start,
-                        end: occurrence.end,
-                        all_day: occurrence.all_day,
-                        color: source.color.clone(),
-                    })
+            .filter_map(|source| {
+                let fetch = self.fetched.get(&source.id)?;
+                Some(Loaded {
+                    id: source.id.clone(),
+                    color: source.color.clone(),
+                    calendars: fetch.calendars.clone(),
+                })
             })
-            .collect();
-        events.sort_by(|left, right| {
-            left.start
-                .cmp(&right.start)
-                .then_with(|| left.summary.cmp(&right.summary))
-        });
-        self.events.set(CalendarEvents { events });
+            .collect()
+    }
+}
+
+struct Loaded {
+    id: String,
+    color: Option<String>,
+    calendars: Vec<Arc<ICalendar>>,
+}
+
+fn expanding(generation: u64, loaded: Vec<Loaded>, window: Window) -> Event {
+    let mut events = Vec::new();
+    for source in &loaded {
+        for calendar in &source.calendars {
+            for occurrence in expand(calendar, window) {
+                events.push(CalendarEvent {
+                    source: source.id.clone(),
+                    summary: occurrence.summary,
+                    detail: occurrence.detail,
+                    start: occurrence.start,
+                    end: occurrence.end,
+                    all_day: occurrence.all_day,
+                    color: source.color.clone(),
+                });
+            }
+        }
+    }
+    events.sort_by(|left, right| {
+        left.start
+            .cmp(&right.start)
+            .then_with(|| left.summary.cmp(&right.summary))
+    });
+    let truncated_from = events.get(EVENTS).map(|dropped| dropped.start);
+    events.truncate(EVENTS);
+
+    Event::Expanded {
+        generation,
+        payload: CalendarEvents {
+            events,
+            truncated_from,
+        },
     }
 }
 
@@ -427,7 +528,6 @@ async fn read(
     client: Option<reqwest::Client>,
     kind: CalendarSourceKind,
     uri: String,
-    now: DateTime<Utc>,
 ) -> Result<Fetch, String> {
     let (documents, remote) = match kind {
         CalendarSourceKind::Ical => {
@@ -437,29 +537,19 @@ async fn read(
         CalendarSourceKind::Directory => (directory(&uri).await?, false),
     };
 
-    let mut occurrences = Vec::new();
+    let mut calendars = Vec::new();
     for document in &documents {
-        occurrences.extend(expand(document, now)?);
+        let calendar: ICalendar = document
+            .parse()
+            .map_err(|_| "its document is not iCalendar".to_owned())?;
+        calendars.push(Arc::new(calendar));
     }
-    occurrences.sort_by(|left, right| {
-        left.start
-            .cmp(&right.start)
-            .then_with(|| left.summary.cmp(&right.summary))
-    });
-    occurrences.truncate(EVENTS);
-    Ok(Fetch {
-        occurrences,
-        remote,
-    })
+    Ok(Fetch { calendars, remote })
 }
 
-fn expand(document: &str, now: DateTime<Utc>) -> Result<Vec<Occurrence>, String> {
-    let calendar: ICalendar = document
-        .parse()
-        .map_err(|_| "its document is not iCalendar".to_owned())?;
-
-    let from = bound(now - TimeDelta::days(BACK));
-    let to = bound(now + TimeDelta::days(AHEAD));
+fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
+    let from = bound(window.from);
+    let to = bound(window.to);
 
     let mut occurrences = Vec::new();
     for entry in calendar.calendar_events() {
@@ -486,7 +576,7 @@ fn expand(document: &str, now: DateTime<Utc>) -> Result<Vec<Occurrence>, String>
             });
         }
     }
-    Ok(occurrences)
+    occurrences
 }
 
 async fn reread(
@@ -495,7 +585,7 @@ async fn reread(
     uri: String,
     kind: CalendarSourceKind,
 ) -> Event {
-    let result = read(client, kind, uri, Utc::now()).await;
+    let result = read(client, kind, uri).await;
     Event::Fetched { id, result }
 }
 
@@ -578,13 +668,17 @@ fn detail(event: &IEvent) -> String {
     clean(location.or(described).unwrap_or_default(), DETAIL)
 }
 
+fn hostile(character: char) -> bool {
+    character.is_control() || matches!(character, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
+}
+
 fn clean(text: &str, cap: usize) -> String {
     let mut cleaned = String::new();
     let mut length = 0;
     let mut spaced = false;
 
     for character in text.chars() {
-        if character.is_whitespace() || character.is_control() {
+        if character.is_whitespace() || hostile(character) {
             spaced = length > 0;
             continue;
         }
@@ -685,6 +779,20 @@ END:VCALENDAR\r
             Calendar::decode(CalendarRefresh::NAME, Value::Null).expect("declared"),
             Command::Refresh
         );
+        let asked = serde_json::json!({ "from": now(), "to": now() + TimeDelta::days(60) });
+        assert_eq!(
+            Calendar::decode(CalendarSetRange::NAME, asked).expect("declared"),
+            Command::Range {
+                from: now(),
+                to: now() + TimeDelta::days(60)
+            }
+        );
+        assert_eq!(
+            Calendar::decode(CalendarSetRange::NAME, Value::Null)
+                .expect_err("a range with no instants in it")
+                .code,
+            ErrorCode::InvalidArgs
+        );
         assert_eq!(
             Calendar::decode("calendar.set_events", Value::Null)
                 .expect_err("never declared")
@@ -777,6 +885,13 @@ END:VCALENDAR\r
             "a b",
             "a control character separates rather than vanishes, so it cannot splice two words"
         );
+        assert_eq!(
+            clean("Lunch\u{202e}gpj.exe", 120),
+            "Lunch gpj.exe",
+            "a bidi override is not a control character, and Pango honours it: left in, it \
+             reorders the row it lands in"
+        );
+        assert_eq!(clean("a\u{2066}b\u{2069}c", 120), "a b c");
         assert_eq!(clean("abcdef", 4), "abcd…");
         assert_eq!(
             clean("ééééé", 3),
@@ -821,9 +936,78 @@ END:VCALENDAR\r
         );
     }
 
+    /// An iCalendar timestamp has no sub-second field, so an expectation built from `Utc::now()`
+    /// carries precision the document cannot round-trip.
+    fn whole_second() -> DateTime<Utc> {
+        DateTime::from_timestamp(Utc::now().timestamp(), 0).expect("an instant in range")
+    }
+
+    fn crowded(base: DateTime<Utc>, count: usize) -> String {
+        let mut document =
+            String::from("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//glimpse//test//EN\r\n");
+        for index in 0..count {
+            let start = base + TimeDelta::minutes(30 * index as i64);
+            let end = start + TimeDelta::minutes(30);
+            document.push_str(&format!(
+                "BEGIN:VEVENT\r\nUID:crowd-{index}\r\nDTSTAMP:20260901T000000Z\r\n\
+                 DTSTART:{}\r\nDTEND:{}\r\nSUMMARY:Crowded {index}\r\nEND:VEVENT\r\n",
+                start.format("%Y%m%dT%H%M%SZ"),
+                end.format("%Y%m%dT%H%M%SZ"),
+            ));
+        }
+        document.push_str("END:VCALENDAR\r\n");
+        document
+    }
+
+    fn window() -> Window {
+        Window::around(now())
+    }
+
+    fn parsed(document: &str) -> Arc<ICalendar> {
+        Arc::new(document.parse().expect("a parseable document"))
+    }
+
+    fn loaded(id: &str, calendar: Arc<ICalendar>) -> Loaded {
+        Loaded {
+            id: id.to_owned(),
+            color: None,
+            calendars: vec![calendar],
+        }
+    }
+
+    fn payload(expansion: Event) -> CalendarEvents {
+        let Event::Expanded { payload, .. } = expansion else {
+            panic!("expanding yields an expansion");
+        };
+        payload
+    }
+
+    async fn crowd(count: usize) -> CalendarEvents {
+        let root = tempfile::tempdir().expect("a scratch directory");
+        tokio::fs::write(root.path().join("crowd.ics"), crowded(now(), count))
+            .await
+            .expect("a written fixture");
+        let fetch = read(
+            None,
+            CalendarSourceKind::Directory,
+            root.path().to_string_lossy().into_owned(),
+        )
+        .await
+        .expect("a readable directory");
+
+        payload(expanding(
+            0,
+            vec![Loaded {
+                id: "crowd".to_owned(),
+                color: None,
+                calendars: fetch.calendars,
+            }],
+            window(),
+        ))
+    }
+
     fn expanded(summary: &str) -> Vec<Occurrence> {
-        expand(DOCUMENT, now())
-            .expect("a parseable document")
+        expand(&parsed(DOCUMENT), window())
             .into_iter()
             .filter(|occurrence| occurrence.summary == summary)
             .collect()
@@ -872,45 +1056,147 @@ END:VCALENDAR\r
         );
     }
 
+    #[tokio::test]
+    async fn a_document_that_is_not_icalendar_is_a_failure_rather_than_an_empty_calendar() {
+        let root = tempfile::tempdir().expect("a scratch directory");
+        let file = root.path().join("a.ics");
+        tokio::fs::write(&file, "<html>not a calendar</html>")
+            .await
+            .expect("a written decoy");
+
+        let read = read(
+            None,
+            CalendarSourceKind::Ical,
+            file.to_string_lossy().into_owned(),
+        )
+        .await;
+
+        assert!(
+            read.is_err(),
+            "a document is parsed where it is fetched, so a broken one is reported rather than \
+             expanded into nothing every time the window moves"
+        );
+    }
+
+    /// The whole point of the range command: an entry outside the window is absent, and asking
+    /// for a wider one brings it back without fetching anything again.
     #[test]
-    fn a_document_that_is_not_icalendar_is_a_failure_rather_than_an_empty_calendar() {
-        assert!(expand("<html>not a calendar</html>", now()).is_err());
+    fn widening_the_window_finds_an_entry_the_narrow_one_missed() {
+        let calendar = parsed(&ics("far@example", "Far", now() + TimeDelta::days(200)));
+
+        let near = payload(expanding(
+            0,
+            vec![loaded("far", calendar.clone())],
+            window(),
+        ));
+        let wide = payload(expanding(
+            0,
+            vec![loaded("far", calendar)],
+            Window::asked(now(), now() + TimeDelta::days(365)),
+        ));
+
+        assert!(
+            near.events.is_empty(),
+            "two hundred days out is past the window nobody asked to widen"
+        );
+        assert_eq!(wide.events.len(), 1);
+        assert_eq!(wide.events[0].summary, "Far");
+    }
+
+    /// A client that asks for a thousand years would have the daemon expand every rule in every
+    /// calendar to answer, so the ask is clipped rather than refused.
+    #[test]
+    fn a_window_nobody_could_render_is_clipped_rather_than_refused() {
+        let from = now();
+
+        assert_eq!(
+            Window::asked(from, from - TimeDelta::days(1)).to,
+            from,
+            "an end before its start is an empty window, not a negative one"
+        );
+        assert_eq!(
+            Window::asked(from, from + TimeDelta::days(5000)).to,
+            from + TimeDelta::days(SPAN)
+        );
     }
 
     /// A fetch reaches the filesystem through tokio's blocking pool, which yielding does not
     /// advance: without waiting on real time the inbox is still empty when the assertion runs.
+    struct Live {
+        mock: Arc<MockBroker>,
+        sender: crate::service::ServiceSender<Calendar>,
+        cancel: CancellationToken,
+        handle: tokio::task::JoinHandle<()>,
+    }
+
+    impl Live {
+        fn start(sources: Vec<CalendarSource>) -> Self {
+            let mock = Arc::new(MockBroker::default());
+            let broker: Arc<dyn BrokerHandle> = mock.clone();
+            let cancel = CancellationToken::new();
+            let mut runtime = ServiceRuntime::<Calendar>::new(
+                broker,
+                Buses::unavailable("no bus in tests"),
+                cancel.clone(),
+            );
+            let sender = runtime.sender();
+            let handle = tokio::spawn(async move {
+                let _ = runtime
+                    .run(Config {
+                        poll_interval: MIN_POLL,
+                        sources,
+                    })
+                    .await;
+            });
+
+            Self {
+                mock,
+                sender,
+                cancel,
+                handle,
+            }
+        }
+
+        async fn until(&self, done: impl Fn(&MockBroker) -> bool) -> bool {
+            for _ in 0..400 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+                if done(&self.mock) {
+                    return true;
+                }
+            }
+            false
+        }
+
+        async fn stop(self) -> Arc<MockBroker> {
+            self.cancel.cancel();
+            let _ = self.handle.await;
+            self.mock
+        }
+    }
+
     async fn settled(
         sources: Vec<CalendarSource>,
         done: impl Fn(&MockBroker) -> bool,
     ) -> Arc<MockBroker> {
-        let mock = Arc::new(MockBroker::default());
-        let broker: Arc<dyn BrokerHandle> = mock.clone();
-        let cancel = CancellationToken::new();
-        let mut runtime = ServiceRuntime::<Calendar>::new(
-            broker,
-            Buses::unavailable("no bus in tests"),
-            cancel.clone(),
-        );
+        let live = Live::start(sources);
+        live.until(done).await;
+        live.stop().await
+    }
 
-        let handle = tokio::spawn(async move {
-            let _ = runtime
-                .run(Config {
-                    poll_interval: MIN_POLL,
-                    sources,
-                })
-                .await;
-        });
+    fn marks(mock: &MockBroker) -> Vec<Option<DateTime<Utc>>> {
+        mock.published()
+            .into_iter()
+            .filter(|(topic, _)| topic == CalendarEvents::NAME)
+            .filter_map(|(_, data)| serde_json::from_value::<CalendarEvents>(data).ok())
+            .map(|payload| payload.truncated_from)
+            .collect()
+    }
 
-        for _ in 0..200 {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-            if done(&mock) {
-                break;
-            }
-        }
-
-        cancel.cancel();
-        let _ = handle.await;
-        mock
+    fn holds(mock: &MockBroker, summary: &str) -> bool {
+        published(mock)
+            .into_iter()
+            .flatten()
+            .any(|event| event.summary == summary)
     }
 
     fn published(mock: &MockBroker) -> Vec<Vec<CalendarEvent>> {
@@ -987,7 +1273,6 @@ END:VCALENDAR\r
             None,
             CalendarSourceKind::Directory,
             root.path().to_string_lossy().into_owned(),
-            now(),
         )
         .await;
 
@@ -997,8 +1282,9 @@ END:VCALENDAR\r
             "a directory never reaches the network, so it must not be given a timer"
         );
         let summaries: BTreeSet<String> = fetched
-            .occurrences
-            .into_iter()
+            .calendars
+            .iter()
+            .flat_map(|calendar| expand(calendar, window()))
             .map(|occurrence| occurrence.summary)
             .collect();
         assert!(summaries.contains("Standup"));
@@ -1014,6 +1300,142 @@ END:VCALENDAR\r
         )
     }
 
+    /// The cap belongs to the payload, not to a source: capping each source first would publish
+    /// more than the cap, and capping only the first would drop a whole calendar.
+    #[test]
+    fn the_cap_applies_to_the_merged_list_rather_than_to_each_source() {
+        let base = now();
+        let early = parsed(&crowded(base, EVENTS));
+        let late = parsed(&crowded(base + TimeDelta::days(1), EVENTS));
+
+        let merged = payload(expanding(
+            0,
+            vec![loaded("early", early), loaded("late", late)],
+            window(),
+        ));
+
+        assert_eq!(merged.events.len(), EVENTS);
+        let mark = merged.truncated_from.expect("a truncated payload");
+        assert!(
+            merged.events.iter().all(|kept| kept.start <= mark),
+            "everything kept starts no later than the first entry dropped"
+        );
+        assert!(
+            merged.events.iter().any(|event| event.source == "early")
+                && merged.events.iter().any(|event| event.source == "late"),
+            "both sources reach the payload, so the cap fell on the merge"
+        );
+    }
+
+    /// A mark that outlives the truncation tells a surface a day is missing entries when it is
+    /// not, and the placeholder it drives says so on every day from there on.
+    #[tokio::test]
+    async fn a_source_that_comes_back_under_the_cap_clears_its_mark() {
+        let root = tempfile::tempdir().expect("a scratch directory");
+        let file = root.path().join("crowd.ics");
+        let base = whole_second();
+        tokio::fs::write(&file, crowded(base, EVENTS + 20))
+            .await
+            .expect("a written fixture");
+
+        let live = Live::start(vec![source(
+            "crowd",
+            CalendarSourceKind::Directory,
+            &root.path().to_string_lossy(),
+        )]);
+        assert!(
+            live.until(|mock| marks(mock).iter().any(|mark| mark.is_some()))
+                .await,
+            "the crowded directory is marked to begin with"
+        );
+
+        tokio::fs::write(&file, crowded(base, 3))
+            .await
+            .expect("a rewritten fixture");
+        let cleared = live.until(|mock| marks(mock).last() == Some(&None)).await;
+
+        let mock = live.stop().await;
+        assert!(
+            cleared,
+            "shrinking under the cap clears the mark, got {:?}",
+            marks(&mock)
+        );
+    }
+
+    /// A mark belongs to a source. Deleting the source and keeping the mark tells every surface
+    /// that a month is missing when nothing is even configured.
+    #[tokio::test]
+    async fn removing_a_truncated_source_removes_its_mark() {
+        let root = tempfile::tempdir().expect("a scratch directory");
+        tokio::fs::write(
+            root.path().join("crowd.ics"),
+            crowded(whole_second(), EVENTS + 20),
+        )
+        .await
+        .expect("a written fixture");
+
+        let live = Live::start(vec![source(
+            "crowd",
+            CalendarSourceKind::Directory,
+            &root.path().to_string_lossy(),
+        )]);
+        assert!(
+            live.until(|mock| marks(mock).iter().any(|mark| mark.is_some()))
+                .await,
+            "the crowded source is marked to begin with"
+        );
+
+        live.sender
+            .send(Input::Config(Config {
+                poll_interval: MIN_POLL,
+                sources: Vec::new(),
+            }))
+            .await
+            .expect("queued");
+        let gone = live
+            .until(|mock| {
+                marks(mock).last() == Some(&None) && published(mock).last() == Some(&Vec::new())
+            })
+            .await;
+
+        let mock = live.stop().await;
+        assert!(
+            gone,
+            "the mark and the events went with the source, got {:?}",
+            marks(&mock)
+        );
+    }
+
+    /// Truncation used to be silent, which a surface cannot tell apart from a quiet month: the
+    /// list simply stopped and nothing said where. `truncated_from` is the start of the first
+    /// entry that was dropped, so everything before it is known complete.
+    #[tokio::test]
+    async fn a_source_over_the_cap_says_where_its_list_stops() {
+        let payload = crowd(EVENTS + 40).await;
+
+        assert_eq!(payload.events.len(), EVENTS);
+        let from = payload.truncated_from.expect("a truncated payload");
+        assert_eq!(
+            from,
+            payload.events[EVENTS - 1].start + TimeDelta::minutes(30),
+            "the mark is the first entry dropped, not the last one kept"
+        );
+        assert!(
+            payload.events.iter().all(|kept| kept.start < from),
+            "everything published is complete strictly before the mark"
+        );
+    }
+
+    /// The window is what a surface asked for, so a list that fits inside it is complete. Marking
+    /// the horizon instead is what made every day past it read as one the daemon had skipped.
+    #[tokio::test]
+    async fn a_source_inside_the_cap_carries_no_mark_at_all() {
+        let payload = crowd(12).await;
+
+        assert_eq!(payload.events.len(), 12);
+        assert_eq!(payload.truncated_from, None);
+    }
+
     /// A directory source declares no timer at all, so both reads here can only be the watch: the
     /// first is the leading read it opens with, the second the file arriving.
     #[tokio::test]
@@ -1027,43 +1449,14 @@ END:VCALENDAR\r
         .await
         .expect("a written fixture");
 
-        let mock = Arc::new(MockBroker::default());
-        let broker: Arc<dyn BrokerHandle> = mock.clone();
-        let cancel = CancellationToken::new();
-        let mut runtime = ServiceRuntime::<Calendar>::new(
-            broker,
-            Buses::unavailable("no bus in tests"),
-            cancel.clone(),
-        );
-        let sources = vec![source(
+        let live = Live::start(vec![source(
             "local",
             CalendarSourceKind::Directory,
             &root.path().to_string_lossy(),
-        )];
-        let handle = tokio::spawn(async move {
-            let _ = runtime
-                .run(Config {
-                    poll_interval: MIN_POLL,
-                    sources,
-                })
-                .await;
-        });
+        )]);
 
-        let holds = |mock: &MockBroker, summary: &str| {
-            published(mock)
-                .into_iter()
-                .flatten()
-                .any(|event| event.summary == summary)
-        };
-
-        for _ in 0..400 {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-            if holds(&mock, "First") {
-                break;
-            }
-        }
         assert!(
-            holds(&mock, "First"),
+            live.until(|mock| holds(mock, "First")).await,
             "the watch opens with a read, since nothing else ever reads a directory"
         );
 
@@ -1073,21 +1466,10 @@ END:VCALENDAR\r
         )
         .await
         .expect("a written fixture");
+        let arrived = live.until(|mock| holds(mock, "Second")).await;
 
-        for _ in 0..400 {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-            if holds(&mock, "Second") {
-                break;
-            }
-        }
-
-        cancel.cancel();
-        let _ = handle.await;
-
-        assert!(
-            holds(&mock, "Second"),
-            "a file dropped in reached the topic"
-        );
+        live.stop().await;
+        assert!(arrived, "a file dropped in reached the topic");
     }
 
     /// Nothing polls a directory source any more, so a `directory` pointed at a feed would sit
@@ -1097,21 +1479,21 @@ END:VCALENDAR\r
     /// because the floor is a minute.
     #[test]
     fn only_a_source_that_reaches_the_network_is_given_a_timer() {
-        let none = BTreeSet::new();
-        let sidecars: BTreeSet<String> = ["side".to_owned()].into_iter().collect();
+        let fresh = false;
+        let sidecar = true;
 
         let table = [
             (
                 "dir bare path",
                 source("d", CalendarSourceKind::Directory, "/tmp/cal"),
-                &none,
+                fresh,
                 true,
                 false,
             ),
             (
                 "dir file url",
                 source("d", CalendarSourceKind::Directory, "file:///tmp/cal"),
-                &none,
+                fresh,
                 true,
                 false,
             ),
@@ -1122,42 +1504,42 @@ END:VCALENDAR\r
                     CalendarSourceKind::Directory,
                     "https://example.test/a.ics",
                 ),
-                &none,
+                fresh,
                 true,
                 false,
             ),
             (
                 "ical https",
                 source("h", CalendarSourceKind::Ical, "https://example.test/a.ics"),
-                &none,
+                fresh,
                 false,
                 true,
             ),
             (
                 "ical bare path",
                 source("f", CalendarSourceKind::Ical, "/tmp/a.ics"),
-                &none,
+                fresh,
                 true,
                 false,
             ),
             (
                 "ical file url",
                 source("f", CalendarSourceKind::Ical, "file:///tmp/a.ics"),
-                &none,
+                fresh,
                 true,
                 false,
             ),
             (
                 "ical bad scheme",
                 source("w", CalendarSourceKind::Ical, "webcal://x.test/a.ics"),
-                &none,
+                fresh,
                 false,
                 true,
             ),
             (
                 "sidecar, known remote",
                 source("side", CalendarSourceKind::Ical, "file:///tmp/a.url"),
-                &sidecars,
+                sidecar,
                 true,
                 true,
             ),
@@ -1241,59 +1623,25 @@ END:VCALENDAR\r
             .await
             .expect("a written fixture");
 
-        let mock = Arc::new(MockBroker::default());
-        let broker: Arc<dyn BrokerHandle> = mock.clone();
-        let cancel = CancellationToken::new();
-        let mut runtime = ServiceRuntime::<Calendar>::new(
-            broker,
-            Buses::unavailable("no bus in tests"),
-            cancel.clone(),
-        );
-        let sources = vec![source(
+        let live = Live::start(vec![source(
             "localfile",
             CalendarSourceKind::Ical,
             &format!("file://{}", file.display()),
-        )];
-        let handle = tokio::spawn(async move {
-            let _ = runtime
-                .run(Config {
-                    poll_interval: MIN_POLL,
-                    sources,
-                })
-                .await;
-        });
+        )]);
 
-        let holds = |mock: &MockBroker, summary: &str| {
-            published(mock)
-                .into_iter()
-                .flatten()
-                .any(|event| event.summary == summary)
-        };
-
-        for _ in 0..400 {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-            if holds(&mock, "Before") {
-                break;
-            }
-        }
-        assert!(holds(&mock, "Before"), "the watch opens with a read");
+        assert!(
+            live.until(|mock| holds(mock, "Before")).await,
+            "the watch opens with a read"
+        );
 
         tokio::fs::write(&file, ics("one@example", "After", at))
             .await
             .expect("a rewritten fixture");
+        let reread = live.until(|mock| holds(mock, "After")).await;
 
-        for _ in 0..400 {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-            if holds(&mock, "After") {
-                break;
-            }
-        }
-
-        cancel.cancel();
-        let _ = handle.await;
-
+        live.stop().await;
         assert!(
-            holds(&mock, "After"),
+            reread,
             "an edited local .ics reached the topic with no timer to carry it"
         );
     }
@@ -1306,7 +1654,6 @@ END:VCALENDAR\r
             None,
             CalendarSourceKind::Directory,
             root.path().to_string_lossy().into_owned(),
-            now(),
         )
         .await;
 

@@ -338,9 +338,33 @@ both behind an `Rc` so the `day-selected` closure and the tick can each render w
 label alone. A second clock showing Tokyo should not also claim your calendar is in Tokyo, and the
 events it lists are local by definition.
 
-**Events are a fixture until the service exists.** `popover::fixture` builds a day's worth relative
-to today, enough to reach the overflow row and the empty state. It goes when the calendar service
-lands.
+**Events come from `calendar.events`.** `topics()` names it, the runtime subscribes at build time,
+and `Input::Topic` decodes the payload into `popover::occasions`. The conversion is where the wire
+type stops: `DateTime<Utc>` becomes local, and the `color` hex string becomes a `gdk::RGBA` through
+`RGBA::parse`, whose failure costs that event its dot rather than the popover. Nothing here caps the
+text again — the service caps and flattens before publishing, and a second cap would be an untested
+copy of a rule that already has one.
+
+**The applet asks the daemon for the months it is showing.** `ask_for_range` turns the calendar's
+shown month into `[first of that month, first of the month after next)` and sends
+`calendar.set_range`; it runs from `configure`, and again on every `Tick` and `Woken`, sending only
+when the range actually changed. The month step reaches it because `CalendarPopover` re-emits the
+calendar's `month-shown` and the applet wakes on it, the same route `day-selected` already took —
+an applet has no `ctx` inside `popover()`, so waking is how a widget signal turns into a command.
+With no popover open the range falls back to the current month, so a panel left running across a
+month boundary re-asks on the next tick. A fixed window in the daemon is what made December render
+empty for a weekly meeting that was certainly there.
+
+**Several panels share one range, and the last one to ask wins.** The command carries no client
+identity and `calendar.events` is one topic, so two clock applets browsing different months
+overwrite each other. Each re-asserts on its own next step, so it self-corrects rather than sticking
+— bead `glimpse-66sq`.
+
+**A day past `truncated_from` says so instead of looking empty.** The daemon caps the merged list at
+512 events and reports the start of the first entry it dropped; `truncated` compares the shown day
+against that instant in local time, and `set_day_truncated` swaps the placeholder. Without it a busy
+calendar renders a silent empty month, which reads as a panel bug rather than as a limit. The
+comparison is `>=`, because the day the mark falls on is already missing entries.
 
 **An applet on the runtime's `IndicatorGroup` must ask for its own popover.** The press arrives as
 `Input::Pointer(Pointer::Press(Button::Left))` and `ctx.opener().open_popover()` is what opens it —

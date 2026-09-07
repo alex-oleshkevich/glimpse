@@ -1014,6 +1014,21 @@ calls `set_reveal_child` directly and both popovers go through `drawer::toggle` 
 `set_day` closes it too when a shorter list no longer overflows, which is what stops the drawer
 standing open on nothing after the selection moves to a quieter day.
 
+**Both placeholder wordings live in the template, and `set_day_truncated` only switches between
+them.** The day's placeholder slot holds a `Gtk.Stack` with a `nothing` page and a `truncated` page,
+each a `$Placeholder` carrying its own `_()` strings. Writing the wording from Rust instead was the
+bug: nothing in this tree translates a Rust string, so a placeholder set from `mod.rs` silently lost
+the translation the blueprint already had, and the two copies were free to drift. The `nothing` page
+is bound as a `TemplateChild<Placeholder>` even though no method reads it — binding a type in Rust
+is what registers its GType before `Builder` resolves `$Placeholder` by name, and the second page is
+reached only through the stack.
+
+**`month-shown` fires from `render`, once per month actually shown.** Every navigation path —
+`step`, `show_month`, the year view, the today button — funnels through `Calendar::render`, so the
+signal is emitted there against an `announced` cell rather than from each of them. A day picked
+inside the month already shown emits nothing, which is what keeps the panel from re-asking the
+daemon for a range it already has.
+
 **A section with nothing in it hides rather than emptying, and so does the slot holding it.** The
 world clock disappears when no zones are configured, and the footer row when no `settings-label` is
 set — a heading over nothing, or a row that does nothing when clicked, are both worse than the space
@@ -1024,9 +1039,9 @@ footer still costs its padding and leaves a border with nothing under it.
 and the design sketch in `agenda.blp` does, but a number nobody asked for is noise that has to be
 kept correct as well as read.
 
-`set_day` takes two titles rather than composing one. The day section reads "Today" or a weekday and
-the drawer reads "Everything"; building the second out of the first would be string surgery on
-translated text.
+`set_day` names both sections after the same day. The drawer holds that one day's complete list —
+it is what the "N more events" row expands — so calling it "Everything" said something the widget
+does not do; the day it is showing is the only honest heading, and it costs no second string.
 
 **Every type the template names must be bound as a `TemplateChild`, including the ones Rust never
 touches.** Binding is what registers the Rust GType before `init_template` resolves the class name;
@@ -1130,3 +1145,20 @@ Every widget assertion lives in one `#[ignore]`d test function. GTK binds to whi
 race rather than a second test. `#[ignore]` is what keeps `just test` green without a display;
 `just test-compositor` is the recipe that runs it. The test registers the gresource itself, because
 a template resolves its resource at class-init and only the binaries get that from `main.rs`.
+
+**`CalendarPopover::set_day_unloaded` is two wordings for one placeholder.** `$Placeholder nothing`
+carries "Nothing scheduled" in the blueprint, which is right when a day is genuinely free and wrong
+when the daemon simply did not send that far. The setter swaps icon, title and description between
+the two states; the blueprint keeps its own strings so `just preview` still renders something. Both
+wordings live in Rust because a placeholder object can only hold one at a time.
+
+**`EventList` answers the tooltip, not the row that shows the text.** A summary is capped by the
+daemon at 120 characters and ellipsized again by the row's width, so what is on screen is not what
+was sent, and hovering should recover it. Setting the tooltip on the `EventRow` looks right and
+never fires: `Row::set_activatable(false)` calls `set_can_target(false)`, a non-targetable widget is
+skipped by picking, and GTK finds tooltips by picking. `EventList` defaults to non-activatable, so
+every row in the calendar popover is in exactly that state. The list therefore takes
+`has-tooltip` itself and answers `query-tooltip` by mapping the pointer's `y` onto the row
+allocations — which also works when rows *are* activatable, because the lookup walks up from the
+picked widget. The text goes through `Tooltip::set_text`, never `set_markup`: a feed's summary is
+another application's text, and the plain-text setter cannot be talked into parsing markup out of it.

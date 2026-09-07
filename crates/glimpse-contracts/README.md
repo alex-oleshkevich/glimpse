@@ -83,6 +83,24 @@ for Python, TypeScript or Go, and this crate is the input those generators read.
 RFC 3339 string, which every generator already has a date type for, and both ends of the socket
 were converting timestamps by hand without it. It arrived with `CalendarEvent`.
 
+**`calendar.set_range` decides what `calendar.events` holds.** The topic is not a fixed window the
+daemon picks; it is whatever range was last asked for, and a surface that shows a month asks for
+that month and the one after it. The clock applet does exactly that, on start and on every month
+step, so browsing a year out costs one command and no fetching — the daemon keeps the parsed
+calendars and re-expands them. Until something asks, the daemon publishes a near window around now,
+so a client that never sends the command still gets a working topic. The ask is clipped rather than
+refused: an end before its start is an empty window, and anything wider than 400 days is cut to 400,
+because a client asking for a century would have the daemon expand every recurrence rule to answer.
+
+**`CalendarEvents.truncated_from` is where the list stops being complete.** The merged list is
+capped at 512 events, and truncating by count after sorting by start silently narrows the window a
+surface believes it has — measured, a directory of 2020 occurrences over a 69-day window published
+10 days of it and said nothing, so a busy calendar rendered an empty October that looked like a
+panel bug. The field carries the start of the first entry that was dropped, so everything before it
+is known complete and a surface can say "nothing loaded beyond here" rather than "nothing here".
+`None` means the whole requested range is present, which it now usually is: the cap is reached only
+by a genuinely crowded range, not by asking for one wider than the daemon fetches.
+
 **`CalendarEvent.end` is the last instant the entry covers, not iCalendar's exclusive bound.** A
 single all-day entry runs from local midnight to a second before the next one, so `end.date_naive()`
 answers "which day is this on" and a surface renders a multi-day entry without knowing what a

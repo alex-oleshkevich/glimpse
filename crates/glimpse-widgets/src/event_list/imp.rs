@@ -46,6 +46,15 @@ impl ObjectImpl for EventList {
         if let Some(layout) = list.layout_manager().and_downcast::<gtk4::BoxLayout>() {
             layout.set_orientation(gtk4::Orientation::Vertical);
         }
+
+        list.set_has_tooltip(true);
+        list.connect_query_tooltip(|list, _x, y, _keyboard, tooltip| match list.summary_at(y) {
+            Some(summary) => {
+                tooltip.set_text(Some(&summary));
+                true
+            }
+            None => false,
+        });
     }
 
     fn dispose(&self) {

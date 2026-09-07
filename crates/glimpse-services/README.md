@@ -138,16 +138,44 @@ Three consequences follow from a watched source having no timer:
   by sources that are fetched; the schema says so. A setting that looks like it works and does not
   is worse than one documented as inapplicable.
 
-**`read` is handed its clock rather than reading one.** The occurrence window is anchored on the
-instant passed in, which is `Utc::now()` at both call sites and a fixed instant in tests. A `read`
-that called `Utc::now()` itself made every fixture-dated test expire sixty-two days after it was
-written.
+**Fetching and expanding are two steps, and only the first touches the world.** `read` fetches and
+parses, and keeps the `icalendar::Calendar` behind an `Arc`; `expanding` turns those into events for
+one `Window`. Nothing is expanded at fetch time, so `calendar.set_range` changes what is published
+without a single request — measured, a panel stepping to a month a year out gets its answer off
+calendars already in memory. Parsing at fetch is what keeps a document that will not parse a
+reported failure rather than a source that silently expands to nothing on every window change.
+
+**Re-expansion is a subscription, not work done in the handler.** Anything that invalidates the
+published list — a fetch landing, the configuration changing, a new range — bumps `generation`,
+which is a `SubKey`, so the framework retires the old expansion and starts a new one. The expansion
+itself runs on `spawn_blocking`, because a crowded calendar over a wide window is real CPU work and
+a tokio worker is not the place for it. An `Expanded` event carrying a stale generation is dropped
+by the same straggler guard the fetches use.
+
+**The window is asked for, not assumed.** `Window::around` is the near window a fresh service
+publishes so a client that never asks still sees something; `Window::asked` is what
+`calendar.set_range` sets, clipped to `SPAN` days and to a non-negative length. A fixed window is
+what made a December nobody had fetched look like a December with nothing in it.
 
 **A per-entity topic cannot be declared, so one topic carries the collection.** `TOPICS` is
 `&'static [&'static str]` and the broker drops a publish to a name nothing declared, so there is no
 `calendar.source.{id}.events`. The cost is honest: one source changing republishes every event. The
 shape is what `next-event` will read later — it wants the earliest entry across all sources, which
 is the first element of a list already sorted by start.
+
+**Truncation is reported, not silent.** The merged list is capped at 512 events, applied after
+sorting by start, so a crowded calendar loses the tail of the window rather than a random slice.
+That was measured collapsing a 69-day window to 10 days with nothing on the wire to say so, which a
+surface cannot tell apart from a quiet month. `expanding` therefore sends the start of the first
+entry it dropped as `truncated_from`, and `None` when nothing was. The cap belongs to the payload
+rather than to a source: capping each source first would publish more than the cap, and capping only
+the first would drop a whole calendar.
+
+**Text off a feed is cleaned against bidi, not only against control characters.**
+`char::is_control` is the Cc category alone, so the overrides `U+202A..=U+202E` and the isolates
+`U+2066..=U+2069` pass it — and Pango honours both, which lets a summary reorder the row it lands
+in. `clean` names those ranges beside `is_control`; `glimpse-compositors` carries the same predicate
+for window titles.
 
 **A failing source degrades the service and keeps its last events.** A feed that 404s or a directory
 that disappears lands in a failure map; the events fetched before it broke stay published, and

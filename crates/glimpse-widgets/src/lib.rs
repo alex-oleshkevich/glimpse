@@ -1964,6 +1964,51 @@ mod tests {
             !drawer().reveals_child(),
             "back under the cap the drawer closes rather than standing open on nothing"
         );
+
+        popover.set_day("Tuesday", &few);
+        assert_eq!(
+            popover.imp().everything.title().as_deref(),
+            Some("Tuesday"),
+            "the drawer holds the whole of one day, so it is named after that day"
+        );
+
+        let placeholder = || popover.imp().states.visible_child_name();
+        assert_eq!(
+            placeholder().as_deref(),
+            Some("nothing"),
+            "a day with nothing on it is the wording the template opens with"
+        );
+        popover.set_day_truncated(true);
+        assert_eq!(
+            placeholder().as_deref(),
+            Some("truncated"),
+            "both wordings live in the template, so neither is a Rust string no translator sees"
+        );
+        popover.set_day_truncated(false);
+        assert_eq!(placeholder().as_deref(), Some("nothing"));
+
+        popover.imp().calendar.show_month(2026, 12);
+        let months = Rc::new(RefCell::new(Vec::new()));
+        popover.connect_month_shown({
+            let months = Rc::clone(&months);
+            move |_, year, month| months.borrow_mut().push((year, month))
+        });
+
+        popover.imp().calendar.step(1);
+        popover.imp().calendar.step(1);
+        assert_eq!(
+            months.borrow().as_slice(),
+            [(2027, 1), (2027, 2)],
+            "the panel asks the daemon for the months it is showing, so every step has to reach it"
+        );
+        assert_eq!(popover.shown_month(), (2027, 2));
+
+        popover.imp().calendar.select(Ymd::new(2027, 2, 3));
+        assert_eq!(
+            months.borrow().len(),
+            2,
+            "picking a day inside the month already shown asks the daemon for nothing new"
+        );
     }
 
     fn children_of<T: IsA<gtk4::Widget>>(parent: &impl IsA<gtk4::Widget>) -> Vec<T> {

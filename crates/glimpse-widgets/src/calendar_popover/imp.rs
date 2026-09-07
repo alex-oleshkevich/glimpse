@@ -20,6 +20,8 @@ pub struct CalendarPopover {
     #[template_child]
     pub events: TemplateChild<EventList>,
     #[template_child]
+    pub states: TemplateChild<gtk4::Stack>,
+    #[template_child]
     pub nothing: TemplateChild<Placeholder>,
     #[template_child]
     pub zones: TemplateChild<Section>,
@@ -59,6 +61,9 @@ impl ObjectImpl for CalendarPopover {
                 glib::subclass::Signal::builder("day-selected")
                     .param_types([i32::static_type(), u32::static_type(), u32::static_type()])
                     .build(),
+                glib::subclass::Signal::builder("month-shown")
+                    .param_types([i32::static_type(), u32::static_type()])
+                    .build(),
                 glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
@@ -75,6 +80,14 @@ impl ObjectImpl for CalendarPopover {
             popover,
             move |_, date| {
                 popover.emit_by_name::<()>("day-selected", &[&date.year, &date.month, &date.day]);
+            }
+        ));
+
+        self.calendar.connect_month_shown(glib::clone!(
+            #[weak]
+            popover,
+            move |_, year, month| {
+                popover.emit_by_name::<()>("month-shown", &[&year, &month]);
             }
         ));
 

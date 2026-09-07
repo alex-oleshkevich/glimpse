@@ -48,12 +48,37 @@ impl CalendarPopover {
 
         imp.day.set_title(Some(title));
         imp.day.set_empty(events.is_empty());
+        imp.everything.set_title(Some(title));
         imp.events.set_events(events);
         imp.all.set_events(events);
 
         if !imp.events.overflows() {
             crate::drawer::set(&imp.drawer, false);
         }
+    }
+
+    pub fn set_day_truncated(&self, truncated: bool) {
+        self.imp().states.set_visible_child_name(match truncated {
+            true => "truncated",
+            false => "nothing",
+        });
+    }
+
+    pub fn shown_month(&self) -> (i32, u32) {
+        self.imp().calendar.shown()
+    }
+
+    pub fn connect_month_shown<F: Fn(&Self, i32, u32) + 'static>(
+        &self,
+        handler: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "month-shown",
+            false,
+            glib::closure_local!(move |popover: Self, year: i32, month: u32| {
+                handler(&popover, year, month);
+            }),
+        )
     }
 
     pub fn set_zones(&self, zones: &[Zone]) {

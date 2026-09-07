@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::types::*;
@@ -77,4 +78,7 @@ commands! {
 
     #[name = "calendar.refresh"]
     pub struct CalendarRefresh {} -> ();
+
+    #[name = "calendar.set_range"]
+    pub struct CalendarSetRange { from: DateTime<Utc>, to: DateTime<Utc> } -> ();
 }

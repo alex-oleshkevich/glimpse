@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use chrono::{DateTime, Utc};
+
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::types::*;
@@ -76,5 +78,5 @@ topics! {
     pub struct CompositorOutputs { outputs: Vec<OutputInfo> }
 
     #[name = "calendar.events"]
-    pub struct CalendarEvents { events: Vec<CalendarEvent> }
+    pub struct CalendarEvents { events: Vec<CalendarEvent>, truncated_from: Option<DateTime<Utc>> }
 }

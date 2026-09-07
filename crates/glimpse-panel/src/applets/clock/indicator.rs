@@ -1,16 +1,17 @@
 use std::fmt::Write as _;
 use std::time::Duration;
 
-use chrono::{DateTime, Local, TimeZone, Utc};
+use chrono::{DateTime, Datelike as _, Local, TimeZone, Utc};
 use chrono_tz::Tz;
 use glimpse_config::{Applet as AppletConfig, AppletKind, ClockConfig, HourFormat};
+use glimpse_contracts::{CalendarEvents, CalendarSetRange, Message as _};
 use glimpse_widgets::{CalendarPopover, IndicatorSpec};
 use gtk4::glib;
 
 use super::agenda::Occasion;
 use super::popover;
 use crate::applet::popover::{PopoverHandle, Seat};
-use crate::applet::{Applet, Ctx, Input};
+use crate::applet::{Applet, Ctx, Input, payload};
 
 const SECOND: Duration = Duration::from_secs(1);
 const MINUTE: Duration = Duration::from_secs(60);
@@ -24,10 +25,16 @@ pub struct Clock {
     footer: Option<(String, Vec<String>)>,
     zone: Option<Tz>,
     events: Vec<Occasion>,
+    truncated_from: Option<DateTime<Utc>>,
+    range: Option<(DateTime<Utc>, DateTime<Utc>)>,
     shown: glib::WeakRef<CalendarPopover>,
 }
 
 impl Applet for Clock {
+    fn topics(&self) -> &'static [&'static str] {
+        &[CalendarEvents::NAME]
+    }
+
     fn start() -> Self {
         Self::default()
     }
@@ -71,16 +78,33 @@ impl Applet for Clock {
             self.tooltip_format.as_deref(),
         ));
 
+        self.ask_for_range(ctx);
+
         if let Some(shown) = self.shown.upgrade() {
             self.dress(&shown);
         }
     }
 
-    fn handle(&mut self, _ctx: &Ctx, input: &Input) {
-        let (Input::Tick | Input::Woken, Some(shown)) = (input, self.shown.upgrade()) else {
+    fn handle(&mut self, ctx: &Ctx, input: &Input) {
+        if let Input::Topic(event) = input {
+            let Some(events) = payload::<CalendarEvents>(event) else {
+                return;
+            };
+            self.events = popover::occasions(&events.events);
+            self.truncated_from = events.truncated_from;
+            if let Some(shown) = self.shown.upgrade() {
+                self.dress(&shown);
+            }
             return;
-        };
-        self.paint(&shown);
+        }
+
+        if !matches!(input, Input::Tick | Input::Woken) {
+            return;
+        }
+        self.ask_for_range(ctx);
+        if let Some(shown) = self.shown.upgrade() {
+            self.paint(&shown);
+        }
     }
 
     fn indicators(&self) -> Vec<IndicatorSpec> {
@@ -99,13 +123,15 @@ impl Applet for Clock {
 
     fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let today = Local::now().date_naive();
-        self.events = popover::fixture(today);
 
         let shown = CalendarPopover::new();
         shown.open_on(popover::ymd(today));
 
         let opener = seat.opener();
         shown.connect_day_selected(move |_, _| opener.wake());
+
+        let opener = seat.opener();
+        shown.connect_month_shown(move |_, _, _| opener.wake());
 
         if let Some((_, command)) = &self.footer {
             let command = command.clone();
@@ -133,14 +159,42 @@ impl Clock {
             .selected()
             .and_then(popover::date)
             .unwrap_or_else(|| now.date_naive());
-        popover::render(
-            shown,
-            now,
-            day,
-            &self.events,
-            self.twelve,
-            self.settings.week_numbers,
+        let clock = match self.twelve {
+            true => popover::TWELVE,
+            false => popover::TWENTY_FOUR,
+        };
+
+        let (title, week) = popover::heading(day, self.settings.week_numbers);
+        shown.set_heading(&title, week.as_deref());
+        shown.set_day_truncated(popover::truncated(day, self.truncated_from));
+        shown.set_day(
+            &popover::day_title(day, now.date_naive()),
+            &popover::rows(now, day, &self.events, clock),
         );
+        if let Ok(instant) = glib::DateTime::from_unix_local(now.timestamp()) {
+            shown.set_now(&instant);
+        }
+    }
+
+    fn ask_for_range(&mut self, ctx: &Ctx) {
+        let (year, month) = match self.shown.upgrade() {
+            Some(shown) => shown.shown_month(),
+            None => {
+                let today = Local::now().date_naive();
+                (today.year(), today.month())
+            }
+        };
+        let Some(range) = popover::month_pair(year, month) else {
+            return;
+        };
+        if self.range == Some(range) {
+            return;
+        }
+        self.range = Some(range);
+        ctx.call::<CalendarSetRange>(CalendarSetRange {
+            from: range.0,
+            to: range.1,
+        });
     }
 
     fn read(&self, format: &str) -> Option<String> {

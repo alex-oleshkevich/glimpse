@@ -48,6 +48,7 @@ pub struct Calendar {
     pub events: RefCell<HashMap<Ymd, Vec<gdk::RGBA>>>,
 
     pub shown: Cell<(i32, u32)>,
+    pub announced: Cell<Option<(i32, u32)>>,
     pub today: Cell<Ymd>,
     pub selected: Cell<Option<Ymd>>,
 
@@ -110,6 +111,10 @@ impl Calendar {
 
     pub fn render(&self) {
         let (year, month) = self.shown.get();
+        if self.announced.replace(Some((year, month))) != Some((year, month)) {
+            self.obj()
+                .emit_by_name::<()>("month-shown", &[&year, &month]);
+        }
         let today = self.today.get();
         let selected = self.selected.get();
         let year_view = self.in_year_view();
@@ -203,6 +208,9 @@ impl ObjectImpl for Calendar {
             vec![
                 glib::subclass::Signal::builder("day-selected")
                     .param_types([i32::static_type(), u32::static_type(), u32::static_type()])
+                    .build(),
+                glib::subclass::Signal::builder("month-shown")
+                    .param_types([i32::static_type(), u32::static_type()])
                     .build(),
             ]
         })
