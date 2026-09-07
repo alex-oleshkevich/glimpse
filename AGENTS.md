@@ -425,6 +425,11 @@ window that asks for itself sends nothing at all and the compositor never hears 
   parses, formats, resolves, encodes or retries anything, read the root `Cargo.toml` — the answer is
   often already declared and unused. `XDG_RUNTIME_DIR` resolution was written out longhand here
   while `dirs` sat in the workspace doing exactly that.
+- **Check the lockfile before proposing a crate — the answer may already be compiled.** A direct
+  dependency's own dependencies are in `Cargo.lock` and are already built, so promoting one to
+  `[workspace.dependencies]` adds no supply-chain surface and no build time. `iso8601` was reached
+  for to parse an RFC 5545 `DURATION`, and `icalendar` already pulls it in; `grep '^name = "x"'
+  Cargo.lock` is the check, and it turns a proposal into a one-line addition.
 - **Propose a new dependency, never add one silently.** If nothing in `std` or the workspace fits,
   name the crate, say what it replaces and how much code that saves, and wait. Adding a dependency
   is the user's call; writing forty lines to avoid asking is not a way around that.

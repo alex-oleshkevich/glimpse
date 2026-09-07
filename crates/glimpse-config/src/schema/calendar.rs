@@ -35,10 +35,11 @@ pub struct Source {
     /// Whether `uri` names a subscription feed or a directory of `.ics` files.
     #[serde(rename = "type")]
     pub kind: SourceKind,
-    /// The feed or directory. A provider's iCalendar URL behaves like a read-only access
-    /// token — anyone holding it can usually read the calendar without signing in — so a
-    /// `file://` path to a one-line sidecar file is offered as an alternative to writing a
-    /// secret URL into a configuration file that gets shared or committed.
+    /// The feed or directory. `webcal://`, which is what a provider's Subscribe button hands
+    /// out, is read as the `https://` it stands for. A provider's iCalendar URL behaves like a
+    /// read-only access token — anyone holding it can usually read the calendar without signing
+    /// in — so a `file://` path to a one-line sidecar file is offered as an alternative to
+    /// writing a secret URL into a configuration file that gets shared or committed.
     pub uri: String,
     /// What to call this calendar on screen. Unset falls back to `id`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -56,8 +57,9 @@ pub struct Source {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize, Serialize, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum SourceKind {
-    /// One iCalendar document: an `https://` feed, a local `.ics`, or a `file://` holding a
-    /// one-line feed URL. A local one is watched; a remote one is fetched on `poll-interval`.
+    /// One iCalendar document: an `https://` or `webcal://` feed, a local `.ics`, or a `file://`
+    /// holding a one-line feed URL. A local one is watched; a remote one is fetched on
+    /// `poll-interval`.
     Ical,
     /// A directory of `.ics` files, watched for changes rather than polled.
     Directory,

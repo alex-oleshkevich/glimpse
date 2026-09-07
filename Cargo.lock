@@ -1017,6 +1017,7 @@ dependencies = [
  "glimpse-dbus",
  "glimpse-ipc",
  "icalendar",
+ "iso8601",
  "reqwest",
  "rrule",
  "serde",

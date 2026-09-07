@@ -38,6 +38,7 @@ const REASON: usize = 240;
 const MIN_POLL: u64 = 60;
 const TIMEOUT: Duration = Duration::from_secs(20);
 const AGENT: &str = concat!("glimpse/", env!("CARGO_PKG_VERSION"));
+const WEBCAL: &str = "webcal://";
 
 #[derive(Debug, PartialEq)]
 pub enum Command {
@@ -56,6 +57,10 @@ pub enum Event {
     Expanded {
         generation: u64,
         payload: CalendarEvents,
+    },
+    Unwatched {
+        id: String,
+        reason: String,
     },
 }
 
@@ -289,7 +294,8 @@ impl Service for Calendar {
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
-            Input::Event(Event::Fetched { id, .. }) if !self.knows(&id) => {}
+            Input::Event(Event::Fetched { id, .. } | Event::Unwatched { id, .. })
+                if !self.knows(&id) => {}
             Input::Event(Event::Expanded { generation, .. }) if generation != self.generation => {}
             Input::Event(Event::Fetched { id, result }) => {
                 match result {
@@ -306,6 +312,10 @@ impl Service for Calendar {
             }
             Input::Event(Event::Expanded { payload, .. }) => {
                 self.events.set(payload);
+            }
+            Input::Event(Event::Unwatched { id, reason }) => {
+                self.failures.entry(id).or_insert(reason);
+                self.report(ctx);
             }
             Input::Config(config) => {
                 self.poll = config.poll_interval;
@@ -415,7 +425,18 @@ enum Location {
     Local(PathBuf),
 }
 
+fn subscribed(uri: &str) -> String {
+    match uri
+        .get(..WEBCAL.len())
+        .is_some_and(|scheme| scheme.eq_ignore_ascii_case(WEBCAL))
+    {
+        true => format!("https://{}", &uri[WEBCAL.len()..]),
+        false => uri.to_owned(),
+    }
+}
+
 fn location(uri: &str) -> Result<Location, String> {
+    let uri = &subscribed(uri);
     match Url::parse(uri) {
         Ok(url) => match url.scheme() {
             "http" | "https" => Ok(Location::Remote(url)),
@@ -433,7 +454,7 @@ fn sidecar(text: &str) -> Option<Url> {
     if trimmed.is_empty() || trimmed.len() > SIDECAR || trimmed.lines().count() > 1 {
         return None;
     }
-    match Url::parse(trimmed) {
+    match Url::parse(&subscribed(trimmed)) {
         Ok(url) if matches!(url.scheme(), "http" | "https") => Some(url),
         _ => None,
     }
@@ -558,7 +579,12 @@ fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
             continue;
         };
         let all_day = matches!(start, DatePerhapsTime::Date(_));
-        let length = length(&start, event.get_end().as_ref(), all_day);
+        let length = length(
+            &start,
+            event.get_end().as_ref(),
+            event.property_value("DURATION"),
+            all_day,
+        );
         let Ok(set) = entry.get_recurrence() else {
             continue;
         };
@@ -622,9 +648,9 @@ fn watching(
         async move {
             match update {
                 Update::Changed(_) | Update::Rearmed => reread(client, id, uri, kind).await,
-                Update::Unavailable(reason) => Event::Fetched {
+                Update::Unavailable(reason) => Event::Unwatched {
                     id,
-                    result: Err(format!("its directory is not being watched: {reason}")),
+                    reason: format!("its directory is not being watched: {reason}"),
                 },
             }
         }
@@ -646,12 +672,26 @@ fn moment(value: &DatePerhapsTime) -> NaiveDateTime {
     }
 }
 
-fn length(start: &DatePerhapsTime, end: Option<&DatePerhapsTime>, all_day: bool) -> TimeDelta {
-    let span = end.map_or_else(TimeDelta::zero, |end| moment(end) - moment(start));
-    match all_day {
+fn length(
+    start: &DatePerhapsTime,
+    end: Option<&DatePerhapsTime>,
+    duration: Option<&str>,
+    all_day: bool,
+) -> TimeDelta {
+    let span = match end {
+        Some(end) => moment(end) - moment(start),
+        None => duration.and_then(spanning).unwrap_or_else(TimeDelta::zero),
+    };
+    let span = match all_day {
         true => span.max(TimeDelta::days(1)) - TimeDelta::seconds(1),
         false => span.max(TimeDelta::zero()),
-    }
+    };
+    span.min(TimeDelta::days(SPAN))
+}
+
+fn spanning(text: &str) -> Option<TimeDelta> {
+    let parsed: iso8601::Duration = text.trim().parse().ok()?;
+    TimeDelta::from_std(std::time::Duration::from(parsed)).ok()
 }
 
 fn detail(event: &IEvent) -> String {
@@ -853,9 +893,37 @@ END:VCALENDAR\r
             Ok(Location::Local(path)) if path == Path::new("/home/someone/a.ics")
         ));
         assert!(
-            location("webcal://example.test/a.ics").is_err(),
+            location("gopher://example.test/a.ics").is_err(),
             "a scheme nothing here fetches must say so rather than become a path"
         );
+    }
+
+    /// `webcal://` is what a provider's Subscribe button hands out, and it is https underneath.
+    /// Refusing it made the most common way to get a feed URL the one shape that did not work.
+    #[test]
+    fn a_webcal_subscription_is_read_as_the_https_feed_it_is() {
+        assert!(matches!(
+            location("webcal://example.test/a.ics"),
+            Ok(Location::Remote(url)) if url.as_str() == "https://example.test/a.ics"
+        ));
+        assert!(
+            matches!(
+                location("WEBCAL://example.test/a.ics"),
+                Ok(Location::Remote(_))
+            ),
+            "a url scheme is case-insensitive"
+        );
+        assert_eq!(
+            subscribed("https://example.test/a.ics"),
+            "https://example.test/a.ics",
+            "everything else is passed through untouched"
+        );
+        assert_eq!(
+            subscribed("webc"),
+            "webc",
+            "a uri shorter than the scheme is not sliced"
+        );
+        assert_eq!(subscribed("wébcal://x"), "wébcal://x");
     }
 
     /// The whole point of the sidecar is that the secret URL stays out of `config.toml`, so a file
@@ -875,6 +943,13 @@ END:VCALENDAR\r
             "two lines is neither a sidecar nor something to guess at"
         );
         assert!(sidecar("file:///etc/passwd").is_none());
+        assert_eq!(
+            sidecar("webcal://example.test/private/a.ics")
+                .map(|url| url.to_string())
+                .as_deref(),
+            Some("https://example.test/private/a.ics"),
+            "the sidecar exists to hold the link a provider gave you, and that link is webcal"
+        );
     }
 
     #[test]
@@ -911,12 +986,12 @@ END:VCALENDAR\r
         );
 
         assert_eq!(
-            length(&start, Some(&end), true),
+            length(&start, Some(&end), None, true),
             TimeDelta::days(1) - TimeDelta::seconds(1),
             "iCalendar writes an exclusive end; a surface asks which day the entry is on"
         );
         assert_eq!(
-            length(&start, None, true),
+            length(&start, None, None, true),
             TimeDelta::days(1) - TimeDelta::seconds(1),
             "an all-day entry with no end still covers its own day"
         );
@@ -927,12 +1002,76 @@ END:VCALENDAR\r
         let start = DatePerhapsTime::DateTime(CalendarDateTime::Utc(now()));
         let end = DatePerhapsTime::DateTime(CalendarDateTime::Utc(now() + TimeDelta::minutes(30)));
 
-        assert_eq!(length(&start, Some(&end), false), TimeDelta::minutes(30));
-        assert_eq!(length(&start, None, false), TimeDelta::zero());
         assert_eq!(
-            length(&end, Some(&start), false),
+            length(&start, Some(&end), None, false),
+            TimeDelta::minutes(30)
+        );
+        assert_eq!(length(&start, None, None, false), TimeDelta::zero());
+        assert_eq!(
+            length(&end, Some(&start), None, false),
             TimeDelta::zero(),
             "an end before its start is a broken entry, not one that lasts negative time"
+        );
+    }
+
+    /// RFC 5545 lets an entry carry DURATION instead of DTEND, and Apple and some CalDAV exports
+    /// do. `icalendar` does not surface it, so without this every one of them rendered as an
+    /// instant with no length at all.
+    #[test]
+    fn an_entry_with_a_duration_and_no_end_keeps_its_length() {
+        let start = DatePerhapsTime::DateTime(CalendarDateTime::Utc(now()));
+
+        assert_eq!(
+            length(&start, None, Some("PT1H30M"), false),
+            TimeDelta::minutes(90)
+        );
+        assert_eq!(length(&start, None, Some("P1D"), false), TimeDelta::days(1));
+        assert_eq!(
+            length(&start, None, Some("P2W"), false),
+            TimeDelta::weeks(2)
+        );
+        assert_eq!(
+            length(&start, None, Some("  PT45M  "), false),
+            TimeDelta::minutes(45),
+            "a property value arrives with whatever whitespace the exporter folded in"
+        );
+
+        let end = DatePerhapsTime::DateTime(CalendarDateTime::Utc(now() + TimeDelta::minutes(30)));
+        assert_eq!(
+            length(&start, Some(&end), Some("PT9H"), false),
+            TimeDelta::minutes(30),
+            "RFC 5545 forbids both, and an entry that writes both is trusted on its end"
+        );
+        assert_eq!(
+            length(&start, None, Some("not a duration"), false),
+            TimeDelta::zero(),
+            "an unparseable duration costs that entry its length, not the whole calendar"
+        );
+    }
+
+    /// A surface draws one dot per day an entry covers, walking the days one at a time — so an
+    /// entry claiming to last ten thousand years is not a long entry, it is a hang. Neither route
+    /// into a length is trustworthy: `DURATION` is text off a feed, and a `DTEND` can name any
+    /// year at all.
+    #[test]
+    fn an_entry_cannot_last_longer_than_the_widest_window() {
+        let start = DatePerhapsTime::DateTime(CalendarDateTime::Utc(now()));
+        let forever =
+            DatePerhapsTime::DateTime(CalendarDateTime::Utc(now() + TimeDelta::days(SPAN * 1000)));
+
+        assert_eq!(
+            length(&start, None, Some("P9999Y"), false),
+            TimeDelta::days(SPAN),
+            "iso8601 parses a year, which RFC 5545 forbids, so the cap is what stops it"
+        );
+        assert_eq!(
+            length(&start, Some(&forever), None, false),
+            TimeDelta::days(SPAN)
+        );
+        assert_eq!(
+            length(&start, Some(&forever), None, true),
+            TimeDelta::days(SPAN),
+            "an all-day entry is capped after its own day is added, not before"
         );
     }
 
@@ -1530,7 +1669,7 @@ END:VCALENDAR\r
                 false,
             ),
             (
-                "ical bad scheme",
+                "ical webcal",
                 source("w", CalendarSourceKind::Ical, "webcal://x.test/a.ics"),
                 fresh,
                 false,
@@ -1643,6 +1782,45 @@ END:VCALENDAR\r
         assert!(
             reread,
             "an edited local .ics reached the topic with no timer to carry it"
+        );
+    }
+
+    /// Both failures are true and both name the source, but only one says the path is wrong.
+    /// The watch used to arrive second and overwrite the read, so a typo in `uri` reported that
+    /// the directory was not being watched — correct, and no help at all.
+    #[tokio::test]
+    async fn a_directory_that_is_not_there_reports_the_read_rather_than_the_watch() {
+        let root = tempfile::tempdir().expect("a scratch directory");
+        let missing = root.path().join("no-such-directory");
+
+        let mock = settled(
+            vec![source(
+                "typo",
+                CalendarSourceKind::Directory,
+                &missing.to_string_lossy(),
+            )],
+            |mock| {
+                mock.health()
+                    .iter()
+                    .any(|(_, state)| matches!(state, ServiceState::Degraded { .. }))
+            },
+        )
+        .await;
+
+        let degraded: Vec<String> = mock
+            .health()
+            .into_iter()
+            .filter_map(|(_, state)| match state {
+                ServiceState::Degraded { reason } => Some(reason),
+                _ => None,
+            })
+            .collect();
+
+        assert!(
+            degraded
+                .last()
+                .is_some_and(|reason| reason.contains("cannot be read")),
+            "the read's message is the one that tells you the path is wrong, got {degraded:?}"
         );
     }
 

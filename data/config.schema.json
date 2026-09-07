@@ -2561,7 +2561,7 @@
           "$ref": "#/$defs/SourceKind"
         },
         "uri": {
-          "description": "The feed or directory. A provider's iCalendar URL behaves like a read-only access\ntoken — anyone holding it can usually read the calendar without signing in — so a\n`file://` path to a one-line sidecar file is offered as an alternative to writing a\nsecret URL into a configuration file that gets shared or committed.",
+          "description": "The feed or directory. `webcal://`, which is what a provider's Subscribe button hands\nout, is read as the `https://` it stands for. A provider's iCalendar URL behaves like a\nread-only access token — anyone holding it can usually read the calendar without signing\nin — so a `file://` path to a one-line sidecar file is offered as an alternative to\nwriting a secret URL into a configuration file that gets shared or committed.",
           "type": "string"
         }
       },
@@ -2576,7 +2576,7 @@
       "description": "What a source's `uri` points at.",
       "oneOf": [
         {
-          "description": "One iCalendar document: an `https://` feed, a local `.ics`, or a `file://` holding a\none-line feed URL. A local one is watched; a remote one is fetched on `poll-interval`.",
+          "description": "One iCalendar document: an `https://` or `webcal://` feed, a local `.ics`, or a `file://`\nholding a one-line feed URL. A local one is watched; a remote one is fetched on\n`poll-interval`.",
           "type": "string",
           "const": "ical"
         },

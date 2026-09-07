@@ -171,6 +171,34 @@ entry it dropped as `truncated_from`, and `None` when nothing was. The cap belon
 rather than to a source: capping each source first would publish more than the cap, and capping only
 the first would drop a whole calendar.
 
+**`webcal://` is rewritten before the url is parsed, not given a branch of its own.** It is what a
+provider's Subscribe button hands out and it is plain `https://` underneath, so `subscribed` swaps
+the prefix and everything downstream sees one scheme. `Url::set_scheme` cannot do it — the `url`
+crate refuses a change from a non-special scheme to a special one — so it is a string swap, matched
+case-insensitively through `str::get` so a multi-byte first character cannot panic the slice.
+`sidecar` runs it too: the sidecar file exists to hold the link a provider gave you, and refusing
+there the scheme the configuration accepts made one shape work and the other not.
+
+**An entry's length is capped, because a surface walks the days it covers one at a time.** The
+clock popover draws a dot per day, so a `DURATION` of `P9999Y` — or a `DTEND` in the year 9999 —
+is not a long entry, it is three and a half million iterations in the GTK main loop on every
+update. `length` clips to `SPAN` days, which no window can exceed anyway, so nothing renderable is
+lost. `iso8601` accepts years and months, which RFC 5545 forbids in a duration; the cap is what
+makes that harmless rather than a reason to hand-roll the grammar.
+
+**An entry may carry `DURATION` instead of `DTEND`, and `icalendar` does not surface it.**
+`get_end()` returns `None` for one, which read as a zero-length event: Apple and several CalDAV
+exporters write them, and every such entry rendered as an instant. `length` now falls back to
+`property_value("DURATION")` parsed by `iso8601`, which `icalendar` already depends on, so this
+needed no new crate in the tree. `DTEND` still wins where an exporter writes both, which RFC 5545
+forbids anyway.
+
+**A dead watch never overwrites a failed read.** Both failures are true and both name the source,
+but only the read says the path is wrong — and the watch's `Update::Unavailable` arrived second, so
+a typo in `uri` reported "its directory is not being watched" and nothing about the path. It is now
+`Event::Unwatched`, and the handler inserts it with `entry().or_insert()`, so it fills in only when
+no read has failed. A later successful read clears both, which is correct: the source works.
+
 **Text off a feed is cleaned against bidi, not only against control characters.**
 `char::is_control` is the Cc category alone, so the overrides `U+202A..=U+202E` and the isolates
 `U+2066..=U+2069` pass it — and Pango honours both, which lets a summary reorder the row it lands
