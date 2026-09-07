@@ -521,6 +521,13 @@
     min-width: var(--gl-popover-min-width, 27rem);
 }
 
+.column > .notice + .notice,
+.column > .notice + .row,
+.column > .row + .notice,
+.column > .row + .row {
+    margin-top: 0.35rem;
+}
+
 .drawer-page {
     min-width: 19rem;
 }

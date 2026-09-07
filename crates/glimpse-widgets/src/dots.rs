@@ -29,7 +29,7 @@ mod imp {
 
     #[glib::object_subclass]
     impl ObjectSubclass for Dots {
-        const NAME: &'static str = "CalendarDots";
+        const NAME: &'static str = "Dots";
         type Type = super::Dots;
         type ParentType = gtk4::Widget;
     }

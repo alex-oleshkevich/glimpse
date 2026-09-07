@@ -5,12 +5,15 @@ use std::cell::{Cell, RefCell};
 #[template(resource = "/me/aresa/GlimpseShell/widgets/indicator.ui")]
 pub struct Indicator {
     #[template_child]
+    pub dot: TemplateChild<crate::dots::Dots>,
+    #[template_child]
     pub icon: TemplateChild<gtk4::Image>,
     #[template_child]
     pub label: TemplateChild<gtk4::Label>,
     #[template_child]
     pub badge: TemplateChild<gtk4::Label>,
     pub gicon: RefCell<Option<gio::Icon>>,
+    pub color: Cell<Option<gtk4::gdk::RGBA>>,
     pub attention: Cell<bool>,
 }
 
@@ -31,6 +34,12 @@ impl ObjectSubclass for Indicator {
 }
 
 impl ObjectImpl for Indicator {
+    fn constructed(&self) {
+        self.parent_constructed();
+        self.dot.set_max(1);
+        self.dot.set_size(super::DOT_SIZE);
+    }
+
     fn dispose(&self) {
         self.dispose_template();
     }

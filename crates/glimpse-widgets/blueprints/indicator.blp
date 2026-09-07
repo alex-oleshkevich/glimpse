@@ -10,6 +10,15 @@ template $Indicator: Gtk.Widget {
     "indicator",
   ]
 
+  $Dots dot {
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "indicator__dot",
+    ]
+  }
+
   Gtk.Image icon {
     visible: false;
     accessible-role: presentation;

@@ -284,6 +284,7 @@ mod fixtures {
                 }
             }
             "mpris" => mpris(root),
+            "next_event" => next_event(root),
             "weather" => weather(root),
             "pager" => pager(root),
             _ => {}
@@ -1195,6 +1196,38 @@ mod fixtures {
                 glimpse_widgets::drawer::toggle(drawer);
             }
         });
+    }
+
+    fn next_event(root: &gtk4::Widget) {
+        if let Some(facts) = find::<FactList>(root) {
+            facts.set_facts(&[
+                Fact::new("Calendar", "Work"),
+                Fact::new("Location", "Meeting room Kaunas"),
+                Fact::new("Organizer", "Marta Kazlauskienė"),
+                Fact::new("Guests", "8 · 5 accepted"),
+                Fact::new("Repeats", "Every Wednesday"),
+                Fact::new("Reminder", "10 minutes before"),
+            ]);
+        }
+
+        let Some(events) = find::<EventList>(root) else {
+            return;
+        };
+        let color = |hex: &str| hex.parse::<gdk::RGBA>().unwrap_or(gdk::RGBA::BLUE);
+        let work = color("#3584e4");
+        let home = color("#2ec27e");
+        let event = |summary: &str, detail: &str, when: &str, color| Event {
+            summary: summary.to_owned(),
+            detail: detail.to_owned(),
+            when: when.to_owned(),
+            color: Some(color),
+        };
+
+        events.set_events(&[
+            event("Sprint retro", "Meeting room Kaunas", "16:00", work),
+            event("1:1 with Marta", "Google Meet", "17:00", work),
+            event("Pick up the parcel", "Antakalnio g. 18", "18:30", home),
+        ]);
     }
 
     fn world_clock(clocks: &WorldClock) {

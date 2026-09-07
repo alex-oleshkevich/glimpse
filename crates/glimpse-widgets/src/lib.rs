@@ -146,11 +146,7 @@ mod tests {
     }
 
     fn label_widget(indicator: &Indicator) -> gtk4::Label {
-        indicator
-            .first_child()
-            .and_then(|icon| icon.next_sibling())
-            .and_downcast::<gtk4::Label>()
-            .expect("label child")
+        child_named::<gtk4::Label>(indicator, "indicator__label")
     }
 
     fn label_of(indicator: &Indicator) -> String {
@@ -270,14 +266,21 @@ mod tests {
         indicator.set_label(None);
         assert!(!label.is_visible(), "an emptied label reserves no space");
 
-        let image = indicator
-            .first_child()
-            .and_downcast::<gtk4::Image>()
-            .expect("icon child");
+        let image = child_named::<gtk4::Image>(&indicator, "indicator__icon");
         assert!(
             !image.is_visible(),
             "an indicator with no icon reserves no icon space"
         );
+
+        let dot = child_named::<crate::dots::Dots>(&indicator, "indicator__dot");
+        assert!(
+            !dot.is_visible(),
+            "an indicator with no calendar behind it reserves no dot space"
+        );
+        indicator.set_dot(Some(gtk4::gdk::RGBA::new(1.0, 0.0, 0.0, 1.0)));
+        assert!(dot.is_visible());
+        indicator.set_dot(None);
+        assert!(!dot.is_visible());
 
         let changes = Rc::new(Cell::new(0u32));
         image.connect_gicon_notify({
