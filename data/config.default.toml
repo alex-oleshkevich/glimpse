@@ -63,6 +63,12 @@ remember = "window"
 poll-interval = 600
 sources = []
 
+[weather]
+provider = "open-meteo"
+units = "metric"
+poll-interval = 900
+forecast-days = 7
+
 [wallpaper]
 fit = "fill"
 color = "#000000"

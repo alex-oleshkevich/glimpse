@@ -64,6 +64,15 @@ that every command has one shape.
 is no second type to keep in step with the name. A command that returns nothing declares `-> ()`,
 which is `null` on the wire and prints as nothing.
 
+## An enum variant is not a field
+
+Payloads accept unknown *fields*, which is what carries a newer client past an older daemon. An
+unrecognised *variant* of an enum is a different matter: it fails the whole payload rather than one
+key. `Condition` is therefore internally tagged, `#[serde(tag = "condition")]`, so that
+`#[serde(other)]` is available and an unfamiliar condition decodes as `Unknown` — serde offers
+`other` only on a tagged enum, never on a bare unit-only one. Any wire enum that a later version may
+grow needs the same shape; one that cannot grow, like `UnitSystem`, does not.
+
 ## Rules
 
 **Nothing here knows about transport.** No tokio, no zbus, no GTK, no `glimpse-ipc`. A payload is

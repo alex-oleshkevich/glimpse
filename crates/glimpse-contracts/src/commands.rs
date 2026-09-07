@@ -81,4 +81,10 @@ commands! {
 
     #[name = "calendar.set_range"]
     pub struct CalendarSetRange { from: DateTime<Utc>, to: DateTime<Utc> } -> ();
+
+    #[name = "weather.watch"]
+    pub struct WeatherWatch { place: WatchedPlace } -> ();
+
+    #[name = "weather.refresh"]
+    pub struct WeatherRefresh {} -> ();
 }

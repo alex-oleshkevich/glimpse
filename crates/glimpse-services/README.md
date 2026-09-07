@@ -209,6 +209,71 @@ rate-limiting us. The clamp is in the `From<&Config>` impl, with the duplicate-i
 two sources sharing an id would share a subscription key, so the second would never run while
 silently overwriting the first's events.
 
+## The weather service
+
+One topic, `weather.status`, holding one entry per place being watched, and two commands:
+`weather.watch` and `weather.refresh`.
+
+**Places are not configured; they are leased.** `[weather]` holds `provider`, `units`,
+`poll-interval` and `forecast-days` and nothing else. A consumer calls `weather.watch` naming either
+`here` or a coordinate pair, and that registration is honoured for thirty minutes unless it is asked
+for again — the panel renews on the tick it already has. Nothing tells this service that a client
+went away: `BrokerHandle` carries no subscriber count and `Responder` no client identity, so a
+registration that never expired would pin a place and keep fetching for it until the daemon
+restarted. There is deliberately no `weather.forget`; not renewing is how you stop.
+
+**With nothing leased, nothing happens.** `subscriptions` declares the geolocation subscription only
+while something watches `here`, and the poll only when there is at least one coordinate to ask
+about. So a fresh install makes no outbound request and never wakes GeoClue until something asks.
+That property is structural rather than a default someone can flip, which is why `[weather]` has no
+`follow-location` key: turning weather on is an act by a consumer, not a line in a document.
+
+**A renewal must not restart the poll.** `Sub::interval` builds on `ctx.interval`, which starts at
+`Instant::now()`, so a rebuilt subscription fetches immediately. `generation` — the only thing in
+`Watch::Poll` — is bumped when the *resolved coordinate set* changes, never when a command merely
+arrives. Bumping it per `weather.watch` would fetch at the renewal cadence instead of the configured
+one, which against a shared free tier is a silent fifteenfold overspend visible only in a running
+shell.
+
+**A fix has to move a kilometre to count**, measured against the fix last *accepted* rather than the
+one last seen, so drift below the threshold never accumulates into a refetch and a fix that jitters
+by metres does not refetch for ever. Below a kilometre the provider answers out of the same grid
+cell anyway.
+
+**One request covers every place.** Open-Meteo takes comma-separated coordinates and answers with an
+object for one location and an array for several — the single-watch case is the common one, so the
+response is decoded through an untagged enum covering both. `timeformat=unixtime` is load-bearing:
+with `timezone=auto` the provider otherwise returns naive local ISO strings with no offset, which is
+what made the previous generation compare timestamps as text and open its hourly strip an hour late.
+Each place carries `utc_offset_seconds`, without which a renderer cannot label a time for a place in
+another timezone; a bare `timezone=auto` repeated once per location resolves each of them
+separately, verified against a live pair in opposite hemispheres.
+
+**`observed_at` is the provider's own validity time, not our fetch clock.** It moves at most every
+fifteen minutes, so it cannot defeat `Publisher`'s equality gate, and when the network dies it
+freezes — which is the truthful thing for a popover reading "updated N minutes ago" to say.
+
+**A failed fetch keeps the last reading and degrades.** The previous generation discarded its
+snapshot and blanked the bar; a degraded service is a running one, and its numbers are still the
+newest anyone has. There is no retry loop: the next tick is the retry.
+
+**A failure reason never quotes the request.** The query string carries the user's latitude and
+longitude, so a reason naming the URL is a location leak wherever it is pasted — a stronger version
+of the calendar's bearer-token rule. Transport failures go through `reqwest::Error::without_url`.
+The provider returns numbers rather than prose, so none of the calendar's bidi sanitising is needed
+here; the only strings that reach a payload are our own.
+
+**The poll interval has a floor of ten minutes and defaults to fifteen.** Open-Meteo recomputes
+current conditions every fifteen minutes, so a shorter interval asks again for data that provably
+has not moved. The floor is applied in the `From<&Config>` impl and again at the declaration site,
+because `Duration::from_secs(0)` panics `tokio::time::interval`.
+
+**Conditions are provider-neutral.** The wire carries a closed `Condition` enum rather than a raw
+WMO code, so a second provider with its own vocabulary maps into the same set instead of being made
+to lie in WMO. `Provider` has one variant and no `_` arm anywhere, which makes adding one a compile
+error at every site that has to change. Turning a condition into words or an icon name is the
+renderer's job and happens in the panel.
+
 ## Rules
 
 The dependency arrow points from `glimpsed` to here and never back. Anything the framework needs

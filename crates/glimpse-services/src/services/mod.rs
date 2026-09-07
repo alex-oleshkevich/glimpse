@@ -3,9 +3,11 @@ mod compositor;
 mod geolocation;
 mod heartbeat;
 mod solar;
+mod weather;
 
 pub use calendar::Calendar;
 pub use compositor::Compositor;
 pub use geolocation::Geolocation;
 pub use heartbeat::Heartbeat;
 pub use solar::Solar;
+pub use weather::Weather;

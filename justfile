@@ -2,6 +2,7 @@
 # do not invoke cargo directly, add or fix a recipe here instead.
 
 set shell := ["bash", "-uc"]
+set positional-arguments
 
 # Single source of truth for install/uninstall/package-binary, passed to those scripts as
 # GLIMPSE_BINARIES. Static TOML can't read it, so the cargo-deb/cargo-generate-rpm asset lists
@@ -163,7 +164,7 @@ run-sunset *ARGS:
 
 [doc("run the CLI")]
 ctl *ARGS:
-    cargo run -q -p glimpsectl -- {{ ARGS }}
+    cargo run -q -p glimpsectl -- "$@"
 
 [doc("render one blueprint with the real widgets; reloads on save")]
 preview BLUEPRINT *ARGS:

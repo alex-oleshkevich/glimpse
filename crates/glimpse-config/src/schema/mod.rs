@@ -11,6 +11,7 @@ mod night_light;
 mod panels;
 mod power;
 mod wallpaper;
+mod weather;
 
 use std::collections::BTreeMap;
 
@@ -34,6 +35,7 @@ pub use night_light::{NightLight, Schedule};
 pub use panels::{Margin, Panel, Position};
 pub use power::Power;
 pub use wallpaper::{Fit, Wallpaper};
+pub use weather::{Provider as WeatherProvider, Units as WeatherUnits, Weather as WeatherConfig};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
@@ -46,6 +48,7 @@ pub struct Config {
     pub power: Power,
     pub keyboard: Keyboard,
     pub calendar: Calendar,
+    pub weather: WeatherConfig,
     pub wallpaper: Wallpaper,
     pub backdrop: Backdrop,
     pub lock: Lock,
@@ -66,6 +69,7 @@ impl Default for Config {
             power: Power::default(),
             keyboard: Keyboard::default(),
             calendar: Calendar::default(),
+            weather: WeatherConfig::default(),
             wallpaper: Wallpaper::default(),
             backdrop: Backdrop::default(),
             lock: Lock::default(),

@@ -1970,6 +1970,15 @@
         "color": "#000000",
         "fit": "fill"
       }
+    },
+    "weather": {
+      "$ref": "#/$defs/Weather",
+      "default": {
+        "forecast-days": 7,
+        "poll-interval": 900,
+        "provider": "open-meteo",
+        "units": "metric"
+      }
     }
   },
   "additionalProperties": false,
@@ -2575,6 +2584,16 @@
       },
       "additionalProperties": false
     },
+    "Provider": {
+      "description": "Where a forecast comes from.",
+      "oneOf": [
+        {
+          "description": "Open-Meteo, which needs no account and no key.",
+          "type": "string",
+          "const": "open-meteo"
+        }
+      ]
+    },
     "Remember": {
       "type": "string",
       "enum": [
@@ -2686,6 +2705,21 @@
         "timezone"
       ]
     },
+    "Units": {
+      "description": "Which units every reading is reported in.",
+      "oneOf": [
+        {
+          "description": "Celsius, kilometres per hour, millimetres.",
+          "type": "string",
+          "const": "metric"
+        },
+        {
+          "description": "Fahrenheit, miles per hour, inches.",
+          "type": "string",
+          "const": "imperial"
+        }
+      ]
+    },
     "Wallpaper": {
       "type": "object",
       "properties": {
@@ -2704,6 +2738,38 @@
         "fit": {
           "$ref": "#/$defs/Fit",
           "default": "fill"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Weather": {
+      "description": "How a forecast is fetched. There are no places here: a place is registered by whatever wants to\nsee it, through `weather.watch`, and held for as long as it keeps asking. Nothing is fetched and\nno location is resolved until something does.",
+      "type": "object",
+      "properties": {
+        "forecast-days": {
+          "description": "How many days the daily forecast covers, today included. Clamped to 1..=10.",
+          "type": "integer",
+          "format": "uint8",
+          "default": 7,
+          "maximum": 255,
+          "minimum": 0
+        },
+        "poll-interval": {
+          "description": "How often a forecast is fetched again, in seconds. The provider recomputes current\nconditions every fifteen minutes, so anything shorter asks again for data that has not\nmoved; `weather.refresh` is how a person asks for it now. Values below 600 are raised.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 900,
+          "minimum": 0
+        },
+        "provider": {
+          "description": "Which service a forecast comes from. `open-meteo` needs no account and no key.",
+          "$ref": "#/$defs/Provider",
+          "default": "open-meteo"
+        },
+        "units": {
+          "description": "Whether temperatures, wind speeds and rainfall are reported in metric or imperial units.\nEvery reading in one report uses the same system, and the panel prints the symbols that go\nwith it.",
+          "$ref": "#/$defs/Units",
+          "default": "metric"
         }
       },
       "additionalProperties": false

@@ -79,4 +79,7 @@ topics! {
 
     #[name = "calendar.events"]
     pub struct CalendarEvents { events: Vec<CalendarEvent>, truncated_from: Option<DateTime<Utc>> }
+
+    #[name = "weather.status"]
+    pub struct WeatherStatus { units: UnitSystem, places: Vec<PlaceWeather> }
 }

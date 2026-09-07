@@ -115,3 +115,88 @@ pub struct CalendarEvent {
     pub all_day: bool,
     pub color: Option<String>,
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "at", rename_all = "snake_case")]
+pub enum WatchedPlace {
+    Here,
+    Coordinates { latitude: f64, longitude: f64 },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UnitSystem {
+    Metric,
+    Imperial,
+}
+
+/// Internally tagged so that `#[serde(other)]` is available: a daemon that learns a new condition
+/// must not make an older panel fail to decode the whole payload. Adding a field is already safe,
+/// adding a variant is not, and serde offers `other` only on a tagged enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "condition", rename_all = "snake_case")]
+pub enum Condition {
+    ClearSky,
+    MainlyClear,
+    PartlyCloudy,
+    Overcast,
+    Fog,
+    Drizzle,
+    FreezingDrizzle,
+    LightRain,
+    Rain,
+    HeavyRain,
+    FreezingRain,
+    LightSnow,
+    Snow,
+    HeavySnow,
+    SnowGrains,
+    RainShowers,
+    SnowShowers,
+    Thunderstorm,
+    ThunderstormWithHail,
+    #[serde(other)]
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlaceWeather {
+    pub place: WatchedPlace,
+    pub coordinates: GeoCoordinates,
+    pub utc_offset_seconds: i32,
+    pub current: Option<CurrentWeather>,
+    pub hours: Vec<HourForecast>,
+    pub days: Vec<DayForecast>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CurrentWeather {
+    pub observed_at: DateTime<Utc>,
+    pub condition: Condition,
+    pub is_day: bool,
+    pub temperature: f64,
+    pub apparent_temperature: Option<f64>,
+    pub humidity: Option<u8>,
+    pub wind_speed: Option<f64>,
+    pub wind_direction: Option<u16>,
+    pub precipitation: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HourForecast {
+    pub time: DateTime<Utc>,
+    pub condition: Condition,
+    pub is_day: bool,
+    pub temperature: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DayForecast {
+    pub start: DateTime<Utc>,
+    pub condition: Condition,
+    pub low: f64,
+    pub high: f64,
+    pub precipitation_chance: Option<u8>,
+    pub sunrise: Option<DateTime<Utc>>,
+    pub sunset: Option<DateTime<Utc>>,
+}
