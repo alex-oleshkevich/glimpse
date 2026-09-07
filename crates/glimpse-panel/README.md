@@ -352,7 +352,10 @@ when the range actually changed. The month step reaches it because `CalendarPopo
 calendar's `month-shown` and the applet wakes on it, the same route `day-selected` already took —
 an applet has no `ctx` inside `popover()`, so waking is how a widget signal turns into a command.
 With no popover open the range falls back to the current month, so a panel left running across a
-month boundary re-asks on the next tick. A fixed window in the daemon is what made December render
+month boundary re-asks on the next tick. Opening a popover forgets the last range asked, which is
+what re-asserts it after a daemon restart: nothing tells an applet the daemon went away — a dead
+daemon just stops sending — so a panel that only asked on change would keep browsing a month the
+new daemon had never been told about. A fixed window in the daemon is what made December render
 empty for a weekly meeting that was certainly there.
 
 **Several panels share one range, and the last one to ask wins.** The command carries no client

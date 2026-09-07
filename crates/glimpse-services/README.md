@@ -152,6 +152,12 @@ itself runs on `spawn_blocking`, because a crowded calendar over a wide window i
 a tokio worker is not the place for it. An `Expanded` event carrying a stale generation is dropped
 by the same straggler guard the fetches use.
 
+**Every instant arriving from a client is added to with `checked_add_signed`.** `DateTime +
+TimeDelta` panics on overflow, a panicking handler stops its service until the daemon restarts, and
+`DateTime<Utc>`'s serde accepts an extended year — `+262142-06-01T00:00:00Z` deserializes, and
+`Window::asked` then added `SPAN` days to it. One `calendar.set_range` took the calendar down. The
+same applies to `start + length` when an occurrence lands at the end of the range.
+
 **The window is asked for, not assumed.** `Window::around` is the near window a fresh service
 publishes so a client that never asks still sees something; `Window::asked` is what
 `calendar.set_range` sets, clipped to `SPAN` days and to a non-negative length. A fixed window is

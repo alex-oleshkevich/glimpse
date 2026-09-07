@@ -84,9 +84,12 @@ impl Window {
     }
 
     fn asked(from: DateTime<Utc>, to: DateTime<Utc>) -> Self {
+        let widest = from
+            .checked_add_signed(TimeDelta::days(SPAN))
+            .unwrap_or(DateTime::<Utc>::MAX_UTC);
         Self {
             from,
-            to: to.clamp(from, from + TimeDelta::days(SPAN)),
+            to: to.clamp(from, widest),
         }
     }
 }
@@ -597,7 +600,7 @@ fn expand(calendar: &ICalendar, window: Window) -> Vec<Occurrence> {
                 summary: summary.clone(),
                 detail: detail.clone(),
                 start,
-                end: start + length,
+                end: start.checked_add_signed(length).unwrap_or(start),
                 all_day,
             });
         }
@@ -1240,6 +1243,33 @@ END:VCALENDAR\r
         );
         assert_eq!(wide.events.len(), 1);
         assert_eq!(wide.events[0].summary, "Far");
+    }
+
+    /// `DateTime + TimeDelta` panics on overflow, a handler that panics stops its service for
+    /// good, and an extended year deserializes off the wire — `+262142-06-01T00:00:00Z` is
+    /// accepted by the very `decode` that feeds this. One command would have taken the calendar
+    /// down until the daemon restarted.
+    #[test]
+    fn a_range_at_the_far_end_of_time_is_clipped_rather_than_panicking() {
+        let far: DateTime<Utc> = serde_json::from_str("\"+262142-06-01T00:00:00Z\"")
+            .expect("an extended year is a value the wire accepts");
+
+        let window = Window::asked(far, DateTime::<Utc>::MAX_UTC);
+
+        assert_eq!(window.from, far);
+        assert_eq!(
+            window.to,
+            DateTime::<Utc>::MAX_UTC,
+            "the widest window it can have is everything left"
+        );
+        let asked = serde_json::json!({ "from": far, "to": DateTime::<Utc>::MAX_UTC });
+        assert!(
+            matches!(
+                Calendar::decode(CalendarSetRange::NAME, asked),
+                Ok(Command::Range { .. })
+            ),
+            "the instant that overflows is one `decode` accepts, which is what made it reachable"
+        );
     }
 
     /// A client that asks for a thousand years would have the daemon expand every rule in every

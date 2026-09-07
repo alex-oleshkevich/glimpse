@@ -126,6 +126,7 @@ impl Applet for Clock {
 
         let shown = CalendarPopover::new();
         shown.open_on(popover::ymd(today));
+        self.range = None;
 
         let opener = seat.opener();
         shown.connect_day_selected(move |_, _| opener.wake());
