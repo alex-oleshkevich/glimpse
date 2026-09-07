@@ -3,27 +3,9 @@ use std::collections::BTreeMap;
 use chrono::{
     DateTime, Datelike, Local, Months, NaiveDate, NaiveTime, TimeDelta, TimeZone as _, Utc,
 };
-use glimpse_contracts::CalendarEvent;
 use glimpse_widgets::{Event, Ymd, Zone};
-use gtk4::{gdk, glib};
 
-use super::agenda::{Occasion, when};
-
-pub const TWENTY_FOUR: &str = "%H:%M";
-pub const TWELVE: &str = "%l:%M %p";
-
-pub fn locale_is_twelve_hour() -> bool {
-    let Ok(afternoon) = glib::DateTime::from_local(2026, 1, 1, 15, 30, 0.0) else {
-        return false;
-    };
-    let shown = afternoon.format("%X").unwrap_or_default();
-    let marker = afternoon.format("%p").unwrap_or_default();
-    reads_as_twelve_hour(&shown, &marker)
-}
-
-pub fn reads_as_twelve_hour(shown: &str, marker: &str) -> bool {
-    !marker.is_empty() && shown.contains(marker)
-}
+use crate::applets::agenda::{self, Occasion};
 
 pub fn ymd(date: NaiveDate) -> Ymd {
     Ymd::new(date.year(), date.month(), date.day())
@@ -46,23 +28,6 @@ pub fn day_title(day: NaiveDate, today: NaiveDate) -> String {
         difference if difference == TimeDelta::days(-1) => "Yesterday".to_owned(),
         _ => day.format("%A").to_string(),
     }
-}
-
-pub fn occasions(events: &[CalendarEvent]) -> Vec<Occasion> {
-    events
-        .iter()
-        .map(|event| Occasion {
-            summary: event.summary.clone(),
-            detail: event.detail.clone(),
-            start: event.start.with_timezone(&Local),
-            end: event.end.with_timezone(&Local),
-            all_day: event.all_day,
-            color: event
-                .color
-                .as_deref()
-                .and_then(|text| gdk::RGBA::parse(text).ok()),
-        })
-        .collect()
 }
 
 pub fn truncated(day: NaiveDate, truncated_from: Option<DateTime<Utc>>) -> bool {
@@ -88,12 +53,7 @@ pub fn rows(now: DateTime<Local>, day: NaiveDate, events: &[Occasion], clock: &s
     events
         .iter()
         .filter(|event| covers(event, day))
-        .map(|event| Event {
-            summary: event.summary.clone(),
-            detail: event.detail.clone(),
-            when: when(now, day, event, clock),
-            color: event.color,
-        })
+        .map(|event| agenda::row(now, day, event, clock))
         .collect()
 }
 
@@ -139,20 +99,10 @@ pub fn zones(configured: &[glimpse_config::ClockTimezone]) -> Vec<Zone> {
         .collect()
 }
 
-pub fn run(command: &[String]) {
-    let Some(program) = command.first() else {
-        return;
-    };
-    let argv: Vec<&std::ffi::OsStr> = command.iter().map(|argument| argument.as_ref()).collect();
-
-    if let Err(error) = gtk4::gio::Subprocess::newv(&argv, gtk4::gio::SubprocessFlags::NONE) {
-        tracing::warn!(program, %error, "settings-command did not start");
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::applets::agenda::TWENTY_FOUR;
     use chrono::TimeZone;
 
     fn at(day: u32, hour: u32) -> DateTime<Local> {
@@ -171,16 +121,6 @@ mod tests {
             all_day: false,
             color: None,
         }
-    }
-
-    #[test]
-    fn a_locale_that_writes_a_meridiem_into_its_own_time_reads_as_twelve_hour() {
-        assert!(reads_as_twelve_hour("3:30:00 PM", "PM"));
-        assert!(!reads_as_twelve_hour("15:30:00", "PM"));
-        assert!(
-            !reads_as_twelve_hour("15:30:00", ""),
-            "a locale with no meridiem string makes `contains` trivially true"
-        );
     }
 
     /// The mark is the first instant the daemon's list stops being complete, so the day holding
@@ -221,32 +161,6 @@ mod tests {
             month_pair(2026, 13).is_none(),
             "there is no thirteenth month"
         );
-    }
-
-    /// A colour that will not parse must cost its event a dot, not the whole popover.
-    #[test]
-    fn an_event_converts_from_the_wire_and_survives_a_bad_color() {
-        let wire = |color: Option<&str>| glimpse_contracts::CalendarEvent {
-            source: "work".to_owned(),
-            summary: "Standup".to_owned(),
-            detail: "Room 2".to_owned(),
-            start: at(4, 9).with_timezone(&Utc),
-            end: at(4, 10).with_timezone(&Utc),
-            all_day: false,
-            color: color.map(str::to_owned),
-        };
-
-        let converted = occasions(&[wire(Some("#e0563f")), wire(Some("nonsense")), wire(None)]);
-
-        assert_eq!(converted.len(), 3);
-        assert_eq!(converted[0].summary, "Standup");
-        assert_eq!(converted[0].start, at(4, 9));
-        assert!(converted[0].color.is_some(), "a hex colour parses");
-        assert!(
-            converted[1].color.is_none(),
-            "an unparseable colour is dropped"
-        );
-        assert!(converted[2].color.is_none());
     }
 
     #[test]

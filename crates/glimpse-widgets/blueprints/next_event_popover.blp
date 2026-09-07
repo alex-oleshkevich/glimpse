@@ -1,0 +1,45 @@
+using Gtk 4.0;
+
+template $NextEventPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "next-event-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "appointment-soon-symbolic";
+      title: _("Nothing scheduled");
+      subtitle: _("No calendar entry is coming up.");
+
+      [slot]
+      $Readout countdown {
+        visible: false;
+      }
+    }
+
+    $Section upcoming {
+      title: _("Coming up");
+
+      styles [
+        "column",
+      ]
+
+      $EventList later {}
+
+      [placeholder]
+      $Placeholder nothing {
+        icon-name: "appointment-soon-symbolic";
+        title: _("Nothing else scheduled");
+        description: _("The rest of the day is yours.");
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

@@ -1,4 +1,3 @@
-mod agenda;
 mod indicator;
 mod popover;
 

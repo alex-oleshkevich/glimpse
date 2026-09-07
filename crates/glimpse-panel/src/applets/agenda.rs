@@ -1,5 +1,10 @@
 use chrono::{DateTime, Local, NaiveDate, TimeDelta};
-use gtk4::gdk;
+use glimpse_contracts::CalendarEvent;
+use glimpse_widgets::Event;
+use gtk4::{gdk, glib};
+
+pub const TWENTY_FOUR: &str = "%H:%M";
+pub const TWELVE: &str = "%-I:%M %p";
 
 const SOON: i64 = 15;
 const NEAR: i64 = 60;
@@ -13,6 +18,45 @@ pub struct Occasion {
     pub end: DateTime<Local>,
     pub all_day: bool,
     pub color: Option<gdk::RGBA>,
+}
+
+pub fn locale_is_twelve_hour() -> bool {
+    let Ok(afternoon) = glib::DateTime::from_local(2026, 1, 1, 15, 30, 0.0) else {
+        return false;
+    };
+    let shown = afternoon.format("%X").unwrap_or_default();
+    let marker = afternoon.format("%p").unwrap_or_default();
+    reads_as_twelve_hour(&shown, &marker)
+}
+
+pub fn reads_as_twelve_hour(shown: &str, marker: &str) -> bool {
+    !marker.is_empty() && shown.contains(marker)
+}
+
+pub fn occasions(events: &[CalendarEvent]) -> Vec<Occasion> {
+    events
+        .iter()
+        .map(|event| Occasion {
+            summary: event.summary.clone(),
+            detail: event.detail.clone(),
+            start: event.start.with_timezone(&Local),
+            end: event.end.with_timezone(&Local),
+            all_day: event.all_day,
+            color: event
+                .color
+                .as_deref()
+                .and_then(|text| gdk::RGBA::parse(text).ok()),
+        })
+        .collect()
+}
+
+pub fn row(now: DateTime<Local>, day: NaiveDate, event: &Occasion, clock: &str) -> Event {
+    Event {
+        summary: event.summary.clone(),
+        detail: event.detail.clone(),
+        when: when(now, day, event, clock),
+        color: event.color,
+    }
 }
 
 pub fn when(now: DateTime<Local>, day: NaiveDate, event: &Occasion, clock: &str) -> String {
@@ -92,7 +136,7 @@ fn span(length: TimeDelta) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
+    use chrono::{TimeZone, Utc};
 
     const CLOCK: &str = "%H:%M";
 
@@ -116,6 +160,42 @@ mod tests {
 
     fn read(now: DateTime<Local>, event: &Occasion) -> String {
         when(now, now.date_naive(), event, CLOCK)
+    }
+
+    #[test]
+    fn a_locale_that_writes_a_meridiem_into_its_own_time_reads_as_twelve_hour() {
+        assert!(reads_as_twelve_hour("3:30:00 PM", "PM"));
+        assert!(!reads_as_twelve_hour("15:30:00", "PM"));
+        assert!(
+            !reads_as_twelve_hour("15:30:00", ""),
+            "a locale with no meridiem string makes `contains` trivially true"
+        );
+    }
+
+    /// A colour that will not parse must cost its event a dot, not the whole popover.
+    #[test]
+    fn an_event_converts_from_the_wire_and_survives_a_bad_color() {
+        let wire = |color: Option<&str>| CalendarEvent {
+            source: "work".to_owned(),
+            summary: "Standup".to_owned(),
+            detail: "Room 2".to_owned(),
+            start: at(9, 0).with_timezone(&Utc),
+            end: at(10, 0).with_timezone(&Utc),
+            all_day: false,
+            color: color.map(str::to_owned),
+        };
+
+        let converted = occasions(&[wire(Some("#e0563f")), wire(Some("nonsense")), wire(None)]);
+
+        assert_eq!(converted.len(), 3);
+        assert_eq!(converted[0].summary, "Standup");
+        assert_eq!(converted[0].start, at(9, 0));
+        assert!(converted[0].color.is_some(), "a hex colour parses");
+        assert!(
+            converted[1].color.is_none(),
+            "an unparseable colour is dropped"
+        );
+        assert!(converted[2].color.is_none());
     }
 
     #[test]

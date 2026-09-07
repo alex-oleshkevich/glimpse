@@ -20,7 +20,8 @@ use serde::{Deserialize, Serialize};
 pub use appearance::{Appearance, ColorScheme};
 pub use applets::{
     Applet, Clock as ClockConfig, Common as AppletCommon, FirstDay, HourFormat, Kind as AppletKind,
-    Pager as PagerConfig, PagerMode, PagerScope, PagerShape, Timezone as ClockTimezone,
+    NextEvent as NextEventConfig, Pager as PagerConfig, PagerMode, PagerScope, PagerShape,
+    Timezone as ClockTimezone,
 };
 pub use backdrop::Backdrop;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};
@@ -158,6 +159,35 @@ mod tests {
         assert_eq!(
             parsed.applets["clock"],
             Applet::from(AppletKind::Clock(applets::Clock::default()))
+        );
+    }
+
+    #[test]
+    fn the_next_event_applet_carries_its_own_settings() {
+        let parsed: Config = toml::from_str(
+            "[applets.next-event]\nwithin = 15\nhorizon = 240\nall-day = true\nupcoming = 3\n",
+        )
+        .expect("the table names the kind and the keys are its own");
+
+        let AppletKind::NextEvent(settings) = &parsed.applets["next-event"].kind else {
+            panic!("the table names the next-event applet");
+        };
+        assert_eq!(settings.within, 15);
+        assert_eq!(settings.horizon, 240);
+        assert!(settings.all_day);
+        assert_eq!(settings.upcoming, 3);
+
+        let bare: Config =
+            toml::from_str("[applets.next-event]\n").expect("every setting is optional");
+        assert_eq!(
+            bare.applets["next-event"].kind,
+            AppletKind::NextEvent(applets::NextEvent::default())
+        );
+
+        assert!(
+            toml::from_str::<Config>("[applets.next-event]\nwith-in = 30\n").is_err(),
+            "a struct variant is what refuses a misspelled key; a unit variant would have \
+             swallowed it silently"
         );
     }
 

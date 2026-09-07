@@ -9,9 +9,11 @@ Builds the binary named `glimpse`.
 - `main.rs` — GTK application, layer-shell setup, one bar per output across hotplug
 - `app.rs` — one bar per (panel config × monitor), the shared `Client`, config and theme watches
 - `components/panel.rs` — bar window, zones, applet reconciliation
-- `applet/` — the applet framework: the trait, `Ctx`, the relm4 runtime
+- `applet/` — the applet framework: the trait, `Ctx`, the relm4 runtime, and `popover::run`, which
+  launches the `settings-command` every popover's footer row offers
 - `applets/` — one module per applet, plus the registration match; `pager/` renders workspaces or
-  windows into its own `Pager` widget rather than into indicators
+  windows into its own `Pager` widget rather than into indicators, and `agenda.rs` holds what the
+  clock and next-event applets both need to say about a calendar entry
 - `popups/` — notification popups, OSD _(pending)_
 
 ## Applets
@@ -319,7 +321,12 @@ does because an event's time is not a value but a *sentence about now* — `now 
 `in 12 min · 1 h`, `ended 12 min ago` — and which of the eleven sentences applies changes while the
 popover is open.
 
-**`when` is a free function over `(now, day, event, clock)`**, with one test per state, because that
+**`when` is a free function over `(now, day, event, clock)`**, and lives in `applets/agenda.rs`
+rather than under `clock/`, because the next-event applet reads the same sentences. That module
+owns everything about an event that is not a calendar: the `Occasion` type, the conversion off the
+wire, the twelve-hour detection, the two clock formats, and `row`, which turns one `Occasion` into
+the `glimpse_widgets::Event` both popovers render — so a new field on that type is added in one
+place. `clock/popover.rs` keeps what only a month grid needs. It has one test per state, because that
 is the whole of the logic and none of it needs a widget. The ladder is ordered so the first match
 wins, and three of its rungs exist to fix things the previous generation got wrong: an event that
 ended stays "ended 12 min ago" for an hour before falling back to "over"; an event starting within
@@ -334,12 +341,16 @@ both behind an `Rc` so the `day-selected` closure and the tick can each render w
 **The tick re-renders an open popover.** It has to: every relative string in it is a function of
 `now`. `handle` upgrades a `WeakRef` to the shown popover and does nothing when it has been dropped.
 
+**`TWELVE` is `%-I:%M %p`, not `%l:%M %p`.** `%l` is space-padded, so every twelve-hour time this
+crate composes carried a leading space into the middle of a sentence — ` 3:30 PM · 1 h`. The `-`
+flag suppresses the pad at the source instead of each caller trimming the result.
+
 **The popover is always local time, even on a clock with a `timezone`.** That setting moves the bar
 label alone. A second clock showing Tokyo should not also claim your calendar is in Tokyo, and the
 events it lists are local by definition.
 
 **Events come from `calendar.events`.** `topics()` names it, the runtime subscribes at build time,
-and `Input::Topic` decodes the payload into `popover::occasions`. The conversion is where the wire
+and `Input::Topic` decodes the payload into `agenda::occasions`. The conversion is where the wire
 type stops: `DateTime<Utc>` becomes local, and the `color` hex string becomes a `gdk::RGBA` through
 `RGBA::parse`, whose failure costs that event its dot rather than the popover. Nothing here caps the
 text again — the service caps and flattens before publishing, and a second cap would be an untested
@@ -369,15 +380,98 @@ against that instant in local time, and `set_day_truncated` swaps the placeholde
 calendar renders a silent empty month, which reads as a panel bug rather than as a limit. The
 comparison is `>=`, because the day the mark falls on is already missing entries.
 
-**An applet on the runtime's `IndicatorGroup` must ask for its own popover.** The press arrives as
-`Input::Pointer(Pointer::Press(Button::Left))` and `ctx.opener().open_popover()` is what opens it —
-nothing in the runtime does that for you. The pager is not the example to copy here: it supplies its
-own widget and wires the click inside `view()`, so it never sees the press in `handle`. A clock whose
-`handle` only matched `Input::Tick` compiled, passed every test, and did nothing at all when clicked.
+**An applet on the runtime's `IndicatorGroup` gets its popover opened for it.** `HostInput::Pressed`
+delivers `Input::Pointer(Pointer::Press(..))` to the applet and then calls `show_popover` itself when
+the button was left, so neither the clock nor the next-event applet calls `open_popover` and neither
+needs to match on the press at all. `Opener::open_popover` is for the other shape: the pager supplies
+its own widget through `view()` and wires the click there, so the press never reaches its `handle`.
+This was the reverse once, and a clock whose `handle` only matched `Input::Tick` did nothing when
+clicked — the runtime absorbing it is what fixed that class of bug rather than each applet
+remembering.
 
 **What no test covers:** that the click reaches the applet and the catcher shows the popover. It was
 verified by hand — the panel run against a scratch configuration, the indicator clicked, and the
 result read off the screen and out of the debug log.
+
+## The next-event applet
+
+One indicator — a dot in the calendar's colour and the entry's title, truncated at 24 characters —
+and a popover holding that entry, a countdown, and what follows it. It subscribes to the same
+`calendar.events` topic as the clock and reads the same `agenda` module, so the two never disagree
+about what an event's time says.
+
+**The bar is held to a window, and the window is why the applet is usually absent.** `within` is
+minutes before an event starts; anything further out leaves `indicators()` returning an empty
+vector, and `IndicatorGroup` then hides itself. A meeting two days away has nothing useful to tell
+a bar, and showing it anyway was the first thing to go wrong. An event that has already *started*
+stays regardless of how long ago that was, so `within = 0` shows only what is under way, and a
+meeting you are sitting in never falls off. `window()` clamps the configured value to 400 days —
+the widest range the daemon will expand — so no arithmetic on it can overflow.
+
+**An all-day entry is demoted, and by default excluded.** Ordering by start alone would let a week
+of leave outrank every meeting inside it, because its start is earliest and it never ends; `next`
+therefore looks for a timed event first and only falls back to an all-day one when `all-day = true`.
+The sort key is `(max(start, now), end)`, which is what puts a running meeting ahead of one that
+has not begun.
+
+**It does not send `calendar.set_range`.** The clock does, and the command carries no client
+identity — two applets asking for different windows would overwrite each other on every tick, which
+is the standing `glimpse-66sq` problem made continuous rather than transient. The daemon's default
+window already reaches further forward than this applet looks, so there is nothing to ask for.
+
+**The bar label is cut with an ellipsis, not silently.** `Indicator`'s own label carries
+`ellipsize: end`, so GTK shortens it at whatever width the bar allows — but only for a string that
+still overflows. A hard cut at 24 characters arrives already fitting, GTK draws no ellipsis, and
+`Design review with the p` reads as the title rather than as a truncation. `render::label` therefore
+appends the mark itself when it cut anything.
+
+**`indicators()` returns a cached vector.** The runtime pulls it after every `handle`, every
+`configure` and once per scroll notch, so the scan that picks the next event runs in `refresh` —
+where `&mut self` is available — and `indicators` only clones the result. Choosing inside the pull
+put a 512-entry scan plus a `when()` and a `tooltip()` on the scroll path, which is the one place an
+applet can stall a frame. `refresh` also re-dresses an open popover, so the two never disagree about
+which event they are showing.
+
+**`window()` saturates instead of borrowing the daemon's limit.** An earlier cut clamped the
+configured minutes to 400 days on the grounds that the daemon expands no further, which stated a
+protocol invariant as a panel literal and coupled two numbers that are not the same number. The
+clamp here exists only so arithmetic on a nonsense value cannot overflow, so it says that: anything
+that fits becomes itself, anything that does not becomes `TimeDelta::MAX`, and `edge` saturates to
+the end of representable time rather than collapsing to `now` — a window nobody could mean should
+include everything, not nothing.
+
+**`tooltip-format` has its own tokens**: `{summary}`, `{detail}` and `{when}`. The substitution is a
+single pass rather than chained `String::replace` calls, because a summary comes out of a `.ics`
+file the user did not write — a chain would substitute a `{when}` that arrived *inside* an event's
+own title. Unset means no tooltip, which is what `Common` documents.
+
+**A multi-day entry is counted from the day the reader is on, not from its own start.** One entry
+covering three days is one entry, so the hero and its row have to say *which* day of it this is.
+`shown_day` clamps `now` into `[start, end]` — today while it is running, its first day while it is
+still ahead — and `when` turns that into "day 2 of 3". Anchoring it to `event.start` instead, which
+is what the first cut did, made every row read "day 1" for the whole trip. A one-day entry gets no
+counter: "day 1 of 1" is a number that says nothing.
+
+**There are two windows, and the list gets the wider one.** The bar answers "is something about to
+happen" and is held to `within`; the popover answers "what does the rest of this look like" and
+reaches `horizon`, twelve hours by default. Both are minutes and both go through the same `inside`
+predicate, so there is one definition of what "in the window" means and one place the clamp lives.
+
+A day boundary was the obvious alternative and is the wrong shape: "today only" empties the list at
+exactly the hour tomorrow's first meeting starts mattering, so a glance at 22:00 shows nothing while
+an 08:00 standup is the thing you wanted. A rolling horizon has no such cliff, and `horizon = 1440`
+recovers a full day for anyone who wants one. The list is capped at the configured `upcoming` and
+again at 20, because a configured length nobody could mean is still a popover taller than the
+screen.
+
+`horizon` is read as `horizon.max(within)`. A document may set the bar wider than the list, and the
+result is a hero showing an event with an empty list under it — incoherent rather than merely
+unusual, so the narrower of the two is raised instead of rendered.
+
+**The next-event applet always follows the locale for its clock.** `hour-format` is a setting on the
+clock applet's own table, and it is deliberately not copied here: two places to set one preference is
+worse than one place that does not cover everything. Moving it up to `Common` is the fix when a
+second applet needs it — bead `glimpse-9dax`.
 
 ## Reconciliation settles every slot, on both paths
 

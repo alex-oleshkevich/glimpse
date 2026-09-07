@@ -8,10 +8,10 @@ use glimpse_contracts::{CalendarEvents, CalendarSetRange, Message as _};
 use glimpse_widgets::{CalendarPopover, IndicatorSpec};
 use gtk4::glib;
 
-use super::agenda::Occasion;
 use super::popover;
-use crate::applet::popover::{PopoverHandle, Seat};
+use crate::applet::popover::{PopoverHandle, Seat, run};
 use crate::applet::{Applet, Ctx, Input, payload};
+use crate::applets::agenda::{self, Occasion};
 
 const SECOND: Duration = Duration::from_secs(1);
 const MINUTE: Duration = Duration::from_secs(60);
@@ -90,7 +90,7 @@ impl Applet for Clock {
             let Some(events) = payload::<CalendarEvents>(event) else {
                 return;
             };
-            self.events = popover::occasions(&events.events);
+            self.events = agenda::occasions(&events.events);
             self.truncated_from = events.truncated_from;
             if let Some(shown) = self.shown.upgrade() {
                 self.dress(&shown);
@@ -136,7 +136,7 @@ impl Applet for Clock {
 
         if let Some((_, command)) = &self.footer {
             let command = command.clone();
-            shown.connect_footer_activated(move |_| popover::run(&command));
+            shown.connect_footer_activated(move |_| run(&command));
         }
 
         self.shown.set(Some(&shown));
@@ -161,8 +161,8 @@ impl Clock {
             .and_then(popover::date)
             .unwrap_or_else(|| now.date_naive());
         let clock = match self.twelve {
-            true => popover::TWELVE,
-            false => popover::TWENTY_FOUR,
+            true => agenda::TWELVE,
+            false => agenda::TWENTY_FOUR,
         };
 
         let (title, week) = popover::heading(day, self.settings.week_numbers);
@@ -210,7 +210,7 @@ fn twelve_hour(hour_format: HourFormat) -> bool {
     match hour_format {
         HourFormat::Twelve => true,
         HourFormat::TwentyFour => false,
-        HourFormat::Locale => popover::locale_is_twelve_hour(),
+        HourFormat::Locale => agenda::locale_is_twelve_hour(),
     }
 }
 

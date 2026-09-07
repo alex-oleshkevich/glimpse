@@ -34,6 +34,17 @@ impl Seat {
     }
 }
 
+pub fn run(command: &[String]) {
+    let Some(program) = command.first() else {
+        return;
+    };
+    let argv: Vec<&std::ffi::OsStr> = command.iter().map(|argument| argument.as_ref()).collect();
+
+    if let Err(error) = gtk4::gio::Subprocess::newv(&argv, gtk4::gio::SubprocessFlags::NONE) {
+        tracing::warn!(program, %error, "settings-command did not start");
+    }
+}
+
 pub trait PopoverHandle {
     fn widget(&self) -> gtk4::Widget;
 }

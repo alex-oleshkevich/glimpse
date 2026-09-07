@@ -77,7 +77,7 @@ pub enum Kind {
     /// Connection state, with the available networks in its popover.
     Network {},
     /// The next entry from the configured calendars.
-    NextEvent {},
+    NextEvent(NextEvent),
     /// Unread notifications, with their history in its popover.
     Notifications {},
     /// A strip of workspaces or windows, one slot each, that switches between them on a click.
@@ -165,6 +165,30 @@ pub enum FirstDay {
     Sunday,
 }
 
+/// Settings for the next-event applet.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct NextEvent {
+    /// How long before an event starts it takes the bar, in minutes. Anything further out than
+    /// this leaves the applet empty, which is what keeps a meeting two days away off a bar that
+    /// has nothing to say about it. An event that has already started stays until it ends,
+    /// however long it has been running, so `0` shows only what is under way.
+    pub within: u64,
+    /// How far ahead the popover's list reaches, in minutes. This is the second of two windows and
+    /// the wider one: `within` decides when the bar lights up, `horizon` decides what the list
+    /// holds once you open it. The default 720 is twelve hours, so a late-afternoon glance still
+    /// reaches tomorrow morning — a plain "today only" rule empties the list at exactly the hour
+    /// tomorrow's first meeting starts mattering. 1440 is a rolling day.
+    pub horizon: u64,
+    /// Whether an all-day entry may take the bar. A timed event always wins over one, so this
+    /// only decides what happens on a day holding nothing else — leaving it off keeps a week of
+    /// leave from pinning the applet open for the whole week.
+    pub all_day: bool,
+    /// How many entries the popover lists under the one it is showing, whichever `horizon` leaves.
+    /// Capped at 20, because a list longer than that is a popover taller than the screen.
+    pub upcoming: usize,
+}
+
 /// Settings for the pager applet.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
@@ -238,6 +262,17 @@ impl Default for Pager {
             focused_label: None,
             unfocused_label: None,
             urgent_label: None,
+        }
+    }
+}
+
+impl Default for NextEvent {
+    fn default() -> Self {
+        Self {
+            within: 60,
+            horizon: 720,
+            all_day: false,
+            upcoming: 5,
         }
     }
 }

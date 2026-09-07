@@ -1,5 +1,7 @@
+mod agenda;
 mod clock;
 mod heartbeat;
+mod next_event;
 mod pager;
 
 use glimpse_config::{Applet as AppletConfig, AppletKind};
@@ -31,6 +33,7 @@ fn build(config: &AppletConfig) -> Option<Builder> {
     match &config.kind {
         AppletKind::Clock(_) => Some(|| Box::new(clock::Clock::start())),
         AppletKind::Heartbeat {} => Some(|| Box::new(heartbeat::Heartbeat::start())),
+        AppletKind::NextEvent(_) => Some(|| Box::new(next_event::NextEvent::start())),
         AppletKind::Pager(_) => Some(|| Box::new(pager::Pager::start())),
         AppletKind::Audio {}
         | AppletKind::Battery {}
@@ -44,7 +47,6 @@ fn build(config: &AppletConfig) -> Option<Builder> {
         | AppletKind::Keyboard {}
         | AppletKind::Mpris {}
         | AppletKind::Network {}
-        | AppletKind::NextEvent {}
         | AppletKind::Notifications {}
         | AppletKind::Privacy {}
         | AppletKind::Printing {}
@@ -78,6 +80,14 @@ mod tests {
         assert!(
             resolve("pulse", &BTreeMap::new()).is_none(),
             "without the entry the same name is just unknown"
+        );
+    }
+
+    #[test]
+    fn the_next_event_applet_is_built_rather_than_skipped() {
+        assert!(
+            resolve("next-event", &BTreeMap::new()).is_some(),
+            "the kind has an implementation, so it must not fall through to the skipped arm"
         );
     }
 

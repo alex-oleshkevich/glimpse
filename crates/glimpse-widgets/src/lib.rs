@@ -9,6 +9,7 @@ mod forecast;
 mod hero;
 mod indicator;
 mod indicator_group;
+mod next_event_popover;
 mod notice;
 mod now_playing;
 mod pager;
@@ -39,6 +40,7 @@ pub use forecast::{Day, ForecastDay, ForecastHour, ForecastList, ForecastStrip, 
 pub use hero::Hero;
 pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
+pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
 pub use now_playing::NowPlaying;
 pub use pager::{Focus, Pager, PagerItem, Shape, Slot};
@@ -82,6 +84,14 @@ pub(crate) fn fill_slot(slot: &gtk4::Box, widget: &impl gtk4::prelude::IsA<gtk4:
     }
     clear_children(slot);
     slot.append(widget);
+}
+
+pub(crate) fn set_footer_row(row: &crate::Row, label: Option<&str>) {
+    use gtk4::prelude::*;
+
+    row.set_visible(label.is_some());
+    row.set_title(label);
+    row.set_activatable(label.is_some());
 }
 
 pub(crate) fn set_text(label: &gtk4::Label, value: Option<&str>) {
@@ -2005,6 +2015,44 @@ mod tests {
             "the panel asks the daemon for the months it is showing, so every step has to reach it"
         );
         assert_eq!(popover.shown_month(), (2027, 2));
+
+        let next = NextEventPopover::new();
+        let hero = || next.imp().hero.clone();
+        let quiet = (hero().title(), hero().subtitle());
+        assert!(
+            quiet.0.is_some() && quiet.1.is_some(),
+            "the empty wording is the template's own, so no translator has to find it in Rust"
+        );
+
+        next.set_footer(None);
+        assert!(!child_named::<gtk4::Box>(&next, "popover-shell__footer").is_visible());
+        next.set_footer(Some("Open calendar"));
+        assert!(child_named::<gtk4::Box>(&next, "popover-shell__footer").is_visible());
+
+        next.set_countdown(None);
+        assert!(
+            !next.imp().countdown.get_visible(),
+            "an all-day entry has no minute to count, and an empty readout still costs its slot"
+        );
+        next.set_countdown(Some(("12", "min")));
+        assert!(next.imp().countdown.get_visible());
+
+        next.set_upcoming(&[]);
+        assert!(next.imp().upcoming.empty());
+        next.set_upcoming(&few);
+        assert!(!next.imp().upcoming.empty());
+
+        next.set_heading("Design review", Some("14:00–15:00"));
+        assert_eq!(hero().title().as_deref(), Some("Design review"));
+
+        next.set_nothing();
+        assert_eq!(
+            (hero().title(), hero().subtitle()),
+            quiet,
+            "the last event ending restores the wording rather than leaving a finished one up"
+        );
+        assert!(!next.imp().countdown.get_visible());
+        assert!(next.imp().upcoming.empty());
 
         popover.imp().calendar.select(Ymd::new(2027, 2, 3));
         assert_eq!(

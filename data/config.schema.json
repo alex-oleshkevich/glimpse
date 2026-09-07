@@ -514,9 +514,21 @@
           "description": "The next entry from the configured calendars.",
           "type": "object",
           "properties": {
+            "all-day": {
+              "description": "Whether an all-day entry may take the bar. A timed event always wins over one, so this\nonly decides what happens on a day holding nothing else — leaving it off keeps a week of\nleave from pinning the applet open for the whole week.",
+              "type": "boolean",
+              "default": false
+            },
             "extends": {
               "type": "string",
               "const": "next-event"
+            },
+            "horizon": {
+              "description": "How far ahead the popover's list reaches, in minutes. This is the second of two windows and\nthe wider one: `within` decides when the bar lights up, `horizon` decides what the list\nholds once you open it. The default 720 is twelve hours, so a late-afternoon glance still\nreaches tomorrow morning — a plain \"today only\" rule empties the list at exactly the hour\ntomorrow's first meeting starts mattering. 1440 is a rolling day.",
+              "type": "integer",
+              "format": "uint64",
+              "default": 720,
+              "minimum": 0
             },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -538,6 +550,20 @@
                 "string",
                 "null"
               ]
+            },
+            "upcoming": {
+              "description": "How many entries the popover lists under the one it is showing, whichever `horizon` leaves.\nCapped at 20, because a list longer than that is a popover taller than the screen.",
+              "type": "integer",
+              "format": "uint",
+              "default": 5,
+              "minimum": 0
+            },
+            "within": {
+              "description": "How long before an event starts it takes the bar, in minutes. Anything further out than\nthis leaves the applet empty, which is what keeps a meeting two days away off a bar that\nhas nothing to say about it. An event that has already started stays until it ends,\nhowever long it has been running, so `0` shows only what is under way.",
+              "type": "integer",
+              "format": "uint64",
+              "default": 60,
+              "minimum": 0
             }
           },
           "additionalProperties": false,
@@ -1380,9 +1406,21 @@
             "description": "The next entry from the configured calendars.",
             "type": "object",
             "properties": {
+              "all-day": {
+                "description": "Whether an all-day entry may take the bar. A timed event always wins over one, so this\nonly decides what happens on a day holding nothing else — leaving it off keeps a week of\nleave from pinning the applet open for the whole week.",
+                "type": "boolean",
+                "default": false
+              },
               "extends": {
                 "type": "string",
                 "const": "next-event"
+              },
+              "horizon": {
+                "description": "How far ahead the popover's list reaches, in minutes. This is the second of two windows and\nthe wider one: `within` decides when the bar lights up, `horizon` decides what the list\nholds once you open it. The default 720 is twelve hours, so a late-afternoon glance still\nreaches tomorrow morning — a plain \"today only\" rule empties the list at exactly the hour\ntomorrow's first meeting starts mattering. 1440 is a rolling day.",
+                "type": "integer",
+                "format": "uint64",
+                "default": 720,
+                "minimum": 0
               },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -1404,6 +1442,20 @@
                   "string",
                   "null"
                 ]
+              },
+              "upcoming": {
+                "description": "How many entries the popover lists under the one it is showing, whichever `horizon` leaves.\nCapped at 20, because a list longer than that is a popover taller than the screen.",
+                "type": "integer",
+                "format": "uint",
+                "default": 5,
+                "minimum": 0
+              },
+              "within": {
+                "description": "How long before an event starts it takes the bar, in minutes. Anything further out than\nthis leaves the applet empty, which is what keeps a meeting two days away off a bar that\nhas nothing to say about it. An event that has already started stays until it ends,\nhowever long it has been running, so `0` shows only what is under way.",
+                "type": "integer",
+                "format": "uint64",
+                "default": 60,
+                "minimum": 0
               }
             },
             "additionalProperties": false,

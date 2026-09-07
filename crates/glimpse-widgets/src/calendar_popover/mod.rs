@@ -96,10 +96,7 @@ impl CalendarPopover {
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
-        let footer = &self.imp().footer;
-        footer.set_visible(label.is_some());
-        footer.set_title(label);
-        footer.set_activatable(label.is_some());
+        crate::set_footer_row(&self.imp().footer, label);
     }
 
     pub fn connect_day_selected<F: Fn(&Self, Ymd) + 'static>(

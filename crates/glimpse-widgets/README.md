@@ -1054,6 +1054,51 @@ happily. It failed the moment the panel built one on its own.
 The error placeholder that `agenda.blp` draws — "Cannot reach the calendar service" — is deliberately
 not implemented yet. It arrives with the service that can fail.
 
+## `NextEventPopover`
+
+The next-event applet's popover: a `Hero` naming the one entry the bar is showing, a `Readout` in
+the hero's slot counting down to it, one `Section` listing what follows, and the footer row every
+popover has. It holds no calendar and no drawer — the whole point of the applet is that it answers
+one question, and a second surface to navigate would be the clock's popover with fewer features.
+
+**The empty wording is the template's, captured at `constructed` and put back by `set_nothing`.**
+The hero's title is normally the event's own summary, so the "nothing scheduled" text cannot be a
+static property the way `WorkspacesPopover`'s is — but writing it from Rust would put a user-facing
+string somewhere no translator looks, which is the same defect `CalendarPopover`'s placeholder stack
+exists to avoid. The blueprint sets `title` and `subtitle` to the quiet wording, `constructed` reads
+both back into `quiet` before anything overwrites them, and `set_nothing` restores that pair. The
+applet reaches it only when the event it was showing ends while the popover is open: with nothing
+inside the window the bar shows no indicator at all, so there is normally nothing to click.
+
+The alternative was a `Gtk.Stack` of two `$Hero`s switched by name, which is what `CalendarPopover`
+does for its two placeholder wordings. Either keeps the strings in the template; capture-and-restore
+costs a `RefCell` and an ordering assumption, the stack costs a second copy of the hero's structure
+in the blueprint and a slot that can only hold one of them. The ordering assumption is the weaker
+half and is pinned by an assertion in the GTK test — if a future GTK applies template properties
+after `constructed`, that test fails rather than the wording silently going blank. Bead
+`glimpse-34sw` covers the related duplication.
+
+**The countdown is one value, so `set_countdown` takes one argument.** `Option<(&str, &str)>` rather
+than two parallel `Option`s: `render::countdown` produces both halves together or neither, and a
+signature admitting `(Some, None)` invites a caller to key visibility off whichever half it happened
+to check.
+
+`shell` and `nothing` are bound as `TemplateChild`s that no method reads, for the GType-registration
+reason spelled out under `CalendarPopover` above — `$PopoverShell` and `$Placeholder` are named in
+the blueprint and resolved by name.
+
+**`set_footer` is `crate::set_footer_row` in both popovers.** The three-setter body — visible, title,
+activatable, all keyed on the same `Option` — was byte-identical in `CalendarPopover` and here, and
+the pair will grow. It sits in `lib.rs` beside `set_text` and `fill_slot` rather than on
+`PopoverShell`, whose footer is a slot that takes any widget and should not be narrowed to a `Row`
+as a side effect; bead `glimpse-34sw` is where that decision belongs.
+
+**The `column` class sits on the `Section` rather than on a box around it.** There is one child, and
+`blueprint-compiler lint` reports `use_adw_bin` for a `Gtk.Box` holding a single widget — which
+`just lint` treats as an error. The floor `.column` provides is a descendant rule
+(`.popover-shell .column`), so it applies to any widget carrying the class. A second section brings
+the box back.
+
 ## The type scale
 
 Three sizes, all `rem`, and **no rule may write a font size in `px`** — `no_rule_sets_a_pixel_font_size`

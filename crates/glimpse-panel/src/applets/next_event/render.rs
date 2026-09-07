@@ -1,0 +1,513 @@
+use chrono::{DateTime, Local, NaiveDate, TimeDelta, Utc};
+use glimpse_widgets::Event;
+
+use crate::applets::agenda::{self, Occasion};
+
+const UPCOMING: usize = 20;
+const TITLE: usize = 24;
+const ELLIPSIS: char = '…';
+const HOUR_MINUTES: i64 = 60;
+const DAY_HOURS: i64 = 24;
+
+pub fn window(minutes: u64) -> TimeDelta {
+    i64::try_from(minutes)
+        .ok()
+        .and_then(TimeDelta::try_minutes)
+        .unwrap_or(TimeDelta::MAX)
+}
+
+pub fn next(
+    now: DateTime<Local>,
+    events: &[Occasion],
+    within: TimeDelta,
+    all_day: bool,
+) -> Option<usize> {
+    soonest(now, events, within, false).or_else(|| soonest(now, events, within, all_day))
+}
+
+fn soonest(
+    now: DateTime<Local>,
+    events: &[Occasion],
+    within: TimeDelta,
+    with_all_day: bool,
+) -> Option<usize> {
+    let edge = edge(now, within);
+    events
+        .iter()
+        .enumerate()
+        .filter(|(_, event)| inside(now, event, edge) && (with_all_day || !event.all_day))
+        .min_by_key(|(_, event)| (event.start.max(now), event.end))
+        .map(|(index, _)| index)
+}
+
+fn edge(now: DateTime<Local>, window: TimeDelta) -> DateTime<Local> {
+    now.checked_add_signed(window)
+        .unwrap_or_else(|| DateTime::<Utc>::MAX_UTC.with_timezone(&Local))
+}
+
+fn inside(now: DateTime<Local>, event: &Occasion, edge: DateTime<Local>) -> bool {
+    event.end > now && event.start <= edge
+}
+
+pub fn label(event: &Occasion) -> String {
+    let mut label: String = event.summary.chars().take(TITLE).collect();
+    if event.summary.chars().nth(TITLE).is_some() {
+        label.push(ELLIPSIS);
+    }
+    label
+}
+
+pub fn heading(now: DateTime<Local>, event: &Occasion, clock: &str) -> (String, String) {
+    let extent = extent(now, event, clock);
+    let subtitle = match event.detail.is_empty() {
+        true => extent,
+        false => format!("{extent} · {}", event.detail),
+    };
+    (event.summary.clone(), subtitle)
+}
+
+fn shown_day(now: DateTime<Local>, event: &Occasion) -> NaiveDate {
+    let first = event.start.date_naive();
+    now.date_naive()
+        .clamp(first, event.end.date_naive().max(first))
+}
+
+fn extent(now: DateTime<Local>, event: &Occasion, clock: &str) -> String {
+    let started = event.start.date_naive();
+    let body = match event.all_day {
+        true => agenda::when(now, shown_day(now, event), event, clock),
+        false => {
+            let ends = match event.end.date_naive() == started {
+                true => at(event.end, clock),
+                false => format!("{} {}", event.end.format("%a"), at(event.end, clock)),
+            };
+            format!("{}–{ends}", at(event.start, clock))
+        }
+    };
+
+    match started > now.date_naive() {
+        true => format!("{} {body}", event.start.format("%a")),
+        false => body,
+    }
+}
+
+fn at(instant: DateTime<Local>, clock: &str) -> String {
+    instant.format(clock).to_string()
+}
+
+pub fn countdown(now: DateTime<Local>, event: &Occasion) -> Option<(String, String)> {
+    if event.all_day {
+        return None;
+    }
+
+    if now >= event.start {
+        let left = (event.end - now).num_minutes().max(0);
+        return Some((left.to_string(), "min left".to_owned()));
+    }
+
+    let until = event.start - now;
+    if until.num_minutes() < HOUR_MINUTES {
+        return Some((until.num_minutes().max(0).to_string(), "min".to_owned()));
+    }
+    if until.num_hours() < DAY_HOURS {
+        return Some((until.num_hours().to_string(), "h".to_owned()));
+    }
+    Some((until.num_days().to_string(), "d".to_owned()))
+}
+
+pub fn upcoming(
+    now: DateTime<Local>,
+    events: &[Occasion],
+    shown: Option<usize>,
+    horizon: TimeDelta,
+    limit: usize,
+    clock: &str,
+) -> Vec<Event> {
+    let edge = edge(now, horizon);
+    let mut rest: Vec<&Occasion> = events
+        .iter()
+        .enumerate()
+        .filter(|(index, event)| Some(*index) != shown && inside(now, event, edge))
+        .map(|(_, event)| event)
+        .collect();
+    rest.sort_by_key(|event| (event.start.max(now), event.end));
+    rest.into_iter()
+        .take(limit.min(UPCOMING))
+        .map(|event| row(now, event, clock))
+        .collect()
+}
+
+fn row(now: DateTime<Local>, event: &Occasion, clock: &str) -> Event {
+    let day = shown_day(now, event);
+    let mut row = agenda::row(now, day, event, clock);
+    if day != now.date_naive() {
+        row.when = format!("{} {}", event.start.format("%a"), row.when);
+    }
+    row
+}
+
+pub fn tooltip(format: &str, event: &Occasion, reading: &str) -> String {
+    let mut rendered = String::new();
+    let mut rest = format;
+
+    while let Some(open) = rest.find('{') {
+        let Some(close) = rest[open..].find('}') else {
+            break;
+        };
+        rendered.push_str(&rest[..open]);
+        match &rest[open + 1..open + close] {
+            "summary" => rendered.push_str(&event.summary),
+            "detail" => rendered.push_str(&event.detail),
+            "when" => rendered.push_str(reading),
+            unknown => {
+                rendered.push('{');
+                rendered.push_str(unknown);
+                rendered.push('}');
+            }
+        }
+        rest = &rest[open + close + 1..];
+    }
+
+    rendered.push_str(rest);
+    rendered
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::applets::agenda::TWENTY_FOUR;
+    use chrono::TimeZone;
+
+    const HORIZON: TimeDelta = TimeDelta::hours(1);
+    const REACH: TimeDelta = TimeDelta::hours(12);
+
+    fn at(day: u32, hour: u32, minute: u32) -> DateTime<Local> {
+        Local
+            .with_ymd_and_hms(2026, 9, day, hour, minute, 0)
+            .single()
+            .expect("an unambiguous local time")
+    }
+
+    fn event(summary: &str, start: DateTime<Local>, end: DateTime<Local>) -> Occasion {
+        Occasion {
+            summary: summary.to_owned(),
+            detail: String::new(),
+            start,
+            end,
+            all_day: false,
+            color: None,
+        }
+    }
+
+    fn all_day(summary: &str, day: u32) -> Occasion {
+        spanning(summary, day, day)
+    }
+
+    fn spanning(summary: &str, first: u32, last: u32) -> Occasion {
+        let mut event = event(summary, at(first, 0, 0), at(last, 23, 59));
+        event.all_day = true;
+        event
+    }
+
+    /// One entry covering three days is one entry, not three, so the row has to say which day of
+    /// it the reader is on. Anchoring that to the event's own start made every row read "day 1".
+    #[test]
+    fn a_multi_day_entry_counts_the_day_it_is_actually_on() {
+        let trip = spanning("Vilnius trip", 8, 10);
+
+        assert_eq!(
+            heading(at(9, 12, 0), &trip, TWENTY_FOUR).1,
+            "All day · day 2 of 3",
+            "on the middle day it is day two, not day one"
+        );
+        assert_eq!(
+            heading(at(8, 12, 0), &trip, TWENTY_FOUR).1,
+            "All day · day 1 of 3"
+        );
+        assert_eq!(
+            heading(at(10, 12, 0), &trip, TWENTY_FOUR).1,
+            "All day · day 3 of 3"
+        );
+    }
+
+    #[test]
+    fn a_multi_day_entry_still_ahead_reads_as_its_first_day() {
+        let trip = spanning("Vilnius trip", 8, 10);
+        let reach = TimeDelta::days(7);
+        let rows = upcoming(at(4, 9, 0), &[trip], None, reach, 5, TWENTY_FOUR);
+
+        assert_eq!(rows[0].when, "Tue All day · day 1 of 3");
+    }
+
+    #[test]
+    fn a_single_day_entry_is_not_given_a_counter_it_does_not_need() {
+        let holiday = all_day("Knabenschiessen", 12);
+
+        assert_eq!(
+            heading(at(12, 9, 0), &holiday, TWENTY_FOUR).1,
+            "All day",
+            "one day of one day is a number that says nothing"
+        );
+    }
+
+    /// An all-day entry covers the whole day, so ordering by start alone would let it outrank
+    /// every meeting on it — which is exactly the one thing the bar has to get right.
+    #[test]
+    fn an_all_day_entry_never_outranks_a_meeting_that_is_actually_next() {
+        let events = vec![
+            all_day("Conference", 4),
+            event("Standup", at(4, 9, 30), at(4, 9, 45)),
+        ];
+
+        let chosen = next(at(4, 9, 0), &events, HORIZON, true).expect("something is next");
+        assert_eq!(events[chosen].summary, "Standup");
+    }
+
+    #[test]
+    fn an_all_day_entry_takes_the_bar_only_when_it_was_allowed_to() {
+        let events = vec![all_day("Conference", 4)];
+
+        let chosen = next(at(4, 9, 0), &events, HORIZON, true).expect("something is next");
+        assert_eq!(events[chosen].summary, "Conference");
+        assert!(
+            next(at(4, 9, 0), &events, HORIZON, false).is_none(),
+            "a week of leave must not pin the applet open for the whole week"
+        );
+    }
+
+    #[test]
+    fn a_running_meeting_outranks_one_that_has_not_started() {
+        let events = vec![
+            event("Later", at(4, 10, 15), at(4, 11, 0)),
+            event("Running", at(4, 9, 0), at(4, 10, 0)),
+        ];
+
+        let chosen = next(at(4, 9, 30), &events, HORIZON, true).expect("something is next");
+        assert_eq!(events[chosen].summary, "Running");
+    }
+
+    #[test]
+    fn an_event_that_has_ended_is_never_next() {
+        let events = vec![event("Over", at(4, 8, 0), at(4, 9, 0))];
+        assert!(next(at(4, 9, 30), &events, HORIZON, true).is_none());
+    }
+
+    /// The bar has nothing useful to say about a meeting two days out, and saying it anyway is
+    /// what the window exists to stop.
+    #[test]
+    fn an_event_beyond_the_window_stays_off_the_bar_until_the_window_reaches_it() {
+        let events = vec![event("Review", at(6, 14, 0), at(6, 15, 0))];
+
+        assert!(next(at(4, 9, 0), &events, HORIZON, true).is_none());
+        assert!(next(at(6, 13, 30), &events, HORIZON, true).is_some());
+        assert!(
+            next(at(6, 12, 59), &events, HORIZON, true).is_none(),
+            "an hour and a minute out is still outside an hour"
+        );
+    }
+
+    /// A meeting you are already in is never too far away, however long ago it started.
+    #[test]
+    fn a_running_event_stays_on_the_bar_however_far_back_it_started() {
+        let marathon = vec![event("Offsite", at(1, 9, 0), at(6, 17, 0))];
+
+        assert!(next(at(4, 12, 0), &marathon, TimeDelta::zero(), true).is_some());
+    }
+
+    #[test]
+    fn a_window_nobody_could_mean_is_clamped_rather_than_overflowing() {
+        let events = vec![event("Review", at(6, 14, 0), at(6, 15, 0))];
+
+        assert!(next(at(4, 9, 0), &events, window(u64::MAX), true).is_some());
+        assert!(
+            next(at(4, 9, 0), &events, window(0), true).is_none(),
+            "a zero window shows only what is already running"
+        );
+    }
+
+    #[test]
+    fn a_heading_names_the_day_only_when_it_is_not_today() {
+        let now = at(4, 9, 0);
+        let today = event("Standup", at(4, 14, 0), at(4, 15, 0));
+        let other = event("Retro", at(5, 14, 0), at(5, 15, 0));
+
+        assert_eq!(heading(now, &today, TWENTY_FOUR).1, "14:00–15:00");
+        assert_eq!(heading(now, &other, TWENTY_FOUR).1, "Sat 14:00–15:00");
+    }
+
+    #[test]
+    fn a_heading_that_runs_past_midnight_names_the_day_it_ends() {
+        let now = at(4, 9, 0);
+        let overnight = event("Deploy", at(4, 22, 0), at(5, 2, 0));
+
+        assert_eq!(heading(now, &overnight, TWENTY_FOUR).1, "22:00–Sat 02:00");
+    }
+
+    #[test]
+    fn a_location_joins_the_heading_and_an_absent_one_leaves_no_separator() {
+        let now = at(4, 9, 0);
+        let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
+        meeting.detail = "Room 2".to_owned();
+
+        assert_eq!(
+            heading(now, &meeting, TWENTY_FOUR).1,
+            "14:00–15:00 · Room 2"
+        );
+    }
+
+    #[test]
+    fn a_countdown_grows_through_minutes_hours_and_days() {
+        let meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
+
+        assert_eq!(
+            countdown(at(4, 13, 48), &meeting),
+            Some(("12".to_owned(), "min".to_owned()))
+        );
+        assert_eq!(
+            countdown(at(4, 9, 0), &meeting),
+            Some(("5".to_owned(), "h".to_owned()))
+        );
+        assert_eq!(
+            countdown(at(1, 9, 0), &meeting),
+            Some(("3".to_owned(), "d".to_owned()))
+        );
+        assert_eq!(
+            countdown(at(4, 14, 30), &meeting),
+            Some(("30".to_owned(), "min left".to_owned())),
+            "a running event counts down to its end rather than up from its start"
+        );
+        assert_eq!(
+            countdown(at(4, 9, 0), &all_day("Conference", 4)),
+            None,
+            "an all-day entry has no minute to count"
+        );
+    }
+
+    #[test]
+    fn the_list_below_the_hero_leaves_out_the_event_the_hero_is_showing() {
+        let events = vec![
+            event("Standup", at(4, 9, 30), at(4, 9, 45)),
+            event("Review", at(4, 14, 0), at(4, 15, 0)),
+        ];
+
+        let rows = upcoming(at(4, 9, 0), &events, Some(0), REACH, 5, TWENTY_FOUR);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].summary, "Review");
+    }
+
+    #[test]
+    fn a_row_on_another_day_says_which_day() {
+        let events = vec![event("Retro", at(5, 14, 0), at(5, 15, 0))];
+        let reach = TimeDelta::days(2);
+        let rows = upcoming(at(4, 9, 0), &events, None, reach, 5, TWENTY_FOUR);
+
+        assert_eq!(rows[0].when, "Sat 14:00 · 1 h");
+    }
+
+    /// Two windows, and the list's is the wider one: the bar answers "is something about to
+    /// happen", the popover answers "what does the rest of this look like".
+    #[test]
+    fn the_list_reaches_past_the_window_the_bar_is_held_to() {
+        let events = vec![event("Review", at(4, 18, 0), at(4, 19, 0))];
+        let now = at(4, 9, 0);
+
+        assert!(
+            next(now, &events, HORIZON, true).is_none(),
+            "nine hours out is well past the hour the bar is held to"
+        );
+        assert_eq!(
+            upcoming(now, &events, None, REACH, 5, TWENTY_FOUR).len(),
+            1,
+            "but it is inside the twelve the list reaches"
+        );
+    }
+
+    /// A late-afternoon glance has to reach tomorrow morning, which is the whole reason the list
+    /// rolls forward by hours rather than stopping at midnight.
+    #[test]
+    fn the_horizon_crosses_midnight_rather_than_stopping_at_it() {
+        let standup = vec![event("Standup", at(5, 8, 0), at(5, 8, 15))];
+        let evening = at(4, 21, 0);
+
+        assert_eq!(
+            upcoming(evening, &standup, None, REACH, 5, TWENTY_FOUR).len(),
+            1,
+            "eleven hours away is tomorrow, and still inside a twelve-hour reach"
+        );
+        assert!(
+            upcoming(evening, &standup, None, TimeDelta::hours(6), 5, TWENTY_FOUR).is_empty(),
+            "a narrower reach stops short of it"
+        );
+    }
+
+    #[test]
+    fn the_list_is_capped_so_a_crowded_calendar_cannot_grow_the_popover() {
+        let events: Vec<Occasion> = (0..40)
+            .map(|index| {
+                let start = at(4, 10, 0) + TimeDelta::hours(index);
+                event("Busy", start, start + TimeDelta::minutes(30))
+            })
+            .collect();
+        let reach = TimeDelta::days(7);
+
+        assert_eq!(
+            upcoming(at(4, 9, 0), &events, None, reach, 5, TWENTY_FOUR).len(),
+            5
+        );
+        assert_eq!(
+            upcoming(at(4, 9, 0), &events, None, reach, usize::MAX, TWENTY_FOUR).len(),
+            UPCOMING,
+            "a configured length nobody could mean is still a popover that fits on screen"
+        );
+    }
+
+    #[test]
+    fn a_tooltip_resolves_its_own_tokens_and_keeps_the_text_around_them() {
+        let mut meeting = event("Standup", at(4, 14, 0), at(4, 15, 0));
+        meeting.detail = "Room 2".to_owned();
+
+        assert_eq!(
+            tooltip("{summary} in {detail} — {when}", &meeting, "in 12 min"),
+            "Standup in Room 2 — in 12 min"
+        );
+        assert_eq!(
+            tooltip("{nonesuch}", &meeting, "in 12 min"),
+            "{nonesuch}",
+            "an unknown token is left alone rather than silently emptied"
+        );
+        assert_eq!(tooltip("{unclosed", &meeting, ""), "{unclosed");
+    }
+
+    /// A summary comes from a `.ics` file the user did not write, so a token inside one must
+    /// stay text rather than become a second round of substitution.
+    #[test]
+    fn a_token_inside_an_events_own_text_is_not_substituted() {
+        let hostile = event("{when}", at(4, 14, 0), at(4, 15, 0));
+
+        assert_eq!(tooltip("{summary}", &hostile, "in 12 min"), "{when}");
+    }
+
+    /// The bar's label ellipsizes at its rendered width, but only for a string that still
+    /// overflows it — a hard cut with no mark reaches GTK already fitting, so it draws no
+    /// ellipsis and the cut reads as the title itself.
+    #[test]
+    fn a_capped_bar_label_says_that_it_was_cut() {
+        let mut long = event(
+            "Ünicöde tîtle that runs on well past the bar",
+            at(4, 14, 0),
+            at(4, 15, 0),
+        );
+        long.summary.push('é');
+
+        let cut = label(&long);
+        assert_eq!(cut.chars().count(), TITLE + 1);
+        assert!(cut.ends_with(ELLIPSIS), "{cut}");
+
+        let short = event("Standup", at(4, 14, 0), at(4, 15, 0));
+        assert_eq!(
+            label(&short),
+            "Standup",
+            "a title that fits is not marked as cut"
+        );
+    }
+}

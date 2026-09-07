@@ -39,6 +39,10 @@ fn main() {
             "resources/widgets/workspace_section.ui",
         ),
         ("blueprints/indicator.blp", "resources/widgets/indicator.ui"),
+        (
+            "blueprints/next_event_popover.blp",
+            "resources/widgets/next_event_popover.ui",
+        ),
         ("blueprints/notice.blp", "resources/widgets/notice.ui"),
         (
             "blueprints/now_playing.blp",
