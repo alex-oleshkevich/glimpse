@@ -390,13 +390,15 @@ impl Weather {
     /// The caller has already checked that the provider answered for exactly the places asked
     /// about, which is what makes pairing them by position safe.
     fn absorb(&mut self, readings: &[Reading]) {
+        let cap = self.config.forecast_days as usize;
+
         self.places = self
             .targets()
             .into_iter()
             .zip(readings)
             .map(|((place, coordinates), reading)| PlaceWeather {
                 place,
-                days: sunlit(&reading.days, &coordinates, reading.utc_offset_seconds),
+                days: sunlit(&reading.days, cap, &coordinates, reading.utc_offset_seconds),
                 coordinates,
                 utc_offset_seconds: reading.utc_offset_seconds,
                 current: reading.current.clone(),
@@ -464,10 +466,16 @@ fn metres(from: &GeoCoordinates, to: &GeoCoordinates) -> f64 {
 /// added later gets them without remembering to ask.
 ///
 /// The date is the day in the *place's* own zone, which is what `start` already is.
-fn sunlit(days: &[DayForecast], coordinates: &GeoCoordinates, seconds: i32) -> Vec<DayForecast> {
+fn sunlit(
+    days: &[DayForecast],
+    cap: usize,
+    coordinates: &GeoCoordinates,
+    seconds: i32,
+) -> Vec<DayForecast> {
     let offset = FixedOffset::east_opt(seconds).unwrap_or_else(|| Utc.fix());
 
     days.iter()
+        .take(cap)
         .map(|day| {
             let (sunrise, sunset) =
                 crate::sun::events(coordinates, day.start.with_timezone(&offset).date_naive())
@@ -511,6 +519,21 @@ fn transport(error: reqwest::Error) -> String {
     }
 }
 
+async fn fetch_json<T: serde::de::DeserializeOwned>(
+    client: &reqwest::Client,
+    url: reqwest::Url,
+) -> Result<T, String> {
+    let response = client.get(url).send().await.map_err(transport)?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!("the provider answered {status}"));
+    }
+
+    let body = response.text().await.map_err(transport)?;
+    serde_json::from_str(&body).map_err(|_| "the provider answered something else".to_owned())
+}
+
 /// The window opens at the hour standing rather than the one after it: a renderer that wants to
 /// skip it can, and one that wants to read the current hour off the strip cannot get it back.
 /// Every provider's hours are cut to the same window, so the rule lives here rather than in each.
@@ -519,11 +542,8 @@ fn hour_floor(now: DateTime<Utc>) -> i64 {
     epoch - epoch.rem_euclid(3600)
 }
 
-/// The range each of these is squeezed into belongs to the payload rather than to whoever
-/// answered: the wire carries humidity as a `u8` percentage and a bearing as a `u16` compass
-/// degree, so every provider rounds and wraps them the same way.
-fn humidity(percent: Option<f64>) -> Option<u8> {
-    percent.map(|reading| reading.round().clamp(0.0, 100.0) as u8)
+fn percent(value: Option<f64>) -> Option<u8> {
+    value.map(|reading| reading.round().clamp(0.0, 100.0) as u8)
 }
 
 fn bearing(degrees: Option<f64>) -> Option<u16> {
@@ -1044,7 +1064,7 @@ mod tests {
             sunset: None,
         };
 
-        let [lit] = sunlit(std::slice::from_ref(&bare), &vilnius, 3 * 3600)
+        let [lit] = sunlit(std::slice::from_ref(&bare), 7, &vilnius, 3 * 3600)
             .try_into()
             .expect("one day back");
         let sunrise = lit.sunrise.expect("Vilnius has a sunrise in September");
@@ -1066,13 +1086,51 @@ mod tests {
             latitude: 1000.0,
             longitude: 25.2797,
         };
-        let [unlit] = sunlit(&[bare], &nowhere, 3 * 3600)
+        let [unlit] = sunlit(&[bare], 7, &nowhere, 3 * 3600)
             .try_into()
             .expect("one day back");
         assert_eq!(
             (unlit.sunrise, unlit.sunset),
             (None, None),
             "coordinates that are not on Earth lose the sun rather than the day"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_days_published_are_cut_to_the_ask() {
+        let mut harness = harness_with(Config {
+            provider: Provider::OpenMeteo,
+            units: UnitSystem::Metric,
+            poll_interval: 900,
+            forecast_days: 2,
+        })
+        .await;
+        call(&mut harness, Command::Watch(at(54.6872, 25.2797)))
+            .await
+            .expect("a place to hold a reading");
+
+        let day = |number: u32| DayForecast {
+            start: Utc
+                .with_ymd_and_hms(2026, 9, number, 21, 0, 0)
+                .single()
+                .expect("a real instant"),
+            condition: Condition::ClearSky,
+            low: 8.0,
+            high: 18.0,
+            precipitation_chance: None,
+            sunrise: None,
+            sunset: None,
+        };
+
+        harness.service.absorb(&[Reading {
+            days: (1..=5).map(day).collect(),
+            ..a_reading()
+        }]);
+
+        assert_eq!(
+            harness.service.places[0].days.len(),
+            2,
+            "the ask cuts the list once, for whichever provider answered"
         );
     }
 

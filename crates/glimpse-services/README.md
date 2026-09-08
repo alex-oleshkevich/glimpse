@@ -219,23 +219,25 @@ two gates every reading passes on its way to a payload, `sunlit` and `sanitized`
 and `met_no.rs` hold one provider each: its endpoints, its wire structs, its decode into `Reading`,
 and its own tests. `Provider::fetch` is the only place that names both.
 
-What stays in `mod.rs` is what more than one provider needs — `Ask`, `Reading`, `transport`,
-`hour_floor`, `humidity` and `bearing` — and the two providers do not see each other at all. A
-helper that migrates out of `mod.rs` into a provider file is the signal that the other provider
-stopped needing it; one that migrates the other way is a rule that turned out to be about weather
-rather than about a source.
+What stays in `mod.rs` is what more than one provider needs — `Ask`, `Reading`, `fetch_json`,
+`hour_floor`, `percent` and `bearing` — and the two providers do not see each other at all. A helper
+that migrates out of `mod.rs` into a provider file is the signal that the other provider stopped
+needing it; one that migrates the other way is a rule that turned out to be about weather rather
+than about a source.
 
-The shared ones are all range rules the *payload* imposes rather than answers either source gave:
-the window hours are cut to, the percentage humidity is squeezed into, the compass degree a bearing
-wraps onto. Every provider's own numbers — met.no's Celsius, Open-Meteo's WMO codes — convert in its
-own file, because those are facts about the source.
+The shared ones are rules the *payload* imposes rather than answers either source gave: the window
+hours are cut to, the percentage a humidity or a chance is squeezed into, the compass degree a
+bearing wraps onto, and the one round trip that turns a built URL into a decoded body. Every
+provider's own numbers — met.no's Celsius and metres per second, Open-Meteo's WMO codes — convert in
+its own file, because those are facts about the source.
 
-**Cap what the provider sent, not what it should have sent.** `forecast_days` is asked for in the
-query, but nothing downstream re-checks the answer: `absorb` copies the day list onto the payload as
-it stands, and the panel renders what arrives. So both providers enforce the ask themselves —
-`met_no_days` takes the first `cap` local dates it aggregated, `open_meteo`'s `days` the first `cap`
-the response listed. Hours are capped at `HOURS` the same way and alerts at `MOST_ALERTS` in
-`sanitized`; days were the one list trusting the source, on one of the two paths.
+**Every list is cut in `absorb`, not in the provider that filled it.** `forecast_days` is asked for
+in the query and nothing obliges a source to honour the answer, so the day list is cut where
+`sunlit` fills the sun times and `sanitized` caps the alerts — one gate, on the readings every
+provider produces, and a third provider inherits all three by reaching the payload the same way.
+Hours are the exception, capped inside each provider, because `HOURS` is a module constant a new
+provider imports and the compiler shows it; the ask is runtime configuration that nothing would
+show it.
 
 **Places are not configured; they are leased.** `[weather]` holds `provider`, `units`,
 `poll-interval` and `forecast-days` and nothing else. A consumer calls `weather.watch` naming either

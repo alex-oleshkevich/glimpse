@@ -4,7 +4,7 @@ use glimpse_contracts::{
 };
 use serde::Deserialize;
 
-use super::{Ask, HOURS, Reading, bearing, hour_floor, humidity, transport};
+use super::{Ask, HOURS, Reading, bearing, fetch_json, hour_floor, percent};
 
 const ENDPOINT: &str = "https://api.open-meteo.com/v1/forecast";
 
@@ -50,18 +50,9 @@ pub(super) async fn open_meteo(client: reqwest::Client, ask: Ask) -> Result<Vec<
     )
     .map_err(|_| "the request could not be built".to_owned())?;
 
-    let response = client.get(url).send().await.map_err(transport)?;
+    let payload: Payload = fetch_json(&client, url).await?;
 
-    let status = response.status();
-    if !status.is_success() {
-        return Err(format!("the provider answered {status}"));
-    }
-
-    let body = response.text().await.map_err(transport)?;
-    let payload: Payload = serde_json::from_str(&body)
-        .map_err(|_| "the provider answered something else".to_owned())?;
-
-    Ok(readings(payload.forecasts(), Utc::now(), ask.forecast_days))
+    Ok(readings(payload.forecasts(), Utc::now()))
 }
 
 #[derive(Debug, Deserialize)]
@@ -132,14 +123,14 @@ fn moment(epoch: i64) -> Option<DateTime<Utc>> {
     Utc.timestamp_opt(epoch, 0).single()
 }
 
-fn readings(forecasts: Vec<Forecast>, now: DateTime<Utc>, cap: u8) -> Vec<Reading> {
+fn readings(forecasts: Vec<Forecast>, now: DateTime<Utc>) -> Vec<Reading> {
     forecasts
         .into_iter()
         .map(|forecast| Reading {
             utc_offset_seconds: forecast.utc_offset_seconds,
             current: forecast.current.and_then(current),
             hours: hours(forecast.hourly.unwrap_or_default(), now),
-            days: days(forecast.daily.unwrap_or_default(), cap),
+            days: days(forecast.daily.unwrap_or_default()),
             alerts: Vec::new(),
         })
         .collect()
@@ -152,7 +143,7 @@ fn current(block: CurrentBlock) -> Option<CurrentWeather> {
         is_day: block.is_day != Some(0),
         temperature: block.temperature_2m?,
         apparent_temperature: block.apparent_temperature,
-        humidity: humidity(block.relative_humidity_2m),
+        humidity: percent(block.relative_humidity_2m),
         wind_speed: block.wind_speed_10m,
         wind_direction: bearing(block.wind_direction_10m),
         precipitation: block.precipitation,
@@ -179,15 +170,11 @@ fn hours(block: HourlyBlock, now: DateTime<Utc>) -> Vec<HourForecast> {
         .collect()
 }
 
-/// The provider is asked for `forecast_days` and nothing downstream re-checks it, so the ask is
-/// enforced here as well: days are chronological, which is what makes taking the first `cap` of
-/// them mean the same thing as asking for `cap` of them.
-fn days(block: DailyBlock, cap: u8) -> Vec<DayForecast> {
+fn days(block: DailyBlock) -> Vec<DayForecast> {
     block
         .time
         .iter()
         .enumerate()
-        .take(cap as usize)
         .filter_map(|(index, at)| {
             Some(DayForecast {
                 start: moment(*at)?,
@@ -280,7 +267,7 @@ mod tests {
     /// by string-comparing timestamps, and lost it.
     #[test]
     fn the_hours_published_start_at_the_current_hour() {
-        let read = readings(decoded(one_place()), moment_of(1757262000), 7);
+        let read = readings(decoded(one_place()), moment_of(1757262000));
 
         let hours = &read[0].hours;
         assert_eq!(hours[0].time, moment_of(1757260800));
@@ -290,7 +277,7 @@ mod tests {
 
     #[test]
     fn an_hour_the_provider_left_null_is_skipped_rather_than_zeroed() {
-        let read = readings(decoded(one_place()), moment_of(1757262000), 7);
+        let read = readings(decoded(one_place()), moment_of(1757262000));
 
         let times: Vec<i64> = read[0]
             .hours
@@ -302,7 +289,7 @@ mod tests {
 
     #[test]
     fn an_hour_before_now_is_not_published() {
-        let read = readings(decoded(one_place()), moment_of(1757264400), 7);
+        let read = readings(decoded(one_place()), moment_of(1757264400));
 
         assert!(
             read[0]
@@ -314,7 +301,7 @@ mod tests {
 
     #[test]
     fn a_day_carries_its_span_and_its_chance() {
-        let read = readings(decoded(one_place()), moment_of(1757262000), 7);
+        let read = readings(decoded(one_place()), moment_of(1757262000));
 
         let day = &read[0].days[0];
         assert_eq!(day.low, 12.0);
@@ -328,32 +315,9 @@ mod tests {
         );
     }
 
-    /// Nothing downstream trims the day list: `absorb` copies it onto the payload as it stands and
-    /// the panel renders what arrives. met.no caps its own aggregation by the same ask, so a
-    /// provider answering with more days than it was asked for is capped on both paths.
-    #[test]
-    fn the_ask_caps_the_days_published() {
-        let week = r#"{"latitude": 47.375, "longitude": 8.5, "utc_offset_seconds": 0,
-                       "daily": {"time": [1757196000, 1757282400, 1757368800, 1757455200],
-                                 "weather_code": [0, 1, 2, 3],
-                                 "temperature_2m_max": [21.0, 22.0, 23.0, 24.0],
-                                 "temperature_2m_min": [12.0, 13.0, 14.0, 15.0],
-                                 "precipitation_probability_max": [10, 20, 30, 40]}}"#;
-
-        let read = readings(decoded(week), moment_of(1757262000), 2);
-
-        let days = &read[0].days;
-        assert_eq!(days.len(), 2, "the ask caps the days, not the response");
-        assert_eq!(
-            days[0].start,
-            moment_of(1757196000),
-            "the cap keeps the first days rather than an arbitrary two"
-        );
-    }
-
     #[test]
     fn the_current_block_carries_the_provider_s_own_observation_time() {
-        let read = readings(decoded(one_place()), moment_of(1757262000), 7);
+        let read = readings(decoded(one_place()), moment_of(1757262000));
 
         let current = read[0].current.as_ref().expect("a current block");
         assert_eq!(current.observed_at, moment_of(1757260800));
@@ -371,7 +335,7 @@ mod tests {
                          "current": {"time": 1757260800, "temperature_2m": 18.4,
                                      "weather_code": 0, "is_day": 1}}"#;
 
-        let read = readings(decoded(sparse), moment_of(1757262000), 7);
+        let read = readings(decoded(sparse), moment_of(1757262000));
         let current = read[0].current.as_ref().expect("a current block");
 
         assert_eq!(current.temperature, 18.4);
@@ -390,7 +354,7 @@ mod tests {
                                    "relative_humidity_2m": 0, "wind_speed_10m": 0.0,
                                    "precipitation": 0.0, "weather_code": 1, "is_day": 1}}"#;
 
-        let read = readings(decoded(calm), moment_of(1757262000), 7);
+        let read = readings(decoded(calm), moment_of(1757262000));
         let current = read[0].current.as_ref().expect("a current block");
 
         assert_eq!(current.humidity, Some(0));
@@ -443,7 +407,7 @@ mod tests {
         let sparse = r#"{"latitude": 47.375, "longitude": 8.5, "utc_offset_seconds": 0,
                          "hourly": {"time": [1757260800], "temperature_2m": [18.4]}}"#;
 
-        let read = readings(decoded(sparse), moment_of(1757262000), 7);
+        let read = readings(decoded(sparse), moment_of(1757262000));
 
         let hour = &read[0].hours[0];
         assert_eq!(hour.temperature, 18.4);

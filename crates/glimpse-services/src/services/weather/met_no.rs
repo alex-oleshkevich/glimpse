@@ -11,7 +11,7 @@ use glimpse_contracts::{
 use serde::Deserialize;
 use tzf_rs::DefaultFinder;
 
-use super::{Ask, HOURS, Reading, bearing, hour_floor, humidity, transport};
+use super::{Ask, HOURS, Reading, bearing, fetch_json, hour_floor, percent};
 
 const MET_NO_FORECAST: &str = "https://api.met.no/weatherapi/locationforecast/2.0/complete";
 const MET_NO_ALERTS: &str = "https://api.met.no/weatherapi/metalerts/2.0/current.json";
@@ -52,15 +52,7 @@ async fn met_no_json<T: serde::de::DeserializeOwned>(
     )
     .map_err(|_| "the request could not be built".to_owned())?;
 
-    let response = client.get(url).send().await.map_err(transport)?;
-
-    let status = response.status();
-    if !status.is_success() {
-        return Err(format!("the provider answered {status}"));
-    }
-
-    let body = response.text().await.map_err(transport)?;
-    serde_json::from_str(&body).map_err(|_| "the provider answered something else".to_owned())
+    fetch_json(client, url).await
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -258,7 +250,7 @@ fn met_no_reading(
         utc_offset_seconds: seconds,
         current: met_no_current(entries.first(), ask.units),
         hours: met_no_hours(entries, ask.units, now),
-        days: met_no_days(entries, offset, ask.units, ask.forecast_days),
+        days: met_no_days(entries, offset, ask.units),
         alerts: met_no_warnings(warnings),
     }
 }
@@ -273,7 +265,7 @@ fn met_no_current(entry: Option<&MetNoEntry>, units: UnitSystem) -> Option<Curre
         is_day: met_no_is_day(entry.symbol()),
         temperature: met_no_temperature(details.air_temperature?, units),
         apparent_temperature: None,
-        humidity: humidity(details.relative_humidity),
+        humidity: percent(details.relative_humidity),
         wind_speed: details.wind_speed.map(|speed| met_no_wind(speed, units)),
         wind_direction: bearing(details.wind_from_direction),
         precipitation: entry
@@ -310,12 +302,7 @@ fn met_no_hours(
 /// met.no publishes a timeseries and no daily block, so the days are aggregated here. Open-Meteo
 /// does that server-side, which is the one place these two providers are asked to agree by
 /// construction rather than by arithmetic.
-fn met_no_days(
-    entries: &[MetNoEntry],
-    offset: FixedOffset,
-    units: UnitSystem,
-    cap: u8,
-) -> Vec<DayForecast> {
+fn met_no_days(entries: &[MetNoEntry], offset: FixedOffset, units: UnitSystem) -> Vec<DayForecast> {
     let mut grouped: BTreeMap<NaiveDate, Vec<&MetNoEntry>> = BTreeMap::new();
     for entry in entries {
         grouped
@@ -326,7 +313,6 @@ fn met_no_days(
 
     grouped
         .into_iter()
-        .take(cap as usize)
         .filter_map(|(day, entries)| {
             let temperatures: Vec<f64> = entries
                 .iter()
@@ -353,8 +339,9 @@ fn met_no_days(
                 high: met_no_temperature(high, units),
                 precipitation_chance: entries
                     .iter()
-                    .filter_map(|entry| entry.period()?.details.probability_of_precipitation)
-                    .map(|chance| chance.round().clamp(0.0, 100.0) as u8)
+                    .filter_map(|entry| {
+                        percent(entry.period()?.details.probability_of_precipitation)
+                    })
                     .max(),
                 sunrise: None,
                 sunset: None,
@@ -570,12 +557,7 @@ mod tests {
         ]);
         let offset = FixedOffset::east_opt(10_800).expect("a real offset");
 
-        let days = met_no_days(
-            &forecast.properties.timeseries,
-            offset,
-            UnitSystem::Metric,
-            7,
-        );
+        let days = met_no_days(&forecast.properties.timeseries, offset, UnitSystem::Metric);
 
         assert_eq!(
             days.len(),
@@ -594,18 +576,6 @@ mod tests {
             "aggregation carries no sun; `sunlit` fills it once, for every provider"
         );
         assert_eq!((days[1].low, days[1].high), (16.0, 16.0));
-
-        assert_eq!(
-            met_no_days(
-                &forecast.properties.timeseries,
-                offset,
-                UnitSystem::Metric,
-                1
-            )
-            .len(),
-            1,
-            "the ask's forecast_days caps the aggregation"
-        );
     }
 
     /// Taking the first entry would let the small hours name a day nobody is awake for.
@@ -618,12 +588,7 @@ mod tests {
         ]);
         let offset = FixedOffset::east_opt(10_800).expect("a real offset");
 
-        let days = met_no_days(
-            &forecast.properties.timeseries,
-            offset,
-            UnitSystem::Metric,
-            7,
-        );
+        let days = met_no_days(&forecast.properties.timeseries, offset, UnitSystem::Metric);
 
         assert_eq!(
             days[0].condition,
