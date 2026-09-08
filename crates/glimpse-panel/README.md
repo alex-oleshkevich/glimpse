@@ -360,6 +360,55 @@ meeting forty minutes out took the bar over one six hours out and one two days o
 `within = 1` the applet disappeared; a config edit reached it without a restart. The click that opens
 the popover is unverified — `ydotoold` is not running here, and the clock's popover has the same gap.
 
+## The weather applet
+
+One chip per place: an icon, a temperature and an optional tooltip. `render.rs` holds everything
+that turns a `PlaceWeather` into strings — icons, condition wording, the nowcast, day and hour
+labels, facts, drawer pages — so it is an ordinary `#[test]` with no display and no daemon, and only
+the wiring needs GTK.
+
+**Several places is several applets.** `[applets.weather-home]` with `extends = "weather"` and its
+own `[applets.weather-home.place]` is a second instance; the service holds no places of its own and
+each applet leases the one it shows. Nothing new was needed for this — `extends` already did it.
+
+**The lease renews on a minute's tick against the daemon's thirty-minute `LEASE`**, which is thirty
+renewals of margin, so a panel that misses a tick or two never drops its place. This applet is that
+constant's first consumer, and the pair is read together: if the tick slows, `LEASE` moves with it.
+`ctx.call` is fire-and-forget, which is right — a refused renewal (the eight-place cap) is nothing
+the applet could act on, and the next tick retries.
+
+**Units come off the topic, never off the configuration.** `WeatherStatus.units` describes the
+numbers in the payload being rendered, so a units change cannot print °F over a Celsius reading for
+the one round trip a correct payload takes to arrive. That is why `units` is on the topic at all.
+
+**The list starts at tomorrow and the strip at the next hour.** Today and the hour standing are
+already the hero; a row and a column repeating them are the second telling, and each costs a slot
+the strip and the list exist to look ahead with. The applet's `days` default is therefore one lower
+than the service's `forecast-days`, which counts today — 7 shown needs 8 fetched, and that is why
+the service default is 8.
+
+**An alert takes the chip's icon and its colour.** The bar has room for one thing, and a warning
+standing outranks the condition it is standing in; the temperature stays, so the chip does not stop
+being a weather chip. `render::worst` picks the most severe alert rather than the first listed, so a
+minor one cannot hide a severe one behind it.
+
+**Sleet borrows snow's glyph.** The Adwaita icon theme ships no sleet symbolic, and naming one that
+does not exist renders as a broken image rather than as nothing. The wording is its own — the word
+is what tells you it is not snow.
+
+**A weekday name is formatted through `LC_TIME`, not looked up in the message catalog.** A date
+belongs to the locale, and `init_translations` has already called `setlocale`. Polish returns `wto`
+and Russian `Вт` — lowercase in Polish, which is that language being correct rather than a bug.
+`Tomorrow` is a real msgid because it is a word, not a date.
+
+**No value yet is an empty `Vec`.** A fresh panel shows nothing rather than a placeholder, and the
+group hides itself. A `here` place with no fix and a place the provider answered for with no current
+reading collapse to the same absence, which is what the empty return is for.
+
+**The icon is cached by name.** `indicators()` is a pull the runtime makes after every input, so a
+`gio::ThemedIcon::new` per call is exactly the waste the applet rules name. Keying the cache on the
+icon *name* rather than on `(Condition, is_day)` is what lets the alert icon share it.
+
 ## Reconciliation settles every slot, on both paths
 
 `reconcile_applets` has two: one for a config change that left the applet list alone, and one that

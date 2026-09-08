@@ -3,6 +3,7 @@ mod clock;
 mod heartbeat;
 mod next_event;
 mod pager;
+mod weather;
 
 use glimpse_config::{Applet as AppletConfig, AppletKind};
 use std::collections::BTreeMap;
@@ -35,6 +36,7 @@ fn build(config: &AppletConfig) -> Option<Builder> {
         AppletKind::Heartbeat {} => Some(|| Box::new(heartbeat::Heartbeat::start())),
         AppletKind::NextEvent(_) => Some(|| Box::new(next_event::NextEvent::start())),
         AppletKind::Pager(_) => Some(|| Box::new(pager::Pager::start())),
+        AppletKind::Weather(_) => Some(|| Box::new(weather::Weather::start())),
         AppletKind::Audio {}
         | AppletKind::Battery {}
         | AppletKind::Brightness {}
@@ -52,8 +54,7 @@ fn build(config: &AppletConfig) -> Option<Builder> {
         | AppletKind::Printing {}
         | AppletKind::Removable {}
         | AppletKind::Session {}
-        | AppletKind::Tray {}
-        | AppletKind::Weather {} => None,
+        | AppletKind::Tray {} => None,
     }
 }
 
@@ -87,6 +88,14 @@ mod tests {
     fn the_next_event_applet_is_built_rather_than_skipped() {
         assert!(
             resolve("next-event", &BTreeMap::new()).is_some(),
+            "the kind has an implementation, so it must not fall through to the skipped arm"
+        );
+    }
+
+    #[test]
+    fn the_weather_applet_is_built_rather_than_skipped() {
+        assert!(
+            resolve("weather", &BTreeMap::new()).is_some(),
             "the kind has an implementation, so it must not fall through to the skipped arm"
         );
     }
