@@ -11,7 +11,7 @@ use glimpse_contracts::{
 use serde::Deserialize;
 use tzf_rs::DefaultFinder;
 
-use super::{Ask, HOURS, Reading, hour_floor, transport};
+use super::{Ask, HOURS, Reading, bearing, hour_floor, humidity, transport};
 
 const MET_NO_FORECAST: &str = "https://api.met.no/weatherapi/locationforecast/2.0/complete";
 const MET_NO_ALERTS: &str = "https://api.met.no/weatherapi/metalerts/2.0/current.json";
@@ -273,13 +273,9 @@ fn met_no_current(entry: Option<&MetNoEntry>, units: UnitSystem) -> Option<Curre
         is_day: met_no_is_day(entry.symbol()),
         temperature: met_no_temperature(details.air_temperature?, units),
         apparent_temperature: None,
-        humidity: details
-            .relative_humidity
-            .map(|reading| reading.round().clamp(0.0, 100.0) as u8),
+        humidity: humidity(details.relative_humidity),
         wind_speed: details.wind_speed.map(|speed| met_no_wind(speed, units)),
-        wind_direction: details
-            .wind_from_direction
-            .map(|reading| reading.round().rem_euclid(360.0) as u16),
+        wind_direction: bearing(details.wind_from_direction),
         precipitation: entry
             .data
             .next_1_hours

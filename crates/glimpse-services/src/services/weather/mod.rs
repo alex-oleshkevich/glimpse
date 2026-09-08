@@ -519,6 +519,17 @@ fn hour_floor(now: DateTime<Utc>) -> i64 {
     epoch - epoch.rem_euclid(3600)
 }
 
+/// The range each of these is squeezed into belongs to the payload rather than to whoever
+/// answered: the wire carries humidity as a `u8` percentage and a bearing as a `u16` compass
+/// degree, so every provider rounds and wraps them the same way.
+fn humidity(percent: Option<f64>) -> Option<u8> {
+    percent.map(|reading| reading.round().clamp(0.0, 100.0) as u8)
+}
+
+fn bearing(degrees: Option<f64>) -> Option<u16> {
+    degrees.map(|reading| reading.round().rem_euclid(360.0) as u16)
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
