@@ -11,7 +11,7 @@ connection.
 - `service.rs`, `context.rs`, `subscription.rs`, `publisher.rs` — the framework
 - `broker.rs` — `BrokerHandle`, the trait the daemon implements, with `MockBroker` beside it;
   `Responder` and the erased `Dispatch` a command travels through
-- `services/` — one module per service
+- `services/` — one module per service; `weather/` is a directory because it carries two providers
 
 ## The geolocation service
 
@@ -213,6 +213,16 @@ silently overwriting the first's events.
 
 One topic, `weather.status`, holding one entry per place being watched, and two commands:
 `weather.watch` and `weather.refresh`.
+
+**One file per provider.** `weather/mod.rs` holds the service — leases, the poll, `absorb`, and the
+two gates every reading passes on its way to a payload, `sunlit` and `sanitized`. `open_meteo.rs`
+and `met_no.rs` hold one provider each: its endpoints, its wire structs, its decode into `Reading`,
+and its own tests. `Provider::fetch` is the only place that names both.
+
+What stays in `mod.rs` is what more than one provider needs — `Ask`, `Reading`, `transport` and
+`hour_floor` — and the two providers do not see each other at all. A helper that migrates out of
+`mod.rs` into a provider file is the signal that the other provider stopped needing it; one that
+migrates the other way is a rule that turned out to be about weather rather than about a source.
 
 **Places are not configured; they are leased.** `[weather]` holds `provider`, `units`,
 `poll-interval` and `forecast-days` and nothing else. A consumer calls `weather.watch` naming either
