@@ -22,7 +22,7 @@ pub use appearance::{Appearance, ColorScheme};
 pub use applets::{
     Applet, Clock as ClockConfig, Common as AppletCommon, FirstDay, HourFormat, Kind as AppletKind,
     NextEvent as NextEventConfig, Pager as PagerConfig, PagerMode, PagerScope, PagerShape,
-    Timezone as ClockTimezone,
+    Place as WeatherPlace, Timezone as ClockTimezone, Weather as WeatherAppletConfig,
 };
 pub use backdrop::Backdrop;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};
@@ -194,6 +194,72 @@ mod tests {
             "a struct variant is what refuses a misspelled key; a unit variant would have \
              swallowed it silently"
         );
+    }
+
+    #[test]
+    fn a_place_table_reads_both_shapes_and_refuses_a_third() {
+        let here: Config =
+            toml::from_str("[applets.weather.place]\nat = \"here\"\n").expect("`here` is a place");
+        assert_eq!(
+            here.applets["weather"].kind,
+            AppletKind::Weather(applets::Weather::default()),
+            "following the fix is the default, so naming it changes nothing"
+        );
+
+        let fixed: Config = toml::from_str(
+            "[applets.weather]\nlabel = \"Vilnius\"\ndays = 7\n\n             [applets.weather.place]\nat = \"coordinates\"\nlatitude = 54.6872\n             longitude = 25.2797\n",
+        )
+        .expect("a fixed pair is a place");
+        let AppletKind::Weather(weather) = &fixed.applets["weather"].kind else {
+            panic!("the table names the weather applet");
+        };
+        assert_eq!(weather.label.as_deref(), Some("Vilnius"));
+        assert_eq!((weather.hours, weather.days), (4, 7));
+        assert_eq!(
+            weather.place,
+            applets::Place::Coordinates {
+                latitude: 54.6872,
+                longitude: 25.2797
+            }
+        );
+
+        assert!(
+            toml::from_str::<Config>("[applets.weather.place]\nat = \"postcode\"\n").is_err(),
+            "there are two shapes and a third is a mistake, not a place"
+        );
+        assert!(
+            toml::from_str::<Config>("[applets.weather.place]\nat = \"here\"\nlatitude = 54.6\n")
+                .is_err(),
+            "`deny_unknown_fields` is what stops coordinates being written under the wrong shape"
+        );
+    }
+
+    /// The wire refuses these too, but a document saying so names the table and the key, before
+    /// anything has asked the daemon to watch somewhere that is not on Earth.
+    #[test]
+    fn coordinates_outside_their_ranges_are_refused_at_load() {
+        let place = |latitude: &str, longitude: &str| {
+            format!(
+                "[applets.weather.place]\nat = \"coordinates\"\nlatitude = {latitude}\n                 longitude = {longitude}\n"
+            )
+        };
+
+        assert!(toml::from_str::<Config>(&place("54.6872", "25.2797")).is_ok());
+
+        for (latitude, longitude, named) in [
+            ("91.0", "25.2797", "latitude"),
+            ("-90.5", "25.2797", "latitude"),
+            ("54.6872", "180.5", "longitude"),
+            ("54.6872", "-181.0", "longitude"),
+        ] {
+            let error = toml::from_str::<Config>(&place(latitude, longitude))
+                .expect_err("that pair is not on Earth")
+                .to_string();
+            assert!(
+                error.contains(named) && error.contains("[applets.weather]"),
+                "the message names the key and the table it is in: {error}"
+            );
+        }
     }
 
     #[test]

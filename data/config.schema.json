@@ -852,9 +852,39 @@
           "description": "Current conditions, with the forecast in its popover.",
           "type": "object",
           "properties": {
+            "days": {
+              "description": "How many days the popover's list shows. The list starts at tomorrow — today is already\nthe hero, the strip and the details page, and repeating it as a row says nothing new.",
+              "type": "integer",
+              "format": "uint8",
+              "default": 6,
+              "maximum": 255,
+              "minimum": 0
+            },
             "extends": {
               "type": "string",
               "const": "weather"
+            },
+            "hours": {
+              "description": "How many hours the popover's strip shows. The strip starts at the next hour — the hour\nstanding is already the hero.",
+              "type": "integer",
+              "format": "uint8",
+              "default": 4,
+              "maximum": 255,
+              "minimum": 0
+            },
+            "label": {
+              "description": "What the bar and the popover call this place. Unset means a fixed place reads as the pair\nit was given, and `here` as whatever the geolocation service resolved.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "place": {
+              "description": "Which place this applet shows.",
+              "$ref": "#/$defs/Place",
+              "default": {
+                "at": "here"
+              }
             },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -1767,9 +1797,39 @@
             "description": "Current conditions, with the forecast in its popover.",
             "type": "object",
             "properties": {
+              "days": {
+                "description": "How many days the popover's list shows. The list starts at tomorrow — today is already\nthe hero, the strip and the details page, and repeating it as a row says nothing new.",
+                "type": "integer",
+                "format": "uint8",
+                "default": 6,
+                "maximum": 255,
+                "minimum": 0
+              },
               "extends": {
                 "type": "string",
                 "const": "weather"
+              },
+              "hours": {
+                "description": "How many hours the popover's strip shows. The strip starts at the next hour — the hour\nstanding is already the hero.",
+                "type": "integer",
+                "format": "uint8",
+                "default": 4,
+                "maximum": 255,
+                "minimum": 0
+              },
+              "label": {
+                "description": "What the bar and the popover call this place. Unset means a fixed place reads as the pair\nit was given, and `here` as whatever the geolocation service resolved.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "place": {
+                "description": "Which place this applet shows.",
+                "$ref": "#/$defs/Place",
+                "default": {
+                  "at": "here"
+                }
               },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
@@ -2498,6 +2558,51 @@
       },
       "additionalProperties": false
     },
+    "Place": {
+      "description": "Where a weather applet looks. Tagged on `at`, matching the shape `weather.watch` takes, so a\nplace reads the same in a document and on the wire.",
+      "oneOf": [
+        {
+          "description": "Follow the geolocation service, and move with it.",
+          "type": "object",
+          "properties": {
+            "at": {
+              "type": "string",
+              "const": "here"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "at"
+          ]
+        },
+        {
+          "description": "A fixed pair of coordinates in degrees.",
+          "type": "object",
+          "properties": {
+            "at": {
+              "type": "string",
+              "const": "coordinates"
+            },
+            "latitude": {
+              "description": "Degrees north of the equator, between -90 and 90.",
+              "type": "number",
+              "format": "double"
+            },
+            "longitude": {
+              "description": "Degrees east of Greenwich, between -180 and 180.",
+              "type": "number",
+              "format": "double"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "at",
+            "latitude",
+            "longitude"
+          ]
+        }
+      ]
+    },
     "Position": {
       "type": "string",
       "enum": [
@@ -2591,6 +2696,11 @@
           "description": "Open-Meteo, which needs no account and no key.",
           "type": "string",
           "const": "open-meteo"
+        },
+        {
+          "description": "The Norwegian Meteorological Institute, which needs no key either but asks for a\nUser-Agent naming the application. It is the only source that carries official warnings.",
+          "type": "string",
+          "const": "met-no"
         }
       ]
     },
@@ -2747,7 +2857,7 @@
       "type": "object",
       "properties": {
         "forecast-days": {
-          "description": "How many days the daily forecast covers, today included. Clamped to 1..=10.",
+          "description": "How many days the daily forecast covers, today included. Clamped to 1..=10. The panel's\nlist starts at tomorrow, so it shows one fewer day than this asks for.",
           "type": "integer",
           "format": "uint8",
           "default": 7,

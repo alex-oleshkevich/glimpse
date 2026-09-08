@@ -17,7 +17,8 @@ pub struct Weather {
     /// conditions every fifteen minutes, so anything shorter asks again for data that has not
     /// moved; `weather.refresh` is how a person asks for it now. Values below 600 are raised.
     pub poll_interval: u64,
-    /// How many days the daily forecast covers, today included. Clamped to 1..=10.
+    /// How many days the daily forecast covers, today included. Clamped to 1..=10. The panel's
+    /// list starts at tomorrow, so it shows one fewer day than this asks for.
     pub forecast_days: u8,
 }
 
@@ -39,6 +40,9 @@ pub enum Provider {
     /// Open-Meteo, which needs no account and no key.
     #[default]
     OpenMeteo,
+    /// The Norwegian Meteorological Institute, which needs no key either but asks for a
+    /// User-Agent naming the application. It is the only source that carries official warnings.
+    MetNo,
 }
 
 /// Which units every reading is reported in.
@@ -100,8 +104,16 @@ mod tests {
     }
 
     #[test]
-    fn an_unknown_provider_is_refused() {
-        load("[weather]\nprovider = \"met-no\"\n").expect_err("`met-no` is not a provider yet");
+    fn both_providers_read_and_a_third_is_refused() {
+        assert_eq!(
+            load("[weather]\nprovider = \"met-no\"\n")
+                .expect("met.no is a provider")
+                .weather
+                .provider,
+            Provider::MetNo
+        );
+        load("[weather]\nprovider = \"accuweather\"\n")
+            .expect_err("a provider nothing implements is a document error, not a fallback");
     }
 
     #[test]

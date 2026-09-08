@@ -8,7 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 /// The table name is the applet's name, and `extends` says which kind it is when the two differ —
 /// which is how one kind can appear more than once, as `[applets.clock-utc]` with
 /// `extends = "clock"`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Applet {
     #[serde(flatten)]
     pub common: Common,
@@ -39,7 +39,7 @@ pub struct Common {
 }
 
 /// Which kind of applet this is, and the settings that kind alone understands.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(
     tag = "extends",
     rename_all = "kebab-case",
@@ -93,7 +93,7 @@ pub enum Kind {
     /// The system tray: icons from applications that ask for one.
     Tray {},
     /// Current conditions, with the forecast in its popover.
-    Weather {},
+    Weather(Weather),
 }
 
 /// Settings for the clock applet.
@@ -194,6 +194,40 @@ pub struct NextEvent {
     pub upcoming: usize,
 }
 
+/// Settings for the weather applet.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Weather {
+    /// Which place this applet shows.
+    pub place: Place,
+    /// What the bar and the popover call this place. Unset means a fixed place reads as the pair
+    /// it was given, and `here` as whatever the geolocation service resolved.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// How many hours the popover's strip shows. The strip starts at the next hour — the hour
+    /// standing is already the hero.
+    pub hours: u8,
+    /// How many days the popover's list shows. The list starts at tomorrow — today is already
+    /// the hero, the strip and the details page, and repeating it as a row says nothing new.
+    pub days: u8,
+}
+
+/// Where a weather applet looks. Tagged on `at`, matching the shape `weather.watch` takes, so a
+/// place reads the same in a document and on the wire.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
+#[serde(tag = "at", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum Place {
+    /// Follow the geolocation service, and move with it.
+    Here {},
+    /// A fixed pair of coordinates in degrees.
+    Coordinates {
+        /// Degrees north of the equator, between -90 and 90.
+        latitude: f64,
+        /// Degrees east of Greenwich, between -180 and 180.
+        longitude: f64,
+    },
+}
+
 /// Settings for the pager applet.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
@@ -271,6 +305,23 @@ impl Default for Pager {
     }
 }
 
+impl Default for Place {
+    fn default() -> Self {
+        Self::Here {}
+    }
+}
+
+impl Default for Weather {
+    fn default() -> Self {
+        Self {
+            place: Place::default(),
+            label: None,
+            hours: 4,
+            days: 6,
+        }
+    }
+}
+
 impl Default for NextEvent {
     fn default() -> Self {
         Self {
@@ -342,10 +393,35 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
         .entry("extends")
         .or_insert_with(|| toml::Value::String(name.to_owned()));
     let keys: Vec<String> = table.keys().cloned().collect();
-    Ok(Applet {
-        common,
-        kind: Kind::deserialize(table).map_err(|error| name_the_common_settings(error, &keys))?,
-    })
+    let kind = Kind::deserialize(table).map_err(|error| name_the_common_settings(error, &keys))?;
+    on_earth(&kind)?;
+    Ok(Applet { common, kind })
+}
+
+/// The wire refuses these too, but a document saying so at load names the table and the key rather
+/// than failing a `weather.watch` nobody is watching.
+fn on_earth(kind: &Kind) -> Result<(), toml::de::Error> {
+    let Kind::Weather(weather) = kind else {
+        return Ok(());
+    };
+    let Place::Coordinates {
+        latitude,
+        longitude,
+    } = weather.place
+    else {
+        return Ok(());
+    };
+    if !(-90.0..=90.0).contains(&latitude) {
+        return Err(toml::de::Error::custom(
+            "latitude is degrees north of the equator, between -90 and 90",
+        ));
+    }
+    if !(-180.0..=180.0).contains(&longitude) {
+        return Err(toml::de::Error::custom(
+            "longitude is degrees east of Greenwich, between -180 and 180",
+        ));
+    }
+    Ok(())
 }
 
 fn name_the_common_settings(error: toml::de::Error, keys: &[String]) -> toml::de::Error {
