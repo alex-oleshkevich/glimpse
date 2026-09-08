@@ -7,6 +7,7 @@ The argument structs and logging setup every binary repeats, written once.
 - `args.rs` — `LogArgs`, `ConfigArg`, `SocketArg`, flattened into each binary's clap `Cli`
 - `log.rs` — `LogFormat` and `init_app_tracing`
 - `i18n.rs` — `init_translations`, the one place the gettext domain is bound
+- `text.rs` — `clean`, the gate text from another application passes before it reaches a label
 - `build.rs` — bakes `PREFIX` into the default catalog directory
 
 ## What it holds
@@ -74,6 +75,19 @@ exists for the case where that stops being true.
 behaviour and not a translation bug; it is also the first thing to check when a screenshot looks
 half-translated.
 
+## Text
+
+`clean(text, cap)` flattens whitespace, drops control characters and bidi overrides, and caps by
+character count rather than by byte, so a multi-byte string cannot be cut mid-codepoint. Calendar
+summaries and weather alert headlines both pass through it; the account of why the bidi ranges are
+named beside `is_control`, and why a control character becomes a separator rather than vanishing, is
+in `glimpse-services/README.md`.
+
+It knows nothing about a service, a topic or a payload — it takes a `&str` and a cap — so it lives
+here rather than in the crate that happened to need it first. `glimpse-compositors` carries the
+same predicate for window titles and has not been folded in: a second copy of a five-line function
+is cheaper than a third crate taking a dependency on this one to avoid it.
+
 ## Rules
 
 **Logs go to stderr, and the writer is set explicitly.** `tracing_subscriber::fmt()` defaults to
@@ -91,5 +105,7 @@ from logs the moment output is redirected to a file.
 **Call `write_global()` before `init_app_tracing`.** A `fmt` subscriber fixes its ANSI setting when
 it is built, so a color override applied afterwards reaches nothing.
 
-**Nothing here is domain logic.** No config schema, no topics, no socket. This crate exists so six
-binaries agree on what `--log` means, not as a place for code that has no other home.
+**Nothing here is domain logic.** No config schema, no topics, no socket. What earns a place is
+either a decision every binary has to make identically — what `--log` means, which gettext domain is
+bound — or a pure function over primitives that more than one crate needs, like `clean`. Neither is
+a licence to park code that has no other home.
