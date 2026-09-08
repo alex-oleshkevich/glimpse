@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-08 13:52+0200\n"
+"POT-Creation-Date: 2026-09-08 16:00+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -68,6 +68,7 @@ msgid "{hours} h"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/agenda.rs:135
+#: crates/glimpse-panel/src/applets/weather/render.rs:299
 msgid "{hours} h {minutes} min"
 msgstr ""
 
@@ -102,6 +103,156 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/next_event/render.rs:152
 msgid "d"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:176
+msgid "Here"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:187
+#: crates/glimpse-panel/src/applets/weather/mod.rs:221
+msgid "No reading yet"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:52
+msgid "Clear"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:53
+msgid "Mainly clear"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:54
+msgid "Partly cloudy"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:55
+msgid "Overcast"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:56
+msgid "Fog"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:57
+msgid "Drizzle"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:58
+msgid "Freezing drizzle"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:59
+msgid "Light rain"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:60
+#: crates/glimpse-panel/src/applets/weather/render.rs:254
+msgid "Rain"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:61
+msgid "Heavy rain"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:62
+msgid "Freezing rain"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:63
+msgid "Light snow"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:64
+#: crates/glimpse-panel/src/applets/weather/render.rs:253
+msgid "Snow"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:65
+msgid "Heavy snow"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:66
+msgid "Snow grains"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:67
+msgid "Sleet"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:68
+msgid "Rain showers"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:69
+msgid "Snow showers"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:70
+msgid "Thunderstorm"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:71
+msgid "Thunderstorm with hail"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:129
+msgid "feels like {temperature}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:185
+#: crates/glimpse-widgets/src/world_clock/mod.rs:151
+msgid "Tomorrow"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:262
+msgid "{what} starting in {count} minute"
+msgid_plural "{what} starting in {count} minutes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:275
+msgid "°C"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:276
+msgid "°F"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:308
+msgid "High"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:312
+msgid "Low"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:318
+msgid "Chance of rain"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:321
+msgid "Sunrise"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:324
+msgid "Sunset"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:327
+msgid "Day length"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:354
+msgid "Issued"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:357
+msgid "Expires"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/render.rs:360
+msgid "Source"
 msgstr ""
 
 #: crates/glimpse-widgets/blueprints/calendar.blp:22
@@ -158,7 +309,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:114
+#: crates/glimpse-widgets/src/lib.rs:116
 msgid "Play"
 msgstr ""
 
@@ -182,7 +333,7 @@ msgstr ""
 msgid "Workspaces"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:113
+#: crates/glimpse-widgets/src/lib.rs:115
 msgid "Pause"
 msgstr ""
 
@@ -201,10 +352,6 @@ msgid "{count} workspace"
 msgid_plural "{count} workspaces"
 msgstr[0] ""
 msgstr[1] ""
-
-#: crates/glimpse-widgets/src/world_clock/mod.rs:151
-msgid "Tomorrow"
-msgstr ""
 
 #: crates/glimpse-widgets/src/world_clock/mod.rs:152
 msgid "Yesterday"

@@ -413,6 +413,21 @@ breaks on an embedded quote, and the C scanner loses its place inside both — w
 of that file*, not just the string. The coverage check catches the loss; putting the text in an
 ordinary literal avoids it.
 
+**A new file's strings are extracted only once git knows about the file.**
+`scripts/i18n-extract.sh` builds its file list with `git ls-files`, so an untracked `.rs` or `.blp`
+is invisible to xgettext *and* to `scripts/i18n-coverage.py` at the same time — which is exactly the
+"one failure neither could report" the script's own comment warns about, arriving from the other
+direction. The symptom is a green `just check-strings` and a `.pot` whose count did not move: the
+weather applet added 45 msgids and extraction reported the same 45 strings as before it existed.
+`git add -N <paths>` is enough, and does not commit anything.
+
+**`just check-strings` cannot catch that, so check the count instead.** It regenerates the `.pot`
+from the same `git ls-files` list and diffs the two, so an untracked file is missing from both sides
+and the check passes on a consistently wrong answer. `grep -c '^msgid ' po/glimpse.pot` is the
+number that tells the truth. Verify the add actually took — `git ls-files | grep <newfile>` —
+because an intent-to-add that is lost puts the count silently back where it started; that happened
+twice in the change that wrote this paragraph.
+
 **`var/` is not extracted.** Its widget examples carry `_()` markers so they read like the real
 thing, but they are demo text and never ship, so they are excluded from the file list. A marker
 there translates only when the same msgid exists in a real blueprint.
