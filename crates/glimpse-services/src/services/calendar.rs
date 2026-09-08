@@ -10,6 +10,7 @@ use glimpse_contracts::{
     CalendarEvent, CalendarEvents, CalendarRefresh, CalendarSetRange, Command as _, Message as _,
 };
 use glimpse_ipc::CallError;
+use glimpse_utils::clean;
 use icalendar::{
     Calendar as ICalendar, CalendarDateTime, Component as _, DatePerhapsTime, Event as IEvent,
     EventLike as _,
@@ -711,35 +712,6 @@ fn detail(event: &IEvent) -> String {
     clean(location.or(described).unwrap_or_default(), DETAIL)
 }
 
-fn hostile(character: char) -> bool {
-    character.is_control() || matches!(character, '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}')
-}
-
-fn clean(text: &str, cap: usize) -> String {
-    let mut cleaned = String::new();
-    let mut length = 0;
-    let mut spaced = false;
-
-    for character in text.chars() {
-        if character.is_whitespace() || hostile(character) {
-            spaced = length > 0;
-            continue;
-        }
-        if length >= cap {
-            cleaned.push('…');
-            break;
-        }
-        if spaced {
-            cleaned.push(' ');
-            length += 1;
-            spaced = false;
-        }
-        cleaned.push(character);
-        length += 1;
-    }
-    cleaned
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -953,30 +925,6 @@ END:VCALENDAR\r
             Some("https://example.test/private/a.ics"),
             "the sidecar exists to hold the link a provider gave you, and that link is webcal"
         );
-    }
-
-    #[test]
-    fn text_off_a_feed_is_flattened_and_capped() {
-        assert_eq!(clean("  Design\treview\n\n", 120), "Design review");
-        assert_eq!(
-            clean("a\u{7}b", 120),
-            "a b",
-            "a control character separates rather than vanishes, so it cannot splice two words"
-        );
-        assert_eq!(
-            clean("Lunch\u{202e}gpj.exe", 120),
-            "Lunch gpj.exe",
-            "a bidi override is not a control character, and Pango honours it: left in, it \
-             reorders the row it lands in"
-        );
-        assert_eq!(clean("a\u{2066}b\u{2069}c", 120), "a b c");
-        assert_eq!(clean("abcdef", 4), "abcd…");
-        assert_eq!(
-            clean("ééééé", 3),
-            "ééé…",
-            "the cap counts characters, and slicing bytes would panic here"
-        );
-        assert_eq!(clean("   ", 120), "");
     }
 
     #[test]

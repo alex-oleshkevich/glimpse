@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+chrono-tz.workspace = true
 chrono.workspace = true
 futures-util.workspace = true
 glimpse-compositors.workspace = true
@@ -13,6 +14,7 @@ glimpse-config.workspace = true
 glimpse-contracts.workspace = true
 glimpse-dbus.workspace = true
 glimpse-ipc.workspace = true
+glimpse-utils.workspace = true
 icalendar.workspace = true
 iso8601.workspace = true
 reqwest.workspace = true
@@ -21,9 +23,10 @@ serde.workspace = true
 serde_json.workspace = true
 sunrise.workspace = true
 thiserror.workspace = true
-tokio.workspace = true
 tokio-util.workspace = true
+tokio.workspace = true
 tracing.workspace = true
+tzf-rs.workspace = true
 zbus.workspace = true
 
 [dev-dependencies]

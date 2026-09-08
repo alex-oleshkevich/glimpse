@@ -4,6 +4,7 @@ mod publisher;
 mod service;
 mod services;
 mod subscription;
+mod sun;
 
 #[cfg(test)]
 mod testing;

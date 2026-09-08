@@ -176,8 +176,8 @@ but only the read says the path is wrong — and `Update::Unavailable` arrived s
 **Text off a feed is cleaned against bidi, not only against control characters.**
 `char::is_control` is the Cc category alone, so the overrides `U+202A..=U+202E` and the isolates
 `U+2066..=U+2069` pass it — and Pango honours both, which lets a summary reorder the row it lands
-in. `clean` names those ranges beside `is_control`; `glimpse-compositors` carries the same predicate
-for window titles. It also collapses whitespace, turns a control character into a separator rather
+in. `clean` names those ranges beside `is_control` and lives in `glimpse-utils`, because weather's
+alerts need the same gate; `glimpse-compositors` carries the same predicate for window titles. It also collapses whitespace, turns a control character into a separator rather
 than dropping it (dropping one splices two words together), and ellipsizes on a character boundary.
 
 **A failing source degrades the service and keeps its last events.** The events fetched before it
@@ -272,13 +272,63 @@ newest anyone has. There is no retry loop: the next tick is the retry.
 **A failure reason never quotes the request.** The query string carries the user's latitude and
 longitude, so a reason naming the URL is a location leak wherever it is pasted — a stronger version
 of the calendar's bearer-token rule. Transport failures go through `reqwest::Error::without_url`.
-The provider returns numbers rather than prose, so none of the calendar's bidi sanitising is needed
-here; the only strings that reach a payload are our own.
+Every string this service formats itself, from a number the provider sent — with one exception,
+below.
 
 **The poll interval has a floor of ten minutes and defaults to fifteen.** Open-Meteo recomputes
 current conditions every fifteen minutes, so a shorter interval asks again for data that provably
 has not moved. The floor is applied in the `From<&Config>` impl and again at the declaration site,
 because `Duration::from_secs(0)` panics `tokio::time::interval`.
+
+**An alert is the one piece of third-party prose weather carries, and it is sanitised like a
+calendar summary.** `headline`, `description` and `source` come off a national alert feed
+unbounded and unescaped, so they go through `clean` — cap **and** bidi strip — not `cap`, which
+only truncates. The list is bounded by `MOST_ALERTS` as well, because a count is as unbounded as a
+length. Both happen in `sanitized`, called from `absorb`, which is the single path every provider's
+readings take into a payload — so a source that starts answering with alerts is cleaned without
+having to remember to be.
+
+**Alerts are on the wire before any provider fills them.** Open-Meteo has no alerts endpoint
+(open-meteo/open-meteo #183, still open), which is a fact about one provider; the payload is
+provider-neutral by the same argument that made `Condition` a closed set. So `PlaceWeather.alerts`
+exists now, Open-Meteo answers with an empty list, and the next source fills it with no contract
+change and no second topic. It is `Vec` under `#[serde(default)]`, never `Option<Vec>`: two
+spellings of "nothing to report" is one more than a renderer should branch on, and the default is
+what keeps an older daemon's payload decoding in a newer panel.
+
+**Sun times are computed, never taken from a provider.** Open-Meteo will send `sunrise` and
+`sunset` and met.no cannot, so reading them off the payload made one fact arrive two ways and
+disagree at the edges. `sunlit` fills them in `absorb`, which is the single path every reading takes
+into a payload — the same argument that puts `sanitized` there — so a source added later gets them
+without remembering to ask, and the Open-Meteo query is two fields shorter. The date used is the day
+in the *place's* own zone, which is what `DayForecast.start` already is.
+
+`crate::sun::events` is the one implementation, shared with the solar service. It returns
+`Option<(Option, Option)>` on purpose: the outer `None` is coordinates that are not on Earth, the
+inner ones are a day on which the sun did not cross the horizon. Collapsing them would leave
+`solar` unable to tell a bad fix from a polar day, which is the distinction its `polar_phase`
+fallback turns on.
+
+**met.no is a second provider, and it supplies three things Open-Meteo hands over for free.** It
+answers one place per request rather than parallel lists, always in Celsius, metres per second and
+millimetres whatever is asked of it, with no daily block and — the one that matters — no
+UTC offset. So `met_no` converts the units itself, aggregates days out of the timeseries, and looks
+the place's zone up from its coordinates with `tzf-rs`. Without that last one every hour label would read in the
+panel's zone rather than the place's, which is wrong for any place but the one you are standing in.
+
+**A day is named by the weather in the middle of it.** Aggregating a timeseries has to pick one
+symbol for the day; taking the first would let the small hours name a day nobody is awake for, and
+the last would name it after the night that follows.
+
+**A failed alerts request is not a failed forecast.** met.no publishes CAP warnings on a second
+endpoint, so a place is two requests. The numbers are still true when the second one fails, so it
+degrades to no warnings rather than to no weather — and it is the only source that fills `alerts` at
+all, which is why the field existed with no producer until it landed.
+
+**`Condition` grew a variant rather than lying.** met.no reports sleet and WMO 4677 has no code for
+it; mapping it onto freezing rain would print "Freezing rain" for wet snow. The enum is tagged with
+`#[serde(other)]` so an older panel reads it as `Unknown`, and every renderer's match has no `_` arm,
+so the compiler names each site that has to decide.
 
 **Conditions are provider-neutral.** The wire carries a closed `Condition` enum rather than a raw
 WMO code, so a second provider with its own vocabulary maps into the same set instead of being made

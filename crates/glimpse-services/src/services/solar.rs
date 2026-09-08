@@ -6,7 +6,6 @@ use glimpse_contracts::{
 };
 use glimpse_ipc::CallError;
 use serde_json::Value;
-use sunrise::{Coordinates as SunriseCoordinates, SolarDay, SolarEvent};
 use tokio::time;
 
 use crate::{
@@ -116,14 +115,8 @@ fn phase_at(
     date: NaiveDate,
     coordinates: &GeoCoordinates,
 ) -> Option<SolarPhase> {
-    let latlon = SunriseCoordinates::new(coordinates.latitude, coordinates.longitude)?;
-    let day = SolarDay::new(latlon, date);
-
     // Both events are offsets from the same solar noon, so sunrise precedes sunset by construction.
-    let phase = match (
-        day.event_time(SolarEvent::Sunrise),
-        day.event_time(SolarEvent::Sunset),
-    ) {
+    let phase = match crate::sun::events(coordinates, date)? {
         (Some(sunrise), Some(sunset)) => match (sunrise..sunset).contains(&now) {
             true => SolarPhase::Day,
             false => SolarPhase::Night,
@@ -221,10 +214,8 @@ mod tests {
     /// test that only looks at midday.
     #[test]
     fn the_phase_flips_across_sunrise() {
-        let latlon = SunriseCoordinates::new(LONDON.latitude, LONDON.longitude).expect("in range");
-        let sunrise = SolarDay::new(latlon, midsummer())
-            .event_time(SolarEvent::Sunrise)
-            .expect("London has one in June");
+        let (sunrise, _) = crate::sun::events(&LONDON, midsummer()).expect("in range");
+        let sunrise = sunrise.expect("London has a sunrise in June");
         let minute = TimeDelta::minutes(1);
 
         assert_eq!(
