@@ -71,7 +71,14 @@ unrecognised *variant* of an enum is a different matter: it fails the whole payl
 key. `Condition` is therefore internally tagged, `#[serde(tag = "condition")]`, so that
 `#[serde(other)]` is available and an unfamiliar condition decodes as `Unknown` — serde offers
 `other` only on a tagged enum, never on a bare unit-only one. Any wire enum that a later version may
-grow needs the same shape; one that cannot grow, like `UnitSystem`, does not.
+grow needs the same shape; one that cannot grow, like `UnitSystem`, does not. `AlertSeverity` is the
+second of them: CAP is what national meteorological services publish, and a provider that adds a
+level must not cost a panel the whole forecast.
+
+`Condition::Sleet` is the first variant actually added after the fact, and it is what the shape was
+for: met.no reports sleet, WMO 4677 has no code for it, and an older panel decodes it as `Unknown`
+rather than failing the payload. Every renderer's match has no `_` arm, so adding it was a compile
+error at each site that had to choose an icon and a word — which is the other half of the design.
 
 ## Rules
 
@@ -84,6 +91,13 @@ republishing a value that did not change — the reason a 200-step volume drag i
 
 **Payloads accept unknown fields**, which is the opposite of the configuration rule and deliberately
 so: a newer daemon and an older client survive a version skew instead of failing to deserialize.
+
+**A payload's strings are ours, with one exception, and the exception is named.** Every other
+string a service publishes it formatted itself from a number or read out of its own configuration.
+`WeatherAlert`'s `headline`, `description` and `source` are third-party prose off a national alert
+feed — unbounded, unescaped, and one `Gtk.Label` away from a bidi override reordering the row it
+lands in. They are capped and stripped in `glimpse-services` before they reach this crate; nothing
+here can enforce that, which is why it is written down on both sides.
 
 **No backend type reaches a payload.** A `zbus` value or a `gtk` type here could not be generated
 for Python, TypeScript or Go, and this crate is the input those generators read.

@@ -151,6 +151,9 @@ pub enum Condition {
     Snow,
     HeavySnow,
     SnowGrains,
+    /// Rain and snow together. WMO 4677 has no code for it and Open-Meteo never sends it; met.no
+    /// does, and mapping it onto freezing rain would print the wrong word for wet snow.
+    Sleet,
     RainShowers,
     SnowShowers,
     Thunderstorm,
@@ -167,6 +170,8 @@ pub struct PlaceWeather {
     pub current: Option<CurrentWeather>,
     pub hours: Vec<HourForecast>,
     pub days: Vec<DayForecast>,
+    #[serde(default)]
+    pub alerts: Vec<WeatherAlert>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -199,4 +204,31 @@ pub struct DayForecast {
     pub precipitation_chance: Option<u8>,
     pub sunrise: Option<DateTime<Utc>>,
     pub sunset: Option<DateTime<Utc>>,
+}
+
+/// CAP (Common Alerting Protocol) severity, which is what national meteorological services
+/// publish, rather than one country's advisory/watch/warning ladder. Internally tagged for the
+/// same reason `Condition` is: `#[serde(other)]` is offered only on a tagged enum, so a provider
+/// that learns a new severity must not make an older panel fail to decode the whole payload.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "severity", rename_all = "snake_case")]
+pub enum AlertSeverity {
+    Minor,
+    Moderate,
+    Severe,
+    Extreme,
+    #[serde(other)]
+    Unknown,
+}
+
+/// The only prose in this payload that glimpse did not format itself. Every field carrying text is
+/// third-party, arrives over the network, and is sanitised by the service before it gets here.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WeatherAlert {
+    pub severity: AlertSeverity,
+    pub headline: String,
+    pub description: Option<String>,
+    pub source: Option<String>,
+    pub starts_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<DateTime<Utc>>,
 }
