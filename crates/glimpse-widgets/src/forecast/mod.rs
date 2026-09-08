@@ -7,7 +7,7 @@ pub use hour::ForecastHour;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-const DEFAULT_UNIT: &str = "°";
+pub(crate) const DEFAULT_UNIT: &str = "°";
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Hour {
@@ -55,6 +55,18 @@ impl ForecastStrip {
         glib::Object::new()
     }
 
+    /// The symbol printed after every temperature. `weather.status` carries the unit system the
+    /// numbers are in, so the caller passes what that payload declares rather than what a
+    /// configuration says one round trip later.
+    pub fn set_unit(&self, unit: &str) {
+        let imp = self.imp();
+        if imp.unit.borrow().as_str() == unit {
+            return;
+        }
+        imp.unit.replace(unit.to_owned());
+        self.render();
+    }
+
     pub fn set_hours(&self, hours: &[Hour]) {
         let imp = self.imp();
         if imp.hours.borrow().as_slice() == hours {
@@ -67,6 +79,7 @@ impl ForecastStrip {
     fn render(&self) {
         let imp = self.imp();
         let hours = imp.hours.borrow();
+        let unit = imp.unit.borrow();
         let mut columns = imp.columns.borrow_mut();
 
         for (index, hour) in hours.iter().enumerate() {
@@ -78,7 +91,7 @@ impl ForecastStrip {
             let column = &columns[index];
             column.set_label(Some(hour.label.as_str()));
             column.set_icon_name(Some(hour.icon_name.as_str()));
-            column.set_temperature(Some(temperature(hour.temperature).as_str()));
+            column.set_temperature(Some(temperature(hour.temperature, &unit).as_str()));
             column.set_now(hour.now);
         }
         for column in columns.split_off(hours.len()) {
@@ -90,6 +103,15 @@ impl ForecastStrip {
 impl ForecastList {
     pub fn new() -> Self {
         glib::Object::new()
+    }
+
+    pub fn set_unit(&self, unit: &str) {
+        let imp = self.imp();
+        if imp.unit.borrow().as_str() == unit {
+            return;
+        }
+        imp.unit.replace(unit.to_owned());
+        self.render();
     }
 
     pub fn set_days(&self, days: &[Day]) {
@@ -126,6 +148,7 @@ impl ForecastList {
         let imp = self.imp();
         let (minimum, maximum) = self.scale();
         let days = imp.days.borrow();
+        let unit = imp.unit.borrow();
         let mut rows = imp.rows.borrow_mut();
 
         for (index, day) in days.iter().enumerate() {
@@ -144,8 +167,8 @@ impl ForecastList {
                     .map(|chance| format!("{chance}%"))
                     .as_deref(),
             );
-            row.set_low(Some(temperature(day.low).as_str()));
-            row.set_high(Some(temperature(day.high).as_str()));
+            row.set_low(Some(temperature(day.low, &unit).as_str()));
+            row.set_high(Some(temperature(day.high, &unit).as_str()));
             row.bar().set_scale(minimum, maximum);
             row.bar().set_range(day.low, day.high);
         }
@@ -165,6 +188,6 @@ impl ForecastList {
     }
 }
 
-fn temperature(value: f64) -> String {
-    format!("{}{DEFAULT_UNIT}", value.round() as i64)
+fn temperature(value: f64, unit: &str) -> String {
+    format!("{}{unit}", value.round() as i64)
 }

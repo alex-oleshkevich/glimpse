@@ -373,6 +373,17 @@ time and a clock's time are the same kind of thing in the same column.
 **Neither list shares a base class.** What they share is four lines of clear-and-append; what differs
 is every slot.
 
+## Indicator severity
+
+`IndicatorSpec.severity` is `Option<Severity>`, reusing `Notice`'s three rather than inventing a
+second vocabulary for the same idea. `Warning` and `Error` add `indicator--warning` and
+`indicator--error`, which colour the icon and the label from `--gl-warning-text` and
+`--gl-danger-text`; `Info` and `None` leave the chip in the bar's own colour, because a state worth
+an icon is not always a state worth a colour.
+
+It is independent of `attention`, which is the accent colour and means "this wants you", not "this
+is wrong". A chip can be both.
+
 ## Notice
 
 An error, warning or fact arriving **with** content that still works — what `Placeholder` refuses to
@@ -431,8 +442,20 @@ owns no such property.
 **A zero chance of rain shows nothing, and so does an unknown one.** `Option<u32>` distinguishes them
 and both render empty rather than a `0%` meaning neither.
 
+**The strip and the list are both fed from tomorrow onward, and from the next hour onward.** That
+is the applet's decision, not the widgets': today and the hour standing are already the hero, so a
+column and a row repeating them are the second and third telling. The `now` flag stays on `Hour`
+because the widget still supports marking a column, and `var/widget_examples` uses it.
+
 **Temperatures are formatted here** because `RangeBar` needs the numbers and a caller passing strings
-would have thrown them away. No unit setter yet — it belongs in the change that adds °C/°F.
+would have thrown them away. `set_unit` chooses the symbol printed after each one and defaults to a
+bare degree sign, which is correct for both systems; a caller wanting `°C` or `°F` passes what
+`weather.status` declares, never what a configuration says one round trip later. The setter
+compares before writing, so re-applying the same unit rebuilds nothing.
+
+**`low` and `high` carry `forecast__low` and `forecast__high` beside `row__value`.** Styling comes
+off `row__value`, which `Row`'s own value label shares; the two extra classes exist so a test can
+name one end of the range rather than counting labels in tree order.
 
 ## NowPlaying, Scrubber, Transport and PlayerList
 
@@ -658,6 +681,36 @@ a `Row` as a side effect — bead `glimpse-34sw`.
 **The `column` class sits on the `Section`, not a box around it.** There is one child, and
 `blueprint-compiler lint` reports `use_adw_bin` for a `Gtk.Box` holding one widget. `.column` is a
 descendant rule, so it applies to any widget carrying the class. A second section brings the box back.
+
+## `WeatherPopover`
+
+The weather applet's popover, and `glimpse-4h8r` will make the lock screen its second reader. The
+composition is fixed — hero, hourly strip, daily list, a nowcast notice, the alerts, and a drawer —
+so it is a Blueprint template, and only the data comes from Rust.
+
+**There is no "all details" row.** A row whose only job is to open another page is navigation
+standing in for content: the current conditions belong on the hero, and each day's facts belong to
+the row for that day. The drawer is opened by rows that own their subject — a forecast day, an
+alert notice — and by nothing else.
+
+**Alert notices are built at runtime; the nowcast is not.** How many alerts there are is data, the
+same reason `ForecastStrip` builds its columns, so they go into a `Gtk.Box` slot. The nowcast is
+either there or not, so it is one template child with `visible: false`.
+
+**A notice's click handler is connected once, when the notice is built, and reads its page key back
+by position.** Connecting it while dressing the notice stacks one handler per reconcile, and the
+symptom is a drawer that opens and then immediately closes itself on the second click. The keys
+live in `imp.keys`, rewritten by `set_alerts` beside the notices themselves.
+
+**`set_pages` rebuilds the stack rather than reconciling it.** A `Gtk.Stack` takes children through
+`add_named` rather than `insert_after`, so `reconcile::by_key` does not apply; the guard is a
+compare-before-write against the whole `Vec<Page>`, which is what stops a rebuild on every event.
+The page that was showing is restored by name, and a drawer left standing on a page that has gone
+away is closed — the rule that a drawer never stands open on nothing.
+
+**`open` is a toggle.** A second activation of the page already showing closes the drawer, so the
+row that opened it is the row that closes it. A key nothing built opens nothing rather than
+revealing an empty drawer.
 
 ## Translations
 

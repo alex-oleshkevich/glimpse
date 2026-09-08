@@ -11,6 +11,8 @@ glib::wrapper! {
 pub(crate) const LABEL_MAX_CHARS: usize = 64;
 pub(crate) const TOOLTIP_MAX_CHARS: usize = 256;
 const ATTENTION_CLASS: &str = "indicator--attention";
+const WARNING_CLASS: &str = "indicator--warning";
+const ERROR_CLASS: &str = "indicator--error";
 pub(crate) const DOT_SIZE: f32 = 7.0;
 
 #[derive(Debug, Default, Clone)]
@@ -21,6 +23,9 @@ pub struct IndicatorSpec {
     pub tooltip: Option<String>,
     pub badge: Option<String>,
     pub attention: bool,
+    /// What the chip is reporting, when it is reporting a condition rather than a reading.
+    /// `None` leaves it in the bar's own colour; `Info` is a state worth an icon and no colour.
+    pub severity: Option<crate::Severity>,
 }
 
 impl Default for Indicator {
@@ -47,6 +52,7 @@ impl Indicator {
         self.set_label(spec.label.as_deref());
         self.set_badge(spec.badge.as_deref());
         self.set_attention(spec.attention);
+        self.set_severity(spec.severity);
     }
 
     pub fn set_icon(&self, icon: Option<&gio::Icon>) {
@@ -90,6 +96,21 @@ impl Indicator {
             self.add_css_class(ATTENTION_CLASS);
         } else {
             self.remove_css_class(ATTENTION_CLASS);
+        }
+    }
+}
+
+impl Indicator {
+    pub fn set_severity(&self, severity: Option<crate::Severity>) {
+        if self.imp().severity.replace(severity) == severity {
+            return;
+        }
+        self.remove_css_class(WARNING_CLASS);
+        self.remove_css_class(ERROR_CLASS);
+        match severity {
+            Some(crate::Severity::Warning) => self.add_css_class(WARNING_CLASS),
+            Some(crate::Severity::Error) => self.add_css_class(ERROR_CLASS),
+            Some(crate::Severity::Info) | None => {}
         }
     }
 }

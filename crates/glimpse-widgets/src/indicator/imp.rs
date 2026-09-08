@@ -15,6 +15,7 @@ pub struct Indicator {
     pub gicon: RefCell<Option<gio::Icon>>,
     pub color: Cell<Option<gtk4::gdk::RGBA>>,
     pub attention: Cell<bool>,
+    pub severity: Cell<Option<crate::Severity>>,
 }
 
 #[glib::object_subclass]

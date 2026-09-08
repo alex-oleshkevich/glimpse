@@ -1,0 +1,93 @@
+using Gtk 4.0;
+
+template $WeatherPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "weather-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "weather-clear-symbolic";
+
+      [slot]
+      $Readout reading {
+        valign: center;
+        visible: false;
+      }
+    }
+
+    Gtk.Box {
+      orientation: horizontal;
+
+      Gtk.Box {
+        orientation: vertical;
+        hexpand: true;
+
+        styles [
+          "column",
+        ]
+
+        $Section hourly {
+          $ForecastStrip hours {}
+        }
+
+        Gtk.Separator hourly_rule {
+          orientation: horizontal;
+        }
+
+        $Section daily {
+          $ForecastList days {}
+        }
+
+        Gtk.Separator daily_rule {
+          orientation: horizontal;
+        }
+
+        $Notice nowcast {
+          visible: false;
+        }
+
+        Gtk.Box alerts {
+          orientation: vertical;
+          visible: false;
+
+          styles [
+            "weather-popover__alerts",
+          ]
+        }
+      }
+
+      Gtk.Revealer drawer {
+        transition-type: slide_right;
+        reveal-child: false;
+
+        Gtk.Box {
+          orientation: horizontal;
+
+          Gtk.Separator {
+            orientation: vertical;
+            margin-start: 8;
+            margin-end: 8;
+          }
+
+          Gtk.Stack pages {
+            transition-type: crossfade;
+            interpolate-size: true;
+
+            styles [
+              "drawer-page",
+            ]
+          }
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

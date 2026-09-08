@@ -26,6 +26,7 @@ mod section;
 mod split_row;
 mod theme;
 mod transport;
+mod weather_popover;
 mod workspace_list;
 mod workspace_section;
 mod workspaces_popover;
@@ -56,6 +57,7 @@ pub use section::Section;
 pub use split_row::SplitRow;
 pub use theme::Styles;
 pub use transport::{Repeat, Transport, TransportAction};
+pub use weather_popover::{Advisory, Page as WeatherPage, WeatherPopover, alert_page, day_page};
 pub use workspace_list::{Window as WorkspaceWindow, Workspace, WorkspaceList};
 pub use workspace_section::WorkspaceSection;
 pub use workspaces_popover::WorkspacesPopover;
@@ -749,6 +751,20 @@ mod tests {
             "18°",
             "the strip owns the rounding and the unit, so two columns cannot disagree"
         );
+        let reading = |index: usize| {
+            temperatures[index]
+                .clone()
+                .downcast::<gtk4::Label>()
+                .expect("label")
+                .text()
+                .to_string()
+        };
+        strip.set_unit("°F");
+        assert_eq!(
+            (reading(0), reading(1)),
+            ("18°F".to_owned(), "17°F".to_owned()),
+            "the unit is set from the system the payload declares, and reaches every column"
+        );
 
         let forecast = ForecastList::new();
         let day = |label: &str, precipitation, low: f64, high: f64| Day {
@@ -797,6 +813,26 @@ mod tests {
         });
         children_of::<Row>(&forecast)[1].emit_clicked();
         assert_eq!(*chosen.borrow(), [1u32]);
+
+        let ends = |class: &str| {
+            all_named(&forecast, class)
+                .first()
+                .cloned()
+                .and_downcast::<gtk4::Label>()
+                .expect("label")
+                .text()
+                .to_string()
+        };
+        assert_eq!(
+            (ends("forecast__low"), ends("forecast__high")),
+            ("12°".to_owned(), "18°".to_owned())
+        );
+        forecast.set_unit("°C");
+        assert_eq!(
+            (ends("forecast__low"), ends("forecast__high")),
+            ("12°C".to_owned(), "18°C".to_owned()),
+            "the list takes the same unit the strip does, on both ends of the range"
+        );
 
         let placeholder = Placeholder::new();
         let empty_icon = child_named::<gtk4::Image>(&placeholder, "placeholder__icon");
@@ -2065,6 +2101,130 @@ mod tests {
             2,
             "picking a day inside the month already shown asks the daemon for nothing new"
         );
+
+        let weather = WeatherPopover::new();
+        let weather_drawer = weather.imp().drawer.get();
+
+        let page = |key: &str, title: &str| WeatherPage {
+            key: key.to_owned(),
+            title: title.to_owned(),
+            description: None,
+            facts: vec![Fact::new("High", "18 °C")],
+        };
+
+        weather.set_heading("weather-showers-symbolic", "Vilnius", Some("Light rain"));
+        weather.set_reading(Some(("18", "°")));
+        assert!(child_named::<Readout>(&weather, "readout").get_visible());
+        weather.set_reading(None);
+        assert!(
+            !child_named::<Readout>(&weather, "readout").get_visible(),
+            "no reading reserves no space in the hero"
+        );
+
+        weather.set_hours(&[]);
+        weather.set_days(&[]);
+        assert!(
+            !weather.imp().hourly.get_visible() && !weather.imp().hourly_rule.get_visible(),
+            "an empty strip takes its hairline with it"
+        );
+        weather.set_days(&[Day {
+            label: "Today".to_owned(),
+            icon_name: "weather-clear-symbolic".to_owned(),
+            precipitation: None,
+            low: 11.0,
+            high: 18.0,
+        }]);
+        assert!(weather.imp().daily.get_visible() && weather.imp().daily_rule.get_visible());
+
+        assert!(!weather_drawer.reveals_child());
+        weather.open("day0");
+        assert!(
+            !weather_drawer.reveals_child(),
+            "a page nothing built cannot be opened"
+        );
+
+        weather.set_pages(&[page("day0", "Tomorrow"), page("day1", "Wednesday")]);
+        weather.open("day0");
+        assert_eq!(weather.is_open().as_deref(), Some("day0"));
+        weather.open("day1");
+        assert_eq!(
+            weather.is_open().as_deref(),
+            Some("day1"),
+            "another page switches rather than closing"
+        );
+        weather.open("day1");
+        assert_eq!(
+            weather.is_open(),
+            None,
+            "the control that opened the drawer is the one that closes it"
+        );
+
+        weather.open("day1");
+        weather.set_pages(&[page("day0", "Tomorrow")]);
+        assert_eq!(
+            weather.is_open(),
+            None,
+            "a drawer must not stand open on a page that has gone away"
+        );
+
+        let advisory = |title: &str, page: Option<&str>, severity| Advisory {
+            severity,
+            icon_name: "dialog-warning-symbolic".to_owned(),
+            title: title.to_owned(),
+            subtitle: Some("LHMT".to_owned()),
+            page: page.map(str::to_owned),
+        };
+
+        assert!(children_of::<Notice>(&weather.imp().alerts.get()).is_empty());
+        assert!(
+            !weather.imp().alerts.get_visible(),
+            "an empty alert box would still cost the space between it and the nowcast"
+        );
+        weather.set_pages(&[page("day0", "Tomorrow"), page("alert0", "Storm")]);
+        weather.set_alerts(&[
+            advisory("Thunderstorm warning", Some("alert0"), Severity::Error),
+            advisory("Wind advisory", None, Severity::Warning),
+        ]);
+
+        let raised = children_of::<Notice>(&weather.imp().alerts.get());
+        assert_eq!(raised.len(), 2);
+        assert!(raised[0].has_css_class("notice--error"));
+        assert!(
+            raised[0].can_target() && !raised[1].can_target(),
+            "a notice with a page leads somewhere and one without it only states something"
+        );
+
+        raised[0].emit_by_name::<()>("clicked", &[]);
+        assert_eq!(weather.is_open().as_deref(), Some("alert0"));
+
+        raised[0].emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            weather.is_open(),
+            None,
+            "one handler, not one per reconcile: a second click closes rather than reopening"
+        );
+
+        weather.set_alerts(&[advisory("Wind advisory", None, Severity::Warning)]);
+        assert_eq!(
+            children_of::<Notice>(&weather.imp().alerts.get()).len(),
+            1,
+            "a cleared alert is unparented rather than left behind empty"
+        );
+        weather.set_alerts(&[]);
+        assert!(children_of::<Notice>(&weather.imp().alerts.get()).is_empty());
+        assert!(!weather.imp().alerts.get_visible());
+
+        weather.set_nowcast(None);
+        assert!(!weather.imp().nowcast.get_visible());
+        weather.set_nowcast(Some(&advisory(
+            "Rain starting in 25 minutes",
+            None,
+            Severity::Info,
+        )));
+        assert!(weather.imp().nowcast.get_visible());
+
+        weather.set_footer(None);
+        assert!(!weather.imp().footer.get_visible());
     }
 
     fn children_of<T: IsA<gtk4::Widget>>(parent: &impl IsA<gtk4::Widget>) -> Vec<T> {

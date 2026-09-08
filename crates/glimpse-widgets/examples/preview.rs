@@ -252,9 +252,9 @@ mod fixtures {
     use gtk4::prelude::*;
 
     use glimpse_widgets::{
-        Calendar, Choice, ChoiceList, Day, Event, EventList, Fact, FactList, Focus, ForecastList,
-        ForecastStrip, Hour, NowPlaying, Pager, Placeholder, Player, PlayerList, Repeat, Row,
-        Section, Shape, Slot, SplitRow, TransportAction, WorldClock, Ymd, Zone,
+        Advisory, Calendar, Choice, ChoiceList, Day, Event, EventList, Fact, FactList, Focus, Hour,
+        NowPlaying, Pager, Player, PlayerList, Repeat, Row, Severity, Shape, Slot, SplitRow,
+        TransportAction, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::RefCell;
@@ -286,7 +286,7 @@ mod fixtures {
             }
             "mpris" => mpris(root),
             "next_event" => next_event(root),
-            "weather" => weather(root),
+            "weather_popover" => weather_popover(root),
             "pager" => pager(root),
             _ => {}
         }
@@ -297,7 +297,6 @@ mod fixtures {
 
     struct Forecast {
         label: &'static str,
-        date: &'static str,
         icon_name: &'static str,
         condition: &'static str,
         precipitation: Option<u32>,
@@ -307,7 +306,6 @@ mod fixtures {
 
     const fn forecast(
         label: &'static str,
-        date: &'static str,
         icon_name: &'static str,
         condition: &'static str,
         precipitation: Option<u32>,
@@ -316,7 +314,6 @@ mod fixtures {
     ) -> Forecast {
         Forecast {
             label,
-            date,
             icon_name,
             condition,
             precipitation,
@@ -328,7 +325,6 @@ mod fixtures {
     const DAYS: [Forecast; 10] = [
         forecast(
             "Today",
-            "Fri 1 Sep",
             "weather-showers-symbolic",
             "Light rain",
             Some(60),
@@ -337,7 +333,6 @@ mod fixtures {
         ),
         forecast(
             "Tomorrow",
-            "Sat 2 Sep",
             "weather-overcast-symbolic",
             "Overcast",
             Some(20),
@@ -346,7 +341,6 @@ mod fixtures {
         ),
         forecast(
             "Sunday",
-            "Sun 3 Sep",
             "weather-clear-symbolic",
             "Clear",
             None,
@@ -355,7 +349,6 @@ mod fixtures {
         ),
         forecast(
             "Monday",
-            "Mon 4 Sep",
             "weather-clear-symbolic",
             "Clear",
             None,
@@ -364,7 +357,6 @@ mod fixtures {
         ),
         forecast(
             "Tuesday",
-            "Tue 5 Sep",
             "weather-few-clouds-symbolic",
             "Sunny spells",
             Some(10),
@@ -373,7 +365,6 @@ mod fixtures {
         ),
         forecast(
             "Wednesday",
-            "Wed 6 Sep",
             "weather-showers-symbolic",
             "Showers",
             Some(70),
@@ -382,7 +373,6 @@ mod fixtures {
         ),
         forecast(
             "Thursday",
-            "Thu 7 Sep",
             "weather-storm-symbolic",
             "Thunderstorms",
             Some(80),
@@ -391,7 +381,6 @@ mod fixtures {
         ),
         forecast(
             "Friday",
-            "Fri 8 Sep",
             "weather-overcast-symbolic",
             "Overcast",
             Some(30),
@@ -400,61 +389,46 @@ mod fixtures {
         ),
         forecast(
             "Saturday",
-            "Sat 9 Sep",
             "weather-clear-symbolic",
             "Clear",
             None,
             8.0,
             16.0,
         ),
-        forecast(
-            "Sunday",
-            "Sun 10 Sep",
-            "weather-fog-symbolic",
-            "Fog",
-            Some(20),
-            7.0,
-            15.0,
-        ),
+        forecast("Sunday", "weather-fog-symbolic", "Fog", Some(20), 7.0, 15.0),
     ];
 
-    const DETAILS: [(&str, &str); 12] = [
-        ("Feels like", "16°"),
-        ("Humidity", "78%"),
-        ("Wind", "14 km/h NW"),
-        ("Gusts", "28 km/h"),
-        ("UV index", "2 · Low"),
-        ("Air quality", "32 · Good"),
-        ("Pressure", "1008 hPa"),
-        ("Visibility", "9 km"),
-        ("Dew point", "14°"),
-        ("Sunrise", "06:21"),
-        ("Sunset", "20:14"),
-        ("Day length", "13 h 53 m"),
-    ];
-
-    fn weather(root: &gtk4::Widget) {
-        if let Some(strip) = find::<ForecastStrip>(root) {
-            let hour = |label: &str, icon_name: &str, temperature, now| Hour {
-                label: label.to_owned(),
-                icon_name: icon_name.to_owned(),
-                temperature,
-                now,
-            };
-            strip.set_hours(&[
-                hour("Now", "weather-showers-symbolic", 18.0, true),
-                hour("16:00", "weather-showers-symbolic", 17.0, false),
-                hour("17:00", "weather-few-clouds-symbolic", 17.0, false),
-                hour("18:00", "weather-clear-symbolic", 16.0, false),
-            ]);
-        }
-
-        let Some(list) = find::<ForecastList>(root) else {
+    /// The real `$WeatherPopover`, filled through the setters the applet uses, so the preview
+    /// shows the shipped widget rather than a hand-copied arrangement of its parts.
+    fn weather_popover(root: &gtk4::Widget) {
+        let Some(popover) = find::<WeatherPopover>(root) else {
             return;
         };
-        list.set_days(
+
+        popover.set_heading(
+            "weather-showers-symbolic",
+            "Vilnius",
+            Some("Light rain · feels like 16°"),
+        );
+        popover.set_reading(Some(("18", "°")));
+
+        let hour = |label: &str, icon_name: &str, temperature| Hour {
+            label: label.to_owned(),
+            icon_name: icon_name.to_owned(),
+            temperature,
+            now: false,
+        };
+        popover.set_hours(&[
+            hour("16:00", "weather-showers-symbolic", 17.0),
+            hour("17:00", "weather-showers-scattered-symbolic", 17.0),
+            hour("18:00", "weather-few-clouds-symbolic", 16.0),
+            hour("19:00", "weather-clear-symbolic", 15.0),
+        ]);
+
+        popover.set_days(
             &DAYS
                 .iter()
+                .skip(1)
                 .map(|day| Day {
                     label: day.label.to_owned(),
                     icon_name: day.icon_name.to_owned(),
@@ -465,62 +439,62 @@ mod fixtures {
                 .collect::<Vec<_>>(),
         );
 
-        let Some((drawer, stack)) = page_stack(root) else {
-            return;
-        };
+        popover.set_nowcast(Some(&Advisory {
+            severity: Severity::Info,
+            icon_name: "weather-showers-symbolic".to_owned(),
+            title: "Rain starting in 25 minutes".to_owned(),
+            subtitle: Some("Light rain".to_owned()),
+            page: None,
+        }));
 
-        stack.add_named(
-            &page("Right now", Some("Light rain"), None, &DETAILS),
-            Some("details"),
-        );
-        stack.add_named(
-            &page(
-                "Thunderstorm warning",
-                Some("yellow"),
-                Some(alert_placeholder()),
-                &[
-                    ("Issued", "14:05"),
-                    ("Expires", "21:00"),
-                    ("Source", "LHMT"),
+        popover.set_alerts(&[
+            Advisory {
+                severity: Severity::Error,
+                icon_name: "dialog-warning-symbolic".to_owned(),
+                title: "Thunderstorm warning until 21:00".to_owned(),
+                subtitle: Some("LHMT".to_owned()),
+                page: Some(glimpse_widgets::alert_page(0)),
+            },
+            Advisory {
+                severity: Severity::Warning,
+                icon_name: "dialog-warning-symbolic".to_owned(),
+                title: "Strong wind advisory".to_owned(),
+                subtitle: Some("LHMT".to_owned()),
+                page: None,
+            },
+        ]);
+
+        let mut pages: Vec<WeatherPage> = DAYS
+            .iter()
+            .skip(1)
+            .enumerate()
+            .map(|(index, day)| WeatherPage {
+                key: glimpse_widgets::day_page(index as u32),
+                title: day.label.to_owned(),
+                description: Some(day.condition.to_owned()),
+                facts: vec![
+                    Fact::new("High", format!("{}°", day.high)),
+                    Fact::new("Low", format!("{}°", day.low)),
+                    Fact::new("Sunrise", "05:59"),
+                    Fact::new("Sunset", "20:08"),
+                    Fact::new("Day length", "14 h 9 min"),
                 ],
-            ),
-            Some("alert"),
-        );
-        for (index, day) in DAYS.iter().enumerate() {
-            let facts = [
-                ("Condition", day.condition.to_owned()),
-                ("High", format!("{}°", day.high)),
-                ("Low", format!("{}°", day.low)),
-                (
-                    "Chance of rain",
-                    format!("{}%", day.precipitation.unwrap_or_default()),
-                ),
-                ("Wind", "14 km/h NW".to_owned()),
-                ("Humidity", "78%".to_owned()),
-                ("Sunrise", "06:21".to_owned()),
-                ("Sunset", "20:14".to_owned()),
-            ];
-            let facts: Vec<(&str, &str)> = facts
-                .iter()
-                .map(|(label, value)| (*label, value.as_str()))
-                .collect();
-            stack.add_named(
-                &page(day.label, Some(day.date), None, &facts),
-                Some(&format!("day{index}")),
-            );
-        }
-        stack.set_visible_child_name("details");
+            })
+            .collect();
 
-        list.connect_activated(glib::clone!(
-            #[weak]
-            drawer,
-            #[weak]
-            stack,
-            move |_, index| {
-                stack.set_visible_child_name(&format!("day{index}"));
-                drawer.set_reveal_child(true);
-            }
-        ));
+        pages.push(WeatherPage {
+            key: glimpse_widgets::alert_page(0),
+            title: "Thunderstorm warning until 21:00".to_owned(),
+            description: Some("Hail and gusts to 25 m/s are possible.".to_owned()),
+            facts: vec![
+                Fact::new("Issued", "14:05"),
+                Fact::new("Expires", "21:00"),
+                Fact::new("Source", "LHMT"),
+            ],
+        });
+
+        popover.set_pages(&pages);
+        popover.set_footer(Some("Weather settings"));
     }
 
     struct Song {
@@ -865,46 +839,6 @@ mod fixtures {
             SIZE * 4,
         )
         .upcast()
-    }
-
-    fn alert_placeholder() -> gtk4::Widget {
-        let placeholder = Placeholder::new();
-        placeholder.set_icon_name(Some("weather-storm-symbolic"));
-        placeholder.set_title(Some("Thunderstorms until 21:00"));
-        placeholder.set_description(Some(
-            "Frequent lightning and gusts to 80 km/h are expected. Avoid open water.",
-        ));
-        placeholder.set_error(true);
-        placeholder.upcast()
-    }
-
-    fn page(
-        title: &str,
-        count: Option<&str>,
-        lead: Option<gtk4::Widget>,
-        facts: &[(&str, &str)],
-    ) -> gtk4::Widget {
-        let body = gtk4::Box::builder()
-            .orientation(gtk4::Orientation::Vertical)
-            .valign(gtk4::Align::Start)
-            .build();
-        if let Some(lead) = lead {
-            body.append(&lead);
-        }
-        let list = FactList::new();
-        list.set_facts(
-            &facts
-                .iter()
-                .map(|(label, value)| Fact::new(*label, *value))
-                .collect::<Vec<_>>(),
-        );
-        body.append(&list);
-
-        let section = Section::new();
-        section.set_title(Some(title));
-        section.set_count(count);
-        section.set_content(Some(&body));
-        section.upcast()
     }
 
     fn page_stack(root: &gtk4::Widget) -> Option<(gtk4::Revealer, gtk4::Stack)> {
@@ -1294,7 +1228,7 @@ fn ensure_types() {
         Calendar, CalendarPopover, ChoiceList, ClockRow, EventList, EventRow, FactList,
         ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup,
         Notice, NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow, PopoverShell,
-        RangeBar, Readout, Row, Scrubber, Section, SplitRow, Transport, WorldClock,
+        RangeBar, Readout, Row, Scrubber, Section, SplitRow, Transport, WeatherPopover, WorldClock,
     };
 
     for widget in [
@@ -1318,6 +1252,7 @@ fn ensure_types() {
         Readout::static_type(),
         EventList::static_type(),
         Section::static_type(),
+        WeatherPopover::static_type(),
         SplitRow::static_type(),
         WorldClock::static_type(),
         Hero::static_type(),

@@ -113,6 +113,16 @@
     color: var(--gl-accent-text);
 }
 
+.indicator--warning .indicator__icon,
+.indicator--warning .indicator__label {
+    color: var(--gl-warning-text);
+}
+
+.indicator--error .indicator__icon,
+.indicator--error .indicator__label {
+    color: var(--gl-danger-text);
+}
+
 .pager {
     --gl-pager-dot: 0.5rem;
     --gl-pager-wide: 1.3rem;
@@ -528,8 +538,18 @@
     margin-top: 0.35rem;
 }
 
+.weather-popover__alerts,
+.weather-popover__alerts > .notice + .notice {
+    margin-top: 0.35rem;
+}
+
 .drawer-page {
     min-width: 19rem;
+}
+
+.drawer-page__description {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
 }
 
 .workspace-row--urgent .row__title {
@@ -632,7 +652,7 @@
 }
 
 .forecast-strip {
-    padding: 0.35rem 0.4rem 0.6rem 0.4rem;
+    padding: 0.42rem 0.48rem 0.72rem 0.48rem;
 }
 
 .forecast__time {
@@ -647,10 +667,10 @@
 }
 
 .forecast__icon {
-    -gtk-icon-size: 1.5rem;
+    -gtk-icon-size: 1.8rem;
     color: var(--gl-surface-fg);
-    margin-top: 0.2rem;
-    margin-bottom: 0.35rem;
+    margin-top: 0.24rem;
+    margin-bottom: 0.42rem;
 }
 
 .forecast__temperature {

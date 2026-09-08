@@ -25,5 +25,6 @@
         <file>widgets/section.ui</file>
         <file>widgets/split_row.ui</file>
         <file>widgets/transport.ui</file>
+        <file>widgets/weather_popover.ui</file>
     </gresource>
 </gresources>

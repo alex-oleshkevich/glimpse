@@ -8,6 +8,7 @@ use super::{Day, ForecastDay, ForecastHour, Hour};
 pub struct ForecastStrip {
     pub hours: RefCell<Vec<Hour>>,
     pub columns: RefCell<Vec<ForecastHour>>,
+    pub unit: RefCell<String>,
 }
 
 #[glib::object_subclass]
@@ -26,6 +27,7 @@ impl ObjectImpl for ForecastStrip {
     fn constructed(&self) {
         self.parent_constructed();
         let strip = self.obj();
+        self.unit.replace(super::DEFAULT_UNIT.to_owned());
         strip.add_css_class("forecast-strip");
         if let Some(layout) = strip.layout_manager().and_downcast::<gtk4::BoxLayout>() {
             layout.set_homogeneous(true);
@@ -45,6 +47,7 @@ impl WidgetImpl for ForecastStrip {}
 pub struct ForecastList {
     pub days: RefCell<Vec<Day>>,
     pub rows: RefCell<Vec<ForecastDay>>,
+    pub unit: RefCell<String>,
 }
 
 #[glib::object_subclass]
@@ -74,6 +77,7 @@ impl ObjectImpl for ForecastList {
     fn constructed(&self) {
         self.parent_constructed();
         let list = self.obj();
+        self.unit.replace(super::DEFAULT_UNIT.to_owned());
         list.add_css_class("forecast-list");
         if let Some(layout) = list.layout_manager().and_downcast::<gtk4::BoxLayout>() {
             layout.set_orientation(gtk4::Orientation::Vertical);

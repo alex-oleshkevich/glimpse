@@ -71,6 +71,10 @@ fn main() {
         ("blueprints/section.blp", "resources/widgets/section.ui"),
         ("blueprints/split_row.blp", "resources/widgets/split_row.ui"),
         ("blueprints/transport.blp", "resources/widgets/transport.ui"),
+        (
+            "blueprints/weather_popover.blp",
+            "resources/widgets/weather_popover.ui",
+        ),
     ]);
 
     glib_build_tools::compile_resources(
