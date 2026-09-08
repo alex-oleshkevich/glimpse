@@ -49,7 +49,7 @@ glimpse/
 | `glimpse-compositors` | niri and Hyprland IPC: snapshot, events, keyboard/workspace/window/output control |
 | `glimpse-services`    | service framework and every service implementation                                |
 | `glimpse-widgets`     | GObject subclasses, Blueprint templates, shared CSS                               |
-| `glimpse-utils`       | shared CLI arg structs and tracing/log setup used by every binary                 |
+| `glimpse-utils`       | shared CLI arg structs, tracing/log setup, gettext binding and text cleaning      |
 | `glimpsed`            | broker, `WaylandEdge` impl                                                        |
 | `glimpse-panel`       | panel and applets                                                                 |
 | `glimpse-wallpaper`   | background layer surface, decode cache, transitions                               |
