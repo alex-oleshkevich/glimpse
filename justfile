@@ -144,23 +144,23 @@ check-units:
 
 [doc("run daemon")]
 run-daemon *ARGS:
-    cargo run -p glimpsed -- {{ ARGS }}
+    cargo run -p glimpsed -- "$@"
 
 [doc("run panel")]
 run-panel *ARGS:
-    cargo run -p glimpse-panel -- {{ ARGS }}
+    cargo run -p glimpse-panel -- "$@"
 
 [doc("run wallpaper")]
 run-wallpaper *ARGS:
-    cargo run -p glimpse-wallpaper -- {{ ARGS }}
+    cargo run -p glimpse-wallpaper -- "$@"
 
 [doc("run locker")]
 run-locker *ARGS:
-    cargo run -p glimpse-lock -- {{ ARGS }}
+    cargo run -p glimpse-lock -- "$@"
 
 [doc("run sunset")]
 run-sunset *ARGS:
-    cargo run -p glimpse-sunset -- {{ ARGS }}
+    cargo run -p glimpse-sunset -- "$@"
 
 [doc("run the CLI")]
 ctl *ARGS:

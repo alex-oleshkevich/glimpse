@@ -224,9 +224,21 @@ restarted. There is deliberately no `weather.forget`; not renewing is how you st
 
 **With nothing leased, nothing happens.** `subscriptions` declares the geolocation subscription only
 while something watches `here`, and the poll only when there is at least one coordinate to ask
-about. So a fresh install makes no outbound request and never wakes GeoClue until something asks.
-That property is structural rather than a default someone can flip, which is why `[weather]` has no
-`follow-location` key: turning weather on is an act by a consumer, not a line in a document.
+about. So a fresh install issues no outbound request at all, and the user's coordinates never leave
+the machine until a consumer asks for weather. That property is structural rather than a default
+someone can flip, which is why `[weather]` has no `follow-location` key: turning weather on is an act
+by a consumer, not a line in a document.
+
+It does **not** extend to GeoClue. The `geolocation` service opens its own GeoClue stream whenever
+`geolocation = "geoclue"`, whoever is or is not subscribed, and `solar` subscribes to the topic
+unconditionally. Declaring `Watch::Location` conditionally saves an idle topic subscription inside
+the daemon, not a device wake — an earlier draft of this section claimed otherwise and was wrong.
+
+**Leases are swept on a watch as well as on a fetch.** A renewal is the one event that still arrives
+when nothing is being fetched, and both no-fetch states are reachable: an `http` client that would
+not build, and a lone `here` lease with no fix yet. Sweeping only on `Fetched` left those leases
+immortal, which pinned the geolocation subscription and — because the `MOST_WATCHED` cap counts
+entries rather than live ones — let eight dead registrations refuse every later `weather.watch`.
 
 **A renewal must not restart the poll.** `Sub::interval` builds on `ctx.interval`, which starts at
 `Instant::now()`, so a rebuilt subscription fetches immediately. `generation` — the only thing in

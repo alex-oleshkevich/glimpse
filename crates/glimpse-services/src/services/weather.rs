@@ -226,7 +226,8 @@ impl Service for Weather {
                 if self.moved(coordinates.as_ref()) {
                     self.fix = coordinates;
                     self.generation += 1;
-                    self.places.clear();
+                    self.places
+                        .retain(|shown| shown.place != WatchedPlace::Here);
                     self.report(ctx);
                     self.publish();
                 }
@@ -263,15 +264,24 @@ impl Service for Weather {
             }
 
             Input::Command(Command::Watch(place), responder) => {
-                match self.lease(place, Instant::now()) {
-                    Ok(added) => {
-                        if added {
-                            self.generation += 1;
-                            self.report(ctx);
-                            self.publish();
-                        }
-                        responder.ok(());
+                let now = Instant::now();
+                let asked = self.ask().coordinates;
+                let mut changed = self.sweep(now);
+
+                let outcome = self.lease(place, now);
+                changed |= matches!(outcome, Ok(true));
+
+                if changed {
+                    if self.ask().coordinates != asked {
+                        self.generation += 1;
                     }
+                    self.forget_unwatched();
+                    self.report(ctx);
+                    self.publish();
+                }
+
+                match outcome {
+                    Ok(_) => responder.ok(()),
                     Err(error) => responder.fail(error),
                 }
             }
@@ -819,9 +829,10 @@ mod tests {
     }
 
     /// The privacy property the lease design exists to give: until something asks, no request is
-    /// made and GeoClue is never woken.
+    /// made, so no coordinate leaves the machine. It says nothing about GeoClue, which the
+    /// `geolocation` service runs on its own account.
     #[tokio::test]
-    async fn nothing_watched_means_no_request_and_no_geoclue() {
+    async fn nothing_watched_means_no_request_and_no_location_subscription() {
         let harness = harness().await;
 
         assert!(harness.service.subscriptions().is_empty());
@@ -834,7 +845,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn geoclue_is_subscribed_only_while_something_watches_here() {
+    async fn the_location_topic_is_subscribed_only_while_something_watches_here() {
         let mut harness = harness().await;
 
         call(&mut harness, Command::Watch(at(47.3769, 8.5417)))
@@ -934,6 +945,50 @@ mod tests {
             .await
             .expect("a renewal at the cap");
         assert_eq!(harness.service.watched.len(), MOST_WATCHED);
+    }
+
+    /// Both no-fetch states are reachable — no http client, and a lone `here` lease with no fix —
+    /// and in either one a sweep that only ran on `Fetched` would never run at all. The cap then
+    /// counts dead registrations and refuses every later watch.
+    #[tokio::test]
+    async fn a_stale_lease_is_swept_by_a_watch_rather_than_only_by_a_fetch() {
+        let mut harness = harness().await;
+        let now = Instant::now();
+
+        for index in 0..MOST_WATCHED {
+            harness
+                .service
+                .lease(at(index as f64, 0.0), now)
+                .expect("within the cap");
+        }
+        for held in &mut harness.service.watched {
+            held.until = now;
+        }
+
+        call(&mut harness, Command::Watch(at(60.0, 0.0)))
+            .await
+            .expect("the cap counts live leases rather than dead ones");
+
+        assert_eq!(harness.service.watched.len(), 1);
+    }
+
+    /// A `here` lease with no fix resolves to no coordinate, so it changes the lease set without
+    /// changing the request. Bumping the generation for it would refetch the same places.
+    #[tokio::test]
+    async fn watching_here_without_a_fix_does_not_restart_the_poll() {
+        let mut harness = harness().await;
+
+        call(&mut harness, Command::Watch(at(47.3769, 8.5417)))
+            .await
+            .expect("the first watch");
+        let after_first = harness.service.generation;
+
+        call(&mut harness, Command::Watch(WatchedPlace::Here))
+            .await
+            .expect("here is watchable");
+
+        assert!(harness.service.wants_here());
+        assert_eq!(harness.service.generation, after_first);
     }
 
     fn watch_args(latitude: f64, longitude: f64) -> Value {
@@ -1502,6 +1557,54 @@ mod tests {
 
         assert!(harness.service.watched.is_empty());
         assert!(harness.service.places.is_empty());
+    }
+
+    /// Only `here` followed the fix. Clearing every reading would blank a place the user asked for
+    /// by coordinate — whose numbers are still correct — for a whole round trip.
+    #[tokio::test]
+    async fn a_fix_that_moved_drops_only_the_place_that_followed_it() {
+        let mut harness = harness().await;
+        let now = Instant::now();
+
+        harness
+            .service
+            .lease(at(47.3769, 8.5417), now)
+            .expect("a place named by coordinate");
+        harness
+            .service
+            .lease(WatchedPlace::Here, now)
+            .expect("a place that follows the fix");
+        harness.service.fix = Some(fix(51.5, -0.1));
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Fetched {
+                    generation: harness.service.generation,
+                    result: Ok(vec![a_reading(), a_reading()]),
+                }),
+            )
+            .await;
+        assert_eq!(harness.service.places.len(), 2);
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Located(Some(fix(52.0, -0.1)))),
+            )
+            .await;
+
+        assert_eq!(
+            harness
+                .service
+                .places
+                .iter()
+                .map(|shown| shown.place.clone())
+                .collect::<Vec<_>>(),
+            vec![at(47.3769, 8.5417)]
+        );
     }
 
     /// Only a missing temperature is worth dropping an hour over. A missing code reads as unknown
