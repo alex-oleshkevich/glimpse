@@ -5,8 +5,6 @@ use glimpse_contracts::{
 };
 use glimpse_widgets::{Advisory, Day, Fact, Hour, Severity, WeatherPage, alert_page, day_page};
 
-use crate::applets::agenda;
-
 pub const DEGREE: &str = "°";
 pub const ALERT_ICON: &str = "dialog-warning-symbolic";
 /// How far ahead the nowcast looks. Beyond it a wet hour is tomorrow's weather rather than
@@ -140,10 +138,7 @@ pub fn subtitle(current: &CurrentWeather) -> Option<String> {
 /// showing it — a column repeating it costs one of the hours the strip exists to look ahead at.
 pub fn hours(place: &PlaceWeather, cap: u8, twelve: bool) -> Vec<Hour> {
     let offset = zone(place.utc_offset_seconds);
-    let clock = match twelve {
-        true => agenda::TWELVE,
-        false => agenda::TWENTY_FOUR,
-    };
+    let clock = glimpse_config::clock(twelve);
 
     place
         .hours
@@ -282,10 +277,7 @@ fn fact(label: String, value: String) -> Fact {
 }
 
 fn clock_at(when: DateTime<Utc>, offset: FixedOffset, twelve: bool) -> String {
-    let pattern = match twelve {
-        true => agenda::TWELVE,
-        false => agenda::TWENTY_FOUR,
-    };
+    let pattern = glimpse_config::clock(twelve);
     when.with_timezone(&offset).format(pattern).to_string()
 }
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-08 16:00+0200\n"
+"POT-Creation-Date: 2026-09-08 23:09+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,65 +18,65 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: crates/glimpse-panel/src/applets/agenda.rs:70
+#: crates/glimpse-panel/src/applets/agenda.rs:54
 msgid "All day · day {day} of {days}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:73
+#: crates/glimpse-panel/src/applets/agenda.rs:57
 msgid "All day"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:81
+#: crates/glimpse-panel/src/applets/agenda.rs:65
 msgid "{start} · until {weekday} {end}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:88
-#: crates/glimpse-panel/src/applets/agenda.rs:120
+#: crates/glimpse-panel/src/applets/agenda.rs:72
+#: crates/glimpse-panel/src/applets/agenda.rs:104
 msgid "{start} · {length}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:96
+#: crates/glimpse-panel/src/applets/agenda.rs:80
 msgid "{start} · over"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:97
+#: crates/glimpse-panel/src/applets/agenda.rs:81
 msgid "ended {length} ago"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:104
+#: crates/glimpse-panel/src/applets/agenda.rs:88
 msgid "now · ends in {length}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:106
+#: crates/glimpse-panel/src/applets/agenda.rs:90
 msgid "now · ends {end}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:113
+#: crates/glimpse-panel/src/applets/agenda.rs:97
 msgid "starting now · {length}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:116
+#: crates/glimpse-panel/src/applets/agenda.rs:100
 msgid "in {until} · {length}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:128
+#: crates/glimpse-panel/src/applets/agenda.rs:112
 msgid "{minutes} min"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:134
+#: crates/glimpse-panel/src/applets/agenda.rs:118
 msgid "{hours} h"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:135
-#: crates/glimpse-panel/src/applets/weather/render.rs:299
+#: crates/glimpse-panel/src/applets/agenda.rs:119
+#: crates/glimpse-panel/src/applets/weather/render.rs:291
 msgid "{hours} h {minutes} min"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:143
+#: crates/glimpse-panel/src/applets/agenda.rs:127
 msgid "{days} d"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/agenda.rs:144
+#: crates/glimpse-panel/src/applets/agenda.rs:128
 msgid "{days} d {hours} h"
 msgstr ""
 
@@ -114,144 +114,144 @@ msgstr ""
 msgid "No reading yet"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:52
+#: crates/glimpse-panel/src/applets/weather/render.rs:50
 msgid "Clear"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:53
+#: crates/glimpse-panel/src/applets/weather/render.rs:51
 msgid "Mainly clear"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:54
+#: crates/glimpse-panel/src/applets/weather/render.rs:52
 msgid "Partly cloudy"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:55
+#: crates/glimpse-panel/src/applets/weather/render.rs:53
 msgid "Overcast"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:56
+#: crates/glimpse-panel/src/applets/weather/render.rs:54
 msgid "Fog"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:57
+#: crates/glimpse-panel/src/applets/weather/render.rs:55
 msgid "Drizzle"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:58
+#: crates/glimpse-panel/src/applets/weather/render.rs:56
 msgid "Freezing drizzle"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:59
+#: crates/glimpse-panel/src/applets/weather/render.rs:57
 msgid "Light rain"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:60
-#: crates/glimpse-panel/src/applets/weather/render.rs:254
+#: crates/glimpse-panel/src/applets/weather/render.rs:58
+#: crates/glimpse-panel/src/applets/weather/render.rs:249
 msgid "Rain"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:61
+#: crates/glimpse-panel/src/applets/weather/render.rs:59
 msgid "Heavy rain"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:62
+#: crates/glimpse-panel/src/applets/weather/render.rs:60
 msgid "Freezing rain"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:63
+#: crates/glimpse-panel/src/applets/weather/render.rs:61
 msgid "Light snow"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:64
-#: crates/glimpse-panel/src/applets/weather/render.rs:253
+#: crates/glimpse-panel/src/applets/weather/render.rs:62
+#: crates/glimpse-panel/src/applets/weather/render.rs:248
 msgid "Snow"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:65
+#: crates/glimpse-panel/src/applets/weather/render.rs:63
 msgid "Heavy snow"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:66
+#: crates/glimpse-panel/src/applets/weather/render.rs:64
 msgid "Snow grains"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:67
+#: crates/glimpse-panel/src/applets/weather/render.rs:65
 msgid "Sleet"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:68
+#: crates/glimpse-panel/src/applets/weather/render.rs:66
 msgid "Rain showers"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:69
+#: crates/glimpse-panel/src/applets/weather/render.rs:67
 msgid "Snow showers"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:70
+#: crates/glimpse-panel/src/applets/weather/render.rs:68
 msgid "Thunderstorm"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:71
+#: crates/glimpse-panel/src/applets/weather/render.rs:69
 msgid "Thunderstorm with hail"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:129
+#: crates/glimpse-panel/src/applets/weather/render.rs:127
 msgid "feels like {temperature}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:185
+#: crates/glimpse-panel/src/applets/weather/render.rs:180
 #: crates/glimpse-widgets/src/world_clock/mod.rs:151
 msgid "Tomorrow"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:262
+#: crates/glimpse-panel/src/applets/weather/render.rs:257
 msgid "{what} starting in {count} minute"
 msgid_plural "{what} starting in {count} minutes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:275
+#: crates/glimpse-panel/src/applets/weather/render.rs:270
 msgid "°C"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:276
+#: crates/glimpse-panel/src/applets/weather/render.rs:271
 msgid "°F"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:308
+#: crates/glimpse-panel/src/applets/weather/render.rs:300
 msgid "High"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:312
+#: crates/glimpse-panel/src/applets/weather/render.rs:304
 msgid "Low"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:318
+#: crates/glimpse-panel/src/applets/weather/render.rs:310
 msgid "Chance of rain"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:321
+#: crates/glimpse-panel/src/applets/weather/render.rs:313
 msgid "Sunrise"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:324
+#: crates/glimpse-panel/src/applets/weather/render.rs:316
 msgid "Sunset"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:327
+#: crates/glimpse-panel/src/applets/weather/render.rs:319
 msgid "Day length"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:354
+#: crates/glimpse-panel/src/applets/weather/render.rs:346
 msgid "Issued"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:357
+#: crates/glimpse-panel/src/applets/weather/render.rs:349
 msgid "Expires"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/render.rs:360
+#: crates/glimpse-panel/src/applets/weather/render.rs:352
 msgid "Source"
 msgstr ""
 

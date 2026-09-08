@@ -102,8 +102,8 @@ pub fn zones(configured: &[glimpse_config::ClockTimezone]) -> Vec<Zone> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::applets::agenda::TWENTY_FOUR;
     use chrono::TimeZone;
+    use glimpse_config::TWENTY_FOUR;
 
     fn at(day: u32, hour: u32) -> DateTime<Local> {
         Local

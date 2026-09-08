@@ -11,7 +11,7 @@ use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
 use glimpse_services::{Calendar, Compositor, Geolocation, Heartbeat, Solar, Weather};
-use glimpse_utils::init_app_tracing;
+use glimpse_utils::{init_app_tracing, init_locale};
 
 use crate::daemon::{Daemon, DaemonError, Filter};
 
@@ -31,6 +31,7 @@ async fn main() -> ExitCode {
 
 async fn run(cli: Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
+    init_locale();
 
     let config = glimpse_config::load(cli.config.as_deref())
         .map_err(|e| DaemonError::Config(e.to_string()))?;

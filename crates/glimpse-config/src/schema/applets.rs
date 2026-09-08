@@ -14,6 +14,11 @@ pub struct Applet {
     pub common: Common,
     #[serde(flatten)]
     pub kind: Kind,
+    /// The document's `[regional]` table, copied onto every applet by `load` so an applet that
+    /// renders a time of day reads it off the configuration it already has. It is not written
+    /// under an applet's own table and never round-trips.
+    #[serde(skip)]
+    pub regional: super::Regional,
 }
 
 /// The settings every applet understands, whatever kind it is. They sit in the same table as the
@@ -107,10 +112,6 @@ pub struct Clock {
     /// naming one is how a second `[applets.clock-utc]` shows somewhere else.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timezone: Option<String>,
-    /// How a time of day reads wherever the applet composes one itself — the world clock rows and
-    /// the times inside event rows. `label-format` and `tooltip-format` are yours and are not
-    /// affected by it.
-    pub hour_format: HourFormat,
     /// Which day a calendar week starts on.
     pub first_day: FirstDay,
     /// Whether the popover names the ISO week the shown month belongs to.
@@ -135,21 +136,6 @@ pub struct Timezone {
     /// An icon name replacing the sun or moon the row picks from the hour it is showing.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
-}
-
-/// How a time of day reads.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum HourFormat {
-    /// Follow `LC_TIME`, which is what the locale's own `%X` resolves to.
-    #[default]
-    Locale,
-    /// `3:30 PM`.
-    #[serde(rename = "12h")]
-    Twelve,
-    /// `15:30`.
-    #[serde(rename = "24h")]
-    TwentyFour,
 }
 
 /// Which day a calendar week starts on. There is deliberately no `locale` here, unlike
@@ -339,7 +325,6 @@ impl Default for Clock {
         Self {
             label_format: "%H:%M".to_owned(),
             timezone: None,
-            hour_format: HourFormat::default(),
             first_day: FirstDay::default(),
             week_numbers: true,
             timezones: Vec::new(),
@@ -361,6 +346,7 @@ impl From<Kind> for Applet {
         Self {
             common: Common::default(),
             kind,
+            regional: super::Regional::default(),
         }
     }
 }
@@ -395,7 +381,11 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
     let keys: Vec<String> = table.keys().cloned().collect();
     let kind = Kind::deserialize(table).map_err(|error| name_the_common_settings(error, &keys))?;
     on_earth(&kind)?;
-    Ok(Applet { common, kind })
+    Ok(Applet {
+        common,
+        kind,
+        regional: super::Regional::default(),
+    })
 }
 
 /// The wire refuses these too, but a document saying so at load names the table and the key rather

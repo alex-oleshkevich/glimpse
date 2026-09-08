@@ -9,6 +9,7 @@ license.workspace = true
 config.workspace = true
 dirs.workspace = true
 futures-util.workspace = true
+libc.workspace = true
 notify.workspace = true
 schemars.workspace = true
 serde.workspace = true

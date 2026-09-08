@@ -1,9 +1,11 @@
+mod environment;
 mod error;
 mod load;
 mod schema;
 mod theme;
 mod watch;
 
+pub use environment::{TWELVE, TWENTY_FOUR, clock};
 pub use error::ConfigError;
 pub use load::{DATA_DIR, load, resolved_files, user_dir, watch_dirs};
 pub use schema::*;

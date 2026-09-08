@@ -2,10 +2,7 @@ use chrono::{DateTime, Local, NaiveDate, TimeDelta};
 use gettextrs::gettext;
 use glimpse_contracts::CalendarEvent;
 use glimpse_widgets::Event;
-use gtk4::{gdk, glib};
-
-pub const TWENTY_FOUR: &str = "%H:%M";
-pub const TWELVE: &str = "%-I:%M %p";
+use gtk4::gdk;
 
 const SOON: i64 = 15;
 const NEAR: i64 = 60;
@@ -19,19 +16,6 @@ pub struct Occasion {
     pub end: DateTime<Local>,
     pub all_day: bool,
     pub color: Option<gdk::RGBA>,
-}
-
-pub fn locale_is_twelve_hour() -> bool {
-    let Ok(afternoon) = glib::DateTime::from_local(2026, 1, 1, 15, 30, 0.0) else {
-        return false;
-    };
-    let shown = afternoon.format("%X").unwrap_or_default();
-    let marker = afternoon.format("%p").unwrap_or_default();
-    reads_as_twelve_hour(&shown, &marker)
-}
-
-pub fn reads_as_twelve_hour(shown: &str, marker: &str) -> bool {
-    !marker.is_empty() && shown.contains(marker)
 }
 
 pub fn occasions(events: &[CalendarEvent]) -> Vec<Occasion> {
@@ -174,16 +158,6 @@ mod tests {
 
     fn read(now: DateTime<Local>, event: &Occasion) -> String {
         when(now, now.date_naive(), event, CLOCK)
-    }
-
-    #[test]
-    fn a_locale_that_writes_a_meridiem_into_its_own_time_reads_as_twelve_hour() {
-        assert!(reads_as_twelve_hour("3:30:00 PM", "PM"));
-        assert!(!reads_as_twelve_hour("15:30:00", "PM"));
-        assert!(
-            !reads_as_twelve_hour("15:30:00", ""),
-            "a locale with no meridiem string makes `contains` trivially true"
-        );
     }
 
     /// A colour that will not parse must cost its event a dot, not the whole popover.

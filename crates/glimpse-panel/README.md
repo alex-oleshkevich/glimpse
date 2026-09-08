@@ -381,6 +381,15 @@ the applet could act on, and the next tick retries.
 numbers in the payload being rendered, so a units change cannot print °F over a Celsius reading for
 the one round trip a correct payload takes to arrive. That is why `units` is on the topic at all.
 
+`[regional] units` is therefore read by the daemon and by nothing here.
+
+The hour format has no such hazard — nothing round-trips to render a time — and it arrives the way
+every other setting does: `AppletConfig.regional`, which `glimpse-config` copies onto each applet at
+load. An applet writes `config.regional.twelve_hour()` in `configure` and that is the whole
+mechanism. It is deliberately **not** on `Ctx` and not a parameter of `AppletHandle::launch`: a
+setting the applet can read off the configuration it is already handed does not need a second route,
+and a bare `bool` threaded through five signatures was the first attempt at this.
+
 **The list starts at tomorrow and the strip at the next hour.** Today and the hour standing are
 already the hero; a row and a column repeating them are the second telling, and each costs a slot
 the strip and the list exist to look ahead with. The applet's `days` default is therefore one lower

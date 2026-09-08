@@ -6,6 +6,11 @@ theme = "adwaita"
 theme-variant = ""
 color-scheme = "auto"
 
+[regional]
+language = ""
+hour-format = "locale"
+units = "locale"
+
 [monitors]
 
 [geolocation]
@@ -65,7 +70,6 @@ sources = []
 
 [weather]
 provider = "open-meteo"
-units = "metric"
 poll-interval = 900
 forecast-days = 7
 

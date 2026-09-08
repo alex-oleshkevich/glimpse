@@ -219,8 +219,8 @@ pub fn tooltip(format: &str, event: &Occasion, reading: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::applets::agenda::TWENTY_FOUR;
     use chrono::TimeZone;
+    use glimpse_config::TWENTY_FOUR;
 
     const HORIZON: TimeDelta = TimeDelta::hours(1);
     const REACH: TimeDelta = TimeDelta::hours(12);

@@ -22,9 +22,9 @@ fn main() -> ExitCode {
 
 fn run(cli: &Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
-    init_translations();
-    let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
     let config = glimpse_config::load(cli.config.as_deref())?;
+    init_translations(config.regional.language());
+    let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
 
     let threads = std::env::var("GLIMPSE_THREADS")
         .ok()

@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use chrono::{DateTime, FixedOffset, Offset as _, Utc};
-use glimpse_config::{WeatherProvider as ConfiguredProvider, WeatherUnits as ConfiguredUnits};
+use glimpse_config::WeatherProvider as ConfiguredProvider;
 use glimpse_contracts::{
     Command as _, CurrentWeather, DayForecast, GeoCoordinates, GeolocationStatus, HourForecast,
     Message, PlaceWeather, UnitSystem, WatchedPlace, WeatherAlert, WeatherRefresh, WeatherStatus,
@@ -83,9 +83,9 @@ impl From<&glimpse_config::Config> for Config {
                 ConfiguredProvider::OpenMeteo => Provider::OpenMeteo,
                 ConfiguredProvider::MetNo => Provider::MetNo,
             },
-            units: match document.weather.units {
-                ConfiguredUnits::Metric => UnitSystem::Metric,
-                ConfiguredUnits::Imperial => UnitSystem::Imperial,
+            units: match document.regional.is_metric() {
+                true => UnitSystem::Metric,
+                false => UnitSystem::Imperial,
             },
             poll_interval: document.weather.poll_interval.max(MIN_POLL),
             forecast_days: document.weather.forecast_days.clamp(1, MAX_DAYS),

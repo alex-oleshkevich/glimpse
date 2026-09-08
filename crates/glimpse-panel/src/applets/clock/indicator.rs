@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Datelike as _, Local, TimeZone, Utc};
 use chrono_tz::Tz;
-use glimpse_config::{Applet as AppletConfig, AppletKind, ClockConfig, HourFormat};
+use glimpse_config::{Applet as AppletConfig, AppletKind, ClockConfig};
 use glimpse_contracts::{CalendarEvents, CalendarSetRange, Message as _};
 use glimpse_widgets::{CalendarPopover, IndicatorSpec};
 use gtk4::glib;
@@ -44,7 +44,7 @@ impl Applet for Clock {
             return;
         };
         self.settings = clock.clone();
-        self.twelve = twelve_hour(clock.hour_format);
+        self.twelve = config.regional.twelve_hour();
         self.tooltip_format = config.common.tooltip_format.clone();
         self.footer = config
             .common
@@ -160,10 +160,7 @@ impl Clock {
             .selected()
             .and_then(popover::date)
             .unwrap_or_else(|| now.date_naive());
-        let clock = match self.twelve {
-            true => agenda::TWELVE,
-            false => agenda::TWENTY_FOUR,
-        };
+        let clock = glimpse_config::clock(self.twelve);
 
         let (title, week) = popover::heading(day, self.settings.week_numbers);
         shown.set_heading(&title, week.as_deref());
@@ -203,14 +200,6 @@ impl Clock {
             Some(zone) => formatted(&Utc::now().with_timezone(&zone), format),
             None => formatted(&Local::now(), format),
         }
-    }
-}
-
-fn twelve_hour(hour_format: HourFormat) -> bool {
-    match hour_format {
-        HourFormat::Twelve => true,
-        HourFormat::TwentyFour => false,
-        HourFormat::Locale => agenda::locale_is_twelve_hour(),
     }
 }
 

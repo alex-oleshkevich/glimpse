@@ -9,10 +9,6 @@ use serde::{Deserialize, Serialize};
 pub struct Weather {
     /// Which service a forecast comes from. `open-meteo` needs no account and no key.
     pub provider: Provider,
-    /// Whether temperatures, wind speeds and rainfall are reported in metric or imperial units.
-    /// Every reading in one report uses the same system, and the panel prints the symbols that go
-    /// with it.
-    pub units: Units,
     /// How often a forecast is fetched again, in seconds. The provider recomputes current
     /// conditions every fifteen minutes, so anything shorter asks again for data that has not
     /// moved; `weather.refresh` is how a person asks for it now. Values below 600 are raised.
@@ -26,7 +22,6 @@ impl Default for Weather {
     fn default() -> Self {
         Self {
             provider: Provider::OpenMeteo,
-            units: Units::Metric,
             poll_interval: 900,
             forecast_days: 7,
         }
@@ -45,17 +40,6 @@ pub enum Provider {
     MetNo,
 }
 
-/// Which units every reading is reported in.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum Units {
-    /// Celsius, kilometres per hour, millimetres.
-    #[default]
-    Metric,
-    /// Fahrenheit, miles per hour, inches.
-    Imperial,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -72,19 +56,16 @@ mod tests {
         let weather = load("").expect("an absent table is fine").weather;
 
         assert_eq!(weather.provider, Provider::OpenMeteo);
-        assert_eq!(weather.units, Units::Metric);
         assert_eq!(weather.poll_interval, 900);
         assert_eq!(weather.forecast_days, 7);
     }
 
     #[test]
     fn every_key_reads_kebab_case() {
-        let parsed =
-            load("[weather]\nunits = \"imperial\"\npoll-interval = 1200\nforecast-days = 3\n")
-                .expect("kebab-case keys")
-                .weather;
+        let parsed = load("[weather]\npoll-interval = 1200\nforecast-days = 3\n")
+            .expect("kebab-case keys")
+            .weather;
 
-        assert_eq!(parsed.units, Units::Imperial);
         assert_eq!(parsed.poll_interval, 1200);
         assert_eq!(parsed.forecast_days, 3);
     }
@@ -117,7 +98,7 @@ mod tests {
     }
 
     #[test]
-    fn an_unknown_unit_system_is_refused() {
-        load("[weather]\nunits = \"kelvin\"\n").expect_err("`kelvin` is not a unit system");
+    fn units_is_not_a_key_of_this_table() {
+        load("[weather]\nunits = \"imperial\"\n").expect_err("`units` belongs to `[regional]`");
     }
 }

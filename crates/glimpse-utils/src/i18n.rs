@@ -6,17 +6,41 @@ use gettextrs::{LocaleCategory, bind_textdomain_codeset, bindtextdomain, setloca
 const DOMAIN: &str = "glimpse";
 const INSTALLED: &str = env!("GLIMPSE_LOCALE_DIR_DEFAULT");
 const OVERRIDE: &str = "GLIMPSE_LOCALE_DIR";
+const LANGUAGE: &str = "LANGUAGE";
 
 fn locale_dir() -> PathBuf {
     env::var_os(OVERRIDE).map_or_else(|| PathBuf::from(INSTALLED), PathBuf::from)
 }
 
-pub fn init_translations() {
+/// A GTK template resolves its text as each widget is built, so re-binding the domain now would
+/// leave what is already on screen in the old language and everything opened afterwards in the
+/// new one. Saying so is the whole handling.
+pub fn report_language_change(previous: Option<&str>, current: Option<&str>) {
+    if previous == current {
+        return;
+    }
+    tracing::info!(
+        language = current.unwrap_or("<environment>"),
+        "language changed; it applies when this binary next starts"
+    );
+}
+
+pub fn init_locale() {
     if unsafe { setlocale(LocaleCategory::LcAll, "") }.is_none() {
         tracing::warn!(
             "the locale named by the environment is not available; text stays in English"
         );
     }
+}
+
+pub fn init_translations(language: Option<&str>) {
+    if let Some(language) = language
+        && env::var_os(LANGUAGE).is_none()
+    {
+        unsafe { env::set_var(LANGUAGE, language) };
+    }
+
+    init_locale();
 
     let dir = locale_dir();
     let bound = bindtextdomain(DOMAIN, &dir)
@@ -44,7 +68,7 @@ mod tests {
         unsafe { env::set_var(OVERRIDE, "/nonexistent/glimpse/locale") };
         assert_eq!(locale_dir(), PathBuf::from("/nonexistent/glimpse/locale"));
 
-        init_translations();
+        init_translations(None);
 
         unsafe { env::remove_var(OVERRIDE) };
     }

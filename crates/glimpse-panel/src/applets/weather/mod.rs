@@ -14,7 +14,6 @@ use gtk4::{gio, glib, prelude::*};
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
 use crate::applet::{Applet, Ctx, Input, payload};
-use crate::applets::agenda;
 
 /// The daemon holds a `weather.watch` for thirty minutes, so a minute's tick renews it with thirty
 /// ticks of margin. If this period ever grows, `LEASE` in the weather service moves with it.
@@ -44,7 +43,7 @@ impl Applet for Weather {
             watching: WatchedPlace::Here,
             units: UnitSystem::Metric,
             place: None,
-            twelve: agenda::locale_is_twelve_hour(),
+            twelve: false,
             tooltip_format: None,
             footer: None,
             icon: None,
@@ -63,6 +62,7 @@ impl Applet for Weather {
         }
         self.watching = watching;
         self.settings = settings.clone();
+        self.twelve = config.regional.twelve_hour();
         self.tooltip_format = config.common.tooltip_format.clone();
         self.footer = config
             .common

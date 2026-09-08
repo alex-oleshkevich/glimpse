@@ -10,6 +10,7 @@ mod monitors;
 mod night_light;
 mod panels;
 mod power;
+mod regional;
 mod wallpaper;
 mod weather;
 
@@ -20,7 +21,7 @@ use serde::{Deserialize, Serialize};
 
 pub use appearance::{Appearance, ColorScheme};
 pub use applets::{
-    Applet, Clock as ClockConfig, Common as AppletCommon, FirstDay, HourFormat, Kind as AppletKind,
+    Applet, Clock as ClockConfig, Common as AppletCommon, FirstDay, Kind as AppletKind,
     NextEvent as NextEventConfig, Pager as PagerConfig, PagerMode, PagerScope, PagerShape,
     Place as WeatherPlace, Timezone as ClockTimezone, Weather as WeatherAppletConfig,
 };
@@ -34,13 +35,15 @@ pub use monitors::Monitors;
 pub use night_light::{NightLight, Schedule};
 pub use panels::{Margin, Panel, Position};
 pub use power::Power;
+pub use regional::{HourFormat, Regional, Units as RegionalUnits};
 pub use wallpaper::{Fit, Wallpaper};
-pub use weather::{Provider as WeatherProvider, Units as WeatherUnits, Weather as WeatherConfig};
+pub use weather::{Provider as WeatherProvider, Weather as WeatherConfig};
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Config {
     pub appearance: Appearance,
+    pub regional: Regional,
     pub monitors: Monitors,
     pub geolocation: Geolocation,
     pub night_light: NightLight,
@@ -62,6 +65,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             appearance: Appearance::default(),
+            regional: Regional::default(),
             monitors: Monitors::default(),
             geolocation: Geolocation::default(),
             night_light: NightLight::default(),
@@ -333,14 +337,13 @@ mod tests {
     #[test]
     fn a_clock_reads_its_world_clock_zones() {
         let parsed: Config = toml::from_str(
-            "[applets.clock]\nhour-format = \"24h\"\n[[applets.clock.timezones]]\nlabel = \"Tokyo\"\ntimezone = \"Asia/Tokyo\"\n",
+            "[applets.clock]\n[[applets.clock.timezones]]\nlabel = \"Tokyo\"\ntimezone = \"Asia/Tokyo\"\n",
         )
         .expect("a full table");
 
         let AppletKind::Clock(clock) = &parsed.applets["clock"].kind else {
             panic!("the table names the clock");
         };
-        assert_eq!(clock.hour_format, HourFormat::TwentyFour);
         assert_eq!(
             clock.first_day,
             FirstDay::Monday,

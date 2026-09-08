@@ -33,7 +33,7 @@ impl Applet for NextEvent {
 
     fn start() -> Self {
         Self {
-            twelve: agenda::locale_is_twelve_hour(),
+            twelve: false,
             ..Default::default()
         }
     }
@@ -43,6 +43,7 @@ impl Applet for NextEvent {
             return;
         };
         self.settings = settings.clone();
+        self.twelve = config.regional.twelve_hour();
         self.tooltip_format = config.common.tooltip_format.clone();
         self.footer = config
             .common
@@ -99,10 +100,7 @@ impl NextEvent {
     }
 
     fn clock(&self) -> &'static str {
-        match self.twelve {
-            true => agenda::TWELVE,
-            false => agenda::TWENTY_FOUR,
-        }
+        glimpse_config::clock(self.twelve)
     }
 
     fn refresh(&mut self) {

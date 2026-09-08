@@ -390,6 +390,28 @@ One gettext domain, `glimpse`, for all six binaries. `glimpse-utils` owns it: `i
 binds it, and the panel, the lock screen and the wallpaper call that once in `run`. The daemon,
 `glimpsectl` and `glimpse-sunset` do not — their output is a journal and a terminal, not a UI.
 
+**`glimpsed` calls `init_locale()` instead, and must keep doing so.** That is the
+`setlocale(LC_ALL, "")` half without the catalog. Without it the process locale is `C`,
+`nl_langinfo(LC_MEASUREMENT)` answers metric for everyone, and `[regional] units = "locale"` is
+silently wrong rather than absent — the worst of the three outcomes. It is not `init_translations`
+and must not become it.
+
+**`[regional] language` sets `LANGUAGE`, and moves messages only.** `LC_TIME` and `LC_MEASUREMENT`
+keep answering for themselves, so a Russian interface in Chicago still gets a twelve-hour clock and
+Fahrenheit. The visible consequence — Russian labels beside English weekday names, which
+`weather/render.rs` takes from `LC_TIME` on purpose — looks like a bug and is not. An explicit
+`LANGUAGE` in the environment wins over the document, matching `GLIMPSE_THEME`.
+
+**The config load runs before `init_translations` in all three UI binaries**, because the language
+comes out of the document. The order is `init_app_tracing` → `glimpse_config::load` →
+`init_translations` → `register_resources`. Reordering breaks the warnings, the language, or both.
+
+**A language change cannot be applied to a running process.** Measured: a GTK template resolves
+`translatable="yes"` per **instance**, not at class-init, so two widgets of one class built either
+side of a `LANGUAGE` change come out in different languages. Reacting on reload would give a
+permanently half-translated window, so `ConfigChanged` logs at `info` and waits for a restart. Both
+crate READMEs said "class-init" until this was measured; they now say per instance.
+
 ```bash
 just extract-strings     # rewrite po/glimpse.pot from the tree
 just update-po           # merge the .pot into every catalog named by po/LINGUAS

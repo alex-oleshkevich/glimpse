@@ -239,8 +239,12 @@ Hours are the exception, capped inside each provider, because `HOURS` is a modul
 provider imports and the compiler shows it; the ask is runtime configuration that nothing would
 show it.
 
-**Places are not configured; they are leased.** `[weather]` holds `provider`, `units`,
-`poll-interval` and `forecast-days` and nothing else. A consumer calls `weather.watch` naming either
+**Places are not configured; they are leased.** `[weather]` holds `provider`, `poll-interval` and
+`forecast-days` and nothing else — `units` lives in `[regional]`, because it is a fact about the
+reader rather than about the forecast, and the panel writes it in one place for the clock and the
+thermometer at once. This service is the only thing that resolves it: `Regional::is_metric()` turns
+`locale` into an answer through `LC_MEASUREMENT`, and that answer is stamped onto every
+`weather.status` so no client ever has to ask. A consumer calls `weather.watch` naming either
 `here` or a coordinate pair, and that registration is honoured for thirty minutes unless it is asked
 for again — the panel renews on the tick it already has. Nothing tells this service that a client
 went away: `BrokerHandle` carries no subscriber count and `Responder` no client identity, so a

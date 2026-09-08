@@ -715,8 +715,15 @@ revealing an empty drawer.
 ## Translations
 
 A literal in a `.blp` that a person reads is marked `_("Text")`. GTK resolves it inside the
-template at class-init, against the process default domain that `glimpse-utils::init_translations`
-sets — so nothing here calls into gettext for a blueprint string, and nothing here needs to.
+template as each widget is **built** — `gtk_widget_init_template` runs the builder per instance —
+against the process default domain that `glimpse-utils::init_translations` sets, so nothing here
+calls into gettext for a blueprint string, and nothing here needs to.
+
+Per instance, not at class-init: measured, `class_init` runs once while two instances built either
+side of a `LANGUAGE` change come out in different languages. That is why a language change cannot
+be applied to a running process — what is already on screen keeps the old catalog and everything
+opened afterwards gets the new one, and a half-translated panel is worse than one that waits for a
+restart.
 
 Text this crate *computes* is a different matter and does call `gettext` directly:
 `set_play_pause`'s tooltip, `WorldClock`'s Tomorrow/Yesterday note, and `WorkspacesPopover`'s

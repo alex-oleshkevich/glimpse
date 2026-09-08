@@ -41,11 +41,30 @@ One domain for all six binaries, not one each. They all link `glimpse-widgets`, 
 domains would split one widget's strings across six catalogs and translate the same button
 differently depending on which process drew it.
 
-**`init_translations()` runs after `init_app_tracing` and before `register_resources`.** Its own
-failures are `tracing::warn!`, so a subscriber has to exist first or they go nowhere; and a GTK
-template resolves `translatable="yes"` at class-init, so the domain has to be set before the first
-widget type is registered. Nothing in the type system enforces this — it is two lines apart in each
-binary's `run`, and that is the whole guard.
+**`init_translations()` runs after `init_app_tracing` and `glimpse_config::load`, and before
+`register_resources`.** Its own failures are `tracing::warn!`, so a subscriber has to exist first or
+they go nowhere; it takes the language out of `[regional]`, so the document has to be read before
+it; and a GTK template resolves `translatable="yes"` as each widget is **built**, so the domain has
+to be bound before the first widget instance exists. Nothing in the type system enforces any of it —
+it is four lines in each binary's `run`, and that is the whole guard.
+
+Resolution is per instance, not at class-init. Measured: `class_init` runs once, and two instances
+of one class built either side of a `LANGUAGE` change come out in different languages. The
+practical deadline is therefore later than "before the first type is registered" — but nothing is
+gained by cutting it fine, so the domain is still bound before `register_resources`.
+
+**`init_locale()` is `init_translations()` without the catalog.** It is the `setlocale(LC_ALL, "")`
+half alone, for `glimpsed`, which has no UI to translate but still has to let the C library see
+`LC_MEASUREMENT` — `[regional] units = "locale"` reads `C` and answers metric for everyone
+otherwise. Do not "simplify" it away by giving the daemon `init_translations`: the daemon's output
+is a journal, not a UI.
+
+**A language named in `[regional]` is applied by setting `LANGUAGE`, and only when the environment
+has not already set it.** `LANGUAGE` is what glibc consults per lookup, it takes the short form
+(`ru`) whether or not `ru_RU.UTF-8` has been generated, and an explicit one in the environment
+wins — the same precedence `GLIMPSE_THEME` has. It moves messages and nothing else: `LC_TIME` and
+`LC_MEASUREMENT` keep answering for themselves, which is why a Russian interface in Chicago still
+shows a twelve-hour clock.
 
 **The C binding is required, not a preference.** GTK translates a template's `translatable="yes"`
 inside GTK, in C: `gtk_widget_init_template` builds its `GtkBuilder` with a NULL translation domain,

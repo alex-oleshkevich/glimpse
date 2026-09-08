@@ -69,6 +69,10 @@ impl SimpleComponent for App {
         match msg {
             AppInput::ConfigChanged(config) => {
                 let renamed = config.appearance.theme != self.config.appearance.theme;
+                glimpse_utils::report_language_change(
+                    self.config.regional.language(),
+                    config.regional.language(),
+                );
                 self.config = config;
                 if renamed {
                     self.theme_watch.abort();

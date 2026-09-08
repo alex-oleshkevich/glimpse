@@ -192,11 +192,6 @@
               "$ref": "#/$defs/FirstDay",
               "default": "monday"
             },
-            "hour-format": {
-              "description": "How a time of day reads wherever the applet composes one itself — the world clock rows and\nthe times inside event rows. `label-format` and `tooltip-format` are yours and are not\naffected by it.",
-              "$ref": "#/$defs/HourFormat",
-              "default": "locale"
-            },
             "label-format": {
               "description": "A `strftime` format string for the bar, such as `%H:%M` or `%a %d %b %H:%M`.",
               "type": "string",
@@ -1102,11 +1097,6 @@
                 "description": "Which day a calendar week starts on.",
                 "$ref": "#/$defs/FirstDay",
                 "default": "monday"
-              },
-              "hour-format": {
-                "description": "How a time of day reads wherever the applet composes one itself — the world clock rows and\nthe times inside event rows. `label-format` and `tooltip-format` are yours and are not\naffected by it.",
-                "$ref": "#/$defs/HourFormat",
-                "default": "locale"
               },
               "label-format": {
                 "description": "A `strftime` format string for the bar, such as `%H:%M` or `%a %d %b %H:%M`.",
@@ -2022,6 +2012,14 @@
         "lock-on-request": true
       }
     },
+    "regional": {
+      "$ref": "#/$defs/Regional",
+      "default": {
+        "hour-format": "locale",
+        "language": "",
+        "units": "locale"
+      }
+    },
     "wallpaper": {
       "$ref": "#/$defs/Wallpaper",
       "default": {
@@ -2036,8 +2034,7 @@
       "default": {
         "forecast-days": 7,
         "poll-interval": 900,
-        "provider": "open-meteo",
-        "units": "metric"
+        "provider": "open-meteo"
       }
     }
   },
@@ -2704,6 +2701,28 @@
         }
       ]
     },
+    "Regional": {
+      "description": "What language this session reads, and how it writes a time of day and a measurement. Every\nsetting here defaults to what the environment already says, so an empty table is the right\nanswer on a machine whose locale is set up.\n\nThe three keys are read by different owners: the daemon resolves `units` and stamps the answer\nonto every weather reading, while the panel, the lock screen and the wallpaper resolve\n`language` and `hour-format` for themselves. Nothing else in glimpse asks the environment\nthese questions.",
+      "type": "object",
+      "properties": {
+        "hour-format": {
+          "description": "How a time of day reads wherever glimpse composes one itself — the world clock, the times\ninside event rows, sunrise and sunset. A `strftime` format you write yourself, such as the\nclock applet's `label-format`, is yours and is not affected by this.",
+          "$ref": "#/$defs/HourFormat",
+          "default": "locale"
+        },
+        "language": {
+          "description": "Which translation catalog the interface is drawn in, such as `ru`. Empty follows the\nenvironment, which is `LANGUAGE`, then `LC_MESSAGES`, then `LANG`. Naming one here sets\n`LANGUAGE` for the process, so it applies whether or not that locale has been generated.\n\nThis chooses the catalog and nothing else: weekday names, the twelve-hour question and the\nunit system keep following the environment, because a person reading a Russian interface in\nChicago still wants their own clock and their own thermometer.\n\nA change here takes effect when the binary next starts. A GTK template resolves its text as\neach widget is built, so re-reading it in a running process would leave what is already on\nscreen in the old language and everything opened afterwards in the new one.",
+          "type": "string",
+          "default": ""
+        },
+        "units": {
+          "description": "Whether temperatures, wind speeds and rainfall are reported in metric or imperial units.\nEvery reading in one weather report uses the same system, and the panel prints the symbols\nthat go with it.",
+          "$ref": "#/$defs/Units",
+          "default": "locale"
+        }
+      },
+      "additionalProperties": false
+    },
     "Remember": {
       "type": "string",
       "enum": [
@@ -2819,6 +2838,11 @@
       "description": "Which units every reading is reported in.",
       "oneOf": [
         {
+          "description": "Follow `LC_MEASUREMENT`. Every locale glibc ships is metric except `en_US`, so this is\nmetric unless the machine is set to American English.",
+          "type": "string",
+          "const": "locale"
+        },
+        {
           "description": "Celsius, kilometres per hour, millimetres.",
           "type": "string",
           "const": "metric"
@@ -2875,11 +2899,6 @@
           "description": "Which service a forecast comes from. `open-meteo` needs no account and no key.",
           "$ref": "#/$defs/Provider",
           "default": "open-meteo"
-        },
-        "units": {
-          "description": "Whether temperatures, wind speeds and rainfall are reported in metric or imperial units.\nEvery reading in one report uses the same system, and the panel prints the symbols that go\nwith it.",
-          "$ref": "#/$defs/Units",
-          "default": "metric"
         }
       },
       "additionalProperties": false

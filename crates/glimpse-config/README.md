@@ -313,21 +313,55 @@ does nothing and the other is a row nobody can see.
 ## Asking the system: the `locale` convention
 
 A setting whose correct value the system already knows takes an enum with a `locale` variant, and
-`locale` is the default. It means "ask the system, do not decide here" — `hour-format` is the first.
+`locale` is the default. It means "ask the system, do not decide here".
+
+`[regional]` is where those settings live, and it is the only place in glimpse that asks the
+environment anything. Three keys, read by two different owners:
+
+| Key           | Asks             | Resolved by                          | Live reload |
+| ------------- | ---------------- | ------------------------------------ | ----------- |
+| `language`    | `LANGUAGE`       | each UI binary, before `init_translations` | no    |
+| `hour-format` | `LC_TIME`        | each UI binary, at load              | yes         |
+| `units`       | `LC_MEASUREMENT` | the daemon, in the weather service   | yes         |
+
+`environment.rs` holds both resolvers and `libc` is the only way it asks. Nothing else in the
+workspace calls `nl_langinfo`, `setlocale` or `strftime` to answer these questions — the same rule
+as `user_dir()`: one answer, in the crate that owns the question.
+
+`units` is one bit, matching `UnitSystem` on the wire. `en_US` is the only locale in glibc's
+database declaring `measurement 2`, so `locale` is metric for everyone else — including `en_GB`,
+which is metric by that flag and gets km/h rather than the mph a British reader would pick. That is
+a known and accepted answer, not an oversight: splitting speed from temperature is a wire change to
+`UnitSystem` and both providers.
+
+`language` is the one key here whose unknown value is a **warning rather than a load error**. The
+others name a closed set of behaviours; this one names a catalog that may or may not be installed,
+and `GLIMPSE_LOCALE_DIR` exists so a person can point at their own. Refusing to start over a
+missing translation would be refusing to start over cosmetics.
 
 Two conditions keep that honest:
 
 - **A setting only gets `locale` if the system can actually be asked.** A `locale` that falls back
   to a hardcoded value is worse than naming that value, because the user sets nothing, gets an
   answer, and cannot tell which of the two produced it.
-- **Resolution is measured per setting, not assumed.** `hour-format` resolves: measured under
-  `LC_TIME=pl_PL.utf8`, GLib's `%X` renders `15:30:00`, so the locale's own preference is readable.
+- **Resolution is measured per setting, not assumed.** `hour-format` resolves: under
+  `LC_TIME=en_US.UTF-8` the rendered `%X` is `03:30:00 PM` and `PM_STR` is `PM`; under `pl_PL` and
+  `ru_RU` it is `15:30:00` with an empty `PM_STR`. Two nearby answers were measured and rejected —
+  `T_FMT_AMPM` returns `%I:%M:%S %p` even under `C`, because it reports whether a locale *has* a
+  twelve-hour form rather than whether it prefers one, and `T_FMT` answers `%r` for `en_US`, which
+  contains neither `%I` nor `%p`. Only the rendered `%X` separates them.
 
 `first-day` has **no** `locale` variant, and that is the convention working rather than an
 omission. Both ways to ask came up short when they were measured: GTK's translated
 `calendar:week_start:0` came back as the untranslated msgid, which means Sunday, under an `LC_TIME`
-whose answer is Monday; and glibc's `_NL_TIME_FIRST_WEEKDAY` needs a `libc` dependency and a
-non-portable constant. So it defaults to `monday` and says so. A silently wrong `locale` and a
+whose answer is Monday; and glibc's `_NL_TIME_FIRST_WEEKDAY` is a non-portable composed constant
+that was never measured here. So it defaults to `monday` and says so.
+
+Half of that reasoning has since expired and is left standing on the other half deliberately: this
+crate now depends on `libc` and composes exactly such a constant for `LC_MEASUREMENT`, so "needs a
+`libc` dependency" is no longer a cost. What still holds is that `_NL_TIME_FIRST_WEEKDAY` has not
+been measured, and the first condition above forbids adding a `locale` variant on the strength of
+an assumption. Measuring it is the work that would justify one. A silently wrong `locale` and a
 correct one are indistinguishable from the outside, which is the whole reason for the first
 condition.
 
