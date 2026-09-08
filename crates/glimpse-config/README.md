@@ -328,6 +328,23 @@ environment anything. Three keys, read by two different owners:
 workspace calls `nl_langinfo`, `setlocale` or `strftime` to answer these questions — the same rule
 as `user_dir()`: one answer, in the crate that owns the question.
 
+It also holds the two patterns a resolved answer selects, reached through `clock(twelve_hour)`
+rather than by naming either directly. **`TWELVE` is `%-I:%M %p`, not `%l:%M %p`** — `%l` is
+space-padded, so every twelve-hour time used to carry a leading space into the middle of a sentence.
+`TWENTY_FOUR` is exported because two panel test modules pin rendering against it; `TWELVE` is not,
+because `clock()` is the only way to reach it.
+
+`glimpse-widgets`' `WorldClock` keeps its own pair (`%R` and `%l:%M %p`, trimmed) and is left alone:
+that crate has no `glimpse-config` dependency and formats through `g_date_time_format` rather than
+chrono, so a shared `&'static str` would not be guaranteed to render the same. It takes a `bool`
+from the panel and derives the pattern itself.
+
+**These resolvers answer `C` — 24-hour, metric — unless `setlocale(LC_ALL, "")` has already run.**
+That call belongs to the binary: `glimpse-utils::init_translations` for a UI binary,
+`init_locale` for `glimpsed`. It is deliberately not done here, lazily or otherwise, because
+`setlocale` mutates process-global state and `glimpsed` reads this from tokio worker threads — one
+explicit call at startup is safer than a hidden one inside a getter.
+
 `units` is one bit, matching `UnitSystem` on the wire. `en_US` is the only locale in glibc's
 database declaring `measurement 2`, so `locale` is metric for everyone else — including `en_GB`,
 which is metric by that flag and gets km/h rather than the mph a British reader would pick. That is

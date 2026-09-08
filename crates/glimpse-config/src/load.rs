@@ -101,17 +101,11 @@ fn load_from(
         builder = builder.add_source(config::File::from_str(&text, config::FileFormat::Toml));
     }
 
-    let mut config: Config = builder
+    builder
         .build()
         .map_err(ConfigError::schema)?
         .try_deserialize()
-        .map_err(ConfigError::schema)?;
-
-    for applet in config.applets.values_mut() {
-        applet.regional = config.regional.clone();
-    }
-
-    Ok(config)
+        .map_err(ConfigError::schema)
 }
 
 fn stack(

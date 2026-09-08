@@ -5,7 +5,7 @@ mod next_event;
 mod pager;
 mod weather;
 
-use glimpse_config::{Applet as AppletConfig, AppletKind};
+use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
 use std::collections::BTreeMap;
 
 use crate::applet::Applet;
@@ -14,15 +14,17 @@ use crate::applet::runtime::Builder;
 pub fn resolve(
     name: &str,
     configured: &BTreeMap<String, AppletConfig>,
+    regional: &Regional,
 ) -> Option<(AppletConfig, Builder)> {
     let config = configured
         .get(name)
         .cloned()
         .or_else(|| AppletConfig::from_name(name));
-    let Some(config) = config else {
+    let Some(mut config) = config else {
         tracing::warn!(applet = name, "unknown applet, skipping");
         return None;
     };
+    config.regional = regional.clone();
     let Some(builder) = build(&config) else {
         tracing::debug!(applet = name, "applet is not implemented yet, skipping");
         return None;
@@ -68,18 +70,18 @@ mod tests {
 
     #[test]
     fn a_name_the_panel_implements_resolves_to_a_builder() {
-        assert!(resolve("heartbeat", &BTreeMap::new()).is_some());
+        assert!(resolve("heartbeat", &BTreeMap::new(), &Regional::default()).is_some());
     }
 
     #[test]
     fn extends_names_the_kind_so_one_kind_can_have_several_instances() {
         let configured = configured("pulse", AppletKind::Heartbeat {}.into());
         assert!(
-            resolve("pulse", &configured).is_some(),
+            resolve("pulse", &configured, &Regional::default()).is_some(),
             "`pulse` is not a kind; `extends` is what says which one it is"
         );
         assert!(
-            resolve("pulse", &BTreeMap::new()).is_none(),
+            resolve("pulse", &BTreeMap::new(), &Regional::default()).is_none(),
             "without the entry the same name is just unknown"
         );
     }
@@ -87,7 +89,7 @@ mod tests {
     #[test]
     fn the_next_event_applet_is_built_rather_than_skipped() {
         assert!(
-            resolve("next-event", &BTreeMap::new()).is_some(),
+            resolve("next-event", &BTreeMap::new(), &Regional::default()).is_some(),
             "the kind has an implementation, so it must not fall through to the skipped arm"
         );
     }
@@ -95,7 +97,7 @@ mod tests {
     #[test]
     fn the_weather_applet_is_built_rather_than_skipped() {
         assert!(
-            resolve("weather", &BTreeMap::new()).is_some(),
+            resolve("weather", &BTreeMap::new(), &Regional::default()).is_some(),
             "the kind has an implementation, so it must not fall through to the skipped arm"
         );
     }
@@ -108,6 +110,35 @@ mod tests {
         );
         assert!(build(&AppletKind::Audio {}.into()).is_none());
         assert!(AppletConfig::from_name("nonesuch").is_none());
-        assert!(resolve("nonesuch", &BTreeMap::new()).is_none());
+        assert!(resolve("nonesuch", &BTreeMap::new(), &Regional::default()).is_none());
+    }
+
+    /// The shipped defaults name applets in a panel zone and carry no `[applets.<name>]` table for
+    /// them, so every applet on a default bar is built by `from_name` rather than found in the
+    /// map. That path invents a config, and an invented config that kept `Regional::default()`
+    /// would silently ignore an explicit `hour-format`.
+    #[test]
+    fn an_applet_with_no_table_of_its_own_still_carries_the_document_s_regional() {
+        let twelve = Regional {
+            hour_format: glimpse_config::HourFormat::Twelve,
+            ..Regional::default()
+        };
+
+        let (built, _) = resolve("clock", &BTreeMap::new(), &twelve).expect("the clock builds");
+        assert!(
+            built.regional.twelve_hour(),
+            "an applet with no table of its own must still read the document's `[regional]`"
+        );
+
+        let (found, _) = resolve(
+            "clock",
+            &configured("clock", AppletKind::Clock(<_>::default()).into()),
+            &twelve,
+        )
+        .expect("the clock builds");
+        assert!(
+            found.regional.twelve_hour(),
+            "and so must one that has a table"
+        );
     }
 }

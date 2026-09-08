@@ -1,5 +1,5 @@
 use adw::gdk;
-use glimpse_config::{Applet as AppletConfig, Position};
+use glimpse_config::{Applet as AppletConfig, Position, Regional};
 use glimpse_ipc::Client;
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
@@ -32,7 +32,7 @@ fn settle(slot: &Slot, config: &Config, orientation: gtk::Orientation) {
         return;
     };
     handle.set_orientation(orientation);
-    if let Some((applet, _)) = applets::resolve(&slot.name, &config.applets) {
+    if let Some((applet, _)) = applets::resolve(&slot.name, &config.applets, &config.regional) {
         handle.configure(applet);
     }
 }
@@ -53,6 +53,7 @@ pub struct Config {
     pub center: Vec<String>,
     pub right: Vec<String>,
     pub applets: BTreeMap<String, AppletConfig>,
+    pub regional: Regional,
     pub client: Option<Client>,
 }
 
@@ -201,16 +202,18 @@ impl Panel {
                     .unwrap_or_else(|| Slot {
                         zone,
                         name: name.clone(),
-                        handle: applets::resolve(name, &config.applets).map(|(applet, build)| {
-                            AppletHandle::launch(
-                                name.clone(),
-                                connector.clone(),
-                                client.clone(),
-                                build,
-                                applet,
-                                Rc::clone(&self.catcher),
-                            )
-                        }),
+                        handle: applets::resolve(name, &config.applets, &config.regional).map(
+                            |(applet, build)| {
+                                AppletHandle::launch(
+                                    name.clone(),
+                                    connector.clone(),
+                                    client.clone(),
+                                    build,
+                                    applet,
+                                    Rc::clone(&self.catcher),
+                                )
+                            },
+                        ),
                     }),
             );
         }

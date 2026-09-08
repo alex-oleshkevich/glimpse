@@ -195,6 +195,7 @@ fn reconcile_panels(panels: &mut Vec<PanelState>, config: &Config, client: Optio
                 center: cfg.center.clone(),
                 right: cfg.right.clone(),
                 applets: config.applets.clone(),
+                regional: config.regional.clone(),
                 client: client.cloned(),
             };
             let state = match existing.remove(&key) {

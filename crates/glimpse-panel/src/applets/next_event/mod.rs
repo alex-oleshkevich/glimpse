@@ -32,10 +32,7 @@ impl Applet for NextEvent {
     }
 
     fn start() -> Self {
-        Self {
-            twelve: false,
-            ..Default::default()
-        }
+        Self::default()
     }
 
     fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {

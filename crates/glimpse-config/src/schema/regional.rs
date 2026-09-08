@@ -11,7 +11,7 @@ use crate::environment;
 /// onto every weather reading, while the panel, the lock screen and the wallpaper resolve
 /// `language` and `hour-format` for themselves. Nothing else in glimpse asks the environment
 /// these questions.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Regional {
     /// Which translation catalog the interface is drawn in, such as `ru`. Empty follows the
@@ -36,22 +36,9 @@ pub struct Regional {
     pub units: Units,
 }
 
-impl Default for Regional {
-    fn default() -> Self {
-        Self {
-            language: String::new(),
-            hour_format: HourFormat::Locale,
-            units: Units::Locale,
-        }
-    }
-}
-
 impl Regional {
     pub fn language(&self) -> Option<&str> {
-        match self.language.trim().is_empty() {
-            true => None,
-            false => Some(self.language.trim()),
-        }
+        Some(self.language.trim()).filter(|language| !language.is_empty())
     }
 
     pub fn twelve_hour(&self) -> bool {
@@ -174,25 +161,6 @@ mod tests {
             .language(),
             Some("ru")
         );
-    }
-
-    /// An applet renders a time of day off the configuration it is handed, so `load` copies the
-    /// table onto every applet. Without this an applet would need a second route to a setting it
-    /// is already being given.
-    #[test]
-    fn the_table_reaches_every_applet() {
-        let parsed =
-            load("[regional]\nhour-format = \"12h\"\n[applets.clock]\n[applets.weather]\n")
-                .expect("a document with applets");
-
-        assert_eq!(parsed.applets.len(), 2);
-        for (name, applet) in &parsed.applets {
-            assert_eq!(
-                applet.regional, parsed.regional,
-                "`{name}` did not receive the document's table"
-            );
-            assert!(applet.regional.twelve_hour());
-        }
     }
 
     /// It is not a key of an applet's own table, and it must not come back out when one is

@@ -1,5 +1,6 @@
 use std::env;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use gettextrs::{LocaleCategory, bind_textdomain_codeset, bindtextdomain, setlocale, textdomain};
 
@@ -8,21 +9,31 @@ const INSTALLED: &str = env!("GLIMPSE_LOCALE_DIR_DEFAULT");
 const OVERRIDE: &str = "GLIMPSE_LOCALE_DIR";
 const LANGUAGE: &str = "LANGUAGE";
 
+static DOCUMENT_DECIDES: OnceLock<bool> = OnceLock::new();
+
 fn locale_dir() -> PathBuf {
     env::var_os(OVERRIDE).map_or_else(|| PathBuf::from(INSTALLED), PathBuf::from)
 }
 
 /// A GTK template resolves its text as each widget is built, so re-binding the domain now would
 /// leave what is already on screen in the old language and everything opened afterwards in the
-/// new one. Saying so is the whole handling.
+/// new one. Saying so is the whole handling — except where the document never decided the
+/// language at all, when promising a restart would be a promise the restart does not keep.
 pub fn report_language_change(previous: Option<&str>, current: Option<&str>) {
     if previous == current {
         return;
     }
-    tracing::info!(
-        language = current.unwrap_or("<environment>"),
-        "language changed; it applies when this binary next starts"
-    );
+    let language = current.unwrap_or("<environment>");
+    match DOCUMENT_DECIDES.get().copied().unwrap_or(true) {
+        true => tracing::info!(
+            language,
+            "language changed; it applies when this binary next starts"
+        ),
+        false => tracing::info!(
+            language,
+            "language changed, but LANGUAGE is set in the environment and wins; it is not used"
+        ),
+    }
 }
 
 pub fn init_locale() {
@@ -34,8 +45,11 @@ pub fn init_locale() {
 }
 
 pub fn init_translations(language: Option<&str>) {
+    let document_decides = env::var_os(LANGUAGE).is_none();
+    let _ = DOCUMENT_DECIDES.set(document_decides);
+
     if let Some(language) = language
-        && env::var_os(LANGUAGE).is_none()
+        && document_decides
     {
         unsafe { env::set_var(LANGUAGE, language) };
     }

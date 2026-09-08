@@ -14,9 +14,11 @@ pub struct Applet {
     pub common: Common,
     #[serde(flatten)]
     pub kind: Kind,
-    /// The document's `[regional]` table, copied onto every applet by `load` so an applet that
-    /// renders a time of day reads it off the configuration it already has. It is not written
-    /// under an applet's own table and never round-trips.
+    /// The document's `[regional]` table, stamped on by whoever builds a running applet — for the
+    /// panel that is `applets::resolve`, the one place that produces an `Applet` both by finding
+    /// its table and by inventing one for a name that has none. An applet renders a time of day
+    /// off the configuration it is already handed rather than through a second route. It is not a
+    /// key of an applet's own table and never round-trips.
     #[serde(skip)]
     pub regional: super::Regional,
 }

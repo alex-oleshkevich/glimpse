@@ -240,9 +240,12 @@ which a test must not create on the user's session.
 ## The calendar applets
 
 `agenda.rs` owns everything about an event that is not a calendar: `Occasion`, the conversion off the
-wire, the twelve-hour detection, the two clock formats, `when`, and `row`, which turns one
-`Occasion` into the `glimpse_widgets::Event` both popovers render — so a new field on that type is
-added in one place.
+wire, `when`, and `row`, which turns one `Occasion` into the `glimpse_widgets::Event` both popovers
+render — so a new field on that type is added in one place.
+
+The twelve-hour detection and the two clock formats used to live here and no longer do: they are
+`glimpse-config`'s `environment.rs`, reached as `glimpse_config::clock(twelve)`. An applet takes the
+`twelve` from `config.regional.twelve_hour()` in its own `configure`.
 
 **`when` is a free function over `(now, day, event, clock)`** with one test per state, because an
 event's time is not a value but a *sentence about now* — `now · ends 10:00`, `in 12 min · 1 h`,
@@ -251,9 +254,6 @@ ordered so the first match wins, and three rungs fix things the previous generat
 event that ended stays "ended 12 min ago" for an hour before falling back to "over"; one starting
 within the minute reads "starting now" rather than "in 0 min"; and a timed event crossing midnight
 names the day it ends rather than reporting a 36-hour duration.
-
-**`TWELVE` is `%-I:%M %p`, not `%l:%M %p`.** `%l` is space-padded, so every twelve-hour time carried
-a leading space into the middle of a sentence.
 
 **Events come from `calendar.events`**, decoded into `agenda::occasions`. That conversion is where
 the wire type stops: `DateTime<Utc>` becomes local and the `color` hex becomes a `gdk::RGBA`, whose
