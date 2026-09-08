@@ -23,6 +23,7 @@ config = { version = "0.15.25", default-features = false, features = ["toml"] }
 css-color = "0.2"
 dirs = "6"
 futures-util = { version = "0.3", features = ["sink"] }
+gettext-rs = "0.8.0"
 gio = "0.22"
 gio-unix = "0.22"
 glib = { version = "0.22", features = ["v2_68"] }
