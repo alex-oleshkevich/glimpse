@@ -88,6 +88,7 @@ fn activate(
 ) {
     let blueprint = &resolve(blueprint);
     adw::StyleManager::default().set_color_scheme(scheme);
+    glimpse_utils::init_translations();
     glimpse_widgets::register_resources().expect("widget resources");
     ensure_types();
 

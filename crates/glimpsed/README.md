@@ -89,6 +89,18 @@ which is what keeps every service test headless.
 
 Never add `panic = "abort"`. Per-service panic isolation depends on unwinding.
 
+## Translation catalogs
+
+The two package manifests in `Cargo.toml` list one `.mo` asset **per language**, never a glob.
+cargo-deb flattens an asset glob onto the destination directory, so a glob over `target/locale`
+ships one arbitrary language at the wrong path and still exits 0. `tests/packaging.rs` reads
+`po/LINGUAS` and fails when a language reaches it without reaching both asset lists; a second test
+fails if a glob is ever reintroduced. Both read the manifest with comment lines stripped, because
+the prose describing the hazard otherwise trips the guard against it.
+
+`just package-deb` and `just package-rpm` depend on `build-translations`, so the `.mo` files exist
+before either tool resolves its assets.
+
 ## Units
 
 Five user units ship in `data/systemd/`, installed to `{prefix}/lib/systemd/user`. Four are

@@ -1,0 +1,211 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR Alex Oleshkevich
+# This file is distributed under the same license as the glimpse package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: glimpse 0.16.0\n"
+"Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
+"POT-Creation-Date: 2026-09-08 13:52+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:70
+msgid "All day · day {day} of {days}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:73
+msgid "All day"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:81
+msgid "{start} · until {weekday} {end}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:88
+#: crates/glimpse-panel/src/applets/agenda.rs:120
+msgid "{start} · {length}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:96
+msgid "{start} · over"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:97
+msgid "ended {length} ago"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:104
+msgid "now · ends in {length}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:106
+msgid "now · ends {end}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:113
+msgid "starting now · {length}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:116
+msgid "in {until} · {length}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:128
+msgid "{minutes} min"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:134
+msgid "{hours} h"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:135
+msgid "{hours} h {minutes} min"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:143
+msgid "{days} d"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/agenda.rs:144
+msgid "{days} d {hours} h"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:124
+msgid "ends in {value} {unit}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:125
+msgid "in {value} {unit}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:142
+#: crates/glimpse-panel/src/applets/next_event/render.rs:150
+msgid "min"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:143
+msgid "min left"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:151
+msgid "h"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:152
+msgid "d"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:22
+msgid "Show the whole year"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:43
+msgid "Today"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:56
+#: crates/glimpse-widgets/blueprints/transport.blp:31
+msgid "Previous"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:66
+#: crates/glimpse-widgets/blueprints/transport.blp:53
+msgid "Next"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:43
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:14
+msgid "Nothing scheduled"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:44
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:36
+msgid "The rest of the day is yours."
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:53
+msgid "Too many events"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:54
+msgid "More events start here than the daemon can send at once."
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:61
+msgid "World clock"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:15
+msgid "No calendar entry is coming up."
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:24
+msgid "Coming up"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:35
+msgid "Nothing else scheduled"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/player_row.blp:13
+#: crates/glimpse-widgets/blueprints/transport.blp:42
+#: crates/glimpse-widgets/src/lib.rs:114
+msgid "Play"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/scrubber.blp:17
+msgid "Seek"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/split_row.blp:27
+msgid "Details"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/transport.blp:20
+msgid "Shuffle"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/transport.blp:65
+msgid "Repeat"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/workspaces_popover.blp:13
+msgid "Workspaces"
+msgstr ""
+
+#: crates/glimpse-widgets/src/lib.rs:113
+msgid "Pause"
+msgstr ""
+
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:124
+msgid "{workspaces} on {output}"
+msgstr ""
+
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:128
+msgid "{workspaces} across {displays} display"
+msgid_plural "{workspaces} across {displays} displays"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:138
+msgid "{count} workspace"
+msgid_plural "{count} workspaces"
+msgstr[0] ""
+msgstr[1] ""
+
+#: crates/glimpse-widgets/src/world_clock/mod.rs:151
+msgid "Tomorrow"
+msgstr ""
+
+#: crates/glimpse-widgets/src/world_clock/mod.rs:152
+msgid "Yesterday"
+msgstr ""

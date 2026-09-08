@@ -368,6 +368,19 @@ append it without handing it the new configuration — an edit that added an app
 another's settings applied only the first half. Both paths now go through one `settle`; the runtime
 compares before writing, so settling a just-launched slot costs nothing.
 
+## Translated wording
+
+`agenda::when`, `agenda::span` and `next_event::Countdown` write the sentences a person actually
+reads — "All day", "now · ends in 12 min", "in 3 h" — so each is a `gettext` call with named
+`{placeholders}` filled by `.replace`, not a `format!`. A translator has to be able to move the
+number, and in several languages the unit precedes it.
+
+`Countdown` carries `unit` and `readout_unit` as owned `String`s because both are translated at
+construction; `readout()` still hands out `(&str, &str)`, so no caller changed.
+
+With no catalog loaded, `gettext` returns its own msgid. Every existing assertion on this wording
+keeps passing unchanged, which is why these functions needed no test edits.
+
 ## Rules
 
 An applet renders topics and sends commands. It never opens a D-Bus connection, never reaches a

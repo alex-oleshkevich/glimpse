@@ -31,3 +31,10 @@ done
 for f in wallpapers/*; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$sharedir/wallpapers/$(basename "$f")"
 done
+
+# Built by `just build-translations`, which `just install` depends on.
+for f in target/locale/*/LC_MESSAGES/glimpse.mo; do
+    [[ -e "$f" ]] || continue
+    lang="$(basename "$(dirname "$(dirname "$f")")")"
+    install -Dm644 "$f" "$localedir/$lang/LC_MESSAGES/glimpse.mo"
+done

@@ -1,0 +1,216 @@
+# Russian translations for glimpse package
+# Английские переводы для пакета glimpse.
+# Copyright (C) 2026 Alex Oleshkevich
+# This file is distributed under the same license as the glimpse package.
+# Automatically generated, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: glimpse 0.16.0\n"
+"Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
+"POT-Creation-Date: 2026-09-08 13:32+0200\n"
+"PO-Revision-Date: 2026-09-07 16:47+0200\n"
+"Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
+"Language-Team: Russian\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:70
+msgid "All day · day {day} of {days}"
+msgstr "Весь день · день {day} из {days}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:73
+msgid "All day"
+msgstr "Весь день"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:81
+msgid "{start} · until {weekday} {end}"
+msgstr "{start} · до {weekday} {end}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:88
+#: crates/glimpse-panel/src/applets/agenda.rs:120
+msgid "{start} · {length}"
+msgstr "{start} · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:96
+msgid "{start} · over"
+msgstr "{start} · завершилось"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:97
+msgid "ended {length} ago"
+msgstr "закончилось {length} назад"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:104
+msgid "now · ends in {length}"
+msgstr "сейчас · закончится через {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:106
+msgid "now · ends {end}"
+msgstr "сейчас · до {end}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:113
+msgid "starting now · {length}"
+msgstr "начинается · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:116
+msgid "in {until} · {length}"
+msgstr "через {until} · {length}"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:128
+msgid "{minutes} min"
+msgstr "{minutes} мин"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:134
+msgid "{hours} h"
+msgstr "{hours} ч"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:135
+msgid "{hours} h {minutes} min"
+msgstr "{hours} ч {minutes} мин"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:143
+msgid "{days} d"
+msgstr "{days} д"
+
+#: crates/glimpse-panel/src/applets/agenda.rs:144
+msgid "{days} d {hours} h"
+msgstr "{days} д {hours} ч"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:124
+msgid "ends in {value} {unit}"
+msgstr "закончится через {value} {unit}"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:125
+msgid "in {value} {unit}"
+msgstr "через {value} {unit}"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:142
+#: crates/glimpse-panel/src/applets/next_event/render.rs:150
+msgid "min"
+msgstr "мин"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:143
+msgid "min left"
+msgstr "мин осталось"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:151
+msgid "h"
+msgstr "ч"
+
+#: crates/glimpse-panel/src/applets/next_event/render.rs:152
+msgid "d"
+msgstr "д"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:22
+msgid "Show the whole year"
+msgstr "Показать весь год"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:43
+msgid "Today"
+msgstr "Сегодня"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:56
+#: crates/glimpse-widgets/blueprints/transport.blp:31
+msgid "Previous"
+msgstr "Назад"
+
+#: crates/glimpse-widgets/blueprints/calendar.blp:66
+#: crates/glimpse-widgets/blueprints/transport.blp:53
+msgid "Next"
+msgstr "Вперёд"
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:43
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:14
+msgid "Nothing scheduled"
+msgstr "Ничего не запланировано"
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:44
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:36
+msgid "The rest of the day is yours."
+msgstr "Остаток дня — ваш."
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:53
+msgid "Too many events"
+msgstr "Слишком много событий"
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:54
+msgid "More events start here than the daemon can send at once."
+msgstr ""
+"Здесь начинается больше событий, чем демон может отправить за один раз.Здесь "
+"начинается больше событий, чем демон может отправить за один раз."
+
+#: crates/glimpse-widgets/blueprints/calendar_popover.blp:61
+msgid "World clock"
+msgstr "Мировые часы"
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:15
+msgid "No calendar entry is coming up."
+msgstr "Ближайших записей в календаре нет."
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:24
+msgid "Coming up"
+msgstr "Далее"
+
+#: crates/glimpse-widgets/blueprints/next_event_popover.blp:35
+msgid "Nothing else scheduled"
+msgstr "Больше ничего не запланировано"
+
+#: crates/glimpse-widgets/blueprints/player_row.blp:13
+#: crates/glimpse-widgets/blueprints/transport.blp:42
+#: crates/glimpse-widgets/src/lib.rs:114
+msgid "Play"
+msgstr "Воспроизвести"
+
+#: crates/glimpse-widgets/blueprints/scrubber.blp:17
+msgid "Seek"
+msgstr "Перемотка"
+
+#: crates/glimpse-widgets/blueprints/split_row.blp:27
+msgid "Details"
+msgstr "Подробности"
+
+#: crates/glimpse-widgets/blueprints/transport.blp:20
+msgid "Shuffle"
+msgstr "Перемешать"
+
+#: crates/glimpse-widgets/blueprints/transport.blp:65
+msgid "Repeat"
+msgstr "Повтор"
+
+#: crates/glimpse-widgets/blueprints/workspaces_popover.blp:13
+msgid "Workspaces"
+msgstr "Рабочие столы"
+
+#: crates/glimpse-widgets/src/lib.rs:113
+msgid "Pause"
+msgstr "Пауза"
+
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:124
+msgid "{workspaces} on {output}"
+msgstr "{workspaces} на {output}"
+
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:128
+msgid "{workspaces} across {displays} display"
+msgid_plural "{workspaces} across {displays} displays"
+msgstr[0] "{workspaces} на {displays} экране"
+msgstr[1] "{workspaces} на {displays} экранах"
+msgstr[2] "{workspaces} на {displays} экранах"
+
+#: crates/glimpse-widgets/src/workspaces_popover/mod.rs:138
+msgid "{count} workspace"
+msgid_plural "{count} workspaces"
+msgstr[0] "{count} рабочий стол"
+msgstr[1] "{count} рабочих стола"
+msgstr[2] "{count} рабочих столов"
+
+#: crates/glimpse-widgets/src/world_clock/mod.rs:151
+msgid "Tomorrow"
+msgstr "Завтра"
+
+#: crates/glimpse-widgets/src/world_clock/mod.rs:152
+msgid "Yesterday"
+msgstr "Вчера"

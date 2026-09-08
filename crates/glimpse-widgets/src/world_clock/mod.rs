@@ -3,6 +3,7 @@ mod row;
 
 pub use row::ClockRow;
 
+use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::Row;
@@ -103,7 +104,7 @@ impl WorldClock {
                 None => UNKNOWN.to_owned(),
             }));
             let day = there.as_ref().and_then(|there| day_note(&now, there));
-            item.set_subtitle(subtitle(day, &zone.note).as_deref());
+            item.set_subtitle(subtitle(day.as_deref(), &zone.note).as_deref());
             row.set_phase_icon(phase(there.as_ref(), &zone.icon_name));
             set_tooltip(item, &zone.timezone, there.as_ref());
         }
@@ -144,11 +145,11 @@ fn subtitle(day: Option<&str>, note: &str) -> Option<String> {
     }
 }
 
-fn day_note(here: &glib::DateTime, there: &glib::DateTime) -> Option<&'static str> {
+fn day_note(here: &glib::DateTime, there: &glib::DateTime) -> Option<String> {
     let day = |moment: &glib::DateTime| (moment.year(), moment.day_of_year());
     match day(there).cmp(&day(here)) {
-        std::cmp::Ordering::Greater => Some("Tomorrow"),
-        std::cmp::Ordering::Less => Some("Yesterday"),
+        std::cmp::Ordering::Greater => Some(gettext("Tomorrow")),
+        std::cmp::Ordering::Less => Some(gettext("Yesterday")),
         std::cmp::Ordering::Equal => None,
     }
 }

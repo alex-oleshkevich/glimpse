@@ -1,4 +1,5 @@
 use chrono::{DateTime, Local, NaiveDate, TimeDelta};
+use gettextrs::gettext;
 use glimpse_contracts::CalendarEvent;
 use glimpse_widgets::Event;
 use gtk4::{gdk, glib};
@@ -66,70 +67,83 @@ pub fn when(now: DateTime<Local>, day: NaiveDate, event: &Occasion, clock: &str)
 
     if event.all_day {
         return match days > 1 {
-            true => format!("All day · day {} of {days}", (day - first).num_days() + 1),
-            false => "All day".to_owned(),
+            true => gettext("All day · day {day} of {days}")
+                .replace("{day}", &((day - first).num_days() + 1).to_string())
+                .replace("{days}", &days.to_string()),
+            false => gettext("All day"),
         };
     }
 
-    let started = event.start.format(clock);
+    let started = event.start.format(clock).to_string();
     let length = span(event.end - event.start);
 
     if days > 1 {
-        return format!(
-            "{started} · until {} {}",
-            event.end.format("%a"),
-            event.end.format(clock)
-        );
+        return gettext("{start} · until {weekday} {end}")
+            .replace("{start}", &started)
+            .replace("{weekday}", &event.end.format("%a").to_string())
+            .replace("{end}", &event.end.format(clock).to_string());
     }
 
     if day != now.date_naive() {
-        return format!("{started} · {length}");
+        return gettext("{start} · {length}")
+            .replace("{start}", &started)
+            .replace("{length}", &length);
     }
 
     if now >= event.end {
         let ago = now - event.end;
         return match ago >= TimeDelta::minutes(NEAR) {
-            true => format!("{started} · over"),
-            false => format!("ended {} ago", span(ago)),
+            true => gettext("{start} · over").replace("{start}", &started),
+            false => gettext("ended {length} ago").replace("{length}", &span(ago)),
         };
     }
 
     if now >= event.start {
         let left = event.end - now;
         return match left <= TimeDelta::minutes(SOON) {
-            true => format!("now · ends in {}", span(left)),
-            false => format!("now · ends {}", event.end.format(clock)),
+            true => gettext("now · ends in {length}").replace("{length}", &span(left)),
+            false => {
+                gettext("now · ends {end}").replace("{end}", &event.end.format(clock).to_string())
+            }
         };
     }
 
     let until = event.start - now;
     if until < TimeDelta::minutes(1) {
-        return format!("starting now · {length}");
+        return gettext("starting now · {length}").replace("{length}", &length);
     }
     if until <= TimeDelta::minutes(NEAR) {
-        return format!("in {} · {length}", span(until));
+        return gettext("in {until} · {length}")
+            .replace("{until}", &span(until))
+            .replace("{length}", &length);
     }
-    format!("{started} · {length}")
+    gettext("{start} · {length}")
+        .replace("{start}", &started)
+        .replace("{length}", &length)
 }
 
 fn span(length: TimeDelta) -> String {
     let minutes = length.num_minutes().max(0);
     if minutes < HOUR {
-        return format!("{minutes} min");
+        return gettext("{minutes} min").replace("{minutes}", &minutes.to_string());
     }
 
     let hours = minutes / HOUR;
     if hours < 24 {
         return match minutes % HOUR {
-            0 => format!("{hours} h"),
-            rest => format!("{hours} h {rest} min"),
+            0 => gettext("{hours} h").replace("{hours}", &hours.to_string()),
+            rest => gettext("{hours} h {minutes} min")
+                .replace("{hours}", &hours.to_string())
+                .replace("{minutes}", &rest.to_string()),
         };
     }
 
     let days = hours / 24;
     match hours % 24 {
-        0 => format!("{days} d"),
-        rest => format!("{days} d {rest} h"),
+        0 => gettext("{days} d").replace("{days}", &days.to_string()),
+        rest => gettext("{days} d {hours} h")
+            .replace("{days}", &days.to_string())
+            .replace("{hours}", &rest.to_string()),
     }
 }
 

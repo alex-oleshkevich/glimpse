@@ -96,7 +96,7 @@ test-crate-compositor CRATE:
     cargo test -p {{ CRATE }} -- --include-ignored
 
 [doc("everything CI runs")]
-verify: fmt-check check lint test
+verify: fmt-check check lint test check-strings
 
 [doc("search crates.io before writing something by hand")]
 search QUERY:
@@ -204,6 +204,52 @@ build-release-binaries:
     for b in {{ binaries }}; do args+=(-p "$b"); done
     cargo build --release "${args[@]}"
 
+# ---------------------------------------------------------------- i18n
+
+# Read once here rather than in each recipe: three copies of the same parse is three
+# places for a comment or a missing trailing newline to be handled differently.
+languages := `grep -vE '^[[:space:]]*(#|$)' po/LINGUAS | tr '\n' ' '`
+
+[doc("regenerate po/glimpse.pot from every translation marker in the tree")]
+extract-strings:
+    scripts/i18n-extract.sh po/glimpse.pot
+
+[doc("merge po/glimpse.pot into every catalog named by po/LINGUAS")]
+update-po: extract-strings
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for lang in {{ languages }}; do
+        msgmerge --update --backup=none --previous "po/$lang.po" po/glimpse.pot
+    done
+
+[doc("compile po/*.po into target/locale/<lang>/LC_MESSAGES/glimpse.mo")]
+build-translations:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for lang in {{ languages }}; do
+        install -d "target/locale/$lang/LC_MESSAGES"
+        msgfmt --check --statistics -o "target/locale/$lang/LC_MESSAGES/glimpse.mo" "po/$lang.po"
+    done
+
+[doc("fail if the .pot is stale, a catalog is broken, or a blueprint quotes a string xgettext cannot read")]
+check-strings:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fresh="$(mktemp -d)"
+    trap 'rm -rf "$fresh"' EXIT
+    scripts/i18n-extract.sh "$fresh/glimpse.pot" > /dev/null
+    # POT-Creation-Date changes on every run and says nothing about the strings.
+    strip() { grep -v '^"POT-Creation-Date:' "$1"; }
+    if ! diff -u <(strip po/glimpse.pot) <(strip "$fresh/glimpse.pot"); then
+        echo "po/glimpse.pot is stale; run: just extract-strings" >&2
+        exit 1
+    fi
+    for lang in {{ languages }}; do
+        [[ -f "po/$lang.po" ]] || { echo "po/LINGUAS names $lang but po/$lang.po is missing" >&2; exit 1; }
+        msgfmt --check --output-file=/dev/null "po/$lang.po"
+    done
+    echo "translations: catalogs current and well-formed"
+
 # ---------------------------------------------------------------- package
 
 [doc("fail unless TAG (e.g. v0.16.0) matches workspace.package.version in Cargo.toml")]
@@ -224,11 +270,11 @@ package-binary VERSION="":
     GLIMPSE_BINARIES="{{ binaries }}" scripts/package-binary.sh {{ quote(VERSION) }}
 
 [doc("build a .deb under target/debian/ (needs: cargo install cargo-deb)")]
-package-deb: build-release-binaries
+package-deb: build-release-binaries build-translations
     cargo deb -p glimpsed --no-build
 
 [doc("build a .rpm under target/generate-rpm/ (needs: cargo install cargo-generate-rpm)")]
-package-rpm: build-release-binaries
+package-rpm: build-release-binaries build-translations
     cargo generate-rpm -p crates/glimpsed
 
 [doc("render dist/PKGBUILD for VERSION with the x86_64 tarball's b2sum patched in")]
@@ -249,7 +295,7 @@ clean-crate CRATE:
 # ---------------------------------------------------------------- install
 
 [doc("install binaries and data, honours PREFIX and DESTDIR")]
-install: build-release
+install: build-release build-translations
     GLIMPSE_BINARIES="{{ binaries }}" scripts/install.sh
 
 [doc("remove installed files")]

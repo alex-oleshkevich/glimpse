@@ -1,4 +1,5 @@
 use chrono::{DateTime, Local, NaiveDate, TimeDelta, Utc};
+use gettextrs::gettext;
 use glimpse_widgets::Event;
 
 use crate::applets::agenda::{self, Occasion};
@@ -108,23 +109,23 @@ fn at(instant: DateTime<Local>, clock: &str) -> String {
 
 pub struct Countdown {
     value: String,
-    unit: &'static str,
+    unit: String,
+    readout_unit: String,
     running: bool,
 }
 
 impl Countdown {
     pub fn readout(&self) -> (&str, &str) {
-        match self.running {
-            true => (&self.value, "min left"),
-            false => (&self.value, self.unit),
-        }
+        (&self.value, &self.readout_unit)
     }
 
     fn beside(&self) -> String {
         match self.running {
-            true => format!("ends in {} {}", self.value, self.unit),
-            false => format!("in {} {}", self.value, self.unit),
+            true => gettext("ends in {value} {unit}"),
+            false => gettext("in {value} {unit}"),
         }
+        .replace("{value}", &self.value)
+        .replace("{unit}", &self.unit)
     }
 }
 
@@ -138,19 +139,21 @@ pub fn countdown(now: DateTime<Local>, event: &Occasion) -> Option<Countdown> {
         let left = (event.end - now).num_minutes().max(0);
         return Some(Countdown {
             value: left.to_string(),
-            unit: "min",
+            unit: gettext("min"),
+            readout_unit: gettext("min left"),
             running,
         });
     }
 
     let until = event.start - now;
     let (value, unit) = match until {
-        _ if until.num_minutes() < HOUR_MINUTES => (until.num_minutes().max(0), "min"),
-        _ if until.num_hours() < DAY_HOURS => (until.num_hours(), "h"),
-        _ => (until.num_days(), "d"),
+        _ if until.num_minutes() < HOUR_MINUTES => (until.num_minutes().max(0), gettext("min")),
+        _ if until.num_hours() < DAY_HOURS => (until.num_hours(), gettext("h")),
+        _ => (until.num_days(), gettext("d")),
     };
     Some(Countdown {
         value: value.to_string(),
+        readout_unit: unit.clone(),
         unit,
         running,
     })

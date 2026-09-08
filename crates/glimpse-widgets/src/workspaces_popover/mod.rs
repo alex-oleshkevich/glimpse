@@ -1,5 +1,6 @@
 mod imp;
 
+use gettextrs::{gettext, ngettext};
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
@@ -120,14 +121,20 @@ fn summary(workspaces: &[Workspace]) -> Option<String> {
     outputs.dedup();
 
     Some(match outputs.len() {
-        1 => format!("{} on {}", plural(workspaces.len()), outputs[0]),
-        displays => format!("{} across {displays} displays", plural(workspaces.len())),
+        1 => gettext("{workspaces} on {output}")
+            .replace("{workspaces}", &plural(workspaces.len()))
+            .replace("{output}", outputs[0]),
+        displays => ngettext(
+            "{workspaces} across {displays} display",
+            "{workspaces} across {displays} displays",
+            displays as u32,
+        )
+        .replace("{workspaces}", &plural(workspaces.len()))
+        .replace("{displays}", &displays.to_string()),
     })
 }
 
 fn plural(count: usize) -> String {
-    match count {
-        1 => "1 workspace".to_owned(),
-        many => format!("{many} workspaces"),
-    }
+    ngettext("{count} workspace", "{count} workspaces", count as u32)
+        .replace("{count}", &count.to_string())
 }

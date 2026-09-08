@@ -384,6 +384,43 @@ window that asks for itself sends nothing at all and the compositor never hears 
 `mpris-fake-players.py`, `network-test-fixtures.sh`, the `privacy-test-*` probes, and
 `glimpse-lock-rescue-pam.sh`.
 
+## Translations
+
+One gettext domain, `glimpse`, for all six binaries. `glimpse-utils` owns it: `init_translations()`
+binds it, and the panel, the lock screen and the wallpaper call that once in `run`. The daemon,
+`glimpsectl` and `glimpse-sunset` do not — their output is a journal and a terminal, not a UI.
+
+```bash
+just extract-strings     # rewrite po/glimpse.pot from the tree
+just update-po           # merge the .pot into every catalog named by po/LINGUAS
+just build-translations  # compile po/*.po into target/locale/<lang>/LC_MESSAGES/glimpse.mo
+just check-strings       # part of `just verify`
+GLIMPSE_LOCALE_DIR=$PWD/target/locale LANGUAGE=ru just preview <blueprint.blp>
+```
+
+**Mark a string where it is written.** In Blueprint, `_("Text")` on the property. In Rust,
+`gettext("Text")`, or `ngettext(singular, plural, count)` when a number decides the wording —
+Russian has three plural forms, so a hand-rolled `if count == 1` is wrong in a way English never
+shows. Interpolate with named `{placeholders}` and `.replace(…)`, never `format!` into the msgid: a
+translator must be free to reorder them, and a positional `%s` cannot be reordered.
+
+**Double quotes, always.** Blueprint accepts `_('Text')` and compiles it happily; xgettext's C
+scanner skips a single-quoted string without a word. `scripts/i18n-coverage.py` fails the build on
+it, which is the only reason it is not a silent hole.
+
+**No translatable text in a raw or multi-line Rust string.** `r#"…"#` extracts by accident and
+breaks on an embedded quote, and the C scanner loses its place inside both — which costs the *rest
+of that file*, not just the string. The coverage check catches the loss; putting the text in an
+ordinary literal avoids it.
+
+**`var/` is not extracted.** Its widget examples carry `_()` markers so they read like the real
+thing, but they are demo text and never ship, so they are excluded from the file list. A marker
+there translates only when the same msgid exists in a real blueprint.
+
+**A new language is three edits, not one.** Add it to `po/LINGUAS`, create `po/<lang>.po`, and add
+one asset line to *each* of the two lists in `crates/glimpsed/Cargo.toml`.
+`crates/glimpsed/tests/packaging.rs` fails when the first is done and the third is not.
+
 ## Work Rules
 
 - Work on one feature at a time
@@ -470,6 +507,29 @@ Both defects found in this file in August 2026 were in the _simple_ 18% that dec
 reload and whether to complain, or in the harness testing it — not in the machinery. Its size is not
 by itself a reason to rewrite it. Bead `glimpse-aqi5` records the one limitation the design knowingly
 accepts.
+
+**Translations, September 2026.** 45 msgids: 17 from the 8 marked blueprints, 27 from 5 Rust files,
+and one ("Play") in both. Measured end to end rather than assumed — under `LANGUAGE=ru` a
+`$Transport` built from its gresource template returns Russian tooltips, and `$CalendarPopover`
+renders "Мировые часы" in a real window. Why a Rust-only catalog could not have done that is in
+`glimpse-utils/README.md`; why the package manifests spell out every language is in
+`glimpsed/README.md`.
+
+Measurements that would otherwise invite rework:
+
+- xgettext has no Rust scanner, and the C fallback loses the rest of a line to `&'static str` and
+  its place inside a raw string. `scripts/i18n-scrub.py` and `scripts/i18n-coverage.py` each carry
+  the full account; between them nothing is lost silently, which is why those two warnings are
+  filtered out of the run instead of chased.
+- Scanning the whole tree costs **0.14s** and produces a byte-identical .pot, so extraction takes
+  every `.blp` and `.rs` with no marker filter. A filter that was ever wrong would hide a file from
+  the extractor and the coverage check at once — the one failure neither could report.
+- Removing a marker's double quotes makes `just check-strings` fail, which was checked. So did
+  dropping a language's asset line, globbing it, and adding a language to `po/LINGUAS` alone.
+- `just fmt` shifts line numbers and so makes `po/glimpse.pot` stale. `just check-strings` reports
+  it and names the recipe; that is normal, not a defect.
+- There is no `dpkg-deb` or `rpm` on Arch. `bsdtar` lists both formats, which is how the built
+  packages were confirmed to carry `/usr/share/locale/ru/LC_MESSAGES/glimpse.mo`.
 
 ## Finishing
 

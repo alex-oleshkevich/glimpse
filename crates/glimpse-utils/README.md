@@ -6,6 +6,8 @@ The argument structs and logging setup every binary repeats, written once.
 
 - `args.rs` — `LogArgs`, `ConfigArg`, `SocketArg`, flattened into each binary's clap `Cli`
 - `log.rs` — `LogFormat` and `init_app_tracing`
+- `i18n.rs` — `init_translations`, the one place the gettext domain is bound
+- `build.rs` — bakes `PREFIX` into the default catalog directory
 
 ## What it holds
 
@@ -26,6 +28,51 @@ cannot acquire a second spelling somewhere else.
 `init_app_tracing(level, format)` builds the subscriber. An invalid filter warns and falls back to
 `info` rather than aborting: the value is inherited from `RUST_LOG`, and a stale entry in somebody's
 profile must not stop a binary from starting.
+
+## Translations
+
+`init_translations()` calls `setlocale`, `bindtextdomain`, `bind_textdomain_codeset` and
+`textdomain` for the single domain `glimpse`. It never fails a binary: every problem is a
+`tracing::warn!` and the text stays English, because a missing catalog is not a reason for a panel
+not to start.
+
+One domain for all six binaries, not one each. They all link `glimpse-widgets`, so per-binary
+domains would split one widget's strings across six catalogs and translate the same button
+differently depending on which process drew it.
+
+**`init_translations()` runs after `init_app_tracing` and before `register_resources`.** Its own
+failures are `tracing::warn!`, so a subscriber has to exist first or they go nowhere; and a GTK
+template resolves `translatable="yes"` at class-init, so the domain has to be set before the first
+widget type is registered. Nothing in the type system enforces this — it is two lines apart in each
+binary's `run`, and that is the whole guard.
+
+**The C binding is required, not a preference.** GTK translates a template's `translatable="yes"`
+inside GTK, in C: `gtk_widget_init_template` builds its `GtkBuilder` with a NULL translation domain,
+so every marked string resolves through `g_dgettext(NULL, …)` against the process default domain.
+A pure-Rust catalog cannot answer that call, so it would translate Rust strings and leave every
+blueprint in English.
+
+**The catalog directory is a build-time default with a runtime override.** `build.rs` turns
+`PREFIX` into `GLIMPSE_LOCALE_DIR_DEFAULT`, so `PREFIX=/usr/local just install` produces binaries
+that look in `/usr/local/share/locale` without anyone setting a variable at run time.
+`GLIMPSE_LOCALE_DIR` overrides it, which is how `target/locale` is used before installing.
+
+It reads `PREFIX` and not a name of its own **because `scripts/glimpse-paths.sh` already reads
+`PREFIX`**, and the two have to agree: a build that bakes one prefix while the installer writes
+catalogs under another produces a binary that finds nothing, reports nothing, and shows English.
+That is the same defect the path-ownership rule exists to prevent, one level down.
+
+**`setlocale` is `unsafe` in gettext-rs 0.8** — it mutates global C locale state, and the process
+is threaded. The gtk-rs book example predates the change and does not compile.
+`bindtextdomain` does not validate its argument: it returns `Ok` for a directory that does not
+exist, and panics rather than erring on a path containing a NUL. Its `Result` is therefore
+unreachable for the literal and environment inputs this crate gives it, and the warning it guards
+exists for the case where that stops being true.
+
+**Only `LC_MESSAGES` is ours.** `LC_TIME` is a separate category, so a session exporting
+`LC_TIME=pl_PL.utf8` renders Russian text beside Polish month names. That is correct POSIX
+behaviour and not a translation bug; it is also the first thing to check when a screenshot looks
+half-translated.
 
 ## Rules
 

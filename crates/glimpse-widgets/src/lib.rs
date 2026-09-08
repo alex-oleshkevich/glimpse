@@ -106,14 +106,15 @@ pub(crate) fn set_text(label: &gtk4::Label, value: Option<&str>) {
 }
 
 pub(crate) fn set_play_pause(button: &gtk4::Button, playing: bool) {
+    use gettextrs::gettext;
     use gtk4::prelude::*;
 
     let (icon, tooltip) = match playing {
-        true => ("media-playback-pause-symbolic", "Pause"),
-        false => ("media-playback-start-symbolic", "Play"),
+        true => ("media-playback-pause-symbolic", gettext("Pause")),
+        false => ("media-playback-start-symbolic", gettext("Play")),
     };
     button.set_icon_name(icon);
-    button.set_tooltip_text(Some(tooltip));
+    button.set_tooltip_text(Some(tooltip.as_str()));
 }
 
 pub(crate) fn set_css_class(widget: &impl gtk4::prelude::IsA<gtk4::Widget>, name: &str, on: bool) {

@@ -659,6 +659,25 @@ a `Row` as a side effect — bead `glimpse-34sw`.
 `blueprint-compiler lint` reports `use_adw_bin` for a `Gtk.Box` holding one widget. `.column` is a
 descendant rule, so it applies to any widget carrying the class. A second section brings the box back.
 
+## Translations
+
+A literal in a `.blp` that a person reads is marked `_("Text")`. GTK resolves it inside the
+template at class-init, against the process default domain that `glimpse-utils::init_translations`
+sets — so nothing here calls into gettext for a blueprint string, and nothing here needs to.
+
+Text this crate *computes* is a different matter and does call `gettext` directly:
+`set_play_pause`'s tooltip, `WorldClock`'s Tomorrow/Yesterday note, and `WorkspacesPopover`'s
+summary. The summary uses `ngettext` because the count decides the wording, and Russian picks a
+different form at 1, 3 and 7 where English changes once.
+
+`day_note` returns `Option<String>` rather than `Option<&'static str>` for exactly this reason: a
+translated string is owned, and there is no `'static` catalog to borrow from.
+
+The preview host binds the domain too, so `LANGUAGE=ru GLIMPSE_LOCALE_DIR=$PWD/target/locale just
+preview <blueprint.blp>` renders a widget in another language. A widget whose text grows by a third
+in translation is worth seeing before it reaches a panel, the same argument that makes
+`--scheme dark` worth a flag.
+
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them on the display **once**

@@ -12,3 +12,11 @@ rm -f "$dbusdir/org.kde.StatusNotifierWatcher.service" "$dbusdir/org.freedesktop
 rm -f "$pamdir/glimpse-lock"
 rm -f "$geocluedir/glimpse.conf"
 rm -rf "$sharedir"
+
+# Only our own catalog: every language directory here is shared with other packages. The
+# `continue` rather than `&&` keeps the script's exit status 0 when nothing is installed,
+# since this loop is the last thing it runs.
+for f in "$localedir"/*/LC_MESSAGES/glimpse.mo; do
+    [[ -e "$f" ]] || continue
+    rm -f "$f"
+done

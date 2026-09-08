@@ -10,6 +10,10 @@ dbusdir="$destdir$prefix/share/dbus-1/services"
 pamdir="$destdir/etc/pam.d"
 geocluedir="$destdir/etc/geoclue/conf.d"
 sharedir="$destdir$prefix/share/glimpse"
+# Catalogs go to the shared locale tree, not under sharedir: gettext resolves a domain by
+# scanning <localedir>/<lang>/LC_MESSAGES. glimpse-utils/build.rs reads the same PREFIX to bake
+# its default, so the two agree without a second variable to keep in step.
+localedir="$destdir$prefix/share/locale"
 
 # GLIMPSE_BINARIES is set by the justfile from its single source of truth; the fallback
 # here only matters for a direct, non-just invocation.

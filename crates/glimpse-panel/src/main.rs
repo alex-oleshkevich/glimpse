@@ -6,7 +6,7 @@ mod components;
 use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
-use glimpse_utils::init_app_tracing;
+use glimpse_utils::{init_app_tracing, init_translations};
 use glimpse_widgets::register_resources;
 use relm4::{RELM_THREADS, RelmApp};
 use std::process::ExitCode;
@@ -26,6 +26,7 @@ fn main() -> ExitCode {
 
 fn run(cli: &Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
+    init_translations();
     let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
     let config = glimpse_config::load(cli.config.as_deref())?;
 
