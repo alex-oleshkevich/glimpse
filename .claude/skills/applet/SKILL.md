@@ -1,13 +1,14 @@
 ---
 name: applet
-description: Writing panel applets in glimpse-panel — the Applet trait, Ctx sources, pull-based indicators, the exhaustive registration match, and zone reconciliation in components/panel.rs. Use for any new applet, any change under crates/glimpse-panel/src/applets/, and any change to the framework in applet/mod.rs or applet/runtime.rs. Trigger on the location, not the wording — if the file is an applet or the framework under it, this applies. Indicator and IndicatorGroup internals belong to the widget skill; this covers what an applet hands them.
+description: Writing panel applets in glimpse-panel — the Applet trait, Ctx sources, pull-based indicators, the popover an applet opens on left click, the exhaustive registration match, and zone reconciliation in components/panel.rs. Use for any new applet, any new or changed applet popover, any change under crates/glimpse-panel/src/applets/, and any change to the framework in applet/mod.rs, applet/runtime.rs, applet/popover.rs or applet/catcher.rs. Trigger on the location, not the wording — if the file is an applet or the framework under it, this applies. Indicator, IndicatorGroup and PopoverShell internals belong to the widget skill; this covers what an applet hands them.
 ---
 
 # applet
 
 An applet owns exactly one `IndicatorGroup`, which renders 0..N `Indicator`s. Every applet's view is
 therefore identical and only `Vec<IndicatorSpec>` varies, so an applet is a function from state to
-that vector. It never opens a D-Bus connection, never holds a socket, and reaches nothing but the
+that vector — and, when it has a popover, from the same state to a second surface the runtime opens
+on left click. It never opens a D-Bus connection, never holds a socket, and reaches nothing but the
 daemon through `Ctx`.
 
 **Verified against the tree at `crates/glimpse-panel/src/applet/` and `src/applets/`.** Every
@@ -35,18 +36,22 @@ impl Applet for Heartbeat {
     fn handle(&mut self, ctx: &Ctx, input: &Input) { ... }
 
     fn indicators(&self) -> Vec<IndicatorSpec> { ... }
+
+    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> { ... }   // None: no popover
 }
 ```
 
-Four methods, one with a default, no associated types, object-safe. The runtime stores `Box<dyn Applet>`; `start` stays
-out of the vtable via `where Self: Sized` and is called from the registration match, where the
-concrete type is still known.
+`start` and `handle` are the only two without a default, and there are no associated types, so the
+trait is object-safe. The runtime stores `Box<dyn Applet>`; `start` stays out of the vtable via
+`where Self: Sized` and is called from the registration match, where the concrete type is still
+known. `configure`, `view`, `orient` and `anchor` are the remaining defaulted methods.
 
 ```rust
 pub enum Input {
     Topic(glimpse_ipc::Event),
     Pointer(Pointer),
     Tick,
+    Woken,                                               // a popover asked to be re-dressed
 }
 
 pub enum Pointer { Press(Button), Scroll(Direction) }
@@ -56,6 +61,12 @@ pub enum Direction { Up, Down, Left, Right }
 impl Ctx {
     pub fn call<C: Command>(&self, args: C::Args);       // spawned, fire-and-forget
     pub fn interval(&self, period: Duration);            // delivers Input::Tick, wall-clock aligned
+    pub fn opener(&self) -> Opener;                      // wake, open, close
+}
+
+impl Seat {                                              // what popover() gets instead of a Ctx
+    pub fn caller(&self) -> Caller;                      // Clone + 'static: capturable by a closure
+    pub fn opener(&self) -> Opener;
 }
 
 pub fn payload<T: Message>(event: &Event) -> Option<T::Payload>;
@@ -66,9 +77,10 @@ pub fn payload<T: Message>(event: &Event) -> Option<T::Payload>;
 | Task | Go to |
 | --- | --- |
 | Adding an applet from nothing | `references/anatomy.md` |
+| Giving an applet a popover, or changing one it has | `references/popovers.md` |
 | Something does not work and you want the symptom, not the theory | `references/pitfalls.md` |
 | Writing or judging the tests | the `testing` skill |
-| Anything inside `Indicator` / `IndicatorGroup` | the `widget` skill |
+| Anything inside `Indicator` / `IndicatorGroup` / `PopoverShell` | the `widget` skill |
 | Reaching the daemon, reconnects, subscription limits | the `ipc-client` skill |
 | GTK4, libadwaita and relm4 craft in general | the `relm4` and `gtk4-styles` skills |
 | Threading, widget boundaries, untrusted text | `.claude/rules/ui.md` |
@@ -131,6 +143,28 @@ capped before it reaches a label. They are not repeated here. What follows is wh
    waits on a round trip. An applet that tracks a value it only ever *sets* can drift from the
    daemon; that is the accepted cost, and the case that will justify `ctx.ask` when one appears.
 
+10. **The runtime owns left click, and `popover()` is how an applet answers it.** `HostInput::Pressed`
+    delivers the press to `handle` and then toggles the popover — opening it calls `popover(&seat)`,
+    pressing again closes what is open. An applet that *also* acts on
+    `Pointer::Press(Button::Left)` fires that action every time its popover opens. There is one
+    `Catcher` per bar, so one popover is open at a time per monitor and it receives no keyboard
+    input at all.
+
+11. **A live popover is held as a `glib::WeakRef` and dressed from the same method that builds the
+    chips.** Every open builds a fresh widget; the strong references are the catcher's child and the
+    runtime's handle, both dropped on dismissal, so `upgrade()` returning `None` *is* the closed
+    state and no `is_open` flag exists to fall out of step. One `refresh()` sets
+    `self.spec` and dresses the popover if it is up — two paths is how a popover comes to contradict
+    the chip above it. Never hold a strong reference: the widget then outlives its dismissal and the
+    next open builds a second one.
+
+12. **A popover talks back by waking, not by calling.** A signal closure has no `&mut self`, so it
+    captures `seat.opener()` and calls `wake()`, which arrives as `Input::Woken` and ends in
+    `refresh`. `handle` must match `Input::Woken` — an applet matching only `Topic` and `Tick`
+    swallows it and the popover never updates. Commands go through `seat.caller()`, which is
+    `ctx.call` under another name; connect every signal in `popover()` and never in the dressing
+    method, because that one runs on every event and handlers stack.
+
 ## What the framework will not do for you
 
 - **There is no staleness and no `degraded`.** A dead daemon stops sending events and the last value
@@ -157,6 +191,13 @@ capped before it reaches a label. They are not repeated here. What follows is wh
   is reported to the panel.
 - **An applet is not told about orientation, position or its monitor.** The panel sets orientation on
   the group directly. `Placement` returns with the first applet that needs the connector name.
+- **Nothing in the panel scrolls, and nothing caps a popover's height.** `PopoverShell` does not, the
+  catcher does not, and there is no `ScrolledWindow` in the crate. A popover stays on the screen
+  because the applet bounds what it hands over — `upcoming`, `days` and `hours` are counts in the
+  config, and the remainder goes behind a drawer.
+- **No popover state survives a close.** Each open builds a new widget, so anything that must persist
+  — the month a calendar was left on, the entry the bar had chosen — is the applet's field, not the
+  widget's.
 
 ## Definition of done
 
@@ -167,7 +208,14 @@ capped before it reaches a label. They are not repeated here. What follows is wh
 - Text taken off a topic is capped before it reaches an `IndicatorSpec`. Tray titles, MPRIS metadata
   and SSIDs are attacker-controlled; `Indicator` truncates, but the cap belongs upstream too.
 - Pure logic is split out of anything needing a `Ctx` so it can be tested headlessly — see the
-  `testing` skill.
+  `testing` skill. For an applet with a popover that is a `render.rs` beside it, holding every
+  formatting function over `now` and the payload, with no GTK in the signatures.
+- An applet with a popover reads `common.settings()` into an `Option<(String, Vec<String>)>`, hands
+  the label to `set_footer` while dressing, and connects `connect_footer_activated` to
+  `popover::run` once, at build.
+- Every user-visible string in the popover was formatted by the applet, except a placeholder
+  wording, which lives in the `.blp` — nothing in this tree translates a Rust string reaching a
+  label.
 - `just verify` is clean. `just lint` runs `-D warnings`, and a framework item with no consumer is a
   build failure, not a note.
 - `crates/glimpse-panel/README.md` says what changed, in the same commit.

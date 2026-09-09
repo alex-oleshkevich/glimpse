@@ -73,7 +73,9 @@ Path-scoped rules load automatically when the relevant files are opened:
 `.claude/rules/ui.md` for the GTK crates. Writing or changing a service — the `Service` trait, `Ctx`
 sources, subscriptions, topics and commands, registration, headless tests — is covered by the
 project-local `service` skill in `.claude/skills/service/`. Its panel counterpart is the `applet`
-skill, for the `Applet` trait, `Ctx` sources, pull-based indicators and the registration match;
+skill, for the `Applet` trait, `Ctx` sources, pull-based indicators, the registration match, and the
+popover an applet opens on left click — the `Seat`, the `glib::WeakRef` a live one is held by, and
+the wake that re-dresses it;
 `widget` covers GObject subclasses, Blueprint templates and the three places a new template must be
 registered; `ipc-client` covers holding a `Client` from outside the daemon, where a request issued
 while `glimpsed` is unreachable fails rather than queues; and `testing` covers which tier a

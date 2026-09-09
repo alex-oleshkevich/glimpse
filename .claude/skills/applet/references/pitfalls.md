@@ -2,6 +2,9 @@
 
 Symptom first. Every one of these was a real defect in the tree, not a hypothetical.
 
+A symptom inside an open popover — stale content, a row that fires twice, a signal that changes
+nothing — is in `references/popovers.md` instead.
+
 ## The applet renders nothing and the log says nothing
 
 `indicators()` returned an empty `Vec` and the group hid itself, which is correct behaviour for "no
