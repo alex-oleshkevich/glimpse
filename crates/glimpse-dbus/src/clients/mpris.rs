@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use zbus::zvariant::OwnedValue;
+use zbus::zvariant::{ObjectPath, OwnedValue};
 
 pub const MPRIS_PATH: &str = "/org/mpris/MediaPlayer2";
 pub const MPRIS_ROOT_INTERFACE: &str = "org.mpris.MediaPlayer2";
@@ -14,6 +14,9 @@ pub const MPRIS_NAME_PREFIX: &str = "org.mpris.MediaPlayer2.";
 pub trait MprisRoot {
     #[zbus(property)]
     fn identity(&self) -> zbus::Result<String>;
+
+    #[zbus(property)]
+    fn desktop_entry(&self) -> zbus::Result<String>;
 
     #[zbus(property)]
     fn can_raise(&self) -> zbus::Result<bool>;
@@ -32,8 +35,29 @@ pub trait MprisPlayer {
     #[zbus(property)]
     fn metadata(&self) -> zbus::Result<HashMap<String, OwnedValue>>;
 
-    #[zbus(property)]
+    #[zbus(property(emits_changed_signal = "false"))]
     fn position(&self) -> zbus::Result<i64>;
+
+    #[zbus(property)]
+    fn rate(&self) -> zbus::Result<f64>;
+
+    #[zbus(property)]
+    fn volume(&self) -> zbus::Result<f64>;
+
+    #[zbus(property)]
+    fn set_volume(&self, volume: f64) -> zbus::Result<()>;
+
+    #[zbus(property)]
+    fn loop_status(&self) -> zbus::Result<String>;
+
+    #[zbus(property)]
+    fn set_loop_status(&self, status: &str) -> zbus::Result<()>;
+
+    #[zbus(property)]
+    fn shuffle(&self) -> zbus::Result<bool>;
+
+    #[zbus(property)]
+    fn set_shuffle(&self, shuffle: bool) -> zbus::Result<()>;
 
     #[zbus(property)]
     fn can_go_previous(&self) -> zbus::Result<bool>;
@@ -50,6 +74,9 @@ pub trait MprisPlayer {
     #[zbus(property)]
     fn can_seek(&self) -> zbus::Result<bool>;
 
+    #[zbus(property)]
+    fn can_control(&self) -> zbus::Result<bool>;
+
     fn play(&self) -> zbus::Result<()>;
     fn pause(&self) -> zbus::Result<()>;
     fn play_pause(&self) -> zbus::Result<()>;
@@ -57,6 +84,14 @@ pub trait MprisPlayer {
     fn previous(&self) -> zbus::Result<()>;
     fn next(&self) -> zbus::Result<()>;
     fn seek(&self, offset_microseconds: i64) -> zbus::Result<()>;
+    fn set_position(
+        &self,
+        track_id: &ObjectPath<'_>,
+        position_microseconds: i64,
+    ) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    fn seeked(&self, position_microseconds: i64) -> zbus::Result<()>;
 }
 
 #[cfg(test)]
