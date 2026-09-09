@@ -447,6 +447,19 @@
               "type": "string",
               "const": "mpris"
             },
+            "label-format": {
+              "description": "What the bar shows. Placeholders are replaced by name: `{player}`, `{title}`, `{artist}`,\n`{album}`, `{state}`, `{position}`, `{duration}` and `{remaining}`. A placeholder with\nnothing behind it renders as nothing.",
+              "type": "string",
+              "default": "{title} — {artist}"
+            },
+            "max-length": {
+              "description": "Longest label the bar shows, in characters; the rest is ellipsized. Track titles come from\nwhatever is playing and are unbounded, and a bar that resizes as they change is worse than\none that truncates.",
+              "type": "integer",
+              "format": "uint8",
+              "default": 40,
+              "maximum": 255,
+              "minimum": 0
+            },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
               "type": "array",
@@ -460,6 +473,16 @@
                 "string",
                 "null"
               ]
+            },
+            "show-art": {
+              "description": "Whether the popover shows album art.",
+              "type": "boolean",
+              "default": true
+            },
+            "show-others": {
+              "description": "Whether the popover lists the players other than the one on the bar.",
+              "type": "boolean",
+              "default": true
             },
             "tooltip-format": {
               "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
@@ -1367,6 +1390,19 @@
                 "type": "string",
                 "const": "mpris"
               },
+              "label-format": {
+                "description": "What the bar shows. Placeholders are replaced by name: `{player}`, `{title}`, `{artist}`,\n`{album}`, `{state}`, `{position}`, `{duration}` and `{remaining}`. A placeholder with\nnothing behind it renders as nothing.",
+                "type": "string",
+                "default": "{title} — {artist}"
+              },
+              "max-length": {
+                "description": "Longest label the bar shows, in characters; the rest is ellipsized. Track titles come from\nwhatever is playing and are unbounded, and a bar that resizes as they change is worse than\none that truncates.",
+                "type": "integer",
+                "format": "uint8",
+                "default": 40,
+                "maximum": 255,
+                "minimum": 0
+              },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
                 "type": "array",
@@ -1380,6 +1416,16 @@
                   "string",
                   "null"
                 ]
+              },
+              "show-art": {
+                "description": "Whether the popover shows album art.",
+                "type": "boolean",
+                "default": true
+              },
+              "show-others": {
+                "description": "Whether the popover lists the players other than the one on the bar.",
+                "type": "boolean",
+                "default": true
               },
               "tooltip-format": {
                 "description": "What the bar's tooltip reads. The tokens are the applet's own — `strftime` for the clock,\n`{index}` and `{name}` for the pager — the same way `label` already differs between them.\nUnset means the applet shows no tooltip.",
@@ -1954,6 +2000,13 @@
       "$ref": "#/$defs/Monitors",
       "default": {}
     },
+    "mpris": {
+      "$ref": "#/$defs/Mpris",
+      "default": {
+        "art-max-kib": 4096,
+        "fetch-art": true
+      }
+    },
     "night-light": {
       "$ref": "#/$defs/NightLight",
       "default": {
@@ -2418,6 +2471,32 @@
             "string",
             "null"
           ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Mpris": {
+      "description": "Which media players the daemon follows, and what it does with their artwork. There are no\nplayers here: every `org.mpris.MediaPlayer2.*` on the session bus is followed unless `ignore`\nsays otherwise.",
+      "type": "object",
+      "properties": {
+        "art-max-kib": {
+          "description": "The largest artwork that will be downloaded, in kibibytes. A player chooses this URL, so the\ncap is what stops one pointing the daemon at something enormous. It bounds downloads only;\nartwork a player names as a local file is bounded by its pixel dimensions instead, when it is\ndecoded. Clamped to 16..=65536.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 4096,
+          "minimum": 0
+        },
+        "fetch-art": {
+          "description": "Whether artwork named by an `http` or `https` URL is downloaded. Players that name a local\nfile are unaffected, and turning this off leaves those working. Downloads go to\n`$XDG_RUNTIME_DIR/glimpse/art/` and are capped by `art-max-kib`.",
+          "type": "boolean",
+          "default": true
+        },
+        "ignore": {
+          "description": "Regular expressions matched against a player's bus-name suffix (`spotify`,\n`kdeconnect.mpris_desktop_1`) and its `Identity` (`Spotify`, `Firefox`). A player matching\nany of them is never shown. Patterns are unanchored and case-sensitive; write `(?i)` for\ncase-insensitive and `^…$` to anchor. A pattern that does not compile is skipped with a\nwarning and the rest keep working. `playerctld` and KDE Connect mirrors are already\nhandled without this.\n\nTo start from: `'^chromium'` hides every Chromium tab, whose bus names carry an instance\nnumber after the application (`chromium.instance4181`); `'(?i)firefox'` hides Firefox\nhowever it happens to capitalize its `Identity`; `'^mpv$'` hides exactly `mpv` and leaves\n`mpv-shim` alone. Write them as TOML literal strings, in single quotes, so a backslash\nreaches the regex instead of being read as a string escape:\n`ignore = ['^chromium', '(?i)firefox']`.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": false

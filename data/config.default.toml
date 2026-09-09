@@ -73,6 +73,10 @@ provider = "open-meteo"
 poll-interval = 900
 forecast-days = 7
 
+[mpris]
+fetch-art = true
+art-max-kib = 4096
+
 [wallpaper]
 fit = "fill"
 color = "#000000"
