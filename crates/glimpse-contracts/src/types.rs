@@ -302,6 +302,70 @@ pub enum PlayerAction {
     Raise,
 }
 
+/// Urgency as the freedesktop specification defines it. Internally tagged for the same reason
+/// `Condition` is: a sender may send a byte outside the three the specification names, and that
+/// must not make the whole payload fail to decode.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "urgency", rename_all = "snake_case")]
+pub enum NotificationUrgency {
+    Low,
+    #[default]
+    Normal,
+    Critical,
+    #[serde(other)]
+    Unknown,
+}
+
+/// One action a sender offered. `key` is what goes back to it over the bus; `label` is what the
+/// reader sees, and is third-party text like every other string here.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationAction {
+    pub key: String,
+    pub label: String,
+}
+
+/// One notification as the store holds it. Every text field is chosen by another application,
+/// arrives over the session bus, and is capped and sanitised by the service before it gets here.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NotificationRecord {
+    /// The id the specification handed the sender, and what every command names it by.
+    pub id: u32,
+    /// The sender's own identity: its `desktop-entry` hint where it gave one, its bus name
+    /// otherwise. Grouping keys on this rather than on `app_name`, which a sender chooses freely
+    /// and could therefore borrow from somebody else.
+    pub app_id: String,
+    pub app_name: String,
+    pub summary: String,
+    /// Sanitised Pango markup, safe to hand to `set_markup`. The freedesktop specification makes
+    /// markup a server capability rather than a per-notification flag, so there is no "is this
+    /// markup" boolean to carry: every body has been through `glimpse_utils::markup::sanitize_body`
+    /// by the time it is here. A client that cannot render markup strips it.
+    pub body: Option<String>,
+    /// A themed icon name, never a path a client should go and load.
+    pub icon: Option<String>,
+    /// A local path under `$XDG_RUNTIME_DIR/glimpse/`. `image-data` arrives as raw pixels with no
+    /// header and therefore no cheap size check, so the service bounds it and writes a file rather
+    /// than putting the bytes on the wire — the same rule `PlayerStatus::art` follows.
+    pub image: Option<String>,
+    pub urgency: NotificationUrgency,
+    pub actions: Vec<NotificationAction>,
+    /// The `value` hint, as a fraction. Present only when the sender sent one.
+    pub progress: Option<f64>,
+    pub created: DateTime<Utc>,
+    pub unread: bool,
+    /// The sender asked to stay until it is acted on. `resident` and a zero timeout are the two
+    /// ways it can say so, and the store treats them alike.
+    pub resident: bool,
+}
+
+/// Do not disturb. `until` is when it lapses on its own; `None` means it stands until the reader
+/// turns it off.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DoNotDisturb {
+    pub enabled: bool,
+    pub until: Option<DateTime<Utc>>,
+}
+
 /// The only prose in this payload that glimpse did not format itself. Every field carrying text is
 /// third-party, arrives over the network, and is sanitised by the service before it gets here.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

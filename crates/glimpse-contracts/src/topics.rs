@@ -85,4 +85,10 @@ topics! {
 
     #[name = "mpris.players"]
     pub struct MprisPlayers { players: Vec<PlayerStatus> }
+
+    #[name = "notifications.list"]
+    pub struct NotificationsList { notifications: Vec<NotificationRecord> }
+
+    #[name = "notifications.dnd"]
+    pub struct NotificationsDnd { dnd: DoNotDisturb }
 }

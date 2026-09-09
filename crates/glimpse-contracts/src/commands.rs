@@ -105,4 +105,19 @@ commands! {
 
     #[name = "mpris.set_shuffle"]
     pub struct MprisSetShuffle { player: String, shuffle: bool } -> ();
+
+    #[name = "notifications.dismiss"]
+    pub struct NotificationsDismiss { id: u32 } -> ();
+
+    #[name = "notifications.invoke_action"]
+    pub struct NotificationsInvokeAction { id: u32, action: String } -> ();
+
+    #[name = "notifications.clear_app"]
+    pub struct NotificationsClearApp { app_id: String } -> ();
+
+    #[name = "notifications.clear_all"]
+    pub struct NotificationsClearAll {} -> ();
+
+    #[name = "notifications.set_dnd"]
+    pub struct NotificationsSetDnd { dnd: DoNotDisturb } -> ();
 }
