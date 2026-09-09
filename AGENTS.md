@@ -111,8 +111,9 @@ StatusNotifierItem, dbusmenu and Notifications.
 - A dependency belongs in `glimpse-ipc` only if both ends of the socket need it, plus `tracing` for
   diagnostics. Payloads live in `glimpse-contracts`, bound to their names by `trait Message` and
   `trait Command`; no zbus, no GTK, no backend type reaches either. `glimpse-contracts` and
-  `glimpse-ipc/src/frame.rs` are the input to `schemars` for the Python, TypeScript and Go SDK
-  types.
+  `glimpse-ipc/src/frame.rs` are what an SDK generator for Python, TypeScript and Go would read. No
+  such generator exists in this tree yet, and no contract type derives `JsonSchema` — `schemars` is
+  inherited only by `glimpse-config`, for the config document.
 - **A workspace dependency nothing uses yet is unverified.** Cargo does not resolve features for an
   entry no crate inherits, so a wrong feature name sits in the root `Cargo.toml` looking correct
   until the first `workspace = true` that names it. `reqwest` was declared with `rustls-tls`, which

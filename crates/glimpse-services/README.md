@@ -75,6 +75,16 @@ Hyprland fills `description`.
 socket, and a compositor that cannot answer has taken the session with it. Awaiting keeps a command
 and the events it causes in order.
 
+**`WindowRef::Pid` is resolved here, not by a backend.** The snapshot is the only place holding a
+pid-bearing window list, so pushing the pid down would make niri fetch one per call to answer a
+question this service already knows — and niri has no focus-by-pid action at all, while Hyprland's
+`focuswindow` takes `pid:` natively, so resolving here is also what keeps the two behaving the same.
+A process owning several windows resolves to the lowest window id, because `Snapshot.windows` is
+edited in place as windows come and go and taking the first match would raise a different one at
+different moments. A pid with no window, and any reference asked before the first snapshot has
+arrived, are `Refused` — `InvalidArgs`, which does not invite a retry, because there is nothing to
+retry.
+
 ## The calendar service
 
 One topic, `calendar.events`, carrying every occurrence from every configured source as one sorted
@@ -612,16 +622,43 @@ makes the packaging conflict diagnosable instead of a silent absence of notifica
 requested *without* `AllowReplacement`, so nobody can take it afterwards and there is no `NameLost`
 to track for the process lifetime.
 
-**Signals are emitted from inside the handler rather than a spawn.** `NotificationClosed` and
-`ActionInvoked` carry no reply, so emitting one is a socket write and not the round trip the
-`Responder`-into-`ctx.spawn` rule exists for. `ctx.spawn_detached` would have been the wrong tool
-twice over: its `SourceGuard` is `#[must_use]`, and dropping it at the semicolon aborts the task
-before it runs.
+**Signals are emitted from inside the handler rather than a spawn.** `NotificationClosed`,
+`ActionInvoked` and `ActivationToken` carry no reply, so emitting one is a socket write and not the
+round trip the `Responder`-into-`ctx.spawn` rule exists for. `ctx.spawn_detached` would have been
+the wrong tool twice over: its `SourceGuard` is `#[must_use]`, and dropping it at the semicolon
+aborts the task before it runs.
 
-**The interface owns nothing but the id counter.** It decodes the wire shape — actions arrive as
-one flat list of alternating key and label, hints as a `HashMap` of variants — and hands a plain
-`Incoming` to the service. Every cap and the markup sanitiser run service-side, in `record`, which
-is why they are testable without exporting anything.
+**`invoked` resolves the interface once and emits both signals from that handle.** The specification
+wants `ActivationToken` before `ActionInvoked`, and one handle makes that order a property of the
+code rather than something a test has to assert — which matters, because signal ordering is the one
+thing here no headless test can reach.
+
+**An activation token is rejected, never shortened.** Every other foreign string goes through
+`text::clean`, which caps and appends `…`. A token is a capability the compositor accepts whole or
+refuses, so a truncated one fails for reasons nobody can see; the specification makes the signal
+optional — "clients should not assume the server will generate this signal" — so an empty or
+over-long token is dropped in `decode` and no signal is emitted. There is nothing to advertise in
+`GetCapabilities` for it: the standard set has no string for activation.
+
+**The interface owns the id counter and the sender's pid.** It decodes the wire shape — actions
+arrive as one flat list of alternating key and label, hints as a `HashMap` of variants — and hands a
+plain `Incoming` to the service. Every cap and the markup sanitiser run service-side, in `record`,
+which is why they are testable without exporting anything.
+
+**`notify` takes `&self`, and the counter is an `AtomicU32`.** zbus holds a write lock for the whole
+of a `&mut self` method, so once `notify` asks the bus daemon for the sender's pid, every concurrent
+sender would have queued behind that round trip. `allocate` is a free function for the same reason
+the caps are: it is the only way to test the wrap past zero without a bus.
+
+**The pid is captured because it cannot be recovered later.** `hdr.sender()` exists only inside the
+interface method, and by the time a reader clicks, the sending connection may be gone — so
+`NotificationRecord::app_pid` carries it, and a client raises that process's window with
+`WindowRef::Pid`. A sender reached through `xdg-desktop-portal` resolves to the portal, which owns
+no window, and there only the token does anything. `notifications.list` is a broadcast topic, so
+every client learns the pid; a same-user process could read `/proc` for the same answer. The
+`DBusProxy` is built once in `start` rather than per `Notify`, and nothing caches the result: a map
+keyed on the sender's unique name is fed by whoever sends notifications, and a script looping
+`notify-send` would grow it without bound.
 
 **Not done yet:** `image-data` — raw pixels inline, with no header and therefore no cheap size
 check — is still dropped. `NotificationRecord::image` is a path under `$XDG_RUNTIME_DIR/glimpse/`

@@ -25,9 +25,11 @@ the largest hole left in this crate.
 ## Rules
 
 **A dependency belongs here only if both ends of the socket need it**, plus `tracing` for
-diagnostics. No zbus, no GTK, and no backend type in `topics/` — a payload that names one cannot be
-generated for Python, TypeScript or Go. `topics/` and `frame.rs` are the input to `schemars` for the
-Python, TypeScript and Go SDK types; a generator reads those modules, not the whole crate.
+diagnostics. No zbus, no GTK, and no backend type in a payload — one that names a backend type
+cannot be generated for Python, TypeScript or Go. That generator does not exist yet: nothing in
+`glimpse-contracts` derives `JsonSchema`, `schemars` is inherited only by `glimpse-config` for the
+config document, and this crate has no `topics/` module. `frame.rs` and `glimpse-contracts` are what
+such a generator would read when it is written.
 
 **Errors are `thiserror` enums, not `anyhow`.** A caller has to branch on them: the panel reconnects
 after a transport failure but not after a daemon `CallError`, and `glimpsectl` maps four of them

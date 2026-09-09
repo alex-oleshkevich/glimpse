@@ -75,6 +75,14 @@ grow needs the same shape; one that cannot grow, like `UnitSystem`, does not. `A
 second of them: CAP is what national meteorological services publish, and a provider that adds a
 level must not cost a panel the whole forecast.
 
+**The rule is about direction.** It protects a *payload* travelling daemon→client, where an
+unfamiliar variant would cost the reader the whole message. A *command argument* travels the other
+way, and there the opposite holds: `WorkspaceRef`, `WindowRef` and `PlayerAction` are tagged but
+deliberately carry no `Unknown`, because decoding an unrecognised target and then guessing what to
+do with it is worse than a clean `InvalidArgs`. Adding a variant to one of those — `WindowRef::Pid`
+was the first — is a version bump for the daemon and its clients together, not a compatibility
+hazard to paper over with `#[serde(other)]`.
+
 `Condition::Sleet` is the first variant actually added after the fact, and it is what the shape was
 for: met.no reports sleet, WMO 4677 has no code for it, and an older panel decodes it as `Unknown`
 rather than failing the payload. Every renderer's match has no `_` arm, so adding it was a compile

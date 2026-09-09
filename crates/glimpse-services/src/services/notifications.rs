@@ -1,4 +1,5 @@
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use chrono::Utc;
 use glimpse_contracts::{
@@ -9,6 +10,7 @@ use glimpse_contracts::{
 use glimpse_ipc::{CallError, ErrorCode};
 use serde_json::Value;
 use tokio::sync::mpsc;
+use zbus::fdo::DBusProxy;
 use zbus::object_server::SignalEmitter;
 use zbus::zvariant::OwnedValue;
 use zbus::{Connection, interface};
@@ -29,6 +31,7 @@ const ACTION_LABEL_MAX_CHARS: usize = 48;
 const ACTION_KEY_MAX_CHARS: usize = 64;
 const ACTIONS_MAX: usize = 3;
 const ICON_MAX_CHARS: usize = 128;
+const ACTIVATION_TOKEN_MAX_CHARS: usize = 512;
 
 /// `NotificationClosed` reasons, as the specification numbers them.
 const CLOSED_BY_SENDER: u32 = 3;
@@ -38,6 +41,7 @@ pub struct Incoming {
     pub replaces: u32,
     pub app_name: String,
     pub app_id: Option<String>,
+    pub app_pid: Option<i32>,
     pub icon: Option<String>,
     pub summary: String,
     pub body: String,
@@ -54,11 +58,21 @@ pub enum Event {
 
 #[derive(Debug)]
 pub enum Command {
-    Dismiss { id: u32 },
-    InvokeAction { id: u32, action: String },
-    ClearApp { app_id: String },
+    Dismiss {
+        id: u32,
+    },
+    InvokeAction {
+        id: u32,
+        action: String,
+        token: Option<String>,
+    },
+    ClearApp {
+        app_id: String,
+    },
     ClearAll,
-    SetDnd { dnd: DoNotDisturb },
+    SetDnd {
+        dnd: DoNotDisturb,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -118,8 +132,18 @@ impl Service for Notifications {
                 Ok(Command::Dismiss { id })
             }
             NotificationsInvokeAction::NAME => {
-                let NotificationsInvokeAction { id, action } = decode_args(args)?;
-                Ok(Command::InvokeAction { id, action })
+                let NotificationsInvokeAction {
+                    id,
+                    action,
+                    activation_token,
+                } = decode_args(args)?;
+                Ok(Command::InvokeAction {
+                    id,
+                    action,
+                    token: activation_token.filter(|token| {
+                        !token.is_empty() && token.chars().count() <= ACTIVATION_TOKEN_MAX_CHARS
+                    }),
+                })
             }
             NotificationsClearApp::NAME => {
                 let NotificationsClearApp { app_id } = decode_args(args)?;
@@ -158,7 +182,8 @@ impl Service for Notifications {
 
         let served = Served {
             events: ctx.events(),
-            next: 1,
+            next: AtomicU32::new(1),
+            dbus: DBusProxy::new(&connection).await.ok(),
         };
         if let Err(error) = connection.object_server().at(OBJECT_PATH, served).await {
             ctx.degraded(format!("cannot serve {OBJECT_PATH}: {error}"));
@@ -198,10 +223,10 @@ impl Service for Notifications {
                 }
                 responder.ok(());
             }
-            Input::Command(Command::InvokeAction { id, action }, responder) => {
+            Input::Command(Command::InvokeAction { id, action, token }, responder) => {
                 match self.store.holds(id, &action) {
                     true => {
-                        self.invoked(id, &action).await;
+                        self.invoked(id, &action, token.as_deref()).await;
                         responder.ok(());
                     }
                     false => responder.fail(CallError::new(
@@ -327,7 +352,7 @@ impl Notifications {
         }
     }
 
-    async fn invoked(&self, id: u32, action: &str) {
+    async fn invoked(&self, id: u32, action: &str, token: Option<&str>) {
         let Some(connection) = &self.connection else {
             return;
         };
@@ -337,6 +362,11 @@ impl Notifications {
             .await
         {
             Ok(served) => {
+                if let Some(token) = token
+                    && let Err(error) = served.activation_token(id, token).await
+                {
+                    tracing::debug!(%error, id, "cannot hand over an activation token");
+                }
                 if let Err(error) = served.action_invoked(id, action).await {
                     tracing::debug!(%error, id, "cannot report an invoked action");
                 }
@@ -351,8 +381,10 @@ impl Notifications {
 /// which flattens the newline the most common sender shape depends on.
 fn record(id: u32, incoming: Incoming) -> NotificationRecord {
     let Incoming {
+        replaces: _,
         app_name,
         app_id,
+        app_pid,
         icon,
         summary,
         body,
@@ -360,7 +392,6 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
         urgency,
         progress,
         resident,
-        ..
     } = incoming;
 
     let app_name = glimpse_utils::text::clean(&app_name, APP_NAME_MAX_CHARS);
@@ -373,6 +404,7 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
         id,
         app_id,
         app_name,
+        app_pid,
         summary: glimpse_utils::text::clean(&summary, SUMMARY_MAX_CHARS),
         body: match body.trim().is_empty() {
             true => None,
@@ -403,14 +435,27 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
 /// the service's, which is what lets the store be tested without a bus.
 struct Served {
     events: mpsc::Sender<Input<Notifications>>,
-    next: u32,
+    next: AtomicU32,
+    dbus: Option<DBusProxy<'static>>,
+}
+
+impl Served {
+    async fn sender_pid(&self, header: &zbus::message::Header<'_>) -> Option<i32> {
+        let pid = self
+            .dbus
+            .as_ref()?
+            .get_connection_unix_process_id(header.sender()?.clone().into())
+            .await
+            .ok()?;
+        i32::try_from(pid).ok().filter(|pid| *pid > 0)
+    }
 }
 
 #[interface(name = "org.freedesktop.Notifications")]
 impl Served {
     #[allow(clippy::too_many_arguments)]
     async fn notify(
-        &mut self,
+        &self,
         app_name: String,
         replaces_id: u32,
         app_icon: String,
@@ -419,20 +464,15 @@ impl Served {
         actions: Vec<String>,
         hints: HashMap<String, OwnedValue>,
         _expire_timeout: i32,
+        #[zbus(header)] header: zbus::message::Header<'_>,
     ) -> u32 {
-        let id = match replaces_id {
-            0 => {
-                let id = self.next;
-                self.next = self.next.wrapping_add(1).max(1);
-                id
-            }
-            replaces => replaces,
-        };
+        let id = allocate(&self.next, replaces_id);
 
         let incoming = Incoming {
             replaces: replaces_id,
             app_name,
             app_id: hint_str(&hints, "desktop-entry"),
+            app_pid: self.sender_pid(&header).await,
             icon: (!app_icon.is_empty()).then_some(app_icon),
             summary,
             body,
@@ -489,6 +529,26 @@ impl Served {
         id: u32,
         action_key: &str,
     ) -> zbus::Result<()>;
+
+    #[zbus(signal)]
+    async fn activation_token(
+        emitter: &SignalEmitter<'_>,
+        id: u32,
+        token: &str,
+    ) -> zbus::Result<()>;
+}
+
+/// Zero means "new" on the wire, so the counter steps over it when it wraps rather than handing
+/// it out. A sender naming a replacement gets that id back and spends none.
+fn allocate(next: &AtomicU32, replaces: u32) -> u32 {
+    match replaces {
+        0 => next
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| {
+                Some(id.wrapping_add(1).max(1))
+            })
+            .unwrap_or(1),
+        replaces => replaces,
+    }
 }
 
 /// The specification sends actions as a flat list of alternating key and label. An odd trailing
@@ -534,6 +594,7 @@ mod tests {
             replaces: 0,
             app_name: app.to_owned(),
             app_id: None,
+            app_pid: None,
             icon: None,
             summary: summary.to_owned(),
             body: String::new(),
@@ -778,5 +839,71 @@ mod tests {
         )
         .expect_err("refused");
         assert_eq!(error.code, ErrorCode::InvalidArgs);
+    }
+
+    /// A token is a capability the compositor accepts whole or refuses, so shortening one the way
+    /// every other cap here does would hand back a token that fails for reasons nobody can see.
+    /// The specification makes the signal optional, so dropping is legal where mangling is not.
+    #[test]
+    fn a_token_that_is_empty_or_over_the_bound_is_dropped_rather_than_shortened() {
+        let decoded = |args: Value| {
+            let Ok(Command::InvokeAction { token, .. }) =
+                Notifications::decode(NotificationsInvokeAction::NAME, args)
+            else {
+                panic!("invoke_action decodes to an InvokeAction");
+            };
+            token
+        };
+        let with = |token: &str| serde_json::json!({ "id": 1, "action": "default", "activation_token": token });
+
+        assert_eq!(decoded(with("tok-1")).as_deref(), Some("tok-1"));
+        assert_eq!(
+            decoded(serde_json::json!({ "id": 1, "action": "default" })),
+            None,
+            "a client that cannot mint one leaves it out"
+        );
+        assert_eq!(decoded(with("")), None);
+        assert_eq!(
+            decoded(with(&"t".repeat(ACTIVATION_TOKEN_MAX_CHARS + 1))),
+            None,
+            "an overlong token is refused rather than truncated into a wrong one"
+        );
+    }
+
+    #[test]
+    fn a_notification_carries_the_pid_of_the_process_that_sent_it() {
+        let held = record(
+            1,
+            Incoming {
+                app_pid: Some(4265),
+                ..incoming("Telegram", "Marta")
+            },
+        );
+
+        assert_eq!(held.app_pid, Some(4265));
+    }
+
+    #[test]
+    fn ids_are_handed_out_in_order_and_a_sender_naming_one_gets_it_back() {
+        let next = AtomicU32::new(1);
+
+        assert_eq!(allocate(&next, 0), 1);
+        assert_eq!(allocate(&next, 0), 2);
+        assert_eq!(allocate(&next, 7), 7);
+        assert_eq!(
+            allocate(&next, 0),
+            3,
+            "naming a replacement does not spend an id"
+        );
+    }
+
+    /// Zero means "new", so handing it out would make the next sender's replacement read as a
+    /// fresh notification.
+    #[test]
+    fn the_id_counter_steps_over_zero_when_it_wraps() {
+        let next = AtomicU32::new(u32::MAX);
+
+        assert_eq!(allocate(&next, 0), u32::MAX);
+        assert_eq!(allocate(&next, 0), 1);
     }
 }

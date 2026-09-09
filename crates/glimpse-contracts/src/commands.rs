@@ -110,7 +110,14 @@ commands! {
     pub struct NotificationsDismiss { id: u32 } -> ();
 
     #[name = "notifications.invoke_action"]
-    pub struct NotificationsInvokeAction { id: u32, action: String } -> ();
+    /// `activation_token` is an xdg-activation token the caller minted from the click that
+    /// invoked the action. The server emits `ActivationToken` immediately before `ActionInvoked`
+    /// when one is present and nothing when it is absent, which the specification permits.
+    pub struct NotificationsInvokeAction {
+        id: u32,
+        action: String,
+        activation_token: Option<String>,
+    } -> ();
 
     #[name = "notifications.clear_app"]
     pub struct NotificationsClearApp { app_id: String } -> ();

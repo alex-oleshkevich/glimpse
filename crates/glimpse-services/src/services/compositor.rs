@@ -231,7 +231,14 @@ impl Compositor {
             Command::FocusWorkspace(target) => {
                 self.backend.focus_workspace(workspace_target(target)).await
             }
-            Command::FocusWindow(target) => self.backend.focus_window(window_target(target)).await,
+            Command::FocusWindow(reference) => {
+                match window_target(reference, self.state.as_ref()) {
+                    Some(target) => self.backend.focus_window(target).await,
+                    None => Err(CompositorError::Refused(format!(
+                        "no window matches {reference:?}"
+                    ))),
+                }
+            }
             Command::FocusOutput(connector) => self.backend.focus_output(&connector).await,
             Command::RenameWorkspace { id, name } => {
                 self.backend
@@ -441,11 +448,17 @@ fn workspace_target(reference: WorkspaceRef) -> WorkspaceTarget {
     }
 }
 
-fn window_target(reference: WindowRef) -> WindowTarget {
+fn window_target(reference: WindowRef, state: Option<&Snapshot>) -> Option<WindowTarget> {
     match reference {
-        WindowRef::Id { id } => WindowTarget::Id(WindowId(id)),
-        WindowRef::Next => WindowTarget::Next,
-        WindowRef::Prev => WindowTarget::Prev,
+        WindowRef::Id { id } => Some(WindowTarget::Id(WindowId(id))),
+        WindowRef::Pid { pid } => state?
+            .windows
+            .iter()
+            .filter(|window| window.pid == Some(pid))
+            .min_by_key(|window| window.id.0)
+            .map(|window| WindowTarget::Id(window.id)),
+        WindowRef::Next => Some(WindowTarget::Next),
+        WindowRef::Prev => Some(WindowTarget::Prev),
     }
 }
 
@@ -552,6 +565,62 @@ mod tests {
             enabled,
             built_in: false,
         }
+    }
+
+    #[test]
+    fn a_window_is_focusable_by_the_pid_of_the_process_that_owns_it() {
+        let mut owned = window(9, 1);
+        owned.pid = Some(4265);
+        let state = Snapshot {
+            windows: vec![window(2, 1), owned],
+            ..Snapshot::default()
+        };
+
+        assert_eq!(
+            window_target(WindowRef::Pid { pid: 4265 }, Some(&state)),
+            Some(WindowTarget::Id(WindowId(9)))
+        );
+    }
+
+    /// `Snapshot.windows` is edited in place as windows come and go, so its order drifts over a
+    /// session. Taking the first match would raise a different window of the same application at
+    /// different moments; breaking the tie on the id is what makes it the same one every time.
+    #[test]
+    fn a_process_owning_several_windows_always_resolves_to_the_same_one() {
+        let mut later = window(9, 1);
+        later.pid = Some(4265);
+        let mut earlier = window(3, 1);
+        earlier.pid = Some(4265);
+        let state = Snapshot {
+            windows: vec![later, earlier],
+            ..Snapshot::default()
+        };
+
+        assert_eq!(
+            window_target(WindowRef::Pid { pid: 4265 }, Some(&state)),
+            Some(WindowTarget::Id(WindowId(3)))
+        );
+    }
+
+    /// Both refusals reach the caller as `InvalidArgs`, which does not invite a retry: there is
+    /// nothing to retry when no window belongs to the process.
+    #[test]
+    fn a_pid_with_no_window_is_refused_and_so_is_one_asked_before_the_first_snapshot() {
+        let state = Snapshot {
+            windows: vec![window(2, 1)],
+            ..Snapshot::default()
+        };
+
+        assert_eq!(
+            window_target(WindowRef::Pid { pid: 4265 }, Some(&state)),
+            None
+        );
+        assert_eq!(window_target(WindowRef::Pid { pid: 4265 }, None), None);
+        assert_eq!(
+            window_target(WindowRef::Id { id: 2 }, None),
+            Some(WindowTarget::Id(WindowId(2))),
+            "a reference that needs no window list still resolves without one"
+        );
     }
 
     #[test]

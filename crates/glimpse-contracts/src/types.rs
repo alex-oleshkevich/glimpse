@@ -101,6 +101,7 @@ pub enum WorkspaceRef {
 #[serde(tag = "by", rename_all = "snake_case")]
 pub enum WindowRef {
     Id { id: u64 },
+    Pid { pid: i32 },
     Next,
     Prev,
 }
@@ -316,6 +317,11 @@ pub enum NotificationUrgency {
     Unknown,
 }
 
+/// The action key the specification reserves for activating the notification itself, as against
+/// pressing one of the buttons it named. A client raises the sender on this one and not on the
+/// others, which are commands rather than an ask to switch windows.
+pub const DEFAULT_ACTION: &str = "default";
+
 /// One action a sender offered. `key` is what goes back to it over the bus; `label` is what the
 /// reader sees, and is third-party text like every other string here.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -335,6 +341,10 @@ pub struct NotificationRecord {
     /// and could therefore borrow from somebody else.
     pub app_id: String,
     pub app_name: String,
+    /// The process that sent this notification, where the bus could name one, so a client can ask
+    /// the compositor to raise that process's window. A portal-relayed sender resolves to the
+    /// portal rather than to the application, and then there is nothing to raise.
+    pub app_pid: Option<i32>,
     pub summary: String,
     /// Sanitised Pango markup, safe to hand to `set_markup`. The freedesktop specification makes
     /// markup a server capability rather than a per-notification flag, so there is no "is this
