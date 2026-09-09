@@ -10,6 +10,7 @@ use glimpse_ipc::CallError;
 use serde_json::Value;
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
+use super::say;
 use crate::{
     context::Ctx,
     publisher::Publisher,
@@ -261,10 +262,6 @@ async fn read(bus: &Connection, path: OwnedObjectPath) -> Option<GeoCoordinates>
         latitude: location.latitude().await.ok()?,
         longitude: location.longitude().await.ok()?,
     })
-}
-
-fn say(error: impl std::fmt::Display) -> String {
-    error.to_string()
 }
 
 #[cfg(test)]

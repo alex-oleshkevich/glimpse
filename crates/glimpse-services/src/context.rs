@@ -132,13 +132,18 @@ impl<S: Service> Ctx<S> {
     /// Work with nothing to report back: a handler that moved its `Responder` into a task so a slow
     /// backend cannot freeze the service, and has nothing to tell itself once it finishes. Work
     /// that does produce a value belongs in [`Ctx::spawn`], which delivers it.
-    pub fn spawn_detached<F, Fut>(&self, task: F) -> SourceGuard
+    ///
+    /// This is the one `Ctx` task that is not a source, so it hands back no guard: a handler
+    /// returns before the work is done and has nowhere to keep one, and a guard dropped on the way
+    /// out would abort the very call it just deferred. Shutdown still stops it, through the
+    /// cancellation token every spawned task selects against.
+    pub fn spawn_detached<F, Fut>(&self, task: F)
     where
         F: FnOnce(Ctx<S>) -> Fut + Send + 'static,
         Fut: Future<Output = ()> + Send + 'static,
     {
         let ctx = self.clone();
-        self.spawn_raw(async move { task(ctx).await })
+        self.spawn_raw(async move { task(ctx).await }).detach();
     }
 
     /// An event per tick, starting now. A tick that is still running when the next is due does not
@@ -288,6 +293,15 @@ pub struct SourceGuard {
     subscription: Option<(Arc<dyn BrokerHandle>, SubscriptionId)>,
 }
 
+impl SourceGuard {
+    /// Give up the right to cancel and let the task run to completion. Private, because the only
+    /// task that is not a source is [`Ctx::spawn_detached`], which uses this rather than handing a
+    /// guard to a caller with nowhere to put it. Any broker subscription is still released.
+    fn detach(mut self) {
+        self.abort = None;
+    }
+}
+
 impl Drop for SourceGuard {
     fn drop(&mut self) {
         if let Some(abort) = self.abort.take() {
@@ -314,15 +328,21 @@ mod tests {
         assert_eq!(event(&mut received).await, Some(7));
     }
 
+    /// Written as a bare statement, which is the shape a handler that deferred its `Responder`
+    /// has to use — it returns long before the task does. The yield is what makes the test
+    /// load-bearing: a task that finished synchronously would survive being aborted.
     #[tokio::test]
     async fn a_detached_task_runs_and_delivers_nothing() {
         let (ctx, mut received) = probe();
         let (ran, finished) = tokio::sync::oneshot::channel();
-        let _source = ctx.spawn_detached(|_ctx| async move {
+        ctx.spawn_detached(|_ctx| async move {
+            tokio::task::yield_now().await;
             let _ = ran.send(());
         });
 
-        finished.await.expect("the task ran");
+        finished
+            .await
+            .expect("the task ran rather than being aborted by the statement ending");
         assert!(received.try_recv().is_err(), "nothing reached the inbox");
     }
 
@@ -389,7 +409,7 @@ mod tests {
     async fn a_panicking_source_degrades_its_service() {
         let (ctx, _received, mock) = wired_probe();
 
-        let _source = ctx.spawn_detached(|_ctx| async { panic!("the backend sent nonsense") });
+        ctx.spawn_detached(|_ctx| async { panic!("the backend sent nonsense") });
         // Let the task reach its panic before cancelling: `shutdown` races the cancel branch of the
         // source's own select, and a cancelled task never panics at all.
         tokio::task::yield_now().await;

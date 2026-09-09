@@ -381,6 +381,13 @@ finished; one with nothing to report uses `ctx.spawn_detached`.
 A `Responder` dropped unanswered answers `Unavailable` from its `Drop` impl and logs, rather than
 leaving the caller to wait out its timeout with nothing said anywhere.
 
+**`spawn_detached` is the one `Ctx` task that hands back no guard,** because it is not a source: a
+handler returns before the work is done and has nowhere to keep one, and `SourceGuard`'s abort-on-drop
+would cancel the very call it just deferred — the caller would then be answered `Unavailable` by the
+`Responder`'s own `Drop`, which reads exactly like the backend being down. Written as a bare
+statement it is simply correct. Shutdown still stops it, through the cancellation token every
+spawned task selects against.
+
 Commands are declared the way topics are: `METHODS` lists the names and `decode` turns one plus its
 JSON arguments into the service's `Command`. Nothing makes them agree at compile time, so every
 service carries one test calling `assert_declarations::<Self>()`, which checks both lists against
@@ -478,3 +485,104 @@ Both return `Result<&zbus::Connection, &str>`; a service that needs a bus and ge
 
 `just test-crate glimpse-services` runs every service against the mocks, with no display, no session
 bus and no broker. `Buses::unavailable("...")` is the no-bus case, `MockBroker` the no-broker one.
+
+## mpris
+
+One topic, `mpris.players`, carrying every player ranked best-first with `current` set on the one a
+bar should show. A per-player topic cannot be declared — `TOPICS` is `&'static [&'static str]` and
+the broker drops a publish it holds no owner for — so the cost is that one player's change
+republishes the whole list.
+
+`Watch::Player(bus)` is one source per bus name, diffed by the runtime: a player quits, the handler
+drops it from `known`, its key stops being declared, its guard drops and its match rule is released.
+There is no teardown code.
+
+**Both sources subscribe before they read.** `Watch::Names` takes `NameOwnerChanged` before
+`ListNames`, and `Watch::Player` takes `PropertiesChanged` and `Seeked` before its first property
+read. A track that flips in either gap is otherwise lost until the next change, which on a paused
+player may never come.
+
+**There is no progress timer.** The payload carries `position_us`, `position_at` and `rate`, and a
+client advances position locally. Re-reading `Position` once a second would republish the whole list
+once a second and defeat `Publisher`'s equality gate. Everything is re-read on every
+`PropertiesChanged` instead, because a player is rebuilt whole either way and only `Position` costs
+a round trip — every other property is answered from the proxy's cache, kept fresh by the same
+signal.
+
+**Known, and left alone.** `read` stamps `position_at` afresh every time, and that field is part of
+`PlayerStatus`'s equality — so `Publisher`'s gate never fires for `mpris.players`, and any property
+change from any player republishes the whole list. Carrying the previous position forward when
+playback state, track and rate are unchanged would restore the gate, but `Seeked` drives the same
+`read` as `PropertiesChanged` does, so the carry would swallow exactly the update a seek exists to
+deliver. Fixing it means a `Sought` event distinct from `Updated`; the cost meanwhile is a JSON
+serialize per property change, which a chatty player emits a few times a second.
+
+**Also known:** nothing reaps `$XDG_RUNTIME_DIR/glimpse/art/`. Entries are bounded per URL by
+`art-max-kib` and unbounded in count, on tmpfs, for the life of the session — a radio stream with
+per-track cover art accumulates.
+
+**The command surface mirrors MPRIS, not the panel.** `mpris.seek`, `mpris.set_volume` and
+`PlayerAction::Play`/`Pause`/`Stop` have no caller in this repository: the applet seeks with
+`set_position` and toggles with `play_pause`. They are kept because `glimpse-contracts` is the input
+to the Python, TypeScript and Go SDKs, so a third-party applet is a real consumer of a command the
+panel happens not to use, and because a mirror service exposing a subset of the interface it mirrors
+is a worse answer than one that does not.
+
+**`last_active` moves when the playback state changes, not when a property does.** It is the tie
+between two players that are both playing, and refreshing it on every read would hand that tie to
+whichever player is chattiest — measured: a two-second notification sound outranked a playing music
+player. A command also moves it, because acting on a player is the clearest statement of which one
+the viewer means.
+
+`select.rs` holds three rules, all of them pure and tested against literal fixtures:
+
+- **rank** by playing before paused before stopped, then last-active, then a stable id
+- **ghost suppression** — a paused player with no length, no capabilities and a title that merely
+  echoes its own `Identity` is a KDE Connect phantom
+- **mirror dedup** — `playerctld` and `kdeconnect.mpris_*` lose to a real player only when they
+  carry the same media; a phone playing something of its own is a second player
+
+**`ignore` is compiled by the service, not the loader.** `Service::Config` is bound
+`Clone + PartialEq` and `regex::Regex` is neither `PartialEq` nor comparable, so the config carries
+the raw patterns and the service compiles them in `start` and on reload. A pattern that does not
+compile warns and is skipped; the rest of the list keeps working, because an ignore list is a
+convenience rather than a service failing to do its job.
+
+**Filtering by id and by `Identity` happen at different moments.** An id is known when the bus name
+appears, so an id match means no `Watch::Player` is ever declared — no proxy, no match rule. An
+`Identity` is only known after the first read, so a match there drops the player and the source
+tears down on the next reconcile.
+
+**A reload that changes `ignore` bumps `attempt`,** which restarts `Watch::Names` and re-runs
+`ListNames`. A player that stops being ignored is already on the bus and nothing will announce it
+again, so without that counter it never comes back until the daemon restarts.
+
+**The art cache is invalidated when either art setting moves.** An entry answers "may this URL be
+fetched, and how big may it be", so turning `fetch-art` off has to stop what was already fetched
+being served, and a smaller `art-max-kib` has to be applied to what is already held. Clearing the
+in-memory map is only half of that: a file written under a larger cap is still on disk under
+`$XDG_RUNTIME_DIR/glimpse/art/` and outlives the setting that allowed it, so `download` measures the
+cap against what it finds there before answering from it.
+
+**The in-memory art map is pruned against every player held, not against the published list,** and
+through `art::classify` rather than against the raw `mpris:artUrl`. Two separate ways to get this
+wrong: a ghost or a mirror is dropped from what is published but is still what `wanted_art` fetches
+for, and the map is keyed by the URL `Url` serializes — trimmed, lower-cased, percent-encoded — which
+is not the string the player sent. Either mismatch deletes the entry in the same `publish` that
+inserted it, and the artwork then never appears. `remote_art` is the one place that set is derived,
+and both callers go through it.
+
+**Three helpers are shared rather than per-service:** `AGENT` (what every glimpse process calls
+itself to a server), `say` (any `Display` error as one line) and `transport` (a `reqwest` error
+*without* its URL, because a feed address is the user's business rather than the journal's). They
+live in `services/mod.rs`; `say` and `AGENT` each had two copies before, and the art fetch was the
+one place a remote failure was stringified with the URL still in it.
+
+**`Watch::Art` carries the cap.** A key holds whatever must restart the source, and the fetch is
+bounded by `art-max-kib` — so lowering it has to produce a different key, or `reconcile` sees the
+key it already has, leaves the finished stream alone, and the cleared map is never refilled.
+
+**An `Updated` for a bus no longer in `known` is dropped.** A property change queued before the
+player disappeared still arrives after it, and would otherwise put the player back — the same shape
+as `geolocation`'s stale-`Located` bug, and the reason the arm guards on the model rather than on
+the guard.

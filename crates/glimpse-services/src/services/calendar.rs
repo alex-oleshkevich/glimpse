@@ -38,7 +38,7 @@ const SIDECAR: usize = 2048;
 const REASON: usize = 240;
 const MIN_POLL: u64 = 60;
 const TIMEOUT: Duration = Duration::from_secs(20);
-const AGENT: &str = concat!("glimpse/", env!("CARGO_PKG_VERSION"));
+use super::{AGENT, transport};
 const WEBCAL: &str = "webcal://";
 
 #[derive(Debug, PartialEq)]
@@ -461,13 +461,6 @@ fn sidecar(text: &str) -> Option<Url> {
     match Url::parse(&subscribed(trimmed)) {
         Ok(url) if matches!(url.scheme(), "http" | "https") => Some(url),
         _ => None,
-    }
-}
-
-fn transport(error: reqwest::Error) -> String {
-    match error.is_timeout() {
-        true => "the request timed out".to_owned(),
-        false => error.without_url().to_string(),
     }
 }
 
