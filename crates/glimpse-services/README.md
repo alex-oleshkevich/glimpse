@@ -586,3 +586,43 @@ key it already has, leaves the finished stream alone, and the cleared map is nev
 player disappeared still arrives after it, and would otherwise put the player back — the same shape
 as `geolocation`'s stale-`Located` bug, and the reason the arm guards on the model rather than on
 the guard.
+
+## notifications
+
+The first service here that is not a mirror. Every other one follows a backend and defers to it
+when they disagree; `org.freedesktop.Notifications` has no backend, so **glimpsed is the store** and
+a notification exists exactly as long as this service keeps it. That inverts the usual rule rather
+than breaking it: there is nothing to re-read from, so the bound, the replace rule and the history
+are all decisions made here.
+
+**`Store` holds no publisher and no connection.** The bound, `replaces_id`, per-app clearing and
+"does this notification offer that action" are the whole of what the service decides, and none of
+them needs a bus — so they live in a struct that an ordinary `#[test]` can drive. What is left on
+`Notifications` is publishing and signal emission, which is the part that genuinely needs a
+connection.
+
+**The list is newest-first, so the bound truncates the tail.** Dropping from the wrong end throws
+away exactly what just arrived while leaving the length correct, which is invisible to any
+assertion that only counts. The test names the summaries in order for that reason, and it was
+checked against a version that drops the newest.
+
+**`NameTaken` is degraded, not fatal.** dunst, mako or a Plasma session may already own the name.
+The service then keeps running with an empty store and says why on `system.services`, which is what
+makes the packaging conflict diagnosable instead of a silent absence of notifications. The name is
+requested *without* `AllowReplacement`, so nobody can take it afterwards and there is no `NameLost`
+to track for the process lifetime.
+
+**Signals are emitted from inside the handler rather than a spawn.** `NotificationClosed` and
+`ActionInvoked` carry no reply, so emitting one is a socket write and not the round trip the
+`Responder`-into-`ctx.spawn` rule exists for. `ctx.spawn_detached` would have been the wrong tool
+twice over: its `SourceGuard` is `#[must_use]`, and dropping it at the semicolon aborts the task
+before it runs.
+
+**The interface owns nothing but the id counter.** It decodes the wire shape — actions arrive as
+one flat list of alternating key and label, hints as a `HashMap` of variants — and hands a plain
+`Incoming` to the service. Every cap and the markup sanitiser run service-side, in `record`, which
+is why they are testable without exporting anything.
+
+**Not done yet:** `image-data` — raw pixels inline, with no header and therefore no cheap size
+check — is still dropped. `NotificationRecord::image` is a path under `$XDG_RUNTIME_DIR/glimpse/`
+for when it lands, following `PlayerStatus::art` rather than putting bytes on the wire.

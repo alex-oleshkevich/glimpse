@@ -20,6 +20,7 @@ mod compositor;
 mod geolocation;
 mod heartbeat;
 mod mpris;
+mod notifications;
 mod solar;
 mod weather;
 
@@ -28,5 +29,6 @@ pub use compositor::Compositor;
 pub use geolocation::Geolocation;
 pub use heartbeat::Heartbeat;
 pub use mpris::Mpris;
+pub use notifications::Notifications;
 pub use solar::Solar;
 pub use weather::Weather;

@@ -1159,16 +1159,47 @@ mod fixtures {
 
         popover.set_clear_label(Some("Clear all"));
         popover.set_footer(Some("Notification settings"));
-        popover.set_groups(&filled());
+        let shown = Rc::new(RefCell::new(filled()));
+        popover.set_groups(&shown.borrow());
+
+        let push = |popover: &NotificationsPopover, shown: &Rc<RefCell<Vec<Group>>>| {
+            popover.set_groups(&shown.borrow());
+        };
 
         popover.connect_activated(|_, key| eprintln!("popover: {key} opened"));
-        popover.connect_dismissed(|_, key| eprintln!("popover: {key} dismissed"));
         popover.connect_action_invoked(|_, key, action| eprintln!("popover: {key} -> {action}"));
-        popover.connect_clear_all(|popover| {
-            eprintln!("popover: clear all");
-            popover.set_groups(&[]);
-        });
-        popover.connect_clear_group(|_, key| eprintln!("popover: clear group {key}"));
+        popover.connect_dismissed(glib::clone!(
+            #[strong]
+            shown,
+            move |popover, key| {
+                for group in shown.borrow_mut().iter_mut() {
+                    group.notifications.retain(|note| note.key != key);
+                }
+                shown
+                    .borrow_mut()
+                    .retain(|group| !group.notifications.is_empty());
+                push(popover, &shown);
+                eprintln!("popover: {key} dismissed");
+            }
+        ));
+        popover.connect_clear_all(glib::clone!(
+            #[strong]
+            shown,
+            move |popover| {
+                shown.borrow_mut().clear();
+                push(popover, &shown);
+                eprintln!("popover: clear all");
+            }
+        ));
+        popover.connect_clear_group(glib::clone!(
+            #[strong]
+            shown,
+            move |popover, key| {
+                shown.borrow_mut().retain(|group| group.key != key);
+                push(popover, &shown);
+                eprintln!("popover: clear group {key}");
+            }
+        ));
         popover.connect_footer_activated(|_| eprintln!("popover: settings"));
         popover.connect_dnd_toggled(|_, silenced| eprintln!("popover: do not disturb {silenced}"));
 
@@ -1177,27 +1208,20 @@ mod fixtures {
                 button.connect_clicked(glib::clone!(
                     #[weak]
                     popover,
-                    move |_| match case {
-                        "filled" => {
-                            popover.set_trouble(None);
-                            popover.set_groups(&filled());
-                        }
-                        "single" => {
-                            popover.set_trouble(None);
-                            popover.set_groups(&filled()[..1]);
-                        }
-                        "dense" => {
-                            popover.set_trouble(None);
-                            popover.set_groups(&dense());
-                        }
-                        "empty" => {
-                            popover.set_trouble(None);
-                            popover.set_groups(&[]);
-                        }
-                        _ => {
-                            popover.set_groups(&[]);
-                            popover.set_trouble(Some("org.freedesktop.Notifications is taken."));
-                        }
+                    #[strong]
+                    shown,
+                    move |_| {
+                        *shown.borrow_mut() = match case {
+                            "filled" => filled(),
+                            "single" => filled()[..1].to_vec(),
+                            "dense" => dense(),
+                            _ => Vec::new(),
+                        };
+                        popover.set_trouble(match case {
+                            "trouble" => Some("org.freedesktop.Notifications is taken."),
+                            _ => None,
+                        });
+                        popover.set_groups(&shown.borrow());
                     }
                 ));
             }
