@@ -418,6 +418,96 @@ reading collapse to the same absence, which is what the empty return is for.
 `gio::ThemedIcon::new` per call is exactly the waste the applet rules name. Keying the cache on the
 icon *name* rather than on `(Condition, is_day)` is what lets the alert icon share it.
 
+## The mpris applet
+
+One chip for the player the daemon marked `current`, and a popover holding that player in full with
+the rest listed beneath it. Which player is current, and which are hidden, are the daemon's
+decisions in `[mpris]`; `[applets.mpris]` is only how the bar renders the one it is handed.
+
+**Position is advanced here, not polled there.** MPRIS emits no change signal for `Position`, so the
+payload carries `position_us`, the instant it was read, and `rate`, and `render::position` extrapolates
+from those. `ctx.interval` is the timer — a second while something is playing, a minute otherwise,
+asked for again on every update because asking replaces the timer rather than adding one.
+
+**`label-format` substitutes by name.** `.replace` per placeholder, never `format!` into the msgid,
+because a translator has to be free to reorder them. A placeholder with nothing behind it renders as
+nothing, which leaves a format like `{artist} — {title}` reading as ` — ` for a video with no
+artist — so `render::trimmed` returns `None` for a label carrying no alphanumeric character at all.
+
+**A label that renders to nothing leaves an icon-only chip, not an absent applet.** A stream with no
+metadata is still the thing making the noise, and removing the indicator takes the popover off the
+bar with it; `label-format = ""` is therefore also how you ask for an icon-only chip. `tooltip-format`
+reads the same placeholder vocabulary, as it does on the clock, weather and next-event applets.
+
+Substitution is a chain of `.replace` calls, which is what `pager/label.rs`, `weather/render.rs` and
+`next_event/render.rs` all do, and it means a value substituted early can contain a placeholder
+substituted later — a player whose `Identity` is literally `{title}` gets its title rendered twice.
+The consequence is duplicated metadata in a label and nothing else: there is no markup and no escape
+here. This is the fourth copy of that mechanism and the first whose values are chosen by another
+application, which is the argument for one left-to-right resolver in `applet/` rather than against
+touching it — the reason it is still four copies is that three of them are outside this change, not
+that four is the right number.
+
+**The cap counts characters.** Track titles are chosen by whatever is playing and are unbounded, and
+a byte slice through a multi-byte title panics. `Indicator` already truncates at `LABEL_MAX_CHARS`,
+so this is a second, configurable cap in front of a backstop rather than the only thing standing
+between a hostile title and the bar.
+
+**`Transport` holds no state it is not given**, so pressing shuffle or repeat says only that the
+button was pressed — the next value has to be computed from what is currently true. A signal closure
+cannot reach `&mut self`, so the press is pushed onto `pressed` and `opener.wake()` brings it back
+as `Input::Woken`, where `press` has the model in hand.
+
+**The optimistic value goes into `self.players`, not beside it.** `dress` writes the transport from
+that model on every refresh, so a value written anywhere else is overwritten by the next wake with
+whatever the daemon last said — which looks like the button springing back. Writing it into the
+model moves the button now and lets the next `mpris.players` reconcile it, which is what the
+"UI state never waits on a round trip" rule in `AGENTS.md` asks for. It also makes two presses
+inside one round trip advance twice instead of sending the same value again.
+
+**The scrubber and the footer read `aimed` instead**, a shared cell holding the current player's id.
+They need no value computed against the model — a seek position and "raise this" are complete on
+their own — so they go straight out through the `Caller`.
+
+**Row signals carry the player's id.** `PlayerList` reports which player was clicked rather than
+which position, and reads that key back at the moment the row fires, because rows are reused in
+place. The applet therefore keeps no parallel list to resolve a position against, and there are no
+two orderings to hold in step.
+
+**`show-others = false` hides the section rather than emptying it.** An empty `Section` shows its
+placeholder, so passing an empty slice would answer a viewer who turned the list off with "Nothing
+else playing" — `MprisPopover::set_others` takes an `Option` for exactly that reason.
+
+**The footer raises the current player** rather than opening settings — it is what the popover's
+design puts there, and `CanRaise` false hides the row. This applet therefore does not read
+`config.common.settings()`, which every other applet with a popover does.
+
+**Artwork goes through `glimpse_widgets::artwork`,** which crops it square so `Gtk.Image` has
+nothing to letterbox, and is cached against its path so a track decodes once rather than once per
+tick. It is decoded only while the popover is alive to show it — `refresh` returns after the chip
+when `shown` no longer upgrades, so a bar with nothing open reads no files at all.
+
+**Elapsed time is formatted by `glimpse_widgets::clock`,** the same function the popover's
+`Scrubber` uses. Two spellings of one position disagree by a second on the track the viewer is
+looking at, which is the whole reason that function is public rather than `pub(crate)`.
+
+**An icon is a name the theme actually has.** `DesktopEntry` first, then the bus-name suffix whole
+and a segment at a time — `chromium.instance4181` carries the application's name in front of a
+number nobody ships an icon for. Each candidate is checked with `IconTheme::has_icon`, because an
+unresolvable name renders as a broken-image glyph, which reads worse than the category icon it falls
+back to. `gio::DesktopAppInfo` is not bound in gtk-rs's `gio`, so a desktop entry whose `Icon=`
+differs from its file name is not followed; that is the one case this misses.
+
+Resolved names and their `gio::Icon`s are held for **every** player, not only the one on the bar, for
+the reason `Weather` holds its own: `indicators` is pulled after every input, so walking the
+candidate list once per render is exactly the waste the applet rules name — and the popover's list
+would otherwise be exempt from a rule the chip beside it obeys. The chip, the hero and the rows all
+read the same held name, so none of them can disagree about a player's icon.
+
+The cache is keyed on the desktop entry as well as the id. `DesktopEntry` is read fresh on every
+property change and a player may answer it late, so an id-only key would cache the fallback icon on
+the first read and keep it for that player's whole life.
+
 ## Reconciliation settles every slot, on both paths
 
 `reconcile_applets` has two: one for a config change that left the applet list alone, and one that

@@ -1,6 +1,7 @@
 mod agenda;
 mod clock;
 mod heartbeat;
+mod mpris;
 mod next_event;
 mod pager;
 mod weather;
@@ -36,6 +37,7 @@ fn build(config: &AppletConfig) -> Option<Builder> {
     match &config.kind {
         AppletKind::Clock(_) => Some(|| Box::new(clock::Clock::start())),
         AppletKind::Heartbeat {} => Some(|| Box::new(heartbeat::Heartbeat::start())),
+        AppletKind::Mpris(_) => Some(|| Box::new(mpris::Mpris::start())),
         AppletKind::NextEvent(_) => Some(|| Box::new(next_event::NextEvent::start())),
         AppletKind::Pager(_) => Some(|| Box::new(pager::Pager::start())),
         AppletKind::Weather(_) => Some(|| Box::new(weather::Weather::start())),
@@ -49,7 +51,6 @@ fn build(config: &AppletConfig) -> Option<Builder> {
         | AppletKind::Exec {}
         | AppletKind::Idle {}
         | AppletKind::Keyboard {}
-        | AppletKind::Mpris {}
         | AppletKind::Network {}
         | AppletKind::Notifications {}
         | AppletKind::Privacy {}
