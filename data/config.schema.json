@@ -2015,6 +2015,12 @@
         "transition-minutes": 15
       }
     },
+    "notifications": {
+      "$ref": "#/$defs/Notifications",
+      "default": {
+        "keep": 100
+      }
+    },
     "panels": {
       "type": "array",
       "default": [
@@ -2530,6 +2536,20 @@
           "type": "integer",
           "format": "uint32",
           "default": 15,
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Notifications": {
+      "description": "How much notification history the daemon keeps. There is no list of senders here: every\napplication that reaches `org.freedesktop.Notifications` is accepted, and do not disturb is a\nruntime state the panel toggles rather than a setting written here.",
+      "type": "object",
+      "properties": {
+        "keep": {
+          "description": "How many notifications are kept once they have been read. Dismissing one puts it here\nrather than destroying it, which is what makes an accidental dismissal recoverable; past\nthis many, the oldest is dropped for good. Senders choose how often they notify, so this\nis the bound that stops a chatty one growing the daemon's memory without limit. Clamped\nto 1..=1000.",
+          "type": "integer",
+          "format": "uint32",
+          "default": 100,
           "minimum": 0
         }
       },

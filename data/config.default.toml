@@ -77,6 +77,9 @@ forecast-days = 7
 fetch-art = true
 art-max-kib = 4096
 
+[notifications]
+keep = 100
+
 [wallpaper]
 fit = "fill"
 color = "#000000"

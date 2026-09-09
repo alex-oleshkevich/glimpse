@@ -9,6 +9,7 @@ mod lock;
 mod monitors;
 mod mpris;
 mod night_light;
+mod notifications;
 mod panels;
 mod power;
 mod regional;
@@ -36,6 +37,7 @@ pub use lock::{Button as LockButton, Clock as LockClock, Controls as LockControl
 pub use monitors::Monitors;
 pub use mpris::Mpris as MprisConfig;
 pub use night_light::{NightLight, Schedule};
+pub use notifications::Notifications;
 pub use panels::{Margin, Panel, Position};
 pub use power::Power;
 pub use regional::{HourFormat, Regional, Units as RegionalUnits};
@@ -56,6 +58,7 @@ pub struct Config {
     pub calendar: Calendar,
     pub weather: WeatherConfig,
     pub mpris: MprisConfig,
+    pub notifications: Notifications,
     pub wallpaper: Wallpaper,
     pub backdrop: Backdrop,
     pub lock: Lock,
@@ -79,6 +82,7 @@ impl Default for Config {
             calendar: Calendar::default(),
             weather: WeatherConfig::default(),
             mpris: MprisConfig::default(),
+            notifications: Notifications::default(),
             wallpaper: Wallpaper::default(),
             backdrop: Backdrop::default(),
             lock: Lock::default(),
