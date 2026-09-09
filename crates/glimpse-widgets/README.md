@@ -463,12 +463,23 @@ competes with the accent already spent on the primary action. A 0.5rem dot besid
 mail and chat clients put it, costs no layout, and reads at a glance.
 
 **Body text is the one place `set_markup` is called in this crate**, and only through
-`body-markup`, whose setter runs `pango::parse_markup` first and falls back to rendering the string
-as literal text when it fails. That gate is load-bearing rather than defensive: measured on GTK 4.22,
-a `GtkLabel` handed markup Pango refuses renders **empty** and logs a warning — the body does not
-appear as raw tags, it disappears. The caller is expected to have run the text through
-`glimpse_utils::markup::sanitize_body` first; this crate does not depend on that one, so the
-contract is documentation plus the parse gate rather than a type.
+`body-markup`, whose setter runs `pango::parse_markup` first. That gate is load-bearing rather than
+defensive: measured on GTK 4.22, a `GtkLabel` handed markup Pango refuses renders **empty** and logs
+a warning — the body does not appear as raw tags, it disappears. The caller is expected to have run
+the text through `glimpse_utils::markup::sanitize_body` first; this crate does not depend on that
+one, so the contract is documentation plus the parse gate rather than a type.
+
+**What a refused body falls back to is `plain`, not the markup string.** Handing the markup itself
+to `set_text` shows the reader `<b>Alice</b> &nbsp; <a href="…">…</a>` — tag soup that reads as a
+broken application. `plain` strips the markup and decodes the five XML entities Pango knows plus
+`&nbsp;`, leaving anything unrecognised exactly as written, because a reader seeing `&whoops;` is
+better served than one seeing part of their message silently swallowed. It takes no GTK types, so
+it is tested headlessly rather than inside the display-gated `widgets`.
+
+Bounding the search for a reference's `;` **by bytes** put the slice inside a character whenever a
+multi-byte one straddled the window: `&` followed by six `é` panicked, from a message anybody could
+send. The search is bounded by rejecting a `;` found too far away instead, which `find` can only
+ever report at a character boundary. `_old`'s `decode_text_entities` has the same defect.
 
 **`icon-name` and `set_app_icon` are the same slot, and its shape follows what arrived.** A
 `gdk::Texture` implements `gio::Icon`, so a themed name, a desktop entry's icon and a sender's photo
@@ -490,7 +501,13 @@ dimmest, most crowded item on the card — two small grey things competing for o
 own height, so an unbounded image makes the notification as tall as whoever sent it decided —
 measured, a 400x1200 image asked for 1256px of card. `set_image` therefore takes a `gdk::Texture`
 rather than any paintable, and scales anything over 112px tall down to it, keeping the aspect ratio;
-an image already inside the bound is passed through untouched. `widgets` asserts all three.
+an image already inside the bound is passed through untouched, and one larger than 4096px per side
+is dropped rather than shown — `Texture::download` copies the whole image, and the image is
+somebody else's. That ceiling is the one `artwork` already applies.
+
+**The comparison is on the source, not on the result.** `bound` builds a new texture every time it
+resamples, so comparing what comes out of it never matches: the same image handed over twice would
+be resampled twice, on the main loop. `widgets` asserts each of these.
 
 The bound is a fraction of the card rather than a comfortable thumbnail size, and that is the point:
 the picture is content somebody else chose, and it should not be the loudest thing on a surface the
@@ -500,6 +517,12 @@ The pixels are averaged in `bound` rather than handed to `gdk-pixbuf`, whose two
 this — `pixbuf_get_from_texture` and `Texture::for_pixbuf` — are deprecated in 4.12 and 4.20, and
 `just lint` runs with `-D warnings`. `Texture::download` writes `B8g8r8a8Premultiplied` and the
 result is rebuilt in the same format, so nothing is swizzled on the way through.
+
+**The `Gtk.Overlay` is bound as a template child even though no code reads it.** It is what holds
+the close button above the card, and `dispose_template` only unparents children it knows about — an
+unnamed root child is left attached, and finalizing the widget then prints `Finalizing
+NotificationItem, but it still has children left: GtkOverlay`. Binding it is the whole fix; deleting
+the field because nothing reads it brings the warning straight back.
 
 **Actions are declarable.** `Gtk.Buildable` with kind `action` appends a button to the actions row,
 so a `.blp` states board covers most of the matrix with no fixture. `add_child` guards on
@@ -520,6 +543,35 @@ because clicking the body already opens it — so the applet chooses actions tha
 There is no inline reply and no timer in this widget. A reply field belongs to a surface that can
 take keyboard focus, which a panel popover cannot, and expiry is the stack's business, not the
 item's.
+
+## NotificationList
+
+`&[Notification]` in, rows out, reconciled by `reconcile::by_key` rather than by position.
+
+**Why the key and not the index.** Notifications arrive and leave from the middle of a list — one
+expires, one is dismissed, a replacing notification takes the same slot. Matching on position
+rebuilds every row below the change; matching on the key moves the row that moved and leaves the
+rest untouched, so hover, focus and any pending press survive an update that had nothing to do with
+them. `PlayerList` reuses by position because a player list is short and changes wholesale; this one
+does not.
+
+**That is also why the key can be captured when the row is built.** `by_key` only ever hands a row
+back for the same key, so the two cannot drift apart — unlike `PlayerList`, which reads its key back
+at the moment the signal fires precisely because its rows are reused by position.
+
+**The slice it was last given is kept, and compared before anything else happens.** `Notification`
+derives `PartialEq` for that one reason — an update carrying the same notifications costs one
+comparison rather than a walk over every row and every setter. Without it the stored copy would be
+written and never read.
+
+**It starts hidden.** A `Gtk.Widget` is visible by default, so a list with nothing in it would hold
+its spacing for one frame before the first update arrived. `set_visible` then follows the content:
+empty means gone, not blank.
+
+`Notification` carries `Option<Body>`, which is `Plain` or `Markup`. The distinction is the
+sender's: a body only becomes `Markup` after `glimpse_utils::markup::sanitize_body`, and
+`NotificationItem` still refuses it if Pango does. `progress` is an `Option<f64>` here and a plain
+negative in the widget, because a GObject property cannot be null.
 
 ## Readout, RangeBar, FactList, ChoiceList
 

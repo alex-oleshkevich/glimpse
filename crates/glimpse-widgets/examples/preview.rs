@@ -252,10 +252,10 @@ mod fixtures {
     use gtk4::prelude::*;
 
     use glimpse_widgets::{
-        Advisory, Calendar, Choice, ChoiceList, Day, Event, EventList, Fact, FactList, Focus, Hour,
-        Indicator, IndicatorSpec, NotificationItem, NowPlaying, Pager, Player, PlayerList, Repeat,
-        Row, Severity, Shape, Slot, SplitRow, TransportAction, WeatherPage, WeatherPopover,
-        WorldClock, Ymd, Zone,
+        Action, Advisory, Body, Calendar, Choice, ChoiceList, Day, Event, EventList, Fact,
+        FactList, Focus, Hour, Indicator, IndicatorSpec, Notification, NotificationItem,
+        NotificationList, NowPlaying, Pager, Player, PlayerList, Repeat, Row, Severity, Shape,
+        Slot, SplitRow, TransportAction, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::RefCell;
@@ -292,6 +292,7 @@ mod fixtures {
             "notification_states" => notification_images(root),
             "notification_markup" => notification_markup(root),
             "notification_indicator" => notification_indicators(root),
+            "notification_list" => notification_list(root),
             _ => {}
         }
         drawer_nav(root);
@@ -962,6 +963,119 @@ mod fixtures {
         }
     }
 
+    /// A notification is a struct rather than a property, so the list is filled here — and the
+    /// buttons mutate the same three, which is what makes `by_key` visible: reorder them and the
+    /// rows move rather than being rebuilt in place.
+    fn notification_list(root: &gtk4::Widget) {
+        let Some(list) = find::<NotificationList>(root) else {
+            eprintln!("the board carries no $NotificationList, so there is nothing to fill");
+            return;
+        };
+
+        let note = |key: &str, app: &str, summary: &str, body: &str, when: &str| Notification {
+            key: key.to_owned(),
+            app_name: app.to_owned(),
+            summary: summary.to_owned(),
+            body: Some(Body::Plain(body.to_owned())),
+            when: when.to_owned(),
+            icon: Some(themed_icon("user-available-symbolic")),
+            ..Notification::default()
+        };
+
+        let feed = Rc::new(RefCell::new(vec![
+            Notification {
+                unread: true,
+                actions: vec![
+                    Action {
+                        key: "reply".to_owned(),
+                        label: "Reply".to_owned(),
+                    },
+                    Action {
+                        key: "mute".to_owned(),
+                        label: "Mute".to_owned(),
+                    },
+                ],
+                ..note(
+                    "marta",
+                    "Telegram",
+                    "Marta Kaz",
+                    "Are we still on for 14:00?",
+                    "2m",
+                )
+            },
+            note(
+                "incident",
+                "PagerDuty",
+                "#incidents",
+                "glimpsed restarted on host build-03.",
+                "26m",
+            ),
+            note(
+                "jonas",
+                "Signal",
+                "Jonas Weber",
+                "Pushed the branch, take a look.",
+                "18m",
+            ),
+        ]));
+
+        list.set_notifications(&feed.borrow());
+        list.connect_activated(|_, key| eprintln!("list: {key} opened"));
+        list.connect_action_invoked(|_, key, action| eprintln!("list: {key} -> {action}"));
+        list.connect_dismissed(glib::clone!(
+            #[strong]
+            feed,
+            move |list, key| {
+                feed.borrow_mut().retain(|note| note.key != key);
+                list.set_notifications(&feed.borrow());
+                eprintln!("list: {key} dismissed");
+            }
+        ));
+
+        for case in ["reorder", "relabel", "add", "clear"] {
+            for button in tagged::<gtk4::Button>(root, case) {
+                button.connect_clicked(glib::clone!(
+                    #[strong]
+                    feed,
+                    #[weak]
+                    list,
+                    move |_| {
+                        {
+                            let mut feed = feed.borrow_mut();
+                            match case {
+                                "reorder" => {
+                                    let by = 1.min(feed.len());
+                                    feed.rotate_left(by);
+                                }
+                                "relabel" => {
+                                    if let Some(first) = feed.first_mut() {
+                                        first.summary.push('!');
+                                    }
+                                }
+                                "add" => {
+                                    let at = feed.len();
+                                    feed.push(note(
+                                        &format!("added-{at}"),
+                                        "Screenshots",
+                                        "Screenshot captured",
+                                        "Saved to ~/Pictures/Screenshots",
+                                        "now",
+                                    ));
+                                }
+                                _ => feed.clear(),
+                            }
+                        }
+                        list.set_notifications(&feed.borrow());
+                    }
+                ));
+            }
+        }
+    }
+
+    fn themed_icon(name: &str) -> gtk4::gio::Icon {
+        gtk4::gio::ThemedIcon::new(name).upcast()
+    }
+
     fn notification_indicators(root: &gtk4::Widget) {
         let themed = |name: &str| gtk4::gio::ThemedIcon::new(name).upcast::<gtk4::gio::Icon>();
         let bell = || Some(themed("preferences-system-notifications-symbolic"));
@@ -1446,9 +1560,9 @@ fn ensure_types() {
     use glimpse_widgets::{
         Calendar, CalendarPopover, ChoiceList, ClockRow, EventList, EventRow, FactList,
         ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup,
-        Notice, NotificationItem, NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow,
-        PopoverShell, RangeBar, Readout, Row, Scrubber, Section, SplitRow, Transport,
-        WeatherPopover, WorldClock,
+        Notice, NotificationItem, NotificationList, NowPlaying, Pager, Panel, Placeholder,
+        PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row, Scrubber, Section, SplitRow,
+        Transport, WeatherPopover, WorldClock,
     };
 
     for widget in [
@@ -1464,6 +1578,7 @@ fn ensure_types() {
         ForecastStrip::static_type(),
         Notice::static_type(),
         NotificationItem::static_type(),
+        NotificationList::static_type(),
         NowPlaying::static_type(),
         PlayerList::static_type(),
         PlayerRow::static_type(),

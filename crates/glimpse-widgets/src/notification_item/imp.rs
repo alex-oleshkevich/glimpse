@@ -6,7 +6,7 @@ use std::cell::{Cell, RefCell};
 use std::marker::PhantomData;
 use std::sync::OnceLock;
 
-use super::{ACTION_INVOKED, ACTIVATED, BODY_MAX_CHARS, DISMISSED};
+use super::{ACTION_INVOKED, ACTIVATED, BODY_MAX_CHARS, DISMISSED, plain};
 use crate::{set_css_class, set_text, truncate};
 
 const CRITICAL: &str = "notification--critical";
@@ -51,7 +51,8 @@ pub struct NotificationItem {
 
     pub gicon: RefCell<Option<gio::Icon>>,
     pub markup: RefCell<Option<String>>,
-    pub keys: RefCell<Vec<String>>,
+    pub image: RefCell<Option<gtk4::gdk::Texture>>,
+    pub shown: RefCell<Vec<super::Action>>,
 
     #[property(name = "summary", get = Self::summary, set = Self::set_summary, nullable)]
     summary_text: PhantomData<Option<String>>,
@@ -128,8 +129,8 @@ impl NotificationItem {
 
     /// The caller is expected to have run the text through `glimpse_utils::markup::sanitize_body`.
     /// This is the last gate rather than the first: markup Pango refuses leaves a `GtkLabel`
-    /// showing nothing at all, so a body that does not parse is rendered as its own literal text
-    /// instead of vanishing.
+    /// showing nothing at all, so a body that does not parse is stripped to its text by `plain`
+    /// and rendered that way instead of vanishing.
     fn set_body_markup(&self, markup: Option<String>) {
         if *self.markup.borrow() == markup {
             return;
@@ -144,7 +145,7 @@ impl NotificationItem {
         let capped = truncate(&markup, BODY_MAX_CHARS);
         if pango::parse_markup(&capped, '\0').is_err() {
             tracing::debug!("a notification body was refused by pango and reads as plain text");
-            self.write_body(Some(&capped));
+            self.write_body(Some(&plain(&capped)));
             return;
         }
 
@@ -153,8 +154,14 @@ impl NotificationItem {
         self.announce();
     }
 
+    /// The markup check is not redundant with the text one: a body switching from markup to the
+    /// same plain string reads as unchanged by text alone, and short-circuiting there would leave
+    /// the bold from the markup still applied.
     fn write_body(&self, text: Option<&str>) {
         let text = truncate(text.unwrap_or_default(), BODY_MAX_CHARS);
+        if !self.body.uses_markup() && self.body.text() == text {
+            return;
+        }
         self.body.set_text(&text);
         self.body.set_visible(!text.is_empty());
         self.announce();

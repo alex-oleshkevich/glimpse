@@ -14,6 +14,7 @@ mod mpris_popover;
 mod next_event_popover;
 mod notice;
 mod notification_item;
+mod notification_list;
 mod now_playing;
 mod pager;
 mod panel;
@@ -49,6 +50,7 @@ pub use mpris_popover::MprisPopover;
 pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
 pub use notification_item::{Action, NotificationItem, Urgency};
+pub use notification_list::{Body, Notification, NotificationList};
 pub use now_playing::NowPlaying;
 pub use pager::{Focus, Pager, PagerItem, Shape, Slot};
 pub use panel::Panel;
@@ -732,6 +734,23 @@ mod tests {
                 "an image already inside the bound is passed through rather than resampled"
             );
 
+            let same = texture(400, 1200);
+            shot.set_image(Some(&same));
+            let first = shot_picture.paintable().expect("an image");
+            shot.set_image(Some(&same));
+            assert!(
+                shot_picture.paintable().expect("an image").eq(&first),
+                "bound builds a new texture every time it resamples, so an unchanged image must \
+                 be compared on the source rather than on the result"
+            );
+
+            shot.set_image(Some(&texture(8000, 6000)));
+            assert!(
+                !shot_picture.get_visible(),
+                "download copies the whole image, and the image is somebody else's: past the \
+                 ceiling the picture is dropped rather than shown unbounded"
+            );
+
             shot.set_image(None);
             assert!(!shot_picture.get_visible());
         }
@@ -764,10 +783,34 @@ mod tests {
         assert_eq!(
             *item_body.text(),
             *"AT&T",
-            "markup pango refuses reads as its own literal text; without the gate GtkLabel renders \
-             an empty label and the body disappears"
+            "markup pango refuses still reads; without the gate GtkLabel renders an empty label \
+             and the body disappears"
         );
         assert!(item_body.get_visible());
+
+        item.set_body_markup(Some(
+            r#"<b>Alice</b>&nbsp;<a href="https://x">said hello</a>"#,
+        ));
+        assert_eq!(
+            *item_body.text(),
+            *"Alice\u{a0}said hello",
+            "a refused body reads as its text, not as its tags: handing the markup itself to \
+             set_text shows the reader tag soup and looks like a broken application"
+        );
+
+        assert_eq!(
+            crate::notification_item::plain("&whoops; &#9733; &#x2605; &amp;"),
+            "&whoops; \u{2605} \u{2605} &",
+            "an unrecognised reference is left as written rather than silently swallowed"
+        );
+
+        item.set_body_markup(Some("<b>bold</b>"));
+        item.set_body(Some("bold"));
+        assert!(
+            !item_body.uses_markup(),
+            "a body switching from markup to the same plain string reads as unchanged by text \
+             alone, and short-circuiting there would leave the bold still applied"
+        );
 
         item.set_body(Some(
             "a".repeat(crate::notification_item::BODY_MAX_CHARS * 2)
@@ -864,10 +907,100 @@ mod tests {
             "a key is read back when the button fires, not captured when it was built"
         );
 
+        let relabelled = [
+            Action {
+                key: "reply".to_owned(),
+                label: "Reply now".to_owned(),
+            },
+            action("mute"),
+            action("open"),
+        ];
+        item.set_actions(&relabelled);
+        assert_eq!(
+            all_named(&item, "notification__action")[0]
+                .downcast_ref::<gtk4::Button>()
+                .and_then(|button| button.label())
+                .map(|label| label.to_string()),
+            Some("Reply now".to_owned()),
+            "a sender that relabels an action without changing its key must still redraw it"
+        );
+
         item.set_actions(&[]);
         assert!(
             all_named(&item, "notification__action").is_empty() && !item_actions.get_visible(),
             "a notification with no actions leaves no strip behind"
+        );
+
+        let list = NotificationList::new();
+        let note = |key: &str, summary: &str| Notification {
+            key: key.to_owned(),
+            summary: summary.to_owned(),
+            when: "now".to_owned(),
+            ..Notification::default()
+        };
+        let rows_of = |list: &NotificationList| children_of::<NotificationItem>(list);
+
+        assert!(rows_of(&list).is_empty() && !list.get_visible());
+
+        list.set_notifications(&[note("a", "First"), note("b", "Second")]);
+        let rows = rows_of(&list);
+        assert_eq!(rows.len(), 2);
+        assert!(list.get_visible());
+        assert_eq!(rows[0].summary().as_deref(), Some("First"));
+
+        let first = rows[0].clone();
+        list.set_notifications(&[note("b", "Second"), note("a", "First again")]);
+        let reordered = rows_of(&list);
+        assert_eq!(
+            reordered.len(),
+            2,
+            "a reorder moves rows, it does not build more of them"
+        );
+        assert!(
+            reordered[1] == first,
+            "a notification that moves keeps its own widget: by_key matches on the key, so the \
+             row carrying `a` follows it rather than staying where it was"
+        );
+        assert_eq!(reordered[1].summary().as_deref(), Some("First again"));
+        assert_eq!(reordered[0].summary().as_deref(), Some("Second"));
+
+        let fired = Rc::new(RefCell::new(Vec::<String>::new()));
+        list.connect_activated({
+            let fired = Rc::clone(&fired);
+            move |_, key| fired.borrow_mut().push(format!("activated {key}"))
+        });
+        list.connect_dismissed({
+            let fired = Rc::clone(&fired);
+            move |_, key| fired.borrow_mut().push(format!("dismissed {key}"))
+        });
+        list.connect_action_invoked({
+            let fired = Rc::clone(&fired);
+            move |_, key, action| fired.borrow_mut().push(format!("{key}/{action}"))
+        });
+
+        child_named::<gtk4::Button>(&reordered[1], "notification__activate").emit_clicked();
+        child_named::<gtk4::Button>(&reordered[0], "notification__close").emit_clicked();
+        assert_eq!(
+            *fired.borrow(),
+            vec!["activated a".to_owned(), "dismissed b".to_owned()],
+            "the key a row reports is its own, whatever position it has ended up in"
+        );
+
+        list.set_notifications(&[]);
+        assert!(
+            rows_of(&list).is_empty() && !list.get_visible(),
+            "an emptied list unparents its rows and takes no space"
+        );
+
+        list.set_notifications(&[note("z", "Only")]);
+        let only = rows_of(&list)[0].clone();
+        only.set_summary(Some("Touched by hand"));
+        list.set_notifications(&[note("z", "Only")]);
+        assert_eq!(
+            only.summary().as_deref(),
+            Some("Touched by hand"),
+            "an unchanged slice is not re-applied: the stored copy exists to answer that, and \
+             writing it back over an untouched row is the work this avoids"
         );
 
         let readout = Readout::new();

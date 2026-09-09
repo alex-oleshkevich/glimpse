@@ -14,11 +14,20 @@ pub(crate) const BODY_MAX_CHARS: usize = 512;
 /// fraction of the card rather than a comfortable thumbnail size — the picture is content somebody
 /// else chose, and it should not be the loudest thing on a surface the reader did not open.
 const IMAGE_MAX_HEIGHT: i32 = 112;
+
+/// The largest source this will resample, per side. `Texture::download` allocates a second copy of
+/// the whole image, and the image is chosen by whoever sent the notification — 4096 is the same
+/// ceiling `artwork` applies, and past it the picture is dropped rather than shown unbounded.
+const IMAGE_LARGEST: i32 = 4096;
 const LABEL_MAX_CHARS: usize = 32;
 
 /// GNOME's HIG and KDE's notification service both stop at three. A sender offering more is not
 /// refused, it is trimmed — the alternative is a row that scrolls or a card that grows sideways.
 const ACTIONS_MAX: usize = 3;
+
+/// How far past an `&` a `;` may be and still be a reference. Bounding the search is what stops a
+/// stray ampersand in a long body from being scanned to the end of it once per character.
+const REFERENCE_MAX_BYTES: usize = 12;
 
 const ACTIVATED: &str = "activated";
 const DISMISSED: &str = "dismissed";
@@ -73,13 +82,20 @@ impl NotificationItem {
         crate::set_css_class(self, AVATAR, photograph);
     }
 
+    /// Compared on the source rather than on the result: `bound` builds a new texture every time
+    /// it resamples, so comparing what comes out of it never matches and would resample the same
+    /// image on every call.
     pub fn set_image(&self, image: Option<&gdk::Texture>) {
         let imp = self.imp();
-        let bounded = image.map(bound);
-        let paintable = bounded.as_ref().map(|texture| texture.upcast_ref());
-        if imp.picture.paintable().as_ref() == paintable {
+        if imp.image.borrow().as_ref() == image {
             return;
         }
+        imp.image.replace(image.cloned());
+
+        let bounded = image.and_then(bound);
+        let paintable = bounded
+            .as_ref()
+            .map(|texture| texture.upcast_ref::<gdk::Paintable>());
         imp.picture.set_paintable(paintable);
         imp.picture.set_visible(paintable.is_some());
     }
@@ -87,15 +103,12 @@ impl NotificationItem {
     pub fn set_actions(&self, actions: &[Action]) {
         let imp = self.imp();
         let actions = &actions[..actions.len().min(ACTIONS_MAX)];
-        let keys: Vec<String> = actions.iter().map(|action| action.key.clone()).collect();
-        if *imp.keys.borrow() == keys {
+        if *imp.shown.borrow() == actions {
             return;
         }
-        imp.keys.replace(keys);
+        imp.shown.replace(actions.to_vec());
 
-        while let Some(child) = imp.actions.first_child() {
-            imp.actions.remove(&child);
-        }
+        crate::clear_children(&imp.actions);
         for (index, action) in actions.iter().enumerate() {
             imp.actions.append(&self.build_action(action, index == 0));
         }
@@ -103,7 +116,7 @@ impl NotificationItem {
     }
 
     /// The freedesktop specification gives actions no priority, so the first one a sender lists is
-    /// taken as the primary and is the only one that carries the accent.
+    /// taken as the primary and is the only one drawn as a filled button.
     fn build_action(&self, action: &Action, primary: bool) -> gtk4::Button {
         let button = gtk4::Button::with_label(&truncate(&action.label, LABEL_MAX_CHARS));
         button.add_css_class("notification__action");
@@ -148,6 +161,73 @@ impl NotificationItem {
     }
 }
 
+/// What a body Pango refused reads as. Handing the markup itself to `set_text` shows the reader
+/// tag soup — `<b>Alice</b> &nbsp; <a href="…">…</a>` — which looks exactly like a broken
+/// application. This is the text with the markup taken out instead. Nothing here is interpreted:
+/// the result goes to `set_text`, so stripping is for legibility rather than for safety.
+pub(crate) fn plain(markup: &str) -> String {
+    let mut stripped = String::with_capacity(markup.len());
+    let mut rest = markup;
+    while let Some(open) = rest.find('<') {
+        stripped.push_str(&rest[..open]);
+        rest = match rest[open..].find('>') {
+            Some(close) => &rest[open + close + 1..],
+            None => "",
+        };
+    }
+    stripped.push_str(rest);
+
+    unescape(&stripped)
+}
+
+/// The five XML entities Pango knows, plus `&nbsp;`, which it does not and which is the one named
+/// entity `ammonia` emits. Anything unrecognised is left exactly as written: a reader seeing
+/// `&whoops;` is better served than one seeing it silently swallowed.
+fn unescape(text: &str) -> String {
+    if !text.contains('&') {
+        return text.to_owned();
+    }
+
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find('&') {
+        out.push_str(&rest[..at]);
+        rest = &rest[at..];
+
+        let end = rest.find(';').filter(|end| *end <= REFERENCE_MAX_BYTES);
+        match end.and_then(|end| reference(&rest[1..end]).map(|character| (character, end))) {
+            Some((character, end)) => {
+                out.push(character);
+                rest = &rest[end + 1..];
+            }
+            None => {
+                out.push('&');
+                rest = &rest[1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+fn reference(name: &str) -> Option<char> {
+    if let Some(hex) = name.strip_prefix("#x").or_else(|| name.strip_prefix("#X")) {
+        return u32::from_str_radix(hex, 16).ok().and_then(char::from_u32);
+    }
+    if let Some(decimal) = name.strip_prefix('#') {
+        return decimal.parse::<u32>().ok().and_then(char::from_u32);
+    }
+    match name {
+        "amp" => Some('&'),
+        "lt" => Some('<'),
+        "gt" => Some('>'),
+        "quot" => Some('"'),
+        "apos" => Some('\''),
+        "nbsp" => Some('\u{a0}'),
+        _ => None,
+    }
+}
+
 /// Scaled rather than cropped: a screenshot cropped to a strip says less than the same screenshot
 /// made smaller, and the aspect ratio is the one thing a sender's image is entitled to keep.
 ///
@@ -155,10 +235,21 @@ impl NotificationItem {
 /// — `pixbuf_get_from_texture` and `Texture::for_pixbuf` — are both deprecated, and `just lint`
 /// runs with `-D warnings`. `Texture::download` writes `B8g8r8a8Premultiplied`, and the result is
 /// built back in the same format, so nothing is swizzled on the way through.
-fn bound(texture: &gdk::Texture) -> gdk::Texture {
+fn bound(texture: &gdk::Texture) -> Option<gdk::Texture> {
     let (width, height) = (texture.width(), texture.height());
-    if height <= IMAGE_MAX_HEIGHT || width <= 0 {
-        return texture.clone();
+    if width <= 0 || height <= 0 {
+        return None;
+    }
+    if width > IMAGE_LARGEST || height > IMAGE_LARGEST {
+        tracing::debug!(
+            width,
+            height,
+            "a notification image is larger than this will resample"
+        );
+        return None;
+    }
+    if height <= IMAGE_MAX_HEIGHT {
+        return Some(texture.clone());
     }
 
     let factor = f64::from(IMAGE_MAX_HEIGHT) / f64::from(height);
@@ -191,14 +282,16 @@ fn bound(texture: &gdk::Texture) -> gdk::Texture {
         }
     }
 
-    gdk::MemoryTexture::new(
-        target_width,
-        IMAGE_MAX_HEIGHT,
-        gdk::MemoryFormat::B8g8r8a8Premultiplied,
-        &glib::Bytes::from_owned(target),
-        target_stride,
+    Some(
+        gdk::MemoryTexture::new(
+            target_width,
+            IMAGE_MAX_HEIGHT,
+            gdk::MemoryFormat::B8g8r8a8Premultiplied,
+            &glib::Bytes::from_owned(target),
+            target_stride,
+        )
+        .upcast(),
     )
-    .upcast()
 }
 
 /// The half-open source range one target pixel averages over, never empty.
@@ -213,5 +306,80 @@ fn icons_equal(current: Option<&gio::Icon>, next: Option<&gio::Icon>) -> bool {
         (None, None) => true,
         (Some(current), Some(next)) => current.equal(Some(next)),
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::plain;
+
+    #[test]
+    fn a_refused_body_reads_as_its_text_rather_than_as_its_tags() {
+        assert_eq!(
+            plain(r#"<b>Alice</b>&nbsp;<a href="https://x">said hello</a>"#),
+            "Alice\u{a0}said hello"
+        );
+    }
+
+    #[test]
+    fn markup_is_removed_and_the_text_between_it_is_kept() {
+        assert_eq!(plain("<b><i>both</i></b>"), "both");
+        assert_eq!(plain("no markup at all"), "no markup at all");
+        assert_eq!(plain(""), "");
+    }
+
+    /// A body that fails to parse is exactly the kind that arrives unbalanced, so the stripper
+    /// cannot assume a closing bracket is there.
+    #[test]
+    fn an_unclosed_tag_takes_the_rest_of_the_string_with_it() {
+        assert_eq!(plain("before <b>after"), "before after");
+        assert_eq!(plain("before <never closed"), "before ");
+    }
+
+    #[test]
+    fn the_five_xml_entities_and_the_one_pango_does_not_know_decode() {
+        assert_eq!(
+            plain("&amp; &lt; &gt; &quot; &apos; &nbsp;"),
+            "& < > \" ' \u{a0}"
+        );
+    }
+
+    #[test]
+    fn numeric_references_decode_in_both_bases_and_beyond_the_basic_plane() {
+        assert_eq!(
+            plain("&#9733; &#x2605; &#127881;"),
+            "\u{2605} \u{2605} \u{1f389}"
+        );
+    }
+
+    /// Better that a reader sees `&whoops;` than that it vanishes: the text is somebody else's and
+    /// silently dropping part of it is worse than showing it as written.
+    #[test]
+    fn anything_unrecognised_is_left_exactly_as_written() {
+        assert_eq!(
+            plain("&whoops; &#999999999; AT&T"),
+            "&whoops; &#999999999; AT&T"
+        );
+        assert_eq!(plain("a & b"), "a & b");
+    }
+
+    /// A body is somebody else's text. Bounding the search for `;` by bytes put the slice inside a
+    /// character whenever a multi-byte one straddled the window — `&` followed by six `é` was a
+    /// panic in the panel, from a message anybody could send.
+    #[test]
+    fn a_reference_window_never_lands_inside_a_character() {
+        assert_eq!(
+            plain(&format!("&{}", "é".repeat(6))),
+            format!("&{}", "é".repeat(6))
+        );
+        assert_eq!(plain("&日本語テキストです;"), "&日本語テキストです;");
+        assert_eq!(plain("&amp;é"), "&é");
+    }
+
+    #[test]
+    fn a_reference_that_never_closes_is_not_scanned_to_the_end_of_the_body() {
+        let long = format!("&{}", "x".repeat(4096));
+
+        assert_eq!(plain(&long), long);
     }
 }
