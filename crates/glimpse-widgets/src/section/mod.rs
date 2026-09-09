@@ -28,6 +28,13 @@ impl Section {
     pub fn set_placeholder(&self, placeholder: Option<&impl IsA<gtk4::Widget>>) {
         fill(&self.imp().placeholder, placeholder);
     }
+
+    pub fn set_trail(&self, trail: Option<&impl IsA<gtk4::Widget>>) {
+        let imp = self.imp();
+        fill(&imp.trail, trail);
+        imp.trail.set_visible(trail.is_some());
+        imp.sync_header();
+    }
 }
 
 fn fill(slot: &gtk4::Box, widget: Option<&impl IsA<gtk4::Widget>>) {

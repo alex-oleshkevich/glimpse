@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
-use crate::{Action, NotificationItem, Urgency, reconcile::by_key};
+use crate::{Action, NotificationItem, Urgency, none_if_empty, reconcile::by_key};
 
 const ACTIVATED: &str = "activated";
 const DISMISSED: &str = "dismissed";
@@ -74,7 +74,40 @@ impl NotificationList {
         );
 
         drop(rows);
+        self.apply_cap();
         self.set_visible(!notifications.is_empty());
+    }
+
+    pub fn set_cap(&self, cap: Option<usize>) {
+        let imp = self.imp();
+        if imp.cap.get() == cap {
+            return;
+        }
+        imp.cap.set(cap);
+        self.apply_cap();
+    }
+
+    pub fn cap(&self) -> Option<usize> {
+        self.imp().cap.get()
+    }
+
+    pub fn hidden(&self) -> usize {
+        let imp = self.imp();
+        match imp.cap.get() {
+            Some(cap) => imp.rows.borrow().len().saturating_sub(cap),
+            None => 0,
+        }
+    }
+
+    fn apply_cap(&self) {
+        let imp = self.imp();
+        let cap = imp.cap.get();
+        for (index, (_, row)) in imp.rows.borrow().iter().enumerate() {
+            let shown = cap.is_none_or(|cap| index < cap);
+            if row.get_visible() != shown {
+                row.set_visible(shown);
+            }
+        }
     }
 
     /// The key is captured when the row is built, which is safe here in a way it is not for a list
@@ -140,7 +173,7 @@ impl NotificationList {
 
 /// Every setter here compares before it writes, so a row that has not changed costs a handful of
 /// comparisons rather than a rebuild.
-fn dress(row: &NotificationItem, notification: &Notification) {
+pub(crate) fn dress(row: &NotificationItem, notification: &Notification) {
     row.set_app_name(none_if_empty(&notification.app_name));
     row.set_summary(none_if_empty(&notification.summary));
     row.set_when(none_if_empty(&notification.when));
@@ -155,20 +188,5 @@ fn dress(row: &NotificationItem, notification: &Notification) {
         Some(Body::Markup(markup)) => row.set_body_markup(Some(markup.as_str())),
         Some(Body::Plain(text)) => row.set_body(Some(text.as_str())),
         None => row.set_body(None::<&str>),
-    }
-}
-
-fn none_if_empty(text: &str) -> Option<&str> {
-    (!text.is_empty()).then_some(text)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::none_if_empty;
-
-    #[test]
-    fn an_absent_field_is_not_an_empty_one() {
-        assert_eq!(none_if_empty(""), None);
-        assert_eq!(none_if_empty("Marta Kaz"), Some("Marta Kaz"));
     }
 }

@@ -5,7 +5,7 @@ pub use row::EventRow;
 
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
-use crate::Row;
+use crate::{Row, none_if_empty};
 
 const OVERFLOW_ICON: &str = "go-next-symbolic";
 const QUIET: &str = "row--quiet";
@@ -179,8 +179,4 @@ impl EventList {
             .get(index)
             .map(|event| event.summary.clone())
     }
-}
-
-fn none_if_empty(text: &str) -> Option<&str> {
-    (!text.is_empty()).then_some(text)
 }

@@ -15,6 +15,7 @@ mod next_event_popover;
 mod notice;
 mod notification_item;
 mod notification_list;
+mod notification_stack;
 mod notifications_popover;
 mod now_playing;
 mod pager;
@@ -52,6 +53,7 @@ pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
 pub use notification_item::{Action, NotificationItem, Urgency};
 pub use notification_list::{Body, Notification, NotificationList};
+pub use notification_stack::NotificationStack;
 pub use notifications_popover::{Group, NotificationsPopover};
 pub use now_playing::NowPlaying;
 pub use pager::{Focus, Pager, PagerItem, Shape, Slot};
@@ -138,6 +140,20 @@ pub(crate) fn set_css_class(widget: &impl gtk4::prelude::IsA<gtk4::Widget>, name
     }
 }
 
+pub(crate) fn icons_equal(current: Option<&gio::Icon>, next: Option<&gio::Icon>) -> bool {
+    use gtk4::prelude::*;
+
+    match (current, next) {
+        (None, None) => true,
+        (Some(current), Some(next)) => current.equal(Some(next)),
+        _ => false,
+    }
+}
+
+pub(crate) fn none_if_empty(text: &str) -> Option<&str> {
+    (!text.is_empty()).then_some(text)
+}
+
 pub fn register_resources() -> Result<(), glib::Error> {
     gio::resources_register_include!("glimpse-widgets.gresource")
 }
@@ -150,6 +166,12 @@ mod tests {
     use gtk4::subclass::prelude::*;
     use std::cell::{Cell, RefCell};
     use std::rc::Rc;
+
+    #[test]
+    fn an_absent_field_is_not_an_empty_one() {
+        assert_eq!(none_if_empty(""), None);
+        assert_eq!(none_if_empty("Marta Kaz"), Some("Marta Kaz"));
+    }
 
     fn spec(label: &str) -> IndicatorSpec {
         IndicatorSpec {
@@ -706,6 +728,14 @@ mod tests {
             shot.set_summary(Some("Screenshot captured"));
             let bare_natural = shot.measure(gtk4::Orientation::Vertical, -1).1;
             let shot_picture = child_named::<gtk4::Picture>(&shot, "notification__image");
+            assert!(
+                shot_picture
+                    .ancestor(gtk4::Button::static_type())
+                    .and_downcast::<gtk4::Button>()
+                    .is_some_and(|button| button.has_css_class("notification__activate")),
+                "the image is content, so it sits inside the button that activates the \
+                 notification — parented beside it, clicking a screenshot thumbnail does nothing"
+            );
 
             shot.set_image(Some(&texture(400, 1200)));
             let bounded = shot_picture.paintable().expect("an image");
@@ -724,6 +754,22 @@ mod tests {
             assert!(
                 shot.measure(gtk4::Orientation::Vertical, -1).1 < bare_natural + 200,
                 "the card grows by the bound, not by the image"
+            );
+            assert!(
+                shot_picture.get_visible()
+                    && shot.measure(gtk4::Orientation::Vertical, -1).1 > bare_natural,
+                "an image that is set has to take room: a Gtk.Picture whose paintable is bound \
+                 still reports a zero minimum, so a card that never grows is one rendering the \
+                 image as nothing at all"
+            );
+            let (picture_min, picture_natural, _, _) =
+                shot_picture.measure(gtk4::Orientation::Vertical, -1);
+            assert_eq!(
+                picture_min, picture_natural,
+                "the picture may not shrink below the bound it was already given: `can-shrink` \
+                 leaves a Gtk.Picture a 5px minimum, so in any container short of its natural \
+                 height the image is the one child that collapses, and it renders as nothing \
+                 while every neighbour keeps its size"
             );
 
             shot.set_image(Some(&texture(448, 90)));
@@ -1038,6 +1084,152 @@ mod tests {
              writing it back over an untouched row is the work this avoids"
         );
 
+        let stack = NotificationStack::new();
+        let stack_rows = |stack: &NotificationStack| children_of::<NotificationItem>(stack);
+        let strips = |stack: &NotificationStack| stack.imp().strips.borrow().len();
+        let chip = stack
+            .imp()
+            .chip
+            .get()
+            .expect("the chip is built once")
+            .clone();
+        let chip_text = || {
+            stack
+                .imp()
+                .chip_label
+                .get()
+                .expect("the chip is built once")
+                .text()
+                .to_string()
+        };
+
+        assert!(
+            stack_rows(&stack).is_empty() && !stack.get_visible() && stack.is_collapsed(),
+            "a stack lands on screen collapsed and takes no room until it is filled"
+        );
+
+        let three = [note("a", "First"), note("b", "Second"), note("c", "Third")];
+        stack.set_items(&three);
+        assert!(stack.get_visible());
+        assert_eq!(stack_rows(&stack).len(), 3);
+        assert_eq!(strips(&stack), 2);
+        assert_eq!(
+            stack_rows(&stack)
+                .iter()
+                .map(|row| row.get_visible())
+                .collect::<Vec<_>>(),
+            vec![true, false, false],
+            "collapsed renders the front card and stands the rest down: the cards behind it are \
+             strips, not live notifications"
+        );
+
+        assert!(
+            stack
+                .first_child()
+                .is_some_and(|child| child.has_css_class("notification-stack__strip")),
+            "paint order is child order, so the strips must be parented ahead of the front card — \
+             one parented after it covers the card it is meant to sit behind"
+        );
+
+        assert!(chip.get_visible());
+        assert_eq!(chip_text(), "3 notifications");
+
+        chip.emit_clicked();
+        assert!(!stack.is_collapsed(), "the chip opens the stack");
+        assert_eq!(
+            strips(&stack),
+            0,
+            "a fanned stack has no edges left to show"
+        );
+        assert!(stack_rows(&stack).iter().all(|row| row.get_visible()));
+        assert_eq!(chip_text(), "Collapse");
+
+        chip.emit_clicked();
+        assert!(
+            stack.is_collapsed() && strips(&stack) == 2,
+            "the same chip closes it: a control that only opens leaves the reader no way back"
+        );
+
+        stack.set_items(&[
+            note("a", "First"),
+            note("b", "Second"),
+            note("c", "Third"),
+            note("d", "Fourth"),
+            note("e", "Fifth"),
+        ]);
+        assert_eq!(
+            strips(&stack),
+            crate::notification_stack::MAX_DEPTH,
+            "the stack shows a fixed number of edges however many are behind the front card"
+        );
+
+        let width = stack.measure(gtk4::Orientation::Horizontal, -1).1;
+        stack.set_items(&three);
+        let deep = stack.measure(gtk4::Orientation::Vertical, width).1;
+        stack.set_items(&three[..2]);
+        let shallow = stack.measure(gtk4::Orientation::Vertical, width).1;
+        assert_eq!(
+            deep - shallow,
+            crate::notification_stack::STEP,
+            "each card behind the front one reserves exactly one step of edge, and the front card \
+             and the chip are the same in both so nothing else can account for the difference"
+        );
+
+        stack.set_items(&three);
+        let front = stack_rows(&stack)[0].clone();
+        stack.set_items(&[note("b", "Second"), note("a", "First again")]);
+        let moved = stack_rows(&stack);
+        assert!(
+            moved[1] == front,
+            "a notification that moves keeps its own widget, so the front card can become one of \
+             the cards behind without being rebuilt"
+        );
+
+        let stack_fired = Rc::new(RefCell::new(Vec::<String>::new()));
+        stack.connect_activated({
+            let fired = Rc::clone(&stack_fired);
+            move |_, key| fired.borrow_mut().push(format!("activated {key}"))
+        });
+        stack.connect_dismissed({
+            let fired = Rc::clone(&stack_fired);
+            move |_, key| fired.borrow_mut().push(format!("dismissed {key}"))
+        });
+        stack.connect_action_invoked({
+            let fired = Rc::clone(&stack_fired);
+            move |_, key, action| fired.borrow_mut().push(format!("{key}/{action}"))
+        });
+
+        child_named::<gtk4::Button>(&moved[1], "notification__activate").emit_clicked();
+        child_named::<gtk4::Button>(&moved[0], "notification__close").emit_clicked();
+        assert_eq!(
+            *stack_fired.borrow(),
+            vec!["activated a".to_owned(), "dismissed b".to_owned()],
+            "the key a card reports is its own, whatever depth it has ended up at"
+        );
+
+        stack.set_items(&three);
+        let touched = stack_rows(&stack)[0].clone();
+        touched.set_summary(Some("Touched by hand"));
+        stack.set_items(&three);
+        stack.set_collapsed(true);
+        assert_eq!(
+            touched.summary().as_deref(),
+            Some("Touched by hand"),
+            "neither an unchanged slice nor an unchanged collapse state rebuilds the cards"
+        );
+
+        stack.set_items(&[note("z", "Only")]);
+        assert!(
+            !chip.get_visible() && strips(&stack) == 0,
+            "one notification has nothing to collapse, so it gets no chip and no edges"
+        );
+
+        stack.set_items(&[]);
+        assert!(
+            stack_rows(&stack).is_empty() && !stack.get_visible(),
+            "an emptied stack unparents its cards and takes no space"
+        );
+
         let popover = NotificationsPopover::new();
         let popover_imp = popover.imp();
         let group = |key: &str, app: &str, count: usize| Group {
@@ -1089,6 +1281,55 @@ mod tests {
             children_of::<Section>(&popover_imp.groups.get()).len(),
             1,
             "a group that goes away takes its section with it"
+        );
+
+        popover.set_groups(&[group("a", "Telegram", 5)]);
+        let dense = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        let dense_list = child_named::<NotificationList>(&dense, "notification-list");
+        let more = child_named::<Row>(&dense, "section__more");
+        let shown = |list: &NotificationList| {
+            children_of::<NotificationItem>(list)
+                .iter()
+                .filter(|row| row.get_visible())
+                .count()
+        };
+
+        assert!(
+            shown(&dense_list) == 3 && more.get_visible(),
+            "a group past the cap renders three and puts the rest behind one control"
+        );
+        assert_eq!(more.title().as_deref(), Some("2 more notifications"));
+
+        more.emit_clicked();
+        assert!(
+            shown(&dense_list) == 5 && more.title().as_deref() == Some("Show less"),
+            "the control opens the group"
+        );
+
+        more.emit_clicked();
+        assert!(
+            shown(&dense_list) == 3 && more.title().as_deref() == Some("2 more notifications"),
+            "the same control closes it: one that only expands leaves the reader no way back"
+        );
+
+        more.emit_clicked();
+        popover.set_groups(&[group("a", "Telegram", 2)]);
+        assert!(
+            !more.get_visible() && shown(&dense_list) == 2,
+            "a group that stops overflowing takes its expander away rather than leaving it \
+             standing open on nothing"
+        );
+
+        let cleared = Rc::new(RefCell::new(Vec::<String>::new()));
+        popover.connect_clear_group({
+            let cleared = Rc::clone(&cleared);
+            move |_, key| cleared.borrow_mut().push(key)
+        });
+        child_named::<gtk4::Button>(&dense, "section__clear").emit_clicked();
+        assert_eq!(
+            *cleared.borrow(),
+            vec!["a".to_owned()],
+            "a section reports the group it stands for rather than where it sits"
         );
 
         let toggles = Rc::new(Cell::new(0u32));

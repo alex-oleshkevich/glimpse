@@ -6,7 +6,8 @@ use gtk4::{
 };
 
 use super::{
-    ACTION_INVOKED, ACTIVATED, CLEAR_ALL, DISMISSED, DND_TOGGLED, FOOTER_ACTIVATED, Group,
+    ACTION_INVOKED, ACTIVATED, CLEAR_ALL, CLEAR_GROUP, DISMISSED, DND_TOGGLED, FOOTER_ACTIVATED,
+    Group,
 };
 use crate::{Hero, Notice, Placeholder, Row, Section};
 
@@ -75,6 +76,9 @@ impl ObjectImpl for NotificationsPopover {
                     .build(),
                 glib::subclass::Signal::builder(DND_TOGGLED)
                     .param_types([bool::static_type()])
+                    .build(),
+                glib::subclass::Signal::builder(CLEAR_GROUP)
+                    .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder(CLEAR_ALL).build(),
                 glib::subclass::Signal::builder(FOOTER_ACTIVATED).build(),

@@ -4,7 +4,7 @@ use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 pub use imp::Urgency;
 
-use crate::truncate;
+use crate::{icons_equal, truncate};
 
 pub(crate) const BODY_MAX_CHARS: usize = 512;
 
@@ -299,14 +299,6 @@ fn span(at: usize, out_of: usize, source: usize) -> (usize, usize) {
     let from = at * source / out_of;
     let to = ((at + 1) * source / out_of).max(from + 1).min(source);
     (from, to)
-}
-
-fn icons_equal(current: Option<&gio::Icon>, next: Option<&gio::Icon>) -> bool {
-    match (current, next) {
-        (None, None) => true,
-        (Some(current), Some(next)) => current.equal(Some(next)),
-        _ => false,
-    }
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::clear_children;
+use crate::{clear_children, icons_equal};
 
 glib::wrapper! {
     pub struct Hero(ObjectSubclass<imp::Hero>)
@@ -45,13 +45,5 @@ impl Hero {
         let slot = &self.imp().slot;
         clear_children(slot);
         slot.set_visible(false);
-    }
-}
-
-fn icons_equal(current: Option<&gio::Icon>, next: Option<&gio::Icon>) -> bool {
-    match (current, next) {
-        (None, None) => true,
-        (Some(current), Some(next)) => current.equal(Some(next)),
-        _ => false,
     }
 }

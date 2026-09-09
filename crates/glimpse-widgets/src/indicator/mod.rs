@@ -2,6 +2,8 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
+use crate::icons_equal;
+
 glib::wrapper! {
     pub struct Indicator(ObjectSubclass<imp::Indicator>)
         @extends gtk4::Widget,
@@ -112,14 +114,6 @@ impl Indicator {
             Some(crate::Severity::Error) => self.add_css_class(ERROR_CLASS),
             Some(crate::Severity::Info) | None => {}
         }
-    }
-}
-
-fn icons_equal(current: Option<&gio::Icon>, next: Option<&gio::Icon>) -> bool {
-    match (current, next) {
-        (None, None) => true,
-        (Some(current), Some(next)) => current.equal(Some(next)),
-        _ => false,
     }
 }
 

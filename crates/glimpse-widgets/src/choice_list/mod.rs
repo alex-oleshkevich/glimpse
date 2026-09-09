@@ -2,7 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::Row;
+use crate::{Row, none_if_empty};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Choice {
@@ -106,8 +106,4 @@ impl ChoiceList {
             row.set_selected(selected == Some(index as u32));
         }
     }
-}
-
-fn none_if_empty(text: &str) -> Option<&str> {
-    (!text.is_empty()).then_some(text)
 }

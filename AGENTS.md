@@ -246,6 +246,21 @@ It opens floating, through a `window-rule` on `^me\.aresa\.WidgetPreview` in the
 preview is one widget sized to itself, and tiling it into a column tells you nothing about how it
 looks. Layer-shell was tried first and rendered nothing.
 
+**`open-on-workspace "glimpse"` is only half the rule — the workspace has to be declared too.** An
+`open-on-workspace` naming a workspace that no `workspace "..."` block declares still works, but the
+workspace is created dynamically on whichever output happens to be focused, so previews scatter
+across monitors between runs and a screenshot of one may be on a display nobody is looking at. The
+declaration is what pins it:
+
+```kdl
+workspace "glimpse" {
+    open-on-output "eDP-1"
+}
+```
+
+This lives in the user's own niri configuration, not in this repository — nothing here installs it,
+and `data/` is for what ships. `niri validate` checks the file, and niri reloads it on save.
+
 Some widgets cannot be filled from a `.blp` at all, because their data is not a property — a
 calendar's events are a list of colours per day. `just preview <blp> [fixture]` runs a **named
 fixture** over the built tree, and the name defaults to the blueprint's own stem, so

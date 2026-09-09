@@ -5,7 +5,7 @@ pub use row::PlayerRow;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::Row;
+use crate::{Row, none_if_empty};
 
 const JOIN: &str = " · ";
 
@@ -126,10 +126,6 @@ fn byline(player: &Player) -> Option<String> {
         .filter(|part| !part.is_empty())
         .collect();
     (!parts.is_empty()).then(|| parts.join(JOIN))
-}
-
-fn none_if_empty(text: &str) -> Option<&str> {
-    (!text.is_empty()).then_some(text)
 }
 
 #[cfg(test)]

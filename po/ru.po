@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-09 15:50+0200\n"
+"POT-Creation-Date: 2026-09-09 17:50+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -349,8 +349,8 @@ msgstr "Больше ничего не запланировано"
 msgid "Notification"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/notification_item.blp:152
-#: crates/glimpse-widgets/src/notification_item/imp.rs:231
+#: crates/glimpse-widgets/blueprints/notification_item.blp:157
+#: crates/glimpse-widgets/src/notification_item/imp.rs:239
 msgid "Dismiss"
 msgstr ""
 
@@ -374,7 +374,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:126
+#: crates/glimpse-widgets/src/lib.rs:128
 msgid "Play"
 msgstr "Воспроизвести"
 
@@ -398,25 +398,51 @@ msgstr "Повтор"
 msgid "Workspaces"
 msgstr "Рабочие столы"
 
-#: crates/glimpse-widgets/src/lib.rs:125
+#: crates/glimpse-widgets/src/lib.rs:127
 msgid "Pause"
 msgstr "Пауза"
 
-#: crates/glimpse-widgets/src/notification_item/imp.rs:210
+#: crates/glimpse-widgets/src/notification_item/imp.rs:212
 msgid "Unread"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notification_item/imp.rs:229
+#: crates/glimpse-widgets/src/notification_item/imp.rs:237
 msgid "Dismiss {notification}"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notifications_popover/imp.rs:90
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:137
+msgid "Collapse"
+msgstr ""
+
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:248
+msgid "{count} notification"
+msgid_plural "{count} notifications"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: crates/glimpse-widgets/src/notifications_popover/imp.rs:94
 msgid "Silence notifications until you turn this off"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notifications_popover/mod.rs:191
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:129
+msgid "Clear these notifications"
+msgstr ""
+
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:247
 msgid "{count}"
 msgid_plural "{count}"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:256
+msgid "Show less"
+msgstr ""
+
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:261
+msgid "{count} more notification"
+msgid_plural "{count} more notifications"
 msgstr[0] ""
 msgstr[1] ""
 msgstr[2] ""

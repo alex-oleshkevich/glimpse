@@ -326,6 +326,33 @@
     color: var(--gl-accent-text);
 }
 
+.row--danger .row__title {
+    color: var(--gl-danger-text);
+}
+
+.section__trail {
+    margin-left: 0.4rem;
+}
+
+.section__clear {
+    min-width: 1.7rem;
+    min-height: 1.7rem;
+    padding: 0.2rem;
+    border-radius: 999px;
+    color: var(--gl-dim);
+}
+
+.section__clear:hover {
+    color: var(--gl-danger-text);
+    background-color: var(--gl-hover);
+}
+
+.section__more .row__title {
+    font-size: var(--gl-text-caption);
+    font-weight: 600;
+    color: var(--gl-muted);
+}
+
 .hero__icon {
     -gtk-icon-size: 1.65rem;
 }
@@ -703,7 +730,7 @@
 }
 
 .notification__progress {
-    margin: 0.27rem 1.08rem 0.4rem 1.08rem;
+    margin-top: 0.4rem;
 }
 
 .notification__progress trough,
@@ -721,7 +748,7 @@
 }
 
 .notification__image {
-    margin: 0.27rem 1.08rem 0.4rem 1.08rem;
+    margin-top: 0.4rem;
     border-radius: 0.55rem;
 }
 
@@ -780,6 +807,49 @@
     min-height: 0.5rem;
     border-radius: 999px;
     background-color: var(--gl-accent);
+}
+
+.notification-stack {
+    color: var(--gl-surface-fg);
+}
+
+.notification-stack .notification {
+    background-color: var(--gl-surface);
+    box-shadow: var(--gl-elevation-floating);
+}
+
+.notification-stack .notification:hover {
+    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.08);
+}
+
+.notification-stack__chip {
+    min-width: 0;
+    min-height: 0;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    font-size: var(--gl-text-caption);
+    font-weight: 700;
+    color: var(--gl-muted);
+    background-color: var(--gl-surface);
+    box-shadow: var(--gl-elevation-raised);
+}
+
+.notification-stack__chip:hover {
+    color: var(--gl-surface-fg);
+    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.12);
+}
+
+.notification-stack__chevron {
+    -gtk-icon-size: 0.85rem;
+}
+
+.notification-stack__strip {
+    border-radius: 1.1rem;
+    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.14);
+}
+
+.notification-stack__strip--far {
+    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.24);
 }
 
 

@@ -18,6 +18,8 @@ pub struct Section {
     #[template_child]
     pub count: TemplateChild<gtk4::Label>,
     #[template_child]
+    pub trail: TemplateChild<gtk4::Box>,
+    #[template_child]
     pub content: TemplateChild<gtk4::Box>,
     #[template_child]
     pub placeholder: TemplateChild<gtk4::Box>,
@@ -39,7 +41,7 @@ impl Section {
 
     fn set_title(&self, title: Option<String>) {
         set_text(&self.title, title.as_deref());
-        self.header.set_visible(!self.title.text().is_empty());
+        self.sync_header();
         self.sync_accessible_label();
     }
 
@@ -57,6 +59,13 @@ impl Section {
         self.count
             .set_visible(!self.count.text().is_empty() && !self.empty());
         self.sync_accessible_label();
+    }
+
+    pub(crate) fn sync_header(&self) {
+        let wanted = !self.title.text().is_empty() || self.trail.get_visible();
+        if self.header.get_visible() != wanted {
+            self.header.set_visible(wanted);
+        }
     }
 
     fn sync_accessible_label(&self) {
@@ -120,6 +129,7 @@ impl BuildableImpl for Section {
         match (kind, child.downcast_ref::<gtk4::Widget>()) {
             _ if own_template => self.parent_add_child(builder, child, kind),
             (Some("placeholder"), Some(widget)) => section.set_placeholder(Some(widget)),
+            (Some("trail"), Some(widget)) => section.set_trail(Some(widget)),
             (None, Some(widget)) => section.set_content(Some(widget)),
             _ => self.parent_add_child(builder, child, kind),
         }

@@ -254,9 +254,9 @@ mod fixtures {
     use glimpse_widgets::{
         Action, Advisory, Body, Calendar, Choice, ChoiceList, Day, Event, EventList, Fact,
         FactList, Focus, Group, Hour, Indicator, IndicatorSpec, Notification, NotificationItem,
-        NotificationList, NotificationsPopover, NowPlaying, Pager, Player, PlayerList, Repeat, Row,
-        Severity, Shape, Slot, SplitRow, TransportAction, WeatherPage, WeatherPopover, WorldClock,
-        Ymd, Zone,
+        NotificationList, NotificationStack, NotificationsPopover, NowPlaying, Pager, Player,
+        PlayerList, Repeat, Row, Severity, Shape, Slot, SplitRow, TransportAction, WeatherPage,
+        WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::RefCell;
@@ -294,6 +294,7 @@ mod fixtures {
             "notification_markup" => notification_markup(root),
             "notification_indicator" => notification_indicators(root),
             "notification_list" => notification_list(root),
+            "notification_stack" => notification_stack(root),
             "notifications" => notifications(root),
             _ => {}
         }
@@ -871,8 +872,13 @@ mod fixtures {
     /// The texture is generated wide and already inside the widget's bound, so the board shows an
     /// image that was passed through rather than one that was resampled.
     fn notification_images(root: &gtk4::Widget) {
+        let mut filled = 0;
         for item in tagged::<NotificationItem>(root, "image") {
             item.set_image(Some(&banner((196, 108, 62))));
+            filled += 1;
+        }
+        if filled == 0 {
+            eprintln!("no $NotificationItem carries demo__image, so no board shows an image");
         }
         for (case, tint) in [("avatar", (74, 138, 96)), ("avatar2", (92, 104, 168))] {
             for item in tagged::<NotificationItem>(root, case) {
@@ -1074,6 +1080,77 @@ mod fixtures {
         }
     }
 
+    fn notification_stack(root: &gtk4::Widget) {
+        let note = |key: &str, app: &str, summary: &str, body: &str, when: &str| Notification {
+            key: key.to_owned(),
+            app_name: app.to_owned(),
+            summary: summary.to_owned(),
+            body: Some(Body::Plain(body.to_owned())),
+            when: when.to_owned(),
+            icon: Some(themed_icon("user-available-symbolic")),
+            ..Notification::default()
+        };
+
+        let feed = vec![
+            Notification {
+                unread: true,
+                actions: vec![
+                    Action {
+                        key: "reply".to_owned(),
+                        label: "Reply".to_owned(),
+                    },
+                    Action {
+                        key: "dismiss".to_owned(),
+                        label: "Dismiss".to_owned(),
+                    },
+                ],
+                ..note(
+                    "marta",
+                    "Telegram",
+                    "Marta Kaz",
+                    "Can you look at the deploy before standup? The tray service is still \
+                     restarting on build-03.",
+                    "now",
+                )
+            },
+            note(
+                "incident",
+                "PagerDuty",
+                "#incidents",
+                "glimpsed restarted on host build-03 after an unhandled panic in the tray service.",
+                "2m",
+            ),
+            note(
+                "shot",
+                "Screenshots",
+                "Screenshot captured",
+                "Saved to ~/Pictures/Screenshots",
+                "4m",
+            ),
+        ];
+
+        let mut filled = false;
+        for (case, collapsed, items) in [
+            ("collapsed", true, feed.as_slice()),
+            ("fanned", false, feed.as_slice()),
+            ("lone", true, &feed[..1]),
+        ] {
+            for stack in tagged::<NotificationStack>(root, case) {
+                stack.set_items(items);
+                stack.set_collapsed(collapsed);
+                stack.connect_activated(|_, key| eprintln!("stack: {key} opened"));
+                stack.connect_dismissed(|_, key| eprintln!("stack: {key} dismissed"));
+                stack
+                    .connect_action_invoked(|_, key, action| eprintln!("stack: {key} -> {action}"));
+                filled = true;
+            }
+        }
+
+        if !filled {
+            eprintln!("the board carries no $NotificationStack, so there is nothing to fill");
+        }
+    }
+
     fn notifications(root: &gtk4::Widget) {
         let Some(popover) = find::<NotificationsPopover>(root) else {
             eprintln!("the board carries no $NotificationsPopover, so there is nothing to fill");
@@ -1091,10 +1168,11 @@ mod fixtures {
             eprintln!("popover: clear all");
             popover.set_groups(&[]);
         });
+        popover.connect_clear_group(|_, key| eprintln!("popover: clear group {key}"));
         popover.connect_footer_activated(|_| eprintln!("popover: settings"));
         popover.connect_dnd_toggled(|_, silenced| eprintln!("popover: do not disturb {silenced}"));
 
-        for case in ["filled", "single", "empty", "trouble"] {
+        for case in ["filled", "single", "dense", "empty", "trouble"] {
             for button in tagged::<gtk4::Button>(root, case) {
                 button.connect_clicked(glib::clone!(
                     #[weak]
@@ -1108,6 +1186,10 @@ mod fixtures {
                             popover.set_trouble(None);
                             popover.set_groups(&filled()[..1]);
                         }
+                        "dense" => {
+                            popover.set_trouble(None);
+                            popover.set_groups(&dense());
+                        }
                         "empty" => {
                             popover.set_trouble(None);
                             popover.set_groups(&[]);
@@ -1120,6 +1202,38 @@ mod fixtures {
                 ));
             }
         }
+    }
+
+    fn dense() -> Vec<Group> {
+        const APPS: [(&str, &str); 6] = [
+            ("org.telegram.desktop", "Telegram"),
+            ("com.pagerduty", "PagerDuty"),
+            ("org.mozilla.thunderbird", "Thunderbird"),
+            ("com.slack", "Slack"),
+            ("org.gnome.Software", "Software"),
+            ("me.aresa.glimpse", "glimpse"),
+        ];
+
+        APPS.iter()
+            .map(|(key, app)| Group {
+                key: (*key).to_owned(),
+                app_name: (*app).to_owned(),
+                notifications: (0..8)
+                    .map(|index| Notification {
+                        key: format!("{key}-{index}"),
+                        summary: format!("{app} message {}", index + 1),
+                        body: Some(Body::Plain(format!(
+                            "Notification number {} from this application today.",
+                            index + 1
+                        ))),
+                        when: format!("{}m", (index + 1) * 3),
+                        icon: Some(themed_icon("user-available-symbolic")),
+                        unread: index < 2,
+                        ..Notification::default()
+                    })
+                    .collect(),
+            })
+            .collect()
     }
 
     fn filled() -> Vec<Group> {
@@ -1655,9 +1769,9 @@ fn ensure_types() {
     use glimpse_widgets::{
         Calendar, CalendarPopover, ChoiceList, ClockRow, EventList, EventRow, FactList,
         ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup,
-        Notice, NotificationItem, NotificationList, NotificationsPopover, NowPlaying, Pager, Panel,
-        Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row, Scrubber,
-        Section, SplitRow, Transport, WeatherPopover, WorldClock,
+        Notice, NotificationItem, NotificationList, NotificationStack, NotificationsPopover,
+        NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar,
+        Readout, Row, Scrubber, Section, SplitRow, Transport, WeatherPopover, WorldClock,
     };
 
     for widget in [
@@ -1674,6 +1788,7 @@ fn ensure_types() {
         Notice::static_type(),
         NotificationItem::static_type(),
         NotificationList::static_type(),
+        NotificationStack::static_type(),
         NotificationsPopover::static_type(),
         NowPlaying::static_type(),
         PlayerList::static_type(),

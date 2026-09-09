@@ -28,6 +28,9 @@ These decide the same way in many widgets; the sections below assume them.
 
 - **Every setter compares before it writes.** A caller can re-apply a whole spec every update
   without any of it reaching GTK. `gio::Icon` compares with `Icon::equal`.
+- **`icons_equal` and `none_if_empty` live in `lib.rs`.** Both had drifted into a copy per widget —
+  three and four respectively, all byte-identical. A helper this small is easier to paste than to
+  find, which is exactly how it ends up with four homes and no owner.
 - **A hover highlight is a promise that clicking does something.** A widget that only displays takes
   neither the pointer nor the focus.
 - **`get_visible()`, not `is_visible()`.** The second walks ancestors, so a `Row` inside a `Section`
@@ -429,6 +432,25 @@ scrape past, and `.notification__header` reserves `2.57rem` to clear it — the 
 hovering anywhere — header, image, the gap beside the actions — lights the same surface. Putting it
 on the button instead made the actions row read as a detached strip below a card.
 
+**The image and the progress bar sit *inside* that button.** They are content the notification is
+about, not chrome beside it, and parented as siblings of the button they lit the hover without
+being clickable — a screenshot thumbnail that looks like the subject of the card and does nothing
+when pressed. Only the actions row stays outside, because a button inside a button is not
+activatable. The horizontal margins went with the move: the button already pads `1.08rem` a side,
+so the image and the bar carry a top margin alone. A test asserts the picture's nearest `Gtk.Button`
+ancestor carries `notification__activate`, because nothing else notices when it drifts back out.
+
+**The picture takes `can-shrink: false`, and without it the image renders as nothing.** A
+`Gtk.Picture` left shrinkable reports a **5px minimum** however large its paintable — measured on
+the states board: `visible=true`, paintable `299x112`, and `measure` returning `(5, 117)`. In any
+container shorter than its natural height GTK squeezes children toward their minimums, and the
+picture is the only child of a card with a minimum near zero, so it absorbs the entire shortfall
+while every neighbour keeps its size. The board looked like a fixture that had not run; it was a
+window one card taller than the screen. The image is already bounded to `112px` before it is handed
+over, so refusing to shrink costs nothing and is what makes that bound the real size. The test
+asserts `min == natural` rather than a pixel count, because the top margin is in the measurement
+and a literal would pin the margin instead of the property.
+
 **Sizes come from GNOME Shell's own stylesheet, read off disk.**
 `/usr/share/gnome-shell/gnome-shell-theme.gresource` carries `gnome-shell-dark.css`, and its
 `.notification-banner` is `min-height: 64px; width: 34em; border-radius: 16px` — byte for byte what
@@ -647,10 +669,84 @@ written and never read.
 its spacing for one frame before the first update arrived. `set_visible` then follows the content:
 empty means gone, not blank.
 
+**`set_cap` hides rows rather than dropping them.** A capped list keeps every row built and marks
+the ones past the cap `visible: false`, so expanding is a visibility flip rather than a rebuild and
+a row that was mid-hover or mid-press survives it. `hidden()` reports how many are held back, which
+is what the caller's expander is labelled from; `cap()` is the expanded/collapsed state itself, so
+nothing has to keep a second flag beside it.
+
 `Notification` carries `Option<Body>`, which is `Plain` or `Markup`. The distinction is the
 sender's: a body only becomes `Markup` after `glimpse_utils::markup::sanitize_body`, and
 `NotificationItem` still refuses it if Pango does. `progress` is an `Option<f64>` here and a plain
 negative in the widget, because a GObject property cannot be null.
+
+## NotificationStack
+
+The on-screen surface: a front card with the edges of the ones behind it showing below, and a chip
+that fans them apart and folds them back. `set_items(&[Notification])` and `set_collapsed(bool)` are
+the whole inlet. It shares `dress` with `NotificationList`, so a card is filled by exactly one
+function on both surfaces.
+
+**It has no `BoxLayout`, and could not have one.** The brief said to follow `IndicatorGroup` — a
+`BoxLayout` set in `class_init` with children parented by `insert_after`. That does not survive the
+geometry: the cards behind must overlap the front one and sit against *its measured height*, and a
+box cannot overlap children at all. `Gtk.Overlay` fails for a second reason, recorded in the mockup
+that specified this widget — it takes its size from its main child, so it would need the height it
+is being asked to produce. So `measure` and `size_allocate` are implemented directly, which is also
+the only way the step and inset stay honest when the front card's height changes with its body.
+
+**Paint order is child order, so the strips are parented ahead of the front card.** This is the one
+thing that is easy to get backwards and invisible in code review: allocating a strip first does
+nothing, because GTK paints `first_child` first. A strip parented *after* the front card is drawn
+over the card it is supposed to sit behind, and the symptom is a bar across the bottom of the
+notification rather than an edge peeking out from under it. `arrange` builds the whole child order
+in one pass — strips, then cards, then the chip — and the GTK test asserts the first child carries
+`notification-stack__strip`.
+
+**The cards behind are strips, not notifications.** They are empty `Gtk.Box`es 30px tall. Rendering
+three live `NotificationItem`s to show two 7px slivers would measure and style two cards nobody can
+read; the second and later notifications are held as widgets so their identity survives, but they
+are `visible: false` while collapsed and the strips stand in for them. Depth is capped at two,
+because a third sliver is not distinguishable from the second.
+
+**It is a surface, so it paints one — and that is not cosmetic.** `.notification-stack` sets
+`color` and gives its cards an opaque `--gl-surface` background, exactly as `.popover-shell` does.
+Inside a popover a card can afford `--gl-hover`, an 8% tint, because an opaque popover sits behind
+it; on the desktop there is nothing behind it but wallpaper. Measured in the preview: with the card
+left translucent the strips showed *through* it, brightening its lower third into a muddy band
+instead of hiding, and the summary and body — which set no colour of their own and so inherit —
+came out white on white in the light scheme. Both were invisible to the GTK test, which never
+renders.
+
+**The strips mix toward the foreground rather than shading.** `shade()` moves lightness one
+absolute way, so "recede" reads on a white surface and disappears on a charcoal one — measured, the
+edges became indistinguishable from the card's own drop shadow in dark. `mix(--gl-surface,
+--gl-surface-fg, N)` darkens on light and lightens on dark, which is what `--gl-hover` and
+`--gl-active` already do, only opaque.
+
+**The chip is the only control, and it goes both ways.** It reads `N notifications` with a
+chevron down when collapsed and `Collapse` with a chevron up when fanned — one control that opens
+and closes, per the drawer rule. It hides itself entirely below two notifications, because one
+notification has nothing to collapse and a chip offering to fold it is a control that does nothing.
+The chevron is swapped by icon name rather than rotated in CSS, so nothing depends on
+`-gtk-icon-transform` being supported.
+
+**`STEP`, `INSET` and `STRIP_HEIGHT` come from the mockup**, not from taste:
+`var/mockups/direction/src/notif_stack.py` is where 7, 9 and 30 were chosen, and the widget
+reproduces its arithmetic — strip *i* is `INSET * i` in from each side and its bottom edge sits
+`STEP * i` below the front card's. The GTK test pins `STEP` by comparing a three-card stack against
+a two-card one: the front card and the chip are identical in both, so the difference cannot be
+anything else.
+
+**It reconciles by key without `reconcile::by_key`.** That helper's final pass asserts that the
+items are the parent's *only* children, and re-inserts anything whose `prev_sibling` disagrees —
+which fights `arrange` over the strips on every update. The key matching here is the same; the
+ordering is not, because this widget has three kinds of child rather than one.
+
+**The strip's corner radius is written out rather than shared.** `--gl-notification-radius` is
+declared on `.notification` and inherits to its descendants; a strip is a sibling, so the variable
+does not reach it. Promoting it to `:root` would be a thirty-second token, and `theme::tests`
+asserts the count on purpose.
 
 ## NotificationsPopover
 
@@ -658,6 +754,33 @@ negative in the widget, because a GObject property cannot be null.
 holding a `NotificationList`, a `Notice` for the failure state, a `Placeholder` for the empty one,
 and two footer rows. Groups reconcile by key through `reconcile::by_key`, the same way the list
 reconciles its rows.
+
+**The clear row carries `row--danger`.** The two footer rows sit side by side in one band at the
+same size, and one of them throws away every notification the reader has not read. Identical rows
+where one is destructive is a misclick waiting to happen; `--gl-danger-text` on its title is what
+separates them. Colour is reinforcement rather than the whole signal — the labels already differ —
+which is what keeps it honest for a reader who cannot tell the two hues apart.
+
+**A group collapses to three, and the control is a toggle.** Six applications at eight notifications
+each is roughly 240rem of popover with nothing to stop it, and *no board in this crate reached that
+state* — every one is hand-authored at four to ten items, which is exactly why it went unseen. GNOME
+collapses a group to three; `GROUP_CAP` is that number. Past it the section shows a `Row` reading
+`N more notifications`, and pressing it reads `Show less` and closes again. `var/widget_examples/`
+now carries a **Dense** case that builds the 6x8 state, so the next person does not have to imagine
+it.
+
+**The expander goes away when the group stops overflowing.** A group dismissed down to two while
+expanded would otherwise leave `Show less` standing over nothing, which is the drawer rule applied
+to a different control. `set_groups` puts the cap back whenever the group fits inside it.
+
+**Per-group clear lives in a new `Section` `[trail]` slot**, and the two features shipped together
+because they wanted the same slot. The button reports the group's `key` — captured when the section
+is built, which is safe here for the same reason it is safe in `NotificationList`: `by_key` only
+ever hands a section back for the key it was built for.
+
+**Finding the list and the expander is a walk, not a second collection.** `descendant::<T>` replaced
+`list_in` and now serves both. The alternative is the popover holding a parallel structure keyed the
+same way as `sections`, which is two things to keep in agreement instead of one.
 
 **Grouping keys on the sender's identity, never on `app_name`.** The name is chosen by whoever sent
 the notification, so grouping on it lets any application file its notifications under another's

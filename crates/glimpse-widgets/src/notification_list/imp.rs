@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::sync::OnceLock;
 
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
@@ -12,6 +12,7 @@ const SPACING: u32 = 6;
 pub struct NotificationList {
     pub notifications: RefCell<Vec<Notification>>,
     pub rows: RefCell<Vec<(String, NotificationItem)>>,
+    pub cap: Cell<Option<usize>>,
 }
 
 #[glib::object_subclass]
