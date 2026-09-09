@@ -29,7 +29,10 @@ pub fn sanitize_body(body: &str) -> String {
         })
         .collect();
 
-    SANITIZER.clean(&bounded).to_string().replace(NBSP, "\u{a0}")
+    SANITIZER
+        .clean(&bounded)
+        .to_string()
+        .replace(NBSP, "\u{a0}")
 }
 
 #[cfg(test)]

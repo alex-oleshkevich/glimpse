@@ -107,6 +107,37 @@ here rather than in the crate that happened to need it first. `glimpse-composito
 same predicate for window titles and has not been folded in: a second copy of a five-line function
 is cheaper than a third crate taking a dependency on this one to avoid it.
 
+## Markup
+
+`sanitize_body(body)` turns a notification body written by another application into Pango markup.
+It bounds the input, replaces bidi overrides and control characters with spaces — keeping `\n`,
+which a body legitimately uses and which `clean` would flatten — then runs `ammonia` with
+`tags(["b", "i", "u"])`, `link_rel(None)` and `strip_comments(true)`.
+
+Three measurements decide the shape, all of them made against real `ammonia 4`, `pango 0.22` and a
+`GtkLabel` on GTK 4.22 rather than assumed:
+
+**Pango markup has no `<a>`**; its element set is `b, big, i, s, sub, sup, small, tt, u, span`.
+`GtkLabel` accepts `<a href>` anyway, because it parses links itself before Pango sees the rest — so
+stripping links is a policy choice, not a technical one. It is still the right choice: a clickable
+attacker-controlled link in a surface the user did not deliberately open is a phishing affordance.
+The link text survives; the URL does not.
+
+**`<span>` is stripped with its attributes.** `<span foreground="red" size="50pt">` is valid Pango,
+and letting it through lets any sender repaint and resize text inside the shell.
+
+**One named entity has to be rewritten by hand.** `ammonia` decodes every named entity to a literal
+character — `&mdash;`, `&hellip;`, `&rsquo;`, `&copy;`, `&euro;` — with a single exception:
+html5ever's serializer *re-encodes* U+00A0 as `&nbsp;`, which is the one entity name Pango does not
+know. A body carrying a non-breaking space therefore fails to parse, and a `GtkLabel` handed markup
+that fails to parse renders **empty** rather than showing raw tags. `.replace("&nbsp;", "\u{a0}")`
+is the whole fix; no entity table is needed, because `&`, `<`, `>`, `"` and U+00A0 are all that
+serializer emits as references.
+
+The previous implementation shipped without that replacement, and without a parse gate. The gate now
+lives at the widget, in `glimpse-widgets`, because it needs Pango and this crate takes no GTK
+dependency.
+
 ## Rules
 
 **Logs go to stderr, and the writer is set explicitly.** `tracing_subscriber::fmt()` defaults to
