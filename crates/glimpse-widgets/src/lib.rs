@@ -1059,6 +1059,15 @@ mod tests {
             "a popover with nothing in it offers no way to clear it"
         );
 
+        assert!(
+            popover.measure(gtk4::Orientation::Horizontal, -1).0
+                > PopoverShell::new()
+                    .measure(gtk4::Orientation::Horizontal, -1)
+                    .0,
+            "this popover sets a wider floor than the shared one, through a descendant selector \
+             that would stop matching silently if the nesting or the class names moved"
+        );
+
         popover.set_groups(&[group("a", "Telegram", 2), group("b", "PagerDuty", 1)]);
         let sections = children_of::<Section>(&popover_imp.groups.get());
         assert_eq!(sections.len(), 2);

@@ -419,9 +419,11 @@ reserve stable, so nothing reflows when the pointer arrives; the button stays cl
 focusable the whole time, and `:focus-within` is what makes it appear for somebody who tabbed to it
 rather than pointed at it.
 
-It measures about 29px. That clears WCAG 2.2 SC 2.5.8's 24px minimum and is short of the 44px touch
-guidance — and the padding under it is GNOME's own 6px, so growing it would be a fifth departure
-bought for a touch target this shell does not have.
+It takes a `2.17rem` (32px) floor, which is `_old`'s `--space-9` and the one place `_old` was more
+generous than either GNOME or the first pass here: padding alone gave about 29px. That clears WCAG
+2.2 SC 2.5.8's 24px minimum either way, but 32px is a real target rather than one that happens to
+scrape past, and `.notification__header` reserves `2.57rem` to clear it — the button plus its
+`0.2rem` margin on each side.
 
 **One hover for the whole card.** `:hover` is on `.notification` rather than on the inner button, so
 hovering anywhere — header, image, the gap beside the actions — lights the same surface. Putting it
@@ -436,33 +438,64 @@ on the button instead made the actions row read as a detached strip below a card
 | GNOME Shell | | Here |
 | --- | --- | --- |
 | `.notification-banner` | `min-height: 64px; width: 34em; border-radius: 16px` | `4.35rem` / `34rem` / `1.1rem` |
-| `.message` + `.message-header` | `padding: 6px` + `0 6px` | `0.8rem` horizontal |
+| `.message` + `.message-header` | `padding: 6px` + `0 6px` | `0.75rem` / `1.08rem` — see `_old` below |
 | `.message-header` | `spacing: 6px` | `6` |
-| `.message-box .message-icon` | `icon-size: 48px` | `3.25rem` |
+| `.message-box .message-icon` | `icon-size: 48px` | `4.33rem` — see `_old` below |
 | `.message-content` | `spacing: 4px` | `0.27rem` |
-| `.notification-button` | `padding: 6px 12px; border-radius: 8px; font-weight: bold` | `0.4rem 0.8rem` / `0.55rem` / `700` |
+| `.notification-button` | `padding: 6px 12px; border-radius: 8px; font-weight: bold` | `0.4rem 0.8rem` / `0.41rem` / `700` |
 | `.notification-button` rest / hover | 15% / 30% white | `--gl-active` (16%) / `--gl-faint` (22%) |
 | `.message-close-button` | `margin: 3px; padding: 6px; border-radius: 999px` | `0.2rem` / `0.4rem` / `999px` |
 
-Four deliberate departures. **Vertical padding is `0.75rem`, not GNOME's 6px** — its notifications
-read tighter than this shell wants, and the extra air was asked for directly. **The floor is `5rem`,
-not GNOME's 64px**, because 64px is *below* what a card carrying a 48px icon measures once that
-padding is added: the floor bound only the notifications without an icon, so those sat two pixels
-shorter than the ones beside them. A floor has to clear the tallest thing it is a floor for, and
+Deliberate departures. **Vertical padding is `0.75rem`, not GNOME's 6px** — its notifications
+read tighter than this shell wants, and the extra air was asked for directly. **The floor is `6rem`,
+not GNOME's 64px**, because 64px is *below* what a card carrying its icon measures once that
+padding is added: the floor bound only the notifications without an icon, so those sat shorter than
+the ones beside them. A floor has to clear the tallest thing it is a floor for, and
 `widgets` asserts it by measuring a summary-only notification with and without an icon and requiring
-the same answer. And **every action and
-the close button carry `min-height: 0`**: GNOME's St buttons have no intrinsic minimum, but Adwaita's
-`button` rule gives every `Gtk.Button` one, so without that reset the padding sits inside a floor
-nobody wrote and the buttons come out visibly tall. That is not a style preference, it is the
-difference between the two toolkits.
+the same answer. **Do not compute that floor — measure it.** `6rem` is not `4.33rem + 2 × 0.75rem`;
+that arithmetic gives `5.83rem`, and the assertion failed at 86 against 88 because a `Gtk.Image`
+does not allocate exactly its `min-height`. The test is the only authority on this number, and
+raising the icon means running it again rather than adding up the parts.
+
+And **every action carries `min-height: 0`**: GNOME's St buttons have no intrinsic minimum, but
+Adwaita's `button` rule gives every `Gtk.Button` one, so without that reset the padding sits inside a
+floor nobody wrote and the buttons come out visibly tall. That is not a style preference, it is the
+difference between the two toolkits. The close button is the exception and takes a floor of its
+own — see below.
+
+**Four sizes come from `_old`, not from GNOME**, ported deliberately after both were compared:
+the icon box is `4.33rem` (64px) against GNOME's 48px, horizontal card padding is `1.08rem` (16px)
+against GNOME's 6px, the close button takes a `2.17rem` (32px) minimum where GNOME sets none, and an
+action's radius is `0.41rem` (6px) rather than 8px. The image, progress and action rows carry the
+same `1.08rem` side margin so they stay aligned with the text column above them.
+
+The icon is what makes a card feel airy, and the padding is not. `_old` reads roomier than GNOME
+while setting *less* vertical padding — 8px against our 11px — because an 8px pad around a 64px icon
+still measures taller than an 11px pad around a 48px one. Reasoning about air from the padding value
+alone points the wrong way; the icon sets the height and the horizontal padding sets the rest.
+
+**The app name stays at `--gl-text-caption` even though `_old` set it at full UI size.** That
+worked there because `_old`'s summary was bold, so a same-sized app name beside it still read as
+secondary. Our summary is not bold, so matching `_old` here would put two items of identical size
+and near-identical weight in the same line and flatten the hierarchy the tonal scale exists to
+carry. The size is `_old`'s; the reason it worked is not ours to port.
 
 **The summary is not bold**, where GNOME sets `.message-title { font-weight: bold }` and `_old` set
 `--font-weight-bold`. Both references say bold and this shell says no: hierarchy inside the card is
-tonal instead — the summary at the inherited foreground, the body at `--gl-muted`, the app name at
+tonal instead — the summary and the body at the inherited foreground, the app name at
 `--gl-muted`, the time at `--gl-dim`. Nothing competes by weight. That also retired
 `.notification--unread .notification__summary`, which existed to push an unread title to full
 strength against a bold baseline and, with no weight left to contrast against, set exactly what the
 title already inherited. The dot beside the time is now the only thing carrying unread.
+
+**The body reads at the summary's colour, not at `--gl-muted`.** It was dimmed, which together with
+an unbolded summary meant the card separated its two lines twice over — once by weight, which had
+been given up, and once by tone. Asked for directly, and the reason the references can afford it is
+that GNOME and `_old` both bold the title, so a full-strength body still sits below it. **We have
+neither, so summary and body are now identical in size, weight and colour**, and what separates them
+is position alone: the summary is the first line, the body wraps beneath it. That is a real cost and
+it is recorded here rather than argued away — if the card ever reads as one undifferentiated block,
+the weight is what to give back, not the tone.
 
 Reaching for numbers of your own here is re-deciding something two implementations already decided.
 
@@ -650,6 +683,13 @@ being reported back, not to stop it being drawn.
 
 **The failure wording is the widget's; the detail is the caller's.** `set_trouble` takes only the
 detail, because the headline is the same every time and only the caller knows which name was taken.
+
+**This popover is wider than every other one, and says so itself.**
+`.notifications-popover .popover-shell` sets `min-width: 42rem` (620px, `_old`'s `--popover-xlarge-width`)
+rather than raising `--gl-popover-min-width`, which is `27rem` and shared by audio, calendar, weather
+and the rest — widening that would move every board in the crate for the sake of one surface. The
+card's own `34rem` floor no longer binds here; the cards stretch to the shell because a `Gtk.Box`
+child fills its allocation, so nothing needs `hexpand` to fill the extra width.
 
 **The groups box starts hidden.** It is empty until the first update, and a `Gtk.Box` is visible by
 default — without it the popover holds the box's space for one frame beside the placeholder that is

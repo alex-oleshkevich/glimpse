@@ -194,8 +194,12 @@ window for a dev loop that does not disturb the running session.
 A recipe that is missing or wrong gets fixed in the `justfile`. Do not work around it with a raw
 cargo invocation.
 
-**Previewing a widget.** `just preview <blueprint.blp>` renders one blueprint with the **real
-widgets** and reloads it whenever the blueprint or the theme is saved. It is a cargo example in
+**Previewing a widget.** `just preview <path/to/blueprint.blp>` renders one blueprint with the **real
+widgets** and reloads it whenever the blueprint or the theme is saved. **The path is passed straight
+through to the example and resolved against the working directory** — there is no search of
+`var/widget_examples/`, so a bare `notification_states.blp` looks for it in the repository root and
+fails. The failure is legible rather than silent: the compiler's error is rendered into the preview
+window in red, which is why the window opens at all. It is a cargo example in
 `glimpse-widgets`, so it links the crate: `Gtk.Builder` resolves `$PopoverShell` and `$Hero` to the
 Rust types, not to look-alikes. `Esc` closes it.
 
