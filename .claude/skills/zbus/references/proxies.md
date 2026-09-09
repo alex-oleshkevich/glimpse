@@ -83,10 +83,20 @@ short-lived proxies.
 property and generates no `receive_*_changed` method, because the peer makes no promise to tell you.
 Declare it to match the remote interface, not to match what you wish were true:
 
+**`emits_changed_signal` nests inside `property`, it is not a sibling of it.** Written flat it fails
+with `error: unknown attribute 'emits_changed_signal'`, which names the argument rather than the
+shape and reads like a version problem. `def_attrs!` in `zbus_macros/src/proxy.rs` declares it as a
+nested `PropertyAttributes` group, and that is the file to trust — measured against 5.19.
+
 ```rust
-#[zbus(property, emits_changed_signal = "const")]
+#[zbus(property(emits_changed_signal = "const"))]
 fn protocol_version(&self) -> zbus::Result<i32>;
 ```
+
+The four accepted values are `"true"` (the default when the attribute is absent), `"invalidates"`,
+`"const"` and `"false"`. Only `"false"` registers the property as uncached *and* suppresses the
+`cached_*` getter; `"const"` suppresses the listener but keeps the cache, so reaching for it to stop
+a stale read leaves the read exactly as stale. MPRIS `Position` is the case in the tree.
 
 `"const"` caches forever and generates no listener. `"invalidates"` behaves like `"true"` on the
 proxy side — the signal names the property without carrying its value, and zbus re-fetches.

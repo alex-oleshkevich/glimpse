@@ -8,7 +8,8 @@ description: D-Bus clients and services in Rust with zbus 5. Use for any code in
 D-Bus in `glimpsed` and `glimpse-services`. Every mirror service is a zbus client; two owned
 services are zbus servers.
 
-**Verified against zbus 5.16, zvariant 5.12, zbus_macros 5.16.** The signatures in
+**The workspace is locked to zbus 5.19.0 / zbus_macros 5.19.0** — check `Cargo.lock` rather than
+this line, which has been stale once. The signatures in
 `references/interfaces.md` were captured by introspecting a live session bus and system bus, not
 copied from documentation.
 
