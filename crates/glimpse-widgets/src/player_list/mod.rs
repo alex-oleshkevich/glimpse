@@ -9,8 +9,12 @@ use crate::Row;
 
 const JOIN: &str = " · ";
 
+/// `key` is what a row reports when it is activated. Rows are reused in place as the list changes,
+/// so a position says nothing durable about which player it stands for, and a caller resolving one
+/// against its own copy of the list has to keep two orderings in step.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Player {
+    pub key: String,
     pub name: String,
     pub icon_name: String,
     pub title: String,
@@ -44,19 +48,19 @@ impl PlayerList {
         self.render();
     }
 
-    pub fn connect_activated<F: Fn(&Self, u32) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+    pub fn connect_activated<F: Fn(&Self, String) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "activated",
             false,
-            glib::closure_local!(move |list: Self, index: u32| f(&list, index)),
+            glib::closure_local!(move |list: Self, key: String| f(&list, key)),
         )
     }
 
-    pub fn connect_toggled<F: Fn(&Self, u32) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+    pub fn connect_toggled<F: Fn(&Self, String) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             "toggled",
             false,
-            glib::closure_local!(move |list: Self, index: u32| f(&list, index)),
+            glib::closure_local!(move |list: Self, key: String| f(&list, key)),
         )
     }
 
@@ -84,19 +88,35 @@ impl PlayerList {
         }
     }
 
+    /// The row's key is read back at the moment it fires, not captured when it was built: `render`
+    /// reuses a row in place, so a key captured here would name whichever player happened to hold
+    /// that position first.
     fn build_row(&self, index: u32) -> PlayerRow {
         let row = PlayerRow::new();
         row.connect_clicked(glib::clone!(
             #[weak(rename_to = list)]
             self,
-            move |_| list.emit_by_name::<()>("activated", &[&index])
+            move |_| list.report("activated", index)
         ));
         row.connect_toggled(glib::clone!(
             #[weak(rename_to = list)]
             self,
-            move |_| list.emit_by_name::<()>("toggled", &[&index])
+            move |_| list.report("toggled", index)
         ));
         row
+    }
+
+    fn report(&self, signal: &str, index: u32) {
+        let key = self
+            .imp()
+            .players
+            .borrow()
+            .get(index as usize)
+            .map(|player| player.key.clone());
+
+        if let Some(key) = key {
+            self.emit_by_name::<()>(signal, &[&key]);
+        }
     }
 }
 

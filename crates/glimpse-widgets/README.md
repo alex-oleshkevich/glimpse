@@ -712,6 +712,71 @@ away is closed — the rule that a drawer never stands open on nothing.
 row that opened it is the row that closes it. A key nothing built opens nothing rather than
 revealing an empty drawer.
 
+## `MprisPopover` and `artwork`
+
+The mpris applet's popover: `NowPlaying` as the hero, a `Section` of the other players, and the
+footer. It **composes** `NowPlaying` rather than reassembling it — that widget is the primary player
+in full and the lock screen is its second reader, so `player()` hands back the real thing and a
+caller reaches its `Scrubber` and `Transport` through it. Nothing here duplicates a setter it
+already has.
+
+**The "Playing to" section in `var/widget_examples/mpris.blp` is not built here.** It is a
+`ChoiceList` of audio sinks, and nothing in `mpris.players` can fill it; it arrives with an audio
+service. The example is a composition of primitives rather than a template of this widget, so it
+keeps standing as the record of where this is going.
+
+**No count on the section.** The example carried one and `Section` has the property, but neither is
+permission — the list below it already shows how many there are, which is the same argument
+`WorkspacesPopover` settles by counting nothing.
+
+**Both row signals carry the player's key.** `raise-requested` is the row body, `toggle-requested`
+its trail button. `PlayerList` reads that key out of its own model at the moment the row fires
+rather than capturing it when the row was built, because `render` reuses a row in place — a captured
+key would name whichever player happened to hold that position first. An index would be no better:
+it is durable through a rebuild but says nothing about identity, and it makes every caller keep its
+own ordering in step with this one.
+
+**`set_others` takes an `Option`, and `None` is not an empty slice.** An empty `Section` shows its
+placeholder — that is what the placeholder is for — so a caller that has switched the section off
+needs a way to say so that is not "here are no players", which would render "Nothing else playing"
+at someone who asked for no section at all.
+
+### `artwork`
+
+A free function rather than a method, because `.claude/rules/ui.md` forbids a widget touching the
+filesystem — and a free one is what the lock screen can reach too.
+
+**That is the letter of the rule and not its intent.** What `ui.md` actually says is never to block
+the GTK main thread; the ban on a widget reaching the filesystem is the consequence. Moving the
+call to a free function in the same crate does not move it off that thread, and the mpris applet
+calls it from `refresh`. It is bounded rather than solved: `LARGEST` refuses an oversized source
+from the header before anything decodes it, the result is cached against its path so a track decodes
+once, and the call only happens while a popover is open. Decoding through the panel's own
+`Ctx`-and-`Sender` path, which is the mechanism the rule names, is the fix this has not had.
+
+`Gtk.Image` centres a paintable at the paintable's **own** aspect ratio. That is right for an icon
+and wrong for cover art: a 16:9 video thumbnail sits letterboxed inside the square slot, and the
+`border-radius` then clips nothing, so the popover surface shows through at the corners and reads as
+broken. Rather than replace the widget — `Gtk.Image` was chosen over `Gtk.Picture` for measured
+sizing reasons recorded above — it is handed a texture that is already square.
+
+Three things, in order, and the order is the point:
+
+- **`Pixbuf::file_info` reads the dimensions out of the header without decoding**, so a picture
+  beyond `LARGEST` per side is refused before anything expands it in memory. `mpris:artUrl` is
+  chosen by another application; this is the untrusted-text rule applied to pixels.
+- **Scaling is by the shorter side and only ever downward.** Cover, not contain — the shorter side
+  reaches the slot and the excess is cropped. A 64px thumbnail is left alone: enlarging it costs
+  memory and `Gtk.Image` scales whatever it is given up to the slot regardless.
+- **The crop is taken from the middle.**
+
+`cover(width, height, side)` is pure arithmetic returning the scale and the crop rectangle, so every
+case above is tested with no display, no file and no GTK. `artwork` is the thin part that reads the
+disk.
+
+`gdk::Texture::for_pixbuf` is deprecated since GTK 4.20; the texture is built through
+`gdk::MemoryTexture` from the pixbuf's own bytes instead.
+
 ## Translations
 
 A literal in a `.blp` that a person reads is marked `_("Text")`. GTK resolves it inside the

@@ -28,7 +28,9 @@ impl Scrubber {
     }
 }
 
-pub(crate) fn clock(seconds: f64) -> String {
+/// `m:ss`, gaining an `h:` only when it needs one. Public because the bar renders the same track
+/// beside this widget, and two spellings of one elapsed time disagree by a second.
+pub fn clock(seconds: f64) -> String {
     let seconds = seconds.max(0.0).round() as u64;
     let (hours, minutes, seconds) = (seconds / 3600, seconds / 60 % 60, seconds % 60);
     match hours {

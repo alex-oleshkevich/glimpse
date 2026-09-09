@@ -12,6 +12,7 @@
         <file>widgets/workspace_section.ui</file>
         <file>widgets/indicator.ui</file>
         <file>widgets/next_event_popover.ui</file>
+        <file>widgets/mpris_popover.ui</file>
         <file>widgets/notice.ui</file>
         <file>widgets/now_playing.ui</file>
         <file>widgets/pager_item.ui</file>

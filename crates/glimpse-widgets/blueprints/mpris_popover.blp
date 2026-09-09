@@ -1,0 +1,38 @@
+using Gtk 4.0;
+
+template $MprisPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "mpris-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $NowPlaying player {
+      icon-name: "multimedia-player-symbolic";
+    }
+
+    $Section others {
+      title: _("Other players");
+
+      styles [
+        "column",
+      ]
+
+      $PlayerList list {}
+
+      [placeholder]
+      $Placeholder nothing {
+        icon-name: "multimedia-player-symbolic";
+        title: _("Nothing else playing");
+        description: _("Only one player is running.");
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

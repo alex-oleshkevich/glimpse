@@ -10,7 +10,7 @@ use std::process::ExitCode;
 use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
-use glimpse_services::{Calendar, Compositor, Geolocation, Heartbeat, Solar, Weather};
+use glimpse_services::{Calendar, Compositor, Geolocation, Heartbeat, Mpris, Solar, Weather};
 use glimpse_utils::{init_app_tracing, init_locale};
 
 use crate::daemon::{Daemon, DaemonError, Filter};
@@ -51,6 +51,7 @@ async fn run(cli: Cli) -> Result<()> {
         .register::<Compositor>()
         .register::<Calendar>()
         .register::<Weather>()
+        .register::<Mpris>()
         .run(&socket, config, cli.config.config)
         .await?;
 

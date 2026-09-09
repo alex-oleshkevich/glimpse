@@ -43,6 +43,10 @@ fn main() {
             "blueprints/next_event_popover.blp",
             "resources/widgets/next_event_popover.ui",
         ),
+        (
+            "blueprints/mpris_popover.blp",
+            "resources/widgets/mpris_popover.ui",
+        ),
         ("blueprints/notice.blp", "resources/widgets/notice.ui"),
         (
             "blueprints/now_playing.blp",

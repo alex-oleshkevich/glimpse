@@ -723,8 +723,11 @@ mod fixtures {
             player,
             #[weak]
             list,
-            move |_, index| {
-                media.borrow_mut().entries.swap(0, index as usize + 1);
+            move |_, key| {
+                let Some(index) = other(&media.borrow(), &key) else {
+                    return;
+                };
+                media.borrow_mut().entries.swap(0, index);
                 show(&media.borrow(), &player, &list);
             }
         ));
@@ -736,10 +739,13 @@ mod fixtures {
             player,
             #[weak]
             list,
-            move |_, index| {
+            move |_, key| {
+                let Some(index) = other(&media.borrow(), &key) else {
+                    return;
+                };
                 {
                     let mut media = media.borrow_mut();
-                    let entry = &mut media.entries[index as usize + 1];
+                    let entry = &mut media.entries[index];
                     entry.playing = !entry.playing;
                 }
                 show(&media.borrow(), &player, &list);
@@ -780,6 +786,17 @@ mod fixtures {
         );
     }
 
+    /// Where the row carrying `key` sits in `entries`. Rows cover `entries[1..]`, and the list
+    /// reports which player was clicked rather than which position, so the fixture looks it up.
+    fn other(media: &Media, key: &str) -> Option<usize> {
+        media
+            .entries
+            .iter()
+            .skip(1)
+            .position(|entry| entry.source().name == key)
+            .map(|index| index + 1)
+    }
+
     fn show(media: &Media, player: &NowPlaying, list: &PlayerList) {
         let current = &media.entries[0];
         let song = current.song();
@@ -808,6 +825,7 @@ mod fixtures {
         let players: Vec<Player> = media.entries[1..]
             .iter()
             .map(|entry| Player {
+                key: entry.source().name.to_owned(),
                 name: entry.source().name.to_owned(),
                 icon_name: entry.source().icon_name.to_owned(),
                 title: entry.song().title.to_owned(),

@@ -1,3 +1,4 @@
+mod artwork;
 mod calendar;
 mod calendar_popover;
 mod choice_list;
@@ -9,6 +10,7 @@ mod forecast;
 mod hero;
 mod indicator;
 mod indicator_group;
+mod mpris_popover;
 mod next_event_popover;
 mod notice;
 mod now_playing;
@@ -32,6 +34,7 @@ mod workspace_section;
 mod workspaces_popover;
 mod world_clock;
 
+pub use artwork::artwork;
 pub use calendar::{Calendar, Ymd};
 pub use calendar_popover::CalendarPopover;
 pub use choice_list::{Choice, ChoiceList};
@@ -41,6 +44,7 @@ pub use forecast::{Day, ForecastDay, ForecastHour, ForecastList, ForecastStrip, 
 pub use hero::Hero;
 pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
+pub use mpris_popover::MprisPopover;
 pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
 pub use now_playing::NowPlaying;
@@ -52,7 +56,7 @@ pub use popover_shell::PopoverShell;
 pub use range_bar::RangeBar;
 pub use readout::Readout;
 pub use row::Row;
-pub use scrubber::Scrubber;
+pub use scrubber::{Scrubber, clock};
 pub use section::Section;
 pub use split_row::SplitRow;
 pub use theme::Styles;
@@ -1504,6 +1508,7 @@ mod tests {
         let players = PlayerList::new();
         players.set_players(&[
             Player {
+                key: "firefox".to_owned(),
                 name: "Firefox".to_owned(),
                 icon_name: "web-browser-symbolic".to_owned(),
                 title: "How the Chip Shortage Ends".to_owned(),
@@ -1511,6 +1516,7 @@ mod tests {
                 playing: false,
             },
             Player {
+                key: "vlc".to_owned(),
                 name: "VLC".to_owned(),
                 icon_name: "video-x-generic-symbolic".to_owned(),
                 title: "The Wire".to_owned(),
@@ -1540,21 +1546,34 @@ mod tests {
         let promoted = Rc::new(RefCell::new(Vec::new()));
         players.connect_activated({
             let promoted = Rc::clone(&promoted);
-            move |_, index| promoted.borrow_mut().push(index)
+            move |_, key| promoted.borrow_mut().push(key)
         });
         let toggled = Rc::new(RefCell::new(Vec::new()));
         players.connect_toggled({
             let toggled = Rc::clone(&toggled);
-            move |_, index| toggled.borrow_mut().push(index)
+            move |_, key| toggled.borrow_mut().push(key)
         });
         player_rows[1].emit_clicked();
         toggle.emit_clicked();
-        assert_eq!(*promoted.borrow(), [1u32]);
+        assert_eq!(*promoted.borrow(), ["vlc".to_owned()]);
         assert_eq!(
             *toggled.borrow(),
-            [1u32],
+            ["vlc".to_owned()],
             "the button in the trail is a second gesture on the same row, and each carries the \
-             same index so one list handles both"
+             same key so one list handles both"
+        );
+
+        players.set_players(&[Player {
+            key: "vlc".to_owned(),
+            name: "VLC".to_owned(),
+            ..Default::default()
+        }]);
+        children_of::<PlayerRow>(&players)[0].emit_clicked();
+        assert_eq!(
+            *promoted.borrow(),
+            ["vlc".to_owned(), "vlc".to_owned()],
+            "a row is reused in place, so the key it reports is read back at the moment it fires \
+             rather than captured when the row was built"
         );
 
         let split = SplitRow::new();
@@ -2100,6 +2119,70 @@ mod tests {
             months.borrow().len(),
             2,
             "picking a day inside the month already shown asks the daemon for nothing new"
+        );
+
+        let mpris = MprisPopover::new();
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        mpris.connect_raise_requested({
+            let seen = seen.clone();
+            move |_, key| seen.borrow_mut().push(("raise", key))
+        });
+        mpris.connect_toggle_requested({
+            let seen = seen.clone();
+            move |_, key| seen.borrow_mut().push(("toggle", key))
+        });
+
+        mpris.set_others(None);
+        assert!(
+            !mpris.imp().others.is_visible(),
+            "a section switched off is hidden, not shown holding its own placeholder"
+        );
+
+        mpris.set_others(Some(&[]));
+        assert!(
+            mpris.imp().others.is_visible() && mpris.imp().others.empty(),
+            "one player running is not an empty popover, it is a popover with no others"
+        );
+        mpris.set_others(Some(&[
+            Player {
+                key: "firefox".to_owned(),
+                name: "Firefox".to_owned(),
+                icon_name: "firefox".to_owned(),
+                title: "Texas Sun".to_owned(),
+                artist: "Khruangbin".to_owned(),
+                playing: false,
+            },
+            Player {
+                key: "mpv".to_owned(),
+                name: "mpv".to_owned(),
+                icon_name: "mpv".to_owned(),
+                title: "Pisces".to_owned(),
+                artist: "Jinjer".to_owned(),
+                playing: true,
+            },
+        ]));
+        assert!(!mpris.imp().others.empty());
+
+        let rows = mpris.imp().list.imp().rows.borrow().clone();
+        rows[1].emit_by_name::<()>("clicked", &[]);
+        rows[0].emit_by_name::<()>("toggled", &[]);
+        assert_eq!(
+            *seen.borrow(),
+            [
+                ("raise", "mpv".to_owned()),
+                ("toggle", "firefox".to_owned())
+            ],
+            "a row reports the key of whatever player currently occupies it, through the popover"
+        );
+
+        mpris.set_footer(None);
+        assert!(!child_named::<gtk4::Box>(&mpris, "popover-shell__footer").is_visible());
+        mpris.set_footer(Some("Open Spotify"));
+        assert!(child_named::<gtk4::Box>(&mpris, "popover-shell__footer").is_visible());
+
+        assert!(
+            mpris.player().scrubber().is_ancestor(&mpris),
+            "the primary player is composed whole, not reassembled out of its parts here"
         );
 
         let weather = WeatherPopover::new();

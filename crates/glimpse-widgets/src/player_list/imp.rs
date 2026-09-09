@@ -28,10 +28,10 @@ impl ObjectImpl for PlayerList {
         SIGNALS.get_or_init(|| {
             vec![
                 glib::subclass::Signal::builder("activated")
-                    .param_types([u32::static_type()])
+                    .param_types([String::static_type()])
                     .build(),
                 glib::subclass::Signal::builder("toggled")
-                    .param_types([u32::static_type()])
+                    .param_types([String::static_type()])
                     .build(),
             ]
         })
