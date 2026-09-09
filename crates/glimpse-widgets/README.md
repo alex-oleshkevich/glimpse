@@ -573,6 +573,37 @@ sender's: a body only becomes `Markup` after `glimpse_utils::markup::sanitize_bo
 `NotificationItem` still refuses it if Pango does. `progress` is an `Option<f64>` here and a plain
 negative in the widget, because a GObject property cannot be null.
 
+## NotificationsPopover
+
+`PopoverShell` with a `Hero` carrying the do-not-disturb switch, a `Section` per application each
+holding a `NotificationList`, a `Notice` for the failure state, a `Placeholder` for the empty one,
+and two footer rows. Groups reconcile by key through `reconcile::by_key`, the same way the list
+reconciles its rows.
+
+**Grouping keys on the sender's identity, never on `app_name`.** The name is chosen by whoever sent
+the notification, so grouping on it lets any application file its notifications under another's
+heading. `Group.key` is the desktop entry or bus name; `app_name` is only ever displayed.
+
+**A section owns its list, and the popover holds no second collection beside it.** `by_key` tracks
+`(key, Section)`, and the list is found inside the section when it is dressed. The alternative — a
+parallel map from key to list — is two structures keyed the same way and two chances to disagree.
+
+**Setting do-not-disturb never reports it back.** A `Gtk.Switch` notifies on every change, including
+the one the caller just made to show the current state, and a popover that echoes that turns one
+update into a loop between the widget and whatever owns the value. `set_dnd` raises `echoing` while
+it drives the switch and the handler returns early on it; `widgets` asserts both halves — a
+programmatic set is silent, a viewer's flip is not.
+
+**The failure wording is the widget's; the detail is the caller's.** `set_trouble` takes only the
+detail, because the headline is the same every time and only the caller knows which name was taken.
+
+**The groups box starts hidden.** It is empty until the first update, and a `Gtk.Box` is visible by
+default — without it the popover holds the box's space for one frame beside the placeholder that is
+already saying the same thing.
+
+One notification under one application name gets no count. The name has already said it, and a `1`
+beside it is a number that never changes meaning.
+
 ## Readout, RangeBar, FactList, ChoiceList
 
 **`Readout`** — the large number in a hero slot. `value` and `unit` are separate labels sharing a

@@ -15,6 +15,7 @@ mod next_event_popover;
 mod notice;
 mod notification_item;
 mod notification_list;
+mod notifications_popover;
 mod now_playing;
 mod pager;
 mod panel;
@@ -51,6 +52,7 @@ pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
 pub use notification_item::{Action, NotificationItem, Urgency};
 pub use notification_list::{Body, Notification, NotificationList};
+pub use notifications_popover::{Group, NotificationsPopover};
 pub use now_playing::NowPlaying;
 pub use pager::{Focus, Pager, PagerItem, Shape, Slot};
 pub use panel::Panel;
@@ -1001,6 +1003,84 @@ mod tests {
             Some("Touched by hand"),
             "an unchanged slice is not re-applied: the stored copy exists to answer that, and \
              writing it back over an untouched row is the work this avoids"
+        );
+
+        let popover = NotificationsPopover::new();
+        let popover_imp = popover.imp();
+        let group = |key: &str, app: &str, count: usize| Group {
+            key: key.to_owned(),
+            app_name: app.to_owned(),
+            notifications: (0..count)
+                .map(|at| Notification {
+                    key: format!("{key}-{at}"),
+                    summary: format!("{app} {at}"),
+                    ..Notification::default()
+                })
+                .collect(),
+        };
+
+        assert!(
+            popover_imp.empty.get_visible()
+                && !popover_imp.groups.get_visible()
+                && !popover_imp.clear.get_visible(),
+            "a popover with nothing in it offers no way to clear it"
+        );
+
+        popover.set_groups(&[group("a", "Telegram", 2), group("b", "PagerDuty", 1)]);
+        let sections = children_of::<Section>(&popover_imp.groups.get());
+        assert_eq!(sections.len(), 2);
+        assert_eq!(sections[0].title().as_deref(), Some("Telegram"));
+        assert_eq!(
+            sections[0].count().as_deref(),
+            Some("2"),
+            "a count belongs beside a name it does not already repeat"
+        );
+        assert_eq!(
+            sections[1].count(),
+            None,
+            "one notification under one name is not worth a number"
+        );
+        assert!(popover_imp.clear.get_visible() && !popover_imp.empty.get_visible());
+
+        popover.set_groups(&[group("b", "PagerDuty", 1)]);
+        assert_eq!(
+            children_of::<Section>(&popover_imp.groups.get()).len(),
+            1,
+            "a group that goes away takes its section with it"
+        );
+
+        let toggles = Rc::new(Cell::new(0u32));
+        popover.connect_dnd_toggled({
+            let toggles = Rc::clone(&toggles);
+            move |_, _| toggles.set(toggles.get() + 1)
+        });
+
+        popover.set_dnd(true);
+        assert!(popover.dnd());
+        assert_eq!(
+            toggles.get(),
+            0,
+            "showing the state the caller already knows about must not report it back, or the \
+             two ends chase each other"
+        );
+
+        popover_imp.quiet.set_active(false);
+        assert_eq!(
+            toggles.get(),
+            1,
+            "a viewer flipping the switch is the case the signal exists for"
+        );
+
+        assert!(!popover_imp.trouble.get_visible());
+        popover.set_trouble(Some("org.freedesktop.Notifications is taken."));
+        assert!(popover_imp.trouble.get_visible());
+        popover.set_trouble(None);
+        assert!(!popover_imp.trouble.get_visible());
+
+        popover.set_groups(&[]);
+        assert!(
+            popover_imp.empty.get_visible() && !popover_imp.clear.get_visible(),
+            "clearing the last notification puts the placeholder back and takes the row away"
         );
 
         let readout = Readout::new();

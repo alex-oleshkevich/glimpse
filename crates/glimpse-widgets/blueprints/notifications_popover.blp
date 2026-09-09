@@ -1,0 +1,53 @@
+using Gtk 4.0;
+
+template $NotificationsPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "notifications-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "preferences-system-notifications-symbolic";
+      title: _("Notifications");
+    }
+
+    Gtk.Box column {
+      orientation: vertical;
+
+      styles [
+        "column",
+      ]
+
+      $Notice trouble {
+        visible: false;
+        severity: error;
+        icon-name: "dialog-error-symbolic";
+        title: _("Notifications are unavailable");
+      }
+
+      Gtk.Box groups {
+        orientation: vertical;
+        visible: false;
+      }
+
+      $Placeholder empty {
+        icon-name: "preferences-system-notifications-symbolic";
+        title: _("Nothing new");
+        description: _("You are all caught up.");
+      }
+    }
+
+    [footer]
+    $Row clear {
+      visible: false;
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

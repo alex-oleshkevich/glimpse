@@ -253,9 +253,10 @@ mod fixtures {
 
     use glimpse_widgets::{
         Action, Advisory, Body, Calendar, Choice, ChoiceList, Day, Event, EventList, Fact,
-        FactList, Focus, Hour, Indicator, IndicatorSpec, Notification, NotificationItem,
-        NotificationList, NowPlaying, Pager, Player, PlayerList, Repeat, Row, Severity, Shape,
-        Slot, SplitRow, TransportAction, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
+        FactList, Focus, Group, Hour, Indicator, IndicatorSpec, Notification, NotificationItem,
+        NotificationList, NotificationsPopover, NowPlaying, Pager, Player, PlayerList, Repeat, Row,
+        Severity, Shape, Slot, SplitRow, TransportAction, WeatherPage, WeatherPopover, WorldClock,
+        Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::RefCell;
@@ -293,6 +294,7 @@ mod fixtures {
             "notification_markup" => notification_markup(root),
             "notification_indicator" => notification_indicators(root),
             "notification_list" => notification_list(root),
+            "notifications" => notifications(root),
             _ => {}
         }
         drawer_nav(root);
@@ -1072,6 +1074,99 @@ mod fixtures {
         }
     }
 
+    fn notifications(root: &gtk4::Widget) {
+        let Some(popover) = find::<NotificationsPopover>(root) else {
+            eprintln!("the board carries no $NotificationsPopover, so there is nothing to fill");
+            return;
+        };
+
+        popover.set_clear_label(Some("Clear all"));
+        popover.set_footer(Some("Notification settings"));
+        popover.set_groups(&filled());
+
+        popover.connect_activated(|_, key| eprintln!("popover: {key} opened"));
+        popover.connect_dismissed(|_, key| eprintln!("popover: {key} dismissed"));
+        popover.connect_action_invoked(|_, key, action| eprintln!("popover: {key} -> {action}"));
+        popover.connect_clear_all(|popover| {
+            eprintln!("popover: clear all");
+            popover.set_groups(&[]);
+        });
+        popover.connect_footer_activated(|_| eprintln!("popover: settings"));
+        popover.connect_dnd_toggled(|_, silenced| eprintln!("popover: do not disturb {silenced}"));
+
+        for case in ["filled", "single", "empty", "trouble"] {
+            for button in tagged::<gtk4::Button>(root, case) {
+                button.connect_clicked(glib::clone!(
+                    #[weak]
+                    popover,
+                    move |_| match case {
+                        "filled" => {
+                            popover.set_trouble(None);
+                            popover.set_groups(&filled());
+                        }
+                        "single" => {
+                            popover.set_trouble(None);
+                            popover.set_groups(&filled()[..1]);
+                        }
+                        "empty" => {
+                            popover.set_trouble(None);
+                            popover.set_groups(&[]);
+                        }
+                        _ => {
+                            popover.set_groups(&[]);
+                            popover.set_trouble(Some("org.freedesktop.Notifications is taken."));
+                        }
+                    }
+                ));
+            }
+        }
+    }
+
+    fn filled() -> Vec<Group> {
+        let note = |key: &str, summary: &str, body: &str, when: &str| Notification {
+            key: key.to_owned(),
+            summary: summary.to_owned(),
+            body: Some(Body::Plain(body.to_owned())),
+            when: when.to_owned(),
+            icon: Some(themed_icon("user-available-symbolic")),
+            ..Notification::default()
+        };
+
+        vec![
+            Group {
+                key: "org.telegram.desktop".to_owned(),
+                app_name: "Telegram".to_owned(),
+                notifications: vec![
+                    Notification {
+                        unread: true,
+                        actions: vec![
+                            Action {
+                                key: "reply".to_owned(),
+                                label: "Reply".to_owned(),
+                            },
+                            Action {
+                                key: "mute".to_owned(),
+                                label: "Mute".to_owned(),
+                            },
+                        ],
+                        ..note("marta", "Marta Kaz", "Are we still on for 14:00?", "2m")
+                    },
+                    note("marta-2", "Marta Kaz", "Never mind, it settled.", "1h"),
+                ],
+            },
+            Group {
+                key: "com.pagerduty".to_owned(),
+                app_name: "PagerDuty".to_owned(),
+                notifications: vec![note(
+                    "incident",
+                    "#incidents",
+                    "glimpsed restarted on host build-03.",
+                    "26m",
+                )],
+            },
+        ]
+    }
+
     fn themed_icon(name: &str) -> gtk4::gio::Icon {
         gtk4::gio::ThemedIcon::new(name).upcast()
     }
@@ -1560,9 +1655,9 @@ fn ensure_types() {
     use glimpse_widgets::{
         Calendar, CalendarPopover, ChoiceList, ClockRow, EventList, EventRow, FactList,
         ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup,
-        Notice, NotificationItem, NotificationList, NowPlaying, Pager, Panel, Placeholder,
-        PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row, Scrubber, Section, SplitRow,
-        Transport, WeatherPopover, WorldClock,
+        Notice, NotificationItem, NotificationList, NotificationsPopover, NowPlaying, Pager, Panel,
+        Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar, Readout, Row, Scrubber,
+        Section, SplitRow, Transport, WeatherPopover, WorldClock,
     };
 
     for widget in [
@@ -1579,6 +1674,7 @@ fn ensure_types() {
         Notice::static_type(),
         NotificationItem::static_type(),
         NotificationList::static_type(),
+        NotificationsPopover::static_type(),
         NowPlaying::static_type(),
         PlayerList::static_type(),
         PlayerRow::static_type(),
