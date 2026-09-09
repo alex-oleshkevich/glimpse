@@ -253,8 +253,9 @@ mod fixtures {
 
     use glimpse_widgets::{
         Advisory, Calendar, Choice, ChoiceList, Day, Event, EventList, Fact, FactList, Focus, Hour,
-        NowPlaying, Pager, Player, PlayerList, Repeat, Row, Severity, Shape, Slot, SplitRow,
-        TransportAction, WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
+        Indicator, IndicatorSpec, NotificationItem, NowPlaying, Pager, Player, PlayerList, Repeat,
+        Row, Severity, Shape, Slot, SplitRow, TransportAction, WeatherPage, WeatherPopover,
+        WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::RefCell;
@@ -288,6 +289,9 @@ mod fixtures {
             "next_event" => next_event(root),
             "weather_popover" => weather_popover(root),
             "pager" => pager(root),
+            "notification_states" => notification_images(root),
+            "notification_markup" => notification_markup(root),
+            "notification_indicator" => notification_indicators(root),
             _ => {}
         }
         drawer_nav(root);
@@ -859,6 +863,203 @@ mod fixtures {
         .upcast()
     }
 
+    /// A paintable is not a property, so the one item that carries an image is filled here.
+    ///
+    /// The texture is generated wide and already inside the widget's bound, so the board shows an
+    /// image that was passed through rather than one that was resampled.
+    fn notification_images(root: &gtk4::Widget) {
+        for item in tagged::<NotificationItem>(root, "image") {
+            item.set_image(Some(&banner((196, 108, 62))));
+        }
+        for (case, tint) in [("avatar", (74, 138, 96)), ("avatar2", (92, 104, 168))] {
+            for item in tagged::<NotificationItem>(root, case) {
+                item.set_app_icon(Some(avatar(tint).upcast_ref::<gtk4::gio::Icon>()));
+            }
+        }
+        report_actions(root);
+    }
+
+    /// A sender's photo, which arrives as pixels rather than as an icon name. `gdk::Texture`
+    /// implements `gio::Icon`, so it goes through the same setter a themed name does.
+    fn avatar((r, g, b): (u8, u8, u8)) -> gdk::Texture {
+        const SIZE: usize = 128;
+        let mut pixels = Vec::with_capacity(SIZE * SIZE * 4);
+        for y in 0..SIZE {
+            for x in 0..SIZE {
+                let blend = (x + y) as f32 / (2 * SIZE) as f32;
+                let lift = |channel: u8| {
+                    (f32::from(channel) + (255.0 - f32::from(channel)) * 0.45 * blend) as u8
+                };
+                pixels.extend_from_slice(&[lift(r), lift(g), lift(b), u8::MAX]);
+            }
+        }
+        gdk::MemoryTexture::new(
+            SIZE as i32,
+            SIZE as i32,
+            gdk::MemoryFormat::R8g8b8a8,
+            &glib::Bytes::from_owned(pixels),
+            SIZE * 4,
+        )
+        .upcast()
+    }
+
+    fn banner((r, g, b): (u8, u8, u8)) -> gdk::Texture {
+        const WIDTH: usize = 448;
+        const HEIGHT: usize = 168;
+        let mut pixels = Vec::with_capacity(WIDTH * HEIGHT * 4);
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let blend = (x as f32 / WIDTH as f32 + y as f32 / HEIGHT as f32) / 2.0;
+                let shade = |channel: u8| (channel as f32 * (1.0 - 0.55 * blend)) as u8;
+                pixels.extend_from_slice(&[shade(r), shade(g), shade(b), u8::MAX]);
+            }
+        }
+        gdk::MemoryTexture::new(
+            WIDTH as i32,
+            HEIGHT as i32,
+            gdk::MemoryFormat::R8g8b8a8,
+            &glib::Bytes::from_owned(pixels),
+            WIDTH * 4,
+        )
+        .upcast()
+    }
+
+    /// Raw sender input, exactly as it would arrive over the bus. Everything but `raw` goes
+    /// through the shipped sanitizer first, which is the point of the board: the widget is handed
+    /// only what `sanitize_body` produced, and renders it only if pango accepts it.
+    const BODIES: [(&str, &str); 10] = [
+        ("telegram", "<b>Alice</b>\nHey there"),
+        (
+            "link",
+            r#"New <a href="https://example.com">message</a> &#9733; from Bob"#,
+        ),
+        ("nbsp", "Reminder&nbsp;&mdash;&nbsp;standup at 10:00"),
+        ("entities", "&mdash; &hellip; &rsquo; &copy; &trade; &euro;"),
+        (
+            "span",
+            r#"<span foreground="red" size="50pt">huge and red</span>"#,
+        ),
+        ("script", "<script>alert(1)</script>the rest of the body"),
+        ("ampersand", "5 < 10 && AT&T said so"),
+        ("unbalanced", "<b>bold that never closes"),
+        ("bidi", "Lunch\u{202e}gpj.exe"),
+        (
+            "raw",
+            "<b>Alice</b> &nbsp; <a href=\"https://x\">unsanitized</a>",
+        ),
+    ];
+
+    fn notification_markup(root: &gtk4::Widget) {
+        for (case, body) in BODIES {
+            for item in tagged::<NotificationItem>(root, case) {
+                item.set_tooltip_text(Some(body));
+                match case {
+                    "raw" => item.set_body_markup(Some(body)),
+                    _ => item
+                        .set_body_markup(Some(glimpse_utils::markup::sanitize_body(body).as_str())),
+                }
+            }
+        }
+    }
+
+    fn notification_indicators(root: &gtk4::Widget) {
+        let themed = |name: &str| gtk4::gio::ThemedIcon::new(name).upcast::<gtk4::gio::Icon>();
+        let bell = || Some(themed("preferences-system-notifications-symbolic"));
+        let muted = || Some(themed("notifications-disabled-symbolic"));
+
+        let specs: [(&str, IndicatorSpec); 6] = [
+            (
+                "idle",
+                IndicatorSpec {
+                    icon: bell(),
+                    tooltip: Some("No new notifications".to_owned()),
+                    ..IndicatorSpec::default()
+                },
+            ),
+            (
+                "unread",
+                IndicatorSpec {
+                    icon: bell(),
+                    badge: Some("3".to_owned()),
+                    tooltip: Some("3 new notifications".to_owned()),
+                    ..IndicatorSpec::default()
+                },
+            ),
+            (
+                "attention",
+                IndicatorSpec {
+                    icon: bell(),
+                    attention: true,
+                    tooltip: Some("New notifications".to_owned()),
+                    ..IndicatorSpec::default()
+                },
+            ),
+            (
+                "urgent",
+                IndicatorSpec {
+                    icon: bell(),
+                    badge: Some("1".to_owned()),
+                    severity: Some(Severity::Error),
+                    tooltip: Some("Battery is at 4%".to_owned()),
+                    ..IndicatorSpec::default()
+                },
+            ),
+            (
+                "dnd",
+                IndicatorSpec {
+                    icon: muted(),
+                    severity: Some(Severity::Info),
+                    tooltip: Some("Do not disturb until tomorrow".to_owned()),
+                    ..IndicatorSpec::default()
+                },
+            ),
+            (
+                "dnd_pending",
+                IndicatorSpec {
+                    icon: muted(),
+                    badge: Some("12".to_owned()),
+                    severity: Some(Severity::Info),
+                    tooltip: Some("12 waiting, do not disturb is on".to_owned()),
+                    ..IndicatorSpec::default()
+                },
+            ),
+        ];
+
+        for (case, spec) in &specs {
+            for indicator in tagged::<Indicator>(root, case) {
+                indicator.apply(spec);
+            }
+        }
+    }
+
+    /// Every `$NotificationItem` action in a board carries an `action__` class, so the shared
+    /// `actions` fixture already reports it. This adds the item's own signals, so dismissing one
+    /// in the board actually removes it.
+    fn report_actions(root: &gtk4::Widget) {
+        for item in collect::<NotificationItem>(root) {
+            let name = item.summary().unwrap_or_default();
+            item.connect_activated({
+                let name = name.clone();
+                move |_| eprintln!("notification: {name} opened")
+            });
+            item.connect_dismissed({
+                let name = name.clone();
+                move |item| {
+                    eprintln!("notification: {name} dismissed");
+                    item.set_visible(false);
+                }
+            });
+        }
+    }
+
+    fn tagged<T: IsA<gtk4::Widget>>(root: &gtk4::Widget, case: &str) -> Vec<T> {
+        let wanted = format!("{DEMO}{case}");
+        collect::<T>(root)
+            .into_iter()
+            .filter(|widget| widget.as_ref().has_css_class(&wanted))
+            .collect()
+    }
+
     fn page_stack(root: &gtk4::Widget) -> Option<(gtk4::Revealer, gtk4::Stack)> {
         collect::<gtk4::Revealer>(root)
             .into_iter()
@@ -1245,8 +1446,9 @@ fn ensure_types() {
     use glimpse_widgets::{
         Calendar, CalendarPopover, ChoiceList, ClockRow, EventList, EventRow, FactList,
         ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup,
-        Notice, NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow, PopoverShell,
-        RangeBar, Readout, Row, Scrubber, Section, SplitRow, Transport, WeatherPopover, WorldClock,
+        Notice, NotificationItem, NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow,
+        PopoverShell, RangeBar, Readout, Row, Scrubber, Section, SplitRow, Transport,
+        WeatherPopover, WorldClock,
     };
 
     for widget in [
@@ -1261,6 +1463,7 @@ fn ensure_types() {
         ForecastList::static_type(),
         ForecastStrip::static_type(),
         Notice::static_type(),
+        NotificationItem::static_type(),
         NowPlaying::static_type(),
         PlayerList::static_type(),
         PlayerRow::static_type(),

@@ -396,6 +396,131 @@ adding at most one class, so two can never both be on.
 **Not clickable by default.** `activatable: true` takes the pointer and focus *and* reveals the
 chevron, so affordance and behaviour cannot disagree.
 
+## NotificationItem
+
+One notification: an app icon or a sender's avatar, a summary, a body, a time, an optional image,
+an optional progress bar, and 0..N actions. It is the atom every other notification surface is built
+from — the popover groups them under a `Section`, the on-screen stack fans them out.
+
+**It subclasses `Gtk.Widget`, not `Gtk.Button`.** The item carries action buttons, and a button
+inside a button is not activatable in GTK4. The default action is an inner `Gtk.Button` covering the
+icon and text column, the same shape `SplitRow` uses; the close affordance is a `Gtk.Overlay` child
+above it, and the header row reserves 42px so the two cannot collide.
+
+**One hover for the whole card.** `:hover` is on `.notification` rather than on the inner button, so
+hovering anywhere — header, image, the gap beside the actions — lights the same surface. Putting it
+on the button instead made the actions row read as a detached strip below a card.
+
+**Sizes come from GNOME Shell's own stylesheet, read off disk.**
+`/usr/share/gnome-shell/gnome-shell-theme.gresource` carries `gnome-shell-dark.css`, and its
+`.notification-banner` is `min-height: 64px; width: 34em; border-radius: 16px` — byte for byte what
+`_old/themes/base.css` had, because the previous implementation was already following GNOME. Our
+`1rem` is the same 11pt as its `--font-size-base`, so the numbers convert directly:
+
+| GNOME Shell | | Here |
+| --- | --- | --- |
+| `.notification-banner` | `min-height: 64px; width: 34em; border-radius: 16px` | `4.35rem` / `34rem` / `1.1rem` |
+| `.message` + `.message-header` | `padding: 6px` + `0 6px` | `0.8rem` horizontal |
+| `.message-header` | `spacing: 6px` | `6` |
+| `.message-box .message-icon` | `icon-size: 48px` | `3.25rem` |
+| `.message-content` | `spacing: 4px` | `0.27rem` |
+| `.notification-button` | `padding: 6px 12px; border-radius: 8px; font-weight: bold` | `0.4rem 0.8rem` / `0.55rem` / `700` |
+| `.notification-button` rest / hover | 15% / 30% white | `--gl-active` (16%) / `--gl-faint` (22%) |
+| `.message-close-button` | `margin: 3px; padding: 6px; border-radius: 999px` | `0.2rem` / `0.4rem` / `999px` |
+
+Four deliberate departures. **Vertical padding is `0.75rem`, not GNOME's 6px** — its notifications
+read tighter than this shell wants, and the extra air was asked for directly. **The floor is `5rem`,
+not GNOME's 64px**, because 64px is *below* what a card carrying a 48px icon measures once that
+padding is added: the floor bound only the notifications without an icon, so those sat two pixels
+shorter than the ones beside them. A floor has to clear the tallest thing it is a floor for, and
+`widgets` asserts it by measuring a summary-only notification with and without an icon and requiring
+the same answer. And **every action and
+the close button carry `min-height: 0`**: GNOME's St buttons have no intrinsic minimum, but Adwaita's
+`button` rule gives every `Gtk.Button` one, so without that reset the padding sits inside a floor
+nobody wrote and the buttons come out visibly tall. That is not a style preference, it is the
+difference between the two toolkits.
+
+**The summary is not bold**, where GNOME sets `.message-title { font-weight: bold }` and `_old` set
+`--font-weight-bold`. Both references say bold and this shell says no: hierarchy inside the card is
+tonal instead — the summary at the inherited foreground, the body at `--gl-muted`, the app name at
+`--gl-muted`, the time at `--gl-dim`. Nothing competes by weight. That also retired
+`.notification--unread .notification__summary`, which existed to push an unread title to full
+strength against a bold baseline and, with no weight left to contrast against, set exactly what the
+title already inherited. The dot beside the time is now the only thing carrying unread.
+
+Reaching for numbers of your own here is re-deciding something two implementations already decided.
+
+**Actions size to their labels.** The row is `halign: start` and not homogeneous, so two short
+actions do not stretch to the width of the notification. The first action a sender lists carries
+`.notification__action--primary` and is the only one drawn as a filled button; the rest are
+transparent until hovered. The freedesktop specification gives actions no priority, so first-listed
+is the convention. **No accent is spent here** — a notification the user did not ask for is not the
+place for the loudest colour in the shell, and the filled-against-flat contrast already says which
+action is the expected one.
+
+**Unread is a dot, not a coloured edge.** An accent bar down the side of the card is chrome that
+competes with the accent already spent on the primary action. A 0.5rem dot beside the time is where
+mail and chat clients put it, costs no layout, and reads at a glance.
+
+**Body text is the one place `set_markup` is called in this crate**, and only through
+`body-markup`, whose setter runs `pango::parse_markup` first and falls back to rendering the string
+as literal text when it fails. That gate is load-bearing rather than defensive: measured on GTK 4.22,
+a `GtkLabel` handed markup Pango refuses renders **empty** and logs a warning — the body does not
+appear as raw tags, it disappears. The caller is expected to have run the text through
+`glimpse_utils::markup::sanitize_body` first; this crate does not depend on that one, so the
+contract is documentation plus the parse gate rather than a type.
+
+**`icon-name` and `set_app_icon` are the same slot, and its shape follows what arrived.** A
+`gdk::Texture` implements `gio::Icon`, so a themed name, a desktop entry's icon and a sender's photo
+all come through one setter. A circle is the universal avatar and every chat application has trained
+people to read it as a person — so a themed name, which is an application saying what it is, takes a
+rounded square, and pixels, which are almost always somebody's photo, keep the circle. `set_app_icon`
+decides that from the icon's own type and adds `.notification--avatar`; nothing has to be declared.
+Getting it wrong is not cosmetic: a circle around a camera glyph says a screenshot was sent by a
+contact.
+
+The slot sets `Overflow::Hidden` in `constructed`, without which a photo paints square over
+whichever radius the CSS drew.
+
+**The app name comes before the summary, not beside the time.** It is the first thing a reader
+needs in order to decide whether to care, and right-aligned next to the timestamp it was the
+dimmest, most crowded item on the card — two small grey things competing for one corner.
+
+**The image is bounded here, because the sender chose it.** `Gtk.Picture` asks for its paintable's
+own height, so an unbounded image makes the notification as tall as whoever sent it decided —
+measured, a 400x1200 image asked for 1256px of card. `set_image` therefore takes a `gdk::Texture`
+rather than any paintable, and scales anything over 112px tall down to it, keeping the aspect ratio;
+an image already inside the bound is passed through untouched. `widgets` asserts all three.
+
+The bound is a fraction of the card rather than a comfortable thumbnail size, and that is the point:
+the picture is content somebody else chose, and it should not be the loudest thing on a surface the
+reader did not open.
+
+The pixels are averaged in `bound` rather than handed to `gdk-pixbuf`, whose two entry points for
+this — `pixbuf_get_from_texture` and `Texture::for_pixbuf` — are deprecated in 4.12 and 4.20, and
+`just lint` runs with `-D warnings`. `Texture::download` writes `B8g8r8a8Premultiplied` and the
+result is rebuilt in the same format, so nothing is swizzled on the way through.
+
+**Actions are declarable.** `Gtk.Buildable` with kind `action` appends a button to the actions row,
+so a `.blp` states board covers most of the matrix with no fixture. `add_child` guards on
+`self.actions.try_get().is_none()`, or `init_template` routes its own children through the override
+and panics before the widget exists.
+
+**Urgency changes behaviour, not appearance.** The GNOME HIG has no urgency styling, and neither
+does the shipped sheet: `Critical` adds `.notification--critical` and nothing paints it. What the
+class is for is a theme that wants to, and the on-screen stack, which reads urgency to decide that a
+critical notification persists and ignores do-not-disturb. `Low` is not a value — this shell does
+not distinguish it, so a sender's low urgency arrives as `Normal`.
+
+**Three actions, and none of them repeats the default action.** `set_actions` trims to three,
+matching both the GNOME HIG and KDE's service; a longer list would grow the card sideways. The
+GNOME HIG also names the duplication trap directly — a mail notification needs no Open button,
+because clicking the body already opens it — so the applet chooses actions that are not the default.
+
+There is no inline reply and no timer in this widget. A reply field belongs to a surface that can
+take keyboard focus, which a panel popover cannot, and expiry is the stack's business, not the
+item's.
+
 ## Readout, RangeBar, FactList, ChoiceList
 
 **`Readout`** — the large number in a hero slot. `value` and `unit` are separate labels sharing a

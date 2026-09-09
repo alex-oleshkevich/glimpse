@@ -47,6 +47,10 @@ fn main() {
             "blueprints/mpris_popover.blp",
             "resources/widgets/mpris_popover.ui",
         ),
+        (
+            "blueprints/notification_item.blp",
+            "resources/widgets/notification_item.ui",
+        ),
         ("blueprints/notice.blp", "resources/widgets/notice.ui"),
         (
             "blueprints/now_playing.blp",

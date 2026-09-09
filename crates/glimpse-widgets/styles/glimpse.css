@@ -635,6 +635,141 @@
     color: var(--gl-danger-text);
 }
 
+.notification {
+    --gl-notification-radius: 1.1rem;
+    min-width: 34rem;
+    min-height: 5rem;
+    border-radius: var(--gl-notification-radius);
+    background-color: var(--gl-hover);
+    transition: background-color var(--gl-duration) var(--gl-ease);
+}
+
+.notification:hover {
+    background-color: var(--gl-active);
+}
+
+.notification__activate {
+    padding: 0.75rem 0.8rem;
+    border-radius: var(--gl-notification-radius);
+    font-weight: normal;
+    background: none;
+}
+
+.notification__activate:focus-visible {
+    outline: 2px solid var(--gl-accent-text);
+    outline-offset: -2px;
+}
+
+.notification__icon {
+    -gtk-icon-size: 2rem;
+    min-width: 3.25rem;
+    min-height: 3.25rem;
+    border-radius: 0.55rem;
+    background-color: var(--gl-faint);
+    color: var(--gl-surface-fg);
+}
+
+.notification--avatar .notification__icon {
+    border-radius: 999px;
+}
+
+.notification__summary {
+    font-size: var(--gl-text-body);
+}
+
+.notification__app {
+    font-size: var(--gl-text-caption);
+    font-weight: 600;
+    color: var(--gl-muted);
+}
+
+.notification__when {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-dim);
+    font-variant-numeric: tabular-nums;
+}
+
+.notification__body {
+    font-size: var(--gl-text-body);
+    color: var(--gl-muted);
+    padding-top: 0.27rem;
+}
+
+.notification__progress {
+    margin: 0.27rem 0.8rem 0.4rem 0.8rem;
+}
+
+.notification__progress trough,
+.notification__progress progress {
+    min-height: 0.3rem;
+    border-radius: 999px;
+}
+
+.notification__progress trough {
+    background-color: var(--gl-faint);
+}
+
+.notification__progress progress {
+    background-color: var(--gl-accent);
+}
+
+.notification__image {
+    margin: 0.27rem 0.8rem 0.4rem 0.8rem;
+    border-radius: 0.55rem;
+}
+
+.notification__actions {
+    margin: 0.27rem 0.8rem 0.4rem 0.8rem;
+}
+
+.notification__action {
+    min-width: 0;
+    min-height: 0;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.55rem;
+    font-size: var(--gl-text-caption);
+    font-weight: 700;
+    color: var(--gl-muted);
+    background-color: transparent;
+}
+
+.notification__action:hover {
+    color: var(--gl-surface-fg);
+    background-color: var(--gl-active);
+}
+
+.notification__action--primary {
+    color: var(--gl-surface-fg);
+    background-color: var(--gl-active);
+}
+
+.notification__action--primary:hover {
+    background-color: var(--gl-faint);
+}
+
+.notification__close {
+    min-width: 0;
+    min-height: 0;
+    margin: 0.2rem;
+    padding: 0.4rem;
+    border-radius: 999px;
+    color: var(--gl-dim);
+}
+
+.notification__close:hover {
+    color: var(--gl-surface-fg);
+    background-color: var(--gl-active);
+}
+
+.notification__unread-dot {
+    min-width: 0.5rem;
+    min-height: 0.5rem;
+    border-radius: 999px;
+    background-color: var(--gl-accent);
+}
+
+
+
 .readout__value {
     font-size: 2.6rem;
     font-weight: 300;

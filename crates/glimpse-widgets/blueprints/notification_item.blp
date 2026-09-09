@@ -1,0 +1,156 @@
+using Gtk 4.0;
+
+template $NotificationItem: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "notification",
+  ]
+
+  Gtk.Overlay overlay {
+    Gtk.Box column {
+      orientation: vertical;
+
+      Gtk.Button activate {
+        has-frame: false;
+
+        accessibility {
+          label: _("Notification");
+        }
+
+        styles [
+          "notification__activate",
+        ]
+
+        Gtk.Box {
+          orientation: horizontal;
+          spacing: 6;
+
+          Gtk.Image app_icon {
+            visible: false;
+            valign: start;
+            accessible-role: presentation;
+
+            styles [
+              "notification__icon",
+            ]
+          }
+
+          Gtk.Box {
+            orientation: vertical;
+            hexpand: true;
+
+            Gtk.Box {
+              orientation: horizontal;
+              spacing: 6;
+              margin-end: 34;
+
+              Gtk.Label app_name {
+                single-line-mode: true;
+                ellipsize: end;
+                max-width-chars: 14;
+                visible: false;
+                accessible-role: presentation;
+
+                styles [
+                  "notification__app",
+                ]
+              }
+
+              Gtk.Label summary {
+                single-line-mode: true;
+                ellipsize: end;
+                max-width-chars: 24;
+                xalign: 0;
+                hexpand: true;
+                visible: false;
+                accessible-role: presentation;
+
+                styles [
+                  "notification__summary",
+                ]
+              }
+
+              Gtk.Box unread_dot {
+                valign: center;
+                visible: false;
+                accessible-role: presentation;
+
+                styles [
+                  "notification__unread-dot",
+                ]
+              }
+
+              Gtk.Label when {
+                single-line-mode: true;
+                visible: false;
+                accessible-role: presentation;
+
+                styles [
+                  "notification__when",
+                ]
+              }
+            }
+
+            Gtk.Label body {
+              xalign: 0;
+              wrap: true;
+              wrap-mode: word_char;
+              lines: 3;
+              ellipsize: end;
+              max-width-chars: 34;
+              visible: false;
+              accessible-role: presentation;
+
+              styles [
+                "notification__body",
+              ]
+            }
+          }
+        }
+      }
+
+      Gtk.ProgressBar progress {
+        visible: false;
+
+        styles [
+          "notification__progress",
+        ]
+      }
+
+      Gtk.Picture picture {
+        content-fit: cover;
+        visible: false;
+        accessible-role: presentation;
+
+        styles [
+          "notification__image",
+        ]
+      }
+
+      Gtk.Box actions {
+        orientation: horizontal;
+        spacing: 6;
+        halign: start;
+        visible: false;
+
+        styles [
+          "notification__actions",
+        ]
+      }
+    }
+
+    [overlay]
+    Gtk.Button close {
+      icon-name: "window-close-symbolic";
+      has-frame: false;
+      halign: end;
+      valign: start;
+      tooltip-text: _("Dismiss");
+
+      styles [
+        "notification__close",
+      ]
+    }
+  }
+}

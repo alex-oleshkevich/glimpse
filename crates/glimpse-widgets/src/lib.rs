@@ -13,6 +13,7 @@ mod indicator_group;
 mod mpris_popover;
 mod next_event_popover;
 mod notice;
+mod notification_item;
 mod now_playing;
 mod pager;
 mod panel;
@@ -47,6 +48,7 @@ pub use indicator_group::IndicatorGroup;
 pub use mpris_popover::MprisPopover;
 pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
+pub use notification_item::{Action, NotificationItem, Urgency};
 pub use now_playing::NowPlaying;
 pub use pager::{Focus, Pager, PagerItem, Shape, Slot};
 pub use panel::Panel;
@@ -657,6 +659,216 @@ mod tests {
         });
         notice.set_icon_name(Some("dialog-warning-symbolic"));
         assert_eq!(notice_changes.get(), 0, "an equal icon is not reapplied");
+
+        let item = NotificationItem::new();
+        let item_summary = child_named::<gtk4::Label>(&item, "notification__summary");
+        let item_body = child_named::<gtk4::Label>(&item, "notification__body");
+        let item_icon = child_named::<gtk4::Image>(&item, "notification__icon");
+        let item_dot = child_named::<gtk4::Box>(&item, "notification__unread-dot");
+        let item_actions = child_named::<gtk4::Box>(&item, "notification__actions");
+        assert!(
+            !item_summary.get_visible()
+                && !item_body.get_visible()
+                && !item_icon.get_visible()
+                && !item_dot.get_visible()
+                && !item_actions.get_visible(),
+            "a notification with nothing in it reserves no slot"
+        );
+
+        let bare = NotificationItem::new();
+        bare.set_summary(Some("Volume mounted"));
+        let with_icon = NotificationItem::new();
+        with_icon.set_summary(Some("Volume mounted"));
+        with_icon.set_icon_name(Some("media-removable-symbolic"));
+        assert_eq!(
+            bare.measure(gtk4::Orientation::Vertical, -1).0,
+            with_icon.measure(gtk4::Orientation::Vertical, -1).0,
+            "the floor has to clear an icon and its padding, or a notification without one sits \
+             shorter than the card beside it"
+        );
+
+        {
+            let texture = |width: i32, height: i32| {
+                gdk::MemoryTexture::new(
+                    width,
+                    height,
+                    gdk::MemoryFormat::R8g8b8,
+                    &glib::Bytes::from_owned(vec![0u8; (width * height * 3) as usize]),
+                    (width * 3) as usize,
+                )
+                .upcast::<gdk::Texture>()
+            };
+            let shot = NotificationItem::new();
+            shot.set_summary(Some("Screenshot captured"));
+            let bare_natural = shot.measure(gtk4::Orientation::Vertical, -1).1;
+            let shot_picture = child_named::<gtk4::Picture>(&shot, "notification__image");
+
+            shot.set_image(Some(&texture(400, 1200)));
+            let bounded = shot_picture.paintable().expect("an image");
+            assert_eq!(
+                bounded.intrinsic_height(),
+                112,
+                "a Gtk.Picture asks for its paintable's own height, so an unbounded image makes \
+                 the notification as tall as whoever sent it decided: 400x1200 measured 1256px \
+                 of card"
+            );
+            assert_eq!(
+                bounded.intrinsic_width(),
+                37,
+                "the aspect ratio is the one thing a sender's image is entitled to keep"
+            );
+            assert!(
+                shot.measure(gtk4::Orientation::Vertical, -1).1 < bare_natural + 200,
+                "the card grows by the bound, not by the image"
+            );
+
+            shot.set_image(Some(&texture(448, 90)));
+            assert_eq!(
+                shot_picture
+                    .paintable()
+                    .expect("an image")
+                    .intrinsic_height(),
+                90,
+                "an image already inside the bound is passed through rather than resampled"
+            );
+
+            shot.set_image(None);
+            assert!(!shot_picture.get_visible());
+        }
+
+        let item_icon_changes = Rc::new(Cell::new(0u32));
+        item.set_icon_name(Some("dialog-information-symbolic"));
+        item_icon.connect_icon_name_notify({
+            let item_icon_changes = Rc::clone(&item_icon_changes);
+            move |_| item_icon_changes.set(item_icon_changes.get() + 1)
+        });
+        item.set_icon_name(Some("dialog-information-symbolic"));
+        assert_eq!(item_icon_changes.get(), 0, "an equal icon is not reapplied");
+
+        item.set_summary(Some("é".repeat(TEXT_MAX_CHARS * 2).as_str()));
+        assert_eq!(
+            item_summary.text().chars().count(),
+            TEXT_MAX_CHARS,
+            "a summary is another application's string, capped by character so it cannot be cut \
+             mid-codepoint"
+        );
+
+        item.set_body_markup(Some("<b>Alice</b>\nHey there"));
+        assert_eq!(
+            *item_body.text(),
+            *"Alice\nHey there",
+            "markup pango accepts is rendered, not shown as tags"
+        );
+
+        item.set_body_markup(Some("AT&T"));
+        assert_eq!(
+            *item_body.text(),
+            *"AT&T",
+            "markup pango refuses reads as its own literal text; without the gate GtkLabel renders \
+             an empty label and the body disappears"
+        );
+        assert!(item_body.get_visible());
+
+        item.set_body(Some(
+            "a".repeat(crate::notification_item::BODY_MAX_CHARS * 2)
+                .as_str(),
+        ));
+        assert_eq!(
+            item_body.text().chars().count(),
+            crate::notification_item::BODY_MAX_CHARS
+        );
+
+        assert_eq!(item.urgency(), Urgency::Normal);
+        assert!(!item.has_css_class("notification--critical"));
+        item.set_urgency(Urgency::Critical);
+        assert!(
+            item.has_css_class("notification--critical"),
+            "urgency changes behaviour rather than appearance, so the class is all the widget does"
+        );
+
+        assert!(
+            !item.has_css_class("notification--avatar"),
+            "a themed icon is an application saying what it is, and takes a rounded square"
+        );
+        let photograph: gio::Icon = gdk::MemoryTexture::new(
+            8,
+            8,
+            gdk::MemoryFormat::R8g8b8,
+            &glib::Bytes::from_owned(vec![0u8; 8 * 8 * 3]),
+            8 * 3,
+        )
+        .upcast();
+        item.set_app_icon(Some(&photograph));
+        assert!(
+            item.has_css_class("notification--avatar"),
+            "pixels are almost always somebody's photo, and a circle is what says person"
+        );
+
+        item.set_unread(true);
+        assert!(item_dot.get_visible());
+        item.set_unread(false);
+        assert!(!item_dot.get_visible());
+
+        let action = |key: &str| Action {
+            key: key.to_owned(),
+            label: key.to_owned(),
+        };
+        item.set_actions(&[
+            action("reply"),
+            action("mute"),
+            action("open"),
+            action("archive"),
+            action("delete"),
+        ]);
+        let buttons = all_named(&item, "notification__action");
+        assert_eq!(
+            buttons.len(),
+            3,
+            "three is where the GNOME HIG and KDE both stop; a longer list grows the card sideways"
+        );
+        assert!(
+            buttons[0].has_css_class("notification__action--primary")
+                && !buttons[1].has_css_class("notification__action--primary"),
+            "the first action a sender lists is the primary one, and the only filled button"
+        );
+        assert!(item_actions.get_visible());
+
+        let fired = Rc::new(RefCell::new(Vec::<String>::new()));
+        item.connect_activated({
+            let fired = Rc::clone(&fired);
+            move |_| fired.borrow_mut().push("activated".to_owned())
+        });
+        item.connect_dismissed({
+            let fired = Rc::clone(&fired);
+            move |_| fired.borrow_mut().push("dismissed".to_owned())
+        });
+        item.connect_action_invoked({
+            let fired = Rc::clone(&fired);
+            move |_, key| fired.borrow_mut().push(key)
+        });
+
+        child_named::<gtk4::Button>(&item, "notification__activate").emit_clicked();
+        buttons[1]
+            .clone()
+            .downcast::<gtk4::Button>()
+            .expect("an action is a button")
+            .emit_clicked();
+        child_named::<gtk4::Button>(&item, "notification__close").emit_clicked();
+        assert_eq!(
+            *fired.borrow(),
+            vec![
+                "activated".to_owned(),
+                "mute".to_owned(),
+                "dismissed".to_owned()
+            ],
+            "a key is read back when the button fires, not captured when it was built"
+        );
+
+        item.set_actions(&[]);
+        assert!(
+            all_named(&item, "notification__action").is_empty() && !item_actions.get_visible(),
+            "a notification with no actions leaves no strip behind"
+        );
 
         let readout = Readout::new();
         let readout_value = child_named::<gtk4::Label>(&readout, "readout__value");

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-09 12:09+0200\n"
+"POT-Creation-Date: 2026-09-09 13:29+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -335,9 +335,17 @@ msgstr ""
 msgid "Nothing else scheduled"
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/notification_item.blp:18
+msgid "Notification"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/notification_item.blp:149
+msgid "Dismiss"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:120
+#: crates/glimpse-widgets/src/lib.rs:122
 msgid "Play"
 msgstr ""
 
@@ -361,7 +369,7 @@ msgstr ""
 msgid "Workspaces"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:119
+#: crates/glimpse-widgets/src/lib.rs:121
 msgid "Pause"
 msgstr ""
 
