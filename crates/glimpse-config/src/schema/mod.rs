@@ -7,6 +7,7 @@ mod idle;
 mod keyboard;
 mod lock;
 mod monitors;
+mod mpris;
 mod night_light;
 mod panels;
 mod power;
@@ -22,8 +23,9 @@ use serde::{Deserialize, Serialize};
 pub use appearance::{Appearance, ColorScheme};
 pub use applets::{
     Applet, Clock as ClockConfig, Common as AppletCommon, FirstDay, Kind as AppletKind,
-    NextEvent as NextEventConfig, Pager as PagerConfig, PagerMode, PagerScope, PagerShape,
-    Place as WeatherPlace, Timezone as ClockTimezone, Weather as WeatherAppletConfig,
+    Mpris as MprisAppletConfig, NextEvent as NextEventConfig, Pager as PagerConfig, PagerMode,
+    PagerScope, PagerShape, Place as WeatherPlace, Timezone as ClockTimezone,
+    Weather as WeatherAppletConfig,
 };
 pub use backdrop::Backdrop;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};
@@ -32,6 +34,7 @@ pub use idle::{Idle, Listener as IdleListener, Profile as IdleProfile, Profiles 
 pub use keyboard::{Keyboard, Remember};
 pub use lock::{Button as LockButton, Clock as LockClock, Controls as LockControls, Lock};
 pub use monitors::Monitors;
+pub use mpris::Mpris as MprisConfig;
 pub use night_light::{NightLight, Schedule};
 pub use panels::{Margin, Panel, Position};
 pub use power::Power;
@@ -52,6 +55,7 @@ pub struct Config {
     pub keyboard: Keyboard,
     pub calendar: Calendar,
     pub weather: WeatherConfig,
+    pub mpris: MprisConfig,
     pub wallpaper: Wallpaper,
     pub backdrop: Backdrop,
     pub lock: Lock,
@@ -74,6 +78,7 @@ impl Default for Config {
             keyboard: Keyboard::default(),
             calendar: Calendar::default(),
             weather: WeatherConfig::default(),
+            mpris: MprisConfig::default(),
             wallpaper: Wallpaper::default(),
             backdrop: Backdrop::default(),
             lock: Lock::default(),

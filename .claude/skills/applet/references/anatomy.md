@@ -26,7 +26,8 @@ types. Skipping this fails `just test` with a diff that looks unrelated to the c
 
 Only add the name to `Panel::default()` if the applet should ship on by default. A name in the
 default zones that the panel cannot resolve is a warning on every start of an untouched
-installation, which is why `every_applet_named_by_the_default_panels_resolves` exists.
+installation, which is why `a_name_the_panel_implements_resolves_to_a_builder`, in `applets/mod.rs`,
+exists.
 
 ## 2. The module — `crates/glimpse-panel/src/applets/<name>.rs`
 

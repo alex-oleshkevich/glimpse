@@ -80,7 +80,7 @@ pub enum Kind {
     /// The active keyboard layout, and switches between the configured ones.
     Keyboard {},
     /// The currently playing track, with transport controls in its popover.
-    Mpris {},
+    Mpris(Mpris),
     /// Connection state, with the available networks in its popover.
     Network {},
     /// The next entry from the configured calendars.
@@ -101,6 +101,36 @@ pub enum Kind {
     Tray {},
     /// Current conditions, with the forecast in its popover.
     Weather(Weather),
+}
+
+/// Settings for the mpris applet. Which players exist and which one is current is the daemon's
+/// decision, in `[mpris]`; this is only how the bar renders the one it is given.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Mpris {
+    /// What the bar shows. Placeholders are replaced by name: `{player}`, `{title}`, `{artist}`,
+    /// `{album}`, `{state}`, `{position}`, `{duration}` and `{remaining}`. A placeholder with
+    /// nothing behind it renders as nothing.
+    pub label_format: String,
+    /// Longest label the bar shows, in characters; the rest is ellipsized. Track titles come from
+    /// whatever is playing and are unbounded, and a bar that resizes as they change is worse than
+    /// one that truncates.
+    pub max_length: u8,
+    /// Whether the popover lists the players other than the one on the bar.
+    pub show_others: bool,
+    /// Whether the popover shows album art.
+    pub show_art: bool,
+}
+
+impl Default for Mpris {
+    fn default() -> Self {
+        Self {
+            label_format: "{title} — {artist}".to_owned(),
+            max_length: 40,
+            show_others: true,
+            show_art: true,
+        }
+    }
 }
 
 /// Settings for the clock applet.

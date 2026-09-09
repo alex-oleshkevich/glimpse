@@ -390,7 +390,7 @@ the exact failure this design exists to remove. An empty struct variant refuses 
 
 Resolving is not the same as being implemented. A name that resolves to an applet no binary builds
 is an ordinary state, not a bad document, and the panel says so at `debug` rather than `warn` —
-which is why `every_applet_named_by_the_default_panels_resolves` guards the shipped defaults, and
+which is why `a_name_the_panel_implements_resolves_to_a_builder`, in `glimpse-panel`, guards it, and
 why `__dynamic__` was deleted rather than kept as a reserved name.
 
 ## Not here
