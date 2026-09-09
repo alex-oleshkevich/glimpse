@@ -824,11 +824,44 @@ mod tests {
         );
 
         assert_eq!(item.urgency(), Urgency::Normal);
-        assert!(!item.has_css_class("notification--critical"));
         item.set_urgency(Urgency::Critical);
+        assert_eq!(item.urgency(), Urgency::Critical);
         assert!(
-            item.has_css_class("notification--critical"),
-            "urgency changes behaviour rather than appearance, so the class is all the widget does"
+            !item.has_css_class("notification--critical"),
+            "urgency is behaviour, and a class no rule in the sheet ever matched was not appearance \
+             either"
+        );
+
+        let spoken = NotificationItem::new();
+        spoken.set_app_name(Some("Telegram"));
+        spoken.set_summary(Some("Marta Kaz"));
+        spoken.set_body(Some("Are we still on for 14:00?"));
+        spoken.set_when(Some("2m"));
+        assert_eq!(
+            *spoken.imp().accessible_name.borrow(),
+            "Telegram. Marta Kaz. Are we still on for 14:00?. 2m",
+            "every leaf is presentation, so the whole card reaches a screen reader through the one \
+             label the activatable child carries — and the sender and the age are part of it"
+        );
+
+        spoken.set_unread(true);
+        assert_eq!(
+            *spoken.imp().accessible_name.borrow(),
+            "Unread. Telegram. Marta Kaz. Are we still on for 14:00?. 2m",
+            "unread leads, because a dot conveys it to everyone who can see it and nobody who \
+             cannot"
+        );
+
+        assert_eq!(
+            *spoken.imp().dismiss_name.borrow(),
+            "Dismiss Marta Kaz",
+            "twenty cards otherwise give twenty tab stops that each read Dismiss and name nothing"
+        );
+        spoken.set_summary(None::<&str>);
+        assert_eq!(
+            *spoken.imp().dismiss_name.borrow(),
+            "Dismiss",
+            "with no summary to name there is nothing to interpolate"
         );
 
         assert!(

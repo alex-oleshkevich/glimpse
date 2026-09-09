@@ -10,6 +10,9 @@ use super::{
 };
 use crate::{Hero, Notice, Placeholder, Row, Section};
 
+const ATTENTIVE: &str = "preferences-system-notifications-symbolic";
+const SILENCED: &str = "notifications-disabled-symbolic";
+
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/notifications_popover.ui")]
 pub struct NotificationsPopover {
@@ -92,6 +95,10 @@ impl ObjectImpl for NotificationsPopover {
             #[weak(rename_to = popover)]
             self,
             move |quiet| {
+                popover.hero.set_icon_name(Some(match quiet.is_active() {
+                    true => SILENCED,
+                    false => ATTENTIVE,
+                }));
                 if popover.echoing.get() {
                     return;
                 }

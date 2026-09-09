@@ -660,6 +660,10 @@
     outline-offset: -2px;
 }
 
+.notification__header {
+    margin-right: 2.3rem;
+}
+
 .notification__icon {
     -gtk-icon-size: 2rem;
     min-width: 3.25rem;
@@ -735,7 +739,7 @@
 
 .notification__action:hover {
     color: var(--gl-surface-fg);
-    background-color: var(--gl-active);
+    background-color: var(--gl-hover);
 }
 
 .notification__action--primary {
@@ -754,6 +758,13 @@
     padding: 0.4rem;
     border-radius: 999px;
     color: var(--gl-dim);
+    opacity: 0;
+    transition: opacity var(--gl-duration) var(--gl-ease);
+}
+
+.notification:hover .notification__close,
+.notification:focus-within .notification__close {
+    opacity: 1;
 }
 
 .notification__close:hover {

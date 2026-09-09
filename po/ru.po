@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-09 11:27+0200\n"
+"POT-Creation-Date: 2026-09-09 15:50+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -81,23 +81,23 @@ msgstr "{days} д"
 msgid "{days} d {hours} h"
 msgstr "{days} д {hours} ч"
 
-#: crates/glimpse-panel/src/applets/mpris/mod.rs:291
+#: crates/glimpse-panel/src/applets/mpris/mod.rs:344
 msgid "Open {player}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/mpris/render.rs:31
+#: crates/glimpse-panel/src/applets/mpris/render.rs:35
 #, fuzzy
 #| msgid "Play"
 msgid "Playing"
 msgstr "Воспроизвести"
 
-#: crates/glimpse-panel/src/applets/mpris/render.rs:32
+#: crates/glimpse-panel/src/applets/mpris/render.rs:36
 #, fuzzy
 #| msgid "Pause"
 msgid "Paused"
 msgstr "Пауза"
 
-#: crates/glimpse-panel/src/applets/mpris/render.rs:33
+#: crates/glimpse-panel/src/applets/mpris/render.rs:37
 msgid "Stopped"
 msgstr ""
 
@@ -345,9 +345,36 @@ msgstr "Далее"
 msgid "Nothing else scheduled"
 msgstr "Больше ничего не запланировано"
 
+#: crates/glimpse-widgets/blueprints/notification_item.blp:18
+msgid "Notification"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/notification_item.blp:152
+#: crates/glimpse-widgets/src/notification_item/imp.rs:231
+msgid "Dismiss"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:14
+msgid "Notifications"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:28
+msgid "Notifications are unavailable"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:38
+#, fuzzy
+#| msgid "Nothing scheduled"
+msgid "Nothing new"
+msgstr "Ничего не запланировано"
+
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:39
+msgid "You are all caught up."
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:120
+#: crates/glimpse-widgets/src/lib.rs:126
 msgid "Play"
 msgstr "Воспроизвести"
 
@@ -371,9 +398,28 @@ msgstr "Повтор"
 msgid "Workspaces"
 msgstr "Рабочие столы"
 
-#: crates/glimpse-widgets/src/lib.rs:119
+#: crates/glimpse-widgets/src/lib.rs:125
 msgid "Pause"
 msgstr "Пауза"
+
+#: crates/glimpse-widgets/src/notification_item/imp.rs:210
+msgid "Unread"
+msgstr ""
+
+#: crates/glimpse-widgets/src/notification_item/imp.rs:229
+msgid "Dismiss {notification}"
+msgstr ""
+
+#: crates/glimpse-widgets/src/notifications_popover/imp.rs:90
+msgid "Silence notifications until you turn this off"
+msgstr ""
+
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:191
+msgid "{count}"
+msgid_plural "{count}"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
 
 #: crates/glimpse-widgets/src/workspaces_popover/mod.rs:124
 msgid "{workspaces} on {output}"

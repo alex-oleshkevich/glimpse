@@ -405,7 +405,23 @@ from — the popover groups them under a `Section`, the on-screen stack fans the
 **It subclasses `Gtk.Widget`, not `Gtk.Button`.** The item carries action buttons, and a button
 inside a button is not activatable in GTK4. The default action is an inner `Gtk.Button` covering the
 icon and text column, the same shape `SplitRow` uses; the close affordance is a `Gtk.Overlay` child
-above it, and the header row reserves 42px so the two cannot collide.
+above it, and the header row reserves `2.3rem` through `.notification__header` so the two cannot
+collide. That number is the close button measured — 16px of icon plus `0.4rem` of padding and
+`0.2rem` of margin on each side. It is a stylesheet length rather than a `margin-end` on the
+blueprint's header box because `ui.md` allows no pixel literal there, and because a reserve written
+into the template cannot follow the button's padding when that padding moves.
+
+**The close button is revealed by the card, not drawn on every one of them.** `.notification__close`
+is `opacity: 0` until `.notification:hover` or `.notification:focus-within`. A list of twenty
+otherwise carries twenty dismiss glyphs at the same weight as the twenty notifications they would
+destroy, which is GNOME's reason for hiding it too. Opacity rather than `visible` is what keeps the
+reserve stable, so nothing reflows when the pointer arrives; the button stays clickable and
+focusable the whole time, and `:focus-within` is what makes it appear for somebody who tabbed to it
+rather than pointed at it.
+
+It measures about 29px. That clears WCAG 2.2 SC 2.5.8's 24px minimum and is short of the 44px touch
+guidance — and the padding under it is GNOME's own 6px, so growing it would be a fifth departure
+bought for a touch target this shell does not have.
 
 **One hover for the whole card.** `:hover` is on `.notification` rather than on the inner button, so
 hovering anywhere — header, image, the gap beside the actions — lights the same surface. Putting it
@@ -458,9 +474,39 @@ is the convention. **No accent is spent here** — a notification the user did n
 place for the loudest colour in the shell, and the filled-against-flat contrast already says which
 action is the expected one.
 
+**A hovered secondary action must not look like a resting primary one.** Both were `--gl-active`, so
+hovering `Mute` on a card whose primary is `Reply` produced two identical filled buttons — and a
+pointer sits on an action precisely when the distinction between them is being used. Secondary hover
+is `--gl-hover` (8%); primary keeps GNOME's pair, `--gl-active` (16%) at rest and `--gl-faint` (22%)
+on hover. The ramp is 8 / 16 / 22 with no value doing duty in both roles.
+
 **Unread is a dot, not a coloured edge.** An accent bar down the side of the card is chrome that
 competes with the accent already spent on the primary action. A 0.5rem dot beside the time is where
 mail and chat clients put it, costs no layout, and reads at a glance.
+
+**What a screen reader hears is assembled in `announce`, and it is the whole card.** Every leaf is
+`presentation`, so the activatable child carries one label rather than five children each announcing
+themselves — but the join was `summary` plus `body` alone, which left the sender, the age and the
+unread state reachable by nobody. All four are in it now, unread first, because it is the state that
+decides whether the rest is worth hearing. `set_app_name`, `set_when` and `set_unread` therefore call
+`announce` the way `set_summary` and the two body setters already did. Nothing is truncated a second
+time: `set_text` caps at `TEXT_MAX_CHARS` and the body at `BODY_MAX_CHARS`, so the spoken label is
+bounded by the same caps the visible text is.
+
+A dot conveys unread to everyone who can see it and to nobody who cannot, which is the one accessibility
+failure a purely visual state always has. It costs one word in the join to fix and no pixel on screen.
+
+**The close button takes the summary too.** Twenty cards otherwise give twenty stops in the tab order
+that each read `Dismiss, button`, with nothing saying which notification is about to go. It is
+`Dismiss {notification}` with the summary interpolated, falling back to `Dismiss` when there is no
+summary to name. The placeholder is named rather than positional so a translator can put the verb
+last.
+
+**Urgency is behaviour, not appearance.** `Critical` persists and ignores do not disturb, and looks
+exactly like everything else: neither GNOME's HIG nor its stylesheet distinguishes urgency in a
+message list, and a card that shouts inside a surface the reader deliberately opened is spending
+attention that has already been given. `set_urgency` stores the value and writes no CSS class. It
+used to add `.notification--critical`, which no rule in the sheet ever matched.
 
 **Body text is the one place `set_markup` is called in this crate**, and only through
 `body-markup`, whose setter runs `pango::parse_markup` first. That gate is load-bearing rather than
@@ -593,6 +639,14 @@ the one the caller just made to show the current state, and a popover that echoe
 update into a loop between the widget and whatever owns the value. `set_dnd` raises `echoing` while
 it drives the switch and the handler returns early on it; `widgets` asserts both halves — a
 programmatic set is silent, a viewer's flip is not.
+
+**The switch says what it does through the hero icon.** A bare `Gtk.Switch` beside the title
+`Notifications` reads as *notifications are on* when it is active, and it means the opposite: active
+is silenced. The hero icon follows it — `preferences-system-notifications-symbolic` while
+notifications arrive, `notifications-disabled-symbolic` while they do not — so the polarity is legible
+before the tooltip is reached and without depending on a word. The icon is set on every change
+including an echoed one, above the `echoing` guard: that guard exists to stop a programmatic set
+being reported back, not to stop it being drawn.
 
 **The failure wording is the widget's; the detail is the caller's.** `set_trouble` takes only the
 detail, because the headline is the same every time and only the caller knows which name was taken.

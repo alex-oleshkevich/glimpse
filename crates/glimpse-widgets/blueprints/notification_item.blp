@@ -43,7 +43,10 @@ template $NotificationItem: Gtk.Widget {
             Gtk.Box {
               orientation: horizontal;
               spacing: 6;
-              margin-end: 34;
+
+              styles [
+                "notification__header",
+              ]
 
               Gtk.Label app_name {
                 single-line-mode: true;

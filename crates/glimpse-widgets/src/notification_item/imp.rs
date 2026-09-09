@@ -9,7 +9,6 @@ use std::sync::OnceLock;
 use super::{ACTION_INVOKED, ACTIVATED, BODY_MAX_CHARS, DISMISSED, plain};
 use crate::{set_css_class, set_text, truncate};
 
-const CRITICAL: &str = "notification--critical";
 const UNREAD: &str = "notification--unread";
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, glib::Enum)]
@@ -53,6 +52,8 @@ pub struct NotificationItem {
     pub markup: RefCell<Option<String>>,
     pub image: RefCell<Option<gtk4::gdk::Texture>>,
     pub shown: RefCell<Vec<super::Action>>,
+    pub accessible_name: RefCell<String>,
+    pub dismiss_name: RefCell<String>,
 
     #[property(name = "summary", get = Self::summary, set = Self::set_summary, nullable)]
     summary_text: PhantomData<Option<String>>,
@@ -90,6 +91,7 @@ impl NotificationItem {
 
     fn set_app_name(&self, name: Option<String>) {
         set_text(&self.app_name, name.as_deref());
+        self.announce();
     }
 
     fn when(&self) -> Option<String> {
@@ -98,6 +100,7 @@ impl NotificationItem {
 
     fn set_when(&self, when: Option<String>) {
         set_text(&self.when, when.as_deref());
+        self.announce();
     }
 
     fn icon_name(&self) -> Option<String> {
@@ -177,6 +180,7 @@ impl NotificationItem {
         }
         set_css_class(&*self.obj(), UNREAD, unread);
         self.unread_dot.set_visible(unread);
+        self.announce();
     }
 
     fn urgency(&self) -> Urgency {
@@ -184,10 +188,7 @@ impl NotificationItem {
     }
 
     fn set_urgency(&self, urgency: Urgency) {
-        if self.urgency.replace(urgency) == urgency {
-            return;
-        }
-        set_css_class(&*self.obj(), CRITICAL, urgency == Urgency::Critical);
+        self.urgency.set(urgency);
     }
 
     fn fraction(&self) -> f64 {
@@ -205,18 +206,41 @@ impl NotificationItem {
         }
     }
 
-    /// Both labels are `presentation`, so the activatable child is what carries the text a screen
-    /// reader announces — and it announces it once rather than twice.
     fn announce(&self) {
-        let spoken = [self.summary.text(), self.body.text()]
-            .iter()
+        let mut spoken = Vec::new();
+        if self.unread.get() {
+            spoken.push(gettextrs::gettext("Unread"));
+        }
+        spoken.extend(
+            [
+                visible_text(&self.app_name),
+                visible_text(&self.summary),
+                visible_text(&self.body),
+                visible_text(&self.when),
+            ]
+            .into_iter()
+            .flatten()
             .map(|part| part.trim().to_owned())
-            .filter(|part| !part.is_empty())
-            .collect::<Vec<_>>()
-            .join(". ");
+            .filter(|part| !part.is_empty()),
+        );
 
+        let spoken = spoken.join(". ");
         self.activate
             .update_property(&[accessible::Property::Label(&spoken)]);
+        self.accessible_name.replace(spoken);
+
+        let dismiss = match visible_text(&self.summary)
+            .map(|summary| summary.trim().to_owned())
+            .filter(|summary| !summary.is_empty())
+        {
+            Some(summary) => {
+                gettextrs::gettext("Dismiss {notification}").replace("{notification}", &summary)
+            }
+            None => gettextrs::gettext("Dismiss"),
+        };
+        self.close
+            .update_property(&[accessible::Property::Label(&dismiss)]);
+        self.dismiss_name.replace(dismiss);
     }
 }
 
