@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-08 23:09+0200\n"
+"POT-Creation-Date: 2026-09-09 12:09+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -78,6 +78,22 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/agenda.rs:128
 msgid "{days} d {hours} h"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/mpris/mod.rs:344
+msgid "Open {player}"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:35
+msgid "Playing"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:36
+msgid "Paused"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/mpris/render.rs:37
+msgid "Stopped"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/next_event/render.rs:124
@@ -295,6 +311,18 @@ msgstr ""
 msgid "World clock"
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/mpris_popover.blp:17
+msgid "Other players"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/mpris_popover.blp:28
+msgid "Nothing else playing"
+msgstr ""
+
+#: crates/glimpse-widgets/blueprints/mpris_popover.blp:29
+msgid "Only one player is running."
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/next_event_popover.blp:15
 msgid "No calendar entry is coming up."
 msgstr ""
@@ -309,7 +337,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:116
+#: crates/glimpse-widgets/src/lib.rs:120
 msgid "Play"
 msgstr ""
 
@@ -333,7 +361,7 @@ msgstr ""
 msgid "Workspaces"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:115
+#: crates/glimpse-widgets/src/lib.rs:119
 msgid "Pause"
 msgstr ""
 

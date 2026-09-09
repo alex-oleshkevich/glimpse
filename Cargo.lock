@@ -1066,6 +1066,7 @@ version = "0.16.0"
 dependencies = [
  "chrono",
  "chrono-tz",
+ "dirs",
  "futures-util",
  "glimpse-compositors",
  "glimpse-config",
@@ -1075,6 +1076,7 @@ dependencies = [
  "glimpse-utils",
  "icalendar",
  "iso8601",
+ "regex",
  "reqwest",
  "rrule",
  "serde",
@@ -1086,6 +1088,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tzf-rs",
+ "url",
  "zbus",
 ]
 

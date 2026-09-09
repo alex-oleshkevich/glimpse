@@ -37,6 +37,7 @@ try:
         signal,
     )
     from dbus_next.signature import Variant
+    from dbus_next import DBusError
 except ImportError as exc:  # pragma: no cover
     sys.stderr.write(
         "dbus-next is required. Re-run with `uv run` or install it:\n"
@@ -62,6 +63,9 @@ class FakePlayer:
     length_us: int
     position_us: int
     status: str              # "Playing" | "Paused"
+    loop_status: str = "None"   # "None" | "Track" | "Playlist"
+    shuffle: bool = False
+    volume: float = 1.0
 
 
 PLAYERS: list[FakePlayer] = [
@@ -301,18 +305,39 @@ class PlayerInterface(ServiceInterface):
         return True
 
     # Optional properties — exposed so playerctld and similar daemons
-    # don't spam UNKNOWN_PROPERTY errors when they probe.
-    @dbus_property(access=PropertyAccess.READ)
+    # don't spam UNKNOWN_PROPERTY errors when they probe. Writable, because a
+    # shell that offers shuffle, repeat and a volume slider has no other way to
+    # find out whether setting them actually works.
+    @dbus_property(access=PropertyAccess.READWRITE)
     def LoopStatus(self) -> "s":
-        return "None"
+        return self._fake.loop_status
 
-    @dbus_property(access=PropertyAccess.READ)
+    @LoopStatus.setter
+    def LoopStatus(self, value: "s"):
+        if value not in ("None", "Track", "Playlist"):
+            raise DBusError(
+                "org.freedesktop.DBus.Error.InvalidArgs", f"unknown loop status {value!r}"
+            )
+        self._fake.loop_status = value
+        self.emit_properties_changed({"LoopStatus": value})
+
+    @dbus_property(access=PropertyAccess.READWRITE)
     def Shuffle(self) -> "b":
-        return False
+        return self._fake.shuffle
 
-    @dbus_property(access=PropertyAccess.READ)
+    @Shuffle.setter
+    def Shuffle(self, value: "b"):
+        self._fake.shuffle = bool(value)
+        self.emit_properties_changed({"Shuffle": self._fake.shuffle})
+
+    @dbus_property(access=PropertyAccess.READWRITE)
     def Volume(self) -> "d":
-        return 1.0
+        return self._fake.volume
+
+    @Volume.setter
+    def Volume(self, value: "d"):
+        self._fake.volume = max(0.0, min(1.0, float(value)))
+        self.emit_properties_changed({"Volume": self._fake.volume})
 
 
 # ---------- main loop ------------------------------------------------------- #
