@@ -221,6 +221,87 @@ pub enum AlertSeverity {
     Unknown,
 }
 
+/// Internally tagged for the same reason `Condition` is: `#[serde(other)]` is offered only on a
+/// tagged enum, so a player reporting a status this daemon does not know must not make the whole
+/// payload fail to decode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "playback", rename_all = "snake_case")]
+pub enum Playback {
+    Playing,
+    Paused,
+    Stopped,
+    #[serde(other)]
+    Unknown,
+}
+
+/// MPRIS `LoopStatus`, which is three states rather than a boolean: repeat-one is a different
+/// icon from repeat-all.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "repeat", rename_all = "snake_case")]
+pub enum Repeat {
+    #[default]
+    Off,
+    Playlist,
+    Track,
+    #[serde(other)]
+    Unknown,
+}
+
+/// What a player says it will accept. Shuffle, repeat and volume are absent rather than false when
+/// unsupported, which is how the transport hides those controls instead of dimming them.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PlayerCapabilities {
+    pub play: bool,
+    pub pause: bool,
+    pub previous: bool,
+    pub next: bool,
+    pub seek: bool,
+    pub control: bool,
+    pub raise: bool,
+}
+
+/// Every text field is chosen by another application, arrives over the session bus, and is capped
+/// by the service before it gets here.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlayerStatus {
+    pub id: String,
+    pub identity: String,
+    pub desktop_entry: Option<String>,
+    pub playback: Playback,
+    pub current: bool,
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    /// A local path. A remote `mpris:artUrl` is fetched by the service or dropped; it never
+    /// reaches a client as a URL to go and load.
+    pub art: Option<String>,
+    /// Absent or zero for a live stream, which has no end to count towards.
+    pub length_us: Option<i64>,
+    pub position_us: i64,
+    /// When `position_us` was read. `Position` emits no change signal, so a client advances it
+    /// locally from here rather than the daemon republishing once a second.
+    pub position_at: DateTime<Utc>,
+    pub rate: f64,
+    pub volume: Option<f64>,
+    pub repeat: Option<Repeat>,
+    pub shuffle: Option<bool>,
+    pub can: PlayerCapabilities,
+}
+
+/// What a client asks a player to do. Tagged so a client built against an older daemon still
+/// serializes something the newer one can read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case")]
+pub enum PlayerAction {
+    Play,
+    Pause,
+    PlayPause,
+    Stop,
+    Previous,
+    Next,
+    Raise,
+}
+
 /// The only prose in this payload that glimpse did not format itself. Every field carrying text is
 /// third-party, arrives over the network, and is sanitised by the service before it gets here.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

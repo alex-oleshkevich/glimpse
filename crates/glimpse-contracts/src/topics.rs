@@ -82,4 +82,7 @@ topics! {
 
     #[name = "weather.status"]
     pub struct WeatherStatus { units: UnitSystem, places: Vec<PlaceWeather> }
+
+    #[name = "mpris.players"]
+    pub struct MprisPlayers { players: Vec<PlayerStatus> }
 }

@@ -87,4 +87,22 @@ commands! {
 
     #[name = "weather.refresh"]
     pub struct WeatherRefresh {} -> ();
+
+    #[name = "mpris.control"]
+    pub struct MprisControl { player: String, action: PlayerAction } -> ();
+
+    #[name = "mpris.seek"]
+    pub struct MprisSeek { player: String, offset_us: i64 } -> ();
+
+    #[name = "mpris.set_position"]
+    pub struct MprisSetPosition { player: String, position_us: i64 } -> ();
+
+    #[name = "mpris.set_volume"]
+    pub struct MprisSetVolume { player: String, volume: f64 } -> ();
+
+    #[name = "mpris.set_repeat"]
+    pub struct MprisSetRepeat { player: String, repeat: Repeat } -> ();
+
+    #[name = "mpris.set_shuffle"]
+    pub struct MprisSetShuffle { player: String, shuffle: bool } -> ();
 }
