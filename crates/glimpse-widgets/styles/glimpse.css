@@ -322,6 +322,10 @@
     font-weight: 600;
 }
 
+.keyboard-popover .row--on .row__title {
+    font-weight: normal;
+}
+
 .row--on .row__check {
     color: var(--gl-accent-text);
 }

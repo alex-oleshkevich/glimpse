@@ -1793,9 +1793,10 @@ fn ensure_types() {
     use glimpse_widgets::{
         Calendar, CalendarPopover, ChoiceList, ClockRow, EventList, EventRow, FactList,
         ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup,
-        Notice, NotificationItem, NotificationList, NotificationStack, NotificationsPopover,
-        NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar,
-        Readout, Row, Scrubber, Section, SplitRow, Transport, WeatherPopover, WorldClock,
+        KeyboardPopover, Notice, NotificationItem, NotificationList, NotificationStack,
+        NotificationsPopover, NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow,
+        PopoverShell, RangeBar, Readout, Row, Scrubber, Section, SplitRow, Transport,
+        WeatherPopover, WorldClock,
     };
 
     for widget in [
@@ -1832,6 +1833,7 @@ fn ensure_types() {
         Panel::static_type(),
         Indicator::static_type(),
         IndicatorGroup::static_type(),
+        KeyboardPopover::static_type(),
         Placeholder::static_type(),
         Row::static_type(),
     ] {

@@ -841,6 +841,11 @@ index whenever the data differs (index 0 named the headphones a moment ago). An 
 short-circuits first. Nothing is chosen until something says so; the first row is not a claim the
 widget is entitled to make.
 
+**`KeyboardPopover`** — a `PopoverShell` whose only content is a `Layouts` section of selectable
+rows: name on the left, uppercase code on the right, check on the current one. The selected title
+is not bold (`.keyboard-popover .row--on .row__title`). `set_layouts` short-circuits on an
+unchanged list. The footer is the settings row, hidden when unset.
+
 ## ForecastStrip and ForecastList
 
 `ForecastStrip` is hourly columns, `ForecastList` daily rows with a `RangeBar` in each trail.

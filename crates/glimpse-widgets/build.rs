@@ -40,6 +40,10 @@ fn main() {
         ),
         ("blueprints/indicator.blp", "resources/widgets/indicator.ui"),
         (
+            "blueprints/keyboard_popover.blp",
+            "resources/widgets/keyboard_popover.ui",
+        ),
+        (
             "blueprints/next_event_popover.blp",
             "resources/widgets/next_event_popover.ui",
         ),

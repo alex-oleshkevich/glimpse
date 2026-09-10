@@ -1,0 +1,26 @@
+using Gtk 4.0;
+
+template $KeyboardPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "keyboard-popover",
+  ]
+
+  $PopoverShell shell {
+    $Section layouts {
+      styles [
+        "column",
+      ]
+
+      Gtk.Box rows {
+        orientation: vertical;
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

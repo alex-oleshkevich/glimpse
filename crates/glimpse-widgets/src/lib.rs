@@ -10,6 +10,7 @@ mod forecast;
 mod hero;
 mod indicator;
 mod indicator_group;
+mod keyboard_popover;
 mod mpris_popover;
 mod next_event_popover;
 mod notice;
@@ -48,6 +49,7 @@ pub use forecast::{Day, ForecastDay, ForecastHour, ForecastList, ForecastStrip, 
 pub use hero::Hero;
 pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
+pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
 pub use mpris_popover::MprisPopover;
 pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
@@ -2212,6 +2214,21 @@ mod tests {
             None,
             "and an index past the end is refused rather than stored to confuse the next render"
         );
+
+        let keyboard = KeyboardPopover::new();
+        let layout = |name: &str, code: &str, active: bool| KeyboardLayout {
+            name: name.to_owned(),
+            code: code.to_owned(),
+            active,
+        };
+        keyboard.set_layouts(&[
+            layout("English (US)", "US", true),
+            layout("Russian", "RU", false),
+        ]);
+        keyboard.set_layouts(&[
+            layout("English (US)", "US", true),
+            layout("Russian", "RU", false),
+        ]);
 
         let players = PlayerList::new();
         players.set_players(&[
