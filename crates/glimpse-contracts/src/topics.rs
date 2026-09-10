@@ -91,4 +91,7 @@ topics! {
 
     #[name = "notifications.dnd"]
     pub struct NotificationsDnd { dnd: DoNotDisturb }
+
+    #[name = "keyboard.layouts"]
+    pub struct KeyboardLayouts { layouts: Vec<KeyboardLayout>, current: Option<u8> }
 }

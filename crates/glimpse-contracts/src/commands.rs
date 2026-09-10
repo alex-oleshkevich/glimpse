@@ -127,4 +127,7 @@ commands! {
 
     #[name = "notifications.set_dnd"]
     pub struct NotificationsSetDnd { dnd: DoNotDisturb } -> ();
+
+    #[name = "keyboard.switch_layout"]
+    pub struct SwitchLayout { target: LayoutRef } -> ();
 }
