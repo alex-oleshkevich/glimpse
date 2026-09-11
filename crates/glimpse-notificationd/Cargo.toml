@@ -1,0 +1,34 @@
+[package]
+name = "glimpse-notificationd"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[dependencies]
+adw.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+clap.workspace = true
+colorchoice-clap.workspace = true
+futures-util.workspace = true
+gettext-rs.workspace = true
+gio.workspace = true
+glib.workspace = true
+glimpse-config.workspace = true
+glimpse-contracts.workspace = true
+glimpse-ipc.workspace = true
+glimpse-utils.workspace = true
+glimpse-widgets.workspace = true
+gtk4.workspace = true
+gtk4-layer-shell.workspace = true
+relm4.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+shadow-rs.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[build-dependencies]
+shadow-rs.workspace = true
