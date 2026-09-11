@@ -2026,7 +2026,12 @@
     "notifications": {
       "$ref": "#/$defs/Notifications",
       "default": {
+        "edge": "top-center",
+        "enabled": true,
+        "hide-delay": 4,
         "keep": 100,
+        "max-items": 6,
+        "monitor": null,
         "suppress": []
       }
     },
@@ -2550,6 +2555,17 @@
       },
       "additionalProperties": false
     },
+    "NotificationEdge": {
+      "type": "string",
+      "enum": [
+        "top-left",
+        "top-center",
+        "top-right",
+        "bottom-left",
+        "bottom-center",
+        "bottom-right"
+      ]
+    },
     "NotificationIndicatorStyle": {
       "type": "string",
       "enum": [
@@ -2559,15 +2575,41 @@
       ]
     },
     "Notifications": {
-      "description": "How much notification history the daemon keeps and which notifications it suppresses. Do not\ndisturb is a runtime state the panel toggles rather than a setting written here.",
       "type": "object",
       "properties": {
+        "edge": {
+          "$ref": "#/$defs/NotificationEdge",
+          "default": "top-center"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "hide-delay": {
+          "type": "integer",
+          "format": "uint64",
+          "default": 4,
+          "minimum": 1
+        },
         "keep": {
           "description": "How many notifications are kept once they have been read. Dismissing one puts it here\nrather than destroying it, which is what makes an accidental dismissal recoverable; past\nthis many, the oldest is dropped for good. Senders choose how often they notify, so this\nis the bound that stops a chatty one growing the daemon's memory without limit. Clamped\nto 1..=1000.",
           "type": "integer",
           "format": "uint32",
           "default": 100,
           "minimum": 0
+        },
+        "max-items": {
+          "type": "integer",
+          "format": "uint32",
+          "default": 6,
+          "minimum": 1
+        },
+        "monitor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
         },
         "suppress": {
           "description": "Regex patterns matched against the application identity, application name, title and body.\nMatching notifications are not stored or published.",

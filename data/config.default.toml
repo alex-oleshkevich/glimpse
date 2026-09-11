@@ -80,6 +80,10 @@ art-max-kib = 4096
 [notifications]
 keep = 100
 suppress = []
+enabled = true
+edge = "top-center"
+hide-delay = 4
+max-items = 6
 
 [wallpaper]
 fit = "fill"
