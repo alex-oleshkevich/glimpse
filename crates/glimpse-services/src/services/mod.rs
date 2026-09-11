@@ -22,6 +22,7 @@ mod heartbeat;
 mod keyboard;
 mod mpris;
 mod notifications;
+mod session;
 mod solar;
 mod weather;
 
@@ -32,5 +33,6 @@ pub use heartbeat::Heartbeat;
 pub use keyboard::Keyboard;
 pub use mpris::Mpris;
 pub use notifications::Notifications;
+pub use session::Session;
 pub use solar::Solar;
 pub use weather::Weather;

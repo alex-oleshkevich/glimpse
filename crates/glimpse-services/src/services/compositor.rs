@@ -4,10 +4,10 @@ use glimpse_compositors::{
     Snapshot, WindowId, WindowTarget, Workspace, WorkspaceId, WorkspaceTarget, detect_compositor,
 };
 use glimpse_contracts::{
-    CloseWindow, Command as _, CompositorCapabilities, CompositorOutputs, CompositorStatus,
-    CompositorWindows, CompositorWorkspaces, FocusOutput, FocusWindow, FocusWorkspace, Message,
-    MoveWindowToWorkspace, MoveWorkspaceToOutput, OutputInfo, RenameWorkspace, ReorderWorkspace,
-    WindowInfo, WindowRef, WorkspaceInfo, WorkspaceRef,
+    CloseWindow, Command as _, CompositorCapabilities, CompositorOutputs, CompositorPrivacy,
+    CompositorStatus, CompositorWindows, CompositorWorkspaces, FocusOutput, FocusWindow,
+    FocusWorkspace, Message, MoveWindowToWorkspace, MoveWorkspaceToOutput, OutputInfo,
+    RenameWorkspace, ReorderWorkspace, WindowInfo, WindowRef, WorkspaceInfo, WorkspaceRef,
 };
 use glimpse_ipc::{CallError, ErrorCode};
 use serde_json::Value;
@@ -58,6 +58,7 @@ pub struct Compositor {
     workspaces: Publisher<CompositorWorkspaces>,
     windows: Publisher<CompositorWindows>,
     outputs: Publisher<CompositorOutputs>,
+    privacy: Publisher<CompositorPrivacy>,
     state: Option<Snapshot>,
     attempt: u64,
 }
@@ -75,6 +76,7 @@ impl Service for Compositor {
         CompositorWorkspaces::NAME,
         CompositorWindows::NAME,
         CompositorOutputs::NAME,
+        CompositorPrivacy::NAME,
     ];
     const METHODS: &'static [&'static str] = &[
         FocusWorkspace::NAME,
@@ -173,6 +175,7 @@ impl Service for Compositor {
             workspaces: ctx.publisher::<CompositorWorkspaces>(),
             windows: ctx.publisher::<CompositorWindows>(),
             outputs: ctx.publisher::<CompositorOutputs>(),
+            privacy: ctx.publisher::<CompositorPrivacy>(),
             state: None,
             attempt: 0,
             backend,
@@ -224,6 +227,9 @@ impl Compositor {
         self.workspaces.set(CompositorWorkspaces { workspaces });
         self.windows.set(CompositorWindows { windows });
         self.outputs.set(CompositorOutputs { outputs });
+        self.privacy.set(CompositorPrivacy {
+            active: !state.active_casts.is_empty(),
+        });
     }
 
     async fn dispatch(&self, command: Command, responder: Responder) {
@@ -277,6 +283,9 @@ fn apply(state: &mut Snapshot, change: Change) -> bool {
                 return true;
             };
             let output = activated.output.clone();
+            if focused {
+                state.focused_output = output.clone();
+            }
             for workspace in &mut state.workspaces {
                 if workspace.output == output {
                     workspace.is_active = workspace.id == id;
@@ -335,6 +344,17 @@ fn apply(state: &mut Snapshot, change: Change) -> bool {
         Change::KeyboardLayoutsChanged(_)
         | Change::KeyboardLayoutSwitched { .. }
         | Change::Resync(Resync::Keyboard) => {}
+        Change::CastsChanged(casts) => state.active_casts = casts,
+        Change::CastStartedOrChanged { id, active } => {
+            if active {
+                state.active_casts.insert(id);
+            } else {
+                state.active_casts.remove(&id);
+            }
+        }
+        Change::CastStopped(id) => {
+            state.active_casts.remove(&id);
+        }
         Change::Resync(Resync::Structure | Resync::Outputs) => return true,
     }
     false
@@ -676,6 +696,24 @@ mod tests {
     }
 
     #[test]
+    fn casts_keep_privacy_active_until_the_last_stream_stops() {
+        let mut state = Snapshot::default();
+
+        apply(&mut state, Change::CastsChanged([3_u64, 7_u64].into()));
+        apply(&mut state, Change::CastStopped(3));
+        assert_eq!(state.active_casts, [7].into());
+
+        apply(
+            &mut state,
+            Change::CastStartedOrChanged {
+                id: 7,
+                active: false,
+            },
+        );
+        assert!(state.active_casts.is_empty());
+    }
+
+    #[test]
     fn activating_a_workspace_leaves_the_other_output_alone() {
         let mut here = workspace(1, Some(1), "DP-1");
         here.is_active = true;
@@ -702,6 +740,7 @@ mod tests {
         );
         assert!(state.workspaces[1].is_focused);
         assert!(!state.workspaces[2].is_focused);
+        assert_eq!(state.focused_output.as_deref(), Some("DP-1"));
     }
 
     #[test]

@@ -607,6 +607,15 @@ player disappeared still arrives after it, and would otherwise put the player ba
 as `geolocation`'s stale-`Located` bug, and the reason the arm guards on the model rather than on
 the guard.
 
+## session
+
+The session service owns the two transient privacy gates shared by shell clients. It reads the
+current logind session's `LockedHint` and compositor screencast state, then publishes
+`session.status`; consumers subscribe instead of opening either backend.
+It publishes nothing until both authoritative inputs are known, so an unavailable source fails
+closed for notification popups. The service exposes no write commands because both values already
+have authoritative owners.
+
 ## notifications
 
 The first service here that is not a mirror. Every other one follows a backend and defers to it
