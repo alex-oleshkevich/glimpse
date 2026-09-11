@@ -52,6 +52,7 @@ glimpse/
 | `glimpse-utils`       | shared CLI arg structs, tracing/log setup, gettext binding and text cleaning      |
 | `glimpsed`            | broker                                                                        |
 | `glimpse-panel`       | panel and applets                                                                 |
+| `glimpse-notificationd` | transient notification popup layer surface                                     |
 | `glimpse-wallpaper`   | background layer surface, decode cache, transitions                               |
 | `glimpse-lock`        | `ext-session-lock-v1` surfaces, PAM                                               |
 | `glimpse-sunset`      | night-light service                                                               |
@@ -425,9 +426,10 @@ window that asks for itself sends nothing at all and the compositor never hears 
 
 ## Translations
 
-One gettext domain, `glimpse`, for all six binaries. `glimpse-utils` owns it: `init_translations()`
-binds it, and the panel, the lock screen and the wallpaper call that once in `run`. The daemon,
-`glimpsectl` and `glimpse-sunset` do not — their output is a journal and a terminal, not a UI.
+One gettext domain, `glimpse`, for all seven binaries. `glimpse-utils` owns it: `init_translations()`
+binds it, and the panel, notification popup process, lock screen and wallpaper call that once in
+`run`. The daemon, `glimpsectl` and `glimpse-sunset` do not — their output is a journal and a
+terminal, not a UI.
 
 **`glimpsed` calls `init_locale()` instead, and must keep doing so.** That is the
 `setlocale(LC_ALL, "")` half without the catalog. Without it the process locale is `C`,

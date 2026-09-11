@@ -1065,6 +1065,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "glimpse-notificationd"
+version = "0.16.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "colorchoice-clap",
+ "futures-util",
+ "gettext-rs",
+ "gio",
+ "glib",
+ "glimpse-config",
+ "glimpse-contracts",
+ "glimpse-ipc",
+ "glimpse-utils",
+ "glimpse-widgets",
+ "gtk4",
+ "gtk4-layer-shell",
+ "libadwaita",
+ "relm4",
+ "serde",
+ "serde_json",
+ "shadow-rs",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "glimpse-panel"
 version = "0.16.0"
 dependencies = [
@@ -1191,6 +1219,7 @@ dependencies = [
  "gio",
  "glib",
  "glib-build-tools",
+ "glimpse-contracts",
  "glimpse-utils",
  "gtk4",
  "libadwaita",

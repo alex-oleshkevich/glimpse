@@ -7,7 +7,7 @@ set positional-arguments
 # Single source of truth for install/uninstall/package-binary, passed to those scripts as
 # GLIMPSE_BINARIES. Static TOML can't read it, so the cargo-deb/cargo-generate-rpm asset lists
 # still hand-duplicate it, as do the scripts' own no-just fallback defaults.
-binaries := "glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset"
+binaries := "glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notificationd"
 
 [doc("list recipes")]
 default:
@@ -109,7 +109,7 @@ check-units:
     lock=data/systemd/glimpse-lock.service
 
     noise='is not executable: No such file or directory|^Configuration file .* is marked'
-    if systemd-analyze --user verify data/systemd/*.service 2>&1 | grep -Ev "$noise" | grep .; then
+    if systemd-analyze --user verify data/systemd/*.service data/systemd/*.target 2>&1 | grep -Ev "$noise" | grep .; then
         exit 1
     fi
 
@@ -138,6 +138,30 @@ check-units:
         echo "Requires=glimpsed.service — use Wants="; exit 1
     fi
 
+    members="glimpsed glimpse-panel glimpse-wallpaper glimpse-sunset glimpse-notificationd"
+    target=data/systemd/glimpse-session.target
+    for member in $members; do
+        unit="data/systemd/$member.service"
+        grep -qx 'PartOf=glimpse-session.target' "$unit" || {
+            echo "$unit: missing PartOf=glimpse-session.target"; exit 1;
+        }
+        grep -Eq "^Wants=.*${member}\.service" "$target" || {
+            echo "$target: missing Wants=$member.service"; exit 1;
+        }
+        grep -Eq "^PropagatesReloadTo=.*${member}\.service" "$target" || {
+            echo "$target: missing PropagatesReloadTo=$member.service"; exit 1;
+        }
+    done
+    if grep -Eq '^(Wants|PropagatesReloadTo)=.*glimpse-lock\.service' "$target"; then
+        echo "$target: the on-demand locker must stay outside the suite lifecycle"; exit 1
+    fi
+    if grep -l '^WantedBy=graphical-session.target$' data/systemd/*.service | grep .; then
+        echo "member service is directly enabled by graphical-session.target"; exit 1
+    fi
+    grep -qx 'WantedBy=graphical-session.target' "$target" || {
+        echo "$target: not enabled by graphical-session.target"; exit 1;
+    }
+
     echo "units ok"
 
 # ---------------------------------------------------------------- run
@@ -161,6 +185,10 @@ run-locker *ARGS:
 [doc("run sunset")]
 run-sunset *ARGS:
     cargo run -p glimpse-sunset -- "$@"
+
+[doc("run notification popups")]
+run-notificationd *ARGS:
+    cargo run -p glimpse-notificationd -- "$@"
 
 [doc("run the CLI")]
 ctl *ARGS:
