@@ -47,9 +47,10 @@ These decide the same way in many widgets; the sections below assume them.
 
 ## Indicator and IndicatorGroup
 
-`Indicator` is one chip: an optional dot, icon, label and badge. It emits nothing — input belongs to
-the group, because an applet is one clickable thing however many chips it renders. The chip takes
-the `Generic` role and the accessible name moves up with the input.
+`Indicator` is one chip: an optional dot, icon, label and badge. The attention dot is centered on
+both axes so its equal minimum dimensions produce a circle rather than a full-height pill. It emits
+nothing — input belongs to the group, because an applet is one clickable thing however many chips it
+renders. The chip takes the `Generic` role and the accessible name moves up with the input.
 
 The icon is one `Option<gio::Icon>`. `gdk::Texture` implements it, so a themed name, a file and a
 StatusNotifierItem's ARGB pixmap all arrive through one setter. Sniffing a string for a leading
@@ -309,6 +310,9 @@ times.
 whether it holds anything, and an explicit flag also lets a caller show the placeholder while
 content is merely *stale*. The count hides with the content — hidden, not forgotten.
 
+**The trailing slot owns the header's remaining width.** Its child is end-aligned inside that space,
+so a control stays at the right edge when the title is empty and therefore hidden.
+
 **Visibility toggle, not a `Gtk.Stack`.** A stack sizes to its largest page, so a placeholder would
 reserve its height under a four-row agenda. `Calendar` uses a stack for month/year because there
 both pages *want* the same size.
@@ -380,12 +384,12 @@ is every slot.
 
 `IndicatorSpec.severity` is `Option<Severity>`, reusing `Notice`'s three rather than inventing a
 second vocabulary for the same idea. `Warning` and `Error` add `indicator--warning` and
-`indicator--error`, which colour the icon and the label from `--gl-warning-text` and
-`--gl-danger-text`; `Info` and `None` leave the chip in the bar's own colour, because a state worth
-an icon is not always a state worth a colour.
+`indicator--error`, which color the icon and the label from `--gl-warning-text` and
+`--gl-danger-text`; `Info` and `None` leave the chip in the bar's own color, because a state worth
+an icon is not always a state worth a color.
 
-It is independent of `attention`, which is the accent colour and means "this wants you", not "this
-is wrong". A chip can be both.
+`attention` shows an accent dot without coloring the icon or label. When a chip is both attention
+and warning or error, severity colors that dot instead of the content.
 
 ## Notice
 
@@ -522,22 +526,15 @@ the weight is what to give back, not the tone.
 Reaching for numbers of your own here is re-deciding something two implementations already decided.
 
 **Actions size to their labels.** The row is `halign: start` and not homogeneous, so two short
-actions do not stretch to the width of the notification. The first action a sender lists carries
-`.notification__action--primary` and is the only one drawn as a filled button; the rest are
-transparent until hovered. The freedesktop specification gives actions no priority, so first-listed
-is the convention. **No accent is spent here** — a notification the user did not ask for is not the
-place for the loudest colour in the shell, and the filled-against-flat contrast already says which
-action is the expected one.
-
-**A hovered secondary action must not look like a resting primary one.** Both were `--gl-active`, so
-hovering `Mute` on a card whose primary is `Reply` produced two identical filled buttons — and a
-pointer sits on an action precisely when the distinction between them is being used. Secondary hover
-is `--gl-hover` (8%); primary keeps GNOME's pair, `--gl-active` (16%) at rest and `--gl-faint` (22%)
-on hover. The ramp is 8 / 16 / 22 with no value doing duty in both roles.
+actions do not stretch to the width of the notification. Every action carries GTK's `flat` class and
+the same `.notification__action` ghost treatment: transparent at rest and `--gl-hover` under the
+pointer. The freedesktop specification gives actions no priority, so the card does not invent one
+from their order. The row leaves `0.8rem` below the buttons so they do not sit against the card edge;
+because the row is hidden when it is empty, notifications without actions keep their existing height.
 
 **Unread is a dot, not a coloured edge.** An accent bar down the side of the card is chrome that
-competes with the accent already spent on the primary action. A 0.5rem dot beside the time is where
-mail and chat clients put it, costs no layout, and reads at a glance.
+competes with the card's content and controls. A 0.5rem dot beside the time is where mail and chat
+clients put it, costs no layout, and reads at a glance.
 
 **What a screen reader hears is assembled in `announce`, and it is the whole card.** Every leaf is
 `presentation`, so the activatable child carries one label rather than five children each announcing
@@ -682,10 +679,13 @@ negative in the widget, because a GObject property cannot be null.
 
 ## NotificationStack
 
-The on-screen surface: a front card with the edges of the ones behind it showing below, and a chip
-that fans them apart and folds them back. `set_items(&[Notification])` and `set_collapsed(bool)` are
-the whole inlet. It shares `dress` with `NotificationList`, so a card is filled by exactly one
-function on both surfaces.
+The grouped surface: up to three individual cards, or from four onward a front card with the edges
+of the ones behind it showing below and a chip that fans them apart and folds them back. The chip is
+part of the stack by default, while
+`header_control()` lets a composition host that same control in its own header without creating a
+second count. `set_items(&[Notification])` and `set_collapsed(bool)` are the data and state inlets.
+It shares `dress` with `NotificationList`, so a card is filled by exactly one function on both
+surfaces.
 
 **It has no `BoxLayout`, and could not have one.** The brief said to follow `IndicatorGroup` — a
 `BoxLayout` set in `class_init` with children parented by `insert_after`. That does not survive the
@@ -710,9 +710,12 @@ are `visible: false` while collapsed and the strips stand in for them. Depth is 
 because a third sliver is not distinguishable from the second.
 
 **It is a surface, so it paints one — and that is not cosmetic.** `.notification-stack` sets
-`color` and gives its cards an opaque `--gl-surface` background, exactly as `.popover-shell` does.
-Inside a popover a card can afford `--gl-hover`, an 8% tint, because an opaque popover sits behind
-it; on the desktop there is nothing behind it but wallpaper. Measured in the preview: with the card
+`color`, while every card gets an opaque `--gl-notification` background: `#f2f2f2` in light mode
+and `#54545a` in dark mode. The two backplates read `--gl-notification-back` and
+`--gl-notification-back-far`; the dark ramp is the first-generation `#45454a` and `#3d3d42`, so
+each deeper card is dimmer than the one in front. Dark matches the first-generation surface; light
+is deliberately darker than its old white so a card stays distinct from the popover around it. On
+the desktop there is nothing behind it but wallpaper. Measured in the preview: with the card
 left translucent the strips showed *through* it, brightening its lower third into a muddy band
 instead of hiding, and the summary and body — which set no colour of their own and so inherit —
 came out white on white in the light scheme. Both were invisible to the GTK test, which never
@@ -724,19 +727,18 @@ edges became indistinguishable from the card's own drop shadow in dark. `mix(--g
 --gl-surface-fg, N)` darkens on light and lightens on dark, which is what `--gl-hover` and
 `--gl-active` already do, only opaque.
 
-**The chip is the only control, and it goes both ways.** It reads `N notifications` with a
+**The chip is the only visible stack control, and it goes both ways.** It reads `N notifications` with a
 chevron down when collapsed and `Collapse` with a chevron up when fanned — one control that opens
-and closes, per the drawer rule. It hides itself entirely below two notifications, because one
-notification has nothing to collapse and a chip offering to fold it is a control that does nothing.
+and closes, per the drawer rule. It hides itself through three notifications, because those cards
+stay individually visible and there is no stack to control.
 The chevron is swapped by icon name rather than rotated in CSS, so nothing depends on
 `-gtk-icon-transform` being supported.
 
 **`STEP`, `INSET` and `STRIP_HEIGHT` come from the mockup**, not from taste:
 `var/mockups/direction/src/notif_stack.py` is where 7, 9 and 30 were chosen, and the widget
 reproduces its arithmetic — strip *i* is `INSET * i` in from each side and its bottom edge sits
-`STEP * i` below the front card's. The GTK test pins `STEP` by comparing a three-card stack against
-a two-card one: the front card and the chip are identical in both, so the difference cannot be
-anything else.
+`STEP * i` below the front card's. The GTK test pins the boundary at which those decorative edges
+appear, so lowering it to three turns a directly visible group back into a stack and fails.
 
 **It reconciles by key without `reconcile::by_key`.** That helper's final pass asserts that the
 items are the parent's *only* children, and re-inserts anything whose `prev_sibling` disagrees —
@@ -745,50 +747,50 @@ ordering is not, because this widget has three kinds of child rather than one.
 
 **The strip's corner radius is written out rather than shared.** `--gl-notification-radius` is
 declared on `.notification` and inherits to its descendants; a strip is a sibling, so the variable
-does not reach it. Promoting it to `:root` would be a thirty-second token, and `theme::tests`
-asserts the count on purpose.
+does not reach it. Promoting component-only geometry to `:root` would widen the shared vocabulary,
+and `theme::tests` asserts its size on purpose.
 
 ## NotificationsPopover
 
 `PopoverShell` with a `Hero` carrying the do-not-disturb switch, a `Section` per application each
-holding a `NotificationList`, a `Notice` for the failure state, a `Placeholder` for the empty one,
+holding a `NotificationStack`, a `Notice` for the failure state, a `Placeholder` for the empty one,
 and two footer rows. Groups reconcile by key through `reconcile::by_key`, the same way the list
 reconciles its rows.
 
-**The clear row carries `row--danger`.** The two footer rows sit side by side in one band at the
-same size, and one of them throws away every notification the reader has not read. Identical rows
-where one is destructive is a misclick waiting to happen; `--gl-danger-text` on its title is what
-separates them. Colour is reinforcement rather than the whole signal — the labels already differ —
-which is what keeps it honest for a reader who cannot tell the two hues apart.
+**The clear row uses the normal footer treatment.** Its label already says exactly what it does, and
+the footer no longer uses danger red for an ordinary history-management action.
 
-**A group collapses to three, and the control is a toggle.** Six applications at eight notifications
-each is roughly 240rem of popover with nothing to stop it, and *no board in this crate reached that
-state* — every one is hand-authored at four to ten items, which is exactly why it went unseen. GNOME
-collapses a group to three; `GROUP_CAP` is that number. Past it the section shows a `Row` reading
-`N more notifications`, and pressing it reads `Show less` and closes again. `var/widget_examples/`
-now carries a **Dense** case that builds the 6x8 state, so the next person does not have to imagine
-it.
+**Every application group uses `NotificationStack`.** One to three notifications stay as individual
+cards; four or more start as a collapsed preview whose front-card click expands rather than
+activates it. A right click on that collapsed preview clears the application group without
+activating anything. Once the cards are individual, a right click dismisses only the card under the
+pointer. The stack's own labeled control sits in the application header and folds the cards back
+up. The notification-specific section leaves `0.4rem` between that header and its first card.
+Cards inside the popover use raised elevation rather than the stack's floating elevation, because
+the popover itself already floats above the panel and a second strong shadow makes each card look
+detached from the surface it belongs to.
+`var/widget_examples/` carries a **Dense** case that builds six applications with eight notifications
+each, so the bounded layout is exercised directly.
 
-**The expander goes away when the group stops overflowing.** A group dismissed down to two while
-expanded would otherwise leave `Show less` standing over nothing, which is the drawer rule applied
-to a different control. `set_groups` puts the cap back whenever the group fits inside it.
+**The `Section` `[trail]` slot holds the one stack control followed by per-group clear.** The shared
+slot expands and end-aligns its child, so the pair stays at the trailing edge even when an empty
+application name hides the title. There is no numeric `Section` count beside it. The clear button's
+`window-close-symbolic` cross matches the
+notification card's dismiss affordance and has an explicit icon size. It reports the group's `key`
+— captured when the section is built, which is safe here for the same reason it is safe in
+`NotificationList`: `by_key` only ever hands a section back for the key it was built for.
 
-**Per-group clear lives in a new `Section` `[trail]` slot**, and the two features shipped together
-because they wanted the same slot. The button reports the group's `key` — captured when the section
-is built, which is safe here for the same reason it is safe in `NotificationList`: `by_key` only
-ever hands a section back for the key it was built for.
-
-**Finding the list and the expander is a walk, not a second collection.** `descendant::<T>` replaced
-`list_in` and now serves both. The alternative is the popover holding a parallel structure keyed the
-same way as `sections`, which is two things to keep in agreement instead of one.
+**Finding the stack is a walk, not a second collection.** The alternative is the popover holding a
+parallel structure keyed the same way as `sections`, which is two things to keep in agreement instead
+of one.
 
 **Grouping keys on the sender's identity, never on `app_name`.** The name is chosen by whoever sent
 the notification, so grouping on it lets any application file its notifications under another's
 heading. `Group.key` is the desktop entry or bus name; `app_name` is only ever displayed.
 
-**A section owns its list, and the popover holds no second collection beside it.** `by_key` tracks
-`(key, Section)`, and the list is found inside the section when it is dressed. The alternative — a
-parallel map from key to list — is two structures keyed the same way and two chances to disagree.
+**A section owns its stack, and the popover holds no second collection beside it.** `by_key` tracks
+`(key, Section)`, and the stack is found inside the section when it is dressed. The alternative — a
+parallel map from key to stack — is two structures keyed the same way and two chances to disagree.
 
 **Setting do-not-disturb never reports it back.** A `Gtk.Switch` notifies on every change, including
 the one the caller just made to show the current state, and a popover that echoes that turns one
@@ -1236,7 +1238,8 @@ in translation is worth seeing before it reaches a panel, the same argument that
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them on the display **once**
-and `load()` replaces their content in place — installing twice stacks every rule.
+and follows `AdwStyleManager::is_dark()` so media queries resolve under system and forced schemes;
+`load()` replaces their content in place — installing twice stacks every rule.
 
 | Priority | Source | Holds |
 | --- | --- | --- |
@@ -1269,13 +1272,13 @@ result is transcribed back when it settles.
 
 ### The token vocabulary
 
-Thirty-one tokens, all `--gl-` prefixed, declared once in `:root`. Three tiers, and a rule may only
+Thirty-four tokens, all `--gl-` prefixed, declared in `:root`. Three tiers, and a rule may only
 read the tier below it: libadwaita's tokens → `--gl-*` → component rules. A component rule naming
 `--accent-bg-color` or a literal colour is a test failure.
 
 | Group | Tokens |
 | --- | --- |
-| surfaces | `panel` `panel-fg` `surface` `surface-fg` `border` `shadow` |
+| surfaces | `panel` `panel-fg` `surface` `surface-fg` `notification` `notification-back` `notification-back-far` `border` `shadow` |
 | elevation | `elevation-raised` `elevation-floating` |
 | text ramp | `muted` `dim` `faint` |
 | accent | `accent` `accent-fg` `accent-text` `accent-soft` |
@@ -1284,11 +1287,15 @@ read the tier below it: libadwaita's tokens → `--gl-*` → component rules. A 
 | type | `text-caption` `text-body` `text-title` |
 | other | `radius` `duration` `ease` `font-family` `disabled` |
 
-Eighteen derive from libadwaita, so the light/dark flip and the system accent cost nothing — which is
-why there is no `--dark-*` mirror and no `@media (prefers-color-scheme)` on a colour anywhere.
+Eighteen derive from libadwaita, so the light/dark flip and the system accent cost nothing. There is
+no parallel `--dark-*` vocabulary. The notification surface ramp is the one scheme-specific
+exception: its three stable semantic names are overridden together in the dark media query because
+the dark values preserve the first-generation depth palette rather than approximating it from the
+popover foreground.
 
-Three are literal. `--gl-knob` is white in both schemes by design, `--gl-scrim` sits over a wallpaper
-rather than an Adwaita surface, and `--gl-shadow` **cannot** be derived: `alpha()` multiplies rather
+Four tokens carry base literals. `--gl-notification` keeps its light and dark card colors opaque,
+`--gl-knob` is white in both schemes by design, `--gl-scrim` sits over a wallpaper rather than an
+Adwaita surface, and `--gl-shadow` **cannot** be derived: `alpha()` multiplies rather
 than replaces, and `--shade-color` is already 0.07, so `alpha(shade, 0.55)` yields 0.04 and no
 visible shadow.
 

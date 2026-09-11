@@ -20,6 +20,7 @@ pub struct NotificationStack {
     pub chip: OnceCell<gtk4::Button>,
     pub chip_label: OnceCell<gtk4::Label>,
     pub chip_arrow: OnceCell<gtk4::Image>,
+    pub chip_external: Cell<bool>,
     pub collapsed: Cell<bool>,
 }
 
@@ -48,6 +49,7 @@ impl ObjectImpl for NotificationStack {
                 glib::subclass::Signal::builder("action-invoked")
                     .param_types([String::static_type(), String::static_type()])
                     .build(),
+                glib::subclass::Signal::builder("clear-requested").build(),
             ]
         })
     }
@@ -89,7 +91,9 @@ impl ObjectImpl for NotificationStack {
     }
 
     fn dispose(&self) {
-        if let Some(chip) = self.chip.get() {
+        if let Some(chip) = self.chip.get()
+            && chip.parent().is_some()
+        {
             chip.unparent();
         }
         for strip in self.strips.borrow_mut().drain(..) {
@@ -107,7 +111,10 @@ impl WidgetImpl for NotificationStack {
         if shown.is_empty() {
             return (0, 0, -1, -1);
         }
-        let chip = self.chip.get().filter(|chip| chip.get_visible());
+        let chip = self
+            .chip
+            .get()
+            .filter(|chip| !self.chip_external.get() && chip.get_visible());
 
         if orientation == gtk4::Orientation::Horizontal {
             let mut min = 0;
@@ -145,7 +152,11 @@ impl WidgetImpl for NotificationStack {
         }
 
         let mut y = 0;
-        if let Some(chip) = self.chip.get().filter(|chip| chip.get_visible()) {
+        if let Some(chip) = self
+            .chip
+            .get()
+            .filter(|chip| !self.chip_external.get() && chip.get_visible())
+        {
             let chip_width = chip.measure(gtk4::Orientation::Horizontal, -1).1.min(width);
             let chip_height = chip.measure(gtk4::Orientation::Vertical, chip_width).1;
             chip.allocate(chip_width, chip_height, -1, at(width - chip_width, y));
@@ -189,7 +200,7 @@ impl WidgetImpl for NotificationStack {
 
 impl NotificationStack {
     pub(crate) fn depth(&self) -> usize {
-        if !self.collapsed.get() {
+        if !self.collapsed.get() || self.rows.borrow().len() < super::STACK_MIN_ITEMS {
             return 0;
         }
         self.rows.borrow().len().saturating_sub(1).min(MAX_DEPTH)

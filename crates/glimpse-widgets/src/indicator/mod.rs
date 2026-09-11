@@ -88,6 +88,7 @@ impl Indicator {
 
     pub fn set_badge(&self, badge: Option<&str>) {
         set_text(&self.imp().badge, badge);
+        self.sync_attention_dot();
     }
 
     pub fn set_attention(&self, attention: bool) {
@@ -98,6 +99,15 @@ impl Indicator {
             self.add_css_class(ATTENTION_CLASS);
         } else {
             self.remove_css_class(ATTENTION_CLASS);
+        }
+        self.sync_attention_dot();
+    }
+
+    fn sync_attention_dot(&self) {
+        let imp = self.imp();
+        let shown = imp.attention.get() && !imp.badge.get_visible();
+        if imp.attention_dot.get_visible() != shown {
+            imp.attention_dot.set_visible(shown);
         }
     }
 }

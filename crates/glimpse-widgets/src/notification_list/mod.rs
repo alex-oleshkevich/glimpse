@@ -37,6 +37,7 @@ pub struct Notification {
     pub actions: Vec<Action>,
     pub progress: Option<f64>,
     pub unread: bool,
+    pub activatable: bool,
 }
 
 glib::wrapper! {
@@ -183,6 +184,7 @@ pub(crate) fn dress(row: &NotificationItem, notification: &Notification) {
     row.set_unread(notification.unread);
     row.set_progress(notification.progress.unwrap_or(NO_PROGRESS));
     row.set_actions(&notification.actions);
+    row.set_activatable(notification.activatable);
 
     match notification.body.as_ref() {
         Some(Body::Markup(markup)) => row.set_body_markup(Some(markup.as_str())),

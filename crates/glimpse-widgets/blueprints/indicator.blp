@@ -28,6 +28,17 @@ template $Indicator: Gtk.Widget {
     ]
   }
 
+  Gtk.Box attention_dot {
+    halign: center;
+    valign: center;
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "indicator__attention-dot",
+    ]
+  }
+
   Gtk.Label label {
     single-line-mode: true;
     ellipsize: end;

@@ -1,10 +1,10 @@
 mod imp;
 
-use gettextrs::{gettext, ngettext};
+use gettextrs::gettext;
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::reconcile::by_key;
-use crate::{Notification, NotificationList, Row, Section};
+use crate::{Notification, NotificationStack, Section};
 
 const ACTIVATED: &str = "activated";
 const DISMISSED: &str = "dismissed";
@@ -13,11 +13,6 @@ const DND_TOGGLED: &str = "dnd-toggled";
 const CLEAR_ALL: &str = "clear-all";
 const FOOTER_ACTIVATED: &str = "footer-activated";
 const CLEAR_GROUP: &str = "clear-group";
-
-/// GNOME collapses a group to three. Past that a popover holding several noisy applications is a
-/// scroll rather than a summary — and every board in this crate is hand-authored at four to ten
-/// items, which is why it went unseen.
-const GROUP_CAP: usize = 3;
 
 /// One application's notifications. `key` is what grouping is done on and is the sender's identity
 /// — its desktop entry or bus name — rather than `app_name`, which the sender chooses and can
@@ -62,17 +57,10 @@ impl NotificationsPopover {
             |group| self.section(&group.key),
             |section, group| {
                 section.set_title(Some(group.app_name.as_str()));
-                section.set_count(count(group.notifications.len()).as_deref());
-                let Some(list) = descendant::<NotificationList>(section) else {
+                let Some(stack) = descendant::<NotificationStack>(section) else {
                     return;
                 };
-                list.set_notifications(&group.notifications);
-                if group.notifications.len() <= GROUP_CAP {
-                    list.set_cap(Some(GROUP_CAP));
-                }
-                if let Some(more) = descendant::<Row>(section) {
-                    dress_more(&more, &list);
-                }
+                stack.set_items(&group.notifications);
             },
         );
         drop(sections);
@@ -83,49 +71,36 @@ impl NotificationsPopover {
         imp.clear.set_visible(anything);
     }
 
-    /// A section carries its own list rather than the popover holding a second collection beside
-    /// `sections`: two structures keyed the same way are two chances to disagree.
     fn section(&self, key: &str) -> Section {
         let section = Section::new();
-        let list = NotificationList::new();
+        section.add_css_class("notifications-popover__group");
+        let stack = NotificationStack::new();
 
-        list.connect_activated(glib::clone!(
+        stack.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             move |_, key| popover.emit_by_name::<()>(ACTIVATED, &[&key])
         ));
-        list.connect_dismissed(glib::clone!(
+        stack.connect_dismissed(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             move |_, key| popover.emit_by_name::<()>(DISMISSED, &[&key])
         ));
-        list.connect_action_invoked(glib::clone!(
+        stack.connect_action_invoked(glib::clone!(
             #[weak(rename_to = popover)]
             self,
             move |_, key, action| popover.emit_by_name::<()>(ACTION_INVOKED, &[&key, &action])
         ));
-
-        let more = Row::new();
-        more.set_visible(false);
-        more.add_css_class("section__more");
-        more.connect_clicked(glib::clone!(
-            #[weak]
-            list,
-            #[weak]
-            more,
-            move |_| {
-                let expanded = list.cap().is_none();
-                list.set_cap(expanded.then_some(GROUP_CAP));
-                dress_more(&more, &list);
-            }
+        stack.connect_clear_requested(glib::clone!(
+            #[weak(rename_to = popover)]
+            self,
+            #[strong(rename_to = key)]
+            key.to_owned(),
+            move |_| popover.emit_by_name::<()>(CLEAR_GROUP, &[&key])
         ));
 
-        let body = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-        body.append(&list);
-        body.append(&more);
-
         let clear = gtk4::Button::builder()
-            .icon_name("user-trash-symbolic")
+            .icon_name("window-close-symbolic")
             .tooltip_text(gettext("Clear these notifications"))
             .has_frame(false)
             .valign(gtk4::Align::Center)
@@ -139,9 +114,13 @@ impl NotificationsPopover {
             move |_| popover.emit_by_name::<()>(CLEAR_GROUP, &[&key])
         ));
 
-        list.set_cap(Some(GROUP_CAP));
-        section.set_content(Some(&body));
-        section.set_trail(Some(&clear));
+        let trail = gtk4::Box::new(gtk4::Orientation::Horizontal, 0);
+        trail.add_css_class("notifications-popover__group-actions");
+        trail.append(&stack.header_control());
+        trail.append(&clear);
+
+        section.set_content(Some(&stack));
+        section.set_trail(Some(&trail));
         section
     }
 
@@ -241,34 +220,6 @@ impl NotificationsPopover {
     }
 }
 
-/// One is not worth a number beside a name that already says it.
-fn count(notifications: usize) -> Option<String> {
-    (notifications > 1).then(|| {
-        ngettext("{count}", "{count}", notifications as u32)
-            .replace("{count}", &notifications.to_string())
-    })
-}
-
-/// The control that opens a group is the one that closes it, and it takes itself away when there
-/// is nothing left behind it.
-fn dress_more(more: &Row, list: &NotificationList) {
-    let label = match list.cap() {
-        None => Some(gettext("Show less")),
-        Some(_) => {
-            let hidden = list.hidden();
-            (hidden > 0).then(|| {
-                ngettext(
-                    "{count} more notification",
-                    "{count} more notifications",
-                    hidden as u32,
-                )
-                .replace("{count}", &hidden.to_string())
-            })
-        }
-    };
-    crate::set_footer_row(more, label.as_deref());
-}
-
 fn descendant<T: IsA<gtk4::Widget>>(root: &impl IsA<gtk4::Widget>) -> Option<T> {
     let widget = root.upcast_ref::<gtk4::Widget>();
     if let Some(found) = widget.downcast_ref::<T>() {
@@ -282,16 +233,4 @@ fn descendant<T: IsA<gtk4::Widget>>(root: &impl IsA<gtk4::Widget>) -> Option<T> 
         child = node.next_sibling();
     }
     None
-}
-
-#[cfg(test)]
-mod tests {
-    use super::count;
-
-    #[test]
-    fn a_single_notification_is_not_counted_beside_the_name_that_already_says_it() {
-        assert_eq!(count(0), None);
-        assert_eq!(count(1), None);
-        assert_eq!(count(2).as_deref(), Some("2"));
-    }
 }

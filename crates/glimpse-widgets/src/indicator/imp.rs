@@ -9,6 +9,8 @@ pub struct Indicator {
     #[template_child]
     pub icon: TemplateChild<gtk4::Image>,
     #[template_child]
+    pub attention_dot: TemplateChild<gtk4::Box>,
+    #[template_child]
     pub label: TemplateChild<gtk4::Label>,
     #[template_child]
     pub badge: TemplateChild<gtk4::Label>,

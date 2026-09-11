@@ -165,6 +165,11 @@ fn resolve(path: &Path) -> PathBuf {
 
 fn provider() -> gtk4::CssProvider {
     let provider = gtk4::CssProvider::new();
+    provider.set_prefers_color_scheme(if adw::StyleManager::default().is_dark() {
+        gtk4::InterfaceColorScheme::Dark
+    } else {
+        gtk4::InterfaceColorScheme::Light
+    });
     provider.connect_parsing_error(|_, section, error| {
         eprintln!("stylesheet {}: {error}", section.to_str());
     });
@@ -295,7 +300,8 @@ mod fixtures {
             "notification_indicator" => notification_indicators(root),
             "notification_list" => notification_list(root),
             "notification_stack" => notification_stack(root),
-            "notifications" => notifications(root),
+            "notifications" => notifications(root, filled()),
+            "notifications_anonymous" => notifications(root, anonymous()),
             _ => {}
         }
         drawer_nav(root);
@@ -1127,19 +1133,26 @@ mod fixtures {
                 "Saved to ~/Pictures/Screenshots",
                 "4m",
             ),
+            note(
+                "backup",
+                "Backups",
+                "Backup completed",
+                "The encrypted archive is ready.",
+                "7m",
+            ),
         ];
 
         let mut filled = false;
         for (case, collapsed, items) in [
             ("collapsed", true, feed.as_slice()),
-            ("fanned", false, feed.as_slice()),
-            ("lone", true, &feed[..1]),
+            ("three", false, &feed[..3]),
         ] {
             for stack in tagged::<NotificationStack>(root, case) {
                 stack.set_items(items);
                 stack.set_collapsed(collapsed);
                 stack.connect_activated(|_, key| eprintln!("stack: {key} opened"));
                 stack.connect_dismissed(|_, key| eprintln!("stack: {key} dismissed"));
+                stack.connect_clear_requested(|_| eprintln!("stack: clear requested"));
                 stack
                     .connect_action_invoked(|_, key, action| eprintln!("stack: {key} -> {action}"));
                 filled = true;
@@ -1151,7 +1164,7 @@ mod fixtures {
         }
     }
 
-    fn notifications(root: &gtk4::Widget) {
+    fn notifications(root: &gtk4::Widget, groups: Vec<Group>) {
         let Some(popover) = find::<NotificationsPopover>(root) else {
             eprintln!("the board carries no $NotificationsPopover, so there is nothing to fill");
             return;
@@ -1159,7 +1172,7 @@ mod fixtures {
 
         popover.set_clear_label(Some("Clear all"));
         popover.set_footer(Some("Notification settings"));
-        let shown = Rc::new(RefCell::new(filled()));
+        let shown = Rc::new(RefCell::new(groups));
         popover.set_groups(&shown.borrow());
 
         let push = |popover: &NotificationsPopover, shown: &Rc<RefCell<Vec<Group>>>| {
@@ -1203,7 +1216,7 @@ mod fixtures {
         popover.connect_footer_activated(|_| eprintln!("popover: settings"));
         popover.connect_dnd_toggled(|_, silenced| eprintln!("popover: do not disturb {silenced}"));
 
-        for case in ["filled", "single", "dense", "empty", "trouble"] {
+        for case in ["filled", "single", "anonymous", "dense", "empty", "trouble"] {
             for button in tagged::<gtk4::Button>(root, case) {
                 button.connect_clicked(glib::clone!(
                     #[weak]
@@ -1214,6 +1227,7 @@ mod fixtures {
                         *shown.borrow_mut() = match case {
                             "filled" => filled(),
                             "single" => filled()[..1].to_vec(),
+                            "anonymous" => anonymous(),
                             "dense" => dense(),
                             _ => Vec::new(),
                         };
@@ -1226,6 +1240,12 @@ mod fixtures {
                 ));
             }
         }
+    }
+
+    fn anonymous() -> Vec<Group> {
+        let mut groups = filled()[..1].to_vec();
+        groups[0].app_name.clear();
+        groups
     }
 
     fn dense() -> Vec<Group> {
@@ -1345,7 +1365,7 @@ mod fixtures {
                 "urgent",
                 IndicatorSpec {
                     icon: bell(),
-                    badge: Some("1".to_owned()),
+                    attention: true,
                     severity: Some(Severity::Error),
                     tooltip: Some("Battery is at 4%".to_owned()),
                     ..IndicatorSpec::default()

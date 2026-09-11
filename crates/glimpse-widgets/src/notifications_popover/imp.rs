@@ -22,6 +22,8 @@ pub struct NotificationsPopover {
     #[template_child]
     pub hero: TemplateChild<Hero>,
     #[template_child]
+    pub scroller: TemplateChild<gtk4::ScrolledWindow>,
+    #[template_child]
     pub column: TemplateChild<gtk4::Box>,
     #[template_child]
     pub trouble: TemplateChild<Notice>,

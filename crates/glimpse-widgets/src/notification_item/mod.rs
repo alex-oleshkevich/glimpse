@@ -33,6 +33,7 @@ const ACTIVATED: &str = "activated";
 const DISMISSED: &str = "dismissed";
 const ACTION_INVOKED: &str = "action-invoked";
 const AVATAR: &str = "notification--avatar";
+const ACTIVATABLE: &str = "notification--activatable";
 
 /// `key` is what the widget reports when the action fires. Buttons are rebuilt whenever the set
 /// changes, so a position says nothing durable about which action it stands for.
@@ -109,20 +110,34 @@ impl NotificationItem {
         imp.shown.replace(actions.to_vec());
 
         crate::clear_children(&imp.actions);
-        for (index, action) in actions.iter().enumerate() {
-            imp.actions.append(&self.build_action(action, index == 0));
+        for action in actions {
+            imp.actions.append(&self.build_action(action));
         }
         imp.actions.set_visible(!actions.is_empty());
     }
 
-    /// The freedesktop specification gives actions no priority, so the first one a sender lists is
-    /// taken as the primary and is the only one drawn as a filled button.
-    fn build_action(&self, action: &Action, primary: bool) -> gtk4::Button {
-        let button = gtk4::Button::with_label(&truncate(&action.label, LABEL_MAX_CHARS));
-        button.add_css_class("notification__action");
-        if primary {
-            button.add_css_class("notification__action--primary");
+    pub fn set_activatable(&self, activatable: bool) {
+        let activate = &self.imp().activate;
+        if activate.can_target() != activatable {
+            activate.set_can_target(activatable);
         }
+        if activate.is_focusable() != activatable {
+            activate.set_focusable(activatable);
+        }
+        crate::set_css_class(self, ACTIVATABLE, activatable);
+    }
+
+    pub(crate) fn set_controls_visible(&self, visible: bool) {
+        let imp = self.imp();
+        imp.actions
+            .set_visible(visible && !imp.shown.borrow().is_empty());
+        imp.close.set_visible(visible);
+    }
+
+    fn build_action(&self, action: &Action) -> gtk4::Button {
+        let button = gtk4::Button::with_label(&truncate(&action.label, LABEL_MAX_CHARS));
+        button.add_css_class("flat");
+        button.add_css_class("notification__action");
         button.connect_clicked(glib::clone!(
             #[weak(rename_to = item)]
             self,

@@ -211,6 +211,16 @@ mod tests {
         out
     }
 
+    fn secondary_click(widget: &impl IsA<gtk4::Widget>) {
+        let controllers = widget.observe_controllers();
+        let click = (0..controllers.n_items())
+            .filter_map(|index| controllers.item(index))
+            .filter_map(|controller| controller.downcast::<gtk4::GestureClick>().ok())
+            .find(|gesture| gesture.button() == gdk::BUTTON_SECONDARY)
+            .expect("a secondary-click gesture");
+        click.emit_by_name::<()>("released", &[&1i32, &0.0f64, &0.0f64]);
+    }
+
     #[test]
     #[ignore = "needs a display"]
     fn widgets() {
@@ -328,6 +338,24 @@ mod tests {
         assert!(dot.is_visible());
         indicator.set_dot(None);
         assert!(!dot.is_visible());
+
+        let attention_dot = child_named::<gtk4::Box>(&indicator, "indicator__attention-dot");
+        let badge = child_named::<gtk4::Label>(&indicator, "indicator__badge");
+        assert_eq!(attention_dot.halign(), gtk4::Align::Center);
+        assert_eq!(attention_dot.valign(), gtk4::Align::Center);
+        indicator.apply(&IndicatorSpec {
+            attention: true,
+            ..Default::default()
+        });
+        assert!(attention_dot.is_visible() && !badge.is_visible());
+        indicator.apply(&IndicatorSpec {
+            badge: Some("3".to_owned()),
+            attention: true,
+            ..Default::default()
+        });
+        assert!(!attention_dot.is_visible() && badge.is_visible());
+        indicator.apply(&IndicatorSpec::default());
+        assert!(!attention_dot.is_visible() && !badge.is_visible());
 
         let changes = Rc::new(Cell::new(0u32));
         image.connect_gicon_notify({
@@ -694,13 +722,35 @@ mod tests {
         let item_icon = child_named::<gtk4::Image>(&item, "notification__icon");
         let item_dot = child_named::<gtk4::Box>(&item, "notification__unread-dot");
         let item_actions = child_named::<gtk4::Box>(&item, "notification__actions");
+        let item_activate = child_named::<gtk4::Button>(&item, "notification__activate");
+        let item_close = child_named::<gtk4::Button>(&item, "notification__close");
         assert!(
             !item_summary.get_visible()
                 && !item_body.get_visible()
                 && !item_icon.get_visible()
                 && !item_dot.get_visible()
-                && !item_actions.get_visible(),
+                && !item_actions.get_visible()
+                && !item_close.get_visible(),
             "a notification with nothing in it reserves no slot"
+        );
+        item.set_activatable(false);
+        assert!(
+            !item_activate.can_target()
+                && !item_activate.is_focusable()
+                && !item.has_css_class("notification--activatable"),
+            "a card with no default action neither takes a click nor advertises one"
+        );
+        item.set_activatable(true);
+        assert!(
+            item_activate.can_target()
+                && item_activate.is_focusable()
+                && item.has_css_class("notification--activatable")
+        );
+        item.set_unread(true);
+        item.set_unread(false);
+        assert!(
+            item_close.get_visible(),
+            "a read card keeps its close control; unread changes only the dot"
         );
 
         let bare = NotificationItem::new();
@@ -953,9 +1003,14 @@ mod tests {
             "three is where the GNOME HIG and KDE both stop; a longer list grows the card sideways"
         );
         assert!(
-            buttons[0].has_css_class("notification__action--primary")
-                && !buttons[1].has_css_class("notification__action--primary"),
-            "the first action a sender lists is the primary one, and the only filled button"
+            buttons.iter().all(|button| button.has_css_class("flat")),
+            "every notification action uses the ghost-button treatment"
+        );
+        assert!(
+            buttons
+                .iter()
+                .all(|button| !button.has_css_class("notification__action--primary")),
+            "notification actions do not invent a visual priority the sender did not declare"
         );
         assert!(item_actions.get_visible());
 
@@ -1114,15 +1169,45 @@ mod tests {
         stack.set_items(&three);
         assert!(stack.get_visible());
         assert_eq!(stack_rows(&stack).len(), 3);
+        stack.set_collapsed(true);
+        assert!(!stack.is_collapsed());
+        assert_eq!(strips(&stack), 0);
+        assert_eq!(
+            stack_rows(&stack)
+                .iter()
+                .map(|row| row.get_visible())
+                .collect::<Vec<_>>(),
+            vec![true, true, true],
+            "three notifications remain individual cards"
+        );
+        assert!(
+            stack_rows(&stack).iter().all(|row| {
+                child_named::<gtk4::Button>(row, "notification__close").get_visible()
+            }),
+            "every card keeps a close button whether it is unread or history"
+        );
+        assert!(!chip.get_visible());
+
+        let mut four = [
+            note("a", "First"),
+            note("b", "Second"),
+            note("c", "Third"),
+            note("d", "Fourth"),
+        ];
+        four[0].actions = vec![Action {
+            key: "reply".to_owned(),
+            label: "Reply".to_owned(),
+        }];
+        stack.set_items(&four);
+        assert!(stack.is_collapsed());
         assert_eq!(strips(&stack), 2);
         assert_eq!(
             stack_rows(&stack)
                 .iter()
                 .map(|row| row.get_visible())
                 .collect::<Vec<_>>(),
-            vec![true, false, false],
-            "collapsed renders the front card and stands the rest down: the cards behind it are \
-             strips, not live notifications"
+            vec![true, false, false, false],
+            "four notifications collapse to a front card and decorative edges"
         );
 
         assert!(
@@ -1134,7 +1219,13 @@ mod tests {
         );
 
         assert!(chip.get_visible());
-        assert_eq!(chip_text(), "3 notifications");
+        assert_eq!(chip_text(), "4 notifications");
+        let front = &stack_rows(&stack)[0];
+        assert!(
+            !child_named::<gtk4::Button>(front, "notification__close").get_visible()
+                && !child_named::<gtk4::Box>(front, "notification__actions").get_visible(),
+            "the collapsed card is a preview, so it exposes no controls for one notification"
+        );
 
         chip.emit_clicked();
         assert!(!stack.is_collapsed(), "the chip opens the stack");
@@ -1144,6 +1235,12 @@ mod tests {
             "a fanned stack has no edges left to show"
         );
         assert!(stack_rows(&stack).iter().all(|row| row.get_visible()));
+        let front = &stack_rows(&stack)[0];
+        assert!(
+            child_named::<gtk4::Button>(front, "notification__close").get_visible()
+                && child_named::<gtk4::Box>(front, "notification__actions").get_visible(),
+            "expanding restores the front notification's controls"
+        );
         assert_eq!(chip_text(), "Collapse");
 
         chip.emit_clicked();
@@ -1165,21 +1262,22 @@ mod tests {
             "the stack shows a fixed number of edges however many are behind the front card"
         );
 
-        let width = stack.measure(gtk4::Orientation::Horizontal, -1).1;
         stack.set_items(&three);
-        let deep = stack.measure(gtk4::Orientation::Vertical, width).1;
-        stack.set_items(&three[..2]);
-        let shallow = stack.measure(gtk4::Orientation::Vertical, width).1;
+        assert_eq!(stack.imp().depth(), 0);
+        stack.set_items(&four);
         assert_eq!(
-            deep - shallow,
-            crate::notification_stack::STEP,
-            "each card behind the front one reserves exactly one step of edge, and the front card \
-             and the chip are the same in both so nothing else can account for the difference"
+            stack.imp().depth(),
+            crate::notification_stack::MAX_DEPTH,
+            "the fourth notification is the point where decorative stack depth appears"
         );
 
-        stack.set_items(&three);
         let front = stack_rows(&stack)[0].clone();
-        stack.set_items(&[note("b", "Second"), note("a", "First again")]);
+        stack.set_items(&[
+            note("b", "Second"),
+            note("a", "First again"),
+            note("c", "Third"),
+            note("d", "Fourth"),
+        ]);
         let moved = stack_rows(&stack);
         assert!(
             moved[1] == front,
@@ -1200,19 +1298,48 @@ mod tests {
             let fired = Rc::clone(&stack_fired);
             move |_, key, action| fired.borrow_mut().push(format!("{key}/{action}"))
         });
+        let stack_cleared = Rc::new(Cell::new(0u32));
+        stack.connect_clear_requested({
+            let cleared = Rc::clone(&stack_cleared);
+            move |_| cleared.set(cleared.get() + 1)
+        });
 
+        stack.set_collapsed(true);
+        secondary_click(&moved[0]);
+        assert_eq!(stack_cleared.get(), 1);
+        assert!(stack_fired.borrow().is_empty());
+        let collapsed_preview = child_named::<gtk4::Button>(&moved[0], "notification__activate");
+        assert!(
+            collapsed_preview.can_target(),
+            "a collapsed preview owns the card click even without a default action"
+        );
+        collapsed_preview.emit_clicked();
+        assert!(
+            !stack.is_collapsed() && stack_fired.borrow().is_empty(),
+            "the collapsed front card opens the preview without activating its notification"
+        );
+        assert!(
+            !collapsed_preview.can_target(),
+            "expanding restores the card's actual non-activatable state"
+        );
+        secondary_click(&moved[0]);
         child_named::<gtk4::Button>(&moved[1], "notification__activate").emit_clicked();
-        child_named::<gtk4::Button>(&moved[0], "notification__close").emit_clicked();
+        child_named::<gtk4::Button>(&moved[2], "notification__close").emit_clicked();
         assert_eq!(
             *stack_fired.borrow(),
-            vec!["activated a".to_owned(), "dismissed b".to_owned()],
-            "the key a card reports is its own, whatever depth it has ended up at"
+            vec![
+                "dismissed b".to_owned(),
+                "activated a".to_owned(),
+                "dismissed c".to_owned(),
+            ],
+            "right-click and close dismiss expanded cards while activation keeps its own key"
         );
 
-        stack.set_items(&three);
+        stack.set_items(&four);
+        stack.set_collapsed(true);
         let touched = stack_rows(&stack)[0].clone();
         touched.set_summary(Some("Touched by hand"));
-        stack.set_items(&three);
+        stack.set_items(&four);
         stack.set_collapsed(true);
         assert_eq!(
             touched.summary().as_deref(),
@@ -1261,22 +1388,49 @@ mod tests {
             "this popover sets a wider floor than the shared one, through a descendant selector \
              that would stop matching silently if the nesting or the class names moved"
         );
+        assert!(
+            popover_imp.scroller.propagates_natural_height()
+                && popover_imp.scroller.hscrollbar_policy() == gtk4::PolicyType::Never,
+            "a long notification feed scrolls vertically without changing the popover width"
+        );
 
         popover.set_groups(&[group("a", "Telegram", 2), group("b", "PagerDuty", 1)]);
         let sections = children_of::<Section>(&popover_imp.groups.get());
         assert_eq!(sections.len(), 2);
+        assert!(
+            sections
+                .iter()
+                .all(|section| section.has_css_class("notifications-popover__group")),
+            "notification sections carry the group spacing contract"
+        );
         assert_eq!(sections[0].title().as_deref(), Some("Telegram"));
         assert_eq!(
-            sections[0].count().as_deref(),
-            Some("2"),
-            "a count belongs beside a name it does not already repeat"
+            sections[0].count(),
+            None,
+            "the stack control is the group's only count"
         );
         assert_eq!(
             sections[1].count(),
             None,
-            "one notification under one name is not worth a number"
+            "a section does not duplicate the stack's count slot"
         );
+        let group_actions = sections[0]
+            .imp()
+            .trail
+            .first_child()
+            .and_downcast::<gtk4::Box>()
+            .expect("notification group actions");
+        let trail_buttons = children_of::<gtk4::Button>(&group_actions);
+        assert_eq!(trail_buttons.len(), 2);
+        assert!(trail_buttons[0].has_css_class("notification-stack__chip"));
+        assert!(trail_buttons[1].has_css_class("section__clear"));
         assert!(popover_imp.clear.get_visible() && !popover_imp.empty.get_visible());
+
+        popover.set_groups(&[group("a", "", 2)]);
+        let anonymous = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        assert!(!anonymous.imp().title.get_visible());
+        assert!(anonymous.imp().trail.property::<bool>("hexpand"));
+        assert_eq!(anonymous.imp().trail.halign(), gtk4::Align::End);
 
         popover.set_groups(&[group("b", "PagerDuty", 1)]);
         assert_eq!(
@@ -1285,53 +1439,88 @@ mod tests {
             "a group that goes away takes its section with it"
         );
 
-        popover.set_groups(&[group("a", "Telegram", 5)]);
-        let dense = children_of::<Section>(&popover_imp.groups.get())[0].clone();
-        let dense_list = child_named::<NotificationList>(&dense, "notification-list");
-        let more = child_named::<Row>(&dense, "section__more");
-        let shown = |list: &NotificationList| {
-            children_of::<NotificationItem>(list)
-                .iter()
-                .filter(|row| row.get_visible())
-                .count()
-        };
-
-        assert!(
-            shown(&dense_list) == 3 && more.get_visible(),
-            "a group past the cap renders three and puts the rest behind one control"
-        );
-        assert_eq!(more.title().as_deref(), Some("2 more notifications"));
-
-        more.emit_clicked();
-        assert!(
-            shown(&dense_list) == 5 && more.title().as_deref() == Some("Show less"),
-            "the control opens the group"
-        );
-
-        more.emit_clicked();
-        assert!(
-            shown(&dense_list) == 3 && more.title().as_deref() == Some("2 more notifications"),
-            "the same control closes it: one that only expands leaves the reader no way back"
-        );
-
-        more.emit_clicked();
-        popover.set_groups(&[group("a", "Telegram", 2)]);
-        assert!(
-            !more.get_visible() && shown(&dense_list) == 2,
-            "a group that stops overflowing takes its expander away rather than leaving it \
-             standing open on nothing"
-        );
-
         let cleared = Rc::new(RefCell::new(Vec::<String>::new()));
         popover.connect_clear_group({
             let cleared = Rc::clone(&cleared);
             move |_, key| cleared.borrow_mut().push(key)
         });
-        child_named::<gtk4::Button>(&dense, "section__clear").emit_clicked();
+        let dismissed = Rc::new(RefCell::new(Vec::<String>::new()));
+        popover.connect_dismissed({
+            let dismissed = Rc::clone(&dismissed);
+            move |_, key| dismissed.borrow_mut().push(key)
+        });
+
+        popover.set_groups(&[group("a", "Telegram", 5)]);
+        let dense = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        let dense_stack = child_named::<NotificationStack>(&dense, "notification-stack");
+        let shown = |stack: &NotificationStack| {
+            children_of::<NotificationItem>(stack)
+                .iter()
+                .filter(|row| row.get_visible())
+                .count()
+        };
+        let dense_chip = dense_stack
+            .imp()
+            .chip
+            .get()
+            .expect("a notification stack builds its chip once")
+            .clone();
+
+        assert!(
+            dense_stack.is_collapsed()
+                && shown(&dense_stack) == 1
+                && dense_stack.imp().strips.borrow().len() == crate::notification_stack::MAX_DEPTH
+                && dense_chip.get_visible(),
+            "a notification group is rendered by the collapsed stack widget"
+        );
+
+        secondary_click(&children_of::<NotificationItem>(&dense_stack)[0]);
         assert_eq!(
             *cleared.borrow(),
             vec!["a".to_owned()],
+            "right-clicking the collapsed stack reports its group"
+        );
+
+        dense_chip.emit_clicked();
+        assert!(
+            !dense_stack.is_collapsed() && shown(&dense_stack) == 5,
+            "the stack control opens the group"
+        );
+        let dense_rows = children_of::<NotificationItem>(&dense_stack);
+        secondary_click(&dense_rows[1]);
+        child_named::<gtk4::Button>(&dense_rows[2], "notification__close").emit_clicked();
+        assert_eq!(
+            *dismissed.borrow(),
+            vec!["a-1".to_owned(), "a-2".to_owned()],
+            "an expanded stack forwards both right-click and close with the selected card key"
+        );
+
+        dense_chip.emit_clicked();
+        assert!(
+            dense_stack.is_collapsed() && shown(&dense_stack) == 1,
+            "the same stack control closes the group"
+        );
+
+        popover.set_groups(&[group("a", "Telegram", 1)]);
+        assert!(
+            !dense_chip.get_visible() && shown(&dense_stack) == 1,
+            "a group reduced to one notification takes the stack control away"
+        );
+
+        let group_clear = child_named::<gtk4::Button>(&dense, "section__clear");
+        assert_eq!(
+            group_clear.icon_name().as_deref(),
+            Some("window-close-symbolic")
+        );
+        group_clear.emit_clicked();
+        assert_eq!(
+            *cleared.borrow(),
+            vec!["a".to_owned(), "a".to_owned()],
             "a section reports the group it stands for rather than where it sits"
+        );
+        assert!(
+            !popover_imp.clear.has_css_class("row--danger"),
+            "clear all keeps the normal footer treatment"
         );
 
         let toggles = Rc::new(Cell::new(0u32));

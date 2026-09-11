@@ -3,6 +3,9 @@
     --gl-panel-fg: var(--window-fg-color, #ffffff);
     --gl-surface: var(--popover-bg-color, #36363a);
     --gl-surface-fg: var(--popover-fg-color, #ffffff);
+    --gl-notification: #f2f2f2;
+    --gl-notification-back: mix(var(--gl-surface), var(--gl-surface-fg), 0.14);
+    --gl-notification-back-far: mix(var(--gl-surface), var(--gl-surface-fg), 0.24);
 
     --gl-muted: alpha(var(--gl-surface-fg), 0.65);
     --gl-dim: alpha(var(--gl-surface-fg), 0.38);
@@ -37,6 +40,14 @@
     --gl-ease: cubic-bezier(0.2, 0, 0, 1);
     --gl-font-family: "Adwaita Sans", system-ui, sans-serif;
     --gl-disabled: var(--disabled-opacity, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --gl-notification: #54545a;
+        --gl-notification-back: #45454a;
+        --gl-notification-back-far: #3d3d42;
+    }
 }
 
 .panel {
@@ -98,6 +109,13 @@
     min-height: 1.5rem;
 }
 
+.indicator__attention-dot {
+    min-width: 0.5rem;
+    min-height: 0.5rem;
+    border-radius: 999px;
+    background-color: var(--gl-accent-text);
+}
+
 .indicator__badge {
     background-color: var(--gl-accent-soft);
     border-radius: 999px;
@@ -108,19 +126,27 @@
     margin-left: 0.35rem;
 }
 
-.indicator--attention .indicator__icon,
-.indicator--attention .indicator__label {
-    color: var(--gl-accent-text);
-}
-
 .indicator--warning .indicator__icon,
 .indicator--warning .indicator__label {
     color: var(--gl-warning-text);
 }
 
+.indicator--warning .indicator__attention-dot {
+    background-color: var(--gl-warning-text);
+}
+
 .indicator--error .indicator__icon,
 .indicator--error .indicator__label {
     color: var(--gl-danger-text);
+}
+
+.indicator--error .indicator__attention-dot {
+    background-color: var(--gl-danger-text);
+}
+
+.indicator--attention .indicator__icon,
+.indicator--attention .indicator__label {
+    color: inherit;
 }
 
 .pager {
@@ -322,6 +348,10 @@
     font-weight: 600;
 }
 
+.keyboard-popover {
+    --gl-popover-min-width: 8rem;
+}
+
 .keyboard-popover .row--on .row__title {
     font-weight: normal;
 }
@@ -330,12 +360,16 @@
     color: var(--gl-accent-text);
 }
 
-.row--danger .row__title {
-    color: var(--gl-danger-text);
-}
-
 .section__trail {
     margin-left: 0.4rem;
+}
+
+.notifications-popover__group-actions {
+    border-spacing: 0.2rem;
+}
+
+.notifications-popover__group .section__header {
+    margin-bottom: 0.4rem;
 }
 
 .section__clear {
@@ -344,17 +378,12 @@
     padding: 0.2rem;
     border-radius: 999px;
     color: var(--gl-dim);
+    -gtk-icon-size: 1rem;
 }
 
 .section__clear:hover {
     color: var(--gl-danger-text);
     background-color: var(--gl-hover);
-}
-
-.section__more .row__title {
-    font-size: var(--gl-text-caption);
-    font-weight: 600;
-    color: var(--gl-muted);
 }
 
 .hero__icon {
@@ -559,7 +588,7 @@
 }
 
 .popover-shell .column {
-    min-width: var(--gl-popover-min-width, 27rem);
+    min-width: var(--gl-popover-min-width);
 }
 
 .column > .notice + .notice,
@@ -675,12 +704,12 @@
     min-width: 34rem;
     min-height: 6rem;
     border-radius: var(--gl-notification-radius);
-    background-color: var(--gl-hover);
+    background-color: var(--gl-notification);
     transition: background-color var(--gl-duration) var(--gl-ease);
 }
 
-.notification:hover {
-    background-color: var(--gl-active);
+.notification--activatable:hover {
+    background-color: mix(var(--gl-notification), var(--gl-surface-fg), 0.08);
 }
 
 .notification__activate {
@@ -757,7 +786,7 @@
 }
 
 .notification__actions {
-    margin: 0.27rem 1.08rem 0.4rem 1.08rem;
+    margin: 0.27rem 1.08rem 0.8rem 1.08rem;
 }
 
 .notification__action {
@@ -774,15 +803,6 @@
 .notification__action:hover {
     color: var(--gl-surface-fg);
     background-color: var(--gl-hover);
-}
-
-.notification__action--primary {
-    color: var(--gl-surface-fg);
-    background-color: var(--gl-active);
-}
-
-.notification__action--primary:hover {
-    background-color: var(--gl-faint);
 }
 
 .notification__close {
@@ -818,12 +838,11 @@
 }
 
 .notification-stack .notification {
-    background-color: var(--gl-surface);
     box-shadow: var(--gl-elevation-floating);
 }
 
-.notification-stack .notification:hover {
-    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.08);
+.notifications-popover__group .notification {
+    box-shadow: var(--gl-elevation-raised);
 }
 
 .notification-stack__chip {
@@ -849,14 +868,12 @@
 
 .notification-stack__strip {
     border-radius: 1.1rem;
-    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.14);
+    background-color: var(--gl-notification-back);
 }
 
 .notification-stack__strip--far {
-    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.24);
+    background-color: var(--gl-notification-back-far);
 }
-
-
 
 .readout__value {
     font-size: 2.6rem;

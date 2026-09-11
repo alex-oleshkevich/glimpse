@@ -175,6 +175,7 @@ impl NotificationItem {
     }
 
     fn set_unread(&self, unread: bool) {
+        self.close.set_visible(true);
         if self.unread.replace(unread) == unread {
             return;
         }

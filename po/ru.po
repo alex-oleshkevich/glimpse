@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-09 17:50+0200\n"
+"POT-Creation-Date: 2026-09-11 13:05+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -125,6 +125,48 @@ msgstr "ч"
 #: crates/glimpse-panel/src/applets/next_event/render.rs:152
 msgid "d"
 msgstr "д"
+
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:205
+msgid "Clear all"
+msgstr "Очистить все"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:53
+msgid "Do not disturb"
+msgstr "Не беспокоить"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:55
+msgid "{count} waiting, do not disturb is on"
+msgid_plural "{count} waiting, do not disturb is on"
+msgstr[0] "{count} ожидает, режим «Не беспокоить» включён"
+msgstr[1] "{count} ожидают, режим «Не беспокоить» включён"
+msgstr[2] "{count} ожидают, режим «Не беспокоить» включён"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:60
+msgid "No new notifications"
+msgstr "Нет новых уведомлений"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:62
+msgid "{count} new notification"
+msgid_plural "{count} new notifications"
+msgstr[0] "{count} новое уведомление"
+msgstr[1] "{count} новых уведомления"
+msgstr[2] "{count} новых уведомлений"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:74
+msgid "now"
+msgstr "сейчас"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:77
+msgid "{count}m"
+msgstr "{count} мин"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:80
+msgid "{count}h"
+msgstr "{count} ч"
+
+#: crates/glimpse-panel/src/applets/notifications/render.rs:82
+msgid "{count}d"
+msgstr "{count} д"
 
 #: crates/glimpse-panel/src/applets/weather/mod.rs:176
 msgid "Here"
@@ -347,34 +389,32 @@ msgstr "Больше ничего не запланировано"
 
 #: crates/glimpse-widgets/blueprints/notification_item.blp:18
 msgid "Notification"
-msgstr ""
+msgstr "Уведомление"
 
-#: crates/glimpse-widgets/blueprints/notification_item.blp:157
-#: crates/glimpse-widgets/src/notification_item/imp.rs:239
+#: crates/glimpse-widgets/blueprints/notification_item.blp:158
+#: crates/glimpse-widgets/src/notification_item/imp.rs:240
 msgid "Dismiss"
-msgstr ""
+msgstr "Закрыть"
 
 #: crates/glimpse-widgets/blueprints/notifications_popover.blp:14
 msgid "Notifications"
-msgstr ""
+msgstr "Уведомления"
 
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:28
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:32
 msgid "Notifications are unavailable"
-msgstr ""
+msgstr "Уведомления недоступны"
 
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:38
-#, fuzzy
-#| msgid "Nothing scheduled"
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:42
 msgid "Nothing new"
-msgstr "Ничего не запланировано"
+msgstr "Ничего нового"
 
-#: crates/glimpse-widgets/blueprints/notifications_popover.blp:39
+#: crates/glimpse-widgets/blueprints/notifications_popover.blp:43
 msgid "You are all caught up."
-msgstr ""
+msgstr "Всё просмотрено."
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:128
+#: crates/glimpse-widgets/src/lib.rs:130
 msgid "Play"
 msgstr "Воспроизвести"
 
@@ -398,54 +438,36 @@ msgstr "Повтор"
 msgid "Workspaces"
 msgstr "Рабочие столы"
 
-#: crates/glimpse-widgets/src/lib.rs:127
+#: crates/glimpse-widgets/src/lib.rs:129
 msgid "Pause"
 msgstr "Пауза"
 
-#: crates/glimpse-widgets/src/notification_item/imp.rs:212
+#: crates/glimpse-widgets/src/notification_item/imp.rs:213
 msgid "Unread"
-msgstr ""
+msgstr "Непрочитанное"
 
-#: crates/glimpse-widgets/src/notification_item/imp.rs:237
+#: crates/glimpse-widgets/src/notification_item/imp.rs:238
 msgid "Dismiss {notification}"
-msgstr ""
+msgstr "Закрыть: {notification}"
 
-#: crates/glimpse-widgets/src/notification_stack/mod.rs:137
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:170
 msgid "Collapse"
-msgstr ""
+msgstr "Свернуть"
 
-#: crates/glimpse-widgets/src/notification_stack/mod.rs:248
+#: crates/glimpse-widgets/src/notification_stack/mod.rs:327
 msgid "{count} notification"
 msgid_plural "{count} notifications"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr[0] "{count} уведомление"
+msgstr[1] "{count} уведомления"
+msgstr[2] "{count} уведомлений"
 
-#: crates/glimpse-widgets/src/notifications_popover/imp.rs:94
+#: crates/glimpse-widgets/src/notifications_popover/imp.rs:96
 msgid "Silence notifications until you turn this off"
-msgstr ""
+msgstr "Отключить уведомления, пока вы не выключите этот режим"
 
-#: crates/glimpse-widgets/src/notifications_popover/mod.rs:129
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:104
 msgid "Clear these notifications"
-msgstr ""
-
-#: crates/glimpse-widgets/src/notifications_popover/mod.rs:247
-msgid "{count}"
-msgid_plural "{count}"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
-
-#: crates/glimpse-widgets/src/notifications_popover/mod.rs:256
-msgid "Show less"
-msgstr ""
-
-#: crates/glimpse-widgets/src/notifications_popover/mod.rs:261
-msgid "{count} more notification"
-msgid_plural "{count} more notifications"
-msgstr[0] ""
-msgstr[1] ""
-msgstr[2] ""
+msgstr "Очистить эти уведомления"
 
 #: crates/glimpse-widgets/src/workspaces_popover/mod.rs:124
 msgid "{workspaces} on {output}"
