@@ -56,6 +56,9 @@ topics! {
     #[name = "system.services"]
     pub struct SystemServices { services: BTreeMap<String, ServiceState> }
 
+    #[name = "session.status"]
+    pub struct SessionStatus { locked: bool, private: bool }
+
     #[name = "solar.status"]
     pub struct SolarStatus { phase: SolarPhase }
 
@@ -76,6 +79,9 @@ topics! {
 
     #[name = "compositor.outputs"]
     pub struct CompositorOutputs { outputs: Vec<OutputInfo> }
+
+    #[name = "compositor.privacy"]
+    pub struct CompositorPrivacy { active: bool }
 
     #[name = "calendar.events"]
     pub struct CalendarEvents { events: Vec<CalendarEvent>, truncated_from: Option<DateTime<Utc>> }
