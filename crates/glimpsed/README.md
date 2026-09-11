@@ -102,28 +102,27 @@ before either tool resolves its assets.
 
 ## Units
 
-Five user units ship in `data/systemd/`, installed to `{prefix}/lib/systemd/user`. Four are
-`WantedBy=graphical-session.target`; `glimpse-lock.service` deliberately has no `[Install]` section,
-because starting it locks the screen — it is started on demand, not pulled in at login.
+Six service units and `glimpse-session.target` ship in `data/systemd/`, installed to
+`{prefix}/lib/systemd/user`. Only the target is `WantedBy=graphical-session.target`; it wants the
+five long-running processes, and each of those services is `PartOf` it. Use `systemctl --user start`,
+`stop` or `restart glimpse-session.target` to control them in one transaction. The lock screen stays
+on demand and outside this lifecycle because stopping it mid-lock strands the session.
 
-All five units carry `ExecReload=/bin/kill -HUP $MAINPID`, so `systemctl --user reload <unit>`
-re-reads the configuration stack through the same path the filesystem watch uses. That is the way
-out for an editor whose write inotify never sees.
+Every service carries `ExecReload=/bin/kill -HUP $MAINPID`, and the target names its five members
+with `PropagatesReloadTo`. `systemctl --user reload glimpse-session.target` therefore asks every
+long-running process to re-read its configuration, and every theme-aware UI refreshes its styles
+even when the document is unchanged. The transaction coordinates the request; it does not claim
+identical readiness time. Reload the on-demand locker directly when it is active.
 
 `ExecReload=` goes in with the handler and never before it. `SIGHUP`'s default disposition
 terminates the process, so on a binary that registers no handler the directive turns
 `systemctl --user reload` into a kill.
 
-The UI units use `Wants=glimpsed.service`, never `Requires=` — a dead daemon must not take the
-panel, wallpaper or night light with it. The locker names glimpsed nowhere at all: it has to
+The UI units that consume daemon state use `Wants=glimpsed.service`, never `Requires=` — a dead
+daemon must not take their surfaces down. The locker names glimpsed nowhere at all: it has to
 authenticate with the daemon dead, so the dependency would buy nothing, and every relationship it
-carries is another way for something to stop it.
-
-For the same reason the locker carries no `Requisite=`, which the other four do. `Requisite=` is
-documented as "similar to `Requires=`", and `Requires=` stops the configuring unit when the listed
-unit is stopped. On the locker that is a stop edge bought for nothing but failing fast outside a
-session, so it is left off and `just check-units` rejects it along with `Requires=`, `BindsTo=` and
-`Conflicts=`.
+carries is another way for something to stop it. `just check-units` rejects `Requires=`,
+`Requisite=`, `BindsTo=` and `Conflicts=` edges on it.
 
 The units carry no comments. Everything they would have said is here, and `just check-units` enforces
 the parts that matter rather than trusting anyone to read them.
@@ -142,8 +141,8 @@ the recipe filters systemd's "is not executable" complaint, since a source tree 
 binaries at their installed paths, and without the name check a typo would hide behind that filter.
 
 `[package.metadata.deb]` and `[package.metadata.generate-rpm]` live here rather than on any of
-the other five binary crates because cargo-deb/cargo-generate-rpm each need one crate to invoke
-against, not because glimpsed is special — the assets lists pull in all six binaries plus config,
+the other six binary crates because cargo-deb/cargo-generate-rpm each need one crate to invoke
+against, not because glimpsed is special — the assets lists pull in all seven binaries plus config,
 wallpapers, units, and the license from the shared target dir and repo root. `data/pam.d` and
 `data/dbus-1/services` are still empty placeholders, so their contents aren't in the asset lists
 yet; add them once something real lands there.

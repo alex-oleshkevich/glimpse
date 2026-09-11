@@ -86,3 +86,79 @@ fn no_catalog_asset_reaches_a_language_through_a_glob() {
         }
     }
 }
+
+#[test]
+fn session_target_is_the_only_graphical_session_entrypoint() {
+    let root = workspace_root();
+    let directory = root.join("data/systemd");
+    let members = [
+        "glimpsed",
+        "glimpse-panel",
+        "glimpse-wallpaper",
+        "glimpse-sunset",
+        "glimpse-notificationd",
+    ];
+    let target = fs::read_to_string(directory.join("glimpse-session.target")).expect("target");
+    assert!(target.contains("WantedBy=graphical-session.target"));
+    assert!(target.contains("PartOf=graphical-session.target"));
+
+    for member in members {
+        let name = format!("{member}.service");
+        let unit = fs::read_to_string(directory.join(&name)).expect("member unit");
+        assert!(unit.contains("PartOf=glimpse-session.target"), "{name}");
+        assert!(
+            !unit.contains("WantedBy=graphical-session.target"),
+            "{name}"
+        );
+        assert!(
+            unit.contains("ExecReload=/bin/kill -HUP $MAINPID"),
+            "{name}"
+        );
+        assert!(
+            target
+                .lines()
+                .any(|line| line.starts_with("Wants=") && line.contains(&name))
+        );
+        assert!(
+            target
+                .lines()
+                .any(|line| { line.starts_with("PropagatesReloadTo=") && line.contains(&name) })
+        );
+        if member != "glimpsed" {
+            assert!(unit.contains("After=glimpsed.service"), "{name}");
+            assert!(unit.contains("Wants=glimpsed.service"), "{name}");
+        }
+    }
+
+    let lock = fs::read_to_string(directory.join("glimpse-lock.service")).expect("lock unit");
+    assert!(lock.contains("PartOf=graphical-session.target"));
+    assert!(!target.contains("glimpse-lock.service"));
+}
+
+#[test]
+fn notification_popup_binary_is_packaged_without_inverted_dependencies() {
+    let root = workspace_root();
+    let manifest = fs::read_to_string(root.join("crates/glimpse-notificationd/Cargo.toml"))
+        .expect("notificationd manifest");
+    for forbidden in [
+        "glimpse-panel",
+        "glimpsed",
+        "glimpse-services",
+        "glimpse-dbus",
+    ] {
+        assert!(!manifest.contains(forbidden), "depends on {forbidden}");
+    }
+
+    let package =
+        fs::read_to_string(root.join("crates/glimpsed/Cargo.toml")).expect("package manifest");
+    assert_eq!(
+        package
+            .matches("target/release/glimpse-notificationd")
+            .count(),
+        2
+    );
+    let binaries = fs::read_to_string(root.join("justfile")).expect("justfile");
+    assert!(binaries.contains(
+        "binaries := \"glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notificationd\""
+    ));
+}
