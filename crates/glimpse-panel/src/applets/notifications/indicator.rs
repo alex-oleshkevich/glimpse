@@ -338,7 +338,7 @@ fn token(widget: &NotificationsPopover) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
-    use glimpse_contracts::{NotificationAction, NotificationUrgency};
+    use glimpse_contracts::{DEFAULT_ACTION, NotificationAction, NotificationUrgency};
 
     use super::*;
 
@@ -369,17 +369,10 @@ mod tests {
 
     #[test]
     fn only_a_live_offered_action_becomes_an_invocation() {
-        let live = record(&[render::DEFAULT_ACTION, "reply"], true);
-        assert_eq!(invocation(&[live], "7", render::DEFAULT_ACTION), Some(7));
-        assert!(invocation(&[record(&["reply"], true)], "7", render::DEFAULT_ACTION).is_none());
-        assert!(
-            invocation(
-                &[record(&[render::DEFAULT_ACTION], false)],
-                "7",
-                render::DEFAULT_ACTION
-            )
-            .is_none()
-        );
+        let live = record(&[DEFAULT_ACTION, "reply"], true);
+        assert_eq!(invocation(&[live], "7", DEFAULT_ACTION), Some(7));
+        assert!(invocation(&[record(&["reply"], true)], "7", DEFAULT_ACTION).is_none());
+        assert!(invocation(&[record(&[DEFAULT_ACTION], false)], "7", DEFAULT_ACTION).is_none());
     }
 
     #[test]
@@ -392,7 +385,7 @@ mod tests {
             })
         );
         assert_eq!(
-            activation(&[record(&[render::DEFAULT_ACTION], true)], "7"),
+            activation(&[record(&[DEFAULT_ACTION], true)], "7"),
             Some(Activation {
                 id: 7,
                 pid: Some(42),

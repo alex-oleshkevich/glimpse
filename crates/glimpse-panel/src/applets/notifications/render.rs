@@ -1,9 +1,8 @@
 use chrono::{DateTime, TimeDelta, Utc};
 use gettextrs::{gettext, ngettext};
 use glimpse_config::NotificationIndicatorStyle;
-pub use glimpse_contracts::DEFAULT_ACTION;
 use glimpse_contracts::{DoNotDisturb, NotificationRecord, NotificationUrgency};
-use glimpse_widgets::{Action, Body, Group, Notification, Severity, Urgency};
+use glimpse_widgets::{Group, Notification, Severity};
 
 pub const BELL: &str = "preferences-system-notifications-symbolic";
 pub const MUTED: &str = "notifications-disabled-symbolic";
@@ -104,36 +103,7 @@ pub fn id_of(key: &str) -> Option<u32> {
 }
 
 fn notification(record: &NotificationRecord, now: DateTime<Utc>) -> Notification {
-    let active = record.unread;
-    let actions = if active {
-        record
-            .actions
-            .iter()
-            .filter(|action| action.key != DEFAULT_ACTION)
-            .map(|action| Action {
-                key: action.key.clone(),
-                label: action.label.clone(),
-            })
-            .collect()
-    } else {
-        Vec::new()
-    };
-    Notification {
-        key: record.id.to_string(),
-        app_name: record.app_name.clone(),
-        summary: record.summary.clone(),
-        body: record.body.clone().map(Body::Markup),
-        when: when(now, record.created),
-        urgency: match record.urgency {
-            NotificationUrgency::Critical => Urgency::Critical,
-            _ => Urgency::Normal,
-        },
-        actions,
-        progress: record.progress,
-        unread: record.unread,
-        activatable: active,
-        ..Notification::default()
-    }
+    Notification::from_record(record, when(now, record.created))
 }
 
 pub fn silenced(dnd: DoNotDisturb) -> bool {
@@ -143,7 +113,7 @@ pub fn silenced(dnd: DoNotDisturb) -> bool {
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone as _;
-    use glimpse_contracts::{NotificationAction, NotificationUrgency};
+    use glimpse_contracts::{DEFAULT_ACTION, NotificationAction, NotificationUrgency};
 
     use super::*;
 

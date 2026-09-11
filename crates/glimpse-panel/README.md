@@ -1,7 +1,6 @@
 # glimpse-panel
 
-The panel: layer-shell bars, applets, popovers and notification popups. Builds the binary named
-`glimpse`.
+The panel: layer-shell bars, applets and popovers. Builds the binary named `glimpse-panel`.
 
 ## Contents
 
@@ -12,7 +11,6 @@ The panel: layer-shell bars, applets, popovers and notification popups. Builds t
   `popover::run`, which launches the `settings-command` every footer row offers
 - `applets/` — one module per applet plus the registration match; `agenda.rs` holds what the clock
   and next-event applets both need to say about a calendar entry
-- `popups/` — notification popups, OSD _(pending)_
 
 ## Applets
 
@@ -558,8 +556,8 @@ everything else is reconfigured in place. A monitor GDK cannot name gets no bar 
 reconcile cannot find again. Repointing a mapped layer surface at another output remaps it, so
 `set_monitor` is called only when the output actually changed.
 
-A surface that must exist once per session — the notification popup stack — is owned by an elected
-bar, not by every bar.
+Transient notification surfaces belong to the independent `glimpse-notificationd` process, so panel
+reconciliation and monitor hotplug cannot interrupt popup delivery.
 
 CSS providers are installed once and reloaded in place; installing twice stacks every rule. Every
 provider connects `parsing-error`, because GTK4's loaders return nothing.
