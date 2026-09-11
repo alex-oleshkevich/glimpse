@@ -89,6 +89,7 @@ impl Client {
                 subscriptions: Vec::new(),
                 pending: HashMap::new(),
                 next_id: 0,
+                generation: 0,
             }
             .run(wire),
         );
@@ -206,8 +207,13 @@ struct Mailbox {
 #[derive(Default)]
 struct Queued {
     order: VecDeque<String>,
-    events: HashMap<String, Event>,
+    events: HashMap<String, ReceivedEvent>,
     closed: bool,
+}
+
+struct ReceivedEvent {
+    generation: u64,
+    event: Event,
 }
 
 impl Mailbox {
@@ -227,20 +233,28 @@ impl Mailbox {
     /// A value older than the one already queued is dropped rather than replacing it, so a
     /// subscription snapshot and a value published while the subscribe was in flight are safe in
     /// either order — the newer one wins whichever arrives second.
-    fn offer(&self, event: Event) {
+    fn offer(&self, generation: u64, event: Event) {
         {
             let mut queued = self.lock();
-            match queued.events.get(&event.topic).map(|pending| pending.seq) {
-                Some(seq) if seq >= event.seq => return,
+            match queued
+                .events
+                .get(&event.topic)
+                .map(|pending| (pending.generation, pending.event.seq))
+            {
+                Some((pending_generation, _)) if pending_generation < generation => {}
+                Some((pending_generation, _)) if pending_generation > generation => return,
+                Some((_, seq)) if seq >= event.seq => return,
                 Some(_) => {}
                 None => queued.order.push_back(event.topic.clone()),
             }
-            queued.events.insert(event.topic.clone(), event);
+            queued
+                .events
+                .insert(event.topic.clone(), ReceivedEvent { generation, event });
         }
         self.ready.notify_one();
     }
 
-    fn take(&self) -> Option<Event> {
+    fn take(&self) -> Option<ReceivedEvent> {
         let mut queued = self.lock();
         loop {
             // `order` holds one entry per queued topic, so the map always has it. Skipping rather
@@ -284,9 +298,13 @@ impl Subscription {
     }
 
     pub async fn next(&mut self) -> Option<Event> {
+        self.next_with_generation().await.map(|(_, event)| event)
+    }
+
+    pub async fn next_with_generation(&mut self) -> Option<(u64, Event)> {
         loop {
             if let Some(event) = self.mailbox.take() {
-                return Some(event);
+                return Some((event.generation, event.event));
             }
             if self.mailbox.is_closed() {
                 return None;
@@ -457,6 +475,7 @@ struct Connection {
     subscriptions: Vec<(String, Weak<Mailbox>)>,
     pending: HashMap<u64, Waiting>,
     next_id: u64,
+    generation: u64,
 }
 
 impl Connection {
@@ -467,6 +486,7 @@ impl Connection {
         loop {
             match wire {
                 Some(connected) => {
+                    self.generation = self.generation.wrapping_add(1).max(1);
                     if attempt > 0 {
                         tracing::info!(socket = ?self.socket, attempt, "connected to the daemon");
                     }
@@ -639,7 +659,7 @@ impl Connection {
                 continue;
             }
             if let Some(mailbox) = mailbox.upgrade() {
-                mailbox.offer(event.clone());
+                mailbox.offer(self.generation, event.clone());
             }
         }
     }
@@ -698,11 +718,33 @@ impl Connection {
 mod tests {
     use super::*;
 
+    fn event(seq: u64) -> Event {
+        Event {
+            topic: "notifications.list".to_owned(),
+            seq,
+            ts: 0,
+            stale: false,
+            data: serde_json::Value::Null,
+        }
+    }
+
     #[test]
     fn backoff_grows_and_then_stops() {
         assert_eq!(backoff(1), time::Duration::from_millis(500));
         assert_eq!(backoff(2), time::Duration::from_secs(1));
         assert_eq!(backoff(20), BACKOFF_MAX);
+    }
+
+    #[test]
+    fn a_new_connection_generation_replaces_a_higher_old_sequence() {
+        let mailbox = Mailbox::new();
+        mailbox.offer(4, event(99));
+        mailbox.offer(5, event(1));
+        mailbox.offer(4, event(100));
+
+        let received = mailbox.take().expect("queued event");
+        assert_eq!(received.generation, 5);
+        assert_eq!(received.event.seq, 1);
     }
 
     #[tokio::test]
