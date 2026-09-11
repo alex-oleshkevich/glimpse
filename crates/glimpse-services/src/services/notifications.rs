@@ -1,11 +1,11 @@
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicU32, Ordering};
 
 use chrono::Utc;
 use glimpse_contracts::{
-    Command as _, DoNotDisturb, Message, NotificationAction, NotificationRecord,
-    NotificationUrgency, NotificationsClearAll, NotificationsClearApp, NotificationsDismiss,
-    NotificationsDnd, NotificationsInvokeAction, NotificationsList, NotificationsSetDnd,
+    Command as _, DEFAULT_ACTION, DoNotDisturb, Message, NotificationAction, NotificationRecord,
+    NotificationUrgency, NotificationsActivate, NotificationsClearAll, NotificationsClearApp,
+    NotificationsDismiss, NotificationsDnd, NotificationsInvokeAction, NotificationsList,
+    NotificationsRemove, NotificationsSetDnd,
 };
 use glimpse_ipc::{CallError, ErrorCode};
 use serde_json::Value;
@@ -38,9 +38,8 @@ const CLOSED_BY_SENDER: u32 = 3;
 const CLOSED_BY_READER: u32 = 2;
 
 pub struct Incoming {
-    pub replaces: u32,
     pub app_name: String,
-    pub app_id: Option<String>,
+    pub app_id: String,
     pub app_pid: Option<i32>,
     pub icon: Option<String>,
     pub summary: String,
@@ -60,6 +59,13 @@ pub enum Event {
 pub enum Command {
     Dismiss {
         id: u32,
+    },
+    Remove {
+        id: u32,
+    },
+    Activate {
+        id: u32,
+        token: Option<String>,
     },
     InvokeAction {
         id: u32,
@@ -114,6 +120,8 @@ impl Service for Notifications {
     const TOPICS: &'static [&'static str] = &[NotificationsList::NAME, NotificationsDnd::NAME];
     const METHODS: &'static [&'static str] = &[
         NotificationsDismiss::NAME,
+        NotificationsRemove::NAME,
+        NotificationsActivate::NAME,
         NotificationsInvokeAction::NAME,
         NotificationsClearApp::NAME,
         NotificationsClearAll::NAME,
@@ -131,6 +139,20 @@ impl Service for Notifications {
                 let NotificationsDismiss { id } = decode_args(args)?;
                 Ok(Command::Dismiss { id })
             }
+            NotificationsRemove::NAME => {
+                let NotificationsRemove { id } = decode_args(args)?;
+                Ok(Command::Remove { id })
+            }
+            NotificationsActivate::NAME => {
+                let NotificationsActivate {
+                    id,
+                    activation_token,
+                } = decode_args(args)?;
+                Ok(Command::Activate {
+                    id,
+                    token: valid_activation_token(activation_token),
+                })
+            }
             NotificationsInvokeAction::NAME => {
                 let NotificationsInvokeAction {
                     id,
@@ -140,9 +162,7 @@ impl Service for Notifications {
                 Ok(Command::InvokeAction {
                     id,
                     action,
-                    token: activation_token.filter(|token| {
-                        !token.is_empty() && token.chars().count() <= ACTIVATION_TOKEN_MAX_CHARS
-                    }),
+                    token: valid_activation_token(activation_token),
                 })
             }
             NotificationsClearApp::NAME => {
@@ -182,8 +202,14 @@ impl Service for Notifications {
 
         let served = Served {
             events: ctx.events(),
-            next: AtomicU32::new(1),
-            dbus: DBusProxy::new(&connection).await.ok(),
+            next: 1,
+            dbus: match DBusProxy::new(&connection).await {
+                Ok(dbus) => Some(dbus),
+                Err(error) => {
+                    tracing::warn!(%error, "no sender pid will be recorded");
+                    None
+                }
+            },
         };
         if let Err(error) = connection.object_server().at(OBJECT_PATH, served).await {
             ctx.degraded(format!("cannot serve {OBJECT_PATH}: {error}"));
@@ -210,26 +236,41 @@ impl Service for Notifications {
                 self.store.post(id, *incoming);
                 self.publish();
             }
-            Input::Event(Event::Retracted { id }) => {
-                if self.store.take(id).is_some() {
-                    self.publish();
-                    self.closed(id, CLOSED_BY_SENDER).await;
-                }
-            }
+            Input::Event(Event::Retracted { id }) => self.remove(id, CLOSED_BY_SENDER).await,
             Input::Command(Command::Dismiss { id }, responder) => {
-                if self.store.take(id).is_some() {
+                if self.store.dismiss(id) {
                     self.publish();
                     self.closed(id, CLOSED_BY_READER).await;
                 }
                 responder.ok(());
             }
+            Input::Command(Command::Remove { id }, responder) => {
+                self.remove(id, CLOSED_BY_READER).await;
+                responder.ok(());
+            }
+            Input::Command(Command::Activate { id, token }, responder) => {
+                if let Some(activation) = self.store.activation(id) {
+                    if activation.invoke_default {
+                        self.invoked(id, DEFAULT_ACTION, token.as_deref()).await;
+                    }
+                    if !activation.resident && self.store.dismiss(id) {
+                        self.publish();
+                        self.closed(id, CLOSED_BY_READER).await;
+                    }
+                }
+                responder.ok(());
+            }
             Input::Command(Command::InvokeAction { id, action, token }, responder) => {
-                match self.store.holds(id, &action) {
-                    true => {
+                match self.store.offered(id, &action) {
+                    Some(resident) => {
                         self.invoked(id, &action, token.as_deref()).await;
+                        if !resident && self.store.dismiss(id) {
+                            self.publish();
+                            self.closed(id, CLOSED_BY_READER).await;
+                        }
                         responder.ok(());
                     }
-                    false => responder.fail(CallError::new(
+                    None => responder.fail(CallError::new(
                         ErrorCode::InvalidArgs,
                         format!("no notification {id} offering action {action}"),
                     )),
@@ -273,22 +314,25 @@ impl Store {
         }
     }
 
-    /// A sender naming `replaces_id` is updating a notification rather than sending another, so
-    /// the record is written in place and keeps its position in the list.
     fn post(&mut self, id: u32, incoming: Incoming) {
         let record = record(id, incoming);
         match self.held.iter().position(|held| held.id == id) {
             Some(at) => self.held[at] = record,
             None => self.held.push_front(record),
         }
-        self.bound();
     }
 
-    /// Newest first, so the bound drops the oldest.
     fn bound(&mut self) -> bool {
-        let over = self.held.len() > self.keep;
-        self.held.truncate(self.keep);
-        over
+        let before = self.held.len();
+        let mut read = 0;
+        self.held.retain(|record| {
+            if record.unread {
+                return true;
+            }
+            read += 1;
+            read <= self.keep
+        });
+        self.held.len() != before
     }
 
     fn rebound(&mut self, keep: usize) -> bool {
@@ -301,17 +345,48 @@ impl Store {
         self.held.remove(at)
     }
 
-    fn holds(&self, id: u32, action: &str) -> bool {
+    fn dismiss(&mut self, id: u32) -> bool {
+        let Some(record) = self.held.iter_mut().find(|record| record.id == id) else {
+            return false;
+        };
+        if !record.unread {
+            return false;
+        }
+        record.unread = false;
+        self.bound();
+        true
+    }
+
+    fn activation(&self, id: u32) -> Option<Activation> {
+        let record = self
+            .held
+            .iter()
+            .find(|record| record.id == id && record.unread)?;
+        Some(Activation {
+            invoke_default: record
+                .actions
+                .iter()
+                .any(|offer| offer.key == DEFAULT_ACTION),
+            resident: record.resident,
+        })
+    }
+
+    fn offered(&self, id: u32, action: &str) -> Option<bool> {
         self.held
             .iter()
-            .any(|held| held.id == id && held.actions.iter().any(|offer| offer.key == action))
+            .find(|held| {
+                held.id == id && held.unread && held.actions.iter().any(|offer| offer.key == action)
+            })
+            .map(|held| held.resident)
     }
 
     fn drain(&mut self, mut doomed: impl FnMut(&NotificationRecord) -> bool) -> Vec<u32> {
         let mut gone = Vec::new();
         self.held.retain(|record| match doomed(record) {
             true => {
-                gone.push(record.id);
+                if record.unread {
+                    gone.push(record.id);
+                }
                 false
             }
             false => true,
@@ -322,6 +397,12 @@ impl Store {
     fn records(&self) -> Vec<NotificationRecord> {
         self.held.iter().cloned().collect()
     }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct Activation {
+    invoke_default: bool,
+    resident: bool,
 }
 
 impl Notifications {
@@ -349,6 +430,16 @@ impl Notifications {
                 }
             }
             Err(error) => tracing::debug!(%error, "the notifications interface is not exported"),
+        }
+    }
+
+    async fn remove(&mut self, id: u32, reason: u32) {
+        let Some(record) = self.store.take(id) else {
+            return;
+        };
+        self.publish();
+        if record.unread {
+            self.closed(id, reason).await;
         }
     }
 
@@ -381,7 +472,6 @@ impl Notifications {
 /// which flattens the newline the most common sender shape depends on.
 fn record(id: u32, incoming: Incoming) -> NotificationRecord {
     let Incoming {
-        replaces: _,
         app_name,
         app_id,
         app_pid,
@@ -395,10 +485,7 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
     } = incoming;
 
     let app_name = glimpse_utils::text::clean(&app_name, APP_NAME_MAX_CHARS);
-    let app_id = app_id
-        .map(|id| glimpse_utils::text::clean(&id, APP_NAME_MAX_CHARS))
-        .filter(|id| !id.is_empty())
-        .unwrap_or_else(|| app_name.clone());
+    let app_id = glimpse_utils::text::clean(&app_id, APP_NAME_MAX_CHARS);
 
     NotificationRecord {
         id,
@@ -415,16 +502,8 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
             .filter(|icon| !icon.is_empty()),
         image: None,
         urgency,
-        actions: actions
-            .into_iter()
-            .take(ACTIONS_MAX)
-            .map(|(key, label)| NotificationAction {
-                key: glimpse_utils::text::clean(&key, ACTION_KEY_MAX_CHARS),
-                label: glimpse_utils::text::clean(&label, ACTION_LABEL_MAX_CHARS),
-            })
-            .filter(|action| !action.key.is_empty())
-            .collect(),
-        progress,
+        actions: bounded_actions(actions),
+        progress: progress.map(|value| value.clamp(0.0, 1.0)),
         created: Utc::now(),
         unread: true,
         resident,
@@ -435,7 +514,7 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
 /// the service's, which is what lets the store be tested without a bus.
 struct Served {
     events: mpsc::Sender<Input<Notifications>>,
-    next: AtomicU32,
+    next: u32,
     dbus: Option<DBusProxy<'static>>,
 }
 
@@ -455,7 +534,7 @@ impl Served {
 impl Served {
     #[allow(clippy::too_many_arguments)]
     async fn notify(
-        &self,
+        &mut self,
         app_name: String,
         replaces_id: u32,
         app_icon: String,
@@ -466,19 +545,22 @@ impl Served {
         _expire_timeout: i32,
         #[zbus(header)] header: zbus::message::Header<'_>,
     ) -> u32 {
-        let id = allocate(&self.next, replaces_id);
+        let id = allocate(&mut self.next, replaces_id);
 
+        let app_id = hint_str(&hints, "desktop-entry")
+            .filter(|app_id| !app_id.is_empty())
+            .or_else(|| header.sender().map(ToString::to_string))
+            .unwrap_or_else(|| format!("notification-{id}"));
         let incoming = Incoming {
-            replaces: replaces_id,
             app_name,
-            app_id: hint_str(&hints, "desktop-entry"),
+            app_id,
             app_pid: self.sender_pid(&header).await,
             icon: (!app_icon.is_empty()).then_some(app_icon),
             summary,
             body,
             actions: pairs(actions),
             urgency: urgency(&hints),
-            progress: hint_i32(&hints, "value").map(|value| f64::from(value) / 100.0),
+            progress: hint_i32(&hints, "value").map(normalized_progress),
             resident: hint_bool(&hints, "resident").unwrap_or(false),
         };
 
@@ -540,13 +622,13 @@ impl Served {
 
 /// Zero means "new" on the wire, so the counter steps over it when it wraps rather than handing
 /// it out. A sender naming a replacement gets that id back and spends none.
-fn allocate(next: &AtomicU32, replaces: u32) -> u32 {
+fn allocate(next: &mut u32, replaces: u32) -> u32 {
     match replaces {
-        0 => next
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| {
-                Some(id.wrapping_add(1).max(1))
-            })
-            .unwrap_or(1),
+        0 => {
+            let id = *next;
+            *next = next.wrapping_add(1).max(1);
+            id
+        }
         replaces => replaces,
     }
 }
@@ -558,6 +640,34 @@ fn pairs(actions: Vec<String>) -> Vec<(String, String)> {
         .chunks_exact(2)
         .map(|pair| (pair[0].clone(), pair[1].clone()))
         .collect()
+}
+
+fn bounded_actions(actions: Vec<(String, String)>) -> Vec<NotificationAction> {
+    let mut default = None;
+    let mut named = Vec::new();
+    for (key, label) in actions {
+        if key.is_empty() || key.chars().count() > ACTION_KEY_MAX_CHARS {
+            continue;
+        }
+        let action = NotificationAction {
+            key,
+            label: glimpse_utils::text::clean(&label, ACTION_LABEL_MAX_CHARS),
+        };
+        if action.key == DEFAULT_ACTION {
+            default.get_or_insert(action);
+        } else if named.len() < ACTIONS_MAX {
+            named.push(action);
+        }
+    }
+    default.into_iter().chain(named).collect()
+}
+
+fn normalized_progress(value: i32) -> f64 {
+    f64::from(value.clamp(0, 100)) / 100.0
+}
+
+fn valid_activation_token(token: Option<String>) -> Option<String> {
+    token.filter(|token| !token.is_empty() && token.chars().count() <= ACTIVATION_TOKEN_MAX_CHARS)
 }
 
 fn hint_str(hints: &HashMap<String, OwnedValue>, name: &str) -> Option<String> {
@@ -587,13 +697,19 @@ fn urgency(hints: &HashMap<String, OwnedValue>) -> NotificationUrgency {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use glimpse_dbus::Buses;
+    use tokio::sync::oneshot;
+    use tokio_util::sync::CancellationToken;
+
     use super::*;
+    use crate::{BrokerHandle, MockBroker, broker::Responder, service::ServiceRuntime};
 
     fn incoming(app: &str, summary: &str) -> Incoming {
         Incoming {
-            replaces: 0,
             app_name: app.to_owned(),
-            app_id: None,
+            app_id: app.to_owned(),
             app_pid: None,
             icon: None,
             summary: summary.to_owned(),
@@ -639,11 +755,20 @@ mod tests {
     /// Newest first, so the bound has to drop from the far end. Truncating the wrong end would
     /// throw away exactly what just arrived, which no test of the length alone would catch.
     #[test]
-    fn the_bound_drops_the_oldest_and_keeps_what_just_arrived() {
-        let held = store(
+    fn the_bound_drops_only_old_read_history() {
+        let mut held = store(
             2,
             &[(1, "A", "oldest"), (2, "B", "middle"), (3, "C", "newest")],
         );
+
+        assert_eq!(
+            held.records().len(),
+            3,
+            "unread notifications are never evicted"
+        );
+        assert!(held.dismiss(1));
+        assert!(held.dismiss(2));
+        assert!(held.dismiss(3));
 
         let summaries: Vec<_> = held
             .records()
@@ -656,6 +781,9 @@ mod tests {
     #[test]
     fn lowering_the_bound_takes_effect_without_waiting_for_another_notification() {
         let mut held = store(10, &[(1, "A", "one"), (2, "B", "two"), (3, "C", "three")]);
+        assert!(held.dismiss(1));
+        assert!(held.dismiss(2));
+        assert!(held.dismiss(3));
         assert!(
             held.rebound(1),
             "the store shrank, so the topic must be republished"
@@ -695,12 +823,160 @@ mod tests {
             },
         );
 
-        assert!(held.holds(1, "reply"));
+        assert_eq!(held.offered(1, "reply"), Some(false));
         assert!(
-            !held.holds(1, "detonate"),
+            held.offered(1, "detonate").is_none(),
             "an action nobody offered is refused"
         );
-        assert!(!held.holds(2, "reply"), "an id nobody holds is refused");
+        assert!(
+            held.offered(2, "reply").is_none(),
+            "an id nobody holds is refused"
+        );
+    }
+
+    #[test]
+    fn dismissing_retains_a_read_history_entry_and_disables_its_actions() {
+        let mut held = Store::new(10);
+        held.post(
+            1,
+            Incoming {
+                actions: vec![(DEFAULT_ACTION.to_owned(), "Open".to_owned())],
+                ..incoming("Telegram", "Marta")
+            },
+        );
+
+        assert!(held.dismiss(1));
+        assert!(!held.records()[0].unread);
+        assert!(held.offered(1, DEFAULT_ACTION).is_none());
+        assert!(!held.dismiss(1), "a read entry is not closed twice");
+    }
+
+    #[test]
+    fn activation_reports_the_default_action_and_resident_policy_without_mutating() {
+        let mut held = Store::new(10);
+        held.post(1, incoming("Mail", "No action"));
+        held.post(
+            2,
+            Incoming {
+                actions: vec![(DEFAULT_ACTION.to_owned(), "Open".to_owned())],
+                resident: true,
+                ..incoming("Telegram", "Marta")
+            },
+        );
+
+        assert_eq!(
+            held.activation(1),
+            Some(Activation {
+                invoke_default: false,
+                resident: false,
+            })
+        );
+        assert_eq!(
+            held.activation(2),
+            Some(Activation {
+                invoke_default: true,
+                resident: true,
+            })
+        );
+        assert!(held.records().iter().all(|record| record.unread));
+    }
+
+    #[test]
+    fn clearing_history_does_not_report_an_already_closed_id_again() {
+        let mut held = store(10, &[(1, "Telegram", "Marta"), (2, "Mail", "New")]);
+        assert!(held.dismiss(1));
+
+        assert_eq!(held.drain(|_| true), [2]);
+        assert!(held.records().is_empty());
+    }
+
+    #[test]
+    fn the_default_action_survives_the_named_button_cap_and_long_keys_are_dropped() {
+        let too_long = "x".repeat(ACTION_KEY_MAX_CHARS + 1);
+        let record = record(
+            1,
+            Incoming {
+                actions: vec![
+                    ("one".to_owned(), "One".to_owned()),
+                    ("two".to_owned(), "Two".to_owned()),
+                    ("three".to_owned(), "Three".to_owned()),
+                    ("four".to_owned(), "Four".to_owned()),
+                    (too_long, "Wrong".to_owned()),
+                    (DEFAULT_ACTION.to_owned(), "Open".to_owned()),
+                ],
+                ..incoming("Telegram", "Marta")
+            },
+        );
+
+        let keys: Vec<_> = record
+            .actions
+            .iter()
+            .map(|action| action.key.as_str())
+            .collect();
+        assert_eq!(keys, [DEFAULT_ACTION, "one", "two", "three"]);
+    }
+
+    #[test]
+    fn progress_is_bounded_at_the_bus_and_record_boundaries() {
+        assert_eq!(normalized_progress(-20), 0.0);
+        assert_eq!(normalized_progress(25), 0.25);
+        assert_eq!(normalized_progress(250), 1.0);
+
+        let record = record(
+            1,
+            Incoming {
+                progress: Some(2.5),
+                ..incoming("Build", "Compiling")
+            },
+        );
+        assert_eq!(record.progress, Some(1.0));
+    }
+
+    #[tokio::test]
+    async fn invoking_a_non_resident_action_closes_it_into_history() {
+        let mock = Arc::new(MockBroker::default());
+        let broker: Arc<dyn BrokerHandle> = mock.clone();
+        let cancel = CancellationToken::new();
+        let mut runtime = ServiceRuntime::<Notifications>::new(
+            broker,
+            Buses::unavailable("no bus in tests"),
+            cancel.clone(),
+        );
+        let sender = runtime.sender();
+        let running = tokio::spawn(async move { runtime.run(Config { keep: 10 }).await });
+
+        sender
+            .send(Input::Event(Event::Posted {
+                id: 1,
+                incoming: Box::new(Incoming {
+                    actions: vec![(DEFAULT_ACTION.to_owned(), "Open".to_owned())],
+                    ..incoming("Telegram", "Marta")
+                }),
+            }))
+            .await
+            .expect("posted");
+        let (reply, answer) = oneshot::channel();
+        sender.dispatch(
+            Command::InvokeAction {
+                id: 1,
+                action: DEFAULT_ACTION.to_owned(),
+                token: None,
+            },
+            Responder::new(reply),
+        );
+        answer.await.expect("answered").expect("invoked");
+        cancel.cancel();
+        running.await.expect("joined").expect("stopped");
+
+        let latest = mock
+            .published()
+            .into_iter()
+            .filter(|(topic, _)| topic == NotificationsList::NAME)
+            .filter_map(|(_, value)| serde_json::from_value::<NotificationsList>(value).ok())
+            .next_back()
+            .expect("a list was published");
+        assert_eq!(latest.notifications.len(), 1);
+        assert!(!latest.notifications[0].unread);
     }
 
     #[test]
@@ -733,14 +1009,11 @@ mod tests {
     }
 
     #[test]
-    fn a_sender_naming_no_desktop_entry_is_grouped_under_its_own_name() {
-        let anonymous = record(1, incoming("Telegram", "Marta"));
-        assert_eq!(anonymous.app_id, "Telegram");
-
+    fn the_display_name_does_not_choose_the_group_identity() {
         let declared = record(
             2,
             Incoming {
-                app_id: Some("org.telegram.desktop".to_owned()),
+                app_id: "org.telegram.desktop".to_owned(),
                 ..incoming("Telegram", "Marta")
             },
         );
@@ -885,13 +1158,13 @@ mod tests {
 
     #[test]
     fn ids_are_handed_out_in_order_and_a_sender_naming_one_gets_it_back() {
-        let next = AtomicU32::new(1);
+        let mut next = 1;
 
-        assert_eq!(allocate(&next, 0), 1);
-        assert_eq!(allocate(&next, 0), 2);
-        assert_eq!(allocate(&next, 7), 7);
+        assert_eq!(allocate(&mut next, 0), 1);
+        assert_eq!(allocate(&mut next, 0), 2);
+        assert_eq!(allocate(&mut next, 7), 7);
         assert_eq!(
-            allocate(&next, 0),
+            allocate(&mut next, 0),
             3,
             "naming a replacement does not spend an id"
         );
@@ -901,9 +1174,9 @@ mod tests {
     /// fresh notification.
     #[test]
     fn the_id_counter_steps_over_zero_when_it_wraps() {
-        let next = AtomicU32::new(u32::MAX);
+        let mut next = u32::MAX;
 
-        assert_eq!(allocate(&next, 0), u32::MAX);
-        assert_eq!(allocate(&next, 0), 1);
+        assert_eq!(allocate(&mut next, 0), u32::MAX);
+        assert_eq!(allocate(&mut next, 0), 1);
     }
 }
