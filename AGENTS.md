@@ -50,7 +50,7 @@ glimpse/
 | `glimpse-services`    | service framework and every service implementation                                |
 | `glimpse-widgets`     | GObject subclasses, Blueprint templates, shared CSS                               |
 | `glimpse-utils`       | shared CLI arg structs, tracing/log setup, gettext binding and text cleaning      |
-| `glimpsed`            | broker, `WaylandEdge` impl                                                        |
+| `glimpsed`            | broker                                                                        |
 | `glimpse-panel`       | panel and applets                                                                 |
 | `glimpse-wallpaper`   | background layer surface, decode cache, transitions                               |
 | `glimpse-lock`        | `ext-session-lock-v1` surfaces, PAM                                               |
@@ -126,7 +126,7 @@ StatusNotifierItem, dbusmenu and Notifications.
 - Nothing depends on `glimpsed`. It is a leaf. Shared code goes in proto, client, config, services
   or widgets.
 - A trait the framework needs from the daemon is declared in `glimpse-services` and implemented in
-  `glimpsed` — `BrokerHandle`, `WaylandEdge` — each with a mock beside the declaration.
+  `glimpsed` — `BrokerHandle` — with a mock beside the declaration.
 
 **Naming**
 
@@ -153,7 +153,7 @@ StatusNotifierItem, dbusmenu and Notifications.
 | ----------------------------------------------------------------------- | -------------------------------- |
 | wire payload type                                                       | `glimpse-contracts/src/`         |
 | service implementation                                                  | `glimpse-services/src/services/` |
-| anything touching a `wl_` object                                        | `glimpsed/src/wayland/`          |
+| anything touching a `wl_` object                                        | the owning UI or compositor crate |
 | anything touching GTK                                                   | a UI crate or `glimpse-widgets`  |
 | systemd unit, D-Bus service file, pam.d entry, GeoClue policy, defaults | `data/`                          |
 
@@ -193,17 +193,21 @@ Running a binary goes through `just run-daemon`, `just run-panel`, `just run-wal
 `just run-locker`, `just ctl <args>`. `just nested` opens a nested niri
 window for a dev loop that does not disturb the running session.
 
-`compositor.click_at` sends one virtual-pointer click through niri. Use logical coordinates relative
-to the named output, and set `restore=true` when the caller must leave the pointer where it was:
+`just click` is a standalone niri helper. It uses `niri msg -j outputs` to resolve output-relative
+coordinates into the virtual desktop and `ydotool` to inject the click; the daemon and its socket
+are not involved:
 
 ```bash
-just click output=DP-2 x=1200 y=540 button=left restore=true
+just click output=DP-2 x=1200 y=540 button=left
 ```
 
-The `button` values are `left`, `middle` and `right`; output names come from
-`glimpsectl get compositor.outputs`. The daemon validates the output and bounds before its
-Wayland edge injects the click, and `restore=true` briefly maps a temporary capture surface
-to learn the compositor's current pointer position because Wayland has no global pointer query.
+The `button` values are `left`, `middle` and `right`. `ydotool` does not expose the current pointer
+position, so automatic restoration is not possible from this script; use `restore_x` and
+`restore_y` with virtual-desktop coordinates when the caller knows the position to restore:
+
+```bash
+just click output=DP-2 x=1200 y=540 button=left restore_x=640 restore_y=400
+```
 
 A recipe that is missing or wrong gets fixed in the `justfile`. Do not work around it with a raw
 cargo invocation.
@@ -503,8 +507,8 @@ one asset line to *each* of the two lists in `crates/glimpsed/Cargo.toml`.
 
 - **Never add `panic = "abort"` to any profile.** Per-service panic isolation depends on unwinding;
   abort turns one bad handler into a dead daemon and takes tray and notifications down with it.
-- **Never touch a `wl_` object outside `glimpsed/src/wayland/`.** Services reach Wayland only through
-  `trait WaylandEdge`, which is what keeps every service test headless.
+- **`glimpsed` has no Wayland dependency.** Wayland objects belong to the owning UI or compositor
+  crate, while pointer injection belongs in standalone tools such as `scripts/click.py`.
 - **`_old/` and `var/glimpse2` are reference only.** Never edit them, never build them, never copy
   code out of them. See Prior art.
 - **Never sandbox `glimpse-lock.service`.** `NoNewPrivileges=`, `PrivateUsers=`,

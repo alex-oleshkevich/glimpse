@@ -1473,6 +1473,19 @@ mod tests {
                 && dense_chip.get_visible(),
             "a notification group is rendered by the collapsed stack widget"
         );
+        assert!(
+            child_named::<gtk4::Button>(&dense, "section__clear").get_visible(),
+            "a stacked notification group offers a group clear button"
+        );
+
+        popover.set_groups(&[group("single", "Telegram", 1)]);
+        let single = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        assert!(
+            !child_named::<gtk4::Button>(&single, "section__clear").get_visible(),
+            "an unstacked notification group does not offer a group clear button"
+        );
+
+        popover.set_groups(&[group("a", "Telegram", 5)]);
 
         secondary_click(&children_of::<NotificationItem>(&dense_stack)[0]);
         assert_eq!(

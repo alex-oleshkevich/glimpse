@@ -13,10 +13,9 @@ backing store anywhere else: `org.freedesktop.Notifications` and `org.kde.Status
 - `broker/` — the single task holding topic values and per-client coalescing *(pending)*
 - `reload.rs` — the task that fans a reloaded document out to every service's `ConfigSink`
 - `registry.rs` — service registration, DAG validation, supervision *(pending)*
-- `wayland/` — the `WaylandEdge` implementation: gamma, idle, clipboard *(pending)*
 
-The broker, the socket and the service host all run; `registry.rs` and `wayland/` do not exist yet,
-so there is no demand-driven lifecycle, no dependency DAG and no Wayland edge.
+The broker, the socket and the service host all run; `registry.rs` does not exist yet, so there is no
+demand-driven lifecycle or dependency DAG. The daemon intentionally has no Wayland dependency.
 
 ## Rules
 
@@ -84,8 +83,8 @@ reloads every service behind whichever of them is wedged.
 A reload that does not parse is dropped and the running configuration survives. The daemon does not
 exit over it, and it does not half-apply it.
 
-`wl_` objects appear only under `wayland/`. Services reach Wayland through `trait WaylandEdge`,
-which is what keeps every service test headless.
+The daemon owns no `wl_` objects. Wayland integration stays with the owning UI or compositor crate,
+and standalone pointer injection lives in `scripts/`.
 
 Never add `panic = "abort"`. Per-service panic isolation depends on unwinding.
 

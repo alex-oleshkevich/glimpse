@@ -8,6 +8,7 @@ use glimpse_contracts::{
     NotificationsRemove, NotificationsSetDnd,
 };
 use glimpse_ipc::{CallError, ErrorCode};
+use regex::Regex;
 use serde_json::Value;
 use tokio::sync::mpsc;
 use zbus::fdo::DBusProxy;
@@ -84,12 +85,14 @@ pub enum Command {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     keep: usize,
+    suppress: Vec<String>,
 }
 
 impl From<&glimpse_config::Config> for Config {
     fn from(document: &glimpse_config::Config) -> Self {
         Self {
             keep: document.notifications.keep.clamp(1, 1000) as usize,
+            suppress: document.notifications.suppress.clone(),
         }
     }
 }
@@ -113,6 +116,7 @@ pub struct Notifications {
 pub struct Store {
     held: VecDeque<NotificationRecord>,
     keep: usize,
+    suppress: Vec<Regex>,
 }
 
 impl Service for Notifications {
@@ -186,7 +190,7 @@ impl Service for Notifications {
         let mut service = Self {
             list: ctx.publisher::<NotificationsList>(),
             quiet: ctx.publisher::<NotificationsDnd>(),
-            store: Store::new(config.keep),
+            store: Store::with_suppression(config.keep, &config.suppress),
             dnd: DoNotDisturb::default(),
             connection: None,
         };
@@ -233,8 +237,9 @@ impl Service for Notifications {
     async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
             Input::Event(Event::Posted { id, incoming }) => {
-                self.store.post(id, *incoming);
-                self.publish();
+                if self.store.post(id, *incoming) {
+                    self.publish();
+                }
             }
             Input::Event(Event::Retracted { id }) => self.remove(id, CLOSED_BY_SENDER).await,
             Input::Command(Command::Dismiss { id }, responder) => {
@@ -298,7 +303,7 @@ impl Service for Notifications {
                 responder.ok(());
             }
             Input::Config(config) => {
-                if self.store.rebound(config.keep) {
+                if self.store.reconfigure(config.keep, &config.suppress) {
                     self.publish();
                 }
             }
@@ -311,15 +316,31 @@ impl Store {
         Self {
             held: VecDeque::new(),
             keep,
+            suppress: Vec::new(),
         }
     }
 
-    fn post(&mut self, id: u32, incoming: Incoming) {
+    fn with_suppression(keep: usize, patterns: &[String]) -> Self {
+        let mut store = Self::new(keep);
+        store.suppress = compile_patterns(patterns);
+        store
+    }
+
+    fn post(&mut self, id: u32, incoming: Incoming) -> bool {
+        if self.matches(
+            &incoming.app_name,
+            &incoming.app_id,
+            &incoming.summary,
+            &incoming.body,
+        ) {
+            return false;
+        }
         let record = record(id, incoming);
         match self.held.iter().position(|held| held.id == id) {
             Some(at) => self.held[at] = record,
             None => self.held.push_front(record),
         }
+        true
     }
 
     fn bound(&mut self) -> bool {
@@ -335,9 +356,25 @@ impl Store {
         self.held.len() != before
     }
 
-    fn rebound(&mut self, keep: usize) -> bool {
+    fn reconfigure(&mut self, keep: usize, patterns: &[String]) -> bool {
         self.keep = keep;
-        self.bound()
+        self.suppress = compile_patterns(patterns);
+        let before = self.held.len();
+        let suppress = &self.suppress;
+        self.held.retain(|record| {
+            !matches_patterns(
+                suppress,
+                &record.app_name,
+                &record.app_id,
+                &record.summary,
+                record.body.as_deref().unwrap_or_default(),
+            )
+        });
+        self.held.len() != before || self.bound()
+    }
+
+    fn matches(&self, app_name: &str, app_id: &str, summary: &str, body: &str) -> bool {
+        matches_patterns(&self.suppress, app_name, app_id, summary, body)
     }
 
     fn take(&mut self, id: u32) -> Option<NotificationRecord> {
@@ -397,6 +434,33 @@ impl Store {
     fn records(&self) -> Vec<NotificationRecord> {
         self.held.iter().cloned().collect()
     }
+}
+
+fn compile_patterns(patterns: &[String]) -> Vec<Regex> {
+    patterns
+        .iter()
+        .filter_map(|pattern| match Regex::new(pattern) {
+            Ok(compiled) => Some(compiled),
+            Err(error) => {
+                tracing::warn!(pattern, %error, "ignoring a notification suppression pattern that does not compile");
+                None
+            }
+        })
+        .collect()
+}
+
+fn matches_patterns(
+    patterns: &[Regex],
+    app_name: &str,
+    app_id: &str,
+    summary: &str,
+    body: &str,
+) -> bool {
+    patterns.iter().any(|pattern| {
+        [app_name, app_id, summary, body]
+            .into_iter()
+            .any(|field| pattern.is_match(field))
+    })
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -779,18 +843,75 @@ mod tests {
     }
 
     #[test]
+    fn suppression_patterns_match_application_title_and_body_before_storage() {
+        let patterns = [
+            "(?i)^org\\.example$".to_owned(),
+            "(?i)build succeeded".to_owned(),
+            "secret token".to_owned(),
+        ];
+        let mut held = Store::with_suppression(10, &patterns);
+
+        assert!(!held.post(
+            1,
+            Incoming {
+                app_id: "org.example".to_owned(),
+                ..incoming("Friendly name", "Visible title")
+            }
+        ));
+        assert!(!held.post(
+            2,
+            Incoming {
+                summary: "Build succeeded".to_owned(),
+                ..incoming("Builder", "unimportant")
+            }
+        ));
+        assert!(!held.post(
+            3,
+            Incoming {
+                body: "A secret token arrived".to_owned(),
+                ..incoming("Builder", "unimportant")
+            }
+        ));
+        assert!(held.records().is_empty());
+    }
+
+    #[test]
+    fn an_invalid_suppression_pattern_does_not_disable_valid_patterns() {
+        let patterns = ["[".to_owned(), "quiet".to_owned()];
+        let mut held = Store::with_suppression(10, &patterns);
+
+        assert!(!held.post(1, incoming("quiet", "shown")));
+        assert!(held.post(2, incoming("loud", "shown")));
+        assert_eq!(held.records().len(), 1);
+    }
+
+    #[test]
+    fn adding_a_suppression_pattern_removes_matching_history() {
+        let mut held = store(10, &[(1, "Chat", "Keep"), (2, "Build", "Done")]);
+
+        assert!(held.reconfigure(10, &["Build".to_owned()]));
+        assert_eq!(
+            held.records()
+                .iter()
+                .map(|record| record.id)
+                .collect::<Vec<_>>(),
+            [1]
+        );
+    }
+
+    #[test]
     fn lowering_the_bound_takes_effect_without_waiting_for_another_notification() {
         let mut held = store(10, &[(1, "A", "one"), (2, "B", "two"), (3, "C", "three")]);
         assert!(held.dismiss(1));
         assert!(held.dismiss(2));
         assert!(held.dismiss(3));
         assert!(
-            held.rebound(1),
+            held.reconfigure(1, &[]),
             "the store shrank, so the topic must be republished"
         );
         assert_eq!(held.records().len(), 1);
         assert!(
-            !held.rebound(1),
+            !held.reconfigure(1, &[]),
             "a bound that changes nothing must not force a republish"
         );
     }
@@ -943,7 +1064,14 @@ mod tests {
             cancel.clone(),
         );
         let sender = runtime.sender();
-        let running = tokio::spawn(async move { runtime.run(Config { keep: 10 }).await });
+        let running = tokio::spawn(async move {
+            runtime
+                .run(Config {
+                    keep: 10,
+                    suppress: Vec::new(),
+                })
+                .await
+        });
 
         sender
             .send(Input::Event(Event::Posted {

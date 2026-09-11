@@ -81,9 +81,19 @@ question this service already knows — and niri has no focus-by-pid action at a
 `focuswindow` takes `pid:` natively, so resolving here is also what keeps the two behaving the same.
 A process owning several windows resolves to the lowest window id, because `Snapshot.windows` is
 edited in place as windows come and go and taking the first match would raise a different one at
-different moments. A pid with no window, and any reference asked before the first snapshot has
-arrived, are `Refused` — `InvalidArgs`, which does not invite a retry, because there is nothing to
-retry.
+different moments. A pid with no window is `Refused` — `InvalidArgs`, which does not invite a retry,
+because there is nothing to retry — and so is a pid asked before the first snapshot has arrived.
+Every other way of naming a window needs no window list and resolves without one.
+
+## The keyboard service
+
+Owns compositor keyboard layouts so a layout switch does not resync workspaces and windows. The compositor service drops `KeyboardLayoutsChanged`, `KeyboardLayoutSwitched` and `Resync::Keyboard` for that reason. This service has its own compositor client, publishes `keyboard.layouts`, and answers `keyboard.switch_layout`.
+
+**`[keyboard] remember` is honoured here.** `window` (the default) and `app` subscribe to `compositor.windows` and restore the last layout for the focused window or app id; `global` does not. The store is in-memory for the process. A window with no memory inherits the current layout.
+
+**`[keyboard.labels]` overrides the badge.** Keys match a layout code or name, case-insensitive. Without a label the badge is `layout_code`.
+
+**Commands are awaited inline**, for the same reason as compositor commands.
 
 ## The calendar service
 
@@ -605,16 +615,36 @@ a notification exists exactly as long as this service keeps it. That inverts the
 than breaking it: there is nothing to re-read from, so the bound, the replace rule and the history
 are all decisions made here.
 
+**`[notifications].suppress` is a daemon-side regex list.** Each pattern is tested against the
+sender's application identity and name, the title and the body before the record is stored, so a
+matching notification never reaches the panel or any other client. Invalid patterns are logged and
+skipped; changing the list also removes matching records already held by the daemon.
+
 **`Store` holds no publisher and no connection.** The bound, `replaces_id`, per-app clearing and
 "does this notification offer that action" are the whole of what the service decides, and none of
 them needs a bus — so they live in a struct that an ordinary `#[test]` can drive. What is left on
 `Notifications` is publishing and signal emission, which is the part that genuinely needs a
 connection.
 
-**The list is newest-first, so the bound truncates the tail.** Dropping from the wrong end throws
-away exactly what just arrived while leaving the length correct, which is invisible to any
-assertion that only counts. The test names the summaries in order for that reason, and it was
-checked against a version that drops the newest.
+**A close moves a live notification into history.** Dismiss, activation and a successful action on
+a non-resident notification mark it read, publish that state and emit `NotificationClosed`; they do
+not destroy the record. A resident notification survives either kind of action. Read records offer
+no actions, so a sender cannot receive an action after it was told the notification closed. Remove,
+clear-app and clear-all permanently delete records, and emit `NotificationClosed` only for records
+that were still live.
+
+**The default action does not spend one of the three button slots.** It drives the card itself, so
+the service keeps it independently of the first three named actions. An action key is an identifier:
+an empty or over-long one is dropped rather than ellipsized into a value the sender never offered.
+
+**Progress is a fraction at the topic boundary.** The D-Bus `value` hint is clamped to `0..=100`
+before conversion, and an `Incoming` value is clamped again to `0.0..=1.0`, so no caller can hand a
+GTK progress bar an invalid fraction.
+
+**The list is newest-first, and the bound applies only to read history.** An unread notification
+remains until a sender or reader closes it; silently dropping one would skip the required
+`NotificationClosed` signal. Once records become history, the bound removes the oldest read entries
+without disturbing unread records between them.
 
 **`NameTaken` is degraded, not fatal.** dunst, mako or a Plasma session may already own the name.
 The service then keeps running with an empty store and says why on `system.services`, which is what
@@ -640,15 +670,22 @@ optional — "clients should not assume the server will generate this signal" �
 over-long token is dropped in `decode` and no signal is emitted. There is nothing to advertise in
 `GetCapabilities` for it: the standard set has no string for activation.
 
-**The interface owns the id counter and the sender's pid.** It decodes the wire shape — actions
-arrive as one flat list of alternating key and label, hints as a `HashMap` of variants — and hands a
-plain `Incoming` to the service. Every cap and the markup sanitiser run service-side, in `record`,
-which is why they are testable without exporting anything.
+**The interface owns the id counter, grouping identity and sender pid.** It decodes the wire shape —
+actions arrive as one flat list of alternating key and label, hints as a `HashMap` of variants — and
+hands a plain `Incoming` to the service. A non-empty `desktop-entry` is the grouping identity, with
+the sender's unique bus name as its fallback; the display name never decides which notifications a
+group clear removes. Every cap and the markup sanitiser run service-side, in `record`, which is why
+they are testable without exporting anything.
 
-**`notify` takes `&self`, and the counter is an `AtomicU32`.** zbus holds a write lock for the whole
-of a `&mut self` method, so once `notify` asks the bus daemon for the sender's pid, every concurrent
-sender would have queued behind that round trip. `allocate` is a free function for the same reason
-the caps are: it is the only way to test the wrap past zero without a bus.
+**`notify` holds `&mut self`, and that is what keeps ids and events in the same order.** zbus takes
+the interface's write lock for such a method, so one `Notify` allocates its id, asks the bus daemon
+for the sender's pid and queues its event with no other call interleaving. `&self` takes a read lock
+instead and looks like the better trade — no sender waits on another's round trip — but the events
+then reach the store in pid-lookup order rather than id order, which puts an older notification
+above a newer one in a list that is meant to be newest-first, and lets a `replaces_id` update lose
+to the original it was replacing and leave content that never corrects. One round trip on a local
+socket is what that ordering costs, and notifications arrive at human pace. `allocate` is a free
+function so the wrap past zero is testable without a bus.
 
 **The pid is captured because it cannot be recovered later.** `hdr.sender()` exists only inside the
 interface method, and by the time a reader clicks, the sending connection may be gone — so

@@ -11,7 +11,7 @@ use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
 use glimpse_services::{
-    Calendar, Compositor, Geolocation, Heartbeat, Mpris, Notifications, Solar, Weather,
+    Calendar, Compositor, Geolocation, Heartbeat, Keyboard, Mpris, Notifications, Solar, Weather,
 };
 use glimpse_utils::{init_app_tracing, init_locale};
 
@@ -51,6 +51,7 @@ async fn run(cli: Cli) -> Result<()> {
         .register::<Solar>()
         .register::<Heartbeat>()
         .register::<Compositor>()
+        .register::<Keyboard>()
         .register::<Calendar>()
         .register::<Weather>()
         .register::<Mpris>()

@@ -61,15 +61,6 @@ commands! {
     #[name = "compositor.focus_output"]
     pub struct FocusOutput { connector: String } -> ();
 
-    #[name = "compositor.click_at"]
-    pub struct ClickAt {
-        output: String,
-        x: u32,
-        y: u32,
-        button: MouseButton,
-        restore: bool,
-    } -> ();
-
     #[name = "compositor.rename_workspace"]
     pub struct RenameWorkspace { id: u64, name: Option<String> } -> ();
 

@@ -166,9 +166,9 @@ run-sunset *ARGS:
 ctl *ARGS:
     cargo run -q -p glimpsectl -- "$@"
 
-[doc("click a point through the compositor and optionally restore the pointer")]
+[doc("click a point on a niri output with ydotool")]
 click *ARGS:
-    cargo run -q -p glimpsectl -- call compositor.click_at "$@"
+    python3 scripts/click.py {{ ARGS }}
 
 [doc("render one blueprint with the real widgets; reloads on save")]
 preview BLUEPRINT *ARGS:

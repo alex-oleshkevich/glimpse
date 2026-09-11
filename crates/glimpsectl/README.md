@@ -6,7 +6,6 @@ Command-line and TUI client for `glimpsed`.
 glimpsectl get battery.status --field percentage
 glimpsectl watch 'network.**' --json
 glimpsectl call heartbeat.set_interval period_ms=250
-glimpsectl call compositor.click_at output=DP-2 x=1200 y=540 button=left restore=true
 glimpsectl methods 'heartbeat.*'
 glimpsectl services
 glimpsectl doctor
@@ -83,19 +82,6 @@ Errors go to stderr; only requested data goes to stdout, and every subcommand th
 closed pipe as a clean exit rather than panicking out of `println!`.
 
 This is the first client to build. It exercises the protocol before any GTK exists.
-
-## Pointer clicks
-
-`compositor.click_at` injects one button click at logical output coordinates through niri's
-Wayland virtual-pointer protocol. `output` is the connector name from `compositor.outputs`, `x`
-and `y` are relative to that output's top-left corner, `button` is `left`, `middle` or `right`,
-and `restore=true` records and restores the pointer position around the click.
-
-The repository shortcut accepts the same `KEY=VALUE` arguments:
-
-```bash
-just click output=DP-2 x=1200 y=540 button=left restore=true
-```
 
 ## Known gap
 

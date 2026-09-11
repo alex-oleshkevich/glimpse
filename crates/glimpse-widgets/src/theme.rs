@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use gtk4::{CssProvider, gdk};
+use adw::prelude::*;
+use gtk4::{CssProvider, InterfaceColorScheme, gdk, glib};
 
 pub const BUILTIN: &str = include_str!("../styles/glimpse.css");
 
@@ -11,6 +12,8 @@ const DROPIN_PRIORITY: u32 = THEME_PRIORITY + 1;
 pub struct Styles {
     theme: CssProvider,
     dropin: CssProvider,
+    style_manager: adw::StyleManager,
+    color_scheme_handler: Option<glib::SignalHandlerId>,
 }
 
 impl Styles {
@@ -23,6 +26,13 @@ impl Styles {
         report_parsing_errors(&dropin);
         builtin.load_from_string(BUILTIN);
 
+        let style_manager = adw::StyleManager::default();
+        let providers = [builtin.clone(), theme.clone(), dropin.clone()];
+        set_color_scheme(&providers, style_manager.is_dark());
+        let color_scheme_handler = style_manager.connect_dark_notify(move |manager| {
+            set_color_scheme(&providers, manager.is_dark());
+        });
+
         match gdk::Display::default() {
             Some(display) => {
                 gtk4::style_context_add_provider_for_display(&display, &builtin, BUILTIN_PRIORITY);
@@ -32,12 +42,40 @@ impl Styles {
             None => tracing::error!("no display; stylesheets will not be applied"),
         }
 
-        Self { theme, dropin }
+        Self {
+            theme,
+            dropin,
+            style_manager,
+            color_scheme_handler: Some(color_scheme_handler),
+        }
     }
 
     pub fn load(&self, theme: Option<&Path>, dropin: Option<&Path>) {
         load("theme", &self.theme, theme);
         load("drop-in", &self.dropin, dropin);
+    }
+}
+
+impl Drop for Styles {
+    fn drop(&mut self) {
+        if let Some(handler) = self.color_scheme_handler.take() {
+            self.style_manager.disconnect(handler);
+        }
+    }
+}
+
+fn set_color_scheme(providers: &[CssProvider], dark: bool) {
+    let scheme = interface_color_scheme(dark);
+    for provider in providers {
+        provider.set_prefers_color_scheme(scheme);
+    }
+}
+
+fn interface_color_scheme(dark: bool) -> InterfaceColorScheme {
+    if dark {
+        InterfaceColorScheme::Dark
+    } else {
+        InterfaceColorScheme::Light
     }
 }
 
@@ -62,7 +100,7 @@ fn report_parsing_errors(provider: &CssProvider) {
 
 #[cfg(test)]
 mod tests {
-    use super::BUILTIN;
+    use super::{BUILTIN, InterfaceColorScheme, interface_color_scheme};
 
     const OPEN: &str = ":root {";
     const PREFIX: &str = "gl-";
@@ -174,10 +212,13 @@ mod tests {
     }
 
     #[test]
-    fn no_rule_names_a_literal_color() {
+    fn no_visual_rule_names_a_literal_color() {
         let (_, rules) = split(BUILTIN);
         for line in rules.lines() {
             let line = line.trim();
+            if line.starts_with("--gl-") {
+                continue;
+            }
             assert!(
                 !line.contains('#') && !line.contains("rgb(") && !line.contains("rgba("),
                 "a rule names a literal color, which cannot follow a theme: {line}"
@@ -186,8 +227,70 @@ mod tests {
     }
 
     #[test]
+    fn notification_surface_ramp_is_tokenized_for_both_schemes() {
+        assert!(BUILTIN.contains("--gl-notification: #f2f2f2;"));
+        assert!(BUILTIN.contains(
+            "--gl-notification-back: mix(var(--gl-surface), var(--gl-surface-fg), 0.14);"
+        ));
+        assert!(BUILTIN.contains(
+            "--gl-notification-back-far: mix(var(--gl-surface), var(--gl-surface-fg), 0.24);"
+        ));
+        assert!(BUILTIN.contains("--gl-notification: #54545a;"));
+        assert!(BUILTIN.contains("--gl-notification-back: #45454a;"));
+        assert!(BUILTIN.contains("--gl-notification-back-far: #3d3d42;"));
+        assert!(BUILTIN.contains("background-color: var(--gl-notification-back);"));
+        assert!(BUILTIN.contains("background-color: var(--gl-notification-back-far);"));
+        for color in ["#f2f2f2", "#54545a", "#45454a", "#3d3d42"] {
+            assert_eq!(
+                BUILTIN.matches(color).count(),
+                1,
+                "the notification palette declares {color} more than once"
+            );
+        }
+    }
+
+    #[test]
+    fn attention_colors_the_dot_without_coloring_the_icon() {
+        let reset = BUILTIN
+            .find(".indicator--attention .indicator__icon")
+            .expect("attention keeps indicator content neutral");
+        let error = BUILTIN
+            .find(".indicator--error .indicator__icon")
+            .expect("error colors indicator content when there is no attention dot");
+        assert!(reset > error, "the attention reset overrides severity");
+        assert!(BUILTIN.contains(
+            ".indicator--error .indicator__attention-dot {\n    background-color: var(--gl-danger-text);"
+        ));
+    }
+
+    #[test]
+    fn notification_actions_leave_room_below_the_buttons() {
+        assert!(BUILTIN.contains("margin: 0.27rem 1.08rem 0.8rem 1.08rem;"));
+    }
+
+    #[test]
+    fn notification_group_header_is_separated_from_its_card() {
+        assert!(BUILTIN.contains(
+            ".notifications-popover__group .section__header {\n    margin-bottom: 0.4rem;\n}"
+        ));
+    }
+
+    #[test]
+    fn notification_cards_use_raised_elevation_inside_the_popover() {
+        assert!(BUILTIN.contains(
+            ".notifications-popover__group .notification {\n    box-shadow: var(--gl-elevation-raised);\n}"
+        ));
+    }
+
+    #[test]
+    fn provider_scheme_follows_the_resolved_adwaita_scheme() {
+        assert_eq!(interface_color_scheme(false), InterfaceColorScheme::Light);
+        assert_eq!(interface_color_scheme(true), InterfaceColorScheme::Dark);
+    }
+
+    #[test]
     fn the_declared_vocabulary_is_the_documented_size() {
         let (block, _) = split(BUILTIN);
-        assert_eq!(declared(block).len(), 31);
+        assert_eq!(declared(block).len(), 34);
     }
 }

@@ -61,6 +61,13 @@ impl NotificationsPopover {
                     return;
                 };
                 stack.set_items(&group.notifications);
+                if let Some(clear) =
+                    descendant_with_class::<gtk4::Button>(section, "section__clear")
+                {
+                    clear.set_visible(
+                        group.notifications.len() >= crate::notification_stack::STACK_MIN_ITEMS,
+                    );
+                }
             },
         );
         drop(sections);
@@ -228,6 +235,24 @@ fn descendant<T: IsA<gtk4::Widget>>(root: &impl IsA<gtk4::Widget>) -> Option<T> 
     let mut child = widget.first_child();
     while let Some(node) = child {
         if let Some(found) = descendant::<T>(&node) {
+            return Some(found);
+        }
+        child = node.next_sibling();
+    }
+    None
+}
+
+fn descendant_with_class<T: IsA<gtk4::Widget>>(
+    root: &impl IsA<gtk4::Widget>,
+    class: &str,
+) -> Option<T> {
+    let widget = root.upcast_ref::<gtk4::Widget>();
+    if widget.has_css_class(class) {
+        return widget.clone().downcast().ok();
+    }
+    let mut child = widget.first_child();
+    while let Some(node) = child {
+        if let Some(found) = descendant_with_class::<T>(&node, class) {
             return Some(found);
         }
         child = node.next_sibling();

@@ -1,9 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// How much notification history the daemon keeps. There is no list of senders here: every
-/// application that reaches `org.freedesktop.Notifications` is accepted, and do not disturb is a
-/// runtime state the panel toggles rather than a setting written here.
+/// How much notification history the daemon keeps and which notifications it suppresses. Do not
+/// disturb is a runtime state the panel toggles rather than a setting written here.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Notifications {
@@ -13,11 +12,17 @@ pub struct Notifications {
     /// is the bound that stops a chatty one growing the daemon's memory without limit. Clamped
     /// to 1..=1000.
     pub keep: u32,
+    /// Regex patterns matched against the application identity, application name, title and body.
+    /// Matching notifications are not stored or published.
+    pub suppress: Vec<String>,
 }
 
 impl Default for Notifications {
     fn default() -> Self {
-        Self { keep: 100 }
+        Self {
+            keep: 100,
+            suppress: Vec::new(),
+        }
     }
 }
 
@@ -61,6 +66,24 @@ mod tests {
         assert!(
             rendered.contains("groups"),
             "the error must name `groups`, got {rendered}"
+        );
+    }
+
+    #[test]
+    fn suppression_patterns_are_read_and_default_to_empty() {
+        assert!(
+            load("")
+                .expect("an absent table is fine")
+                .notifications
+                .suppress
+                .is_empty()
+        );
+        assert_eq!(
+            load("[notifications]\nsuppress = [\"(?i)spotify\", \"build succeeded\"]\n")
+                .expect("suppression patterns are a key of this table")
+                .notifications
+                .suppress,
+            ["(?i)spotify", "build succeeded"]
         );
     }
 }

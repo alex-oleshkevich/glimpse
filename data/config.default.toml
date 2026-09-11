@@ -79,6 +79,7 @@ art-max-kib = 4096
 
 [notifications]
 keep = 100
+suppress = []
 
 [wallpaper]
 fit = "fill"

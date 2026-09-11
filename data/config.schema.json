@@ -2026,7 +2026,8 @@
     "notifications": {
       "$ref": "#/$defs/Notifications",
       "default": {
-        "keep": 100
+        "keep": 100,
+        "suppress": []
       }
     },
     "panels": {
@@ -2558,7 +2559,7 @@
       ]
     },
     "Notifications": {
-      "description": "How much notification history the daemon keeps. There is no list of senders here: every\napplication that reaches `org.freedesktop.Notifications` is accepted, and do not disturb is a\nruntime state the panel toggles rather than a setting written here.",
+      "description": "How much notification history the daemon keeps and which notifications it suppresses. Do not\ndisturb is a runtime state the panel toggles rather than a setting written here.",
       "type": "object",
       "properties": {
         "keep": {
@@ -2567,6 +2568,14 @@
           "format": "uint32",
           "default": 100,
           "minimum": 0
+        },
+        "suppress": {
+          "description": "Regex patterns matched against the application identity, application name, title and body.\nMatching notifications are not stored or published.",
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          }
         }
       },
       "additionalProperties": false
