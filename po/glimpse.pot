@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-11 13:05+0200\n"
+"POT-Creation-Date: 2026-09-11 21:49+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -125,39 +125,39 @@ msgstr ""
 msgid "Clear all"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:53
+#: crates/glimpse-panel/src/applets/notifications/render.rs:52
 msgid "Do not disturb"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:55
+#: crates/glimpse-panel/src/applets/notifications/render.rs:54
 msgid "{count} waiting, do not disturb is on"
 msgid_plural "{count} waiting, do not disturb is on"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:60
+#: crates/glimpse-panel/src/applets/notifications/render.rs:59
 msgid "No new notifications"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:62
+#: crates/glimpse-panel/src/applets/notifications/render.rs:61
 msgid "{count} new notification"
 msgid_plural "{count} new notifications"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:74
+#: crates/glimpse-panel/src/applets/notifications/render.rs:73
 msgid "now"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:77
+#: crates/glimpse-panel/src/applets/notifications/render.rs:76
 msgid "{count}m"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:80
+#: crates/glimpse-panel/src/applets/notifications/render.rs:79
 msgid "{count}h"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:82
+#: crates/glimpse-panel/src/applets/notifications/render.rs:81
 msgid "{count}d"
 msgstr ""
 
@@ -452,7 +452,7 @@ msgstr[1] ""
 msgid "Silence notifications until you turn this off"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notifications_popover/mod.rs:104
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:111
 msgid "Clear these notifications"
 msgstr ""
 

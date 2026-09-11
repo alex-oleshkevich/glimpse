@@ -1,9 +1,7 @@
 [Unit]
 Description=Glimpse desktop shell daemon
 Documentation=https://github.com/alex-oleshkevich/glimpse
-PartOf=graphical-session.target
-After=graphical-session.target
-Requisite=graphical-session.target
+PartOf=glimpse-session.target
 StartLimitBurst=5
 StartLimitIntervalSec=60
 
@@ -20,6 +18,3 @@ ProtectControlGroups=true
 LockPersonality=true
 RestrictRealtime=true
 RestrictSUIDSGID=true
-
-[Install]
-WantedBy=graphical-session.target

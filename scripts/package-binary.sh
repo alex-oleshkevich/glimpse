@@ -19,7 +19,7 @@ asset="glimpse-${version}-${arch}.tar.zst"
 pkgroot="dist/pkgroot"
 # GLIMPSE_BINARIES is set by `just package-binary` from the justfile's single source of
 # truth; the fallback here only matters for a direct, non-just invocation of this script.
-read -ra binaries <<< "${GLIMPSE_BINARIES:-glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset}"
+read -ra binaries <<< "${GLIMPSE_BINARIES:-glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notificationd}"
 
 rm -rf "$pkgroot"
 mkdir -p \
@@ -54,6 +54,9 @@ install -Dm644 data/language-codes.json "$pkgroot/usr/share/glimpse/language-cod
 install -Dm644 LICENSE "$pkgroot/usr/share/glimpse/LICENSE"
 
 for f in data/systemd/*.service; do
+    [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/lib/systemd/user/$(basename "$f")"
+done
+for f in data/systemd/*.target; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$pkgroot/usr/lib/systemd/user/$(basename "$f")"
 done
 for f in data/geoclue/conf.d/*.conf; do

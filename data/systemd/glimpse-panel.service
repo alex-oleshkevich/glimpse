@@ -1,9 +1,8 @@
 [Unit]
 Description=Glimpse panel
 Documentation=https://github.com/alex-oleshkevich/glimpse
-PartOf=graphical-session.target
-After=graphical-session.target glimpsed.service
-Requisite=graphical-session.target
+PartOf=glimpse-session.target
+After=glimpsed.service
 Wants=glimpsed.service
 StartLimitBurst=5
 StartLimitIntervalSec=60
@@ -21,6 +20,3 @@ ProtectControlGroups=true
 LockPersonality=true
 RestrictRealtime=true
 RestrictSUIDSGID=true
-
-[Install]
-WantedBy=graphical-session.target

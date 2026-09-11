@@ -10,6 +10,9 @@ done
 for f in data/systemd/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$unitdir/$(basename "$f")"
 done
+for f in data/systemd/*.target; do
+    [[ -e "$f" ]] && install -Dm644 "$f" "$unitdir/$(basename "$f")"
+done
 for f in data/dbus-1/services/*.service; do
     [[ -e "$f" ]] && install -Dm644 "$f" "$dbusdir/$(basename "$f")"
 done

@@ -1,5 +1,5 @@
 [Unit]
-Description=Glimpse night light
+Description=Glimpse notification popups
 Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=glimpse-session.target
 After=glimpsed.service
@@ -9,7 +9,7 @@ StartLimitIntervalSec=60
 
 [Service]
 Type=exec
-ExecStart=/usr/bin/glimpse-sunset
+ExecStart=/usr/bin/glimpse-notificationd
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=2

@@ -8,6 +8,7 @@ for b in "${binaries[@]}"; do
 done
 
 rm -f "$unitdir"/glimpse*.service
+rm -f "$unitdir"/glimpse*.target
 rm -f "$dbusdir/org.kde.StatusNotifierWatcher.service" "$dbusdir/org.freedesktop.Notifications.service"
 rm -f "$pamdir/glimpse-lock"
 rm -f "$geocluedir/glimpse.conf"
