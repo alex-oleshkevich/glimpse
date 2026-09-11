@@ -80,7 +80,8 @@ the wake that re-dresses it;
 registered; `ipc-client` covers holding a `Client` from outside the daemon, where a request issued
 while `glimpsed` is unreachable fails rather than queues; and `testing` covers which tier a
 test belongs to, why GTK tests are one `#[ignore]`d function per crate, and the mutation check that
-decides whether an assertion is load-bearing. General GTK4, libadwaita and relm4 craft
+decides whether an assertion is load-bearing. A compositor run — isolated socket, scratch config,
+a second panel that does not replace the session one — is the `live-testing` skill. General GTK4, libadwaita and relm4 craft
 is covered by the `relm4`, `gtk4-styles` and `libadwaita-styles` skills. D-Bus work — every mirror service, plus the
 two names glimpsed owns — is covered by the project-local `zbus` skill in `.claude/skills/zbus/`,
 which carries introspected signatures for NetworkManager, BlueZ, logind, UPower, MPRIS,
@@ -191,6 +192,18 @@ just check-units     # systemd-analyze verify on the shipped units
 Running a binary goes through `just run-daemon`, `just run-panel`, `just run-wallpaper`,
 `just run-locker`, `just ctl <args>`. `just nested` opens a nested niri
 window for a dev loop that does not disturb the running session.
+
+`compositor.click_at` sends one virtual-pointer click through niri. Use logical coordinates relative
+to the named output, and set `restore=true` when the caller must leave the pointer where it was:
+
+```bash
+just click output=DP-2 x=1200 y=540 button=left restore=true
+```
+
+The `button` values are `left`, `middle` and `right`; output names come from
+`glimpsectl get compositor.outputs`. The daemon validates the output and bounds before its
+Wayland edge injects the click, and `restore=true` briefly maps a temporary capture surface
+to learn the compositor's current pointer position because Wayland has no global pointer query.
 
 A recipe that is missing or wrong gets fixed in the `justfile`. Do not work around it with a raw
 cargo invocation.

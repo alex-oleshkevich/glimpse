@@ -166,6 +166,10 @@ run-sunset *ARGS:
 ctl *ARGS:
     cargo run -q -p glimpsectl -- "$@"
 
+[doc("click a point through the compositor and optionally restore the pointer")]
+click *ARGS:
+    cargo run -q -p glimpsectl -- call compositor.click_at "$@"
+
 [doc("render one blueprint with the real widgets; reloads on save")]
 preview BLUEPRINT *ARGS:
     cargo run -q -p glimpse-widgets --example preview -- {{ BLUEPRINT }} {{ ARGS }}
