@@ -1,6 +1,14 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MouseButton {
+    Left,
+    Middle,
+    Right,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SolarPhase {
     Day,
@@ -338,6 +346,8 @@ pub struct NotificationAction {
     pub key: String,
     pub label: String,
 }
+
+pub const DEFAULT_ACTION: &str = "default";
 
 /// One notification as the store holds it. Every text field is chosen by another application,
 /// arrives over the session bus, and is capped and sanitised by the service before it gets here.

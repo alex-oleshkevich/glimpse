@@ -61,6 +61,15 @@ commands! {
     #[name = "compositor.focus_output"]
     pub struct FocusOutput { connector: String } -> ();
 
+    #[name = "compositor.click_at"]
+    pub struct ClickAt {
+        output: String,
+        x: u32,
+        y: u32,
+        button: MouseButton,
+        restore: bool,
+    } -> ();
+
     #[name = "compositor.rename_workspace"]
     pub struct RenameWorkspace { id: u64, name: Option<String> } -> ();
 
@@ -108,6 +117,15 @@ commands! {
 
     #[name = "notifications.dismiss"]
     pub struct NotificationsDismiss { id: u32 } -> ();
+
+    #[name = "notifications.remove"]
+    pub struct NotificationsRemove { id: u32 } -> ();
+
+    #[name = "notifications.activate"]
+    pub struct NotificationsActivate {
+        id: u32,
+        activation_token: Option<String>,
+    } -> ();
 
     #[name = "notifications.invoke_action"]
     /// `activation_token` is an xdg-activation token the caller minted from the click that
