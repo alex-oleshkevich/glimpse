@@ -1486,6 +1486,14 @@ mod tests {
         );
 
         popover.set_groups(&[group("a", "Telegram", 5)]);
+        let dense = children_of::<Section>(&popover_imp.groups.get())[0].clone();
+        let dense_stack = child_named::<NotificationStack>(&dense, "notification-stack");
+        let dense_chip = dense_stack
+            .imp()
+            .chip
+            .get()
+            .expect("a notification stack builds its chip once")
+            .clone();
 
         secondary_click(&children_of::<NotificationItem>(&dense_stack)[0]);
         assert_eq!(

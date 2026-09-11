@@ -127,7 +127,11 @@ impl NotificationItem {
         crate::set_css_class(self, ACTIVATABLE, activatable);
     }
 
-    pub(crate) fn set_controls_visible(&self, visible: bool) {
+    pub fn set_notification(&self, notification: &crate::Notification) {
+        crate::notification_list::dress(self, notification);
+    }
+
+    pub fn set_controls_visible(&self, visible: bool) {
         let imp = self.imp();
         imp.actions
             .set_visible(visible && !imp.shown.borrow().is_empty());

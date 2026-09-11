@@ -37,8 +37,8 @@ profile must not stop a binary from starting.
 `tracing::warn!` and the text stays English, because a missing catalog is not a reason for a panel
 not to start.
 
-One domain for all six binaries, not one each. They all link `glimpse-widgets`, so per-binary
-domains would split one widget's strings across six catalogs and translate the same button
+One domain serves every translated UI binary. They all link `glimpse-widgets`, so per-binary
+domains would split one widget's strings across several catalogs and translate the same button
 differently depending on which process drew it.
 
 **`init_translations()` runs after `init_app_tracing` and `glimpse_config::load`, and before

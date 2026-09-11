@@ -15,6 +15,8 @@
     --gl-shadow: rgb(0 0 0 / 0.55);
     --gl-elevation-raised: 0 1px 2px alpha(var(--gl-shadow), 0.22);
     --gl-elevation-floating: 0 1px 3px alpha(var(--gl-shadow), 0.6), 0 6px 20px alpha(var(--gl-shadow), 0.7);
+    --gl-popup-motion: 0.75rem;
+    --gl-popup-paint-outset: 2.5rem;
 
     --gl-accent: var(--accent-bg-color, #3584e4);
     --gl-accent-fg: var(--accent-fg-color, #ffffff);
@@ -873,6 +875,36 @@
 
 .notification-stack__strip--far {
     background-color: var(--gl-notification-back-far);
+}
+
+window.notification-popup {
+    background-color: transparent;
+}
+
+.notification-popup__paint-frame {
+    padding: var(--gl-popup-paint-outset);
+    border-spacing: 0.5rem;
+}
+
+.notification-popup__entry {
+    min-width: 22rem;
+    transition:
+        opacity var(--gl-duration) var(--gl-ease),
+        transform var(--gl-duration) var(--gl-ease);
+    opacity: 1;
+    transform: translate(0, 0);
+}
+
+.notification-popup__entry .notification {
+    box-shadow: var(--gl-elevation-floating);
+}
+
+.notification-popup__entry--top {
+    transform: translate(0, calc(-1 * var(--gl-popup-motion)));
+}
+
+.notification-popup__entry--bottom {
+    transform: translate(0, var(--gl-popup-motion));
 }
 
 .readout__value {

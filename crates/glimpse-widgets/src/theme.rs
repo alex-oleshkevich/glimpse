@@ -9,6 +9,7 @@ const THEME_PRIORITY: u32 = gtk4::STYLE_PROVIDER_PRIORITY_USER;
 const DROPIN_PRIORITY: u32 = THEME_PRIORITY + 1;
 
 pub struct Styles {
+    builtin: CssProvider,
     theme: CssProvider,
     dropin: CssProvider,
 }
@@ -32,12 +33,22 @@ impl Styles {
             None => tracing::error!("no display; stylesheets will not be applied"),
         }
 
-        Self { theme, dropin }
+        Self {
+            builtin,
+            theme,
+            dropin,
+        }
     }
 
     pub fn load(&self, theme: Option<&Path>, dropin: Option<&Path>) {
         load("theme", &self.theme, theme);
         load("drop-in", &self.dropin, dropin);
+    }
+
+    pub fn set_prefers_color_scheme(&self, scheme: gtk4::InterfaceColorScheme) {
+        self.builtin.set_prefers_color_scheme(scheme);
+        self.theme.set_prefers_color_scheme(scheme);
+        self.dropin.set_prefers_color_scheme(scheme);
     }
 }
 
@@ -174,10 +185,13 @@ mod tests {
     }
 
     #[test]
-    fn no_rule_names_a_literal_color() {
+    fn no_visual_rule_names_a_literal_color() {
         let (_, rules) = split(BUILTIN);
         for line in rules.lines() {
             let line = line.trim();
+            if line.starts_with("--gl-") {
+                continue;
+            }
             assert!(
                 !line.contains('#') && !line.contains("rgb(") && !line.contains("rgba("),
                 "a rule names a literal color, which cannot follow a theme: {line}"
@@ -188,6 +202,15 @@ mod tests {
     #[test]
     fn the_declared_vocabulary_is_the_documented_size() {
         let (block, _) = split(BUILTIN);
-        assert_eq!(declared(block).len(), 31);
+        assert_eq!(declared(block).len(), 36);
+    }
+
+    #[test]
+    fn popup_motion_and_shadow_share_a_measured_paint_frame() {
+        assert!(BUILTIN.contains("--gl-popup-motion: 0.75rem;"));
+        assert!(BUILTIN.contains("--gl-popup-paint-outset: 2.5rem;"));
+        assert!(BUILTIN.contains("padding: var(--gl-popup-paint-outset);"));
+        assert!(BUILTIN.contains("box-shadow: var(--gl-elevation-floating);"));
+        assert!(BUILTIN.contains("transform: translate(0, var(--gl-popup-motion));"));
     }
 }

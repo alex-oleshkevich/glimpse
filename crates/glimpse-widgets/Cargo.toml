@@ -9,6 +9,7 @@ license.workspace = true
 adw.workspace = true
 gettext-rs.workspace = true
 gio.workspace = true
+glimpse-contracts.workspace = true
 glib.workspace = true
 gtk4.workspace = true
 tracing.workspace = true
