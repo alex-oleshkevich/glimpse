@@ -86,7 +86,7 @@ pub enum Kind {
     /// The next entry from the configured calendars.
     NextEvent(NextEvent),
     /// Unread notifications, with their history in its popover.
-    Notifications {},
+    Notifications(Notifications),
     /// A strip of workspaces or windows, one slot each, that switches between them on a click.
     Pager(Pager),
     /// Active print jobs.
@@ -101,6 +101,21 @@ pub enum Kind {
     Tray {},
     /// Current conditions, with the forecast in its popover.
     Weather(Weather),
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Notifications {
+    pub indicator_style: NotificationIndicatorStyle,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum NotificationIndicatorStyle {
+    IconOnly,
+    #[default]
+    IconDot,
+    IconCounter,
 }
 
 /// Settings for the mpris applet. Which players exist and which one is current is the daemon's
@@ -560,7 +575,7 @@ fn with_common(generator: &mut SchemaGenerator) -> Schema {
 
 #[cfg(test)]
 mod tests {
-    use super::{COMMON, Common};
+    use super::{COMMON, Common, Kind, NotificationIndicatorStyle};
 
     #[test]
     fn every_common_setting_is_taken_off_the_table() {
@@ -585,5 +600,31 @@ mod tests {
             declared.len(),
             "the splitter removes a key no common setting declares"
         );
+    }
+
+    #[test]
+    fn notification_indicator_style_defaults_to_a_dot_and_reads_every_variant() {
+        let default: crate::Config = toml::from_str("[applets.notifications]\n")
+            .expect("the built-in notification applet loads");
+        let Kind::Notifications(default) = &default.applets["notifications"].kind else {
+            panic!("notifications resolves to its own kind");
+        };
+        assert_eq!(default.indicator_style, NotificationIndicatorStyle::IconDot);
+
+        for (value, expected) in [
+            ("icon-only", NotificationIndicatorStyle::IconOnly),
+            ("icon-dot", NotificationIndicatorStyle::IconDot),
+            ("icon-counter", NotificationIndicatorStyle::IconCounter),
+        ] {
+            let text = format!("[applets.notifications]\nindicator-style = \"{value}\"\n");
+            let document: crate::Config = toml::from_str(&text).expect("the style is valid");
+            let Kind::Notifications(settings) = &document.applets["notifications"].kind else {
+                panic!("notifications resolves to its own kind");
+            };
+            assert_eq!(settings.indicator_style, expected);
+        }
+
+        toml::from_str::<crate::Config>("[applets.notifications]\nindicator-style = \"counter\"\n")
+            .expect_err("an undocumented spelling is refused");
     }
 }
