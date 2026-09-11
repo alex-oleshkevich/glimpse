@@ -57,6 +57,18 @@ untouched install.
 
 There is deliberately no staleness, no `degraded`, no timer and no applet `Output`.
 
+### Keyboard
+
+The chip is the current layout's code (`US`). It hides when the daemon has sent fewer than two layouts. Scroll cycles; left click opens a list of layouts with the current one checked and the code on the right, not bold. `{code}` and `{name}` fill `tooltip-format`. The footer is only the `settings-command` row, when that pair is set.
+
+The compositor owns the list; this applet only renders `keyboard.layouts` and sends `keyboard.switch_layout`.
+
+### Notifications
+
+The chip is a bell. It hides until `notifications.list` has arrived, then stays even when the list is empty so do-not-disturb is still reachable. `indicator-style` is `icon-only`, `icon-dot` (the default), or `icon-counter`; the dot and counter hide under do-not-disturb. The bell stays in the bar's normal color; a critical unread notification colors only the dot. Do-not-disturb swaps the icon and mutes attention. `{count}` fills `tooltip-format`.
+
+The popover groups by `app_id`, newest first, and formats translated relative time in `render.rs`. `NotificationStack` leaves groups of up to three as individual cards and collapses groups of four or more; the collapsed card is only a preview, so its per-notification controls are hidden, left click opens the stack and right click clears that application without focusing it. On an individual unread card, left click invokes the specification's `default` action when one was offered, asks the compositor to raise the sender when `app_pid` is known, and dismisses the notification; right click and the close button remove it without either action or focus. Named buttons send only their action and token. Read history has neither activation nor action buttons, and its close button removes that record. Dismiss, remove, clear-app, clear-all and do-not-disturb go through the matching commands. The icon cache is pruned against each new list so sender-controlled keys cannot accumulate for the panel's lifetime. A degraded notifications service is the trouble banner. The footer is only the `settings-command` row, when that pair is set.
+
 ## The tick
 
 `ctx.interval(period)` is the only timer an applet gets, delivering `Input::Tick`.

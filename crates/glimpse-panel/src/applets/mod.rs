@@ -1,8 +1,10 @@
 mod agenda;
 mod clock;
 mod heartbeat;
+mod keyboard;
 mod mpris;
 mod next_event;
+mod notifications;
 mod pager;
 mod weather;
 
@@ -41,6 +43,8 @@ fn build(config: &AppletConfig) -> Option<Builder> {
         AppletKind::NextEvent(_) => Some(|| Box::new(next_event::NextEvent::start())),
         AppletKind::Pager(_) => Some(|| Box::new(pager::Pager::start())),
         AppletKind::Weather(_) => Some(|| Box::new(weather::Weather::start())),
+        AppletKind::Keyboard {} => Some(|| Box::new(keyboard::Keyboard::start())),
+        AppletKind::Notifications(_) => Some(|| Box::new(notifications::Notifications::start())),
         AppletKind::Audio {}
         | AppletKind::Battery {}
         | AppletKind::Brightness {}
@@ -50,9 +54,7 @@ fn build(config: &AppletConfig) -> Option<Builder> {
         | AppletKind::Command {}
         | AppletKind::Exec {}
         | AppletKind::Idle {}
-        | AppletKind::Keyboard {}
         | AppletKind::Network {}
-        | AppletKind::Notifications {}
         | AppletKind::Privacy {}
         | AppletKind::Printing {}
         | AppletKind::Removable {}
@@ -99,6 +101,22 @@ mod tests {
     fn the_weather_applet_is_built_rather_than_skipped() {
         assert!(
             resolve("weather", &BTreeMap::new(), &Regional::default()).is_some(),
+            "the kind has an implementation, so it must not fall through to the skipped arm"
+        );
+    }
+
+    #[test]
+    fn the_keyboard_applet_is_built_rather_than_skipped() {
+        assert!(
+            resolve("keyboard", &BTreeMap::new(), &Regional::default()).is_some(),
+            "the kind has an implementation, so it must not fall through to the skipped arm"
+        );
+    }
+
+    #[test]
+    fn the_notifications_applet_is_built_rather_than_skipped() {
+        assert!(
+            resolve("notifications", &BTreeMap::new(), &Regional::default()).is_some(),
             "the kind has an implementation, so it must not fall through to the skipped arm"
         );
     }
