@@ -70,7 +70,7 @@ pub fn watch_config(
     })
 }
 
-fn hangups() -> impl Stream<Item = ()> + Send + 'static {
+pub(crate) fn hangups() -> impl Stream<Item = ()> + Send + 'static {
     let hangup = signal(SignalKind::hangup())
         .inspect_err(|error| tracing::warn!(%error, "SIGHUP will not reload the configuration"))
         .ok();

@@ -157,7 +157,8 @@ fails, so an uninstalled `DATA_DIR/themes` leaves the rest of the set working.
 
 The set is fixed at construction, so a caller changing `appearance.theme` drops the stream and builds
 another. Watching `user_dir()` for `styles.css` also means a `config.toml` write reports a theme
-change, since both live in that directory.
+change, since both live in that directory. It also emits on `SIGHUP`, even when no file or theme
+name changed, so a suite-wide reload forces every theme-aware process to refresh its providers.
 
 ## Watching
 
@@ -253,6 +254,17 @@ watched directory, not just `*.toml`. Filtering by extension would drop the crea
 itself, which is one of the changes that most needs noticing. So an unrelated write in the
 configuration directory does cost one debounced re-read — and then the equality gate absorbs it,
 which is the whole reason that gate is worth more than a content digest here.
+
+## Notifications
+
+`[notifications]` belongs to the daemon and the standalone popup process. `keep` and `suppress`
+control what the daemon stores; `enabled`, `monitor`, `edge`, `hide-delay` and `max-items` control
+transient presentation without moving that policy into the panel.
+
+`monitor` is an optional exact connector name. The popup falls back to the focused output and then
+the compositor's first output when it is absent or unavailable. `edge` accepts `top-left`,
+`top-center`, `top-right`, `bottom-left`, `bottom-center` and `bottom-right`; its default is
+`top-center`. `hide-delay` defaults to 4 seconds and `max-items` to 6, and both reject zero.
 
 ## Applets
 

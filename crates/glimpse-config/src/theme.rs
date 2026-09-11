@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
-use futures_util::{Stream, StreamExt};
+use futures_util::{Stream, StreamExt, stream};
 
 use crate::load::{DATA_DIR, push, user_dir};
-use crate::watch::{Update, watch_all};
+use crate::watch::{Update, hangups, watch_all};
 
 const THEMES_DIR: &str = "themes";
 const STYLES_FILE: &str = "styles.css";
@@ -107,18 +107,19 @@ pub fn user_stylesheet() -> Option<PathBuf> {
 
 pub fn watch_theme(theme: &str) -> impl Stream<Item = ()> + Send + 'static {
     let dirs = watch_dirs_in(&theme_dirs(), user_dir().as_deref(), &selected(theme));
-    watch_all(dirs).filter_map(|update| async move {
+    let watched = watch_all(dirs).filter_map(|update| async move {
         match update {
             Update::Changed(_) | Update::Rearmed => Some(()),
             Update::Unavailable(reason) => {
                 tracing::warn!(
                     reason,
-                    "the theme is not being watched; restart to pick up edits"
+                    "the theme is not being watched; SIGHUP still reloads it"
                 );
                 None
             }
         }
-    })
+    });
+    stream::select(Box::pin(watched), Box::pin(hangups()))
 }
 
 #[cfg(test)]
@@ -281,5 +282,27 @@ mod tests {
             watch_dirs_in(&[PathBuf::from("/usr/share/glimpse/themes")], None, ""),
             [PathBuf::from("/usr/share/glimpse/themes")]
         );
+    }
+
+    #[tokio::test]
+    async fn sighup_forces_a_theme_reload() {
+        use std::time::Duration;
+
+        use futures_util::StreamExt;
+        use tokio::signal::unix::{SignalKind, signal};
+
+        let _installed = signal(SignalKind::hangup()).expect("registers a handler");
+        let mut updates = Box::pin(watch_theme("adwaita"));
+        let status = tokio::process::Command::new("kill")
+            .args(["-HUP", &std::process::id().to_string()])
+            .status()
+            .await
+            .expect("kill runs");
+        assert!(status.success(), "kill did not signal this process");
+
+        tokio::time::timeout(Duration::from_secs(5), updates.next())
+            .await
+            .expect("SIGHUP produces a theme reload")
+            .expect("the stream remains alive");
     }
 }

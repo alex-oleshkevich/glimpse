@@ -37,7 +37,7 @@ pub use lock::{Button as LockButton, Clock as LockClock, Controls as LockControl
 pub use monitors::Monitors;
 pub use mpris::Mpris as MprisConfig;
 pub use night_light::{NightLight, Schedule};
-pub use notifications::Notifications;
+pub use notifications::{NotificationEdge, Notifications};
 pub use panels::{Margin, Panel, Position};
 pub use power::Power;
 pub use regional::{HourFormat, Regional, Units as RegionalUnits};
