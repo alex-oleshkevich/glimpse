@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::model::{KeyboardLayouts, Window, WindowId, Workspace, WorkspaceId};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -29,6 +31,12 @@ pub enum Event {
         idx: usize,
         name: Option<String>,
     },
+    CastsChanged(BTreeSet<u64>),
+    CastStartedOrChanged {
+        id: u64,
+        active: bool,
+    },
+    CastStopped(u64),
     /// The compositor said something changed without saying what. The caller re-fetches the named
     /// part of the snapshot. Hyprland produces most of these; niri produces a handful.
     Resync(Resync),

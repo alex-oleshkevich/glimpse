@@ -91,6 +91,7 @@ impl Hyprland {
             keyboard: layouts,
             focused_window,
             focused_output,
+            active_casts: Default::default(),
         })
     }
 

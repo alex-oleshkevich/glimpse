@@ -17,7 +17,7 @@ use crate::model::{
     LayoutTarget, Logical, Mode, Output, Snapshot, Window, WindowId, WindowTarget, Workspace,
     WorkspaceId, WorkspaceTarget, is_built_in,
 };
-use event::{EventState, WireLayouts};
+use event::{EventState, WireCast, WireLayouts, active_casts};
 
 pub(crate) const CAPABILITIES: crate::Capabilities = crate::Capabilities {
     floating: false,
@@ -40,12 +40,13 @@ impl Niri {
     }
 
     pub(crate) async fn snapshot(&self) -> Result<Snapshot, CompositorError> {
-        let (outputs, workspaces, windows, keyboard, focused_output) = tokio::try_join!(
+        let (outputs, workspaces, windows, keyboard, focused_output, casts) = tokio::try_join!(
             self.fetch::<BTreeMap<String, WireOutput>>("Outputs"),
             self.fetch::<Vec<Workspace>>("Workspaces"),
             self.fetch::<Vec<Window>>("Windows"),
             self.fetch::<WireLayouts>("KeyboardLayouts"),
             self.fetch::<Option<WireFocusedOutput>>("FocusedOutput"),
+            self.fetch::<Vec<WireCast>>("Casts"),
         )?;
 
         Ok(Snapshot {
@@ -58,6 +59,7 @@ impl Niri {
             windows,
             keyboard: keyboard.into(),
             focused_output: focused_output.map(|output| output.name),
+            active_casts: active_casts(casts),
         })
     }
 
@@ -381,7 +383,14 @@ mod tests {
     }
 
     fn snapshot_server() -> FakeNiri {
-        FakeNiri::spawn(|request| match request {
+        snapshot_server_with_casts(reply(
+            "Casts",
+            json!([{ "stream_id": 8, "is_active": true }]),
+        ))
+    }
+
+    fn snapshot_server_with_casts(casts: Vec<String>) -> FakeNiri {
+        FakeNiri::spawn(move |request| match request {
             "\"Outputs\"" => reply("Outputs", outputs()),
             "\"Workspaces\"" => reply(
                 "Workspaces",
@@ -401,6 +410,7 @@ mod tests {
                 json!({ "names": ["Polish", "Russian"], "current_idx": 1 }),
             ),
             "\"FocusedOutput\"" => reply("FocusedOutput", json!({ "name": "eDP-1" })),
+            "\"Casts\"" => casts.clone(),
             other => panic!("the fake was asked for {other}"),
         })
     }
@@ -411,6 +421,10 @@ mod tests {
         let snapshot = Niri::at(&server.socket).snapshot().await.expect("snapshot");
 
         assert_eq!(snapshot.focused_output.as_deref(), Some("eDP-1"));
+        assert_eq!(
+            snapshot.active_casts.iter().copied().collect::<Vec<_>>(),
+            [8]
+        );
         assert_eq!(snapshot.focused_window, Some(WindowId(9)));
         assert_eq!(snapshot.workspaces[0].id, WorkspaceId(5));
         assert_eq!(snapshot.workspaces[0].idx, Some(1));
@@ -419,6 +433,15 @@ mod tests {
         assert_eq!(snapshot.keyboard.names, ["Polish", "Russian"]);
         assert_eq!(snapshot.keyboard.codes, ["PL", "RU"]);
         assert_eq!(snapshot.keyboard.current, Some(1));
+    }
+
+    #[tokio::test]
+    async fn a_failed_cast_snapshot_fails_closed() {
+        let server = snapshot_server_with_casts(vec![
+            json!({ "Err": "casts are temporarily unavailable" }).to_string(),
+        ]);
+
+        assert!(Niri::at(&server.socket).snapshot().await.is_err());
     }
 
     /// Niri has no `enabled` field, so a null `current_mode` is the only thing that says an output
@@ -742,6 +765,33 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn screencasts_report_the_full_set_changes_and_stops() {
+        let events = events_from(vec![
+            json!({ "CastsChanged": { "casts": [
+                { "stream_id": 3, "is_active": true },
+                { "stream_id": 5, "is_active": false },
+            ] } }),
+            json!({ "CastStartedOrChanged": { "cast": {
+                "stream_id": 7, "is_active": true,
+            } } }),
+            json!({ "CastStopped": { "stream_id": 3 } }),
+        ])
+        .await;
+
+        assert_eq!(
+            events,
+            [
+                Event::CastsChanged([3].into()),
+                Event::CastStartedOrChanged {
+                    id: 7,
+                    active: true,
+                },
+                Event::CastStopped(3),
+            ]
+        );
+    }
+
     /// Niri reloads its own configuration in place, and `kb_layout` is the part of it this crate
     /// caches — without the resync the panel shows a layout list the compositor has discarded.
     #[tokio::test]
@@ -770,6 +820,7 @@ mod tests {
                 reply("KeyboardLayouts", json!({ "names": [], "current_idx": 0 }))
             }
             "\"FocusedOutput\"" => reply("FocusedOutput", json!(null)),
+            "\"Casts\"" => reply("Casts", json!([])),
             other => panic!("the fake was asked for {other}"),
         });
 

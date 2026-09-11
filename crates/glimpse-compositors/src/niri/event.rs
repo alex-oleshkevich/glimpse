@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 use serde::Deserialize;
 
@@ -72,6 +72,12 @@ impl EventState {
                 idx: usize::from(idx),
                 name: self.layout_names.get(usize::from(idx)).cloned(),
             }],
+            Wire::CastsChanged { casts } => vec![Event::CastsChanged(active_casts(casts))],
+            Wire::CastStartedOrChanged { cast } => vec![Event::CastStartedOrChanged {
+                id: cast.stream_id,
+                active: cast.is_active,
+            }],
+            Wire::CastStopped { stream_id } => vec![Event::CastStopped(stream_id)],
             // Niri reloads its own configuration without restarting, and the layout list is the one
             // thing in this snapshot that a reload can change under us.
             Wire::ConfigLoaded { failed: false } => vec![Event::Resync(Resync::Keyboard)],
@@ -99,6 +105,14 @@ impl EventState {
     }
 }
 
+pub(crate) fn active_casts(casts: Vec<WireCast>) -> BTreeSet<u64> {
+    casts
+        .into_iter()
+        .filter(|cast| cast.is_active)
+        .map(|cast| cast.stream_id)
+        .collect()
+}
+
 #[derive(Deserialize)]
 pub(crate) struct WireLayouts {
     pub names: Vec<String>,
@@ -119,6 +133,13 @@ impl From<WireLayouts> for KeyboardLayouts {
 struct WireLayout {
     #[serde(default)]
     pos_in_scrolling_layout: Option<(u16, u16)>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct WireCast {
+    stream_id: u64,
+    #[serde(default)]
+    is_active: bool,
 }
 
 impl WireLayout {
@@ -168,6 +189,15 @@ enum Wire {
     },
     KeyboardLayoutSwitched {
         idx: u8,
+    },
+    CastsChanged {
+        casts: Vec<WireCast>,
+    },
+    CastStartedOrChanged {
+        cast: WireCast,
+    },
+    CastStopped {
+        stream_id: u64,
     },
     ConfigLoaded {
         failed: bool,

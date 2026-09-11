@@ -96,6 +96,7 @@ pub struct Snapshot {
     pub keyboard: KeyboardLayouts,
     pub focused_window: Option<WindowId>,
     pub focused_output: Option<String>,
+    pub active_casts: std::collections::BTreeSet<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
