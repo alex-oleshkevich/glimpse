@@ -64,8 +64,7 @@ impl SimpleComponent for App {
         let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
         spawn_config_watch(init.config_path, init.config.clone(), sender);
 
-        let styles = Styles::install();
-        styles.set_color_scheme(color_scheme(init.config.appearance.color_scheme));
+        let styles = Styles::install(color_scheme(init.config.appearance.color_scheme));
         let model = App {
             config: init.config,
             panels: Default::default(),

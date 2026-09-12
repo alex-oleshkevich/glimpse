@@ -130,6 +130,7 @@ mod tests {
             summary: summary.to_owned(),
             body: None,
             icon: None,
+            avatar: None,
             image: None,
             urgency: NotificationUrgency::Normal,
             actions: Vec::new(),

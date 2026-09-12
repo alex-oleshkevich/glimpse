@@ -1,5 +1,6 @@
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -12,11 +13,11 @@ use glimpse_contracts::{
     NotificationsList, NotificationsRemove, NotificationsSetDnd, ServiceState, SystemServices,
     WindowRef,
 };
-use glimpse_widgets::{Group, IndicatorSpec, NotificationsPopover};
+use glimpse_widgets::{Group, IndicatorSpec, NotificationsPopover, artwork, notification_image};
 use gtk4::gdk::prelude::DisplayExt;
 use gtk4::gio::prelude::AppLaunchContextExt;
 use gtk4::prelude::{Cast, WidgetExt};
-use gtk4::{gio, glib};
+use gtk4::{gdk, gio, glib};
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
 use crate::applet::{Applet, Caller, Ctx, Input, payload};
@@ -33,6 +34,8 @@ pub struct Notifications {
     indicator_style: NotificationIndicatorStyle,
     held: Rc<RefCell<Vec<NotificationRecord>>>,
     icons: HashMap<String, gio::Icon>,
+    avatars: HashMap<String, Option<gdk::Texture>>,
+    images: HashMap<String, Option<gdk::Texture>>,
     bell: gio::Icon,
     muted: gio::Icon,
     spec: Vec<IndicatorSpec>,
@@ -58,6 +61,8 @@ impl Applet for Notifications {
             indicator_style: NotificationIndicatorStyle::default(),
             held: Rc::new(RefCell::new(Vec::new())),
             icons: HashMap::new(),
+            avatars: HashMap::new(),
+            images: HashMap::new(),
             bell: gio::ThemedIcon::new(render::BELL).upcast(),
             muted: gio::ThemedIcon::new(render::MUTED).upcast(),
             spec: Vec::new(),
@@ -212,6 +217,14 @@ impl Notifications {
             &mut self.icons,
             records.iter().filter_map(|record| record.icon.as_deref()),
         );
+        prune_cache(
+            &mut self.avatars,
+            records.iter().filter_map(|record| record.avatar.as_deref()),
+        );
+        prune_cache(
+            &mut self.images,
+            records.iter().filter_map(|record| record.image.as_deref()),
+        );
         let now = Utc::now();
         let mut groups = render::groups(records, now);
         let records: HashMap<_, _> = records.iter().map(|record| (record.id, record)).collect();
@@ -223,6 +236,8 @@ impl Notifications {
                     continue;
                 };
                 note.icon = record.icon.as_deref().map(|name| self.themed(name));
+                note.avatar = record.avatar.as_deref().and_then(|path| self.avatar(path));
+                note.image = record.image.as_deref().and_then(|path| self.image(path));
             }
         }
         groups
@@ -232,6 +247,20 @@ impl Notifications {
         self.icons
             .entry(name.to_owned())
             .or_insert_with(|| gio::ThemedIcon::new(name).upcast())
+            .clone()
+    }
+
+    fn avatar(&mut self, path: &str) -> Option<gdk::Texture> {
+        self.avatars
+            .entry(path.to_owned())
+            .or_insert_with(|| artwork(Path::new(path), 64))
+            .clone()
+    }
+
+    fn image(&mut self, path: &str) -> Option<gdk::Texture> {
+        self.images
+            .entry(path.to_owned())
+            .or_insert_with(|| notification_image(Path::new(path)))
             .clone()
     }
 }
@@ -349,6 +378,7 @@ mod tests {
             app_name: "App".to_owned(),
             app_pid: Some(42),
             icon: None,
+            avatar: None,
             image: None,
             summary: "Summary".to_owned(),
             body: None,
