@@ -977,6 +977,27 @@ mod tests {
         assert_eq!(events, [Event::WindowClosed(WindowId(4))]);
     }
 
+    #[tokio::test]
+    async fn screencasts_keep_privacy_active_until_every_client_stops() {
+        let events = events_from(&[
+            "screencast>>1,monitor",
+            "screencast>>1,window",
+            "screencast>>0,monitor",
+            "screencast>>0,window",
+        ])
+        .await;
+
+        assert_eq!(
+            events,
+            [
+                Event::CastsChanged([0].into()),
+                Event::CastsChanged([0].into()),
+                Event::CastsChanged([0].into()),
+                Event::CastsChanged(Default::default()),
+            ]
+        );
+    }
+
     /// `activelayout` reports a display name against a configured list of xkb codes, and a keyboard
     /// name may itself contain a comma.
     #[tokio::test]

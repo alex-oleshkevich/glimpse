@@ -7,11 +7,15 @@ use crate::model::WindowId;
 /// opens, because Hyprland has no event that carries them.
 pub struct EventState {
     layout_codes: Vec<String>,
+    active_casts: usize,
 }
 
 impl EventState {
     pub fn new(layout_codes: Vec<String>) -> Self {
-        Self { layout_codes }
+        Self {
+            layout_codes,
+            active_casts: 0,
+        }
     }
 
     pub fn decode(&mut self, line: &str) -> Vec<Event> {
@@ -31,6 +35,7 @@ impl EventState {
                 .into_iter()
                 .collect(),
             "activelayout" => self.layout_switched(payload),
+            "screencast" => self.screencast(payload),
 
             // Everything below carries an address or a name but never the whole record, and
             // rebuilding a `Window` or `Workspace` from a partial line would publish a worse
@@ -65,6 +70,17 @@ impl EventState {
             idx,
             name: Some(keymap.to_owned()),
         }]
+    }
+
+    fn screencast(&mut self, payload: &str) -> Vec<Event> {
+        match payload.split(',').next() {
+            Some("1") => self.active_casts = self.active_casts.saturating_add(1),
+            Some("0") => self.active_casts = self.active_casts.saturating_sub(1),
+            _ => return Vec::new(),
+        }
+        vec![Event::CastsChanged(
+            (self.active_casts > 0).then_some(0).into_iter().collect(),
+        )]
     }
 }
 

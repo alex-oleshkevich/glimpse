@@ -1,8 +1,10 @@
-use std::{convert::Infallible, pin::Pin, process};
+use std::{convert::Infallible, pin::Pin};
 
 use futures_util::{Stream, StreamExt, stream};
 use glimpse_contracts::{CompositorPrivacy, Message, SessionStatus};
-use glimpse_dbus::login1::{Login1ManagerProxy, Login1SessionProxy};
+use glimpse_dbus::login1::{
+    Login1ManagerProxy, Login1SessionProxy, SessionCandidate, current_uid, select_session_candidate,
+};
 
 use crate::{
     context::Ctx,
@@ -96,10 +98,36 @@ async fn locked_events(
 ) -> Result<impl Stream<Item = Event> + Send + 'static, String> {
     let bus = ctx.system_bus().map_err(str::to_owned)?.clone();
     let manager = Login1ManagerProxy::new(&bus).await.map_err(say)?;
-    let path = manager
-        .get_session_by_pid(process::id())
-        .await
-        .map_err(say)?;
+    let uid = current_uid().map_err(say)?;
+    let mut candidates = Vec::new();
+    for (id, candidate_uid, _, seat, path) in manager.list_sessions().await.map_err(say)? {
+        if candidate_uid != uid {
+            continue;
+        }
+        let session = Login1SessionProxy::builder(&bus)
+            .path(path.clone())
+            .map_err(say)?
+            .build()
+            .await
+            .map_err(say)?;
+        match tokio::try_join!(session.active(), session.class(), session.kind()) {
+            Ok((active, class, kind)) => candidates.push(SessionCandidate {
+                id,
+                uid: candidate_uid,
+                seat,
+                path,
+                active,
+                class: Some(class),
+                kind: Some(kind),
+            }),
+            Err(error) => {
+                tracing::debug!(session = %id, %error, "skipping a partial login session")
+            }
+        }
+    }
+    let path = select_session_candidate(&candidates, uid)
+        .map(|candidate| candidate.path.clone())
+        .ok_or_else(|| "the current user has no login session".to_owned())?;
     let session = Login1SessionProxy::builder(&bus)
         .path(path)
         .map_err(say)?

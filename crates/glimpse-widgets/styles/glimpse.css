@@ -3,7 +3,8 @@
     --gl-panel-fg: var(--window-fg-color, #ffffff);
     --gl-surface: var(--popover-bg-color, #36363a);
     --gl-surface-fg: var(--popover-fg-color, #ffffff);
-    --gl-notification: #f2f2f2;
+    --gl-notification: var(--card-bg-color);
+    --gl-notification-fg: var(--card-fg-color);
     --gl-notification-back: mix(var(--gl-surface), var(--gl-surface-fg), 0.14);
     --gl-notification-back-far: mix(var(--gl-surface), var(--gl-surface-fg), 0.24);
 
@@ -42,14 +43,6 @@
     --gl-ease: cubic-bezier(0.2, 0, 0, 1);
     --gl-font-family: "Adwaita Sans", system-ui, sans-serif;
     --gl-disabled: var(--disabled-opacity, 0.5);
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --gl-notification: #54545a;
-        --gl-notification-back: #45454a;
-        --gl-notification-back-far: #3d3d42;
-    }
 }
 
 .panel {
@@ -703,15 +696,18 @@
 
 .notification {
     --gl-notification-radius: 1.1rem;
-    min-width: 34rem;
     min-height: 6rem;
     border-radius: var(--gl-notification-radius);
-    background-color: var(--gl-notification);
-    transition: background-color var(--gl-duration) var(--gl-ease);
+    color: var(--gl-notification-fg);
+    background-color: var(--gl-surface);
+    background-image: linear-gradient(var(--gl-notification), var(--gl-notification));
 }
 
 .notification--activatable:hover {
-    background-color: mix(var(--gl-notification), var(--gl-surface-fg), 0.08);
+    background-image: linear-gradient(
+        mix(var(--gl-notification), var(--gl-surface-fg), 0.08),
+        mix(var(--gl-notification), var(--gl-surface-fg), 0.08)
+    );
 }
 
 .notification__activate {
@@ -887,7 +883,7 @@ window.notification-popup {
 }
 
 .notification-popup__entry {
-    min-width: 22rem;
+    min-width: 18rem;
     transition:
         opacity var(--gl-duration) var(--gl-ease),
         transform var(--gl-duration) var(--gl-ease);
