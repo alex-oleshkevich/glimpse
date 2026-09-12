@@ -4,14 +4,14 @@ use std::sync::OnceLock;
 use gtk4::{AccessibleRole, glib, prelude::*, subclass::prelude::*};
 
 use super::{ACTION_INVOKED, ACTIVATED, DISMISSED, Notification};
-use crate::NotificationItem;
+use crate::NotificationCard;
 
 const SPACING: u32 = 6;
 
 #[derive(Debug, Default)]
 pub struct NotificationList {
     pub notifications: RefCell<Vec<Notification>>,
-    pub rows: RefCell<Vec<(String, NotificationItem)>>,
+    pub rows: RefCell<Vec<(String, NotificationCard)>>,
     pub cap: Cell<Option<usize>>,
 }
 

@@ -56,7 +56,6 @@ impl NotificationsPopover {
             |group| group.key.clone(),
             |group| self.section(&group.key),
             |section, group| {
-                section.set_title(Some(group.app_name.as_str()));
                 let Some(stack) = descendant::<NotificationStack>(section) else {
                     return;
                 };

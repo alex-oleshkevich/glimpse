@@ -15,7 +15,10 @@
         <file>widgets/next_event_popover.ui</file>
         <file>widgets/mpris_popover.ui</file>
         <file>widgets/notice.ui</file>
-        <file>widgets/notification_item.ui</file>
+        <file>widgets/notification_card.ui</file>
+        <file>widgets/notification_header.ui</file>
+        <file>widgets/notification_image_body.ui</file>
+        <file>widgets/notification_text_body.ui</file>
         <file>widgets/notifications_popover.ui</file>
         <file>widgets/now_playing.ui</file>
         <file>widgets/pager_item.ui</file>

@@ -14,9 +14,12 @@ mod keyboard_popover;
 mod mpris_popover;
 mod next_event_popover;
 mod notice;
-mod notification_item;
+mod notification_card;
+mod notification_header;
+mod notification_image_body;
 mod notification_list;
 mod notification_stack;
+mod notification_text_body;
 mod notifications_popover;
 mod now_playing;
 mod pager;
@@ -53,9 +56,12 @@ pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
 pub use mpris_popover::MprisPopover;
 pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
-pub use notification_item::{Action, NotificationItem, Urgency};
+pub use notification_card::{Action, NotificationCard, Urgency};
+pub use notification_header::NotificationHeader;
+pub use notification_image_body::{NotificationImageBody, notification_image};
 pub use notification_list::{Body, Notification, NotificationList};
 pub use notification_stack::NotificationStack;
+pub use notification_text_body::NotificationTextBody;
 pub use notifications_popover::{Group, NotificationsPopover};
 pub use now_playing::NowPlaying;
 pub use pager::{Focus, Pager, PagerItem, Shape, Slot};
@@ -228,7 +234,7 @@ mod tests {
             return;
         }
         register_resources().expect("resources");
-        let _styles = Styles::install();
+        let _styles = Styles::install(adw::ColorScheme::Default);
 
         let group = IndicatorGroup::new();
         assert!(!group.is_visible(), "an untouched group starts hidden");
@@ -716,53 +722,43 @@ mod tests {
         notice.set_icon_name(Some("dialog-warning-symbolic"));
         assert_eq!(notice_changes.get(), 0, "an equal icon is not reapplied");
 
-        let item = NotificationItem::new();
+        let item = NotificationCard::new();
         let item_summary = child_named::<gtk4::Label>(&item, "notification__summary");
         let item_body = child_named::<gtk4::Label>(&item, "notification__body");
-        let item_icon = child_named::<gtk4::Image>(&item, "notification__icon");
-        let item_dot = child_named::<gtk4::Box>(&item, "notification__unread-dot");
+        let item_icon = child_named::<gtk4::Image>(&item, "notification__app-icon");
         let item_actions = child_named::<gtk4::Box>(&item, "notification__actions");
-        let item_activate = child_named::<gtk4::Button>(&item, "notification__activate");
         let item_close = child_named::<gtk4::Button>(&item, "notification__close");
         assert!(
             !item_summary.get_visible()
                 && !item_body.get_visible()
                 && !item_icon.get_visible()
-                && !item_dot.get_visible()
-                && !item_actions.get_visible()
-                && !item_close.get_visible(),
-            "a notification with nothing in it reserves no slot"
+                && !item_actions.get_visible(),
+            "a notification with no content reserves no content slot"
+        );
+        assert!(
+            item_close.get_visible(),
+            "every notification exposes its close control without waiting for unread state"
         );
         item.set_activatable(false);
         assert!(
-            !item_activate.can_target()
-                && !item_activate.is_focusable()
-                && !item.has_css_class("notification--activatable"),
+            !item.is_focusable() && !item.has_css_class("notification--activatable"),
             "a card with no default action neither takes a click nor advertises one"
         );
         item.set_activatable(true);
-        assert!(
-            item_activate.can_target()
-                && item_activate.is_focusable()
-                && item.has_css_class("notification--activatable")
-        );
-        item.set_unread(true);
-        item.set_unread(false);
-        assert!(
-            item_close.get_visible(),
-            "a read card keeps its close control; unread changes only the dot"
-        );
+        assert!(item.is_focusable() && item.has_css_class("notification--activatable"));
 
-        let bare = NotificationItem::new();
-        bare.set_summary(Some("Volume mounted"));
-        let with_icon = NotificationItem::new();
-        with_icon.set_summary(Some("Volume mounted"));
-        with_icon.set_icon_name(Some("media-removable-symbolic"));
-        assert_eq!(
-            bare.measure(gtk4::Orientation::Vertical, -1).0,
-            with_icon.measure(gtk4::Orientation::Vertical, -1).0,
-            "the floor has to clear an icon and its padding, or a notification without one sits \
-             shorter than the card beside it"
+        let content = child_named::<gtk4::Box>(&item, "notification__content");
+        let header = child_named::<NotificationHeader>(&item, "notification__header");
+        let text = child_named::<NotificationTextBody>(&item, "notification__text-body");
+        let image = child_named::<NotificationImageBody>(&item, "notification__image-body");
+        let avatar = child_named::<gtk4::Picture>(&item, "notification__avatar");
+        let body_group = content.parent().expect("body group");
+        assert!(
+            text.parent().as_ref() == Some(content.upcast_ref())
+                && image.parent().as_ref() == Some(content.upcast_ref())
+                && avatar.parent().as_ref() == Some(&body_group)
+                && body_group.parent() == header.parent(),
+            "the header spans the card above the body and avatar group"
         );
 
         {
@@ -776,20 +772,18 @@ mod tests {
                 )
                 .upcast::<gdk::Texture>()
             };
-            let shot = NotificationItem::new();
+            let shot = NotificationCard::new();
             shot.set_summary(Some("Screenshot captured"));
+            shot.set_body(Some("Saved to Pictures"));
             let bare_natural = shot.measure(gtk4::Orientation::Vertical, -1).1;
             let shot_picture = child_named::<gtk4::Picture>(&shot, "notification__image");
-            assert!(
-                shot_picture
-                    .ancestor(gtk4::Button::static_type())
-                    .and_downcast::<gtk4::Button>()
-                    .is_some_and(|button| button.has_css_class("notification__activate")),
-                "the image is content, so it sits inside the button that activates the \
-                 notification — parented beside it, clicking a screenshot thumbnail does nothing"
-            );
 
             shot.set_image(Some(&texture(400, 1200)));
+            assert!(
+                !child_named::<gtk4::Label>(&shot, "notification__summary").get_visible()
+                    && child_named::<gtk4::Label>(&shot, "notification__body").get_visible(),
+                "an image card renders header, image, and body without repeating the title row"
+            );
             let bounded = shot_picture.paintable().expect("an image");
             assert_eq!(
                 bounded.intrinsic_height(),
@@ -846,13 +840,18 @@ mod tests {
 
             shot.set_image(Some(&texture(8000, 6000)));
             assert!(
-                !shot_picture.get_visible(),
+                !shot.imp().image.get_visible()
+                    && child_named::<gtk4::Label>(&shot, "notification__summary").get_visible(),
                 "download copies the whole image, and the image is somebody else's: past the \
-                 ceiling the picture is dropped rather than shown unbounded"
+                 ceiling the picture is dropped and the text layout stays complete"
             );
 
             shot.set_image(None);
-            assert!(!shot_picture.get_visible());
+            assert!(
+                !shot.imp().image.get_visible()
+                    && child_named::<gtk4::Label>(&shot, "notification__summary").get_visible(),
+                "removing the image restores the normal title and body layout"
+            );
         }
 
         let item_icon_changes = Rc::new(Cell::new(0u32));
@@ -899,7 +898,7 @@ mod tests {
         );
 
         assert_eq!(
-            crate::notification_item::plain("&whoops; &#9733; &#x2605; &amp;"),
+            crate::notification_text_body::plain("&whoops; &#9733; &#x2605; &amp;"),
             "&whoops; \u{2605} \u{2605} &",
             "an unrecognised reference is left as written rather than silently swallowed"
         );
@@ -913,12 +912,12 @@ mod tests {
         );
 
         item.set_body(Some(
-            "a".repeat(crate::notification_item::BODY_MAX_CHARS * 2)
+            "a".repeat(crate::notification_text_body::BODY_MAX_CHARS * 2)
                 .as_str(),
         ));
         assert_eq!(
             item_body.text().chars().count(),
-            crate::notification_item::BODY_MAX_CHARS
+            crate::notification_text_body::BODY_MAX_CHARS
         );
 
         assert_eq!(item.urgency(), Urgency::Normal);
@@ -930,7 +929,7 @@ mod tests {
              either"
         );
 
-        let spoken = NotificationItem::new();
+        let spoken = NotificationCard::new();
         spoken.set_app_name(Some("Telegram"));
         spoken.set_summary(Some("Marta Kaz"));
         spoken.set_body(Some("Are we still on for 14:00?"));
@@ -946,8 +945,7 @@ mod tests {
         assert_eq!(
             *spoken.imp().accessible_name.borrow(),
             "Unread. Telegram. Marta Kaz. Are we still on for 14:00?. 2m",
-            "unread leads, because a dot conveys it to everyone who can see it and nobody who \
-             cannot"
+            "unread remains available to assistive technology without a visual adornment"
         );
 
         assert_eq!(
@@ -962,28 +960,19 @@ mod tests {
             "with no summary to name there is nothing to interpolate"
         );
 
-        assert!(
-            !item.has_css_class("notification--avatar"),
-            "a themed icon is an application saying what it is, and takes a rounded square"
-        );
-        let photograph: gio::Icon = gdk::MemoryTexture::new(
+        let photograph = gdk::MemoryTexture::new(
             8,
             8,
             gdk::MemoryFormat::R8g8b8,
             &glib::Bytes::from_owned(vec![0u8; 8 * 8 * 3]),
             8 * 3,
         )
-        .upcast();
-        item.set_app_icon(Some(&photograph));
+        .upcast::<gdk::Texture>();
+        item.set_avatar(Some(&photograph));
         assert!(
-            item.has_css_class("notification--avatar"),
-            "pixels are almost always somebody's photo, and a circle is what says person"
+            child_named::<gtk4::Picture>(&item, "notification__avatar").get_visible(),
+            "a sender avatar occupies the slot beside the body below the header"
         );
-
-        item.set_unread(true);
-        assert!(item_dot.get_visible());
-        item.set_unread(false);
-        assert!(!item_dot.get_visible());
 
         let action = |key: &str| Action {
             key: key.to_owned(),
@@ -1028,7 +1017,7 @@ mod tests {
             move |_, key| fired.borrow_mut().push(key)
         });
 
-        child_named::<gtk4::Button>(&item, "notification__activate").emit_clicked();
+        item.emit_by_name::<()>("activated", &[]);
         buttons[1]
             .clone()
             .downcast::<gtk4::Button>()
@@ -1076,7 +1065,7 @@ mod tests {
             when: "now".to_owned(),
             ..Notification::default()
         };
-        let rows_of = |list: &NotificationList| children_of::<NotificationItem>(list);
+        let rows_of = |list: &NotificationList| children_of::<NotificationCard>(list);
 
         assert!(rows_of(&list).is_empty() && !list.get_visible());
 
@@ -1116,7 +1105,7 @@ mod tests {
             move |_, key, action| fired.borrow_mut().push(format!("{key}/{action}"))
         });
 
-        child_named::<gtk4::Button>(&reordered[1], "notification__activate").emit_clicked();
+        reordered[1].emit_by_name::<()>("activated", &[]);
         child_named::<gtk4::Button>(&reordered[0], "notification__close").emit_clicked();
         assert_eq!(
             *fired.borrow(),
@@ -1142,7 +1131,7 @@ mod tests {
         );
 
         let stack = NotificationStack::new();
-        let stack_rows = |stack: &NotificationStack| children_of::<NotificationItem>(stack);
+        let stack_rows = |stack: &NotificationStack| children_of::<NotificationCard>(stack);
         let strips = |stack: &NotificationStack| stack.imp().strips.borrow().len();
         let chip = stack
             .imp()
@@ -1249,6 +1238,18 @@ mod tests {
             "the same chip closes it: a control that only opens leaves the reader no way back"
         );
 
+        let width = 600;
+        let _header_control = stack.header_control();
+        let front_height = stack_rows(&stack)[0]
+            .measure(gtk4::Orientation::Vertical, width)
+            .1;
+        let stack_height = stack.measure(gtk4::Orientation::Vertical, width).1;
+        assert_eq!(
+            stack_height - front_height,
+            8,
+            "two backplates add only a shallow peek below the front card"
+        );
+
         stack.set_items(&[
             note("a", "First"),
             note("b", "Second"),
@@ -1308,22 +1309,22 @@ mod tests {
         secondary_click(&moved[0]);
         assert_eq!(stack_cleared.get(), 1);
         assert!(stack_fired.borrow().is_empty());
-        let collapsed_preview = child_named::<gtk4::Button>(&moved[0], "notification__activate");
+        let collapsed_preview = moved[0].clone();
         assert!(
-            collapsed_preview.can_target(),
+            collapsed_preview.is_focusable(),
             "a collapsed preview owns the card click even without a default action"
         );
-        collapsed_preview.emit_clicked();
+        collapsed_preview.emit_by_name::<()>("activated", &[]);
         assert!(
             !stack.is_collapsed() && stack_fired.borrow().is_empty(),
             "the collapsed front card opens the preview without activating its notification"
         );
         assert!(
-            !collapsed_preview.can_target(),
+            !collapsed_preview.is_focusable(),
             "expanding restores the card's actual non-activatable state"
         );
         secondary_click(&moved[0]);
-        child_named::<gtk4::Button>(&moved[1], "notification__activate").emit_clicked();
+        moved[1].emit_by_name::<()>("activated", &[]);
         child_named::<gtk4::Button>(&moved[2], "notification__close").emit_clicked();
         assert_eq!(
             *stack_fired.borrow(),
@@ -1403,7 +1404,10 @@ mod tests {
                 .all(|section| section.has_css_class("notifications-popover__group")),
             "notification sections carry the group spacing contract"
         );
-        assert_eq!(sections[0].title().as_deref(), Some("Telegram"));
+        assert!(
+            sections.iter().all(|section| section.title().is_none()),
+            "the app name lives in each card header rather than a duplicated group title"
+        );
         assert_eq!(
             sections[0].count(),
             None,
@@ -1454,7 +1458,7 @@ mod tests {
         let dense = children_of::<Section>(&popover_imp.groups.get())[0].clone();
         let dense_stack = child_named::<NotificationStack>(&dense, "notification-stack");
         let shown = |stack: &NotificationStack| {
-            children_of::<NotificationItem>(stack)
+            children_of::<NotificationCard>(stack)
                 .iter()
                 .filter(|row| row.get_visible())
                 .count()
@@ -1495,7 +1499,7 @@ mod tests {
             .expect("a notification stack builds its chip once")
             .clone();
 
-        secondary_click(&children_of::<NotificationItem>(&dense_stack)[0]);
+        secondary_click(&children_of::<NotificationCard>(&dense_stack)[0]);
         assert_eq!(
             *cleared.borrow(),
             vec!["a".to_owned()],
@@ -1507,7 +1511,7 @@ mod tests {
             !dense_stack.is_collapsed() && shown(&dense_stack) == 5,
             "the stack control opens the group"
         );
-        let dense_rows = children_of::<NotificationItem>(&dense_stack);
+        let dense_rows = children_of::<NotificationCard>(&dense_stack);
         secondary_click(&dense_rows[1]);
         child_named::<gtk4::Button>(&dense_rows[2], "notification__close").emit_clicked();
         assert_eq!(

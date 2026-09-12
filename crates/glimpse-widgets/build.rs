@@ -52,8 +52,20 @@ fn main() {
             "resources/widgets/mpris_popover.ui",
         ),
         (
-            "blueprints/notification_item.blp",
-            "resources/widgets/notification_item.ui",
+            "blueprints/notification_card.blp",
+            "resources/widgets/notification_card.ui",
+        ),
+        (
+            "blueprints/notification_header.blp",
+            "resources/widgets/notification_header.ui",
+        ),
+        (
+            "blueprints/notification_image_body.blp",
+            "resources/widgets/notification_image_body.ui",
+        ),
+        (
+            "blueprints/notification_text_body.blp",
+            "resources/widgets/notification_text_body.ui",
         ),
         (
             "blueprints/notifications_popover.blp",

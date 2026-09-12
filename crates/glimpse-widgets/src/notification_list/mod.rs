@@ -3,7 +3,7 @@ mod imp;
 use glimpse_contracts::{DEFAULT_ACTION, NotificationRecord, NotificationUrgency};
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
-use crate::{Action, NotificationItem, Urgency, none_if_empty, reconcile::by_key};
+use crate::{Action, NotificationCard, Urgency, none_if_empty, reconcile::by_key};
 
 const ACTIVATED: &str = "activated";
 const DISMISSED: &str = "dismissed";
@@ -15,7 +15,7 @@ const NO_PROGRESS: f64 = -1.0;
 
 /// Which of the two body setters a notification wants. The distinction is the sender's, not ours:
 /// a body only becomes `Markup` after it has been through
-/// `glimpse_utils::markup::sanitize_body`, and `NotificationItem` still refuses it if Pango does.
+/// `glimpse_utils::markup::sanitize_body`, and `NotificationCard` still refuses it if Pango does.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Body {
     Plain(String),
@@ -33,6 +33,7 @@ pub struct Notification {
     pub body: Option<Body>,
     pub when: String,
     pub icon: Option<gio::Icon>,
+    pub avatar: Option<gdk::Texture>,
     pub image: Option<gdk::Texture>,
     pub urgency: Urgency,
     pub actions: Vec<Action>,
@@ -149,8 +150,8 @@ impl NotificationList {
     /// The key is captured when the row is built, which is safe here in a way it is not for a list
     /// that reuses rows by position: `by_key` only ever hands a row back for the same key, so the
     /// two cannot drift apart.
-    fn build_row(&self, key: &str) -> NotificationItem {
-        let row = NotificationItem::new();
+    fn build_row(&self, key: &str) -> NotificationCard {
+        let row = NotificationCard::new();
 
         row.connect_activated(glib::clone!(
             #[weak(rename_to = list)]
@@ -209,11 +210,12 @@ impl NotificationList {
 
 /// Every setter here compares before it writes, so a row that has not changed costs a handful of
 /// comparisons rather than a rebuild.
-pub(crate) fn dress(row: &NotificationItem, notification: &Notification) {
+pub(crate) fn dress(row: &NotificationCard, notification: &Notification) {
     row.set_app_name(none_if_empty(&notification.app_name));
     row.set_summary(none_if_empty(&notification.summary));
     row.set_when(none_if_empty(&notification.when));
     row.set_app_icon(notification.icon.as_ref());
+    row.set_avatar(notification.avatar.as_ref());
     row.set_image(notification.image.as_ref());
     row.set_urgency(notification.urgency);
     row.set_unread(notification.unread);

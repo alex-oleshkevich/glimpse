@@ -1,12 +1,12 @@
 :root {
-    --gl-panel: var(--headerbar-bg-color, #2e2e32);
+    --gl-panel: var(--headerbar-bg-color, #000000);
     --gl-panel-fg: var(--window-fg-color, #ffffff);
     --gl-surface: var(--popover-bg-color, #36363a);
     --gl-surface-fg: var(--popover-fg-color, #ffffff);
     --gl-notification: var(--card-bg-color);
     --gl-notification-fg: var(--card-fg-color);
-    --gl-notification-back: mix(var(--gl-surface), var(--gl-surface-fg), 0.14);
-    --gl-notification-back-far: mix(var(--gl-surface), var(--gl-surface-fg), 0.24);
+    --gl-notification-back: mix(var(--gl-surface), var(--gl-surface-fg), 0.1);
+    --gl-notification-back-far: mix(var(--gl-surface), var(--gl-surface-fg), 0.05);
 
     --gl-muted: alpha(var(--gl-surface-fg), 0.65);
     --gl-dim: alpha(var(--gl-surface-fg), 0.38);
@@ -710,37 +710,37 @@
     );
 }
 
-.notification__activate {
+.notification__main {
     padding: 0.75rem 1.08rem;
     border-radius: var(--gl-notification-radius);
-    font-weight: normal;
-    background: none;
 }
 
-.notification__activate:focus-visible {
+.notification:focus-visible {
     outline: 2px solid var(--gl-accent-text);
     outline-offset: -2px;
 }
 
 .notification__header {
-    margin-right: 2.57rem;
+    min-height: 1.7rem;
 }
 
-.notification__icon {
-    -gtk-icon-size: 2.17rem;
-    min-width: 4.33rem;
-    min-height: 4.33rem;
-    border-radius: 0.55rem;
-    background-color: var(--gl-faint);
+.notification__app-icon {
+    -gtk-icon-size: 1rem;
     color: var(--gl-surface-fg);
 }
 
-.notification--avatar .notification__icon {
+.notification__avatar {
+    min-width: 4.33rem;
+    min-height: 4.33rem;
     border-radius: 999px;
+    background-color: var(--gl-faint);
 }
 
 .notification__summary {
+    padding-top: 0.27rem;
     font-size: var(--gl-text-body);
+    font-weight: 600;
+    margin-bottom: 4px;
 }
 
 .notification__app {
@@ -804,31 +804,17 @@
 }
 
 .notification__close {
-    min-width: 2.17rem;
-    min-height: 2.17rem;
+    min-width: 1.17rem;
+    min-height: 1.17rem;
     margin: 0.2rem;
     padding: 0.4rem;
     border-radius: 999px;
     color: var(--gl-dim);
-    opacity: 0;
-    transition: opacity var(--gl-duration) var(--gl-ease);
-}
-
-.notification:hover .notification__close,
-.notification:focus-within .notification__close {
-    opacity: 1;
 }
 
 .notification__close:hover {
     color: var(--gl-surface-fg);
     background-color: var(--gl-active);
-}
-
-.notification__unread-dot {
-    min-width: 0.5rem;
-    min-height: 0.5rem;
-    border-radius: 999px;
-    background-color: var(--gl-accent);
 }
 
 .notification-stack {

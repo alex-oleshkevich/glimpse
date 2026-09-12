@@ -2,9 +2,9 @@ use gtk4::{AccessibleRole, glib, graphene, gsk, prelude::*, subclass::prelude::*
 use std::cell::{Cell, OnceCell, RefCell};
 use std::sync::OnceLock;
 
-use crate::{Notification, NotificationItem};
+use crate::{Notification, NotificationCard};
 
-pub(crate) const STEP: i32 = 7;
+pub(crate) const STEP: i32 = 4;
 pub(crate) const MAX_DEPTH: usize = 2;
 const INSET: i32 = 9;
 const STRIP_HEIGHT: i32 = 30;
@@ -15,7 +15,7 @@ const CHIP_SPACING: i32 = 7;
 #[derive(Debug, Default)]
 pub struct NotificationStack {
     pub notifications: RefCell<Vec<Notification>>,
-    pub rows: RefCell<Vec<(String, NotificationItem)>>,
+    pub rows: RefCell<Vec<(String, NotificationCard)>>,
     pub strips: RefCell<Vec<gtk4::Box>>,
     pub chip: OnceCell<gtk4::Button>,
     pub chip_label: OnceCell<gtk4::Label>,
@@ -206,7 +206,7 @@ impl NotificationStack {
         self.rows.borrow().len().saturating_sub(1).min(MAX_DEPTH)
     }
 
-    fn shown(&self) -> Vec<NotificationItem> {
+    fn shown(&self) -> Vec<NotificationCard> {
         let rows = self.rows.borrow();
         if self.collapsed.get() {
             return rows
@@ -218,7 +218,7 @@ impl NotificationStack {
         rows.iter().map(|(_, row)| row.clone()).collect()
     }
 
-    fn body_height(&self, shown: &[NotificationItem], width: i32) -> i32 {
+    fn body_height(&self, shown: &[NotificationCard], width: i32) -> i32 {
         if self.collapsed.get() {
             let front = shown
                 .first()

@@ -17,7 +17,7 @@ pub struct Styles {
 }
 
 impl Styles {
-    pub fn install() -> Self {
+    pub fn install(scheme: adw::ColorScheme) -> Self {
         let builtin = CssProvider::new();
         let theme = CssProvider::new();
         let dropin = CssProvider::new();
@@ -36,6 +36,7 @@ impl Styles {
         }
 
         let style_manager = adw::StyleManager::default();
+        style_manager.set_color_scheme(scheme);
         let dark_handler = style_manager.connect_dark_notify({
             let builtin = builtin.clone();
             let theme = theme.clone();
@@ -55,6 +56,11 @@ impl Styles {
             dark_handler: Some(dark_handler),
         };
         styles.sync_provider_scheme();
+        tracing::info!(
+            requested = requested_scheme(scheme),
+            effective = effective_scheme(styles.style_manager.is_dark()),
+            "color scheme"
+        );
         styles
     }
 
@@ -92,6 +98,21 @@ fn provider_scheme(dark: bool) -> gtk4::InterfaceColorScheme {
     }
 }
 
+fn requested_scheme(scheme: adw::ColorScheme) -> &'static str {
+    match scheme {
+        adw::ColorScheme::Default => "auto",
+        adw::ColorScheme::ForceLight => "light",
+        adw::ColorScheme::PreferLight => "prefer-light",
+        adw::ColorScheme::PreferDark => "prefer-dark",
+        adw::ColorScheme::ForceDark => "dark",
+        _ => "unknown",
+    }
+}
+
+fn effective_scheme(dark: bool) -> &'static str {
+    if dark { "dark" } else { "light" }
+}
+
 fn set_provider_scheme(scheme: gtk4::InterfaceColorScheme, providers: [&CssProvider; 3]) {
     for provider in providers {
         provider.set_prefers_color_scheme(scheme);
@@ -119,7 +140,7 @@ fn report_parsing_errors(provider: &CssProvider) {
 
 #[cfg(test)]
 mod tests {
-    use super::{BUILTIN, provider_scheme};
+    use super::{BUILTIN, effective_scheme, provider_scheme, requested_scheme};
 
     const OPEN: &str = ":root {";
     const PREFIX: &str = "gl-";
@@ -260,6 +281,11 @@ mod tests {
     fn providers_follow_the_effective_scheme_without_using_default() {
         assert_eq!(provider_scheme(false), gtk4::InterfaceColorScheme::Light);
         assert_eq!(provider_scheme(true), gtk4::InterfaceColorScheme::Dark);
+        assert_eq!(effective_scheme(false), "light");
+        assert_eq!(effective_scheme(true), "dark");
+        assert_eq!(requested_scheme(adw::ColorScheme::Default), "auto");
+        assert_eq!(requested_scheme(adw::ColorScheme::ForceLight), "light");
+        assert_eq!(requested_scheme(adw::ColorScheme::ForceDark), "dark");
     }
 
     #[test]

@@ -258,13 +258,12 @@ mod fixtures {
 
     use glimpse_widgets::{
         Action, Advisory, Body, Calendar, Choice, ChoiceList, Day, Event, EventList, Fact,
-        FactList, Focus, Group, Hour, Indicator, IndicatorSpec, Notification, NotificationItem,
-        NotificationList, NotificationStack, NotificationsPopover, NowPlaying, Pager, Player,
-        PlayerList, Repeat, Row, Severity, Shape, Slot, SplitRow, TransportAction, WeatherPage,
-        WeatherPopover, WorldClock, Ymd, Zone,
+        FactList, Focus, Group, Hour, Notification, NotificationsPopover, NowPlaying, Pager,
+        Player, PlayerList, Repeat, Row, Severity, Shape, Slot, SplitRow, TransportAction, Urgency,
+        WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
-    use std::cell::RefCell;
+    use std::cell::{Cell, RefCell};
     use std::rc::Rc;
     use std::time::Duration;
 
@@ -295,13 +294,7 @@ mod fixtures {
             "next_event" => next_event(root),
             "weather_popover" => weather_popover(root),
             "pager" => pager(root),
-            "notification_states" => notification_images(root),
-            "notification_markup" => notification_markup(root),
-            "notification_indicator" => notification_indicators(root),
-            "notification_list" => notification_list(root),
-            "notification_stack" => notification_stack(root),
-            "notifications" => notifications(root, filled()),
-            "notifications_anonymous" => notifications(root, anonymous()),
+            "notifications" => notifications(root, notification_catalog()),
             _ => {}
         }
         drawer_nav(root);
@@ -873,29 +866,7 @@ mod fixtures {
         .upcast()
     }
 
-    /// A paintable is not a property, so the one item that carries an image is filled here.
-    ///
-    /// The texture is generated wide and already inside the widget's bound, so the board shows an
-    /// image that was passed through rather than one that was resampled.
-    fn notification_images(root: &gtk4::Widget) {
-        let mut filled = 0;
-        for item in tagged::<NotificationItem>(root, "image") {
-            item.set_image(Some(&banner((196, 108, 62))));
-            filled += 1;
-        }
-        if filled == 0 {
-            eprintln!("no $NotificationItem carries demo__image, so no board shows an image");
-        }
-        for (case, tint) in [("avatar", (74, 138, 96)), ("avatar2", (92, 104, 168))] {
-            for item in tagged::<NotificationItem>(root, case) {
-                item.set_app_icon(Some(avatar(tint).upcast_ref::<gtk4::gio::Icon>()));
-            }
-        }
-        report_actions(root);
-    }
-
-    /// A sender's photo, which arrives as pixels rather than as an icon name. `gdk::Texture`
-    /// implements `gio::Icon`, so it goes through the same setter a themed name does.
+    /// A sender's photo, which arrives as pixels rather than as an icon name.
     fn avatar((r, g, b): (u8, u8, u8)) -> gdk::Texture {
         const SIZE: usize = 128;
         let mut pixels = Vec::with_capacity(SIZE * SIZE * 4);
@@ -939,231 +910,6 @@ mod fixtures {
         .upcast()
     }
 
-    /// Raw sender input, exactly as it would arrive over the bus. Everything but `raw` goes
-    /// through the shipped sanitizer first, which is the point of the board: the widget is handed
-    /// only what `sanitize_body` produced, and renders it only if pango accepts it.
-    const BODIES: [(&str, &str); 10] = [
-        ("telegram", "<b>Alice</b>\nHey there"),
-        (
-            "link",
-            r#"New <a href="https://example.com">message</a> &#9733; from Bob"#,
-        ),
-        ("nbsp", "Reminder&nbsp;&mdash;&nbsp;standup at 10:00"),
-        ("entities", "&mdash; &hellip; &rsquo; &copy; &trade; &euro;"),
-        (
-            "span",
-            r#"<span foreground="red" size="50pt">huge and red</span>"#,
-        ),
-        ("script", "<script>alert(1)</script>the rest of the body"),
-        ("ampersand", "5 < 10 && AT&T said so"),
-        ("unbalanced", "<b>bold that never closes"),
-        ("bidi", "Lunch\u{202e}gpj.exe"),
-        (
-            "raw",
-            "<b>Alice</b> &nbsp; <a href=\"https://x\">unsanitized</a>",
-        ),
-    ];
-
-    fn notification_markup(root: &gtk4::Widget) {
-        for (case, body) in BODIES {
-            for item in tagged::<NotificationItem>(root, case) {
-                item.set_tooltip_text(Some(body));
-                match case {
-                    "raw" => item.set_body_markup(Some(body)),
-                    _ => item
-                        .set_body_markup(Some(glimpse_utils::markup::sanitize_body(body).as_str())),
-                }
-            }
-        }
-    }
-
-    /// A notification is a struct rather than a property, so the list is filled here — and the
-    /// buttons mutate the same three, which is what makes `by_key` visible: reorder them and the
-    /// rows move rather than being rebuilt in place.
-    fn notification_list(root: &gtk4::Widget) {
-        let Some(list) = find::<NotificationList>(root) else {
-            eprintln!("the board carries no $NotificationList, so there is nothing to fill");
-            return;
-        };
-
-        let note = |key: &str, app: &str, summary: &str, body: &str, when: &str| Notification {
-            key: key.to_owned(),
-            app_name: app.to_owned(),
-            summary: summary.to_owned(),
-            body: Some(Body::Plain(body.to_owned())),
-            when: when.to_owned(),
-            icon: Some(themed_icon("user-available-symbolic")),
-            ..Notification::default()
-        };
-
-        let feed = Rc::new(RefCell::new(vec![
-            Notification {
-                unread: true,
-                actions: vec![
-                    Action {
-                        key: "reply".to_owned(),
-                        label: "Reply".to_owned(),
-                    },
-                    Action {
-                        key: "mute".to_owned(),
-                        label: "Mute".to_owned(),
-                    },
-                ],
-                ..note(
-                    "marta",
-                    "Telegram",
-                    "Marta Kaz",
-                    "Are we still on for 14:00?",
-                    "2m",
-                )
-            },
-            note(
-                "incident",
-                "PagerDuty",
-                "#incidents",
-                "glimpsed restarted on host build-03.",
-                "26m",
-            ),
-            note(
-                "jonas",
-                "Signal",
-                "Jonas Weber",
-                "Pushed the branch, take a look.",
-                "18m",
-            ),
-        ]));
-
-        list.set_notifications(&feed.borrow());
-        list.connect_activated(|_, key| eprintln!("list: {key} opened"));
-        list.connect_action_invoked(|_, key, action| eprintln!("list: {key} -> {action}"));
-        list.connect_dismissed(glib::clone!(
-            #[strong]
-            feed,
-            move |list, key| {
-                feed.borrow_mut().retain(|note| note.key != key);
-                list.set_notifications(&feed.borrow());
-                eprintln!("list: {key} dismissed");
-            }
-        ));
-
-        for case in ["reorder", "relabel", "add", "clear"] {
-            for button in tagged::<gtk4::Button>(root, case) {
-                button.connect_clicked(glib::clone!(
-                    #[strong]
-                    feed,
-                    #[weak]
-                    list,
-                    move |_| {
-                        {
-                            let mut feed = feed.borrow_mut();
-                            match case {
-                                "reorder" => {
-                                    let by = 1.min(feed.len());
-                                    feed.rotate_left(by);
-                                }
-                                "relabel" => {
-                                    if let Some(first) = feed.first_mut() {
-                                        first.summary.push('!');
-                                    }
-                                }
-                                "add" => {
-                                    let at = feed.len();
-                                    feed.push(note(
-                                        &format!("added-{at}"),
-                                        "Screenshots",
-                                        "Screenshot captured",
-                                        "Saved to ~/Pictures/Screenshots",
-                                        "now",
-                                    ));
-                                }
-                                _ => feed.clear(),
-                            }
-                        }
-                        list.set_notifications(&feed.borrow());
-                    }
-                ));
-            }
-        }
-    }
-
-    fn notification_stack(root: &gtk4::Widget) {
-        let note = |key: &str, app: &str, summary: &str, body: &str, when: &str| Notification {
-            key: key.to_owned(),
-            app_name: app.to_owned(),
-            summary: summary.to_owned(),
-            body: Some(Body::Plain(body.to_owned())),
-            when: when.to_owned(),
-            icon: Some(themed_icon("user-available-symbolic")),
-            ..Notification::default()
-        };
-
-        let feed = vec![
-            Notification {
-                unread: true,
-                actions: vec![
-                    Action {
-                        key: "reply".to_owned(),
-                        label: "Reply".to_owned(),
-                    },
-                    Action {
-                        key: "dismiss".to_owned(),
-                        label: "Dismiss".to_owned(),
-                    },
-                ],
-                ..note(
-                    "marta",
-                    "Telegram",
-                    "Marta Kaz",
-                    "Can you look at the deploy before standup? The tray service is still \
-                     restarting on build-03.",
-                    "now",
-                )
-            },
-            note(
-                "incident",
-                "PagerDuty",
-                "#incidents",
-                "glimpsed restarted on host build-03 after an unhandled panic in the tray service.",
-                "2m",
-            ),
-            note(
-                "shot",
-                "Screenshots",
-                "Screenshot captured",
-                "Saved to ~/Pictures/Screenshots",
-                "4m",
-            ),
-            note(
-                "backup",
-                "Backups",
-                "Backup completed",
-                "The encrypted archive is ready.",
-                "7m",
-            ),
-        ];
-
-        let mut filled = false;
-        for (case, collapsed, items) in [
-            ("collapsed", true, feed.as_slice()),
-            ("three", false, &feed[..3]),
-        ] {
-            for stack in tagged::<NotificationStack>(root, case) {
-                stack.set_items(items);
-                stack.set_collapsed(collapsed);
-                stack.connect_activated(|_, key| eprintln!("stack: {key} opened"));
-                stack.connect_dismissed(|_, key| eprintln!("stack: {key} dismissed"));
-                stack.connect_clear_requested(|_| eprintln!("stack: clear requested"));
-                stack
-                    .connect_action_invoked(|_, key, action| eprintln!("stack: {key} -> {action}"));
-                filled = true;
-            }
-        }
-
-        if !filled {
-            eprintln!("the board carries no $NotificationStack, so there is nothing to fill");
-        }
-    }
-
     fn notifications(root: &gtk4::Widget, groups: Vec<Group>) {
         let Some(popover) = find::<NotificationsPopover>(root) else {
             eprintln!("the board carries no $NotificationsPopover, so there is nothing to fill");
@@ -1173,11 +919,12 @@ mod fixtures {
         popover.set_clear_label(Some("Clear all"));
         popover.set_footer(Some("Notification settings"));
         let shown = Rc::new(RefCell::new(groups));
-        popover.set_groups(&shown.borrow());
 
         let push = |popover: &NotificationsPopover, shown: &Rc<RefCell<Vec<Group>>>| {
-            popover.set_groups(&shown.borrow());
+            let groups = shown.borrow().clone();
+            popover.set_groups(&groups);
         };
+        push(&popover, &shown);
 
         popover.connect_activated(|_, key| eprintln!("popover: {key} opened"));
         popover.connect_action_invoked(|_, key, action| eprintln!("popover: {key} -> {action}"));
@@ -1216,7 +963,83 @@ mod fixtures {
         popover.connect_footer_activated(|_| eprintln!("popover: settings"));
         popover.connect_dnd_toggled(|_, silenced| eprintln!("popover: do not disturb {silenced}"));
 
-        for case in ["filled", "single", "anonymous", "dense", "empty", "trouble"] {
+        let next = Rc::new(Cell::new(1_u64));
+        for button in tagged::<gtk4::Button>(root, "add") {
+            button.connect_clicked(glib::clone!(
+                #[weak]
+                popover,
+                #[strong]
+                shown,
+                #[strong]
+                next,
+                move |_| {
+                    let id = next.get();
+                    next.set(id + 1);
+                    let notification = Notification {
+                        key: format!("preview-{id}"),
+                        app_name: "Preview".to_owned(),
+                        summary: format!("Added notification {id}"),
+                        body: Some(Body::Plain(
+                            "This item was added with the preview action row.".to_owned(),
+                        )),
+                        when: "now".to_owned(),
+                        icon: Some(themed_icon("dialog-information-symbolic")),
+                        unread: true,
+                        ..Notification::default()
+                    };
+                    {
+                        let mut groups = shown.borrow_mut();
+                        if let Some(group) = groups.iter_mut().find(|group| group.key == "preview")
+                        {
+                            group.notifications.insert(0, notification);
+                        } else {
+                            groups.insert(
+                                0,
+                                Group {
+                                    key: "preview".to_owned(),
+                                    app_name: "Preview".to_owned(),
+                                    notifications: vec![notification],
+                                },
+                            );
+                        }
+                    }
+                    popover.set_trouble(None);
+                    push(&popover, &shown);
+                }
+            ));
+        }
+        for button in tagged::<gtk4::Button>(root, "remove") {
+            button.connect_clicked(glib::clone!(
+                #[weak]
+                popover,
+                #[strong]
+                shown,
+                move |_| {
+                    {
+                        let mut groups = shown.borrow_mut();
+                        if let Some(group) = groups
+                            .iter_mut()
+                            .find(|group| !group.notifications.is_empty())
+                        {
+                            group.notifications.remove(0);
+                        }
+                        groups.retain(|group| !group.notifications.is_empty());
+                    }
+                    popover.set_trouble(None);
+                    push(&popover, &shown);
+                }
+            ));
+        }
+
+        for case in [
+            "variants",
+            "single",
+            "anonymous",
+            "markup",
+            "dense",
+            "empty",
+            "trouble",
+        ] {
             for button in tagged::<gtk4::Button>(root, case) {
                 button.connect_clicked(glib::clone!(
                     #[weak]
@@ -1225,9 +1048,10 @@ mod fixtures {
                     shown,
                     move |_| {
                         *shown.borrow_mut() = match case {
-                            "filled" => filled(),
-                            "single" => filled()[..1].to_vec(),
+                            "variants" => notification_catalog(),
+                            "single" => notification_catalog()[..1].to_vec(),
                             "anonymous" => anonymous(),
+                            "markup" => markup_catalog(),
                             "dense" => dense(),
                             _ => Vec::new(),
                         };
@@ -1235,7 +1059,7 @@ mod fixtures {
                             "trouble" => Some("org.freedesktop.Notifications is taken."),
                             _ => None,
                         });
-                        popover.set_groups(&shown.borrow());
+                        push(&popover, &shown);
                     }
                 ));
             }
@@ -1243,9 +1067,20 @@ mod fixtures {
     }
 
     fn anonymous() -> Vec<Group> {
-        let mut groups = filled()[..1].to_vec();
-        groups[0].app_name.clear();
-        groups
+        vec![Group {
+            key: "anonymous".to_owned(),
+            app_name: String::new(),
+            notifications: vec![Notification {
+                key: "anonymous".to_owned(),
+                summary: "Sender without an application name".to_owned(),
+                body: Some(Body::Plain(
+                    "The card keeps its content aligned when identity metadata is absent."
+                        .to_owned(),
+                )),
+                when: "now".to_owned(),
+                ..Notification::default()
+            }],
+        }]
     }
 
     fn dense() -> Vec<Group> {
@@ -1280,143 +1115,193 @@ mod fixtures {
             .collect()
     }
 
-    fn filled() -> Vec<Group> {
-        let note = |key: &str, summary: &str, body: &str, when: &str| Notification {
+    fn notification_catalog() -> Vec<Group> {
+        let note = |key: &str, app: &str, summary: &str, body: &str, when: &str| Notification {
             key: key.to_owned(),
+            app_name: app.to_owned(),
             summary: summary.to_owned(),
             body: Some(Body::Plain(body.to_owned())),
             when: when.to_owned(),
-            icon: Some(themed_icon("user-available-symbolic")),
             ..Notification::default()
         };
 
         vec![
             Group {
-                key: "org.telegram.desktop".to_owned(),
-                app_name: "Telegram".to_owned(),
-                notifications: vec![
-                    Notification {
-                        unread: true,
-                        actions: vec![
-                            Action {
-                                key: "reply".to_owned(),
-                                label: "Reply".to_owned(),
-                            },
-                            Action {
-                                key: "mute".to_owned(),
-                                label: "Mute".to_owned(),
-                            },
-                        ],
-                        ..note("marta", "Marta Kaz", "Are we still on for 14:00?", "2m")
-                    },
-                    note("marta-2", "Marta Kaz", "Never mind, it settled.", "1h"),
-                ],
+                key: "org.signal.Signal".to_owned(),
+                app_name: "Signal".to_owned(),
+                notifications: vec![Notification {
+                    unread: true,
+                    ..note(
+                        "app-name",
+                        "Signal",
+                        "Application name",
+                        "This notification has an application name without an icon or avatar.",
+                        "now",
+                    )
+                }],
             },
             Group {
-                key: "com.pagerduty".to_owned(),
-                app_name: "PagerDuty".to_owned(),
-                notifications: vec![note(
-                    "incident",
-                    "#incidents",
-                    "glimpsed restarted on host build-03.",
-                    "26m",
-                )],
+                key: "org.telegram.desktop".to_owned(),
+                app_name: "Telegram".to_owned(),
+                notifications: vec![Notification {
+                    avatar: Some(avatar((74, 138, 96))),
+                    unread: true,
+                    activatable: true,
+                    actions: vec![
+                        Action {
+                            key: "reply".to_owned(),
+                            label: "Reply".to_owned(),
+                        },
+                        Action {
+                            key: "mute".to_owned(),
+                            label: "Mute".to_owned(),
+                        },
+                    ],
+                    ..note(
+                        "avatar",
+                        "Telegram",
+                        "Marta Kaz",
+                        "This notification has an avatar and application name.",
+                        "2m",
+                    )
+                }],
+            },
+            Group {
+                key: "org.gnome.Screenshot".to_owned(),
+                app_name: "Screenshots".to_owned(),
+                notifications: vec![Notification {
+                    image: Some(banner((196, 108, 62))),
+                    activatable: true,
+                    actions: vec![
+                        Action {
+                            key: "open".to_owned(),
+                            label: "Open".to_owned(),
+                        },
+                        Action {
+                            key: "copy".to_owned(),
+                            label: "Copy path".to_owned(),
+                        },
+                    ],
+                    ..note(
+                        "screenshot",
+                        "Screenshots",
+                        "Screenshot captured",
+                        "Saved to ~/Pictures/Screenshots",
+                        "12m",
+                    )
+                }],
+            },
+            Group {
+                key: "org.gnome.Software".to_owned(),
+                app_name: "Software".to_owned(),
+                notifications: vec![Notification {
+                    progress: Some(0.68),
+                    ..note(
+                        "software-progress",
+                        "Software",
+                        "Installing updates",
+                        "Downloading 14 of 21 packages",
+                        "4m",
+                    )
+                }],
+            },
+            Group {
+                key: "org.gnome.SettingsDaemon.Power".to_owned(),
+                app_name: "Power".to_owned(),
+                notifications: vec![Notification {
+                    urgency: Urgency::Critical,
+                    unread: true,
+                    ..note(
+                        "battery-critical",
+                        "Power",
+                        "Battery critically low",
+                        "Connect the charger to avoid losing your work.",
+                        "1m",
+                    )
+                }],
+            },
+            Group {
+                key: "org.gnome.Calendar".to_owned(),
+                app_name: "Calendar".to_owned(),
+                notifications: vec![Notification {
+                    key: "app-icon".to_owned(),
+                    app_name: "Calendar".to_owned(),
+                    summary: "Application icon".to_owned(),
+                    body: Some(Body::Plain(
+                        "This notification has an application name and themed icon.".to_owned(),
+                    )),
+                    when: "5m".to_owned(),
+                    icon: Some(themed_icon("x-office-calendar-symbolic")),
+                    ..Notification::default()
+                }],
+            },
+            Group {
+                key: "org.mozilla.Thunderbird".to_owned(),
+                app_name: "Thunderbird".to_owned(),
+                notifications: (1..=4)
+                    .map(|index| {
+                        note(
+                            &format!("mail-{index}"),
+                            "Thunderbird",
+                            &format!("Message {index}"),
+                            "A grouped notification in the collapsed stack.",
+                            &format!("{}m", index * 3),
+                        )
+                    })
+                    .collect(),
             },
         ]
     }
 
+    const NOTIFICATION_BODIES: [(&str, &str); 9] = [
+        ("Bold text", "<b>Alice</b>\nHey there"),
+        (
+            "Link and entity",
+            r#"New <a href="https://example.com">message</a> &#9733; from Bob"#,
+        ),
+        (
+            "Non-breaking space",
+            "Reminder&nbsp;&mdash;&nbsp;standup at 10:00",
+        ),
+        (
+            "Typographic entities",
+            "&mdash; &hellip; &rsquo; &copy; &trade; &euro;",
+        ),
+        (
+            "Unsupported span",
+            r#"<span foreground="red" size="50pt">huge and red</span>"#,
+        ),
+        (
+            "Script tag",
+            "<script>alert(1)</script>the rest of the body",
+        ),
+        ("Bare ampersand", "5 < 10 && AT&T said so"),
+        ("Unbalanced tag", "<b>bold that never closes"),
+        ("Bidi override", "Lunch\u{202e}gpj.exe"),
+    ];
+
+    fn markup_catalog() -> Vec<Group> {
+        vec![Group {
+            key: "markup".to_owned(),
+            app_name: "Markup sanitizer".to_owned(),
+            notifications: NOTIFICATION_BODIES
+                .iter()
+                .enumerate()
+                .map(|(index, (summary, raw))| Notification {
+                    key: format!("markup-{index}"),
+                    app_name: "Markup sanitizer".to_owned(),
+                    summary: (*summary).to_owned(),
+                    body: Some(Body::Markup(glimpse_utils::markup::sanitize_body(raw))),
+                    when: format!("{}m", index + 1),
+                    icon: Some(themed_icon("format-text-rich-symbolic")),
+                    ..Notification::default()
+                })
+                .collect(),
+        }]
+    }
+
     fn themed_icon(name: &str) -> gtk4::gio::Icon {
         gtk4::gio::ThemedIcon::new(name).upcast()
-    }
-
-    fn notification_indicators(root: &gtk4::Widget) {
-        let themed = |name: &str| gtk4::gio::ThemedIcon::new(name).upcast::<gtk4::gio::Icon>();
-        let bell = || Some(themed("preferences-system-notifications-symbolic"));
-        let muted = || Some(themed("notifications-disabled-symbolic"));
-
-        let specs: [(&str, IndicatorSpec); 6] = [
-            (
-                "idle",
-                IndicatorSpec {
-                    icon: bell(),
-                    tooltip: Some("No new notifications".to_owned()),
-                    ..IndicatorSpec::default()
-                },
-            ),
-            (
-                "unread",
-                IndicatorSpec {
-                    icon: bell(),
-                    badge: Some("3".to_owned()),
-                    tooltip: Some("3 new notifications".to_owned()),
-                    ..IndicatorSpec::default()
-                },
-            ),
-            (
-                "attention",
-                IndicatorSpec {
-                    icon: bell(),
-                    attention: true,
-                    tooltip: Some("New notifications".to_owned()),
-                    ..IndicatorSpec::default()
-                },
-            ),
-            (
-                "urgent",
-                IndicatorSpec {
-                    icon: bell(),
-                    attention: true,
-                    severity: Some(Severity::Error),
-                    tooltip: Some("Battery is at 4%".to_owned()),
-                    ..IndicatorSpec::default()
-                },
-            ),
-            (
-                "dnd",
-                IndicatorSpec {
-                    icon: muted(),
-                    severity: Some(Severity::Info),
-                    tooltip: Some("Do not disturb until tomorrow".to_owned()),
-                    ..IndicatorSpec::default()
-                },
-            ),
-            (
-                "dnd_pending",
-                IndicatorSpec {
-                    icon: muted(),
-                    badge: Some("12".to_owned()),
-                    severity: Some(Severity::Info),
-                    tooltip: Some("12 waiting, do not disturb is on".to_owned()),
-                    ..IndicatorSpec::default()
-                },
-            ),
-        ];
-
-        for (case, spec) in &specs {
-            for indicator in tagged::<Indicator>(root, case) {
-                indicator.apply(spec);
-            }
-        }
-    }
-
-    /// Every `$NotificationItem` action in a board carries an `action__` class, so the shared
-    /// `actions` fixture already reports it. This adds the item's own signals, so dismissing one
-    /// in the board actually removes it.
-    fn report_actions(root: &gtk4::Widget) {
-        for item in collect::<NotificationItem>(root) {
-            let name = item.summary().unwrap_or_default();
-            item.connect_activated({
-                let name = name.clone();
-                move |_| eprintln!("notification: {name} opened")
-            });
-            item.connect_dismissed({
-                let name = name.clone();
-                move |item| {
-                    eprintln!("notification: {name} dismissed");
-                    item.set_visible(false);
-                }
-            });
-        }
     }
 
     fn tagged<T: IsA<gtk4::Widget>>(root: &gtk4::Widget, case: &str) -> Vec<T> {
@@ -1813,10 +1698,10 @@ fn ensure_types() {
     use glimpse_widgets::{
         Calendar, CalendarPopover, ChoiceList, ClockRow, EventList, EventRow, FactList,
         ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hero, Indicator, IndicatorGroup,
-        KeyboardPopover, Notice, NotificationItem, NotificationList, NotificationStack,
-        NotificationsPopover, NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow,
-        PopoverShell, RangeBar, Readout, Row, Scrubber, Section, SplitRow, Transport,
-        WeatherPopover, WorldClock,
+        KeyboardPopover, Notice, NotificationCard, NotificationHeader, NotificationImageBody,
+        NotificationList, NotificationStack, NotificationTextBody, NotificationsPopover,
+        NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar,
+        Readout, Row, Scrubber, Section, SplitRow, Transport, WeatherPopover, WorldClock,
     };
 
     for widget in [
@@ -1831,7 +1716,10 @@ fn ensure_types() {
         ForecastList::static_type(),
         ForecastStrip::static_type(),
         Notice::static_type(),
-        NotificationItem::static_type(),
+        NotificationCard::static_type(),
+        NotificationHeader::static_type(),
+        NotificationImageBody::static_type(),
+        NotificationTextBody::static_type(),
         NotificationList::static_type(),
         NotificationStack::static_type(),
         NotificationsPopover::static_type(),

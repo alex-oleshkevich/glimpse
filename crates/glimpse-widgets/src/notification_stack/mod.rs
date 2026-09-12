@@ -4,7 +4,7 @@ use gettextrs::{gettext, ngettext};
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 use crate::notification_list::dress;
-use crate::{Notification, NotificationItem};
+use crate::{Notification, NotificationCard};
 
 #[cfg(test)]
 pub(crate) use imp::MAX_DEPTH;
@@ -84,7 +84,7 @@ impl NotificationStack {
 
         {
             let mut rows = imp.rows.borrow_mut();
-            let mut next: Vec<(String, NotificationItem)> = Vec::with_capacity(notifications.len());
+            let mut next: Vec<(String, NotificationCard)> = Vec::with_capacity(notifications.len());
             for notification in &notifications {
                 let row = match rows.iter().position(|(key, _)| *key == notification.key) {
                     Some(at) => rows.remove(at).1,
@@ -220,8 +220,8 @@ impl NotificationStack {
         }
     }
 
-    fn build_row(&self, key: &str) -> NotificationItem {
-        let row = NotificationItem::new();
+    fn build_row(&self, key: &str) -> NotificationCard {
+        let row = NotificationCard::new();
 
         row.connect_activated(glib::clone!(
             #[weak(rename_to = stack)]
