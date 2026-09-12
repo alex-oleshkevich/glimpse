@@ -367,9 +367,8 @@ pub struct NotificationRecord {
     pub body: Option<String>,
     /// A themed icon name, never a path a client should go and load.
     pub icon: Option<String>,
-    /// A local path under `$XDG_RUNTIME_DIR/glimpse/`. `image-data` arrives as raw pixels with no
-    /// header and therefore no cheap size check, so the service bounds it and writes a file rather
-    /// than putting the bytes on the wire — the same rule `PlayerStatus::art` follows.
+    pub avatar: Option<String>,
+    /// An absolute local path supplied by the sender through an image hint.
     pub image: Option<String>,
     pub urgency: NotificationUrgency,
     pub actions: Vec<NotificationAction>,
