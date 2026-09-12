@@ -2589,6 +2589,7 @@
           "type": "integer",
           "format": "uint64",
           "default": 4,
+          "maximum": 86400,
           "minimum": 1
         },
         "keep": {

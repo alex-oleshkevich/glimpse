@@ -17,8 +17,8 @@ pub struct Notifications {
     #[serde(deserialize_with = "optional_monitor")]
     pub monitor: Option<String>,
     pub edge: NotificationEdge,
-    #[serde(deserialize_with = "positive_u64")]
-    #[schemars(range(min = 1))]
+    #[serde(deserialize_with = "hide_delay")]
+    #[schemars(range(min = 1, max = 86400))]
     pub hide_delay: u64,
     #[serde(deserialize_with = "positive_u32")]
     #[schemars(range(min = 1))]
@@ -67,14 +67,15 @@ where
     Ok(monitor)
 }
 
-fn positive_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
+fn hide_delay<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,
 {
     let value = u64::deserialize(deserializer)?;
-    (value > 0)
+    (1..=86_400)
+        .contains(&value)
         .then_some(value)
-        .ok_or_else(|| D::Error::custom("must be greater than zero"))
+        .ok_or_else(|| D::Error::custom("must be between 1 and 86400 seconds"))
 }
 
 fn positive_u32<'de, D>(deserializer: D) -> Result<u32, D::Error>
@@ -105,6 +106,7 @@ mod tests {
         assert!(notifications.enabled);
         assert_eq!(notifications.monitor, None);
         assert_eq!(notifications.edge, super::NotificationEdge::TopCenter);
+        assert_eq!(super::NotificationEdge::default(), notifications.edge);
         assert_eq!(notifications.hide_delay, 4);
         assert_eq!(notifications.max_items, 6);
     }
@@ -178,6 +180,7 @@ mod tests {
     fn popup_bounds_and_monitor_are_validated() {
         for text in [
             "[notifications]\nhide-delay = 0\n",
+            "[notifications]\nhide-delay = 86401\n",
             "[notifications]\nmax-items = 0\n",
             "[notifications]\nmonitor = \"\"\n",
             "[notifications]\nmonitor = \" DP-2\"\n",
