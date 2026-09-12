@@ -1,0 +1,63 @@
+using Gtk 4.0;
+
+template $NotificationHeader: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "notification__header",
+  ]
+
+  Gtk.Box row {
+    orientation: horizontal;
+    spacing: 6;
+
+    Gtk.Image app_icon {
+      visible: false;
+      valign: center;
+      accessible-role: presentation;
+
+      styles [
+        "notification__app-icon",
+      ]
+    }
+
+    Gtk.Label app_name {
+      single-line-mode: true;
+      ellipsize: end;
+      max-width-chars: 20;
+      visible: false;
+      valign: center;
+      accessible-role: presentation;
+
+      styles [
+        "notification__app",
+      ]
+    }
+
+    Gtk.Box {
+      hexpand: true;
+    }
+
+    Gtk.Label when {
+      single-line-mode: true;
+      visible: false;
+      valign: center;
+      accessible-role: presentation;
+
+      styles [
+        "notification__when",
+      ]
+    }
+
+    Gtk.Button close {
+      icon-name: "window-close-symbolic";
+      has-frame: false;
+      valign: center;
+      tooltip-text: _("Dismiss");
+
+      styles [
+        "notification__close",
+      ]
+    }
+  }
+}

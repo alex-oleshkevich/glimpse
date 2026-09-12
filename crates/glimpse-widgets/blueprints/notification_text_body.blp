@@ -1,0 +1,44 @@
+using Gtk 4.0;
+
+template $NotificationTextBody: Gtk.Widget {
+  layout-manager: BinLayout {};
+  visible: false;
+
+  styles [
+    "notification__text-body",
+  ]
+
+  Gtk.Box column {
+    orientation: vertical;
+
+    Gtk.Label title {
+      xalign: 0;
+      wrap: true;
+      wrap-mode: word_char;
+      lines: 2;
+      ellipsize: end;
+      max-width-chars: 34;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "notification__summary",
+      ]
+    }
+
+    Gtk.Label body {
+      xalign: 0;
+      wrap: true;
+      wrap-mode: word_char;
+      lines: 3;
+      ellipsize: end;
+      max-width-chars: 34;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "notification__body",
+      ]
+    }
+  }
+}

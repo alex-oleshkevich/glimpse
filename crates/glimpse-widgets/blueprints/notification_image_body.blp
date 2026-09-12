@@ -1,0 +1,21 @@
+using Gtk 4.0;
+
+template $NotificationImageBody: Gtk.Widget {
+  layout-manager: BinLayout {};
+  visible: false;
+
+  styles [
+    "notification__image-body",
+  ]
+
+  Gtk.Picture picture {
+    content-fit: contain;
+    can-shrink: false;
+    hexpand: true;
+    accessible-role: presentation;
+
+    styles [
+      "notification__image",
+    ]
+  }
+}

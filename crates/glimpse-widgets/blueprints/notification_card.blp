@@ -1,0 +1,73 @@
+using Gtk 4.0;
+
+template $NotificationCard: Gtk.Widget {
+  layout-manager: BinLayout {};
+  focusable: false;
+
+  styles [
+    "notification",
+  ]
+
+  Gtk.Box column {
+    orientation: vertical;
+
+    Gtk.Box {
+      orientation: vertical;
+
+      styles [
+        "notification__main",
+      ]
+
+      $NotificationHeader header {}
+
+      Gtk.Box {
+        orientation: horizontal;
+        spacing: 10;
+
+        Gtk.Box {
+          orientation: vertical;
+          hexpand: true;
+
+          styles [
+            "notification__content",
+          ]
+
+          $NotificationImageBody image {}
+
+          $NotificationTextBody text {}
+
+          Gtk.ProgressBar progress {
+            visible: false;
+
+            styles [
+              "notification__progress",
+            ]
+          }
+        }
+
+        Gtk.Picture avatar {
+          visible: false;
+          content-fit: cover;
+          can-shrink: false;
+          valign: start;
+          accessible-role: presentation;
+
+          styles [
+            "notification__avatar",
+          ]
+        }
+      }
+    }
+
+    Gtk.Box actions {
+      orientation: horizontal;
+      spacing: 6;
+      halign: start;
+      visible: false;
+
+      styles [
+        "notification__actions",
+      ]
+    }
+  }
+}
