@@ -629,6 +629,12 @@ sender's application identity and name, the title and the body before the record
 matching notification never reaches the panel or any other client. Invalid patterns are logged and
 skipped; changing the list also removes matching records already held by the daemon.
 
+**Image presentation is decided once in the service.** Absolute local paths from `image-path` and
+the legacy `image_path` hint are accepted. A path whose filename matches the application identity or
+icon becomes the right-hand avatar; an unrelated path becomes content imagery. Every client receives
+that distinction in `NotificationRecord`, so the panel and popup cannot render the same notification
+differently.
+
 **`Store` holds no publisher and no connection.** The bound, `replaces_id`, per-app clearing and
 "does this notification offer that action" are the whole of what the service decides, and none of
 them needs a bus — so they live in a struct that an ordinary `#[test]` can drive. What is left on
@@ -683,8 +689,10 @@ over-long token is dropped in `decode` and no signal is emitted. There is nothin
 actions arrive as one flat list of alternating key and label, hints as a `HashMap` of variants — and
 hands a plain `Incoming` to the service. A non-empty `desktop-entry` is the grouping identity, with
 the sender's unique bus name as its fallback; the display name never decides which notifications a
-group clear removes. Every cap and the markup sanitiser run service-side, in `record`, which is why
-they are testable without exporting anything.
+group clear removes. When the sender leaves `app_name` empty, the service resolves the localized
+desktop-entry name and falls back to the non-unique application identity, so clients do not invent
+different labels. Every cap and the markup sanitiser run service-side, in `record`, which is why they
+are testable without exporting anything.
 
 **`notify` holds `&mut self`, and that is what keeps ids and events in the same order.** zbus takes
 the interface's write lock for such a method, so one `Notify` allocates its id, asks the bus daemon

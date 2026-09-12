@@ -1,6 +1,10 @@
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{HashMap, VecDeque},
+    path::Path,
+};
 
 use chrono::Utc;
+use gio_unix::{DesktopAppInfo, prelude::*};
 use glimpse_contracts::{
     Command as _, DEFAULT_ACTION, DoNotDisturb, Message, NotificationAction, NotificationRecord,
     NotificationUrgency, NotificationsActivate, NotificationsClearAll, NotificationsClearApp,
@@ -32,6 +36,7 @@ const ACTION_LABEL_MAX_CHARS: usize = 48;
 const ACTION_KEY_MAX_CHARS: usize = 64;
 const ACTIONS_MAX: usize = 3;
 const ICON_MAX_CHARS: usize = 128;
+const IMAGE_PATH_MAX_CHARS: usize = 4096;
 const ACTIVATION_TOKEN_MAX_CHARS: usize = 512;
 
 /// `NotificationClosed` reasons, as the specification numbers them.
@@ -43,6 +48,7 @@ pub struct Incoming {
     pub app_id: String,
     pub app_pid: Option<i32>,
     pub icon: Option<String>,
+    pub image: Option<String>,
     pub summary: String,
     pub body: String,
     pub actions: Vec<(String, String)>,
@@ -326,7 +332,8 @@ impl Store {
         store
     }
 
-    fn post(&mut self, id: u32, incoming: Incoming) -> bool {
+    fn post(&mut self, id: u32, mut incoming: Incoming) -> bool {
+        incoming.app_name = application_name(&incoming.app_name, &incoming.app_id);
         if self.matches(
             &incoming.app_name,
             &incoming.app_id,
@@ -463,6 +470,34 @@ fn matches_patterns(
     })
 }
 
+fn application_name(declared: &str, app_id: &str) -> String {
+    let declared = glimpse_utils::text::clean(declared, APP_NAME_MAX_CHARS);
+    if !declared.is_empty() {
+        return declared;
+    }
+
+    let app_id = glimpse_utils::text::clean(app_id, APP_NAME_MAX_CHARS);
+    if app_id.is_empty() || app_id.starts_with(':') || app_id.starts_with("notification-") {
+        return String::new();
+    }
+
+    desktop_name(&app_id).unwrap_or(app_id)
+}
+
+fn desktop_name(app_id: &str) -> Option<String> {
+    if app_id.contains('/') {
+        return None;
+    }
+    let desktop_id = match app_id.ends_with(".desktop") {
+        true => app_id.to_owned(),
+        false => format!("{app_id}.desktop"),
+    };
+    DesktopAppInfo::new(&desktop_id)
+        .map(|entry| entry.display_name().to_string())
+        .map(|name| glimpse_utils::text::clean(&name, APP_NAME_MAX_CHARS))
+        .filter(|name| !name.is_empty())
+}
+
 #[derive(Debug, PartialEq, Eq)]
 struct Activation {
     invoke_default: bool,
@@ -540,6 +575,7 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
         app_id,
         app_pid,
         icon,
+        image,
         summary,
         body,
         actions,
@@ -550,6 +586,13 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
 
     let app_name = glimpse_utils::text::clean(&app_name, APP_NAME_MAX_CHARS);
     let app_id = glimpse_utils::text::clean(&app_id, APP_NAME_MAX_CHARS);
+
+    let image = local_image_path(image.as_deref());
+    let avatar = image
+        .as_deref()
+        .filter(|path| image_matches_identity(&app_id, icon.as_deref(), path))
+        .map(str::to_owned);
+    let image = (avatar.is_none()).then_some(image).flatten();
 
     NotificationRecord {
         id,
@@ -564,7 +607,8 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
         icon: icon
             .map(|icon| glimpse_utils::text::clean(&icon, ICON_MAX_CHARS))
             .filter(|icon| !icon.is_empty()),
-        image: None,
+        avatar,
+        image,
         urgency,
         actions: bounded_actions(actions),
         progress: progress.map(|value| value.clamp(0.0, 1.0)),
@@ -620,6 +664,7 @@ impl Served {
             app_id,
             app_pid: self.sender_pid(&header).await,
             icon: (!app_icon.is_empty()).then_some(app_icon),
+            image: image_hint(&hints),
             summary,
             body,
             actions: pairs(actions),
@@ -741,6 +786,38 @@ fn hint_str(hints: &HashMap<String, OwnedValue>, name: &str) -> Option<String> {
         .map(str::to_owned)
 }
 
+fn image_hint(hints: &HashMap<String, OwnedValue>) -> Option<String> {
+    hint_str(hints, "image-path").or_else(|| hint_str(hints, "image_path"))
+}
+
+fn local_image_path(image: Option<&str>) -> Option<String> {
+    let image = glimpse_utils::text::clean(image?, IMAGE_PATH_MAX_CHARS);
+    let path = image.strip_prefix("file://").unwrap_or(&image);
+    Path::new(path).is_absolute().then(|| path.to_owned())
+}
+
+fn image_matches_identity(app_id: &str, icon: Option<&str>, image: &str) -> bool {
+    let Some(image) = image_key(image) else {
+        return false;
+    };
+    [Some(app_id), icon]
+        .into_iter()
+        .flatten()
+        .filter_map(image_key)
+        .any(|candidate| candidate == image)
+}
+
+fn image_key(value: &str) -> Option<String> {
+    let value = value.trim().strip_prefix("file://").unwrap_or(value.trim());
+    let name = value.rsplit('/').next().unwrap_or(value);
+    let name = [".desktop", ".png", ".svg", ".jpg", ".jpeg", ".webp", ".ico"]
+        .into_iter()
+        .find_map(|suffix| name.strip_suffix(suffix))
+        .unwrap_or(name);
+    let name = name.strip_suffix("-symbolic").unwrap_or(name);
+    (!name.is_empty()).then(|| name.to_ascii_lowercase())
+}
+
 fn hint_i32(hints: &HashMap<String, OwnedValue>, name: &str) -> Option<i32> {
     hints.get(name).and_then(|value| i32::try_from(value).ok())
 }
@@ -776,6 +853,7 @@ mod tests {
             app_id: app.to_owned(),
             app_pid: None,
             icon: None,
+            image: None,
             summary: summary.to_owned(),
             body: String::new(),
             actions: Vec::new(),
@@ -796,6 +874,34 @@ mod tests {
     #[test]
     fn declared_topics_and_methods_exist() {
         crate::service::assert_declarations::<Notifications>();
+    }
+
+    #[test]
+    fn image_hints_are_split_between_avatar_and_content() {
+        let avatar = record(
+            1,
+            Incoming {
+                app_id: "org.example.Chat".to_owned(),
+                icon: Some("org.example.Chat".to_owned()),
+                image: Some("file:///tmp/org.example.Chat.png".to_owned()),
+                ..incoming("Chat", "Marta")
+            },
+        );
+        assert_eq!(avatar.avatar.as_deref(), Some("/tmp/org.example.Chat.png"));
+        assert_eq!(avatar.image, None);
+
+        let screenshot = record(
+            2,
+            Incoming {
+                image: Some("/tmp/Screenshot_2026-09-12.png".to_owned()),
+                ..incoming("Screenshots", "Screenshot captured")
+            },
+        );
+        assert_eq!(screenshot.avatar, None);
+        assert_eq!(
+            screenshot.image.as_deref(),
+            Some("/tmp/Screenshot_2026-09-12.png")
+        );
     }
 
     #[test]
@@ -1148,6 +1254,33 @@ mod tests {
         assert_eq!(
             declared.app_id, "org.telegram.desktop",
             "grouping keys on the sender's identity, not on the name it chose"
+        );
+    }
+
+    #[test]
+    fn an_empty_app_name_falls_back_to_the_desktop_identity() {
+        let mut held = Store::new(10);
+        assert!(held.post(
+            48,
+            Incoming {
+                app_name: String::new(),
+                app_id: "com.mitchellh.ghostty".to_owned(),
+                ..incoming("", "Ghostty")
+            }
+        ));
+
+        let records = held.records();
+        assert!(
+            !records[0].app_name.is_empty(),
+            "Ghostty supplies a desktop entry but leaves the freedesktop app-name argument empty"
+        );
+    }
+
+    #[test]
+    fn a_declared_app_name_remains_authoritative() {
+        assert_eq!(
+            application_name("Ghostty Developer Build", "com.mitchellh.ghostty"),
+            "Ghostty Developer Build"
         );
     }
 

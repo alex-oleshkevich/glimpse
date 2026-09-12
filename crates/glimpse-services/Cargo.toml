@@ -10,6 +10,7 @@ chrono-tz.workspace = true
 chrono.workspace = true
 dirs.workspace = true
 futures-util.workspace = true
+gio-unix.workspace = true
 glimpse-compositors.workspace = true
 glimpse-config.workspace = true
 glimpse-contracts.workspace = true
