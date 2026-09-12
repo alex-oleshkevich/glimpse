@@ -9,7 +9,7 @@ updates its existing card and restarts its timer. Do not disturb, lock, privacy,
 reconnect clear the transient stack without deleting daemon history, and records received while a
 gate is active are never replayed when it opens.
 
-One layer-shell surface owns the full stack. It uses the shared `NotificationItem`, reserves a paint
+One layer-shell surface owns the full stack. It uses the shared `NotificationCard`, reserves a paint
 gutter around every card for its shadow and entrance translation, and narrows the Wayland input
 region to card bounds so the gutter and inter-card gaps remain click-through. Left click asks the
 compositor to focus the sender process where one is known and dismisses the notification; right

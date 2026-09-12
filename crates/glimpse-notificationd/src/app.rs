@@ -1,7 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
-    path::PathBuf,
+    path::{Path, PathBuf},
     rc::Rc,
     time::Duration,
 };
@@ -19,7 +19,7 @@ use glimpse_contracts::{
     SessionStatus, WindowRef,
 };
 use glimpse_ipc::{Client, ConnectionState, Event};
-use glimpse_widgets::{Notification, NotificationItem, Styles};
+use glimpse_widgets::{Notification, NotificationCard, Styles, artwork, notification_image};
 use gtk4::{cairo, gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{ComponentParts, ComponentSender, SimpleComponent};
@@ -101,7 +101,7 @@ impl Countdown {
 
 struct Entry {
     frame: gtk4::Box,
-    card: NotificationItem,
+    card: NotificationCard,
     timer: Timer,
     animation: adw::TimedAnimation,
     interactive: bool,
@@ -120,7 +120,7 @@ pub struct App {
     styles: Styles,
     generation: Option<u64>,
     input_region_pending: Rc<Cell<bool>>,
-    input_region_cards: Rc<RefCell<Vec<NotificationItem>>>,
+    input_region_cards: Rc<RefCell<Vec<NotificationCard>>>,
 }
 
 #[relm4::component(pub)]
@@ -166,8 +166,7 @@ impl SimpleComponent for App {
 
         let window = root.clone();
         let widgets = view_output!();
-        let styles = Styles::install();
-        styles.set_color_scheme(scheme);
+        let styles = Styles::install(scheme);
         let surface_edge = init.config.notifications.edge;
         let model = Self {
             root: window.clone(),
@@ -319,7 +318,7 @@ impl App {
         let Some(record) = self.state.record(id).cloned() else {
             return;
         };
-        let card = NotificationItem::new();
+        let card = NotificationCard::new();
         card.set_overflow(gtk4::Overflow::Visible);
         let frame = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         frame.set_overflow(gtk4::Overflow::Visible);
@@ -366,26 +365,25 @@ impl App {
         }
     }
 
-    fn fill(&self, card: &NotificationItem, record: &NotificationRecord) {
+    fn fill(&self, card: &NotificationCard, record: &NotificationRecord) {
         let mut notification = Notification::from_record(record, gettext("now"));
         notification.icon = record
             .icon
             .as_deref()
             .map(|name| gio::ThemedIcon::new(name).upcast());
-        notification.image = record.image.as_deref().and_then(|path| {
-            match gdk::Texture::from_filename(path) {
-                Ok(texture) => Some(texture),
-                Err(error) => {
-                    tracing::warn!(%error, notification = record.id, "cannot load notification image");
-                    None
-                }
-            }
-        });
+        notification.avatar = record
+            .avatar
+            .as_deref()
+            .and_then(|path| artwork(Path::new(path), 64));
+        notification.image = record
+            .image
+            .as_deref()
+            .and_then(|path| notification_image(Path::new(path)));
         card.set_notification(&notification);
         card.set_controls_visible(true);
     }
 
-    fn connect(&self, id: u32, card: &NotificationItem, sender: &ComponentSender<Self>) {
+    fn connect(&self, id: u32, card: &NotificationCard, sender: &ComponentSender<Self>) {
         card.connect_activated({
             let sender = sender.clone();
             move |_| sender.input(Input::Activate(id))
@@ -700,7 +698,7 @@ fn animation_class(edge: NotificationEdge) -> &'static str {
     }
 }
 
-fn announce(card: &NotificationItem, record: &NotificationRecord) {
+fn announce(card: &NotificationCard, record: &NotificationRecord) {
     let message = match card.body().filter(|body| !body.is_empty()) {
         Some(body) => format!("{}: {}. {body}", record.app_name, record.summary),
         None => format!("{}: {}", record.app_name, record.summary),
