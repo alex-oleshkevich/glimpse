@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-11 21:57+0200\n"
+"POT-Creation-Date: 2026-09-12 13:58+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: crates/glimpse-notificationd/src/app.rs:370
+#: crates/glimpse-notificationd/src/app.rs:369
 #: crates/glimpse-panel/src/applets/notifications/render.rs:73
 msgid "now"
 msgstr ""
@@ -126,7 +126,7 @@ msgstr ""
 msgid "d"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/indicator.rs:205
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:210
 msgid "Clear all"
 msgstr ""
 
@@ -376,12 +376,8 @@ msgstr ""
 msgid "Nothing else scheduled"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/notification_item.blp:18
-msgid "Notification"
-msgstr ""
-
-#: crates/glimpse-widgets/blueprints/notification_item.blp:158
-#: crates/glimpse-widgets/src/notification_item/imp.rs:240
+#: crates/glimpse-widgets/blueprints/notification_header.blp:67
+#: crates/glimpse-widgets/src/notification_card/imp.rs:190
 msgid "Dismiss"
 msgstr ""
 
@@ -403,7 +399,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:130
+#: crates/glimpse-widgets/src/lib.rs:136
 msgid "Play"
 msgstr ""
 
@@ -427,15 +423,15 @@ msgstr ""
 msgid "Workspaces"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:129
+#: crates/glimpse-widgets/src/lib.rs:135
 msgid "Pause"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notification_item/imp.rs:213
+#: crates/glimpse-widgets/src/notification_card/imp.rs:162
 msgid "Unread"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notification_item/imp.rs:238
+#: crates/glimpse-widgets/src/notification_card/imp.rs:188
 msgid "Dismiss {notification}"
 msgstr ""
 

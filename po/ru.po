@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-11 13:05+0200\n"
+"POT-Creation-Date: 2026-09-12 13:58+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -18,6 +18,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+#: crates/glimpse-notificationd/src/app.rs:369
+#: crates/glimpse-panel/src/applets/notifications/render.rs:73
+msgid "now"
+msgstr "сейчас"
 
 #: crates/glimpse-panel/src/applets/agenda.rs:54
 msgid "All day · day {day} of {days}"
@@ -126,45 +131,41 @@ msgstr "ч"
 msgid "d"
 msgstr "д"
 
-#: crates/glimpse-panel/src/applets/notifications/indicator.rs:205
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:210
 msgid "Clear all"
 msgstr "Очистить все"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:53
+#: crates/glimpse-panel/src/applets/notifications/render.rs:52
 msgid "Do not disturb"
 msgstr "Не беспокоить"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:55
+#: crates/glimpse-panel/src/applets/notifications/render.rs:54
 msgid "{count} waiting, do not disturb is on"
 msgid_plural "{count} waiting, do not disturb is on"
 msgstr[0] "{count} ожидает, режим «Не беспокоить» включён"
 msgstr[1] "{count} ожидают, режим «Не беспокоить» включён"
 msgstr[2] "{count} ожидают, режим «Не беспокоить» включён"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:60
+#: crates/glimpse-panel/src/applets/notifications/render.rs:59
 msgid "No new notifications"
 msgstr "Нет новых уведомлений"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:62
+#: crates/glimpse-panel/src/applets/notifications/render.rs:61
 msgid "{count} new notification"
 msgid_plural "{count} new notifications"
 msgstr[0] "{count} новое уведомление"
 msgstr[1] "{count} новых уведомления"
 msgstr[2] "{count} новых уведомлений"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:74
-msgid "now"
-msgstr "сейчас"
-
-#: crates/glimpse-panel/src/applets/notifications/render.rs:77
+#: crates/glimpse-panel/src/applets/notifications/render.rs:76
 msgid "{count}m"
 msgstr "{count} мин"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:80
+#: crates/glimpse-panel/src/applets/notifications/render.rs:79
 msgid "{count}h"
 msgstr "{count} ч"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:82
+#: crates/glimpse-panel/src/applets/notifications/render.rs:81
 msgid "{count}d"
 msgstr "{count} д"
 
@@ -387,12 +388,8 @@ msgstr "Далее"
 msgid "Nothing else scheduled"
 msgstr "Больше ничего не запланировано"
 
-#: crates/glimpse-widgets/blueprints/notification_item.blp:18
-msgid "Notification"
-msgstr "Уведомление"
-
-#: crates/glimpse-widgets/blueprints/notification_item.blp:158
-#: crates/glimpse-widgets/src/notification_item/imp.rs:240
+#: crates/glimpse-widgets/blueprints/notification_header.blp:67
+#: crates/glimpse-widgets/src/notification_card/imp.rs:190
 msgid "Dismiss"
 msgstr "Закрыть"
 
@@ -414,7 +411,7 @@ msgstr "Всё просмотрено."
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:130
+#: crates/glimpse-widgets/src/lib.rs:136
 msgid "Play"
 msgstr "Воспроизвести"
 
@@ -438,15 +435,15 @@ msgstr "Повтор"
 msgid "Workspaces"
 msgstr "Рабочие столы"
 
-#: crates/glimpse-widgets/src/lib.rs:129
+#: crates/glimpse-widgets/src/lib.rs:135
 msgid "Pause"
 msgstr "Пауза"
 
-#: crates/glimpse-widgets/src/notification_item/imp.rs:213
+#: crates/glimpse-widgets/src/notification_card/imp.rs:162
 msgid "Unread"
 msgstr "Непрочитанное"
 
-#: crates/glimpse-widgets/src/notification_item/imp.rs:238
+#: crates/glimpse-widgets/src/notification_card/imp.rs:188
 msgid "Dismiss {notification}"
 msgstr "Закрыть: {notification}"
 
@@ -465,7 +462,7 @@ msgstr[2] "{count} уведомлений"
 msgid "Silence notifications until you turn this off"
 msgstr "Отключить уведомления, пока вы не выключите этот режим"
 
-#: crates/glimpse-widgets/src/notifications_popover/mod.rs:104
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:111
 msgid "Clear these notifications"
 msgstr "Очистить эти уведомления"
 
@@ -490,6 +487,9 @@ msgstr[2] "{count} рабочих столов"
 #: crates/glimpse-widgets/src/world_clock/mod.rs:152
 msgid "Yesterday"
 msgstr "Вчера"
+
+#~ msgid "Notification"
+#~ msgstr "Уведомление"
 
 #, fuzzy
 #~| msgid "min"

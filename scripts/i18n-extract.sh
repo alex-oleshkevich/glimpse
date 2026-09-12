@@ -10,7 +10,7 @@ version="$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)"
 # Every Blueprint and Rust file in the tree, with no filter for which of them carry a marker:
 # a filter that was wrong would hide a file from the extractor and from the coverage check
 # below at the same time, which is the one failure neither could report.
-mapfile -t files < <(git ls-files '*.blp' '*.rs' ':!:_old/**' ':!:var/**')
+mapfile -t files < <(rg --files -g '*.blp' -g '*.rs' -g '!_old/**' -g '!var/**' | sort)
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
