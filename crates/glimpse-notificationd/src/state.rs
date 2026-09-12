@@ -100,20 +100,20 @@ impl PopupState {
 
     pub fn set_outputs(&mut self, outputs: Vec<OutputInfo>) -> bool {
         self.outputs = outputs;
-        let disappeared = self
-            .placement
-            .as_ref()
-            .and_then(|placement| placement.connector.as_deref())
-            .is_some_and(|connector| {
-                !self
-                    .outputs
-                    .iter()
-                    .any(|output| output.connector == connector)
-            });
-        if disappeared {
+        let reselect =
+            self.placement
+                .as_ref()
+                .is_some_and(|placement| match placement.connector.as_deref() {
+                    Some(connector) => !self
+                        .outputs
+                        .iter()
+                        .any(|output| output.connector == connector),
+                    None => !self.outputs.is_empty(),
+                });
+        if reselect {
             self.placement = Some(self.next_placement());
         }
-        disappeared
+        reselect
     }
 
     pub fn update(&mut self, records: Vec<NotificationRecord>) -> Delta {
@@ -496,6 +496,21 @@ mod tests {
         assert_eq!(
             state.placement().unwrap().connector.as_deref(),
             Some("eDP-1")
+        );
+    }
+
+    #[test]
+    fn a_late_output_baseline_places_an_already_visible_popup() {
+        let mut state = PopupState::new(Notifications::default());
+        state.update(Vec::new());
+        ready(&mut state);
+        state.update(vec![note(1, "one")]);
+        assert_eq!(state.placement().unwrap().connector, None);
+
+        assert!(state.set_outputs(vec![output("DP-2", true)]));
+        assert_eq!(
+            state.placement().unwrap().connector.as_deref(),
+            Some("DP-2")
         );
     }
 

@@ -70,7 +70,7 @@ impl Countdown {
     fn running(duration: Duration, now: Instant) -> Self {
         Self {
             remaining: duration,
-            deadline: Some(now + duration),
+            deadline: Some(deadline(now, duration)),
         }
     }
 
@@ -82,7 +82,7 @@ impl Countdown {
 
     fn resume(&mut self, now: Instant) -> Option<Duration> {
         self.deadline.is_none().then(|| {
-            self.deadline = Some(now + self.remaining);
+            self.deadline = Some(deadline(now, self.remaining));
             self.remaining
         })
     }
@@ -90,7 +90,7 @@ impl Countdown {
     fn restart(&mut self, duration: Duration, now: Instant) -> bool {
         self.remaining = duration;
         let running = self.deadline.is_some();
-        self.deadline = running.then_some(now + duration);
+        self.deadline = running.then_some(deadline(now, duration));
         running
     }
 
@@ -157,7 +157,7 @@ impl SimpleComponent for App {
         root.set_layer(Layer::Top);
         root.set_keyboard_mode(KeyboardMode::None);
         root.set_exclusive_zone(0);
-        let scheme = apply_scheme(init.config.appearance.color_scheme);
+        let scheme = color_scheme(init.config.appearance.color_scheme);
 
         open_client(init.socket, sender.clone());
         watch_configuration(init.config_path, init.config.clone(), sender.clone());
@@ -167,7 +167,7 @@ impl SimpleComponent for App {
         let window = root.clone();
         let widgets = view_output!();
         let styles = Styles::install();
-        styles.set_prefers_color_scheme(scheme);
+        styles.set_color_scheme(scheme);
         let surface_edge = init.config.notifications.edge;
         let model = Self {
             root: window.clone(),
@@ -281,8 +281,8 @@ impl App {
             config.regional.language(),
         );
         self.config = config;
-        let scheme = apply_scheme(self.config.appearance.color_scheme);
-        self.styles.set_prefers_color_scheme(scheme);
+        let scheme = color_scheme(self.config.appearance.color_scheme);
+        self.styles.set_color_scheme(scheme);
         let delta = self.state.configure(self.config.notifications.clone());
         self.apply(delta, sender);
         if renamed {
@@ -569,6 +569,11 @@ impl App {
             .filter(|entry| entry.interactive && !entry.leaving)
             .map(|entry| entry.card.clone())
             .collect();
+        if self.input_region_cards.borrow().is_empty()
+            && let Some(surface) = self.root.surface()
+        {
+            surface.set_input_region(Some(&cairo::Region::create()));
+        }
         if self.input_region_pending.replace(true) {
             return;
         }
@@ -590,12 +595,7 @@ impl App {
                 let Some(bounds) = card.compute_bounds(window.upcast_ref::<gtk4::Widget>()) else {
                     continue;
                 };
-                let rectangle = cairo::RectangleInt::new(
-                    bounds.x().floor() as i32,
-                    bounds.y().floor() as i32,
-                    bounds.width().ceil() as i32,
-                    bounds.height().ceil() as i32,
-                );
+                let rectangle = enclosing_rectangle(bounds);
                 let _ = region.union_rectangle(&rectangle);
             }
             surface.set_input_region(Some(&region));
@@ -642,6 +642,10 @@ fn timeout(id: u32, remaining: Duration, sender: ComponentSender<App>) -> JoinHa
         tokio::time::sleep(remaining).await;
         sender.input(Input::Expire(id));
     })
+}
+
+fn deadline(now: Instant, duration: Duration) -> Instant {
+    now.checked_add(duration).unwrap_or(now)
 }
 
 fn animation(frame: &gtk4::Box) -> adw::TimedAnimation {
@@ -697,7 +701,7 @@ fn animation_class(edge: NotificationEdge) -> &'static str {
 }
 
 fn announce(card: &NotificationItem, record: &NotificationRecord) {
-    let message = match record.body.as_deref().filter(|body| !body.is_empty()) {
+    let message = match card.body().filter(|body| !body.is_empty()) {
         Some(body) => format!("{}: {}. {body}", record.app_name, record.summary),
         None => format!("{}: {}", record.app_name, record.summary),
     };
@@ -719,6 +723,14 @@ fn anchors(edge: NotificationEdge) -> &'static [Edge] {
         NotificationEdge::BottomCenter => &[Edge::Bottom],
         NotificationEdge::BottomRight => &[Edge::Bottom, Edge::Right],
     }
+}
+
+fn enclosing_rectangle(bounds: gtk4::graphene::Rect) -> cairo::RectangleInt {
+    let left = bounds.x().floor() as i32;
+    let top = bounds.y().floor() as i32;
+    let right = (bounds.x() + bounds.width()).ceil() as i32;
+    let bottom = (bounds.y() + bounds.height()).ceil() as i32;
+    cairo::RectangleInt::new(left, top, right - left, bottom - top)
 }
 
 fn height_overflow(visible: &[u32], surface_height: i32, output_height: i32) -> Option<u32> {
@@ -881,16 +893,11 @@ fn activation_token(window: &gtk4::Window) -> Option<String> {
     (!id.is_empty()).then(|| id.to_string())
 }
 
-fn apply_scheme(scheme: glimpse_config::ColorScheme) -> gtk4::InterfaceColorScheme {
-    adw::StyleManager::default().set_color_scheme(match scheme {
+fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
+    match scheme {
         glimpse_config::ColorScheme::Light => adw::ColorScheme::ForceLight,
         glimpse_config::ColorScheme::Dark => adw::ColorScheme::ForceDark,
         glimpse_config::ColorScheme::Auto => adw::ColorScheme::Default,
-    });
-    match scheme {
-        glimpse_config::ColorScheme::Light => gtk4::InterfaceColorScheme::Light,
-        glimpse_config::ColorScheme::Dark => gtk4::InterfaceColorScheme::Dark,
-        glimpse_config::ColorScheme::Auto => gtk4::InterfaceColorScheme::Default,
     }
 }
 
@@ -942,6 +949,26 @@ mod tests {
         assert_eq!(height_overflow(&[3, 2, 1], 901, 900), Some(1));
         assert_eq!(height_overflow(&[3, 2, 1], 900, 900), None);
         assert_eq!(height_overflow(&[1], 901, 900), None);
+    }
+
+    #[test]
+    fn input_region_encloses_fractional_card_bounds() {
+        let rectangle = enclosing_rectangle(gtk4::graphene::Rect::new(0.75, 1.25, 100.75, 50.5));
+        assert_eq!(
+            (
+                rectangle.x(),
+                rectangle.y(),
+                rectangle.width(),
+                rectangle.height(),
+            ),
+            (0, 1, 102, 51)
+        );
+    }
+
+    #[test]
+    fn an_unrepresentable_deadline_expires_safely() {
+        let now = Instant::now();
+        assert_eq!(deadline(now, Duration::MAX), now);
     }
 
     #[test]

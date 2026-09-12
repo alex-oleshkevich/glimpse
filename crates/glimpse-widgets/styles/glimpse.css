@@ -883,7 +883,7 @@ window.notification-popup {
 }
 
 .notification-popup__entry {
-    min-width: 18rem;
+    min-width: 34rem;
     transition:
         opacity var(--gl-duration) var(--gl-ease),
         transform var(--gl-duration) var(--gl-ease);

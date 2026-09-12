@@ -54,7 +54,7 @@ impl Service for Session {
         })
     }
 
-    async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {
+    async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
             Input::Command(command, _) => match command {},
             Input::Event(Event::Privacy(private)) => {
@@ -63,10 +63,14 @@ impl Service for Session {
             }
             Input::Event(Event::Locked(locked)) => {
                 self.locked = Some(locked);
+                ctx.running();
                 self.publish();
             }
             Input::Event(Event::Unavailable(reason)) => {
-                tracing::warn!(%reason, "the session lock state is unavailable");
+                self.locked = Some(true);
+                ctx.degraded(reason.clone());
+                tracing::warn!(%reason, "the session lock state is unavailable; treating it as locked");
+                self.publish();
             }
             Input::Config(NoConfig) => {}
         }
@@ -104,14 +108,16 @@ async fn locked_events(
         if candidate_uid != uid {
             continue;
         }
-        let session = Login1SessionProxy::builder(&bus)
-            .path(path.clone())
-            .map_err(say)?
-            .build()
-            .await
-            .map_err(say)?;
-        match tokio::try_join!(session.active(), session.class(), session.kind()) {
-            Ok((active, class, kind)) => candidates.push(SessionCandidate {
+        let candidate = async {
+            let session = Login1SessionProxy::builder(&bus)
+                .path(path.clone())
+                .map_err(say)?
+                .build()
+                .await
+                .map_err(say)?;
+            let (active, class, kind) =
+                tokio::try_join!(session.active(), session.class(), session.kind()).map_err(say)?;
+            Ok::<_, String>(SessionCandidate {
                 id,
                 uid: candidate_uid,
                 seat,
@@ -119,10 +125,12 @@ async fn locked_events(
                 active,
                 class: Some(class),
                 kind: Some(kind),
-            }),
-            Err(error) => {
-                tracing::debug!(session = %id, %error, "skipping a partial login session")
-            }
+            })
+        }
+        .await;
+        match candidate {
+            Ok(candidate) => candidates.push(candidate),
+            Err(error) => tracing::debug!(%error, "skipping a partial login session"),
         }
     }
     let path = select_session_candidate(&candidates, uid)
@@ -200,5 +208,27 @@ mod tests {
             .handle(&ctx, Input::Event(Event::Locked(false)))
             .await;
         assert_eq!(mock.published().last().unwrap().1["private"], true);
+    }
+
+    #[tokio::test]
+    async fn losing_the_lock_source_fails_closed() {
+        let mock = std::sync::Arc::new(MockBroker::default());
+        let broker: std::sync::Arc<dyn BrokerHandle> = mock.clone();
+        let cancel = CancellationToken::new();
+        let (events, _inbox) = tokio::sync::mpsc::channel(4);
+        let ctx = Ctx::<Session>::new(events, &cancel, broker, Buses::unavailable("no bus"));
+        let mut session = Session::start(&ctx, NoConfig).await.expect("starts");
+
+        session
+            .handle(&ctx, Input::Event(Event::Privacy(false)))
+            .await;
+        session
+            .handle(&ctx, Input::Event(Event::Locked(false)))
+            .await;
+        session
+            .handle(&ctx, Input::Event(Event::Unavailable("lost logind".into())))
+            .await;
+
+        assert_eq!(mock.published().last().unwrap().1["locked"], true);
     }
 }

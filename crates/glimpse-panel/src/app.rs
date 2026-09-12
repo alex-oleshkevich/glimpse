@@ -64,11 +64,13 @@ impl SimpleComponent for App {
         let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
         spawn_config_watch(init.config_path, init.config.clone(), sender);
 
+        let styles = Styles::install();
+        styles.set_color_scheme(color_scheme(init.config.appearance.color_scheme));
         let model = App {
             config: init.config,
             panels: Default::default(),
             theme_watch,
-            styles: Styles::install(),
+            styles,
             client: None,
         };
         model.reload_styles();
@@ -87,6 +89,8 @@ impl SimpleComponent for App {
                     config.regional.language(),
                 );
                 self.config = config;
+                self.styles
+                    .set_color_scheme(color_scheme(self.config.appearance.color_scheme));
                 if renamed {
                     self.theme_watch.abort();
                     self.theme_watch = spawn_theme_watch(&self.config.appearance.theme, sender);
@@ -106,6 +110,14 @@ impl App {
         let theme = stylesheet(&self.config.appearance.theme, PANEL_STYLESHEET);
         self.styles
             .load(theme.as_deref(), user_stylesheet().as_deref());
+    }
+}
+
+fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
+    match scheme {
+        glimpse_config::ColorScheme::Light => adw::ColorScheme::ForceLight,
+        glimpse_config::ColorScheme::Dark => adw::ColorScheme::ForceDark,
+        glimpse_config::ColorScheme::Auto => adw::ColorScheme::Default,
     }
 }
 

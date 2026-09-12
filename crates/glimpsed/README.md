@@ -108,6 +108,18 @@ five long-running processes, and each of those services is `PartOf` it. Use `sys
 `stop` or `restart glimpse-session.target` to control them in one transaction. The lock screen stays
 on demand and outside this lifecycle because stopping it mid-lock strands the session.
 
+An existing installation may still have direct `graphical-session.target.wants` links for the
+member services. Remove those links and enable the target once when upgrading:
+
+```console
+systemctl --user disable glimpsed.service glimpse-panel.service glimpse-wallpaper.service glimpse-sunset.service
+systemctl --user enable --now glimpse-session.target
+```
+
+The package installer cannot do this migration because it does not run inside each installed
+user's systemd manager. Leaving the direct links enabled still starts the old members, but does not
+start `glimpse-notificationd`.
+
 Every service carries `ExecReload=/bin/kill -HUP $MAINPID`, and the target names its five members
 with `PropagatesReloadTo`. `systemctl --user reload glimpse-session.target` therefore asks every
 long-running process to re-read its configuration, and every theme-aware UI refreshes its styles

@@ -710,16 +710,14 @@ are `visible: false` while collapsed and the strips stand in for them. Depth is 
 because a third sliver is not distinguishable from the second.
 
 **It is a surface, so it paints one — and that is not cosmetic.** `.notification-stack` sets
-`color`, while every card gets an opaque `--gl-notification` background: `#f2f2f2` in light mode
-and `#54545a` in dark mode. The two backplates read `--gl-notification-back` and
-`--gl-notification-back-far`; the dark ramp is the first-generation `#45454a` and `#3d3d42`, so
-each deeper card is dimmer than the one in front. Dark matches the first-generation surface; light
-is deliberately darker than its old white so a card stays distinct from the popover around it. On
-the desktop there is nothing behind it but wallpaper. Measured in the preview: with the card
-left translucent the strips showed *through* it, brightening its lower third into a muddy band
-instead of hiding, and the summary and body — which set no colour of their own and so inherit —
-came out white on white in the light scheme. Both were invisible to the GTK test, which never
-renders.
+`color` on the stack, while every card reads libadwaita's paired `--card-bg-color` and
+`--card-fg-color` through `--gl-notification` and `--gl-notification-fg`. Keeping the pair on the
+card prevents a light card from inheriting a dark surface's light foreground while schemes change.
+The card color is painted as a gradient over an opaque `--gl-surface` background because Adwaita's
+dark card color is translucent. Without the backing layer, stacked strips show through the front
+card and a standalone popup lets wallpaper alter its color. The two backplates read
+`--gl-notification-back` and `--gl-notification-back-far`, both derived from the current surface and
+foreground colors so they follow the active scheme and theme.
 
 **The strips mix toward the foreground rather than shading.** `shade()` moves lightness one
 absolute way, so "recede" reads on a white surface and disappears on a charcoal one — measured, the
@@ -1237,9 +1235,12 @@ in translation is worth seeing before it reaches a panel, the same argument that
 
 ## Stylesheets
 
-`Styles` owns the CSS providers for one process. `install()` registers them on the display **once**
-and follows `AdwStyleManager::is_dark()` so media queries resolve under system and forced schemes;
-`load()` replaces their content in place — installing twice stacks every rule.
+`Styles` owns the CSS providers for one process. `install()` registers them on the display **once**,
+tracks libadwaita's effective light or dark appearance, and gives that concrete scheme to every
+provider. GTK treats a provider's `default` scheme as light, so passing an automatic request through
+unchanged would disagree with a dark libadwaita application. `set_color_scheme()` updates the
+libadwaita request, and `load()` replaces provider content in place — installing twice stacks every
+rule.
 
 | Priority | Source | Holds |
 | --- | --- | --- |
@@ -1272,7 +1273,7 @@ result is transcribed back when it settles.
 
 ### The token vocabulary
 
-Thirty-four tokens, all `--gl-` prefixed, declared in `:root`. Three tiers, and a rule may only
+Thirty-seven tokens, all `--gl-` prefixed, declared in `:root`. Three tiers, and a rule may only
 read the tier below it: libadwaita's tokens → `--gl-*` → component rules. A component rule naming
 `--accent-bg-color` or a literal colour is a test failure.
 
@@ -1287,17 +1288,11 @@ read the tier below it: libadwaita's tokens → `--gl-*` → component rules. A 
 | type | `text-caption` `text-body` `text-title` |
 | other | `radius` `duration` `ease` `font-family` `disabled` |
 
-Eighteen derive from libadwaita, so the light/dark flip and the system accent cost nothing. There is
-no parallel `--dark-*` vocabulary. The notification surface ramp is the one scheme-specific
-exception: its three stable semantic names are overridden together in the dark media query because
-the dark values preserve the first-generation depth palette rather than approximating it from the
-popover foreground.
-
-Four tokens carry base literals. `--gl-notification` keeps its light and dark card colors opaque,
-`--gl-knob` is white in both schemes by design, `--gl-scrim` sits over a wallpaper rather than an
-Adwaita surface, and `--gl-shadow` **cannot** be derived: `alpha()` multiplies rather
-than replaces, and `--shade-color` is already 0.07, so `alpha(shade, 0.55)` yields 0.04 and no
-visible shadow.
+The surface and state tokens derive from libadwaita, so the light/dark flip and the system accent
+cost nothing. There is no parallel `--dark-*` vocabulary. Three tokens carry base literals:
+`--gl-knob` is white in both schemes by design, `--gl-scrim` sits over wallpaper rather than an
+Adwaita surface, and `--gl-shadow` **cannot** be derived: `alpha()` multiplies rather than replaces,
+and `--shade-color` is already 0.07, so `alpha(shade, 0.55)` yields 0.04 and no visible shadow.
 
 That same multiplication is why every token derived from `--gl-surface-fg` resolves lower in light
 than dark — Adwaita's light foreground carries 80%, so `--gl-muted` is 0.44 light and 0.55 dark. This

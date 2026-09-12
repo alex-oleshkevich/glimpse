@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use gtk4::{CssProvider, gdk};
+use gtk4::{CssProvider, gdk, glib, prelude::ObjectExt};
 
 pub const BUILTIN: &str = include_str!("../styles/glimpse.css");
 
@@ -12,6 +12,8 @@ pub struct Styles {
     builtin: CssProvider,
     theme: CssProvider,
     dropin: CssProvider,
+    style_manager: adw::StyleManager,
+    dark_handler: Option<glib::SignalHandlerId>,
 }
 
 impl Styles {
@@ -33,11 +35,27 @@ impl Styles {
             None => tracing::error!("no display; stylesheets will not be applied"),
         }
 
-        Self {
+        let style_manager = adw::StyleManager::default();
+        let dark_handler = style_manager.connect_dark_notify({
+            let builtin = builtin.clone();
+            let theme = theme.clone();
+            let dropin = dropin.clone();
+            move |manager| {
+                set_provider_scheme(
+                    provider_scheme(manager.is_dark()),
+                    [&builtin, &theme, &dropin],
+                );
+            }
+        });
+        let styles = Self {
             builtin,
             theme,
             dropin,
-        }
+            style_manager,
+            dark_handler: Some(dark_handler),
+        };
+        styles.sync_provider_scheme();
+        styles
     }
 
     pub fn load(&self, theme: Option<&Path>, dropin: Option<&Path>) {
@@ -45,10 +63,38 @@ impl Styles {
         load("drop-in", &self.dropin, dropin);
     }
 
-    pub fn set_prefers_color_scheme(&self, scheme: gtk4::InterfaceColorScheme) {
-        self.builtin.set_prefers_color_scheme(scheme);
-        self.theme.set_prefers_color_scheme(scheme);
-        self.dropin.set_prefers_color_scheme(scheme);
+    pub fn set_color_scheme(&self, scheme: adw::ColorScheme) {
+        self.style_manager.set_color_scheme(scheme);
+        self.sync_provider_scheme();
+    }
+
+    fn sync_provider_scheme(&self) {
+        set_provider_scheme(
+            provider_scheme(self.style_manager.is_dark()),
+            [&self.builtin, &self.theme, &self.dropin],
+        );
+    }
+}
+
+impl Drop for Styles {
+    fn drop(&mut self) {
+        if let Some(handler) = self.dark_handler.take() {
+            self.style_manager.disconnect(handler);
+        }
+    }
+}
+
+fn provider_scheme(dark: bool) -> gtk4::InterfaceColorScheme {
+    if dark {
+        gtk4::InterfaceColorScheme::Dark
+    } else {
+        gtk4::InterfaceColorScheme::Light
+    }
+}
+
+fn set_provider_scheme(scheme: gtk4::InterfaceColorScheme, providers: [&CssProvider; 3]) {
+    for provider in providers {
+        provider.set_prefers_color_scheme(scheme);
     }
 }
 
@@ -73,7 +119,7 @@ fn report_parsing_errors(provider: &CssProvider) {
 
 #[cfg(test)]
 mod tests {
-    use super::BUILTIN;
+    use super::{BUILTIN, provider_scheme};
 
     const OPEN: &str = ":root {";
     const PREFIX: &str = "gl-";
@@ -200,13 +246,31 @@ mod tests {
     }
 
     #[test]
-    fn the_declared_vocabulary_is_the_documented_size() {
-        let (block, _) = split(BUILTIN);
-        assert_eq!(declared(block).len(), 36);
+    fn notification_cards_use_adwaita_color_over_an_opaque_surface() {
+        assert_eq!(BUILTIN.matches("--gl-notification:").count(), 1);
+        assert!(BUILTIN.contains("--gl-notification: var(--card-bg-color);"));
+        assert!(BUILTIN.contains("--gl-notification-fg: var(--card-fg-color);"));
+        assert!(BUILTIN.contains("color: var(--gl-notification-fg);"));
+        assert!(BUILTIN.contains(
+            "background-image: linear-gradient(var(--gl-notification), var(--gl-notification));"
+        ));
     }
 
     #[test]
-    fn popup_motion_and_shadow_share_a_measured_paint_frame() {
+    fn providers_follow_the_effective_scheme_without_using_default() {
+        assert_eq!(provider_scheme(false), gtk4::InterfaceColorScheme::Light);
+        assert_eq!(provider_scheme(true), gtk4::InterfaceColorScheme::Dark);
+    }
+
+    #[test]
+    fn the_declared_vocabulary_is_the_documented_size() {
+        let (block, _) = split(BUILTIN);
+        assert_eq!(declared(block).len(), 37);
+    }
+
+    #[test]
+    fn popup_width_motion_and_shadow_match_the_measured_frame() {
+        assert!(BUILTIN.contains("min-width: 34rem;"));
         assert!(BUILTIN.contains("--gl-popup-motion: 0.75rem;"));
         assert!(BUILTIN.contains("--gl-popup-paint-outset: 2.5rem;"));
         assert!(BUILTIN.contains("padding: var(--gl-popup-paint-outset);"));
