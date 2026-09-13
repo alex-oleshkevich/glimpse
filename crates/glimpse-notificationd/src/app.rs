@@ -61,6 +61,23 @@ struct Timer {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EntryState {
+    Entering,
+    Visible,
+    Leaving,
+}
+
+impl EntryState {
+    fn accepts_input(self) -> bool {
+        !self.is_leaving()
+    }
+
+    fn is_leaving(self) -> bool {
+        matches!(self, Self::Leaving)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Countdown {
     remaining: Duration,
     deadline: Option<Instant>,
@@ -104,8 +121,7 @@ struct Entry {
     card: NotificationCard,
     timer: Timer,
     animation: adw::TimedAnimation,
-    interactive: bool,
-    leaving: bool,
+    state: EntryState,
 }
 
 pub struct App {
@@ -348,8 +364,7 @@ impl App {
                 card,
                 timer,
                 animation: animation.clone(),
-                interactive: false,
-                leaving: false,
+                state: EntryState::Entering,
             },
         );
         animate_in(&frame, &animation, self.visible_edge());
@@ -421,11 +436,10 @@ impl App {
         let Some(entry) = self.rows.get_mut(&id) else {
             return;
         };
-        if entry.leaving {
+        if entry.state.is_leaving() {
             return;
         }
-        entry.leaving = true;
-        entry.interactive = false;
+        entry.state = EntryState::Leaving;
         if let Some(task) = entry.timer.task.take() {
             task.abort();
         }
@@ -446,10 +460,10 @@ impl App {
         let Some(entry) = self.rows.get_mut(&id) else {
             return;
         };
-        if entry.leaving {
+        if entry.state.is_leaving() {
             return;
         }
-        entry.interactive = true;
+        entry.state = EntryState::Visible;
         if let Some(record) = self.state.record(id) {
             announce(&entry.card, record);
         }
@@ -473,7 +487,7 @@ impl App {
         let Some(entry) = self.rows.get_mut(&id) else {
             return;
         };
-        if entry.leaving {
+        if entry.state.is_leaving() {
             return;
         }
         entry.timer.countdown.pause(Instant::now());
@@ -486,7 +500,7 @@ impl App {
         let Some(entry) = self.rows.get_mut(&id) else {
             return;
         };
-        if entry.leaving {
+        if entry.state.is_leaving() {
             return;
         }
         if let Some(remaining) = entry.timer.countdown.resume(Instant::now()) {
@@ -560,7 +574,7 @@ impl App {
         *self.input_region_cards.borrow_mut() = self
             .rows
             .values()
-            .filter(|entry| entry.interactive && !entry.leaving)
+            .filter(|entry| entry.state.accepts_input())
             .map(|entry| entry.card.clone())
             .collect();
         if self.input_region_cards.borrow().is_empty()
@@ -599,7 +613,7 @@ impl App {
     }
 
     fn constrain_height(&mut self, sender: &ComponentSender<Self>) {
-        if self.rows.values().any(|entry| entry.leaving) {
+        if self.rows.values().any(|entry| entry.state.is_leaving()) {
             return;
         }
         let Some(connector) = self
@@ -957,6 +971,13 @@ mod tests {
             ),
             (0, 1, 102, 51)
         );
+    }
+
+    #[test]
+    fn appearing_and_visible_cards_accept_input() {
+        assert!(EntryState::Entering.accepts_input());
+        assert!(EntryState::Visible.accepts_input());
+        assert!(!EntryState::Leaving.accepts_input());
     }
 
     #[test]
