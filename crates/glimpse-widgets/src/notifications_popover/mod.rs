@@ -81,6 +81,7 @@ impl NotificationsPopover {
         let section = Section::new();
         section.add_css_class("notifications-popover__group");
         let stack = NotificationStack::new();
+        stack.set_animated(true);
 
         stack.connect_activated(glib::clone!(
             #[weak(rename_to = popover)]

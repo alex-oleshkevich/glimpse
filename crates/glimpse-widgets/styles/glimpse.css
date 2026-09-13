@@ -692,7 +692,7 @@
 
 .notifications-popover .popover-shell,
 .notification {
-    min-width: 34rem;
+    min-width: 40rem;
 }
 
 .notification {
@@ -830,13 +830,12 @@
     font-size: var(--gl-text-caption);
     font-weight: 700;
     color: var(--gl-muted);
-    background-color: var(--gl-surface);
-    box-shadow: var(--gl-elevation-raised);
+    background-color: var(--gl-hover);
 }
 
 .notification-stack__chip:hover {
     color: var(--gl-surface-fg);
-    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.12);
+    background-color: var(--gl-active);
 }
 
 .notification-stack__chevron {

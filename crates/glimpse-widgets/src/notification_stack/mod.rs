@@ -1,7 +1,8 @@
 mod imp;
 
+use adw::prelude::*;
 use gettextrs::{gettext, ngettext};
-use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
+use gtk4::{gdk, glib, subclass::prelude::*};
 
 use crate::notification_list::dress;
 use crate::{Notification, NotificationCard};
@@ -18,6 +19,8 @@ pub(crate) const STACK_MIN_ITEMS: usize = 4;
 
 const STRIP: &str = "notification-stack__strip";
 const STRIP_FAR: &str = "notification-stack__strip--far";
+const EXPAND_MILLIS: u32 = 200;
+const COLLAPSE_MILLIS: u32 = 150;
 
 glib::wrapper! {
     pub struct NotificationStack(ObjectSubclass<imp::NotificationStack>)
@@ -49,6 +52,7 @@ impl NotificationStack {
         } else if !was_stackable {
             imp.collapsed.set(true);
         }
+        self.snap_transition();
         self.rebuild();
     }
 
@@ -59,11 +63,32 @@ impl NotificationStack {
             return;
         }
         imp.collapsed.set(collapsed);
-        self.rebuild();
+        if !imp.animated.get() {
+            self.snap_transition();
+            self.rebuild();
+            return;
+        }
+
+        self.sync_rows();
+        self.sync_strips();
+        self.sync_chip();
+        self.arrange();
+        self.animate_transition();
     }
 
     pub fn is_collapsed(&self) -> bool {
         self.imp().collapsed.get()
+    }
+
+    pub fn set_animated(&self, animated: bool) {
+        let imp = self.imp();
+        if imp.animated.replace(animated) == animated {
+            return;
+        }
+        if !animated {
+            self.snap_transition();
+            self.rebuild();
+        }
     }
 
     pub fn header_control(&self) -> gtk4::Button {
@@ -110,14 +135,22 @@ impl NotificationStack {
     fn sync_rows(&self) {
         let imp = self.imp();
         let collapsed = imp.collapsed.get();
+        let transitioning = self.is_transitioning();
+        let progress = imp.progress.get();
         let notifications = imp.notifications.borrow();
         let rows = imp.rows.borrow();
         let preview = collapsed && rows.len() >= STACK_MIN_ITEMS;
         for (index, (_, row)) in rows.iter().enumerate() {
-            let shown = !collapsed || index == 0;
+            let shown = !collapsed || transitioning || index == 0;
             if row.get_visible() != shown {
                 row.set_visible(shown);
             }
+            row.set_opacity(if index == 0 || !transitioning {
+                1.0
+            } else {
+                progress
+            });
+            row.set_can_target(index == 0 || !transitioning);
             row.set_controls_visible(!preview);
             row.set_activatable(
                 preview && index == 0
@@ -130,7 +163,7 @@ impl NotificationStack {
 
     fn sync_strips(&self) {
         let imp = self.imp();
-        let wanted = imp.depth();
+        let wanted = imp.visual_depth();
         let mut strips = imp.strips.borrow_mut();
 
         while strips.len() < wanted {
@@ -145,6 +178,7 @@ impl NotificationStack {
         let count = strips.len();
         for (index, strip) in strips.iter().enumerate() {
             crate::set_css_class(strip, STRIP_FAR, count > 1 && index == 0);
+            strip.set_opacity(1.0 - imp.progress.get());
         }
     }
 
@@ -190,18 +224,24 @@ impl NotificationStack {
     fn arrange(&self) {
         let imp = self.imp();
         let mut order: Vec<gtk4::Widget> = Vec::new();
+        let transitioning = self.is_transitioning();
+        let rows = imp.rows.borrow();
+        if transitioning {
+            order.extend(rows.iter().skip(1).map(|(_, row)| row.clone().upcast()));
+        }
         order.extend(
             imp.strips
                 .borrow()
                 .iter()
                 .map(|strip| strip.clone().upcast()),
         );
-        order.extend(
-            imp.rows
-                .borrow()
-                .iter()
-                .map(|(_, row)| row.clone().upcast()),
-        );
+        if let Some((_, front)) = rows.first() {
+            order.push(front.clone().upcast());
+        }
+        if !transitioning {
+            order.extend(rows.iter().skip(1).map(|(_, row)| row.clone().upcast()));
+        }
+        drop(rows);
         if !imp.chip_external.get()
             && let Some(chip) = imp.chip.get()
         {
@@ -284,6 +324,92 @@ impl NotificationStack {
         true
     }
 
+    fn animate_transition(&self) {
+        let imp = self.imp();
+        let from = imp.progress.get();
+        let to: f64 = if imp.collapsed.get() { 0.0 } else { 1.0 };
+        let duration = if imp.collapsed.get() {
+            COLLAPSE_MILLIS
+        } else {
+            EXPAND_MILLIS
+        };
+        let animation = self.animation();
+        animation.reset();
+        animation.set_value_from(from);
+        animation.set_value_to(to);
+        animation.set_duration(((duration as f64 * (to - from).abs()).round() as u32).max(1));
+        self.set_transition_progress(from);
+        animation.play();
+    }
+
+    fn animation(&self) -> adw::TimedAnimation {
+        if let Some(animation) = self.imp().animation.get() {
+            return animation.clone();
+        }
+
+        let target = adw::CallbackAnimationTarget::new(glib::clone!(
+            #[weak(rename_to = stack)]
+            self,
+            move |value| stack.set_transition_progress(value)
+        ));
+        let animation = adw::TimedAnimation::new(self, 0.0, 0.0, EXPAND_MILLIS, target);
+        animation.set_easing(adw::Easing::EaseOutCubic);
+        animation.set_follow_enable_animations_setting(true);
+        animation.connect_done(glib::clone!(
+            #[weak(rename_to = stack)]
+            self,
+            move |_| stack.finish_transition()
+        ));
+        let _ = self.imp().animation.set(animation.clone());
+        animation
+    }
+
+    fn snap_transition(&self) {
+        let imp = self.imp();
+        if let Some(animation) = imp.animation.get() {
+            animation.reset();
+        }
+        imp.progress
+            .set(if imp.collapsed.get() { 0.0 } else { 1.0 });
+    }
+
+    pub(crate) fn set_transition_progress(&self, progress: f64) {
+        let progress = progress.clamp(0.0, 1.0);
+        let imp = self.imp();
+        imp.progress.set(progress);
+        let rows: Vec<_> = imp
+            .rows
+            .borrow()
+            .iter()
+            .skip(1)
+            .map(|(_, row)| row.clone())
+            .collect();
+        let strips = imp.strips.borrow().clone();
+        for row in rows {
+            row.set_opacity(progress);
+        }
+        for strip in strips {
+            strip.set_opacity(1.0 - progress);
+        }
+        self.queue_resize();
+    }
+
+    pub(crate) fn finish_transition(&self) {
+        self.imp()
+            .progress
+            .set(if self.is_collapsed() { 0.0 } else { 1.0 });
+        self.sync_rows();
+        self.sync_strips();
+        self.arrange();
+        self.queue_resize();
+    }
+
+    fn is_transitioning(&self) -> bool {
+        let imp = self.imp();
+        let target = if imp.collapsed.get() { 0.0 } else { 1.0 };
+        (imp.progress.get() - target).abs() > f64::EPSILON
+    }
+
     pub fn connect_activated<F: Fn(&Self, String) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             ACTIVATED,
@@ -333,11 +459,18 @@ fn summary(count: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::summary;
+    use super::{imp::interpolate, summary};
 
     #[test]
     fn the_chip_counts_what_is_behind_the_front_card_as_well_as_the_front_card() {
         assert_eq!(summary(2), "2 notifications");
         assert_eq!(summary(1), "1 notification");
+    }
+
+    #[test]
+    fn stack_geometry_interpolates_between_collapsed_and_expanded_positions() {
+        assert_eq!(interpolate(80, 240, 0.0), 80);
+        assert_eq!(interpolate(80, 240, 0.5), 160);
+        assert_eq!(interpolate(80, 240, 1.0), 240);
     }
 }

@@ -1324,6 +1324,21 @@ mod tests {
             "an emptied stack unparents its cards and takes no space"
         );
 
+        let animated = NotificationStack::new();
+        animated.set_items(&four);
+        assert!(
+            animated.imp().animation.get().is_none(),
+            "a standalone stack pays for no animation it did not opt into"
+        );
+        animated.set_animated(true);
+        animated.set_collapsed(false);
+        assert!(
+            animated.imp().animation.get().is_some()
+                && !animated.is_collapsed()
+                && stack_rows(&animated).iter().all(|row| row.get_visible()),
+            "the explicit opt-in drives the real stack to its expanded state"
+        );
+
         let popover = NotificationsPopover::new();
         let popover_imp = popover.imp();
         let group = |key: &str, app: &str, count: usize| Group {
@@ -1355,6 +1370,10 @@ mod tests {
         popover.set_groups(&[group("a", "Telegram", 2), group("b", "PagerDuty", 1)]);
         let sections = children_of::<Section>(&popover_imp.groups.get());
         let popover_stack = child_named::<NotificationStack>(&sections[0], "notification-stack");
+        assert!(
+            popover_stack.imp().animated.get(),
+            "popover groups enable the stack transition at their single construction site"
+        );
         let popover_card = children_of::<NotificationCard>(&popover_stack)[0].clone();
         let popup_entry = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         popup_entry.add_css_class("notification-popup__entry");

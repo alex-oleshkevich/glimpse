@@ -22,6 +22,9 @@ pub struct NotificationStack {
     pub chip_arrow: OnceCell<gtk4::Image>,
     pub chip_external: Cell<bool>,
     pub collapsed: Cell<bool>,
+    pub animated: Cell<bool>,
+    pub progress: Cell<f64>,
+    pub animation: OnceCell<adw::TimedAnimation>,
 }
 
 #[glib::object_subclass]
@@ -107,8 +110,8 @@ impl ObjectImpl for NotificationStack {
 
 impl WidgetImpl for NotificationStack {
     fn measure(&self, orientation: gtk4::Orientation, for_size: i32) -> (i32, i32, i32, i32) {
-        let shown = self.shown();
-        if shown.is_empty() {
+        let rows = self.rows();
+        if rows.is_empty() {
             return (0, 0, -1, -1);
         }
         let chip = self
@@ -119,7 +122,7 @@ impl WidgetImpl for NotificationStack {
         if orientation == gtk4::Orientation::Horizontal {
             let mut min = 0;
             let mut nat = 0;
-            for row in &shown {
+            for row in &rows {
                 let (row_min, row_nat, _, _) = row.measure(orientation, -1);
                 min = min.max(row_min);
                 nat = nat.max(row_nat);
@@ -141,13 +144,13 @@ impl WidgetImpl for NotificationStack {
         if let Some(chip) = chip {
             height += chip.measure(gtk4::Orientation::Vertical, -1).1 + CHIP_GAP;
         }
-        height += self.body_height(&shown, width);
+        height += self.body_height(&rows, width);
         (height, height, -1, -1)
     }
 
     fn size_allocate(&self, width: i32, _height: i32, _baseline: i32) {
-        let shown = self.shown();
-        if shown.is_empty() {
+        let rows = self.rows();
+        if rows.is_empty() {
             return;
         }
 
@@ -163,19 +166,11 @@ impl WidgetImpl for NotificationStack {
             y += chip_height + CHIP_GAP;
         }
 
-        if !self.collapsed.get() {
-            for row in &shown {
-                let row_height = row.measure(gtk4::Orientation::Vertical, width).1;
-                row.allocate(width, row_height, -1, at(0, y));
-                y += row_height + FAN_SPACING;
-            }
-            return;
-        }
-
-        let Some(front) = shown.first() else {
+        let Some(front) = rows.first() else {
             return;
         };
         let front_height = front.measure(gtk4::Orientation::Vertical, width).1;
+        let progress = self.progress.get();
 
         let strips = self.strips.borrow();
         let count = strips.len();
@@ -195,10 +190,25 @@ impl WidgetImpl for NotificationStack {
         drop(strips);
 
         front.allocate(width, front_height, -1, at(0, y));
+
+        let mut expanded_y = y + front_height + FAN_SPACING;
+        for (index, row) in rows.iter().enumerate().skip(1) {
+            let row_height = row.measure(gtk4::Orientation::Vertical, width).1;
+            let depth = index.min(MAX_DEPTH) as i32;
+            let collapsed_y = y + front_height - STRIP_HEIGHT + STEP * depth;
+            row.allocate(
+                width,
+                row_height,
+                -1,
+                at(0, interpolate(collapsed_y, expanded_y, progress)),
+            );
+            expanded_y += row_height + FAN_SPACING;
+        }
     }
 }
 
 impl NotificationStack {
+    #[cfg(test)]
     pub(crate) fn depth(&self) -> usize {
         if !self.collapsed.get() || self.rows.borrow().len() < super::STACK_MIN_ITEMS {
             return 0;
@@ -206,36 +216,40 @@ impl NotificationStack {
         self.rows.borrow().len().saturating_sub(1).min(MAX_DEPTH)
     }
 
-    fn shown(&self) -> Vec<NotificationCard> {
-        let rows = self.rows.borrow();
-        if self.collapsed.get() {
-            return rows
-                .first()
-                .map(|(_, row)| row.clone())
-                .into_iter()
-                .collect();
-        }
-        rows.iter().map(|(_, row)| row.clone()).collect()
+    fn rows(&self) -> Vec<NotificationCard> {
+        self.rows
+            .borrow()
+            .iter()
+            .map(|(_, row)| row.clone())
+            .collect()
     }
 
-    fn body_height(&self, shown: &[NotificationCard], width: i32) -> i32 {
-        if self.collapsed.get() {
-            let front = shown
-                .first()
-                .map(|row| row.measure(gtk4::Orientation::Vertical, width).1)
-                .unwrap_or(0);
-            return front + STEP * self.depth() as i32;
-        }
-
-        let mut height = 0;
-        for (index, row) in shown.iter().enumerate() {
+    fn body_height(&self, rows: &[NotificationCard], width: i32) -> i32 {
+        let front = rows
+            .first()
+            .map(|row| row.measure(gtk4::Orientation::Vertical, width).1)
+            .unwrap_or(0);
+        let collapsed = front + STEP * self.visual_depth() as i32;
+        let mut expanded = 0;
+        for (index, row) in rows.iter().enumerate() {
             if index > 0 {
-                height += FAN_SPACING;
+                expanded += FAN_SPACING;
             }
-            height += row.measure(gtk4::Orientation::Vertical, width).1;
+            expanded += row.measure(gtk4::Orientation::Vertical, width).1;
         }
-        height
+        interpolate(collapsed, expanded, self.progress.get())
     }
+
+    pub(crate) fn visual_depth(&self) -> usize {
+        if self.rows.borrow().len() < super::STACK_MIN_ITEMS || self.progress.get() >= 1.0 {
+            return 0;
+        }
+        self.rows.borrow().len().saturating_sub(1).min(MAX_DEPTH)
+    }
+}
+
+pub(crate) fn interpolate(from: i32, to: i32, progress: f64) -> i32 {
+    (from as f64 + (to - from) as f64 * progress).round() as i32
 }
 
 fn at(x: i32, y: i32) -> Option<gsk::Transform> {
