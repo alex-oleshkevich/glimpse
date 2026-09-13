@@ -484,6 +484,26 @@ fn application_name(declared: &str, app_id: &str) -> String {
     desktop_name(&app_id).unwrap_or(app_id)
 }
 
+fn application_id(
+    desktop_entry: Option<String>,
+    process_desktop_entry: Option<String>,
+    sender: Option<String>,
+    id: u32,
+) -> String {
+    desktop_entry
+        .filter(|app_id| !app_id.is_empty())
+        .or(process_desktop_entry)
+        .or(sender)
+        .unwrap_or_else(|| format!("notification-{id}"))
+}
+
+fn process_desktop_entry(pid: Option<i32>) -> Option<String> {
+    let executable =
+        std::fs::read_link(Path::new("/proc").join(pid?.to_string()).join("exe")).ok()?;
+    let app_id = executable.file_name()?.to_str()?;
+    DesktopAppInfo::new(&format!("{app_id}.desktop")).map(|_| app_id.to_owned())
+}
+
 fn desktop_name(app_id: &str) -> Option<String> {
     if app_id.contains('/') {
         return None;
@@ -648,15 +668,18 @@ impl Served {
         #[zbus(header)] header: zbus::message::Header<'_>,
     ) -> u32 {
         let id = allocate(&mut self.next, replaces_id);
+        let app_pid = self.sender_pid(&header).await;
 
-        let app_id = hint_str(&hints, "desktop-entry")
-            .filter(|app_id| !app_id.is_empty())
-            .or_else(|| header.sender().map(ToString::to_string))
-            .unwrap_or_else(|| format!("notification-{id}"));
+        let app_id = application_id(
+            hint_str(&hints, "desktop-entry"),
+            process_desktop_entry(app_pid),
+            header.sender().map(ToString::to_string),
+            id,
+        );
         let incoming = Incoming {
             app_name,
             app_id,
-            app_pid: self.sender_pid(&header).await,
+            app_pid,
             icon: (!app_icon.is_empty()).then_some(app_icon),
             image: image_hint(&hints),
             summary,
@@ -1227,6 +1250,34 @@ mod tests {
         assert_eq!(
             declared.app_id, "org.telegram.desktop",
             "grouping keys on the sender's identity, not on the name it chose"
+        );
+    }
+
+    #[test]
+    fn a_process_desktop_entry_stabilizes_short_lived_bus_senders() {
+        let first = application_id(
+            None,
+            Some("walz".to_owned()),
+            Some(":1.195415".to_owned()),
+            1,
+        );
+        let second = application_id(
+            None,
+            Some("walz".to_owned()),
+            Some(":1.197442".to_owned()),
+            2,
+        );
+
+        assert_eq!(first, "walz");
+        assert_eq!(second, first);
+        assert_eq!(
+            application_id(
+                Some("org.example.Chat".to_owned()),
+                Some("walz".to_owned()),
+                Some(":1.197442".to_owned()),
+                3,
+            ),
+            "org.example.Chat"
         );
     }
 
