@@ -1,15 +1,14 @@
-use std::{any::Any, hash::Hash, panic::AssertUnwindSafe, sync::Arc};
+use std::{any::Any, hash::Hash, panic::AssertUnwindSafe};
 
 use futures_util::FutureExt;
 use glimpse_dbus::Buses;
-use glimpse_ipc::{CallError, ErrorCode};
-use serde::de::DeserializeOwned;
-use serde_json::Value;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use tokio_util::sync::CancellationToken;
 
+use crate::Ctx;
 use crate::subscription::{Live, Sub};
-use crate::{BrokerHandle, Ctx, Responder, ServiceState};
+
+pub use glimpse_contracts::ServiceState;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
@@ -21,30 +20,26 @@ pub enum ServiceError {
     Bus(String),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum CommandError {
+    #[error("invalid argument: {0}")]
+    InvalidArgument(String),
+    #[error("unavailable: {0}")]
+    Unavailable(String),
+    #[error("unsupported: {0}")]
+    Unsupported(String),
+    #[error("limit exceeded: {0}")]
+    LimitExceeded(String),
+    #[error("internal error: {0}")]
+    Internal(String),
+}
+
 pub enum Input<S: Service> {
     Event(S::Event),
-    Command(S::Command, Responder),
+    Command(S::Command),
     Config(S::Config),
 }
 
-/// The error a service returns for a name it does not answer. Shared by the default `decode` and
-/// by the fallback arm of one that is implemented, so the wording cannot drift between them.
-pub fn unknown_command(service: &str, method: &str) -> CallError {
-    CallError::new(
-        ErrorCode::UnknownCommand,
-        format!("`{service}` does not answer `{method}`"),
-    )
-}
-
-/// Wire payloads accept unknown fields on purpose, so a newer client and an older daemon survive
-/// version skew; what this catches is a missing or mistyped argument.
-pub fn decode_args<T: DeserializeOwned>(args: Value) -> Result<T, CallError> {
-    serde_json::from_value(args)
-        .map_err(|error| CallError::new(ErrorCode::InvalidArgs, error.to_string()))
-}
-
-/// The configuration of a service that reads none. `()` cannot be used: `From<&Config> for ()`
-/// puts a foreign trait on a foreign type, which the orphan rules refuse.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NoConfig;
 
@@ -54,71 +49,19 @@ impl From<&glimpse_config::Config> for NoConfig {
     }
 }
 
-/// Checks a service's declarations against what actually exists: every name in `TOPICS` and
-/// `METHODS` is one `glimpse-contracts` declares, and every name in `METHODS` reaches an arm of
-/// `decode`. The broker routes by `METHODS` alone, so a name it carries that `decode` refuses is a
-/// command a client can call and always see fail. Nothing makes these agree at compile time —
-/// `const { assert!(...) }` and an associated-const check both compile and never fire.
-///
-/// Call it from one test per service.
-pub fn assert_declarations<S: Service>() {
-    for topic in S::TOPICS {
-        assert!(
-            glimpse_contracts::ALL_TOPICS.contains(topic),
-            "`{}` declares topic `{topic}`, which no `topics!` entry defines",
-            S::NAME,
-        );
-    }
-
-    for method in S::METHODS {
-        assert!(
-            glimpse_contracts::ALL_COMMANDS.contains(method),
-            "`{}` declares method `{method}`, which no `commands!` entry defines",
-            S::NAME,
-        );
-        // Null args are enough: a missing arm answers `UnknownCommand`, while an arm that exists
-        // and wants real arguments answers `InvalidArgs`, which is the pass.
-        if let Err(error) = S::decode(method, Value::Null) {
-            assert_ne!(
-                error.code,
-                ErrorCode::UnknownCommand,
-                "`{}` declares method `{method}` but `decode` refuses it",
-                S::NAME,
-            );
-        }
-    }
-}
-
 pub trait Service: Sized + Send + 'static {
-    /// Identifies the service in `system.services` and owns its topics in the registry.
     const NAME: &'static str;
 
-    /// Every topic this service may publish, declared before it starts. The broker needs the
-    /// mapping while the service is still stopped: a `get` on one of these has to answer
-    /// "declared, no value" rather than "unknown", and a pattern has to match it.
-    const TOPICS: &'static [&'static str];
-
-    /// Every command this service answers, declared the same way and for the same reason as
-    /// `TOPICS`: the broker routes a `call` by this map, and `system.methods` is built from it.
-    const METHODS: &'static [&'static str] = &[];
-
     type Config: Clone + PartialEq + Send + 'static + for<'a> From<&'a glimpse_config::Config>;
+    type State: Clone + PartialEq + Send + Sync + 'static;
+    type Handle: Clone + Send + 'static;
     type Command: Send + 'static;
     type Event: Send + 'static;
-    /// Identifies one declared source across reconciliations. `()` for a service that declares
-    /// none, since associated type defaults are still unstable.
+    type Dependencies: Send + 'static;
     type SubKey: Eq + Hash + Send + 'static;
 
-    /// Turns a wire call into this service's own command type. Anything in `METHODS` must decode
-    /// here, and the default refuses everything, which is right for a service that declares none.
-    fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> {
-        let _ = args;
-        Err(unknown_command(Self::NAME, method))
-    }
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle;
 
-    /// The sources that should be running, given the service as it stands. Called after `start` and
-    /// after every input; a key that is still named is left alone, one that is gone is torn down,
-    /// one that is new is built. Effects that fire once belong in `ctx.spawn`, not here.
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         Vec::new()
     }
@@ -126,6 +69,7 @@ pub trait Service: Sized + Send + 'static {
     fn start(
         ctx: &Ctx<Self>,
         config: Self::Config,
+        dependencies: Self::Dependencies,
     ) -> impl Future<Output = Result<Self, ServiceError>> + Send;
     fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) -> impl Future<Output = ()> + Send;
     fn stop(self, ctx: &Ctx<Self>) -> impl Future<Output = ()> + Send {
@@ -134,13 +78,54 @@ pub trait Service: Sized + Send + 'static {
     }
 }
 
-/// The service's one inbox, carrying events, commands and configuration together. One channel means
-/// one order: a command and the event that follows it are handled in the order they were produced,
-/// which two channels raced against each other could not promise.
 const INBOX_SIZE: usize = 128;
+
+pub struct ServiceEndpoint<S: Service> {
+    state: watch::Receiver<S::State>,
+    health: watch::Receiver<ServiceState>,
+    input: mpsc::Sender<Input<S>>,
+}
+
+impl<S: Service> Clone for ServiceEndpoint<S> {
+    fn clone(&self) -> Self {
+        Self {
+            state: self.state.clone(),
+            health: self.health.clone(),
+            input: self.input.clone(),
+        }
+    }
+}
+
+impl<S: Service> ServiceEndpoint<S> {
+    pub(crate) fn snapshot(&self) -> S::State {
+        self.state.borrow().clone()
+    }
+
+    pub(crate) fn subscribe(&self) -> watch::Receiver<S::State> {
+        self.state.clone()
+    }
+
+    pub(crate) fn health(&self) -> watch::Receiver<ServiceState> {
+        self.health.clone()
+    }
+
+    pub(crate) fn command(&self, command: S::Command) -> Result<(), CommandError> {
+        self.input.try_send(Input::Command(command)).map_err(|_| {
+            CommandError::Unavailable(format!("`{}` is not accepting commands", S::NAME))
+        })
+    }
+}
 
 pub struct ServiceSender<S: Service> {
     inbox_tx: mpsc::Sender<Input<S>>,
+}
+
+impl<S: Service> Clone for ServiceSender<S> {
+    fn clone(&self) -> Self {
+        Self {
+            inbox_tx: self.inbox_tx.clone(),
+        }
+    }
 }
 
 impl<S: Service> ServiceSender<S> {
@@ -148,43 +133,21 @@ impl<S: Service> ServiceSender<S> {
         self.inbox_tx
             .send(input)
             .await
-            .map_err(|e| ServiceError::SendError(e.to_string()))
+            .map_err(|error| ServiceError::SendError(error.to_string()))
     }
 
-    /// Offers a configuration rather than queueing it. Awaiting here would park the one task that
-    /// reloads every service behind whichever of them is wedged, so a full inbox costs this
-    /// service its update and costs the others nothing.
     pub fn reconfigure(&self, config: S::Config) {
         match self.inbox_tx.try_send(Input::Config(config)) {
             Ok(()) => {}
-            // A backlog this deep is a service that has stopped answering, and it is losing a
-            // setting the user just wrote.
             Err(mpsc::error::TrySendError::Full(_)) => {
                 tracing::warn!(
                     service = S::NAME,
                     "inbox full, dropped a configuration update"
                 );
             }
-            // A stopped service is the ordinary shutdown case, and warning about it every time
-            // would teach everyone to ignore the line above.
             Err(mpsc::error::TrySendError::Closed(_)) => {
                 tracing::debug!(service = S::NAME, "stopped, dropped a configuration update");
             }
-        }
-    }
-
-    /// Offers a command rather than queueing it, because the caller is the broker and the broker
-    /// must never await. A full or closed inbox means the command did not take effect, which the
-    /// caller has to be told rather than left to assume.
-    pub fn dispatch(&self, command: S::Command, responder: Responder) {
-        let Err(rejected) = self.inbox_tx.try_send(Input::Command(command, responder)) else {
-            return;
-        };
-        if let Input::Command(_, responder) = rejected.into_inner() {
-            responder.fail(CallError::new(
-                ErrorCode::Unavailable,
-                format!("`{}` is not accepting commands", S::NAME),
-            ));
         }
     }
 }
@@ -192,25 +155,33 @@ impl<S: Service> ServiceSender<S> {
 pub struct ServiceRuntime<S: Service> {
     inbox_sender: mpsc::Sender<Input<S>>,
     inbox: mpsc::Receiver<Input<S>>,
-    broker: Arc<dyn BrokerHandle>,
+    state: watch::Sender<S::State>,
+    health: watch::Sender<ServiceState>,
     buses: Buses,
     cancel: CancellationToken,
 }
 
 impl<S: Service> ServiceRuntime<S> {
-    pub fn new(
-        broker_handle: Arc<dyn BrokerHandle>,
-        buses: Buses,
-        cancel: CancellationToken,
-    ) -> Self {
-        let (inbox_tx, inbox_rx) = mpsc::channel::<Input<S>>(INBOX_SIZE);
-        Self {
-            cancel,
-            buses,
-            inbox: inbox_rx,
-            broker: broker_handle,
-            inbox_sender: inbox_tx,
-        }
+    pub fn new(initial: S::State, buses: Buses, cancel: CancellationToken) -> (Self, S::Handle) {
+        let (inbox_sender, inbox) = mpsc::channel(INBOX_SIZE);
+        let (state, state_rx) = watch::channel(initial);
+        let (health, health_rx) = watch::channel(ServiceState::Starting);
+        let handle = S::from_endpoint(ServiceEndpoint {
+            state: state_rx,
+            health: health_rx,
+            input: inbox_sender.clone(),
+        });
+        (
+            Self {
+                inbox_sender,
+                inbox,
+                state,
+                health,
+                buses,
+                cancel,
+            },
+            handle,
+        )
     }
 
     pub fn sender(&self) -> ServiceSender<S> {
@@ -219,28 +190,31 @@ impl<S: Service> ServiceRuntime<S> {
         }
     }
 
-    pub async fn run(&mut self, config: S::Config) -> Result<(), ServiceError> {
+    pub async fn run(
+        &mut self,
+        config: S::Config,
+        dependencies: S::Dependencies,
+    ) -> Result<(), ServiceError> {
         let ctx = Ctx::<S>::new(
             self.inbox_sender.clone(),
             &self.cancel,
-            self.broker.clone(),
+            self.state.clone(),
+            self.health.clone(),
             self.buses.clone(),
         );
 
-        self.broker.report_health(S::NAME, ServiceState::Starting);
-        let mut service = match S::start(&ctx, config).await {
+        set_health(&self.health, ServiceState::Starting);
+        let mut service = match S::start(&ctx, config, dependencies).await {
             Ok(service) => service,
             Err(error) => {
-                // `start` may already have opened sources before it failed.
+                self.close_inbox();
                 ctx.shutdown().await;
                 self.report_stopped(Some(error.to_string()));
                 return Err(error);
             }
         };
-        // A service that judged itself degraded while starting keeps that state: reporting
-        // `Running` over the top would erase the reason before anyone could read it.
         if !ctx.is_degraded() {
-            self.broker.report_health(S::NAME, ServiceState::Running);
+            set_health(&self.health, ServiceState::Running);
         }
 
         let mut live = Live::<S>::new();
@@ -255,10 +229,6 @@ impl<S: Service> ServiceRuntime<S> {
                 },
             };
 
-            // A panicking handler takes down its own service and nothing else. Unwinding past a
-            // `&mut self` the handler was midway through mutating leaves it in a state nobody can
-            // reason about, so the service stops rather than carrying on with it — and `stop` is
-            // skipped for the same reason.
             let handled = AssertUnwindSafe(async {
                 service.handle(&ctx, input).await;
                 service.subscriptions()
@@ -275,6 +245,7 @@ impl<S: Service> ServiceRuntime<S> {
                         reason,
                         "handler panicked, stopping the service"
                     );
+                    self.close_inbox();
                     ctx.shutdown().await;
                     self.report_stopped(Some(reason));
                     return Ok(());
@@ -282,8 +253,7 @@ impl<S: Service> ServiceRuntime<S> {
             }
         }
 
-        // Sources stop before `stop` runs, so nothing can still be delivering into a service that
-        // is already tearing down.
+        self.close_inbox();
         ctx.shutdown().await;
         service.stop(&ctx).await;
         self.report_stopped(None);
@@ -291,9 +261,24 @@ impl<S: Service> ServiceRuntime<S> {
     }
 
     fn report_stopped(&self, reason: Option<String>) {
-        self.broker
-            .report_health(S::NAME, ServiceState::Stopped { reason });
+        set_health(&self.health, ServiceState::Stopped { reason });
     }
+
+    fn close_inbox(&mut self) {
+        self.inbox.close();
+        while self.inbox.try_recv().is_ok() {}
+    }
+}
+
+pub(crate) fn set_health(health: &watch::Sender<ServiceState>, next: ServiceState) {
+    health.send_if_modified(|current| {
+        if *current == next {
+            false
+        } else {
+            *current = next;
+            true
+        }
+    });
 }
 
 pub(crate) fn panic_reason(panic: &(dyn Any + Send)) -> String {
@@ -308,23 +293,32 @@ pub(crate) fn panic_reason(panic: &(dyn Any + Send)) -> String {
 
 #[cfg(test)]
 mod tests {
-    use glimpse_contracts::{HeartbeatTick, Message};
+    use futures_util::{StreamExt, stream};
 
     use super::*;
-    use crate::{MockBroker, Publisher};
 
     struct Panicky;
 
     impl Service for Panicky {
         const NAME: &'static str = "panicky";
-        const TOPICS: &'static [&'static str] = &[];
 
         type Config = NoConfig;
+        type State = ();
+        type Handle = ServiceEndpoint<Self>;
         type Command = ();
         type Event = ();
+        type Dependencies = ();
         type SubKey = ();
 
-        async fn start(_ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
+        fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+            endpoint
+        }
+
+        async fn start(
+            _ctx: &Ctx<Self>,
+            _config: Self::Config,
+            _dependencies: Self::Dependencies,
+        ) -> Result<Self, ServiceError> {
             Ok(Self)
         }
 
@@ -333,113 +327,148 @@ mod tests {
         }
     }
 
-    /// The panic is expected and its message reaches the log; what matters is that the service is
-    /// reported `Stopped` rather than left `Running`, and that `run` returns instead of unwinding
-    /// into the daemon.
     #[tokio::test]
-    async fn a_panicking_handler_stops_its_own_service() {
-        let mock = Arc::new(MockBroker::default());
-        let broker: Arc<dyn BrokerHandle> = mock.clone();
-        let mut runtime = ServiceRuntime::<Panicky>::new(
-            broker,
+    async fn a_panicking_handler_stops_its_service() {
+        let (mut runtime, handle) = ServiceRuntime::<Panicky>::new(
+            (),
             Buses::unavailable("no bus in tests"),
             CancellationToken::new(),
         );
-
         runtime
             .sender()
             .send(Input::Event(()))
             .await
             .expect("queued");
         runtime
-            .run(NoConfig)
+            .run(NoConfig, ())
             .await
             .expect("run returns rather than unwinding");
 
-        let states: Vec<ServiceState> = mock.health().into_iter().map(|(_, s)| s).collect();
-        assert_eq!(states.first(), Some(&ServiceState::Starting));
-        assert!(states.contains(&ServiceState::Running));
-        assert!(
-            matches!(states.last(), Some(ServiceState::Stopped { reason: Some(reason) })
-                if reason.contains("unrepeatable")),
-            "expected a Stopped carrying the panic message, got {states:?}"
-        );
+        assert!(matches!(
+            &*handle.health().borrow(),
+            ServiceState::Stopped { reason: Some(reason) } if reason.contains("unrepeatable")
+        ));
     }
 
-    /// A service whose source is declared only once the model says so, which is what the runtime
-    /// has to notice: `start` opens nothing, and the command is the only thing that arms it.
-    struct Armable {
-        armed: bool,
-        published: Publisher<HeartbeatTick>,
-    }
+    struct RefusesToStart;
 
-    #[derive(PartialEq, Eq, Hash)]
-    struct Armed;
-
-    impl Service for Armable {
-        const NAME: &'static str = "armable";
-        const TOPICS: &'static [&'static str] = &[HeartbeatTick::NAME];
+    impl Service for RefusesToStart {
+        const NAME: &'static str = "refuses-to-start";
 
         type Config = NoConfig;
-        type Command = ();
-        type Event = u64;
-        type SubKey = Armed;
+        type State = ();
+        type Handle = ServiceEndpoint<Self>;
+        type Command = tokio::sync::oneshot::Sender<()>;
+        type Event = ();
+        type Dependencies = ();
+        type SubKey = ();
 
-        fn subscriptions(&self) -> Vec<Sub<Self>> {
-            match self.armed {
-                false => Vec::new(),
-                true => vec![Sub::stream(Armed, |_ctx| async {
-                    futures_util::stream::once(async { 7 })
-                })],
-            }
+        fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+            endpoint
         }
 
-        async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
-            Ok(Self {
-                armed: false,
-                published: ctx.publisher::<HeartbeatTick>(),
-            })
+        async fn start(
+            _ctx: &Ctx<Self>,
+            _config: Self::Config,
+            _dependencies: Self::Dependencies,
+        ) -> Result<Self, ServiceError> {
+            Err(ServiceError::StartError)
         }
 
         async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {
-            match input {
-                Input::Command((), responder) => {
-                    self.armed = true;
-                    responder.ok(());
-                }
-                Input::Event(count) => self.published.set(HeartbeatTick { count }),
-                Input::Config(NoConfig) => {}
+            if let Input::Command(reply) = input {
+                let _ = reply.send(());
             }
         }
     }
 
-    /// Without the reconcile after `handle`, the command flips the flag and nothing ever starts.
+    #[tokio::test]
+    async fn a_failed_start_settles_queued_command_replies() {
+        let (mut runtime, handle) = ServiceRuntime::<RefusesToStart>::new(
+            (),
+            Buses::unavailable("no bus in tests"),
+            CancellationToken::new(),
+        );
+        let (reply, answer) = tokio::sync::oneshot::channel();
+        handle.command(reply).expect("queued");
+
+        assert!(runtime.run(NoConfig, ()).await.is_err());
+        assert!(answer.await.is_err());
+    }
+
+    struct Armable {
+        armed: bool,
+    }
+
+    impl Service for Armable {
+        const NAME: &'static str = "armable";
+
+        type Config = NoConfig;
+        type State = u8;
+        type Handle = ServiceEndpoint<Self>;
+        type Command = ();
+        type Event = u8;
+        type Dependencies = ();
+        type SubKey = ();
+
+        fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+            endpoint
+        }
+
+        fn subscriptions(&self) -> Vec<Sub<Self>> {
+            self.armed
+                .then(|| {
+                    Sub::stream((), |_ctx| async {
+                        stream::once(async { 7 }).chain(stream::pending())
+                    })
+                })
+                .into_iter()
+                .collect()
+        }
+
+        async fn start(
+            _ctx: &Ctx<Self>,
+            _config: Self::Config,
+            _dependencies: Self::Dependencies,
+        ) -> Result<Self, ServiceError> {
+            Ok(Self { armed: false })
+        }
+
+        async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
+            match input {
+                Input::Command(()) => self.armed = true,
+                Input::Event(value) => {
+                    ctx.publisher().set(value);
+                }
+                Input::Config(_) => {}
+            }
+        }
+    }
+
     #[tokio::test]
     async fn a_source_declared_by_a_handler_is_started_by_the_runtime() {
-        let mock = Arc::new(MockBroker::default());
-        let broker: Arc<dyn BrokerHandle> = mock.clone();
         let cancel = CancellationToken::new();
-        let mut runtime = ServiceRuntime::<Armable>::new(
-            broker,
+        let (mut runtime, handle) = ServiceRuntime::<Armable>::new(
+            0,
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
+        runtime
+            .sender()
+            .send(Input::Command(()))
+            .await
+            .expect("queued");
 
-        let (reply, answered) = tokio::sync::oneshot::channel();
-        runtime.sender().dispatch((), Responder::new(reply));
-
-        let running = tokio::spawn(async move { runtime.run(NoConfig).await });
-        answered.await.expect("the handler answered").expect("ok");
+        let running = tokio::spawn(async move { runtime.run(NoConfig, ()).await });
         for _ in 0..8 {
             tokio::task::yield_now().await;
         }
+        assert_eq!(handle.snapshot(), 7);
         cancel.cancel();
         let _ = running.await;
-
-        let topics: Vec<String> = mock.published().into_iter().map(|(t, _)| t).collect();
         assert!(
-            topics.contains(&HeartbeatTick::NAME.to_owned()),
-            "the declared source never ran, published {topics:?}"
+            handle.command(()).is_err(),
+            "a stopped service rejects commands"
         );
     }
 
@@ -447,14 +476,24 @@ mod tests {
 
     impl Service for NeedsTheBus {
         const NAME: &'static str = "needs-the-bus";
-        const TOPICS: &'static [&'static str] = &[];
 
         type Config = NoConfig;
+        type State = ();
+        type Handle = ServiceEndpoint<Self>;
         type Command = ();
         type Event = ();
+        type Dependencies = ();
         type SubKey = ();
 
-        async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
+        fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+            endpoint
+        }
+
+        async fn start(
+            ctx: &Ctx<Self>,
+            _config: Self::Config,
+            _dependencies: Self::Dependencies,
+        ) -> Result<Self, ServiceError> {
             if let Err(reason) = ctx.system_bus() {
                 ctx.degraded(format!("no system bus: {reason}"));
             }
@@ -464,33 +503,27 @@ mod tests {
         async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {}
     }
 
-    /// A missing bus costs the service its backend, not its life: it still starts, still reaches
-    /// `Running`, and puts the reason somewhere `glimpsectl services` can read it.
     #[tokio::test]
     async fn a_service_without_a_bus_degrades_and_keeps_running() {
-        let mock = Arc::new(MockBroker::default());
-        let broker: Arc<dyn BrokerHandle> = mock.clone();
         let cancel = CancellationToken::new();
-        let mut runtime = ServiceRuntime::<NeedsTheBus>::new(
-            broker,
+        let (mut runtime, handle) = ServiceRuntime::<NeedsTheBus>::new(
+            (),
             Buses::unavailable("connect failed"),
             cancel.clone(),
         );
+        let mut health = handle.health();
+        let running = tokio::spawn(async move { runtime.run(NoConfig, ()).await });
+
+        health.changed().await.expect("health changes");
+        assert!(matches!(
+            &*health.borrow(),
+            ServiceState::Degraded { reason } if reason.contains("connect failed")
+        ));
 
         cancel.cancel();
-        runtime.run(NoConfig).await.expect("starts without a bus");
-
-        let states: Vec<ServiceState> = mock.health().into_iter().map(|(_, s)| s).collect();
-        assert!(
-            states.iter().any(|state| matches!(
-                state,
-                ServiceState::Degraded { reason } if reason.contains("connect failed")
-            )),
-            "expected a Degraded naming the connect failure, got {states:?}"
-        );
-        assert!(
-            !states.contains(&ServiceState::Running),
-            "a service that degraded during start must not then be reported Running, got {states:?}"
-        );
+        running
+            .await
+            .expect("runtime joins")
+            .expect("runtime stops");
     }
 }

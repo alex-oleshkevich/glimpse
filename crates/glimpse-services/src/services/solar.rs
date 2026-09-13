@@ -1,25 +1,25 @@
 use std::f64::consts::TAU;
 
 use chrono::{DateTime, Datelike, Local, NaiveDate, Utc};
-use glimpse_contracts::{
-    Command as _, GeoCoordinates, GeolocationStatus, Message, SolarPhase, SolarRefresh, SolarStatus,
+use glimpse_contracts::{GeoCoordinates, GeolocationStatus, SolarPhase, SolarStatus};
+use tokio::{
+    sync::{oneshot, watch},
+    time,
 };
-use glimpse_ipc::CallError;
-use serde_json::Value;
-use tokio::time;
 
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{Input, NoConfig, Service, ServiceError, unknown_command},
+    service::{CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
 
 const TICK: time::Duration = time::Duration::from_secs(60);
 
-#[derive(Debug, PartialEq)]
 pub enum Command {
-    Refresh,
+    Refresh {
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
 }
 
 pub enum Event {
@@ -28,8 +28,44 @@ pub enum Event {
 }
 
 pub struct Solar {
-    status: Publisher<SolarStatus>,
+    status: Publisher<Option<SolarStatus>>,
     coordinates: Option<GeoCoordinates>,
+    location: watch::Receiver<GeolocationStatus>,
+}
+
+pub struct SolarDependencies {
+    pub geolocation: super::geolocation::GeolocationHandle,
+}
+
+#[derive(Clone)]
+pub struct SolarHandle(ServiceEndpoint<Solar>);
+
+impl SolarHandle {
+    pub fn snapshot(&self) -> Option<SolarStatus> {
+        self.0.snapshot()
+    }
+
+    pub fn subscribe(&self) -> watch::Receiver<Option<SolarStatus>> {
+        self.0.subscribe()
+    }
+
+    pub fn health(&self) -> watch::Receiver<crate::ServiceState> {
+        self.0.health()
+    }
+
+    pub async fn refresh(&self) -> Result<(), CommandError> {
+        let (reply, answer) = oneshot::channel();
+        self.0.command(Command::Refresh { reply })?;
+        answer.await.map_err(|_| {
+            CommandError::Unavailable("`solar` stopped before refreshing".to_owned())
+        })?
+    }
+}
+
+impl Solar {
+    pub fn initial_state() -> Option<SolarStatus> {
+        None
+    }
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -40,20 +76,28 @@ pub enum Watch {
 
 impl Service for Solar {
     const NAME: &'static str = "solar";
-    const TOPICS: &'static [&'static str] = &[SolarStatus::NAME];
-    const METHODS: &'static [&'static str] = &[SolarRefresh::NAME];
 
     type Config = NoConfig;
+    type State = Option<SolarStatus>;
+    type Handle = SolarHandle;
     type Command = Command;
     type Event = Event;
+    type Dependencies = SolarDependencies;
     type SubKey = Watch;
+
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        SolarHandle(endpoint)
+    }
 
     /// The tick re-evaluates a phase that only a location can produce, so without one it would wake
     /// every minute to return immediately.
     fn subscriptions(&self) -> Vec<Sub<Self>> {
-        let mut declared = vec![Sub::topic::<GeolocationStatus>(Watch::Location, |data| {
-            Event::Update(data.coordinates)
-        })];
+        let mut declared = vec![Sub::watch(
+            Watch::Location,
+            self.location.clone(),
+            |data| Event::Update(data.coordinates),
+            Event::Update(None),
+        )];
         if self.coordinates.is_some() {
             declared.push(Sub::interval(Watch::Tick, TICK, |_ctx| async {
                 Event::Tick
@@ -62,18 +106,16 @@ impl Service for Solar {
         declared
     }
 
-    fn decode(method: &str, _args: Value) -> Result<Self::Command, CallError> {
-        match method {
-            SolarRefresh::NAME => Ok(Command::Refresh),
-            _ => Err(unknown_command(Self::NAME, method)),
-        }
-    }
-
-    async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
+    async fn start(
+        ctx: &Ctx<Self>,
+        _config: Self::Config,
+        dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
         ctx.degraded("no location yet");
         Ok(Self {
             coordinates: None,
-            status: ctx.publisher::<SolarStatus>(),
+            status: ctx.publisher(),
+            location: dependencies.geolocation.subscribe(),
         })
     }
 
@@ -85,12 +127,15 @@ impl Service for Solar {
                     None => ctx.degraded("no location; the solar phase is unknown"),
                 }
                 self.coordinates = coordinates;
+                if self.coordinates.is_none() {
+                    self.status.set(None);
+                }
                 self.refresh();
             }
             Input::Event(Event::Tick) => self.refresh(),
-            Input::Command(Command::Refresh, responder) => {
+            Input::Command(Command::Refresh { reply }) => {
                 self.refresh();
-                responder.ok(());
+                let _ = reply.send(Ok(()));
             }
             Input::Config(NoConfig) => {}
         }
@@ -104,7 +149,7 @@ impl Solar {
         };
         let now = Local::now();
         if let Some(phase) = phase_at(now.with_timezone(&Utc), now.date_naive(), coordinates) {
-            self.status.set(SolarStatus { phase });
+            self.status.set(Some(SolarStatus { phase }));
         }
     }
 }
@@ -141,15 +186,13 @@ fn polar_phase(date: NaiveDate, latitude: f64) -> SolarPhase {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use chrono::{TimeDelta, TimeZone};
     use glimpse_dbus::Buses;
-    use glimpse_ipc::ErrorCode;
     use tokio_util::sync::CancellationToken;
 
+    use super::super::geolocation::{Config, Geolocation, Provider};
     use super::*;
-    use crate::{BrokerHandle, MockBroker, ServiceState, service::ServiceRuntime};
+    use crate::{ServiceState, service::ServiceRuntime};
 
     const LONDON: GeoCoordinates = GeoCoordinates {
         latitude: 51.5074,
@@ -173,25 +216,6 @@ mod tests {
         Utc.with_ymd_and_hms(2026, 6, 21, hour, minute, 0)
             .single()
             .expect("one instant")
-    }
-
-    #[test]
-    fn declared_topics_and_methods_exist() {
-        crate::service::assert_declarations::<Solar>();
-    }
-
-    #[test]
-    fn decode_answers_the_method_it_declares_and_refuses_the_rest() {
-        assert_eq!(
-            Solar::decode(SolarRefresh::NAME, Value::Null).expect("declared"),
-            Command::Refresh
-        );
-        assert_eq!(
-            Solar::decode("solar.set_phase", Value::Null)
-                .expect_err("never declared")
-                .code,
-            ErrorCode::UnknownCommand
-        );
     }
 
     #[test]
@@ -251,81 +275,109 @@ mod tests {
         );
     }
 
-    fn phases(mock: &MockBroker) -> Vec<SolarPhase> {
-        mock.published()
-            .into_iter()
-            .filter(|(topic, _)| topic == SolarStatus::NAME)
-            .filter_map(|(_, data)| serde_json::from_value::<SolarStatus>(data).ok())
-            .map(|status| status.phase)
-            .collect()
-    }
-
-    async fn located(coordinates: Option<GeoCoordinates>) -> Arc<MockBroker> {
-        let mock = Arc::new(MockBroker::default());
-        let broker: Arc<dyn BrokerHandle> = mock.clone();
+    async fn located(coordinates: Option<GeoCoordinates>) -> (Option<SolarStatus>, ServiceState) {
         let cancel = CancellationToken::new();
-        let mut runtime = ServiceRuntime::<Solar>::new(
-            broker,
+        let (mut location_runtime, location) = ServiceRuntime::<Geolocation>::new(
+            Geolocation::initial_state(),
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
+        let location_config = Config {
+            provider: Provider::Manual(coordinates),
+        };
+        let location_task = tokio::spawn(async move {
+            let _ = location_runtime.run(location_config, ()).await;
+        });
+        for _ in 0..8 {
+            tokio::task::yield_now().await;
+        }
+
+        let (mut runtime, handle) = ServiceRuntime::<Solar>::new(
+            Solar::initial_state(),
+            Buses::unavailable("no bus in tests"),
+            cancel.clone(),
+        );
+        let health = handle.health();
 
         let running = tokio::spawn(async move {
-            let _ = runtime.run(NoConfig).await;
+            let _ = runtime
+                .run(
+                    NoConfig,
+                    SolarDependencies {
+                        geolocation: location,
+                    },
+                )
+                .await;
         });
-        // The subscription is declared after `start`, so it has to exist before anything is
-        // delivered into it.
         for _ in 0..8 {
             tokio::task::yield_now().await;
         }
-
-        let payload =
-            serde_json::to_value(GeolocationStatus { coordinates }).expect("a wire payload");
-        mock.deliver(GeolocationStatus::NAME, &payload);
-        for _ in 0..8 {
-            tokio::task::yield_now().await;
-        }
+        let current_health = health.borrow().clone();
+        let current_state = handle.snapshot();
 
         cancel.cancel();
         let _ = running.await;
-        mock
+        let _ = location_task.await;
+        (current_state, current_health)
     }
 
     /// The phase lands on the location rather than up to a tick later — the tick is not even
     /// declared until there are coordinates.
     #[tokio::test]
     async fn a_location_publishes_a_phase_without_waiting_for_a_tick() {
-        let mock = located(Some(LONDON)).await;
+        let (state, health) = located(Some(LONDON)).await;
 
-        assert_eq!(phases(&mock).len(), 1, "one phase, on the location");
-        // `start` degrades, so the runtime never reports `Running` over the top of it: a `Running`
-        // anywhere in the log can only be the one the location withdrew it with.
-        assert!(
-            mock.health()
-                .iter()
-                .any(|(_, state)| *state == ServiceState::Running),
-            "a located service withdraws its degraded state, got {:?}",
-            mock.health()
-        );
+        assert!(state.is_some());
+        assert_eq!(health, ServiceState::Running);
     }
 
     #[tokio::test]
     async fn without_a_location_the_service_degrades_and_publishes_nothing() {
-        let mock = located(None).await;
+        let (state, health) = located(None).await;
 
-        assert!(
-            phases(&mock).is_empty(),
-            "there is no honest phase to publish"
+        assert_eq!(state, None, "there is no honest phase to publish");
+        assert!(matches!(
+            health,
+            ServiceState::Degraded { reason } if reason.contains("phase is unknown")
+        ));
+    }
+
+    #[tokio::test]
+    async fn losing_the_location_invalidates_the_phase() {
+        let cancel = CancellationToken::new();
+        let (location_runtime, location) = ServiceRuntime::<Geolocation>::new(
+            Geolocation::initial_state(),
+            Buses::unavailable("no bus in tests"),
+            cancel.clone(),
         );
-        // The reason, not just the state: `start` degrades too, so anything vaguer passes whether
-        // or not the location branch ever ran.
-        assert!(
-            mock.health().iter().any(|(_, state)| matches!(
-                state,
-                ServiceState::Degraded { reason } if reason.contains("phase is unknown")
-            )),
-            "expected a Degraded naming the unknown phase, got {:?}",
-            mock.health()
+        drop(location_runtime);
+        let (events, _inbox) = tokio::sync::mpsc::channel(4);
+        let (state, state_rx) = tokio::sync::watch::channel(Solar::initial_state());
+        let (health, _health_rx) = tokio::sync::watch::channel(ServiceState::Starting);
+        let ctx = Ctx::<Solar>::new(
+            events,
+            &cancel,
+            state,
+            health,
+            Buses::unavailable("no bus in tests"),
         );
+        let mut solar = Solar::start(
+            &ctx,
+            NoConfig,
+            SolarDependencies {
+                geolocation: location,
+            },
+        )
+        .await
+        .expect("starts");
+
+        solar
+            .handle(&ctx, Input::Event(Event::Update(Some(LONDON))))
+            .await;
+        assert!(state_rx.borrow().is_some());
+
+        solar.handle(&ctx, Input::Event(Event::Update(None))).await;
+        assert_eq!(*state_rx.borrow(), None);
+        assert!(ctx.is_degraded());
     }
 }

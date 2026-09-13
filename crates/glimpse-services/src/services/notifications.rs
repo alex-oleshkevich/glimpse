@@ -6,15 +6,11 @@ use std::{
 use chrono::Utc;
 use gio_unix::{DesktopAppInfo, prelude::*};
 use glimpse_contracts::{
-    Command as _, DEFAULT_ACTION, DoNotDisturb, Message, NotificationAction, NotificationRecord,
-    NotificationUrgency, NotificationsActivate, NotificationsClearAll, NotificationsClearApp,
-    NotificationsDismiss, NotificationsDnd, NotificationsInvokeAction, NotificationsList,
-    NotificationsRemove, NotificationsSetDnd,
+    DEFAULT_ACTION, DoNotDisturb, NotificationAction, NotificationRecord, NotificationUrgency,
+    NotificationsDnd, NotificationsList,
 };
-use glimpse_ipc::{CallError, ErrorCode};
 use regex::Regex;
-use serde_json::Value;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use zbus::fdo::DBusProxy;
 use zbus::object_server::SignalEmitter;
 use zbus::zvariant::OwnedValue;
@@ -23,8 +19,7 @@ use zbus::{Connection, interface};
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{Input, Service, ServiceError, decode_args, unknown_command},
-    subscription::Sub,
+    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
 };
 
 const BUS_NAME: &str = "org.freedesktop.Notifications";
@@ -66,25 +61,33 @@ pub enum Event {
 pub enum Command {
     Dismiss {
         id: u32,
+        reply: oneshot::Sender<Result<(), CommandError>>,
     },
     Remove {
         id: u32,
+        reply: oneshot::Sender<Result<(), CommandError>>,
     },
     Activate {
         id: u32,
         token: Option<String>,
+        reply: oneshot::Sender<Result<(), CommandError>>,
     },
     InvokeAction {
         id: u32,
         action: String,
         token: Option<String>,
+        reply: oneshot::Sender<Result<(), CommandError>>,
     },
     ClearApp {
         app_id: String,
+        reply: oneshot::Sender<Result<(), CommandError>>,
     },
-    ClearAll,
+    ClearAll {
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
     SetDnd {
         dnd: DoNotDisturb,
+        reply: oneshot::Sender<Result<(), CommandError>>,
     },
 }
 
@@ -109,11 +112,94 @@ pub enum Watch {}
 /// glimpsed is the store here, not a mirror: nothing else on the session bus holds these, so a
 /// notification exists exactly as long as this service keeps it.
 pub struct Notifications {
-    list: Publisher<NotificationsList>,
-    quiet: Publisher<NotificationsDnd>,
+    state: Publisher<NotificationsState>,
     store: Store,
     dnd: DoNotDisturb,
     connection: Option<Connection>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NotificationsState {
+    pub list: Option<NotificationsList>,
+    pub dnd: Option<NotificationsDnd>,
+}
+
+#[derive(Clone)]
+pub struct NotificationsHandle(ServiceEndpoint<Notifications>);
+
+impl NotificationsHandle {
+    pub fn snapshot(&self) -> NotificationsState {
+        self.0.snapshot()
+    }
+
+    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<NotificationsState> {
+        self.0.subscribe()
+    }
+
+    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
+        self.0.health()
+    }
+
+    async fn call(
+        &self,
+        command: impl FnOnce(oneshot::Sender<Result<(), CommandError>>) -> Command,
+    ) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(command(reply))?;
+        result.await.map_err(|_| {
+            CommandError::Unavailable(
+                "notifications stopped before completing the command".to_owned(),
+            )
+        })?
+    }
+
+    pub async fn dismiss(&self, id: u32) -> Result<(), CommandError> {
+        self.call(|reply| Command::Dismiss { id, reply }).await
+    }
+
+    pub async fn remove(&self, id: u32) -> Result<(), CommandError> {
+        self.call(|reply| Command::Remove { id, reply }).await
+    }
+
+    pub async fn activate(&self, id: u32, token: Option<String>) -> Result<(), CommandError> {
+        self.call(|reply| Command::Activate {
+            id,
+            token: valid_activation_token(token),
+            reply,
+        })
+        .await
+    }
+
+    pub async fn invoke_action(
+        &self,
+        id: u32,
+        action: String,
+        token: Option<String>,
+    ) -> Result<(), CommandError> {
+        self.call(|reply| Command::InvokeAction {
+            id,
+            action,
+            token: valid_activation_token(token),
+            reply,
+        })
+        .await
+    }
+
+    pub async fn clear_app(&self, app_id: String) -> Result<(), CommandError> {
+        self.call(|reply| Command::ClearApp { app_id, reply }).await
+    }
+
+    pub async fn clear_all(&self) -> Result<(), CommandError> {
+        self.call(|reply| Command::ClearAll { reply }).await
+    }
+
+    pub async fn set_dnd(&self, dnd: DoNotDisturb) -> Result<(), CommandError> {
+        self.call(|reply| Command::SetDnd { dnd, reply }).await
+    }
+}
+
+pub fn initial_state() -> NotificationsState {
+    NotificationsState::default()
 }
 
 /// Everything the service decides about what to keep, with no publisher and no bus in it, so the
@@ -127,75 +213,26 @@ pub struct Store {
 
 impl Service for Notifications {
     const NAME: &'static str = "notifications";
-    const TOPICS: &'static [&'static str] = &[NotificationsList::NAME, NotificationsDnd::NAME];
-    const METHODS: &'static [&'static str] = &[
-        NotificationsDismiss::NAME,
-        NotificationsRemove::NAME,
-        NotificationsActivate::NAME,
-        NotificationsInvokeAction::NAME,
-        NotificationsClearApp::NAME,
-        NotificationsClearAll::NAME,
-        NotificationsSetDnd::NAME,
-    ];
 
     type Config = Config;
+    type State = NotificationsState;
+    type Handle = NotificationsHandle;
     type Command = Command;
     type Event = Event;
+    type Dependencies = ();
     type SubKey = Watch;
 
-    fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> {
-        match method {
-            NotificationsDismiss::NAME => {
-                let NotificationsDismiss { id } = decode_args(args)?;
-                Ok(Command::Dismiss { id })
-            }
-            NotificationsRemove::NAME => {
-                let NotificationsRemove { id } = decode_args(args)?;
-                Ok(Command::Remove { id })
-            }
-            NotificationsActivate::NAME => {
-                let NotificationsActivate {
-                    id,
-                    activation_token,
-                } = decode_args(args)?;
-                Ok(Command::Activate {
-                    id,
-                    token: valid_activation_token(activation_token),
-                })
-            }
-            NotificationsInvokeAction::NAME => {
-                let NotificationsInvokeAction {
-                    id,
-                    action,
-                    activation_token,
-                } = decode_args(args)?;
-                Ok(Command::InvokeAction {
-                    id,
-                    action,
-                    token: valid_activation_token(activation_token),
-                })
-            }
-            NotificationsClearApp::NAME => {
-                let NotificationsClearApp { app_id } = decode_args(args)?;
-                Ok(Command::ClearApp { app_id })
-            }
-            NotificationsClearAll::NAME => Ok(Command::ClearAll),
-            NotificationsSetDnd::NAME => {
-                let NotificationsSetDnd { dnd } = decode_args(args)?;
-                Ok(Command::SetDnd { dnd })
-            }
-            _ => Err(unknown_command(Self::NAME, method)),
-        }
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        NotificationsHandle(endpoint)
     }
 
-    fn subscriptions(&self) -> Vec<Sub<Self>> {
-        Vec::new()
-    }
-
-    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, ServiceError> {
+    async fn start(
+        ctx: &Ctx<Self>,
+        config: Self::Config,
+        (): Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
         let mut service = Self {
-            list: ctx.publisher::<NotificationsList>(),
-            quiet: ctx.publisher::<NotificationsDnd>(),
+            state: ctx.publisher(),
             store: Store::with_suppression(config.keep, &config.suppress),
             dnd: DoNotDisturb::default(),
             connection: None,
@@ -248,18 +285,18 @@ impl Service for Notifications {
                 }
             }
             Input::Event(Event::Retracted { id }) => self.remove(id, CLOSED_BY_SENDER).await,
-            Input::Command(Command::Dismiss { id }, responder) => {
+            Input::Command(Command::Dismiss { id, reply }) => {
                 if self.store.dismiss(id) {
                     self.publish();
                     self.closed(id, CLOSED_BY_READER).await;
                 }
-                responder.ok(());
+                let _ = reply.send(Ok(()));
             }
-            Input::Command(Command::Remove { id }, responder) => {
+            Input::Command(Command::Remove { id, reply }) => {
                 self.remove(id, CLOSED_BY_READER).await;
-                responder.ok(());
+                let _ = reply.send(Ok(()));
             }
-            Input::Command(Command::Activate { id, token }, responder) => {
+            Input::Command(Command::Activate { id, token, reply }) => {
                 if let Some(activation) = self.store.activation(id) {
                     if activation.invoke_default {
                         self.invoked(id, DEFAULT_ACTION, token.as_deref()).await;
@@ -269,44 +306,50 @@ impl Service for Notifications {
                         self.closed(id, CLOSED_BY_READER).await;
                     }
                 }
-                responder.ok(());
+                let _ = reply.send(Ok(()));
             }
-            Input::Command(Command::InvokeAction { id, action, token }, responder) => {
-                match self.store.offered(id, &action) {
-                    Some(resident) => {
-                        self.invoked(id, &action, token.as_deref()).await;
-                        if !resident && self.store.dismiss(id) {
-                            self.publish();
-                            self.closed(id, CLOSED_BY_READER).await;
-                        }
-                        responder.ok(());
+            Input::Command(Command::InvokeAction {
+                id,
+                action,
+                token,
+                reply,
+            }) => match self.store.offered(id, &action) {
+                Some(resident) => {
+                    self.invoked(id, &action, token.as_deref()).await;
+                    if !resident && self.store.dismiss(id) {
+                        self.publish();
+                        self.closed(id, CLOSED_BY_READER).await;
                     }
-                    None => responder.fail(CallError::new(
-                        ErrorCode::InvalidArgs,
-                        format!("no notification {id} offering action {action}"),
-                    )),
+                    let _ = reply.send(Ok(()));
                 }
-            }
-            Input::Command(Command::ClearApp { app_id }, responder) => {
+                None => {
+                    let _ = reply.send(Err(CommandError::InvalidArgument(format!(
+                        "no notification {id} offering action {action}"
+                    ))));
+                }
+            },
+            Input::Command(Command::ClearApp { app_id, reply }) => {
                 let gone = self.store.drain(|record| record.app_id == app_id);
                 self.publish();
                 for id in gone {
                     self.closed(id, CLOSED_BY_READER).await;
                 }
-                responder.ok(());
+                let _ = reply.send(Ok(()));
             }
-            Input::Command(Command::ClearAll, responder) => {
+            Input::Command(Command::ClearAll { reply }) => {
                 let gone = self.store.drain(|_| true);
                 self.publish();
                 for id in gone {
                     self.closed(id, CLOSED_BY_READER).await;
                 }
-                responder.ok(());
+                let _ = reply.send(Ok(()));
             }
-            Input::Command(Command::SetDnd { dnd }, responder) => {
+            Input::Command(Command::SetDnd { dnd, reply }) => {
                 self.dnd = dnd;
-                self.quiet.set(NotificationsDnd { dnd: self.dnd });
-                responder.ok(());
+                self.state.update(|state| {
+                    state.dnd = Some(NotificationsDnd { dnd: self.dnd });
+                });
+                let _ = reply.send(Ok(()));
             }
             Input::Config(config) => {
                 if self.store.reconfigure(config.keep, &config.suppress) {
@@ -526,14 +569,15 @@ struct Activation {
 
 impl Notifications {
     fn publish(&mut self) {
-        self.list.set(NotificationsList {
+        let list = NotificationsList {
             notifications: self.store.records(),
+        };
+        self.state.update(|state| {
+            state.list = Some(list);
+            state.dnd = Some(NotificationsDnd { dnd: self.dnd });
         });
-        self.quiet.set(NotificationsDnd { dnd: self.dnd });
     }
 
-    /// A signal carries no reply, so emitting one inside the handler costs a socket write rather
-    /// than a round trip and does not need the `Responder` moved into a spawn.
     async fn closed(&self, id: u32, reason: u32) {
         let Some(connection) = &self.connection else {
             return;
@@ -833,14 +877,11 @@ fn urgency(hints: &HashMap<String, OwnedValue>) -> NotificationUrgency {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use glimpse_dbus::Buses;
-    use tokio::sync::oneshot;
     use tokio_util::sync::CancellationToken;
 
     use super::*;
-    use crate::{BrokerHandle, MockBroker, broker::Responder, service::ServiceRuntime};
+    use crate::service::ServiceRuntime;
 
     fn incoming(app: &str, summary: &str) -> Incoming {
         Incoming {
@@ -864,11 +905,6 @@ mod tests {
             store.post(*id, incoming(app, summary));
         }
         store
-    }
-
-    #[test]
-    fn declared_topics_and_methods_exist() {
-        crate::service::assert_declarations::<Notifications>();
     }
 
     #[test]
@@ -1157,21 +1193,23 @@ mod tests {
 
     #[tokio::test]
     async fn invoking_a_non_resident_action_closes_it_into_history() {
-        let mock = Arc::new(MockBroker::default());
-        let broker: Arc<dyn BrokerHandle> = mock.clone();
         let cancel = CancellationToken::new();
-        let mut runtime = ServiceRuntime::<Notifications>::new(
-            broker,
+        let (mut runtime, handle) = ServiceRuntime::<Notifications>::new(
+            initial_state(),
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
         let sender = runtime.sender();
+        let mut state = handle.subscribe();
         let running = tokio::spawn(async move {
             runtime
-                .run(Config {
-                    keep: 10,
-                    suppress: Vec::new(),
-                })
+                .run(
+                    Config {
+                        keep: 10,
+                        suppress: Vec::new(),
+                    },
+                    (),
+                )
                 .await
         });
 
@@ -1185,28 +1223,37 @@ mod tests {
             }))
             .await
             .expect("posted");
-        let (reply, answer) = oneshot::channel();
-        sender.dispatch(
-            Command::InvokeAction {
-                id: 1,
-                action: DEFAULT_ACTION.to_owned(),
-                token: None,
-            },
-            Responder::new(reply),
-        );
-        answer.await.expect("answered").expect("invoked");
+        state
+            .wait_for(|state| {
+                state.list.as_ref().is_some_and(|list| {
+                    list.notifications
+                        .iter()
+                        .any(|notification| notification.id == 1 && notification.unread)
+                })
+            })
+            .await
+            .expect("posted state");
+        handle
+            .invoke_action(1, DEFAULT_ACTION.to_owned(), None)
+            .await
+            .expect("invoked");
+        state
+            .wait_for(|state| {
+                state.list.as_ref().is_some_and(|list| {
+                    list.notifications
+                        .iter()
+                        .any(|notification| notification.id == 1 && !notification.unread)
+                })
+            })
+            .await
+            .expect("dismissed state");
+        let latest = handle.snapshot();
         cancel.cancel();
         running.await.expect("joined").expect("stopped");
 
-        let latest = mock
-            .published()
-            .into_iter()
-            .filter(|(topic, _)| topic == NotificationsList::NAME)
-            .filter_map(|(_, value)| serde_json::from_value::<NotificationsList>(value).ok())
-            .next_back()
-            .expect("a list was published");
-        assert_eq!(latest.notifications.len(), 1);
-        assert!(!latest.notifications[0].unread);
+        let list = latest.list.expect("a list was published");
+        assert_eq!(list.notifications.len(), 1);
+        assert!(!list.notifications[0].unread);
     }
 
     #[test]
@@ -1383,46 +1430,19 @@ mod tests {
     }
 
     #[test]
-    fn a_name_the_service_does_not_declare_is_refused() {
-        let error =
-            Notifications::decode("notifications.detonate", Value::Null).expect_err("refused");
-        assert_eq!(error.code, ErrorCode::UnknownCommand);
-    }
-
-    #[test]
-    fn a_mistyped_argument_is_refused_as_an_argument_not_as_a_missing_command() {
-        let error = Notifications::decode(
-            NotificationsDismiss::NAME,
-            serde_json::json!({ "id": "first" }),
-        )
-        .expect_err("refused");
-        assert_eq!(error.code, ErrorCode::InvalidArgs);
-    }
-
-    /// A token is a capability the compositor accepts whole or refuses, so shortening one the way
-    /// every other cap here does would hand back a token that fails for reasons nobody can see.
-    /// The specification makes the signal optional, so dropping is legal where mangling is not.
-    #[test]
     fn a_token_that_is_empty_or_over_the_bound_is_dropped_rather_than_shortened() {
-        let decoded = |args: Value| {
-            let Ok(Command::InvokeAction { token, .. }) =
-                Notifications::decode(NotificationsInvokeAction::NAME, args)
-            else {
-                panic!("invoke_action decodes to an InvokeAction");
-            };
-            token
-        };
-        let with = |token: &str| serde_json::json!({ "id": 1, "action": "default", "activation_token": token });
-
-        assert_eq!(decoded(with("tok-1")).as_deref(), Some("tok-1"));
         assert_eq!(
-            decoded(serde_json::json!({ "id": 1, "action": "default" })),
+            valid_activation_token(Some("tok-1".to_owned())).as_deref(),
+            Some("tok-1")
+        );
+        assert_eq!(
+            valid_activation_token(None),
             None,
             "a client that cannot mint one leaves it out"
         );
-        assert_eq!(decoded(with("")), None);
+        assert_eq!(valid_activation_token(Some(String::new())), None);
         assert_eq!(
-            decoded(with(&"t".repeat(ACTIVATION_TOKEN_MAX_CHARS + 1))),
+            valid_activation_token(Some("t".repeat(ACTIVATION_TOKEN_MAX_CHARS + 1))),
             None,
             "an overlong token is refused rather than truncated into a wrong one"
         );

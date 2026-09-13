@@ -6,23 +6,19 @@ use std::time::Duration;
 use chrono::{DateTime, NaiveDateTime, NaiveTime, TimeDelta, TimeZone as _, Utc};
 use futures_util::{StreamExt as _, stream, stream::BoxStream};
 use glimpse_config::{CalendarSource, CalendarSourceKind, Update};
-use glimpse_contracts::{
-    CalendarEvent, CalendarEvents, CalendarRefresh, CalendarSetRange, Command as _, Message as _,
-};
-use glimpse_ipc::CallError;
+use glimpse_contracts::{CalendarEvent, CalendarEvents};
 use glimpse_utils::clean;
 use icalendar::{
     Calendar as ICalendar, CalendarDateTime, Component as _, DatePerhapsTime, Event as IEvent,
     EventLike as _,
 };
 use reqwest::Url;
-use serde_json::Value;
-use tokio::fs;
+use tokio::{fs, sync::oneshot};
 
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{Input, Service, ServiceError, decode_args, unknown_command},
+    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
 
@@ -41,13 +37,60 @@ const TIMEOUT: Duration = Duration::from_secs(20);
 use super::{AGENT, transport};
 const WEBCAL: &str = "webcal://";
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum Command {
-    Refresh,
+    Refresh {
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
     Range {
         from: DateTime<Utc>,
         to: DateTime<Utc>,
+        reply: oneshot::Sender<Result<(), CommandError>>,
     },
+}
+
+#[derive(Clone)]
+pub struct CalendarHandle(ServiceEndpoint<Calendar>);
+
+impl CalendarHandle {
+    pub fn snapshot(&self) -> CalendarEvents {
+        self.0.snapshot()
+    }
+
+    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<CalendarEvents> {
+        self.0.subscribe()
+    }
+
+    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
+        self.0.health()
+    }
+
+    pub async fn refresh(&self) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::Refresh { reply })?;
+        result.await.map_err(|_| {
+            CommandError::Unavailable("calendar stopped before refreshing".to_owned())
+        })?
+    }
+
+    pub async fn set_range(
+        &self,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::Range { from, to, reply })?;
+        result.await.map_err(|_| {
+            CommandError::Unavailable("calendar stopped before changing its range".to_owned())
+        })?
+    }
+}
+
+pub fn initial_state() -> CalendarEvents {
+    CalendarEvents {
+        events: Vec::new(),
+        truncated_from: None,
+    }
 }
 
 pub enum Event {
@@ -172,13 +215,18 @@ pub struct Calendar {
 
 impl Service for Calendar {
     const NAME: &'static str = "calendar";
-    const TOPICS: &'static [&'static str] = &[CalendarEvents::NAME];
-    const METHODS: &'static [&'static str] = &[CalendarRefresh::NAME, CalendarSetRange::NAME];
 
     type Config = Config;
+    type State = CalendarEvents;
+    type Handle = CalendarHandle;
     type Command = Command;
     type Event = Event;
+    type Dependencies = ();
     type SubKey = Watch;
+
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        CalendarHandle(endpoint)
+    }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         let mut declared = Vec::new();
@@ -256,21 +304,11 @@ impl Service for Calendar {
         declared
     }
 
-    fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> {
-        match method {
-            CalendarRefresh::NAME => Ok(Command::Refresh),
-            CalendarSetRange::NAME => {
-                let asked: CalendarSetRange = decode_args(args)?;
-                Ok(Command::Range {
-                    from: asked.from,
-                    to: asked.to,
-                })
-            }
-            _ => Err(unknown_command(Self::NAME, method)),
-        }
-    }
-
-    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, ServiceError> {
+    async fn start(
+        ctx: &Ctx<Self>,
+        config: Self::Config,
+        (): Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
         let client = match reqwest::Client::builder()
             .timeout(TIMEOUT)
             .user_agent(AGENT)
@@ -284,7 +322,7 @@ impl Service for Calendar {
         };
 
         Ok(Self {
-            events: ctx.publisher::<CalendarEvents>(),
+            events: ctx.publisher(),
             client,
             sources: config.sources,
             poll: config.poll_interval,
@@ -334,17 +372,17 @@ impl Service for Calendar {
                 self.report(ctx);
                 self.generation += 1;
             }
-            Input::Command(Command::Refresh, responder) => {
+            Input::Command(Command::Refresh { reply }) => {
                 self.attempt += 1;
-                responder.ok(());
+                let _ = reply.send(Ok(()));
             }
-            Input::Command(Command::Range { from, to }, responder) => {
+            Input::Command(Command::Range { from, to, reply }) => {
                 let window = Window::asked(from, to);
                 if window != self.window {
                     self.window = window;
                     self.generation += 1;
                 }
-                responder.ok(());
+                let _ = reply.send(Ok(()));
             }
         }
     }
@@ -712,11 +750,10 @@ mod tests {
 
     use chrono::{Datelike as _, TimeZone};
     use glimpse_dbus::Buses;
-    use glimpse_ipc::ErrorCode;
     use tokio_util::sync::CancellationToken;
 
     use super::*;
-    use crate::{BrokerHandle, MockBroker, ServiceState, service::ServiceRuntime};
+    use crate::{ServiceState, service::ServiceRuntime};
 
     const DOCUMENT: &str = "\
 BEGIN:VCALENDAR\r
@@ -774,39 +811,6 @@ END:VCALENDAR\r
             },
             ..Default::default()
         }
-    }
-
-    #[test]
-    fn declared_topics_and_methods_exist() {
-        crate::service::assert_declarations::<Calendar>();
-    }
-
-    #[test]
-    fn decode_answers_the_method_it_declares_and_refuses_the_rest() {
-        assert_eq!(
-            Calendar::decode(CalendarRefresh::NAME, Value::Null).expect("declared"),
-            Command::Refresh
-        );
-        let asked = serde_json::json!({ "from": now(), "to": now() + TimeDelta::days(60) });
-        assert_eq!(
-            Calendar::decode(CalendarSetRange::NAME, asked).expect("declared"),
-            Command::Range {
-                from: now(),
-                to: now() + TimeDelta::days(60)
-            }
-        );
-        assert_eq!(
-            Calendar::decode(CalendarSetRange::NAME, Value::Null)
-                .expect_err("a range with no instants in it")
-                .code,
-            ErrorCode::InvalidArgs
-        );
-        assert_eq!(
-            Calendar::decode("calendar.set_events", Value::Null)
-                .expect_err("never declared")
-                .code,
-            ErrorCode::UnknownCommand
-        );
     }
 
     /// `Duration::from_secs(0)` makes `tokio::time::interval` panic, and every value between one
@@ -1186,10 +1190,8 @@ END:VCALENDAR\r
         assert_eq!(wide.events[0].summary, "Far");
     }
 
-    /// `DateTime + TimeDelta` panics on overflow, a handler that panics stops its service for
-    /// good, and an extended year deserializes off the wire — `+262142-06-01T00:00:00Z` is
-    /// accepted by the very `decode` that feeds this. One command would have taken the calendar
-    /// down until the daemon restarted.
+    /// `DateTime + TimeDelta` panics on overflow, so an extended year must be clipped before it
+    /// reaches the expansion code.
     #[test]
     fn a_range_at_the_far_end_of_time_is_clipped_rather_than_panicking() {
         let far: DateTime<Utc> = serde_json::from_str("\"+262142-06-01T00:00:00Z\"")
@@ -1202,14 +1204,6 @@ END:VCALENDAR\r
             window.to,
             DateTime::<Utc>::MAX_UTC,
             "the widest window it can have is everything left"
-        );
-        let asked = serde_json::json!({ "from": far, "to": DateTime::<Utc>::MAX_UTC });
-        assert!(
-            matches!(
-                Calendar::decode(CalendarSetRange::NAME, asked),
-                Ok(Command::Range { .. })
-            ),
-            "the instant that overflows is one `decode` accepts, which is what made it reachable"
         );
     }
 
@@ -1232,8 +1226,34 @@ END:VCALENDAR\r
 
     /// A fetch reaches the filesystem through tokio's blocking pool, which yielding does not
     /// advance: without waiting on real time the inbox is still empty when the assertion runs.
+    #[derive(Default)]
+    struct Observation {
+        states: std::sync::Mutex<Vec<CalendarEvents>>,
+        health: std::sync::Mutex<Vec<ServiceState>>,
+    }
+
+    impl Observation {
+        fn published(&self) -> Vec<CalendarEvents> {
+            self.states
+                .lock()
+                .expect("state lock")
+                .iter()
+                .cloned()
+                .collect()
+        }
+
+        fn health(&self) -> Vec<ServiceState> {
+            self.health
+                .lock()
+                .expect("health lock")
+                .iter()
+                .cloned()
+                .collect()
+        }
+    }
+
     struct Live {
-        mock: Arc<MockBroker>,
+        observation: Arc<Observation>,
         sender: crate::service::ServiceSender<Calendar>,
         cancel: CancellationToken,
         handle: tokio::task::JoinHandle<()>,
@@ -1241,79 +1261,103 @@ END:VCALENDAR\r
 
     impl Live {
         fn start(sources: Vec<CalendarSource>) -> Self {
-            let mock = Arc::new(MockBroker::default());
-            let broker: Arc<dyn BrokerHandle> = mock.clone();
+            let observation = Arc::new(Observation::default());
             let cancel = CancellationToken::new();
-            let mut runtime = ServiceRuntime::<Calendar>::new(
-                broker,
+            let (mut runtime, handle) = ServiceRuntime::<Calendar>::new(
+                initial_state(),
                 Buses::unavailable("no bus in tests"),
                 cancel.clone(),
             );
+            let mut state = handle.subscribe();
+            let mut health = handle.health();
+            let observed = observation.clone();
+            let initial = handle.snapshot();
+            tokio::spawn(async move {
+                observed.states.lock().expect("state lock").push(initial);
+                observed
+                    .health
+                    .lock()
+                    .expect("health lock")
+                    .push(health.borrow().clone());
+                loop {
+                    tokio::select! {
+                        changed = state.changed() => {
+                            if changed.is_err() { break; }
+                            observed.states.lock().expect("state lock").push(state.borrow_and_update().clone());
+                        }
+                        changed = health.changed() => {
+                            if changed.is_err() { break; }
+                            observed.health.lock().expect("health lock").push(health.borrow_and_update().clone());
+                        }
+                    }
+                }
+            });
             let sender = runtime.sender();
             let handle = tokio::spawn(async move {
                 let _ = runtime
-                    .run(Config {
-                        poll_interval: MIN_POLL,
-                        sources,
-                    })
+                    .run(
+                        Config {
+                            poll_interval: MIN_POLL,
+                            sources,
+                        },
+                        (),
+                    )
                     .await;
             });
 
             Self {
-                mock,
+                observation,
                 sender,
                 cancel,
                 handle,
             }
         }
 
-        async fn until(&self, done: impl Fn(&MockBroker) -> bool) -> bool {
+        async fn until(&self, done: impl Fn(&Observation) -> bool) -> bool {
             for _ in 0..400 {
                 tokio::time::sleep(Duration::from_millis(10)).await;
-                if done(&self.mock) {
+                if done(&self.observation) {
                     return true;
                 }
             }
             false
         }
 
-        async fn stop(self) -> Arc<MockBroker> {
+        async fn stop(self) -> Arc<Observation> {
             self.cancel.cancel();
             let _ = self.handle.await;
-            self.mock
+            self.observation
         }
     }
 
     async fn settled(
         sources: Vec<CalendarSource>,
-        done: impl Fn(&MockBroker) -> bool,
-    ) -> Arc<MockBroker> {
+        done: impl Fn(&Observation) -> bool,
+    ) -> Arc<Observation> {
         let live = Live::start(sources);
         live.until(done).await;
         live.stop().await
     }
 
-    fn marks(mock: &MockBroker) -> Vec<Option<DateTime<Utc>>> {
-        mock.published()
+    fn marks(observation: &Observation) -> Vec<Option<DateTime<Utc>>> {
+        observation
+            .published()
             .into_iter()
-            .filter(|(topic, _)| topic == CalendarEvents::NAME)
-            .filter_map(|(_, data)| serde_json::from_value::<CalendarEvents>(data).ok())
             .map(|payload| payload.truncated_from)
             .collect()
     }
 
-    fn holds(mock: &MockBroker, summary: &str) -> bool {
-        published(mock)
+    fn holds(observation: &Observation, summary: &str) -> bool {
+        published(observation)
             .into_iter()
             .flatten()
             .any(|event| event.summary == summary)
     }
 
-    fn published(mock: &MockBroker) -> Vec<Vec<CalendarEvent>> {
-        mock.published()
+    fn published(observation: &Observation) -> Vec<Vec<CalendarEvent>> {
+        observation
+            .published()
             .into_iter()
-            .filter(|(topic, _)| topic == CalendarEvents::NAME)
-            .filter_map(|(_, data)| serde_json::from_value::<CalendarEvents>(data).ok())
             .map(|payload| payload.events)
             .collect()
     }
@@ -1327,7 +1371,7 @@ END:VCALENDAR\r
             !mock
                 .health()
                 .iter()
-                .any(|(_, state)| matches!(state, ServiceState::Degraded { .. })),
+                .any(|state| matches!(state, ServiceState::Degraded { .. })),
             "nothing configured is a working calendar, got {:?}",
             mock.health()
         );
@@ -1343,7 +1387,7 @@ END:VCALENDAR\r
             |mock| {
                 mock.health()
                     .iter()
-                    .any(|(_, state)| matches!(state, ServiceState::Degraded { .. }))
+                    .any(|state| matches!(state, ServiceState::Degraded { .. }))
             },
         )
         .await;
@@ -1351,7 +1395,7 @@ END:VCALENDAR\r
         let degraded: Vec<String> = mock
             .health()
             .into_iter()
-            .filter_map(|(_, state)| match state {
+            .filter_map(|state| match state {
                 ServiceState::Degraded { reason } => Some(reason),
                 _ => None,
             })
@@ -1707,13 +1751,13 @@ END:VCALENDAR\r
             |mock| {
                 mock.health()
                     .iter()
-                    .any(|(_, state)| matches!(state, ServiceState::Degraded { .. }))
+                    .any(|state| matches!(state, ServiceState::Degraded { .. }))
             },
         )
         .await;
 
         assert!(
-            mock.health().iter().any(|(_, state)| matches!(
+            mock.health().iter().any(|state| matches!(
                 state,
                 ServiceState::Degraded { reason } if reason.contains("wrong")
             )),
@@ -1773,7 +1817,7 @@ END:VCALENDAR\r
             |mock| {
                 mock.health()
                     .iter()
-                    .any(|(_, state)| matches!(state, ServiceState::Degraded { .. }))
+                    .any(|state| matches!(state, ServiceState::Degraded { .. }))
             },
         )
         .await;
@@ -1781,7 +1825,7 @@ END:VCALENDAR\r
         let degraded: Vec<String> = mock
             .health()
             .into_iter()
-            .filter_map(|(_, state)| match state {
+            .filter_map(|state| match state {
                 ServiceState::Degraded { reason } => Some(reason),
                 _ => None,
             })

@@ -7,23 +7,19 @@ use std::pin::Pin;
 use chrono::{DateTime, Utc};
 use futures_util::{Stream, StreamExt as _, stream};
 use glimpse_contracts::{
-    Command as _, Message, MprisControl, MprisPlayers, MprisSeek, MprisSetPosition, MprisSetRepeat,
-    MprisSetShuffle, MprisSetVolume, Playback, PlayerAction, PlayerCapabilities, PlayerStatus,
-    Repeat,
+    MprisPlayers, Playback, PlayerAction, PlayerCapabilities, PlayerStatus, Repeat,
 };
 use glimpse_dbus::mpris::{MPRIS_NAME_PREFIX, MPRIS_PATH, MprisPlayerProxy, MprisRootProxy};
-use glimpse_ipc::CallError;
 use glimpse_utils::text::clean;
 use regex::Regex;
-use serde_json::Value;
+use tokio::sync::oneshot;
 use zbus::zvariant::{ObjectPath, OwnedValue};
 
 use super::super::{AGENT, say, transport};
-use crate::broker::Responder;
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{Input, Service, ServiceError, decode_args, unknown_command},
+    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
 
@@ -70,9 +66,37 @@ pub enum Event {
 }
 
 #[derive(Debug)]
-pub struct Command {
-    player: String,
-    what: Action,
+pub enum Command {
+    Control {
+        player: String,
+        action: PlayerAction,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    Seek {
+        player: String,
+        offset_us: i64,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    SetPosition {
+        player: String,
+        position_us: i64,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    SetVolume {
+        player: String,
+        volume: f64,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    SetRepeat {
+        player: String,
+        repeat: Repeat,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    SetShuffle {
+        player: String,
+        shuffle: bool,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
 }
 
 #[derive(Debug)]
@@ -121,69 +145,107 @@ pub struct Mpris {
     attempt: u64,
 }
 
+#[derive(Clone)]
+pub struct MprisHandle(ServiceEndpoint<Mpris>);
+
+impl MprisHandle {
+    pub fn snapshot(&self) -> MprisPlayers {
+        self.0.snapshot()
+    }
+
+    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<MprisPlayers> {
+        self.0.subscribe()
+    }
+
+    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
+        self.0.health()
+    }
+
+    async fn call(
+        &self,
+        command: impl FnOnce(oneshot::Sender<Result<(), CommandError>>) -> Command,
+    ) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(command(reply))?;
+        result.await.map_err(|_| {
+            CommandError::Unavailable("mpris stopped before completing the command".to_owned())
+        })?
+    }
+
+    pub async fn control(&self, player: String, action: PlayerAction) -> Result<(), CommandError> {
+        self.call(|reply| Command::Control {
+            player,
+            action,
+            reply,
+        })
+        .await
+    }
+
+    pub async fn seek(&self, player: String, offset_us: i64) -> Result<(), CommandError> {
+        self.call(|reply| Command::Seek {
+            player,
+            offset_us,
+            reply,
+        })
+        .await
+    }
+
+    pub async fn set_position(&self, player: String, position_us: i64) -> Result<(), CommandError> {
+        self.call(|reply| Command::SetPosition {
+            player,
+            position_us,
+            reply,
+        })
+        .await
+    }
+
+    pub async fn set_volume(&self, player: String, volume: f64) -> Result<(), CommandError> {
+        self.call(|reply| Command::SetVolume {
+            player,
+            volume,
+            reply,
+        })
+        .await
+    }
+
+    pub async fn set_repeat(&self, player: String, repeat: Repeat) -> Result<(), CommandError> {
+        self.call(|reply| Command::SetRepeat {
+            player,
+            repeat,
+            reply,
+        })
+        .await
+    }
+
+    pub async fn set_shuffle(&self, player: String, shuffle: bool) -> Result<(), CommandError> {
+        self.call(|reply| Command::SetShuffle {
+            player,
+            shuffle,
+            reply,
+        })
+        .await
+    }
+}
+
+pub fn initial_state() -> MprisPlayers {
+    MprisPlayers {
+        players: Vec::new(),
+    }
+}
+
 impl Service for Mpris {
     const NAME: &'static str = "mpris";
-    const TOPICS: &'static [&'static str] = &[MprisPlayers::NAME];
-    const METHODS: &'static [&'static str] = &[
-        MprisControl::NAME,
-        MprisSeek::NAME,
-        MprisSetPosition::NAME,
-        MprisSetVolume::NAME,
-        MprisSetRepeat::NAME,
-        MprisSetShuffle::NAME,
-    ];
 
     type Config = Config;
+    type State = MprisPlayers;
+    type Handle = MprisHandle;
     type Command = Command;
     type Event = Event;
+    type Dependencies = ();
     type SubKey = Watch;
 
-    fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> {
-        Ok(match method {
-            MprisControl::NAME => {
-                let asked: MprisControl = decode_args(args)?;
-                Command {
-                    player: asked.player,
-                    what: Action::Control(asked.action),
-                }
-            }
-            MprisSeek::NAME => {
-                let asked: MprisSeek = decode_args(args)?;
-                Command {
-                    player: asked.player,
-                    what: Action::Seek(asked.offset_us),
-                }
-            }
-            MprisSetPosition::NAME => {
-                let asked: MprisSetPosition = decode_args(args)?;
-                Command {
-                    player: asked.player,
-                    what: Action::Position(asked.position_us),
-                }
-            }
-            MprisSetVolume::NAME => {
-                let asked: MprisSetVolume = decode_args(args)?;
-                Command {
-                    player: asked.player,
-                    what: Action::Volume(asked.volume),
-                }
-            }
-            MprisSetRepeat::NAME => {
-                let asked: MprisSetRepeat = decode_args(args)?;
-                Command {
-                    player: asked.player,
-                    what: Action::Loop(asked.repeat),
-                }
-            }
-            MprisSetShuffle::NAME => {
-                let asked: MprisSetShuffle = decode_args(args)?;
-                Command {
-                    player: asked.player,
-                    what: Action::Shuffle(asked.shuffle),
-                }
-            }
-            _ => return Err(unknown_command(Self::NAME, method)),
-        })
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        MprisHandle(endpoint)
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
@@ -213,13 +275,17 @@ impl Service for Mpris {
         subs
     }
 
-    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, ServiceError> {
+    async fn start(
+        ctx: &Ctx<Self>,
+        config: Self::Config,
+        (): Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
         if let Err(reason) = ctx.session_bus() {
             ctx.degraded(format!("no session bus: {reason}"));
         }
 
         Ok(Self {
-            players: ctx.publisher::<MprisPlayers>(),
+            players: ctx.publisher(),
             known: BTreeMap::new(),
             art: BTreeMap::new(),
             ignore: select::compile(&config.ignore),
@@ -288,7 +354,7 @@ impl Service for Mpris {
                 self.settings = config;
                 self.publish();
             }
-            Input::Command(command, responder) => self.act(ctx, command, responder),
+            Input::Command(command) => self.act(ctx, command),
         }
     }
 }
@@ -364,12 +430,43 @@ impl Mpris {
         }
     }
 
-    fn act(&mut self, ctx: &Ctx<Self>, command: Command, responder: Responder) {
-        let Some(held) = self.player(&command.player) else {
-            responder.fail(CallError::new(
-                glimpse_ipc::ErrorCode::InvalidArgs,
-                format!("no player `{}`", command.player),
-            ));
+    fn act(&mut self, ctx: &Ctx<Self>, command: Command) {
+        let (player, what, reply) = match command {
+            Command::Control {
+                player,
+                action,
+                reply,
+            } => (player, Action::Control(action), reply),
+            Command::Seek {
+                player,
+                offset_us,
+                reply,
+            } => (player, Action::Seek(offset_us), reply),
+            Command::SetPosition {
+                player,
+                position_us,
+                reply,
+            } => (player, Action::Position(position_us), reply),
+            Command::SetVolume {
+                player,
+                volume,
+                reply,
+            } => (player, Action::Volume(volume), reply),
+            Command::SetRepeat {
+                player,
+                repeat,
+                reply,
+            } => (player, Action::Loop(repeat), reply),
+            Command::SetShuffle {
+                player,
+                shuffle,
+                reply,
+            } => (player, Action::Shuffle(shuffle), reply),
+        };
+        let Some(held) = self.player(&player) else {
+            let _ = reply.send(Err(CommandError::InvalidArgument(format!(
+                "no player `{player}`"
+            ))));
             return;
         };
 
@@ -380,20 +477,15 @@ impl Mpris {
         }
 
         let Ok(connection) = ctx.session_bus().cloned() else {
-            responder.fail(CallError::new(
-                glimpse_ipc::ErrorCode::Unavailable,
-                "no session bus",
-            ));
+            let _ = reply.send(Err(CommandError::Unavailable("no session bus".to_owned())));
             return;
         };
 
         ctx.spawn_detached(move |_ctx| async move {
-            match apply(&connection, &bus, track, command.what).await {
-                Ok(()) => responder.ok(()),
-                Err(reason) => {
-                    responder.fail(CallError::new(glimpse_ipc::ErrorCode::Unavailable, reason))
-                }
-            }
+            let result = apply(&connection, &bus, track, what)
+                .await
+                .map_err(CommandError::Unavailable);
+            let _ = reply.send(result);
         });
     }
 
@@ -687,11 +779,6 @@ mod tests {
     use chrono::TimeZone as _;
 
     use super::*;
-
-    #[test]
-    fn declared_topics_and_methods_exist() {
-        crate::service::assert_declarations::<Mpris>();
-    }
 
     #[test]
     fn a_loop_status_survives_a_round_trip_through_the_wire_name() {

@@ -1,9 +1,4 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicU64, Ordering},
-};
-
-use glimpse_services::{BrokerHandle, ServiceState, Sink, SubscriptionId};
+use glimpse_contracts::ServiceState;
 use serde_json::Value;
 use tokio::sync::mpsc;
 
@@ -14,15 +9,11 @@ use super::Message;
 #[derive(Clone)]
 pub struct Handle {
     tx: mpsc::Sender<Message>,
-    next_id: Arc<AtomicU64>,
 }
 
 impl Handle {
     pub(super) fn new(tx: mpsc::Sender<Message>) -> Self {
-        Self {
-            tx,
-            next_id: Arc::new(AtomicU64::new(0)),
-        }
+        Self { tx }
     }
 
     pub fn send(&self, message: Message) {
@@ -42,30 +33,15 @@ impl Handle {
     }
 }
 
-impl BrokerHandle for Handle {
-    fn publish(&self, topic: &str, data: Value) {
+impl Handle {
+    pub fn publish(&self, topic: &str, data: Value) {
         self.send(Message::Publish {
             topic: topic.to_owned(),
             data,
         });
     }
 
-    fn subscribe(&self, topic: &str, sink: Sink) -> SubscriptionId {
-        // The id is minted here rather than by the task, so the caller gets one without waiting.
-        let id = SubscriptionId(self.next_id.fetch_add(1, Ordering::Relaxed));
-        self.send(Message::Subscribe {
-            id,
-            topic: topic.to_owned(),
-            sink,
-        });
-        id
-    }
-
-    fn unsubscribe(&self, id: SubscriptionId) {
-        self.send(Message::Unsubscribe { id });
-    }
-
-    fn report_health(&self, service: &'static str, state: ServiceState) {
+    pub fn report_health(&self, service: &'static str, state: ServiceState) {
         self.send(Message::Health { service, state });
     }
 }

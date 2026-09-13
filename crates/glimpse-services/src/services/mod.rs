@@ -1,7 +1,7 @@
 /// What every glimpse process calls itself when it asks a server for something.
 pub(crate) const AGENT: &str = concat!("glimpse/", env!("CARGO_PKG_VERSION"));
 
-/// Any error, as the one line a `degraded` reason or a `CallError` carries.
+/// Any error, as the one line a degraded health state or command failure carries.
 pub(crate) fn say(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
@@ -26,13 +26,24 @@ mod session;
 mod solar;
 mod weather;
 
-pub use calendar::Calendar;
-pub use compositor::Compositor;
-pub use geolocation::Geolocation;
-pub use heartbeat::Heartbeat;
-pub use keyboard::Keyboard;
-pub use mpris::Mpris;
-pub use notifications::Notifications;
-pub use session::Session;
-pub use solar::Solar;
-pub use weather::Weather;
+pub use calendar::{Calendar, CalendarHandle, initial_state as initial_calendar_state};
+pub use compositor::{
+    Compositor, CompositorHandle, CompositorState, initial_state as initial_compositor_state,
+};
+pub use geolocation::{Geolocation, GeolocationHandle};
+pub use heartbeat::{Heartbeat, HeartbeatHandle};
+pub use keyboard::{Dependencies as KeyboardDependencies, Keyboard, KeyboardHandle};
+pub use mpris::{Mpris, MprisHandle, initial_state as initial_mpris_state};
+pub use notifications::{
+    Notifications, NotificationsHandle, NotificationsState,
+    initial_state as initial_notifications_state,
+};
+pub use session::{
+    Dependencies as SessionDependencies, Session, SessionHandle,
+    initial_state as initial_session_state,
+};
+pub use solar::{Solar, SolarDependencies, SolarHandle};
+pub use weather::{
+    Config as WeatherConfig, Weather, WeatherDependencies, WeatherHandle,
+    initial_state as initial_weather_state,
+};

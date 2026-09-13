@@ -1,37 +1,66 @@
-use std::sync::Arc;
+use tokio::sync::watch;
 
-use serde::Serialize;
-
-use crate::BrokerHandle;
-
+#[derive(Clone)]
 pub struct Publisher<P> {
-    topic: &'static str,
-    broker: Arc<dyn BrokerHandle>,
-    last: Option<P>,
+    state: watch::Sender<P>,
 }
 
-impl<P: Serialize + PartialEq> Publisher<P> {
-    pub(crate) fn new(topic: &'static str, broker: Arc<dyn BrokerHandle>) -> Self {
-        Self {
-            topic,
-            broker,
-            last: None,
-        }
+impl<P> Publisher<P> {
+    pub(crate) fn new(state: watch::Sender<P>) -> Self {
+        Self { state }
+    }
+}
+
+impl<P: PartialEq> Publisher<P> {
+    pub fn set(&self, value: P) -> bool {
+        self.state.send_if_modified(|held| {
+            if *held == value {
+                return false;
+            }
+            *held = value;
+            true
+        })
     }
 
-    pub fn set(&mut self, value: P) {
-        if self.last.as_ref() == Some(&value) {
-            return;
-        }
+    pub fn update(&self, change: impl FnOnce(&mut P)) -> bool
+    where
+        P: Clone,
+    {
+        self.state.send_if_modified(|held| {
+            let mut next = held.clone();
+            change(&mut next);
+            if *held == next {
+                false
+            } else {
+                *held = next;
+                true
+            }
+        })
+    }
+}
 
-        match serde_json::to_value(&value) {
-            Ok(data) => {
-                self.broker.publish(self.topic, data);
-                self.last = Some(value);
-            }
-            Err(error) => {
-                tracing::error!(topic = self.topic, %error, "payload failed to serialize");
-            }
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unchanged_values_are_suppressed() {
+        let (sender, receiver) = watch::channel(2);
+        let publisher = Publisher::new(sender);
+
+        assert!(!publisher.set(2));
+        assert!(!receiver.has_changed().expect("sender is alive"));
+        assert!(publisher.set(3));
+        assert!(receiver.has_changed().expect("sender is alive"));
+    }
+
+    #[test]
+    fn a_new_receiver_has_the_current_snapshot() {
+        let (sender, receiver) = watch::channel(2);
+        let publisher = Publisher::new(sender);
+        publisher.set(3);
+
+        let current = receiver.clone();
+        assert_eq!(*current.borrow(), 3);
     }
 }

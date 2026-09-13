@@ -1164,7 +1164,6 @@ dependencies = [
  "glimpse-config",
  "glimpse-contracts",
  "glimpse-dbus",
- "glimpse-ipc",
  "glimpse-utils",
  "icalendar",
  "iso8601",

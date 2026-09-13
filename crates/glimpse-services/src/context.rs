@@ -5,10 +5,7 @@ use std::sync::{
 };
 
 use futures_util::{FutureExt, Stream, StreamExt, stream};
-use glimpse_contracts::Message;
 use glimpse_dbus::Buses;
-use serde::Deserialize;
-use serde_json::Value;
 use tokio::{
     sync::{mpsc, watch},
     task::AbortHandle,
@@ -16,15 +13,16 @@ use tokio::{
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
+use crate::ServiceState;
 use crate::publisher::Publisher;
-use crate::service::{Input, Service, panic_reason};
-use crate::{BrokerHandle, ServiceState, SubscriptionId};
+use crate::service::{Input, Service, panic_reason, set_health};
 
 pub struct Ctx<S: Service> {
     events: mpsc::Sender<Input<S>>,
     tasks: TaskTracker,
     cancel: CancellationToken,
-    broker: Arc<dyn BrokerHandle>,
+    state: Publisher<S::State>,
+    health: watch::Sender<ServiceState>,
     buses: Buses,
     degraded: Arc<AtomicBool>,
 }
@@ -37,7 +35,8 @@ impl<S: Service> Clone for Ctx<S> {
             events: self.events.clone(),
             tasks: self.tasks.clone(),
             cancel: self.cancel.clone(),
-            broker: self.broker.clone(),
+            state: self.state.clone(),
+            health: self.health.clone(),
             buses: self.buses.clone(),
             degraded: self.degraded.clone(),
         }
@@ -48,12 +47,14 @@ impl<S: Service> Ctx<S> {
     pub fn new(
         events: mpsc::Sender<Input<S>>,
         cancel: &CancellationToken,
-        broker: Arc<dyn BrokerHandle>,
+        state: watch::Sender<S::State>,
+        health: watch::Sender<ServiceState>,
         buses: Buses,
     ) -> Self {
         Self {
             events,
-            broker,
+            state: Publisher::new(state),
+            health,
             buses,
             degraded: Arc::new(AtomicBool::new(false)),
             tasks: TaskTracker::new(),
@@ -72,50 +73,12 @@ impl<S: Service> Ctx<S> {
         self.buses.system_bus()
     }
 
-    pub fn publisher<T: Message>(&self) -> Publisher<T::Payload> {
-        Publisher::new(T::NAME, self.broker.clone())
+    pub fn publisher(&self) -> Publisher<S::State> {
+        self.state.clone()
     }
 
     pub fn cancel(&self) -> CancellationToken {
         self.cancel.child_token()
-    }
-
-    /// The broker calls the sink from its own task and must never be made to wait, so the sink only
-    /// parks the newest payload in a `watch` cell: the producer never blocks, and a payload that
-    /// arrives before the previous one was read replaces it rather than queueing. A pump task then
-    /// applies `map` and delivers it, which keeps two things off the broker: the wait for a full
-    /// inbox, and the service's own closure — a panic in `map` degrades this service instead of
-    /// taking the broker down with it.
-    pub fn subscribe<T: Message>(
-        &self,
-        map: impl Fn(T::Payload) -> S::Event + Send + 'static,
-    ) -> SourceGuard {
-        let (latest, mut changed) = watch::channel(None::<T::Payload>);
-
-        let id = self.broker.subscribe(
-            T::NAME,
-            Box::new(move |data: &Value| match T::Payload::deserialize(data) {
-                Ok(value) => {
-                    latest.send_replace(Some(value));
-                }
-                Err(err) => tracing::warn!(topic=T::NAME, %err, "undecodable payload"),
-            }),
-        );
-
-        let events = self.events.clone();
-        let mut guard = self.spawn_raw(async move {
-            while changed.changed().await.is_ok() {
-                // Cloned out in its own statement: the borrow guard must not be held across the
-                // send below.
-                let payload = changed.borrow_and_update().clone();
-                let Some(payload) = payload else { continue };
-                if events.send(Input::Event(map(payload))).await.is_err() {
-                    break;
-                }
-            }
-        });
-        guard.subscription = Some((self.broker.clone(), id));
-        guard
     }
 
     /// One unit of asynchronous work whose result is one event. The task is handed a `Ctx` of its
@@ -129,14 +92,6 @@ impl<S: Service> Ctx<S> {
         self.stream(|ctx| async move { stream::once(task(ctx)) })
     }
 
-    /// Work with nothing to report back: a handler that moved its `Responder` into a task so a slow
-    /// backend cannot freeze the service, and has nothing to tell itself once it finishes. Work
-    /// that does produce a value belongs in [`Ctx::spawn`], which delivers it.
-    ///
-    /// This is the one `Ctx` task that is not a source, so it hands back no guard: a handler
-    /// returns before the work is done and has nowhere to keep one, and a guard dropped on the way
-    /// out would abort the very call it just deferred. Shutdown still stops it, through the
-    /// cancellation token every spawned task selects against.
     pub fn spawn_detached<F, Fut>(&self, task: F)
     where
         F: FnOnce(Ctx<S>) -> Fut + Send + 'static,
@@ -244,13 +199,10 @@ impl<S: Service> Ctx<S> {
 
         SourceGuard {
             abort: Some(handle),
-            subscription: None,
         }
     }
 
-    /// The service's inbox sender, for a producer the sources cannot wrap: a synchronous callback
-    /// from a foreign thread that has to hand an event over without a task of its own. Nothing
-    /// needs it today — the one caller it was added for, the config watcher, has been removed.
+    /// The service's inbox sender, for a synchronous foreign callback that cannot be a source.
     pub fn events(&self) -> mpsc::Sender<Input<S>> {
         self.events.clone()
     }
@@ -263,12 +215,10 @@ impl<S: Service> Ctx<S> {
         self.tasks.wait().await;
     }
 
-    /// A service's own judgement that it is running but cannot fully do its job — a missing Wayland
-    /// protocol, a backend that will not answer. Its topics stay current and are never `stale`.
     pub fn degraded(&self, reason: impl Into<String>) {
         self.degraded.store(true, Ordering::Relaxed);
-        self.broker.report_health(
-            S::NAME,
+        set_health(
+            &self.health,
             ServiceState::Degraded {
                 reason: reason.into(),
             },
@@ -278,7 +228,7 @@ impl<S: Service> Ctx<S> {
     /// Withdraw a previous `degraded`, once whatever was missing turns up.
     pub fn running(&self) {
         self.degraded.store(false, Ordering::Relaxed);
-        self.broker.report_health(S::NAME, ServiceState::Running);
+        set_health(&self.health, ServiceState::Running);
     }
 
     pub(crate) fn is_degraded(&self) -> bool {
@@ -290,13 +240,9 @@ impl<S: Service> Ctx<S> {
               should live, and `let _ = ...` starts a source that is aborted before it runs"]
 pub struct SourceGuard {
     abort: Option<AbortHandle>,
-    subscription: Option<(Arc<dyn BrokerHandle>, SubscriptionId)>,
 }
 
 impl SourceGuard {
-    /// Give up the right to cancel and let the task run to completion. Private, because the only
-    /// task that is not a source is [`Ctx::spawn_detached`], which uses this rather than handing a
-    /// guard to a caller with nowhere to put it. Any broker subscription is still released.
     fn detach(mut self) {
         self.abort = None;
     }
@@ -307,9 +253,6 @@ impl Drop for SourceGuard {
         if let Some(abort) = self.abort.take() {
             abort.abort();
         }
-        if let Some((broker, id)) = self.subscription.take() {
-            broker.unsubscribe(id);
-        }
     }
 }
 
@@ -318,7 +261,7 @@ mod tests {
     use futures_util::stream;
 
     use super::*;
-    use crate::testing::{Ping, event, probe, wired_probe};
+    use crate::testing::{event, probe, wired_probe};
 
     #[tokio::test]
     async fn a_spawned_task_delivers_the_event_it_returns() {
@@ -328,9 +271,6 @@ mod tests {
         assert_eq!(event(&mut received).await, Some(7));
     }
 
-    /// Written as a bare statement, which is the shape a handler that deferred its `Responder`
-    /// has to use — it returns long before the task does. The yield is what makes the test
-    /// load-bearing: a task that finished synchronously would survive being aborted.
     #[tokio::test]
     async fn a_detached_task_runs_and_delivers_nothing() {
         let (ctx, mut received) = probe();
@@ -364,50 +304,11 @@ mod tests {
         assert_eq!(event(&mut received).await, Some(9));
     }
 
-    #[tokio::test]
-    async fn a_subscription_delivers_the_mapped_payload() {
-        let (ctx, mut received, broker) = wired_probe();
-        let _source = ctx.subscribe::<Ping>(|ping| ping.value);
-
-        broker.deliver(Ping::NAME, &serde_json::json!({ "value": 3 }));
-
-        assert_eq!(event(&mut received).await, Some(3));
-    }
-
-    /// The property the shared cell exists for: the broker never waits, so a burst it delivers
-    /// before the pump wakes must collapse to the newest rather than queue or drop the latest.
-    #[tokio::test]
-    async fn a_burst_collapses_to_its_newest_payload() {
-        let (ctx, mut received, broker) = wired_probe();
-        let _source = ctx.subscribe::<Ping>(|ping| ping.value);
-
-        // Nothing is awaited between these, so the pump has not run and all three land in the cell.
-        for value in [1, 2, 3] {
-            broker.deliver(Ping::NAME, &serde_json::json!({ "value": value }));
-        }
-
-        assert_eq!(event(&mut received).await, Some(3));
-        assert!(received.try_recv().is_err(), "1 and 2 were superseded");
-    }
-
-    /// A payload that does not decode is one bad publisher, not a reason to stop following the
-    /// topic — without this the subscription would go silent and report nothing.
-    #[tokio::test]
-    async fn an_undecodable_payload_leaves_the_subscription_running() {
-        let (ctx, mut received, broker) = wired_probe();
-        let _source = ctx.subscribe::<Ping>(|ping| ping.value);
-
-        broker.deliver(Ping::NAME, &serde_json::json!({ "value": "not a number" }));
-        broker.deliver(Ping::NAME, &serde_json::json!({ "value": 5 }));
-
-        assert_eq!(event(&mut received).await, Some(5));
-    }
-
     /// Without this the task simply vanishes and the service keeps reporting itself healthy while
     /// one of its sources is gone.
     #[tokio::test]
     async fn a_panicking_source_degrades_its_service() {
-        let (ctx, _received, mock) = wired_probe();
+        let (ctx, _received, health) = wired_probe();
 
         ctx.spawn_detached(|_ctx| async { panic!("the backend sent nonsense") });
         // Let the task reach its panic before cancelling: `shutdown` races the cancel branch of the
@@ -415,14 +316,10 @@ mod tests {
         tokio::task::yield_now().await;
         ctx.shutdown().await;
 
-        assert!(
-            mock.health().iter().any(|(_, state)| matches!(
-                state,
-                ServiceState::Degraded { reason } if reason.contains("nonsense")
-            )),
-            "expected a Degraded naming the panic, got {:?}",
-            mock.health()
-        );
+        assert!(matches!(
+            &*health.borrow(),
+            ServiceState::Degraded { reason } if reason.contains("nonsense")
+        ));
     }
 
     /// The reason `degraded` is shared rather than owned: a task that degrades the service through

@@ -1,7 +1,7 @@
 use std::{convert::Infallible, pin::Pin};
 
 use futures_util::{Stream, StreamExt, stream};
-use glimpse_contracts::{CompositorPrivacy, Message, SessionStatus};
+use glimpse_contracts::SessionStatus;
 use glimpse_dbus::login1::{
     Login1ManagerProxy, Login1SessionProxy, SessionCandidate, current_uid, select_session_candidate,
 };
@@ -13,8 +13,10 @@ use crate::{
     subscription::Sub,
 };
 
+use super::compositor::CompositorHandle;
+
 pub enum Event {
-    Privacy(bool),
+    Privacy(Option<bool>),
     Locked(bool),
     Unavailable(String),
 }
@@ -26,48 +28,101 @@ pub enum Watch {
 }
 
 pub struct Session {
-    status: Publisher<SessionStatus>,
+    status: Publisher<Option<SessionStatus>>,
     locked: Option<bool>,
+    lock_available: bool,
     compositor_private: Option<bool>,
+    compositor: CompositorHandle,
+}
+
+#[derive(Clone)]
+pub struct SessionHandle(crate::ServiceEndpoint<Session>);
+
+impl SessionHandle {
+    pub fn snapshot(&self) -> Option<SessionStatus> {
+        self.0.snapshot()
+    }
+
+    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<Option<SessionStatus>> {
+        self.0.subscribe()
+    }
+
+    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
+        self.0.health()
+    }
+}
+
+pub struct Dependencies {
+    pub compositor: CompositorHandle,
+}
+
+pub fn initial_state() -> Option<SessionStatus> {
+    None
 }
 
 impl Service for Session {
     const NAME: &'static str = "session";
-    const TOPICS: &'static [&'static str] = &[SessionStatus::NAME];
     type Config = NoConfig;
+    type State = Option<SessionStatus>;
+    type Handle = SessionHandle;
     type Command = Infallible;
     type Event = Event;
+    type Dependencies = Dependencies;
     type SubKey = Watch;
+
+    fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
+        SessionHandle(endpoint)
+    }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         vec![
-            Sub::topic::<CompositorPrivacy>(Watch::Privacy, |status| Event::Privacy(status.active)),
+            Sub::watch(
+                Watch::Privacy,
+                self.compositor.subscribe(),
+                |state| Event::Privacy(state.privacy.map(|privacy| privacy.active)),
+                Event::Privacy(None),
+            ),
             Sub::stream(Watch::Locked, locked),
         ]
     }
 
-    async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
+    async fn start(
+        ctx: &Ctx<Self>,
+        _config: Self::Config,
+        dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
         Ok(Self {
-            status: ctx.publisher::<SessionStatus>(),
+            status: ctx.publisher(),
             locked: None,
+            lock_available: false,
             compositor_private: None,
+            compositor: dependencies.compositor,
         })
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
-            Input::Command(command, _) => match command {},
+            Input::Command(command) => match command {},
             Input::Event(Event::Privacy(private)) => {
-                self.compositor_private = Some(private);
+                self.compositor_private = private;
+                match (self.lock_available, self.compositor_private) {
+                    (true, Some(_)) => ctx.running(),
+                    (_, None) => ctx.degraded("compositor privacy state is unavailable"),
+                    _ => {}
+                }
                 self.publish();
             }
             Input::Event(Event::Locked(locked)) => {
                 self.locked = Some(locked);
-                ctx.running();
+                self.lock_available = true;
+                if self.compositor_private.is_some() {
+                    ctx.running();
+                }
                 self.publish();
             }
             Input::Event(Event::Unavailable(reason)) => {
                 self.locked = Some(true);
+                self.lock_available = false;
                 ctx.degraded(reason.clone());
                 tracing::warn!(%reason, "the session lock state is unavailable; treating it as locked");
                 self.publish();
@@ -79,14 +134,15 @@ impl Service for Session {
 
 impl Session {
     fn publish(&mut self) {
-        let (Some(locked), Some(compositor_private)) = (self.locked, self.compositor_private)
-        else {
-            return;
-        };
-        self.status.set(SessionStatus {
-            locked,
-            private: compositor_private,
-        });
+        self.status
+            .set(
+                self.locked
+                    .zip(self.compositor_private)
+                    .map(|(locked, compositor_private)| SessionStatus {
+                        locked,
+                        private: compositor_private,
+                    }),
+            );
     }
 }
 
@@ -163,64 +219,78 @@ mod tests {
     use tokio_util::sync::CancellationToken;
 
     use super::*;
-    use crate::{BrokerHandle, MockBroker};
 
-    #[test]
-    fn declared_topics_and_methods_exist() {
-        crate::service::assert_declarations::<Session>();
+    async fn session() -> (
+        Session,
+        Ctx<Session>,
+        tokio::sync::watch::Receiver<Option<SessionStatus>>,
+    ) {
+        let cancel = CancellationToken::new();
+        let (events, _inbox) = tokio::sync::mpsc::channel(4);
+        let (state, state_rx) = tokio::sync::watch::channel(initial_state());
+        let (health, _health_rx) = tokio::sync::watch::channel(crate::ServiceState::Starting);
+        let ctx = Ctx::<Session>::new(events, &cancel, state, health, Buses::unavailable("no bus"));
+        let (_runtime, compositor) =
+            crate::ServiceRuntime::<super::super::compositor::Compositor>::new(
+                super::super::compositor::initial_state(),
+                Buses::unavailable("no bus"),
+                CancellationToken::new(),
+            );
+        let session = Session::start(&ctx, NoConfig, Dependencies { compositor })
+            .await
+            .expect("starts");
+        (session, ctx, state_rx)
     }
 
     #[tokio::test]
     async fn each_authoritative_gate_is_required_and_published() {
-        let mock = std::sync::Arc::new(MockBroker::default());
-        let broker: std::sync::Arc<dyn BrokerHandle> = mock.clone();
-        let cancel = CancellationToken::new();
-        let (events, _inbox) = tokio::sync::mpsc::channel(4);
-        let ctx = Ctx::<Session>::new(events, &cancel, broker, Buses::unavailable("no bus"));
-        let mut session = Session::start(&ctx, NoConfig).await.expect("starts");
+        let (mut session, ctx, mut state) = session().await;
 
         session
-            .handle(&ctx, Input::Event(Event::Privacy(false)))
+            .handle(&ctx, Input::Event(Event::Privacy(Some(false))))
             .await;
-        assert!(mock.published().is_empty());
+        assert_eq!(*state.borrow(), initial_state());
         session
             .handle(&ctx, Input::Event(Event::Locked(true)))
             .await;
 
-        let published = mock.published();
-        assert_eq!(published.last().unwrap().1["locked"], true);
-        assert_eq!(published.last().unwrap().1["private"], false);
+        assert!(state.changed().await.is_ok());
+        assert_eq!(
+            *state.borrow(),
+            Some(SessionStatus {
+                locked: true,
+                private: false,
+            })
+        );
     }
 
     #[tokio::test]
     async fn compositor_privacy_is_published_directly() {
-        let mock = std::sync::Arc::new(MockBroker::default());
-        let broker: std::sync::Arc<dyn BrokerHandle> = mock.clone();
-        let cancel = CancellationToken::new();
-        let (events, _inbox) = tokio::sync::mpsc::channel(4);
-        let ctx = Ctx::<Session>::new(events, &cancel, broker, Buses::unavailable("no bus"));
-        let mut session = Session::start(&ctx, NoConfig).await.expect("starts");
+        let (mut session, ctx, mut state) = session().await;
 
         session
-            .handle(&ctx, Input::Event(Event::Privacy(true)))
+            .handle(&ctx, Input::Event(Event::Privacy(Some(true))))
             .await;
         session
             .handle(&ctx, Input::Event(Event::Locked(false)))
             .await;
-        assert_eq!(mock.published().last().unwrap().1["private"], true);
+        assert!(state.changed().await.is_ok());
+        assert!(state.borrow().as_ref().is_some_and(|state| state.private));
+
+        session
+            .handle(&ctx, Input::Event(Event::Privacy(None)))
+            .await;
+        assert!(state.changed().await.is_ok());
+        assert_eq!(*state.borrow(), None);
+        assert!(ctx.is_degraded());
     }
 
     #[tokio::test]
     async fn losing_the_lock_source_fails_closed() {
-        let mock = std::sync::Arc::new(MockBroker::default());
-        let broker: std::sync::Arc<dyn BrokerHandle> = mock.clone();
-        let cancel = CancellationToken::new();
-        let (events, _inbox) = tokio::sync::mpsc::channel(4);
-        let ctx = Ctx::<Session>::new(events, &cancel, broker, Buses::unavailable("no bus"));
-        let mut session = Session::start(&ctx, NoConfig).await.expect("starts");
+        let (mut session, ctx, mut state) = session().await;
 
         session
-            .handle(&ctx, Input::Event(Event::Privacy(false)))
+            .handle(&ctx, Input::Event(Event::Privacy(Some(false))))
             .await;
         session
             .handle(&ctx, Input::Event(Event::Locked(false)))
@@ -229,6 +299,7 @@ mod tests {
             .handle(&ctx, Input::Event(Event::Unavailable("lost logind".into())))
             .await;
 
-        assert_eq!(mock.published().last().unwrap().1["locked"], true);
+        assert!(state.changed().await.is_ok());
+        assert!(state.borrow().as_ref().is_some_and(|state| state.locked));
     }
 }

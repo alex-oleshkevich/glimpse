@@ -4,19 +4,16 @@ use glimpse_compositors::{
     Snapshot, WindowId, WindowTarget, Workspace, WorkspaceId, WorkspaceTarget, detect_compositor,
 };
 use glimpse_contracts::{
-    CloseWindow, Command as _, CompositorCapabilities, CompositorOutputs, CompositorPrivacy,
-    CompositorStatus, CompositorWindows, CompositorWorkspaces, FocusOutput, FocusWindow,
-    FocusWorkspace, Message, MoveWindowToWorkspace, MoveWorkspaceToOutput, OutputInfo,
-    RenameWorkspace, ReorderWorkspace, WindowInfo, WindowRef, WorkspaceInfo, WorkspaceRef,
+    CompositorCapabilities, CompositorOutputs, CompositorPrivacy, CompositorStatus,
+    CompositorWindows, CompositorWorkspaces, OutputInfo, WindowInfo, WindowRef, WorkspaceInfo,
+    WorkspaceRef,
 };
-use glimpse_ipc::{CallError, ErrorCode};
-use serde_json::Value;
+use tokio::sync::oneshot;
 
 use crate::{
-    broker::Responder,
     context::Ctx,
     publisher::Publisher,
-    service::{Input, NoConfig, Service, ServiceError, decode_args, unknown_command},
+    service::{CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
 
@@ -28,37 +25,151 @@ pub enum Event {
 
 #[derive(Debug)]
 pub enum Command {
-    FocusWorkspace(WorkspaceRef),
-    FocusWindow(WindowRef),
-    FocusOutput(String),
+    FocusWorkspace {
+        target: WorkspaceRef,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    FocusWindow {
+        target: WindowRef,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    FocusOutput {
+        connector: String,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
     RenameWorkspace {
         id: u64,
         name: Option<String>,
+        reply: oneshot::Sender<Result<(), CommandError>>,
     },
     MoveWorkspaceToOutput {
         id: u64,
         connector: String,
+        reply: oneshot::Sender<Result<(), CommandError>>,
     },
     ReorderWorkspace {
         id: u64,
         index: u8,
+        reply: oneshot::Sender<Result<(), CommandError>>,
     },
     MoveWindowToWorkspace {
         window: u64,
         workspace: WorkspaceRef,
+        reply: oneshot::Sender<Result<(), CommandError>>,
     },
     CloseWindow {
         id: u64,
+        reply: oneshot::Sender<Result<(), CommandError>>,
     },
+}
+
+#[derive(Clone)]
+pub struct CompositorHandle(ServiceEndpoint<Compositor>);
+
+impl CompositorHandle {
+    pub fn snapshot(&self) -> CompositorState {
+        self.0.snapshot()
+    }
+
+    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<CompositorState> {
+        self.0.subscribe()
+    }
+
+    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
+        self.0.health()
+    }
+
+    pub async fn focus_workspace(&self, target: WorkspaceRef) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::FocusWorkspace { target, reply })?;
+        result.await.map_err(|_| stopped())?
+    }
+
+    pub async fn focus_window(&self, target: WindowRef) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::FocusWindow { target, reply })?;
+        result.await.map_err(|_| stopped())?
+    }
+
+    pub async fn focus_output(&self, connector: String) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::FocusOutput { connector, reply })?;
+        result.await.map_err(|_| stopped())?
+    }
+
+    pub async fn rename_workspace(
+        &self,
+        id: u64,
+        name: Option<String>,
+    ) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0
+            .command(Command::RenameWorkspace { id, name, reply })?;
+        result.await.map_err(|_| stopped())?
+    }
+
+    pub async fn move_workspace_to_output(
+        &self,
+        id: u64,
+        connector: String,
+    ) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::MoveWorkspaceToOutput {
+            id,
+            connector,
+            reply,
+        })?;
+        result.await.map_err(|_| stopped())?
+    }
+
+    pub async fn reorder_workspace(&self, id: u64, index: u8) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0
+            .command(Command::ReorderWorkspace { id, index, reply })?;
+        result.await.map_err(|_| stopped())?
+    }
+
+    pub async fn move_window_to_workspace(
+        &self,
+        window: u64,
+        workspace: WorkspaceRef,
+    ) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::MoveWindowToWorkspace {
+            window,
+            workspace,
+            reply,
+        })?;
+        result.await.map_err(|_| stopped())?
+    }
+
+    pub async fn close_window(&self, id: u64) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::CloseWindow { id, reply })?;
+        result.await.map_err(|_| stopped())?
+    }
+}
+
+fn stopped() -> CommandError {
+    CommandError::Unavailable("compositor service stopped".to_owned())
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CompositorState {
+    pub status: Option<CompositorStatus>,
+    pub workspaces: Option<CompositorWorkspaces>,
+    pub windows: Option<CompositorWindows>,
+    pub outputs: Option<CompositorOutputs>,
+    pub privacy: Option<CompositorPrivacy>,
+}
+
+pub fn initial_state() -> CompositorState {
+    CompositorState::default()
 }
 
 pub struct Compositor {
     backend: Backend,
-    status: Publisher<CompositorStatus>,
-    workspaces: Publisher<CompositorWorkspaces>,
-    windows: Publisher<CompositorWindows>,
-    outputs: Publisher<CompositorOutputs>,
-    privacy: Publisher<CompositorPrivacy>,
+    state_publisher: Publisher<CompositorState>,
     state: Option<Snapshot>,
     attempt: u64,
 }
@@ -71,28 +182,18 @@ pub enum Watch {
 
 impl Service for Compositor {
     const NAME: &'static str = "compositor";
-    const TOPICS: &'static [&'static str] = &[
-        CompositorStatus::NAME,
-        CompositorWorkspaces::NAME,
-        CompositorWindows::NAME,
-        CompositorOutputs::NAME,
-        CompositorPrivacy::NAME,
-    ];
-    const METHODS: &'static [&'static str] = &[
-        FocusWorkspace::NAME,
-        FocusWindow::NAME,
-        FocusOutput::NAME,
-        RenameWorkspace::NAME,
-        MoveWorkspaceToOutput::NAME,
-        ReorderWorkspace::NAME,
-        MoveWindowToWorkspace::NAME,
-        CloseWindow::NAME,
-    ];
 
     type Config = NoConfig;
+    type State = CompositorState;
+    type Handle = CompositorHandle;
     type Command = Command;
     type Event = Event;
+    type Dependencies = ();
     type SubKey = Watch;
+
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        CompositorHandle(endpoint)
+    }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         let follow = self.backend.clone();
@@ -128,62 +229,26 @@ impl Service for Compositor {
         ]
     }
 
-    fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> {
-        match method {
-            FocusWorkspace::NAME => {
-                let FocusWorkspace { target } = decode_args(args)?;
-                Ok(Command::FocusWorkspace(target))
-            }
-            FocusWindow::NAME => {
-                let FocusWindow { target } = decode_args(args)?;
-                Ok(Command::FocusWindow(target))
-            }
-            FocusOutput::NAME => {
-                let FocusOutput { connector } = decode_args(args)?;
-                Ok(Command::FocusOutput(connector))
-            }
-            RenameWorkspace::NAME => {
-                let RenameWorkspace { id, name } = decode_args(args)?;
-                Ok(Command::RenameWorkspace { id, name })
-            }
-            MoveWorkspaceToOutput::NAME => {
-                let MoveWorkspaceToOutput { id, connector } = decode_args(args)?;
-                Ok(Command::MoveWorkspaceToOutput { id, connector })
-            }
-            ReorderWorkspace::NAME => {
-                let ReorderWorkspace { id, index } = decode_args(args)?;
-                Ok(Command::ReorderWorkspace { id, index })
-            }
-            MoveWindowToWorkspace::NAME => {
-                let MoveWindowToWorkspace { window, workspace } = decode_args(args)?;
-                Ok(Command::MoveWindowToWorkspace { window, workspace })
-            }
-            CloseWindow::NAME => {
-                let CloseWindow { id } = decode_args(args)?;
-                Ok(Command::CloseWindow { id })
-            }
-            _ => Err(unknown_command(Self::NAME, method)),
-        }
-    }
-
-    async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
+    async fn start(
+        ctx: &Ctx<Self>,
+        _config: Self::Config,
+        _dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
         let backend = detect_compositor();
         tracing::debug!(compositor = backend.name(), "starting compositor service");
 
-        let mut service = Self {
-            status: ctx.publisher::<CompositorStatus>(),
-            workspaces: ctx.publisher::<CompositorWorkspaces>(),
-            windows: ctx.publisher::<CompositorWindows>(),
-            outputs: ctx.publisher::<CompositorOutputs>(),
-            privacy: ctx.publisher::<CompositorPrivacy>(),
+        let service = Self {
+            state_publisher: ctx.publisher(),
             state: None,
             attempt: 0,
             backend,
         };
 
-        service.status.set(CompositorStatus {
-            name: service.backend.name().to_owned(),
-            capabilities: capabilities(service.backend.capabilities()),
+        service.state_publisher.update(|state| {
+            state.status = Some(CompositorStatus {
+                name: service.backend.name().to_owned(),
+                capabilities: capabilities(service.backend.capabilities()),
+            });
         });
 
         Ok(service)
@@ -208,7 +273,7 @@ impl Service for Compositor {
                 self.publish();
             }
             Input::Event(Event::Failed(reason)) => ctx.degraded(reason),
-            Input::Command(command, responder) => self.dispatch(command, responder).await,
+            Input::Command(command) => self.dispatch(command).await,
             Input::Config(NoConfig) => {}
         }
     }
@@ -224,53 +289,71 @@ impl Compositor {
         let windows = windows_of(state);
         let outputs = outputs_of(state);
 
-        self.workspaces.set(CompositorWorkspaces { workspaces });
-        self.windows.set(CompositorWindows { windows });
-        self.outputs.set(CompositorOutputs { outputs });
-        self.privacy.set(CompositorPrivacy {
-            active: !state.active_casts.is_empty(),
+        self.state_publisher.update(|published| {
+            published.workspaces = Some(CompositorWorkspaces { workspaces });
+            published.windows = Some(CompositorWindows { windows });
+            published.outputs = Some(CompositorOutputs { outputs });
+            published.privacy = Some(CompositorPrivacy {
+                active: !state.active_casts.is_empty(),
+            });
         });
     }
 
-    async fn dispatch(&self, command: Command, responder: Responder) {
-        let outcome = match command {
-            Command::FocusWorkspace(target) => {
-                self.backend.focus_workspace(workspace_target(target)).await
-            }
-            Command::FocusWindow(reference) => {
-                match window_target(reference, self.state.as_ref()) {
+    async fn dispatch(&self, command: Command) {
+        let (outcome, reply) = match command {
+            Command::FocusWorkspace { target, reply } => (
+                self.backend.focus_workspace(workspace_target(target)).await,
+                reply,
+            ),
+            Command::FocusWindow { target, reply } => (
+                match window_target(target, self.state.as_ref()) {
                     Some(target) => self.backend.focus_window(target).await,
-                    None => Err(CompositorError::Refused(format!(
-                        "no window matches {reference:?}"
-                    ))),
-                }
+                    None => Err(CompositorError::Refused(
+                        "no window matches the requested reference".to_owned(),
+                    )),
+                },
+                reply,
+            ),
+            Command::FocusOutput { connector, reply } => {
+                (self.backend.focus_output(&connector).await, reply)
             }
-            Command::FocusOutput(connector) => self.backend.focus_output(&connector).await,
-            Command::RenameWorkspace { id, name } => {
+            Command::RenameWorkspace { id, name, reply } => (
                 self.backend
                     .rename_workspace(WorkspaceId(id), name.as_deref())
-                    .await
-            }
-            Command::MoveWorkspaceToOutput { id, connector } => {
+                    .await,
+                reply,
+            ),
+            Command::MoveWorkspaceToOutput {
+                id,
+                connector,
+                reply,
+            } => (
                 self.backend
                     .move_workspace_to_output(WorkspaceId(id), &connector)
-                    .await
-            }
-            Command::ReorderWorkspace { id, index } => {
-                self.backend.reorder_workspace(WorkspaceId(id), index).await
-            }
-            Command::MoveWindowToWorkspace { window, workspace } => {
+                    .await,
+                reply,
+            ),
+            Command::ReorderWorkspace { id, index, reply } => (
+                self.backend.reorder_workspace(WorkspaceId(id), index).await,
+                reply,
+            ),
+            Command::MoveWindowToWorkspace {
+                window,
+                workspace,
+                reply,
+            } => (
                 self.backend
                     .move_window_to_workspace(WindowId(window), workspace_target(workspace))
-                    .await
+                    .await,
+                reply,
+            ),
+            Command::CloseWindow { id, reply } => {
+                (self.backend.close_window(WindowId(id)).await, reply)
             }
-            Command::CloseWindow { id } => self.backend.close_window(WindowId(id)).await,
         };
 
-        match outcome {
-            Ok(()) => responder.ok(()),
-            Err(error) => responder.fail(CallError::new(code(&error), error.to_string())),
-        }
+        let outcome = outcome.map_err(|error| command_error(&error));
+        let _ = reply.send(outcome);
     }
 }
 
@@ -482,12 +565,16 @@ fn window_target(reference: WindowRef, state: Option<&Snapshot>) -> Option<Windo
     }
 }
 
-fn code(error: &CompositorError) -> ErrorCode {
+fn command_error(error: &CompositorError) -> CommandError {
     match error {
-        CompositorError::Unsupported(_) | CompositorError::Unavailable(_) => ErrorCode::Unsupported,
-        CompositorError::Connect { .. } | CompositorError::Closed => ErrorCode::Unavailable,
-        CompositorError::Refused(_) => ErrorCode::InvalidArgs,
-        CompositorError::Protocol(_) => ErrorCode::Internal,
+        CompositorError::Unsupported(reason) | CompositorError::Unavailable(reason) => {
+            CommandError::Unsupported(reason.to_string())
+        }
+        CompositorError::Connect { .. } | CompositorError::Closed => {
+            CommandError::Unavailable(error.to_string())
+        }
+        CompositorError::Refused(reason) => CommandError::InvalidArgument(reason.to_string()),
+        CompositorError::Protocol(reason) => CommandError::Internal(reason.to_string()),
     }
 }
 
@@ -641,17 +728,6 @@ mod tests {
             Some(WindowTarget::Id(WindowId(2))),
             "a reference that needs no window list still resolves without one"
         );
-    }
-
-    #[test]
-    fn declared_topics_and_methods_exist() {
-        crate::service::assert_declarations::<Compositor>();
-    }
-
-    #[test]
-    fn a_name_the_service_does_not_declare_is_refused() {
-        let error = Compositor::decode("compositor.explode", Value::Null).expect_err("refused");
-        assert_eq!(error.code, ErrorCode::UnknownCommand);
     }
 
     #[test]
@@ -854,17 +930,13 @@ mod tests {
 
     #[test]
     fn a_capability_a_compositor_lacks_is_refused_without_inviting_a_retry() {
-        let refusal = CallError::new(
-            code(&CompositorError::Unavailable("reorder a workspace")),
-            "x",
-        );
-        assert_eq!(refusal.code, ErrorCode::Unsupported);
-        assert!(
-            !refusal.retryable,
-            "retrying cannot make a compositor grow the feature"
-        );
-
-        let gone = CallError::new(code(&CompositorError::Closed), "x");
-        assert!(gone.retryable);
+        assert!(matches!(
+            command_error(&CompositorError::Unavailable("reorder a workspace")),
+            CommandError::Unsupported(_)
+        ));
+        assert!(matches!(
+            command_error(&CompositorError::Closed),
+            CommandError::Unavailable(_)
+        ));
     }
 }

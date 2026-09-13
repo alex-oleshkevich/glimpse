@@ -9,7 +9,7 @@ is running, after `start` and after every input.
 ```
 handle(&mut self, …)  ──►  subscriptions(&self) ──►  diff by key ──►  build new / drop removed
                                                        └─ dropping a guard aborts the task and
-                                                          releases any broker subscription
+                                                          releases the backend or dependency watch
 ```
 
 ## Constructors
@@ -18,7 +18,13 @@ handle(&mut self, …)  ──►  subscriptions(&self) ──►  diff by key �
 | --- | --- | --- |
 | `Sub::stream(key, source)` | `ctx.stream` | rebuilds by re-reading the backend — comes back current |
 | `Sub::interval(key, period, on_tick)` | `ctx.interval` | restarts the timer from now |
-| `Sub::topic::<T>(key, map)` | `ctx.subscribe` | **does not come back current** — see Hazards |
+| `Sub::watch(key, receiver, map, unavailable)` | a typed `watch::Receiver` | emits the current value, changes, then an unavailable event if the producer stops |
+
+`Sub::watch` reads `borrow_and_update()` before waiting for `changed()`, so a dependent service gets
+an immediate snapshot and cannot miss a state transition between subscribing and its first wake.
+Its final argument is emitted if the producer drops its state sender, so the dependent can
+invalidate stale state or degrade explicitly. Do not hide a required dependency behind a string
+lookup.
 
 ## `SubKey` is the whole design
 
@@ -93,8 +99,8 @@ its match rule is released. **There is no teardown code** — no second map to k
 
 | | declared, diffed, lives as long as the model says | fires once, never re-declared |
 | --- | --- | --- |
-| | `Sub::stream` · `Sub::interval` · `Sub::topic` | `ctx.spawn` · `ctx.spawn_detached` |
-| use | a signal stream, a tick, another service's topic | a slow command that moved its `Responder` into a task |
+| | `Sub::stream` · `Sub::interval` · `Sub::watch` | `ctx.spawn` · `ctx.spawn_detached` |
+| use | a signal stream, a tick, another service's typed state | a one-shot command-side task |
 
 Both exist on purpose. A one-shot effect inside a command handler is **not** a subscription and must
 not be re-declared on the next input.

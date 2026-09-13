@@ -11,13 +11,13 @@ testing.
 | | |
 | --- | --- |
 | `Probe` | a service that does nothing; `Event = u8` so a test can tell which source delivered |
-| `Ping` | a topic to publish into a subscriber under test, independent of any real contract |
+| `Ping` | a typed state value for a watch subscriber under test |
 | `probe() -> (Ctx<Probe>, Inbox)` | a context and its inbox |
-| `wired_probe() -> (Ctx<Probe>, Inbox, Arc<MockBroker>)` | the same, keeping the broker |
+| `state_probe() -> (Ctx<Probe>, Inbox, watch::Receiver<State>)` | the same, keeping the state receiver |
 | `event(&mut Inbox) -> Option<u8>` | pull the next event out of an `Input` |
 
-`MockBroker` records `published()` and `health()`, keeps the sinks it is handed, and `deliver(topic,
-data)` stands in for the broker's own fan-out so a subscriber can be exercised without one.
+For a service-specific test, create a `watch::channel(initial)` and pass its sender to `Ctx::new`.
+Keep the receiver or use the concrete handle's `snapshot()` and `subscribe()` to observe state.
 
 ## Three levels
 
@@ -38,59 +38,28 @@ fn document(provider: ConfiguredProvider, latitude: Option<f64>, longitude: Opti
 
 **Context — a source in isolation.** `probe()`, build the source, assert on the inbox.
 
-**Runtime — the whole loop.** `ServiceRuntime::<S>::new(broker, buses, cancel)` with `sender()` to
-queue input, then `run(config)` on a spawned task. This is the only level that covers `start`, the
-reconcile after `handle`, panic isolation and the health reports:
+**Runtime — the whole loop.** `ServiceRuntime::<S>::new(initial, buses, cancel)` returns a runtime
+and its typed handle. Use `sender()` only for test setup or configuration, then call `run(config,
+dependencies)` on a spawned task. This covers `start`, source reconciliation, panic isolation,
+state publication, and health reports:
 
 ```rust
-let mock = Arc::new(MockBroker::default());
-let broker: Arc<dyn BrokerHandle> = mock.clone();
 let cancel = CancellationToken::new();
-let mut runtime = ServiceRuntime::<S>::new(broker, Buses::unavailable("no bus in tests"), cancel.clone());
+let (mut runtime, handle) = ServiceRuntime::<S>::new(initial, Buses::unavailable("no bus in tests"), cancel.clone());
 
 let sender = runtime.sender();
 sender.send(Input::Config(...)).await.expect("queued");     // queue before running
 
-let running = tokio::spawn(async move { runtime.run(config).await });
+let running = tokio::spawn(async move { runtime.run(config, dependencies).await });
 for _ in 0..8 { tokio::task::yield_now().await; }
 cancel.cancel();
 let _ = running.await;
 
-assert!(mock.published().iter().any(|(topic, _)| topic == Something::NAME));
+assert_eq!(handle.snapshot(), expected);
 ```
 
 Queue input **before** `run`, then yield, then cancel. `#[tokio::test]` is current-thread, so a
 spawned task runs only when the test yields.
-
-## Declaration drift
-
-`TOPICS`, `METHODS`, `decode` and the `topics!` / `commands!` blocks are four lists that must agree,
-and the compiler checks none of it. `assert_declarations::<S>()` checks three of the four ways they
-drift. **Every service gets this test — it is one line:**
-
-```rust
-#[test]
-fn declared_topics_and_methods_exist() {
-    crate::service::assert_declarations::<Weather>();
-}
-```
-
-| Drift | Caught by | Symptom without the test |
-| --- | --- | --- |
-| A name in `TOPICS`/`METHODS` that no `topics!`/`commands!` entry defines | `ALL_TOPICS` / `ALL_COMMANDS` | a topic nothing can name; a command that routes nowhere |
-| A name in `METHODS` with no arm in `decode` | calling `decode(name, Value::Null)` | the broker routes it, the service refuses it, the caller sees `UnknownCommand` |
-| Two services declaring one name | **not** this test — a runtime `error!` from `Store::declare` | last declaration wins, silently, and the loser's publishes are attributed to the winner |
-| An arm in `decode` for a name **not** in `METHODS` | nothing | dead code; unreachable, because the broker routes by `METHODS` alone |
-
-Null args are the trick that makes the second row work: a missing arm answers `UnknownCommand`, while
-an arm that exists and wants real arguments answers `InvalidArgs`. Only `UnknownCommand` fails.
-
-Writing `T::NAME` rather than a string literal makes the first row a compile error instead, which is
-why it is the convention — the test is what catches a literal somebody typed anyway, or a name that
-was deleted from contracts.
-
-The fourth row has no mechanism. You cannot enumerate match arms, and a stale arm is harmless beyond
-being dead. Delete it when you notice it.
 
 ## Every test must be checked against broken code
 
@@ -143,13 +112,14 @@ fn manual(latitude: f64, longitude: f64) -> Config {
 
 ## What is worth a test
 
-- Every `decode` arm, plus a name the service does not declare (`UnknownCommand`) and a mistyped
-  argument (`InvalidArgs`).
+- Every typed command method, including invalid arguments and a stopped-service reply.
 - The config projection: each variant, and every way a table can be malformed.
 - Any validator, at its boundaries — inclusive edges are where `..` and `..=` diverge.
 - A source's teardown, if the model can turn it off.
 - The straggler case: an event queued before a model change, delivered after it.
 - `degraded` for the backend-absent path — `Buses::unavailable` gives it to you for free.
+- A dependency watch's immediate snapshot and subsequent changed value.
+- Equality suppression for repeated state and command error mapping.
 
 ## What is not
 

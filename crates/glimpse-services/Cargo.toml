@@ -15,7 +15,6 @@ glimpse-compositors.workspace = true
 glimpse-config.workspace = true
 glimpse-contracts.workspace = true
 glimpse-dbus.workspace = true
-glimpse-ipc.workspace = true
 glimpse-utils.workspace = true
 icalendar.workspace = true
 iso8601.workspace = true

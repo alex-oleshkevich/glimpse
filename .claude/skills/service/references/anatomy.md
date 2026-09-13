@@ -4,25 +4,24 @@
 
 | Item | Meaning |
 | --- | --- |
-| `const NAME: &'static str` | identifies the service in `system.services` and owns its topics |
-| `const TOPICS: &'static [&'static str]` | every topic it may publish, declared **before it starts** |
-| `const METHODS: &'static [&'static str] = &[]` | every command it answers; default is none |
+| `const NAME: &'static str` | stable diagnostic name and health identity |
 | `type Config: Clone + PartialEq + Send + 'static + for<'a> From<&'a glimpse_config::Config>` | its slice of the document |
-| `type Command: Send + 'static` | the decoded command |
+| `type State: Clone + PartialEq + Send + Sync + 'static` | the complete current snapshot |
+| `type Handle: Clone + Send + 'static` | concrete consumer handle built from the endpoint |
+| `type Dependencies: Send + 'static` | required typed handles supplied by the composition root |
+| `type Command: Send + 'static` | typed commands, each carrying its own reply sender |
 | `type Event: Send + 'static` | everything a source delivers |
 | `type SubKey: Eq + Hash + Send + 'static` | identity for a declared source |
-| `fn decode(method, args) -> Result<Self::Command, CallError>` | wire call → command; default refuses everything |
+| `fn from_endpoint(ServiceEndpoint<Self>) -> Self::Handle` | wrap the common state, health, and inbox endpoint |
 | `fn subscriptions(&self) -> Vec<Sub<Self>>` | sources that should be running; default empty |
-| `async fn start(ctx, config) -> Result<Self, ServiceError>` | build the model |
+| `async fn start(ctx, config, dependencies) -> Result<Self, ServiceError>` | build the model |
 | `async fn handle(&mut self, ctx, input)` | the one handler; cannot fail |
 | `async fn stop(self, ctx)` | default no-op; skipped after a panic |
 
-`TOPICS` and `METHODS` are declared before the service starts because the broker needs the mapping
-while it is still stopped: a `get` on a declared topic must answer "declared, no value" rather than
-"unknown", and a subscription pattern has to match it.
-
-`handle` returning `()` is deliberate. `start` may fail the service; a handler may not. A failure
-inside one is a `degraded` or a logged line, not an error the runtime can act on.
+`ServiceRuntime::new(initial, buses, cancel)` creates the state and health watch cells, the inbox,
+and the concrete handle. The composition root holds the runtime task and passes only typed handles
+to consumers. `handle` returning `()` is deliberate: `start` may fail, while handler failures are
+reported through health or a command's typed reply.
 
 ## `Ctx<S>` — `crates/glimpse-services/src/context.rs`
 
@@ -31,24 +30,23 @@ instead of a sender and a token threaded through its arguments.
 
 | Method | Returns | For |
 | --- | --- | --- |
-| `publisher::<T: Message>()` | `Publisher<T::Payload>` | take once in `start`, keep for life |
+| `publisher()` | `Publisher<S::State>` | take once in `start`, keep for life |
 | `session_bus()` / `system_bus()` | `Result<&Connection, &str>` | the `Err` is why there is none |
 | `spawn(FnOnce(Ctx) -> Future<Output = S::Event>)` | `SourceGuard` | one unit of work, one event |
 | `spawn_detached(FnOnce(Ctx) -> Future<Output = ()>)` | `SourceGuard` | work with nothing to report |
 | `interval(period, Fn(Ctx) -> Future<S::Event>)` | `SourceGuard` | an event a tick |
 | `at_interval(start, period, ...)` | `SourceGuard` | the same, from a chosen instant |
 | `stream(FnOnce(Ctx) -> Future<Output = Stream<S::Event>>)` | `SourceGuard` | a backend signal stream |
-| `subscribe::<T: Message>(Fn(T::Payload) -> S::Event)` | `SourceGuard` | another service's topic |
+| `subscribe` through `Sub::watch(key, receiver, map, unavailable)` | `SourceGuard` | another service's typed state |
 | `degraded(reason)` / `running()` | | health, both directions |
 | `events()` | `mpsc::Sender<Input<S>>` | escape hatch; nothing uses it today |
 
 `stream` is where every event-producing source actually delivers — `spawn` is a stream of one item
 and `interval` a stream of ticks — so a closed inbox is answered in one place.
 
-`SourceGuard` is `#[must_use]`. Dropping it aborts the task and releases any broker subscription
-behind it. Written as a bare statement, `ctx.spawn(...)` drops the guard at the semicolon and aborts
-the task before it runs: a call that looks right and does nothing. In practice you rarely hold one —
-declare the source in `subscriptions` and let the runtime own the guard.
+`SourceGuard` is `#[must_use]`. Dropping it aborts the task and releases its backend or dependency
+watch. Written as a bare statement, `ctx.spawn(...)` drops the guard at the semicolon and aborts the
+task before it runs, so long-lived sources belong in `subscriptions` and the runtime owns the guard.
 
 A panic inside a source is caught, logged, and turned into `degraded` on the owning service. A source
 is where a backend's own data gets parsed, which makes it both the likeliest place to panic and the
@@ -57,49 +55,36 @@ had a source.
 
 ## `Publisher<P>` — the equality gate
 
-`ctx.publisher::<T>()` in `start`, held for the service's lifetime. `set(value)` drops a value equal
-to the last one it sent, so an unchanged payload is never serialized and never reaches the broker.
+`ctx.publisher()` in `start`, held for the service's lifetime. `set(value)` and `update(change)` drop
+a value equal to the last one, so unchanged state produces no watch notification.
 
 A publisher rebuilt per call defeats this by starting from no last value every time. Take it once.
 
-`seq`, `ts` and `stale` belong to the broker. A publisher hands over a name and a value.
-
-## `Responder` — answering a command
-
-`ok<T: Serialize>(self, output)` or `fail(self, CallError)`, both consuming. Dropped unanswered — 
-queued when the service stopped, lost to a panicking handler, or simply forgotten — it answers
-`Unavailable` from its `Drop` impl and logs, rather than leaving the caller to wait out its timeout
-with nothing said anywhere.
+`watch::Receiver::borrow()` gives a complete immediate snapshot; `changed()` waits for the next
+different state. A handle's command method creates a typed oneshot, submits the command with
+`ServiceEndpoint::command`, and maps a closed reply to `CommandError::Unavailable`.
 
 ## Adding a service, end to end
 
-### 1. Payloads and commands — `glimpse-contracts`
+### 1. State and commands
+
+State and command types are ordinary Rust types. A shared model may still live in
+`glimpse-contracts` while several crates need it, but serialization and string names are outside
+the service framework. Commands carry typed arguments and a command-specific
+`oneshot::Sender<Result<Reply, CommandError>>`.
 
 ```rust
-// src/topics.rs
-topics! {
-    #[name = "weather.status"]
-    pub struct WeatherStatus { temperature_c: Option<f64>, condition: Option<String> }
-}
+#[derive(Clone, PartialEq)]
+pub struct WeatherState { pub current: Option<Reading> }
 
-// src/commands.rs
-commands! {
-    #[name = "weather.refresh"]
-    pub struct WeatherRefresh {} -> ();
+pub enum Command {
+    Refresh { reply: oneshot::Sender<Result<(), CommandError>> },
 }
 ```
 
-The macros derive `Debug, Clone, PartialEq, Serialize, Deserialize` and bind the name to the type
-through `trait Message` / `trait Command`. Topics are `domain.name`, commands `domain.verb_object`,
-both lower snake case with dots as separators.
-
-Each macro is invoked **once** for the whole tree and emits `ALL_TOPICS` / `ALL_COMMANDS` alongside
-the types — a second invocation is a duplicate definition of those, which is how they stay in one
-block. `assert_declarations` checks a service's `TOPICS` and `METHODS` against them.
-
-Wire payloads **accept** unknown fields, so a newer client and an older daemon survive version skew.
-Config **rejects** them, so a typo is an error the user sees. These two rules point in opposite
-directions on purpose.
+The handle is the consumer API. It owns no state itself; `snapshot()` reads the current value,
+`subscribe()` clones the watch receiver, and a method such as `refresh()` submits the typed command
+and awaits its typed result.
 
 ### 2. The config table, if the service reads one
 
@@ -152,34 +137,38 @@ hears about the reload at all.
 
 ```rust
 pub enum Event { Fetched(Option<Reading>), Unavailable(String) }
-pub enum Command { Refresh }
+pub enum Command {
+    Refresh { reply: oneshot::Sender<Result<(), CommandError>> },
+}
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum Watch { Poll { units: Units } }
 
+pub struct Dependencies { pub location: LocationHandle }
+
+#[derive(Clone)]
+pub struct WeatherHandle(ServiceEndpoint<Weather>);
+
 impl Service for Weather {
     const NAME: &'static str = "weather";
-    const TOPICS: &'static [&'static str] = &[WeatherStatus::NAME];
-    const METHODS: &'static [&'static str] = &[WeatherRefresh::NAME];
 
     type Config = Config;
+    type State = WeatherState;
+    type Handle = WeatherHandle;
     type Command = Command;
     type Event = Event;
+    type Dependencies = Dependencies;
     type SubKey = Watch;
 
-    fn decode(method: &str, _args: Value) -> Result<Self::Command, CallError> {
-        match method {
-            WeatherRefresh::NAME => Ok(Command::Refresh),
-            _ => Err(unknown_command(Self::NAME, method)),
-        }
-    }
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle { WeatherHandle(endpoint) }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         vec![Sub::interval(Watch::Poll { units: self.units }, POLL, fetch)]
     }
 
-    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, ServiceError> {
-        Ok(Self { status: ctx.publisher::<WeatherStatus>(), units: config.units })
+    async fn start(ctx: &Ctx<Self>, config: Self::Config, deps: Self::Dependencies)
+        -> Result<Self, ServiceError> {
+        Ok(Self { state: ctx.publisher(), location: deps.location, units: config.units })
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -187,54 +176,52 @@ impl Service for Weather {
             Input::Event(Event::Fetched(reading)) => { ctx.running(); self.publish(reading); }
             Input::Event(Event::Unavailable(reason)) => { ctx.degraded(reason); }
             Input::Config(config) => self.units = config.units,
-            Input::Command(Command::Refresh, responder) => { ...; responder.ok(()); }
+            Input::Command(Command::Refresh { reply }) => { ...; let _ = reply.send(Ok(())); }
         }
     }
 }
 ```
 
-Commands with arguments decode through `decode_args`, which accepts unknown fields and catches a
-missing or mistyped one:
+Slow backend calls stay in the handler when ordering matters, or move into a cancellable context
+task when the command is explicitly fire-and-forget. A command that has a reply keeps its oneshot
+sender until the backend operation finishes.
 
-```rust
-WeatherSetUnits::NAME => {
-    let WeatherSetUnits { units } = decode_args(args)?;
-    Ok(Command::SetUnits { units })
-}
-```
+### 5. Compose it
 
-### 5. Register it
-
-`services/mod.rs`:
+Export the concrete service and handle from `services/mod.rs`, then create the runtime and handle in
+the process that owns the service:
 
 ```rust
 mod weather;
-pub use weather::Weather;
+pub use weather::{Weather, WeatherHandle};
 ```
-
-`glimpsed/src/main.rs`:
 
 ```rust
-Daemon::new(filter)
-    .register::<Weather>()
+let (mut location_runtime, location) = ServiceRuntime::new(
+    Location::initial_state(), buses.clone(), cancel.child_token());
+let (mut weather_runtime, weather) = ServiceRuntime::new(
+    weather::initial_state(&weather_config), buses.clone(), cancel.child_token());
+let deps = weather::Dependencies { location };
+tokio::spawn(async move { location_runtime.run(location_config, ()).await });
+tokio::spawn(async move { weather_runtime.run(weather_config, deps).await });
 ```
 
-`register::<S>()` is the last place the concrete type is known, so it builds three things there: the
-erased `Dispatch` handed to the broker inside the same `Declare` that carries `METHODS`, the
-`ConfigSink` that projects with `S::Config::from(document)` and compares, and the service task.
+The composition root makes dependency order visible. A panel-local root passes handles directly to
+applets; a standalone process exposes only the narrow state and command API that another process
+actually needs over typed zbus. A temporary legacy string/JSON adapter, if required during
+migration, lives in `glimpsed` and is deleted with that daemon.
 
 ### 6. Test it
 
-`references/testing.md`. Headless, against `MockBroker`, no socket and no bus. One test is not
-optional, because nothing else checks the declarations agree:
+See `references/testing.md`. Headless tests use an initial watch state, unavailable buses, and fake
+handles; they need no broker, socket, compositor, or live D-Bus.
 
 ```rust
-#[test]
-fn declared_topics_and_methods_exist() {
-    crate::service::assert_declarations::<Weather>();
+#[tokio::test]
+async fn refresh_returns_a_typed_result() {
+    let (mut runtime, handle) = ServiceRuntime::new(weather::initial_state(&config), buses, cancel);
+    let task = tokio::spawn(async move { runtime.run(config, deps).await });
+    handle.refresh().await.expect("service is running");
+    task.abort();
 }
 ```
-
-### 7. Update `crates/glimpse-services/README.md`
-
-In the same change. A stale README is worse than none, because it is believed.

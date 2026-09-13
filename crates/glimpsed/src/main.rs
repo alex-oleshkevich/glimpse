@@ -3,6 +3,7 @@ mod cli;
 mod daemon;
 mod errors;
 mod handler;
+mod legacy_services;
 mod reload;
 
 use std::process::ExitCode;
@@ -10,10 +11,6 @@ use std::process::ExitCode;
 use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
-use glimpse_services::{
-    Calendar, Compositor, Geolocation, Heartbeat, Keyboard, Mpris, Notifications, Session, Solar,
-    Weather,
-};
 use glimpse_utils::{init_app_tracing, init_locale};
 
 use crate::daemon::{Daemon, DaemonError, Filter};
@@ -48,16 +45,6 @@ async fn run(cli: Cli) -> Result<()> {
     };
 
     Daemon::new(filter)
-        .register::<Geolocation>()
-        .register::<Solar>()
-        .register::<Heartbeat>()
-        .register::<Compositor>()
-        .register::<Keyboard>()
-        .register::<Calendar>()
-        .register::<Weather>()
-        .register::<Mpris>()
-        .register::<Notifications>()
-        .register::<Session>()
         .run(&socket, config, cli.config.config)
         .await?;
 

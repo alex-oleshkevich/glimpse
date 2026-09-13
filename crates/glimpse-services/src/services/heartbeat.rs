@@ -1,15 +1,13 @@
-use glimpse_contracts::{
-    Command as _, HeartbeatInterval, HeartbeatReset, HeartbeatSetInterval, HeartbeatTick, Message,
+use glimpse_contracts::{HeartbeatInterval, HeartbeatTick};
+use tokio::{
+    sync::{oneshot, watch},
+    time,
 };
-use glimpse_ipc::{CallError, ErrorCode};
-use serde_json::Value;
-use tokio::time;
 
 use crate::{
-    broker::Responder,
     context::Ctx,
     publisher::Publisher,
-    service::{Input, NoConfig, Service, ServiceError, decode_args, unknown_command},
+    service::{CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
 
@@ -23,18 +21,58 @@ pub enum Event {
 
 #[derive(Debug)]
 pub enum Command {
-    Reset,
-    SetInterval { period_ms: u64 },
+    Reset {
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    SetInterval {
+        period_ms: u64,
+        reply: oneshot::Sender<Result<HeartbeatInterval, CommandError>>,
+    },
 }
 
-/// A development fixture: the one service that publishes on its own, so `get`, `topics` and `watch`
-/// have something live to show before any real service works, and the one that answers commands, so
-/// `call` and `methods` do too. The counter is what makes it visible — an unchanging payload would
-/// be swallowed by the publisher's equality gate and nothing would arrive after the first tick.
 pub struct Heartbeat {
     tick: Publisher<HeartbeatTick>,
     count: u64,
     period_ms: u64,
+}
+
+#[derive(Clone)]
+pub struct HeartbeatHandle(ServiceEndpoint<Heartbeat>);
+
+impl HeartbeatHandle {
+    pub fn snapshot(&self) -> HeartbeatTick {
+        self.0.snapshot()
+    }
+
+    pub fn subscribe(&self) -> watch::Receiver<HeartbeatTick> {
+        self.0.subscribe()
+    }
+
+    pub fn health(&self) -> watch::Receiver<crate::ServiceState> {
+        self.0.health()
+    }
+
+    pub async fn reset(&self) -> Result<(), CommandError> {
+        let (reply, answer) = oneshot::channel();
+        self.0.command(Command::Reset { reply })?;
+        answer.await.map_err(|_| {
+            CommandError::Unavailable("`heartbeat` stopped before resetting".to_owned())
+        })?
+    }
+
+    pub async fn set_interval(&self, period_ms: u64) -> Result<HeartbeatInterval, CommandError> {
+        let (reply, answer) = oneshot::channel();
+        self.0.command(Command::SetInterval { period_ms, reply })?;
+        answer.await.map_err(|_| {
+            CommandError::Unavailable("`heartbeat` stopped before changing its interval".to_owned())
+        })?
+    }
+}
+
+impl Heartbeat {
+    pub fn initial_state() -> HeartbeatTick {
+        HeartbeatTick { count: 0 }
+    }
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -44,13 +82,18 @@ pub struct Tick {
 
 impl Service for Heartbeat {
     const NAME: &'static str = "heartbeat";
-    const TOPICS: &'static [&'static str] = &[HeartbeatTick::NAME];
-    const METHODS: &'static [&'static str] = &[HeartbeatReset::NAME, HeartbeatSetInterval::NAME];
 
     type Config = NoConfig;
+    type State = HeartbeatTick;
+    type Handle = HeartbeatHandle;
     type Command = Command;
     type Event = Event;
+    type Dependencies = ();
     type SubKey = Tick;
+
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        HeartbeatHandle(endpoint)
+    }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         vec![Sub::interval(
@@ -62,23 +105,16 @@ impl Service for Heartbeat {
         )]
     }
 
-    fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> {
-        match method {
-            HeartbeatReset::NAME => Ok(Command::Reset),
-            HeartbeatSetInterval::NAME => {
-                let HeartbeatSetInterval { period_ms } = decode_args(args)?;
-                Ok(Command::SetInterval { period_ms })
-            }
-            _ => Err(unknown_command(Self::NAME, method)),
-        }
-    }
-
-    async fn start(ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
+    async fn start(
+        ctx: &Ctx<Self>,
+        _config: Self::Config,
+        _dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
         tracing::debug!("starting heartbeat service");
         Ok(Self {
             count: 0,
             period_ms: DEFAULT_PERIOD_MS,
-            tick: ctx.publisher::<HeartbeatTick>(),
+            tick: ctx.publisher(),
         })
     }
 
@@ -88,13 +124,13 @@ impl Service for Heartbeat {
                 self.count += 1;
                 self.tick.set(HeartbeatTick { count: self.count });
             }
-            Input::Command(Command::Reset, responder) => {
+            Input::Command(Command::Reset { reply }) => {
                 self.count = 0;
                 self.tick.set(HeartbeatTick { count: 0 });
-                responder.ok(());
+                let _ = reply.send(Ok(()));
             }
-            Input::Command(Command::SetInterval { period_ms }, responder) => {
-                self.set_interval(period_ms, responder);
+            Input::Command(Command::SetInterval { period_ms, reply }) => {
+                let _ = reply.send(self.set_interval(period_ms));
             }
             Input::Config(NoConfig) => {}
         }
@@ -102,88 +138,60 @@ impl Service for Heartbeat {
 }
 
 impl Heartbeat {
-    fn set_interval(&mut self, period_ms: u64, responder: Responder) {
+    fn set_interval(&mut self, period_ms: u64) -> Result<HeartbeatInterval, CommandError> {
         if !(MIN_PERIOD_MS..=MAX_PERIOD_MS).contains(&period_ms) {
-            return responder.fail(CallError::new(
-                ErrorCode::InvalidArgs,
-                format!("period_ms must be {MIN_PERIOD_MS}..={MAX_PERIOD_MS}, got {period_ms}"),
-            ));
+            return Err(CommandError::InvalidArgument(format!(
+                "period_ms must be {MIN_PERIOD_MS}..={MAX_PERIOD_MS}, got {period_ms}"
+            )));
         }
 
         // The period is part of the subscription key, so moving it is what restarts the timer.
         let previous_ms = std::mem::replace(&mut self.period_ms, period_ms);
-        responder.ok(HeartbeatInterval { previous_ms });
+        Ok(HeartbeatInterval { previous_ms })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use glimpse_dbus::Buses;
-    use tokio::sync::oneshot;
     use tokio_util::sync::CancellationToken;
 
     use super::*;
-    use crate::{BrokerHandle, MockBroker, service::ServiceRuntime};
+    use crate::service::ServiceRuntime;
 
-    /// Drives one command through the whole path a `call` takes inside the daemon: the sender's
-    /// non-blocking dispatch, the serial handler, and the responder the handler answers.
-    async fn call(command: Command) -> Result<Value, CallError> {
-        let broker: Arc<dyn BrokerHandle> = Arc::new(MockBroker::default());
+    async fn running() -> (
+        HeartbeatHandle,
+        CancellationToken,
+        tokio::task::JoinHandle<()>,
+    ) {
         let cancel = CancellationToken::new();
-        let mut runtime = ServiceRuntime::<Heartbeat>::new(
-            broker,
+        let (mut runtime, handle) = ServiceRuntime::<Heartbeat>::new(
+            Heartbeat::initial_state(),
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
-
-        let (reply, answer) = oneshot::channel();
-        runtime.sender().dispatch(command, Responder::new(reply));
-
-        let running = tokio::spawn(async move { runtime.run(NoConfig).await });
-        let outcome = answer.await.expect("the handler answered");
-        cancel.cancel();
-        let _ = running.await;
-        outcome
+        let task = tokio::spawn(async move {
+            let _ = runtime.run(NoConfig, ()).await;
+        });
+        (handle, cancel, task)
     }
 
     #[tokio::test]
     async fn set_interval_reports_the_period_it_replaced() {
-        let value = call(Command::SetInterval { period_ms: 250 })
-            .await
-            .expect("accepted");
-        assert_eq!(value["previous_ms"], DEFAULT_PERIOD_MS);
+        let (handle, cancel, task) = running().await;
+        let value = handle.set_interval(250).await.expect("accepted");
+        assert_eq!(value.previous_ms, DEFAULT_PERIOD_MS);
+        cancel.cancel();
+        let _ = task.await;
     }
 
     /// A rejected period must not be retryable: retrying the same argument cannot start working.
     #[tokio::test]
     async fn set_interval_refuses_a_period_outside_the_supported_range() {
-        let error = call(Command::SetInterval { period_ms: 0 })
-            .await
-            .expect_err("refused");
-        assert_eq!(error.code, ErrorCode::InvalidArgs);
-        assert!(!error.retryable);
-    }
-
-    #[test]
-    fn declared_topics_and_methods_exist() {
-        crate::service::assert_declarations::<Heartbeat>();
-    }
-
-    #[test]
-    fn a_mistyped_argument_is_refused_as_an_argument_not_as_a_missing_command() {
-        let error = Heartbeat::decode(
-            HeartbeatSetInterval::NAME,
-            serde_json::json!({ "period_ms": "fast" }),
-        )
-        .expect_err("refused");
-        assert_eq!(error.code, ErrorCode::InvalidArgs);
-    }
-
-    #[test]
-    fn a_name_the_service_does_not_declare_is_refused() {
-        let error = Heartbeat::decode("heartbeat.explode", Value::Null).expect_err("refused");
-        assert_eq!(error.code, ErrorCode::UnknownCommand);
+        let (handle, cancel, task) = running().await;
+        let error = handle.set_interval(0).await.expect_err("refused");
+        assert!(matches!(error, CommandError::InvalidArgument(_)));
+        cancel.cancel();
+        let _ = task.await;
     }
 }

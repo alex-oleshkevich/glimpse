@@ -7,32 +7,63 @@ use glimpse_compositors::{
 };
 use glimpse_config::Remember;
 use glimpse_contracts::{
-    Command as _, CompositorWindows, KeyboardLayout, KeyboardLayouts, LayoutRef, Message,
-    SwitchLayout, WindowInfo,
+    CompositorWindows, KeyboardLayout, KeyboardLayouts, LayoutRef, WindowInfo,
 };
-use glimpse_ipc::{CallError, ErrorCode};
-use serde_json::Value;
+use tokio::sync::oneshot;
 
 use crate::{
-    broker::Responder,
     context::Ctx,
     publisher::Publisher,
-    service::{Input, Service, ServiceError, decode_args, unknown_command},
+    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
+
+use super::compositor::CompositorHandle;
 
 const NAME_CAP: usize = 128;
 
 pub enum Event {
     Snapshot(BackendLayouts),
     Changed(Change),
-    Windows(CompositorWindows),
+    Windows(Option<CompositorWindows>),
     Failed(String),
 }
 
 #[derive(Debug)]
 pub enum Command {
-    Switch(LayoutRef),
+    Switch {
+        target: LayoutRef,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+}
+
+#[derive(Clone)]
+pub struct KeyboardHandle(ServiceEndpoint<Keyboard>);
+
+impl KeyboardHandle {
+    pub fn snapshot(&self) -> KeyboardLayouts {
+        self.0.snapshot()
+    }
+
+    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<KeyboardLayouts> {
+        self.0.subscribe()
+    }
+
+    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
+        self.0.health()
+    }
+
+    pub async fn switch(&self, target: LayoutRef) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::Switch { target, reply })?;
+        result
+            .await
+            .map_err(|_| CommandError::Unavailable("keyboard service stopped".to_owned()))?
+    }
+}
+
+pub struct Dependencies {
+    pub compositor: CompositorHandle,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,6 +90,7 @@ enum StoreKey {
 pub struct Keyboard {
     backend: Backend,
     layouts: Publisher<KeyboardLayouts>,
+    compositor: CompositorHandle,
     state: BackendLayouts,
     config: Config,
     store: HashMap<StoreKey, u8>,
@@ -75,13 +107,18 @@ pub enum Watch {
 
 impl Service for Keyboard {
     const NAME: &'static str = "keyboard";
-    const TOPICS: &'static [&'static str] = &[KeyboardLayouts::NAME];
-    const METHODS: &'static [&'static str] = &[SwitchLayout::NAME];
 
     type Config = Config;
+    type State = KeyboardLayouts;
+    type Handle = KeyboardHandle;
     type Command = Command;
     type Event = Event;
+    type Dependencies = Dependencies;
     type SubKey = Watch;
+
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        KeyboardHandle(endpoint)
+    }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         let follow = self.backend.clone();
@@ -115,29 +152,26 @@ impl Service for Keyboard {
             ),
         ];
         if self.config.remember != Remember::Global {
-            subs.push(Sub::topic::<CompositorWindows>(
+            subs.push(Sub::watch(
                 Watch::Windows,
-                Event::Windows,
+                self.compositor.subscribe(),
+                |state| Event::Windows(state.windows),
+                Event::Windows(None),
             ));
         }
         subs
     }
 
-    fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> {
-        match method {
-            SwitchLayout::NAME => {
-                let SwitchLayout { target } = decode_args(args)?;
-                Ok(Command::Switch(target))
-            }
-            _ => Err(unknown_command(Self::NAME, method)),
-        }
-    }
-
-    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, ServiceError> {
+    async fn start(
+        ctx: &Ctx<Self>,
+        config: Self::Config,
+        dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
         tracing::debug!("starting keyboard service");
         Ok(Self {
             backend: detect_compositor(),
-            layouts: ctx.publisher::<KeyboardLayouts>(),
+            layouts: ctx.publisher(),
+            compositor: dependencies.compositor,
             state: BackendLayouts::default(),
             config,
             store: HashMap::new(),
@@ -160,10 +194,11 @@ impl Service for Keyboard {
                 Apply::Refetch => self.attempt += 1,
                 Apply::Ignore => {}
             },
-            Input::Event(Event::Windows(windows)) => self.windows_changed(windows).await,
+            Input::Event(Event::Windows(Some(windows))) => self.windows_changed(windows).await,
+            Input::Event(Event::Windows(None)) => self.focused = None,
             Input::Event(Event::Failed(reason)) => ctx.degraded(reason),
-            Input::Command(Command::Switch(target), responder) => {
-                self.switch(target, responder).await;
+            Input::Command(Command::Switch { target, reply }) => {
+                self.switch(target, reply).await;
             }
             Input::Config(config) => {
                 let labels_moved = config.labels != self.config.labels;
@@ -181,7 +216,11 @@ impl Keyboard {
         self.layouts.set(payload(&self.state, &self.config.labels));
     }
 
-    async fn switch(&mut self, target: LayoutRef, responder: Responder) {
+    async fn switch(
+        &mut self,
+        target: LayoutRef,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    ) {
         match self
             .backend
             .switch_keyboard_layout(layout_target(target))
@@ -200,9 +239,11 @@ impl Keyboard {
                 ) {
                     self.store.insert(key, index);
                 }
-                responder.ok(());
+                let _ = reply.send(Ok(()));
             }
-            Err(error) => responder.fail(CallError::new(code(&error), error.to_string())),
+            Err(error) => {
+                let _ = reply.send(Err(command_error(&error)));
+            }
         }
     }
 
@@ -339,19 +380,22 @@ fn stepped(current: u8, target: LayoutRef, len: usize) -> Option<u8> {
     })
 }
 
-fn code(error: &CompositorError) -> ErrorCode {
+fn command_error(error: &CompositorError) -> CommandError {
     match error {
-        CompositorError::Unsupported(_) | CompositorError::Unavailable(_) => ErrorCode::Unsupported,
-        CompositorError::Connect { .. } | CompositorError::Closed => ErrorCode::Unavailable,
-        CompositorError::Refused(_) => ErrorCode::InvalidArgs,
-        CompositorError::Protocol(_) => ErrorCode::Internal,
+        CompositorError::Unsupported(reason) | CompositorError::Unavailable(reason) => {
+            CommandError::Unsupported(reason.to_string())
+        }
+        CompositorError::Connect { .. } | CompositorError::Closed => {
+            CommandError::Unavailable(error.to_string())
+        }
+        CompositorError::Refused(reason) => CommandError::InvalidArgument(reason.to_string()),
+        CompositorError::Protocol(reason) => CommandError::Internal(reason.to_string()),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
 
     fn backend(names: &[&str], codes: &[&str], current: Option<usize>) -> BackendLayouts {
         BackendLayouts {
@@ -372,11 +416,6 @@ mod tests {
             urgent: false,
             order: None,
         }
-    }
-
-    #[test]
-    fn declared_topics_and_methods_exist() {
-        crate::service::assert_declarations::<Keyboard>();
     }
 
     #[test]
@@ -499,23 +538,5 @@ mod tests {
     fn next_and_prev_wrap() {
         assert_eq!(stepped(1, LayoutRef::Next, 2), Some(0));
         assert_eq!(stepped(0, LayoutRef::Prev, 2), Some(1));
-    }
-
-    #[test]
-    fn decode_reads_an_index() {
-        let Command::Switch(LayoutRef::Index { index }) = Keyboard::decode(
-            SwitchLayout::NAME,
-            json!({ "target": { "by": "index", "index": 1 } }),
-        )
-        .expect("decoded") else {
-            panic!("expected an index");
-        };
-        assert_eq!(index, 1);
-    }
-
-    #[test]
-    fn a_name_the_service_does_not_declare_is_refused() {
-        let error = Keyboard::decode("keyboard.explode", Value::Null).expect_err("refused");
-        assert_eq!(error.code, ErrorCode::UnknownCommand);
     }
 }

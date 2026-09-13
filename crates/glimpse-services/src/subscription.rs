@@ -1,8 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use futures_util::Stream;
-use glimpse_contracts::Message;
-use tokio::time;
+use futures_util::{Stream, StreamExt};
+use tokio::{sync::watch, time};
 
 use crate::context::{Ctx, SourceGuard};
 use crate::service::Service;
@@ -44,19 +43,36 @@ impl<S: Service> Sub<S> {
         }
     }
 
-    pub fn topic<T: Message>(
+    pub fn watch<T>(
         key: S::SubKey,
-        map: impl Fn(T::Payload) -> S::Event + Send + 'static,
-    ) -> Self {
+        receiver: watch::Receiver<T>,
+        map: impl Fn(T) -> S::Event + Send + 'static,
+        closed: S::Event,
+    ) -> Self
+    where
+        T: Clone + Send + Sync + 'static,
+    {
         Self {
             key,
-            start: Box::new(move |ctx| ctx.subscribe::<T>(map)),
+            start: Box::new(move |ctx| {
+                ctx.stream(move |_ctx| async move {
+                    futures_util::stream::unfold(
+                        (receiver, map, true),
+                        |(mut receiver, map, first)| async move {
+                            if !first && receiver.changed().await.is_err() {
+                                return None;
+                            }
+                            let value = receiver.borrow_and_update().clone();
+                            Some((map(value), (receiver, map, false)))
+                        },
+                    )
+                    .chain(futures_util::stream::once(async move { closed }))
+                })
+            }),
         }
     }
 }
 
-/// The sources a service currently has running, against the ones it declares. Dropping a guard is
-/// the whole teardown: it aborts the task and releases the broker subscription behind it.
 pub(crate) struct Live<S: Service> {
     running: HashMap<S::SubKey, SourceGuard>,
     warned_duplicate: bool,
@@ -118,6 +134,38 @@ mod tests {
 
         assert_eq!(event(&mut received).await, Some(1));
         assert_eq!(live.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_watch_delivers_its_snapshot_then_changes() {
+        let (ctx, mut received) = probe();
+        let (state, receiver) = watch::channel(3);
+        let mut live = Live::new();
+
+        live.reconcile(
+            &ctx,
+            vec![Sub::watch(Watch::First, receiver, |value| value, 9)],
+        );
+        assert_eq!(event(&mut received).await, Some(3));
+
+        state.send_replace(5);
+        assert_eq!(event(&mut received).await, Some(5));
+    }
+
+    #[tokio::test]
+    async fn a_watch_reports_when_its_sender_closes() {
+        let (ctx, mut received) = probe();
+        let (state, receiver) = watch::channel(3);
+        let mut live = Live::new();
+
+        live.reconcile(
+            &ctx,
+            vec![Sub::watch(Watch::First, receiver, |value| value, 9)],
+        );
+        assert_eq!(event(&mut received).await, Some(3));
+
+        drop(state);
+        assert_eq!(event(&mut received).await, Some(9));
     }
 
     /// The property the whole diff exists for: `subscriptions` runs after every input, and an

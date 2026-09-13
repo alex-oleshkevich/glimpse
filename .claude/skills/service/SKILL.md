@@ -1,13 +1,13 @@
 ---
 name: service
-description: Writing services in glimpse-services — the Service trait, Ctx sources, declarative subscriptions, topics and commands in glimpse-contracts, registration in glimpsed, and headless tests against MockBroker. Use for any new service, any change to an existing one under crates/glimpse-services/src/services/, and any change to the framework in service.rs, context.rs, subscription.rs or publisher.rs. Trigger on the location, not the wording — if the file is a service or the framework under it, this applies. D-Bus specifics belong to the zbus skill; this covers the shape a service takes around them.
+description: Writing typed in-process services in glimpse-services: Service, Ctx sources, watch-backed handles, injected dependencies, configuration, health, and headless tests. D-Bus specifics belong to the zbus skill.
 ---
 
 # service
 
-A service is one tokio task owning a set of topics and a set of commands. The runtime owns the
-select loop. A service implements handlers that run serially on `&mut self` and never touch a
-socket, a `wl_` object, or a bus it opened itself.
+A service is one Tokio task that owns a model and its backend integration. The runtime owns the
+select loop; handlers run serially on `&mut self`. Services communicate inside one process through
+typed handles and `tokio::sync::watch`, not through sockets, topics, or a broker.
 
 **Verified against the tree at `crates/glimpse-services/`.** Every signature, macro shape and error
 code below was read out of the current code, not recalled. When this file and the code disagree,
@@ -17,32 +17,41 @@ the code is right and this file is a bug — fix it in the same change.
 
 ```rust
 pub struct Weather {
-    status: Publisher<WeatherStatus>,   // from ctx.publisher::<T>(), held for the service's life
-    place: Option<GeoCoordinates>,      // model
+    state: Publisher<WeatherState>,
+    location: LocationHandle,
 }
+
+#[derive(Clone)]
+pub struct WeatherHandle(ServiceEndpoint<Weather>);
 
 impl Service for Weather {
     const NAME: &'static str = "weather";
-    const TOPICS: &'static [&'static str] = &[WeatherStatus::NAME];
-    const METHODS: &'static [&'static str] = &[WeatherRefresh::NAME];
+    type Config = Config;
+    type State = WeatherState;
+    type Handle = WeatherHandle;
+    type Command = Command;
+    type Event = Event;
+    type Dependencies = Dependencies;
+    type SubKey = Watch;
 
-    type Config = Config;               // From<&glimpse_config::Config>, or NoConfig
-    type Command = Command;             // this service's own decoded commands
-    type Event = Event;                 // everything a source delivers
-    type SubKey = Watch;                // identity for declared sources
-
-    fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> { ... }
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle { WeatherHandle(endpoint) }
     fn subscriptions(&self) -> Vec<Sub<Self>> { ... }
 
-    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, ServiceError> { ... }
+    async fn start(ctx: &Ctx<Self>, config: Self::Config, deps: Self::Dependencies)
+        -> Result<Self, ServiceError> { ... }
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) { ... }
 }
 ```
 
-`Input<S>` is the one inbox: `Event(S::Event)`, `Command(S::Command, Responder)`,
-`Config(S::Config)`. One channel means one order — a command and the event that follows it reach
-the handler in the order they were produced, which two channels raced in a `select!` could not
-promise.
+`ServiceRuntime::new(initial, buses, cancel)` returns `(runtime, handle)`. The handle gives a
+complete current snapshot, a `watch::Receiver` for changes, a health receiver, and the service's
+typed command methods. `ServiceEndpoint` is the small common implementation behind concrete
+handles; consumers should never need a generic command or string key.
+
+`Input<S>` is `Event(S::Event)`, `Command(S::Command)`, or `Config(S::Config)`. One inbox keeps
+commands and resulting backend events ordered. Command variants carry their own typed
+`oneshot::Sender<Result<Reply, CommandError>>`; a public handle creates the sender, submits the
+typed command, and awaits the reply. A stopped service maps a dropped reply to `Unavailable`.
 
 ## Decision table
 
@@ -66,48 +75,51 @@ top of a backend that already retries, and long-lived sources declared rather th
 not repeated here. Neither is capping hostile text off a backend — that is a critical constraint in
 `AGENTS.md`, and the `zbus` skill covers the bus case. What follows is what none of those say.
 
-1. **Degraded is running.** A missing bus, a refused request, a half-configured table — all are
-   `ctx.degraded(reason)` and carry on. A service does not exit because its backend is absent, and
-   `degraded` never marks its topics `stale`: `stale` means the producer is not running at all, not
-   that it is running badly. A degraded service keeps publishing what it can, and those values are
-   current.
+1. **State is typed and complete.** `State: Clone + PartialEq + Send + Sync + 'static` is the
+   service's public snapshot. Publish with one `Publisher<State>`; `set` and `update` suppress
+   unchanged values. Consumers receive the initial snapshot from `snapshot()` or `watch` before
+   later changes.
 
-2. **`start` may fail the service; `handle` may not.** `start` returns `Result<Self, ServiceError>`
-   and a failure there stops the service before it runs. `handle` returns `()` deliberately — there
-   is nothing the runtime could do with an error from it. A failure inside a handler is
-   `ctx.degraded(reason)` or a logged line, never a panic and never an early exit.
+2. **Dependencies are explicit.** Define a `Dependencies` struct containing required typed handles,
+   and pass it to `start`. Build producers before consumers in the composition root. Do not add a
+   service locator, registry, dependency container, string key, or generic broker replacement.
 
-3. **Declare before you publish.** `TOPICS` and `METHODS` are read while the service is still
-   stopped, so a `get` on a declared topic answers "declared, no value" rather than "unknown" and a
-   subscription pattern still matches it. A publish to a topic outside `TOPICS` is dropped and
-   logged as an error.
+3. **Sources are declarative.** Long-lived backend streams, timers, and dependency watches belong
+   in `subscriptions`. A `SubKey` restarts only the source whose inputs changed. `Sub::watch` emits
+   the receiver's current value immediately, each changed value, and the explicit unavailable event
+   supplied by the consumer if the producer stops.
 
-4. **Take the publisher once, in `start`, and hold it.** `Publisher` remembers the last value it
-   sent and drops one equal to it. Rebuilt per call it starts from no last value every time, which
-   defeats the gate the whole topic design rests on.
+4. **Health is orthogonal to state.** A missing backend or dependency is normally
+   `ctx.degraded(reason)`, followed by whatever safe current state the service can provide.
+   `ctx.running()` clears a previous degraded state. A stopped service's state remains readable,
+   while its health says `Stopped`.
 
-## What the framework will not do for you
+5. **Keep backends authoritative.** Mirror system D-Bus and compositor state; commands are thin
+   typed pass-throughs. Do not add a retry loop when the backend already reconnects or owns policy.
+   Move slow command work into `ctx.spawn_detached` only when the caller does not need a reply; a
+   command with a reply must preserve its typed sender until the backend call completes.
 
-- **Topics are static.** `TOPICS` is `&'static [&'static str]`, and the broker drops a publish to a
-  topic nothing declared (`store.rs:81`, logged as an error). There is no way to declare
-  `tray.item.{id}.menu` today. A collection in one topic is the pattern that works — see
-  `references/pitfalls.md` → A per-entity topic cannot be declared.
-- **Nothing checks declarations at compile time.** `const { assert!(...) }` and an associated-const
-  check both compile and never fire. One test per service closes it instead — see Definition of done
-  and `references/testing.md` → Declaration drift.
+6. **Configuration is a typed slice.** A service config implements `From<&glimpse_config::Config>`
+   or uses `NoConfig`. `PartialEq` lets the runtime send updates only when the service's own table
+   changed.
+
+7. **Keep process boundaries narrow.** Panel-local services stay in the panel process and expose
+   Rust handles. A standalone provider exposes a typed zbus interface and proxy; do not tunnel the
+   old JSON protocol through D-Bus. Any temporary legacy string/JSON adapter belongs in `glimpsed`
+   and is deleted with that compatibility process.
 
 ## Definition of done
 
-- Every topic the service publishes is in `TOPICS`; every command it answers is in `METHODS` **and**
-  in `decode`. One test per service asserts it:
-  `#[test] fn declared_topics_and_methods_exist() { assert_declarations::<Weather>(); }`
-- Payload and command types live in `glimpse-contracts`, declared with `topics!` / `commands!`. No
-  zbus, GTK or backend type reaches either crate.
+- Every service has a concrete cloneable handle with `snapshot`, `subscribe`, `health`, and typed
+  command methods where needed. `ServiceRuntime::new` receives a complete initial state.
+- State and command types are typed Rust models. Contract structs may remain in
+  `glimpse-contracts` while they are useful domain values; their serialization derives do not make
+  them wire topics.
 - `type Config` implements `From<&glimpse_config::Config>`, or is `NoConfig`.
-- Long-lived sources are in `subscriptions`, and each `SubKey` carries exactly what should restart it.
-- No `unwrap`, `expect`, or blocking call in `start`, `handle`, `subscriptions` or `decode`.
+- Dependencies are visible in the composition root and long-lived sources are in `subscriptions`.
+- No `unwrap`, `expect`, or blocking call in `start`, `handle`, or `subscriptions`.
 - Strings taken off a backend are length-capped before publication.
-- Tests run headless against `MockBroker` with no socket and no bus, and each one has been checked
-  against a deliberately broken version of the code it covers.
+- Tests run headless with an unavailable bus and fake handles; they prove snapshots, subscriptions,
+  command results, failures, configuration, and shutdown without a broker or socket.
 - `just verify` is clean — `just lint` runs `-D warnings`.
 - The crate `README.md` says what changed, in the same commit.

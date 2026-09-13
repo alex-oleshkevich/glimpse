@@ -2,19 +2,16 @@ use std::pin::Pin;
 
 use futures_util::{Stream, StreamExt, stream};
 use glimpse_config::Geolocation as ConfiguredGeolocation;
-use glimpse_contracts::{
-    Command as _, GeoCoordinates, GeolocationRefresh, GeolocationStatus, Message,
-};
+use glimpse_contracts::{GeoCoordinates, GeolocationStatus};
 use glimpse_dbus::geoclue::{GeoClueClientProxy, GeoClueLocationProxy, GeoClueManagerProxy};
-use glimpse_ipc::CallError;
-use serde_json::Value;
+use tokio::sync::{oneshot, watch};
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
 use super::say;
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{Input, Service, ServiceError, unknown_command},
+    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
 
@@ -41,7 +38,9 @@ pub enum Provider {
 
 #[derive(Debug)]
 pub enum Command {
-    Refresh,
+    Refresh {
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
 }
 
 pub enum Event {
@@ -51,7 +50,7 @@ pub enum Event {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
-    provider: Provider,
+    pub(crate) provider: Provider,
 }
 
 impl From<&glimpse_config::Config> for Config {
@@ -74,6 +73,37 @@ pub struct Geolocation {
     attempt: u64,
 }
 
+#[derive(Clone)]
+pub struct GeolocationHandle(ServiceEndpoint<Geolocation>);
+
+impl GeolocationHandle {
+    pub fn snapshot(&self) -> GeolocationStatus {
+        self.0.snapshot()
+    }
+
+    pub fn subscribe(&self) -> watch::Receiver<GeolocationStatus> {
+        self.0.subscribe()
+    }
+
+    pub fn health(&self) -> watch::Receiver<crate::ServiceState> {
+        self.0.health()
+    }
+
+    pub async fn refresh(&self) -> Result<(), CommandError> {
+        let (reply, answer) = oneshot::channel();
+        self.0.command(Command::Refresh { reply })?;
+        answer.await.map_err(|_| {
+            CommandError::Unavailable("`geolocation` stopped before refreshing".to_owned())
+        })?
+    }
+}
+
+impl Geolocation {
+    pub fn initial_state() -> GeolocationStatus {
+        GeolocationStatus { coordinates: None }
+    }
+}
+
 /// `attempt` carries nothing but its own difference: `geolocation.refresh` has no parameter to
 /// change, and a key that does not move would leave the watch running untouched.
 #[derive(PartialEq, Eq, Hash)]
@@ -83,13 +113,18 @@ pub enum Watch {
 
 impl Service for Geolocation {
     const NAME: &'static str = "geolocation";
-    const TOPICS: &'static [&'static str] = &[GeolocationStatus::NAME];
-    const METHODS: &'static [&'static str] = &[GeolocationRefresh::NAME];
 
     type Config = Config;
+    type State = GeolocationStatus;
+    type Handle = GeolocationHandle;
     type Command = Command;
     type Event = Event;
+    type Dependencies = ();
     type SubKey = Watch;
+
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        GeolocationHandle(endpoint)
+    }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         match self.provider {
@@ -103,16 +138,13 @@ impl Service for Geolocation {
         }
     }
 
-    fn decode(method: &str, _args: Value) -> Result<Self::Command, CallError> {
-        match method {
-            GeolocationRefresh::NAME => Ok(Command::Refresh),
-            _ => Err(unknown_command(Self::NAME, method)),
-        }
-    }
-
-    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, ServiceError> {
+    async fn start(
+        ctx: &Ctx<Self>,
+        config: Self::Config,
+        _dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
         let mut service = Self {
-            status: ctx.publisher::<GeolocationStatus>(),
+            status: ctx.publisher(),
             provider: Provider::Manual(None),
             attempt: 0,
         };
@@ -140,9 +172,9 @@ impl Service for Geolocation {
                     self.apply(ctx, config.provider);
                 }
             }
-            Input::Command(Command::Refresh, responder) => {
+            Input::Command(Command::Refresh { reply }) => {
                 self.refresh();
-                responder.ok(());
+                let _ = reply.send(Ok(()));
             }
         }
     }
@@ -266,13 +298,11 @@ async fn read(bus: &Connection, path: OwnedObjectPath) -> Option<GeoCoordinates>
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use glimpse_dbus::Buses;
     use tokio_util::sync::CancellationToken;
 
     use super::*;
-    use crate::{BrokerHandle, MockBroker, service::ServiceRuntime};
+    use crate::service::ServiceRuntime;
 
     /// Built literally rather than through `coordinates`, which is the function under test: a
     /// helper that called it would compare its output against itself and assert nothing.
@@ -283,20 +313,6 @@ mod tests {
                 longitude,
             })),
         }
-    }
-
-    #[test]
-    fn declared_topics_and_methods_exist() {
-        crate::service::assert_declarations::<Geolocation>();
-    }
-
-    fn published(mock: &MockBroker) -> Vec<Option<GeoCoordinates>> {
-        mock.published()
-            .into_iter()
-            .filter(|(topic, _)| topic == GeolocationStatus::NAME)
-            .filter_map(|(_, data)| serde_json::from_value::<GeolocationStatus>(data).ok())
-            .map(|status| status.coordinates)
-            .collect()
     }
 
     fn document(geolocation: ConfiguredGeolocation) -> glimpse_config::Config {
@@ -362,11 +378,9 @@ mod tests {
     /// configuration that tore it down.
     #[tokio::test]
     async fn a_geoclue_event_arriving_after_a_switch_to_manual_is_ignored() {
-        let mock = Arc::new(MockBroker::default());
-        let broker: Arc<dyn BrokerHandle> = mock.clone();
         let cancel = CancellationToken::new();
-        let mut runtime = ServiceRuntime::<Geolocation>::new(
-            broker,
+        let (mut runtime, handle) = ServiceRuntime::<Geolocation>::new(
+            Geolocation::initial_state(),
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
@@ -386,9 +400,12 @@ mod tests {
 
         let running = tokio::spawn(async move {
             let _ = runtime
-                .run(Config {
-                    provider: Provider::Geoclue,
-                })
+                .run(
+                    Config {
+                        provider: Provider::Geoclue,
+                    },
+                    (),
+                )
                 .await;
         });
         for _ in 0..8 {
@@ -397,14 +414,13 @@ mod tests {
         cancel.cancel();
         let _ = running.await;
 
-        let coordinates = published(&mock);
         assert_eq!(
-            coordinates.last(),
-            Some(&Some(GeoCoordinates {
+            handle.snapshot().coordinates,
+            Some(GeoCoordinates {
                 latitude: 51.5074,
                 longitude: -0.1278,
-            })),
-            "the manual pair must survive the straggler, got {coordinates:?}"
+            }),
+            "the manual pair must survive the straggler"
         );
     }
 }

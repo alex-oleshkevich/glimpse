@@ -3,18 +3,17 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, FixedOffset, Offset as _, Utc};
 use glimpse_config::WeatherProvider as ConfiguredProvider;
 use glimpse_contracts::{
-    Command as _, CurrentWeather, DayForecast, GeoCoordinates, GeolocationStatus, HourForecast,
-    Message, PlaceWeather, UnitSystem, WatchedPlace, WeatherAlert, WeatherRefresh, WeatherStatus,
-    WeatherWatch,
+    CurrentWeather, DayForecast, GeoCoordinates, HourForecast, PlaceWeather, UnitSystem,
+    WatchedPlace, WeatherAlert, WeatherStatus,
 };
-use glimpse_ipc::{CallError, ErrorCode};
 use glimpse_utils::clean;
-use serde_json::Value;
+use tokio::sync::oneshot;
 
 use crate::{
     context::Ctx,
     publisher::Publisher,
-    service::{Input, Service, ServiceError, decode_args, unknown_command},
+    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
+    services::geolocation::GeolocationHandle,
     subscription::Sub,
 };
 
@@ -95,8 +94,58 @@ impl From<&glimpse_config::Config> for Config {
 
 #[derive(Debug)]
 pub enum Command {
-    Watch(WatchedPlace),
-    Refresh,
+    Watch {
+        place: WatchedPlace,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+    Refresh {
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
+}
+
+#[derive(Clone)]
+pub struct WeatherHandle(ServiceEndpoint<Weather>);
+
+impl WeatherHandle {
+    pub fn snapshot(&self) -> WeatherStatus {
+        self.0.snapshot()
+    }
+
+    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<WeatherStatus> {
+        self.0.subscribe()
+    }
+
+    pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
+        self.0.health()
+    }
+
+    pub async fn watch(&self, place: WatchedPlace) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::Watch { place, reply })?;
+        result.await.map_err(|_| {
+            CommandError::Unavailable("weather stopped before accepting the place".to_owned())
+        })?
+    }
+
+    pub async fn refresh(&self) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::Refresh { reply })?;
+        result.await.map_err(|_| {
+            CommandError::Unavailable("weather stopped before refreshing".to_owned())
+        })?
+    }
+}
+
+#[derive(Clone)]
+pub struct WeatherDependencies {
+    pub geolocation: GeolocationHandle,
+}
+
+pub fn initial_state(config: &Config) -> WeatherStatus {
+    WeatherStatus {
+        units: config.units,
+        places: Vec::new(),
+    }
 }
 
 pub enum Event {
@@ -137,6 +186,7 @@ pub struct Reading {
 
 pub struct Weather {
     status: Publisher<WeatherStatus>,
+    location: GeolocationHandle,
     client: Option<reqwest::Client>,
     config: Config,
     watched: Vec<Lease>,
@@ -148,32 +198,29 @@ pub struct Weather {
 
 impl Service for Weather {
     const NAME: &'static str = "weather";
-    const TOPICS: &'static [&'static str] = &[WeatherStatus::NAME];
-    const METHODS: &'static [&'static str] = &[WeatherWatch::NAME, WeatherRefresh::NAME];
 
     type Config = Config;
+    type State = WeatherStatus;
+    type Handle = WeatherHandle;
     type Command = Command;
     type Event = Event;
+    type Dependencies = WeatherDependencies;
     type SubKey = Watch;
 
-    fn decode(method: &str, args: Value) -> Result<Self::Command, CallError> {
-        match method {
-            WeatherWatch::NAME => {
-                let WeatherWatch { place } = decode_args(args)?;
-                Ok(Command::Watch(placed(place)?))
-            }
-            WeatherRefresh::NAME => Ok(Command::Refresh),
-            _ => Err(unknown_command(Self::NAME, method)),
-        }
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        WeatherHandle(endpoint)
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         let mut declared = Vec::new();
 
         if self.wants_here() {
-            declared.push(Sub::topic::<GeolocationStatus>(Watch::Location, |data| {
-                Event::Located(data.coordinates)
-            }));
+            declared.push(Sub::watch(
+                Watch::Location,
+                self.location.subscribe(),
+                |data| Event::Located(data.coordinates),
+                Event::Located(None),
+            ));
         }
 
         let ask = self.ask();
@@ -202,7 +249,11 @@ impl Service for Weather {
         declared
     }
 
-    async fn start(ctx: &Ctx<Self>, config: Self::Config) -> Result<Self, ServiceError> {
+    async fn start(
+        ctx: &Ctx<Self>,
+        config: Self::Config,
+        dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
         let client = match reqwest::Client::builder()
             .timeout(TIMEOUT)
             .user_agent(AGENT)
@@ -216,7 +267,7 @@ impl Service for Weather {
         };
 
         let mut service = Self {
-            status: ctx.publisher::<WeatherStatus>(),
+            status: ctx.publisher(),
             client,
             config,
             watched: Vec::new(),
@@ -224,6 +275,7 @@ impl Service for Weather {
             generation: 0,
             places: Vec::new(),
             failure: None,
+            location: dependencies.geolocation,
         };
         service.report(ctx);
         service.publish();
@@ -276,12 +328,12 @@ impl Service for Weather {
                 self.publish();
             }
 
-            Input::Command(Command::Watch(place), responder) => {
+            Input::Command(Command::Watch { place, reply }) => {
                 let now = Instant::now();
                 let asked = self.ask().coordinates;
                 let mut changed = self.sweep(now);
 
-                let outcome = self.lease(place, now);
+                let outcome = placed(place).and_then(|place| self.lease(place, now));
                 changed |= matches!(outcome, Ok(true));
 
                 if changed {
@@ -294,14 +346,18 @@ impl Service for Weather {
                 }
 
                 match outcome {
-                    Ok(_) => responder.ok(()),
-                    Err(error) => responder.fail(error),
+                    Ok(_) => {
+                        let _ = reply.send(Ok(()));
+                    }
+                    Err(error) => {
+                        let _ = reply.send(Err(error));
+                    }
                 }
             }
 
-            Input::Command(Command::Refresh, responder) => {
+            Input::Command(Command::Refresh { reply }) => {
                 self.generation += 1;
-                responder.ok(());
+                let _ = reply.send(Ok(()));
             }
         }
     }
@@ -357,7 +413,7 @@ impl Weather {
     /// `Ok(true)` when the set of places actually grew; a renewal answers `Ok(false)` so it cannot
     /// restart the poll, which would turn a fifteen-minute interval into whatever the renewal
     /// cadence happens to be.
-    fn lease(&mut self, place: WatchedPlace, now: Instant) -> Result<bool, CallError> {
+    fn lease(&mut self, place: WatchedPlace, now: Instant) -> Result<bool, CommandError> {
         let until = now + LEASE;
 
         if let Some(held) = self.watched.iter_mut().find(|held| held.place == place) {
@@ -366,10 +422,9 @@ impl Weather {
         }
 
         if self.watched.len() >= MOST_WATCHED {
-            return Err(CallError::new(
-                ErrorCode::LimitExceeded,
-                format!("no more than {MOST_WATCHED} places are reported at once"),
-            ));
+            return Err(CommandError::LimitExceeded(format!(
+                "no more than {MOST_WATCHED} places are reported at once"
+            )));
         }
 
         self.watched.push(Lease { place, until });
@@ -436,7 +491,7 @@ impl Weather {
 
 /// Presence is the wire format's job. What is left is range: a mistyped latitude is a mistake worth
 /// refusing at the call rather than a request for somewhere that is not on Earth.
-fn placed(place: WatchedPlace) -> Result<WatchedPlace, CallError> {
+fn placed(place: WatchedPlace) -> Result<WatchedPlace, CommandError> {
     match place {
         WatchedPlace::Here => Ok(place),
         WatchedPlace::Coordinates {
@@ -445,9 +500,8 @@ fn placed(place: WatchedPlace) -> Result<WatchedPlace, CallError> {
         } if (-90.0..=90.0).contains(&latitude) && (-180.0..=180.0).contains(&longitude) => {
             Ok(place)
         }
-        WatchedPlace::Coordinates { .. } => Err(CallError::new(
-            ErrorCode::InvalidArgs,
-            "those coordinates are not on Earth",
+        WatchedPlace::Coordinates { .. } => Err(CommandError::InvalidArgument(
+            "those coordinates are not on Earth".to_owned(),
         )),
     }
 }
@@ -552,22 +606,25 @@ fn bearing(degrees: Option<f64>) -> Option<u16> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
 
     use chrono::{NaiveDate, TimeZone as _};
     use glimpse_contracts::{AlertSeverity, Condition};
     use glimpse_dbus::Buses;
-    use glimpse_ipc::CallError;
     use tokio::sync::{mpsc, oneshot};
     use tokio_util::sync::CancellationToken;
 
     use super::*;
-    use crate::{BrokerHandle, MockBroker, Responder, ServiceState};
+    use crate::{ServiceState, service::ServiceRuntime, services::geolocation::Geolocation};
+
+    enum Asked {
+        Watch(WatchedPlace),
+        Refresh,
+    }
 
     struct Harness {
         service: Weather,
         ctx: Ctx<Weather>,
-        broker: Arc<MockBroker>,
+        health: tokio::sync::watch::Receiver<ServiceState>,
         _inbox: mpsc::Receiver<Input<Weather>>,
         _cancel: CancellationToken,
     }
@@ -585,34 +642,51 @@ mod tests {
     async fn harness_with(config: Config) -> Harness {
         let (events, inbox) = mpsc::channel(32);
         let cancel = CancellationToken::new();
-        let broker = Arc::new(MockBroker::default());
-        let handle: Arc<dyn BrokerHandle> = broker.clone();
+        let (location_runtime, location) = ServiceRuntime::<Geolocation>::new(
+            Geolocation::initial_state(),
+            Buses::unavailable("no bus in tests"),
+            cancel.clone(),
+        );
+        drop(location_runtime);
+        let (health, health_rx) = tokio::sync::watch::channel(ServiceState::Starting);
+        let (state, _state_rx) = tokio::sync::watch::channel(initial_state(&config));
         let ctx = Ctx::<Weather>::new(
             events,
             &cancel,
-            handle,
+            state,
+            health,
             Buses::unavailable("no bus in tests"),
         );
-        let service = Weather::start(&ctx, config)
-            .await
-            .expect("the service starts");
+        let service = Weather::start(
+            &ctx,
+            config,
+            WeatherDependencies {
+                geolocation: location,
+            },
+        )
+        .await
+        .expect("the service starts");
 
         Harness {
             service,
             ctx,
-            broker,
+            health: health_rx,
             _inbox: inbox,
             _cancel: cancel,
         }
     }
 
-    async fn call(harness: &mut Harness, command: Command) -> Result<Value, CallError> {
+    async fn call(harness: &mut Harness, asked: Asked) -> Result<(), CommandError> {
         let (reply, answer) = oneshot::channel();
+        let command = match asked {
+            Asked::Watch(place) => Command::Watch { place, reply },
+            Asked::Refresh => Command::Refresh { reply },
+        };
         harness
             .service
-            .handle(&harness.ctx, Input::Command(command, Responder::new(reply)))
+            .handle(&harness.ctx, Input::Command(command))
             .await;
-        answer.await.expect("the responder answers")
+        answer.await.expect("the command answers")
     }
 
     fn at(latitude: f64, longitude: f64) -> WatchedPlace {
@@ -629,15 +703,11 @@ mod tests {
         }
     }
 
-    fn reason(broker: &MockBroker) -> Option<String> {
-        broker
-            .health()
-            .into_iter()
-            .last()
-            .and_then(|(_, state)| match state {
-                ServiceState::Degraded { reason } => Some(reason),
-                _ => None,
-            })
+    fn reason(health: &tokio::sync::watch::Receiver<ServiceState>) -> Option<String> {
+        match health.borrow().clone() {
+            ServiceState::Degraded { reason } => Some(reason),
+            _ => None,
+        }
     }
 
     fn document(weather: glimpse_config::WeatherConfig) -> glimpse_config::Config {
@@ -645,28 +715,6 @@ mod tests {
             weather,
             ..Default::default()
         }
-    }
-
-    #[test]
-    fn declared_topics_and_methods_exist() {
-        crate::service::assert_declarations::<Weather>();
-    }
-
-    #[test]
-    fn decode_answers_both_methods_and_refuses_the_rest() {
-        assert!(matches!(
-            Weather::decode(WeatherRefresh::NAME, serde_json::json!({})),
-            Ok(Command::Refresh)
-        ));
-        assert!(matches!(
-            Weather::decode(
-                WeatherWatch::NAME,
-                serde_json::json!({ "place": { "at": "here" } })
-            ),
-            Ok(Command::Watch(WatchedPlace::Here))
-        ));
-        Weather::decode("weather.forget", serde_json::json!({}))
-            .expect_err("`weather.forget` is not a command this service answers");
     }
 
     /// `Duration::from_secs(0)` panics `tokio::time::interval`, so the floor is not a preference.
@@ -694,6 +742,18 @@ mod tests {
         }
     }
 
+    #[test]
+    fn the_initial_snapshot_uses_the_configured_units() {
+        let config = Config {
+            provider: Provider::OpenMeteo,
+            units: UnitSystem::Imperial,
+            poll_interval: 900,
+            forecast_days: 7,
+        };
+
+        assert_eq!(initial_state(&config).units, UnitSystem::Imperial);
+    }
+
     /// The privacy property the lease design exists to give: until something asks, no request is
     /// made, so no coordinate leaves the machine. It says nothing about GeoClue, which the
     /// `geolocation` service runs on its own account.
@@ -705,7 +765,7 @@ mod tests {
         assert!(harness.service.ask().coordinates.is_empty());
         assert!(!harness.service.wants_here());
         assert_eq!(
-            reason(&harness.broker).as_deref(),
+            reason(&harness.health).as_deref(),
             Some("nothing is being watched")
         );
     }
@@ -714,13 +774,13 @@ mod tests {
     async fn the_location_topic_is_subscribed_only_while_something_watches_here() {
         let mut harness = harness().await;
 
-        call(&mut harness, Command::Watch(at(47.3769, 8.5417)))
+        call(&mut harness, Asked::Watch(at(47.3769, 8.5417)))
             .await
             .expect("coordinates are watchable");
         assert!(!harness.service.wants_here());
         assert_eq!(harness.service.subscriptions().len(), 1);
 
-        call(&mut harness, Command::Watch(WatchedPlace::Here))
+        call(&mut harness, Asked::Watch(WatchedPlace::Here))
             .await
             .expect("here is watchable");
         assert!(harness.service.wants_here());
@@ -733,13 +793,13 @@ mod tests {
     async fn here_without_a_fix_asks_for_nothing_and_says_so() {
         let mut harness = harness().await;
 
-        call(&mut harness, Command::Watch(WatchedPlace::Here))
+        call(&mut harness, Asked::Watch(WatchedPlace::Here))
             .await
             .expect("here is watchable");
 
         assert!(harness.service.ask().coordinates.is_empty());
         assert_eq!(
-            reason(&harness.broker).as_deref(),
+            reason(&harness.health).as_deref(),
             Some("there is no location fix yet")
         );
     }
@@ -777,13 +837,13 @@ mod tests {
     async fn renewing_a_lease_does_not_restart_the_poll() {
         let mut harness = harness().await;
 
-        call(&mut harness, Command::Watch(at(47.3769, 8.5417)))
+        call(&mut harness, Asked::Watch(at(47.3769, 8.5417)))
             .await
             .expect("the first watch");
         let after_first = harness.service.generation;
 
         for _ in 0..5 {
-            call(&mut harness, Command::Watch(at(47.3769, 8.5417)))
+            call(&mut harness, Asked::Watch(at(47.3769, 8.5417)))
                 .await
                 .expect("a renewal");
         }
@@ -797,17 +857,17 @@ mod tests {
         let mut harness = harness().await;
 
         for index in 0..MOST_WATCHED {
-            call(&mut harness, Command::Watch(at(index as f64, 0.0)))
+            call(&mut harness, Asked::Watch(at(index as f64, 0.0)))
                 .await
                 .expect("within the cap");
         }
 
-        let refused = call(&mut harness, Command::Watch(at(60.0, 0.0)))
+        let refused = call(&mut harness, Asked::Watch(at(60.0, 0.0)))
             .await
             .expect_err("past the cap");
-        assert_eq!(refused.code, ErrorCode::LimitExceeded);
+        assert!(matches!(refused, CommandError::LimitExceeded(_)));
 
-        call(&mut harness, Command::Watch(at(0.0, 0.0)))
+        call(&mut harness, Asked::Watch(at(0.0, 0.0)))
             .await
             .expect("a renewal at the cap");
         assert_eq!(harness.service.watched.len(), MOST_WATCHED);
@@ -831,7 +891,7 @@ mod tests {
             held.until = now;
         }
 
-        call(&mut harness, Command::Watch(at(60.0, 0.0)))
+        call(&mut harness, Asked::Watch(at(60.0, 0.0)))
             .await
             .expect("the cap counts live leases rather than dead ones");
 
@@ -844,12 +904,12 @@ mod tests {
     async fn watching_here_without_a_fix_does_not_restart_the_poll() {
         let mut harness = harness().await;
 
-        call(&mut harness, Command::Watch(at(47.3769, 8.5417)))
+        call(&mut harness, Asked::Watch(at(47.3769, 8.5417)))
             .await
             .expect("the first watch");
         let after_first = harness.service.generation;
 
-        call(&mut harness, Command::Watch(WatchedPlace::Here))
+        call(&mut harness, Asked::Watch(WatchedPlace::Here))
             .await
             .expect("here is watchable");
 
@@ -857,26 +917,18 @@ mod tests {
         assert_eq!(harness.service.generation, after_first);
     }
 
-    fn watch_args(latitude: f64, longitude: f64) -> Value {
-        serde_json::json!({
-            "place": { "at": "coordinates", "latitude": latitude, "longitude": longitude }
-        })
-    }
-
     /// The pairs are written literally rather than built through `placed`, which is the function
     /// under test: a helper that called it would compare its output against itself.
     #[test]
     fn a_watch_on_coordinates_outside_their_ranges_is_refused() {
         for (latitude, longitude) in [(91.0, 0.0), (-91.0, 0.0), (0.0, 181.0), (0.0, -181.0)] {
-            let refused = Weather::decode(WeatherWatch::NAME, watch_args(latitude, longitude))
-                .expect_err("not on Earth");
+            let refused = placed(at(latitude, longitude)).expect_err("not on Earth");
 
-            assert_eq!(refused.code, ErrorCode::InvalidArgs);
+            assert!(matches!(refused, CommandError::InvalidArgument(_)));
         }
 
         for (latitude, longitude) in [(90.0, 180.0), (-90.0, -180.0), (0.0, 0.0)] {
-            Weather::decode(WeatherWatch::NAME, watch_args(latitude, longitude))
-                .expect("the edges are on Earth");
+            placed(at(latitude, longitude)).expect("the edges are on Earth");
         }
     }
 
@@ -885,7 +937,7 @@ mod tests {
     #[tokio::test]
     async fn a_fix_that_moves_less_than_a_kilometre_does_not_refetch() {
         let mut harness = harness().await;
-        call(&mut harness, Command::Watch(WatchedPlace::Here))
+        call(&mut harness, Asked::Watch(WatchedPlace::Here))
             .await
             .expect("here is watchable");
 
@@ -925,7 +977,7 @@ mod tests {
     #[tokio::test]
     async fn drift_is_measured_from_the_fix_that_was_accepted() {
         let mut harness = harness().await;
-        call(&mut harness, Command::Watch(WatchedPlace::Here))
+        call(&mut harness, Asked::Watch(WatchedPlace::Here))
             .await
             .expect("here is watchable");
 
@@ -988,7 +1040,7 @@ mod tests {
     #[tokio::test]
     async fn changing_units_clears_the_readings_rather_than_relabelling_them() {
         let mut harness = harness().await;
-        call(&mut harness, Command::Watch(at(47.3769, 8.5417)))
+        call(&mut harness, Asked::Watch(at(47.3769, 8.5417)))
             .await
             .expect("a place to hold a reading");
         harness.service.places = vec![PlaceWeather {
@@ -1105,7 +1157,7 @@ mod tests {
             forecast_days: 2,
         })
         .await;
-        call(&mut harness, Command::Watch(at(54.6872, 25.2797)))
+        call(&mut harness, Asked::Watch(at(54.6872, 25.2797)))
             .await
             .expect("a place to hold a reading");
 
@@ -1150,7 +1202,7 @@ mod tests {
     #[tokio::test]
     async fn a_second_providers_alerts_go_through_the_same_gate() {
         let mut harness = harness().await;
-        call(&mut harness, Command::Watch(at(54.6872, 25.2797)))
+        call(&mut harness, Asked::Watch(at(54.6872, 25.2797)))
             .await
             .expect("a place to hold a reading");
 
@@ -1263,7 +1315,7 @@ mod tests {
     #[tokio::test]
     async fn a_failed_fetch_keeps_the_last_reading_and_degrades() {
         let mut harness = harness().await;
-        call(&mut harness, Command::Watch(at(47.3769, 8.5417)))
+        call(&mut harness, Asked::Watch(at(47.3769, 8.5417)))
             .await
             .expect("a place to hold a reading");
 
@@ -1293,7 +1345,7 @@ mod tests {
 
         assert_eq!(harness.service.places.len(), 1, "the last reading is kept");
         assert_eq!(
-            reason(&harness.broker).as_deref(),
+            reason(&harness.health).as_deref(),
             Some("the request timed out")
         );
     }
@@ -1303,7 +1355,7 @@ mod tests {
     #[tokio::test]
     async fn a_failure_reason_names_neither_the_host_nor_a_coordinate() {
         let mut harness = harness().await;
-        call(&mut harness, Command::Watch(at(47.3769, 8.5417)))
+        call(&mut harness, Asked::Watch(at(47.3769, 8.5417)))
             .await
             .expect("a watched place");
 
@@ -1318,7 +1370,7 @@ mod tests {
             )
             .await;
 
-        let rendered = reason(&harness.broker).expect("a degraded reason");
+        let rendered = reason(&harness.health).expect("a degraded reason");
         for secret in ["open-meteo", "47.3769", "8.5417", "latitude"] {
             assert!(
                 !rendered.contains(secret),
@@ -1332,12 +1384,12 @@ mod tests {
     #[tokio::test]
     async fn a_fetch_from_an_earlier_generation_is_dropped() {
         let mut harness = harness().await;
-        call(&mut harness, Command::Watch(at(47.3769, 8.5417)))
+        call(&mut harness, Asked::Watch(at(47.3769, 8.5417)))
             .await
             .expect("a watched place");
 
         let stale = harness.service.generation;
-        call(&mut harness, Command::Refresh)
+        call(&mut harness, Asked::Refresh)
             .await
             .expect("refresh answers");
         assert!(harness.service.generation > stale);
@@ -1390,7 +1442,7 @@ mod tests {
     async fn a_response_that_does_not_cover_every_place_is_refused() {
         let mut harness = harness().await;
         for pair in [(47.3769, 8.5417), (-33.8688, 151.2093)] {
-            call(&mut harness, Command::Watch(at(pair.0, pair.1)))
+            call(&mut harness, Asked::Watch(at(pair.0, pair.1)))
                 .await
                 .expect("a watched place");
         }
@@ -1408,7 +1460,7 @@ mod tests {
 
         assert!(harness.service.places.is_empty());
         assert_eq!(
-            reason(&harness.broker).as_deref(),
+            reason(&harness.health).as_deref(),
             Some("the provider answered for a different set of places")
         );
     }

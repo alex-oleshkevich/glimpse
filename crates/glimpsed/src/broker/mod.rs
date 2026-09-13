@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use glimpse_contracts::{Message as _, ServiceState, SystemMethods, SystemServices, SystemTopics};
 use glimpse_ipc::{CallError, ErrorCode, Event, Publisher, Subscribed};
-use glimpse_services::{Dispatch, Responder, Sink, SubscriptionId};
+use serde::Serialize;
 use serde_json::Value;
 use tokio::sync::{mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
@@ -14,6 +14,50 @@ pub use handle::Handle;
 use store::Store;
 
 const MAILBOX: usize = 256;
+
+pub type Dispatch = Box<dyn Fn(&str, Value, Responder) + Send>;
+
+pub struct Responder {
+    reply: Option<oneshot::Sender<Result<Value, CallError>>>,
+}
+
+impl Responder {
+    pub fn new(reply: oneshot::Sender<Result<Value, CallError>>) -> Self {
+        Self { reply: Some(reply) }
+    }
+
+    pub fn ok<T: Serialize>(mut self, output: T) {
+        let outcome = serde_json::to_value(output).map_err(|error| {
+            CallError::new(
+                ErrorCode::Internal,
+                format!("the result did not serialize: {error}"),
+            )
+        });
+        self.answer(outcome);
+    }
+
+    pub fn fail(mut self, error: CallError) {
+        self.answer(Err(error));
+    }
+
+    fn answer(&mut self, outcome: Result<Value, CallError>) {
+        if let Some(reply) = self.reply.take() {
+            let _ = reply.send(outcome);
+        }
+    }
+}
+
+impl Drop for Responder {
+    fn drop(&mut self) {
+        if self.reply.is_some() {
+            tracing::warn!("a command was dropped without an answer");
+            self.answer(Err(CallError::new(
+                ErrorCode::Unavailable,
+                "the service did not answer",
+            )));
+        }
+    }
+}
 
 pub enum Message {
     Declare {
@@ -32,14 +76,6 @@ pub enum Message {
     Health {
         service: &'static str,
         state: ServiceState,
-    },
-    Subscribe {
-        id: SubscriptionId,
-        topic: String,
-        sink: Sink,
-    },
-    Unsubscribe {
-        id: SubscriptionId,
     },
     Get {
         topic: String,
@@ -61,7 +97,6 @@ pub enum Message {
 /// per-client outboxes inside `glimpse-ipc`, which the publisher only ever appends to.
 pub struct Broker {
     store: Store,
-    sinks: HashMap<SubscriptionId, (String, Sink)>,
     dispatchers: HashMap<&'static str, Dispatch>,
     publisher: Option<Publisher>,
 }
@@ -72,7 +107,6 @@ pub fn spawn(cancel: CancellationToken) -> Handle {
     tokio::spawn(
         Broker {
             store: Store::new(),
-            sinks: HashMap::new(),
             dispatchers: HashMap::new(),
             publisher: None,
         }
@@ -121,19 +155,6 @@ impl Broker {
                 }
             }
             Message::Health { service, state } => self.health(service, state),
-            // The stored value first: a service that subscribes after the producer already
-            // published would otherwise wait for a change that may never come, since the
-            // publisher's equality gate never republishes an unchanged value. A `manual` location
-            // publishes exactly once, and solar subscribes after it.
-            Message::Subscribe { id, topic, sink } => {
-                if let Ok(Some(event)) = self.store.get(&topic) {
-                    sink(&event.data);
-                }
-                self.sinks.insert(id, (topic, sink));
-            }
-            Message::Unsubscribe { id } => {
-                self.sinks.remove(&id);
-            }
             Message::Get { topic, reply } => {
                 let _ = reply.send(self.store.get(&topic));
             }
@@ -207,82 +228,8 @@ impl Broker {
     }
 
     fn deliver(&self, event: Event) {
-        for (topic, sink) in self.sinks.values() {
-            if *topic == event.topic {
-                sink(&event.data);
-            }
-        }
-
         if let Some(publisher) = &self.publisher {
             publisher.publish(event);
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::sync::{Arc, Mutex};
-
-    use super::*;
-
-    type Seen = Arc<Mutex<Vec<Value>>>;
-
-    fn declared() -> Broker {
-        let mut broker = Broker {
-            store: Store::new(),
-            sinks: HashMap::new(),
-            dispatchers: HashMap::new(),
-            publisher: None,
-        };
-        broker.handle(Message::Declare {
-            service: "audio",
-            topics: &["audio.volume"],
-            methods: &[],
-            dispatch: Box::new(|_method, _args, _responder| {}),
-        });
-        broker
-    }
-
-    fn watch(broker: &mut Broker, topic: &str) -> Seen {
-        let seen: Seen = Arc::new(Mutex::new(Vec::new()));
-        let recorder = seen.clone();
-        broker.handle(Message::Subscribe {
-            id: SubscriptionId(1),
-            topic: topic.to_owned(),
-            sink: Box::new(move |data| recorder.lock().expect("not poisoned").push(data.clone())),
-        });
-        seen
-    }
-
-    /// Without the replay, a service subscribing after the producer published sits blank until the
-    /// value happens to change — and the publisher's equality gate means a one-shot producer never
-    /// changes it. That is a `manual` location against solar.
-    #[test]
-    fn a_new_subscriber_is_handed_the_topics_current_value() {
-        let mut broker = declared();
-        broker.handle(Message::Publish {
-            topic: "audio.volume".to_owned(),
-            data: Value::from(0.4),
-        });
-
-        let seen = watch(&mut broker, "audio.volume");
-
-        assert_eq!(*seen.lock().expect("not poisoned"), [Value::from(0.4)]);
-    }
-
-    #[test]
-    fn a_declared_topic_with_no_value_replays_nothing() {
-        let mut broker = declared();
-        let seen = watch(&mut broker, "audio.volume");
-
-        assert!(seen.lock().expect("not poisoned").is_empty());
-    }
-
-    #[test]
-    fn an_undeclared_topic_replays_nothing_rather_than_failing() {
-        let mut broker = declared();
-        let seen = watch(&mut broker, "audio.balance");
-
-        assert!(seen.lock().expect("not poisoned").is_empty());
     }
 }

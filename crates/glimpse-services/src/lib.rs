@@ -1,4 +1,3 @@
-mod broker;
 mod context;
 mod publisher;
 mod service;
@@ -10,12 +9,11 @@ mod sun;
 mod testing;
 
 pub use {
-    broker::{BrokerHandle, Dispatch, MockBroker, Responder, ServiceState, Sink, SubscriptionId},
     context::Ctx,
     publisher::Publisher,
     service::{
-        Input, NoConfig, Service, ServiceError, ServiceRuntime, ServiceSender, assert_declarations,
-        decode_args, unknown_command,
+        CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError, ServiceRuntime,
+        ServiceSender, ServiceState,
     },
     services::*,
     subscription::Sub,

@@ -1,15 +1,10 @@
-use std::sync::Arc;
-
 use glimpse_dbus::Buses;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use tokio_util::sync::CancellationToken;
 
 use crate::context::Ctx;
-use crate::service::{Input, NoConfig, Service, ServiceError};
-use crate::{BrokerHandle, MockBroker};
+use crate::service::{Input, NoConfig, Service, ServiceEndpoint, ServiceError, ServiceState};
 
-/// A service that does nothing, for exercising the framework rather than any behaviour of its own.
-/// Its `Event` is a `u8` so a test can assert on which source delivered what.
 pub(crate) struct Probe;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -20,46 +15,49 @@ pub(crate) enum Watch {
 
 impl Service for Probe {
     const NAME: &'static str = "probe";
-    const TOPICS: &'static [&'static str] = &[];
 
     type Config = NoConfig;
+    type State = ();
+    type Handle = ServiceEndpoint<Self>;
     type Command = ();
     type Event = u8;
+    type Dependencies = ();
     type SubKey = Watch;
 
-    async fn start(_ctx: &Ctx<Self>, _config: Self::Config) -> Result<Self, ServiceError> {
+    fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+        endpoint
+    }
+
+    async fn start(
+        _ctx: &Ctx<Self>,
+        _config: Self::Config,
+        _dependencies: Self::Dependencies,
+    ) -> Result<Self, ServiceError> {
         Ok(Self)
     }
 
     async fn handle(&mut self, _ctx: &Ctx<Self>, _input: Input<Self>) {}
 }
 
-/// A topic to publish into a subscriber under test, independent of any real contract.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub(crate) struct Ping {
-    pub(crate) value: u8,
-}
-glimpse_contracts::topic!(Ping, "test.ping");
-
 pub(crate) type Inbox = mpsc::Receiver<Input<Probe>>;
 
 pub(crate) fn probe() -> (Ctx<Probe>, Inbox) {
-    let (ctx, received, _broker) = wired_probe();
+    let (ctx, received, _health) = wired_probe();
     (ctx, received)
 }
 
-/// The same, with the broker kept so a test can drive a sink or read what was published.
-pub(crate) fn wired_probe() -> (Ctx<Probe>, Inbox, Arc<MockBroker>) {
+pub(crate) fn wired_probe() -> (Ctx<Probe>, Inbox, watch::Receiver<ServiceState>) {
     let (events, received) = mpsc::channel(8);
-    let mock = Arc::new(MockBroker::default());
-    let broker: Arc<dyn BrokerHandle> = mock.clone();
+    let (state, _state_rx) = watch::channel(());
+    let (health, health_rx) = watch::channel(ServiceState::Starting);
     let ctx = Ctx::new(
         events,
         &CancellationToken::new(),
-        broker,
+        state,
+        health,
         Buses::unavailable("no bus in tests"),
     );
-    (ctx, received, mock)
+    (ctx, received, health_rx)
 }
 
 pub(crate) async fn event(received: &mut Inbox) -> Option<u8> {

@@ -1,45 +1,33 @@
 # Troubleshooting, by symptom
 
-## A topic never reaches anyone
+## State never reaches a consumer
 
-**`just ctl get` says "no service declares `x`".** The name is missing from `TOPICS`, or the
-service was excluded by `--only` / `--without` — an excluded service is absent from
-`system.services` rather than listed as failed.
+**The handle always shows the initial value.** Confirm the service retained the `Publisher<State>`
+returned by `ctx.publisher()` and calls `set` or `update` after changing its model. The publisher
+suppresses equal values by design, so check `PartialEq` if a changed field is being ignored.
 
-**The log says "a service published a topic it never declared".** `Publisher` was built for a topic
-outside `TOPICS`. The broker drops the publish (`store.rs:81`). `TOPICS` and the `Message::NAME`
-you publish under must be the same string.
+**A dependent service misses the first value.** Use
+`Sub::watch(key, dependency.subscribe(), map, unavailable)`.
+It emits the receiver's current snapshot before waiting for `changed()`, while a manually written
+stream can race its first read against the producer.
 
-**Published once, then silence.** The equality gate. `Publisher::set` drops a value equal to the last
-one it sent, and the broker's store drops one whose serialized form matches the current cell. Both
-are working as designed — if the payload genuinely did not change, nothing should be sent. If it did
-change and nothing arrived, check `PartialEq` on the payload actually distinguishes the field you
-changed.
+**A state value is visible but stale.** Health and state are separate: `ctx.degraded(reason)` marks
+the producer unhealthy without making its last usable state disappear. Invalidate or replace state
+only when the service's contract says the old value is unsafe.
 
-## A command does not work
+## A typed command does not work
 
-**"no service declares `x`".** Missing from `METHODS`. The broker routes by that map alone.
+**The handle returns `Unavailable`.** `ServiceEndpoint::command` uses a bounded `try_send`; the
+service is stopped or its inbox is full. Keep handlers non-blocking and map a dropped oneshot reply
+to `CommandError::Unavailable`.
 
-**"`svc` does not answer `x`".** In `METHODS` but not handled in `decode`. Nothing makes these agree
-at compile time — `const { assert!(...) }` and an associated-const trick were both tried and neither
-fires; an unconditional `assert!(false)` survived a full build. `assert_declarations::<S>()` in one
-test per service is what catches it instead; if that test is missing, add it. The `_ =>` arm in
-`decode` is unreachable through the broker and exists to turn the drift into a clean error rather
-than a non-exhaustive match.
+**The command reaches the service but no caller receives a result.** Every command variant must own
+its command-specific oneshot sender, and every handler arm must send either `Ok` or a typed
+`CommandError`, including backend failures.
 
-**A command answers, but the wrong service handled it.** Two services declared the same name and the
-last one registered took it. `Store::declare` logs `two services declare one method` at `error` —
-grep the daemon log. Topic names collide the same way.
-
-**`InvalidArgs`.** `decode_args` rejected the payload. Wire payloads accept *unknown* fields on
-purpose; what this catches is a missing or mistyped one.
-
-**`Unavailable`, and the service looks fine.** `dispatch` is a `try_send` — the broker must never
-await. A full 128-deep inbox means the service is not keeping up, usually because a handler is
-blocking.
-
-**The caller times out with nothing in the log.** A `Responder` dropped unanswered logs and replies
-`Unavailable` from its `Drop` impl, so silence means the command never reached the service at all.
+**A command is slow and blocks state updates.** Awaiting is correct when ordering with the resulting
+backend event matters. Otherwise move fire-and-forget work to a cancellable context task; do not
+invent a generic command dispatcher.
 
 ## A service does not reconfigure
 
@@ -66,7 +54,8 @@ means same source, left untouched.
 **It restarts constantly.** Something that moves per event is in the `SubKey`.
 
 **It stopped and the service still reports healthy.** A panic in a source is caught and turned into
-`degraded`; check `system.services` for the reason. Uncaught, the task would simply stop.
+`degraded`; inspect the service handle's health receiver for the reason. Uncaught, the task would
+simply stop.
 
 ## An event arrives after it should be impossible
 
@@ -91,26 +80,19 @@ Input::Event(_) if !matches!(self.provider, Provider::Geoclue) => {}
 
 Every service whose sources depend on a mode needs this arm. It was a real bug in `geolocation`.
 
-## A per-entity topic cannot be declared
+## A dependency behaves incorrectly
 
-`TOPICS` is `&'static [&'static str]`, and the broker drops a publish to anything it does not hold an
-owner for. There is no way to declare `tray.item.{id}.menu` or `mpris.player.{bus}.metadata` today.
+**The consumer starts with missing data.** Construct the producer runtime and handle first, pass that
+handle in a typed `Dependencies` struct, and use `Sub::watch` so the consumer receives the producer's
+initial snapshot. A dependency handle is not a global service lookup.
 
-**What works now:** one declared topic holding a collection, which is what the broker's own
-`system.topics` does with `BTreeMap<String, TopicReport>`.
+**A stale dependency event overwrites a newer decision.** Dropping a source stops future events, but
+does not remove events already queued in the service inbox. Guard the handler on the current model,
+especially after a configuration mode switch.
 
-```rust
-topics! {
-    #[name = "mpris.players"]
-    pub struct MprisPlayers { players: BTreeMap<String, Player> }
-}
-```
-
-The cost is honest and worth stating: one player's change republishes the whole map, and a subscriber
-cannot watch a single player. Pattern subscription (`*` for one segment, `**` for trailing segments)
-exists in `glimpse-ipc/src/pattern.rs` and would make per-entity topics genuinely useful — but the
-declaration side has to grow first. Do not work around it by publishing undeclared topics; the broker
-drops them and logs an error.
+**A dependent service cycles back to its producer.** Keep the dependency graph acyclic and visible in
+the composition root. If two services need each other's state, extract the smallest shared read-only
+model or give one side an event boundary; do not add a registry or hidden resolver.
 
 ## A service takes the daemon down
 
@@ -127,9 +109,9 @@ on unwinding. Never add it.
 ()` puts a foreign trait on a foreign type and the orphan rules refuse it — that is the entire reason
 `NoConfig` exists.
 
-**`future cannot be sent between threads safely` around a payload.** `Message::Payload` is bound
-`Clone + Serialize + DeserializeOwned + PartialEq + Send + Sync + 'static`. `Sync` is there because a
-subscriber reads the payload out of a `watch` cell shared with the broker.
+**`future cannot be sent between threads safely` around state.** `Service::State` must be
+`Clone + PartialEq + Send + Sync + 'static`, because the runtime shares it through a Tokio watch
+cell with every cloneable handle.
 
 **`missing SubKey in implementation`.** Every service declares one; `NoConfig`-style services use
 `type SubKey = ();`. Associated type defaults are still unstable, so there is no way to omit it.
