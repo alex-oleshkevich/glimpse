@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-12 13:58+0200\n"
+"POT-Creation-Date: 2026-09-12 22:45+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -126,7 +126,7 @@ msgstr ""
 msgid "d"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/indicator.rs:210
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:208
 msgid "Clear all"
 msgstr ""
 
@@ -376,8 +376,8 @@ msgstr ""
 msgid "Nothing else scheduled"
 msgstr ""
 
-#: crates/glimpse-widgets/blueprints/notification_header.blp:67
-#: crates/glimpse-widgets/src/notification_card/imp.rs:190
+#: crates/glimpse-widgets/blueprints/notification_header.blp:56
+#: crates/glimpse-widgets/src/notification_card/imp.rs:183
 msgid "Dismiss"
 msgstr ""
 
@@ -427,11 +427,11 @@ msgstr ""
 msgid "Pause"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notification_card/imp.rs:162
+#: crates/glimpse-widgets/src/notification_card/imp.rs:155
 msgid "Unread"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notification_card/imp.rs:188
+#: crates/glimpse-widgets/src/notification_card/imp.rs:181
 msgid "Dismiss {notification}"
 msgstr ""
 
@@ -445,11 +445,11 @@ msgid_plural "{count} notifications"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-widgets/src/notifications_popover/imp.rs:96
-msgid "Silence notifications until you turn this off"
+#: crates/glimpse-widgets/src/notifications_popover/imp.rs:94
+msgid "Show notification popups while this is on"
 msgstr ""
 
-#: crates/glimpse-widgets/src/notifications_popover/mod.rs:111
+#: crates/glimpse-widgets/src/notifications_popover/mod.rs:110
 msgid "Clear these notifications"
 msgstr ""
 

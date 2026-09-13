@@ -405,12 +405,10 @@ chevron, so affordance and behaviour cannot disagree.
 
 ## NotificationCard, NotificationHeader, NotificationTextBody and NotificationImageBody
 
-`NotificationCard` is the container every notification surface shares. `NotificationHeader` spans
-the card above a body row, which places the text or image content beside an optional sender avatar.
-The header owns the app icon, app name, relative time and close button;
-`NotificationTextBody` owns the title and body; and `NotificationImageBody` owns bounded content
-imagery. The progress bar and actions remain card-level content because neither belongs to one body
-variant.
+Every notification surface uses the same `NotificationCard`. Its full-width header owns the app
+icon, app name, relative time and close button. Below it, title and body text share a row with an
+optional rounded-square image thumbnail; the progress bar stays with the text and actions remain
+card-level content.
 
 **The card subclasses `Gtk.Widget`, not `Gtk.Button`.** It contains close and action buttons, so the
 card's default action is a primary-click gesture plus keyboard activation on the root. Child buttons
@@ -429,21 +427,10 @@ reserved without an overlay or a duplicate spacer.
 image, the gap beside the actions — lights the same surface and the actions row does not read as a
 detached strip below a card.
 
-**Image notifications replace the visible title, not the body.** Their content column is header,
-image, body; ordinary notifications are header, title, body. The summary remains in the card's
-accessible label, so changing the visual hierarchy does not discard what assistive technology
-announces.
-
-**The picture takes `can-shrink: false`, and without it the image renders as nothing.** A
-`Gtk.Picture` left shrinkable reports a **5px minimum** however large its paintable — measured on
-the states board: `visible=true`, paintable `299x112`, and `measure` returning `(5, 117)`. In any
-container shorter than its natural height GTK squeezes children toward their minimums, and the
-picture is the only child of a card with a minimum near zero, so it absorbs the entire shortfall
-while every neighbour keeps its size. The board looked like a fixture that had not run; it was a
-window one card taller than the screen. The image is already bounded to `112px` before it is handed
-over, so refusing to shrink costs nothing and is what makes that bound the real size. The test
-asserts `min == natural` rather than a pixel count, because the top margin is in the measurement
-and a literal would pin the margin instead of the property.
+**The image is one optional body slot, not another card surface.** The card keeps the title visible,
+uses `content-fit: cover` in a 64px rounded-square slot, and hides the whole image body when decoding
+fails or no image exists. Adding or removing an image updates the same card widget, so hover,
+activation and actions cannot split across nested card types.
 
 **Sizes come from GNOME Shell's own stylesheet, read off disk.**
 `/usr/share/gnome-shell/gnome-shell-theme.gresource` carries `gnome-shell-dark.css`, and its
@@ -456,7 +443,7 @@ and a literal would pin the margin instead of the property.
 | `.notification-banner` | `min-height: 64px; width: 34em; border-radius: 16px` | `4.35rem` / `34rem` / `1.1rem` |
 | `.message` + `.message-header` | `padding: 6px` + `0 6px` | `0.75rem` / `1.08rem` — see `_old` below |
 | `.message-header` | `spacing: 6px` | `6` |
-| `.message-box .message-icon` | `icon-size: 48px` | `1rem` app icon / `4.33rem` avatar |
+| `.message-box .message-icon` | `icon-size: 48px` | `1rem` app icon / `4.33rem` image |
 | `.message-content` | `spacing: 4px` | `0.27rem` |
 | `.notification-button` | `padding: 6px 12px; border-radius: 8px; font-weight: bold` | `0.4rem 0.8rem` / `0.41rem` / `700` |
 | `.notification-button` rest / hover | 15% / 30% white | `--gl-active` (16%) / `--gl-faint` (22%) |
@@ -464,7 +451,7 @@ and a literal would pin the margin instead of the property.
 
 Deliberate departures. **Vertical padding is `0.75rem`, not GNOME's 6px** — its notifications
 read tighter than this shell wants, and the extra air was asked for directly. **The floor is `6rem`,
-not GNOME's 64px**, so cards without media do not collapse beside cards carrying a 64px avatar.
+not GNOME's 64px**, so cards without media do not collapse beside cards carrying a 64px image.
 
 And **every action carries `min-height: 0`**: GNOME's St buttons have no intrinsic minimum, but
 Adwaita's `button` rule gives every `Gtk.Button` one, so without that reset the padding sits inside a
@@ -473,7 +460,7 @@ difference between the two toolkits. The close button is the exception and takes
 own — see below.
 
 **Four sizes come from `_old`, not from GNOME**, retained after both were compared:
-the avatar slot is `4.33rem` (64px) against GNOME's 48px icon, horizontal card padding is `1.08rem` (16px)
+the image slot is `4.33rem` (64px) against GNOME's 48px icon, horizontal card padding is `1.08rem` (16px)
 against GNOME's 6px, the close button takes a `2.17rem` (32px) minimum where GNOME sets none, and an
 action's radius is `0.41rem` (6px) rather than 8px. The image, progress and action rows carry the
 same `1.08rem` side margin so they stay aligned with the text column above them.
@@ -541,27 +528,18 @@ multi-byte one straddled the window: `&` followed by six `é` panicked, from a m
 send. The search is bounded by rejecting a `;` found too far away instead, which `find` can only
 ever report at a character boundary. `_old`'s `decode_text_entities` has the same defect.
 
-**The app icon and avatar are different data.** `NotificationHeader` renders the small themed app
-icon beside the app name, while `NotificationCard` renders a separately supplied avatar in a bounded
-circular slot beside the body and below the header. A sender image whose filename identifies the
-application is classified as an avatar by the notification service; unrelated image paths remain
-content images.
+**The app icon and content image are different data.** `NotificationHeader` renders the small themed
+app icon beside the app name, while `NotificationCard` renders the freedesktop image hint as an
+optional thumbnail beside the text. The notification service does not reinterpret filenames as
+avatars.
 
 **The app name and time share the header.** The app icon and name start the row, an expanding spacer
 pushes the relative time and close button to the end, and the title begins its own row below.
 
-**The image is bounded here, because the sender chose it.** `Gtk.Picture` asks for its paintable's
-own height, so an unbounded image makes the notification as tall as whoever sent it decided —
-measured, a 400x1200 image asked for 1256px of card. `set_image` therefore takes a `gdk::Texture`
-rather than any paintable, and scales anything over 112px tall down to it, keeping the aspect ratio;
-an image already inside the bound is passed through untouched, and one larger than 4096px per side
-is dropped rather than shown — `Texture::download` copies the whole image, and the image is
-somebody else's. That ceiling is the one `artwork` already applies.
-
-`notification_image` checks dimensions from the file header before decoding and asks the decoder for
-the bounded size, so a path supplied by another application never becomes a full-resolution texture
-only to be reduced afterwards. The in-memory bound remains necessary for callers and previews that
-already hold a texture.
+**The image is bounded before it reaches the card, because the sender chose it.** `notification_image`
+uses `artwork` to check the header before decoding, reject dimensions above 4096px per side,
+center-crop to a square and decode toward 64px. `NotificationImageBody` also bounds textures already
+held by callers and hides invalid ones.
 
 **The comparison is on the source, not on the result.** `bound` builds a new texture every time it
 resamples, so comparing what comes out of it never matches: the same image handed over twice would
@@ -662,20 +640,16 @@ in one pass — strips, then cards, then the chip — and the GTK test asserts t
 `notification-stack__strip`.
 
 **The cards behind are strips, not notifications.** They are empty `Gtk.Box`es 30px tall. Rendering
-three live `NotificationCard`s to show two 7px slivers would measure and style two cards nobody can
+three live notification cards to show two 6px slivers would measure and style two cards nobody can
 read; the second and later notifications are held as widgets so their identity survives, but they
 are `visible: false` while collapsed and the strips stand in for them. Depth is capped at two,
 because a third sliver is not distinguishable from the second.
 
-**It is a surface, so it paints one — and that is not cosmetic.** `.notification-stack` sets
-`color` on the stack, while every card reads libadwaita's paired `--card-bg-color` and
-`--card-fg-color` through `--gl-notification` and `--gl-notification-fg`. Keeping the pair on the
-card prevents a light card from inheriting a dark surface's light foreground while schemes change.
-The card color is painted as a gradient over an opaque `--gl-surface` background because Adwaita's
-dark card color is translucent. Without the backing layer, stacked strips show through the front
-card and a standalone popup lets wallpaper alter its color. The two backplates read
-`--gl-notification-back` and `--gl-notification-back-far`, both derived from the current surface and
-foreground colors so they follow the active scheme and theme.
+**It is a surface, so it paints one — and that is not cosmetic.** Every card mixes the current
+surface eight percent toward its foreground, which makes it darker than a light popover and lighter
+than a dark one while keeping the result opaque. The paired foreground comes from that same surface,
+so a scheme change cannot leave white text on a light card. The two backplates use smaller mixes from
+the same pair, so they remain distinct without becoming brighter than the front card.
 
 **The strips mix toward the foreground rather than shading.** `shade()` moves lightness one
 absolute way, so "recede" reads on a white surface and disappears on a charcoal one — measured, the
@@ -690,11 +664,10 @@ stay individually visible and there is no stack to control.
 The chevron is swapped by icon name rather than rotated in CSS, so nothing depends on
 `-gtk-icon-transform` being supported.
 
-**`STEP`, `INSET` and `STRIP_HEIGHT` come from the mockup**, not from taste:
-`var/mockups/direction/src/notif_stack.py` is where 7, 9 and 30 were chosen, and the widget
-reproduces its arithmetic — strip *i* is `INSET * i` in from each side and its bottom edge sits
-`STEP * i` below the front card's. The GTK test pins the boundary at which those decorative edges
-appear, so lowering it to three turns a directly visible group back into a stack and fails.
+**`INSET` and `STRIP_HEIGHT` come from the mockup, while `STEP` is intentionally smaller.** A strip
+is `INSET * i` in from each side and its bottom edge sits `STEP * i` below the front card's. The
+3px step leaves 6px visible at depth two, enough to read as a stack without becoming a bright second
+row. The GTK test pins both the boundary where decorative edges appear and their total height.
 
 **It reconciles by key without `reconcile::by_key`.** That helper's final pass asserts that the
 items are the parent's *only* children, and re-inserts anything whose `prev_sibling` disagrees —
@@ -708,7 +681,7 @@ and `theme::tests` asserts its size on purpose.
 
 ## NotificationsPopover
 
-`PopoverShell` with a `Hero` carrying the do-not-disturb switch, a `Section` per application each
+`PopoverShell` with a `Hero` carrying the notifications switch, a `Section` per application each
 holding a `NotificationStack`, a `Notice` for the failure state, a `Placeholder` for the empty one,
 and two footer rows. Groups reconcile by key through `reconcile::by_key`, the same way the list
 reconciles its rows.
@@ -748,29 +721,24 @@ heading. `Group.key` is the desktop entry or bus name; `app_name` is only ever d
 `(key, Section)`, and the stack is found inside the section when it is dressed. The alternative — a
 parallel map from key to stack — is two structures keyed the same way and two chances to disagree.
 
-**Setting do-not-disturb never reports it back.** A `Gtk.Switch` notifies on every change, including
-the one the caller just made to show the current state, and a popover that echoes that turns one
-update into a loop between the widget and whatever owns the value. `set_dnd` raises `echoing` while
-it drives the switch and the handler returns early on it; `widgets` asserts both halves — a
-programmatic set is silent, a viewer's flip is not.
+**Setting do-not-disturb never reports it back.** The switch shows the inverse state: active means
+notifications are enabled and do-not-disturb is off. `set_dnd` raises `echoing` while it drives that
+inverse into the switch, and the handler returns early on it; `widgets` asserts both halves — a
+programmatic set is silent, while a viewer's flip emits the corresponding do-not-disturb value.
 
 **The switch says what it does through the hero icon.** A bare `Gtk.Switch` beside the title
-`Notifications` reads as *notifications are on* when it is active, and it means the opposite: active
-is silenced. The hero icon follows it — `preferences-system-notifications-symbolic` while
-notifications arrive, `notifications-disabled-symbolic` while they do not — so the polarity is legible
-before the tooltip is reached and without depending on a word. The icon is set on every change
-including an echoed one, above the `echoing` guard: that guard exists to stop a programmatic set
-being reported back, not to stop it being drawn.
+`Notifications` reads as notifications are on when it is active, and that is exactly what it means.
+The hero icon follows it — `preferences-system-notifications-symbolic` while notifications arrive,
+`notifications-disabled-symbolic` while they do not — so the polarity is legible before the tooltip
+is reached. The icon is set on every change including an echoed one, above the `echoing` guard: that
+guard exists to stop a programmatic set being reported back, not to stop it being drawn.
 
 **The failure wording is the widget's; the detail is the caller's.** `set_trouble` takes only the
 detail, because the headline is the same every time and only the caller knows which name was taken.
 
-**This popover is wider than every other one, and says so itself.**
-`.notifications-popover .popover-shell` sets `min-width: 42rem` (620px, `_old`'s `--popover-xlarge-width`)
-rather than raising `--gl-popover-min-width`, which is `27rem` and shared by audio, calendar, weather
-and the rest — widening that would move every board in the crate for the sake of one surface. The
-card's own `34rem` floor no longer binds here; the cards stretch to the shell because a `Gtk.Box`
-child fills its allocation, so nothing needs `hexpand` to fill the extra width.
+**The popup and popover share one width.** `NotificationCard` and the notification popover shell
+share one `34rem` rule, so the empty popover cannot fall back to the narrower generic popover width.
+The popup's paint gutter remains outside the card and does not make its visible surface wider.
 
 **The groups box starts hidden.** It is empty until the first update, and a `Gtk.Box` is visible by
 default — without it the popover holds the box's space for one frame beside the placeholder that is

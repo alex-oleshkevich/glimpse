@@ -267,14 +267,15 @@ mod tests {
     }
 
     #[test]
-    fn notification_cards_use_adwaita_color_over_an_opaque_surface() {
+    fn notification_cards_contrast_with_the_surface_in_both_schemes() {
         assert_eq!(BUILTIN.matches("--gl-notification:").count(), 1);
-        assert!(BUILTIN.contains("--gl-notification: var(--card-bg-color);"));
-        assert!(BUILTIN.contains("--gl-notification-fg: var(--card-fg-color);"));
+        assert!(
+            BUILTIN
+                .contains("--gl-notification: mix(var(--gl-surface), var(--gl-surface-fg), 0.08);")
+        );
+        assert!(BUILTIN.contains("--gl-notification-fg: var(--gl-surface-fg);"));
         assert!(BUILTIN.contains("color: var(--gl-notification-fg);"));
-        assert!(BUILTIN.contains(
-            "background-image: linear-gradient(var(--gl-notification), var(--gl-notification));"
-        ));
+        assert!(BUILTIN.contains("background-color: var(--gl-notification);"));
     }
 
     #[test]
@@ -295,8 +296,12 @@ mod tests {
     }
 
     #[test]
-    fn popup_width_motion_and_shadow_match_the_measured_frame() {
-        assert!(BUILTIN.contains("min-width: 34rem;"));
+    fn notification_width_and_popup_frame_match_the_measured_surface() {
+        assert!(BUILTIN.contains(
+            ".notifications-popover .popover-shell,\n.notification {\n    min-width: 34rem;\n}"
+        ));
+        assert_eq!(BUILTIN.matches("min-width: 34rem;").count(), 1);
+        assert!(!BUILTIN.contains("min-width: 42rem;"));
         assert!(BUILTIN.contains("--gl-popup-motion: 0.75rem;"));
         assert!(BUILTIN.contains("--gl-popup-paint-outset: 2.5rem;"));
         assert!(BUILTIN.contains("padding: var(--gl-popup-paint-outset);"));

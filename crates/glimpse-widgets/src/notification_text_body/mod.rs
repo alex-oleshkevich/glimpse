@@ -1,6 +1,6 @@
 mod imp;
 
-use gtk4::{glib, subclass::prelude::*};
+use gtk4::glib;
 
 #[cfg(test)]
 pub(crate) use imp::BODY_MAX_CHARS;
@@ -20,10 +20,6 @@ impl Default for NotificationTextBody {
 impl NotificationTextBody {
     pub fn new() -> Self {
         glib::Object::new()
-    }
-
-    pub(crate) fn set_title_visible(&self, visible: bool) {
-        self.imp().set_title_visible(visible);
     }
 }
 

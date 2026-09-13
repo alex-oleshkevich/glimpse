@@ -588,11 +588,6 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
     let app_id = glimpse_utils::text::clean(&app_id, APP_NAME_MAX_CHARS);
 
     let image = local_image_path(image.as_deref());
-    let avatar = image
-        .as_deref()
-        .filter(|path| image_matches_identity(&app_id, icon.as_deref(), path))
-        .map(str::to_owned);
-    let image = (avatar.is_none()).then_some(image).flatten();
 
     NotificationRecord {
         id,
@@ -607,7 +602,6 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
         icon: icon
             .map(|icon| glimpse_utils::text::clean(&icon, ICON_MAX_CHARS))
             .filter(|icon| !icon.is_empty()),
-        avatar,
         image,
         urgency,
         actions: bounded_actions(actions),
@@ -796,28 +790,6 @@ fn local_image_path(image: Option<&str>) -> Option<String> {
     Path::new(path).is_absolute().then(|| path.to_owned())
 }
 
-fn image_matches_identity(app_id: &str, icon: Option<&str>, image: &str) -> bool {
-    let Some(image) = image_key(image) else {
-        return false;
-    };
-    [Some(app_id), icon]
-        .into_iter()
-        .flatten()
-        .filter_map(image_key)
-        .any(|candidate| candidate == image)
-}
-
-fn image_key(value: &str) -> Option<String> {
-    let value = value.trim().strip_prefix("file://").unwrap_or(value.trim());
-    let name = value.rsplit('/').next().unwrap_or(value);
-    let name = [".desktop", ".png", ".svg", ".jpg", ".jpeg", ".webp", ".ico"]
-        .into_iter()
-        .find_map(|suffix| name.strip_suffix(suffix))
-        .unwrap_or(name);
-    let name = name.strip_suffix("-symbolic").unwrap_or(name);
-    (!name.is_empty()).then(|| name.to_ascii_lowercase())
-}
-
 fn hint_i32(hints: &HashMap<String, OwnedValue>, name: &str) -> Option<i32> {
     hints.get(name).and_then(|value| i32::try_from(value).ok())
 }
@@ -877,8 +849,8 @@ mod tests {
     }
 
     #[test]
-    fn image_hints_are_split_between_avatar_and_content() {
-        let avatar = record(
+    fn image_hints_remain_content_images() {
+        let app_image = record(
             1,
             Incoming {
                 app_id: "org.example.Chat".to_owned(),
@@ -887,8 +859,10 @@ mod tests {
                 ..incoming("Chat", "Marta")
             },
         );
-        assert_eq!(avatar.avatar.as_deref(), Some("/tmp/org.example.Chat.png"));
-        assert_eq!(avatar.image, None);
+        assert_eq!(
+            app_image.image.as_deref(),
+            Some("/tmp/org.example.Chat.png")
+        );
 
         let screenshot = record(
             2,
@@ -897,7 +871,6 @@ mod tests {
                 ..incoming("Screenshots", "Screenshot captured")
             },
         );
-        assert_eq!(screenshot.avatar, None);
         assert_eq!(
             screenshot.image.as_deref(),
             Some("/tmp/Screenshot_2026-09-12.png")

@@ -3,10 +3,10 @@
     --gl-panel-fg: var(--window-fg-color, #ffffff);
     --gl-surface: var(--popover-bg-color, #36363a);
     --gl-surface-fg: var(--popover-fg-color, #ffffff);
-    --gl-notification: var(--card-bg-color);
-    --gl-notification-fg: var(--card-fg-color);
-    --gl-notification-back: mix(var(--gl-surface), var(--gl-surface-fg), 0.1);
-    --gl-notification-back-far: mix(var(--gl-surface), var(--gl-surface-fg), 0.05);
+    --gl-notification: mix(var(--gl-surface), var(--gl-surface-fg), 0.08);
+    --gl-notification-fg: var(--gl-surface-fg);
+    --gl-notification-back: mix(var(--gl-surface), var(--gl-surface-fg), 0.06);
+    --gl-notification-back-far: mix(var(--gl-surface), var(--gl-surface-fg), 0.03);
 
     --gl-muted: alpha(var(--gl-surface-fg), 0.65);
     --gl-dim: alpha(var(--gl-surface-fg), 0.38);
@@ -690,8 +690,9 @@
     color: var(--gl-danger-text);
 }
 
-.notifications-popover .popover-shell {
-    min-width: 42rem;
+.notifications-popover .popover-shell,
+.notification {
+    min-width: 34rem;
 }
 
 .notification {
@@ -699,15 +700,12 @@
     min-height: 6rem;
     border-radius: var(--gl-notification-radius);
     color: var(--gl-notification-fg);
-    background-color: var(--gl-surface);
-    background-image: linear-gradient(var(--gl-notification), var(--gl-notification));
+    background-color: var(--gl-notification);
+    transition: background-color var(--gl-duration) var(--gl-ease);
 }
 
 .notification--activatable:hover {
-    background-image: linear-gradient(
-        mix(var(--gl-notification), var(--gl-surface-fg), 0.08),
-        mix(var(--gl-notification), var(--gl-surface-fg), 0.08)
-    );
+    background-color: mix(var(--gl-notification), var(--gl-surface-fg), 0.08);
 }
 
 .notification__main {
@@ -729,18 +727,11 @@
     color: var(--gl-surface-fg);
 }
 
-.notification__avatar {
-    min-width: 4.33rem;
-    min-height: 4.33rem;
-    border-radius: 999px;
-    background-color: var(--gl-faint);
-}
-
 .notification__summary {
     padding-top: 0.27rem;
     font-size: var(--gl-text-body);
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 0.27rem;
 }
 
 .notification__app {
@@ -779,8 +770,10 @@
 }
 
 .notification__image {
-    margin-top: 0.4rem;
-    border-radius: 0.55rem;
+    min-width: 4.33rem;
+    min-height: 4.33rem;
+    border-radius: 0.75rem;
+    background-color: var(--gl-faint);
 }
 
 .notification__actions {
@@ -869,7 +862,6 @@ window.notification-popup {
 }
 
 .notification-popup__entry {
-    min-width: 34rem;
     transition:
         opacity var(--gl-duration) var(--gl-ease),
         transform var(--gl-duration) var(--gl-ease);

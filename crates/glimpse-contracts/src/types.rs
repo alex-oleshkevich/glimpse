@@ -367,7 +367,6 @@ pub struct NotificationRecord {
     pub body: Option<String>,
     /// A themed icon name, never a path a client should go and load.
     pub icon: Option<String>,
-    pub avatar: Option<String>,
     /// An absolute local path supplied by the sender through an image hint.
     pub image: Option<String>,
     pub urgency: NotificationUrgency,

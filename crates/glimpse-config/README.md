@@ -264,7 +264,7 @@ transient presentation without moving that policy into the panel.
 `monitor` is an optional exact connector name. The popup falls back to the focused output and then
 the compositor's first output when it is absent or unavailable. `edge` accepts `top-left`,
 `top-center`, `top-right`, `bottom-left`, `bottom-center` and `bottom-right`; its default is
-`top-center`. `hide-delay` defaults to 4 seconds and `max-items` to 6, and both reject zero.
+`top-right`. `hide-delay` defaults to 4 seconds and `max-items` to 6, and both reject zero.
 
 ## Applets
 

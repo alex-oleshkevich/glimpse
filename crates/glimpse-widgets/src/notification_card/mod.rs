@@ -8,7 +8,6 @@ use crate::truncate;
 
 const LABEL_MAX_CHARS: usize = 32;
 const ACTIONS_MAX: usize = 3;
-const AVATAR_MAX_SIDE: i32 = 64;
 const ACTIVATED: &str = "activated";
 const DISMISSED: &str = "dismissed";
 const ACTION_INVOKED: &str = "action-invoked";
@@ -41,25 +40,8 @@ impl NotificationCard {
         self.imp().header.set_app_icon(icon);
     }
 
-    pub fn set_avatar(&self, avatar: Option<&gdk::Texture>) {
-        let imp = self.imp();
-        if imp.avatar_source.borrow().as_ref() == avatar {
-            return;
-        }
-        imp.avatar_source.replace(avatar.cloned());
-        let bounded = avatar.and_then(|avatar| {
-            crate::notification_image_body::bound(avatar, AVATAR_MAX_SIDE, AVATAR_MAX_SIDE)
-        });
-        let paintable = bounded
-            .as_ref()
-            .map(|texture| texture.upcast_ref::<gdk::Paintable>());
-        imp.avatar.set_paintable(paintable);
-        imp.avatar.set_visible(paintable.is_some());
-    }
-
     pub fn set_image(&self, image: Option<&gdk::Texture>) {
-        let shown = self.imp().image.set_image(image);
-        self.imp().text.set_title_visible(!shown);
+        self.imp().image.set_image(image);
     }
 
     pub fn set_actions(&self, actions: &[Action]) {

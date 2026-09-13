@@ -130,19 +130,19 @@ impl NotificationsPopover {
         section
     }
 
-    /// Do not disturb, as the popover shows it. Setting it never reports back — see `echoing`.
     pub fn set_dnd(&self, silenced: bool) {
         let imp = self.imp();
-        if imp.quiet.is_active() == silenced {
+        let enabled = !silenced;
+        if imp.notifications.is_active() == enabled {
             return;
         }
         imp.echoing.set(true);
-        imp.quiet.set_active(silenced);
+        imp.notifications.set_active(enabled);
         imp.echoing.set(false);
     }
 
     pub fn dnd(&self) -> bool {
-        self.imp().quiet.is_active()
+        !self.imp().notifications.is_active()
     }
 
     /// The wording of the failure is the widget's, because it is the same failure every time; the

@@ -32,8 +32,6 @@ template $NotificationCard: Gtk.Widget {
             "notification__content",
           ]
 
-          $NotificationImageBody image {}
-
           $NotificationTextBody text {}
 
           Gtk.ProgressBar progress {
@@ -45,16 +43,8 @@ template $NotificationCard: Gtk.Widget {
           }
         }
 
-        Gtk.Picture avatar {
-          visible: false;
-          content-fit: cover;
-          can-shrink: false;
+        $NotificationImageBody image {
           valign: start;
-          accessible-role: presentation;
-
-          styles [
-            "notification__avatar",
-          ]
         }
       }
     }

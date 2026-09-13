@@ -81,7 +81,7 @@ art-max-kib = 4096
 keep = 100
 suppress = []
 enabled = true
-edge = "top-center"
+edge = "top-right"
 hide-delay = 4
 max-items = 6
 

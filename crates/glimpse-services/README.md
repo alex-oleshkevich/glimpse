@@ -629,11 +629,9 @@ sender's application identity and name, the title and the body before the record
 matching notification never reaches the panel or any other client. Invalid patterns are logged and
 skipped; changing the list also removes matching records already held by the daemon.
 
-**Image presentation is decided once in the service.** Absolute local paths from `image-path` and
-the legacy `image_path` hint are accepted. A path whose filename matches the application identity or
-icon becomes the right-hand avatar; an unrelated path becomes content imagery. Every client receives
-that distinction in `NotificationRecord`, so the panel and popup cannot render the same notification
-differently.
+**Image meaning is preserved by the service.** Absolute local paths from `image-path` and the legacy
+`image_path` hint are accepted as content images. The service does not infer an avatar from the
+filename, so every client receives the same unambiguous `NotificationRecord` field.
 
 **`Store` holds no publisher and no connection.** The bound, `replaces_id`, per-app clearing and
 "does this notification offer that action" are the whole of what the service decides, and none of

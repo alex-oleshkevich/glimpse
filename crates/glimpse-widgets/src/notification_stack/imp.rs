@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 
 use crate::{Notification, NotificationCard};
 
-pub(crate) const STEP: i32 = 4;
+pub(crate) const STEP: i32 = 3;
 pub(crate) const MAX_DEPTH: usize = 2;
 const INSET: i32 = 9;
 const STRIP_HEIGHT: i32 = 30;

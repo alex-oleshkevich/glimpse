@@ -2,10 +2,9 @@ mod imp;
 
 use std::path::Path;
 
-use gtk4::{gdk, gdk_pixbuf::Pixbuf, glib, prelude::*, subclass::prelude::*};
+use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
-const IMAGE_MAX_WIDTH: i32 = 544;
-const IMAGE_MAX_HEIGHT: i32 = 112;
+const IMAGE_SIDE: i32 = 64;
 const IMAGE_LARGEST: i32 = 4096;
 
 glib::wrapper! {
@@ -31,7 +30,7 @@ impl NotificationImageBody {
             return imp.picture.paintable().is_some();
         }
         imp.image.replace(image.cloned());
-        let bounded = image.and_then(|image| bound(image, IMAGE_MAX_WIDTH, IMAGE_MAX_HEIGHT));
+        let bounded = image.and_then(|image| bound(image, IMAGE_SIDE, IMAGE_SIDE));
         let paintable = bounded
             .as_ref()
             .map(|texture| texture.upcast_ref::<gdk::Paintable>());
@@ -42,31 +41,7 @@ impl NotificationImageBody {
 }
 
 pub fn notification_image(path: &Path) -> Option<gdk::Texture> {
-    let (_, width, height) = Pixbuf::file_info(path)?;
-    if width <= 0 || height <= 0 || width > IMAGE_LARGEST || height > IMAGE_LARGEST {
-        return None;
-    }
-
-    let factor = (f64::from(IMAGE_MAX_WIDTH) / f64::from(width))
-        .min(f64::from(IMAGE_MAX_HEIGHT) / f64::from(height))
-        .min(1.0);
-    let width = (f64::from(width) * factor).round().max(1.0) as i32;
-    let height = (f64::from(height) * factor).round().max(1.0) as i32;
-    let image = Pixbuf::from_file_at_scale(path, width, height, true).ok()?;
-
-    Some(
-        gdk::MemoryTexture::new(
-            image.width(),
-            image.height(),
-            match image.has_alpha() {
-                true => gdk::MemoryFormat::R8g8b8a8,
-                false => gdk::MemoryFormat::R8g8b8,
-            },
-            &image.read_pixel_bytes(),
-            image.rowstride().max(0) as usize,
-        )
-        .upcast(),
-    )
+    crate::artwork(path, IMAGE_SIDE)
 }
 
 pub(crate) fn bound(

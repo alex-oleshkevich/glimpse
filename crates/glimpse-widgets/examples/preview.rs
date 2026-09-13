@@ -147,7 +147,7 @@ fn activate(
     window.present();
 
     load_styles(&sheets);
-    build(&slot, blueprint, fixture);
+    build(&slot, blueprint, fixture, &sheets);
 
     let monitors = watch(blueprint, &slot, sheets, fixture.map(str::to_owned));
     unsafe { window.set_data("preview-monitors", monitors) };
@@ -240,7 +240,7 @@ fn watch(
             let source = glib::timeout_add_local_once(SETTLE, move || {
                 fired.borrow_mut().take();
                 load_styles(sheets.as_ref());
-                build(&slot, &blueprint, fixture.as_deref());
+                build(&slot, &blueprint, fixture.as_deref(), sheets.as_ref());
             });
             pending.replace(Some(source));
         });
@@ -264,6 +264,7 @@ mod fixtures {
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
+    use std::path::PathBuf;
     use std::rc::Rc;
     use std::time::Duration;
 
@@ -272,7 +273,7 @@ mod fixtures {
     const ACTION: &str = "action__";
     const DEMO: &str = "demo__";
 
-    pub fn apply(name: &str, root: &gtk4::Widget) {
+    pub fn apply(name: &str, root: &gtk4::Widget, sheets: &[(PathBuf, gtk4::CssProvider)]) {
         match name {
             "calendar" => {
                 if let Some(calendar) = find::<Calendar>(root) {
@@ -300,6 +301,40 @@ mod fixtures {
         drawer_nav(root);
         expanders(root);
         actions(root);
+        scheme_toggle(root, sheets);
+    }
+
+    fn scheme_toggle(root: &gtk4::Widget, sheets: &[(PathBuf, gtk4::CssProvider)]) {
+        for button in tagged::<gtk4::Button>(root, "scheme") {
+            let manager = adw::StyleManager::default();
+            button.set_label(if manager.is_dark() {
+                "Light theme"
+            } else {
+                "Dark theme"
+            });
+            let providers = sheets
+                .iter()
+                .map(|(_, provider)| provider.clone())
+                .collect::<Vec<_>>();
+            button.connect_clicked(move |button| {
+                let manager = adw::StyleManager::default();
+                let dark = !manager.is_dark();
+                manager.set_color_scheme(if dark {
+                    adw::ColorScheme::ForceDark
+                } else {
+                    adw::ColorScheme::ForceLight
+                });
+                let scheme = if dark {
+                    gtk4::InterfaceColorScheme::Dark
+                } else {
+                    gtk4::InterfaceColorScheme::Light
+                };
+                for provider in &providers {
+                    provider.set_prefers_color_scheme(scheme);
+                }
+                button.set_label(if dark { "Light theme" } else { "Dark theme" });
+            });
+        }
     }
 
     struct Forecast {
@@ -866,50 +901,6 @@ mod fixtures {
         .upcast()
     }
 
-    /// A sender's photo, which arrives as pixels rather than as an icon name.
-    fn avatar((r, g, b): (u8, u8, u8)) -> gdk::Texture {
-        const SIZE: usize = 128;
-        let mut pixels = Vec::with_capacity(SIZE * SIZE * 4);
-        for y in 0..SIZE {
-            for x in 0..SIZE {
-                let blend = (x + y) as f32 / (2 * SIZE) as f32;
-                let lift = |channel: u8| {
-                    (f32::from(channel) + (255.0 - f32::from(channel)) * 0.45 * blend) as u8
-                };
-                pixels.extend_from_slice(&[lift(r), lift(g), lift(b), u8::MAX]);
-            }
-        }
-        gdk::MemoryTexture::new(
-            SIZE as i32,
-            SIZE as i32,
-            gdk::MemoryFormat::R8g8b8a8,
-            &glib::Bytes::from_owned(pixels),
-            SIZE * 4,
-        )
-        .upcast()
-    }
-
-    fn banner((r, g, b): (u8, u8, u8)) -> gdk::Texture {
-        const WIDTH: usize = 448;
-        const HEIGHT: usize = 168;
-        let mut pixels = Vec::with_capacity(WIDTH * HEIGHT * 4);
-        for y in 0..HEIGHT {
-            for x in 0..WIDTH {
-                let blend = (x as f32 / WIDTH as f32 + y as f32 / HEIGHT as f32) / 2.0;
-                let shade = |channel: u8| (channel as f32 * (1.0 - 0.55 * blend)) as u8;
-                pixels.extend_from_slice(&[shade(r), shade(g), shade(b), u8::MAX]);
-            }
-        }
-        gdk::MemoryTexture::new(
-            WIDTH as i32,
-            HEIGHT as i32,
-            gdk::MemoryFormat::R8g8b8a8,
-            &glib::Bytes::from_owned(pixels),
-            WIDTH * 4,
-        )
-        .upcast()
-    }
-
     fn notifications(root: &gtk4::Widget, groups: Vec<Group>) {
         let Some(popover) = find::<NotificationsPopover>(root) else {
             eprintln!("the board carries no $NotificationsPopover, so there is nothing to fill");
@@ -1135,7 +1126,7 @@ mod fixtures {
                         "app-name",
                         "Signal",
                         "Application name",
-                        "This notification has an application name without an icon or avatar.",
+                        "This notification has an application name without an icon or image.",
                         "now",
                     )
                 }],
@@ -1144,7 +1135,7 @@ mod fixtures {
                 key: "org.telegram.desktop".to_owned(),
                 app_name: "Telegram".to_owned(),
                 notifications: vec![Notification {
-                    avatar: Some(avatar((74, 138, 96))),
+                    icon: Some(themed_icon("user-available-symbolic")),
                     unread: true,
                     activatable: true,
                     actions: vec![
@@ -1158,10 +1149,10 @@ mod fixtures {
                         },
                     ],
                     ..note(
-                        "avatar",
+                        "app-icon",
                         "Telegram",
                         "Marta Kaz",
-                        "This notification has an avatar and application name.",
+                        "This notification has an application icon and name.",
                         "2m",
                     )
                 }],
@@ -1170,7 +1161,7 @@ mod fixtures {
                 key: "org.gnome.Screenshot".to_owned(),
                 app_name: "Screenshots".to_owned(),
                 notifications: vec![Notification {
-                    image: Some(banner((196, 108, 62))),
+                    image: Some(artwork((196, 108, 62))),
                     activatable: true,
                     actions: vec![
                         Action {
@@ -1749,7 +1740,12 @@ fn ensure_types() {
     }
 }
 
-fn build(slot: &gtk4::Box, blueprint: &Path, fixture: Option<&str>) {
+fn build(
+    slot: &gtk4::Box,
+    blueprint: &Path,
+    fixture: Option<&str>,
+    sheets: &[(PathBuf, gtk4::CssProvider)],
+) {
     while let Some(child) = slot.first_child() {
         slot.remove(&child);
     }
@@ -1777,7 +1773,7 @@ fn build(slot: &gtk4::Box, blueprint: &Path, fixture: Option<&str>) {
     match widget {
         Some(widget) => {
             if let Some(fixture) = fixture {
-                fixtures::apply(fixture, &widget);
+                fixtures::apply(fixture, &widget, sheets);
             }
             widget.set_halign(gtk4::Align::Center);
             widget.set_valign(gtk4::Align::Center);

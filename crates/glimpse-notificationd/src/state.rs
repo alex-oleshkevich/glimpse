@@ -272,7 +272,6 @@ mod tests {
             summary: summary.to_owned(),
             body: None,
             icon: None,
-            avatar: None,
             image: None,
             urgency: NotificationUrgency::Normal,
             actions: Vec::new(),
@@ -473,7 +472,7 @@ mod tests {
         settings.monitor = Some("missing".to_owned());
         settings.edge = NotificationEdge::BottomRight;
         state.configure(settings);
-        assert_eq!(state.placement().unwrap().edge, NotificationEdge::TopCenter);
+        assert_eq!(state.placement().unwrap().edge, NotificationEdge::TopRight);
         state.hide(1);
         state.update(vec![note(2, "two"), note(1, "one")]);
         assert_eq!(

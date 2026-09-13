@@ -9,12 +9,15 @@ updates its existing card and restarts its timer. Do not disturb, lock, privacy,
 reconnect clear the transient stack without deleting daemon history, and records received while a
 gate is active are never replayed when it opens.
 
-One layer-shell surface owns the full stack. It uses the shared `NotificationCard`, reserves a paint
-gutter around every card for its shadow and entrance translation, and narrows the Wayland input
-region to card bounds so the gutter and inter-card gaps remain click-through. Left click asks the
-compositor to focus the sender process where one is known and dismisses the notification; right
-click hides only the popup; close dismisses it into history; named actions invoke the sender action
-and then dismiss.
+One layer-shell surface owns the full stack. Every entry uses the shared `NotificationCard`, whose
+optional image slot updates without replacing the widget. It reserves a paint gutter around every
+card for its shadow and entrance translation, and narrows the Wayland input region to card bounds
+so the gutter and inter-card gaps remain click-through. Left click asks the compositor to focus the
+sender process where one is known and dismisses the notification; right click hides only the popup;
+close dismisses it into history; named actions invoke the sender action and then dismiss.
+
+The card owns the same `34rem` width in this surface and the notifications popover. The paint gutter
+is extra transparent window space for the shadow and does not change the card width.
 
 `[notifications]` selects the output, edge, delay and cap. Placement stays fixed while the stack is
 non-empty, except when that output disappears. File changes and `SIGHUP` reload both configuration

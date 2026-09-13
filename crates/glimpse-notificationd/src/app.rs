@@ -19,7 +19,7 @@ use glimpse_contracts::{
     SessionStatus, WindowRef,
 };
 use glimpse_ipc::{Client, ConnectionState, Event};
-use glimpse_widgets::{Notification, NotificationCard, Styles, artwork, notification_image};
+use glimpse_widgets::{Notification, NotificationCard, Styles, notification_image};
 use gtk4::{cairo, gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{ComponentParts, ComponentSender, SimpleComponent};
@@ -371,10 +371,6 @@ impl App {
             .icon
             .as_deref()
             .map(|name| gio::ThemedIcon::new(name).upcast());
-        notification.avatar = record
-            .avatar
-            .as_deref()
-            .and_then(|path| artwork(Path::new(path), 64));
         notification.image = record
             .image
             .as_deref()

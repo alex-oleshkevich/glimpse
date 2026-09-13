@@ -33,7 +33,6 @@ pub struct Notification {
     pub body: Option<Body>,
     pub when: String,
     pub icon: Option<gio::Icon>,
-    pub avatar: Option<gdk::Texture>,
     pub image: Option<gdk::Texture>,
     pub urgency: Urgency,
     pub actions: Vec<Action>,
@@ -215,7 +214,6 @@ pub(crate) fn dress(row: &NotificationCard, notification: &Notification) {
     row.set_summary(none_if_empty(&notification.summary));
     row.set_when(none_if_empty(&notification.when));
     row.set_app_icon(notification.icon.as_ref());
-    row.set_avatar(notification.avatar.as_ref());
     row.set_image(notification.image.as_ref());
     row.set_urgency(notification.urgency);
     row.set_unread(notification.unread);

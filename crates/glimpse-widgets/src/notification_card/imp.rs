@@ -33,13 +33,10 @@ pub struct NotificationCard {
     #[template_child]
     pub image: TemplateChild<NotificationImageBody>,
     #[template_child]
-    pub avatar: TemplateChild<gtk4::Picture>,
-    #[template_child]
     pub progress: TemplateChild<gtk4::ProgressBar>,
     #[template_child]
     pub actions: TemplateChild<gtk4::Box>,
 
-    pub avatar_source: RefCell<Option<gdk::Texture>>,
     pub shown: RefCell<Vec<super::Action>>,
     pub accessible_name: RefCell<String>,
     pub dismiss_name: RefCell<String>,
@@ -225,7 +222,6 @@ impl ObjectImpl for NotificationCard {
     fn constructed(&self) {
         self.parent_constructed();
         self.fraction.set(-1.0);
-        self.avatar.set_overflow(gtk4::Overflow::Hidden);
         self.header.connect_dismissed(glib::clone!(
             #[weak(rename_to = card)]
             self,

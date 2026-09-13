@@ -2026,7 +2026,7 @@
     "notifications": {
       "$ref": "#/$defs/Notifications",
       "default": {
-        "edge": "top-center",
+        "edge": "top-right",
         "enabled": true,
         "hide-delay": 4,
         "keep": 100,
@@ -2579,7 +2579,7 @@
       "properties": {
         "edge": {
           "$ref": "#/$defs/NotificationEdge",
-          "default": "top-center"
+          "default": "top-right"
         },
         "enabled": {
           "type": "boolean",

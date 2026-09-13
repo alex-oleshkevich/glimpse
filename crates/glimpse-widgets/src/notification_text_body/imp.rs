@@ -1,7 +1,4 @@
-use std::{
-    cell::{Cell, RefCell},
-    marker::PhantomData,
-};
+use std::{cell::RefCell, marker::PhantomData};
 
 use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, pango, prelude::*, subclass::prelude::*,
@@ -24,8 +21,6 @@ pub struct NotificationTextBody {
     pub body: TemplateChild<gtk4::Label>,
 
     pub markup: RefCell<Option<String>>,
-    title_visible: Cell<bool>,
-
     #[property(name = "title", get = Self::title, set = Self::set_title, nullable)]
     title_text: PhantomData<Option<String>>,
     #[property(name = "body", get = Self::body, set = Self::set_body, nullable)]
@@ -87,14 +82,8 @@ impl NotificationTextBody {
         self.sync();
     }
 
-    pub(super) fn set_title_visible(&self, visible: bool) {
-        self.title_visible.set(visible);
-        self.sync();
-    }
-
     fn sync(&self) {
-        self.title
-            .set_visible(self.title_visible.get() && !self.title.text().is_empty());
+        self.title.set_visible(!self.title.text().is_empty());
         self.obj()
             .set_visible(self.title.get_visible() || self.body.get_visible());
     }
@@ -124,7 +113,6 @@ impl ObjectSubclass for NotificationTextBody {
 impl ObjectImpl for NotificationTextBody {
     fn constructed(&self) {
         self.parent_constructed();
-        self.title_visible.set(true);
         self.sync();
     }
 

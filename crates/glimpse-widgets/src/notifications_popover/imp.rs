@@ -38,11 +38,7 @@ pub struct NotificationsPopover {
 
     pub held: RefCell<Vec<Group>>,
     pub sections: RefCell<Vec<(String, Section)>>,
-    pub quiet: gtk4::Switch,
-
-    /// Set while `set_dnd` drives the switch, so the notify handler can tell a value the caller
-    /// pushed in from one the viewer flipped. Without it, showing the current state would report
-    /// itself back as a change and the two ends would chase each other.
+    pub notifications: gtk4::Switch,
     pub echoing: Cell<bool>,
 }
 
@@ -91,26 +87,29 @@ impl ObjectImpl for NotificationsPopover {
     fn constructed(&self) {
         self.parent_constructed();
 
-        self.quiet.set_valign(gtk4::Align::Center);
-        self.quiet.set_tooltip_text(Some(&gettextrs::gettext(
-            "Silence notifications until you turn this off",
-        )));
-        self.hero.set_slot(&self.quiet);
+        self.notifications.set_active(true);
+        self.notifications.set_valign(gtk4::Align::Center);
+        self.notifications
+            .set_tooltip_text(Some(&gettextrs::gettext(
+                "Show notification popups while this is on",
+            )));
+        self.hero.set_slot(&self.notifications);
 
-        self.quiet.connect_active_notify(glib::clone!(
+        self.notifications.connect_active_notify(glib::clone!(
             #[weak(rename_to = popover)]
             self,
-            move |quiet| {
-                popover.hero.set_icon_name(Some(match quiet.is_active() {
-                    true => SILENCED,
-                    false => ATTENTIVE,
-                }));
+            move |notifications| {
+                popover
+                    .hero
+                    .set_icon_name(Some(match notifications.is_active() {
+                        true => ATTENTIVE,
+                        false => SILENCED,
+                    }));
                 if popover.echoing.get() {
                     return;
                 }
-                popover
-                    .obj()
-                    .emit_by_name::<()>(DND_TOGGLED, &[&quiet.is_active()]);
+                let silenced = !notifications.is_active();
+                popover.obj().emit_by_name::<()>(DND_TOGGLED, &[&silenced]);
             }
         ));
 

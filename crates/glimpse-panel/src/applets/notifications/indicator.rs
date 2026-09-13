@@ -13,7 +13,7 @@ use glimpse_contracts::{
     NotificationsList, NotificationsRemove, NotificationsSetDnd, ServiceState, SystemServices,
     WindowRef,
 };
-use glimpse_widgets::{Group, IndicatorSpec, NotificationsPopover, artwork, notification_image};
+use glimpse_widgets::{Group, IndicatorSpec, NotificationsPopover, notification_image};
 use gtk4::gdk::prelude::DisplayExt;
 use gtk4::gio::prelude::AppLaunchContextExt;
 use gtk4::prelude::{Cast, WidgetExt};
@@ -34,7 +34,6 @@ pub struct Notifications {
     indicator_style: NotificationIndicatorStyle,
     held: Rc<RefCell<Vec<NotificationRecord>>>,
     icons: HashMap<String, gio::Icon>,
-    avatars: HashMap<String, Option<gdk::Texture>>,
     images: HashMap<String, Option<gdk::Texture>>,
     bell: gio::Icon,
     muted: gio::Icon,
@@ -61,7 +60,6 @@ impl Applet for Notifications {
             indicator_style: NotificationIndicatorStyle::default(),
             held: Rc::new(RefCell::new(Vec::new())),
             icons: HashMap::new(),
-            avatars: HashMap::new(),
             images: HashMap::new(),
             bell: gio::ThemedIcon::new(render::BELL).upcast(),
             muted: gio::ThemedIcon::new(render::MUTED).upcast(),
@@ -218,10 +216,6 @@ impl Notifications {
             records.iter().filter_map(|record| record.icon.as_deref()),
         );
         prune_cache(
-            &mut self.avatars,
-            records.iter().filter_map(|record| record.avatar.as_deref()),
-        );
-        prune_cache(
             &mut self.images,
             records.iter().filter_map(|record| record.image.as_deref()),
         );
@@ -236,7 +230,6 @@ impl Notifications {
                     continue;
                 };
                 note.icon = record.icon.as_deref().map(|name| self.themed(name));
-                note.avatar = record.avatar.as_deref().and_then(|path| self.avatar(path));
                 note.image = record.image.as_deref().and_then(|path| self.image(path));
             }
         }
@@ -247,13 +240,6 @@ impl Notifications {
         self.icons
             .entry(name.to_owned())
             .or_insert_with(|| gio::ThemedIcon::new(name).upcast())
-            .clone()
-    }
-
-    fn avatar(&mut self, path: &str) -> Option<gdk::Texture> {
-        self.avatars
-            .entry(path.to_owned())
-            .or_insert_with(|| artwork(Path::new(path), 64))
             .clone()
     }
 
@@ -378,7 +364,6 @@ mod tests {
             app_name: "App".to_owned(),
             app_pid: Some(42),
             icon: None,
-            avatar: None,
             image: None,
             summary: "Summary".to_owned(),
             body: None,

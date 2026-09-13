@@ -9,9 +9,9 @@ template $NotificationImageBody: Gtk.Widget {
   ]
 
   Gtk.Picture picture {
-    content-fit: contain;
+    content-fit: cover;
     can-shrink: false;
-    hexpand: true;
+    overflow: hidden;
     accessible-role: presentation;
 
     styles [

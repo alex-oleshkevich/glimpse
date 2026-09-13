@@ -751,84 +751,35 @@ mod tests {
         let header = child_named::<NotificationHeader>(&item, "notification__header");
         let text = child_named::<NotificationTextBody>(&item, "notification__text-body");
         let image = child_named::<NotificationImageBody>(&item, "notification__image-body");
-        let avatar = child_named::<gtk4::Picture>(&item, "notification__avatar");
         let body_group = content.parent().expect("body group");
         assert!(
             text.parent().as_ref() == Some(content.upcast_ref())
-                && image.parent().as_ref() == Some(content.upcast_ref())
-                && avatar.parent().as_ref() == Some(&body_group)
+                && image.parent().as_ref() == Some(&body_group)
                 && body_group.parent() == header.parent(),
-            "the header spans the card above the body and avatar group"
+            "the text and optional image share a body row below the full-width header"
         );
 
         {
-            let texture = |width: i32, height: i32| {
-                gdk::MemoryTexture::new(
-                    width,
-                    height,
-                    gdk::MemoryFormat::R8g8b8,
-                    &glib::Bytes::from_owned(vec![0u8; (width * height * 3) as usize]),
-                    (width * 3) as usize,
-                )
-                .upcast::<gdk::Texture>()
-            };
             let shot = NotificationCard::new();
             shot.set_summary(Some("Screenshot captured"));
             shot.set_body(Some("Saved to Pictures"));
-            let bare_natural = shot.measure(gtk4::Orientation::Vertical, -1).1;
             let shot_picture = child_named::<gtk4::Picture>(&shot, "notification__image");
 
-            shot.set_image(Some(&texture(400, 1200)));
+            shot.set_image(Some(&texture(64, 64)));
             assert!(
-                !child_named::<gtk4::Label>(&shot, "notification__summary").get_visible()
-                    && child_named::<gtk4::Label>(&shot, "notification__body").get_visible(),
-                "an image card renders header, image, and body without repeating the title row"
+                child_named::<gtk4::Label>(&shot, "notification__summary").get_visible()
+                    && child_named::<gtk4::Label>(&shot, "notification__body").get_visible()
+                    && shot_picture.get_visible(),
+                "an image notification keeps its title and body beside the thumbnail"
             );
             let bounded = shot_picture.paintable().expect("an image");
             assert_eq!(
-                bounded.intrinsic_height(),
-                112,
-                "a Gtk.Picture asks for its paintable's own height, so an unbounded image makes \
-                 the notification as tall as whoever sent it decided: 400x1200 measured 1256px \
-                 of card"
-            );
-            assert_eq!(
-                bounded.intrinsic_width(),
-                37,
-                "the aspect ratio is the one thing a sender's image is entitled to keep"
-            );
-            assert!(
-                shot.measure(gtk4::Orientation::Vertical, -1).1 < bare_natural + 200,
-                "the card grows by the bound, not by the image"
-            );
-            assert!(
-                shot_picture.get_visible()
-                    && shot.measure(gtk4::Orientation::Vertical, -1).1 > bare_natural,
-                "an image that is set has to take room: a Gtk.Picture whose paintable is bound \
-                 still reports a zero minimum, so a card that never grows is one rendering the \
-                 image as nothing at all"
-            );
-            let (picture_min, picture_natural, _, _) =
-                shot_picture.measure(gtk4::Orientation::Vertical, -1);
-            assert_eq!(
-                picture_min, picture_natural,
-                "the picture may not shrink below the bound it was already given: `can-shrink` \
-                 leaves a Gtk.Picture a 5px minimum, so in any container short of its natural \
-                 height the image is the one child that collapses, and it renders as nothing \
-                 while every neighbour keeps its size"
+                (bounded.intrinsic_width(), bounded.intrinsic_height()),
+                (64, 64),
+                "the thumbnail occupies the former 64px media slot"
             );
 
-            shot.set_image(Some(&texture(448, 90)));
-            assert_eq!(
-                shot_picture
-                    .paintable()
-                    .expect("an image")
-                    .intrinsic_height(),
-                90,
-                "an image already inside the bound is passed through rather than resampled"
-            );
-
-            let same = texture(400, 1200);
+            let same = texture(64, 64);
             shot.set_image(Some(&same));
             let first = shot_picture.paintable().expect("an image");
             shot.set_image(Some(&same));
@@ -843,14 +794,13 @@ mod tests {
                 !shot.imp().image.get_visible()
                     && child_named::<gtk4::Label>(&shot, "notification__summary").get_visible(),
                 "download copies the whole image, and the image is somebody else's: past the \
-                 ceiling the picture is dropped and the text layout stays complete"
+                 ceiling the thumbnail is dropped without hiding the notification title"
             );
 
             shot.set_image(None);
             assert!(
-                !shot.imp().image.get_visible()
-                    && child_named::<gtk4::Label>(&shot, "notification__summary").get_visible(),
-                "removing the image restores the normal title and body layout"
+                !shot.imp().image.get_visible(),
+                "a notification without an image leaves no thumbnail gap"
             );
         }
 
@@ -958,20 +908,6 @@ mod tests {
             *spoken.imp().dismiss_name.borrow(),
             "Dismiss",
             "with no summary to name there is nothing to interpolate"
-        );
-
-        let photograph = gdk::MemoryTexture::new(
-            8,
-            8,
-            gdk::MemoryFormat::R8g8b8,
-            &glib::Bytes::from_owned(vec![0u8; 8 * 8 * 3]),
-            8 * 3,
-        )
-        .upcast::<gdk::Texture>();
-        item.set_avatar(Some(&photograph));
-        assert!(
-            child_named::<gtk4::Picture>(&item, "notification__avatar").get_visible(),
-            "a sender avatar occupies the slot beside the body below the header"
         );
 
         let action = |key: &str| Action {
@@ -1113,6 +1049,34 @@ mod tests {
             "the key a row reports is its own, whatever position it has ended up in"
         );
 
+        let mut image_note = note("image", "Screenshot captured");
+        image_note.image = Some(texture(64, 64));
+        list.set_notifications(&[image_note]);
+        let image_row = children_of::<NotificationCard>(&list)
+            .into_iter()
+            .next()
+            .expect("an image notification builds a card");
+        assert!(
+            child_named::<NotificationImageBody>(&image_row, "notification__image-body")
+                .get_visible(),
+            "an image notification reveals the shared card's thumbnail slot"
+        );
+        image_row.emit_by_name::<()>("activated", &[]);
+        child_named::<gtk4::Button>(&image_row, "notification__close").emit_clicked();
+        assert_eq!(
+            &fired.borrow()[2..],
+            ["activated image", "dismissed image"],
+            "an image notification forwards the card events"
+        );
+
+        list.set_notifications(&[note("image", "Now text")]);
+        assert!(
+            children_of::<NotificationCard>(&list)[0] == image_row
+                && !child_named::<NotificationImageBody>(&image_row, "notification__image-body")
+                    .get_visible(),
+            "removing an image reuses the same card and collapses its thumbnail slot"
+        );
+
         list.set_notifications(&[]);
         assert!(
             rows_of(&list).is_empty() && !list.get_visible(),
@@ -1246,7 +1210,7 @@ mod tests {
         let stack_height = stack.measure(gtk4::Orientation::Vertical, width).1;
         assert_eq!(
             stack_height - front_height,
-            8,
+            6,
             "two backplates add only a shallow peek below the front card"
         );
 
@@ -1380,15 +1344,8 @@ mod tests {
                 && !popover_imp.clear.get_visible(),
             "a popover with nothing in it offers no way to clear it"
         );
+        let empty_width = popover.measure(gtk4::Orientation::Horizontal, -1).0;
 
-        assert!(
-            popover.measure(gtk4::Orientation::Horizontal, -1).0
-                > PopoverShell::new()
-                    .measure(gtk4::Orientation::Horizontal, -1)
-                    .0,
-            "this popover sets a wider floor than the shared one, through a descendant selector \
-             that would stop matching silently if the nesting or the class names moved"
-        );
         assert!(
             popover_imp.scroller.propagates_natural_height()
                 && popover_imp.scroller.hscrollbar_policy() == gtk4::PolicyType::Never,
@@ -1397,6 +1354,23 @@ mod tests {
 
         popover.set_groups(&[group("a", "Telegram", 2), group("b", "PagerDuty", 1)]);
         let sections = children_of::<Section>(&popover_imp.groups.get());
+        let popover_stack = child_named::<NotificationStack>(&sections[0], "notification-stack");
+        let popover_card = children_of::<NotificationCard>(&popover_stack)[0].clone();
+        let popup_entry = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+        popup_entry.add_css_class("notification-popup__entry");
+        let popup_card = NotificationCard::new();
+        popup_card.set_summary(Some("Telegram 0"));
+        popup_entry.append(&popup_card);
+        assert_eq!(
+            empty_width,
+            popover.measure(gtk4::Orientation::Horizontal, -1).0,
+            "an empty notifications popover keeps the same width as a populated one"
+        );
+        assert_eq!(
+            popover_card.measure(gtk4::Orientation::Horizontal, -1).0,
+            popup_card.measure(gtk4::Orientation::Horizontal, -1).0,
+            "the notification card owns one width in both the popover and popup hierarchies"
+        );
         assert_eq!(sections.len(), 2);
         assert!(
             sections
@@ -1548,26 +1522,38 @@ mod tests {
             "clear all keeps the normal footer treatment"
         );
 
-        let toggles = Rc::new(Cell::new(0u32));
+        let toggles = Rc::new(RefCell::new(Vec::new()));
         popover.connect_dnd_toggled({
             let toggles = Rc::clone(&toggles);
-            move |_, _| toggles.set(toggles.get() + 1)
+            move |_, silenced| toggles.borrow_mut().push(silenced)
         });
 
         popover.set_dnd(true);
         assert!(popover.dnd());
+        assert!(!popover_imp.notifications.is_active());
         assert_eq!(
-            toggles.get(),
-            0,
+            *toggles.borrow(),
+            [],
             "showing the state the caller already knows about must not report it back, or the \
              two ends chase each other"
         );
 
-        popover_imp.quiet.set_active(false);
+        popover.set_dnd(false);
+        assert!(!popover.dnd());
+        assert!(popover_imp.notifications.is_active());
+        assert!(toggles.borrow().is_empty());
+
+        popover_imp.notifications.set_active(false);
         assert_eq!(
-            toggles.get(),
-            1,
-            "a viewer flipping the switch is the case the signal exists for"
+            *toggles.borrow(),
+            [true],
+            "turning notifications off reports do-not-disturb on"
+        );
+        popover_imp.notifications.set_active(true);
+        assert_eq!(
+            *toggles.borrow(),
+            [true, false],
+            "turning notifications on reports do-not-disturb off"
         );
 
         assert!(!popover_imp.trouble.get_visible());
@@ -3247,6 +3233,17 @@ mod tests {
 
         weather.set_footer(None);
         assert!(!weather.imp().footer.get_visible());
+    }
+
+    fn texture(width: i32, height: i32) -> gdk::Texture {
+        gdk::MemoryTexture::new(
+            width,
+            height,
+            gdk::MemoryFormat::R8g8b8,
+            &glib::Bytes::from_owned(vec![0u8; (width * height * 3) as usize]),
+            (width * 3) as usize,
+        )
+        .upcast()
     }
 
     fn children_of<T: IsA<gtk4::Widget>>(parent: &impl IsA<gtk4::Widget>) -> Vec<T> {
