@@ -429,3 +429,11 @@ owns the name→kind mapping and not the question of whether anything implements
 half-filled table is a `missing field` from serde, naming the key, before any reader sees it. Where
 a rule can be expressed in the type it belongs there rather than in a pass that has to remember to
 run.
+
+`Schedule::as_str` and `Schedule::parse` are the one spelling table for `[night-light] schedule`,
+and they live here because a mode named on a command line and a mode written in the document are
+the same vocabulary. The table had grown three more copies — in `glimpse-sunset`'s provider and in
+`glimpsectl` — before it was pulled back. A test pins each spelling to what serde actually reads,
+since the table and the `kebab-case` rename are written independently. `manual` stays a
+document-only alias: nothing prints it, so accepting it from a caller would add a spelling with no
+way back out.

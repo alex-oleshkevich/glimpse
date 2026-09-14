@@ -1,3 +1,15 @@
+use chrono::{DateTime, Utc};
+
+pub(crate) fn optional_clean(value: String, limit: usize) -> Option<String> {
+    let value = glimpse_utils::clean(&value, limit);
+    (!value.is_empty()).then_some(value)
+}
+
+pub(crate) fn epoch(value: i64) -> Result<DateTime<Utc>, String> {
+    DateTime::from_timestamp_micros(value)
+        .ok_or_else(|| format!("a snapshot contains invalid timestamp {value}"))
+}
+
 pub mod accounts;
 pub mod bluez;
 pub mod dbusmenu;

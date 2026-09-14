@@ -4,12 +4,18 @@ use glimpse_dbus::night_light::{
 };
 use glimpse_services::{NightLightHandle, ServiceState};
 use tokio::task::JoinHandle;
-use zbus::Connection;
 use zbus::fdo::{RequestNameFlags, RequestNameReply};
+use zbus::{Connection, DBusError};
 
-/// Read-only: the schedule lives in `[night-light]`, which is already re-read on change, so a
-/// setter here would either write the user's document or invent a runtime override nothing asked
-/// for.
+#[derive(Debug, DBusError)]
+#[zbus(prefix = "me.aresa.Glimpse.NightLight1.Error", impl_display = true)]
+pub enum Error {
+    InvalidSchedule(String),
+    Unavailable(String),
+    #[zbus(error)]
+    ZBus(zbus::Error),
+}
+
 struct Provider {
     night_light: NightLightHandle,
 }
@@ -20,6 +26,18 @@ impl Provider {
     fn snapshot(&self) -> NightLightSnapshot {
         snapshot(&self.night_light)
     }
+
+    async fn set_schedule(&self, schedule: &str) -> Result<(), Error> {
+        self.night_light
+            .set_schedule(parse(schedule)?)
+            .await
+            .map_err(|error| Error::Unavailable(error.to_string()))
+    }
+}
+
+fn parse(schedule: &str) -> Result<Schedule, Error> {
+    Schedule::parse(schedule)
+        .ok_or_else(|| Error::InvalidSchedule("schedule is off, automatic or schedule".to_owned()))
 }
 
 pub struct Runtime {
@@ -30,7 +48,6 @@ pub struct Runtime {
 impl Runtime {
     /// Exported first and named second, which is the order zbus asks for: a `Get` arriving between
     /// the two would otherwise find the name but no object.
-    ///
     /// The caller runs this before touching any backend, so a second copy of this binary fails
     /// here rather than after taking gamma control from the one already running. The flags are the
     /// other half: plain `request_name` asks for `AllowReplacement`, and a duplicate then silently
@@ -138,20 +155,13 @@ fn snapshot(night_light: &NightLightHandle) -> NightLightSnapshot {
     let health = night_light.health();
     let (serving, reason) = availability(&health.borrow());
     NightLightSnapshot {
-        schedule: schedule(state.schedule).to_owned(),
+        schedule: state.schedule.as_str().to_owned(),
+        overridden: state.overridden,
         temperature: state.temperature,
         target: state.target,
         active: state.active(),
         serving,
         reason,
-    }
-}
-
-fn schedule(schedule: Schedule) -> &'static str {
-    match schedule {
-        Schedule::Off => "off",
-        Schedule::Automatic => "automatic",
-        Schedule::Schedule => "schedule",
     }
 }
 
@@ -178,14 +188,24 @@ mod tests {
         Solar, initial_night_light_state,
     };
     use tokio_util::sync::CancellationToken;
+    use zbus::proxy::CacheProperties;
 
     use super::*;
 
     #[test]
-    fn every_schedule_has_a_wire_spelling_matching_the_document() {
-        assert_eq!(schedule(Schedule::Off), "off");
-        assert_eq!(schedule(Schedule::Automatic), "automatic");
-        assert_eq!(schedule(Schedule::Schedule), "schedule");
+    fn every_spelling_the_snapshot_prints_is_one_set_schedule_accepts() {
+        for mode in [Schedule::Off, Schedule::Automatic, Schedule::Schedule] {
+            assert_eq!(parse(mode.as_str()).expect("a known spelling"), mode);
+        }
+    }
+
+    #[test]
+    fn an_unknown_schedule_is_refused_without_quoting_what_arrived() {
+        let rejected = parse("<img src=x>").expect_err("not a mode");
+        assert!(
+            !rejected.to_string().contains("img"),
+            "the rejected spelling must not be echoed, got {rejected}"
+        );
     }
 
     #[test]
@@ -291,10 +311,15 @@ mod tests {
             .await
             .expect("the provider starts");
         let client = bus.connection().await;
-        let proxy = NightLight1Proxy::new(&client).await.expect("a proxy");
+        let proxy = NightLight1Proxy::builder(&client)
+            .cache_properties(CacheProperties::No)
+            .build()
+            .await
+            .expect("a proxy");
 
         let snapshot = proxy.snapshot().await.expect("a snapshot");
         assert_eq!(snapshot.schedule, "automatic");
+        assert!(!snapshot.overridden);
         assert_eq!(snapshot.temperature, 6500);
         assert_eq!(snapshot.target, 4200);
         assert!(!snapshot.active);
@@ -318,9 +343,25 @@ mod tests {
         assert_eq!(
             &xml[start..end],
             r#"<interface name="me.aresa.Glimpse.NightLight1">
-    <property name="Snapshot" type="(suubbs)" access="read"/>
+    <method name="SetSchedule">
+      <arg name="schedule" type="s" direction="in"/>
+    </method>
+    <property name="Snapshot" type="(sbuubbs)" access="read"/>
   </interface>"#
         );
+
+        proxy
+            .set_schedule("off")
+            .await
+            .expect("a known mode is accepted");
+        let overridden = proxy.snapshot().await.expect("a snapshot");
+        assert_eq!(overridden.schedule, "off");
+        assert!(overridden.overridden, "the document still says automatic");
+
+        proxy
+            .set_schedule("sometimes")
+            .await
+            .expect_err("an unknown mode is refused");
 
         provider.shutdown().await;
         cancel.cancel();

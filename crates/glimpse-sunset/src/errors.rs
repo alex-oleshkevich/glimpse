@@ -1,12 +1,13 @@
 use std::process::ExitCode;
 
+use crate::gamma::Unavailable;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Exit {
     Ok = 0,
     Failed = 1,
     Config = 3,
-    /// No gamma control: a supervisor should read this as "wrong environment", not "try again".
     Gamma = 4,
 }
 
@@ -23,12 +24,9 @@ pub fn exit(error: &anyhow::Error) -> Exit {
     {
         return Exit::Config;
     }
-    match error
-        .chain()
-        .any(|cause| cause.to_string().starts_with("cannot take gamma control"))
-    {
-        true => Exit::Gamma,
-        false => Exit::Failed,
+    match error.downcast_ref::<Unavailable>() {
+        Some(Unavailable::Unsupported) => Exit::Gamma,
+        _ => Exit::Failed,
     }
 }
 
@@ -41,14 +39,22 @@ mod tests {
         assert_eq!(exit(&anyhow::anyhow!("failed")), Exit::Failed);
     }
 
-    /// A compositor with no gamma control is not a transient failure, and a supervisor restarting
-    /// on it forever learns nothing.
     #[test]
-    fn a_missing_gamma_control_has_its_own_code() {
-        let error = anyhow::anyhow!("no manager")
+    fn a_compositor_without_the_protocol_has_its_own_code() {
+        let error = anyhow::Error::new(Unavailable::Unsupported)
             .context("cannot take gamma control")
             .context("while starting");
 
         assert_eq!(exit(&error), Exit::Gamma);
+    }
+
+    #[test]
+    fn a_compositor_that_is_merely_not_up_yet_stays_retryable() {
+        let error = anyhow::Error::new(Unavailable::Unreachable(
+            "No such file or directory".to_owned(),
+        ))
+        .context("cannot take gamma control");
+
+        assert_eq!(exit(&error), Exit::Failed);
     }
 }

@@ -1,14 +1,17 @@
 use chrono::{DateTime, Local, NaiveTime, TimeDelta, Utc};
 use glimpse_config::Schedule;
 use glimpse_contracts::{SolarPhase, SolarStatus};
-use tokio::{sync::watch, time};
+use tokio::{
+    sync::{oneshot, watch},
+    time,
+};
 
 use crate::{
     ServiceState,
     context::Ctx,
     gamma::Gamma,
     publisher::Publisher,
-    service::{Input, Service, ServiceEndpoint, ServiceError},
+    service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
     services::solar::SolarHandle,
     subscription::Sub,
 };
@@ -49,6 +52,7 @@ fn clock(raw: Option<&str>) -> Option<NaiveTime> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NightLightState {
     pub schedule: Schedule,
+    pub overridden: bool,
     pub temperature: u32,
     pub target: u32,
 }
@@ -63,6 +67,7 @@ impl NightLightState {
 pub fn initial_state(config: &Config) -> NightLightState {
     NightLightState {
         schedule: config.schedule,
+        overridden: false,
         temperature: DAY,
         target: config.temperature,
     }
@@ -71,6 +76,13 @@ pub fn initial_state(config: &Config) -> NightLightState {
 pub enum Event {
     Solar(Option<SolarStatus>),
     Tick,
+}
+
+pub enum Command {
+    SetSchedule {
+        schedule: Schedule,
+        reply: oneshot::Sender<Result<(), CommandError>>,
+    },
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -99,6 +111,14 @@ impl NightLightHandle {
     pub fn health(&self) -> watch::Receiver<ServiceState> {
         self.0.health()
     }
+
+    pub async fn set_schedule(&self, schedule: Schedule) -> Result<(), CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::SetSchedule { schedule, reply })?;
+        result.await.map_err(|_| {
+            CommandError::Unavailable("night light stopped before accepting the mode".to_owned())
+        })?
+    }
 }
 
 pub struct NightLight {
@@ -106,6 +126,7 @@ pub struct NightLight {
     solar: SolarHandle,
     gamma: Box<dyn Gamma>,
     config: Config,
+    forced: Option<Schedule>,
     observed: Option<SolarStatus>,
     applied: Option<u32>,
 }
@@ -116,7 +137,7 @@ impl Service for NightLight {
     type Config = Config;
     type State = NightLightState;
     type Handle = NightLightHandle;
-    type Command = ();
+    type Command = Command;
     type Event = Event;
     type Dependencies = Dependencies;
     type SubKey = Watch;
@@ -126,13 +147,13 @@ impl Service for NightLight {
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
-        if self.config.schedule == Schedule::Off {
+        if self.effective() == Schedule::Off {
             return Vec::new();
         }
         let mut declared = vec![Sub::interval(Watch::Tick, TICK, |_ctx| async {
             Event::Tick
         })];
-        if self.config.schedule == Schedule::Automatic {
+        if self.effective() == Schedule::Automatic {
             declared.push(Sub::watch(
                 Watch::Solar,
                 self.solar.subscribe(),
@@ -153,18 +174,32 @@ impl Service for NightLight {
             solar: dependencies.solar,
             gamma: dependencies.gamma,
             config,
+            forced: None,
             observed: None,
             applied: None,
         })
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
+        let mut pending = None;
         match input {
             Input::Event(Event::Solar(observed)) => self.observed = observed,
-            Input::Event(Event::Tick) | Input::Command(()) => {}
-            Input::Config(config) => self.config = config,
+            Input::Event(Event::Tick) => {}
+            Input::Command(Command::SetSchedule { schedule, reply }) => {
+                self.forced = Some(schedule);
+                pending = Some(reply);
+            }
+            Input::Config(config) => {
+                if config != self.config {
+                    self.forced = None;
+                    self.config = config;
+                }
+            }
         }
         self.evaluate(ctx, Utc::now()).await;
+        if let Some(reply) = pending {
+            let _ = reply.send(Ok(()));
+        }
     }
 
     /// The outputs go back before the process does. A `SIGKILL` cannot run this, and the ramp then
@@ -180,13 +215,21 @@ impl Service for NightLight {
 }
 
 impl NightLight {
+    fn effective(&self) -> Schedule {
+        self.forced.unwrap_or(self.config.schedule)
+    }
+
     async fn evaluate(&mut self, ctx: &Ctx<Self>, now: DateTime<Utc>) {
-        if self.config.schedule == Schedule::Off {
+        self.settle(ctx, now);
+        self.publish();
+    }
+
+    fn settle(&mut self, ctx: &Ctx<Self>, now: DateTime<Utc>) {
+        if self.effective() == Schedule::Off {
             return self.release(ctx);
         }
         let Some((phase, next_change)) = self.boundary(now) else {
-            ctx.degraded(self.missing());
-            return;
+            return ctx.degraded(self.missing());
         };
 
         // Applied on every tick rather than only when it moves: the compositor is the authority on
@@ -197,7 +240,6 @@ impl NightLight {
             Ok(()) => {
                 self.applied = Some(wanted);
                 ctx.running();
-                self.publish();
             }
             Err(reason) => ctx.degraded(reason),
         }
@@ -206,35 +248,36 @@ impl NightLight {
     /// `Off` hands the outputs back rather than applying neutral daylight — the compositor's own
     /// ramp is not necessarily 6500K, and pinning it there is still holding it.
     fn release(&mut self, ctx: &Ctx<Self>) {
-        if let Err(reason) = self.hand_back() {
-            ctx.degraded(reason);
-            return;
+        match self.hand_back() {
+            Ok(()) => ctx.running(),
+            Err(reason) => ctx.degraded(reason),
         }
-        ctx.running();
-        self.publish();
     }
 
     /// Releasing what was never taken is not a failure, and resetting twice is not a second one.
     fn hand_back(&mut self) -> Result<(), String> {
-        match self.applied.take() {
-            Some(_) => self.gamma.reset(),
-            None => Ok(()),
+        if self.applied.is_none() {
+            return Ok(());
         }
+        self.gamma.reset()?;
+        self.applied = None;
+        Ok(())
     }
 
     fn boundary(&self, now: DateTime<Utc>) -> Option<(SolarPhase, Option<DateTime<Utc>>)> {
-        match self.config.schedule {
+        match self.effective() {
             Schedule::Off => None,
             Schedule::Automatic => self
                 .observed
-                .as_ref()
-                .map(|status| (status.phase.clone(), status.next_change)),
+                .clone()
+                .or_else(|| self.solar.snapshot())
+                .map(|status| (status.phase, status.next_change)),
             Schedule::Schedule => Some(manual(self.config.start?, self.config.end?, now)),
         }
     }
 
     fn missing(&self) -> &'static str {
-        match self.config.schedule {
+        match self.effective() {
             Schedule::Automatic => "there is no location fix yet",
             _ => "a schedule needs start-time and end-time, each written as HH:MM",
         }
@@ -242,7 +285,8 @@ impl NightLight {
 
     fn publish(&self) {
         self.state.set(NightLightState {
-            schedule: self.config.schedule,
+            schedule: self.effective(),
+            overridden: self.forced.is_some(),
             temperature: self.applied.unwrap_or(DAY),
             target: self.config.temperature,
         });
@@ -348,6 +392,20 @@ mod tests {
     impl Harness {
         async fn at(&mut self, now: DateTime<Utc>) {
             self.service.evaluate(&self.ctx, now).await;
+        }
+
+        async fn feed(&mut self, input: Input<NightLight>) {
+            self.service.handle(&self.ctx, input).await;
+        }
+
+        async fn set(&mut self, schedule: Schedule) {
+            let (reply, result) = oneshot::channel();
+            self.feed(Input::Command(Command::SetSchedule { schedule, reply }))
+                .await;
+            result
+                .await
+                .expect("the handler answers")
+                .expect("the mode is accepted");
         }
 
         fn reason(&self) -> Option<String> {
@@ -613,6 +671,118 @@ mod tests {
 
         assert_eq!(harness.gamma.resets(), 1, "released once, not per tick");
         assert!(!harness.state.borrow().active());
+    }
+
+    #[tokio::test]
+    async fn a_commanded_mode_wins_over_the_document_and_says_that_it_did() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = night(None);
+        harness.at(at(23, 0)).await;
+        assert!(harness.state.borrow().active());
+
+        harness.set(Schedule::Off).await;
+
+        assert_eq!(harness.gamma.resets(), 1, "the outputs go back");
+        assert!(!harness.state.borrow().active());
+        assert_eq!(harness.state.borrow().schedule, Schedule::Off);
+        assert!(harness.state.borrow().overridden);
+    }
+
+    #[tokio::test]
+    async fn editing_the_night_light_table_takes_the_mode_back() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = night(None);
+        harness.set(Schedule::Off).await;
+        assert!(harness.state.borrow().overridden);
+
+        let mut edited = config(Schedule::Automatic);
+        edited.temperature = 3000;
+        harness.feed(Input::Config(edited)).await;
+
+        assert!(!harness.state.borrow().overridden);
+        assert_eq!(harness.state.borrow().schedule, Schedule::Automatic);
+    }
+
+    #[tokio::test]
+    async fn a_reload_that_leaves_this_table_alone_keeps_the_override() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = night(None);
+        harness.set(Schedule::Off).await;
+
+        harness
+            .feed(Input::Config(config(Schedule::Automatic)))
+            .await;
+
+        assert!(harness.state.borrow().overridden);
+        assert_eq!(harness.state.borrow().schedule, Schedule::Off);
+    }
+
+    #[tokio::test]
+    async fn an_override_declares_the_sources_its_mode_needs() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        assert_eq!(harness.service.subscriptions().len(), 2);
+
+        harness.set(Schedule::Off).await;
+        assert!(harness.service.subscriptions().is_empty());
+
+        harness.set(Schedule::Schedule).await;
+        assert_eq!(
+            harness.service.subscriptions().len(),
+            1,
+            "a manual window needs the tick but not the solar watch"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_release_the_backend_refused_is_retried_rather_than_forgotten() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = night(None);
+        harness.at(at(23, 0)).await;
+        assert_eq!(harness.gamma.applied(), vec![NIGHT]);
+
+        harness
+            .gamma
+            .fail(Some("another gamma client holds the outputs"));
+        harness.set(Schedule::Off).await;
+        assert_eq!(harness.gamma.resets(), 0, "the backend refused");
+        assert!(harness.reason().is_some(), "and the service says so");
+
+        harness.gamma.fail(None);
+        harness.set(Schedule::Off).await;
+
+        assert_eq!(harness.gamma.resets(), 1, "the release is still owed");
+        assert!(harness.reason().is_none());
+    }
+
+    #[tokio::test]
+    async fn a_degraded_service_still_publishes_the_mode_in_force() {
+        let mut harness = harness(config(Schedule::Schedule)).await;
+        harness.set(Schedule::Off).await;
+        assert_eq!(harness.state.borrow().schedule, Schedule::Off);
+
+        harness.set(Schedule::Automatic).await;
+
+        assert_eq!(harness.state.borrow().schedule, Schedule::Automatic);
+        assert!(harness.state.borrow().overridden);
+        assert_eq!(
+            harness.reason().as_deref(),
+            Some("there is no location fix yet")
+        );
+    }
+
+    #[tokio::test]
+    async fn a_refused_ramp_publishes_the_mode_and_the_temperature_still_showing() {
+        let mut harness = harness(config(Schedule::Automatic)).await;
+        harness.service.observed = night(None);
+        harness.at(at(23, 0)).await;
+        assert_eq!(harness.state.borrow().temperature, NIGHT);
+
+        harness.gamma.fail(Some("no gamma control"));
+        harness.at(at(23, 1)).await;
+
+        assert_eq!(harness.state.borrow().schedule, Schedule::Automatic);
+        assert_eq!(harness.state.borrow().temperature, NIGHT);
+        assert_eq!(harness.reason().as_deref(), Some("no gamma control"));
     }
 
     /// The window crosses midnight, which is the case a same-day comparison gets backwards.

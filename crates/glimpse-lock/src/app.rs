@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use glimpse_config::{
     Config, LOCK_STYLESHEET, stylesheet, user_stylesheet, watch_config, watch_theme,
 };
-use glimpse_ipc::Client;
 use glimpse_widgets::Styles;
 use relm4::{ComponentParts, ComponentSender, SimpleComponent};
 use tokio::task::JoinHandle;
@@ -13,7 +12,6 @@ use tokio::task::JoinHandle;
 pub struct AppInit {
     pub config: Config,
     pub config_path: Option<PathBuf>,
-    pub socket: PathBuf,
 }
 
 #[derive(Debug)]
@@ -51,7 +49,6 @@ impl SimpleComponent for App {
     ) -> ComponentParts<Self> {
         let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
         spawn_config_watch(init.config_path, init.config.clone(), sender);
-        spawn_daemon_client(init.socket);
 
         let styles = Styles::install(color_scheme(init.config.appearance.color_scheme));
         let model = App {
@@ -102,16 +99,6 @@ impl App {
         self.styles
             .load(theme.as_deref(), user_stylesheet().as_deref());
     }
-}
-
-fn spawn_daemon_client(socket: PathBuf) {
-    relm4::spawn(async move {
-        let client = Client::open(&socket).await;
-        let mut states = client.watch_state();
-        while states.changed().await.is_ok() {
-            tracing::debug!(state = ?*states.borrow_and_update(), "daemon connection");
-        }
-    });
 }
 
 fn spawn_theme_watch(theme: &str, sender: ComponentSender<App>) -> JoinHandle<()> {

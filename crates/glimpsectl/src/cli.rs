@@ -2,20 +2,17 @@ use shadow_rs::shadow;
 
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 shadow!(build);
 
 #[derive(Debug, Parser)]
 #[command(
     name = "glimpsectl",
-    about = "Read topics, invoke commands and inspect the glimpse daemon.",
+    about = "Read and drive the glimpse services.",
     version = build::VERSION
 )]
 pub struct Cli {
-    #[command(flatten)]
-    pub socket: glimpse_utils::SocketArg,
-
     #[command(flatten)]
     pub config: glimpse_utils::ConfigArg,
 
@@ -25,96 +22,126 @@ pub struct Cli {
     #[command(flatten)]
     pub color: colorchoice_clap::Color,
 
+    #[arg(
+        long,
+        global = true,
+        help = "Print the payload as JSON instead of a table"
+    )]
+    pub json: bool,
+
     #[command(subcommand)]
     pub command: Command,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    #[command(about = "Print the current value of one topic")]
-    Get {
-        #[arg(value_name = "TOPIC", help = "Exact topic name")]
-        topic: String,
+    #[command(subcommand, about = "The night light")]
+    Sunset(SunsetCommand),
 
-        #[arg(long, value_name = "PATH", help = "Print one field of the payload")]
-        field: Option<String>,
+    #[command(subcommand, about = "Current conditions and the forecast")]
+    Weather(WeatherCommand),
 
-        #[arg(long, help = "Print the payload as the daemon sent it.")]
-        json: bool,
-    },
-
-    #[command(about = "Print the snapshot then every update, one per line")]
-    Watch {
-        #[arg(value_name = "PATTERN", help = "Topic pattern, `audio.*` or `tray.**`")]
-        pattern: String,
-
-        #[arg(
-            long,
-            value_name = "N",
-            value_parser = clap::value_parser!(u64).range(1..),
-            help = "Exit after N events"
-        )]
-        count: Option<u64>,
-
-        #[arg(long, help = "Print each event frame as the daemon sent it.")]
-        json: bool,
-    },
-
-    #[command(about = "Invoke a command and print the result")]
-    Call {
-        #[arg(value_name = "METHOD", help = "Command name, `audio.set_volume`")]
-        method: String,
-
-        #[arg(
-            value_name = "KEY=VALUE",
-            value_parser = key_value,
-            help = "Arguments; a value parses as JSON when it can, otherwise as a string"
-        )]
-        arguments: Vec<(String, String)>,
-    },
-
-    #[command(about = "List known topics with their owning service")]
-    Topics {
-        #[arg(value_name = "PATTERN", help = "Only topics matching this pattern")]
-        pattern: Option<String>,
-
-        #[arg(
-            long,
-            value_name = "SERVICE",
-            help = "Only topics owned by this service"
-        )]
-        owner: Option<String>,
-    },
-
-    #[command(about = "List the commands `call` accepts with their owning service")]
-    Methods {
-        #[arg(value_name = "PATTERN", help = "Only methods matching this pattern")]
-        pattern: Option<String>,
-
-        #[arg(
-            long,
-            value_name = "SERVICE",
-            help = "Only methods owned by this service"
-        )]
-        owner: Option<String>,
-    },
-
-    #[command(about = "List services with state, health and the reason for `degraded`")]
-    Services,
+    #[command(subcommand, about = "The notification store")]
+    Notifications(NotificationsCommand),
 
     #[command(subcommand, about = "Inspect the configuration stack")]
     Config(ConfigCommand),
 
-    #[command(about = "Check socket, compositor, Wayland protocols, session bus and backends")]
+    #[command(about = "Check the configuration and every provider")]
     Doctor,
+}
 
-    #[command(about = "Interactive TUI: topic browser, live values, service health")]
-    Monitor,
+#[derive(Debug, Subcommand)]
+pub enum SunsetCommand {
+    #[command(about = "Print the mode, the temperature applied and why it is not applying one")]
+    Status,
+
+    #[command(
+        about = "Change the mode in force",
+        long_about = "Change the mode in force. The document is not written: the mode lasts until \
+                      `[night-light]` is edited or glimpse-sunset restarts."
+    )]
+    Mode {
+        #[arg(value_name = "MODE", help = "Which schedule to run")]
+        mode: Mode,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "lower")]
+pub enum Mode {
+    Off,
+    Automatic,
+    Schedule,
+}
+
+impl From<Mode> for glimpse_config::Schedule {
+    fn from(mode: Mode) -> Self {
+        match mode {
+            Mode::Off => Self::Off,
+            Mode::Automatic => Self::Automatic,
+            Mode::Schedule => Self::Schedule,
+        }
+    }
+}
+
+impl Mode {
+    pub fn as_str(self) -> &'static str {
+        glimpse_config::Schedule::from(self).as_str()
+    }
+}
+
+#[derive(Debug, Subcommand)]
+pub enum WeatherCommand {
+    #[command(about = "Print every watched place and its current conditions")]
+    Status,
+
+    #[command(about = "Fetch now instead of waiting for the next poll")]
+    Refresh,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum NotificationsCommand {
+    #[command(about = "Print the notifications the store holds")]
+    List,
+
+    #[command(about = "Dismiss one notification")]
+    Dismiss {
+        #[arg(value_name = "ID", help = "The notification's id, as `list` prints it")]
+        id: u32,
+    },
+
+    #[command(about = "Dismiss every notification, or every one from a single application")]
+    Clear {
+        #[arg(
+            long,
+            value_name = "APP_ID",
+            help = "Only this application's notifications"
+        )]
+        app: Option<String>,
+    },
+
+    #[command(
+        about = "Turn do not disturb on or off",
+        long_about = "Turn do not disturb on or off. It stands until it is turned off again: the \
+                      notification store has no expiry, so there is no way to ask for one."
+    )]
+    Dnd {
+        #[arg(value_name = "STATE", help = "Whether to silence notifications")]
+        state: DndState,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "lower")]
+pub enum DndState {
+    On,
+    Off,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum ConfigCommand {
-    #[command(about = "Print the daemon's merged configuration")]
+    #[command(about = "Print the merged configuration")]
     Show,
 
     #[command(about = "Validate a file, or the layered stack, and report where a problem is")]
@@ -128,19 +155,45 @@ pub enum ConfigCommand {
 }
 
 impl Command {
-    pub fn needs_daemon(&self) -> bool {
-        // `doctor` diagnoses a missing daemon, so requiring one inverts what it is for.
+    pub fn needs_session_bus(&self) -> bool {
         !matches!(self, Self::Config(_) | Self::Doctor)
     }
 }
 
-// Split on the first `=` only: a JSON value carries its own, as in `where={"x":1}`.
-fn key_value(raw: &str) -> Result<(String, String), String> {
-    let Some((key, value)) = raw.split_once('=') else {
-        return Err(format!("expected KEY=VALUE, got {raw:?}"));
-    };
-    if key.is_empty() {
-        return Err("argument name is empty".into());
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory as _;
+
+    #[test]
+    fn the_argument_surface_is_well_formed() {
+        Cli::command().debug_assert();
     }
-    Ok((key.to_owned(), value.to_owned()))
+
+    #[test]
+    fn a_missing_subcommand_is_a_usage_error() {
+        let error = Cli::try_parse_from(["glimpsectl"]).expect_err("a subcommand is required");
+        assert_eq!(error.exit_code(), 2);
+    }
+
+    #[test]
+    fn json_is_accepted_after_the_subcommand() {
+        let cli = Cli::try_parse_from(["glimpsectl", "sunset", "status", "--json"])
+            .expect("a global flag follows its subcommand");
+        assert!(cli.json);
+    }
+
+    #[test]
+    fn every_mode_spells_itself_the_way_the_document_does() {
+        assert_eq!(Mode::Off.as_str(), "off");
+        assert_eq!(Mode::Automatic.as_str(), "automatic");
+        assert_eq!(Mode::Schedule.as_str(), "schedule");
+    }
+
+    #[test]
+    fn only_config_and_doctor_run_without_a_bus() {
+        assert!(!Command::Doctor.needs_session_bus());
+        assert!(!Command::Config(ConfigCommand::Path).needs_session_bus());
+        assert!(Command::Sunset(SunsetCommand::Status).needs_session_bus());
+    }
 }

@@ -1,7 +1,6 @@
 use std::io::{self, Write};
 
 use anyhow::Result;
-use serde_json::Value;
 
 /// One function per colour. Each returns the text wrapped in its escapes, or an empty string for
 /// empty text: escapes around nothing still sit at the end of a line, where they stop anything
@@ -82,10 +81,6 @@ impl<const N: usize> Table<N> {
     pub fn with_row(mut self, row: [String; N]) -> Self {
         self.rows.push(row);
         self
-    }
-
-    pub fn print(self) -> Result<()> {
-        print(&self.render()).map(|_| ())
     }
 
     pub fn render(self) -> String {
@@ -229,69 +224,6 @@ fn indent(block: &str) -> String {
         .join("\n")
 }
 
-/// A payload as one leaf per line, `path  value`, aligned. A payload that is a bare scalar prints
-/// as itself, which is what makes `get --field` usable from a script.
-pub fn lines(value: &Value) -> String {
-    let leaves = leaves(value);
-    if let [(path, only)] = leaves.as_slice()
-        && path.is_empty()
-    {
-        return only.clone();
-    }
-
-    Table::new()
-        .with_rows(
-            leaves
-                .iter()
-                .map(|(path, leaf)| [styled::key(path), leaf.clone()]),
-        )
-        .render()
-}
-
-/// A payload as one line of `path=value`, so a stream of them stays greppable.
-pub fn inline(value: &Value) -> String {
-    leaves(value)
-        .iter()
-        .map(|(path, leaf)| match path.is_empty() {
-            true => leaf.clone(),
-            false => format!("{path}={leaf}"),
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-/// Every scalar in a payload, as `dotted.path` and text. Objects nest with `.`, arrays with `[n]`,
-/// and an empty collection is a leaf so it is never silently dropped. A bare scalar is one leaf
-/// with an empty path.
-fn leaves(value: &Value) -> Vec<(String, String)> {
-    let mut found = Vec::new();
-    walk(String::new(), value, &mut found);
-    found
-}
-
-fn walk(path: String, value: &Value, found: &mut Vec<(String, String)>) {
-    match value {
-        Value::Object(fields) if !fields.is_empty() => {
-            for (key, field) in fields {
-                let child = match path.is_empty() {
-                    true => key.clone(),
-                    false => format!("{path}.{key}"),
-                };
-                walk(child, field, found);
-            }
-        }
-        Value::Array(items) if !items.is_empty() => {
-            for (index, item) in items.iter().enumerate() {
-                walk(format!("{path}[{index}]"), item, found);
-            }
-        }
-        Value::String(text) => found.push((path, text.clone())),
-        Value::Object(_) => found.push((path, "{}".to_owned())),
-        Value::Array(_) => found.push((path, "[]".to_owned())),
-        scalar => found.push((path, scalar.to_string())),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -337,27 +269,6 @@ mod tests {
     }
 
     #[test]
-    fn a_bare_scalar_prints_as_itself() {
-        assert_eq!(lines(&serde_json::json!(42)), "42");
-        assert_eq!(lines(&serde_json::json!("auto")), "auto");
-    }
-
-    #[test]
-    fn a_payload_prints_one_leaf_per_line() {
-        let data = serde_json::json!({ "at": { "lat": 52.2 }, "names": ["a", "b"] });
-        assert_eq!(
-            visible(&lines(&data)),
-            "at.lat    52.2\nnames[0]  a\nnames[1]  b"
-        );
-    }
-
-    #[test]
-    fn a_payload_inlines_as_greppable_pairs() {
-        let data = serde_json::json!({ "at": { "lat": 52.2 }, "phase": "day" });
-        assert_eq!(inline(&data), "at.lat=52.2 phase=day");
-    }
-
-    #[test]
     fn no_rows_says_so_instead_of_printing_headers() {
         let rendered = Table::<2>::new()
             .with_headers(["NAME", "STATE"])
@@ -385,27 +296,6 @@ mod tests {
         assert_eq!(
             visible(&rendered),
             "D-BUS\n  session bus  ok\n  → network is degraded"
-        );
-    }
-
-    #[test]
-    fn leaves_flatten_to_dotted_paths() {
-        let data = serde_json::json!({ "at": { "lat": 52.2 }, "names": ["a"], "none": [] });
-        assert_eq!(
-            leaves(&data),
-            [
-                ("at.lat".to_owned(), "52.2".to_owned()),
-                ("names[0]".to_owned(), "a".to_owned()),
-                ("none".to_owned(), "[]".to_owned()),
-            ]
-        );
-    }
-
-    #[test]
-    fn a_bare_scalar_is_one_leaf_with_no_path() {
-        assert_eq!(
-            leaves(&serde_json::json!("auto")),
-            [(String::new(), "auto".to_owned())]
         );
     }
 }

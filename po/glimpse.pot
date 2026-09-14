@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-14 11:49+0200\n"
+"POT-Creation-Date: 2026-09-14 17:40+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -162,12 +162,12 @@ msgstr ""
 msgid "{count}d"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/mod.rs:216
+#: crates/glimpse-panel/src/applets/weather/mod.rs:215
 msgid "Here"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/mod.rs:227
-#: crates/glimpse-panel/src/applets/weather/mod.rs:263
+#: crates/glimpse-panel/src/applets/weather/mod.rs:232
+#: crates/glimpse-panel/src/applets/weather/mod.rs:268
 msgid "No reading yet"
 msgstr ""
 

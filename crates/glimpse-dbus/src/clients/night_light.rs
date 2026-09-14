@@ -8,8 +8,12 @@ pub const GLIMPSE_NIGHT_LIGHT_OBJECT_PATH: &str = "/me/aresa/Glimpse/NightLight"
 /// and a reader needs no comment to know which `u` is which. The signature is the same either way.
 #[derive(Debug, Clone, PartialEq, Eq, Type, Value, OwnedValue, Serialize, Deserialize)]
 pub struct NightLightSnapshot {
-    /// `off`, `automatic` or `schedule`, spelled as `[night-light] schedule` spells it.
+    /// `off`, `automatic` or `schedule`, spelled as `[night-light] schedule` spells it. This is
+    /// the mode in force, which is the document's only while `overridden` is false.
     pub schedule: String,
+    /// Whether `schedule` came from `SetSchedule` rather than from the document. An override lasts
+    /// until `[night-light]` is edited or the process restarts; it is never written back.
+    pub overridden: bool,
     /// The color temperature applied now, in kelvin. 6500 means nothing is applied.
     pub temperature: u32,
     /// The configured night temperature, in kelvin.
@@ -30,6 +34,10 @@ pub struct NightLightSnapshot {
 pub trait NightLight1 {
     #[zbus(property)]
     fn snapshot(&self) -> zbus::Result<NightLightSnapshot>;
+
+    /// `off`, `automatic` or `schedule`. Runtime only: the document is untouched, and the next
+    /// edit to `[night-light]` takes the mode back.
+    fn set_schedule(&self, schedule: &str) -> zbus::Result<()>;
 }
 
 #[cfg(test)]
@@ -38,6 +46,6 @@ mod tests {
 
     #[test]
     fn the_wire_signature_matches_the_versioned_contract() {
-        assert_eq!(NightLightSnapshot::SIGNATURE, "(suubbs)");
+        assert_eq!(NightLightSnapshot::SIGNATURE, "(sbuubbs)");
     }
 }

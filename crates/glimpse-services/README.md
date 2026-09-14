@@ -42,6 +42,21 @@ its provider and two crates' tests.
 tests are a separate compilation unit. The cost is that `glimpse-panel` and `glimpsed` link a mock
 they can never use; it is a few dozen bytes, and the alternative is a feature flag for one type.
 
+## The night light's mode
+
+Every reader of the schedule — `subscriptions`, `evaluate`, `boundary`, `missing` and `publish` —
+goes through `effective()`, which is `forced.unwrap_or(config.schedule)`. That is what makes
+`SetSchedule` complete rather than cosmetic: an override to `off` drops the tick and the solar
+watch as well as handing the outputs back, because `subscriptions` reads the same answer everything
+else does.
+
+`forced` is not persisted and is cleared only when `[night-light]` itself changes. The runtime hands
+every service an `Input::Config` on every reload whether or not its own table moved, so the handler
+compares before clearing; without that, editing `[weather]` would cancel a night light override.
+
+`SetSchedule` carries a `oneshot` answered after `evaluate`, not inside the match arm. The inbox is
+a `try_send`, so replying early would let a caller read back the mode it had just replaced.
+
 ## The solar service
 
 `solar.status` carries `phase` and `next_change` — the instant that phase flips — and no color
@@ -724,3 +739,9 @@ keyed on the sender's unique name is fed by whoever sends notifications, and a s
 **Not done yet:** `image-data` — raw pixels inline, with no header and therefore no cheap size
 check — is still dropped. `NotificationRecord::image` is a path under `$XDG_RUNTIME_DIR/glimpse/`
 for when it lands, following `PlayerStatus::art` rather than putting bytes on the wire.
+
+The gamma mock's `fail` covers handing the outputs back as well as taking them. A mock whose
+`reset` could not fail hid a real defect for as long as it existed: the service cleared its record
+of holding the outputs before the backend had agreed to release them, and under `Off` nothing
+retries, so the display stayed tinted while every later release short-circuited and reported
+healthy.

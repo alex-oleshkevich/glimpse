@@ -2,7 +2,7 @@
 
 The night light: it owns `[night-light]`, follows the solar phase, and applies a color temperature
 to every output through `zwlr_gamma_control_unstable_v1`. It exports what it is doing on
-`me.aresa.Glimpse.NightLight1` and takes no orders over that interface.
+`me.aresa.Glimpse.NightLight1`, whose one setter changes the mode in force and nothing else.
 
 ## Contents
 
@@ -26,6 +26,30 @@ and the night light ramps toward that instant. `[night-light] schedule = "schedu
 alternative, computed from `start-time` and `end-time` in the machine's own zone.
 
 ## Rules
+
+**`SetSchedule` is the only setter, and it never reaches the document.** A temperature, a time or a
+transition length is a preference: it belongs in `[night-light]`, which is already re-read on
+change, and writing it back from here would mean editing a file the user owns. The mode in force
+right now is the one thing that cannot live there, because it has to outlive neither the reload nor
+the process — so it is held in memory, reported as `overridden`, and dropped the moment
+`[night-light]` itself is edited or the process restarts. A reload that leaves that table alone
+keeps it: every service is reconfigured on every reload, so clearing on any `Input::Config` would
+let an edit to `[weather]` cancel a mode nobody touched.
+
+**The method answers after the display has been driven, not when the command was queued.**
+`ServiceEndpoint::command` is a `try_send`, so a fire-and-forget setter would return while the old
+mode was still published and a caller reading the snapshot next would see the mode it had just
+replaced. `SetSchedule` carries a `oneshot` that the handler sends *after* `evaluate`. A backend
+that refused the ramp is a health condition rather than a rejected mode — the mode is in force
+either way, and `serving` and `reason` are where that failure is reported.
+
+**Exit 4 means the compositor will never offer gamma control, and nothing else.** The unit carries
+`RestartPreventExitStatus=4`, so that code has to be the permanent case alone. `WaylandGamma::connect`
+fails three ways and only one of them is permanent: a missing `zwlr_gamma_control_manager_v1` global
+is `Unavailable::Unsupported`, while a Wayland socket that is not there yet and a failed registry
+roundtrip are `Unavailable::Unreachable` and stay retryable. Mapping the exit code by matching the
+`"cannot take gamma control"` context string conflated all three, which would have left the service
+permanently stopped after an ordinary compositor restart.
 
 **The ramp completes at the boundary.** Approaching sunset the screen reaches the night temperature
 *at* sunset, rather than starting to warm there. That is what lets the service read one instant —
@@ -75,8 +99,10 @@ screen probably looks like.
 ## Starting it
 
 `Type=dbus` on `me.aresa.Glimpse.NightLight`, started by `glimpse-session.target`. It needs no
-daemon: the process exits with code 1 if the compositor offers no `zwlr_gamma_control_manager_v1`,
-because without it there is nothing for this binary to do.
+daemon: the process exits with code 4 if the compositor offers no `zwlr_gamma_control_manager_v1`,
+because without it there is nothing for this binary to do, and `RestartPreventExitStatus=4` stops
+the unit retrying a session that will never support it. A compositor that is merely not up yet
+exits 1 and is retried normally.
 
 **There is deliberately no D-Bus activation file.** Nothing activates this name on demand yet, and
 an activation outside a graphical session would exit 1 every time — five of those inside

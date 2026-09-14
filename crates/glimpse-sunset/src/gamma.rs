@@ -18,16 +18,38 @@ pub struct WaylandGamma {
     outputs: Outputs,
 }
 
+#[derive(Debug)]
+pub enum Unavailable {
+    Unsupported,
+    Unreachable(String),
+}
+
+impl std::fmt::Display for Unavailable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unsupported => {
+                f.write_str("the compositor does not offer zwlr_gamma_control_manager_v1")
+            }
+            Self::Unreachable(reason) => f.write_str(reason),
+        }
+    }
+}
+
+impl std::error::Error for Unavailable {}
+
 impl WaylandGamma {
-    pub fn connect() -> Result<Self, String> {
-        let connection = Connection::connect_to_env().map_err(say)?;
+    pub fn connect() -> Result<Self, Unavailable> {
+        let connection =
+            Connection::connect_to_env().map_err(|error| Unavailable::Unreachable(say(error)))?;
         let mut queue = connection.new_event_queue();
         connection.display().get_registry(&queue.handle(), ());
 
         let mut outputs = Outputs::default();
-        queue.roundtrip(&mut outputs).map_err(say)?;
+        queue
+            .roundtrip(&mut outputs)
+            .map_err(|error| Unavailable::Unreachable(say(error)))?;
         if outputs.manager.is_none() {
-            return Err("the compositor does not offer zwlr_gamma_control_manager_v1".to_owned());
+            return Err(Unavailable::Unsupported);
         }
 
         Ok(Self {
@@ -191,7 +213,12 @@ impl Dispatch<wl_registry::WlRegistry, ()> for Outputs {
             },
             wl_registry::Event::GlobalRemove { name } => {
                 state.outputs.retain(|(id, _)| *id != name);
-                state.controls.remove(&name);
+                // wayland-rs sends no destructor on drop, so a control merely forgotten stays
+                // alive compositor-side — the same rule `release` and `discard_failed` follow.
+                // Without this each unplug leaks one gamma control for the process's lifetime.
+                if let Some(control) = state.controls.remove(&name) {
+                    control.control.destroy();
+                }
             }
             _ => {}
         }

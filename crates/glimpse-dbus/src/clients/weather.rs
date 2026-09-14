@@ -11,6 +11,8 @@ use glimpse_utils::clean;
 use tokio::sync::{RwLock, watch};
 use zbus::proxy::CacheProperties;
 
+use super::{epoch, optional_clean};
+
 pub const GLIMPSE_WEATHER_BUS_NAME: &str = "me.aresa.Glimpse.Weather";
 pub const GLIMPSE_WEATHER_OBJECT_PATH: &str = "/me/aresa/Glimpse/Weather";
 
@@ -450,7 +452,7 @@ async fn wait_for_owner(owners: &mut zbus::fdo::NameOwnerChangedStream) -> bool 
     false
 }
 
-fn decode_snapshot(snapshot: WeatherSnapshot) -> Result<WeatherProviderState, String> {
+pub fn decode_snapshot(snapshot: WeatherSnapshot) -> Result<WeatherProviderState, String> {
     let (available, stale, reason, updated_at, units, places) = snapshot;
     let updated_at = optional_epoch(updated_at)?;
     let reason = clean(&reason, REASON);
@@ -707,7 +709,9 @@ fn decode_place_kind(
             })
         }
         1 => Err("weather snapshot contains invalid coordinates".to_owned()),
-        2 if !location.trim().is_empty() => Ok(WatchedPlace::Location { name: location }),
+        2 if !location.trim().is_empty() => Ok(WatchedPlace::Location {
+            name: clean(&location, CITY),
+        }),
         2 => Err("weather snapshot contains empty named location".to_owned()),
         _ => Err(format!(
             "weather snapshot contains unknown place kind {kind}"
@@ -747,11 +751,6 @@ fn decode_optional<T>((present, value): (bool, T)) -> Option<T> {
     present.then_some(value)
 }
 
-fn optional_clean(value: String, limit: usize) -> Option<String> {
-    let value = clean(&value, limit);
-    (!value.is_empty()).then_some(value)
-}
-
 fn optional_country_code(value: String) -> Option<String> {
     let value = clean(&value, COUNTRY_CODE);
     (value.len() == COUNTRY_CODE && value.bytes().all(|byte| byte.is_ascii_uppercase()))
@@ -772,11 +771,6 @@ fn optional_epoch(value: i64) -> Result<Option<DateTime<Utc>>, String> {
         0 => Ok(None),
         value => epoch(value).map(Some),
     }
-}
-
-fn epoch(value: i64) -> Result<DateTime<Utc>, String> {
-    DateTime::from_timestamp_micros(value)
-        .ok_or_else(|| format!("weather snapshot contains invalid timestamp {value}"))
 }
 
 fn unit_code(units: UnitSystem) -> u8 {
@@ -930,6 +924,19 @@ mod tests {
         assert!(decoded.available);
         assert!(!decoded.stale);
         assert!(decoded.owner);
+    }
+
+    #[test]
+    fn a_requested_location_name_is_bounded_like_the_resolved_one() {
+        let decoded = decode_place_kind(2, 0.0, 0.0, format!("{}\u{202e}", "n".repeat(CITY + 10)))
+            .expect("a named place");
+
+        assert_eq!(
+            decoded,
+            WatchedPlace::Location {
+                name: format!("{}…", "n".repeat(CITY))
+            }
+        );
     }
 
     #[test]

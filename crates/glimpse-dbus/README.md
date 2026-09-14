@@ -71,3 +71,15 @@ services; check against it rather than hand-writing a method name.
 
 **No topic types here.** A payload belongs in `glimpse-contracts`, where it can be generated for the
 other SDKs. A backend type that leaked into a payload could not be.
+
+**A decoder belongs beside the wire type it undoes.** `weather::decode_snapshot` and
+`notifications::decode_snapshot` are the readers' counterparts to the encoders each provider uses,
+so a wire change touches one file rather than every consumer. `clients/mod.rs` holds what both
+need — `optional_clean` and `epoch` — because two copies of a timestamp decoder is two ways for
+them to disagree.
+
+**A reader caps text the writer already capped.** The provider bounds what it sends, but the owner
+of a well-known name is whoever claimed it, so a decoder that skipped the cap would be trusting a
+bus name rather than a process. The cap tables are therefore per-direction and need not match: the
+store caps an image *path* at 4096 while a themed icon *name* stops at 200, and reusing the icon
+cap for the path truncated a legitimate path into one that opens nothing.

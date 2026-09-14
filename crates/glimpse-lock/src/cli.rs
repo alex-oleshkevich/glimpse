@@ -1,21 +1,18 @@
 use clap::Parser;
-use glimpse_utils::{ConfigArg, LogArgs, SocketArg};
+use glimpse_utils::{ConfigArg, LogArgs};
 use shadow_rs::shadow;
 
 shadow!(build);
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "glimpse-sunset",
-    about = "Night light service.",
+    name = "glimpse-lock",
+    about = "Lock screen.",
     version = build::VERSION
 )]
 pub struct Cli {
     #[command(flatten)]
     pub config: ConfigArg,
-
-    #[command(flatten)]
-    pub socket: SocketArg,
 
     #[command(flatten)]
     pub log: LogArgs,

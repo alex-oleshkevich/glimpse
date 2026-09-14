@@ -1,3 +1,5 @@
+use super::{epoch, optional_clean};
+
 pub const GLIMPSE_NOTIFICATIONS_BUS_NAME: &str = "me.aresa.Glimpse.Notifications";
 pub const GLIMPSE_NOTIFICATIONS_OBJECT_PATH: &str = "/me/aresa/Glimpse/Notifications";
 
@@ -38,6 +40,102 @@ pub trait Notifications1 {
     fn clear_application(&self, application_id: &str) -> zbus::Result<()>;
     fn clear_all(&self) -> zbus::Result<()>;
     fn set_do_not_disturb(&self, enabled: bool, until: i64) -> zbus::Result<()>;
+}
+
+#[derive(serde::Serialize)]
+pub struct NotificationsView {
+    pub notifications: Vec<glimpse_contracts::NotificationRecord>,
+    pub do_not_disturb: glimpse_contracts::DoNotDisturb,
+    pub serving: bool,
+    pub reason: String,
+}
+
+const APP_ID: usize = 120;
+const APP_NAME: usize = 120;
+const SUMMARY: usize = 200;
+const BODY: usize = 800;
+const ICON: usize = 200;
+const IMAGE: usize = 4096;
+const ACTION_LABEL: usize = 120;
+const MOST_ACTIONS: usize = 8;
+const NOTIFICATION_REASON: usize = 240;
+
+pub fn decode_snapshot(snapshot: NotificationsSnapshot) -> Result<NotificationsView, String> {
+    let (records, dnd, serving, reason) = snapshot;
+    Ok(NotificationsView {
+        notifications: records
+            .into_iter()
+            .map(decode_notification)
+            .collect::<Result<Vec<_>, _>>()?,
+        do_not_disturb: decode_do_not_disturb(dnd)?,
+        serving,
+        reason: glimpse_utils::clean(&reason, NOTIFICATION_REASON),
+    })
+}
+
+fn decode_notification(
+    wire: NotificationWire,
+) -> Result<glimpse_contracts::NotificationRecord, String> {
+    let (
+        id,
+        app_id,
+        app_name,
+        app_pid,
+        summary,
+        body,
+        icon,
+        image,
+        urgency,
+        actions,
+        progress,
+        created,
+        unread,
+        resident,
+    ) = wire;
+    Ok(glimpse_contracts::NotificationRecord {
+        id,
+        app_id: glimpse_utils::clean(&app_id, APP_ID),
+        app_name: glimpse_utils::clean(&app_name, APP_NAME),
+        app_pid: (app_pid != 0).then_some(app_pid),
+        summary: glimpse_utils::clean(&summary, SUMMARY),
+        body: optional_clean(body, BODY),
+        icon: optional_clean(icon, ICON),
+        image: optional_clean(image, IMAGE),
+        urgency: decode_urgency(urgency),
+        actions: actions
+            .into_iter()
+            .take(MOST_ACTIONS)
+            .map(|(key, label)| glimpse_contracts::NotificationAction {
+                key: glimpse_utils::clean(&key, ACTION_LABEL),
+                label: glimpse_utils::clean(&label, ACTION_LABEL),
+            })
+            .collect(),
+        progress: (progress >= 0.0).then_some(progress),
+        created: epoch(created)?,
+        unread,
+        resident,
+    })
+}
+
+fn decode_do_not_disturb(
+    (enabled, until): DoNotDisturbWire,
+) -> Result<glimpse_contracts::DoNotDisturb, String> {
+    Ok(glimpse_contracts::DoNotDisturb {
+        enabled,
+        until: match until {
+            0 => None,
+            value => Some(epoch(value)?),
+        },
+    })
+}
+
+fn decode_urgency(urgency: u8) -> glimpse_contracts::NotificationUrgency {
+    match urgency {
+        0 => glimpse_contracts::NotificationUrgency::Low,
+        1 => glimpse_contracts::NotificationUrgency::Normal,
+        2 => glimpse_contracts::NotificationUrgency::Critical,
+        _ => glimpse_contracts::NotificationUrgency::Unknown,
+    }
 }
 
 #[derive(Clone)]

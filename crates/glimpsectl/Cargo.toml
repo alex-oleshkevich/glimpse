@@ -12,13 +12,15 @@ anstyle.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 colorchoice-clap.workspace = true
+chrono.workspace = true
 glimpse-config = { path = "../glimpse-config" }
 glimpse-contracts.workspace = true
-glimpse-ipc = { path = "../glimpse-ipc" }
+glimpse-dbus = { path = "../glimpse-dbus" }
 glimpse-utils = { path = "../glimpse-utils" }
+serde.workspace = true
 serde_json.workspace = true
 shadow-rs.workspace = true
-thiserror.workspace = true
+zbus.workspace = true
 tokio.workspace = true
 toml.workspace = true
 tracing.workspace = true

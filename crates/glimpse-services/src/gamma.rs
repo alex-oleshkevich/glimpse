@@ -1,10 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 /// Applying a color temperature to every output.
-///
 /// Declared here and implemented in `glimpse-sunset`, because this crate is linked into
 /// `glimpse-panel` and `glimpsed`, and neither may gain a Wayland dependency.
-///
 /// Synchronous on purpose: the one real implementation is a Wayland roundtrip, which blocks, and it
 /// knows to say so with `block_in_place` itself. An `async` signature here would be a promise the
 /// backend cannot keep, and it would cost dyn-compatibility — which is what lets the night light be
@@ -16,7 +14,6 @@ pub trait Gamma: Send + 'static {
 
 /// The mock beside the declaration, so the night light's whole state machine is testable without a
 /// compositor. Not `#[cfg(test)]`: `glimpse-sunset`'s own tests are a separate compilation unit.
-///
 /// A clone shares the record, because the service takes its backend by value and a test still has
 /// to read what was applied to it.
 #[derive(Debug, Clone, Default)]
@@ -64,7 +61,13 @@ impl Gamma for FakeGamma {
     }
 
     fn reset(&mut self) -> Result<(), String> {
-        self.record().resets += 1;
-        Ok(())
+        let mut record = self.record();
+        match &record.failure {
+            Some(reason) => Err(reason.clone()),
+            None => {
+                record.resets += 1;
+                Ok(())
+            }
+        }
     }
 }

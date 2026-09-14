@@ -11,6 +11,10 @@ BusName=me.aresa.Glimpse.NightLight
 ExecStart=/usr/bin/glimpse-sunset
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
+# Exit 4 is "this compositor has no gamma control", which restarting cannot fix. Without this the
+# unit burns its whole StartLimitBurst on a session that will never support it, and the failure a
+# user sees is the rate limiter rather than the reason.
+RestartPreventExitStatus=4
 RestartSec=2
 NoNewPrivileges=true
 ProtectKernelTunables=true

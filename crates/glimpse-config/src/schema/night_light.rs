@@ -33,3 +33,41 @@ pub enum Schedule {
     #[serde(alias = "manual")]
     Schedule,
 }
+
+impl Schedule {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Automatic => "automatic",
+            Self::Schedule => "schedule",
+        }
+    }
+
+    pub fn parse(raw: &str) -> Option<Self> {
+        [Self::Off, Self::Automatic, Self::Schedule]
+            .into_iter()
+            .find(|mode| mode.as_str() == raw)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_spelling_is_one_the_document_reads_back_as_the_same_mode() {
+        for mode in [Schedule::Off, Schedule::Automatic, Schedule::Schedule] {
+            let parsed: NightLight = toml::from_str(&format!("schedule = \"{}\"\n", mode.as_str()))
+                .expect("the spelling is one serde accepts");
+            assert_eq!(parsed.schedule, mode);
+            assert_eq!(Schedule::parse(mode.as_str()), Some(mode));
+        }
+    }
+
+    #[test]
+    fn the_document_only_alias_is_not_a_mode_a_caller_can_name() {
+        assert_eq!(Schedule::parse("manual"), None);
+        assert_eq!(Schedule::parse("Off"), None);
+        assert_eq!(Schedule::parse(""), None);
+    }
+}

@@ -6,14 +6,11 @@ shadow!(build);
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "glimpse-panel",
+    name = "glimpse-wallpaper",
     about,
     version = build::VERSION
 )]
 pub struct Cli {
-    #[command(flatten)]
-    pub socket: glimpse_utils::args::SocketArg,
-
     #[command(flatten)]
     pub config: glimpse_utils::args::ConfigArg,
 
