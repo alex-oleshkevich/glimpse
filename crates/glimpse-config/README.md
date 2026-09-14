@@ -110,6 +110,21 @@ which has no lines to name.
 The caller decides what a failure means. At startup that is to log it and come up on
 `Config::default()`; on reload it is to drop the update and keep what is running. Neither exits.
 
+## Values a later stage could only refuse
+
+**A value the runtime cannot use is refused here, where the key can be named.** `[night-light]`
+`start-time` and `end-time` are checked against `%H:%M` while the document is being deserialized, so
+`start-time = "10pm"` is `expected a time written as HH:MM, got "10pm" for key
+`night-light.start-time`` and the process exits on the document rather than starting on it. They stay
+`Option<String>` — the schema keeps saying `string`, and `config show` prints the spelling the user
+wrote rather than a normalized one.
+
+They were unvalidated until the check went in, and the cost was not a missing error but a *misleading*
+one: the night light reported "a schedule needs start-time and end-time, each written as HH:MM",
+which reads as "you did not set them" when they are set and merely misspelled. That message is now
+reachable only when the keys are genuinely absent. `chrono` is inherited here for exactly this one
+parse, rather than spelling out a format the workspace already owns a parser for.
+
 ## Themes
 
 A theme is a directory of stylesheets under `<root>/<name>/`. The roots are `user_dir()/themes` then

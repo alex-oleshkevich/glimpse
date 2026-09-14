@@ -44,7 +44,9 @@ identical value.
 down to one service's slice is an impl beside the slice — never a method on the service. A service
 that reads no configuration uses `type Config = NoConfig;` and writes no impl at all; `()` cannot be
 used, because `From<&Config> for ()` is a foreign trait on a foreign type. `S::Config: PartialEq` is
-what narrows a reload to the services whose own table moved.
+what narrows a reload to the services whose own table moved, and it does so wherever a service runs:
+`ServiceRuntime::run` holds the config in force and skips an `Input::Config` equal to it, so the gate
+is a property of the framework rather than something each binary has to remember to write.
 
 ## Boundaries
 

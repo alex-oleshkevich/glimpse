@@ -4,13 +4,11 @@ use std::path::Path;
 use std::rc::Rc;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, NotificationIndicatorStyle};
-use glimpse_contracts::{NotificationAction, NotificationRecord, NotificationUrgency, WindowRef};
-use glimpse_dbus::notifications::{
-    NotificationWire, NotificationsProviderHandle, NotificationsProviderState,
-};
+use glimpse_contracts::{NotificationRecord, WindowRef};
+use glimpse_dbus::notifications::{NotificationsProviderHandle, NotificationsProviderState};
 use glimpse_services::CompositorHandle;
 use glimpse_widgets::{Group, IndicatorSpec, NotificationsPopover, notification_image};
 use gtk4::gdk::prelude::DisplayExt;
@@ -156,20 +154,17 @@ impl Notifications {
     }
 
     fn sync(&mut self) {
-        let NotificationsProviderState {
-            snapshot,
-            unavailable,
-        } = self.notifications.snapshot();
+        let NotificationsProviderState { view, unavailable } = self.notifications.snapshot();
         self.trouble = unavailable;
-        let Some((records, (dnd, _), serving, reason)) = snapshot else {
+        let Some(view) = view else {
             self.list = None;
             self.dnd.set(false);
             return;
         };
-        self.list = Some(records.into_iter().filter_map(record).collect());
-        self.dnd.set(dnd);
-        if !serving {
-            self.trouble = Some(reason);
+        self.list = Some(view.notifications);
+        self.dnd.set(view.do_not_disturb.enabled);
+        if !view.serving {
+            self.trouble = Some(view.reason);
         }
     }
 
@@ -347,49 +342,6 @@ fn activate(
     });
 }
 
-fn record(wire: NotificationWire) -> Option<NotificationRecord> {
-    let (
-        id,
-        app_id,
-        app_name,
-        app_pid,
-        summary,
-        body,
-        icon,
-        image,
-        urgency,
-        actions,
-        progress,
-        created,
-        unread,
-        resident,
-    ) = wire;
-    Some(NotificationRecord {
-        id,
-        app_id,
-        app_name,
-        app_pid: (app_pid != 0).then_some(app_pid),
-        summary,
-        body: (!body.is_empty()).then_some(body),
-        icon: (!icon.is_empty()).then_some(icon),
-        image: (!image.is_empty()).then_some(image),
-        urgency: match urgency {
-            0 => NotificationUrgency::Low,
-            1 => NotificationUrgency::Normal,
-            2 => NotificationUrgency::Critical,
-            _ => NotificationUrgency::Unknown,
-        },
-        actions: actions
-            .into_iter()
-            .map(|(key, label)| NotificationAction { key, label })
-            .collect(),
-        progress: (progress >= 0.0).then_some(progress),
-        created: DateTime::from_timestamp_micros(created)?,
-        unread,
-        resident,
-    })
-}
-
 #[derive(Debug, PartialEq, Eq)]
 struct Activation {
     id: u32,
@@ -459,37 +411,6 @@ mod tests {
             unread,
             resident: false,
         }
-    }
-
-    #[test]
-    fn the_provider_wire_record_maps_without_json_defaults() {
-        let created = DateTime::<Utc>::from_timestamp_micros(1_234_567_890).unwrap();
-        let mapped = super::record((
-            7,
-            "app".to_owned(),
-            "App".to_owned(),
-            0,
-            "Summary".to_owned(),
-            String::new(),
-            String::new(),
-            String::new(),
-            255,
-            vec![("reply".to_owned(), "Reply".to_owned())],
-            -1.0,
-            created.timestamp_micros(),
-            true,
-            false,
-        ))
-        .expect("timestamp is representable");
-
-        assert_eq!(mapped.app_pid, None);
-        assert_eq!(mapped.body, None);
-        assert_eq!(mapped.icon, None);
-        assert_eq!(mapped.image, None);
-        assert_eq!(mapped.urgency, NotificationUrgency::Unknown);
-        assert_eq!(mapped.actions[0].key, "reply");
-        assert_eq!(mapped.progress, None);
-        assert_eq!(mapped.created, created);
     }
 
     #[test]

@@ -204,6 +204,7 @@ impl<S: Service> ServiceRuntime<S> {
         );
 
         set_health(&self.health, ServiceState::Starting);
+        let mut applied = config.clone();
         let mut service = match S::start(&ctx, config, dependencies).await {
             Ok(service) => service,
             Err(error) => {
@@ -228,6 +229,13 @@ impl<S: Service> ServiceRuntime<S> {
                     None => break,
                 },
             };
+
+            if let Input::Config(next) = &input {
+                if *next == applied {
+                    continue;
+                }
+                applied = next.clone();
+            }
 
             let handled = AssertUnwindSafe(async {
                 service.handle(&ctx, input).await;
@@ -348,6 +356,80 @@ mod tests {
             &*handle.health().borrow(),
             ServiceState::Stopped { reason: Some(reason) } if reason.contains("unrepeatable")
         ));
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    struct Tuning(u8);
+
+    impl From<&glimpse_config::Config> for Tuning {
+        fn from(_document: &glimpse_config::Config) -> Self {
+            Self(0)
+        }
+    }
+
+    struct Tunable {
+        seen: u32,
+    }
+
+    impl Service for Tunable {
+        const NAME: &'static str = "tunable";
+
+        type Config = Tuning;
+        type State = (u8, u32);
+        type Handle = ServiceEndpoint<Self>;
+        type Command = ();
+        type Event = ();
+        type Dependencies = ();
+        type SubKey = ();
+
+        fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
+            endpoint
+        }
+
+        async fn start(
+            _ctx: &Ctx<Self>,
+            _config: Self::Config,
+            _dependencies: Self::Dependencies,
+        ) -> Result<Self, ServiceError> {
+            Ok(Self { seen: 0 })
+        }
+
+        async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
+            if let Input::Config(Tuning(value)) = input {
+                self.seen += 1;
+                ctx.publisher().set((value, self.seen));
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn an_unchanged_configuration_never_reaches_the_handler() {
+        let cancel = CancellationToken::new();
+        let (mut runtime, handle) = ServiceRuntime::<Tunable>::new(
+            (0, 0),
+            Buses::unavailable("no bus in tests"),
+            cancel.clone(),
+        );
+        let sender = runtime.sender();
+        let mut state = handle.subscribe();
+        let running = tokio::spawn(async move { runtime.run(Tuning(1), ()).await });
+
+        sender.reconfigure(Tuning(1));
+        sender.reconfigure(Tuning(2));
+        state
+            .wait_for(|state| *state == (2, 1))
+            .await
+            .expect("a reload matching the config it started on is not a change");
+
+        sender.reconfigure(Tuning(2));
+        sender.reconfigure(Tuning(1));
+        state
+            .wait_for(|state| *state == (1, 2))
+            .await
+            .expect("going back is a change, repeating is not");
+
+        cancel.cancel();
+        running.await.expect("joined").expect("stopped");
     }
 
     struct RefusesToStart;

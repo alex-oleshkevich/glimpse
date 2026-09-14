@@ -36,7 +36,7 @@ pub use keyboard::{Keyboard, Remember};
 pub use lock::{Button as LockButton, Clock as LockClock, Controls as LockControls, Lock};
 pub use monitors::Monitors;
 pub use mpris::Mpris as MprisConfig;
-pub use night_light::{NightLight, Schedule};
+pub use night_light::{CLOCK, NightLight, Schedule, parse_clock};
 pub use notifications::{NotificationEdge, Notifications};
 pub use panels::{Margin, Panel, Position};
 pub use power::Power;

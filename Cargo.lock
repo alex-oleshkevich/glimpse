@@ -1107,6 +1107,7 @@ dependencies = [
 name = "glimpse-config"
 version = "0.16.0"
 dependencies = [
+ "chrono",
  "config",
  "dirs",
  "futures-util",

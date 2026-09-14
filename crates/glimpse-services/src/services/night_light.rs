@@ -19,9 +19,8 @@ use crate::{
 /// Neutral daylight. Nothing is applied at this temperature; it is the value both ramps return to.
 const DAY: u32 = 6500;
 
-/// The ramp's resolution as much as its refresh: a fifteen-minute transition moves in steps of
-/// roughly 150K, which is below the eye's notice against an adapting display.
 const TICK: time::Duration = time::Duration::from_secs(60);
+const RAMPING: time::Duration = time::Duration::from_secs(10);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
@@ -46,7 +45,7 @@ impl From<&glimpse_config::Config> for Config {
 }
 
 fn clock(raw: Option<&str>) -> Option<NaiveTime> {
-    NaiveTime::parse_from_str(raw?, "%H:%M").ok()
+    glimpse_config::parse_clock(raw?).ok()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,7 +87,7 @@ pub enum Command {
 #[derive(PartialEq, Eq, Hash)]
 pub enum Watch {
     Solar,
-    Tick,
+    Tick(time::Duration),
 }
 
 pub struct Dependencies {
@@ -150,7 +149,8 @@ impl Service for NightLight {
         if self.effective() == Schedule::Off {
             return Vec::new();
         }
-        let mut declared = vec![Sub::interval(Watch::Tick, TICK, |_ctx| async {
+        let cadence = self.cadence(Utc::now());
+        let mut declared = vec![Sub::interval(Watch::Tick(cadence), cadence, |_ctx| async {
             Event::Tick
         })];
         if self.effective() == Schedule::Automatic {
@@ -190,10 +190,8 @@ impl Service for NightLight {
                 pending = Some(reply);
             }
             Input::Config(config) => {
-                if config != self.config {
-                    self.forced = None;
-                    self.config = config;
-                }
+                self.forced = None;
+                self.config = config;
             }
         }
         self.evaluate(ctx, Utc::now()).await;
@@ -215,6 +213,15 @@ impl Service for NightLight {
 }
 
 impl NightLight {
+    fn cadence(&self, now: DateTime<Utc>) -> time::Duration {
+        match self.boundary(now) {
+            Some((_, Some(change))) if in_transition(change - now, self.config.transition) => {
+                RAMPING
+            }
+            _ => TICK,
+        }
+    }
+
     fn effective(&self) -> Schedule {
         self.forced.unwrap_or(self.config.schedule)
     }
@@ -317,13 +324,17 @@ fn ramp(
     if remaining <= TimeDelta::zero() {
         return next;
     }
-    if config.transition <= TimeDelta::zero() || remaining >= config.transition {
+    if !in_transition(remaining, config.transition) {
         return steady;
     }
 
     let progress = 1.0 - remaining.as_seconds_f64() / config.transition.as_seconds_f64();
     let travelled = (next as f64 - steady as f64) * progress.clamp(0.0, 1.0);
     (steady as f64 + travelled).round() as u32
+}
+
+fn in_transition(remaining: TimeDelta, transition: TimeDelta) -> bool {
+    remaining > TimeDelta::zero() && remaining < transition
 }
 
 /// Night runs from `start` to `end` every day in the machine's own zone. Both instants are laid out
@@ -704,17 +715,66 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_reload_that_leaves_this_table_alone_keeps_the_override() {
+    async fn the_ramp_is_sampled_faster_than_it_moves_while_it_is_moving() {
         let mut harness = harness(config(Schedule::Automatic)).await;
-        harness.service.observed = night(None);
-        harness.set(Schedule::Off).await;
+        harness.service.observed = day(Some(sunset()));
 
-        harness
-            .feed(Input::Config(config(Schedule::Automatic)))
-            .await;
+        assert_eq!(
+            harness.service.cadence(sunset() - TimeDelta::hours(2)),
+            TICK,
+            "far from the boundary there is nothing to draw"
+        );
+        assert_eq!(
+            harness.service.cadence(sunset() - TimeDelta::minutes(5)),
+            RAMPING,
+            "inside the transition the screen is actually moving"
+        );
+        assert_eq!(
+            harness.service.cadence(sunset() + TimeDelta::minutes(1)),
+            TICK,
+            "the ramp finished at the boundary"
+        );
+    }
 
-        assert!(harness.state.borrow().overridden);
-        assert_eq!(harness.state.borrow().schedule, Schedule::Off);
+    #[tokio::test]
+    async fn a_ramp_step_is_smaller_than_the_eye_resolves() {
+        let config = config(Schedule::Automatic);
+        let span = (DAY as f64 - config.temperature as f64).abs();
+        let steps = config.transition.as_seconds_f64() / RAMPING.as_secs_f64();
+
+        assert!(
+            span / steps < 50.0,
+            "a {}K step is coarse enough to read as a staircase",
+            span / steps
+        );
+    }
+
+    #[tokio::test]
+    async fn a_schedule_with_no_transition_never_asks_to_be_woken_faster() {
+        let mut settings = config(Schedule::Automatic);
+        settings.transition = TimeDelta::zero();
+        let mut harness = harness(settings).await;
+        harness.service.observed = day(Some(sunset()));
+
+        assert_eq!(
+            harness.service.cadence(sunset() - TimeDelta::seconds(1)),
+            TICK
+        );
+    }
+
+    #[test]
+    fn a_document_edited_outside_this_table_projects_to_the_same_configuration() {
+        let mut document = glimpse_config::Config::default();
+        let before = Config::from(&document);
+
+        document.weather.forecast_days += 1;
+
+        assert_eq!(
+            Config::from(&document),
+            before,
+            "the runtime can only spare this service a reload while its own slice is unchanged, \
+             so the mode it was commanded into survives an edit to someone else's table"
+        );
     }
 
     #[tokio::test]

@@ -1,16 +1,38 @@
+use chrono::NaiveTime;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+pub const CLOCK: &str = "%H:%M";
+const CLOCK_PATTERN: &str = r"^([01]?[0-9]|2[0-3]):[0-5]?[0-9]$";
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct NightLight {
     pub schedule: Schedule,
     pub temperature: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "clock", skip_serializing_if = "Option::is_none")]
+    #[schemars(extend("pattern" = CLOCK_PATTERN))]
     pub start_time: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "clock", skip_serializing_if = "Option::is_none")]
+    #[schemars(extend("pattern" = CLOCK_PATTERN))]
     pub end_time: Option<String>,
     pub transition_minutes: u32,
+}
+
+fn clock<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = Option::<String>::deserialize(deserializer)?;
+    if let Some(text) = &raw {
+        parse_clock(text).map_err(serde::de::Error::custom)?;
+    }
+    Ok(raw)
+}
+
+pub fn parse_clock(raw: &str) -> Result<NaiveTime, String> {
+    NaiveTime::parse_from_str(raw, CLOCK)
+        .map_err(|_| format!("expected a time written as HH:MM, got {raw:?}"))
 }
 
 impl Default for NightLight {
@@ -62,6 +84,54 @@ mod tests {
             assert_eq!(parsed.schedule, mode);
             assert_eq!(Schedule::parse(mode.as_str()), Some(mode));
         }
+    }
+
+    #[test]
+    fn a_time_the_runtime_cannot_read_is_refused_at_load() {
+        for spelling in ["10pm", "22:00:00", "24:00", "noon", ""] {
+            let error = toml::from_str::<NightLight>(&format!("start-time = \"{spelling}\"\n"))
+                .expect_err("a time the schedule could never use");
+            assert!(error.to_string().contains("HH:MM"), "{spelling}: {error}");
+        }
+    }
+
+    #[test]
+    fn both_keys_are_checked_not_only_the_first() {
+        let error = toml::from_str::<NightLight>("start-time = \"20:00\"\nend-time = \"7pm\"\n")
+            .expect_err("end-time is checked too");
+        assert!(error.to_string().contains("HH:MM"), "{error}");
+    }
+
+    #[test]
+    fn the_emitted_schema_constrains_both_times_rather_than_leaving_it_to_the_loader() {
+        let document: serde_json::Value = serde_json::from_str(&crate::json_schema_document())
+            .expect("the emitted schema is JSON");
+        let night_light = &document["$defs"]["NightLight"]["properties"];
+
+        for key in ["start-time", "end-time"] {
+            assert_eq!(
+                night_light[key]["pattern"], CLOCK_PATTERN,
+                "{key} is an unconstrained string in the schema, so an editor accepts a value the \
+                 loader then refuses"
+            );
+        }
+    }
+
+    #[test]
+    fn a_time_written_as_hh_mm_loads_unchanged() {
+        let parsed: NightLight = toml::from_str("start-time = \"20:00\"\nend-time = \"07:00\"\n")
+            .expect("both are HH:MM");
+
+        assert_eq!(parsed.start_time.as_deref(), Some("20:00"));
+        assert_eq!(parsed.end_time.as_deref(), Some("07:00"));
+    }
+
+    #[test]
+    fn absent_times_are_absent_rather_than_refused() {
+        let parsed: NightLight = toml::from_str("schedule = \"schedule\"\n").expect("no times");
+
+        assert_eq!(parsed.start_time, None);
+        assert_eq!(parsed.end_time, None);
     }
 
     #[test]

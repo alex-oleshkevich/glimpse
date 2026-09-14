@@ -127,12 +127,13 @@ async fn wait_until(
 }
 
 fn complete(state: &glimpse_dbus::notifications::NotificationsProviderState) -> bool {
-    state
-        .snapshot
-        .as_ref()
-        .is_some_and(|(records, dnd, serving, reason)| {
-            records.is_empty() && *dnd == (false, 0) && *serving && reason.is_empty()
-        })
+    state.view.as_ref().is_some_and(|view| {
+        view.notifications.is_empty()
+            && !view.do_not_disturb.enabled
+            && view.do_not_disturb.until.is_none()
+            && view.serving
+            && view.reason.is_empty()
+    })
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -142,7 +143,7 @@ async fn provider_reconnects_and_roundtrips_typed_methods() {
     let mut provider = NotificationsProvider::start(client);
     let handle = provider.handle();
     let mut state = handle.subscribe();
-    assert!(handle.snapshot().snapshot.is_none());
+    assert!(handle.snapshot().view.is_none());
 
     let calls = Arc::new(Mutex::new(Vec::new()));
     let first = serve(&bus, calls.clone()).await;
@@ -151,7 +152,7 @@ async fn provider_reconnects_and_roundtrips_typed_methods() {
 
     drop(first);
     wait_until(&mut state, |state| {
-        state.snapshot.is_none() && state.unavailable.is_some()
+        state.view.is_none() && state.unavailable.is_some()
     })
     .await;
     assert!(handle.set_do_not_disturb(true, 7).await.is_err());
@@ -164,7 +165,7 @@ async fn provider_reconnects_and_roundtrips_typed_methods() {
     let _ = bus.child.kill();
     let _ = bus.child.wait();
     wait_until(&mut state, |state| {
-        state.snapshot.is_none() && state.unavailable.is_some()
+        state.view.is_none() && state.unavailable.is_some()
     })
     .await;
 

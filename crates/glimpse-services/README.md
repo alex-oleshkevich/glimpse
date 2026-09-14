@@ -12,6 +12,24 @@ health, and command methods to in-process consumers.
   watch-backed state, dependency sources, health, and command plumbing
 - `services/` — one module per service; `weather/` is a directory because it carries two providers
 
+## Reconfiguring
+
+**An unchanged configuration never reaches a handler.** `ServiceRuntime::run` keeps the config the
+service is actually running on and skips an `Input::Config` equal to it — no handler call, no
+`subscriptions()` rebuild, no `Live::reconcile` diff. So `S::Config: PartialEq` buys what
+`.claude/rules/daemon.md` says it buys in every binary rather than only under `glimpsed`. Every
+process reloads the whole document and hands each service its own slice, so without the gate a
+service whose table had not moved still woke — and two services had already grown their own
+comparisons to undo that: the night light to protect its mode override, `notifications` through
+`Store::reconfigure` returning `bool`.
+
+**The gate belongs on the consumer side, and that is not a detail.** Putting it on `ServiceSender`
+looks equivalent and is not: senders are cloned and handed out *before* `run` is spawned, so the
+record has to be seeded against a reload that beat startup, and a `try_send` that fails on a full
+inbox must not record a config that never arrived. `run` has neither problem — it holds the one
+config in force, sees every `Input::Config` in order, and compares against what was applied rather
+than what was handed off.
+
 ## The geolocation service
 
 Two providers behind one state. `provider = "manual"` publishes the configured pair; `"geoclue"`
@@ -42,6 +60,51 @@ its provider and two crates' tests.
 tests are a separate compilation unit. The cost is that `glimpse-panel` and `glimpsed` link a mock
 they can never use; it is a few dozen bytes, and the alternative is a feature flag for one type.
 
+## Do not disturb, and when it lapses
+
+`DoNotDisturb::until` is honoured by a subscription rather than by a check at read time: while do not
+disturb is on **and** carries an expiry, the service declares one `Sub::deadline` at that instant,
+which delivers `DoNotDisturbLapsed` and clears both fields. A reader that only ever looks at
+`enabled` therefore sees it turn itself off.
+
+**`Sub::deadline` waits on the wall clock, not on elapsed time.** A `tokio` timer runs on
+`CLOCK_MONOTONIC`, which does not advance while the machine is suspended, so one sleep of the whole
+remaining interval fires late by however long the lid was shut — do not disturb until 22:00, suspended
+from 20:05 to 23:00, would have stayed on until nearly 01:00 while the published state still said
+22:00. An NTP step does the same. The wait is therefore capped and the remaining time re-derived from
+`Utc::now()` each pass, so a resumed machine settles within the cap. This is the framework's mechanism
+rather than the service's: it is the first deadline in the tree, and the next one should not have to
+rediscover the monotonic problem.
+
+**The expiry is in the subscription key**, so moving it tears the old timer down and builds a new one;
+keying on a bare `DoNotDisturb` marker would leave the first deadline running and lapse at the wrong
+instant. A deadline already in the past is due immediately. Tearing a timer down does not unqueue an
+event it has already emitted, so the event carries its own deadline and the handler ignores one that
+no longer matches `until` — otherwise a lapse in flight could cancel the window that replaced it.
+
+`until` was carried on the wire and stored and never acted on, so do not disturb set with an expiry
+silenced notifications for good; `glimpsectl` withheld its `--until` flag rather than promise a lapse
+the store could not deliver.
+
+## The night light's cadence
+
+The tick is a declared source whose period is **in its own subscription key**, so the service asks to
+be woken once a minute normally and every ten seconds while a ramp is actually moving; crossing into
+the transition window changes the key, which is what tears the slow timer down and builds the fast
+one. The ramp position is computed from the clock either way — the cadence decides only how often it
+is *sampled*, never what it answers.
+
+One tick a minute is correct and looks wrong. The value is right at every instant it is read, but a
+15-minute transition over the default 6500→4200 span then moves in fifteen steps of about 150 K, and
+a step that size reads as a staircase rather than a fade. Ten seconds puts it near 25 K, below what
+the eye resolves, for about 180 extra wakeups a day confined to the two transition windows — the
+degraded path already probes once a minute all day for less. `a_ramp_step_is_smaller_than_the_eye_resolves`
+is the test that keeps the two constants honest about each other. Those are gamma *applies*, not bare
+wakeups: each one builds a ramp table and makes a blocking compositor roundtrip per output.
+
+A `transition-minutes` of zero never asks for the faster tick: there is no ramp to draw, and the
+temperature steps at the boundary.
+
 ## The night light's mode
 
 Every reader of the schedule — `subscriptions`, `evaluate`, `boundary`, `missing` and `publish` —
@@ -50,9 +113,11 @@ goes through `effective()`, which is `forced.unwrap_or(config.schedule)`. That i
 watch as well as handing the outputs back, because `subscriptions` reads the same answer everything
 else does.
 
-`forced` is not persisted and is cleared only when `[night-light]` itself changes. The runtime hands
-every service an `Input::Config` on every reload whether or not its own table moved, so the handler
-compares before clearing; without that, editing `[weather]` would cancel a night light override.
+`forced` is not persisted and is cleared only when `[night-light]` itself changes, and the handler no
+longer checks for that itself — a reload leaving this table alone never reaches the service, because
+`ServiceSender::reconfigure` drops a config equal to the one it last delivered. The comparison used
+to live in the handler, where it worked only because that binary's own forwarding happened to be
+correct; editing `[weather]` would otherwise have cancelled a night light override.
 
 `SetSchedule` carries a `oneshot` answered after `evaluate`, not inside the match arm. The inbox is
 a `try_send`, so replying early would let a caller read back the mode it had just replaced.

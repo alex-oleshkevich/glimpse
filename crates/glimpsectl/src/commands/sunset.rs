@@ -2,14 +2,12 @@ use anyhow::{Context, Result};
 use glimpse_dbus::night_light::{NightLight1Proxy, NightLightSnapshot};
 use zbus::Connection;
 
-use super::{emit, proxy, reason_or_absent, safe, yes_no};
+use super::{emit, proxy, reason_or_absent, safe, within, yes_no};
 use crate::cli::Mode;
 use crate::render::{Section, Table, styled};
 
 pub async fn sunset_status(connection: &Connection, json: bool) -> Result<()> {
-    let snapshot = proxy::<NightLight1Proxy>(connection)
-        .await?
-        .snapshot()
+    let snapshot = within(proxy::<NightLight1Proxy>(connection).await?.snapshot())
         .await
         .context("cannot read the night light")?;
 
@@ -31,11 +29,13 @@ pub async fn sunset_status(connection: &Connection, json: bool) -> Result<()> {
 }
 
 pub async fn sunset_mode(connection: &Connection, mode: Mode) -> Result<()> {
-    proxy::<NightLight1Proxy>(connection)
-        .await?
-        .set_schedule(mode.as_str())
-        .await
-        .with_context(|| format!("cannot set the night light to `{}`", mode.as_str()))?;
+    within(
+        proxy::<NightLight1Proxy>(connection)
+            .await?
+            .set_schedule(mode.as_str()),
+    )
+    .await
+    .with_context(|| format!("cannot set the night light to `{}`", mode.as_str()))?;
     Ok(())
 }
 

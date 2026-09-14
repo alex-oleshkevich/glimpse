@@ -69,9 +69,12 @@ name is whoever claimed it — so `schedule` and every `reason` go through `safe
 column. Untrusted text reaching a terminal is worse than untrusted text reaching a label: an escape
 sequence repaints the screen.
 
-**`notifications dnd` takes no expiry.** The store holds `until` and nothing acts on it — no timer,
-no read-time check — so a lapse time would be accepted and never honoured. `dnd on` stands until
-`dnd off`. `glimpse-kyt0.9.10` is the missing half.
+**`notifications dnd --until HH:MM` is the next time the clock reads that way**, today or tomorrow,
+sent as epoch microseconds because that is the unit the provider reads back; `0` is its sentinel for
+indefinite. It is refused on `dnd off`, where there is nothing to lapse, rather than accepted and
+dropped. The flag was withheld at first because the store held `until` and nothing ever acted on it —
+it would have promised a lapse that never came. The service now arms a subscription keyed on the
+instant, so the expiry is honoured rather than merely recorded.
 
 **`config` and `doctor` open no bus.** `config` reads the layered stack from disk, which is what
 makes it work when a provider is what will not start. `doctor` connects but tolerates failure, for
@@ -86,6 +89,23 @@ owning its name while reporting `serving = false` is the case a bare ownership c
 written, so `BrokenPipe` is handled once rather than per command. `Table` takes `[String; N]` rows,
 so a row that does not match its headers is a compile error rather than a ragged table, and width
 is measured on the visible text so a styled cell never shifts a column.
+
+**Every call to a provider is bounded, because zbus does not bound one for you.** A peer that owns
+its name and never replies leaves `Proxy::call` awaiting forever — measured by `SIGSTOP`ing a live
+`glimpse-sunset`, after which `sunset status` hung for over ten minutes rather than failing. Each
+request therefore goes through `within`, on the same `glimpse_dbus::DEADLINE` the panel's calls
+already use — there were three bounded-call sites and two different numbers before that constant
+existed, and the crate that never rendered anything was the one with a bound. `TimedOut` is what
+makes `Exit::Timeout` reachable: until this went in, 5 was a code the table listed and nothing could
+return.
+
+**`doctor` probes the three providers concurrently.** They share one connection, zbus multiplexes
+method calls over it, and no probe feeds another — so awaiting them in turn only made the worst case
+three deadlines instead of one.
+
+**`doctor` separates a provider that is gone from one that will not answer.** Owning the name and
+failing to reply is `degraded` with the reason, not `not running`; the ownership check already
+distinguished them and only the reporting collapsed the two.
 
 **`exit` maps D-Bus error names, and holds only the codes something returns today.** The numbers
 kept their meanings when the socket went — 3 is still "the thing that answers is not there", 4 is

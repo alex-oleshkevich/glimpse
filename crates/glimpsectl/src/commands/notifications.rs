@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
-use chrono::Local;
+use chrono::{Local, NaiveTime, TimeDelta};
 use glimpse_contracts::{NotificationRecord, NotificationUrgency};
 use glimpse_dbus::notifications::{Notifications1Proxy, NotificationsView, decode_snapshot};
 use zbus::Connection;
 
-use super::{ABSENT, emit, proxy, reason_or_absent, safe, yes_no};
+use super::{ABSENT, emit, proxy, reason_or_absent, safe, within, yes_no};
 use crate::cli::DndState;
 use crate::render::{Section, Table, styled};
 
@@ -43,9 +43,7 @@ pub async fn notifications_list(connection: &Connection, json: bool) -> Result<(
 }
 
 pub async fn notifications_dismiss(connection: &Connection, id: u32) -> Result<()> {
-    proxy::<Notifications1Proxy>(connection)
-        .await?
-        .dismiss(id)
+    within(proxy::<Notifications1Proxy>(connection).await?.dismiss(id))
         .await
         .with_context(|| format!("cannot dismiss notification {id}"))?;
     Ok(())
@@ -54,31 +52,59 @@ pub async fn notifications_dismiss(connection: &Connection, id: u32) -> Result<(
 pub async fn notifications_clear(connection: &Connection, app: Option<String>) -> Result<()> {
     let proxy = proxy::<Notifications1Proxy>(connection).await?;
     match app {
-        Some(app) => proxy
-            .clear_application(&app)
+        Some(app) => within(proxy.clear_application(&app))
             .await
             .with_context(|| format!("cannot clear notifications from `{app}`"))?,
-        None => proxy
-            .clear_all()
+        None => within(proxy.clear_all())
             .await
             .context("cannot clear the notification store")?,
     }
     Ok(())
 }
 
-pub async fn notifications_dnd(connection: &Connection, state: DndState) -> Result<()> {
-    proxy::<Notifications1Proxy>(connection)
-        .await?
-        .set_do_not_disturb(state == DndState::On, INDEFINITELY)
-        .await
-        .context("cannot change do not disturb")?;
+pub async fn notifications_dnd(
+    connection: &Connection,
+    state: DndState,
+    until: Option<NaiveTime>,
+) -> Result<()> {
+    let enabled = state == DndState::On;
+    let lapses = expiry(enabled, until)?;
+
+    within(
+        proxy::<Notifications1Proxy>(connection)
+            .await?
+            .set_do_not_disturb(enabled, lapses),
+    )
+    .await
+    .context("cannot change do not disturb")?;
     Ok(())
 }
 
+fn expiry(enabled: bool, until: Option<NaiveTime>) -> Result<i64> {
+    let Some(time) = until else {
+        return Ok(INDEFINITELY);
+    };
+    anyhow::ensure!(
+        enabled,
+        "`--until` needs `dnd on`: there is nothing to lapse when it is off"
+    );
+
+    let now = Local::now();
+    (0..3)
+        .filter_map(|day| {
+            (now + TimeDelta::days(day))
+                .date_naive()
+                .and_time(time)
+                .and_local_timezone(Local)
+                .earliest()
+        })
+        .find(|candidate| *candidate > now)
+        .map(|candidate| candidate.timestamp_micros())
+        .context("that time does not arrive in the next two days in this timezone")
+}
+
 async fn read(connection: &Connection) -> Result<NotificationsView> {
-    let snapshot = proxy::<Notifications1Proxy>(connection)
-        .await?
-        .snapshot()
+    let snapshot = within(proxy::<Notifications1Proxy>(connection).await?.snapshot())
         .await
         .context("cannot read the notification store")?;
     decode_snapshot(snapshot)
@@ -96,7 +122,7 @@ fn dnd(view: &NotificationsView) -> String {
             styled::warn("on"),
             styled::key(&format!(
                 "until {}",
-                until.with_timezone(&Local).to_rfc3339()
+                until.with_timezone(&Local).format("%Y-%m-%d %H:%M")
             ))
         ),
         None => styled::warn("on"),
@@ -130,7 +156,36 @@ fn urgency(urgency: NotificationUrgency) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{TimeZone as _, Utc};
+    use chrono::{DateTime, TimeZone as _, Timelike as _, Utc};
+
+    #[test]
+    fn an_expiry_is_the_next_time_the_clock_reads_that_way() {
+        for (hour, minute) in [(0, 0), (7, 30), (12, 0), (23, 59)] {
+            let time = NaiveTime::from_hms_opt(hour, minute, 0).expect("a valid time");
+            let micros = expiry(true, Some(time)).expect("it arrives within two days");
+            let when = DateTime::from_timestamp_micros(micros)
+                .expect("the provider can read it back")
+                .with_timezone(&Local);
+
+            assert!(when > Local::now(), "{time} resolved into the past");
+            assert!(when < Local::now() + TimeDelta::days(2));
+            assert_eq!((when.hour(), when.minute()), (hour, minute));
+        }
+    }
+
+    #[test]
+    fn no_expiry_is_the_sentinel_the_provider_reads_as_indefinite() {
+        assert_eq!(expiry(true, None).expect("on, forever"), INDEFINITELY);
+        assert_eq!(expiry(false, None).expect("off"), INDEFINITELY);
+    }
+
+    #[test]
+    fn an_expiry_on_a_command_turning_it_off_is_refused_rather_than_ignored() {
+        let time = NaiveTime::from_hms_opt(21, 30, 0).expect("a valid time");
+        let error = expiry(false, Some(time)).expect_err("there is nothing to lapse");
+
+        assert!(error.to_string().contains("dnd on"), "{error}");
+    }
 
     fn at(hour: u32, minute: u32) -> chrono::DateTime<Utc> {
         Utc.with_ymd_and_hms(2026, 9, 14, hour, minute, 0)

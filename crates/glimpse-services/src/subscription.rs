@@ -1,7 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use futures_util::{Stream, StreamExt};
+use chrono::{DateTime, Utc};
+use futures_util::{Stream, StreamExt, stream};
 use tokio::{sync::watch, time};
+
+const RECHECK: time::Duration = time::Duration::from_secs(60);
 
 use crate::context::{Ctx, SourceGuard};
 use crate::service::Service;
@@ -41,6 +44,20 @@ impl<S: Service> Sub<S> {
             key,
             start: Box::new(move |ctx| ctx.interval(period, on_tick)),
         }
+    }
+
+    pub fn deadline(key: S::SubKey, at: DateTime<Utc>, event: S::Event) -> Self {
+        Self::stream(key, move |_ctx| async move {
+            stream::once(async move {
+                while let Ok(remaining) = (at - Utc::now()).to_std() {
+                    if remaining.is_zero() {
+                        break;
+                    }
+                    time::sleep(remaining.min(RECHECK)).await;
+                }
+                event
+            })
+        })
     }
 
     pub fn watch<T>(

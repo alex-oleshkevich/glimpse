@@ -18,7 +18,27 @@ impl From<Exit> for ExitCode {
     }
 }
 
+pub use glimpse_dbus::DEADLINE;
+
+#[derive(Debug)]
+pub struct TimedOut;
+
+impl std::fmt::Display for TimedOut {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "the provider owns its name but did not answer within {}s",
+            DEADLINE.as_secs()
+        )
+    }
+}
+
+impl std::error::Error for TimedOut {}
+
 pub fn exit(error: &anyhow::Error) -> Exit {
+    if error.downcast_ref::<TimedOut>().is_some() {
+        return Exit::Timeout;
+    }
     if let Some(error) = error.downcast_ref::<zbus::fdo::Error>() {
         return named(error.name().as_str());
     }

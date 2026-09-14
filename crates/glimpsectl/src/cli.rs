@@ -2,7 +2,12 @@ use shadow_rs::shadow;
 
 use std::path::PathBuf;
 
+use chrono::NaiveTime;
 use clap::{Parser, Subcommand, ValueEnum};
+
+fn clock(raw: &str) -> Result<NaiveTime, String> {
+    glimpse_config::parse_clock(raw)
+}
 
 shadow!(build);
 
@@ -123,12 +128,20 @@ pub enum NotificationsCommand {
 
     #[command(
         about = "Turn do not disturb on or off",
-        long_about = "Turn do not disturb on or off. It stands until it is turned off again: the \
-                      notification store has no expiry, so there is no way to ask for one."
+        long_about = "Turn do not disturb on or off. Without `--until` it stands until it is \
+                      turned off again."
     )]
     Dnd {
         #[arg(value_name = "STATE", help = "Whether to silence notifications")]
         state: DndState,
+
+        #[arg(
+            long,
+            value_name = "HH:MM",
+            value_parser = clock,
+            help = "Turn it off again at this local time, today or tomorrow"
+        )]
+        until: Option<NaiveTime>,
     },
 }
 

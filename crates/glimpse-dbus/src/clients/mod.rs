@@ -1,5 +1,7 @@
 use chrono::{DateTime, Utc};
 
+pub const DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
+
 pub(crate) fn optional_clean(value: String, limit: usize) -> Option<String> {
     let value = glimpse_utils::clean(&value, limit);
     (!value.is_empty()).then_some(value)

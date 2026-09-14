@@ -78,6 +78,15 @@ so a wire change touches one file rather than every consumer. `clients/mod.rs` h
 need — `optional_clean` and `epoch` — because two copies of a timestamp decoder is two ways for
 them to disagree.
 
+**A provider state carries decoded values, never the wire tuple.** `NotificationsProviderState.view`
+is a `NotificationsView`, the way `WeatherProviderState.status` is a `WeatherStatus`, so
+`follow_provider` decodes once and every consumer shares the result. It held the raw
+`NotificationsSnapshot` until `glimpse-kyt0.9.8`, and the panel had grown its own positional
+destructure and its own 14-field decoder to undo it — one that capped nothing and dropped
+`dnd.until` through a `(dnd, _)` pattern. That is the copy that reached a `Gtk.Label`, so the crate
+that never renders anything was the one honouring the cap. A snapshot that cannot be decoded is
+`unavailable` with the reason, which is the same shape a dead provider already produces.
+
 **A reader caps text the writer already capped.** The provider bounds what it sends, but the owner
 of a well-known name is whoever claimed it, so a decoder that skipped the cap would be trusting a
 bus name rather than a process. The cap tables are therefore per-direction and need not match: the

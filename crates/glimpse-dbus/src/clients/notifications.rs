@@ -42,7 +42,7 @@ pub trait Notifications1 {
     fn set_do_not_disturb(&self, enabled: bool, until: i64) -> zbus::Result<()>;
 }
 
-#[derive(serde::Serialize)]
+#[derive(Clone, serde::Serialize)]
 pub struct NotificationsView {
     pub notifications: Vec<glimpse_contracts::NotificationRecord>,
     pub do_not_disturb: glimpse_contracts::DoNotDisturb,
@@ -65,8 +65,8 @@ pub fn decode_snapshot(snapshot: NotificationsSnapshot) -> Result<NotificationsV
     Ok(NotificationsView {
         notifications: records
             .into_iter()
-            .map(decode_notification)
-            .collect::<Result<Vec<_>, _>>()?,
+            .filter_map(|wire| decode_notification(wire).ok())
+            .collect(),
         do_not_disturb: decode_do_not_disturb(dnd)?,
         serving,
         reason: glimpse_utils::clean(&reason, NOTIFICATION_REASON),
@@ -140,14 +140,24 @@ fn decode_urgency(urgency: u8) -> glimpse_contracts::NotificationUrgency {
 
 #[derive(Clone)]
 pub struct NotificationsProviderState {
-    pub snapshot: Option<NotificationsSnapshot>,
+    pub view: Option<NotificationsView>,
     pub unavailable: Option<String>,
 }
 
 impl NotificationsProviderState {
+    fn decoded(snapshot: NotificationsSnapshot) -> Self {
+        match decode_snapshot(snapshot) {
+            Ok(view) => Self {
+                view: Some(view),
+                unavailable: None,
+            },
+            Err(reason) => Self::unavailable(reason),
+        }
+    }
+
     fn unavailable(reason: impl Into<String>) -> Self {
         Self {
-            snapshot: None,
+            view: None,
             unavailable: Some(reason.into()),
         }
     }
@@ -300,7 +310,7 @@ impl NotificationsProviderHandle {
 async fn call(
     request: impl std::future::Future<Output = zbus::Result<()>>,
 ) -> Result<(), NotificationsProviderError> {
-    match tokio::time::timeout(std::time::Duration::from_secs(5), request).await {
+    match tokio::time::timeout(super::DEADLINE, request).await {
         Ok(Ok(())) => Ok(()),
         Ok(Err(zbus::Error::MethodError(name, reason, _)))
             if name.as_str() == "me.aresa.Glimpse.Notifications1.Error.InvalidAction" =>
@@ -385,10 +395,7 @@ async fn follow_provider(
             }
         };
         *current.write().await = Some(proxy.clone());
-        updates.send_replace(NotificationsProviderState {
-            snapshot: Some(snapshot),
-            unavailable: None,
-        });
+        updates.send_replace(NotificationsProviderState::decoded(snapshot));
 
         loop {
             tokio::select! {
@@ -398,10 +405,7 @@ async fn follow_provider(
                     };
                     match changed.get().await {
                         Ok(snapshot) => {
-                            updates.send_replace(NotificationsProviderState {
-                                snapshot: Some(snapshot),
-                                unavailable: None,
-                            });
+                            updates.send_replace(NotificationsProviderState::decoded(snapshot));
                         }
                         Err(error) => {
                             updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
@@ -450,6 +454,80 @@ async fn wait_for_owner(owners: &mut zbus::fdo::NameOwnerChangedStream) -> bool 
 mod tests {
     use super::*;
     use zbus::zvariant::Type;
+
+    fn wire(summary: String, body: String, actions: Vec<(String, String)>) -> NotificationWire {
+        (
+            7,
+            "app".to_owned(),
+            "App".to_owned(),
+            0,
+            summary,
+            body,
+            String::new(),
+            String::new(),
+            255,
+            actions,
+            -1.0,
+            1_234_567_890,
+            true,
+            false,
+        )
+    }
+
+    #[test]
+    fn wire_sentinels_become_absent_fields_rather_than_defaults() {
+        let decoded = decode_notification(wire(
+            "Summary".to_owned(),
+            String::new(),
+            vec![("reply".to_owned(), "Reply".to_owned())],
+        ))
+        .expect("the wire is readable");
+
+        assert_eq!(decoded.app_pid, None, "pid 0 means absent");
+        assert_eq!(decoded.body, None, "an empty body is absent");
+        assert_eq!(decoded.icon, None);
+        assert_eq!(decoded.image, None);
+        assert_eq!(decoded.progress, None, "-1.0 means absent");
+        assert_eq!(
+            decoded.urgency,
+            glimpse_contracts::NotificationUrgency::Unknown
+        );
+        assert_eq!(decoded.actions[0].key, "reply");
+        assert_eq!(decoded.created.timestamp_micros(), 1_234_567_890);
+    }
+
+    #[test]
+    fn untrusted_text_is_bounded_before_anything_can_render_it() {
+        let decoded = decode_notification(wire(
+            format!("{}\u{202e}", "s".repeat(SUMMARY + 50)),
+            "b".repeat(BODY + 50),
+            (0..MOST_ACTIONS + 5)
+                .map(|n| (format!("key{n}"), "Label".to_owned()))
+                .collect(),
+        ))
+        .expect("the wire is readable");
+
+        assert_eq!(decoded.summary, format!("{}…", "s".repeat(SUMMARY)));
+        assert_eq!(
+            decoded.body.expect("a body"),
+            format!("{}…", "b".repeat(BODY))
+        );
+        assert_eq!(decoded.actions.len(), MOST_ACTIONS);
+    }
+
+    #[test]
+    fn one_unreadable_record_costs_its_row_rather_than_the_whole_surface() {
+        let readable = wire("Readable".to_owned(), String::new(), Vec::new());
+        let mut unreadable = wire("Unreadable".to_owned(), String::new(), Vec::new());
+        unreadable.11 = i64::MAX;
+
+        let view = decode_snapshot((vec![unreadable, readable], (false, 0), true, String::new()))
+            .expect("the snapshot is still readable");
+
+        assert_eq!(view.notifications.len(), 1);
+        assert_eq!(view.notifications[0].summary, "Readable");
+        assert!(view.serving, "the provider is still serving");
+    }
 
     #[test]
     fn wire_signatures_match_the_versioned_contract() {

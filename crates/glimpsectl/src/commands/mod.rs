@@ -31,11 +31,19 @@ where
         .await
 }
 
+pub(super) async fn within<T, E>(request: impl Future<Output = Result<T, E>>) -> Result<T>
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    match tokio::time::timeout(crate::errors::DEADLINE, request).await {
+        Ok(answered) => Ok(answered?),
+        Err(_) => Err(crate::errors::TimedOut.into()),
+    }
+}
+
 pub(super) async fn has_owner(connection: &Connection, name: &str) -> Result<bool> {
-    Ok(zbus::fdo::DBusProxy::new(connection)
-        .await?
-        .name_has_owner(name.try_into()?)
-        .await?)
+    let dbus = zbus::fdo::DBusProxy::new(connection).await?;
+    within(dbus.name_has_owner(name.try_into()?)).await
 }
 
 pub(super) fn emit<T: Serialize>(value: &T) -> Result<()> {

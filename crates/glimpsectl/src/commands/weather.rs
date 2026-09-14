@@ -4,7 +4,7 @@ use glimpse_dbus::weather::{Weather1Proxy, decode_snapshot};
 use serde::Serialize;
 use zbus::Connection;
 
-use super::{ABSENT, emit, proxy, reason_or_absent, safe, yes_no};
+use super::{ABSENT, emit, proxy, reason_or_absent, safe, within, yes_no};
 use crate::render::{Section, Table, styled};
 
 #[derive(Serialize)]
@@ -16,9 +16,7 @@ struct Report<'a> {
 }
 
 pub async fn weather_status(connection: &Connection, json: bool) -> Result<()> {
-    let snapshot = proxy::<Weather1Proxy>(connection)
-        .await?
-        .snapshot()
+    let snapshot = within(proxy::<Weather1Proxy>(connection).await?.snapshot())
         .await
         .context("cannot read the weather")?;
     let state = decode_snapshot(snapshot)
@@ -76,9 +74,7 @@ pub async fn weather_status(connection: &Connection, json: bool) -> Result<()> {
 }
 
 pub async fn weather_refresh(connection: &Connection) -> Result<()> {
-    proxy::<Weather1Proxy>(connection)
-        .await?
-        .refresh()
+    within(proxy::<Weather1Proxy>(connection).await?.refresh())
         .await
         .context("cannot refresh the weather")?;
     Ok(())

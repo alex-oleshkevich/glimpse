@@ -57,8 +57,8 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Notifications(NotificationsCommand::Clear { app }) => {
             commands::notifications_clear(bus()?, app).await
         }
-        Command::Notifications(NotificationsCommand::Dnd { state }) => {
-            commands::notifications_dnd(bus()?, state).await
+        Command::Notifications(NotificationsCommand::Dnd { state, until }) => {
+            commands::notifications_dnd(bus()?, state, until).await
         }
         Command::Config(ConfigCommand::Show) => commands::config_show(cli.config.config, cli.json),
         Command::Config(ConfigCommand::Validate { path }) => {

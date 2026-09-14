@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
@@ -278,7 +277,7 @@ pub fn encode_snapshot(
 }
 
 async fn call(request: impl Future<Output = zbus::Result<()>>) -> Result<(), WeatherProviderError> {
-    match tokio::time::timeout(Duration::from_secs(5), request).await {
+    match tokio::time::timeout(super::DEADLINE, request).await {
         Ok(Ok(())) => Ok(()),
         Ok(Err(zbus::Error::MethodError(name, reason, _))) => {
             let reason = clean(&reason.unwrap_or_default(), REASON);

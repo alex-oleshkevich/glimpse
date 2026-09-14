@@ -7,7 +7,8 @@ use glimpse_dbus::weather::{GLIMPSE_WEATHER_BUS_NAME, Weather1Proxy};
 use serde::Serialize;
 use zbus::Connection;
 
-use super::{emit, has_owner, proxy, safe};
+use super::{emit, has_owner, proxy, safe, within};
+use crate::errors::Exit;
 use crate::render::{self, Section, Table, styled};
 
 pub async fn doctor(config: Option<PathBuf>, json: bool) -> Result<()> {
@@ -81,21 +82,20 @@ async fn providers(session: &Result<Connection, zbus::Error>) -> Vec<Provider> {
     let Ok(connection) = session else {
         return Vec::new();
     };
-    vec![
+    let probes = tokio::join!(
         probe(
             connection,
             GLIMPSE_NIGHT_LIGHT_BUS_NAME,
             night_light(connection),
-        )
-        .await,
-        probe(connection, GLIMPSE_WEATHER_BUS_NAME, weather(connection)).await,
+        ),
+        probe(connection, GLIMPSE_WEATHER_BUS_NAME, weather(connection)),
         probe(
             connection,
             GLIMPSE_NOTIFICATIONS_BUS_NAME,
             notifications(connection),
-        )
-        .await,
-    ]
+        ),
+    );
+    vec![probes.0, probes.1, probes.2]
 }
 
 fn providers_section(providers: &[Provider], session: &Result<Connection, zbus::Error>) -> Section {
@@ -164,29 +164,30 @@ async fn probe(
     }
     match ask.await {
         Ok((serving, reason)) => Provider::answered(name, serving, safe(&reason)),
-        Err(error) => Provider::absent(name, error.to_string()),
+        Err(error) => {
+            let detail = safe(&error.to_string());
+            match crate::errors::exit(&error) {
+                Exit::Unreachable => Provider::absent(name, detail),
+                _ => Provider::answered(name, false, detail),
+            }
+        }
     }
 }
 
 async fn night_light(connection: &Connection) -> Result<(bool, String)> {
-    let snapshot = proxy::<NightLight1Proxy>(connection)
-        .await?
-        .snapshot()
-        .await?;
+    let snapshot = within(proxy::<NightLight1Proxy>(connection).await?.snapshot()).await?;
     Ok((snapshot.serving, snapshot.reason))
 }
 
 async fn weather(connection: &Connection) -> Result<(bool, String)> {
     let (available, _stale, reason, ..) =
-        proxy::<Weather1Proxy>(connection).await?.snapshot().await?;
+        within(proxy::<Weather1Proxy>(connection).await?.snapshot()).await?;
     Ok((available, reason))
 }
 
 async fn notifications(connection: &Connection) -> Result<(bool, String)> {
-    let (_, _, serving, reason) = proxy::<Notifications1Proxy>(connection)
-        .await?
-        .snapshot()
-        .await?;
+    let (_, _, serving, reason) =
+        within(proxy::<Notifications1Proxy>(connection).await?.snapshot()).await?;
     Ok((serving, reason))
 }
 
@@ -205,6 +206,28 @@ mod tests {
         let [_, state, detail] = degraded.row();
         assert!(state.contains("degraded"));
         assert!(detail.contains("another gamma client"));
+    }
+
+    #[test]
+    fn a_provider_that_owns_its_name_but_never_answers_is_degraded_not_missing() {
+        let hung = Provider::answered(
+            "me.aresa.Glimpse.NightLight",
+            false,
+            "did not answer within 10s".to_owned(),
+        );
+        let missing = Provider::absent(
+            "me.aresa.Glimpse.Weather",
+            "nobody owns the name".to_owned(),
+        );
+
+        assert!(hung.running, "it owns the name, it just will not talk");
+        let [_, hung_state, detail] = hung.row();
+        let [_, missing_state, _] = missing.row();
+
+        assert!(hung_state.contains("degraded"), "{hung_state}");
+        assert!(missing_state.contains("not running"), "{missing_state}");
+        assert_ne!(hung_state, missing_state);
+        assert!(detail.contains("did not answer"));
     }
 
     #[test]
