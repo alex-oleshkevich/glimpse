@@ -1,10 +1,10 @@
 # glimpse
 
 A desktop shell suite for Wayland compositors, targeting Niri first and Hyprland second: a panel, a
-wallpaper renderer and a lock screen. One daemon (`glimpsed`) owns every piece of session state and
-every OS integration; the UI binaries are stateless clients that render it over a single Unix
-socket. When a rule below does not cover a situation, the deciding question is usually "who
-owns this state?" — and the answer is almost always the daemon.
+wallpaper renderer and a lock screen. There is no daemon: `glimpse-panel` owns its services in its
+own process, and notifications, weather and the night light are standalone providers that own theirs
+behind a typed D-Bus name each. When a rule below does not cover a situation, the deciding question
+is usually "who owns this state?" — and the answer is the one process whose name is on it.
 
 ## Prior art
 
@@ -42,21 +42,19 @@ glimpse/
 
 | Crate                 | Role                                                                              |
 | --------------------- | --------------------------------------------------------------------------------- |
-| `glimpse-ipc`         | wire frames, codec, errors, client, server                                        |
-| `glimpse-contracts`   | `Message` and `Command`, every topic and command payload                          |
 | `glimpse-dbus`        | D-Bus proxies and the shared bus connections                                      |
 | `glimpse-config`      | layered TOML load, drop-ins, merge, validate, watch                               |
 | `glimpse-compositors` | niri and Hyprland IPC: snapshot, events, keyboard/workspace/window/output control |
 | `glimpse-services`    | service framework and every service implementation                                |
 | `glimpse-widgets`     | GObject subclasses, Blueprint templates, shared CSS                               |
 | `glimpse-utils`       | shared CLI arg structs, tracing/log setup, gettext binding and text cleaning      |
-| `glimpsed`            | broker                                                                        |
 | `glimpse-panel`       | panel and applets                                                                 |
 | `glimpse-notifications` | notification owner, typed D-Bus provider and transient popup layer surface      |
 | `glimpse-wallpaper`   | background layer surface, decode cache, transitions                               |
 | `glimpse-lock`        | `ext-session-lock-v1` surfaces, PAM                                               |
 | `glimpse-sunset`      | night-light service                                                               |
 | `glimpsectl`          | CLI and TUI                                                                       |
+| `glimpse-package`     | the suite's `.deb`/`.rpm` manifest; no code                                       |
 
 ## Stack
 
@@ -70,7 +68,7 @@ glimpse/
 ## Conventions
 
 Path-scoped rules load automatically when the relevant files are opened:
-`.claude/rules/daemon.md` for `glimpsed`, `glimpse-services` and `glimpse-ipc`;
+`.claude/rules/daemon.md` for `glimpse-services` and the standalone providers;
 `.claude/rules/ui.md` for the GTK crates. Writing or changing a service — the `Service` trait, `Ctx`
 sources, subscriptions, topics and commands, registration, headless tests — is covered by the
 project-local `service` skill in `.claude/skills/service/`. Its panel counterpart is the `applet`
@@ -78,13 +76,12 @@ skill, for the `Applet` trait, `Ctx` sources, pull-based indicators, the registr
 popover an applet opens on left click — the `Seat`, the `glib::WeakRef` a live one is held by, and
 the wake that re-dresses it;
 `widget` covers GObject subclasses, Blueprint templates and the three places a new template must be
-registered; `ipc-client` covers holding a `Client` from outside the daemon, where a request issued
-while `glimpsed` is unreachable fails rather than queues; and `testing` covers which tier a
+registered; and `testing` covers which tier a
 test belongs to, why GTK tests are one `#[ignore]`d function per crate, and the mutation check that
 decides whether an assertion is load-bearing. A compositor run — isolated socket, scratch config,
 a second panel that does not replace the session one — is the `live-testing` skill. General GTK4, libadwaita and relm4 craft
 is covered by the `relm4`, `gtk4-styles` and `libadwaita-styles` skills. D-Bus work — every mirror service, plus the
-two names glimpsed owns — is covered by the project-local `zbus` skill in `.claude/skills/zbus/`,
+the three names the providers own — is covered by the project-local `zbus` skill in `.claude/skills/zbus/`,
 which carries introspected signatures for NetworkManager, BlueZ, logind, UPower, MPRIS,
 StatusNotifierItem, dbusmenu and Notifications.
 
@@ -110,12 +107,8 @@ StatusNotifierItem, dbusmenu and Notifications.
 
 - Every crate dependency is inherited: `serde.workspace = true`. Add the version to
   `[workspace.dependencies]` in the root `Cargo.toml`, never to a crate manifest.
-- A dependency belongs in `glimpse-ipc` only if both ends of the socket need it, plus `tracing` for
-  diagnostics. Payloads live in `glimpse-contracts`, bound to their names by `trait Message` and
-  `trait Command`; no zbus, no GTK, no backend type reaches either. `glimpse-contracts` and
-  `glimpse-ipc/src/frame.rs` are what an SDK generator for Python, TypeScript and Go would read. No
-  such generator exists in this tree yet, and no contract type derives `JsonSchema` — `schemars` is
-  inherited only by `glimpse-config`, for the config document.
+- No contract type derives `JsonSchema` — `schemars` is inherited only by `glimpse-config`, for the
+  config document.
 - **A workspace dependency nothing uses yet is unverified.** Cargo does not resolve features for an
   entry no crate inherits, so a wrong feature name sits in the root `Cargo.toml` looking correct
   until the first `workspace = true` that names it. `reqwest` was declared with `rustls-tls`, which
@@ -124,10 +117,11 @@ StatusNotifierItem, dbusmenu and Notifications.
   features to be a version stale.
 - Errors: `thiserror` in a library, whose caller must branch on the failure; `anyhow` in a binary,
   where every failure ends at one message and one exit code.
-- Nothing depends on `glimpsed`. It is a leaf. Shared code goes in proto, client, config, services
-  or widgets.
-- A trait the framework needs from the daemon is declared in `glimpse-services` and implemented in
-  `glimpsed` — `BrokerHandle` — with a mock beside the declaration.
+- A binary crate is a leaf: nothing depends on one. Shared code goes in config, dbus, services,
+  compositors, utils or widgets.
+- The dependency order is one-way — `glimpse-services` depends on `glimpse-dbus`, never the reverse.
+  That is what decides where a shared domain type lives: anything a provider decodes off the bus is
+  in `glimpse-dbus` beside its decoder, everything else sits beside the service that owns it.
 
 **Naming**
 
@@ -152,7 +146,7 @@ StatusNotifierItem, dbusmenu and Notifications.
 
 | Kind of file                                                            | Goes in                          |
 | ----------------------------------------------------------------------- | -------------------------------- |
-| wire payload type                                                       | `glimpse-contracts/src/`         |
+| provider wire type and its decoder                                      | `glimpse-dbus/src/clients/`      |
 | service implementation                                                  | `glimpse-services/src/services/` |
 | anything touching a `wl_` object                                        | the owning UI or compositor crate |
 | anything touching GTK                                                   | a UI crate or `glimpse-widgets`  |
@@ -379,8 +373,8 @@ own, it is edited outside this repository, and a daemon started without `--confi
 watches it. Point every run at a scratch file instead:
 
 ```bash
-glimpsed --config "$SCRATCH/config.toml"          # replaces the whole stack, drop-ins included
-HOME="$SCRATCH/home" glimpsed                     # a fake home, when drop-ins are the thing under test
+glimpse-panel --config "$SCRATCH/config.toml"     # replaces the whole stack, drop-ins included
+HOME="$SCRATCH/home" glimpse-panel                # a fake home, when drop-ins are the thing under test
 ```
 
 `--config` is the default choice and is enough for anything that is one document. It cannot exercise
@@ -431,7 +425,7 @@ binds it, and the panel, notification popup process, lock screen and wallpaper c
 `run`. The daemon, `glimpsectl` and `glimpse-sunset` do not — their output is a journal and a
 terminal, not a UI.
 
-**`glimpsed` calls `init_locale()` instead, and must keep doing so.** That is the
+**`glimpse-sunset` and `glimpse-weather` call `init_locale()` instead, and must keep doing so.** That is the
 `setlocale(LC_ALL, "")` half without the catalog. Without it the process locale is `C`,
 `nl_langinfo(LC_MEASUREMENT)` answers metric for everyone, and `[regional] units = "locale"` is
 silently wrong rather than absent — the worst of the three outcomes. It is not `init_translations`
@@ -496,8 +490,8 @@ thing, but they are demo text and never ship, so they are excluded from the file
 there translates only when the same msgid exists in a real blueprint.
 
 **A new language is three edits, not one.** Add it to `po/LINGUAS`, create `po/<lang>.po`, and add
-one asset line to *each* of the two lists in `crates/glimpsed/Cargo.toml`.
-`crates/glimpsed/tests/packaging.rs` fails when the first is done and the third is not.
+one asset line to *each* of the two lists in `crates/glimpse-package/Cargo.toml`.
+`crates/glimpse-package/tests/packaging.rs` fails when the first is done and the third is not.
 
 ## Work Rules
 
@@ -509,8 +503,10 @@ one asset line to *each* of the two lists in `crates/glimpsed/Cargo.toml`.
 
 - **Never add `panic = "abort"` to any profile.** Per-service panic isolation depends on unwinding;
   abort turns one bad handler into a dead daemon and takes tray and notifications down with it.
-- **`glimpsed` has no Wayland dependency.** Wayland objects belong to the owning UI or compositor
-  crate, while pointer injection belongs in standalone tools such as `scripts/click.py`.
+- **No service crate has a Wayland dependency.** Wayland objects belong to the owning UI or
+  compositor crate — `glimpse-services` reaches a compositor only through `trait Gamma` and
+  `glimpse-compositors` — while pointer injection belongs in standalone tools such as
+  `scripts/click.py`.
 - **`_old/` and `var/glimpse2` are reference only.** Never edit them, never build them, never copy
   code out of them. See Prior art.
 - **Never sandbox `glimpse-lock.service`.** `NoNewPrivileges=`, `PrivateUsers=`,
@@ -523,7 +519,7 @@ one asset line to *each* of the two lists in `crates/glimpsed/Cargo.toml`.
 - **Never shell out to `systemctl`, `loginctl`, `nmcli`, `bluetoothctl`, or `niri msg`.** Use D-Bus
   or the compositor's IPC socket. Subprocesses cannot be mocked in tests, break under sandboxing,
   and parse output that is not a stable interface.
-- **glimpsed writes runtime state under `$XDG_RUNTIME_DIR/glimpse/` and nothing else.** Never
+- **A glimpse process writes runtime state under `$XDG_RUNTIME_DIR/glimpse/` and nothing else.** Never
   `$XDG_CONFIG_HOME`, never the user's home, never `/tmp`.
 - **Treat text from other applications as hostile.** Tray titles, notification summaries and bodies,
   MPRIS metadata and SSIDs are attacker-controlled and unbounded. Cap length, ellipsize, and
@@ -532,8 +528,6 @@ one asset line to *each* of the two lists in `crates/glimpsed/Cargo.toml`.
   is a locked session with nothing left to authenticate against, not an unlocked one. `PartOf=` on
   anything but `graphical-session.target`, `BindsTo=`, or a `Conflicts=` from someone else's target
   all reach that state; `Wants=`/`WantedBy=` cannot.
-- **No unit may use `Requires=glimpsed.service`.** `Wants=` only — the panel, wallpaper and lock must
-  survive a dead daemon, and `Requires=` kills them instead.
 - **Never hand-roll what a library already does.** Search in this order and stop at the first hit:
   the standard library, then a crate already in `[workspace.dependencies]`, then a crate that exists
   on crates.io. Writing it yourself is the last resort, not the default. Before adding a `fn` that
@@ -591,7 +585,7 @@ and one ("Play") in both. Measured end to end rather than assumed — under `LAN
 `$Transport` built from its gresource template returns Russian tooltips, and `$CalendarPopover`
 renders "Мировые часы" in a real window. Why a Rust-only catalog could not have done that is in
 `glimpse-utils/README.md`; why the package manifests spell out every language is in
-`glimpsed/README.md`.
+`glimpse-package/README.md`.
 
 Measurements that would otherwise invite rework:
 

@@ -3,7 +3,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use glimpse_contracts::WatchedPlace;
+use glimpse_dbus::weather::WatchedPlace;
 use glimpse_dbus::weather::{
     GLIMPSE_WEATHER_BUS_NAME, GLIMPSE_WEATHER_OBJECT_PATH, PlaceWeatherWire, WeatherProvider,
     WeatherProviderState, WeatherSnapshot,

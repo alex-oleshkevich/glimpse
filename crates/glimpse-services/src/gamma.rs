@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 /// Applying a color temperature to every output.
 /// Declared here and implemented in `glimpse-sunset`, because this crate is linked into
-/// `glimpse-panel` and `glimpsed`, and neither may gain a Wayland dependency.
+/// `glimpse-panel` and the standalone providers, none of which may gain a Wayland dependency.
 /// Synchronous on purpose: the one real implementation is a Wayland roundtrip, which blocks, and it
 /// knows to say so with `block_in_place` itself. An `async` signature here would be a promise the
 /// backend cannot keep, and it would cost dyn-compatibility — which is what lets the night light be

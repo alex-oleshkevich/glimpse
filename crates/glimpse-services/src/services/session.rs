@@ -1,7 +1,6 @@
 use std::{convert::Infallible, pin::Pin};
 
 use futures_util::{Stream, StreamExt, stream};
-use glimpse_contracts::SessionStatus;
 use glimpse_dbus::login1::{
     Login1ManagerProxy, Login1SessionProxy, SessionCandidate, current_uid, select_session_candidate,
 };
@@ -14,6 +13,13 @@ use crate::{
 };
 
 use super::compositor::CompositorHandle;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SessionStatus {
+    pub locked: bool,
+    pub private: bool,
+}
 
 pub enum Event {
     Privacy(Option<bool>),

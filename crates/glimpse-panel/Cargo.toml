@@ -19,7 +19,6 @@ gettext-rs.workspace = true
 gio.workspace = true
 glib.workspace = true
 glimpse-config.workspace = true
-glimpse-contracts.workspace = true
 glimpse-dbus.workspace = true
 glimpse-services.workspace = true
 glimpse-utils.workspace = true

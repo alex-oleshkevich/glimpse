@@ -1,8 +1,9 @@
 use chrono::{DateTime, TimeDelta, Utc};
 use gettextrs::{gettext, ngettext};
 use glimpse_config::NotificationIndicatorStyle;
-use glimpse_contracts::{NotificationRecord, NotificationUrgency};
-use glimpse_widgets::{Group, Notification, Severity};
+use glimpse_dbus::notifications::DEFAULT_ACTION;
+use glimpse_dbus::notifications::{NotificationRecord, NotificationUrgency};
+use glimpse_widgets::{Action, Body, Group, Notification, Severity, Urgency};
 
 pub const BELL: &str = "preferences-system-notifications-symbolic";
 pub const MUTED: &str = "notifications-disabled-symbolic";
@@ -103,13 +104,45 @@ pub fn id_of(key: &str) -> Option<u32> {
 }
 
 fn notification(record: &NotificationRecord, now: DateTime<Utc>) -> Notification {
-    Notification::from_record(record, when(now, record.created))
+    from_record(record, when(now, record.created))
+}
+
+fn from_record(record: &NotificationRecord, when: String) -> Notification {
+    let active = record.unread;
+    Notification {
+        key: record.id.to_string(),
+        app_name: record.app_name.clone(),
+        summary: record.summary.clone(),
+        body: record.body.clone().map(Body::Markup),
+        when,
+        urgency: match record.urgency {
+            NotificationUrgency::Critical => Urgency::Critical,
+            _ => Urgency::Normal,
+        },
+        actions: if active {
+            record
+                .actions
+                .iter()
+                .filter(|action| action.key != DEFAULT_ACTION)
+                .map(|action| Action {
+                    key: action.key.clone(),
+                    label: action.label.clone(),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        },
+        progress: record.progress,
+        unread: active,
+        activatable: active,
+        ..Notification::default()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone as _;
-    use glimpse_contracts::{DEFAULT_ACTION, NotificationAction, NotificationUrgency};
+    use glimpse_dbus::notifications::{DEFAULT_ACTION, NotificationAction, NotificationUrgency};
 
     use super::*;
 

@@ -47,24 +47,3 @@ impl ConfigArg {
         self.config.as_deref()
     }
 }
-
-#[allow(clippy::exhaustive_structs)]
-#[derive(Clone, Default, Debug, PartialEq, Eq, clap::Args)]
-#[command(about=None, long_about=None)]
-pub struct SocketArg {
-    #[arg(
-        short,
-        long,
-        global = true,
-        env = "GLIMPSED_SOCKET_PATH",
-        value_name = "PATH",
-        help = "Path to the glimpsed socket."
-    )]
-    pub socket: Option<PathBuf>,
-}
-
-impl SocketArg {
-    pub fn as_deref(&self) -> Option<&Path> {
-        self.socket.as_deref()
-    }
-}

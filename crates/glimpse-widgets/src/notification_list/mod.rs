@@ -1,6 +1,5 @@
 mod imp;
 
-use glimpse_contracts::{DEFAULT_ACTION, NotificationRecord, NotificationUrgency};
 use gtk4::{gdk, glib, prelude::*, subclass::prelude::*};
 
 use crate::{Action, NotificationCard, Urgency, none_if_empty, reconcile::by_key};
@@ -39,40 +38,6 @@ pub struct Notification {
     pub progress: Option<f64>,
     pub unread: bool,
     pub activatable: bool,
-}
-
-impl Notification {
-    pub fn from_record(record: &NotificationRecord, when: String) -> Self {
-        let active = record.unread;
-        Self {
-            key: record.id.to_string(),
-            app_name: record.app_name.clone(),
-            summary: record.summary.clone(),
-            body: record.body.clone().map(Body::Markup),
-            when,
-            urgency: match record.urgency {
-                NotificationUrgency::Critical => Urgency::Critical,
-                _ => Urgency::Normal,
-            },
-            actions: if active {
-                record
-                    .actions
-                    .iter()
-                    .filter(|action| action.key != DEFAULT_ACTION)
-                    .map(|action| Action {
-                        key: action.key.clone(),
-                        label: action.label.clone(),
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            },
-            progress: record.progress,
-            unread: active,
-            activatable: active,
-            ..Self::default()
-        }
-    }
 }
 
 glib::wrapper! {

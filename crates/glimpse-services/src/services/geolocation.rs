@@ -2,8 +2,8 @@ use std::pin::Pin;
 
 use futures_util::{Stream, StreamExt, stream};
 use glimpse_config::Geolocation as ConfiguredGeolocation;
-use glimpse_contracts::{GeoCoordinates, GeolocationStatus};
 use glimpse_dbus::geoclue::{GeoClueClientProxy, GeoClueLocationProxy, GeoClueManagerProxy};
+use glimpse_dbus::weather::GeoCoordinates;
 use tokio::sync::{oneshot, watch};
 use zbus::{Connection, zvariant::OwnedObjectPath};
 
@@ -14,6 +14,12 @@ use crate::{
     service::{CommandError, Input, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GeolocationStatus {
+    pub coordinates: Option<GeoCoordinates>,
+}
 
 /// The desktop id GeoClue authorizes against, and the section name of the shipped
 /// `data/geoclue/conf.d/glimpse.conf`. The two have to agree, or the request falls through to

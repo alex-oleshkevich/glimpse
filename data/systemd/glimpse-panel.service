@@ -2,8 +2,6 @@
 Description=Glimpse panel
 Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=glimpse-session.target
-After=glimpsed.service
-Wants=glimpsed.service
 StartLimitBurst=5
 StartLimitIntervalSec=60
 

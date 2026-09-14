@@ -1,7 +1,7 @@
 # Exporting an Interface
 
-The server half of zbus. glimpsed owns two names on the session bus, and both are *owned services*
-in the sense of `specs/001_architecture.md` — there is no backing daemon, so glimpsed is the store.
+The server half of zbus. The provider binaries own their names on the session bus, and those are *owned services*
+in the sense of `specs/001_architecture.md` — there is no backing daemon, so the provider is the store.
 
 | Name | Object path | Interface |
 | --- | --- | --- |
@@ -172,7 +172,7 @@ conn.request_name(name).await?;                      // then
 ```
 
 `NameTaken` is **not** fatal. Another notification daemon — dunst, mako, a Plasma session — already
-owns the name. The affected service publishes `degraded` and the rest of glimpsed runs normally.
+owns the name. The affected service publishes `degraded` and the rest of the process runs normally.
 This is the packaging conflict `specs/009_systemd.md` describes, and reporting it on
 `system.services` rather than only in the log is what makes it diagnosable.
 

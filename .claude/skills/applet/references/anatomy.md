@@ -32,10 +32,10 @@ exists.
 ## 2. The module — `crates/glimpse-panel/src/applets/<name>.rs`
 
 ```rust
-use glimpse_contracts::{SomeCommand, SomeTopic};
+use glimpse_services::SomeHandle;
 use glimpse_widgets::IndicatorSpec;
 
-use glimpse_contracts::Message;
+use glimpse_services::Service;
 
 use crate::applet::{Applet, Button, Ctx, Input, Pointer, payload};
 

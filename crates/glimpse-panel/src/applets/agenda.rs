@@ -1,6 +1,6 @@
 use chrono::{DateTime, Local, NaiveDate, TimeDelta};
 use gettextrs::gettext;
-use glimpse_contracts::CalendarEvent;
+use glimpse_services::CalendarEvent;
 use glimpse_widgets::Event;
 use gtk4::gdk;
 

@@ -20,9 +20,10 @@ General GTK4, libadwaita and relm4 craft is covered by the `relm4`, `gtk4-styles
 
 ## Widget boundaries
 
-- A widget in `glimpse-widgets` takes values and emits signals. It never holds a `glimpse-ipc`
-  client, never knows a topic name, never reaches the daemon. That is what lets it be built in a
-  test with a literal value and no daemon behind it.
+- A widget in `glimpse-widgets` takes values and emits signals. It never opens a bus connection,
+  never names a provider, and declares its own render types rather than borrowing a service model —
+  that is what lets it be built in a test with a literal value and nothing running behind it, and
+  what keeps zbus and tokio out of a GTK crate. The binary that has both sides does the mapping.
 - A `Controller` that is not stored in the parent model is dropped, and its component silently stops
   receiving messages. Keep it.
 - A widget moves into `glimpse-widgets` as soon as a second binary needs it.

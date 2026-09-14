@@ -3,11 +3,6 @@ use glimpse_compositors::{
     Capabilities, Compositor as Backend, CompositorError, Event as Change, Output, Resync,
     Snapshot, WindowId, WindowTarget, Workspace, WorkspaceId, WorkspaceTarget, detect_compositor,
 };
-use glimpse_contracts::{
-    CompositorCapabilities, CompositorOutputs, CompositorPrivacy, CompositorStatus,
-    CompositorWindows, CompositorWorkspaces, OutputInfo, WindowInfo, WindowRef, WorkspaceInfo,
-    WorkspaceRef,
-};
 use tokio::sync::oneshot;
 
 use crate::{
@@ -16,6 +11,90 @@ use crate::{
     service::{CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceInfo {
+    pub id: u64,
+    pub index: Option<u8>,
+    pub name: Option<String>,
+    pub output: Option<String>,
+    pub active: bool,
+    pub focused: bool,
+    pub urgent: bool,
+    pub windows: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WindowInfo {
+    pub id: u64,
+    pub title: Option<String>,
+    pub app_id: Option<String>,
+    pub workspace: Option<u64>,
+    pub focused: bool,
+    pub floating: bool,
+    pub urgent: bool,
+    pub order: Option<u16>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OutputInfo {
+    pub connector: String,
+    pub label: Option<String>,
+    pub built_in: bool,
+    pub focused: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CompositorCapabilities {
+    pub floating: bool,
+    pub workspace_reorder: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "by", rename_all = "snake_case")]
+pub enum WorkspaceRef {
+    Id { id: u64 },
+    Index { index: u8 },
+    Name { name: String },
+    Next,
+    Prev,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "by", rename_all = "snake_case")]
+pub enum WindowRef {
+    Id { id: u64 },
+    Pid { pid: i32 },
+    Next,
+    Prev,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CompositorStatus {
+    pub name: String,
+    pub capabilities: CompositorCapabilities,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CompositorWorkspaces {
+    pub workspaces: Vec<WorkspaceInfo>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CompositorWindows {
+    pub windows: Vec<WindowInfo>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CompositorOutputs {
+    pub outputs: Vec<OutputInfo>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CompositorPrivacy {
+    pub active: bool,
+}
 
 pub enum Event {
     Snapshot(Box<Snapshot>),

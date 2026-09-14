@@ -2,8 +2,8 @@
 Description=Glimpse desktop shell session
 Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=graphical-session.target
-Wants=glimpsed.service glimpse-panel.service glimpse-wallpaper.service glimpse-sunset.service glimpse-notifications.service
-PropagatesReloadTo=glimpsed.service glimpse-panel.service glimpse-wallpaper.service glimpse-sunset.service glimpse-notifications.service
+Wants=glimpse-panel.service glimpse-wallpaper.service glimpse-sunset.service glimpse-notifications.service
+PropagatesReloadTo=glimpse-panel.service glimpse-wallpaper.service glimpse-sunset.service glimpse-notifications.service
 
 [Install]
 WantedBy=graphical-session.target

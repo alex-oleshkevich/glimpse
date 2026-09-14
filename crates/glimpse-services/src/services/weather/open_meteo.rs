@@ -1,5 +1,5 @@
 use chrono::{DateTime, TimeZone as _, Utc};
-use glimpse_contracts::{
+use glimpse_dbus::weather::{
     Condition, CurrentWeather, DayForecast, GeoCoordinates, HourForecast, UnitSystem,
 };
 use serde::Deserialize;

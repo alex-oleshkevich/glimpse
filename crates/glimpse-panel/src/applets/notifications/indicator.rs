@@ -7,9 +7,10 @@ use std::time::Duration;
 use chrono::Utc;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, NotificationIndicatorStyle};
-use glimpse_contracts::{NotificationRecord, WindowRef};
+use glimpse_dbus::notifications::NotificationRecord;
 use glimpse_dbus::notifications::{NotificationsProviderHandle, NotificationsProviderState};
 use glimpse_services::CompositorHandle;
+use glimpse_services::WindowRef;
 use glimpse_widgets::{Group, IndicatorSpec, NotificationsPopover, notification_image};
 use gtk4::gdk::prelude::DisplayExt;
 use gtk4::gio::prelude::AppLaunchContextExt;
@@ -384,7 +385,7 @@ fn token(widget: &NotificationsPopover) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
-    use glimpse_contracts::{DEFAULT_ACTION, NotificationAction, NotificationUrgency};
+    use glimpse_dbus::notifications::{DEFAULT_ACTION, NotificationAction, NotificationUrgency};
 
     use super::*;
 

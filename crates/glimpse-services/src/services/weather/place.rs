@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use glimpse_contracts::{GeoCoordinates, WatchedPlace};
+use glimpse_dbus::weather::{GeoCoordinates, WatchedPlace};
 use reverse_geocoder::ReverseGeocoder;
 use serde::Deserialize;
 

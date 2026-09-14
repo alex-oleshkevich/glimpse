@@ -14,19 +14,16 @@ value yet". Run with `--log debug`: `applet=<name> topic=… event` says data ar
 If neither line appears, either the subscription never delivered — see the next entry — or the topic
 was never declared: `applet=<name> topics=0 started` says `topics()` returned nothing.
 
-## The applet never populates when the panel started before the daemon
+## The applet never populates when its provider is not running
 
-`Connection::idle` (`Connection::idle` in `glimpse-ipc`) **fails** every request that arrives while the
-daemon is unreachable, with `Unavailable`. A `subscribe` issued in `start` therefore returns `Err`
-before `glimpsed` is up.
+An applet reads a service the panel owns in its own process, so there is nothing to wait for and
+nothing to retry — the handle exists before the first widget does. The exception is an applet backed
+by a **standalone provider** (notifications, weather): the panel reaches those over a well-known
+D-Bus name, and a name with no owner is a state the applet renders rather than an error it retries.
 
-`Ctx::subscribe` handles this by retrying on every connection-state transition, so an applet — which
-only ever *declares* a topic through `topics()` — does not have to. If you add a new source
-constructor, it must do the same: giving up on the first `Err` means the applet is dead for the
-session, and starting before the daemon is ordinary, since the panel carries
-`Wants=glimpsed.service` and never `Requires=`.
-
-There is no unit test for this path; it is checked live by starting the panel first.
+`NotificationsProviderState` and `WeatherProviderState` both carry an `unavailable` reason for
+exactly this. Show it; do not spin waiting for the name to appear, and do not give up on the first
+failure either — the provider handle re-attaches on `NameOwnerChanged` by itself.
 
 ## Every applet is destroyed and rebuilt on every theme edit
 

@@ -87,7 +87,7 @@ through `org.freedesktop.DBus.ObjectManager` at `/`. See `references/proxies.md`
 returns will drift: BlueZ stops discovery on its own timeout, and other clients start and stop it
 too.
 
-Pairing needs an `org.bluez.Agent1` registered with `AgentManager1`. Whether glimpsed registers one
+Pairing needs an `org.bluez.Agent1` registered with `AgentManager1`. Whether the owning process registers one
 is still open in `specs/001_architecture.md` — do not add it without settling that.
 
 ---
@@ -124,7 +124,7 @@ inhibitor. Hold it in the service that took it, and close it explicitly when the
 the `InhibitDelayMaxUSec` deadline and logind sleeps anyway.
 
 `specs/009_systemd.md` prefers `systemd-lock-handler` over the daemon for lock-before-sleep,
-because that keeps locking working when glimpsed is down. Follow the spec; do not quietly move it.
+because that keeps locking working when the owning process is down. Follow the spec; do not quietly move it.
 
 ---
 
@@ -190,7 +190,7 @@ Read the keys you know, ignore the rest, and treat a missing key as normal rathe
 
 ## StatusNotifierItem — session bus
 
-**`org.kde.StatusNotifierWatcher` at `/StatusNotifierWatcher`** — the name glimpsed owns.
+**`org.kde.StatusNotifierWatcher` at `/StatusNotifierWatcher`** — the name the owning process owns.
 
 | Member | Signature |
 | --- | --- |
@@ -273,7 +273,7 @@ round trips to a foreign process that may be slow or hostile.
 
 ## org.freedesktop.Notifications — session bus
 
-The other name glimpsed owns, at `/org/freedesktop/Notifications`.
+The other name the owning process owns, at `/org/freedesktop/Notifications`.
 
 | Member | Signature |
 | --- | --- |
@@ -294,7 +294,7 @@ actions `as`, hints `a{sv}`, expire_timeout `i`. It returns the assigned id.
 - `expire_timeout` of `-1` means "server decides", `0` means "never expire".
 - `summary` and `body` are attacker-controlled. `body` may contain a small HTML-ish markup subset
   only if `GetCapabilities` advertises `body-markup` — so whether you must sanitize is a decision
-  glimpsed makes and then has to honour.
+  the owning process makes and then has to honour.
 - `NotificationClosed`'s second `u` is the reason: 1 expired, 2 dismissed, 3 closed by call, 4
   undefined.
 

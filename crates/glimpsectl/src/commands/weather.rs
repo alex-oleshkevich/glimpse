@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use glimpse_contracts::{Condition, PlaceWeather, UnitSystem, WatchedPlace, WeatherStatus};
+use glimpse_dbus::weather::{Condition, PlaceWeather, UnitSystem, WatchedPlace, WeatherStatus};
 use glimpse_dbus::weather::{Weather1Proxy, decode_snapshot};
 use serde::Serialize;
 use zbus::Connection;
@@ -156,7 +156,7 @@ fn condition(condition: Condition) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use glimpse_contracts::GeoCoordinates;
+    use glimpse_dbus::weather::GeoCoordinates;
 
     fn place(place: WatchedPlace) -> PlaceWeather {
         PlaceWeather {

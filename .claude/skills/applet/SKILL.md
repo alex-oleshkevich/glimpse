@@ -48,7 +48,7 @@ known. `configure`, `view`, `orient` and `anchor` are the remaining defaulted me
 
 ```rust
 pub enum Input {
-    Topic(glimpse_ipc::Event),
+    Changed(SomeState),
     Pointer(Pointer),
     Tick,
     Woken,                                               // a popover asked to be re-dressed

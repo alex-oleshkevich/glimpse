@@ -5,7 +5,7 @@ description: Building GObject widgets in glimpse-widgets — glib::wrapper and o
 
 # widget
 
-A widget in `glimpse-widgets` takes values and emits signals. It never holds a `glimpse-ipc` client,
+A widget in `glimpse-widgets` takes values and emits signals. It never opens a bus connection,
 never knows a topic name, never reaches the daemon — that is what lets it be built in a test with a
 literal value and nothing behind it.
 

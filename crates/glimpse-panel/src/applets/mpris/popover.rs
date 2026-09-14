@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use glimpse_contracts::{Playback, PlayerStatus};
+use glimpse_services::{Playback, PlayerStatus};
 use glimpse_widgets::Player;
 use gtk4::{gio, prelude::*};
 

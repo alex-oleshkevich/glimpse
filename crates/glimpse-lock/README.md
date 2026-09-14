@@ -17,12 +17,9 @@ The one component where a bug is a security failure rather than a cosmetic one.
 
 ## Rules
 
-Never depends on `glimpsed` for anything functional. It holds a client — `Client::open`, bound to
-`_client` for the length of `run` — so the status widgets have a socket to read, and every one of
-them goes blank when the daemon does. Unlock, power actions and keyboard-layout switching use
-logind and compositor IPC directly and never touch it. Battery and network widgets go blank when the
-daemon is down; unlock, power actions and keyboard-layout switching use logind and compositor IPC
-directly.
+Depends on no other glimpse process. It reads its configuration from disk and reaches logind and
+compositor IPC directly, so there is nothing whose absence can blank it and nothing to wait for
+before it can lock.
 
 If the process dies after `locked`, the compositor keeps the session locked and shows a blank
 screen. That is correct and must not be worked around.
@@ -61,7 +58,7 @@ to fall back to.
 Configuration is the `[lock]` table of the shared `config.toml`, plus `lock.css`. Tables owned by
 other binaries are ignored, not validated. It is re-read through `glimpse_config::watch_config`, so
 both `SIGHUP` and a change under the configuration directory apply it — the same two triggers every
-other binary has, and neither of them needs `glimpsed` alive.
+other binary has.
 
 The process outlives its own startup even while the lock surfaces are unwritten. A locker that
 returns is an unlocked session, and under `Restart=always` returning immediately is a restart loop.

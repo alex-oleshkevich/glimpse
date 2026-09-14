@@ -69,8 +69,10 @@ service fails at the call, not at compile time, which is the expensive kind of w
 project-local `zbus` skill under `.claude/skills/zbus/` carries introspected signatures for these
 services; check against it rather than hand-writing a method name.
 
-**No topic types here.** A payload belongs in `glimpse-contracts`, where it can be generated for the
-other SDKs. A backend type that leaked into a payload could not be.
+**A domain type lives here only when a provider decodes it off the bus.** `glimpse-services` depends
+on this crate and never the reverse, so weather and notification models sit beside their decoders
+here while everything else sits beside the service that owns it. A backend type never reaches one:
+what a client hands back is the published model, not the shape some daemon happened to store.
 
 **A decoder belongs beside the wire type it undoes.** `weather::decode_snapshot` and
 `notifications::decode_snapshot` are the readers' counterparts to the encoders each provider uses,

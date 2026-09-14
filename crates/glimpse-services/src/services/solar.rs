@@ -1,7 +1,8 @@
 use std::f64::consts::TAU;
 
+use crate::services::GeolocationStatus;
 use chrono::{DateTime, Datelike, Local, NaiveDate, Utc};
-use glimpse_contracts::{GeoCoordinates, GeolocationStatus, SolarPhase, SolarStatus};
+use glimpse_dbus::weather::GeoCoordinates;
 use tokio::{
     sync::{oneshot, watch},
     time,
@@ -13,6 +14,20 @@ use crate::{
     service::{CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SolarPhase {
+    Day,
+    Night,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SolarStatus {
+    pub phase: SolarPhase,
+    #[serde(default)]
+    pub next_change: Option<DateTime<Utc>>,
+}
 
 const TICK: time::Duration = time::Duration::from_secs(60);
 

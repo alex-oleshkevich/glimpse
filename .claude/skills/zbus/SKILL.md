@@ -1,11 +1,11 @@
 ---
 name: zbus
-description: D-Bus clients and services in Rust with zbus 5. Use for any code in glimpse-services or glimpsed that consumes NetworkManager, BlueZ, logind, UPower, MPRIS, StatusNotifierItem or com.canonical.dbusmenu, or that exports org.freedesktop.Notifications or org.kde.StatusNotifierWatcher. Covers crate features and the tokio integration, #[proxy] and #[interface], property caching, signal streams, bus name ownership, and compile traps keyed by error text. Trigger on the dependency, not the wording — if a file imports zbus, this applies.
+description: D-Bus clients and services in Rust with zbus 5. Use for any code in glimpse-services or a provider binary that consumes NetworkManager, BlueZ, logind, UPower, MPRIS, StatusNotifierItem or com.canonical.dbusmenu, or that exports org.freedesktop.Notifications or org.kde.StatusNotifierWatcher. Covers crate features and the tokio integration, #[proxy] and #[interface], property caching, signal streams, bus name ownership, and compile traps keyed by error text. Trigger on the dependency, not the wording — if a file imports zbus, this applies.
 ---
 
 # zbus
 
-D-Bus in `glimpsed` and `glimpse-services`. Every mirror service is a zbus client; two owned
+D-Bus in `glimpse-services` and the provider binaries. Every mirror service is a zbus client; the owned
 services are zbus servers.
 
 **The workspace is locked to zbus 5.19.0 / zbus_macros 5.19.0** — check `Cargo.lock` rather than
@@ -13,7 +13,7 @@ this line, which has been stale once. The signatures in
 `references/interfaces.md` were captured by introspecting a live session bus and system bus, not
 copied from documentation.
 
-**Core principle:** the backend owns the state. A proxy is how glimpsed *observes* state; it is
+**Core principle:** the backend owns the state. A proxy is how a service *observes* state; it is
 never where state lives. When a proxy and a service disagree, the backend is right — re-read, do
 not reconcile locally.
 
@@ -58,7 +58,7 @@ zbus = { version = "5", default-features = false, features = ["tokio"] }
 `["async-io", "blocking-api"]`:
 
 - **`async-io`** pulls `async-executor`, `async-io`, `async-process`, `async-lock` and `blocking`,
-  and makes the connection spawn **its own executor thread**. glimpsed already has a tokio runtime;
+  and makes the connection spawn **its own executor thread**. Every glimpse binary already has a tokio runtime;
   a second one is a second scheduler competing for the same work.
 - **`blocking-api`** generates a `TraitNameProxyBlocking` type beside every async proxy. Turning it
   off means the blocking API *does not exist to be called* — the compiler now enforces the
@@ -71,13 +71,13 @@ the async-io build. Enabling neither feature is a `compile_error!`.
 
 ## Connection Model
 
-glimpsed holds **two** connections for its whole lifetime, created once at startup and cloned into
+A process holds **two** connections for its whole lifetime, created once at startup and cloned into
 services:
 
 | Bus | Used for |
 | --- | --- |
 | system | NetworkManager, BlueZ, logind, UPower |
-| session | MPRIS, StatusNotifierItem, dbusmenu, and the two names glimpsed owns |
+| session | MPRIS, StatusNotifierItem, dbusmenu, and the names the providers own |
 
 `Connection` is cheap to clone — it is an `Arc` internally, and clones share one socket. Clone it
 into each service; never open a per-service connection and never open one per method call.
@@ -91,7 +91,7 @@ connection to a fixture bus instead.
 | Task | Go to |
 | --- | --- |
 | Follow a backend's state (network, bluetooth, audio, battery, mpris, brightness) | `references/proxies.md` |
-| Export an interface glimpsed owns (notifications, SNI watcher) | `references/services.md` |
+| Export an interface a provider owns (notifications, weather, night light) | `references/services.md` |
 | Take or track a well-known bus name | `references/services.md` → Name Ownership |
 | A zbus call fails to compile | `references/compile-traps.md` |
 | Need the exact signature of a remote method, property or signal | `references/interfaces.md` |
@@ -107,7 +107,7 @@ connection to a fixture bus instead.
    collection property (or `GetManagedObjects`), then subscribe. Never poll, never re-enumerate on
    a timer.
 3. **Never retry on top of a backend that retries.** NetworkManager already has reconnect policy.
-   A zbus error means *this call* failed; it does not mean glimpsed should start a loop.
+   A zbus error means *this call* failed; it does not mean a service should start a loop.
 4. **A handler that can block moves its `Responder` into `ctx.spawn`.** Handlers run serially on
    `&mut self`. One slow `AboutToShow` otherwise freezes the whole service.
 5. **Treat every value off the bus as hostile.** Tray `Title`, notification `summary`/`body`, MPRIS

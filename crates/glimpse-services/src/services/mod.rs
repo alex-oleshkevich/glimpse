@@ -52,3 +52,16 @@ pub use weather::{
     Config as WeatherConfig, Weather, WeatherDependencies, WeatherHandle,
     initial_state as initial_weather_state,
 };
+
+pub use calendar::{CalendarEvent, CalendarEvents};
+pub use compositor::{
+    CompositorCapabilities, CompositorOutputs, CompositorPrivacy, CompositorStatus,
+    CompositorWindows, CompositorWorkspaces, OutputInfo, WindowInfo, WindowRef, WorkspaceInfo,
+    WorkspaceRef,
+};
+pub use geolocation::GeolocationStatus;
+pub use heartbeat::{HeartbeatInterval, HeartbeatTick};
+pub use keyboard::{KeyboardLayout, KeyboardLayouts, LayoutRef};
+pub use mpris::{MprisPlayers, Playback, PlayerAction, PlayerCapabilities, PlayerStatus, Repeat};
+pub use session::SessionStatus;
+pub use solar::{SolarPhase, SolarStatus};

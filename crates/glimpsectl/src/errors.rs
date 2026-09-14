@@ -152,6 +152,30 @@ mod tests {
     }
 
     #[test]
+    fn a_provider_that_never_answers_has_its_own_code() {
+        let bare = anyhow::Error::new(TimedOut);
+        assert_eq!(exit(&bare), Exit::Timeout);
+
+        let wrapped = anyhow::Error::new(TimedOut).context("cannot read the night light");
+        assert_eq!(
+            exit(&wrapped),
+            Exit::Timeout,
+            "a script must see 5 however the call site describes the failure"
+        );
+    }
+
+    #[test]
+    fn giving_up_says_how_long_it_waited() {
+        let printed = message(&anyhow::Error::new(TimedOut));
+
+        assert!(
+            printed.contains(&DEADLINE.as_secs().to_string()),
+            "{printed}"
+        );
+        assert!(printed.contains("owns its name"), "{printed}");
+    }
+
+    #[test]
     fn a_wrapper_that_repeats_its_source_is_printed_once() {
         let wrapped = anyhow::Error::new(zbus::Error::FDO(Box::new(
             zbus::fdo::Error::ServiceUnknown("The name is not provided".to_owned()),

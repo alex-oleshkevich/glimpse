@@ -13,7 +13,6 @@ futures-util.workspace = true
 gio-unix.workspace = true
 glimpse-compositors.workspace = true
 glimpse-config.workspace = true
-glimpse-contracts.workspace = true
 glimpse-dbus.workspace = true
 glimpse-utils.workspace = true
 icalendar.workspace = true

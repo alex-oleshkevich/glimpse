@@ -1,7 +1,7 @@
 //! Compositor state and control for niri and Hyprland, behind one model.
 //!
 //! Both compositors are reached over their own Unix socket — this crate touches no `wl_` object,
-//! so the `glimpsed/src/wayland/` rule does not apply to it.
+//! so the daemon-era `wayland/` rule does not apply to it.
 
 mod error;
 mod event;

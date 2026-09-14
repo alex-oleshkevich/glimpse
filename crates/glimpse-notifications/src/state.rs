@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use glimpse_config::{NotificationEdge, Notifications};
-use glimpse_contracts::{NotificationRecord, OutputInfo};
+use glimpse_dbus::notifications::NotificationRecord;
+use glimpse_services::OutputInfo;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Placement {
@@ -259,7 +260,7 @@ impl PopupState {
 #[cfg(test)]
 mod tests {
     use chrono::{TimeZone, Utc};
-    use glimpse_contracts::NotificationUrgency;
+    use glimpse_dbus::notifications::NotificationUrgency;
 
     use super::*;
 

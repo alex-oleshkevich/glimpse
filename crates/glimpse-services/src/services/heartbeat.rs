@@ -1,4 +1,3 @@
-use glimpse_contracts::{HeartbeatInterval, HeartbeatTick};
 use tokio::{
     sync::{oneshot, watch},
     time,
@@ -10,6 +9,17 @@ use crate::{
     service::{CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError},
     subscription::Sub,
 };
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeartbeatInterval {
+    pub previous_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HeartbeatTick {
+    pub count: u64,
+}
 
 const DEFAULT_PERIOD_MS: u64 = 1000;
 const MIN_PERIOD_MS: u64 = 10;

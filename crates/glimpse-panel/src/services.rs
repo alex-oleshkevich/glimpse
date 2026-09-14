@@ -1,12 +1,12 @@
 use std::fmt;
 
 use glimpse_config::Config;
-use glimpse_contracts::KeyboardLayouts;
 use glimpse_dbus::{
     Buses,
     notifications::{NotificationsProvider, NotificationsProviderHandle},
     weather::{WeatherProvider, WeatherProviderHandle},
 };
+use glimpse_services::KeyboardLayouts;
 use glimpse_services::{
     Calendar, CalendarHandle, Compositor, CompositorHandle, Heartbeat, HeartbeatHandle, Keyboard,
     KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Service, ServiceRuntime,

@@ -69,7 +69,7 @@ different state. A handle's command method creates a typed oneshot, submits the 
 ### 1. State and commands
 
 State and command types are ordinary Rust types. A shared model may still live in
-`glimpse-contracts` while several crates need it, but serialization and string names are outside
+`glimpse-dbus` while a provider decodes it off the bus, but serialization and string names are outside
 the service framework. Commands carry typed arguments and a command-specific
 `oneshot::Sender<Result<Reply, CommandError>>`.
 
@@ -209,7 +209,7 @@ tokio::spawn(async move { weather_runtime.run(weather_config, deps).await });
 The composition root makes dependency order visible. A panel-local root passes handles directly to
 applets; a standalone process exposes only the narrow state and command API that another process
 actually needs over typed zbus. A temporary legacy string/JSON adapter, if required during
-migration, lives in `glimpsed` and is deleted with that daemon.
+migration, is gone with the daemon that needed it.
 
 ### 6. Test it
 

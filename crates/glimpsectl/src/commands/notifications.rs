@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use chrono::{Local, NaiveTime, TimeDelta};
-use glimpse_contracts::{NotificationRecord, NotificationUrgency};
+use glimpse_dbus::notifications::{NotificationRecord, NotificationUrgency};
 use glimpse_dbus::notifications::{Notifications1Proxy, NotificationsView, decode_snapshot};
 use zbus::Connection;
 

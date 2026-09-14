@@ -22,7 +22,7 @@ fn languages(root: &Path) -> Vec<String> {
 }
 
 fn manifest(root: &Path) -> Table {
-    fs::read_to_string(root.join("crates/glimpsed/Cargo.toml"))
+    fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
         .expect("the manifest is readable")
         .parse()
         .expect("the manifest is valid TOML")
@@ -92,7 +92,6 @@ fn session_target_is_the_only_graphical_session_entrypoint() {
     let root = workspace_root();
     let directory = root.join("data/systemd");
     let members = [
-        "glimpsed",
         "glimpse-panel",
         "glimpse-wallpaper",
         "glimpse-sunset",
@@ -124,11 +123,6 @@ fn session_target_is_the_only_graphical_session_entrypoint() {
                 .lines()
                 .any(|line| { line.starts_with("PropagatesReloadTo=") && line.contains(&name) })
         );
-        // Named positively, because the list of units still reaching the daemon only shrinks.
-        if matches!(member, "glimpse-panel" | "glimpse-wallpaper") {
-            assert!(unit.contains("After=glimpsed.service"), "{name}");
-            assert!(unit.contains("Wants=glimpsed.service"), "{name}");
-        }
     }
 
     let lock = fs::read_to_string(directory.join("glimpse-lock.service")).expect("lock unit");
@@ -141,14 +135,15 @@ fn notification_provider_binary_is_packaged_with_its_local_services() {
     let root = workspace_root();
     let manifest = fs::read_to_string(root.join("crates/glimpse-notifications/Cargo.toml"))
         .expect("notifications manifest");
-    for forbidden in ["glimpse-panel", "glimpsed", "glimpse-ipc"] {
-        assert!(!manifest.contains(forbidden), "depends on {forbidden}");
-    }
+    assert!(
+        !manifest.contains("glimpse-panel"),
+        "a provider that depends on the panel is not standalone"
+    );
     assert!(manifest.contains("glimpse-services.workspace = true"));
     assert!(manifest.contains("glimpse-dbus.workspace = true"));
 
-    let package =
-        fs::read_to_string(root.join("crates/glimpsed/Cargo.toml")).expect("package manifest");
+    let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
+        .expect("package manifest");
     assert_eq!(
         package
             .matches("target/release/glimpse-notifications")
@@ -157,7 +152,7 @@ fn notification_provider_binary_is_packaged_with_its_local_services() {
     );
     let binaries = fs::read_to_string(root.join("justfile")).expect("justfile");
     assert!(binaries.contains(
-        "binaries := \"glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather\""
+        "binaries := \"glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather\""
     ));
 }
 
@@ -166,14 +161,15 @@ fn weather_provider_is_packaged_and_dbus_activated_without_eager_session_start()
     let root = workspace_root();
     let manifest = fs::read_to_string(root.join("crates/glimpse-weather/Cargo.toml"))
         .expect("weather manifest");
-    for forbidden in ["glimpse-panel", "glimpsed", "glimpse-ipc"] {
-        assert!(!manifest.contains(forbidden), "depends on {forbidden}");
-    }
+    assert!(
+        !manifest.contains("glimpse-panel"),
+        "a provider that depends on the panel is not standalone"
+    );
     assert!(manifest.contains("glimpse-services.workspace = true"));
     assert!(manifest.contains("glimpse-dbus.workspace = true"));
 
-    let package =
-        fs::read_to_string(root.join("crates/glimpsed/Cargo.toml")).expect("package manifest");
+    let package = fs::read_to_string(root.join("crates/glimpse-package/Cargo.toml"))
+        .expect("package manifest");
     assert_eq!(package.matches("target/release/glimpse-weather").count(), 2);
 
     let unit = fs::read_to_string(root.join("data/systemd/glimpse-weather.service"))

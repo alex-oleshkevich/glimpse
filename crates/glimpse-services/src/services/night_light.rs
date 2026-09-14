@@ -1,6 +1,6 @@
+use crate::services::{SolarPhase, SolarStatus};
 use chrono::{DateTime, Local, NaiveTime, TimeDelta, Utc};
 use glimpse_config::Schedule;
-use glimpse_contracts::{SolarPhase, SolarStatus};
 use tokio::{
     sync::{oneshot, watch},
     time,

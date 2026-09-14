@@ -1,7 +1,8 @@
-use glimpse_contracts::{ServiceState, WatchedPlace};
+use glimpse_dbus::weather::WatchedPlace;
 use glimpse_dbus::weather::{
     GLIMPSE_WEATHER_BUS_NAME, GLIMPSE_WEATHER_OBJECT_PATH, WeatherSnapshot, encode_snapshot,
 };
+use glimpse_services::ServiceState;
 use glimpse_services::{CommandError, WeatherHandle};
 use tokio::task::JoinHandle;
 use zbus::{Connection, DBusError};

@@ -1,5 +1,5 @@
 use chrono::{DateTime, NaiveDate, Utc};
-use glimpse_contracts::GeoCoordinates;
+use glimpse_dbus::weather::GeoCoordinates;
 use sunrise::{Coordinates, SolarDay, SolarEvent};
 
 /// Sunrise and sunset, each absent on a day the sun does not cross the horizon.

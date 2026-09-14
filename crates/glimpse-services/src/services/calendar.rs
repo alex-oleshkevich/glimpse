@@ -6,7 +6,6 @@ use std::time::Duration;
 use chrono::{DateTime, NaiveDateTime, NaiveTime, TimeDelta, TimeZone as _, Utc};
 use futures_util::{StreamExt as _, stream, stream::BoxStream};
 use glimpse_config::{CalendarSource, CalendarSourceKind, Update};
-use glimpse_contracts::{CalendarEvent, CalendarEvents};
 use glimpse_utils::clean;
 use icalendar::{
     Calendar as ICalendar, CalendarDateTime, Component as _, DatePerhapsTime, Event as IEvent,
@@ -35,6 +34,25 @@ const REASON: usize = 240;
 const MIN_POLL: u64 = 60;
 const TIMEOUT: Duration = Duration::from_secs(20);
 use super::{AGENT, transport};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CalendarEvent {
+    pub source: String,
+    pub summary: String,
+    pub detail: String,
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
+    pub all_day: bool,
+    pub color: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CalendarEvents {
+    pub events: Vec<CalendarEvent>,
+    pub truncated_from: Option<DateTime<Utc>>,
+}
+
 const WEBCAL: &str = "webcal://";
 
 #[derive(Debug)]

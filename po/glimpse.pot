@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-14 17:40+0200\n"
+"POT-Creation-Date: 2026-09-14 22:04+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,8 +18,8 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: crates/glimpse-notifications/src/app.rs:431
-#: crates/glimpse-panel/src/applets/notifications/render.rs:73
+#: crates/glimpse-notifications/src/app.rs:435
+#: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr ""
 
@@ -126,39 +126,39 @@ msgstr ""
 msgid "d"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/indicator.rs:219
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:215
 msgid "Clear all"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:52
+#: crates/glimpse-panel/src/applets/notifications/render.rs:53
 msgid "Do not disturb"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:54
+#: crates/glimpse-panel/src/applets/notifications/render.rs:55
 msgid "{count} waiting, do not disturb is on"
 msgid_plural "{count} waiting, do not disturb is on"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:59
+#: crates/glimpse-panel/src/applets/notifications/render.rs:60
 msgid "No new notifications"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:61
+#: crates/glimpse-panel/src/applets/notifications/render.rs:62
 msgid "{count} new notification"
 msgid_plural "{count} new notifications"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:76
+#: crates/glimpse-panel/src/applets/notifications/render.rs:77
 msgid "{count}m"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:79
+#: crates/glimpse-panel/src/applets/notifications/render.rs:80
 msgid "{count}h"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:81
+#: crates/glimpse-panel/src/applets/notifications/render.rs:82
 msgid "{count}d"
 msgstr ""
 

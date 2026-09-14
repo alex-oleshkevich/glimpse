@@ -1,4 +1,87 @@
 use super::{epoch, optional_clean};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+/// Urgency as the freedesktop specification defines it. Internally tagged for the same reason
+/// `Condition` is: a sender may send a byte outside the three the specification names, and that
+/// must not make the whole payload fail to decode.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "urgency", rename_all = "snake_case")]
+pub enum NotificationUrgency {
+    Low,
+    #[default]
+    Normal,
+    Critical,
+    #[serde(other)]
+    Unknown,
+}
+
+/// One action a sender offered. `key` is what goes back to it over the bus; `label` is what the
+/// reader sees, and is third-party text like every other string here.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationAction {
+    pub key: String,
+    pub label: String,
+}
+
+pub const DEFAULT_ACTION: &str = "default";
+
+/// One notification as the store holds it. Every text field is chosen by another application,
+/// arrives over the session bus, and is capped and sanitised by the service before it gets here.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NotificationRecord {
+    /// The id the specification handed the sender, and what every command names it by.
+    pub id: u32,
+    /// The sender's own identity: its `desktop-entry` hint where it gave one, its bus name
+    /// otherwise. Grouping keys on this rather than on `app_name`, which a sender chooses freely
+    /// and could therefore borrow from somebody else.
+    pub app_id: String,
+    pub app_name: String,
+    /// The process that sent this notification, where the bus could name one, so a client can ask
+    /// the compositor to raise that process's window. Raising belongs to the specification's
+    /// `default` action, which means the reader activated the notification itself; a button the
+    /// sender named is a command, and there only the activation token decides. A portal-relayed
+    /// sender resolves to the portal rather than to the application, and then there is nothing to
+    /// raise.
+    pub app_pid: Option<i32>,
+    pub summary: String,
+    /// Sanitised Pango markup, safe to hand to `set_markup`. The freedesktop specification makes
+    /// markup a server capability rather than a per-notification flag, so there is no "is this
+    /// markup" boolean to carry: every body has been through `glimpse_utils::markup::sanitize_body`
+    /// by the time it is here. A client that cannot render markup strips it.
+    pub body: Option<String>,
+    /// A themed icon name, never a path a client should go and load.
+    pub icon: Option<String>,
+    /// An absolute local path supplied by the sender through an image hint.
+    pub image: Option<String>,
+    pub urgency: NotificationUrgency,
+    pub actions: Vec<NotificationAction>,
+    /// The `value` hint, as a fraction. Present only when the sender sent one.
+    pub progress: Option<f64>,
+    pub created: DateTime<Utc>,
+    pub unread: bool,
+    /// The sender asked to stay until it is acted on. `resident` and a zero timeout are the two
+    /// ways it can say so, and the store treats them alike.
+    pub resident: bool,
+}
+
+/// Do not disturb. `until` is when it lapses on its own; `None` means it stands until the reader
+/// turns it off.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DoNotDisturb {
+    pub enabled: bool,
+    pub until: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NotificationsList {
+    pub notifications: Vec<NotificationRecord>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NotificationsDnd {
+    pub dnd: DoNotDisturb,
+}
 
 pub const GLIMPSE_NOTIFICATIONS_BUS_NAME: &str = "me.aresa.Glimpse.Notifications";
 pub const GLIMPSE_NOTIFICATIONS_OBJECT_PATH: &str = "/me/aresa/Glimpse/Notifications";
@@ -44,8 +127,8 @@ pub trait Notifications1 {
 
 #[derive(Clone, serde::Serialize)]
 pub struct NotificationsView {
-    pub notifications: Vec<glimpse_contracts::NotificationRecord>,
-    pub do_not_disturb: glimpse_contracts::DoNotDisturb,
+    pub notifications: Vec<NotificationRecord>,
+    pub do_not_disturb: DoNotDisturb,
     pub serving: bool,
     pub reason: String,
 }
@@ -73,9 +156,7 @@ pub fn decode_snapshot(snapshot: NotificationsSnapshot) -> Result<NotificationsV
     })
 }
 
-fn decode_notification(
-    wire: NotificationWire,
-) -> Result<glimpse_contracts::NotificationRecord, String> {
+fn decode_notification(wire: NotificationWire) -> Result<NotificationRecord, String> {
     let (
         id,
         app_id,
@@ -92,7 +173,7 @@ fn decode_notification(
         unread,
         resident,
     ) = wire;
-    Ok(glimpse_contracts::NotificationRecord {
+    Ok(NotificationRecord {
         id,
         app_id: glimpse_utils::clean(&app_id, APP_ID),
         app_name: glimpse_utils::clean(&app_name, APP_NAME),
@@ -105,7 +186,7 @@ fn decode_notification(
         actions: actions
             .into_iter()
             .take(MOST_ACTIONS)
-            .map(|(key, label)| glimpse_contracts::NotificationAction {
+            .map(|(key, label)| NotificationAction {
                 key: glimpse_utils::clean(&key, ACTION_LABEL),
                 label: glimpse_utils::clean(&label, ACTION_LABEL),
             })
@@ -117,10 +198,8 @@ fn decode_notification(
     })
 }
 
-fn decode_do_not_disturb(
-    (enabled, until): DoNotDisturbWire,
-) -> Result<glimpse_contracts::DoNotDisturb, String> {
-    Ok(glimpse_contracts::DoNotDisturb {
+fn decode_do_not_disturb((enabled, until): DoNotDisturbWire) -> Result<DoNotDisturb, String> {
+    Ok(DoNotDisturb {
         enabled,
         until: match until {
             0 => None,
@@ -129,12 +208,12 @@ fn decode_do_not_disturb(
     })
 }
 
-fn decode_urgency(urgency: u8) -> glimpse_contracts::NotificationUrgency {
+fn decode_urgency(urgency: u8) -> NotificationUrgency {
     match urgency {
-        0 => glimpse_contracts::NotificationUrgency::Low,
-        1 => glimpse_contracts::NotificationUrgency::Normal,
-        2 => glimpse_contracts::NotificationUrgency::Critical,
-        _ => glimpse_contracts::NotificationUrgency::Unknown,
+        0 => NotificationUrgency::Low,
+        1 => NotificationUrgency::Normal,
+        2 => NotificationUrgency::Critical,
+        _ => NotificationUrgency::Unknown,
     }
 }
 
@@ -488,10 +567,7 @@ mod tests {
         assert_eq!(decoded.icon, None);
         assert_eq!(decoded.image, None);
         assert_eq!(decoded.progress, None, "-1.0 means absent");
-        assert_eq!(
-            decoded.urgency,
-            glimpse_contracts::NotificationUrgency::Unknown
-        );
+        assert_eq!(decoded.urgency, NotificationUrgency::Unknown);
         assert_eq!(decoded.actions[0].key, "reply");
         assert_eq!(decoded.created.timestamp_micros(), 1_234_567_890);
     }

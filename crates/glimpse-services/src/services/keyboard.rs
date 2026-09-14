@@ -1,14 +1,12 @@
 use std::collections::{BTreeMap, HashMap};
 
+use crate::services::{CompositorWindows, WindowInfo};
 use futures_util::{StreamExt, stream};
 use glimpse_compositors::{
     Compositor as Backend, CompositorError, Event as Change, KeyboardLayouts as BackendLayouts,
     LayoutTarget, Resync, detect_compositor, layout_code,
 };
 use glimpse_config::Remember;
-use glimpse_contracts::{
-    CompositorWindows, KeyboardLayout, KeyboardLayouts, LayoutRef, WindowInfo,
-};
 use tokio::sync::oneshot;
 
 use crate::{
@@ -19,6 +17,27 @@ use crate::{
 };
 
 use super::compositor::CompositorHandle;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "by", rename_all = "snake_case")]
+pub enum LayoutRef {
+    Next,
+    Prev,
+    Index { index: u8 },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeyboardLayout {
+    pub code: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardLayouts {
+    pub layouts: Vec<KeyboardLayout>,
+    pub current: Option<u8>,
+}
 
 const NAME_CAP: usize = 128;
 

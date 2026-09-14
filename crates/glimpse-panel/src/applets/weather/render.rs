@@ -1,6 +1,6 @@
 use chrono::{DateTime, FixedOffset, Offset as _, TimeDelta, Utc};
 use gettextrs::{gettext, ngettext};
-use glimpse_contracts::{
+use glimpse_dbus::weather::{
     AlertSeverity, Condition, CurrentWeather, DayForecast, PlaceWeather, UnitSystem, WeatherAlert,
 };
 use glimpse_widgets::{Advisory, Day, Fact, Hour, Severity, WeatherPage, alert_page, day_page};
@@ -381,7 +381,7 @@ pub fn tooltip(format: &str, place: &str, current: &CurrentWeather) -> String {
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone as _;
-    use glimpse_contracts::{GeoCoordinates, HourForecast, WatchedPlace};
+    use glimpse_dbus::weather::{GeoCoordinates, HourForecast, WatchedPlace};
 
     use super::*;
 

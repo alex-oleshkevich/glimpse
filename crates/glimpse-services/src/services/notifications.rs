@@ -5,7 +5,7 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use gio_unix::{DesktopAppInfo, prelude::*};
-use glimpse_contracts::{
+use glimpse_dbus::notifications::{
     DEFAULT_ACTION, DoNotDisturb, NotificationAction, NotificationRecord, NotificationUrgency,
     NotificationsDnd, NotificationsList,
 };

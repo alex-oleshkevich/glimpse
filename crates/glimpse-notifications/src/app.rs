@@ -13,11 +13,14 @@ use glimpse_config::{
     Config, NotificationEdge, PANEL_STYLESHEET, stylesheet, user_stylesheet, watch_config,
     watch_theme,
 };
-use glimpse_contracts::{NotificationRecord, NotificationUrgency, SessionStatus, WindowRef};
+use glimpse_dbus::notifications::{NotificationRecord, NotificationUrgency};
 use glimpse_services::{
     CompositorHandle, CompositorState, NotificationsHandle, NotificationsState, ServiceState,
 };
-use glimpse_widgets::{Notification, NotificationCard, Styles, notification_image};
+use glimpse_services::{SessionStatus, WindowRef};
+use glimpse_widgets::{
+    Action, Body, Notification, NotificationCard, Styles, Urgency, notification_image,
+};
 use gtk4::{cairo, gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{ComponentParts, ComponentSender, SimpleComponent};
@@ -25,6 +28,7 @@ use tokio::{task::JoinHandle, time::Instant};
 
 use crate::services::NotificationServices;
 use crate::state::{Delta, PopupState};
+use glimpse_dbus::notifications::DEFAULT_ACTION;
 
 const ANIMATION_MILLIS: u32 = 150;
 
@@ -428,7 +432,7 @@ impl App {
     }
 
     fn fill(&self, card: &NotificationCard, record: &NotificationRecord) {
-        let mut notification = Notification::from_record(record, gettext("now"));
+        let mut notification = from_record(record, gettext("now"));
         notification.icon = record
             .icon
             .as_deref()
@@ -949,6 +953,38 @@ fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
         glimpse_config::ColorScheme::Light => adw::ColorScheme::ForceLight,
         glimpse_config::ColorScheme::Dark => adw::ColorScheme::ForceDark,
         glimpse_config::ColorScheme::Auto => adw::ColorScheme::Default,
+    }
+}
+
+fn from_record(record: &NotificationRecord, when: String) -> Notification {
+    let active = record.unread;
+    Notification {
+        key: record.id.to_string(),
+        app_name: record.app_name.clone(),
+        summary: record.summary.clone(),
+        body: record.body.clone().map(Body::Markup),
+        when,
+        urgency: match record.urgency {
+            NotificationUrgency::Critical => Urgency::Critical,
+            _ => Urgency::Normal,
+        },
+        actions: if active {
+            record
+                .actions
+                .iter()
+                .filter(|action| action.key != DEFAULT_ACTION)
+                .map(|action| Action {
+                    key: action.key.clone(),
+                    label: action.label.clone(),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        },
+        progress: record.progress,
+        unread: active,
+        activatable: active,
+        ..Notification::default()
     }
 }
 

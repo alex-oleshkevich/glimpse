@@ -3,17 +3,6 @@
 // Example:
 [
   {
-    "label": "glimpsed",
-    "command": "just",
-    "args": ["run-daemon"],
-    "reveal": "never",
-    "hide": "on_success",
-    "env": {
-      "RUST_LOG": "debug",
-      "GLIMPSE_CONFIG_PATH": "var/config/config.toml",
-    },
-  },
-  {
     "label": "glimpse-panel",
     "command": "just",
     "args": ["run-panel"],

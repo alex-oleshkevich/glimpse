@@ -7,7 +7,7 @@ set positional-arguments
 # Single source of truth for install/uninstall/package-binary, passed to those scripts as
 # GLIMPSE_BINARIES. Static TOML can't read it, so the cargo-deb/cargo-generate-rpm asset lists
 # still hand-duplicate it, as do the scripts' own no-just fallback defaults.
-binaries := "glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather"
+binaries := "glimpsectl glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather"
 
 [doc("list recipes")]
 default:
@@ -134,11 +134,7 @@ check-units:
     if grep -E '^PartOf=' "$lock" | grep -qv '^PartOf=graphical-session.target$'; then
         echo "$lock: PartOf= anything but graphical-session.target can stop the locker mid-lock"; exit 1
     fi
-    if grep -l '^Requires=.*glimpsed' data/systemd/*.service | grep .; then
-        echo "Requires=glimpsed.service — use Wants="; exit 1
-    fi
-
-    members="glimpsed glimpse-panel glimpse-wallpaper glimpse-sunset glimpse-notifications"
+    members="glimpse-panel glimpse-wallpaper glimpse-sunset glimpse-notifications"
     target=data/systemd/glimpse-session.target
     for member in $members; do
         unit="data/systemd/$member.service"
@@ -165,10 +161,6 @@ check-units:
     echo "units ok"
 
 # ---------------------------------------------------------------- run
-
-[doc("run daemon")]
-run-daemon *ARGS:
-    cargo run -p glimpsed -- "$@"
 
 [doc("run panel")]
 run-panel *ARGS:
@@ -307,11 +299,11 @@ package-binary VERSION="":
 
 [doc("build a .deb under target/debian/ (needs: cargo install cargo-deb)")]
 package-deb: build-release-binaries build-translations
-    cargo deb -p glimpsed --no-build
+    cargo deb -p glimpse-package --no-build
 
 [doc("build a .rpm under target/generate-rpm/ (needs: cargo install cargo-generate-rpm)")]
 package-rpm: build-release-binaries build-translations
-    cargo generate-rpm -p crates/glimpsed
+    cargo generate-rpm -p crates/glimpse-package
 
 [doc("render dist/PKGBUILD for VERSION with the x86_64 tarball's b2sum patched in")]
 aur-pkgbuild VERSION B2SUM:

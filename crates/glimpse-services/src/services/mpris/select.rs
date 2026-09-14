@@ -1,4 +1,4 @@
-use glimpse_contracts::Playback;
+use crate::services::Playback;
 use regex::Regex;
 
 use super::Player;
@@ -115,8 +115,8 @@ fn same_media(a: &Player, b: &Player) -> bool {
 
 #[cfg(test)]
 pub(in crate::services::mpris) mod tests {
+    use crate::services::PlayerCapabilities;
     use chrono::{TimeZone as _, Utc};
-    use glimpse_contracts::PlayerCapabilities;
 
     use super::*;
 

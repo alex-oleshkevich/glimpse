@@ -9,8 +9,8 @@ use std::time::Duration;
 use chrono::Utc;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, MprisAppletConfig};
-use glimpse_contracts::{Playback, PlayerAction, PlayerStatus, Repeat};
 use glimpse_services::MprisHandle;
+use glimpse_services::{Playback, PlayerAction, PlayerStatus, Repeat};
 use glimpse_widgets::{IndicatorSpec, MprisPopover, Repeat as TransportRepeat, TransportAction};
 use gtk4::{gdk, gio, glib};
 

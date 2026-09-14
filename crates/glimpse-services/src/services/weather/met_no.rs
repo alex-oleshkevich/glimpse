@@ -4,7 +4,7 @@ use std::sync::OnceLock;
 use chrono::{
     DateTime, FixedOffset, NaiveDate, NaiveTime, Offset as _, TimeZone, Timelike as _, Utc,
 };
-use glimpse_contracts::{
+use glimpse_dbus::weather::{
     AlertSeverity, Condition, CurrentWeather, DayForecast, GeoCoordinates, HourForecast,
     UnitSystem, WeatherAlert,
 };

@@ -54,10 +54,11 @@ practical deadline is therefore later than "before the first type is registered"
 gained by cutting it fine, so the domain is still bound before `register_resources`.
 
 **`init_locale()` is `init_translations()` without the catalog.** It is the `setlocale(LC_ALL, "")`
-half alone, for `glimpsed`, which has no UI to translate but still has to let the C library see
+half alone, for `glimpse-sunset` and `glimpse-weather`, which have no UI to translate but still have
+to let the C library see
 `LC_MEASUREMENT` — `[regional] units = "locale"` reads `C` and answers metric for everyone
-otherwise. Do not "simplify" it away by giving the daemon `init_translations`: the daemon's output
-is a journal, not a UI.
+otherwise. Do not "simplify" it away by giving a provider `init_translations`: a provider's output is
+a journal, not a UI.
 
 **A language named in `[regional]` is applied by setting `LANGUAGE`, and only when the environment
 has not already set it.** `LANGUAGE` is what glibc consults per lookup, it takes the short form

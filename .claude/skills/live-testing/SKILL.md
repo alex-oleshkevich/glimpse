@@ -37,12 +37,9 @@ A table that names only `left` still showed this repo's default center and right
 
 
 ```bash
-./target/debug/glimpsed --config "$S/cfg/config.toml" --socket "$SOCK" \
-  >/tmp/glimpse-<feature>-logs/daemon.log 2>&1 &
 GLIMPSE_PANEL_APP_ID=me.aresa.GlimpsePanel.<Feature>Test \
-  ./target/debug/glimpse-panel --config "$S/cfg/config.toml" --socket "$SOCK" \
+  ./target/debug/glimpse-panel --config "$S/cfg/config.toml" \
   >/tmp/glimpse-<feature>-logs/panel.log 2>&1 &
-./target/debug/glimpsectl --socket "$SOCK" get <topic>
 ```
 
 Do not `cargo` two crates in parallel (file lock). Prefer already-built `target/debug/*`.
@@ -51,8 +48,7 @@ Do not `cargo` two crates in parallel (file lock). Prefer already-built `target/
 
 `glimpse-panel` is unique on the session bus (`me.aresa.GlimpsePanel`). A second process with that
 id **hands off and exits 0** — log shows `loading configuration` and nothing else. Set
-`GLIMPSE_PANEL_APP_ID` to a distinct id. Do not kill the session `glimpsed` / `glimpse-panel` to
-make room.
+`GLIMPSE_PANEL_APP_ID` to a distinct id. Do not kill the session `glimpse-panel` to make room.
 
 ## Gamma control needs the session compositor
 
@@ -75,8 +71,9 @@ not would lose the whole session to that command.
 
 ## Drive and look
 
-- `glimpsectl --socket "$SOCK"` for topics and commands. The session socket is
-  `$XDG_RUNTIME_DIR/glimpse/glimpsed.sock`; using it is testing the user's bar.
+- `glimpsectl` reads the three providers over their D-Bus names. On the session bus that is the
+  user's own weather and notification daemons, so a test that drives a provider gives it a private
+  bus — see the gamma section below.
 - `grim -g "<x>,<y> <w>x<h>"` the **bottom** strip of the output you care about, then read the PNG.
   Confirm the crop is the white/light test bar, not the session top bar.
 - A layout/volume/window command hits the **real compositor**. Snapshot before, restore after.

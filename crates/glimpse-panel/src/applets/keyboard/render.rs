@@ -1,4 +1,4 @@
-use glimpse_contracts::{KeyboardLayout, KeyboardLayouts, LayoutRef};
+use glimpse_services::{KeyboardLayout, KeyboardLayouts, LayoutRef};
 use glimpse_widgets::KeyboardLayout as Row;
 
 pub fn shown(layouts: Option<&KeyboardLayouts>) -> bool {

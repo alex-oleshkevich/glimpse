@@ -17,7 +17,7 @@ health, and command methods to in-process consumers.
 **An unchanged configuration never reaches a handler.** `ServiceRuntime::run` keeps the config the
 service is actually running on and skips an `Input::Config` equal to it — no handler call, no
 `subscriptions()` rebuild, no `Live::reconcile` diff. So `S::Config: PartialEq` buys what
-`.claude/rules/daemon.md` says it buys in every binary rather than only under `glimpsed`. Every
+`.claude/rules/daemon.md` says it buys, in every binary rather than in one of them. Every
 process reloads the whole document and hands each service its own slice, so without the gate a
 service whose table had not moved still woke — and two services had already grown their own
 comparisons to undo that: the night light to protect its mode override, `notifications` through
@@ -50,15 +50,16 @@ tagged enum, so that document never loads.
 ## The gamma backend
 
 `trait Gamma` is declared here and implemented in `glimpse-sunset`, because this crate is linked
-into `glimpse-panel` and `glimpsed` and neither may gain a Wayland dependency. It is **synchronous**:
+into `glimpse-panel` and every provider, none of which may gain a Wayland dependency. It is
+**synchronous**:
 the one real implementation is a Wayland roundtrip that blocks and says so with `block_in_place`
 itself, and a synchronous signature is dyn-compatible — which is what lets `NightLight` be a plain
 service taking `Box<dyn Gamma>` rather than a generic one whose parameter would reach its handle,
 its provider and two crates' tests.
 
 `FakeGamma` sits beside the declaration rather than behind `#[cfg(test)]`, because `glimpse-sunset`'s
-tests are a separate compilation unit. The cost is that `glimpse-panel` and `glimpsed` link a mock
-they can never use; it is a few dozen bytes, and the alternative is a feature flag for one type.
+tests are a separate compilation unit. The cost is that every other binary links a mock it can never
+use; it is a few dozen bytes, and the alternative is a feature flag for one type.
 
 ## Do not disturb, and when it lapses
 
@@ -502,8 +503,7 @@ spawned task selects against.
 
 Commands are ordinary Rust variants with typed arguments and command-specific oneshot senders. A
 handle method offers the command through `ServiceEndpoint::command`, then awaits its typed result;
-full or closed inboxes return `CommandError::Unavailable`. The old string/JSON adapter is temporary
-and, if still present, belongs only in `glimpsed`.
+full or closed inboxes return `CommandError::Unavailable`.
 
 Everything reaching a handler arrives from a **source**, and every source is one `ctx` call
 returning a `SourceGuard`. Dropping the guard is the whole cancellation story.
@@ -632,9 +632,8 @@ per-track cover art accumulates.
 
 **The command surface mirrors MPRIS, not the panel.** `mpris.seek`, `mpris.set_volume` and
 `PlayerAction::Play`/`Pause`/`Stop` have no caller in this repository: the applet seeks with
-`set_position` and toggles with `play_pause`. They are kept because `glimpse-contracts` is the input
-to the Python, TypeScript and Go SDKs, so a third-party applet is a real consumer of a command the
-panel happens not to use, and because a mirror service exposing a subset of the interface it mirrors
+`set_position` and toggles with `play_pause`. They are kept because a mirror service exposing a
+subset of the interface it mirrors
 is a worse answer than one that does not.
 
 **`last_active` moves when the playback state changes, not when a property does.** It is the tie
@@ -708,7 +707,8 @@ have authoritative owners.
 ## notifications
 
 The first service here that is not a mirror. Every other one follows a backend and defers to it
-when they disagree; `org.freedesktop.Notifications` has no backend, so **glimpsed is the store** and
+when they disagree; `org.freedesktop.Notifications` has no backend, so **this service is the store**
+and
 a notification exists exactly as long as this service keeps it. That inverts the usual rule rather
 than breaking it: there is nothing to re-read from, so the bound, the replace rule and the history
 are all decisions made here.

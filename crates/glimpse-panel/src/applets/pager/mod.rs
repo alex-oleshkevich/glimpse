@@ -6,8 +6,8 @@ use std::rc::Rc;
 use glimpse_config::{
     Applet as AppletConfig, AppletKind, PagerConfig, PagerMode, PagerScope, PagerShape,
 };
-use glimpse_contracts::{WindowInfo, WindowRef, WorkspaceInfo, WorkspaceRef};
 use glimpse_services::CompositorHandle;
+use glimpse_services::{WindowInfo, WindowRef, WorkspaceInfo, WorkspaceRef};
 use glimpse_widgets::{
     Focus, Pager as Strip, Shape, Slot, Workspace, WorkspaceWindow, WorkspacesPopover,
 };

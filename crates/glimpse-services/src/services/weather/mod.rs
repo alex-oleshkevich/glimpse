@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use chrono::{DateTime, FixedOffset, Offset as _, Utc};
 use glimpse_config::WeatherProvider as ConfiguredProvider;
-use glimpse_contracts::{
+use glimpse_dbus::weather::{
     CurrentWeather, DayForecast, GeoCoordinates, HourForecast, PlaceWeather, UnitSystem,
     WatchedPlace, WeatherAlert, WeatherStatus,
 };
@@ -733,8 +733,8 @@ fn bearing(degrees: Option<f64>) -> Option<u16> {
 mod tests {
 
     use chrono::{NaiveDate, TimeZone as _};
-    use glimpse_contracts::{AlertSeverity, Condition};
     use glimpse_dbus::Buses;
+    use glimpse_dbus::weather::{AlertSeverity, Condition};
     use tokio::sync::{mpsc, oneshot};
     use tokio_util::sync::CancellationToken;
 

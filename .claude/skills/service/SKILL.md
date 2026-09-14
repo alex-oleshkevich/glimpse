@@ -105,7 +105,7 @@ not repeated here. Neither is capping hostile text off a backend — that is a c
 
 7. **Keep process boundaries narrow.** Panel-local services stay in the panel process and expose
    Rust handles. A standalone provider exposes a typed zbus interface and proxy; do not tunnel the
-   old JSON protocol through D-Bus. Any temporary legacy string/JSON adapter belongs in `glimpsed`
+   old JSON protocol through D-Bus.
    and is deleted with that compatibility process.
 
 ## Definition of done
@@ -113,7 +113,7 @@ not repeated here. Neither is capping hostile text off a backend — that is a c
 - Every service has a concrete cloneable handle with `snapshot`, `subscribe`, `health`, and typed
   command methods where needed. `ServiceRuntime::new` receives a complete initial state.
 - State and command types are typed Rust models. Contract structs may remain in
-  `glimpse-contracts` while they are useful domain values; their serialization derives do not make
+  `glimpse-dbus` while a provider decodes them off the bus; their serialization derives do not make
   them wire topics.
 - `type Config` implements `From<&glimpse_config::Config>`, or is `NoConfig`.
 - Dependencies are visible in the composition root and long-lived sources are in `subscriptions`.

@@ -1,6 +1,6 @@
 use glimpse_config::{Applet as AppletConfig, AppletKind};
-use glimpse_contracts::{KeyboardLayouts, LayoutRef};
 use glimpse_services::KeyboardHandle;
+use glimpse_services::{KeyboardLayouts, LayoutRef};
 use glimpse_widgets::{IndicatorSpec, KeyboardPopover};
 use gtk4::glib;
 

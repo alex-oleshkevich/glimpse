@@ -5,7 +5,7 @@ use std::time::Duration;
 use chrono::Utc;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, WeatherAppletConfig, WeatherPlace};
-use glimpse_contracts::{Condition, GeoCoordinates, PlaceWeather, UnitSystem, WatchedPlace};
+use glimpse_dbus::weather::{Condition, GeoCoordinates, PlaceWeather, UnitSystem, WatchedPlace};
 use glimpse_dbus::weather::{WeatherProviderHandle, WeatherProviderState};
 use glimpse_widgets::{IndicatorSpec, Severity, WeatherPopover};
 use gtk4::{gio, glib, prelude::*};
@@ -294,8 +294,8 @@ fn pair(coordinates: &GeoCoordinates) -> String {
 #[cfg(test)]
 mod tests {
     use chrono::TimeZone as _;
-    use glimpse_contracts::{AlertSeverity, CurrentWeather, GeoCoordinates, WeatherAlert};
     use glimpse_dbus::weather::WeatherProvider;
+    use glimpse_dbus::weather::{AlertSeverity, CurrentWeather, GeoCoordinates, WeatherAlert};
     use glimpse_widgets::Severity;
 
     use super::*;

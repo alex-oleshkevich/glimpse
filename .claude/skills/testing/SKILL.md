@@ -75,8 +75,8 @@ to agree at compile time — `const { assert!(...) }` compiles and never fires.
 `~/.config/glimpse/config.toml` is the user's own. Point every run at a scratch file:
 
 ```bash
-glimpsed --config "$SCRATCH/config.toml"     # replaces the whole stack, drop-ins included
-HOME="$SCRATCH/home" glimpsed                # a fake home, when drop-ins are the thing under test
+glimpse-panel --config "$SCRATCH/config.toml"  # replaces the whole stack, drop-ins included
+HOME="$SCRATCH/home" glimpse-panel            # a fake home, when drop-ins are the thing under test
 ```
 
 `--config` watches that file's *parent directory*, so redirecting the daemon's log into it makes

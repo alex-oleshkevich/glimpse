@@ -1,5 +1,5 @@
 use chrono::DateTime;
-use glimpse_contracts::{DoNotDisturb, NotificationRecord, NotificationUrgency};
+use glimpse_dbus::notifications::{DoNotDisturb, NotificationRecord, NotificationUrgency};
 use glimpse_dbus::notifications::{
     DoNotDisturbWire, GLIMPSE_NOTIFICATIONS_BUS_NAME, GLIMPSE_NOTIFICATIONS_OBJECT_PATH,
     NotificationWire, NotificationsSnapshot,
@@ -264,7 +264,7 @@ mod tests {
     use std::process::{Child, Command, Stdio};
 
     use chrono::{TimeZone, Utc};
-    use glimpse_contracts::NotificationAction;
+    use glimpse_dbus::notifications::NotificationAction;
     use glimpse_dbus::{Buses, notifications::Notifications1Proxy};
     use glimpse_services::{Notifications, Service, ServiceRuntime, initial_notifications_state};
     use tokio_util::sync::CancellationToken;

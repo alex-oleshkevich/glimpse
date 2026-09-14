@@ -17,7 +17,7 @@ compositor.focus_workspace(WorkspaceTarget::Next).await?;
 
 Both backends are Unix sockets carrying text — niri's is newline-delimited JSON, Hyprland's is a
 command language and a line-oriented event feed. No `wl_` object appears anywhere here, so the
-"anything touching a `wl_` object lives in `glimpsed/src/wayland/`" rule does not apply. That is the
+"anything touching a `wl_` object lives in the owning UI crate" rule does not apply. That is the
 first question a reader has, which is why it is the first section.
 
 ## Contents

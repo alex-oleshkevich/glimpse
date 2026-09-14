@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use gettextrs::gettext;
-use glimpse_contracts::{Playback, PlayerStatus};
+use glimpse_services::{Playback, PlayerStatus};
 
 pub fn position(player: &PlayerStatus, now: DateTime<Utc>) -> i64 {
     let advanced = match player.playback {
@@ -82,7 +82,7 @@ pub fn trimmed(rendered: &str, cap: usize) -> Option<String> {
 #[cfg(test)]
 pub(in crate::applets::mpris) mod tests {
     use chrono::TimeZone as _;
-    use glimpse_contracts::PlayerCapabilities;
+    use glimpse_services::PlayerCapabilities;
 
     use super::*;
 

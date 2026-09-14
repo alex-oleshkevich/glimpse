@@ -31,9 +31,7 @@ glib = { version = "0.22", features = ["v2_68"] }
 glib-build-tools = "0.22"
 glimpse-compositors = { path = "crates/glimpse-compositors" }
 glimpse-config = { path = "crates/glimpse-config" }
-glimpse-contracts = { path = "crates/glimpse-contracts" }
 glimpse-dbus = { path = "crates/glimpse-dbus" }
-glimpse-ipc = { path = "crates/glimpse-ipc" }
 glimpse-services = { path = "crates/glimpse-services" }
 glimpse-utils = { path = "crates/glimpse-utils" }
 glimpse-widgets = { path = "crates/glimpse-widgets" }
