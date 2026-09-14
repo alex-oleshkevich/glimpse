@@ -60,7 +60,11 @@ topics! {
     pub struct SessionStatus { locked: bool, private: bool }
 
     #[name = "solar.status"]
-    pub struct SolarStatus { phase: SolarPhase }
+    pub struct SolarStatus {
+        phase: SolarPhase,
+        #[serde(default)]
+        next_change: Option<DateTime<Utc>>,
+    }
 
     #[name = "geolocation.status"]
     pub struct GeolocationStatus { coordinates: Option<GeoCoordinates> }

@@ -2,13 +2,12 @@
 Description=Glimpse night light
 Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=glimpse-session.target
-After=glimpsed.service
-Wants=glimpsed.service
 StartLimitBurst=5
 StartLimitIntervalSec=60
 
 [Service]
-Type=exec
+Type=dbus
+BusName=me.aresa.Glimpse.NightLight
 ExecStart=/usr/bin/glimpse-sunset
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure

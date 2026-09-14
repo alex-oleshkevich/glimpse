@@ -111,6 +111,25 @@ mod tests {
     }
 
     #[test]
+    fn the_schema_accepts_both_fixed_coordinate_spellings() {
+        let schema: serde_json::Value =
+            serde_json::from_str(&crate::json_schema_document()).expect("the schema is JSON");
+        let tags = schema["$defs"]["Place"]["oneOf"]
+            .as_array()
+            .expect("place variants")
+            .iter()
+            .filter_map(|branch| {
+                branch
+                    .pointer("/properties/at/const")
+                    .and_then(serde_json::Value::as_str)
+            })
+            .collect::<Vec<_>>();
+
+        assert!(tags.contains(&"latlon"));
+        assert!(tags.contains(&"coordinates"));
+    }
+
+    #[test]
     fn every_key_and_enum_value_is_kebab_case() {
         let schema: serde_json::Value =
             serde_json::from_str(&crate::json_schema_document()).expect("the schema is JSON");
@@ -273,6 +292,24 @@ mod tests {
             toml::from_str::<Config>("[applets.weather.place]\nat = \"here\"\nlatitude = 54.6\n")
                 .is_err(),
             "`deny_unknown_fields` is what stops coordinates being written under the wrong shape"
+        );
+    }
+
+    #[test]
+    fn a_named_place_is_canonicalized_when_loaded() {
+        let document: Config = toml::from_str(
+            "[applets.weather]\nplace = { at = \"location\", name = \" Washington, D.C. , US \" }\n",
+        )
+        .expect("a named place");
+        let AppletKind::Weather(weather) = &document.applets["weather"].kind else {
+            panic!("the table names the weather applet");
+        };
+
+        assert_eq!(
+            weather.place,
+            applets::Place::Location {
+                name: "Washington, D.C., US".to_owned()
+            }
         );
     }
 

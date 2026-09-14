@@ -7,6 +7,7 @@ pub mod hostname1;
 pub mod login1;
 pub mod mpris;
 pub mod network_manager;
+pub mod night_light;
 pub mod notifications;
 pub mod portal_settings;
 pub mod power_profiles;

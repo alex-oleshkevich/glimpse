@@ -21,6 +21,7 @@ mod geolocation;
 mod heartbeat;
 mod keyboard;
 mod mpris;
+mod night_light;
 mod notifications;
 mod session;
 mod solar;
@@ -34,6 +35,10 @@ pub use geolocation::{Geolocation, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};
 pub use keyboard::{Dependencies as KeyboardDependencies, Keyboard, KeyboardHandle};
 pub use mpris::{Mpris, MprisHandle, initial_state as initial_mpris_state};
+pub use night_light::{
+    Config as NightLightConfig, Dependencies as NightLightDependencies, NightLight,
+    NightLightHandle, NightLightState, initial_state as initial_night_light_state,
+};
 pub use notifications::{
     Notifications, NotificationsHandle, NotificationsState,
     initial_state as initial_notifications_state,

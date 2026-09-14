@@ -1,4 +1,5 @@
 mod context;
+mod gamma;
 mod publisher;
 mod service;
 mod services;
@@ -10,6 +11,7 @@ mod testing;
 
 pub use {
     context::Ctx,
+    gamma::{FakeGamma, Gamma},
     publisher::Publisher,
     service::{
         CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError, ServiceRuntime,

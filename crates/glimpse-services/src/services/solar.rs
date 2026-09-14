@@ -148,27 +148,46 @@ impl Solar {
             return;
         };
         let now = Local::now();
-        if let Some(phase) = phase_at(now.with_timezone(&Utc), now.date_naive(), coordinates) {
-            self.status.set(Some(SolarStatus { phase }));
+        if let Some(status) = status_at(now.with_timezone(&Utc), now.date_naive(), coordinates) {
+            self.status.set(Some(status));
         }
     }
 }
 
 /// `None` only for coordinates out of range, which `geolocation` already refuses.
-fn phase_at(
+fn status_at(
     now: DateTime<Utc>,
     date: NaiveDate,
     coordinates: &GeoCoordinates,
-) -> Option<SolarPhase> {
+) -> Option<SolarStatus> {
     // Both events are offsets from the same solar noon, so sunrise precedes sunset by construction.
-    let phase = match crate::sun::events(coordinates, date)? {
-        (Some(sunrise), Some(sunset)) => match (sunrise..sunset).contains(&now) {
-            true => SolarPhase::Day,
-            false => SolarPhase::Night,
+    let status = match crate::sun::events(coordinates, date)? {
+        (Some(sunrise), Some(sunset)) => match (now < sunrise, now < sunset) {
+            (true, _) => SolarStatus {
+                phase: SolarPhase::Night,
+                next_change: Some(sunrise),
+            },
+            (false, true) => SolarStatus {
+                phase: SolarPhase::Day,
+                next_change: Some(sunset),
+            },
+            (false, false) => SolarStatus {
+                phase: SolarPhase::Night,
+                next_change: next_sunrise(coordinates, date),
+            },
         },
-        _ => polar_phase(date, coordinates.latitude),
+        _ => SolarStatus {
+            phase: polar_phase(date, coordinates.latitude),
+            next_change: None,
+        },
     };
-    Some(phase)
+    Some(status)
+}
+
+/// Tomorrow's sunrise, and `None` where tomorrow has none — so a consumer reads "the phase does not
+/// change" rather than a time that never arrives.
+fn next_sunrise(coordinates: &GeoCoordinates, date: NaiveDate) -> Option<DateTime<Utc>> {
+    crate::sun::events(coordinates, date.succ_opt()?)?.0
 }
 
 /// Above the polar circles a date has neither event, and which way it goes follows from whether
@@ -218,6 +237,14 @@ mod tests {
             .expect("one instant")
     }
 
+    fn phase_at(
+        now: DateTime<Utc>,
+        date: NaiveDate,
+        coordinates: &GeoCoordinates,
+    ) -> Option<SolarPhase> {
+        status_at(now, date, coordinates).map(|status| status.phase)
+    }
+
     #[test]
     fn midday_is_day_and_the_hours_either_side_of_it_are_night() {
         assert_eq!(
@@ -231,6 +258,38 @@ mod tests {
         assert_eq!(
             phase_at(on_midsummer(23, 0), midsummer(), &LONDON),
             Some(SolarPhase::Night)
+        );
+    }
+
+    /// The instant a night-light ramp is anchored on. Each of the three arms answers with a
+    /// different event, and the last one has to leave today altogether.
+    #[test]
+    fn the_next_change_is_the_boundary_still_ahead() {
+        let (sunrise, sunset) = crate::sun::events(&LONDON, midsummer()).expect("in range");
+        let sunrise = sunrise.expect("London has a sunrise in June");
+        let sunset = sunset.expect("London has a sunset in June");
+        let minute = TimeDelta::minutes(1);
+        let next = |now| {
+            status_at(now, midsummer(), &LONDON)
+                .expect("in range")
+                .next_change
+        };
+
+        assert_eq!(next(sunrise - minute), Some(sunrise));
+        assert_eq!(next(sunrise + minute), Some(sunset));
+        let tomorrow = next(sunset + minute).expect("tomorrow rises too");
+        assert!(tomorrow > sunset, "the boundary is always still ahead");
+    }
+
+    /// Neither event exists, so there is no instant to name. `None` is the answer rather than a
+    /// missing one: above the polar circles the phase genuinely does not change today.
+    #[test]
+    fn a_polar_date_has_no_next_change() {
+        assert_eq!(
+            status_at(on_midsummer(2, 0), midsummer(), &SVALBARD)
+                .expect("in range")
+                .next_change,
+            None
         );
     }
 

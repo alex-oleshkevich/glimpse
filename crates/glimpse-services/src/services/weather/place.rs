@@ -55,7 +55,7 @@ async fn forward(client: &reqwest::Client, name: &str) -> Result<ResolvedPlace, 
         .results
         .into_iter()
         .next()
-        .ok_or_else(|| format!("no location matches {name}"))?;
+        .ok_or("no location matches the requested city and country")?;
 
     Ok(ResolvedPlace {
         coordinates: GeoCoordinates {

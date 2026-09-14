@@ -413,7 +413,12 @@ async fn follow_provider(
                     let Ok(args) = owner.args() else {
                         continue;
                     };
-                    if args.name().as_str() == GLIMPSE_WEATHER_BUS_NAME {
+                    // `old_owner` is what makes this a disconnect. Without it the signal that
+                    // GAVE the provider its name reads as losing one, and a follower that has just
+                    // connected tears itself down and reconnects for nothing.
+                    if args.name().as_str() == GLIMPSE_WEATHER_BUS_NAME
+                        && args.old_owner().is_some()
+                    {
                         break match args.new_owner().is_some() {
                             true => "provider owner changed",
                             false => "provider has no bus owner",

@@ -1,5 +1,5 @@
 use clap::Parser;
-use glimpse_utils::{ConfigArg, LogArgs, SocketArg};
+use glimpse_utils::{ConfigArg, LogArgs};
 use shadow_rs::shadow;
 
 shadow!(build);
@@ -13,9 +13,6 @@ shadow!(build);
 pub struct Cli {
     #[command(flatten)]
     pub config: ConfigArg,
-
-    #[command(flatten)]
-    pub socket: SocketArg,
 
     #[command(flatten)]
     pub log: LogArgs,

@@ -249,6 +249,7 @@ pub struct Weather {
 /// place reads the same in a document and on the wire.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "at", rename_all = "kebab-case", deny_unknown_fields)]
+#[schemars(transform = coordinate_alias)]
 pub enum Place {
     /// Follow the geolocation service, and move with it.
     Here {},
@@ -266,6 +267,32 @@ pub enum Place {
         /// City and country code, written as `City, CC`.
         name: String,
     },
+}
+
+fn coordinate_alias(schema: &mut Schema) {
+    let Some(branches) = schema
+        .get_mut("oneOf")
+        .and_then(serde_json::Value::as_array_mut)
+    else {
+        return;
+    };
+    let Some(mut alias) = branches
+        .iter()
+        .find(|branch| {
+            branch
+                .pointer("/properties/at/const")
+                .and_then(serde_json::Value::as_str)
+                == Some("latlon")
+        })
+        .cloned()
+    else {
+        return;
+    };
+    let Some(tag) = alias.pointer_mut("/properties/at/const") else {
+        return;
+    };
+    *tag = serde_json::Value::String("coordinates".to_owned());
+    branches.push(alias);
 }
 
 /// Settings for the pager applet.
@@ -433,8 +460,9 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
         .entry("extends")
         .or_insert_with(|| toml::Value::String(name.to_owned()));
     let keys: Vec<String> = table.keys().cloned().collect();
-    let kind = Kind::deserialize(table).map_err(|error| name_the_common_settings(error, &keys))?;
-    on_earth(&kind)?;
+    let mut kind =
+        Kind::deserialize(table).map_err(|error| name_the_common_settings(error, &keys))?;
+    on_earth(&mut kind)?;
     Ok(Applet {
         common,
         kind,
@@ -444,11 +472,11 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
 
 /// The wire refuses these too, but a document saying so at load names the table and the key rather
 /// than failing a `WatchPlace` call nobody is making.
-fn on_earth(kind: &Kind) -> Result<(), toml::de::Error> {
+fn on_earth(kind: &mut Kind) -> Result<(), toml::de::Error> {
     let Kind::Weather(weather) = kind else {
         return Ok(());
     };
-    match &weather.place {
+    match &mut weather.place {
         Place::Coordinates {
             latitude,
             longitude,
@@ -465,7 +493,7 @@ fn on_earth(kind: &Kind) -> Result<(), toml::de::Error> {
             }
         }
         Place::Location { name } => {
-            let Some((city, country_code)) = name.split_once(',') else {
+            let Some((city, country_code)) = name.rsplit_once(',') else {
                 return Err(toml::de::Error::custom(
                     "location must be written as `City, CC`",
                 ));
@@ -481,6 +509,7 @@ fn on_earth(kind: &Kind) -> Result<(), toml::de::Error> {
                     "location must be written as `City, CC`, with a city of at most 100 characters and a two-letter uppercase country code",
                 ));
             }
+            *name = format!("{city}, {country_code}");
         }
         Place::Here {} => {}
     }

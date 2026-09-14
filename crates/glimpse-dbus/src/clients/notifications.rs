@@ -318,7 +318,10 @@ async fn follow_provider(
                     let Ok(args) = owner.args() else {
                         continue;
                     };
-                    if args.name().as_str() == GLIMPSE_NOTIFICATIONS_BUS_NAME {
+                    // `old_owner` is what makes this a disconnect; see the weather client.
+                    if args.name().as_str() == GLIMPSE_NOTIFICATIONS_BUS_NAME
+                        && args.old_owner().is_some()
+                    {
                         break;
                     }
                 }

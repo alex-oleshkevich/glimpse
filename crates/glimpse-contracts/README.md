@@ -33,7 +33,7 @@ that disagrees with its type:
 ```rust
 topics! {
     #[name = "solar.status"]
-    pub struct SolarStatus { phase: SolarPhase }
+    pub struct SolarStatus { phase: SolarPhase, next_change: Option<DateTime<Utc>> }
 }
 ```
 

@@ -29,14 +29,30 @@ A missing fix, a refused request or out-of-range coordinates leave the service `
 publishing `None`. A `manual` table *missing* a coordinate is not among them — `[geolocation]` is a
 tagged enum, so that document never loads.
 
+## The gamma backend
+
+`trait Gamma` is declared here and implemented in `glimpse-sunset`, because this crate is linked
+into `glimpse-panel` and `glimpsed` and neither may gain a Wayland dependency. It is **synchronous**:
+the one real implementation is a Wayland roundtrip that blocks and says so with `block_in_place`
+itself, and a synchronous signature is dyn-compatible — which is what lets `NightLight` be a plain
+service taking `Box<dyn Gamma>` rather than a generic one whose parameter would reach its handle,
+its provider and two crates' tests.
+
+`FakeGamma` sits beside the declaration rather than behind `#[cfg(test)]`, because `glimpse-sunset`'s
+tests are a separate compilation unit. The cost is that `glimpse-panel` and `glimpsed` link a mock
+they can never use; it is a few dozen bytes, and the alternative is a feature flag for one type.
+
 ## The solar service
 
-`solar.status` carries one field, `phase` — no sunrise timestamps, no colour temperature. It follows
-`geolocation.status`, recomputes on every location and once a minute after, and declares its timer
-only while it holds coordinates.
+`solar.status` carries `phase` and `next_change` — the instant that phase flips — and no color
+temperature, which is the night light's to decide. It follows `geolocation.status`, recomputes on
+every location and once a minute after, and declares its timer only while it holds coordinates.
 
+- **`next_change` is always still ahead**, so after sunset it names tomorrow's sunrise rather than
+  today's. A consumer ramping toward the boundary needs no history and no midnight special case.
 - **Above the polar circles a date has neither event**, so the phase falls back to the sign of the
-  solar declination against the sign of the latitude.
+  solar declination against the sign of the latitude, and `next_change` is `None` — the phase
+  genuinely does not change that day.
 - **Without a location it publishes nothing** and reports `degraded`. `Day` is not a safe guess to
   make at three in the morning.
 

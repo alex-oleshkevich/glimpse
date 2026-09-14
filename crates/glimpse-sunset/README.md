@@ -1,36 +1,85 @@
 # glimpse-sunset
 
-The night-light binary: applies a color temperature to every output on a schedule the daemon
-computes.
+The night light: it owns `[night-light]`, follows the solar phase, and applies a color temperature
+to every output through `zwlr_gamma_control_unstable_v1`. It exports what it is doing on
+`me.aresa.Glimpse.NightLight1` and takes no orders over that interface.
 
 ## Contents
 
 - `main.rs` — `run(cli) -> anyhow::Result<()>`, with `main` turning the outcome into an `ExitCode`
+- `errors.rs` — the exit codes and the single `downcast_ref` that maps an error onto one
 - `cli.rs` — the argument surface, flattening the shared structs from `glimpse-utils`
+- `services.rs` — the composition root, where the start order is the whole of the design
+- `gamma.rs` — the Wayland half, and the only file in the tree that binds a `wl_` object outside a
+  UI crate
+- `provider.rs` — the `me.aresa.Glimpse.NightLight1` object and the task that signals its changes
 
-## Status
+## Where the decisions live
 
-A stub. `run` loads the configuration and opens a client with `Client::open`, which reconnects on
-its own and survives a daemon that is not up yet. Nothing reads a topic through it: the schedule
-this binary renders is `solar.status`, and subscribing to it is pointless until there is gamma
-control to apply the phase to. The client is bound to `_client` so it lives to the end of `run` —
-the connection task stops when the last handle drops.
+The state machine is **not here**. `glimpse-services/src/services/night_light.rs` holds it, because
+that is what makes it testable without a compositor: the whole schedule, both ramps and every
+degraded state are exercised against `FakeGamma` in a headless test. This crate supplies the one
+implementation of `trait Gamma` that talks to a real compositor, and a composition root.
 
-What it does do is reload: the document is re-read through `glimpse_config::watch_config`, so both
-`SIGHUP` and a change under the configuration directory apply it, and `glimpse-sunset.service`
-carries `ExecReload=`. That is parity with the other four long-lived binaries rather than growth —
-the loop is the same handful of lines each of them has, and it goes with the crate if the crate
-goes.
-
-**Whether this crate should exist at all is an open question.** It was once decided that night light
-becomes a daemon service and this binary goes, but the crate is still in the workspace and
-`glimpsed`'s packaging assets still ship the binary. Resolve that before building anything on it.
-Do not grow this crate while the question is open.
+The schedule is not this binary's to compute either. `solar` publishes `phase` and `next_change`,
+and the night light ramps toward that instant. `[night-light] schedule = "schedule"` is the manual
+alternative, computed from `start-time` and `end-time` in the machine's own zone.
 
 ## Rules
 
-Gamma control is exclusive — one client at a time. A user already running `wlsunset`, `gammastep`
-or `hyprsunset` is the case to detect and step aside from, rather than flicker against.
+**The ramp completes at the boundary.** Approaching sunset the screen reaches the night temperature
+*at* sunset, rather than starting to warm there. That is what lets the service read one instant —
+`next_change` — instead of remembering the last one, and it removes the midnight rollover entirely.
+The visible cost is that a `transition-minutes` of 15 begins warming a quarter of an hour before the
+sun is down.
 
-The schedule is not this binary's to compute. `solar` derives sunrise and sunset from the location
-and publishes them as a topic; this binary renders that decision and holds no schedule of its own.
+**A night shorter than the transition never reaches full temperature.** Above about fifty degrees in
+June the two ramps overlap; the formula still answers at every instant, and the honest result is a
+partial ramp rather than a jump. There is a test for it.
+
+**The D-Bus name is taken before gamma control is.** Building a `ServiceRuntime` allocates channels
+and nothing else, so every handle exists before anything has a side effect; the object is exported
+and the name requested next; only then is gamma taken and the services started. A second copy of
+this binary therefore fails without ever touching the outputs the running one holds. Two details are
+load-bearing: the object is exported *before* the name is requested, or a `Get` arriving between the
+two finds a name with no object behind it — zbus warns about exactly this; and the name is requested
+with `DoNotQueue` and without `AllowReplacement`, because plain `request_name` lets a duplicate
+silently steal the name and leave the first process applying gamma and unreachable. Both were
+measured, not feared.
+
+**Gamma control is exclusive — one client at a time.** A user already running `wlsunset`,
+`gammastep` or `hyprsunset` makes every output answer `failed`, and the service reports
+`degraded: another gamma client holds the outputs` and stops there. It does **not** retry in a spin;
+the next scheduled tick tries again, which is a probe once a minute rather than a flicker. An output
+plugged in later is picked up the same way — the registry event arrives on the roundtrip a tick
+already does, so there is no timer behind hotplug either.
+
+**The ramp table is a `memfd`, never a file.** `set_gamma` wants a descriptor, so a path in `/tmp`
+would only be something to unlink again; `memfd_create` has no name in any directory, no window
+where one exists, and no dependence on `TMPDIR` being writable.
+
+**A clean stop hands the outputs back; a `SIGKILL` cannot.** `Service::stop` calls `Gamma::reset`,
+which destroys the controls and returns the display to the compositor's own ramp. A killed process
+leaves the last ramp applied until something else takes gamma control — that is a property of the
+protocol, not a bug to guard against, and `systemctl --user restart glimpse-sunset` is the cure.
+
+**`Off` releases rather than applying 6500K.** The compositor's own ramp is not necessarily neutral,
+so pinning it at daylight is still holding it.
+
+**`serving` is what says whether to believe `temperature`.** When an apply fails the snapshot keeps
+the last value it managed to set, exactly as the weather provider keeps its last reading — so a
+consumer that reads `temperature` without reading `serving` will show a color nothing is applying.
+The alternative, blanking the fields, throws away the only information there is about what the
+screen probably looks like.
+
+## Starting it
+
+`Type=dbus` on `me.aresa.Glimpse.NightLight`, started by `glimpse-session.target`. It needs no
+daemon: the process exits with code 1 if the compositor offers no `zwlr_gamma_control_manager_v1`,
+because without it there is nothing for this binary to do.
+
+**There is deliberately no D-Bus activation file.** Nothing activates this name on demand yet, and
+an activation outside a graphical session would exit 1 every time — five of those inside
+`StartLimitIntervalSec` put the unit in a failed state that blocks the next real start until
+`systemctl --user reset-failed`. Add the activation file in the change that adds the first consumer,
+not before.

@@ -124,7 +124,8 @@ fn session_target_is_the_only_graphical_session_entrypoint() {
                 .lines()
                 .any(|line| { line.starts_with("PropagatesReloadTo=") && line.contains(&name) })
         );
-        if !matches!(member, "glimpsed" | "glimpse-notifications") {
+        // Named positively, because the list of units still reaching the daemon only shrinks.
+        if matches!(member, "glimpse-panel" | "glimpse-wallpaper") {
             assert!(unit.contains("After=glimpsed.service"), "{name}");
             assert!(unit.contains("Wants=glimpsed.service"), "{name}");
         }
