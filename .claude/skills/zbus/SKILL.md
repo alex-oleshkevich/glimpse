@@ -140,7 +140,7 @@ panic and it does not exit — see invariant 5 in `specs/001_architecture.md`.
 - No `zbus::blocking::*` anywhere. It should not compile; if it does, the features are wrong.
 - Every proxy is built once and stored, not built per call.
 - Every mirror service enumerates once and then follows signals.
-- No `unwrap()` or `expect()` on a bus result in the broker or a handler.
+- No `unwrap()` or `expect()` on a bus result in a handler or a provider's object-server method.
 - Every handler that makes a D-Bus call either returns promptly or moves its `Responder` into
   `ctx.spawn`.
 - Strings taken off the bus are length-capped before publication.

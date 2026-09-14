@@ -298,9 +298,9 @@ mod tests {
     #[test]
     fn notification_width_and_popup_frame_match_the_measured_surface() {
         assert!(BUILTIN.contains(
-            ".notifications-popover .popover-shell,\n.notification {\n    min-width: 34rem;\n}"
+            ".notifications-popover .popover-shell,\n.notification {\n    min-width: 40rem;\n}"
         ));
-        assert_eq!(BUILTIN.matches("min-width: 34rem;").count(), 1);
+        assert_eq!(BUILTIN.matches("min-width: 40rem;").count(), 1);
         assert!(!BUILTIN.contains("min-width: 42rem;"));
         assert!(BUILTIN.contains("--gl-popup-motion: 0.75rem;"));
         assert!(BUILTIN.contains("--gl-popup-paint-outset: 2.5rem;"));

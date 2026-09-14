@@ -25,6 +25,7 @@ fn run(cli: &Cli) -> Result<()> {
     init_app_tracing(&cli.log.log, cli.log.log_format);
     let config = glimpse_config::load(cli.config.as_deref())?;
     init_translations(config.regional.language());
+    glimpse_widgets::report_session_bus_loss();
 
     let threads = std::env::var("GLIMPSE_THREADS")
         .ok()

@@ -11,6 +11,31 @@ pub const ALERT_ICON: &str = "dialog-warning-symbolic";
 /// something worth interrupting the popover for.
 const NOWCAST: i64 = 180;
 
+#[cfg(test)]
+pub(crate) const EVERY: [Condition; 21] = [
+    Condition::ClearSky,
+    Condition::MainlyClear,
+    Condition::PartlyCloudy,
+    Condition::Overcast,
+    Condition::Fog,
+    Condition::Drizzle,
+    Condition::FreezingDrizzle,
+    Condition::LightRain,
+    Condition::Rain,
+    Condition::HeavyRain,
+    Condition::FreezingRain,
+    Condition::LightSnow,
+    Condition::Snow,
+    Condition::HeavySnow,
+    Condition::SnowGrains,
+    Condition::Sleet,
+    Condition::RainShowers,
+    Condition::SnowShowers,
+    Condition::Thunderstorm,
+    Condition::ThunderstormWithHail,
+    Condition::Unknown,
+];
+
 pub fn icon(condition: Condition, is_day: bool) -> &'static str {
     match (condition, is_day) {
         (Condition::ClearSky, true) => "weather-clear-symbolic",
@@ -41,7 +66,7 @@ pub fn icon(condition: Condition, is_day: bool) -> &'static str {
             _,
         ) => "weather-snow-symbolic",
         (Condition::Thunderstorm | Condition::ThunderstormWithHail, _) => "weather-storm-symbolic",
-        (Condition::Unknown, _) => "weather-none-available-symbolic",
+        (Condition::Unknown, _) => "weather-severe-alert-symbolic",
     }
 }
 
@@ -385,29 +410,6 @@ mod tests {
 
     use super::*;
 
-    const EVERY: [Condition; 21] = [
-        Condition::ClearSky,
-        Condition::MainlyClear,
-        Condition::PartlyCloudy,
-        Condition::Overcast,
-        Condition::Fog,
-        Condition::Drizzle,
-        Condition::FreezingDrizzle,
-        Condition::LightRain,
-        Condition::Rain,
-        Condition::HeavyRain,
-        Condition::FreezingRain,
-        Condition::LightSnow,
-        Condition::Snow,
-        Condition::HeavySnow,
-        Condition::SnowGrains,
-        Condition::Sleet,
-        Condition::RainShowers,
-        Condition::SnowShowers,
-        Condition::Thunderstorm,
-        Condition::ThunderstormWithHail,
-        Condition::Unknown,
-    ];
 
     fn at(hour: u32, minute: u32) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(2026, 9, 8, hour, minute, 0)

@@ -392,6 +392,15 @@ constant's first consumer, and the pair is read together: if the tick slows, `LE
 The typed handle call is fire-and-forget from GTK, which is right — a refused renewal (the
 eight-place cap) is nothing the applet could act on, and the next tick retries.
 
+**A fixed place still missing a whole tick after the provider took the name gets a warning chip.**
+Rendering nothing is the deliberate answer for a place with no reading yet, and it must stay that
+way: `here` may legitimately never resolve, and a place that has simply not been fetched is missing
+for well under a tick. But a provider that holds the name, reports itself available and serves none
+of the place we asked for is a different thing, and the applet used to vanish from the bar for it —
+measured under `glimpse-kyt0.9.2` against a provider that never answered `WatchPlace`, where the
+chip disappeared while the renewal failed every five seconds. `note_unserved` runs on the tick
+rather than on the snapshot, which is what keeps the ordinary startup gap from flashing a warning.
+
 **Units come off the typed provider snapshot, never off the panel configuration.**
 `WeatherStatus.units` describes the numbers being rendered, so a units change cannot print °F over
 a Celsius reading while the updated snapshot is in flight.
@@ -543,6 +552,21 @@ construction; `readout()` still hands out `(&str, &str)`, so no caller changed.
 
 With no catalog loaded, `gettext` returns its own msgid. Every existing assertion on this wording
 keeps passing unchanged, which is why these functions needed no test edits.
+
+## Losing the session bus ends the process, and says so
+
+GLib sets `exit_on_close` on the connection `g_bus_get` returns, and its close handler calls
+`raise(SIGTERM)`. So a panel whose session bus dies terminates with exit 143 no matter what this
+crate does — measured under `glimpse-kyt0.9.3`, where it also left **nothing at all** in the log and
+the bar simply disappeared. `report_session_bus_loss` connects the `closed` signal before that
+handler runs and logs the reason, which turns an unexplained vanishing into one line. All four GTK
+binaries call it.
+
+**`Restart=on-failure` deliberately does not cover this.** systemd's `on-failure` excludes SIGTERM,
+so the unit will not come back — and that is correct in both cases that reach it: a session bus that
+died is a session that is ending, and an ordinary `systemctl stop` is the same signal. There is no
+case where restarting after a SIGTERM is wanted, so the policy stays and only the silence was the
+defect.
 
 ## Rules
 

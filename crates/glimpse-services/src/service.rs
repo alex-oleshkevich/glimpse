@@ -18,16 +18,6 @@ pub enum ServiceState {
     Stopped { reason: Option<String> },
 }
 
-impl ServiceState {
-    /// Whether a topic this service owns should be marked `stale`.
-    ///
-    /// `stale` means the producer is not running at all, not that it is running badly: a degraded
-    /// service keeps publishing what it can, so its values are current and must not be dimmed.
-    pub fn is_stale(&self) -> bool {
-        !matches!(self, Self::Running | Self::Degraded { .. })
-    }
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
     #[error("service failed to start")]
@@ -331,7 +321,7 @@ mod tests {
         type Config = NoConfig;
         type State = ();
         type Handle = ServiceEndpoint<Self>;
-        type Command = ();
+        type Command = tokio::sync::oneshot::Sender<()>;
         type Event = ();
         type Dependencies = ();
         type SubKey = ();
@@ -374,6 +364,32 @@ mod tests {
             &*handle.health().borrow(),
             ServiceState::Stopped { reason: Some(reason) } if reason.contains("unrepeatable")
         ));
+    }
+
+    #[tokio::test]
+    async fn a_command_queued_behind_a_panicking_handler_is_settled_rather_than_left_waiting() {
+        let (mut runtime, handle) = ServiceRuntime::<Panicky>::new(
+            (),
+            Buses::unavailable("no bus in tests"),
+            CancellationToken::new(),
+        );
+        runtime
+            .sender()
+            .send(Input::Event(()))
+            .await
+            .expect("queued");
+        let (reply, answer) = tokio::sync::oneshot::channel();
+        handle.command(reply).expect("queued");
+
+        runtime
+            .run(NoConfig, ())
+            .await
+            .expect("run returns rather than unwinding");
+
+        let settled = tokio::time::timeout(std::time::Duration::from_secs(1), answer)
+            .await
+            .expect("a caller is not left waiting on a service that already stopped");
+        assert!(settled.is_err(), "the responder is dropped, not answered");
     }
 
     #[derive(Debug, Clone, PartialEq)]

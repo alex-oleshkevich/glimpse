@@ -6,7 +6,7 @@ mod mpris;
 mod next_event;
 mod notifications;
 mod pager;
-mod weather;
+pub(crate) mod weather;
 
 use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
 use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};

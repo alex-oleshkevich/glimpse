@@ -505,6 +505,14 @@ Commands are ordinary Rust variants with typed arguments and command-specific on
 handle method offers the command through `ServiceEndpoint::command`, then awaits its typed result;
 full or closed inboxes return `CommandError::Unavailable`.
 
+A service's health is `Starting`, `Running`, `Degraded { reason }` or `Stopped { reason }`.
+**`Degraded` is a running service** — it keeps publishing what it can, so its values are current and
+a consumer must not dim them. That a producer has stopped altogether reaches a consumer as
+`Sub::watch`'s closed-producer event rather than as a predicate over health: the event arrives once,
+at the moment it becomes true, where a flag has to be remembered and re-read. A flag-shaped answer
+to this question sat unused in `ServiceState` until September 2026 and was deleted rather than
+wired, because wiring it would have given consumers a second, lagging source of the same fact.
+
 Everything reaching a handler arrives from a **source**, and every source is one `ctx` call
 returning a `SourceGuard`. Dropping the guard is the whole cancellation story.
 

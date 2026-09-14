@@ -16,7 +16,7 @@ fixed in the `justfile` rather than worked around with a raw `cargo` invocation.
 | The code touches | Tier | Recipe |
 | --- | --- | --- |
 | Nothing but data | plain `#[test]` | `just test`, `just test-crate <crate>` |
-| tokio, a mock broker, a mock bus | `#[tokio::test]` | same |
+| tokio, a fake dependency handle, a mock bus | `#[tokio::test]` | same |
 | GTK widgets | one `#[test] #[ignore]` per crate | `just test-compositor` |
 | A live Wayland session | `#[ignore]`, documented as manual | `just test-compositor` |
 
@@ -65,10 +65,12 @@ as uncovered until it gets there.
 
 ## Services
 
-`just test-crate glimpse-services` runs every service against mocks with no display, no session bus
-and no broker. `MockBroker` is the no-broker case, `Buses::unavailable("...")` the no-bus one. Every
-service carries `assert_declarations::<S>()`, because `TOPICS`, `METHODS` and `decode` are not made
-to agree at compile time — `const { assert!(...) }` compiles and never fires.
+`just test-crate glimpse-services` runs every service headlessly, with no display and no live bus.
+`Buses::unavailable("...")` is the no-bus case, and a dependency is supplied as a fake typed handle
+rather than by starting its producer. A service's topics, methods and payload decoding were once
+declared as constants that nothing made agree at compile time; they are now the service's own
+`State`, `Command` and `Event` types, so the compiler is the check and no assertion stands in for
+it.
 
 ## Never test against the live configuration
 

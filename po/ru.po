@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-13 23:00+0200\n"
+"POT-Creation-Date: 2026-09-14 22:43+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -19,8 +19,8 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: crates/glimpse-notifications/src/app.rs:430
-#: crates/glimpse-panel/src/applets/notifications/render.rs:73
+#: crates/glimpse-notifications/src/app.rs:435
+#: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr "сейчас"
 
@@ -90,19 +90,19 @@ msgstr "{days} д {hours} ч"
 msgid "Open {player}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/mpris/render.rs:35
+#: crates/glimpse-panel/src/applets/mpris/render.rs:32
 #, fuzzy
 #| msgid "Play"
 msgid "Playing"
 msgstr "Воспроизвести"
 
-#: crates/glimpse-panel/src/applets/mpris/render.rs:36
+#: crates/glimpse-panel/src/applets/mpris/render.rs:33
 #, fuzzy
 #| msgid "Pause"
 msgid "Paused"
 msgstr "Пауза"
 
-#: crates/glimpse-panel/src/applets/mpris/render.rs:37
+#: crates/glimpse-panel/src/applets/mpris/render.rs:34
 msgid "Stopped"
 msgstr ""
 
@@ -131,50 +131,54 @@ msgstr "ч"
 msgid "d"
 msgstr "д"
 
-#: crates/glimpse-panel/src/applets/notifications/indicator.rs:214
+#: crates/glimpse-panel/src/applets/notifications/indicator.rs:215
 msgid "Clear all"
 msgstr "Очистить все"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:52
+#: crates/glimpse-panel/src/applets/notifications/render.rs:53
 msgid "Do not disturb"
 msgstr "Не беспокоить"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:54
+#: crates/glimpse-panel/src/applets/notifications/render.rs:55
 msgid "{count} waiting, do not disturb is on"
 msgid_plural "{count} waiting, do not disturb is on"
 msgstr[0] "{count} ожидает, режим «Не беспокоить» включён"
 msgstr[1] "{count} ожидают, режим «Не беспокоить» включён"
 msgstr[2] "{count} ожидают, режим «Не беспокоить» включён"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:59
+#: crates/glimpse-panel/src/applets/notifications/render.rs:60
 msgid "No new notifications"
 msgstr "Нет новых уведомлений"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:61
+#: crates/glimpse-panel/src/applets/notifications/render.rs:62
 msgid "{count} new notification"
 msgid_plural "{count} new notifications"
 msgstr[0] "{count} новое уведомление"
 msgstr[1] "{count} новых уведомления"
 msgstr[2] "{count} новых уведомлений"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:76
+#: crates/glimpse-panel/src/applets/notifications/render.rs:77
 msgid "{count}m"
 msgstr "{count} мин"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:79
+#: crates/glimpse-panel/src/applets/notifications/render.rs:80
 msgid "{count}h"
 msgstr "{count} ч"
 
-#: crates/glimpse-panel/src/applets/notifications/render.rs:81
+#: crates/glimpse-panel/src/applets/notifications/render.rs:82
 msgid "{count}d"
 msgstr "{count} д"
 
-#: crates/glimpse-panel/src/applets/weather/mod.rs:176
+#: crates/glimpse-panel/src/applets/weather/mod.rs:203
+msgid "The weather provider is not serving this place."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/weather/mod.rs:232
 msgid "Here"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/weather/mod.rs:187
-#: crates/glimpse-panel/src/applets/weather/mod.rs:221
+#: crates/glimpse-panel/src/applets/weather/mod.rs:249
+#: crates/glimpse-panel/src/applets/weather/mod.rs:285
 msgid "No reading yet"
 msgstr ""
 
@@ -411,7 +415,7 @@ msgstr "Всё просмотрено."
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:136
+#: crates/glimpse-widgets/src/lib.rs:138
 msgid "Play"
 msgstr "Воспроизвести"
 
@@ -435,7 +439,7 @@ msgstr "Повтор"
 msgid "Workspaces"
 msgstr "Рабочие столы"
 
-#: crates/glimpse-widgets/src/lib.rs:135
+#: crates/glimpse-widgets/src/lib.rs:137
 msgid "Pause"
 msgstr "Пауза"
 

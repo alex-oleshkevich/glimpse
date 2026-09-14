@@ -422,6 +422,7 @@ async fn follow_provider(
         Ok(dbus) => dbus,
         Err(error) => {
             updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+            tracing::warn!(%error, "cannot observe the notifications provider owner");
             return;
         }
     };
@@ -429,6 +430,7 @@ async fn follow_provider(
         Ok(owners) => owners,
         Err(error) => {
             updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+            tracing::warn!(%error, "cannot observe notifications provider owner changes");
             return;
         }
     };
@@ -443,6 +445,10 @@ async fn follow_provider(
             Err(error) => {
                 *current.write().await = None;
                 updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+                tracing::debug!(
+                    reason = %error,
+                    "notifications provider has no owner; waiting"
+                );
                 if !wait_for_owner(&mut owners).await {
                     return;
                 }
@@ -451,30 +457,41 @@ async fn follow_provider(
         };
         let mut snapshots = proxy.receive_snapshot_changed().await;
         let snapshot = match proxy.cached_snapshot() {
-            Ok(Some(snapshot)) => snapshot,
+            Ok(Some(snapshot)) => Some(snapshot),
             Ok(None) => match proxy.snapshot().await {
-                Ok(snapshot) => snapshot,
+                Ok(snapshot) => Some(snapshot),
                 Err(error) => {
                     updates
                         .send_replace(NotificationsProviderState::unavailable(error.to_string()));
                     *current.write().await = None;
-                    if !wait_for_owner(&mut owners).await {
-                        return;
-                    }
-                    continue;
+                    tracing::warn!(reason = %error, "notifications snapshot is unavailable");
+                    None
                 }
             },
             Err(error) => {
                 updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
                 *current.write().await = None;
-                if !wait_for_owner(&mut owners).await {
-                    return;
-                }
-                continue;
+                tracing::warn!(reason = %error, "notifications property cache is unavailable");
+                None
             }
         };
-        *current.write().await = Some(proxy.clone());
-        updates.send_replace(NotificationsProviderState::decoded(snapshot));
+        let mut serving = match snapshot {
+            Some(snapshot) => {
+                *current.write().await = Some(proxy.clone());
+                let state = NotificationsProviderState::decoded(snapshot);
+                tracing::info!(
+                    serving = state.view.as_ref().is_some_and(|view| view.serving),
+                    held = state
+                        .view
+                        .as_ref()
+                        .map_or(0, |view| view.notifications.len()),
+                    "notifications provider connected"
+                );
+                updates.send_replace(state);
+                true
+            }
+            None => false,
+        };
 
         loop {
             tokio::select! {
@@ -484,11 +501,28 @@ async fn follow_provider(
                     };
                     match changed.get().await {
                         Ok(snapshot) => {
-                            updates.send_replace(NotificationsProviderState::decoded(snapshot));
+                            if !serving {
+                                *current.write().await = Some(proxy.clone());
+                                serving = true;
+                                tracing::info!(
+                                    "notifications provider recovered without changing owner"
+                                );
+                            }
+                            let state = NotificationsProviderState::decoded(snapshot);
+                            tracing::debug!(
+                                serving = state.view.as_ref().is_some_and(|view| view.serving),
+                                held = state.view.as_ref().map_or(0, |view| view.notifications.len()),
+                                "notifications snapshot changed"
+                            );
+                            updates.send_replace(state);
                         }
                         Err(error) => {
                             updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
-                            break;
+                            tracing::warn!(reason = %error, "notifications snapshot change failed");
+                            if serving {
+                                *current.write().await = None;
+                                serving = false;
+                            }
                         }
                     }
                 }
@@ -500,18 +534,22 @@ async fn follow_provider(
                         continue;
                     };
                     // `old_owner` is what makes this a disconnect; see the weather client.
-                    if args.name().as_str() == GLIMPSE_NOTIFICATIONS_BUS_NAME
-                        && args.old_owner().is_some()
-                    {
+                    if args.name().as_str() != GLIMPSE_NOTIFICATIONS_BUS_NAME {
+                        continue;
+                    }
+                    if args.old_owner().is_some() || (!serving && args.new_owner().is_some()) {
                         break;
                     }
                 }
             }
         }
-        *current.write().await = None;
-        updates.send_replace(NotificationsProviderState::unavailable(
-            "provider has no bus owner",
-        ));
+        if serving {
+            *current.write().await = None;
+            updates.send_replace(NotificationsProviderState::unavailable(
+                "provider has no bus owner",
+            ));
+            tracing::warn!("notifications provider disconnected");
+        }
     }
 }
 

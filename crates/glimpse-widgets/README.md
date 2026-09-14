@@ -440,7 +440,7 @@ activation and actions cannot split across nested card types.
 
 | GNOME Shell | | Here |
 | --- | --- | --- |
-| `.notification-banner` | `min-height: 64px; width: 34em; border-radius: 16px` | `4.35rem` / `34rem` / `1.1rem` |
+| `.notification-banner` | `min-height: 64px; width: 34em; border-radius: 16px` | `4.35rem` / `40rem` / `1.1rem` |
 | `.message` + `.message-header` | `padding: 6px` + `0 6px` | `0.75rem` / `1.08rem` — see `_old` below |
 | `.message-header` | `spacing: 6px` | `6` |
 | `.message-box .message-icon` | `icon-size: 48px` | `1rem` app icon / `4.33rem` image |
@@ -737,8 +737,11 @@ guard exists to stop a programmatic set being reported back, not to stop it bein
 detail, because the headline is the same every time and only the caller knows which name was taken.
 
 **The popup and popover share one width.** `NotificationCard` and the notification popover shell
-share one `34rem` rule, so the empty popover cannot fall back to the narrower generic popover width.
-The popup's paint gutter remains outside the card and does not make its visible surface wider.
+share one `40rem` rule, so the empty popover cannot fall back to the narrower generic popover width.
+The popup's paint gutter remains outside the card and does not make its visible surface wider. The
+width started at GNOME's `34em` and was widened to `40rem` in `621cdcf5`, so it is no longer the
+converted GNOME number the table above derives — the shared rule is what matters, not the
+provenance of its value.
 
 **The groups box starts hidden.** It is empty until the first update, and a `Gtk.Box` is visible by
 default — without it the popover holds the box's space for one frame beside the placeholder that is

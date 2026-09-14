@@ -89,6 +89,17 @@ destructure and its own 14-field decoder to undo it — one that capped nothing 
 that never renders anything was the one honouring the cap. A snapshot that cannot be decoded is
 `unavailable` with the reason, which is the same shape a dead provider already produces.
 
+**The two followers lose their provider differently, on purpose.** Weather keeps the last reading
+and marks it `stale` — `unavailable(reason, Some(&previous))` carries the previous `status` forward,
+and `stale` is derived from that retained data rather than from the reason, so a provider that comes
+back empty cannot strand the flag on nothing. Notifications throws its `view` away. The difference
+is whether the data is actionable: a temperature is worth showing while it ages, and a notification
+list is not, because every dismiss and every action on it would be a call to a provider that is no
+longer there — and the store is authoritative, so a retained list can also show what someone already
+dismissed. Verified live in `glimpse-kyt0.9.2`: killing the weather provider leaves the bar showing
+its last temperature behind a warning glyph, and the reading returns to plain the moment a provider
+takes the name again.
+
 **A reader caps text the writer already capped.** The provider bounds what it sends, but the owner
 of a well-known name is whoever claimed it, so a decoder that skipped the cap would be trusting a
 bus name rather than a process. The cap tables are therefore per-direction and need not match: the

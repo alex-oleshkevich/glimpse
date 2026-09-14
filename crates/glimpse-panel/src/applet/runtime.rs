@@ -583,6 +583,26 @@ mod tests {
         assert_eq!(drained(&[2.5, 0.5]), [Direction::Down; 3]);
     }
 
+    /// `weather-none-available-symbolic` is in the icon-naming spec and is NOT in Adwaita, so the
+    /// chip for an unknown condition — and every trouble chip, which routes through the same
+    /// mapping — rendered GTK's broken-image placeholder. Nothing caught it because a missing icon
+    /// is not an error at any layer: the name is a string until something asks the theme for it.
+    fn every_weather_icon_the_applet_can_ask_for_exists() {
+        let theme = gtk4::IconTheme::for_display(&gtk4::gdk::Display::default().expect("display"));
+        let mut names = vec![crate::applets::weather::render::ALERT_ICON];
+        for condition in crate::applets::weather::render::EVERY {
+            for is_day in [true, false] {
+                names.push(crate::applets::weather::render::icon(condition, is_day));
+            }
+        }
+        names.sort_unstable();
+        names.dedup();
+
+        for name in names {
+            assert!(theme.has_icon(name), "the icon theme has no `{name}`");
+        }
+    }
+
     /// One function, because `gtk4::init()` binds GTK to the calling thread and cargo runs tests
     /// in parallel.
     #[test]
@@ -592,6 +612,8 @@ mod tests {
             return;
         }
         glimpse_widgets::register_resources().expect("resources");
+
+        every_weather_icon_the_applet_can_ask_for_exists();
 
         shown(&["a", "b"]);
         let handle = AppletHandle::launch(

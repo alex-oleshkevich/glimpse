@@ -8,13 +8,6 @@ paths:
 
 # Service and provider conventions
 
-## The broker
-
-- It routes and nothing else. No image decoding, no icon work, no filesystem access, no synchronous
-  writes to clients inside the broker task — anything slow inline hits every client's latency.
-- Writes go to per-client channels. A client over its buffered-byte cap is disconnected, never
-  allowed to stall the loop.
-
 ## Service handlers
 
 - Handlers run serially on `&mut self`. A handler that can await a backend moves its `Responder`

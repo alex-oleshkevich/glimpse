@@ -513,9 +513,10 @@ one asset line to *each* of the two lists in `crates/glimpse-package/Cargo.toml`
   `RestrictSUIDSGID=` and anything implying them strip setuid from `unix_chkpwd`. PAM then returns
   `AUTHINFO_UNAVAIL`, the correct password is rejected, and the session cannot be unlocked. The
   symptom looks like a wrong password, which is what makes it expensive to diagnose.
-- **No `unwrap()`, `expect()`, or blocking calls in the broker or a service handler.** A panic in
-  the broker kills every client's connection; blocking `std::fs`, `Command::output()`, or a
-  `std::sync::Mutex` held across `.await` stalls delivery for everyone.
+- **No `unwrap()`, `expect()`, or blocking calls in a service handler.** A panic stops that service
+  and cascades `degraded` to everything that depends on it; blocking `std::fs`,
+  `Command::output()`, or a `std::sync::Mutex` held across `.await` freezes every other piece of
+  state the service owns, because handlers run serially on `&mut self`.
 - **Never shell out to `systemctl`, `loginctl`, `nmcli`, `bluetoothctl`, or `niri msg`.** Use D-Bus
   or the compositor's IPC socket. Subprocesses cannot be mocked in tests, break under sandboxing,
   and parse output that is not a stable interface.

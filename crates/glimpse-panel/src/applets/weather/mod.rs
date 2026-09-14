@@ -1,4 +1,4 @@
-mod render;
+pub(crate) mod render;
 
 use std::time::Duration;
 
@@ -30,6 +30,7 @@ pub struct Weather {
     owner: bool,
     stale: bool,
     trouble: Option<String>,
+    unserved: bool,
 }
 
 impl Applet for Weather {
@@ -40,6 +41,7 @@ impl Applet for Weather {
         let watching = watched(&settings.place);
         if watching != self.watching {
             self.place = None;
+            self.unserved = false;
         }
         self.watching = watching;
         self.settings = settings.clone();
@@ -58,7 +60,10 @@ impl Applet for Weather {
 
     fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
-            Input::Tick => self.renew(),
+            Input::Tick => {
+                self.note_unserved();
+                self.renew();
+            }
             Input::Woken => {
                 let had_owner = self.owner;
                 self.sync();
@@ -106,9 +111,17 @@ impl Weather {
             owner: false,
             stale: false,
             trouble: None,
+            unserved: false,
         };
         service.sync();
         service
+    }
+
+    /// A fixed place still missing a whole tick after the provider took the name is one the
+    /// provider is not serving, which is worth a chip. A place that has simply not been fetched yet
+    /// is missing for well under a tick, and `here` may legitimately never resolve.
+    fn note_unserved(&mut self) {
+        self.unserved = self.owner && self.place.is_none() && self.watching != WatchedPlace::Here;
     }
 
     fn renew(&self) {
@@ -184,7 +197,10 @@ impl Weather {
     }
 
     fn trouble_indicator(&mut self) -> Option<IndicatorSpec> {
-        let reason = self.trouble.clone()?;
+        let reason = self.trouble.clone().or_else(|| {
+            self.unserved
+                .then(|| gettext("The weather provider is not serving this place."))
+        })?;
         Some(IndicatorSpec {
             icon: Some(self.themed(render::icon(Condition::Unknown, true))),
             tooltip: Some(reason),
@@ -349,6 +365,80 @@ mod tests {
             indicators[0].tooltip.as_deref(),
             Some("weather provider unavailable")
         );
+    }
+
+    #[test]
+    fn a_fixed_place_the_provider_never_serves_is_reported_on_the_tick_and_not_before() {
+        let mut applet = applet();
+        applet.watching = WatchedPlace::Coordinates {
+            latitude: 54.6872,
+            longitude: 25.2797,
+        };
+        applet.owner = true;
+        applet.place = None;
+
+        applet.refresh();
+        assert!(
+            applet.indicators().is_empty(),
+            "the gap before the first fetch renders nothing, as it always has"
+        );
+
+        applet.note_unserved();
+        applet.refresh();
+
+        let indicators = applet.indicators();
+        assert_eq!(indicators.len(), 1);
+        assert_eq!(indicators[0].severity, Some(Severity::Warning));
+        assert_eq!(
+            indicators[0].tooltip.as_deref(),
+            Some("The weather provider is not serving this place.")
+        );
+    }
+
+    /// The flag is the tick's to set. A snapshot arriving must not decide it, or the ordinary gap
+    /// between taking the name and the first fetch would flash a warning on every panel start.
+    #[test]
+    fn a_snapshot_does_not_decide_whether_a_place_is_unserved() {
+        let mut applet = applet();
+        applet.unserved = true;
+
+        applet.sync();
+
+        assert!(
+            applet.unserved,
+            "sync reads the provider; only the tick judges how long a place has been missing"
+        );
+    }
+
+    #[test]
+    fn here_without_a_fix_stays_silent_however_long_it_waits() {
+        let mut applet = applet();
+        applet.owner = true;
+        applet.place = None;
+
+        applet.note_unserved();
+        applet.refresh();
+
+        assert!(
+            applet.indicators().is_empty(),
+            "`here` may legitimately never resolve, so it never becomes a warning"
+        );
+    }
+
+    #[test]
+    fn a_place_that_arrives_clears_the_warning() {
+        let mut applet = applet();
+        applet.watching = WatchedPlace::Here;
+        applet.owner = true;
+        applet.note_unserved();
+        applet.place = Some(reading());
+
+        applet.note_unserved();
+        applet.refresh();
+
+        let indicators = applet.indicators();
+        assert_eq!(indicators.len(), 1);
+        assert_eq!(indicators[0].severity, None);
     }
 
     fn reading() -> PlaceWeather {

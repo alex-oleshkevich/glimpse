@@ -484,32 +484,31 @@ async fn follow_provider(
             Ok(None) => proxy.snapshot().await,
             Err(error) => Err(error),
         };
-        let state = match snapshot
+        let mut serving = match snapshot
             .and_then(|snapshot| decode_snapshot(snapshot).map_err(zbus::Error::Failure))
         {
-            Ok(state) => state,
+            Ok(state) => {
+                *current.write().await = Some(proxy.clone());
+                tracing::info!(
+                    available = state.available,
+                    stale = state.stale,
+                    places = state
+                        .status
+                        .as_ref()
+                        .map_or(0, |status| status.places.len()),
+                    "weather provider connected"
+                );
+                updates.send_replace(state);
+                true
+            }
             Err(error) => {
                 *current.write().await = None;
                 let reason = clean(&error.to_string(), REASON);
                 replace_unavailable(&updates, &reason);
                 tracing::warn!(reason, "weather provider snapshot is unavailable");
-                if !wait_for_owner(&mut owners).await {
-                    return;
-                }
-                continue;
+                false
             }
         };
-        *current.write().await = Some(proxy.clone());
-        tracing::info!(
-            available = state.available,
-            stale = state.stale,
-            places = state
-                .status
-                .as_ref()
-                .map_or(0, |status| status.places.len()),
-            "weather provider connected"
-        );
-        updates.send_replace(state);
 
         let reason = loop {
             tokio::select! {
@@ -523,6 +522,11 @@ async fn follow_provider(
                         .and_then(|snapshot| decode_snapshot(snapshot).map_err(zbus::Error::Failure))
                     {
                         Ok(state) => {
+                            if !serving {
+                                *current.write().await = Some(proxy.clone());
+                                serving = true;
+                                tracing::info!("weather provider recovered without changing owner");
+                            }
                             tracing::debug!(
                                 available = state.available,
                                 stale = state.stale,
@@ -534,7 +538,11 @@ async fn follow_provider(
                         Err(error) => {
                             let reason = clean(&error.to_string(), REASON);
                             tracing::warn!(reason, "weather snapshot change failed");
-                            break reason;
+                            if serving {
+                                *current.write().await = None;
+                                serving = false;
+                            }
+                            replace_unavailable(&updates, &reason);
                         }
                     }
                 }
@@ -548,20 +556,28 @@ async fn follow_provider(
                     // `old_owner` is what makes this a disconnect. Without it the signal that
                     // GAVE the provider its name reads as losing one, and a follower that has just
                     // connected tears itself down and reconnects for nothing.
-                    if args.name().as_str() == GLIMPSE_WEATHER_BUS_NAME
-                        && args.old_owner().is_some()
-                    {
+                    if args.name().as_str() != GLIMPSE_WEATHER_BUS_NAME {
+                        continue;
+                    }
+                    if args.old_owner().is_some() {
                         break match args.new_owner().is_some() {
                             true => "provider owner changed",
                             false => "provider has no bus owner",
                         }.to_owned();
                     }
+                    if !serving && args.new_owner().is_some() {
+                        break "provider took the name".to_owned();
+                    }
                 }
             }
         };
-        *current.write().await = None;
-        replace_unavailable(&updates, &reason);
-        tracing::warn!(reason, "weather provider disconnected");
+        if serving {
+            *current.write().await = None;
+            replace_unavailable(&updates, &reason);
+            tracing::warn!(reason, "weather provider disconnected");
+        } else {
+            tracing::debug!(reason, "weather provider rebuilding its proxy");
+        }
     }
 }
 
