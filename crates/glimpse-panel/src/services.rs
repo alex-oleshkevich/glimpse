@@ -2,7 +2,10 @@ use std::fmt;
 
 use glimpse_config::Config;
 use glimpse_contracts::KeyboardLayouts;
-use glimpse_dbus::{Buses, notifications::NotificationsProviderHandle};
+use glimpse_dbus::{
+    Buses,
+    notifications::{NotificationsProvider, NotificationsProviderHandle},
+};
 use glimpse_services::{
     Calendar, CalendarHandle, Compositor, CompositorHandle, Heartbeat, HeartbeatHandle, Keyboard,
     KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Service, ServiceRuntime,
@@ -32,8 +35,7 @@ pub struct PanelServices {
     heartbeat_sender: ServiceSender<Heartbeat>,
     heartbeat_cancel: CancellationToken,
     heartbeat_task: Option<JoinHandle<()>>,
-    pub notifications: NotificationsProviderHandle,
-    notifications_task: Option<JoinHandle<()>>,
+    notifications: NotificationsProvider,
 }
 
 impl PanelServices {
@@ -42,12 +44,9 @@ impl PanelServices {
     }
 
     fn start_with_buses(document: &Config, buses: Buses) -> Self {
-        let (notifications, notifications_task) = match buses.session_bus() {
-            Ok(connection) => {
-                let (handle, task) = NotificationsProviderHandle::start(connection.clone());
-                (handle, Some(task))
-            }
-            Err(reason) => (NotificationsProviderHandle::unavailable(reason), None),
+        let notifications = match buses.session_bus() {
+            Ok(connection) => NotificationsProvider::start(connection.clone()),
+            Err(reason) => NotificationsProvider::unavailable(reason),
         };
         let compositor_cancel = CancellationToken::new();
         let (compositor_runtime, compositor) = ServiceRuntime::<Compositor>::new(
@@ -124,15 +123,11 @@ impl PanelServices {
             heartbeat_cancel,
             heartbeat_task: Some(heartbeat_task),
             notifications,
-            notifications_task,
         }
     }
 
     pub async fn shutdown(mut self) {
-        if let Some(task) = self.notifications_task.take() {
-            task.abort();
-            let _ = task.await;
-        }
+        self.notifications.shutdown().await;
         stop(
             Heartbeat::NAME,
             &self.heartbeat_cancel,
@@ -173,10 +168,11 @@ impl PanelServices {
             .reconfigure(<Heartbeat as Service>::Config::from(document));
     }
 
+    pub fn notifications(&self) -> NotificationsProviderHandle {
+        self.notifications.handle()
+    }
+
     fn cancel(&self) {
-        if let Some(task) = &self.notifications_task {
-            task.abort();
-        }
         self.heartbeat_cancel.cancel();
         self.mpris_cancel.cancel();
         self.calendar_cancel.cancel();

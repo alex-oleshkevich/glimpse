@@ -73,25 +73,57 @@ pub struct NotificationsProviderHandle {
     proxy: std::sync::Arc<tokio::sync::RwLock<Option<Notifications1Proxy<'static>>>>,
 }
 
-impl NotificationsProviderHandle {
+pub struct NotificationsProvider {
+    handle: NotificationsProviderHandle,
+    task: Option<tokio::task::JoinHandle<()>>,
+}
+
+impl NotificationsProvider {
     pub fn unavailable(reason: impl Into<String>) -> Self {
         let (_, state) =
             tokio::sync::watch::channel(NotificationsProviderState::unavailable(reason));
         Self {
-            state,
-            proxy: Default::default(),
+            handle: NotificationsProviderHandle {
+                state,
+                proxy: Default::default(),
+            },
+            task: None,
         }
     }
 
-    pub fn start(connection: zbus::Connection) -> (Self, tokio::task::JoinHandle<()>) {
+    pub fn start(connection: zbus::Connection) -> Self {
         let (updates, state) = tokio::sync::watch::channel(
             NotificationsProviderState::unavailable("provider has no bus owner"),
         );
         let proxy = std::sync::Arc::new(tokio::sync::RwLock::new(None));
         let task = tokio::spawn(follow_provider(connection, updates, proxy.clone()));
-        (Self { state, proxy }, task)
+        Self {
+            handle: NotificationsProviderHandle { state, proxy },
+            task: Some(task),
+        }
     }
 
+    pub fn handle(&self) -> NotificationsProviderHandle {
+        self.handle.clone()
+    }
+
+    pub async fn shutdown(&mut self) {
+        if let Some(task) = self.task.take() {
+            task.abort();
+            let _ = task.await;
+        }
+    }
+}
+
+impl Drop for NotificationsProvider {
+    fn drop(&mut self) {
+        if let Some(task) = &self.task {
+            task.abort();
+        }
+    }
+}
+
+impl NotificationsProviderHandle {
     pub fn snapshot(&self) -> NotificationsProviderState {
         self.state.borrow().clone()
     }

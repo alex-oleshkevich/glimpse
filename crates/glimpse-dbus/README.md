@@ -1,12 +1,13 @@
 # glimpse-dbus
 
-The `zbus` proxy traits for every bus service the daemon mirrors, and the two connections they run
-on.
+The `zbus` proxy traits and typed provider clients used across Glimpse processes, plus the two
+connections they run on.
 
 ## Contents
 
 - `dbus.rs` — `Buses`, holding the session and system connections
 - `clients/` — one module per bus service, each a set of `#[zbus::proxy]` trait declarations
+- `clients/notifications.rs` — the notification proxy, typed handle and owned follower lifecycle
 
 | Module                    | Bus     | What it fronts                          |
 | ------------------------- | ------- | --------------------------------------- |
@@ -23,20 +24,19 @@ on.
 
 ## Rules
 
-**Proxies only, no policy.** A module here declares interfaces and nothing else: no reconnect loop,
-no auto-connect decision, no retry on top of what the backend already does. The service that owns
-the topic decides what to do with a signal; this crate only makes the signal reachable.
+**Backend proxies carry no policy.** System-service modules only declare interfaces. A typed client
+for a Glimpse-owned provider may additionally own its availability state and `NameOwnerChanged`
+follower so every consuming process gets the same lifecycle behavior.
 
 **Both connections are opened once and shared.** `Buses` is `Clone` and holds the session and system
 connections together, because a service that needs one usually ends up needing the other, and two
-crates opening their own would double the bus traffic and the failure modes. `glimpsed` connects
-once before any service starts and clones it into every one.
+connections inside one process would double the bus traffic and the failure modes. Each process
+composition root connects once and clones them into its services.
 
 **A bus that will not connect is a degraded service, not a dead daemon.** `Buses::connect` never
 fails; each accessor returns `Result<&Connection, &str>` where the `Err` is why there is no
-connection. A service that needs a bus reports its own `degraded` carrying that reason, so
-`system.services` names which feature was lost and why. A session with no D-Bus still has a panel,
-a wallpaper and a lock screen.
+connection. A service that needs a bus reports its own unavailable or degraded state carrying that
+reason. A session with no D-Bus still has a panel, a wallpaper and a lock screen.
 
 **`Position` on `org.mpris.MediaPlayer2.Player` carries `emits_changed_signal = "false"`, and must
 keep doing so.** MPRIS specifies that property as emitting no `PropertiesChanged`, but the macro
@@ -56,10 +56,11 @@ player. Both are built through `builder().destination(name)`, and the name must 
 `String`: a `&str` ties the proxy's lifetime to that borrow and will not satisfy the `'static`
 bound a subscription source requires.
 
-**No `#[zbus::interface]` in this crate.** A proxy is glimpsed calling out and is shareable; an
-interface is other applications calling in, and it needs a way back into the state of the service
-that owns it. The object-server half of an owned service lives with that service in
-`glimpse-services/src/services/`, the way `tray/watcher.rs` serves `org.kde.StatusNotifierWatcher`.
+**No `#[zbus::interface]` in this crate.** A proxy is a Glimpse process calling out and is
+shareable; an interface is other applications calling in, and it needs a way back into the state of
+the process that owns it. The object-server half of notifications lives in
+`glimpse-notifications/src/provider.rs`; consumers such as the panel or lock only use this crate's
+typed proxy handle.
 
 **Signatures come from introspection, not from memory.** A proxy that disagrees with the running
 service fails at the call, not at compile time, which is the expensive kind of wrong. The
@@ -68,9 +69,3 @@ services; check against it rather than hand-writing a method name.
 
 **No topic types here.** A payload belongs in `glimpse-contracts`, where it can be generated for the
 other SDKs. A backend type that leaked into a payload could not be.
-
-## Status
-
-Under construction. `clients/notifications.rs` is a `#[zbus::interface]` block that belongs with the
-notifications service and is not declared here; a live fixture connection for tests needs zbus's
-`p2p` feature, which nothing has asked for yet.

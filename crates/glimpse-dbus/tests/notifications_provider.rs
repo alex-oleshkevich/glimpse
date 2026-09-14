@@ -1,6 +1,6 @@
 use glimpse_dbus::notifications::{
     DoNotDisturbWire, GLIMPSE_NOTIFICATIONS_BUS_NAME, GLIMPSE_NOTIFICATIONS_OBJECT_PATH,
-    NotificationWire, NotificationsProviderHandle, NotificationsSnapshot,
+    NotificationWire, NotificationsProvider, NotificationsSnapshot,
 };
 use std::io::BufRead;
 use std::process::{Child, Command, Stdio};
@@ -139,7 +139,8 @@ fn complete(state: &glimpse_dbus::notifications::NotificationsProviderState) -> 
 async fn provider_reconnects_and_roundtrips_typed_methods() {
     let mut bus = PrivateBus::start();
     let client = bus.connection().await;
-    let (handle, task) = NotificationsProviderHandle::start(client);
+    let mut provider = NotificationsProvider::start(client);
+    let handle = provider.handle();
     let mut state = handle.subscribe();
     assert!(handle.snapshot().snapshot.is_none());
 
@@ -168,7 +169,7 @@ async fn provider_reconnects_and_roundtrips_typed_methods() {
     .await;
 
     drop(second);
-    task.abort();
+    provider.shutdown().await;
 }
 
 #[test]

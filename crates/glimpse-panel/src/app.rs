@@ -256,7 +256,7 @@ fn reconcile_panels(
                 calendar: services.calendar.clone(),
                 mpris: services.mpris.clone(),
                 heartbeat: services.heartbeat.clone(),
-                notifications: services.notifications.clone(),
+                notifications: services.notifications(),
             };
             let state = match existing.remove(&key) {
                 Some(state) => {
