@@ -41,7 +41,6 @@ fn run(cli: &Cli) -> Result<()> {
     }
 
     register_resources()?;
-    glimpse_widgets::report_session_bus_loss();
     let app_id = std::env::var("GLIMPSE_PANEL_APP_ID").unwrap_or("me.aresa.GlimpsePanel".into());
     let app = RelmApp::new(app_id.as_str()).visible_on_activate(false);
     app.with_args(vec![]).run::<app::App>(app::AppInit {

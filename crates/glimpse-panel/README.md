@@ -553,20 +553,25 @@ construction; `readout()` still hands out `(&str, &str)`, so no caller changed.
 With no catalog loaded, `gettext` returns its own msgid. Every existing assertion on this wording
 keeps passing unchanged, which is why these functions needed no test edits.
 
-## Losing the session bus ends the process, and says so
+## Losing the session bus kills the process, and nothing here can change that
 
-GLib sets `exit_on_close` on the connection `g_bus_get` returns, and its close handler calls
-`raise(SIGTERM)`. So a panel whose session bus dies terminates with exit 143 no matter what this
-crate does — measured under `glimpse-kyt0.9.3`, where it also left **nothing at all** in the log and
-the bar simply disappeared. `report_session_bus_loss` connects the `closed` signal before that
-handler runs and logs the reason, which turns an unexplained vanishing into one line. All four GTK
-binaries call it.
+A panel whose session bus dies terminates with exit 143 (SIGTERM) and leaves **nothing at all** in
+the log. That is not this crate's doing and cannot be fixed here: an eight-line PyGObject
+`Gtk.Application` holding one window dies exactly the same way on the same private bus, measured
+under `glimpse-kyt0.9.3`. Every GTK application on the machine behaves like this.
 
-**`Restart=on-failure` deliberately does not cover this.** systemd's `on-failure` excludes SIGTERM,
-so the unit will not come back — and that is correct in both cases that reach it: a session bus that
-died is a session that is ending, and an ordinary `systemctl stop` is the same signal. There is no
-case where restarting after a SIGTERM is wanted, so the policy stays and only the silence was the
-defect.
+**Three things were measured before concluding that, because each is the obvious guess.** The
+`closed` signal on the connection `g_bus_get_sync` returns never fires — a handler connected to it
+is registered and is never called, so there is no point at which Rust code could log the reason.
+Calling `set_exit_on_close(false)` on that same connection changes nothing: the process still exits
+143, so whatever raises the signal is not that connection's `exit_on_close`. And GLib prints no
+message of its own on the way out, so the silence is not ours to break either. Do not re-derive
+this: the answer is that the process is gone before anything in `run` could speak.
+
+**`Restart=on-failure` deliberately does not cover it.** systemd's `on-failure` excludes SIGTERM, so
+the unit does not come back — which is right in both cases that reach it: a session bus that died is
+a session that is ending, and an ordinary `systemctl stop` is the same signal. There is no case
+where restarting after a SIGTERM is wanted, so the policy stays.
 
 ## Rules
 

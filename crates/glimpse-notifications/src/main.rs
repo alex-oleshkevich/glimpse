@@ -31,7 +31,6 @@ fn run(cli: &Cli) -> Result<()> {
     init_translations(config.regional.language());
     gtk4::init().context("cannot initialize GTK")?;
     glimpse_widgets::register_resources()?;
-    glimpse_widgets::report_session_bus_loss();
     let threads = std::env::var("GLIMPSE_THREADS")
         .ok()
         .and_then(|value| value.parse::<usize>().ok())

@@ -410,7 +410,6 @@ mod tests {
 
     use super::*;
 
-
     fn at(hour: u32, minute: u32) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(2026, 9, 8, hour, minute, 0)
             .single()
