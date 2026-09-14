@@ -2766,7 +2766,7 @@
           ]
         },
         {
-          "description": "Resolve a city and ISO 3166-1 alpha-2 country code through the weather service.",
+          "description": "Resolve a city and ISO 3166-1 alpha-2 country code through Open-Meteo. This sends a\ngeocoding request to Open-Meteo, which receives the machine's public IP address.",
           "type": "object",
           "properties": {
             "at": {

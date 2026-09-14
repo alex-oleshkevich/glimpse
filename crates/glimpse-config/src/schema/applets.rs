@@ -260,7 +260,8 @@ pub enum Place {
         /// Degrees east of Greenwich, between -180 and 180.
         longitude: f64,
     },
-    /// Resolve a city and ISO 3166-1 alpha-2 country code through the weather service.
+    /// Resolve a city and ISO 3166-1 alpha-2 country code through Open-Meteo. This sends a
+    /// geocoding request to Open-Meteo, which receives the machine's public IP address.
     Location {
         /// City and country code, written as `City, CC`.
         name: String,
