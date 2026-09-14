@@ -321,6 +321,20 @@ application the user named".
 Setting a label without a command, or a command without a label, is a load error. One is a row that
 does nothing and the other is a row nobody can see.
 
+The weather applet's `place` selects what the weather service resolves. Use `at = "here"` to follow
+GeoClue, `at = "latlon"` with `latitude` and `longitude` for a fixed point (the older
+`coordinates` spelling is accepted as an alias), or
+`at = "location"` with a city and ISO country code in `City, CC` form:
+
+```toml
+[applets.weather]
+place = { at = "location", name = "Vilnius, LT" }
+```
+
+The panel sends this request to `glimpse-weather`; it does not resolve names itself. The service
+returns canonical city and country metadata with the forecast, which the panel uses when no explicit
+applet `label` is configured.
+
 ## Asking the system: the `locale` convention
 
 A setting whose correct value the system already knows takes an enum with a `locale` variant, and

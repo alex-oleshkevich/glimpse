@@ -253,11 +253,17 @@ pub enum Place {
     /// Follow the geolocation service, and move with it.
     Here {},
     /// A fixed pair of coordinates in degrees.
+    #[serde(rename = "latlon", alias = "coordinates")]
     Coordinates {
         /// Degrees north of the equator, between -90 and 90.
         latitude: f64,
         /// Degrees east of Greenwich, between -180 and 180.
         longitude: f64,
+    },
+    /// Resolve a city and ISO 3166-1 alpha-2 country code through the weather service.
+    Location {
+        /// City and country code, written as `City, CC`.
+        name: String,
     },
 }
 
@@ -441,22 +447,41 @@ fn on_earth(kind: &Kind) -> Result<(), toml::de::Error> {
     let Kind::Weather(weather) = kind else {
         return Ok(());
     };
-    let Place::Coordinates {
-        latitude,
-        longitude,
-    } = weather.place
-    else {
-        return Ok(());
-    };
-    if !(-90.0..=90.0).contains(&latitude) {
-        return Err(toml::de::Error::custom(
-            "latitude is degrees north of the equator, between -90 and 90",
-        ));
-    }
-    if !(-180.0..=180.0).contains(&longitude) {
-        return Err(toml::de::Error::custom(
-            "longitude is degrees east of Greenwich, between -180 and 180",
-        ));
+    match &weather.place {
+        Place::Coordinates {
+            latitude,
+            longitude,
+        } => {
+            if !(-90.0..=90.0).contains(latitude) {
+                return Err(toml::de::Error::custom(
+                    "latitude is degrees north of the equator, between -90 and 90",
+                ));
+            }
+            if !(-180.0..=180.0).contains(longitude) {
+                return Err(toml::de::Error::custom(
+                    "longitude is degrees east of Greenwich, between -180 and 180",
+                ));
+            }
+        }
+        Place::Location { name } => {
+            let Some((city, country_code)) = name.split_once(',') else {
+                return Err(toml::de::Error::custom(
+                    "location must be written as `City, CC`",
+                ));
+            };
+            let city = city.trim();
+            let country_code = country_code.trim();
+            if city.is_empty()
+                || city.chars().count() > 100
+                || country_code.len() != 2
+                || !country_code.bytes().all(|byte| byte.is_ascii_uppercase())
+            {
+                return Err(toml::de::Error::custom(
+                    "location must be written as `City, CC`, with a city of at most 100 characters and a two-letter uppercase country code",
+                ));
+            }
+        }
+        Place::Here {} => {}
     }
     Ok(())
 }

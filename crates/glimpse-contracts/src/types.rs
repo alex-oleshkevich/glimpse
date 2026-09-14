@@ -136,6 +136,7 @@ pub struct CalendarEvent {
 pub enum WatchedPlace {
     Here,
     Coordinates { latitude: f64, longitude: f64 },
+    Location { name: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -181,6 +182,8 @@ pub enum Condition {
 pub struct PlaceWeather {
     pub place: WatchedPlace,
     pub coordinates: GeoCoordinates,
+    pub city: Option<String>,
+    pub country_code: Option<String>,
     pub utc_offset_seconds: i32,
     pub current: Option<CurrentWeather>,
     pub hours: Vec<HourForecast>,

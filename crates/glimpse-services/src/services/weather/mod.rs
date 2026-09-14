@@ -19,9 +19,11 @@ use crate::{
 
 mod met_no;
 mod open_meteo;
+mod place;
 
 use met_no::met_no;
 use open_meteo::open_meteo;
+use place::ResolvedPlace;
 
 /// The provider recomputes current conditions every fifteen minutes, so a shorter interval asks
 /// again for data that provably has not moved and spends a shared free-tier budget doing it.
@@ -59,11 +61,28 @@ pub enum Provider {
 }
 
 impl Provider {
-    async fn fetch(self, client: reqwest::Client, ask: Ask) -> Result<Vec<Reading>, String> {
-        match self {
+    async fn fetch(self, client: reqwest::Client, request: Request) -> Result<Fetch, String> {
+        let mut places = Vec::with_capacity(request.targets.len());
+        for target in &request.targets {
+            places.push(match &target.resolved {
+                Some(place) => place.clone(),
+                None => place::resolve(&client, &target.place, target.coordinates.clone()).await?,
+            });
+        }
+
+        let ask = Ask {
+            coordinates: places
+                .iter()
+                .map(|place| place.coordinates.clone())
+                .collect(),
+            units: request.units,
+            forecast_days: request.forecast_days,
+        };
+        let readings = match self {
             Self::OpenMeteo => open_meteo(client, ask).await,
             Self::MetNo => met_no(client, ask).await,
-        }
+        }?;
+        Ok(Fetch { places, readings })
     }
 }
 
@@ -153,7 +172,7 @@ pub enum Event {
     Located(Option<GeoCoordinates>),
     Fetched {
         generation: u64,
-        result: Result<Vec<Reading>, String>,
+        result: Result<Fetch, String>,
     },
 }
 
@@ -167,6 +186,26 @@ pub enum Watch {
 struct Lease {
     place: WatchedPlace,
     until: Instant,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct Target {
+    place: WatchedPlace,
+    coordinates: Option<GeoCoordinates>,
+    resolved: Option<ResolvedPlace>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct Request {
+    targets: Vec<Target>,
+    units: UnitSystem,
+    forecast_days: u8,
+}
+
+#[derive(Debug)]
+pub struct Fetch {
+    places: Vec<ResolvedPlace>,
+    readings: Vec<Reading>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -225,8 +264,8 @@ impl Service for Weather {
             ));
         }
 
-        let ask = self.ask();
-        if !ask.coordinates.is_empty()
+        let request = self.request();
+        if !request.targets.is_empty()
             && let Some(client) = self.client.clone()
         {
             let generation = self.generation;
@@ -237,11 +276,11 @@ impl Service for Weather {
                 Duration::from_secs(self.config.poll_interval.max(MIN_POLL)),
                 move |_ctx| {
                     let client = client.clone();
-                    let ask = ask.clone();
+                    let request = request.clone();
                     async move {
                         Event::Fetched {
                             generation,
-                            result: provider.fetch(client, ask).await,
+                            result: provider.fetch(client, request).await,
                         }
                     }
                 },
@@ -303,16 +342,20 @@ impl Service for Weather {
 
             Input::Event(Event::Fetched { result, .. }) => {
                 match result {
-                    Ok(readings) if readings.len() == self.targets().len() => {
-                        tracing::debug!(places = readings.len(), "weather fetch completed");
+                    Ok(fetch)
+                        if fetch.readings.len() == self.targets().len()
+                            && fetch.places.len() == self.targets().len() =>
+                    {
+                        tracing::debug!(places = fetch.readings.len(), "weather fetch completed");
                         self.failure = None;
-                        self.absorb(&readings);
+                        self.absorb(&fetch);
                         self.updated_at = Some(Utc::now());
                     }
-                    Ok(readings) => {
+                    Ok(fetch) => {
                         tracing::warn!(
                             expected = self.targets().len(),
-                            received = readings.len(),
+                            readings = fetch.readings.len(),
+                            places = fetch.places.len(),
                             "weather provider returned an incomplete response"
                         );
                         self.failure =
@@ -352,14 +395,14 @@ impl Service for Weather {
 
             Input::Command(Command::Watch { place, reply }) => {
                 let now = Instant::now();
-                let asked = self.ask().coordinates;
+                let asked = self.request().targets;
                 let mut changed = self.sweep(now);
 
                 let outcome = placed(place).and_then(|place| self.lease(place, now));
                 changed |= matches!(outcome, Ok(true));
 
                 if changed {
-                    if self.ask().coordinates != asked {
+                    if self.request().targets != asked {
                         self.generation += 1;
                     }
                     self.forget_unwatched();
@@ -403,32 +446,50 @@ impl Weather {
         }
     }
 
-    fn targets(&self) -> Vec<(WatchedPlace, GeoCoordinates)> {
+    fn targets(&self) -> Vec<Target> {
         self.watched
             .iter()
             .filter_map(|lease| match &lease.place {
-                WatchedPlace::Here => Some((WatchedPlace::Here, self.fix.clone()?)),
+                WatchedPlace::Here => Some(self.target(WatchedPlace::Here, self.fix.clone()?)),
                 WatchedPlace::Coordinates {
                     latitude,
                     longitude,
-                } => Some((
+                } => Some(self.target(
                     lease.place.clone(),
                     GeoCoordinates {
                         latitude: *latitude,
                         longitude: *longitude,
                     },
                 )),
+                WatchedPlace::Location { .. } => Some(Target {
+                    place: lease.place.clone(),
+                    coordinates: None,
+                    resolved: self.resolved(&lease.place),
+                }),
             })
             .collect()
     }
 
-    fn ask(&self) -> Ask {
-        Ask {
-            coordinates: self
-                .targets()
-                .into_iter()
-                .map(|(_, coordinates)| coordinates)
-                .collect(),
+    fn target(&self, place: WatchedPlace, coordinates: GeoCoordinates) -> Target {
+        Target {
+            resolved: self.resolved(&place),
+            place,
+            coordinates: Some(coordinates),
+        }
+    }
+
+    fn resolved(&self, place: &WatchedPlace) -> Option<ResolvedPlace> {
+        let shown = self.places.iter().find(|shown| &shown.place == place)?;
+        Some(ResolvedPlace {
+            coordinates: shown.coordinates.clone(),
+            city: shown.city.clone()?,
+            country_code: shown.country_code.clone()?,
+        })
+    }
+
+    fn request(&self) -> Request {
+        Request {
+            targets: self.targets(),
             units: self.config.units,
             forecast_days: self.config.forecast_days,
         }
@@ -468,17 +529,25 @@ impl Weather {
 
     /// The caller has already checked that the provider answered for exactly the places asked
     /// about, which is what makes pairing them by position safe.
-    fn absorb(&mut self, readings: &[Reading]) {
+    fn absorb(&mut self, fetch: &Fetch) {
         let cap = self.config.forecast_days as usize;
 
         self.places = self
             .targets()
             .into_iter()
-            .zip(readings)
-            .map(|((place, coordinates), reading)| PlaceWeather {
-                place,
-                days: sunlit(&reading.days, cap, &coordinates, reading.utc_offset_seconds),
-                coordinates,
+            .zip(&fetch.places)
+            .zip(&fetch.readings)
+            .map(|((target, resolved), reading)| PlaceWeather {
+                place: target.place,
+                days: sunlit(
+                    &reading.days,
+                    cap,
+                    &resolved.coordinates,
+                    reading.utc_offset_seconds,
+                ),
+                coordinates: resolved.coordinates.clone(),
+                city: Some(resolved.city.clone()),
+                country_code: Some(resolved.country_code.clone()),
                 utc_offset_seconds: reading.utc_offset_seconds,
                 current: reading.current.clone(),
                 hours: reading.hours.clone(),
@@ -528,6 +597,9 @@ fn placed(place: WatchedPlace) -> Result<WatchedPlace, CommandError> {
         WatchedPlace::Coordinates { .. } => Err(CommandError::InvalidArgument(
             "those coordinates are not on Earth".to_owned(),
         )),
+        WatchedPlace::Location { name } => place::normalize(&name)
+            .map(|name| WatchedPlace::Location { name })
+            .map_err(CommandError::InvalidArgument),
     }
 }
 
@@ -787,7 +859,7 @@ mod tests {
         let harness = harness().await;
 
         assert!(harness.service.subscriptions().is_empty());
-        assert!(harness.service.ask().coordinates.is_empty());
+        assert!(harness.service.request().targets.is_empty());
         assert!(!harness.service.wants_here());
         assert_eq!(
             reason(&harness.health).as_deref(),
@@ -822,7 +894,7 @@ mod tests {
             .await
             .expect("here is watchable");
 
-        assert!(harness.service.ask().coordinates.is_empty());
+        assert!(harness.service.request().targets.is_empty());
         assert_eq!(
             reason(&harness.health).as_deref(),
             Some("there is no location fix yet")
@@ -957,6 +1029,77 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn a_named_watch_is_normalized_and_requested_without_panel_coordinates() {
+        let mut harness = harness().await;
+
+        call(
+            &mut harness,
+            Asked::Watch(WatchedPlace::Location {
+                name: "Vilnius, lt".to_owned(),
+            }),
+        )
+        .await
+        .expect("a named place");
+
+        assert_eq!(
+            harness.service.request().targets,
+            vec![Target {
+                place: WatchedPlace::Location {
+                    name: "Vilnius, LT".to_owned(),
+                },
+                coordinates: None,
+                resolved: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn a_named_watch_needs_a_city_and_two_letter_country_code() {
+        for name in ["Vilnius", ", LT", "Vilnius, Lithuania"] {
+            let refused = placed(WatchedPlace::Location {
+                name: name.to_owned(),
+            })
+            .expect_err("not a City, CC location");
+
+            assert!(matches!(refused, CommandError::InvalidArgument(_)));
+        }
+    }
+
+    #[tokio::test]
+    async fn resolved_place_metadata_is_owned_by_the_weather_result() {
+        let mut harness = harness().await;
+        call(
+            &mut harness,
+            Asked::Watch(WatchedPlace::Location {
+                name: "Wilno, LT".to_owned(),
+            }),
+        )
+        .await
+        .expect("a named place");
+
+        harness.service.absorb(&Fetch {
+            places: vec![ResolvedPlace {
+                coordinates: fix(54.6872, 25.2797),
+                city: "Vilnius".to_owned(),
+                country_code: "LT".to_owned(),
+            }],
+            readings: vec![a_reading()],
+        });
+
+        assert_eq!(harness.service.places[0].city.as_deref(), Some("Vilnius"));
+        assert_eq!(
+            harness.service.places[0].country_code.as_deref(),
+            Some("LT")
+        );
+        assert_eq!(
+            harness.service.places[0].place,
+            WatchedPlace::Location {
+                name: "Wilno, LT".to_owned(),
+            }
+        );
+    }
+
     /// Without the threshold a fix that jitters by metres bumps the generation on every update and
     /// refetches for ever.
     #[tokio::test]
@@ -1071,6 +1214,8 @@ mod tests {
         harness.service.places = vec![PlaceWeather {
             place: at(47.3769, 8.5417),
             coordinates: fix(47.3769, 8.5417),
+            city: None,
+            country_code: None,
             utc_offset_seconds: 7200,
             current: None,
             hours: Vec::new(),
@@ -1098,6 +1243,8 @@ mod tests {
         harness.service.places = vec![PlaceWeather {
             place: WatchedPlace::Here,
             coordinates: fix(47.3769, 8.5417),
+            city: None,
+            country_code: None,
             utc_offset_seconds: 7200,
             current: None,
             hours: Vec::new(),
@@ -1199,10 +1346,10 @@ mod tests {
             sunset: None,
         };
 
-        harness.service.absorb(&[Reading {
+        harness.service.absorb(&fetched(vec![Reading {
             days: (1..=5).map(day).collect(),
             ..a_reading()
-        }]);
+        }]));
 
         assert_eq!(
             harness.service.places[0].days.len(),
@@ -1231,7 +1378,7 @@ mod tests {
             .await
             .expect("a place to hold a reading");
 
-        harness.service.absorb(&[Reading {
+        harness.service.absorb(&fetched(vec![Reading {
             alerts: vec![WeatherAlert {
                 severity: AlertSeverity::Severe,
                 headline: "Gale\u{202e}gpj.exe".to_owned(),
@@ -1241,7 +1388,7 @@ mod tests {
                 expires_at: None,
             }],
             ..a_reading()
-        }]);
+        }]));
 
         assert_eq!(harness.service.places.len(), 1);
         assert_eq!(
@@ -1258,6 +1405,19 @@ mod tests {
             days: Vec::new(),
             alerts: Vec::new(),
         }
+    }
+
+    fn fetched(readings: Vec<Reading>) -> Fetch {
+        let places = readings
+            .iter()
+            .enumerate()
+            .map(|(index, _)| ResolvedPlace {
+                coordinates: fix(54.6872 + index as f64, 25.2797),
+                city: format!("City {index}"),
+                country_code: "LT".to_owned(),
+            })
+            .collect();
+        Fetch { places, readings }
     }
 
     fn an_alert(headline: &str) -> WeatherAlert {
@@ -1349,7 +1509,7 @@ mod tests {
                 &harness.ctx,
                 Input::Event(Event::Fetched {
                     generation,
-                    result: Ok(vec![a_reading()]),
+                    result: Ok(fetched(vec![a_reading()])),
                 }),
             )
             .await;
@@ -1428,7 +1588,7 @@ mod tests {
                 &harness.ctx,
                 Input::Event(Event::Fetched {
                     generation: stale,
-                    result: Ok(vec![a_reading()]),
+                    result: Ok(fetched(vec![a_reading()])),
                 }),
             )
             .await;
@@ -1481,7 +1641,7 @@ mod tests {
                 &harness.ctx,
                 Input::Event(Event::Fetched {
                     generation: harness.service.generation,
-                    result: Ok(vec![a_reading()]),
+                    result: Ok(fetched(vec![a_reading()])),
                 }),
             )
             .await;
@@ -1510,7 +1670,7 @@ mod tests {
                 &harness.ctx,
                 Input::Event(Event::Fetched {
                     generation: harness.service.generation,
-                    result: Ok(vec![a_reading()]),
+                    result: Ok(fetched(vec![a_reading()])),
                 }),
             )
             .await;
@@ -1523,7 +1683,7 @@ mod tests {
                 &harness.ctx,
                 Input::Event(Event::Fetched {
                     generation: harness.service.generation,
-                    result: Ok(Vec::new()),
+                    result: Ok(fetched(Vec::new())),
                 }),
             )
             .await;
@@ -1555,7 +1715,7 @@ mod tests {
                 &harness.ctx,
                 Input::Event(Event::Fetched {
                     generation: harness.service.generation,
-                    result: Ok(vec![a_reading(), a_reading()]),
+                    result: Ok(fetched(vec![a_reading(), a_reading()])),
                 }),
             )
             .await;

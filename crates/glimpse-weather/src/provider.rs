@@ -27,15 +27,14 @@ impl Provider {
         snapshot(&self.weather)
     }
 
-    async fn watch_place(&self, kind: u8, latitude: f64, longitude: f64) -> Result<(), Error> {
-        let place = match kind {
-            0 => WatchedPlace::Here,
-            1 => WatchedPlace::Coordinates {
-                latitude,
-                longitude,
-            },
-            _ => return Err(Error::InvalidPlace(format!("unknown place kind {kind}"))),
-        };
+    async fn watch_place(
+        &self,
+        kind: u8,       // 0 here, 1 coordinates, 2 named location
+        latitude: f64,  // degrees north, ignored for kinds 0 and 2
+        longitude: f64, // degrees east, ignored for kinds 0 and 2
+        location: &str, // requested name, used only for kind 2
+    ) -> Result<(), Error> {
+        let place = watched_place(kind, latitude, longitude, location)?;
         tracing::debug!(place_kind = kind_name(kind), "weather watch requested");
         self.weather.watch(place).await.map_err(Error::from)
     }
@@ -43,6 +42,25 @@ impl Provider {
     async fn refresh(&self) -> Result<(), Error> {
         tracing::debug!("weather refresh requested");
         self.weather.refresh().await.map_err(Error::from)
+    }
+}
+
+fn watched_place(
+    kind: u8,
+    latitude: f64,
+    longitude: f64,
+    location: &str,
+) -> Result<WatchedPlace, Error> {
+    match kind {
+        0 => Ok(WatchedPlace::Here),
+        1 => Ok(WatchedPlace::Coordinates {
+            latitude,
+            longitude,
+        }),
+        2 => Ok(WatchedPlace::Location {
+            name: location.to_owned(),
+        }),
+        _ => Err(Error::InvalidPlace(format!("unknown place kind {kind}"))),
     }
 }
 
@@ -186,6 +204,7 @@ fn kind_name(kind: u8) -> &'static str {
     match kind {
         0 => "here",
         1 => "coordinates",
+        2 => "location",
         _ => "unknown",
     }
 }
@@ -195,13 +214,33 @@ mod tests {
     use std::io::BufRead as _;
     use std::process::{Child, Command, Stdio};
 
+    use super::*;
     use glimpse_dbus::{Buses, weather::Weather1Proxy};
     use glimpse_services::{
         Geolocation, Service, ServiceRuntime, Weather, WeatherDependencies, initial_weather_state,
     };
     use tokio_util::sync::CancellationToken;
 
-    use super::*;
+    #[test]
+    fn watch_place_kinds_preserve_here_coordinates_and_named_locations() {
+        assert_eq!(
+            watched_place(0, 12.0, 34.0, "ignored").unwrap(),
+            WatchedPlace::Here
+        );
+        assert_eq!(
+            watched_place(1, 54.7, 25.3, "ignored").unwrap(),
+            WatchedPlace::Coordinates {
+                latitude: 54.7,
+                longitude: 25.3,
+            }
+        );
+        assert_eq!(
+            watched_place(2, 0.0, 0.0, "Warsaw, PL").unwrap(),
+            WatchedPlace::Location {
+                name: "Warsaw, PL".to_owned(),
+            }
+        );
+    }
 
     struct PrivateBus {
         child: Child,
@@ -283,9 +322,9 @@ mod tests {
         let client = bus.connection().await;
         let proxy = Weather1Proxy::new(&client).await.unwrap();
 
-        proxy.watch_place(1, 54.7, 25.3).await.unwrap();
+        proxy.watch_place(1, 54.7, 25.3, "").await.unwrap();
         proxy.refresh().await.unwrap();
-        let invalid = proxy.watch_place(2, 0.0, 0.0).await.unwrap_err();
+        let invalid = proxy.watch_place(3, 0.0, 0.0, "").await.unwrap_err();
         assert!(matches!(
             invalid,
             zbus::Error::MethodError(name, _, _)
@@ -317,10 +356,11 @@ mod tests {
       <arg name="kind" type="y" direction="in"/>
       <arg name="latitude" type="d" direction="in"/>
       <arg name="longitude" type="d" direction="in"/>
+      <arg name="location" type="s" direction="in"/>
     </method>
     <method name="Refresh">
     </method>
-    <property name="Snapshot" type="(bbsxya(yddddi(b(xybd(bd)(by)(bd)(bq)(bd)))a(xybd)a(xydd(by)(bx)(bx))a(ys(bs)(bs)(bx)(bx))))" access="read"/>
+    <property name="Snapshot" type="(bbsxya(yddsddssi(b(xybd(bd)(by)(bd)(bq)(bd)))a(xybd)a(xydd(by)(bx)(bx))a(ys(bs)(bs)(bx)(bx))))" access="read"/>
   </interface>"#
         );
 

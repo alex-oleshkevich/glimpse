@@ -211,9 +211,14 @@ impl Weather {
         if let Some(label) = self.settings.label.as_deref() {
             return label.to_owned();
         }
-        match self.place.as_ref().map(|place| &place.coordinates) {
-            Some(coordinates) => pair(coordinates),
-            None => gettext("Here"),
+        let Some(place) = self.place.as_ref() else {
+            return gettext("Here");
+        };
+        match (&place.city, &place.country_code) {
+            (Some(city), Some(country_code)) => format!("{city}, {country_code}"),
+            (Some(city), None) => city.clone(),
+            (None, Some(country_code)) => country_code.clone(),
+            (None, None) => pair(&place.coordinates),
         }
     }
 
@@ -278,6 +283,7 @@ fn watched(place: &WeatherPlace) -> WatchedPlace {
             latitude: *latitude,
             longitude: *longitude,
         },
+        WeatherPlace::Location { name } => WatchedPlace::Location { name: name.clone() },
     }
 }
 
@@ -352,6 +358,8 @@ mod tests {
                 latitude: 54.6872,
                 longitude: 25.2797,
             },
+            city: Some("Vilnius".to_owned()),
+            country_code: Some("LT".to_owned()),
             utc_offset_seconds: 10_800,
             current: Some(CurrentWeather {
                 observed_at: Utc.with_ymd_and_hms(2026, 9, 8, 12, 0, 0).unwrap(),
@@ -474,10 +482,21 @@ mod tests {
     fn a_configured_label_wins_over_the_coordinates_the_provider_answered_with() {
         let mut applet = applet();
         applet.place = Some(reading());
-        assert_eq!(applet.label(), "54.69, 25.28");
+        assert_eq!(applet.label(), "Vilnius, LT");
 
         applet.settings.label = Some("Vilnius".to_owned());
         assert_eq!(applet.label(), "Vilnius");
+    }
+
+    #[test]
+    fn a_missing_canonical_name_falls_back_to_coordinates() {
+        let mut applet = applet();
+        applet.place = Some(PlaceWeather {
+            city: None,
+            country_code: None,
+            ..reading()
+        });
+        assert_eq!(applet.label(), "54.69, 25.28");
     }
 
     #[test]
@@ -491,6 +510,14 @@ mod tests {
             WatchedPlace::Coordinates {
                 latitude: 54.6872,
                 longitude: 25.2797
+            }
+        );
+        assert_eq!(
+            watched(&WeatherPlace::Location {
+                name: "Vilnius, LT".to_owned(),
+            }),
+            WatchedPlace::Location {
+                name: "Vilnius, LT".to_owned(),
             }
         );
     }

@@ -381,6 +381,11 @@ the wiring needs GTK.
 own `[applets.weather-home.place]` is a second instance; the service holds no places of its own and
 each applet leases the one it shows. Nothing new was needed for this — `extends` already did it.
 
+`place` accepts `here`, fixed `latlon`, or a named `location` such as
+`[applets.weather.place]` with `at = "location"` and `name = "Vilnius, LT"`. The weather service owns
+GeoClue, forward and reverse resolution, and the canonical city/country result; the panel only sends
+the typed request and displays that result. An explicit applet `label` still overrides it.
+
 **The lease renews on a minute's tick against the provider's thirty-minute `LEASE`**, which is thirty
 renewals of margin, so a panel that misses a tick or two never drops its place. This applet is that
 constant's first consumer, and the pair is read together: if the tick slows, `LEASE` moves with it.

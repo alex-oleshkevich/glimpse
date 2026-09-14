@@ -22,6 +22,8 @@ const REASON: usize = 240;
 const HEADLINE: usize = 120;
 const DESCRIPTION: usize = 600;
 const SOURCE: usize = 60;
+const CITY: usize = 120;
+const COUNTRY_CODE: usize = 2;
 
 pub type OptionalDoubleWire = (
     bool, // present
@@ -78,11 +80,14 @@ pub type WeatherAlertWire = (
     OptionalTimestampWire, // expiration time
 );
 pub type PlaceWeatherWire = (
-    u8,                         // requested place: 0 current location, 1 coordinates
-    f64,                        // requested latitude, ignored for current location
-    f64,                        // requested longitude, ignored for current location
+    u8,                         // requested place: 0 current location, 1 coordinates, 2 named location
+    f64,                        // requested latitude, ignored for current and named locations
+    f64,                        // requested longitude, ignored for current and named locations
+    String,                     // requested location name, used only for named location
     f64,                        // resolved latitude
     f64,                        // resolved longitude
+    String,                     // canonical city, empty when unavailable
+    String,                     // canonical ISO 3166-1 alpha-2 country code, empty when unavailable
     i32,                        // UTC offset in seconds
     (bool, CurrentWeatherWire), // current conditions and whether they are present
     Vec<HourForecastWire>,      // hourly forecast
@@ -107,7 +112,13 @@ pub trait Weather1 {
     #[zbus(property)]
     fn snapshot(&self) -> zbus::Result<WeatherSnapshot>;
 
-    fn watch_place(&self, kind: u8, latitude: f64, longitude: f64) -> zbus::Result<()>;
+    fn watch_place(
+        &self,
+        kind: u8,       // 0 here, 1 coordinates, 2 named location
+        latitude: f64,  // degrees north, ignored for kinds 0 and 2
+        longitude: f64, // degrees east, ignored for kinds 0 and 2
+        location: &str, // requested name, used only for kind 2
+    ) -> zbus::Result<()>;
     fn refresh(&self) -> zbus::Result<()>;
 }
 
@@ -229,9 +240,14 @@ impl WeatherProviderHandle {
     }
 
     pub async fn watch(&self, place: WatchedPlace) -> Result<(), WeatherProviderError> {
-        let (kind, latitude, longitude) = place_wire(&place)?;
+        let (kind, latitude, longitude, location) = place_wire(&place)?;
         tracing::debug!(place_kind = place_kind(&place), "renewing weather watch");
-        call(self.proxy().await?.watch_place(kind, latitude, longitude)).await
+        call(
+            self.proxy()
+                .await?
+                .watch_place(kind, latitude, longitude, &location),
+        )
+        .await
     }
 
     pub async fn refresh(&self) -> Result<(), WeatherProviderError> {
@@ -451,19 +467,23 @@ fn decode_snapshot(snapshot: WeatherSnapshot) -> Result<WeatherProviderState, St
 }
 
 fn encode_place(place: &PlaceWeather) -> PlaceWeatherWire {
-    let (kind, latitude, longitude) = match place.place {
-        WatchedPlace::Here => (0, 0.0, 0.0),
+    let (kind, latitude, longitude, location) = match &place.place {
+        WatchedPlace::Here => (0, 0.0, 0.0, String::new()),
         WatchedPlace::Coordinates {
             latitude,
             longitude,
-        } => (1, latitude, longitude),
+        } => (1, *latitude, *longitude, String::new()),
+        WatchedPlace::Location { name } => (2, 0.0, 0.0, name.clone()),
     };
     (
         kind,
         latitude,
         longitude,
+        location,
         place.coordinates.latitude,
         place.coordinates.longitude,
+        place.city.clone().unwrap_or_default(),
+        place.country_code.clone().unwrap_or_default(),
         place.utc_offset_seconds,
         encode_optional_current(place.current.as_ref()),
         place.hours.iter().map(encode_hour).collect(),
@@ -477,8 +497,11 @@ fn decode_place(place: PlaceWeatherWire) -> Result<PlaceWeather, String> {
         kind,
         latitude,
         longitude,
+        location,
         resolved_latitude,
         resolved_longitude,
+        city,
+        country_code,
         utc_offset_seconds,
         current,
         hours,
@@ -486,11 +509,13 @@ fn decode_place(place: PlaceWeatherWire) -> Result<PlaceWeather, String> {
         alerts,
     ) = place;
     Ok(PlaceWeather {
-        place: decode_place_kind(kind, latitude, longitude)?,
+        place: decode_place_kind(kind, latitude, longitude, location)?,
         coordinates: GeoCoordinates {
             latitude: resolved_latitude,
             longitude: resolved_longitude,
         },
+        city: optional_clean(city, CITY),
+        country_code: optional_country_code(country_code),
         utc_offset_seconds,
         current: decode_optional_current(current)?,
         hours: hours
@@ -641,22 +666,33 @@ fn decode_alert(alert: WeatherAlertWire) -> Result<WeatherAlert, String> {
     })
 }
 
-fn place_wire(place: &WatchedPlace) -> Result<(u8, f64, f64), WeatherProviderError> {
+fn place_wire(place: &WatchedPlace) -> Result<(u8, f64, f64, String), WeatherProviderError> {
     match place {
-        WatchedPlace::Here => Ok((0, 0.0, 0.0)),
+        WatchedPlace::Here => Ok((0, 0.0, 0.0, String::new())),
         WatchedPlace::Coordinates {
             latitude,
             longitude,
         } if (-90.0..=90.0).contains(latitude) && (-180.0..=180.0).contains(longitude) => {
-            Ok((1, *latitude, *longitude))
+            Ok((1, *latitude, *longitude, String::new()))
         }
         WatchedPlace::Coordinates { .. } => Err(WeatherProviderError::InvalidPlace(
             "those coordinates are not on Earth".to_owned(),
         )),
+        WatchedPlace::Location { name } if !name.trim().is_empty() => {
+            Ok((2, 0.0, 0.0, name.clone()))
+        }
+        WatchedPlace::Location { .. } => Err(WeatherProviderError::InvalidPlace(
+            "location must not be empty".to_owned(),
+        )),
     }
 }
 
-fn decode_place_kind(kind: u8, latitude: f64, longitude: f64) -> Result<WatchedPlace, String> {
+fn decode_place_kind(
+    kind: u8,
+    latitude: f64,
+    longitude: f64,
+    location: String,
+) -> Result<WatchedPlace, String> {
     match kind {
         0 => Ok(WatchedPlace::Here),
         1 if (-90.0..=90.0).contains(&latitude) && (-180.0..=180.0).contains(&longitude) => {
@@ -666,6 +702,8 @@ fn decode_place_kind(kind: u8, latitude: f64, longitude: f64) -> Result<WatchedP
             })
         }
         1 => Err("weather snapshot contains invalid coordinates".to_owned()),
+        2 if !location.trim().is_empty() => Ok(WatchedPlace::Location { name: location }),
+        2 => Err("weather snapshot contains empty named location".to_owned()),
         _ => Err(format!(
             "weather snapshot contains unknown place kind {kind}"
         )),
@@ -676,6 +714,7 @@ fn place_kind(place: &WatchedPlace) -> &'static str {
     match place {
         WatchedPlace::Here => "here",
         WatchedPlace::Coordinates { .. } => "coordinates",
+        WatchedPlace::Location { .. } => "location",
     }
 }
 
@@ -701,6 +740,17 @@ fn optional_string(value: Option<&String>) -> OptionalStringWire {
 
 fn decode_optional<T>((present, value): (bool, T)) -> Option<T> {
     present.then_some(value)
+}
+
+fn optional_clean(value: String, limit: usize) -> Option<String> {
+    let value = clean(&value, limit);
+    (!value.is_empty()).then_some(value)
+}
+
+fn optional_country_code(value: String) -> Option<String> {
+    let value = clean(&value, COUNTRY_CODE);
+    (value.len() == COUNTRY_CODE && value.bytes().all(|byte| byte.is_ascii_uppercase()))
+        .then_some(value)
 }
 
 fn decode_optional_timestamp(
@@ -827,11 +877,11 @@ mod tests {
         assert_eq!(WeatherAlertWire::SIGNATURE, "(ys(bs)(bs)(bx)(bx))");
         assert_eq!(
             PlaceWeatherWire::SIGNATURE,
-            "(yddddi(b(xybd(bd)(by)(bd)(bq)(bd)))a(xybd)a(xydd(by)(bx)(bx))a(ys(bs)(bs)(bx)(bx)))"
+            "(yddsddssi(b(xybd(bd)(by)(bd)(bq)(bd)))a(xybd)a(xydd(by)(bx)(bx))a(ys(bs)(bs)(bx)(bx)))"
         );
         assert_eq!(
             WeatherSnapshot::SIGNATURE,
-            "(bbsxya(yddddi(b(xybd(bd)(by)(bd)(bq)(bd)))a(xybd)a(xydd(by)(bx)(bx))a(ys(bs)(bs)(bx)(bx))))"
+            "(bbsxya(yddsddssi(b(xybd(bd)(by)(bd)(bq)(bd)))a(xybd)a(xydd(by)(bx)(bx))a(ys(bs)(bs)(bx)(bx))))"
         );
     }
 
@@ -841,11 +891,15 @@ mod tests {
         let status = WeatherStatus {
             units: UnitSystem::Metric,
             places: vec![PlaceWeather {
-                place: WatchedPlace::Here,
+                place: WatchedPlace::Location {
+                    name: "Vilnius, LT".to_owned(),
+                },
                 coordinates: GeoCoordinates {
                     latitude: 54.7,
                     longitude: 25.3,
                 },
+                city: Some("Vilnius".to_owned()),
+                country_code: Some("LT".to_owned()),
                 utc_offset_seconds: 7_200,
                 current: Some(CurrentWeather {
                     observed_at: updated_at,
@@ -888,8 +942,11 @@ mod tests {
             0,
             0.0,
             0.0,
+            String::new(),
             54.7,
             25.3,
+            format!("{}\u{202e}", "c".repeat(CITY + 10)),
+            format!("{}\u{202e}", "p".repeat(COUNTRY_CODE + 10)),
             7_200,
             (false, empty_current()),
             vec![(timestamp, 0, true, 12.0); HOURS + 1],
@@ -913,6 +970,11 @@ mod tests {
         let status = decoded.status.unwrap();
         assert_eq!(status.places.len(), MOST_PLACES);
         let place = &status.places[0];
+        assert_eq!(
+            place.city.as_deref(),
+            Some(format!("{}…", "c".repeat(CITY)).as_str())
+        );
+        assert_eq!(place.country_code, None);
         assert_eq!(place.hours.len(), HOURS);
         assert_eq!(place.days.len(), DAYS);
         assert_eq!(place.alerts.len(), MOST_ALERTS);

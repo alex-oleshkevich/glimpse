@@ -11,8 +11,10 @@ use glimpse_dbus::weather::{
 use tokio::sync::watch;
 use zbus::Connection;
 
+type Calls = Arc<Mutex<Vec<(u8, f64, f64, String)>>>;
+
 struct TestProvider {
-    calls: Arc<Mutex<Vec<(u8, f64, f64)>>>,
+    calls: Calls,
 }
 
 #[zbus::interface(name = "me.aresa.Glimpse.Weather1")]
@@ -23,8 +25,11 @@ impl TestProvider {
             0,
             0.0,
             0.0,
+            String::new(),
             54.7,
             25.3,
+            "Vilnius".to_owned(),
+            "LT".to_owned(),
             7_200,
             (
                 false,
@@ -54,8 +59,11 @@ impl TestProvider {
         )
     }
 
-    fn watch_place(&self, kind: u8, latitude: f64, longitude: f64) {
-        self.calls.lock().unwrap().push((kind, latitude, longitude));
+    fn watch_place(&self, kind: u8, latitude: f64, longitude: f64, location: &str) {
+        self.calls
+            .lock()
+            .unwrap()
+            .push((kind, latitude, longitude, location.to_owned()));
     }
 
     fn refresh(&self) {}
@@ -101,7 +109,7 @@ impl Drop for PrivateBus {
     }
 }
 
-async fn serve(bus: &PrivateBus, calls: Arc<Mutex<Vec<(u8, f64, f64)>>>) -> Connection {
+async fn serve(bus: &PrivateBus, calls: Calls) -> Connection {
     let connection = bus.connection().await;
     connection
         .object_server()
@@ -144,7 +152,14 @@ async fn provider_connects_after_the_client_and_recovers_after_owner_loss() {
     let first = serve(&bus, calls.clone()).await;
     wait_until(&mut state, |state| state.owner).await;
     handle.watch(WatchedPlace::Here).await.unwrap();
-    assert_eq!(calls.lock().unwrap().as_slice(), &[(0, 0.0, 0.0)]);
+    assert_eq!(
+        calls.lock().unwrap().as_slice(),
+        &[(0, 0.0, 0.0, String::new())]
+    );
+    let snapshot = handle.snapshot();
+    let place = &snapshot.status.unwrap().places[0];
+    assert_eq!(place.city.as_deref(), Some("Vilnius"));
+    assert_eq!(place.country_code.as_deref(), Some("LT"));
 
     drop(first);
     wait_until(&mut state, |state| !state.owner).await;
@@ -162,7 +177,20 @@ async fn provider_connects_after_the_client_and_recovers_after_owner_loss() {
         })
         .await
         .unwrap();
-    assert_eq!(calls.lock().unwrap().len(), 2);
+    handle
+        .watch(WatchedPlace::Location {
+            name: "Warsaw, PL".to_owned(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        calls.lock().unwrap().as_slice(),
+        &[
+            (0, 0.0, 0.0, String::new()),
+            (1, 54.7, 25.3, String::new()),
+            (2, 0.0, 0.0, "Warsaw, PL".to_owned()),
+        ]
+    );
 
     let _ = bus.child.kill();
     let _ = bus.child.wait();

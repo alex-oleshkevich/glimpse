@@ -236,6 +236,35 @@ mod tests {
             }
         );
 
+        let named: Config = toml::from_str(
+            "[applets.weather]\nplace = { at = \"location\", name = \"Vilnius, LT\" }\n",
+        )
+        .expect("a city and country code are a place");
+        let AppletKind::Weather(weather) = &named.applets["weather"].kind else {
+            panic!("the table names the weather applet");
+        };
+        assert_eq!(
+            weather.place,
+            applets::Place::Location {
+                name: "Vilnius, LT".to_owned()
+            }
+        );
+        let long_city = "v".repeat(101);
+        for name in [
+            "Vilnius".to_owned(),
+            "Vilnius, lt".to_owned(),
+            ", LT".to_owned(),
+            "Vilnius, LTU".to_owned(),
+            format!("{long_city}, LT"),
+        ] {
+            let document =
+                format!("[applets.weather]\nplace = {{ at = \"location\", name = \"{name}\" }}\n");
+            let error = toml::from_str::<Config>(&document)
+                .expect_err("malformed locations are rejected")
+                .to_string();
+            assert!(error.contains("location must be written as"), "{error}");
+        }
+
         assert!(
             toml::from_str::<Config>("[applets.weather.place]\nat = \"postcode\"\n").is_err(),
             "there are two shapes and a third is a mistake, not a place"

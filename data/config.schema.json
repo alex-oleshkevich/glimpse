@@ -2745,7 +2745,7 @@
           "properties": {
             "at": {
               "type": "string",
-              "const": "coordinates"
+              "const": "latlon"
             },
             "latitude": {
               "description": "Degrees north of the equator, between -90 and 90.",
@@ -2763,6 +2763,25 @@
             "at",
             "latitude",
             "longitude"
+          ]
+        },
+        {
+          "description": "Resolve a city and ISO 3166-1 alpha-2 country code through the weather service.",
+          "type": "object",
+          "properties": {
+            "at": {
+              "type": "string",
+              "const": "location"
+            },
+            "name": {
+              "description": "City and country code, written as `City, CC`.",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "at",
+            "name"
           ]
         }
       ]

@@ -468,6 +468,8 @@ mod tests {
                 latitude: 54.6872,
                 longitude: 25.2797,
             },
+            city: None,
+            country_code: None,
             utc_offset_seconds: 10_800,
             current: Some(current(Condition::PartlyCloudy)),
             hours: Vec::new(),
