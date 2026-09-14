@@ -1,15 +1,14 @@
 [Unit]
-Description=Glimpse notification popups
+Description=Glimpse notifications
 Documentation=https://github.com/alex-oleshkevich/glimpse
 PartOf=glimpse-session.target
-After=glimpsed.service
-Wants=glimpsed.service
 StartLimitBurst=5
 StartLimitIntervalSec=60
 
 [Service]
-Type=exec
-ExecStart=/usr/bin/glimpse-notificationd
+Type=dbus
+BusName=me.aresa.Glimpse.Notifications
+ExecStart=/usr/bin/glimpse-notifications
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=2

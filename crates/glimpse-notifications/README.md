@@ -1,13 +1,14 @@
-# glimpse-notificationd
+# glimpse-notifications
 
-The standalone notification popup UI. It is independent of the panel and talks only to `glimpsed`
-over `glimpse-ipc`.
+The standalone notification owner and popup UI. It runs the existing notification, compositor and
+session services in process and exposes notification state and controls over a typed D-Bus interface.
 
-The first `notifications.list` value of every connection generation is a baseline and never opens a
-popup. Later unread records appear newest nearest the configured edge; replacing a visible record
+The first local notification snapshot is a baseline and never opens a popup. Later unread records
+appear newest nearest the configured edge; replacing a visible record
 updates its existing card and restarts its timer. Do not disturb, lock, privacy, disablement and
-reconnect clear the transient stack without deleting daemon history, and records received while a
-gate is active are never replayed when it opens.
+service loss clears the transient stack without deleting in-process history, and records received while a
+gate is active are never replayed when it opens. History is bounded in memory and resets with this
+process.
 
 One layer-shell surface owns the full stack. Every entry uses the shared `NotificationCard`, whose
 optional image slot updates without replacing the widget. It reserves a paint gutter around every
@@ -24,5 +25,5 @@ non-empty, except when that output disappears. File changes and `SIGHUP` reload 
 and styles in place; changing the theme re-arms the theme watcher without replacing the process or
 layer surface.
 
-The daemon-owned `session.status` topic supplies lock and privacy gates from logind, compositor
-screencast state and explicit overrides; the popup process never opens those backends itself.
+The process-local session service supplies lock and privacy gates from logind and compositor
+screencast state. It receives the compositor handle explicitly from this process's composition root.

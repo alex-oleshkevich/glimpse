@@ -4,21 +4,21 @@ use std::time::Duration;
 use chrono::{DateTime, Datelike as _, Local, TimeZone, Utc};
 use chrono_tz::Tz;
 use glimpse_config::{Applet as AppletConfig, AppletKind, ClockConfig};
-use glimpse_contracts::{CalendarEvents, CalendarSetRange, Message as _};
+use glimpse_services::CalendarHandle;
 use glimpse_widgets::{CalendarPopover, IndicatorSpec};
 use gtk4::glib;
 
 use super::popover;
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Input, payload};
+use crate::applet::{Applet, Ctx, Input, spawn_command};
 use crate::applets::agenda::{self, Occasion};
 
 const SECOND: Duration = Duration::from_secs(1);
 const MINUTE: Duration = Duration::from_secs(60);
 const SUBMINUTE: [char; 8] = ['S', 'T', 'X', 'r', 'c', '+', 's', 'f'];
 
-#[derive(Default)]
 pub struct Clock {
+    calendar: CalendarHandle,
     settings: ClockConfig,
     twelve: bool,
     tooltip_format: Option<String>,
@@ -31,14 +31,6 @@ pub struct Clock {
 }
 
 impl Applet for Clock {
-    fn topics(&self) -> &'static [&'static str] {
-        &[CalendarEvents::NAME]
-    }
-
-    fn start() -> Self {
-        Self::default()
-    }
-
     fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
         let AppletKind::Clock(clock) = &config.kind else {
             return;
@@ -78,30 +70,27 @@ impl Applet for Clock {
             self.tooltip_format.as_deref(),
         ));
 
-        self.ask_for_range(ctx);
+        self.ask_for_range();
 
         if let Some(shown) = self.shown.upgrade() {
             self.dress(&shown);
         }
     }
 
-    fn handle(&mut self, ctx: &Ctx, input: &Input) {
-        if let Input::Topic(event) = input {
-            let Some(events) = payload::<CalendarEvents>(event) else {
-                return;
-            };
+    fn handle(&mut self, _ctx: &Ctx, input: &Input) {
+        if matches!(input, Input::Woken) {
+            let events = self.calendar.snapshot();
             self.events = agenda::occasions(&events.events);
             self.truncated_from = events.truncated_from;
             if let Some(shown) = self.shown.upgrade() {
                 self.dress(&shown);
             }
-            return;
         }
 
         if !matches!(input, Input::Tick | Input::Woken) {
             return;
         }
-        self.ask_for_range(ctx);
+        self.ask_for_range();
         if let Some(shown) = self.shown.upgrade() {
             self.paint(&shown);
         }
@@ -146,6 +135,22 @@ impl Applet for Clock {
 }
 
 impl Clock {
+    pub fn start(calendar: CalendarHandle) -> Self {
+        let events = calendar.snapshot();
+        Self {
+            calendar,
+            settings: ClockConfig::default(),
+            twelve: false,
+            tooltip_format: None,
+            footer: None,
+            zone: None,
+            events: agenda::occasions(&events.events),
+            truncated_from: events.truncated_from,
+            range: None,
+            shown: glib::WeakRef::default(),
+        }
+    }
+
     fn dress(&self, shown: &CalendarPopover) {
         shown.set_zones(&popover::zones(&self.settings.timezones));
         shown.set_twelve_hour(self.twelve);
@@ -174,7 +179,7 @@ impl Clock {
         }
     }
 
-    fn ask_for_range(&mut self, ctx: &Ctx) {
+    fn ask_for_range(&mut self) {
         let (year, month) = match self.shown.upgrade() {
             Some(shown) => shown.shown_month(),
             None => {
@@ -189,9 +194,9 @@ impl Clock {
             return;
         }
         self.range = Some(range);
-        ctx.call::<CalendarSetRange>(CalendarSetRange {
-            from: range.0,
-            to: range.1,
+        let calendar = self.calendar.clone();
+        spawn_command("calendar.set_range", async move {
+            calendar.set_range(range.0, range.1).await
         });
     }
 

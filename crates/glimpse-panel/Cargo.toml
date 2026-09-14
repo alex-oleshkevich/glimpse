@@ -20,7 +20,9 @@ gio.workspace = true
 glib.workspace = true
 glimpse-config.workspace = true
 glimpse-contracts.workspace = true
+glimpse-dbus.workspace = true
 glimpse-ipc.workspace = true
+glimpse-services.workspace = true
 glimpse-utils.workspace = true
 glimpse-widgets.workspace = true
 gtk4.workspace = true
@@ -32,6 +34,7 @@ serde_json.workspace = true
 shadow-rs.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 

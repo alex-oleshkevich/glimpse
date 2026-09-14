@@ -19,7 +19,7 @@ asset="glimpse-${version}-${arch}.tar.zst"
 pkgroot="dist/pkgroot"
 # GLIMPSE_BINARIES is set by `just package-binary` from the justfile's single source of
 # truth; the fallback here only matters for a direct, non-just invocation of this script.
-read -ra binaries <<< "${GLIMPSE_BINARIES:-glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notificationd}"
+read -ra binaries <<< "${GLIMPSE_BINARIES:-glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications}"
 
 rm -rf "$pkgroot"
 mkdir -p \

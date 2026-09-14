@@ -9,7 +9,8 @@ done
 
 rm -f "$unitdir"/glimpse*.service
 rm -f "$unitdir"/glimpse*.target
-rm -f "$dbusdir/org.kde.StatusNotifierWatcher.service" "$dbusdir/org.freedesktop.Notifications.service"
+rm -f "$dbusdir/org.kde.StatusNotifierWatcher.service" "$dbusdir/org.freedesktop.Notifications.service" "$dbusdir/me.aresa.Glimpse.Notifications.service"
+rm -f "$bindir/glimpse-notificationd"
 rm -f "$pamdir/glimpse-lock"
 rm -f "$geocluedir/glimpse.conf"
 rm -rf "$sharedir"

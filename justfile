@@ -7,7 +7,7 @@ set positional-arguments
 # Single source of truth for install/uninstall/package-binary, passed to those scripts as
 # GLIMPSE_BINARIES. Static TOML can't read it, so the cargo-deb/cargo-generate-rpm asset lists
 # still hand-duplicate it, as do the scripts' own no-just fallback defaults.
-binaries := "glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notificationd"
+binaries := "glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications"
 
 [doc("list recipes")]
 default:
@@ -138,7 +138,7 @@ check-units:
         echo "Requires=glimpsed.service — use Wants="; exit 1
     fi
 
-    members="glimpsed glimpse-panel glimpse-wallpaper glimpse-sunset glimpse-notificationd"
+    members="glimpsed glimpse-panel glimpse-wallpaper glimpse-sunset glimpse-notifications"
     target=data/systemd/glimpse-session.target
     for member in $members; do
         unit="data/systemd/$member.service"
@@ -187,8 +187,8 @@ run-sunset *ARGS:
     cargo run -p glimpse-sunset -- "$@"
 
 [doc("run notification popups")]
-run-notificationd *ARGS:
-    cargo run -p glimpse-notificationd -- "$@"
+run-notifications *ARGS:
+    cargo run -p glimpse-notifications -- "$@"
 
 [doc("run the CLI")]
 ctl *ARGS:

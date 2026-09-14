@@ -9,17 +9,16 @@ use glimpse_widgets::IndicatorSpec;
 use popover::{PopoverHandle, Seat};
 use serde::Deserialize;
 use std::cell::RefCell;
+use std::fmt::Display;
+use std::future::Future;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::sync::watch;
 use tokio::task::AbortHandle;
 
 pub trait Applet: 'static {
     fn topics(&self) -> &'static [&'static str] {
         &[]
     }
-
-    fn start() -> Self
-    where
-        Self: Sized;
 
     fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
         let _ = (ctx, config);
@@ -89,6 +88,19 @@ pub enum Direction {
     Down,
     Left,
     Right,
+}
+
+pub fn spawn_command<F, T, E>(operation: &'static str, future: F)
+where
+    F: Future<Output = Result<T, E>> + Send + 'static,
+    T: Send + 'static,
+    E: Display + Send + 'static,
+{
+    relm4::spawn(async move {
+        if let Err(error) = future.await {
+            tracing::warn!(operation, %error, "service command failed");
+        }
+    });
 }
 
 pub struct Ctx {
@@ -173,10 +185,6 @@ impl Ctx {
         &self.caller.name
     }
 
-    pub fn caller(&self) -> Caller {
-        self.caller.clone()
-    }
-
     pub fn output(&self) -> Option<&str> {
         self.output.as_deref()
     }
@@ -221,6 +229,20 @@ impl Ctx {
         tracing::debug!(applet = self.caller.name, ?period, "ticking");
     }
 
+    pub fn watch<T>(&self, state: watch::Receiver<T>)
+    where
+        T: Send + Sync + 'static,
+    {
+        let host = self.host.clone();
+        let applet = self.caller.name.clone();
+        let handle = relm4::spawn(watch_changes(state, host));
+
+        self.sources.borrow_mut().push(SourceGuard {
+            abort: handle.abort_handle(),
+        });
+        tracing::debug!(applet, "watching typed state");
+    }
+
     pub fn call<C: Command>(&self, args: C::Args) {
         self.caller.call::<C>(args);
     }
@@ -261,6 +283,17 @@ impl Ctx {
         self.sources.borrow_mut().push(SourceGuard {
             abort: handle.abort_handle(),
         });
+    }
+}
+
+async fn watch_changes<T>(mut state: watch::Receiver<T>, host: relm4::Sender<runtime::HostInput>)
+where
+    T: Send + Sync + 'static,
+{
+    while state.changed().await.is_ok() {
+        if host.send(runtime::HostInput::Woken).is_err() {
+            return;
+        }
     }
 }
 
@@ -348,6 +381,22 @@ mod tests {
             "tokio defaults to Burst, which after a suspend would deliver one tick per second \
              slept, all in one pass; Skip is also the only behaviour that keeps the phase"
         );
+    }
+
+    #[tokio::test]
+    async fn a_typed_state_change_wakes_the_applet() {
+        let (state, receiver) = watch::channel(1_u8);
+        let (host, inputs) = relm4::channel();
+        let task = tokio::spawn(watch_changes(receiver, host));
+
+        state.send(2).expect("the receiver is live");
+        assert!(matches!(
+            inputs.recv().await,
+            Some(runtime::HostInput::Woken)
+        ));
+
+        drop(state);
+        task.await.expect("the watch task stops");
     }
 
     #[test]

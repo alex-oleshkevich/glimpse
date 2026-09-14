@@ -4,15 +4,14 @@ use std::path::Path;
 use std::rc::Rc;
 use std::time::Duration;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, NotificationIndicatorStyle};
-use glimpse_contracts::{
-    DoNotDisturb, FocusWindow, Message as _, NotificationRecord, NotificationsActivate,
-    NotificationsClearAll, NotificationsClearApp, NotificationsDnd, NotificationsInvokeAction,
-    NotificationsList, NotificationsRemove, NotificationsSetDnd, ServiceState, SystemServices,
-    WindowRef,
+use glimpse_contracts::{NotificationAction, NotificationRecord, NotificationUrgency, WindowRef};
+use glimpse_dbus::notifications::{
+    NotificationWire, NotificationsProviderHandle, NotificationsProviderState,
 };
+use glimpse_services::CompositorHandle;
 use glimpse_widgets::{Group, IndicatorSpec, NotificationsPopover, notification_image};
 use gtk4::gdk::prelude::DisplayExt;
 use gtk4::gio::prelude::AppLaunchContextExt;
@@ -20,7 +19,7 @@ use gtk4::prelude::{Cast, WidgetExt};
 use gtk4::{gdk, gio, glib};
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Caller, Ctx, Input, payload};
+use crate::applet::{Applet, Ctx, Input, spawn_command};
 
 use super::render;
 
@@ -39,35 +38,11 @@ pub struct Notifications {
     muted: gio::Icon,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<NotificationsPopover>,
+    notifications: NotificationsProviderHandle,
+    compositor: CompositorHandle,
 }
 
 impl Applet for Notifications {
-    fn topics(&self) -> &'static [&'static str] {
-        &[
-            NotificationsList::NAME,
-            NotificationsDnd::NAME,
-            SystemServices::NAME,
-        ]
-    }
-
-    fn start() -> Self {
-        Self {
-            list: None,
-            dnd: Rc::new(Cell::new(false)),
-            trouble: None,
-            tooltip_format: None,
-            footer: None,
-            indicator_style: NotificationIndicatorStyle::default(),
-            held: Rc::new(RefCell::new(Vec::new())),
-            icons: HashMap::new(),
-            images: HashMap::new(),
-            bell: gio::ThemedIcon::new(render::BELL).upcast(),
-            muted: gio::ThemedIcon::new(render::MUTED).upcast(),
-            spec: Vec::new(),
-            shown: glib::WeakRef::new(),
-        }
-    }
-
     fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
         let AppletKind::Notifications(settings) = &config.kind else {
             return;
@@ -84,21 +59,9 @@ impl Applet for Notifications {
 
     fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
-            Input::Topic(event) => {
-                if let Some(list) = payload::<NotificationsList>(event) {
-                    self.list = Some(list.notifications);
-                } else if let Some(status) = payload::<NotificationsDnd>(event) {
-                    self.dnd.set(render::silenced(status.dnd));
-                } else if let Some(status) = payload::<SystemServices>(event) {
-                    self.trouble = match status.services.get("notifications") {
-                        Some(ServiceState::Degraded { reason }) => Some(reason.clone()),
-                        _ => None,
-                    };
-                } else {
-                    return;
-                }
-            }
-            Input::Tick | Input::Woken => {}
+            Input::Woken => self.sync(),
+            Input::Tick => {}
+            Input::Topic(_) => return,
             Input::Pointer(_) => return,
         }
         self.refresh();
@@ -110,47 +73,51 @@ impl Applet for Notifications {
 
     fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = NotificationsPopover::new();
-        let caller = seat.caller();
         let opener = seat.opener();
         let held = self.held.clone();
         let dnd = self.dnd.clone();
 
         shown.connect_activated({
-            let caller = caller.clone();
+            let notifications = self.notifications.clone();
+            let compositor = self.compositor.clone();
             let held = held.clone();
-            move |popover, key| activate(&caller, popover, &held, &key)
+            move |popover, key| activate(&notifications, &compositor, popover, &held, &key)
         });
         shown.connect_action_invoked({
-            let caller = caller.clone();
+            let notifications = self.notifications.clone();
             let held = held.clone();
-            move |popover, key, action| invoke(&caller, popover, &held, &key, &action)
+            move |popover, key, action| invoke(&notifications, popover, &held, &key, &action)
         });
         shown.connect_dismissed({
-            let caller = caller.clone();
+            let notifications = self.notifications.clone();
             let held = held.clone();
-            move |_, key| dismiss(&caller, &held, &key)
+            move |_, key| dismiss(&notifications, &held, &key)
         });
         shown.connect_clear_group({
-            let caller = caller.clone();
+            let notifications = self.notifications.clone();
             move |_, app_id| {
-                caller.call::<NotificationsClearApp>(NotificationsClearApp { app_id });
+                let notifications = notifications.clone();
+                spawn_command("notifications.clear_application", async move {
+                    notifications.clear_application(app_id).await
+                });
             }
         });
         shown.connect_clear_all({
-            let caller = caller.clone();
+            let notifications = self.notifications.clone();
             move |_| {
-                caller.call::<NotificationsClearAll>(NotificationsClearAll {});
+                let notifications = notifications.clone();
+                spawn_command("notifications.clear_all", async move {
+                    notifications.clear_all().await
+                });
             }
         });
         shown.connect_dnd_toggled({
-            let caller = caller.clone();
+            let notifications = self.notifications.clone();
             move |_, silenced| {
                 dnd.set(silenced);
-                caller.call::<NotificationsSetDnd>(NotificationsSetDnd {
-                    dnd: DoNotDisturb {
-                        enabled: silenced,
-                        until: None,
-                    },
+                let notifications = notifications.clone();
+                spawn_command("notifications.set_do_not_disturb", async move {
+                    notifications.set_do_not_disturb(silenced, 0).await
                 });
                 opener.wake();
             }
@@ -167,10 +134,55 @@ impl Applet for Notifications {
 }
 
 impl Notifications {
+    pub fn start(notifications: NotificationsProviderHandle, compositor: CompositorHandle) -> Self {
+        let mut this = Self {
+            list: None,
+            dnd: Rc::new(Cell::new(false)),
+            trouble: None,
+            tooltip_format: None,
+            footer: None,
+            indicator_style: NotificationIndicatorStyle::default(),
+            held: Rc::new(RefCell::new(Vec::new())),
+            icons: HashMap::new(),
+            images: HashMap::new(),
+            bell: gio::ThemedIcon::new(render::BELL).upcast(),
+            muted: gio::ThemedIcon::new(render::MUTED).upcast(),
+            spec: Vec::new(),
+            shown: glib::WeakRef::new(),
+            notifications,
+            compositor,
+        };
+        this.sync();
+        this
+    }
+
+    fn sync(&mut self) {
+        let NotificationsProviderState {
+            snapshot,
+            unavailable,
+        } = self.notifications.snapshot();
+        self.trouble = unavailable;
+        let Some((records, (dnd, _), serving, reason)) = snapshot else {
+            self.list = None;
+            self.dnd.set(false);
+            return;
+        };
+        self.list = Some(records.into_iter().filter_map(record).collect());
+        self.dnd.set(dnd);
+        if !serving {
+            self.trouble = Some(reason);
+        }
+    }
+
     fn refresh(&mut self) {
         let Some(records) = self.list.clone() else {
             self.spec.clear();
             *self.held.borrow_mut() = Vec::new();
+            self.icons.clear();
+            self.images.clear();
+            if let Some(shown) = self.shown.upgrade() {
+                self.dress(&shown, &[]);
+            }
             return;
         };
         *self.held.borrow_mut() = records.clone();
@@ -251,13 +263,20 @@ impl Notifications {
     }
 }
 
-fn dismiss(caller: &Caller, records: &RefCell<Vec<NotificationRecord>>, key: &str) {
+fn dismiss(
+    notifications: &NotificationsProviderHandle,
+    records: &RefCell<Vec<NotificationRecord>>,
+    key: &str,
+) {
     let id = {
         let records = records.borrow();
         removal(&records, key)
     };
     if let Some(id) = id {
-        caller.call::<NotificationsRemove>(NotificationsRemove { id });
+        let notifications = notifications.clone();
+        spawn_command("notifications.remove", async move {
+            notifications.remove(id).await
+        });
     }
 }
 
@@ -267,7 +286,7 @@ fn removal(records: &[NotificationRecord], key: &str) -> Option<u32> {
 }
 
 fn invoke(
-    caller: &Caller,
+    notifications: &NotificationsProviderHandle,
     widget: &NotificationsPopover,
     records: &RefCell<Vec<NotificationRecord>>,
     key: &str,
@@ -280,15 +299,17 @@ fn invoke(
     let Some(request) = request else {
         return;
     };
-    caller.call::<NotificationsInvokeAction>(NotificationsInvokeAction {
-        id: request,
-        action: action.to_owned(),
-        activation_token: token(widget),
+    let notifications = notifications.clone();
+    let action = action.to_owned();
+    let token = token(widget);
+    spawn_command("notifications.invoke_action", async move {
+        notifications.invoke_action(request, action, token).await
     });
 }
 
 fn activate(
-    caller: &Caller,
+    notifications: &NotificationsProviderHandle,
+    compositor: &CompositorHandle,
     widget: &NotificationsPopover,
     records: &RefCell<Vec<NotificationRecord>>,
     key: &str,
@@ -300,15 +321,74 @@ fn activate(
     let Some(request) = request else {
         return;
     };
-    if let Some(pid) = request.pid {
-        caller.call::<FocusWindow>(FocusWindow {
-            target: WindowRef::Pid { pid },
-        });
-    }
-    caller.call::<NotificationsActivate>(NotificationsActivate {
-        id: request.id,
-        activation_token: token(widget),
+    let notifications = notifications.clone();
+    let compositor = compositor.clone();
+    let activation_token = token(widget);
+    relm4::spawn(async move {
+        if let Some(pid) = request.pid {
+            match tokio::time::timeout(
+                Duration::from_secs(5),
+                compositor.focus_window(WindowRef::Pid { pid }),
+            )
+            .await
+            {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => {
+                    tracing::warn!(operation = "compositor.focus_window", %error, "service command failed")
+                }
+                Err(_) => tracing::warn!(
+                    operation = "compositor.focus_window",
+                    "service command timed out"
+                ),
+            }
+        }
+        if let Err(error) = notifications.activate(request.id, activation_token).await {
+            tracing::warn!(operation = "notifications.activate", %error, "service command failed");
+        }
     });
+}
+
+fn record(wire: NotificationWire) -> Option<NotificationRecord> {
+    let (
+        id,
+        app_id,
+        app_name,
+        app_pid,
+        summary,
+        body,
+        icon,
+        image,
+        urgency,
+        actions,
+        progress,
+        created,
+        unread,
+        resident,
+    ) = wire;
+    Some(NotificationRecord {
+        id,
+        app_id,
+        app_name,
+        app_pid: (app_pid != 0).then_some(app_pid),
+        summary,
+        body: (!body.is_empty()).then_some(body),
+        icon: (!icon.is_empty()).then_some(icon),
+        image: (!image.is_empty()).then_some(image),
+        urgency: match urgency {
+            0 => NotificationUrgency::Low,
+            1 => NotificationUrgency::Normal,
+            2 => NotificationUrgency::Critical,
+            _ => NotificationUrgency::Unknown,
+        },
+        actions: actions
+            .into_iter()
+            .map(|(key, label)| NotificationAction { key, label })
+            .collect(),
+        progress: (progress >= 0.0).then_some(progress),
+        created: DateTime::from_timestamp_micros(created)?,
+        unread,
+        resident,
+    })
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -380,6 +460,37 @@ mod tests {
             unread,
             resident: false,
         }
+    }
+
+    #[test]
+    fn the_provider_wire_record_maps_without_json_defaults() {
+        let created = DateTime::<Utc>::from_timestamp_micros(1_234_567_890).unwrap();
+        let mapped = super::record((
+            7,
+            "app".to_owned(),
+            "App".to_owned(),
+            0,
+            "Summary".to_owned(),
+            String::new(),
+            String::new(),
+            String::new(),
+            255,
+            vec![("reply".to_owned(), "Reply".to_owned())],
+            -1.0,
+            created.timestamp_micros(),
+            true,
+            false,
+        ))
+        .expect("timestamp is representable");
+
+        assert_eq!(mapped.app_pid, None);
+        assert_eq!(mapped.body, None);
+        assert_eq!(mapped.icon, None);
+        assert_eq!(mapped.image, None);
+        assert_eq!(mapped.urgency, NotificationUrgency::Unknown);
+        assert_eq!(mapped.actions[0].key, "reply");
+        assert_eq!(mapped.progress, None);
+        assert_eq!(mapped.created, created);
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use chrono::{DateTime, TimeDelta, Utc};
 use gettextrs::{gettext, ngettext};
 use glimpse_config::NotificationIndicatorStyle;
-use glimpse_contracts::{DoNotDisturb, NotificationRecord, NotificationUrgency};
+use glimpse_contracts::{NotificationRecord, NotificationUrgency};
 use glimpse_widgets::{Group, Notification, Severity};
 
 pub const BELL: &str = "preferences-system-notifications-symbolic";
@@ -104,10 +104,6 @@ pub fn id_of(key: &str) -> Option<u32> {
 
 fn notification(record: &NotificationRecord, now: DateTime<Utc>) -> Notification {
     Notification::from_record(record, when(now, record.created))
-}
-
-pub fn silenced(dnd: DoNotDisturb) -> bool {
-    dnd.enabled
 }
 
 #[cfg(test)]

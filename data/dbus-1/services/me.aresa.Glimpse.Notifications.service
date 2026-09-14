@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=me.aresa.Glimpse.Notifications
+Exec=/usr/bin/glimpse-notifications
+SystemdService=glimpse-notifications.service

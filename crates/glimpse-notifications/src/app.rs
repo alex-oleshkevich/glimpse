@@ -13,19 +13,17 @@ use glimpse_config::{
     Config, NotificationEdge, PANEL_STYLESHEET, stylesheet, user_stylesheet, watch_config,
     watch_theme,
 };
-use glimpse_contracts::{
-    Command, CompositorOutputs, FocusWindow, Message, NotificationRecord, NotificationUrgency,
-    NotificationsDismiss, NotificationsDnd, NotificationsInvokeAction, NotificationsList,
-    SessionStatus, WindowRef,
+use glimpse_contracts::{NotificationRecord, NotificationUrgency, SessionStatus, WindowRef};
+use glimpse_services::{
+    CompositorHandle, CompositorState, NotificationsHandle, NotificationsState, ServiceState,
 };
-use glimpse_ipc::{Client, ConnectionState, Event};
 use glimpse_widgets::{Notification, NotificationCard, Styles, notification_image};
 use gtk4::{cairo, gdk, gio, glib};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{ComponentParts, ComponentSender, SimpleComponent};
-use serde::de::DeserializeOwned;
 use tokio::{task::JoinHandle, time::Instant};
 
+use crate::services::NotificationServices;
 use crate::state::{Delta, PopupState};
 
 const ANIMATION_MILLIS: u32 = 150;
@@ -33,14 +31,15 @@ const ANIMATION_MILLIS: u32 = 150;
 pub struct Init {
     pub config: Config,
     pub config_path: Option<PathBuf>,
-    pub socket: PathBuf,
 }
 
 #[derive(Debug)]
 pub enum Input {
-    Connected(Client),
-    Event(u64, Event),
-    Connection(ConnectionState),
+    ServicesReady(NotificationServices),
+    Notifications(NotificationsState),
+    NotificationsHealth(ServiceState),
+    Compositor(CompositorState),
+    Session(Option<SessionStatus>),
     Config(Box<Config>),
     Theme,
     MonitorsChanged,
@@ -128,13 +127,13 @@ pub struct App {
     root: gtk4::Window,
     stack: gtk4::Box,
     config: Config,
-    client: Option<Client>,
+    services: Option<NotificationServices>,
+    services_start: JoinHandle<()>,
     state: PopupState,
     rows: HashMap<u32, Entry>,
     surface_edge: NotificationEdge,
     theme_watch: JoinHandle<()>,
     styles: Styles,
-    generation: Option<u64>,
     input_region_pending: Rc<Cell<bool>>,
     input_region_cards: Rc<RefCell<Vec<NotificationCard>>>,
 }
@@ -169,13 +168,13 @@ impl SimpleComponent for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         root.init_layer_shell();
-        root.set_namespace(Some("glimpse-notificationd"));
+        root.set_namespace(Some("glimpse-notifications"));
         root.set_layer(Layer::Top);
         root.set_keyboard_mode(KeyboardMode::None);
         root.set_exclusive_zone(0);
         let scheme = color_scheme(init.config.appearance.color_scheme);
 
-        open_client(init.socket, sender.clone());
+        let services_start = start_services(init.config.clone(), sender.clone());
         watch_configuration(init.config_path, init.config.clone(), sender.clone());
         let theme_watch = watch_styles(&init.config.appearance.theme, sender.clone());
         watch_monitors(sender.clone());
@@ -189,12 +188,12 @@ impl SimpleComponent for App {
             stack: widgets.stack.clone(),
             state: PopupState::new(init.config.notifications.clone()),
             config: init.config,
-            client: None,
+            services: None,
+            services_start,
             rows: HashMap::new(),
             surface_edge,
             theme_watch,
             styles,
-            generation: None,
             input_region_pending: Rc::new(Cell::new(false)),
             input_region_cards: Rc::new(RefCell::new(Vec::new())),
         };
@@ -206,14 +205,16 @@ impl SimpleComponent for App {
 
     fn update(&mut self, input: Self::Input, sender: ComponentSender<Self>) {
         match input {
-            Input::Connected(client) => self.client = Some(client),
-            Input::Event(generation, event) => self.event(generation, event, &sender),
-            Input::Connection(state) => {
-                if !matches!(state, ConnectionState::Connected) {
+            Input::ServicesReady(services) => self.connect_services(services, &sender),
+            Input::Notifications(state) => self.notifications(state, &sender),
+            Input::NotificationsHealth(state) => {
+                if matches!(state, ServiceState::Stopped { .. }) {
                     let delta = self.state.disconnected();
                     self.apply(delta, &sender);
                 }
             }
+            Input::Compositor(state) => self.compositor(state),
+            Input::Session(state) => self.session(state, &sender),
             Input::Config(config) => self.configure(*config, &sender),
             Input::Theme => self.reload_styles(),
             Input::MonitorsChanged => self.place(),
@@ -237,54 +238,97 @@ impl SimpleComponent for App {
             Input::Dismiss(id) => {
                 let delta = self.state.hide(id);
                 self.apply(delta, &sender);
-                if let Some(client) = &self.client {
-                    call::<NotificationsDismiss>(client, NotificationsDismiss { id });
+                if let Some(services) = &self.services {
+                    dismiss(services.notifications.clone(), id);
                 }
             }
             Input::Activate(id) => {
                 let record = self.state.record(id).cloned();
                 let delta = self.state.hide(id);
                 self.apply(delta, &sender);
-                if let Some(client) = &self.client {
-                    focus_and_dismiss(client.clone(), id, record.and_then(|record| record.app_pid));
+                if let Some(services) = &self.services {
+                    focus_and_dismiss(
+                        services.notifications.clone(),
+                        services.compositor.clone(),
+                        id,
+                        record.and_then(|record| record.app_pid),
+                    );
                 }
             }
             Input::Invoke(id, action) => {
                 let delta = self.state.hide(id);
                 self.apply(delta, &sender);
-                if let Some(client) = &self.client {
-                    invoke_and_dismiss(client.clone(), id, action, activation_token(&self.root));
+                if let Some(services) = &self.services {
+                    invoke_and_dismiss(
+                        services.notifications.clone(),
+                        id,
+                        action,
+                        activation_token(&self.root),
+                    );
                 }
             }
             Input::Settled(id) => self.settle(id, &sender),
             Input::Finalize(id) => self.finalize(id, &sender),
         }
     }
+
+    fn shutdown(&mut self, _widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
+        self.services_start.abort();
+        if let Some(services) = self.services.take() {
+            relm4::spawn(services.shutdown());
+        }
+    }
 }
 
 impl App {
-    fn event(&mut self, generation: u64, event: Event, sender: &ComponentSender<Self>) {
-        match self.generation {
-            Some(current) if generation < current => return,
-            Some(current) if generation == current => {}
-            _ => {
-                self.generation = Some(generation);
-                let delta = self.state.disconnected();
-                self.apply(delta, sender);
-            }
+    fn connect_services(&mut self, services: NotificationServices, sender: &ComponentSender<Self>) {
+        services.reconfigure(&self.config);
+        let mut notifications = services.notifications.subscribe();
+        let mut notification_health = services.notifications.health();
+        let mut compositor = services.compositor.subscribe();
+        let mut session = services.session.subscribe();
+
+        self.compositor(compositor.borrow_and_update().clone());
+        self.session(session.borrow_and_update().clone(), sender);
+        self.notifications(notifications.borrow_and_update().clone(), sender);
+        self.update_notification_health(notification_health.borrow_and_update().clone(), sender);
+
+        watch_notifications(notifications, sender.clone());
+        watch_notification_health(notification_health, sender.clone());
+        watch_compositor(compositor, sender.clone());
+        watch_session(session, sender.clone());
+        self.services = Some(services);
+    }
+
+    fn notifications(&mut self, state: NotificationsState, sender: &ComponentSender<Self>) {
+        if let Some(list) = state.list {
+            let delta = self.state.update(list.notifications);
+            self.apply(delta, sender);
         }
-        if let Some(payload) = payload::<NotificationsList>(&event) {
-            let delta = self.state.update(payload.notifications);
+        if let Some(dnd) = state.dnd {
+            let delta = self.state.set_dnd(dnd.dnd.enabled);
             self.apply(delta, sender);
-        } else if let Some(payload) = payload::<NotificationsDnd>(&event) {
-            let delta = self.state.set_dnd(payload.dnd.enabled);
+        }
+    }
+
+    fn update_notification_health(&mut self, state: ServiceState, sender: &ComponentSender<Self>) {
+        if matches!(state, ServiceState::Stopped { .. }) {
+            let delta = self.state.disconnected();
             self.apply(delta, sender);
-        } else if let Some(payload) = payload::<CompositorOutputs>(&event) {
-            if self.state.set_outputs(payload.outputs) {
-                self.place();
-            }
-        } else if let Some(payload) = payload::<SessionStatus>(&event) {
-            let delta = self.state.set_session(payload.locked, payload.private);
+        }
+    }
+
+    fn compositor(&mut self, state: CompositorState) {
+        if let Some(outputs) = state.outputs
+            && self.state.set_outputs(outputs.outputs)
+        {
+            self.place();
+        }
+    }
+
+    fn session(&mut self, state: Option<SessionStatus>, sender: &ComponentSender<Self>) {
+        if let Some(state) = state {
+            let delta = self.state.set_session(state.locked, state.private);
             self.apply(delta, sender);
         }
     }
@@ -296,6 +340,9 @@ impl App {
             config.regional.language(),
         );
         self.config = config;
+        if let Some(services) = &self.services {
+            services.reconfigure(&self.config);
+        }
         let scheme = color_scheme(self.config.appearance.color_scheme);
         self.styles.set_color_scheme(scheme);
         let delta = self.state.configure(self.config.notifications.clone());
@@ -755,112 +802,108 @@ fn gdk_monitor(connector: &str) -> Option<gdk::Monitor> {
         .find(|monitor| monitor.connector().as_deref() == Some(connector))
 }
 
-fn payload<T: Message>(event: &Event) -> Option<T::Payload>
-where
-    T::Payload: DeserializeOwned,
-{
-    if event.topic != T::NAME {
-        return None;
-    }
-    match serde_json::from_value(event.data.clone()) {
-        Ok(payload) => Some(payload),
-        Err(error) => {
-            tracing::warn!(topic = T::NAME, %error, "undecodable payload");
-            None
-        }
-    }
-}
-
-fn call<C: Command>(client: &Client, args: C::Args) {
-    let client = client.clone();
+fn dismiss(notifications: NotificationsHandle, id: u32) {
     relm4::spawn(async move {
-        request::<C>(&client, args).await;
+        if let Err(error) = notifications.dismiss(id).await {
+            tracing::warn!(%error, "notification dismiss failed");
+        }
     });
 }
 
-async fn request<C: Command>(client: &Client, args: C::Args) {
-    let args = match serde_json::to_value(args) {
-        Ok(args) => args,
-        Err(error) => {
-            tracing::error!(command = C::NAME, %error, "unserializable arguments");
-            return;
-        }
-    };
-    if let Err(error) = client.call(C::NAME, args).await {
-        tracing::warn!(command = C::NAME, %error, "command failed");
-    }
-}
-
-fn focus_and_dismiss(client: Client, id: u32, pid: Option<i32>) {
+fn focus_and_dismiss(
+    notifications: NotificationsHandle,
+    compositor: CompositorHandle,
+    id: u32,
+    pid: Option<i32>,
+) {
     relm4::spawn(async move {
         if let Some(pid) = pid {
-            request::<FocusWindow>(
-                &client,
-                FocusWindow {
-                    target: WindowRef::Pid { pid },
-                },
+            match tokio::time::timeout(
+                Duration::from_secs(5),
+                compositor.focus_window(WindowRef::Pid { pid }),
             )
-            .await;
-        }
-        request::<NotificationsDismiss>(&client, NotificationsDismiss { id }).await;
-    });
-}
-
-fn invoke_and_dismiss(client: Client, id: u32, action: String, activation_token: Option<String>) {
-    relm4::spawn(async move {
-        request::<NotificationsInvokeAction>(
-            &client,
-            NotificationsInvokeAction {
-                id,
-                action,
-                activation_token,
-            },
-        )
-        .await;
-        request::<NotificationsDismiss>(&client, NotificationsDismiss { id }).await;
-    });
-}
-
-fn subscribe(client: Client, pattern: &'static str, sender: ComponentSender<App>) {
-    let mut states = client.watch_state();
-    relm4::spawn(async move {
-        loop {
-            match client.subscribe(pattern).await {
-                Ok(mut subscription) => {
-                    while let Some((generation, event)) = subscription.next_with_generation().await
-                    {
-                        sender.input(Input::Event(generation, event));
-                    }
-                    return;
-                }
-                Err(error) => {
-                    tracing::debug!(pattern, %error, "subscribe refused, waiting");
-                    if states.changed().await.is_err() {
-                        return;
-                    }
-                }
+            .await
+            {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => tracing::warn!(%error, "notification window focus failed"),
+                Err(_) => tracing::warn!("notification window focus timed out"),
             }
         }
+        if let Err(error) = notifications.dismiss(id).await {
+            tracing::warn!(%error, "notification dismiss failed");
+        }
     });
 }
 
-fn open_client(socket: PathBuf, sender: ComponentSender<App>) {
+fn invoke_and_dismiss(
+    notifications: NotificationsHandle,
+    id: u32,
+    action: String,
+    activation_token: Option<String>,
+) {
     relm4::spawn(async move {
-        let client = Client::open(&socket).await;
-        subscribe(client.clone(), "notifications.*", sender.clone());
-        subscribe(client.clone(), CompositorOutputs::NAME, sender.clone());
-        subscribe(client.clone(), SessionStatus::NAME, sender.clone());
-        watch_connection(client.clone(), sender.clone());
-        sender.input(Input::Connected(client));
+        if let Err(error) = notifications
+            .invoke_action(id, action, activation_token)
+            .await
+        {
+            tracing::warn!(%error, "notification action failed");
+        }
+        if let Err(error) = notifications.dismiss(id).await {
+            tracing::warn!(%error, "notification dismiss failed");
+        }
     });
 }
 
-fn watch_connection(client: Client, sender: ComponentSender<App>) {
-    let mut states = client.watch_state();
+fn start_services(config: Config, sender: ComponentSender<App>) -> JoinHandle<()> {
     relm4::spawn(async move {
-        sender.input(Input::Connection(states.borrow().clone()));
+        sender.input(Input::ServicesReady(
+            NotificationServices::start(&config).await,
+        ));
+    })
+}
+
+fn watch_notifications(
+    mut states: tokio::sync::watch::Receiver<NotificationsState>,
+    sender: ComponentSender<App>,
+) {
+    relm4::spawn(async move {
         while states.changed().await.is_ok() {
-            sender.input(Input::Connection(states.borrow_and_update().clone()));
+            sender.input(Input::Notifications(states.borrow_and_update().clone()));
+        }
+    });
+}
+
+fn watch_notification_health(
+    mut states: tokio::sync::watch::Receiver<ServiceState>,
+    sender: ComponentSender<App>,
+) {
+    relm4::spawn(async move {
+        while states.changed().await.is_ok() {
+            sender.input(Input::NotificationsHealth(
+                states.borrow_and_update().clone(),
+            ));
+        }
+    });
+}
+
+fn watch_compositor(
+    mut states: tokio::sync::watch::Receiver<CompositorState>,
+    sender: ComponentSender<App>,
+) {
+    relm4::spawn(async move {
+        while states.changed().await.is_ok() {
+            sender.input(Input::Compositor(states.borrow_and_update().clone()));
+        }
+    });
+}
+
+fn watch_session(
+    mut states: tokio::sync::watch::Receiver<Option<SessionStatus>>,
+    sender: ComponentSender<App>,
+) {
+    relm4::spawn(async move {
+        while states.changed().await.is_ok() {
+            sender.input(Input::Session(states.borrow_and_update().clone()));
         }
     });
 }

@@ -1,12 +1,18 @@
 use adw::gdk;
 use glimpse_config::{Applet as AppletConfig, Position, Regional};
+use glimpse_dbus::notifications::NotificationsProviderHandle;
 use glimpse_ipc::Client;
+use glimpse_services::{
+    CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
+};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
     ComponentParts, ComponentSender, SimpleComponent,
     gtk::{self, prelude::*},
 };
 use std::collections::{BTreeMap, HashMap};
+use std::fmt;
+use std::mem::Discriminant;
 
 use std::rc::Rc;
 
@@ -24,6 +30,7 @@ pub struct Panel {
 struct Slot {
     zone: Zone,
     name: String,
+    kind: Option<Discriminant<glimpse_config::AppletKind>>,
     handle: Option<AppletHandle>,
 }
 
@@ -32,7 +39,7 @@ fn settle(slot: &Slot, config: &Config, orientation: gtk::Orientation) {
         return;
     };
     handle.set_orientation(orientation);
-    if let Some((applet, _)) = applets::resolve(&slot.name, &config.applets, &config.regional) {
+    if let Some(applet) = applets::configured(&slot.name, &config.applets, &config.regional) {
         handle.configure(applet);
     }
 }
@@ -44,7 +51,6 @@ enum Zone {
     End,
 }
 
-#[derive(Debug)]
 pub struct Config {
     pub position: Position,
     pub size: u32,
@@ -55,6 +61,12 @@ pub struct Config {
     pub applets: BTreeMap<String, AppletConfig>,
     pub regional: Regional,
     pub client: Option<Client>,
+    pub compositor: CompositorHandle,
+    pub keyboard: KeyboardHandle,
+    pub calendar: CalendarHandle,
+    pub mpris: MprisHandle,
+    pub heartbeat: HeartbeatHandle,
+    pub notifications: NotificationsProviderHandle,
 }
 
 impl Config {
@@ -67,9 +79,14 @@ impl Config {
     }
 }
 
-#[derive(Debug)]
 pub enum Input {
     Configure(Config),
+}
+
+impl fmt::Debug for Input {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("Configure(..)")
+    }
 }
 
 #[relm4::component(pub)]
@@ -164,16 +181,26 @@ impl Panel {
             return;
         };
 
-        let desired: Vec<(Zone, &String)> = config
+        let desired: Vec<(
+            Zone,
+            &String,
+            Option<Discriminant<glimpse_config::AppletKind>>,
+        )> = config
             .zones()
             .into_iter()
-            .flat_map(|(zone, names)| names.iter().map(move |name| (zone, name)))
+            .flat_map(|(zone, names)| {
+                names.iter().map(move |name| {
+                    let kind = applets::configured(name, &config.applets, &config.regional)
+                        .map(|applet| std::mem::discriminant(&applet.kind));
+                    (zone, name, kind)
+                })
+            })
             .collect();
 
         if self
             .applets
             .iter()
-            .map(|slot| (slot.zone, &slot.name))
+            .map(|slot| (slot.zone, &slot.name, slot.kind))
             .eq(desired.iter().copied())
         {
             for slot in &self.applets {
@@ -188,37 +215,59 @@ impl Panel {
         self.bar.clear_center();
         self.bar.clear_end();
 
-        let mut existing: HashMap<(Zone, String), Slot> = self
+        let mut existing: HashMap<
+            (
+                Zone,
+                String,
+                Option<Discriminant<glimpse_config::AppletKind>>,
+            ),
+            Slot,
+        > = self
             .applets
             .drain(..)
-            .map(|slot| ((slot.zone, slot.name.clone()), slot))
+            .map(|slot| ((slot.zone, slot.name.clone(), slot.kind), slot))
             .collect();
 
         let mut next = Vec::with_capacity(desired.len());
-        for (zone, name) in desired {
+        for (zone, name, kind) in desired {
             next.push(
                 existing
-                    .remove(&(zone, name.clone()))
+                    .remove(&(zone, name.clone(), kind))
                     .unwrap_or_else(|| Slot {
                         zone,
                         name: name.clone(),
-                        handle: applets::resolve(name, &config.applets, &config.regional).map(
-                            |(applet, build)| {
-                                AppletHandle::launch(
+                        kind,
+                        handle: applets::configured(name, &config.applets, &config.regional)
+                            .and_then(|applet| {
+                                let Some(build) = applets::build(
+                                    &applet,
+                                    &config.compositor,
+                                    &config.keyboard,
+                                    &config.calendar,
+                                    &config.mpris,
+                                    &config.heartbeat,
+                                    &config.notifications,
+                                ) else {
+                                    tracing::debug!(
+                                        applet = name,
+                                        "applet is not implemented yet, skipping"
+                                    );
+                                    return None;
+                                };
+                                Some(AppletHandle::launch(
                                     name.clone(),
                                     connector.clone(),
                                     client.clone(),
                                     build,
                                     applet,
                                     Rc::clone(&self.catcher),
-                                )
-                            },
-                        ),
+                                ))
+                            }),
                     }),
             );
         }
 
-        for (zone, name) in existing
+        for (zone, name, _) in existing
             .into_iter()
             .filter_map(|(key, slot)| slot.handle.is_some().then_some(key))
         {

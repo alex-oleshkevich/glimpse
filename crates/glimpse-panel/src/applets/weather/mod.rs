@@ -37,21 +37,6 @@ impl Applet for Weather {
         &[WeatherStatus::NAME]
     }
 
-    fn start() -> Self {
-        Self {
-            settings: WeatherAppletConfig::default(),
-            watching: WatchedPlace::Here,
-            units: UnitSystem::Metric,
-            place: None,
-            twelve: false,
-            tooltip_format: None,
-            footer: None,
-            icon: None,
-            spec: Vec::new(),
-            shown: glib::WeakRef::new(),
-        }
-    }
-
     fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
         let AppletKind::Weather(settings) = &config.kind else {
             return;
@@ -112,6 +97,21 @@ impl Applet for Weather {
 }
 
 impl Weather {
+    pub fn start() -> Self {
+        Self {
+            settings: WeatherAppletConfig::default(),
+            watching: WatchedPlace::Here,
+            units: UnitSystem::Metric,
+            place: None,
+            twelve: false,
+            tooltip_format: None,
+            footer: None,
+            icon: None,
+            spec: Vec::new(),
+            shown: glib::WeakRef::new(),
+        }
+    }
+
     fn renew(&self, ctx: &Ctx) {
         ctx.call::<WeatherWatch>(WeatherWatch {
             place: self.watching.clone(),

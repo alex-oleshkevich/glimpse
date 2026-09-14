@@ -9,16 +9,19 @@ mod pager;
 mod weather;
 
 use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
+use glimpse_dbus::notifications::NotificationsProviderHandle;
+use glimpse_services::{
+    CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
+};
 use std::collections::BTreeMap;
 
-use crate::applet::Applet;
 use crate::applet::runtime::Builder;
 
-pub fn resolve(
+pub fn configured(
     name: &str,
     configured: &BTreeMap<String, AppletConfig>,
     regional: &Regional,
-) -> Option<(AppletConfig, Builder)> {
+) -> Option<AppletConfig> {
     let config = configured
         .get(name)
         .cloned()
@@ -28,23 +31,73 @@ pub fn resolve(
         return None;
     };
     config.regional = regional.clone();
-    let Some(builder) = build(&config) else {
-        tracing::debug!(applet = name, "applet is not implemented yet, skipping");
-        return None;
-    };
-    Some((config, builder))
+    Some(config)
 }
 
-fn build(config: &AppletConfig) -> Option<Builder> {
+pub fn build(
+    config: &AppletConfig,
+    compositor: &CompositorHandle,
+    keyboard: &KeyboardHandle,
+    calendar: &CalendarHandle,
+    mpris: &MprisHandle,
+    heartbeat: &HeartbeatHandle,
+    notifications: &NotificationsProviderHandle,
+) -> Option<Builder> {
     match &config.kind {
-        AppletKind::Clock(_) => Some(|| Box::new(clock::Clock::start())),
-        AppletKind::Heartbeat {} => Some(|| Box::new(heartbeat::Heartbeat::start())),
-        AppletKind::Mpris(_) => Some(|| Box::new(mpris::Mpris::start())),
-        AppletKind::NextEvent(_) => Some(|| Box::new(next_event::NextEvent::start())),
-        AppletKind::Pager(_) => Some(|| Box::new(pager::Pager::start())),
-        AppletKind::Weather(_) => Some(|| Box::new(weather::Weather::start())),
-        AppletKind::Keyboard {} => Some(|| Box::new(keyboard::Keyboard::start())),
-        AppletKind::Notifications(_) => Some(|| Box::new(notifications::Notifications::start())),
+        AppletKind::Clock(_) => {
+            let calendar = calendar.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(calendar.subscribe());
+                Box::new(clock::Clock::start(calendar))
+            }))
+        }
+        AppletKind::Heartbeat {} => {
+            let heartbeat = heartbeat.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(heartbeat.subscribe());
+                Box::new(heartbeat::Heartbeat::start(heartbeat))
+            }))
+        }
+        AppletKind::Mpris(_) => {
+            let mpris = mpris.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(mpris.subscribe());
+                Box::new(mpris::Mpris::start(mpris))
+            }))
+        }
+        AppletKind::NextEvent(_) => {
+            let calendar = calendar.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(calendar.subscribe());
+                Box::new(next_event::NextEvent::start(calendar))
+            }))
+        }
+        AppletKind::Pager(_) => {
+            let compositor = compositor.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(compositor.subscribe());
+                Box::new(pager::Pager::start(compositor))
+            }))
+        }
+        AppletKind::Weather(_) => Some(Box::new(|_| Box::new(weather::Weather::start()))),
+        AppletKind::Keyboard {} => {
+            let keyboard = keyboard.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(keyboard.subscribe());
+                Box::new(keyboard::Keyboard::start(keyboard))
+            }))
+        }
+        AppletKind::Notifications(_) => {
+            let notifications = notifications.clone();
+            let compositor = compositor.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(notifications.subscribe());
+                Box::new(notifications::Notifications::start(
+                    notifications,
+                    compositor,
+                ))
+            }))
+        }
         AppletKind::Audio {}
         | AppletKind::Battery {}
         | AppletKind::Brightness {}
@@ -67,57 +120,57 @@ fn build(config: &AppletConfig) -> Option<Builder> {
 mod tests {
     use super::*;
 
-    fn configured(name: &str, extends: AppletConfig) -> BTreeMap<String, AppletConfig> {
+    fn custom(name: &str, extends: AppletConfig) -> BTreeMap<String, AppletConfig> {
         BTreeMap::from([(name.to_owned(), extends)])
     }
 
     #[test]
-    fn a_name_the_panel_implements_resolves_to_a_builder() {
-        assert!(resolve("heartbeat", &BTreeMap::new(), &Regional::default()).is_some());
+    fn a_known_name_resolves_to_configuration() {
+        assert!(configured("heartbeat", &BTreeMap::new(), &Regional::default()).is_some());
     }
 
     #[test]
     fn extends_names_the_kind_so_one_kind_can_have_several_instances() {
-        let configured = configured("pulse", AppletKind::Heartbeat {}.into());
+        let applets = custom("pulse", AppletKind::Heartbeat {}.into());
         assert!(
-            resolve("pulse", &configured, &Regional::default()).is_some(),
+            configured("pulse", &applets, &Regional::default()).is_some(),
             "`pulse` is not a kind; `extends` is what says which one it is"
         );
         assert!(
-            resolve("pulse", &BTreeMap::new(), &Regional::default()).is_none(),
+            configured("pulse", &BTreeMap::new(), &Regional::default()).is_none(),
             "without the entry the same name is just unknown"
         );
     }
 
     #[test]
-    fn the_next_event_applet_is_built_rather_than_skipped() {
+    fn the_next_event_applet_is_configured_rather_than_skipped() {
         assert!(
-            resolve("next-event", &BTreeMap::new(), &Regional::default()).is_some(),
-            "the kind has an implementation, so it must not fall through to the skipped arm"
+            configured("next-event", &BTreeMap::new(), &Regional::default()).is_some(),
+            "the kind is known, so it must not be treated as a typo"
         );
     }
 
     #[test]
-    fn the_weather_applet_is_built_rather_than_skipped() {
+    fn the_weather_applet_is_configured_rather_than_skipped() {
         assert!(
-            resolve("weather", &BTreeMap::new(), &Regional::default()).is_some(),
-            "the kind has an implementation, so it must not fall through to the skipped arm"
+            configured("weather", &BTreeMap::new(), &Regional::default()).is_some(),
+            "the kind is known, so it must not be treated as a typo"
         );
     }
 
     #[test]
-    fn the_keyboard_applet_is_built_rather_than_skipped() {
+    fn the_keyboard_applet_is_configured_rather_than_skipped() {
         assert!(
-            resolve("keyboard", &BTreeMap::new(), &Regional::default()).is_some(),
-            "the kind has an implementation, so it must not fall through to the skipped arm"
+            configured("keyboard", &BTreeMap::new(), &Regional::default()).is_some(),
+            "the kind is known, so it must not be treated as a typo"
         );
     }
 
     #[test]
-    fn the_notifications_applet_is_built_rather_than_skipped() {
+    fn the_notifications_applet_is_configured_rather_than_skipped() {
         assert!(
-            resolve("notifications", &BTreeMap::new(), &Regional::default()).is_some(),
-            "the kind has an implementation, so it must not fall through to the skipped arm"
+            configured("notifications", &BTreeMap::new(), &Regional::default()).is_some(),
+            "the kind is known, so it must not be treated as a typo"
         );
     }
 
@@ -127,9 +180,8 @@ mod tests {
             AppletConfig::from_name("audio").is_some(),
             "`audio` is a real applet, so skipping it is expected rather than a bad document"
         );
-        assert!(build(&AppletKind::Audio {}.into()).is_none());
         assert!(AppletConfig::from_name("nonesuch").is_none());
-        assert!(resolve("nonesuch", &BTreeMap::new(), &Regional::default()).is_none());
+        assert!(configured("nonesuch", &BTreeMap::new(), &Regional::default()).is_none());
     }
 
     /// The shipped defaults name applets in a panel zone and carry no `[applets.<name>]` table for
@@ -143,18 +195,18 @@ mod tests {
             ..Regional::default()
         };
 
-        let (built, _) = resolve("clock", &BTreeMap::new(), &twelve).expect("the clock builds");
+        let built = configured("clock", &BTreeMap::new(), &twelve).expect("the clock configures");
         assert!(
             built.regional.twelve_hour(),
             "an applet with no table of its own must still read the document's `[regional]`"
         );
 
-        let (found, _) = resolve(
+        let found = configured(
             "clock",
-            &configured("clock", AppletKind::Clock(<_>::default()).into()),
+            &custom("clock", AppletKind::Clock(<_>::default()).into()),
             &twelve,
         )
-        .expect("the clock builds");
+        .expect("the clock configures");
         assert!(
             found.regional.twelve_hour(),
             "and so must one that has a table"

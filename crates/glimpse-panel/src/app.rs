@@ -13,7 +13,10 @@ use relm4::{
 };
 use tokio::task::JoinHandle;
 
-use crate::components::{self, panel};
+use crate::{
+    components::{self, panel},
+    services::PanelServices,
+};
 
 pub struct AppInit {
     pub config: Config,
@@ -27,6 +30,7 @@ pub enum AppInput {
     ConfigChanged(Config),
     Connected(Client),
     MonitorsChanged,
+    ServicesReady(PanelServices),
     ThemeChanged,
 }
 
@@ -36,6 +40,8 @@ pub struct App {
     theme_watch: JoinHandle<()>,
     styles: Styles,
     client: Option<Client>,
+    services: Option<PanelServices>,
+    services_start: JoinHandle<()>,
 }
 
 #[relm4::component(pub)]
@@ -62,6 +68,7 @@ impl SimpleComponent for App {
         spawn_daemon_client(init.socket, sender.clone());
         watch_monitors(sender.clone());
         let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
+        let services_start = spawn_services(init.config.clone(), sender.clone());
         spawn_config_watch(init.config_path, init.config.clone(), sender);
 
         let styles = Styles::install(color_scheme(init.config.appearance.color_scheme));
@@ -71,6 +78,8 @@ impl SimpleComponent for App {
             theme_watch,
             styles,
             client: None,
+            services: None,
+            services_start,
         };
         model.reload_styles();
 
@@ -88,6 +97,9 @@ impl SimpleComponent for App {
                     config.regional.language(),
                 );
                 self.config = config;
+                if let Some(services) = &self.services {
+                    services.reconfigure(&self.config);
+                }
                 self.styles
                     .set_color_scheme(color_scheme(self.config.appearance.color_scheme));
                 if renamed {
@@ -98,9 +110,25 @@ impl SimpleComponent for App {
             }
             AppInput::Connected(client) => self.client = Some(client),
             AppInput::MonitorsChanged => {}
+            AppInput::ServicesReady(services) => {
+                services.reconfigure(&self.config);
+                self.services = Some(services);
+            }
             AppInput::ThemeChanged => self.reload_styles(),
         }
-        reconcile_panels(&mut self.panels, &self.config, self.client.as_ref());
+        reconcile_panels(
+            &mut self.panels,
+            &self.config,
+            self.client.as_ref(),
+            self.services.as_ref(),
+        );
+    }
+
+    fn shutdown(&mut self, _widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
+        self.services_start.abort();
+        if let Some(services) = self.services.take() {
+            relm4::spawn(services.shutdown());
+        }
     }
 }
 
@@ -129,6 +157,13 @@ fn spawn_daemon_client(socket: PathBuf, sender: ComponentSender<App>) {
             tracing::debug!(state = ?*states.borrow_and_update(), "daemon connection");
         }
     });
+}
+
+fn spawn_services(config: Config, sender: ComponentSender<App>) -> JoinHandle<()> {
+    relm4::spawn(async move {
+        let services = PanelServices::start(&config).await;
+        sender.input(AppInput::ServicesReady(services));
+    })
 }
 
 fn spawn_theme_watch(theme: &str, sender: ComponentSender<App>) -> JoinHandle<()> {
@@ -172,7 +207,15 @@ struct PanelState {
     pub controller: Controller<components::panel::Panel>,
 }
 
-fn reconcile_panels(panels: &mut Vec<PanelState>, config: &Config, client: Option<&Client>) {
+fn reconcile_panels(
+    panels: &mut Vec<PanelState>,
+    config: &Config,
+    client: Option<&Client>,
+    services: Option<&PanelServices>,
+) {
+    let Some(services) = services else {
+        return;
+    };
     tracing::debug!("reconciling panels");
     let mut existing: HashMap<Key, PanelState> = panels
         .drain(..)
@@ -208,6 +251,12 @@ fn reconcile_panels(panels: &mut Vec<PanelState>, config: &Config, client: Optio
                 applets: config.applets.clone(),
                 regional: config.regional.clone(),
                 client: client.cloned(),
+                compositor: services.compositor.clone(),
+                keyboard: services.keyboard.clone(),
+                calendar: services.calendar.clone(),
+                mpris: services.mpris.clone(),
+                heartbeat: services.heartbeat.clone(),
+                notifications: services.notifications.clone(),
             };
             let state = match existing.remove(&key) {
                 Some(state) => {

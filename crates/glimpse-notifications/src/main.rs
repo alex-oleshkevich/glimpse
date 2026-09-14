@@ -1,6 +1,8 @@
 mod app;
 mod cli;
 mod errors;
+mod provider;
+mod services;
 mod state;
 
 use std::process::ExitCode;
@@ -29,8 +31,6 @@ fn run(cli: &Cli) -> Result<()> {
     init_translations(config.regional.language());
     gtk4::init().context("cannot initialize GTK")?;
     glimpse_widgets::register_resources()?;
-    let socket = glimpse_ipc::socket_path(cli.socket.as_deref())?;
-
     let threads = std::env::var("GLIMPSE_THREADS")
         .ok()
         .and_then(|value| value.parse::<usize>().ok())
@@ -42,14 +42,13 @@ fn run(cli: &Cli) -> Result<()> {
         );
     }
 
-    let app_id = std::env::var("GLIMPSE_NOTIFICATIOND_APP_ID")
-        .unwrap_or_else(|_| "me.aresa.GlimpseNotificationd".to_owned());
+    let app_id = std::env::var("GLIMPSE_NOTIFICATIONS_APP_ID")
+        .unwrap_or_else(|_| "me.aresa.GlimpseNotifications".to_owned());
     RelmApp::new(&app_id)
         .with_args(Vec::new())
         .run::<app::App>(app::Init {
             config,
             config_path: cli.config.config.clone(),
-            socket,
         });
     Ok(())
 }

@@ -1,300 +1,330 @@
-use std::{
-    collections::HashMap,
-    sync::{
-        Arc,
-        atomic::{AtomicU32, Ordering},
-    },
-    time::{SystemTime, UNIX_EPOCH},
-};
+pub const GLIMPSE_NOTIFICATIONS_BUS_NAME: &str = "me.aresa.Glimpse.Notifications";
+pub const GLIMPSE_NOTIFICATIONS_OBJECT_PATH: &str = "/me/aresa/Glimpse/Notifications";
 
-use zbus::{
-    fdo::{RequestNameFlags, RequestNameReply},
-    object_server::SignalEmitter,
-    zvariant::OwnedValue,
-};
+pub type NotificationWire = (
+    u32,                   // notification ID
+    String,                // application ID
+    String,                // application display name
+    i32,                   // application process ID, or 0 when absent
+    String,                // summary
+    String,                // body, or empty when absent
+    String,                // icon, or empty when absent
+    String,                // image, or empty when absent
+    u8,                    // urgency: 0 low, 1 normal, 2 critical, 255 unknown
+    Vec<(String, String)>, // action key and label pairs
+    f64,                   // progress, or -1.0 when absent
+    i64,                   // creation time in Unix microseconds
+    bool,                  // unread
+    bool,                  // resident
+);
 
-use crate::services::notifications::{
-    NotificationServerDispatcher,
-    model::{NotificationAction, NotificationEntry, Signal},
-};
+pub type DoNotDisturbWire = (bool, i64);
 
-pub const NOTIFICATIONS_BUS_NAME: &str = "org.freedesktop.Notifications";
-pub const NOTIFICATIONS_OBJECT_PATH: &str = "/org/freedesktop/Notifications";
+pub type NotificationsSnapshot = (Vec<NotificationWire>, DoNotDisturbWire, bool, String);
+
+#[zbus::proxy(
+    interface = "me.aresa.Glimpse.Notifications1",
+    default_service = "me.aresa.Glimpse.Notifications",
+    default_path = "/me/aresa/Glimpse/Notifications"
+)]
+pub trait Notifications1 {
+    #[zbus(property)]
+    fn snapshot(&self) -> zbus::Result<NotificationsSnapshot>;
+
+    fn dismiss(&self, id: u32) -> zbus::Result<()>;
+    fn remove(&self, id: u32) -> zbus::Result<()>;
+    fn activate(&self, id: u32, activation_token: &str) -> zbus::Result<()>;
+    fn invoke_action(&self, id: u32, action_key: &str, activation_token: &str) -> zbus::Result<()>;
+    fn clear_application(&self, application_id: &str) -> zbus::Result<()>;
+    fn clear_all(&self) -> zbus::Result<()>;
+    fn set_do_not_disturb(&self, enabled: bool, until: i64) -> zbus::Result<()>;
+}
 
 #[derive(Clone)]
-pub struct NotificationServer {
-    dispatcher: NotificationServerDispatcher,
-    next_id: Arc<AtomicU32>,
+pub struct NotificationsProviderState {
+    pub snapshot: Option<NotificationsSnapshot>,
+    pub unavailable: Option<String>,
 }
 
-impl NotificationServer {
-    pub(crate) fn new(dispatcher: NotificationServerDispatcher) -> Self {
+impl NotificationsProviderState {
+    fn unavailable(reason: impl Into<String>) -> Self {
         Self {
-            dispatcher,
-            next_id: Arc::new(AtomicU32::new(1)),
+            snapshot: None,
+            unavailable: Some(reason.into()),
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum NotificationsProviderError {
+    #[error("notification action is invalid: {0}")]
+    InvalidAction(String),
+    #[error("notification provider unavailable: {0}")]
+    Unavailable(String),
+    #[error("notification provider call timed out")]
+    TimedOut,
+    #[error("notification provider call failed: {0}")]
+    Call(String),
+}
+
+#[derive(Clone)]
+pub struct NotificationsProviderHandle {
+    state: tokio::sync::watch::Receiver<NotificationsProviderState>,
+    proxy: std::sync::Arc<tokio::sync::RwLock<Option<Notifications1Proxy<'static>>>>,
+}
+
+impl NotificationsProviderHandle {
+    pub fn unavailable(reason: impl Into<String>) -> Self {
+        let (_, state) =
+            tokio::sync::watch::channel(NotificationsProviderState::unavailable(reason));
+        Self {
+            state,
+            proxy: Default::default(),
         }
     }
 
-    fn next_notification_id(&self, replaces_id: u32) -> u32 {
-        allocate_notification_id(&self.next_id, replaces_id)
+    pub fn start(connection: zbus::Connection) -> (Self, tokio::task::JoinHandle<()>) {
+        let (updates, state) = tokio::sync::watch::channel(
+            NotificationsProviderState::unavailable("provider has no bus owner"),
+        );
+        let proxy = std::sync::Arc::new(tokio::sync::RwLock::new(None));
+        let task = tokio::spawn(follow_provider(connection, updates, proxy.clone()));
+        (Self { state, proxy }, task)
     }
-}
 
-#[zbus::interface(name = "org.freedesktop.Notifications")]
-impl NotificationServer {
-    async fn notify(
+    pub fn snapshot(&self) -> NotificationsProviderState {
+        self.state.borrow().clone()
+    }
+
+    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<NotificationsProviderState> {
+        self.state.clone()
+    }
+
+    async fn proxy(&self) -> Result<Notifications1Proxy<'static>, NotificationsProviderError> {
+        self.proxy.read().await.clone().ok_or_else(|| {
+            NotificationsProviderError::Unavailable(
+                self.state
+                    .borrow()
+                    .unavailable
+                    .clone()
+                    .unwrap_or_else(|| "provider has no bus owner".to_owned()),
+            )
+        })
+    }
+
+    pub async fn dismiss(&self, id: u32) -> Result<(), NotificationsProviderError> {
+        call(self.proxy().await?.dismiss(id)).await
+    }
+
+    pub async fn remove(&self, id: u32) -> Result<(), NotificationsProviderError> {
+        call(self.proxy().await?.remove(id)).await
+    }
+
+    pub async fn activate(
         &self,
-        app_name: String,
-        replaces_id: u32,
-        app_icon: String,
-        summary: String,
-        body: String,
-        actions: Vec<String>,
-        hints: HashMap<String, OwnedValue>,
-        _expire_timeout: i32,
-    ) -> zbus::fdo::Result<u32> {
-        let id = self.next_notification_id(replaces_id);
-        let entry =
-            notification_entry_from_dbus(id, app_name, app_icon, summary, body, actions, hints);
-
-        self.dispatcher
-            .inject(entry)
-            .await
-            .map_err(|error| zbus::fdo::Error::Failed(error.to_string()))?;
-
-        Ok(id)
-    }
-
-    async fn close_notification(&self, id: u32) -> zbus::fdo::Result<()> {
-        self.dispatcher
-            .close(id)
-            .await
-            .map_err(|error| zbus::fdo::Error::Failed(error.to_string()))
-    }
-
-    fn get_capabilities(&self) -> Vec<String> {
-        ["actions", "body", "body-markup", "icon-static"]
-            .into_iter()
-            .map(str::to_owned)
-            .collect()
-    }
-
-    fn get_server_information(&self) -> (String, String, String, String) {
-        (
-            "Glimpse".into(),
-            "Glimpse".into(),
-            env!("CARGO_PKG_VERSION").into(),
-            "1.2".into(),
-        )
-    }
-
-    #[zbus(signal)]
-    async fn notification_closed(
-        signal_emitter: &SignalEmitter<'_>,
         id: u32,
-        reason: u32,
-    ) -> zbus::Result<()>;
-
-    #[zbus(signal)]
-    async fn action_invoked(
-        signal_emitter: &SignalEmitter<'_>,
-        id: u32,
-        action_key: &str,
-    ) -> zbus::Result<()>;
-
-    #[zbus(signal)]
-    async fn activation_token(
-        signal_emitter: &SignalEmitter<'_>,
-        id: u32,
-        token: &str,
-    ) -> zbus::Result<()>;
-}
-
-pub(crate) async fn register_server(
-    session: &zbus::Connection,
-    dispatcher: NotificationServerDispatcher,
-) -> zbus::Result<SignalEmitter<'static>> {
-    let _ = session
-        .object_server()
-        .remove::<NotificationServer, _>(NOTIFICATIONS_OBJECT_PATH)
-        .await;
-    if let Err(error) = session
-        .object_server()
-        .at(
-            NOTIFICATIONS_OBJECT_PATH,
-            NotificationServer::new(dispatcher),
+        activation_token: Option<String>,
+    ) -> Result<(), NotificationsProviderError> {
+        call(
+            self.proxy()
+                .await?
+                .activate(id, activation_token.as_deref().unwrap_or_default()),
         )
         .await
-    {
-        let _ = session.release_name(NOTIFICATIONS_BUS_NAME).await;
-        return Err(error);
     }
 
-    let reply = session
-        .request_name_with_flags(
-            NOTIFICATIONS_BUS_NAME,
-            RequestNameFlags::ReplaceExisting | RequestNameFlags::DoNotQueue,
-        )
-        .await?;
-    if !matches!(
-        reply,
-        RequestNameReply::PrimaryOwner | RequestNameReply::AlreadyOwner
-    ) {
-        let _ = session
-            .object_server()
-            .remove::<NotificationServer, _>(NOTIFICATIONS_OBJECT_PATH)
-            .await;
-        let _ = session.release_name(NOTIFICATIONS_BUS_NAME).await;
-        return Err(zbus::Error::NameTaken);
+    pub async fn invoke_action(
+        &self,
+        id: u32,
+        action_key: String,
+        activation_token: Option<String>,
+    ) -> Result<(), NotificationsProviderError> {
+        call(self.proxy().await?.invoke_action(
+            id,
+            &action_key,
+            activation_token.as_deref().unwrap_or_default(),
+        ))
+        .await
     }
 
-    let iface_ref = session
-        .object_server()
-        .interface::<_, NotificationServer>(NOTIFICATIONS_OBJECT_PATH)
-        .await?;
-    Ok(iface_ref.signal_emitter().to_owned())
+    pub async fn clear_application(
+        &self,
+        application_id: String,
+    ) -> Result<(), NotificationsProviderError> {
+        call(self.proxy().await?.clear_application(&application_id)).await
+    }
+
+    pub async fn clear_all(&self) -> Result<(), NotificationsProviderError> {
+        call(self.proxy().await?.clear_all()).await
+    }
+
+    pub async fn set_do_not_disturb(
+        &self,
+        enabled: bool,
+        until: i64,
+    ) -> Result<(), NotificationsProviderError> {
+        call(self.proxy().await?.set_do_not_disturb(enabled, until)).await
+    }
 }
 
-pub(crate) async fn unregister_server(session: &zbus::Connection) {
-    let _ = session.release_name(NOTIFICATIONS_BUS_NAME).await;
-    let _ = session
-        .object_server()
-        .remove::<NotificationServer, _>(NOTIFICATIONS_OBJECT_PATH)
-        .await;
-}
-
-pub(crate) async fn emit_signal(
-    signal_emitter: &SignalEmitter<'_>,
-    signal: &Signal,
-) -> zbus::Result<()> {
-    match signal {
-        Signal::NotificationClosed { id, reason } => {
-            NotificationServer::notification_closed(signal_emitter, *id, *reason).await
+async fn call(
+    request: impl std::future::Future<Output = zbus::Result<()>>,
+) -> Result<(), NotificationsProviderError> {
+    match tokio::time::timeout(std::time::Duration::from_secs(5), request).await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(zbus::Error::MethodError(name, reason, _)))
+            if name.as_str() == "me.aresa.Glimpse.Notifications1.Error.InvalidAction" =>
+        {
+            Err(NotificationsProviderError::InvalidAction(
+                reason.unwrap_or_default(),
+            ))
         }
-        Signal::ActionInvoked { id, action_key } => {
-            NotificationServer::action_invoked(signal_emitter, *id, action_key).await
+        Ok(Err(zbus::Error::MethodError(name, reason, _)))
+            if name.as_str() == "me.aresa.Glimpse.Notifications1.Error.Unavailable" =>
+        {
+            Err(NotificationsProviderError::Unavailable(
+                reason.unwrap_or_default(),
+            ))
         }
-        Signal::ActivationToken { id, token } => {
-            NotificationServer::activation_token(signal_emitter, *id, token).await
-        }
+        Ok(Err(error)) => Err(NotificationsProviderError::Call(error.to_string())),
+        Err(_) => Err(NotificationsProviderError::TimedOut),
     }
 }
 
-fn notification_entry_from_dbus(
-    id: u32,
-    app_name: String,
-    app_icon: String,
-    summary: String,
-    body: String,
-    actions: Vec<String>,
-    hints: HashMap<String, OwnedValue>,
-) -> NotificationEntry {
-    NotificationEntry {
-        id,
-        app_name,
-        app_icon,
-        desktop_entry: hint_as::<String>(&hints, "desktop-entry"),
-        summary,
-        body,
-        urgency: hint_as::<u8>(&hints, "urgency").unwrap_or(1),
-        actions: parse_actions(&actions),
-        image: hint_as::<String>(&hints, "image-path"),
-        timestamp: now_ms(),
-        resident: hint_as::<bool>(&hints, "resident").unwrap_or(false),
-    }
-}
+async fn follow_provider(
+    connection: zbus::Connection,
+    updates: tokio::sync::watch::Sender<NotificationsProviderState>,
+    current: std::sync::Arc<tokio::sync::RwLock<Option<Notifications1Proxy<'static>>>>,
+) {
+    use futures_util::StreamExt;
+    use zbus::proxy::CacheProperties;
 
-fn hint_as<T>(hints: &HashMap<String, OwnedValue>, key: &str) -> Option<T>
-where
-    T: TryFrom<OwnedValue>,
-{
-    hints
-        .get(key)
-        .and_then(|value| value.try_clone().ok())
-        .and_then(|value| T::try_from(value).ok())
-}
+    let dbus = match zbus::fdo::DBusProxy::new(&connection).await {
+        Ok(dbus) => dbus,
+        Err(error) => {
+            updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+            return;
+        }
+    };
+    let mut owners = match dbus.receive_name_owner_changed().await {
+        Ok(owners) => owners,
+        Err(error) => {
+            updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+            return;
+        }
+    };
 
-fn parse_actions(actions: &[String]) -> Vec<NotificationAction> {
-    actions
-        .chunks(2)
-        .filter_map(|pair| match pair {
-            [key, label] => Some(NotificationAction {
-                key: key.clone(),
-                label: label.clone(),
-            }),
-            _ => None,
-        })
-        .collect()
-}
+    loop {
+        let proxy = match Notifications1Proxy::builder(&connection)
+            .cache_properties(CacheProperties::Yes)
+            .build()
+            .await
+        {
+            Ok(proxy) => proxy,
+            Err(error) => {
+                *current.write().await = None;
+                updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+                if !wait_for_owner(&mut owners).await {
+                    return;
+                }
+                continue;
+            }
+        };
+        let mut snapshots = proxy.receive_snapshot_changed().await;
+        let snapshot = match proxy.cached_snapshot() {
+            Ok(Some(snapshot)) => snapshot,
+            Ok(None) => match proxy.snapshot().await {
+                Ok(snapshot) => snapshot,
+                Err(error) => {
+                    updates
+                        .send_replace(NotificationsProviderState::unavailable(error.to_string()));
+                    *current.write().await = None;
+                    if !wait_for_owner(&mut owners).await {
+                        return;
+                    }
+                    continue;
+                }
+            },
+            Err(error) => {
+                updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+                *current.write().await = None;
+                if !wait_for_owner(&mut owners).await {
+                    return;
+                }
+                continue;
+            }
+        };
+        *current.write().await = Some(proxy.clone());
+        updates.send_replace(NotificationsProviderState {
+            snapshot: Some(snapshot),
+            unavailable: None,
+        });
 
-fn allocate_notification_id(next_id: &AtomicU32, replaces_id: u32) -> u32 {
-    if replaces_id != 0 {
-        if let Some(target) = replaces_id.checked_add(1) {
-            let mut current = next_id.load(Ordering::Relaxed);
-            while current < target {
-                match next_id.compare_exchange(
-                    current,
-                    target,
-                    Ordering::Relaxed,
-                    Ordering::Relaxed,
-                ) {
-                    Ok(_) => break,
-                    Err(observed) => current = observed,
+        loop {
+            tokio::select! {
+                changed = snapshots.next() => {
+                    let Some(changed) = changed else {
+                        break;
+                    };
+                    match changed.get().await {
+                        Ok(snapshot) => {
+                            updates.send_replace(NotificationsProviderState {
+                                snapshot: Some(snapshot),
+                                unavailable: None,
+                            });
+                        }
+                        Err(error) => {
+                            updates.send_replace(NotificationsProviderState::unavailable(error.to_string()));
+                            break;
+                        }
+                    }
+                }
+                owner = owners.next() => {
+                    let Some(owner) = owner else {
+                        break;
+                    };
+                    let Ok(args) = owner.args() else {
+                        continue;
+                    };
+                    if args.name().as_str() == GLIMPSE_NOTIFICATIONS_BUS_NAME {
+                        break;
+                    }
                 }
             }
         }
-
-        return replaces_id;
-    }
-
-    loop {
-        let current = next_id.load(Ordering::Relaxed);
-        let allocated = if current == 0 { 1 } else { current };
-        let next = allocated.checked_add(1).unwrap_or(1);
-
-        match next_id.compare_exchange(current, next, Ordering::Relaxed, Ordering::Relaxed) {
-            Ok(_) => return allocated,
-            Err(_) => continue,
-        }
+        *current.write().await = None;
+        updates.send_replace(NotificationsProviderState::unavailable(
+            "provider has no bus owner",
+        ));
     }
 }
 
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
+async fn wait_for_owner(owners: &mut zbus::fdo::NameOwnerChangedStream) -> bool {
+    use futures_util::StreamExt;
+
+    while let Some(owner) = owners.next().await {
+        let Ok(args) = owner.args() else {
+            continue;
+        };
+        if args.name().as_str() == GLIMPSE_NOTIFICATIONS_BUS_NAME && args.new_owner().is_some() {
+            return true;
+        }
+    }
+    false
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use zbus::zvariant::Type;
 
     #[test]
-    fn notification_ids_replace_existing_and_advance_allocator() {
-        let next_id = AtomicU32::new(1);
-
-        assert_eq!(allocate_notification_id(&next_id, 0), 1);
-        assert_eq!(allocate_notification_id(&next_id, 7), 7);
-        assert_eq!(allocate_notification_id(&next_id, 0), 8);
-    }
-
-    #[test]
-    fn notification_ids_wrap_back_to_one_after_u32_max() {
-        let next_id = AtomicU32::new(u32::MAX);
-
-        assert_eq!(allocate_notification_id(&next_id, 0), u32::MAX);
-        assert_eq!(allocate_notification_id(&next_id, 0), 1);
-    }
-
-    #[test]
-    fn actions_parse_as_key_label_pairs_and_drop_incomplete_tail() {
+    fn wire_signatures_match_the_versioned_contract() {
+        assert_eq!(NotificationWire::SIGNATURE, "(ussissssya(ss)dxbb)");
+        assert_eq!(DoNotDisturbWire::SIGNATURE, "(bx)");
         assert_eq!(
-            parse_actions(&["default".into(), "Open".into(), "broken".into()]),
-            vec![NotificationAction {
-                key: "default".into(),
-                label: "Open".into(),
-            }]
+            NotificationsSnapshot::SIGNATURE,
+            "(a(ussissssya(ss)dxbb)(bx)bs)"
         );
     }
 }

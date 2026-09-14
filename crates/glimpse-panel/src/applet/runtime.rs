@@ -16,7 +16,7 @@ use super::{Applet, Button, Ctx, Direction, Input, Pointer};
 
 const NOTCH: f64 = 1.0;
 
-pub type Builder = fn() -> Box<dyn Applet>;
+pub type Builder = Box<dyn FnOnce(&Ctx) -> Box<dyn Applet>>;
 
 pub struct AppletInit {
     pub name: String,
@@ -73,11 +73,7 @@ impl Component for AppletRuntime {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let build = init.build;
-        let seat = Seat::new(
-            init.name.clone(),
-            init.client.clone(),
-            sender.input_sender().clone(),
-        );
+        let seat = Seat::new(sender.input_sender().clone());
         let ctx = Ctx::new(
             init.name,
             init.output,
@@ -85,7 +81,7 @@ impl Component for AppletRuntime {
             sender.command_sender().clone(),
             sender.input_sender().clone(),
         );
-        let mut applet = build();
+        let mut applet = build(&ctx);
         for topic in applet.topics() {
             ctx.subscribe(topic);
         }
@@ -450,10 +446,6 @@ mod tests {
     struct Probe;
 
     impl Applet for Probe {
-        fn start() -> Self {
-            Self
-        }
-
         fn configure(&mut self, _ctx: &Ctx, _config: &AppletConfig) {
             if EXPLODE.with(Cell::get) {
                 panic!("the probe exploded while configuring");
@@ -478,10 +470,6 @@ mod tests {
     struct Strip;
 
     impl Applet for Strip {
-        fn start() -> Self {
-            Self
-        }
-
         fn configure(&mut self, _ctx: &Ctx, _config: &AppletConfig) {
             if EXPLODE.with(Cell::get) {
                 panic!("the strip exploded while configuring");
@@ -644,7 +632,7 @@ mod tests {
             "probe".to_owned(),
             Some("DP-1".to_owned()),
             client.clone(),
-            || Box::new(Probe::start()),
+            Box::new(|_| Box::new(Probe)),
             config("%H:%M"),
             Catcher::new(None, glimpse_config::Position::Top),
         );
@@ -711,7 +699,7 @@ mod tests {
             "exploding".to_owned(),
             None,
             client.clone(),
-            || Box::new(Probe::start()),
+            Box::new(|_| Box::new(Probe)),
             config("%H"),
             Catcher::new(None, glimpse_config::Position::Top),
         );
@@ -727,7 +715,7 @@ mod tests {
             "strip".to_owned(),
             None,
             client,
-            || Box::new(Strip::start()),
+            Box::new(|_| Box::new(Strip)),
             config("%H"),
             Catcher::new(None, glimpse_config::Position::Top),
         );

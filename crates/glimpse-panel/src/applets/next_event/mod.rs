@@ -4,18 +4,18 @@ use std::time::Duration;
 
 use chrono::{DateTime, Local, TimeDelta};
 use glimpse_config::{Applet as AppletConfig, AppletKind, NextEventConfig};
-use glimpse_contracts::{CalendarEvents, Message as _};
+use glimpse_services::CalendarHandle;
 use glimpse_widgets::{IndicatorSpec, NextEventPopover};
 use gtk4::glib;
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Input, payload};
+use crate::applet::{Applet, Ctx, Input};
 use crate::applets::agenda::{self, Occasion};
 
 const MINUTE: Duration = Duration::from_secs(60);
 
-#[derive(Default)]
 pub struct NextEvent {
+    calendar: CalendarHandle,
     settings: NextEventConfig,
     events: Vec<Occasion>,
     twelve: bool,
@@ -27,14 +27,6 @@ pub struct NextEvent {
 }
 
 impl Applet for NextEvent {
-    fn topics(&self) -> &'static [&'static str] {
-        &[CalendarEvents::NAME]
-    }
-
-    fn start() -> Self {
-        Self::default()
-    }
-
     fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
         let AppletKind::NextEvent(settings) = &config.kind else {
             return;
@@ -53,13 +45,10 @@ impl Applet for NextEvent {
 
     fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
-            Input::Topic(event) => {
-                let Some(events) = payload::<CalendarEvents>(event) else {
-                    return;
-                };
-                self.events = agenda::occasions(&events.events);
+            Input::Woken => {
+                self.events = agenda::occasions(&self.calendar.snapshot().events);
             }
-            Input::Tick | Input::Woken => {}
+            Input::Tick => {}
             _ => return,
         }
         self.refresh();
@@ -84,6 +73,21 @@ impl Applet for NextEvent {
 }
 
 impl NextEvent {
+    pub fn start(calendar: CalendarHandle) -> Self {
+        let events = calendar.snapshot();
+        Self {
+            calendar,
+            settings: NextEventConfig::default(),
+            events: agenda::occasions(&events.events),
+            twelve: false,
+            tooltip_format: None,
+            footer: None,
+            chosen: None,
+            spec: Vec::new(),
+            shown: glib::WeakRef::default(),
+        }
+    }
+
     fn within(&self) -> TimeDelta {
         render::window(self.settings.within)
     }
@@ -93,7 +97,7 @@ impl NextEvent {
     }
 
     fn horizon(&self) -> TimeDelta {
-        render::window(self.settings.horizon.max(self.settings.within))
+        horizon(&self.settings)
     }
 
     fn clock(&self) -> &'static str {
@@ -147,6 +151,10 @@ impl NextEvent {
     }
 }
 
+fn horizon(settings: &NextEventConfig) -> TimeDelta {
+    render::window(settings.horizon.max(settings.within))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -155,16 +163,13 @@ mod tests {
     /// nothing stops a document asking for one.
     #[test]
     fn the_list_never_reaches_less_far_than_the_bar() {
-        let applet = NextEvent {
-            settings: NextEventConfig {
-                within: 180,
-                horizon: 60,
-                ..NextEventConfig::default()
-            },
-            ..NextEvent::default()
+        let settings = NextEventConfig {
+            within: 180,
+            horizon: 60,
+            ..NextEventConfig::default()
         };
 
-        assert_eq!(applet.horizon(), applet.within());
-        assert_eq!(applet.horizon(), TimeDelta::minutes(180));
+        assert_eq!(horizon(&settings), render::window(settings.within));
+        assert_eq!(horizon(&settings), TimeDelta::minutes(180));
     }
 }

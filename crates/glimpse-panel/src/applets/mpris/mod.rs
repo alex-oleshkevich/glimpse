@@ -9,15 +9,13 @@ use std::time::Duration;
 use chrono::Utc;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, MprisAppletConfig};
-use glimpse_contracts::{
-    Message as _, MprisControl, MprisPlayers, MprisSetPosition, MprisSetRepeat, MprisSetShuffle,
-    Playback, PlayerAction, PlayerStatus, Repeat,
-};
+use glimpse_contracts::{Playback, PlayerAction, PlayerStatus, Repeat};
+use glimpse_services::MprisHandle;
 use glimpse_widgets::{IndicatorSpec, MprisPopover, Repeat as TransportRepeat, TransportAction};
 use gtk4::{gdk, gio, glib};
 
 use crate::applet::popover::{PopoverHandle, Seat};
-use crate::applet::{Applet, Ctx, Input, payload};
+use crate::applet::{Applet, Ctx, Input, spawn_command};
 
 const SECOND: Duration = Duration::from_secs(1);
 const MINUTE: Duration = Duration::from_secs(60);
@@ -33,8 +31,8 @@ pub struct Themed {
     pub icon: gio::Icon,
 }
 
-#[derive(Default)]
 pub struct Mpris {
+    service: MprisHandle,
     settings: MprisAppletConfig,
     tooltip_format: Option<String>,
     players: Vec<PlayerStatus>,
@@ -54,14 +52,6 @@ pub struct Mpris {
 }
 
 impl Applet for Mpris {
-    fn topics(&self) -> &'static [&'static str] {
-        &[MprisPlayers::NAME]
-    }
-
-    fn start() -> Self {
-        Self::default()
-    }
-
     fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
         let AppletKind::Mpris(settings) = &config.kind else {
             return;
@@ -74,16 +64,13 @@ impl Applet for Mpris {
 
     fn handle(&mut self, ctx: &Ctx, input: &Input) {
         match input {
-            Input::Topic(event) => {
-                let Some(status) = payload::<MprisPlayers>(event) else {
-                    return;
-                };
-                self.players = status.players;
+            Input::Woken => {
+                self.players = self.service.snapshot().players;
                 self.pace(ctx);
+                self.press();
             }
-            Input::Woken => self.press(ctx),
             Input::Tick => {}
-            _ => return,
+            Input::Pointer(_) | Input::Topic(_) => return,
         }
         self.refresh();
     }
@@ -105,45 +92,47 @@ impl Applet for Mpris {
         });
 
         player.scrubber().connect_seek({
-            let (caller, held) = (seat.caller(), self.aimed.clone());
+            let (service, held) = (self.service.clone(), self.aimed.clone());
             move |_, seconds| {
+                let service = service.clone();
                 aimed(&held, |player| {
-                    caller.call::<MprisSetPosition>(MprisSetPosition {
-                        player,
-                        position_us: (seconds * 1_000_000.0) as i64,
-                    })
+                    spawn_command("mpris.set_position", async move {
+                        service
+                            .set_position(player, (seconds * 1_000_000.0) as i64)
+                            .await
+                    });
                 })
             }
         });
 
         shown.connect_raise_requested({
-            let caller = seat.caller();
+            let service = self.service.clone();
             move |_, player| {
-                caller.call::<MprisControl>(MprisControl {
-                    player,
-                    action: PlayerAction::Raise,
-                })
+                let service = service.clone();
+                spawn_command("mpris.raise", async move {
+                    service.control(player, PlayerAction::Raise).await
+                });
             }
         });
 
         shown.connect_toggle_requested({
-            let caller = seat.caller();
+            let service = self.service.clone();
             move |_, player| {
-                caller.call::<MprisControl>(MprisControl {
-                    player,
-                    action: PlayerAction::PlayPause,
-                })
+                let service = service.clone();
+                spawn_command("mpris.play_pause", async move {
+                    service.control(player, PlayerAction::PlayPause).await
+                });
             }
         });
 
         shown.connect_footer_activated({
-            let (caller, held) = (seat.caller(), self.aimed.clone());
+            let (service, held) = (self.service.clone(), self.aimed.clone());
             move |_| {
+                let service = service.clone();
                 aimed(&held, |player| {
-                    caller.call::<MprisControl>(MprisControl {
-                        player,
-                        action: PlayerAction::Raise,
-                    })
+                    spawn_command("mpris.raise", async move {
+                        service.control(player, PlayerAction::Raise).await
+                    });
                 })
             }
         });
@@ -155,6 +144,23 @@ impl Applet for Mpris {
 }
 
 impl Mpris {
+    pub fn start(service: MprisHandle) -> Self {
+        let players = service.snapshot().players;
+        Self {
+            service,
+            settings: MprisAppletConfig::default(),
+            tooltip_format: None,
+            players,
+            ticking: None,
+            art: None,
+            icons: HashMap::new(),
+            aimed: Rc::new(RefCell::new(String::new())),
+            pressed: Rc::new(RefCell::new(Vec::new())),
+            spec: Vec::new(),
+            shown: glib::WeakRef::new(),
+        }
+    }
+
     /// A second while something is playing, a minute otherwise. `ctx.interval` replaces the timer
     /// rather than adding one, so asking again is how it changes pace.
     fn pace(&mut self, ctx: &Ctx) {
@@ -211,9 +217,8 @@ impl Mpris {
         }
     }
 
-    /// Every press recorded while the popover was live, applied against the model `dress` renders
-    /// so the control moves now and the next payload reconciles it.
-    fn press(&mut self, ctx: &Ctx) {
+    fn press(&mut self) {
+        let service = self.service.clone();
         for action in self.pressed.take() {
             let Some(player) = self.players.iter_mut().find(|player| player.current) else {
                 continue;
@@ -224,34 +229,41 @@ impl Mpris {
                 TransportAction::Shuffle => {
                     let shuffle = !player.shuffle.unwrap_or_default();
                     player.shuffle = Some(shuffle);
-                    ctx.call::<MprisSetShuffle>(MprisSetShuffle {
-                        player: id,
-                        shuffle,
+                    let service = service.clone();
+                    spawn_command("mpris.set_shuffle", async move {
+                        service.set_shuffle(id, shuffle).await
                     });
                 }
                 TransportAction::Repeat => {
                     let repeat = cycled(player.repeat.unwrap_or_default());
                     player.repeat = Some(repeat);
-                    ctx.call::<MprisSetRepeat>(MprisSetRepeat { player: id, repeat });
+                    let service = service.clone();
+                    spawn_command("mpris.set_repeat", async move {
+                        service.set_repeat(id, repeat).await
+                    });
                 }
                 TransportAction::PlayPause => {
                     player.playback = match player.playback {
                         Playback::Playing => Playback::Paused,
                         _ => Playback::Playing,
                     };
-                    ctx.call::<MprisControl>(MprisControl {
-                        player: id,
-                        action: PlayerAction::PlayPause,
+                    let service = service.clone();
+                    spawn_command("mpris.play_pause", async move {
+                        service.control(id, PlayerAction::PlayPause).await
                     });
                 }
-                TransportAction::Previous => ctx.call::<MprisControl>(MprisControl {
-                    player: id,
-                    action: PlayerAction::Previous,
-                }),
-                TransportAction::Next => ctx.call::<MprisControl>(MprisControl {
-                    player: id,
-                    action: PlayerAction::Next,
-                }),
+                TransportAction::Previous => {
+                    let service = service.clone();
+                    spawn_command("mpris.previous", async move {
+                        service.control(id, PlayerAction::Previous).await
+                    });
+                }
+                TransportAction::Next => {
+                    let service = service.clone();
+                    spawn_command("mpris.next", async move {
+                        service.control(id, PlayerAction::Next).await
+                    });
+                }
             }
         }
     }
@@ -347,8 +359,6 @@ impl Mpris {
     }
 }
 
-/// The current player's id, or nothing at all: a control that fired with no player current would
-/// otherwise ask the daemon about one named "".
 fn aimed(held: &RefCell<String>, act: impl FnOnce(String)) {
     let player = held.borrow().clone();
     if !player.is_empty() {

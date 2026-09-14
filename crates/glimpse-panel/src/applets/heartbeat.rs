@@ -1,8 +1,8 @@
-use glimpse_contracts::{HeartbeatReset, HeartbeatSetInterval, HeartbeatTick, Message};
+use glimpse_services::HeartbeatHandle;
 use glimpse_widgets::IndicatorSpec;
 use gtk4::prelude::*;
 
-use crate::applet::{Applet, Button, Ctx, Direction, Input, Pointer, payload};
+use crate::applet::{Applet, Button, Ctx, Direction, Input, Pointer, spawn_command};
 
 const ICON: &str = "emblem-synchronizing-symbolic";
 const DEFAULT_PERIOD_MS: u64 = 1000;
@@ -11,36 +11,22 @@ const MIN_PERIOD_MS: u64 = 100;
 const MAX_PERIOD_MS: u64 = 5000;
 
 pub struct Heartbeat {
+    service: HeartbeatHandle,
     count: Option<u64>,
     period_ms: u64,
     icon: gio::Icon,
 }
 
 impl Applet for Heartbeat {
-    fn topics(&self) -> &'static [&'static str] {
-        &[HeartbeatTick::NAME]
-    }
-
-    fn start() -> Self {
-        Self {
-            count: None,
-            period_ms: DEFAULT_PERIOD_MS,
-            icon: gio::ThemedIcon::new(ICON).upcast(),
-        }
-    }
-
-    fn handle(&mut self, ctx: &Ctx, input: &Input) {
+    fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
-            Input::Topic(event) => {
-                if let Some(tick) = payload::<HeartbeatTick>(event) {
-                    self.count = Some(tick.count);
-                }
-            }
+            Input::Woken => self.count = Some(self.service.snapshot().count),
             Input::Pointer(Pointer::Press(Button::Left)) => {
-                ctx.call::<HeartbeatReset>(HeartbeatReset {})
+                let service = self.service.clone();
+                spawn_command("heartbeat.reset", async move { service.reset().await });
             }
-            Input::Pointer(Pointer::Scroll(direction)) => self.retime(ctx, *direction),
-            Input::Pointer(_) | Input::Tick | Input::Woken => {}
+            Input::Pointer(Pointer::Scroll(direction)) => self.retime(*direction),
+            Input::Pointer(_) | Input::Tick | Input::Topic(_) => {}
         }
     }
 
@@ -58,12 +44,25 @@ impl Applet for Heartbeat {
 }
 
 impl Heartbeat {
-    fn retime(&mut self, ctx: &Ctx, direction: Direction) {
+    pub fn start(service: HeartbeatHandle) -> Self {
+        let count = service.snapshot().count;
+        Self {
+            service,
+            count: Some(count),
+            period_ms: DEFAULT_PERIOD_MS,
+            icon: gio::ThemedIcon::new(ICON).upcast(),
+        }
+    }
+
+    fn retime(&mut self, direction: Direction) {
         let Some(period_ms) = stepped(self.period_ms, direction) else {
             return;
         };
         self.period_ms = period_ms;
-        ctx.call::<HeartbeatSetInterval>(HeartbeatSetInterval { period_ms });
+        let service = self.service.clone();
+        spawn_command("heartbeat.set_interval", async move {
+            service.set_interval(period_ms).await
+        });
     }
 }
 

@@ -1,5 +1,5 @@
 [package]
-name = "glimpse-notificationd"
+name = "glimpse-notifications"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -18,17 +18,18 @@ gio.workspace = true
 glib.workspace = true
 glimpse-config.workspace = true
 glimpse-contracts.workspace = true
-glimpse-ipc.workspace = true
+glimpse-dbus.workspace = true
+glimpse-services.workspace = true
 glimpse-utils.workspace = true
 glimpse-widgets.workspace = true
 gtk4.workspace = true
 gtk4-layer-shell.workspace = true
 relm4.workspace = true
-serde.workspace = true
-serde_json.workspace = true
 shadow-rs.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 tracing.workspace = true
+zbus.workspace = true
 
 [build-dependencies]
 shadow-rs.workspace = true

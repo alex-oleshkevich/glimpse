@@ -6,10 +6,8 @@ use std::rc::Rc;
 use glimpse_config::{
     Applet as AppletConfig, AppletKind, PagerConfig, PagerMode, PagerScope, PagerShape,
 };
-use glimpse_contracts::{
-    CompositorWindows, CompositorWorkspaces, FocusWindow, FocusWorkspace, Message, WindowInfo,
-    WindowRef, WorkspaceInfo, WorkspaceRef,
-};
+use glimpse_contracts::{WindowInfo, WindowRef, WorkspaceInfo, WorkspaceRef};
+use glimpse_services::CompositorHandle;
 use glimpse_widgets::{
     Focus, Pager as Strip, Shape, Slot, Workspace, WorkspaceWindow, WorkspacesPopover,
 };
@@ -17,7 +15,7 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::applet::popover::{PopoverHandle, Seat};
-use crate::applet::{Applet, Caller, Ctx, Input, payload};
+use crate::applet::{Applet, Ctx, Input, spawn_command};
 use label::{Facts, render};
 
 pub struct Pager {
@@ -27,24 +25,10 @@ pub struct Pager {
     output: Option<String>,
     workspaces: Vec<WorkspaceInfo>,
     windows: Vec<WindowInfo>,
+    compositor: CompositorHandle,
 }
 
 impl Applet for Pager {
-    fn topics(&self) -> &'static [&'static str] {
-        &[CompositorWorkspaces::NAME, CompositorWindows::NAME]
-    }
-
-    fn start() -> Self {
-        Self {
-            strip: Strip::new(),
-            shown: glib::WeakRef::new(),
-            settings: Rc::new(RefCell::new(PagerConfig::default())),
-            output: None,
-            workspaces: Vec::new(),
-            windows: Vec::new(),
-        }
-    }
-
     fn view(&mut self, ctx: &Ctx) -> Option<gtk4::Widget> {
         self.output = ctx.output().map(str::to_owned);
 
@@ -54,10 +38,10 @@ impl Applet for Pager {
         });
 
         self.strip.connect_stepped({
-            let caller = ctx.caller();
+            let compositor = self.compositor.clone();
             let settings = self.settings.clone();
             move |_, horizontal, forward| {
-                step(&caller, settings.borrow().mode, horizontal, forward);
+                step(&compositor, settings.borrow().mode, horizontal, forward);
             }
         });
 
@@ -68,21 +52,23 @@ impl Applet for Pager {
         self.strip.set_orientation(orientation);
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = WorkspacesPopover::new();
         shown.set_workspaces(&self.rows());
 
-        let caller = seat.caller();
+        let compositor = self.compositor.clone();
         shown.connect_activated(move |id| {
-            caller.call::<FocusWorkspace>(FocusWorkspace {
-                target: WorkspaceRef::Id { id },
+            let compositor = compositor.clone();
+            spawn_command("compositor.focus_workspace", async move {
+                compositor.focus_workspace(WorkspaceRef::Id { id }).await
             });
         });
 
-        let caller = seat.caller();
+        let compositor = self.compositor.clone();
         shown.connect_window_activated(move |id| {
-            caller.call::<FocusWindow>(FocusWindow {
-                target: WindowRef::Id { id },
+            let compositor = compositor.clone();
+            spawn_command("compositor.focus_window", async move {
+                compositor.focus_window(WindowRef::Id { id }).await
             });
         });
 
@@ -103,23 +89,35 @@ impl Applet for Pager {
     }
 
     fn handle(&mut self, _ctx: &Ctx, input: &Input) {
-        let Input::Topic(event) = input else {
-            return;
-        };
-
-        if let Some(update) = payload::<CompositorWorkspaces>(event) {
-            self.workspaces = update.workspaces;
-        } else if let Some(update) = payload::<CompositorWindows>(event) {
-            self.windows = update.windows;
-        } else {
+        if !matches!(input, Input::Woken) {
             return;
         }
-
+        let state = self.compositor.snapshot();
+        self.workspaces = state
+            .workspaces
+            .map(|value| value.workspaces)
+            .unwrap_or_default();
+        self.windows = state.windows.map(|value| value.windows).unwrap_or_default();
         self.render();
     }
 }
 
 impl Pager {
+    pub fn start(compositor: CompositorHandle) -> Self {
+        let state = compositor.snapshot();
+        Self {
+            strip: Strip::new(),
+            shown: glib::WeakRef::new(),
+            settings: Rc::new(RefCell::new(PagerConfig::default())),
+            output: None,
+            workspaces: state
+                .workspaces
+                .map(|value| value.workspaces)
+                .unwrap_or_default(),
+            windows: state.windows.map(|value| value.windows).unwrap_or_default(),
+            compositor,
+        }
+    }
     fn rows(&self) -> Vec<Workspace> {
         self.workspaces
             .iter()
@@ -302,19 +300,24 @@ fn steps_windows(mode: PagerMode, horizontal: bool) -> bool {
     (mode == PagerMode::Windows) != horizontal
 }
 
-fn step(caller: &Caller, mode: PagerMode, horizontal: bool, forward: bool) {
+fn step(compositor: &CompositorHandle, mode: PagerMode, horizontal: bool, forward: bool) {
+    let compositor = compositor.clone();
     match steps_windows(mode, horizontal) {
-        true => caller.call::<FocusWindow>(FocusWindow {
-            target: match forward {
-                true => WindowRef::Next,
-                false => WindowRef::Prev,
-            },
+        true => spawn_command("compositor.focus_window", async move {
+            compositor
+                .focus_window(match forward {
+                    true => WindowRef::Next,
+                    false => WindowRef::Prev,
+                })
+                .await
         }),
-        false => caller.call::<FocusWorkspace>(FocusWorkspace {
-            target: match forward {
-                true => WorkspaceRef::Next,
-                false => WorkspaceRef::Prev,
-            },
+        false => spawn_command("compositor.focus_workspace", async move {
+            compositor
+                .focus_workspace(match forward {
+                    true => WorkspaceRef::Next,
+                    false => WorkspaceRef::Prev,
+                })
+                .await
         }),
     }
 }

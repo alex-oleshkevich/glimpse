@@ -96,7 +96,7 @@ fn session_target_is_the_only_graphical_session_entrypoint() {
         "glimpse-panel",
         "glimpse-wallpaper",
         "glimpse-sunset",
-        "glimpse-notificationd",
+        "glimpse-notifications",
     ];
     let target = fs::read_to_string(directory.join("glimpse-session.target")).expect("target");
     assert!(target.contains("WantedBy=graphical-session.target"));
@@ -124,7 +124,7 @@ fn session_target_is_the_only_graphical_session_entrypoint() {
                 .lines()
                 .any(|line| { line.starts_with("PropagatesReloadTo=") && line.contains(&name) })
         );
-        if member != "glimpsed" {
+        if !matches!(member, "glimpsed" | "glimpse-notifications") {
             assert!(unit.contains("After=glimpsed.service"), "{name}");
             assert!(unit.contains("Wants=glimpsed.service"), "{name}");
         }
@@ -136,29 +136,26 @@ fn session_target_is_the_only_graphical_session_entrypoint() {
 }
 
 #[test]
-fn notification_popup_binary_is_packaged_without_inverted_dependencies() {
+fn notification_provider_binary_is_packaged_with_its_local_services() {
     let root = workspace_root();
-    let manifest = fs::read_to_string(root.join("crates/glimpse-notificationd/Cargo.toml"))
-        .expect("notificationd manifest");
-    for forbidden in [
-        "glimpse-panel",
-        "glimpsed",
-        "glimpse-services",
-        "glimpse-dbus",
-    ] {
+    let manifest = fs::read_to_string(root.join("crates/glimpse-notifications/Cargo.toml"))
+        .expect("notifications manifest");
+    for forbidden in ["glimpse-panel", "glimpsed", "glimpse-ipc"] {
         assert!(!manifest.contains(forbidden), "depends on {forbidden}");
     }
+    assert!(manifest.contains("glimpse-services.workspace = true"));
+    assert!(manifest.contains("glimpse-dbus.workspace = true"));
 
     let package =
         fs::read_to_string(root.join("crates/glimpsed/Cargo.toml")).expect("package manifest");
     assert_eq!(
         package
-            .matches("target/release/glimpse-notificationd")
+            .matches("target/release/glimpse-notifications")
             .count(),
         2
     );
     let binaries = fs::read_to_string(root.join("justfile")).expect("justfile");
     assert!(binaries.contains(
-        "binaries := \"glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notificationd\""
+        "binaries := \"glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications\""
     ));
 }

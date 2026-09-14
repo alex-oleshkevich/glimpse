@@ -109,8 +109,6 @@ impl From<&glimpse_config::Config> for Config {
 #[derive(PartialEq, Eq, Hash)]
 pub enum Watch {}
 
-/// glimpsed is the store here, not a mirror: nothing else on the session bus holds these, so a
-/// notification exists exactly as long as this service keeps it.
 pub struct Notifications {
     state: Publisher<NotificationsState>,
     store: Store,
@@ -1045,7 +1043,7 @@ mod tests {
         assert!(held.dismiss(3));
         assert!(
             held.reconfigure(1, &[]),
-            "the store shrank, so the topic must be republished"
+            "the store shrank, so the state must be republished"
         );
         assert_eq!(held.records().len(), 1);
         assert!(

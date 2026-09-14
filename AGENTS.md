@@ -52,7 +52,7 @@ glimpse/
 | `glimpse-utils`       | shared CLI arg structs, tracing/log setup, gettext binding and text cleaning      |
 | `glimpsed`            | broker                                                                        |
 | `glimpse-panel`       | panel and applets                                                                 |
-| `glimpse-notificationd` | transient notification popup layer surface                                     |
+| `glimpse-notifications` | notification owner, typed D-Bus provider and transient popup layer surface      |
 | `glimpse-wallpaper`   | background layer surface, decode cache, transitions                               |
 | `glimpse-lock`        | `ext-session-lock-v1` surfaces, PAM                                               |
 | `glimpse-sunset`      | night-light service                                                               |

@@ -3,6 +3,7 @@ mod applet;
 mod applets;
 mod cli;
 mod components;
+mod services;
 use anyhow::Result;
 use clap::Parser;
 use cli::Cli;

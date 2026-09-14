@@ -5,7 +5,8 @@ The panel: layer-shell bars, applets and popovers. Builds the binary named `glim
 ## Contents
 
 - `main.rs` — GTK application, layer-shell setup, one bar per output across hotplug
-- `app.rs` — one bar per (panel config × monitor), the shared `Client`, config and theme watches
+- `app.rs` — one bar per (panel config × monitor), the local service graph, config and theme watches
+- `services.rs` — the panel-local composition root and its explicit service dependencies
 - `components/panel.rs` — bar window, zones, applet reconciliation
 - `applet/` — the framework: the trait, `Ctx`, the relm4 runtime, the popover catcher, and
   `popover::run`, which launches the `settings-command` every footer row offers
@@ -18,16 +19,16 @@ Most applets own one `IndicatorGroup`, so their view is the same shape and only
 `Vec<IndicatorSpec>` varies. The trait is object-safe and the runtime stores `Box<dyn Applet>`:
 
 ```rust
-fn topics(&self) -> &'static [&'static str]   // declared; the runtime subscribes
-fn start() -> Self
 fn handle(&mut self, ctx: &Ctx, input: &Input)
 fn view(&mut self, ctx: &Ctx) -> Option<gtk4::Widget>   // None: the runtime supplies the group
 fn indicators(&self) -> Vec<IndicatorSpec>
 ```
 
-**`Ctx` owns every source.** `topics()` is a declaration, not an action; the runtime subscribes and
-holds the guards, so no applet holds one and `start` has no side effects — the same shape as
-`Live<S>` in `glimpse-services`. Teardown is `Ctx` dropping with the runtime.
+**The applet builder receives `Ctx` and captures its exact service handle.** It seeds the applet
+from `handle.snapshot()`, then `Ctx::watch(handle.subscribe())` turns later changes into `Woken`
+inputs. `Ctx` owns the forwarding task, so removing the applet cancels its subscription without a
+second lifetime mechanism. Topics and `Caller` remain temporary compatibility for weather and
+notifications until their standalone D-Bus providers land.
 
 **A panic stops one applet, not the panel.** `handle` and `indicators` run inside one
 `catch_unwind`; a panic logs, drops the applet, stops its sources and empties its group. Unwinding
@@ -45,9 +46,10 @@ indicators change mid-gesture does not lose the remainder.
 **Pointer input names no indicator.** The whole group is one clickable target, so `Input::Pointer`
 carries only the button or direction.
 
-**Zone reconciliation is keyed by `(zone, name)`.** `MonitorsChanged` and `ThemeChanged` both reach
+**Zone reconciliation is keyed by `(zone, name, kind)`.** `MonitorsChanged` and `ThemeChanged` both reach
 `reconcile_panels`, so the guard comparing desired against current key sequences is what stops every
-applet being rebuilt on every theme write. A name with no implementation still occupies a `Slot`
+applet being rebuilt on every theme write. Changing a custom applet's `extends` replaces that one
+runtime so its captured typed handle changes with it. A name with no implementation still occupies a `Slot`
 with `handle: None`, which is what keeps the sequences comparable. An unresolvable *name* is a user
 typo, logged at `warn`; a name resolving to an unimplemented kind is expected and logged at `debug`
 — the shipped default names nineteen applets, so collapsing the two means nineteen warnings on an
@@ -57,7 +59,7 @@ There is deliberately no staleness, no `degraded`, no timer and no applet `Outpu
 
 ### Keyboard
 
-The chip is the current layout's code (`US`). It hides when the daemon has sent fewer than two layouts. Scroll cycles; left click opens a list of layouts with the current one checked and the code on the right, not bold. `{code}` and `{name}` fill `tooltip-format`. The footer is only the `settings-command` row, when that pair is set.
+The chip is the current layout's code (`US`). It hides when the compositor service reports fewer than two layouts. Scroll cycles; left click opens a list of layouts with the current one checked and the code on the right, not bold. `{code}` and `{name}` fill `tooltip-format`. The footer is only the `settings-command` row, when that pair is set.
 
 The compositor owns the list; this applet only renders `keyboard.layouts` and sends `keyboard.switch_layout`.
 
@@ -123,8 +125,10 @@ saying which workspace is current, because the rule lengthening the active one i
 `min-width`.
 
 **Signals are wired in `view`, called once**, before the first `configure`. A GTK callback outlives
-any `&Ctx`, so `ctx.caller()` hands out a `Caller` carrying only `call`. Settings a callback needs at
-click time live behind an `Rc<Cell<_>>` the applet updates in `configure`.
+any `&Ctx`, so local applets capture a cloneable typed handle and start commands without blocking
+GTK. Notifications still uses `Seat::caller()` only until its provider migration. Settings a
+callback needs at click time live behind an `Rc<Cell<_>>` the applet updates in
+`configure`.
 
 **`ctx.output()` is the connector this bar is on**, `None` when the monitor has no name.
 
@@ -265,8 +269,8 @@ event that ended stays "ended 12 min ago" for an hour before falling back to "ov
 within the minute reads "starting now" rather than "in 0 min"; and a timed event crossing midnight
 names the day it ends rather than reporting a 36-hour duration.
 
-**Events come from `calendar.events`**, decoded into `agenda::occasions`. That conversion is where
-the wire type stops: `DateTime<Utc>` becomes local and the `color` hex becomes a `gdk::RGBA`, whose
+**Events come from the shared `CalendarHandle` snapshot**, converted into `agenda::occasions`.
+That conversion turns `DateTime<Utc>` local and the `color` hex into a `gdk::RGBA`, whose
 failure costs that event its dot rather than the popover. Nothing caps the text again — the service
 caps and flattens before publishing.
 
@@ -279,16 +283,14 @@ re-renders an open popover**, because every relative string in it is a function 
 **The popover is always local time, even on a clock with a `timezone`.** That setting moves the bar
 label alone.
 
-**The applet asks the daemon for the months it is showing.** `ask_for_range` turns the shown month
+**The applet asks the calendar service for the months it is showing.** `ask_for_range` turns the shown month
 into `[first of that month, first of the month after next)` and sends `calendar.set_range` from
 `configure` and on every `Tick`/`Woken`, only when the range changed. The month step reaches it
-because `CalendarPopover` re-emits `month-shown` and the applet wakes on it — an applet has no `ctx`
-inside `popover()`, so waking is how a widget signal becomes a command. Opening a popover forgets the
-last range asked, which re-asserts it after a daemon restart: nothing tells an applet the daemon went
-away, so a panel that only asked on change would keep browsing a month the new daemon never heard
-about. A fixed window in the daemon is what made December render empty for a weekly meeting.
+because `CalendarPopover` re-emits `month-shown` and the applet wakes on it. Opening a popover
+forgets the last range asked, so it reasserts the visible range after the local service has
+recovered.
 
-**Several panels share one range, and the last to ask wins** — the command carries no client
+**Several panels share one service range, and the last to ask wins** — the command carries no client
 identity. Each re-asserts on its own next step, so it self-corrects rather than sticking; bead
 `glimpse-66sq`.
 
@@ -435,7 +437,7 @@ the rest listed beneath it. Which player is current, and which are hidden, are t
 decisions in `[mpris]`; `[applets.mpris]` is only how the bar renders the one it is handed.
 
 **Position is advanced here, not polled there.** MPRIS emits no change signal for `Position`, so the
-payload carries `position_us`, the instant it was read, and `rate`, and `render::position` extrapolates
+service state carries `position_us`, the instant it was read, and `rate`, and `render::position` extrapolates
 from those. `ctx.interval` is the timer — a second while something is playing, a minute otherwise,
 asked for again on every update because asking replaces the timer rather than adding one.
 
@@ -471,13 +473,13 @@ as `Input::Woken`, where `press` has the model in hand.
 **The optimistic value goes into `self.players`, not beside it.** `dress` writes the transport from
 that model on every refresh, so a value written anywhere else is overwritten by the next wake with
 whatever the daemon last said — which looks like the button springing back. Writing it into the
-model moves the button now and lets the next `mpris.players` reconcile it, which is what the
+model moves the button now and lets the next typed MPRIS snapshot reconcile it, which is what the
 "UI state never waits on a round trip" rule in `AGENTS.md` asks for. It also makes two presses
 inside one round trip advance twice instead of sending the same value again.
 
 **The scrubber and the footer read `aimed` instead**, a shared cell holding the current player's id.
 They need no value computed against the model — a seek position and "raise this" are complete on
-their own — so they go straight out through the `Caller`.
+their own — so they call the captured `MprisHandle` asynchronously.
 
 **Row signals carry the player's id.** `PlayerList` reports which player was clicked rather than
 which position, and reads that key back at the moment the row fires, because rows are reused in
@@ -541,12 +543,12 @@ keeps passing unchanged, which is why these functions needed no test edits.
 
 ## Rules
 
-An applet renders topics and sends commands. It never opens a D-Bus connection, never reaches a
-backend directly, and holds no state that outlives its own widget.
+An applet renders typed service snapshots and sends typed commands through its injected handle. It
+never opens a D-Bus connection, never reaches a backend directly, and holds no state that outlives
+its own widget.
 
 UI state never waits on a round trip. A slider updates its widget immediately and sends the command;
-the topic event that follows is reconciliation. This is safe because topics are state cells — the
-daemon's value always wins.
+the watch update that follows is reconciliation, and the service's value always wins.
 
 Update properties on existing widgets. Rebuilding trees per event is the most likely source of
 visible stutter.
@@ -556,7 +558,7 @@ everything else is reconfigured in place. A monitor GDK cannot name gets no bar 
 reconcile cannot find again. Repointing a mapped layer surface at another output remaps it, so
 `set_monitor` is called only when the output actually changed.
 
-Transient notification surfaces belong to the independent `glimpse-notificationd` process, so panel
+Transient notification surfaces belong to the independent `glimpse-notifications` process, so panel
 reconciliation and monitor hotplug cannot interrupt popup delivery.
 
 CSS providers are installed once and reloaded in place; installing twice stacks every rule. Every
@@ -565,9 +567,14 @@ provider connects `parsing-error`, because GTK4's loaders return nothing.
 A programmatic state change must not re-emit its signal, or the handler that sends the command
 re-enters itself.
 
-A dead daemon is a normal state: events stop, the last value stays on screen, and reconnection
-restores everything with no special handling. `Client::open` is what lets a panel started before
-`glimpsed` wait rather than fail.
+Each panel-local service owns its last snapshot and availability state. A backend disappearance
+stops updates or degrades that service without blocking GTK; backend-specific recovery stays in the
+existing service implementation. The notification applet consumes its typed provider proxy; the
+socket client remains only for weather until its standalone D-Bus provider lands.
+
+The normal application ID is unique, so a second `glimpse-panel` activates the existing process
+instead of duplicating backend subscriptions and polling. `GLIMPSE_PANEL_APP_ID` deliberately opts a
+development run into a separate application identity.
 
 Configuration is the `[panel]` table of the shared `config.toml`, plus `panel.css`. Tables owned by
 other binaries are ignored, not validated.

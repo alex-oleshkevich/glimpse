@@ -1,15 +1,17 @@
 use glimpse_config::{Applet as AppletConfig, AppletKind};
-use glimpse_contracts::{KeyboardLayouts, LayoutRef, Message, SwitchLayout};
+use glimpse_contracts::{KeyboardLayouts, LayoutRef};
+use glimpse_services::KeyboardHandle;
 use glimpse_widgets::{IndicatorSpec, KeyboardPopover};
 use gtk4::glib;
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Direction, Input, Pointer, payload};
+use crate::applet::{Applet, Ctx, Direction, Input, Pointer, spawn_command};
 
 use super::render;
 
 pub struct Keyboard {
     layouts: Option<KeyboardLayouts>,
+    keyboard: KeyboardHandle,
     tooltip_format: Option<String>,
     footer: Option<(String, Vec<String>)>,
     spec: Vec<IndicatorSpec>,
@@ -17,20 +19,6 @@ pub struct Keyboard {
 }
 
 impl Applet for Keyboard {
-    fn topics(&self) -> &'static [&'static str] {
-        &[KeyboardLayouts::NAME]
-    }
-
-    fn start() -> Self {
-        Self {
-            layouts: None,
-            tooltip_format: None,
-            footer: None,
-            spec: Vec::new(),
-            shown: glib::WeakRef::new(),
-        }
-    }
-
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
         let AppletKind::Keyboard {} = &config.kind else {
             return;
@@ -43,24 +31,20 @@ impl Applet for Keyboard {
         self.refresh();
     }
 
-    fn handle(&mut self, ctx: &Ctx, input: &Input) {
+    fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
-            Input::Topic(event) => {
-                let Some(layouts) = payload::<KeyboardLayouts>(event) else {
-                    return;
-                };
-                self.layouts = Some(layouts);
-            }
             Input::Pointer(Pointer::Scroll(direction)) => {
                 let target = match direction {
                     Direction::Up | Direction::Left => LayoutRef::Prev,
                     Direction::Down | Direction::Right => LayoutRef::Next,
                 };
-                self.cycle(ctx, target);
+                self.cycle(target);
                 return;
             }
-            Input::Tick | Input::Woken => {}
+            Input::Woken => self.layouts = Some(self.keyboard.snapshot()),
+            Input::Tick => {}
             Input::Pointer(_) => return,
+            _ => return,
         }
         self.refresh();
     }
@@ -69,15 +53,16 @@ impl Applet for Keyboard {
         self.spec.clone()
     }
 
-    fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+    fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
         let shown = KeyboardPopover::new();
-        let caller = seat.caller();
+        let keyboard = self.keyboard.clone();
         shown.connect_activated(move |_, index| {
             let Ok(index) = u8::try_from(index) else {
                 return;
             };
-            caller.call::<SwitchLayout>(SwitchLayout {
-                target: LayoutRef::Index { index },
+            let keyboard = keyboard.clone();
+            spawn_command("keyboard.switch", async move {
+                keyboard.switch(LayoutRef::Index { index }).await
             });
         });
         if let Some((_, command)) = &self.footer {
@@ -91,7 +76,18 @@ impl Applet for Keyboard {
 }
 
 impl Keyboard {
-    fn cycle(&mut self, ctx: &Ctx, target: LayoutRef) {
+    pub fn start(keyboard: KeyboardHandle) -> Self {
+        Self {
+            layouts: Some(keyboard.snapshot()),
+            keyboard,
+            tooltip_format: None,
+            footer: None,
+            spec: Vec::new(),
+            shown: glib::WeakRef::new(),
+        }
+    }
+
+    fn cycle(&mut self, target: LayoutRef) {
         if !render::shown(self.layouts.as_ref()) {
             return;
         }
@@ -100,7 +96,11 @@ impl Keyboard {
         {
             layouts.current = Some(next);
         }
-        ctx.call::<SwitchLayout>(SwitchLayout { target });
+        let keyboard = self.keyboard.clone();
+        spawn_command(
+            "keyboard.switch",
+            async move { keyboard.switch(target).await },
+        );
         self.refresh();
     }
 

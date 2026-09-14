@@ -118,7 +118,7 @@ systemctl --user enable --now glimpse-session.target
 
 The package installer cannot do this migration because it does not run inside each installed
 user's systemd manager. Leaving the direct links enabled still starts the old members, but does not
-start `glimpse-notificationd`.
+start `glimpse-notifications`.
 
 Every service carries `ExecReload=/bin/kill -HUP $MAINPID`, and the target names its five members
 with `PropagatesReloadTo`. `systemctl --user reload glimpse-session.target` therefore asks every
