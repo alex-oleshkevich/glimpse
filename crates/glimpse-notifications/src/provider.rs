@@ -311,6 +311,8 @@ mod tests {
         }
     }
 
+    const NOT_YET_DUE: i64 = 4_102_444_800_000_000;
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn introspection_and_typed_round_trip_match_the_frozen_interface() {
         let bus = PrivateBus::start();
@@ -334,7 +336,7 @@ mod tests {
         let client = bus.connection().await;
         let proxy = Notifications1Proxy::new(&client).await.unwrap();
 
-        proxy.set_do_not_disturb(true, 7).await.unwrap();
+        proxy.set_do_not_disturb(true, NOT_YET_DUE).await.unwrap();
         notifications
             .subscribe()
             .wait_for(|state| {
