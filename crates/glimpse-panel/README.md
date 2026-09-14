@@ -125,8 +125,7 @@ saying which workspace is current, because the rule lengthening the active one i
 
 **Signals are wired in `view`, called once**, before the first `configure`. A GTK callback outlives
 any `&Ctx`, so local applets capture a cloneable typed handle and start commands without blocking
-GTK. Notifications still uses `Seat::caller()` only until its provider migration. Settings a
-callback needs at click time live behind an `Rc<Cell<_>>` the applet updates in
+GTK. Any settings a callback needs at click time live behind an `Rc<Cell<_>>` the applet updates in
 `configure`.
 
 **`ctx.output()` is the connector this bar is on**, `None` when the monitor has no name.

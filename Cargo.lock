@@ -1050,6 +1050,7 @@ dependencies = [
  "chrono",
  "futures-util",
  "glimpse-contracts",
+ "glimpse-utils",
  "thiserror",
  "tokio",
  "tracing",

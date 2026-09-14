@@ -9,6 +9,7 @@ license.workspace = true
 chrono.workspace = true
 futures-util.workspace = true
 glimpse-contracts.workspace = true
+glimpse-utils.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true

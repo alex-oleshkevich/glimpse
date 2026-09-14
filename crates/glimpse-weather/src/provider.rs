@@ -285,6 +285,12 @@ mod tests {
 
         proxy.watch_place(1, 54.7, 25.3).await.unwrap();
         proxy.refresh().await.unwrap();
+        let invalid = proxy.watch_place(2, 0.0, 0.0).await.unwrap_err();
+        assert!(matches!(
+            invalid,
+            zbus::Error::MethodError(name, _, _)
+                if name.as_str() == "me.aresa.Glimpse.Weather1.Error.InvalidPlace"
+        ));
         let snapshot = proxy.snapshot().await.unwrap();
         assert!(!snapshot.0);
         assert_eq!(snapshot.4, 0);
@@ -300,10 +306,23 @@ mod tests {
             .await
             .unwrap();
         let xml: String = reply.body().deserialize().unwrap();
-        assert!(xml.contains("<interface name=\"me.aresa.Glimpse.Weather1\">"));
-        assert!(xml.contains("<method name=\"WatchPlace\">"));
-        assert!(xml.contains("<method name=\"Refresh\">"));
-        assert!(xml.contains("<property name=\"Snapshot\""));
+        let start = xml
+            .find("<interface name=\"me.aresa.Glimpse.Weather1\">")
+            .unwrap();
+        let end = start + xml[start..].find("</interface>").unwrap() + "</interface>".len();
+        assert_eq!(
+            &xml[start..end],
+            r#"<interface name="me.aresa.Glimpse.Weather1">
+    <method name="WatchPlace">
+      <arg name="kind" type="y" direction="in"/>
+      <arg name="latitude" type="d" direction="in"/>
+      <arg name="longitude" type="d" direction="in"/>
+    </method>
+    <method name="Refresh">
+    </method>
+    <property name="Snapshot" type="(bbsxya(yddddi(b(xybd(bd)(by)(bd)(bq)(bd)))a(xybd)a(xydd(by)(bx)(bx))a(ys(bs)(bs)(bx)(bx))))" access="read"/>
+  </interface>"#
+        );
 
         provider.shutdown().await;
         cancel.cancel();

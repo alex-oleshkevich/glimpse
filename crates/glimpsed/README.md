@@ -102,11 +102,11 @@ before either tool resolves its assets.
 
 ## Units
 
-Six service units and `glimpse-session.target` ship in `data/systemd/`, installed to
+Seven service units and `glimpse-session.target` ship in `data/systemd/`, installed to
 `{prefix}/lib/systemd/user`. Only the target is `WantedBy=graphical-session.target`; it wants the
-five long-running processes, and each of those services is `PartOf` it. Use `systemctl --user start`,
-`stop` or `restart glimpse-session.target` to control them in one transaction. The lock screen stays
-on demand and outside this lifecycle because stopping it mid-lock strands the session.
+five long-running processes, and each of those services is `PartOf` it. Weather and the lock screen
+stay on demand; stopping the lock screen mid-lock would strand the session. Use `systemctl --user
+start`, `stop` or `restart glimpse-session.target` to control its members in one transaction.
 
 An existing installation may still have direct `graphical-session.target.wants` links for the
 member services. Remove those links and enable the target once when upgrading:

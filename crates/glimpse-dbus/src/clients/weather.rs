@@ -7,59 +7,96 @@ use glimpse_contracts::{
     AlertSeverity, Condition, CurrentWeather, DayForecast, GeoCoordinates, HourForecast,
     PlaceWeather, UnitSystem, WatchedPlace, WeatherAlert, WeatherStatus,
 };
+use glimpse_utils::clean;
 use tokio::sync::{RwLock, watch};
 use zbus::proxy::CacheProperties;
 
 pub const GLIMPSE_WEATHER_BUS_NAME: &str = "me.aresa.Glimpse.Weather";
 pub const GLIMPSE_WEATHER_OBJECT_PATH: &str = "/me/aresa/Glimpse/Weather";
 
-pub type OptionalDoubleWire = (bool, f64);
-pub type OptionalByteWire = (bool, u8);
-pub type OptionalU16Wire = (bool, u16);
-pub type OptionalTimestampWire = (bool, i64);
-pub type OptionalStringWire = (bool, String);
-pub type CurrentWeatherWire = (
-    i64,
-    u8,
-    bool,
-    f64,
-    OptionalDoubleWire,
-    OptionalByteWire,
-    OptionalDoubleWire,
-    OptionalU16Wire,
-    OptionalDoubleWire,
+const MOST_PLACES: usize = 8;
+const HOURS: usize = 24;
+const DAYS: usize = 10;
+const MOST_ALERTS: usize = 4;
+const REASON: usize = 240;
+const HEADLINE: usize = 120;
+const DESCRIPTION: usize = 600;
+const SOURCE: usize = 60;
+
+pub type OptionalDoubleWire = (
+    bool, // present
+    f64,  // value, ignored when absent
 );
-pub type HourForecastWire = (i64, u8, bool, f64);
+pub type OptionalByteWire = (
+    bool, // present
+    u8,   // value, ignored when absent
+);
+pub type OptionalU16Wire = (
+    bool, // present
+    u16,  // value, ignored when absent
+);
+pub type OptionalTimestampWire = (
+    bool, // present
+    i64,  // Unix microseconds, ignored when absent
+);
+pub type OptionalStringWire = (
+    bool,   // present
+    String, // value, ignored when absent
+);
+pub type CurrentWeatherWire = (
+    i64,                // observation time in Unix microseconds
+    u8,                 // condition: 0..=19 known, 255 unknown
+    bool,               // daylight at the observation time
+    f64,                // temperature in the snapshot's unit system
+    OptionalDoubleWire, // apparent temperature in the snapshot's unit system
+    OptionalByteWire,   // relative humidity percentage
+    OptionalDoubleWire, // wind speed in the snapshot's unit system
+    OptionalU16Wire,    // wind direction in degrees
+    OptionalDoubleWire, // precipitation in the snapshot's unit system
+);
+pub type HourForecastWire = (
+    i64,  // forecast time in Unix microseconds
+    u8,   // condition: 0..=19 known, 255 unknown
+    bool, // daylight at the forecast time
+    f64,  // temperature in the snapshot's unit system
+);
 pub type DayForecastWire = (
-    i64,
-    u8,
-    f64,
-    f64,
-    OptionalByteWire,
-    OptionalTimestampWire,
-    OptionalTimestampWire,
+    i64,                   // day start in Unix microseconds
+    u8,                    // condition: 0..=19 known, 255 unknown
+    f64,                   // low temperature in the snapshot's unit system
+    f64,                   // high temperature in the snapshot's unit system
+    OptionalByteWire,      // precipitation probability percentage
+    OptionalTimestampWire, // sunrise
+    OptionalTimestampWire, // sunset
 );
 pub type WeatherAlertWire = (
-    u8,
-    String,
-    OptionalStringWire,
-    OptionalStringWire,
-    OptionalTimestampWire,
-    OptionalTimestampWire,
+    u8,                    // severity: 0 minor, 1 moderate, 2 severe, 3 extreme, 255 unknown
+    String,                // headline
+    OptionalStringWire,    // description
+    OptionalStringWire,    // issuing source
+    OptionalTimestampWire, // start time
+    OptionalTimestampWire, // expiration time
 );
 pub type PlaceWeatherWire = (
-    u8,
-    f64,
-    f64,
-    f64,
-    f64,
-    i32,
-    (bool, CurrentWeatherWire),
-    Vec<HourForecastWire>,
-    Vec<DayForecastWire>,
-    Vec<WeatherAlertWire>,
+    u8,                         // requested place: 0 current location, 1 coordinates
+    f64,                        // requested latitude, ignored for current location
+    f64,                        // requested longitude, ignored for current location
+    f64,                        // resolved latitude
+    f64,                        // resolved longitude
+    i32,                        // UTC offset in seconds
+    (bool, CurrentWeatherWire), // current conditions and whether they are present
+    Vec<HourForecastWire>,      // hourly forecast
+    Vec<DayForecastWire>,       // daily forecast
+    Vec<WeatherAlertWire>,      // active alerts
 );
-pub type WeatherSnapshot = (bool, bool, String, i64, u8, Vec<PlaceWeatherWire>);
+pub type WeatherSnapshot = (
+    bool,                  // weather data is available
+    bool,                  // retained data may be stale
+    String,                // unavailable or degraded reason, empty when healthy
+    i64,                   // last successful update in Unix microseconds, or 0
+    u8,                    // unit system: 0 metric, 1 imperial
+    Vec<PlaceWeatherWire>, // watched places
+);
 
 #[zbus::proxy(
     interface = "me.aresa.Glimpse.Weather1",
@@ -86,13 +123,14 @@ pub struct WeatherProviderState {
 impl WeatherProviderState {
     fn unavailable(reason: impl Into<String>, previous: Option<&Self>) -> Self {
         let status = previous.and_then(|state| state.status.clone());
+        let reason = reason.into();
         Self {
             stale: status
                 .as_ref()
                 .is_some_and(|status| !status.places.is_empty()),
             status,
             available: false,
-            reason: Some(reason.into()),
+            reason: Some(clean(&reason, REASON)),
             owner: false,
         }
     }
@@ -225,7 +263,7 @@ async fn call(request: impl Future<Output = zbus::Result<()>>) -> Result<(), Wea
     match tokio::time::timeout(Duration::from_secs(5), request).await {
         Ok(Ok(())) => Ok(()),
         Ok(Err(zbus::Error::MethodError(name, reason, _))) => {
-            let reason = reason.unwrap_or_default();
+            let reason = clean(&reason.unwrap_or_default(), REASON);
             match name.as_str() {
                 "me.aresa.Glimpse.Weather1.Error.InvalidPlace" => {
                     Err(WeatherProviderError::InvalidPlace(reason))
@@ -242,7 +280,10 @@ async fn call(request: impl Future<Output = zbus::Result<()>>) -> Result<(), Wea
                 _ => Err(WeatherProviderError::Call(reason)),
             }
         }
-        Ok(Err(error)) => Err(WeatherProviderError::Call(error.to_string())),
+        Ok(Err(error)) => Err(WeatherProviderError::Call(clean(
+            &error.to_string(),
+            REASON,
+        ))),
         Err(_) => Err(WeatherProviderError::TimedOut),
     }
 }
@@ -279,7 +320,10 @@ async fn follow_provider(
             Err(error) => {
                 *current.write().await = None;
                 replace_unavailable(&updates, error.to_string());
-                tracing::debug!(%error, "weather provider has no owner; waiting");
+                tracing::debug!(
+                    reason = clean(&error.to_string(), REASON),
+                    "weather provider has no owner; waiting"
+                );
                 if !wait_for_owner(&mut owners).await {
                     return;
                 }
@@ -297,9 +341,10 @@ async fn follow_provider(
         {
             Ok(state) => state,
             Err(error) => {
-                replace_unavailable(&updates, error.to_string());
                 *current.write().await = None;
-                tracing::warn!(%error, "weather provider snapshot is unavailable");
+                let reason = clean(&error.to_string(), REASON);
+                replace_unavailable(&updates, &reason);
+                tracing::warn!(reason, "weather provider snapshot is unavailable");
                 if !wait_for_owner(&mut owners).await {
                     return;
                 }
@@ -318,11 +363,11 @@ async fn follow_provider(
         );
         updates.send_replace(state);
 
-        loop {
+        let reason = loop {
             tokio::select! {
                 changed = snapshots.next() => {
                     let Some(changed) = changed else {
-                        break;
+                        break "weather snapshot stream ended".to_owned();
                     };
                     match changed
                         .get()
@@ -339,28 +384,31 @@ async fn follow_provider(
                             updates.send_replace(state);
                         }
                         Err(error) => {
-                            replace_unavailable(&updates, error.to_string());
-                            tracing::warn!(%error, "weather snapshot change failed");
-                            break;
+                            let reason = clean(&error.to_string(), REASON);
+                            tracing::warn!(reason, "weather snapshot change failed");
+                            break reason;
                         }
                     }
                 }
                 owner = owners.next() => {
                     let Some(owner) = owner else {
-                        break;
+                        break "weather provider owner stream ended".to_owned();
                     };
                     let Ok(args) = owner.args() else {
                         continue;
                     };
                     if args.name().as_str() == GLIMPSE_WEATHER_BUS_NAME {
-                        break;
+                        break match args.new_owner().is_some() {
+                            true => "provider owner changed",
+                            false => "provider has no bus owner",
+                        }.to_owned();
                     }
                 }
             }
-        }
+        };
         *current.write().await = None;
-        replace_unavailable(&updates, "provider has no bus owner");
-        tracing::warn!("weather provider owner disappeared");
+        replace_unavailable(&updates, &reason);
+        tracing::warn!(reason, "weather provider disconnected");
     }
 }
 
@@ -384,11 +432,13 @@ async fn wait_for_owner(owners: &mut zbus::fdo::NameOwnerChangedStream) -> bool 
 fn decode_snapshot(snapshot: WeatherSnapshot) -> Result<WeatherProviderState, String> {
     let (available, stale, reason, updated_at, units, places) = snapshot;
     let updated_at = optional_epoch(updated_at)?;
+    let reason = clean(&reason, REASON);
     Ok(WeatherProviderState {
         status: Some(WeatherStatus {
             units: decode_units(units)?,
             places: places
                 .into_iter()
+                .take(MOST_PLACES)
                 .map(decode_place)
                 .collect::<Result<_, _>>()?,
             updated_at,
@@ -445,11 +495,17 @@ fn decode_place(place: PlaceWeatherWire) -> Result<PlaceWeather, String> {
         current: decode_optional_current(current)?,
         hours: hours
             .into_iter()
+            .take(HOURS)
             .map(decode_hour)
             .collect::<Result<_, _>>()?,
-        days: days.into_iter().map(decode_day).collect::<Result<_, _>>()?,
+        days: days
+            .into_iter()
+            .take(DAYS)
+            .map(decode_day)
+            .collect::<Result<_, _>>()?,
         alerts: alerts
             .into_iter()
+            .take(MOST_ALERTS)
             .map(decode_alert)
             .collect::<Result<_, _>>()?,
     })
@@ -577,9 +633,9 @@ fn encode_alert(alert: &WeatherAlert) -> WeatherAlertWire {
 fn decode_alert(alert: WeatherAlertWire) -> Result<WeatherAlert, String> {
     Ok(WeatherAlert {
         severity: decode_severity(alert.0),
-        headline: alert.1,
-        description: decode_optional(alert.2),
-        source: decode_optional(alert.3),
+        headline: clean(&alert.1, HEADLINE),
+        description: decode_optional(alert.2).map(|value| clean(&value, DESCRIPTION)),
+        source: decode_optional(alert.3).map(|value| clean(&value, SOURCE)),
         starts_at: decode_optional_timestamp(alert.4)?,
         expires_at: decode_optional_timestamp(alert.5)?,
     })
@@ -815,5 +871,59 @@ mod tests {
         assert!(decoded.available);
         assert!(!decoded.stale);
         assert!(decoded.owner);
+    }
+
+    #[test]
+    fn untrusted_snapshot_text_and_collections_are_bounded() {
+        let timestamp = 1_789_382_400_000_000;
+        let alert: WeatherAlertWire = (
+            2,
+            "Storm\u{202e}gpj.exe".to_owned(),
+            (true, "  line\tone\nline two  ".to_owned()),
+            (true, format!("{}\u{202e}", "s".repeat(SOURCE + 10))),
+            (false, 0),
+            (false, 0),
+        );
+        let place: PlaceWeatherWire = (
+            0,
+            0.0,
+            0.0,
+            54.7,
+            25.3,
+            7_200,
+            (false, empty_current()),
+            vec![(timestamp, 0, true, 12.0); HOURS + 1],
+            vec![(timestamp, 0, 5.0, 12.0, (false, 0), (false, 0), (false, 0)); DAYS + 1],
+            vec![alert; MOST_ALERTS + 1],
+        );
+        let decoded = decode_snapshot((
+            true,
+            false,
+            format!("{}\u{202e}", "r".repeat(REASON + 10)),
+            timestamp,
+            0,
+            vec![place; MOST_PLACES + 1],
+        ))
+        .unwrap();
+
+        assert_eq!(
+            decoded.reason.as_deref(),
+            Some(format!("{}…", "r".repeat(REASON)).as_str())
+        );
+        let status = decoded.status.unwrap();
+        assert_eq!(status.places.len(), MOST_PLACES);
+        let place = &status.places[0];
+        assert_eq!(place.hours.len(), HOURS);
+        assert_eq!(place.days.len(), DAYS);
+        assert_eq!(place.alerts.len(), MOST_ALERTS);
+        assert_eq!(place.alerts[0].headline, "Storm gpj.exe");
+        assert_eq!(
+            place.alerts[0].description.as_deref(),
+            Some("line one line two")
+        );
+        assert_eq!(
+            place.alerts[0].source.as_deref(),
+            Some(format!("{}…", "s".repeat(SOURCE)).as_str())
+        );
     }
 }

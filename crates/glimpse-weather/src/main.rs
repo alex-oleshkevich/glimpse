@@ -32,6 +32,7 @@ async fn run(cli: Cli) -> Result<()> {
     init_locale();
     let config = glimpse_config::load(cli.config.as_deref())?;
     tracing::info!(
+        config_path = ?cli.config.config,
         weather_provider = ?config.weather.provider,
         poll_interval = config.weather.poll_interval,
         forecast_days = config.weather.forecast_days,

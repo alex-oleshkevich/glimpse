@@ -186,6 +186,10 @@ fn weather_provider_is_packaged_and_dbus_activated_without_eager_session_start()
             .expect("weather activation");
     assert!(activation.contains("SystemdService=glimpse-weather.service"));
 
+    let uninstall =
+        fs::read_to_string(root.join("scripts/uninstall.sh")).expect("uninstall script");
+    assert!(uninstall.contains("me.aresa.Glimpse.Weather.service"));
+
     let target = fs::read_to_string(root.join("data/systemd/glimpse-session.target"))
         .expect("session target");
     assert!(!target.contains("glimpse-weather.service"));

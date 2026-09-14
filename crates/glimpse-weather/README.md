@@ -10,6 +10,12 @@ provider fetches nothing when no lease remains. The process keeps no client regi
 own solar state, Night Light, UI theme, or regional configuration beyond applying the configured
 weather units.
 
+With the normal layered configuration, the panel and provider read the same `config.toml` on their
+own. An explicit `glimpse-panel --config` applies only to the panel process; D-Bus activation cannot
+inherit that argument, so an alternate stack starts `glimpse-weather --config <path>` separately
+before the panel. The startup log records the provider's explicit configuration path when one is
+set.
+
 Glimpse's logs report process, bus-name, service-health, configuration, watch-kind, refresh, and
 shutdown transitions without coordinates, provider URLs, or response payloads. A broad dependency
 log filter such as `debug` can still include HTTP connection destinations from the HTTP stack.

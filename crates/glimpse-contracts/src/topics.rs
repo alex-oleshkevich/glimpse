@@ -90,6 +90,7 @@ topics! {
     pub struct WeatherStatus {
         units: UnitSystem,
         places: Vec<PlaceWeather>,
+        #[serde(default)]
         updated_at: Option<DateTime<Utc>>,
     }
 
