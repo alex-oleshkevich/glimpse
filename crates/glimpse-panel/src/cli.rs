@@ -12,9 +12,6 @@ shadow!(build);
 )]
 pub struct Cli {
     #[command(flatten)]
-    pub socket: glimpse_utils::args::SocketArg,
-
-    #[command(flatten)]
     pub config: glimpse_utils::args::ConfigArg,
 
     #[command(flatten)]

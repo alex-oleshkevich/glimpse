@@ -26,7 +26,7 @@ impl Applet for Heartbeat {
                 spawn_command("heartbeat.reset", async move { service.reset().await });
             }
             Input::Pointer(Pointer::Scroll(direction)) => self.retime(*direction),
-            Input::Pointer(_) | Input::Tick | Input::Topic(_) => {}
+            Input::Pointer(_) | Input::Tick => {}
         }
     }
 

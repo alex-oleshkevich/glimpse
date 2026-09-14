@@ -8,6 +8,7 @@ connections they run on.
 - `dbus.rs` — `Buses`, holding the session and system connections
 - `clients/` — one module per bus service, each a set of `#[zbus::proxy]` trait declarations
 - `clients/notifications.rs` — the notification proxy, typed handle and owned follower lifecycle
+- `clients/weather.rs` — weather wire values, typed proxy, conversions and owner follower
 
 | Module                    | Bus     | What it fronts                          |
 | ------------------------- | ------- | --------------------------------------- |
@@ -21,6 +22,8 @@ connections they run on.
 | `mpris`                   | session | MPRIS players                            |
 | `status_notifier_item`    | session | StatusNotifierItem tray entries          |
 | `glimpse_lock`            | session | the lock screen's own name               |
+| `notifications`           | session | the Glimpse notification provider        |
+| `weather`                 | session | the Glimpse weather provider             |
 
 ## Rules
 
@@ -58,9 +61,8 @@ bound a subscription source requires.
 
 **No `#[zbus::interface]` in this crate.** A proxy is a Glimpse process calling out and is
 shareable; an interface is other applications calling in, and it needs a way back into the state of
-the process that owns it. The object-server half of notifications lives in
-`glimpse-notifications/src/provider.rs`; consumers such as the panel or lock only use this crate's
-typed proxy handle.
+the process that owns it. Object-server halves live in their owning binary crates; consumers such
+as the panel or lock only use this crate's typed proxy handles.
 
 **Signatures come from introspection, not from memory.** A proxy that disagrees with the running
 service fails at the call, not at compile time, which is the expensive kind of wrong. The

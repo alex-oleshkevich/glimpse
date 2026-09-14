@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// Which media players the daemon follows, and what it does with their artwork. There are no
+/// Which media players the panel service follows, and what it does with their artwork. There are no
 /// players here: every `org.mpris.MediaPlayer2.*` on the session bus is followed unless `ignore`
 /// says otherwise.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
@@ -27,7 +27,7 @@ pub struct Mpris {
     /// `$XDG_RUNTIME_DIR/glimpse/art/` and are capped by `art-max-kib`.
     pub fetch_art: bool,
     /// The largest artwork that will be downloaded, in kibibytes. A player chooses this URL, so the
-    /// cap is what stops one pointing the daemon at something enormous. It bounds downloads only;
+    /// cap is what stops one pointing the service at something enormous. It bounds downloads only;
     /// artwork a player names as a local file is bounded by its pixel dimensions instead, when it is
     /// decoded. Clamped to 16..=65536.
     pub art_max_kib: u32,

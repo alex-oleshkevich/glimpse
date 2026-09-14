@@ -27,8 +27,7 @@ fn indicators(&self) -> Vec<IndicatorSpec>
 **The applet builder receives `Ctx` and captures its exact service handle.** It seeds the applet
 from `handle.snapshot()`, then `Ctx::watch(handle.subscribe())` turns later changes into `Woken`
 inputs. `Ctx` owns the forwarding task, so removing the applet cancels its subscription without a
-second lifetime mechanism. Topics and `Caller` remain temporary compatibility for weather and
-notifications until their standalone D-Bus providers land.
+second lifetime mechanism. Applets contain no socket, topic, or JSON routing path.
 
 **A panic stops one applet, not the panel.** `handle` and `indicators` run inside one
 `catch_unwind`; a panic logs, drops the applet, stops its sources and empties its group. Unwinding
@@ -294,7 +293,7 @@ recovered.
 identity. Each re-asserts on its own next step, so it self-corrects rather than sticking; bead
 `glimpse-66sq`.
 
-**A day past `truncated_from` says so instead of looking empty.** The daemon caps the merged list at
+**A day past `truncated_from` says so instead of looking empty.** The calendar service caps the merged list at
 512 events and reports the start of the first entry it dropped. The comparison is `>=`, because the
 day the mark falls on is already missing entries.
 
@@ -348,7 +347,7 @@ title. `render::label` appends the mark when it cut.
 `configure` and once per scroll notch, so the scan runs in `refresh` where `&mut self` is available.
 Choosing inside the pull put a 512-entry scan plus string building on the scroll path.
 
-**`window()` saturates rather than borrowing the daemon's limit.** The clamp exists so arithmetic on
+**`window()` saturates rather than borrowing the calendar service's limit.** The clamp exists so arithmetic on
 a nonsense value cannot overflow, so it says that: anything that fits becomes itself, anything else
 becomes `TimeDelta::MAX`, and `edge` saturates to the end of representable time rather than
 collapsing to `now` — a window nobody could mean should include everything, not nothing.
@@ -358,7 +357,7 @@ single pass rather than chained `String::replace`, because a chain would substit
 arrived *inside* an event's own title. Unset means no tooltip.
 
 **It does not send `calendar.set_range`.** Two applets asking for different windows would overwrite
-each other every tick — `glimpse-66sq` made continuous. The daemon's default window already reaches
+each other every tick — `glimpse-66sq` made continuous. The calendar service's default window already reaches
 further than this applet looks.
 
 **It always follows the locale for its clock.** `hour-format` is on the clock applet's table and is
@@ -367,7 +366,7 @@ everything. Bead `glimpse-9dax`.
 
 **What no test covers:** `dress` and `indicator` — the first needs a realised widget, the second a
 `Ctx`, and both are wiring rather than decision. Everything they decide with is a free function in
-`render.rs` with its own test. Verified by hand against a scratch daemon: with `within = 60` a
+`render.rs` with its own test. Verified by hand against a scratch calendar service: with `within = 60` a
 meeting forty minutes out took the bar over one six hours out and one two days out; with
 `within = 1` the applet disappeared; a config edit reached it without a restart. The click that opens
 the popover is unverified — `ydotoold` is not running here, and the clock's popover has the same gap.
@@ -376,24 +375,24 @@ the popover is unverified — `ydotoold` is not running here, and the clock's po
 
 One chip per place: an icon, a temperature and an optional tooltip. `render.rs` holds everything
 that turns a `PlaceWeather` into strings — icons, condition wording, the nowcast, day and hour
-labels, facts, drawer pages — so it is an ordinary `#[test]` with no display and no daemon, and only
+labels, facts, drawer pages — so it is an ordinary `#[test]` with no display and no running services, and only
 the wiring needs GTK.
 
 **Several places is several applets.** `[applets.weather-home]` with `extends = "weather"` and its
 own `[applets.weather-home.place]` is a second instance; the service holds no places of its own and
 each applet leases the one it shows. Nothing new was needed for this — `extends` already did it.
 
-**The lease renews on a minute's tick against the daemon's thirty-minute `LEASE`**, which is thirty
+**The lease renews on a minute's tick against the provider's thirty-minute `LEASE`**, which is thirty
 renewals of margin, so a panel that misses a tick or two never drops its place. This applet is that
 constant's first consumer, and the pair is read together: if the tick slows, `LEASE` moves with it.
-`ctx.call` is fire-and-forget, which is right — a refused renewal (the eight-place cap) is nothing
-the applet could act on, and the next tick retries.
+The typed handle call is fire-and-forget from GTK, which is right — a refused renewal (the
+eight-place cap) is nothing the applet could act on, and the next tick retries.
 
-**Units come off the topic, never off the configuration.** `WeatherStatus.units` describes the
-numbers in the payload being rendered, so a units change cannot print °F over a Celsius reading for
-the one round trip a correct payload takes to arrive. That is why `units` is on the topic at all.
+**Units come off the typed provider snapshot, never off the panel configuration.**
+`WeatherStatus.units` describes the numbers being rendered, so a units change cannot print °F over
+a Celsius reading while the updated snapshot is in flight.
 
-`[regional] units` is therefore read by the daemon and by nothing here.
+`[regional] units` is therefore read by `glimpse-weather` and by nothing in the panel.
 
 The hour format has no such hazard — nothing round-trips to render a time — and it arrives the way
 every other setting does: `AppletConfig.regional`, which `glimpse-config` copies onto each applet at
@@ -432,8 +431,8 @@ icon *name* rather than on `(Condition, is_day)` is what lets the alert icon sha
 
 ## The mpris applet
 
-One chip for the player the daemon marked `current`, and a popover holding that player in full with
-the rest listed beneath it. Which player is current, and which are hidden, are the daemon's
+One chip for the player the MPRIS service marked `current`, and a popover holding that player in full with
+the rest listed beneath it. Which player is current, and which are hidden, are the service's
 decisions in `[mpris]`; `[applets.mpris]` is only how the bar renders the one it is handed.
 
 **Position is advanced here, not polled there.** MPRIS emits no change signal for `Position`, so the
@@ -472,7 +471,7 @@ as `Input::Woken`, where `press` has the model in hand.
 
 **The optimistic value goes into `self.players`, not beside it.** `dress` writes the transport from
 that model on every refresh, so a value written anywhere else is overwritten by the next wake with
-whatever the daemon last said — which looks like the button springing back. Writing it into the
+whatever the service last published — which looks like the button springing back. Writing it into the
 model moves the button now and lets the next typed MPRIS snapshot reconcile it, which is what the
 "UI state never waits on a round trip" rule in `AGENTS.md` asks for. It also makes two presses
 inside one round trip advance twice instead of sending the same value again.
@@ -569,8 +568,8 @@ re-enters itself.
 
 Each panel-local service owns its last snapshot and availability state. A backend disappearance
 stops updates or degrades that service without blocking GTK; backend-specific recovery stays in the
-existing service implementation. The notification applet consumes its typed provider proxy; the
-socket client remains only for weather until its standalone D-Bus provider lands.
+existing service implementation. Notification and weather applets consume typed provider handles
+owned once at panel scope, so every applet shares one session-bus connection and owner follower.
 
 The normal application ID is unique, so a second `glimpse-panel` activates the existing process
 instead of duplicating backend subscriptions and polling. `GLIMPSE_PANEL_APP_ID` deliberately opts a

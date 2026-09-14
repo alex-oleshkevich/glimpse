@@ -123,8 +123,6 @@ mod tests {
         }
     }
 
-    /// The mark is the first instant the daemon's list stops being complete, so the day holding
-    /// it is already incomplete and must not read as "nothing scheduled".
     #[test]
     fn a_day_at_or_after_the_truncation_mark_is_truncated() {
         let from = at(6, 22).with_timezone(&Utc);

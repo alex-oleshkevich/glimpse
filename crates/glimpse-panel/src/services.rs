@@ -5,6 +5,7 @@ use glimpse_contracts::KeyboardLayouts;
 use glimpse_dbus::{
     Buses,
     notifications::{NotificationsProvider, NotificationsProviderHandle},
+    weather::{WeatherProvider, WeatherProviderHandle},
 };
 use glimpse_services::{
     Calendar, CalendarHandle, Compositor, CompositorHandle, Heartbeat, HeartbeatHandle, Keyboard,
@@ -36,6 +37,7 @@ pub struct PanelServices {
     heartbeat_cancel: CancellationToken,
     heartbeat_task: Option<JoinHandle<()>>,
     notifications: NotificationsProvider,
+    weather: WeatherProvider,
 }
 
 impl PanelServices {
@@ -44,9 +46,15 @@ impl PanelServices {
     }
 
     fn start_with_buses(document: &Config, buses: Buses) -> Self {
-        let notifications = match buses.session_bus() {
-            Ok(connection) => NotificationsProvider::start(connection.clone()),
-            Err(reason) => NotificationsProvider::unavailable(reason),
+        let (notifications, weather) = match buses.session_bus() {
+            Ok(connection) => (
+                NotificationsProvider::start(connection.clone()),
+                WeatherProvider::start(connection.clone()),
+            ),
+            Err(reason) => (
+                NotificationsProvider::unavailable(reason),
+                WeatherProvider::unavailable(reason),
+            ),
         };
         let compositor_cancel = CancellationToken::new();
         let (compositor_runtime, compositor) = ServiceRuntime::<Compositor>::new(
@@ -123,10 +131,12 @@ impl PanelServices {
             heartbeat_cancel,
             heartbeat_task: Some(heartbeat_task),
             notifications,
+            weather,
         }
     }
 
     pub async fn shutdown(mut self) {
+        self.weather.shutdown().await;
         self.notifications.shutdown().await;
         stop(
             Heartbeat::NAME,
@@ -170,6 +180,10 @@ impl PanelServices {
 
     pub fn notifications(&self) -> NotificationsProviderHandle {
         self.notifications.handle()
+    }
+
+    pub fn weather(&self) -> WeatherProviderHandle {
+        self.weather.handle()
     }
 
     fn cancel(&self) {

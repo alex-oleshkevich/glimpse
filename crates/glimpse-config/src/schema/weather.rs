@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// How a forecast is fetched. There are no places here: a place is registered by whatever wants to
-/// see it, through `weather.watch`, and held for as long as it keeps asking. Nothing is fetched and
+/// see it, through `WatchPlace`, and held for as long as it keeps asking. Nothing is fetched and
 /// no location is resolved until something does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
@@ -11,7 +11,7 @@ pub struct Weather {
     pub provider: Provider,
     /// How often a forecast is fetched again, in seconds. The provider recomputes current
     /// conditions every fifteen minutes, so anything shorter asks again for data that has not
-    /// moved; `weather.refresh` is how a person asks for it now. Values below 600 are raised.
+    /// moved; the provider's `Refresh` method is how a person asks for it now. Values below 600 are raised.
     pub poll_interval: u64,
     /// How many days the daily forecast covers, today included. Clamped to 1..=10. The panel's
     /// list starts at tomorrow, so it shows one fewer day than this asks for.
@@ -70,7 +70,7 @@ mod tests {
         assert_eq!(parsed.forecast_days, 3);
     }
 
-    /// A place is a lease held by whoever wants to see it, not a document the daemon reads. Writing
+    /// A place is a lease held by whoever wants to see it, not a document the provider reads. Writing
     /// one here has to be an error rather than a setting that is quietly ignored.
     #[test]
     fn a_place_is_watched_rather_than_configured() {

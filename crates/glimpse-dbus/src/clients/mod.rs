@@ -16,3 +16,4 @@ pub mod systemd1;
 pub mod timedate1;
 pub mod udisks2;
 pub mod upower;
+pub mod weather;

@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=me.aresa.Glimpse.Weather
+Exec=/usr/bin/glimpse-weather
+SystemdService=glimpse-weather.service

@@ -7,7 +7,7 @@ pub struct Notifications {
     /// How many notifications are kept once they have been read. Dismissing one puts it here
     /// rather than destroying it, which is what makes an accidental dismissal recoverable; past
     /// this many, the oldest is dropped for good. Senders choose how often they notify, so this
-    /// is the bound that stops a chatty one growing the daemon's memory without limit. Clamped
+    /// is the bound that stops a chatty one growing the provider's memory without limit. Clamped
     /// to 1..=1000.
     pub keep: u32,
     /// Regex patterns matched against the application identity, application name, title and body.
@@ -191,7 +191,7 @@ mod tests {
     }
 
     #[test]
-    fn daemon_and_popup_settings_share_one_table() {
+    fn storage_and_popup_settings_share_one_table() {
         let notifications = load(
             "[notifications]\nkeep = 20\nsuppress = [\"private\"]\nenabled = false\nedge = \"bottom-right\"\n",
         )

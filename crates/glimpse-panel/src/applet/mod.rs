@@ -3,11 +3,8 @@ pub mod popover;
 pub mod runtime;
 
 use glimpse_config::Applet as AppletConfig;
-use glimpse_contracts::{Command, Message};
-use glimpse_ipc::{Client, Event};
 use glimpse_widgets::IndicatorSpec;
 use popover::{PopoverHandle, Seat};
-use serde::Deserialize;
 use std::cell::RefCell;
 use std::fmt::Display;
 use std::future::Future;
@@ -16,10 +13,6 @@ use tokio::sync::watch;
 use tokio::task::AbortHandle;
 
 pub trait Applet: 'static {
-    fn topics(&self) -> &'static [&'static str] {
-        &[]
-    }
-
     fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
         let _ = (ctx, config);
     }
@@ -51,7 +44,6 @@ pub trait Applet: 'static {
 
 #[derive(Debug)]
 pub enum Input {
-    Topic(Event),
     Pointer(Pointer),
     Tick,
     Woken,
@@ -104,9 +96,8 @@ where
 }
 
 pub struct Ctx {
-    caller: Caller,
+    name: String,
     output: Option<String>,
-    events: relm4::Sender<Event>,
     host: relm4::Sender<runtime::HostInput>,
     sources: RefCell<Vec<SourceGuard>>,
     ticks: RefCell<Option<SourceGuard>>,
@@ -133,44 +124,15 @@ impl Opener {
     }
 }
 
-#[derive(Clone)]
-pub struct Caller {
-    name: String,
-    client: Client,
-}
-
-impl Caller {
-    pub fn call<C: Command>(&self, args: C::Args) {
-        let client = self.client.clone();
-        let applet = self.name.clone();
-        tracing::debug!(applet, command = C::NAME, "calling");
-        relm4::spawn(async move {
-            let args = match serde_json::to_value(args) {
-                Ok(args) => args,
-                Err(error) => {
-                    tracing::error!(applet, command = C::NAME, %error, "unserializable arguments");
-                    return;
-                }
-            };
-            if let Err(error) = client.call(C::NAME, args).await {
-                tracing::warn!(applet, command = C::NAME, %error, "command failed");
-            }
-        });
-    }
-}
-
 impl Ctx {
     pub(crate) fn new(
         name: String,
         output: Option<String>,
-        client: Client,
-        events: relm4::Sender<Event>,
         host: relm4::Sender<runtime::HostInput>,
     ) -> Self {
         Self {
-            caller: Caller { name, client },
+            name,
             output,
-            events,
             host,
             sources: RefCell::default(),
             ticks: RefCell::default(),
@@ -182,7 +144,7 @@ impl Ctx {
     }
 
     pub(crate) fn name(&self) -> &str {
-        &self.caller.name
+        &self.name
     }
 
     pub fn output(&self) -> Option<&str> {
@@ -192,25 +154,17 @@ impl Ctx {
     pub(crate) fn shutdown(&self) {
         let stopped = self.sources.borrow_mut().drain(..).count();
         let ticking = self.ticks.take().is_some();
-        tracing::debug!(
-            applet = self.caller.name,
-            stopped,
-            ticking,
-            "sources stopped"
-        );
+        tracing::debug!(applet = self.name, stopped, ticking, "sources stopped");
     }
 
     pub fn interval(&self, period: Duration) {
         if period.is_zero() {
-            tracing::error!(
-                applet = self.caller.name,
-                "a zero interval would spin; ignored"
-            );
+            tracing::error!(applet = self.name, "a zero interval would spin; ignored");
             return;
         }
 
         let host = self.host.clone();
-        let applet = self.caller.name.clone();
+        let applet = self.name.clone();
         let start = tokio::time::Instant::now() + until_boundary(since_epoch(), period);
         let handle = relm4::spawn(async move {
             let mut ticks = ticker(start, period);
@@ -226,7 +180,7 @@ impl Ctx {
         self.ticks.replace(Some(SourceGuard {
             abort: handle.abort_handle(),
         }));
-        tracing::debug!(applet = self.caller.name, ?period, "ticking");
+        tracing::debug!(applet = self.name, ?period, "ticking");
     }
 
     pub fn watch<T>(&self, state: watch::Receiver<T>)
@@ -234,55 +188,13 @@ impl Ctx {
         T: Send + Sync + 'static,
     {
         let host = self.host.clone();
-        let applet = self.caller.name.clone();
+        let applet = self.name.clone();
         let handle = relm4::spawn(watch_changes(state, host));
 
         self.sources.borrow_mut().push(SourceGuard {
             abort: handle.abort_handle(),
         });
         tracing::debug!(applet, "watching typed state");
-    }
-
-    pub fn call<C: Command>(&self, args: C::Args) {
-        self.caller.call::<C>(args);
-    }
-
-    pub(crate) fn subscribe(&self, topic: &'static str) {
-        let client = self.caller.client.clone();
-        let events = self.events.clone();
-        let applet = self.caller.name.clone();
-        let mut states = client.watch_state();
-
-        let handle = relm4::spawn(async move {
-            loop {
-                match client.subscribe(topic).await {
-                    Ok(mut subscription) => {
-                        let matched = subscription.matched();
-                        if matched == 0 {
-                            tracing::warn!(applet, topic = topic, "no declared topic matched");
-                        } else {
-                            tracing::debug!(applet, topic = topic, matched, "subscribed");
-                        }
-                        while let Some(event) = subscription.next().await {
-                            if events.send(event).is_err() {
-                                return;
-                            }
-                        }
-                        return;
-                    }
-                    Err(error) => {
-                        tracing::debug!(applet, topic = topic, %error, "subscribe refused, waiting");
-                        if states.changed().await.is_err() {
-                            return;
-                        }
-                    }
-                }
-            }
-        });
-
-        self.sources.borrow_mut().push(SourceGuard {
-            abort: handle.abort_handle(),
-        });
     }
 }
 
@@ -328,48 +240,9 @@ impl Drop for SourceGuard {
     }
 }
 
-pub fn payload<T: Message>(event: &Event) -> Option<T::Payload> {
-    if event.topic != T::NAME {
-        return None;
-    }
-    match T::Payload::deserialize(&event.data) {
-        Ok(payload) => Some(payload),
-        Err(error) => {
-            tracing::warn!(topic = T::NAME, %error, "undecodable payload");
-            None
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use glimpse_contracts::HeartbeatTick;
-
-    fn event(topic: &str, data: serde_json::Value) -> Event {
-        Event {
-            topic: topic.to_owned(),
-            seq: 1,
-            ts: 0,
-            stale: false,
-            data,
-        }
-    }
-
-    #[test]
-    fn a_payload_decodes_only_for_the_topic_that_declares_it() {
-        let tick = event(HeartbeatTick::NAME, serde_json::json!({ "count": 7 }));
-        assert_eq!(payload::<HeartbeatTick>(&tick).map(|t| t.count), Some(7));
-
-        let other = event("solar.status", serde_json::json!({ "count": 7 }));
-        assert!(
-            payload::<HeartbeatTick>(&other).is_none(),
-            "a wildcard subscription must not decode a sibling topic as this one"
-        );
-
-        let broken = event(HeartbeatTick::NAME, serde_json::json!({ "count": "many" }));
-        assert!(payload::<HeartbeatTick>(&broken).is_none());
-    }
 
     #[tokio::test]
     async fn a_stalled_timer_skips_what_it_missed_rather_than_firing_all_of_it() {

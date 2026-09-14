@@ -7,7 +7,7 @@ description = "Desktop shell suite for Wayland compositors"
 license.workspace = true
 build = "build.rs"
 
-# Packages the whole 6-binary suite, not just glimpsed — see README for why it's here.
+# Packages the whole suite, not just glimpsed — see README for why it's here.
 [package.metadata.deb]
 name = "glimpse"
 maintainer = "Alex Oleshkevich <alex.oleshkevich@gmail.com>"
@@ -17,7 +17,7 @@ priority = "optional"
 extended-description = """\
 A desktop shell suite for Wayland compositors: a panel, a wallpaper renderer, and a lock."""
 
-# $auto scans glimpsed's own linked libraries via dpkg-shlibdeps; the other five binaries
+# $auto scans glimpsed's own linked libraries via dpkg-shlibdeps; the other binaries
 # bundled into this .deb via `assets` link GTK4/libadwaita/gtk4-layer-shell/libheif/PAM, which
 # $auto's scan may not cover, so those are listed explicitly rather than trusted to auto-detect.
 depends = [
@@ -37,6 +37,7 @@ assets = [
   ["target/release/glimpse-wallpaper", "usr/bin/", "755"],
   ["target/release/glimpse-sunset", "usr/bin/", "755"],
   ["target/release/glimpse-notifications", "usr/bin/", "755"],
+  ["target/release/glimpse-weather", "usr/bin/", "755"],
   ["../../data/config.default.toml", "usr/share/glimpse/", "644"],
   ["../../data/config.schema.json", "usr/share/glimpse/", "644"],
   ["../../data/language-codes.json", "usr/share/glimpse/", "644"],
@@ -68,6 +69,7 @@ assets = [
   { source = "target/release/glimpse-wallpaper", dest = "/usr/bin/glimpse-wallpaper", mode = "755" },
   { source = "target/release/glimpse-sunset", dest = "/usr/bin/glimpse-sunset", mode = "755" },
   { source = "target/release/glimpse-notifications", dest = "/usr/bin/glimpse-notifications", mode = "755" },
+  { source = "target/release/glimpse-weather", dest = "/usr/bin/glimpse-weather", mode = "755" },
   { source = "data/config.default.toml", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/config.schema.json", dest = "/usr/share/glimpse/", mode = "644" },
   { source = "data/language-codes.json", dest = "/usr/share/glimpse/", mode = "644" },
@@ -82,7 +84,7 @@ assets = [
   { source = "target/locale/ru/LC_MESSAGES/glimpse.mo", dest = "/usr/share/locale/ru/LC_MESSAGES/glimpse.mo", mode = "644" },
 ]
 
-# auto-req (default) scans every asset under the RPM, so it should cover all six bundled
+# auto-req (default) scans every asset under the RPM, so it should cover all bundled
 # binaries, but these are listed explicitly too as a safety net against a partial scan.
 [package.metadata.generate-rpm.requires]
 gtk4 = "*"

@@ -2,9 +2,6 @@ use chrono::{DateTime, Utc};
 use gettextrs::gettext;
 use glimpse_contracts::{Playback, PlayerStatus};
 
-/// Where a player has got to now, advanced locally from the instant the daemon read it. MPRIS
-/// emits no change signal for `Position`, so the alternative is the daemon re-reading it once a
-/// second and republishing the whole list every time.
 pub fn position(player: &PlayerStatus, now: DateTime<Utc>) -> i64 {
     let advanced = match player.playback {
         Playback::Playing => {

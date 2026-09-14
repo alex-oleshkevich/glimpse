@@ -156,6 +156,37 @@ fn notification_provider_binary_is_packaged_with_its_local_services() {
     );
     let binaries = fs::read_to_string(root.join("justfile")).expect("justfile");
     assert!(binaries.contains(
-        "binaries := \"glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications\""
+        "binaries := \"glimpsectl glimpsed glimpse-panel glimpse-lock glimpse-wallpaper glimpse-sunset glimpse-notifications glimpse-weather\""
     ));
+}
+
+#[test]
+fn weather_provider_is_packaged_and_dbus_activated_without_eager_session_start() {
+    let root = workspace_root();
+    let manifest = fs::read_to_string(root.join("crates/glimpse-weather/Cargo.toml"))
+        .expect("weather manifest");
+    for forbidden in ["glimpse-panel", "glimpsed", "glimpse-ipc"] {
+        assert!(!manifest.contains(forbidden), "depends on {forbidden}");
+    }
+    assert!(manifest.contains("glimpse-services.workspace = true"));
+    assert!(manifest.contains("glimpse-dbus.workspace = true"));
+
+    let package =
+        fs::read_to_string(root.join("crates/glimpsed/Cargo.toml")).expect("package manifest");
+    assert_eq!(package.matches("target/release/glimpse-weather").count(), 2);
+
+    let unit = fs::read_to_string(root.join("data/systemd/glimpse-weather.service"))
+        .expect("weather unit");
+    assert!(unit.contains("Type=dbus"));
+    assert!(unit.contains("BusName=me.aresa.Glimpse.Weather"));
+    assert!(!unit.contains("glimpsed.service"));
+
+    let activation =
+        fs::read_to_string(root.join("data/dbus-1/services/me.aresa.Glimpse.Weather.service"))
+            .expect("weather activation");
+    assert!(activation.contains("SystemdService=glimpse-weather.service"));
+
+    let target = fs::read_to_string(root.join("data/systemd/glimpse-session.target"))
+        .expect("session target");
+    assert!(!target.contains("glimpse-weather.service"));
 }

@@ -70,7 +70,7 @@ impl Applet for Mpris {
                 self.press();
             }
             Input::Tick => {}
-            Input::Pointer(_) | Input::Topic(_) => return,
+            Input::Pointer(_) => return,
         }
         self.refresh();
     }

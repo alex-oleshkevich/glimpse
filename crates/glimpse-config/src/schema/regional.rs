@@ -7,8 +7,8 @@ use crate::environment;
 /// setting here defaults to what the environment already says, so an empty table is the right
 /// answer on a machine whose locale is set up.
 ///
-/// The three keys are read by different owners: the daemon resolves `units` and stamps the answer
-/// onto every weather reading, while the panel, the lock screen and the wallpaper resolve
+/// The three keys are read by different owners: `glimpse-weather` resolves `units` and stamps the
+/// answer onto every weather reading, while the panel, the lock screen and the wallpaper resolve
 /// `language` and `hour-format` for themselves. Nothing else in glimpse asks the environment
 /// these questions.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]

@@ -6,7 +6,9 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+chrono.workspace = true
 futures-util.workspace = true
+glimpse-contracts.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true

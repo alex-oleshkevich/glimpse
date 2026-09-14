@@ -145,6 +145,7 @@ pub fn initial_state(config: &Config) -> WeatherStatus {
     WeatherStatus {
         units: config.units,
         places: Vec::new(),
+        updated_at: None,
     }
 }
 
@@ -193,6 +194,7 @@ pub struct Weather {
     fix: Option<GeoCoordinates>,
     generation: u64,
     places: Vec<PlaceWeather>,
+    updated_at: Option<DateTime<Utc>>,
     failure: Option<String>,
 }
 
@@ -274,6 +276,7 @@ impl Service for Weather {
             fix: None,
             generation: 0,
             places: Vec::new(),
+            updated_at: None,
             failure: None,
             location: dependencies.geolocation,
         };
@@ -301,14 +304,25 @@ impl Service for Weather {
             Input::Event(Event::Fetched { result, .. }) => {
                 match result {
                     Ok(readings) if readings.len() == self.targets().len() => {
+                        tracing::debug!(places = readings.len(), "weather fetch completed");
                         self.failure = None;
                         self.absorb(&readings);
+                        self.updated_at = Some(Utc::now());
                     }
-                    Ok(_) => {
+                    Ok(readings) => {
+                        tracing::warn!(
+                            expected = self.targets().len(),
+                            received = readings.len(),
+                            "weather provider returned an incomplete response"
+                        );
                         self.failure =
                             Some("the provider answered for a different set of places".to_owned());
                     }
-                    Err(reason) => self.failure = Some(clean(&reason, REASON)),
+                    Err(reason) => {
+                        let reason = clean(&reason, REASON);
+                        tracing::warn!(reason, "weather fetch failed");
+                        self.failure = Some(reason);
+                    }
                 }
                 if self.sweep(Instant::now()) {
                     self.generation += 1;
@@ -321,7 +335,15 @@ impl Service for Weather {
             Input::Config(config) => {
                 if config.units != self.config.units {
                     self.places.clear();
+                    self.updated_at = None;
                 }
+                tracing::info!(
+                    provider = ?config.provider,
+                    units = ?config.units,
+                    poll_interval = config.poll_interval,
+                    forecast_days = config.forecast_days,
+                    "weather configuration applied"
+                );
                 self.config = config;
                 self.generation += 1;
                 self.report(ctx);
@@ -343,6 +365,7 @@ impl Service for Weather {
                     self.forget_unwatched();
                     self.report(ctx);
                     self.publish();
+                    tracing::debug!(places = self.watched.len(), "weather watch set changed");
                 }
 
                 match outcome {
@@ -357,6 +380,7 @@ impl Service for Weather {
 
             Input::Command(Command::Refresh { reply }) => {
                 self.generation += 1;
+                tracing::debug!(generation = self.generation, "weather refresh scheduled");
                 let _ = reply.send(Ok(()));
             }
         }
@@ -485,6 +509,7 @@ impl Weather {
         self.status.set(WeatherStatus {
             units: self.config.units,
             places: self.places.clone(),
+            updated_at: self.updated_at,
         });
     }
 }
@@ -1310,8 +1335,6 @@ mod tests {
         }
     }
 
-    /// Legacy threw the snapshot away and blanked the bar. A degraded service is a running one, so
-    /// the last good numbers stay published and staleness is read off `observed_at`.
     #[tokio::test]
     async fn a_failed_fetch_keeps_the_last_reading_and_degrades() {
         let mut harness = harness().await;
@@ -1331,6 +1354,10 @@ mod tests {
             )
             .await;
         assert_eq!(harness.service.places.len(), 1);
+        let updated_at = harness
+            .service
+            .updated_at
+            .expect("a successful update time");
 
         harness
             .service
@@ -1344,6 +1371,7 @@ mod tests {
             .await;
 
         assert_eq!(harness.service.places.len(), 1, "the last reading is kept");
+        assert_eq!(harness.service.updated_at, Some(updated_at));
         assert_eq!(
             reason(&harness.health).as_deref(),
             Some("the request timed out")

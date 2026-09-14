@@ -44,7 +44,6 @@ impl Applet for Keyboard {
             Input::Woken => self.layouts = Some(self.keyboard.snapshot()),
             Input::Tick => {}
             Input::Pointer(_) => return,
-            _ => return,
         }
         self.refresh();
     }

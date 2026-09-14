@@ -5,21 +5,18 @@ use std::time::Duration;
 use chrono::Utc;
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind, WeatherAppletConfig, WeatherPlace};
-use glimpse_contracts::{
-    Condition, GeoCoordinates, Message as _, PlaceWeather, UnitSystem, WatchedPlace, WeatherStatus,
-    WeatherWatch,
-};
-use glimpse_widgets::{IndicatorSpec, WeatherPopover};
+use glimpse_contracts::{Condition, GeoCoordinates, PlaceWeather, UnitSystem, WatchedPlace};
+use glimpse_dbus::weather::{WeatherProviderHandle, WeatherProviderState};
+use glimpse_widgets::{IndicatorSpec, Severity, WeatherPopover};
 use gtk4::{gio, glib, prelude::*};
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Input, payload};
+use crate::applet::{Applet, Ctx, Input, spawn_command};
 
-/// The daemon holds a `weather.watch` for thirty minutes, so a minute's tick renews it with thirty
-/// ticks of margin. If this period ever grows, `LEASE` in the weather service moves with it.
 const MINUTE: Duration = Duration::from_secs(60);
 
 pub struct Weather {
+    weather: WeatherProviderHandle,
     settings: WeatherAppletConfig,
     watching: WatchedPlace,
     units: UnitSystem,
@@ -30,13 +27,12 @@ pub struct Weather {
     icon: Option<(String, gio::Icon)>,
     spec: Vec<IndicatorSpec>,
     shown: glib::WeakRef<WeatherPopover>,
+    owner: bool,
+    stale: bool,
+    trouble: Option<String>,
 }
 
 impl Applet for Weather {
-    fn topics(&self) -> &'static [&'static str] {
-        &[WeatherStatus::NAME]
-    }
-
     fn configure(&mut self, ctx: &Ctx, config: &AppletConfig) {
         let AppletKind::Weather(settings) = &config.kind else {
             return;
@@ -55,24 +51,21 @@ impl Applet for Weather {
             .map(|(label, command)| (label.to_owned(), command.to_vec()));
 
         ctx.interval(MINUTE);
-        self.renew(ctx);
+        self.renew();
+        self.sync();
         self.refresh();
     }
 
-    fn handle(&mut self, ctx: &Ctx, input: &Input) {
+    fn handle(&mut self, _ctx: &Ctx, input: &Input) {
         match input {
-            Input::Topic(event) => {
-                let Some(status) = payload::<WeatherStatus>(event) else {
-                    return;
-                };
-                self.units = status.units;
-                self.place = status
-                    .places
-                    .into_iter()
-                    .find(|place| place.place == self.watching);
+            Input::Tick => self.renew(),
+            Input::Woken => {
+                let had_owner = self.owner;
+                self.sync();
+                if !had_owner && self.owner {
+                    self.renew();
+                }
             }
-            Input::Tick => self.renew(ctx),
-            Input::Woken => {}
             _ => return,
         }
         self.refresh();
@@ -97,8 +90,9 @@ impl Applet for Weather {
 }
 
 impl Weather {
-    pub fn start() -> Self {
-        Self {
+    pub fn start(weather: WeatherProviderHandle) -> Self {
+        let mut service = Self {
+            weather,
             settings: WeatherAppletConfig::default(),
             watching: WatchedPlace::Here,
             units: UnitSystem::Metric,
@@ -109,13 +103,41 @@ impl Weather {
             icon: None,
             spec: Vec::new(),
             shown: glib::WeakRef::new(),
-        }
+            owner: false,
+            stale: false,
+            trouble: None,
+        };
+        service.sync();
+        service
     }
 
-    fn renew(&self, ctx: &Ctx) {
-        ctx.call::<WeatherWatch>(WeatherWatch {
-            place: self.watching.clone(),
-        });
+    fn renew(&self) {
+        let weather = self.weather.clone();
+        let place = self.watching.clone();
+        spawn_command("weather.watch", async move { weather.watch(place).await });
+    }
+
+    fn sync(&mut self) {
+        let WeatherProviderState {
+            status,
+            stale,
+            reason,
+            owner,
+            ..
+        } = self.weather.snapshot();
+        self.owner = owner;
+        self.stale = stale;
+        self.trouble = reason;
+        match status {
+            Some(status) => {
+                self.units = status.units;
+                self.place = status
+                    .places
+                    .into_iter()
+                    .find(|place| place.place == self.watching);
+            }
+            None => self.place = None,
+        }
     }
 
     fn refresh(&mut self) {
@@ -131,9 +153,16 @@ impl Weather {
     /// An alert takes the chip's icon and its colour. The bar has room for one thing, and a
     /// warning that is standing outranks the condition it is standing in.
     fn indicator(&mut self) -> Option<IndicatorSpec> {
-        let place = self.place.as_ref()?;
-        let current = place.current.clone()?;
-        let severity = render::worst(&place.alerts);
+        let Some(place) = self.place.as_ref() else {
+            return self.trouble_indicator();
+        };
+        let Some(current) = place.current.clone() else {
+            return self.trouble_indicator();
+        };
+        let mut severity = render::worst(&place.alerts);
+        if self.stale && severity != Some(Severity::Error) {
+            severity = Some(Severity::Warning);
+        }
         let name = match severity.is_some() {
             true => render::ALERT_ICON,
             false => render::icon(current.condition, current.is_day),
@@ -144,11 +173,22 @@ impl Weather {
         Some(IndicatorSpec {
             icon: Some(icon),
             label: Some(render::reading(current.temperature)),
-            tooltip: self
-                .tooltip_format
-                .as_deref()
-                .map(|format| render::tooltip(format, &label, &current)),
+            tooltip: self.trouble.clone().or_else(|| {
+                self.tooltip_format
+                    .as_deref()
+                    .map(|format| render::tooltip(format, &label, &current))
+            }),
             severity,
+            ..Default::default()
+        })
+    }
+
+    fn trouble_indicator(&mut self) -> Option<IndicatorSpec> {
+        let reason = self.trouble.clone()?;
+        Some(IndicatorSpec {
+            icon: Some(self.themed(render::icon(Condition::Unknown, true))),
+            tooltip: Some(reason),
+            severity: Some(Severity::Warning),
             ..Default::default()
         })
     }
@@ -184,7 +224,7 @@ impl Weather {
             shown.set_heading(
                 render::icon(Condition::Unknown, true),
                 &self.label(),
-                Some(&gettext("No reading yet")),
+                self.trouble.as_deref().or(Some(&gettext("No reading yet"))),
             );
             shown.set_reading(None);
             shown.set_hours(&[]);
@@ -207,7 +247,9 @@ impl Weather {
                 shown.set_heading(
                     render::icon(current.condition, current.is_day),
                     &self.label(),
-                    render::subtitle(current).as_deref(),
+                    self.trouble
+                        .as_deref()
+                        .or(render::subtitle(current).as_deref()),
                 );
                 shown.set_reading(Some((
                     &render::rounded(current.temperature),
@@ -218,7 +260,7 @@ impl Weather {
                 shown.set_heading(
                     render::icon(Condition::Unknown, true),
                     &self.label(),
-                    Some(&gettext("No reading yet")),
+                    self.trouble.as_deref().or(Some(&gettext("No reading yet"))),
                 );
                 shown.set_reading(None);
             }
@@ -247,9 +289,61 @@ fn pair(coordinates: &GeoCoordinates) -> String {
 mod tests {
     use chrono::TimeZone as _;
     use glimpse_contracts::{AlertSeverity, CurrentWeather, GeoCoordinates, WeatherAlert};
+    use glimpse_dbus::weather::WeatherProvider;
     use glimpse_widgets::Severity;
 
     use super::*;
+
+    fn applet() -> Weather {
+        let provider = WeatherProvider::unavailable("test provider unavailable");
+        let mut applet = Weather::start(provider.handle());
+        applet.trouble = None;
+        applet
+    }
+
+    #[test]
+    fn an_unavailable_provider_renders_a_warning() {
+        let provider = WeatherProvider::unavailable("weather provider unavailable");
+        let mut applet = Weather::start(provider.handle());
+
+        applet.refresh();
+
+        let indicators = applet.indicators();
+        assert_eq!(indicators.len(), 1);
+        assert_eq!(indicators[0].severity, Some(Severity::Warning));
+        assert_eq!(
+            indicators[0].tooltip.as_deref(),
+            Some("weather provider unavailable")
+        );
+    }
+
+    #[test]
+    fn stale_weather_keeps_its_reading_and_renders_a_warning() {
+        let mut applet = applet();
+        let mut place = reading();
+        place.alerts.push(WeatherAlert {
+            severity: AlertSeverity::Minor,
+            headline: "minor alert".to_owned(),
+            description: None,
+            source: None,
+            starts_at: None,
+            expires_at: None,
+        });
+        applet.place = Some(place);
+        applet.stale = true;
+        applet.trouble = Some("weather provider unavailable".to_owned());
+
+        applet.refresh();
+
+        let indicators = applet.indicators();
+        assert_eq!(indicators.len(), 1);
+        assert_eq!(indicators[0].severity, Some(Severity::Warning));
+        assert!(indicators[0].label.is_some());
+        assert_eq!(
+            indicators[0].tooltip.as_deref(),
+            Some("weather provider unavailable")
+        );
+    }
 
     fn reading() -> PlaceWeather {
         PlaceWeather {
@@ -280,7 +374,7 @@ mod tests {
     /// place with no fix and a place with no reading are the same absence.
     #[test]
     fn a_place_with_no_current_reading_renders_no_chip() {
-        let mut applet = Weather::start();
+        let mut applet = applet();
         applet.refresh();
         assert!(applet.indicators().is_empty(), "no value yet is no chip");
 
@@ -301,7 +395,7 @@ mod tests {
 
     #[test]
     fn the_chip_reads_the_one_rounding_site_and_carries_a_symbolic_icon() {
-        let mut applet = Weather::start();
+        let mut applet = applet();
         applet.place = Some(reading());
         applet.refresh();
 
@@ -318,7 +412,7 @@ mod tests {
     /// pull the runtime makes after every input.
     #[test]
     fn the_icon_is_rebuilt_only_when_the_condition_changes() {
-        let mut applet = Weather::start();
+        let mut applet = applet();
         applet.place = Some(reading());
         applet.refresh();
         let first = applet.icon.clone().expect("an icon").1;
@@ -344,7 +438,7 @@ mod tests {
     /// temperature stays, so the chip does not stop being a weather chip.
     #[test]
     fn an_alert_takes_the_chips_icon_and_its_color() {
-        let mut applet = Weather::start();
+        let mut applet = applet();
         applet.place = Some(reading());
         applet.refresh();
 
@@ -377,8 +471,8 @@ mod tests {
     }
 
     #[test]
-    fn a_configured_label_wins_over_the_coordinates_the_daemon_answered_with() {
-        let mut applet = Weather::start();
+    fn a_configured_label_wins_over_the_coordinates_the_provider_answered_with() {
+        let mut applet = applet();
         applet.place = Some(reading());
         assert_eq!(applet.label(), "54.69, 25.28");
 

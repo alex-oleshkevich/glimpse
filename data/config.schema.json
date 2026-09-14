@@ -341,7 +341,7 @@
           "required": []
         },
         "heartbeat": {
-          "description": "A counter that ticks once a second. A development fixture: it proves the daemon is\nreachable and events are arriving, and is not meant for a real bar.",
+          "description": "A counter that ticks once a second. A development fixture: it proves the service is\nreachable and events are arriving, and is not meant for a real bar.",
           "type": "object",
           "properties": {
             "extends": {
@@ -1282,7 +1282,7 @@
             ]
           },
           {
-            "description": "A counter that ticks once a second. A development fixture: it proves the daemon is\nreachable and events are arriving, and is not meant for a real bar.",
+            "description": "A counter that ticks once a second. A development fixture: it proves the service is\nreachable and events are arriving, and is not meant for a real bar.",
             "type": "object",
             "properties": {
               "extends": {
@@ -2496,11 +2496,11 @@
       "additionalProperties": false
     },
     "Mpris": {
-      "description": "Which media players the daemon follows, and what it does with their artwork. There are no\nplayers here: every `org.mpris.MediaPlayer2.*` on the session bus is followed unless `ignore`\nsays otherwise.",
+      "description": "Which media players the panel service follows, and what it does with their artwork. There are no\nplayers here: every `org.mpris.MediaPlayer2.*` on the session bus is followed unless `ignore`\nsays otherwise.",
       "type": "object",
       "properties": {
         "art-max-kib": {
-          "description": "The largest artwork that will be downloaded, in kibibytes. A player chooses this URL, so the\ncap is what stops one pointing the daemon at something enormous. It bounds downloads only;\nartwork a player names as a local file is bounded by its pixel dimensions instead, when it is\ndecoded. Clamped to 16..=65536.",
+          "description": "The largest artwork that will be downloaded, in kibibytes. A player chooses this URL, so the\ncap is what stops one pointing the service at something enormous. It bounds downloads only;\nartwork a player names as a local file is bounded by its pixel dimensions instead, when it is\ndecoded. Clamped to 16..=65536.",
           "type": "integer",
           "format": "uint32",
           "default": 4096,
@@ -2593,7 +2593,7 @@
           "minimum": 1
         },
         "keep": {
-          "description": "How many notifications are kept once they have been read. Dismissing one puts it here\nrather than destroying it, which is what makes an accidental dismissal recoverable; past\nthis many, the oldest is dropped for good. Senders choose how often they notify, so this\nis the bound that stops a chatty one growing the daemon's memory without limit. Clamped\nto 1..=1000.",
+          "description": "How many notifications are kept once they have been read. Dismissing one puts it here\nrather than destroying it, which is what makes an accidental dismissal recoverable; past\nthis many, the oldest is dropped for good. Senders choose how often they notify, so this\nis the bound that stops a chatty one growing the provider's memory without limit. Clamped\nto 1..=1000.",
           "type": "integer",
           "format": "uint32",
           "default": 100,
@@ -2723,7 +2723,7 @@
       "additionalProperties": false
     },
     "Place": {
-      "description": "Where a weather applet looks. Tagged on `at`, matching the shape `weather.watch` takes, so a\nplace reads the same in a document and on the wire.",
+      "description": "Where a weather applet looks. Tagged on `at`, matching the shape `WatchPlace` takes, so a\nplace reads the same in a document and on the wire.",
       "oneOf": [
         {
           "description": "Follow the geolocation service, and move with it.",
@@ -2869,7 +2869,7 @@
       ]
     },
     "Regional": {
-      "description": "What language this session reads, and how it writes a time of day and a measurement. Every\nsetting here defaults to what the environment already says, so an empty table is the right\nanswer on a machine whose locale is set up.\n\nThe three keys are read by different owners: the daemon resolves `units` and stamps the answer\nonto every weather reading, while the panel, the lock screen and the wallpaper resolve\n`language` and `hour-format` for themselves. Nothing else in glimpse asks the environment\nthese questions.",
+      "description": "What language this session reads, and how it writes a time of day and a measurement. Every\nsetting here defaults to what the environment already says, so an empty table is the right\nanswer on a machine whose locale is set up.\n\nThe three keys are read by different owners: `glimpse-weather` resolves `units` and stamps the\nanswer onto every weather reading, while the panel, the lock screen and the wallpaper resolve\n`language` and `hour-format` for themselves. Nothing else in glimpse asks the environment\nthese questions.",
       "type": "object",
       "properties": {
         "hour-format": {
@@ -3044,7 +3044,7 @@
       "additionalProperties": false
     },
     "Weather": {
-      "description": "How a forecast is fetched. There are no places here: a place is registered by whatever wants to\nsee it, through `weather.watch`, and held for as long as it keeps asking. Nothing is fetched and\nno location is resolved until something does.",
+      "description": "How a forecast is fetched. There are no places here: a place is registered by whatever wants to\nsee it, through `WatchPlace`, and held for as long as it keeps asking. Nothing is fetched and\nno location is resolved until something does.",
       "type": "object",
       "properties": {
         "forecast-days": {
@@ -3056,7 +3056,7 @@
           "minimum": 0
         },
         "poll-interval": {
-          "description": "How often a forecast is fetched again, in seconds. The provider recomputes current\nconditions every fifteen minutes, so anything shorter asks again for data that has not\nmoved; `weather.refresh` is how a person asks for it now. Values below 600 are raised.",
+          "description": "How often a forecast is fetched again, in seconds. The provider recomputes current\nconditions every fifteen minutes, so anything shorter asks again for data that has not\nmoved; the provider's `Refresh` method is how a person asks for it now. Values below 600 are raised.",
           "type": "integer",
           "format": "uint64",
           "default": 900,

@@ -1,6 +1,6 @@
 # glimpse-config
 
-Layered TOML configuration, shared by the daemon and every UI binary.
+Layered TOML configuration shared by every Glimpse process.
 
 ## What it does
 
@@ -69,9 +69,9 @@ so the omission is a build failure rather than something review has to catch.
 
 ## One file, one schema
 
-All four binaries read `config.toml`, and all four link the whole schema and validate the whole
-document. Each acts on only the tables it owns; a binary that needs a value from elsewhere gets it
-as a topic, not by reading someone else's table.
+Every long-lived binary reads `config.toml`, links the whole schema and validates the whole
+document. Each acts on only the tables it owns; cross-process state arrives through a typed D-Bus
+provider, while dependencies within one process are injected as typed handles.
 
 An unknown key is an error wherever it lands, and the set of top-level table names is closed —
 `deny_unknown_fields` on `Config` is what catches a misspelled `[panle]` that every reader would
@@ -163,9 +163,8 @@ name changed, so a suite-wide reload forces every theme-aware process to refresh
 ## Watching
 
 Every binary watches its own files and re-reads them itself. No process learns about a change from
-another one, so hot reload does not depend on the daemon being alive — which `glimpse-lock`
-requires, and which means there is one loading path rather than one for a live daemon and one for a
-dead one.
+another one, so hot reload does not depend on another Glimpse process being alive and the loading
+path is the same for independent and session-grouped processes.
 
 `watch_dirs(config_path)` is the layer stack's *directories*, existing or not — the counterpart to
 `resolved_files`, which is its files that do. Normally four: `/etc/glimpse/`, its `config.d/`,
@@ -257,9 +256,9 @@ which is the whole reason that gate is worth more than a content digest here.
 
 ## Notifications
 
-`[notifications]` belongs to the daemon and the standalone popup process. `keep` and `suppress`
-control what the daemon stores; `enabled`, `monitor`, `edge`, `hide-delay` and `max-items` control
-transient presentation without moving that policy into the panel.
+`[notifications]` belongs to `glimpse-notifications`. `keep` and `suppress` control what the
+provider stores; `enabled`, `monitor`, `edge`, `hide-delay` and `max-items` control transient
+presentation without moving that policy into the panel.
 
 `monitor` is an optional exact connector name. The popup falls back to the focused output and then
 the compositor's first output when it is absent or unavailable. `edge` accepts `top-left`,
@@ -334,7 +333,7 @@ environment anything. Three keys, read by two different owners:
 | ------------- | ---------------- | ------------------------------------ | ----------- |
 | `language`    | `LANGUAGE`       | each UI binary, before `init_translations` | no    |
 | `hour-format` | `LC_TIME`        | each UI binary, at load              | yes         |
-| `units`       | `LC_MEASUREMENT` | the daemon, in the weather service   | yes         |
+| `units`       | `LC_MEASUREMENT` | `glimpse-weather`                    | yes         |
 
 `environment.rs` holds both resolvers and `libc` is the only way it asks. Nothing else in the
 workspace calls `nl_langinfo`, `setlocale` or `strftime` to answer these questions — the same rule
@@ -352,10 +351,10 @@ chrono, so a shared `&'static str` would not be guaranteed to render the same. I
 from the panel and derives the pattern itself.
 
 **These resolvers answer `C` — 24-hour, metric — unless `setlocale(LC_ALL, "")` has already run.**
-That call belongs to the binary: `glimpse-utils::init_translations` for a UI binary,
-`init_locale` for `glimpsed`. It is deliberately not done here, lazily or otherwise, because
-`setlocale` mutates process-global state and `glimpsed` reads this from tokio worker threads — one
-explicit call at startup is safer than a hidden one inside a getter.
+That call belongs to the binary: `glimpse-utils::init_translations` for a UI binary and
+`init_locale` for a non-UI process that resolves regional settings. It is deliberately not done
+here, lazily or otherwise, because `setlocale` mutates process-global state and services read the
+result from tokio worker threads; one explicit call at startup is safer than a hidden getter.
 
 `units` is one bit, matching `UnitSystem` on the wire. `en_US` is the only locale in glibc's
 database declaring `measurement 2`, so `locale` is metric for everyone else — including `en_GB`,

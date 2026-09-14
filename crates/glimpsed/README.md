@@ -153,11 +153,11 @@ the recipe filters systemd's "is not executable" complaint, since a source tree 
 binaries at their installed paths, and without the name check a typo would hide behind that filter.
 
 `[package.metadata.deb]` and `[package.metadata.generate-rpm]` live here rather than on any of
-the other six binary crates because cargo-deb/cargo-generate-rpm each need one crate to invoke
-against, not because glimpsed is special — the assets lists pull in all seven binaries plus config,
-wallpapers, units, and the license from the shared target dir and repo root. `data/pam.d` and
-`data/dbus-1/services` are still empty placeholders, so their contents aren't in the asset lists
-yet; add them once something real lands there.
+the other binary crates because cargo-deb/cargo-generate-rpm each need one crate to invoke
+against, not because glimpsed is special — the assets lists pull in every binary plus config,
+wallpapers, units, D-Bus activation files, and the license from the shared target dir and repo
+root. `data/pam.d` is still an empty placeholder, so its contents aren't in the asset lists yet;
+add them once something real lands there.
 
 Themes are the one asset whose directory structure is load-bearing: `themes/<name>/panel.css` is
 found by name, so a flat glob into a single destination would collapse every theme's sheets on top of

@@ -1,7 +1,6 @@
 use adw::gdk;
 use glimpse_config::{Applet as AppletConfig, Position, Regional};
-use glimpse_dbus::notifications::NotificationsProviderHandle;
-use glimpse_ipc::Client;
+use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};
 use glimpse_services::{
     CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
 };
@@ -60,13 +59,13 @@ pub struct Config {
     pub right: Vec<String>,
     pub applets: BTreeMap<String, AppletConfig>,
     pub regional: Regional,
-    pub client: Option<Client>,
     pub compositor: CompositorHandle,
     pub keyboard: KeyboardHandle,
     pub calendar: CalendarHandle,
     pub mpris: MprisHandle,
     pub heartbeat: HeartbeatHandle,
     pub notifications: NotificationsProviderHandle,
+    pub weather: WeatherProviderHandle,
 }
 
 impl Config {
@@ -177,10 +176,6 @@ impl Panel {
     }
 
     fn reconcile_applets(&mut self, config: &Config, orientation: gtk::Orientation) {
-        let Some(client) = config.client.as_ref() else {
-            return;
-        };
-
         let desired: Vec<(
             Zone,
             &String,
@@ -247,6 +242,7 @@ impl Panel {
                                     &config.mpris,
                                     &config.heartbeat,
                                     &config.notifications,
+                                    &config.weather,
                                 ) else {
                                     tracing::debug!(
                                         applet = name,
@@ -257,7 +253,6 @@ impl Panel {
                                 Some(AppletHandle::launch(
                                     name.clone(),
                                     connector.clone(),
-                                    client.clone(),
                                     build,
                                     applet,
                                     Rc::clone(&self.catcher),

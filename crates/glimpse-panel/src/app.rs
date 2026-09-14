@@ -6,7 +6,6 @@ use std::{collections::HashMap, path::PathBuf};
 use glimpse_config::{
     Config, PANEL_STYLESHEET, stylesheet, user_stylesheet, watch_config, watch_theme,
 };
-use glimpse_ipc::Client;
 use glimpse_widgets::Styles;
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
@@ -21,14 +20,12 @@ use crate::{
 pub struct AppInit {
     pub config: Config,
     pub config_path: Option<PathBuf>,
-    pub socket: PathBuf,
 }
 
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant, clippy::enum_variant_names)]
 pub enum AppInput {
     ConfigChanged(Config),
-    Connected(Client),
     MonitorsChanged,
     ServicesReady(PanelServices),
     ThemeChanged,
@@ -39,7 +36,6 @@ pub struct App {
     panels: Vec<PanelState>,
     theme_watch: JoinHandle<()>,
     styles: Styles,
-    client: Option<Client>,
     services: Option<PanelServices>,
     services_start: JoinHandle<()>,
 }
@@ -65,7 +61,6 @@ impl SimpleComponent for App {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         tracing::info!("initializing app");
-        spawn_daemon_client(init.socket, sender.clone());
         watch_monitors(sender.clone());
         let theme_watch = spawn_theme_watch(&init.config.appearance.theme, sender.clone());
         let services_start = spawn_services(init.config.clone(), sender.clone());
@@ -77,7 +72,6 @@ impl SimpleComponent for App {
             panels: Default::default(),
             theme_watch,
             styles,
-            client: None,
             services: None,
             services_start,
         };
@@ -108,7 +102,6 @@ impl SimpleComponent for App {
                     self.reload_styles();
                 }
             }
-            AppInput::Connected(client) => self.client = Some(client),
             AppInput::MonitorsChanged => {}
             AppInput::ServicesReady(services) => {
                 services.reconfigure(&self.config);
@@ -116,12 +109,7 @@ impl SimpleComponent for App {
             }
             AppInput::ThemeChanged => self.reload_styles(),
         }
-        reconcile_panels(
-            &mut self.panels,
-            &self.config,
-            self.client.as_ref(),
-            self.services.as_ref(),
-        );
+        reconcile_panels(&mut self.panels, &self.config, self.services.as_ref());
     }
 
     fn shutdown(&mut self, _widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
@@ -146,17 +134,6 @@ fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
         glimpse_config::ColorScheme::Dark => adw::ColorScheme::ForceDark,
         glimpse_config::ColorScheme::Auto => adw::ColorScheme::Default,
     }
-}
-
-fn spawn_daemon_client(socket: PathBuf, sender: ComponentSender<App>) {
-    relm4::spawn(async move {
-        let client = Client::open(&socket).await;
-        let mut states = client.watch_state();
-        sender.input(AppInput::Connected(client));
-        while states.changed().await.is_ok() {
-            tracing::debug!(state = ?*states.borrow_and_update(), "daemon connection");
-        }
-    });
 }
 
 fn spawn_services(config: Config, sender: ComponentSender<App>) -> JoinHandle<()> {
@@ -210,7 +187,6 @@ struct PanelState {
 fn reconcile_panels(
     panels: &mut Vec<PanelState>,
     config: &Config,
-    client: Option<&Client>,
     services: Option<&PanelServices>,
 ) {
     let Some(services) = services else {
@@ -250,13 +226,13 @@ fn reconcile_panels(
                 right: cfg.right.clone(),
                 applets: config.applets.clone(),
                 regional: config.regional.clone(),
-                client: client.cloned(),
                 compositor: services.compositor.clone(),
                 keyboard: services.keyboard.clone(),
                 calendar: services.calendar.clone(),
                 mpris: services.mpris.clone(),
                 heartbeat: services.heartbeat.clone(),
                 notifications: services.notifications(),
+                weather: services.weather(),
             };
             let state = match existing.remove(&key) {
                 Some(state) => {

@@ -1047,7 +1047,9 @@ dependencies = [
 name = "glimpse-dbus"
 version = "0.16.0"
 dependencies = [
+ "chrono",
  "futures-util",
+ "glimpse-contracts",
  "thiserror",
  "tokio",
  "tracing",
@@ -1138,7 +1140,6 @@ dependencies = [
  "glimpse-config",
  "glimpse-contracts",
  "glimpse-dbus",
- "glimpse-ipc",
  "glimpse-services",
  "glimpse-utils",
  "glimpse-widgets",
@@ -1147,8 +1148,6 @@ dependencies = [
  "libadwaita",
  "owo-colors",
  "relm4",
- "serde",
- "serde_json",
  "shadow-rs",
  "thiserror",
  "tokio",
@@ -1239,6 +1238,26 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "glimpse-weather"
+version = "0.16.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "colorchoice-clap",
+ "futures-util",
+ "glimpse-config",
+ "glimpse-contracts",
+ "glimpse-dbus",
+ "glimpse-services",
+ "glimpse-utils",
+ "shadow-rs",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "zbus",
 ]
 
 [[package]]

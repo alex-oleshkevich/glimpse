@@ -248,7 +248,7 @@ mod tests {
     }
 
     /// The wire refuses these too, but a document saying so names the table and the key, before
-    /// anything has asked the daemon to watch somewhere that is not on Earth.
+    /// anything has asked the provider to watch somewhere that is not on Earth.
     #[test]
     fn coordinates_outside_their_ranges_are_refused_at_load() {
         let place = |latitude: &str, longitude: &str| {

@@ -61,7 +61,6 @@ impl Applet for Notifications {
         match input {
             Input::Woken => self.sync(),
             Input::Tick => {}
-            Input::Topic(_) => return,
             Input::Pointer(_) => return,
         }
         self.refresh();

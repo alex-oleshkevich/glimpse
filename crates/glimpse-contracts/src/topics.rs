@@ -87,7 +87,11 @@ topics! {
     pub struct CalendarEvents { events: Vec<CalendarEvent>, truncated_from: Option<DateTime<Utc>> }
 
     #[name = "weather.status"]
-    pub struct WeatherStatus { units: UnitSystem, places: Vec<PlaceWeather> }
+    pub struct WeatherStatus {
+        units: UnitSystem,
+        places: Vec<PlaceWeather>,
+        updated_at: Option<DateTime<Utc>>,
+    }
 
     #[name = "mpris.players"]
     pub struct MprisPlayers { players: Vec<PlayerStatus> }

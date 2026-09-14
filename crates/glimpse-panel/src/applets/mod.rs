@@ -9,7 +9,7 @@ mod pager;
 mod weather;
 
 use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
-use glimpse_dbus::notifications::NotificationsProviderHandle;
+use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};
 use glimpse_services::{
     CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
 };
@@ -34,6 +34,7 @@ pub fn configured(
     Some(config)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build(
     config: &AppletConfig,
     compositor: &CompositorHandle,
@@ -42,6 +43,7 @@ pub fn build(
     mpris: &MprisHandle,
     heartbeat: &HeartbeatHandle,
     notifications: &NotificationsProviderHandle,
+    weather: &WeatherProviderHandle,
 ) -> Option<Builder> {
     match &config.kind {
         AppletKind::Clock(_) => {
@@ -79,7 +81,13 @@ pub fn build(
                 Box::new(pager::Pager::start(compositor))
             }))
         }
-        AppletKind::Weather(_) => Some(Box::new(|_| Box::new(weather::Weather::start()))),
+        AppletKind::Weather(_) => {
+            let weather = weather.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(weather.subscribe());
+                Box::new(weather::Weather::start(weather))
+            }))
+        }
         AppletKind::Keyboard {} => {
             let keyboard = keyboard.clone();
             Some(Box::new(move |ctx| {

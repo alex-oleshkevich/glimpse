@@ -1,0 +1,21 @@
+[Unit]
+Description=Glimpse weather provider
+Documentation=https://github.com/alex-oleshkevich/glimpse
+PartOf=glimpse-session.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=dbus
+BusName=me.aresa.Glimpse.Weather
+ExecStart=/usr/bin/glimpse-weather
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true

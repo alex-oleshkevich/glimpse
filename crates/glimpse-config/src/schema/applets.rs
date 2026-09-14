@@ -72,7 +72,7 @@ pub enum Kind {
     Display {},
     /// Hosts a third-party applet binary that draws its own popover.
     Exec {},
-    /// A counter that ticks once a second. A development fixture: it proves the daemon is
+    /// A counter that ticks once a second. A development fixture: it proves the service is
     /// reachable and events are arriving, and is not meant for a real bar.
     Heartbeat {},
     /// Idle inhibition, for keeping the screen awake.
@@ -118,7 +118,7 @@ pub enum NotificationIndicatorStyle {
     IconCounter,
 }
 
-/// Settings for the mpris applet. Which players exist and which one is current is the daemon's
+/// Settings for the mpris applet. Which players exist and which one is current is the service's
 /// decision, in `[mpris]`; this is only how the bar renders the one it is given.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
@@ -245,7 +245,7 @@ pub struct Weather {
     pub days: u8,
 }
 
-/// Where a weather applet looks. Tagged on `at`, matching the shape `weather.watch` takes, so a
+/// Where a weather applet looks. Tagged on `at`, matching the shape `WatchPlace` takes, so a
 /// place reads the same in a document and on the wire.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, JsonSchema)]
 #[serde(tag = "at", rename_all = "kebab-case", deny_unknown_fields)]
@@ -436,7 +436,7 @@ fn entry(name: &str, mut table: toml::Table) -> Result<Applet, toml::de::Error> 
 }
 
 /// The wire refuses these too, but a document saying so at load names the table and the key rather
-/// than failing a `weather.watch` nobody is watching.
+/// than failing a `WatchPlace` call nobody is making.
 fn on_earth(kind: &Kind) -> Result<(), toml::de::Error> {
     let Kind::Weather(weather) = kind else {
         return Ok(());

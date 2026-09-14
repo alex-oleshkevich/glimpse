@@ -2,7 +2,6 @@ use std::any::Any;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use glimpse_config::Applet as AppletConfig;
-use glimpse_ipc::{Client, Event};
 use glimpse_widgets::IndicatorGroup;
 use std::rc::Rc;
 
@@ -21,7 +20,6 @@ pub type Builder = Box<dyn FnOnce(&Ctx) -> Box<dyn Applet>>;
 pub struct AppletInit {
     pub name: String,
     pub output: Option<String>,
-    pub client: Client,
     pub build: Builder,
     pub config: AppletConfig,
     pub catcher: Rc<Catcher>,
@@ -57,7 +55,7 @@ impl Component for AppletRuntime {
     type Init = AppletInit;
     type Input = HostInput;
     type Output = ();
-    type CommandOutput = Event;
+    type CommandOutput = ();
     type Root = gtk4::Box;
     type Widgets = ();
 
@@ -74,17 +72,8 @@ impl Component for AppletRuntime {
     ) -> ComponentParts<Self> {
         let build = init.build;
         let seat = Seat::new(sender.input_sender().clone());
-        let ctx = Ctx::new(
-            init.name,
-            init.output,
-            init.client,
-            sender.command_sender().clone(),
-            sender.input_sender().clone(),
-        );
+        let ctx = Ctx::new(init.name, init.output, sender.input_sender().clone());
         let mut applet = build(&ctx);
-        for topic in applet.topics() {
-            ctx.subscribe(topic);
-        }
 
         let group = match applet.view(&ctx) {
             Some(view) => {
@@ -106,12 +95,7 @@ impl Component for AppletRuntime {
             }
         };
 
-        tracing::debug!(
-            applet = ctx.name(),
-            topics = applet.topics().len(),
-            own_view = group.is_none(),
-            "started"
-        );
+        tracing::debug!(applet = ctx.name(), own_view = group.is_none(), "started");
 
         let mut model = AppletRuntime {
             applet: Some(applet),
@@ -162,10 +146,6 @@ impl Component for AppletRuntime {
                 }
             }
         }
-    }
-
-    fn update_cmd(&mut self, event: Event, _sender: ComponentSender<Self>, _root: &Self::Root) {
-        self.deliver(Some(&Input::Topic(event)));
     }
 }
 
@@ -281,13 +261,6 @@ impl AppletRuntime {
 
     fn deliver(&mut self, input: Option<&Input>) {
         match input {
-            Some(Input::Topic(event)) => tracing::debug!(
-                applet = self.ctx.name(),
-                topic = event.topic,
-                seq = event.seq,
-                stale = event.stale,
-                "event"
-            ),
             Some(Input::Pointer(pointer)) => {
                 tracing::debug!(applet = self.ctx.name(), ?pointer, "pointer")
             }
@@ -393,7 +366,6 @@ impl AppletHandle {
     pub fn launch(
         name: String,
         output: Option<String>,
-        client: Client,
         build: Builder,
         config: AppletConfig,
         catcher: Rc<Catcher>,
@@ -402,7 +374,6 @@ impl AppletHandle {
             .launch(AppletInit {
                 name,
                 output,
-                client,
                 build,
                 config,
                 catcher,
@@ -622,16 +593,10 @@ mod tests {
         }
         glimpse_widgets::register_resources().expect("resources");
 
-        let runtime = tokio::runtime::Runtime::new().expect("a tokio runtime");
-        let client = runtime.block_on(Client::open(std::path::Path::new(
-            "/nonexistent/glimpse-applet-test.sock",
-        )));
-
         shown(&["a", "b"]);
         let handle = AppletHandle::launch(
             "probe".to_owned(),
             Some("DP-1".to_owned()),
-            client.clone(),
             Box::new(|_| Box::new(Probe)),
             config("%H:%M"),
             Catcher::new(None, glimpse_config::Position::Top),
@@ -698,7 +663,6 @@ mod tests {
         let exploding = AppletHandle::launch(
             "exploding".to_owned(),
             None,
-            client.clone(),
             Box::new(|_| Box::new(Probe)),
             config("%H"),
             Catcher::new(None, glimpse_config::Position::Top),
@@ -714,7 +678,6 @@ mod tests {
         let strip = AppletHandle::launch(
             "strip".to_owned(),
             None,
-            client,
             Box::new(|_| Box::new(Strip)),
             config("%H"),
             Catcher::new(None, glimpse_config::Position::Top),
