@@ -92,6 +92,13 @@ kept their meanings when the socket went — 3 is still "the thing that answers 
 still "it answered and said no to this" — so a script written against the old table still reads
 correctly. An unlisted name is 1 rather than a guess. 2 will never be there, because clap owns it.
 
+**`message` is the display half of that same one mapping site.** `zbus::Error::FDO` wraps a
+`zbus::fdo::Error` whose text it already contains *and* exposes as `source()`, so `{error:#}` prints
+a property read's failure twice while a method call's prints once. Every property in this crate is
+read through that wrapper, so the repair belongs beside `exit` rather than at each call site:
+`message` walks the chain and drops a link the previous one has already said. Measured against a
+live bus with no provider — `sunset status` printed `ServiceUnknown` twice, `sunset mode` once.
+
 Colour resolution is `anstream`'s, so `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE` and `TERM` are
 honoured without any detection of our own. Errors go to stderr; only requested data goes to stdout.
 

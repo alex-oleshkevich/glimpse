@@ -30,6 +30,21 @@ pub fn exit(error: &anyhow::Error) -> Exit {
     }
 }
 
+pub fn message(error: &anyhow::Error) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    for link in error.chain() {
+        let text = link.to_string();
+        if parts
+            .last()
+            .is_some_and(|previous| previous.contains(&text))
+        {
+            continue;
+        }
+        parts.push(text);
+    }
+    parts.join(": ")
+}
+
 fn named(name: &str) -> Exit {
     match name {
         "org.freedesktop.DBus.Error.ServiceUnknown"
@@ -114,5 +129,30 @@ mod tests {
             Exit::Failed
         );
         assert_eq!(exit(&anyhow::anyhow!("something else")), Exit::Failed);
+    }
+
+    #[test]
+    fn a_wrapper_that_repeats_its_source_is_printed_once() {
+        let wrapped = anyhow::Error::new(zbus::Error::FDO(Box::new(
+            zbus::fdo::Error::ServiceUnknown("The name is not provided".to_owned()),
+        )))
+        .context("cannot read the night light");
+
+        let printed = message(&wrapped);
+
+        assert_eq!(printed.matches("The name is not provided").count(), 1);
+        assert!(printed.starts_with("cannot read the night light: "));
+    }
+
+    #[test]
+    fn every_layer_that_says_something_new_is_kept() {
+        let error = anyhow::anyhow!("the socket refused")
+            .context("cannot reach the provider")
+            .context("while reading the night light");
+
+        assert_eq!(
+            message(&error),
+            "while reading the night light: cannot reach the provider: the socket refused"
+        );
     }
 }

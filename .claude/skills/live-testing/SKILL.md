@@ -54,6 +54,25 @@ id **hands off and exits 0** — log shows `loading configuration` and nothing e
 `GLIMPSE_PANEL_APP_ID` to a distinct id. Do not kill the session `glimpsed` / `glimpse-panel` to
 make room.
 
+## Gamma control needs the session compositor
+
+**A nested niri does not offer `zwlr_gamma_control_manager_v1`.** Measured: the winit backend owns no
+real outputs, so `glimpse-sunset` against a nested instance exits 4 — "the compositor does not offer
+zwlr_gamma_control_manager_v1". That makes a nested niri the cheapest way to test the *permanent*
+failure, and it means the applying path can only be exercised against the session compositor, which
+tints the whole display.
+
+Run it there on a **private session bus** — `dbus-daemon --session --print-address=3 --fork` — so the
+well-known name and its state never reach the user's bus. Keep it short and stop it with `SIGTERM`:
+a clean stop calls `Gamma::reset` and hands the outputs back, and a `SIGKILL` leaves the last ramp
+applied. Two private buses against one compositor is also how gamma *contention* is tested without
+installing `wlsunset` — the second provider finds every output `failed`, reports
+`another gamma client holds the outputs`, and takes over on its next tick once the first releases.
+
+**Kill a test bus by its exact pid.** `pkill -f "dbus-daemon --session"` also matches a session bus
+started that way. This machine runs `dbus-broker`, so the user's session survived it; one that does
+not would lose the whole session to that command.
+
 ## Drive and look
 
 - `glimpsectl --socket "$SOCK"` for topics and commands. The session socket is

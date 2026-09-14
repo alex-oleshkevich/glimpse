@@ -20,7 +20,7 @@ async fn main() -> ExitCode {
     match run(cli).await {
         Ok(()) => Exit::Ok.into(),
         Err(error) => {
-            anstream::eprintln!("glimpsectl: {error:#}");
+            anstream::eprintln!("glimpsectl: {}", errors::message(&error));
             errors::exit(&error).into()
         }
     }
