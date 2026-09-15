@@ -231,6 +231,7 @@ fn reconcile_panels(
                 calendar: services.calendar.clone(),
                 mpris: services.mpris.clone(),
                 heartbeat: services.heartbeat.clone(),
+                tray: services.tray.clone(),
                 notifications: services.notifications(),
                 weather: services.weather(),
             };

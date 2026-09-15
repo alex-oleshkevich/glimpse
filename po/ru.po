@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-14 23:11+0200\n"
+"POT-Creation-Date: 2026-09-15 19:03+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: crates/glimpse-notifications/src/app.rs:435
+#: crates/glimpse-notifications/src/app.rs:441
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr "сейчас"
@@ -106,28 +106,28 @@ msgstr "Пауза"
 msgid "Stopped"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:124
+#: crates/glimpse-panel/src/applets/next_event/render.rs:125
 msgid "ends in {value} {unit}"
 msgstr "закончится через {value} {unit}"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:125
+#: crates/glimpse-panel/src/applets/next_event/render.rs:126
 msgid "in {value} {unit}"
 msgstr "через {value} {unit}"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:142
-#: crates/glimpse-panel/src/applets/next_event/render.rs:150
+#: crates/glimpse-panel/src/applets/next_event/render.rs:143
+#: crates/glimpse-panel/src/applets/next_event/render.rs:151
 msgid "min"
 msgstr "мин"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:143
+#: crates/glimpse-panel/src/applets/next_event/render.rs:144
 msgid "min left"
 msgstr "мин осталось"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:151
+#: crates/glimpse-panel/src/applets/next_event/render.rs:152
 msgid "h"
 msgstr "ч"
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:152
+#: crates/glimpse-panel/src/applets/next_event/render.rs:153
 msgid "d"
 msgstr "д"
 
@@ -168,6 +168,13 @@ msgstr "{count} ч"
 #: crates/glimpse-panel/src/applets/notifications/render.rs:82
 msgid "{count}d"
 msgstr "{count} д"
+
+#: crates/glimpse-panel/src/applets/tray/mod.rs:273
+msgid "Show {count} hidden item"
+msgid_plural "Show {count} hidden items"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
 
 #: crates/glimpse-panel/src/applets/weather/mod.rs:202
 msgid "The weather provider is not serving this place."
@@ -415,7 +422,7 @@ msgstr "Всё просмотрено."
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:136
+#: crates/glimpse-widgets/src/lib.rs:147
 msgid "Play"
 msgstr "Воспроизвести"
 
@@ -439,7 +446,7 @@ msgstr "Повтор"
 msgid "Workspaces"
 msgstr "Рабочие столы"
 
-#: crates/glimpse-widgets/src/lib.rs:135
+#: crates/glimpse-widgets/src/lib.rs:146
 msgid "Pause"
 msgstr "Пауза"
 

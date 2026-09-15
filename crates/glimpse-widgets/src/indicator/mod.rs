@@ -13,6 +13,7 @@ glib::wrapper! {
 pub(crate) const LABEL_MAX_CHARS: usize = 64;
 pub(crate) const TOOLTIP_MAX_CHARS: usize = 256;
 const ATTENTION_CLASS: &str = "indicator--attention";
+const NOTICE_CLASS: &str = "indicator--notice";
 const WARNING_CLASS: &str = "indicator--warning";
 const ERROR_CLASS: &str = "indicator--error";
 pub(crate) const DOT_SIZE: f32 = 7.0;
@@ -27,6 +28,9 @@ pub struct IndicatorSpec {
     pub tooltip: Option<String>,
     pub badge: Option<String>,
     pub attention: bool,
+    /// The calm counterpart to `attention`: something worth noticing, not something demanding it.
+    /// Both can be true, and attention wins.
+    pub notice: bool,
     /// What the chip is reporting, when it is reporting a condition rather than a reading.
     /// `None` leaves it in the bar's own colour; `Info` is a state worth an icon and no colour.
     pub severity: Option<crate::Severity>,
@@ -57,6 +61,7 @@ impl Indicator {
         self.set_label(spec.label.as_deref());
         self.set_badge(spec.badge.as_deref());
         self.set_attention(spec.attention);
+        self.set_notice(spec.notice);
         self.set_severity(spec.severity);
     }
 
@@ -117,6 +122,13 @@ impl Indicator {
             self.remove_css_class(ATTENTION_CLASS);
         }
         self.sync_attention_dot();
+    }
+
+    pub fn set_notice(&self, notice: bool) {
+        if self.imp().notice.replace(notice) == notice {
+            return;
+        }
+        crate::set_css_class(self, NOTICE_CLASS, notice);
     }
 
     fn sync_attention_dot(&self) {

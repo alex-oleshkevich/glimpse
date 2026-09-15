@@ -7,12 +7,13 @@ mod next_event;
 mod notifications;
 mod pager;
 mod tokens;
+mod tray;
 pub(crate) mod weather;
 
 use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
 use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};
 use glimpse_services::{
-    CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
+    CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -43,6 +44,7 @@ pub fn build(
     calendar: &CalendarHandle,
     mpris: &MprisHandle,
     heartbeat: &HeartbeatHandle,
+    tray: &TrayHandle,
     notifications: &NotificationsProviderHandle,
     weather: &WeatherProviderHandle,
 ) -> Option<Builder> {
@@ -52,6 +54,13 @@ pub fn build(
             Some(Box::new(move |ctx| {
                 ctx.watch(calendar.subscribe());
                 Box::new(clock::Clock::start(calendar))
+            }))
+        }
+        AppletKind::Tray(_) => {
+            let tray = tray.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(tray.subscribe());
+                Box::new(tray::Tray::start(tray))
             }))
         }
         AppletKind::Heartbeat {} => {
@@ -120,8 +129,7 @@ pub fn build(
         | AppletKind::Privacy {}
         | AppletKind::Printing {}
         | AppletKind::Removable {}
-        | AppletKind::Session {}
-        | AppletKind::Tray {} => None,
+        | AppletKind::Session {} => None,
     }
 }
 
@@ -156,6 +164,16 @@ mod tests {
         assert!(
             configured("next-event", &BTreeMap::new(), &Regional::default()).is_some(),
             "the kind is known, so it must not be treated as a typo"
+        );
+    }
+
+    #[test]
+    fn the_tray_applet_is_configured_and_no_longer_falls_through_to_nothing() {
+        let applets = configured("tray", &BTreeMap::new(), &Regional::default())
+            .expect("`tray` ships in the default right zone, so it must resolve");
+        assert!(
+            matches!(applets.kind, AppletKind::Tray(_)),
+            "a unit variant would let deny_unknown_fields swallow every key under it"
         );
     }
 

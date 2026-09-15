@@ -25,6 +25,7 @@ mod night_light;
 mod notifications;
 mod session;
 mod solar;
+mod tray;
 mod weather;
 
 pub use calendar::{Calendar, CalendarHandle};
@@ -40,6 +41,7 @@ pub use night_light::{
 pub use notifications::{Notifications, NotificationsHandle, NotificationsState};
 pub use session::{Dependencies as SessionDependencies, Session, SessionHandle};
 pub use solar::{Solar, SolarDependencies, SolarHandle};
+pub use tray::{Tray, TrayHandle, TrayItems};
 pub use weather::{Config as WeatherConfig, Weather, WeatherDependencies, WeatherHandle};
 
 pub use calendar::{CalendarEvent, CalendarEvents};

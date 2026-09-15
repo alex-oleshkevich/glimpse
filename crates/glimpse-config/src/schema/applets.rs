@@ -98,9 +98,25 @@ pub enum Kind {
     /// Log out, suspend, restart and shut down.
     Session {},
     /// The system tray: icons from applications that ask for one.
-    Tray {},
+    Tray(Tray),
     /// Current conditions, with the forecast in its popover.
     Weather(Weather),
+}
+
+/// Settings for the tray applet. Which items exist is the applications' decision; this is only
+/// which of them the bar shows and how many fit before the rest go behind the chevron.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Tray {
+    /// Item ids never shown, matched against the application's own `Id`. That id survives an
+    /// application restart, which the bus name it happens to hold does not.
+    pub hide: Vec<String>,
+    /// Item ids kept on the bar whatever the cap, in the order given. Anything not named here
+    /// follows in the order the items registered.
+    pub pin: Vec<String>,
+    /// How many icons stay on the bar; the rest open from the chevron beside them. `0` keeps every
+    /// icon on the bar and shows no chevron.
+    pub max_visible: u8,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]

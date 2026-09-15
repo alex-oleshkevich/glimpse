@@ -8,6 +8,7 @@ connections they run on.
 - `dbus.rs` — `Buses`, holding the session and system connections, and `own_name`
 - `provider.rs` — `Exported`, the name-and-object lifecycle the three providers share
 - `clients/` — one module per bus service, each a set of `#[zbus::proxy]` trait declarations
+- `testing/` — `PrivateBus` and the tray fakes, compiled only under the `testing` feature
 - `clients/notifications.rs` — the notification proxy, typed handle and owned follower lifecycle
 - `clients/weather.rs` — weather wire values, typed proxy, conversions and owner follower
 
@@ -22,6 +23,8 @@ connections they run on.
 | `upower`                  | system  | UPower devices and battery state         |
 | `mpris`                   | session | MPRIS players                            |
 | `status_notifier_item`    | session | StatusNotifierItem tray entries          |
+| `status_notifier_watcher` | session | the tray registry, and `Registry` behind it |
+| `dbusmenu`                | session | a tray item's `com.canonical.dbusmenu`   |
 | `notifications`           | session | the Glimpse notification provider        |
 | `weather`                 | session | the Glimpse weather provider             |
 
@@ -75,11 +78,36 @@ player. Both are built through `builder().destination(name)`, and the name must 
 `String`: a `&str` ties the proxy's lifetime to that borrow and will not satisfy the `'static`
 bound a subscription source requires.
 
-**No `#[zbus::interface]` in this crate.** A proxy is a Glimpse process calling out and is
-shareable; an interface is other applications calling in, and it needs a way back into the state of
-the process that owns it. Object-server halves live in their owning binary crates. `Exported` is
-generic over the interface and declares none, so the value is built by the binary that owns the
-state behind it.
+**No `#[zbus::interface]` in this crate, except under the `testing` feature.** A proxy is a Glimpse
+process calling out and is shareable; an interface is other applications calling in, and it needs a
+way back into the state of the process that owns it. Object-server halves live in their owning
+binary crates. `Exported` is generic over the interface and declares none, so the value is built by
+the binary that owns the state behind it. `testing/tray.rs` is the carve-out: a fake has no process
+state to reach back into, and it has to be shareable for exactly the reason a proxy is — the
+watcher, the service and the applet all test against the same one.
+
+**A tray item is decoded from one `GetAll` map, never through the typed getters.** An application
+implements a *subset* of `org.kde.StatusNotifierItem`, and zbus's `get_property` reads the cache,
+misses, then issues a real `Get` that errors — so reading an item property by property costs a round
+trip and a failure for every member it never implemented. `decode_item` takes the map and gives
+every field a default, which is also why `XAyatana*` needs no branch: extensions are just more keys.
+`Menu` is an `o` and no `&str` extraction reads one.
+
+**`AttentionMovieName` is decoded and rendered nowhere.** Keeping it in the model is what stops it
+being dropped silently; nothing in glimpse animates a tray icon.
+
+**The watcher's rules live in `Registry`, not in the interface.** Which key an item lands on, that a
+repeat registration is idempotent, and that an owner loses every item it held at once are decided by
+a plain struct with plain tests; the `#[zbus::interface]` that B5 exports is a shell forwarding to
+it. The argument to `RegisterStatusNotifierItem` may be a bus name *or* an object path and some
+senders offer neither usefully, so the header's sender is the authoritative half and a bus name is
+told from a path by the leading `/` — a bus name never contains one.
+
+**A tray fake imitates a member *set*, not just an interface.** `Shape::Ayatana` and `Shape::Pixmap`
+are two Rust types exporting the same interface name and deliberately different members, because a
+real item implements a subset: reading a property the peer never implemented is an error, not a
+default, and that is the failure a host has to survive. The one difference not reproduced is an
+empty `Introspect` document, which an object server will not serve.
 
 **Signatures come from introspection, not from memory.** A proxy that disagrees with the running
 service fails at the call rather than at compile time. The project-local `zbus` skill carries

@@ -2,7 +2,7 @@ use adw::gdk;
 use glimpse_config::{Applet as AppletConfig, Position, Regional};
 use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};
 use glimpse_services::{
-    CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle,
+    CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, TrayHandle,
 };
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
@@ -64,6 +64,7 @@ pub struct Config {
     pub calendar: CalendarHandle,
     pub mpris: MprisHandle,
     pub heartbeat: HeartbeatHandle,
+    pub tray: TrayHandle,
     pub notifications: NotificationsProviderHandle,
     pub weather: WeatherProviderHandle,
 }
@@ -241,6 +242,7 @@ impl Panel {
                                     &config.calendar,
                                     &config.mpris,
                                     &config.heartbeat,
+                                    &config.tray,
                                     &config.notifications,
                                     &config.weather,
                                 ) else {

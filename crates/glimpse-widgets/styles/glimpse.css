@@ -144,6 +144,12 @@
     color: inherit;
 }
 
+.indicator--notice .indicator__icon,
+.indicator--notice .indicator__label {
+    background-color: var(--gl-accent-soft);
+    border-radius: 999px;
+}
+
 .indicator__overlay {
     -gtk-icon-size: 0.8rem;
     color: inherit;

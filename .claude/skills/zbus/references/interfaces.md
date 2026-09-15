@@ -233,9 +233,11 @@ The `New*` signals carry nothing — they mean "re-read the property". Items are
 about whether they emit `PropertiesChanged`, `New*`, or both, so handle both and let the equality
 gate collapse the duplicate.
 
-Pixmaps must not travel through the glimpse socket. Decode `a(iiay)` in the daemon, write
-`$XDG_RUNTIME_DIR/glimpse/tray/<item>-<hash>.png`, and publish the path. The content hash is what
-lets the equality gate suppress a no-op update.
+`a(iiay)` is ARGB32 in **network byte order**, which is byte order A,R,G,B — precisely GDK's
+`A8r8g8b8`. Decode it to `TrayPixmap` in `glimpse-dbus` and hand the bytes straight to
+`gdk::MemoryTexture` in the applet: no swizzle, no PNG round-trip, and nothing written to disk. There
+is no socket to keep them out of any more. Cache the texture on a content hash, which is what makes
+an application rewriting its icon per message free after the first.
 
 ---
 

@@ -845,6 +845,30 @@
               "type": "string",
               "const": "tray"
             },
+            "hide": {
+              "description": "Item ids never shown, matched against the application's own `Id`. That id survives an\napplication restart, which the bus name it happens to hold does not.",
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "string"
+              }
+            },
+            "max-visible": {
+              "description": "How many icons stay on the bar; the rest open from the chevron beside them. `0` keeps every\nicon on the bar and shows no chevron.",
+              "type": "integer",
+              "format": "uint8",
+              "default": 0,
+              "maximum": 255,
+              "minimum": 0
+            },
+            "pin": {
+              "description": "Item ids kept on the bar whatever the cap, in the order given. Anything not named here\nfollows in the order the items registered.",
+              "type": "array",
+              "default": [],
+              "items": {
+                "type": "string"
+              }
+            },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
               "type": "array",
@@ -1809,6 +1833,30 @@
               "extends": {
                 "type": "string",
                 "const": "tray"
+              },
+              "hide": {
+                "description": "Item ids never shown, matched against the application's own `Id`. That id survives an\napplication restart, which the bus name it happens to hold does not.",
+                "type": "array",
+                "default": [],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "max-visible": {
+                "description": "How many icons stay on the bar; the rest open from the chevron beside them. `0` keeps every\nicon on the bar and shows no chevron.",
+                "type": "integer",
+                "format": "uint8",
+                "default": 0,
+                "maximum": 255,
+                "minimum": 0
+              },
+              "pin": {
+                "description": "Item ids kept on the bar whatever the cap, in the order given. Anything not named here\nfollows in the order the items registered.",
+                "type": "array",
+                "default": [],
+                "items": {
+                  "type": "string"
+                }
               },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",

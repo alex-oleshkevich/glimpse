@@ -22,6 +22,7 @@ pub struct Indicator {
     pub overlay_icon: RefCell<Option<gio::Icon>>,
     pub color: Cell<Option<gtk4::gdk::RGBA>>,
     pub attention: Cell<bool>,
+    pub notice: Cell<bool>,
     pub severity: Cell<Option<crate::Severity>>,
 }
 

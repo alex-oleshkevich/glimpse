@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-15 16:18+0200\n"
+"POT-Creation-Date: 2026-09-15 19:03+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -161,6 +161,12 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/notifications/render.rs:82
 msgid "{count}d"
 msgstr ""
+
+#: crates/glimpse-panel/src/applets/tray/mod.rs:273
+msgid "Show {count} hidden item"
+msgid_plural "Show {count} hidden items"
+msgstr[0] ""
+msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/weather/mod.rs:202
 msgid "The weather provider is not serving this place."
@@ -403,7 +409,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:140
+#: crates/glimpse-widgets/src/lib.rs:147
 msgid "Play"
 msgstr ""
 
@@ -427,7 +433,7 @@ msgstr ""
 msgid "Workspaces"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:139
+#: crates/glimpse-widgets/src/lib.rs:146
 msgid "Pause"
 msgstr ""
 

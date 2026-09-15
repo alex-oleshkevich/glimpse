@@ -104,8 +104,8 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
 
 **Naming**
 
-- Topics are `domain.name`, lower snake case: `audio.volume`, `tray.item.{id}.menu`
-- Commands are `domain.verb_object`: `audio.set_volume`, `tray.menu_about_to_show`
+- Topics are `domain.name`, lower snake case: `audio.volume`, `mpris.players`
+- Commands are `domain.verb_object`: `audio.set_volume`, `tray.menu_event`
 - **Never prefix a type with `Glimpse`.** Types are `Hero`, `PopoverShell`, `Panel`,
   `IndicatorGroup` — the crate already says whose they are. The prefix survives only where a
   reverse-DNS identifier demands it: application IDs, D-Bus names, the gresource path.
@@ -291,6 +291,14 @@ into `content_box` and panics on an unbound `TemplateChild`. The guard is
 so a `do_add_child` on a Python subclass is accepted, never called. Measured. Any preview host that
 needs real widgets has to be Rust.
 
+**A blueprint cannot open a popover, and a preview must be focused to keep one open.** `active: true`
+on a `Gtk.MenuButton` is applied by `Builder` before the button is realized and `GtkMenuButton` drops
+it, so no popup is ever created. The class `open-on-map` on the button is what the host uses instead,
+and it waits for the window to become *active* — a compositor dismisses a popup belonging to an
+unfocused window with `xdg_popup.popup_done` the moment it appears, and a preview opens on its own
+workspace. This is how the tray menu board is seen: `just preview var/widget_examples/tray.blp`, then
+focus the window.
+
 **`blueprint-compiler lint` has two false positives.** It reports `scrollable_parent` for any extern
 `$CustomType` inside a container, and rejects a `Gtk.Adjustment` carrying anything besides `lower`,
 `upper` and `value` as `adjustment_prop_order` — the order is not what it checks; adding
@@ -335,12 +343,10 @@ GLIMPSE_LOCALE_DIR=$PWD/target/locale LANGUAGE=ru just preview <blueprint.blp>
   `scripts/i18n-coverage.py` fails the build on it.
 - **No translatable text in a raw or multi-line Rust string.** `r#"…"#` extracts by accident and the
   C scanner loses its place inside both, costing the rest of that file.
-- **A new file's strings are extracted only once git knows about the file.**
-  `scripts/i18n-extract.sh` builds its list with `git ls-files`, so an untracked `.rs` or `.blp` is
-  invisible to xgettext *and* to the coverage check at once. `git add -N <paths>` is enough.
-  `just check-strings` cannot catch this — it regenerates from the same list, so both sides are
-  consistently wrong. `grep -c '^msgid ' po/glimpse.pot` is the number that tells the truth; verify
-  the add took with `git ls-files | grep <newfile>`.
+- **A new file's strings are extracted as soon as the file exists.** `scripts/i18n-extract.sh`
+  builds its list with `rg --files`, not `git ls-files`, so an untracked `.rs` or `.blp` is picked up
+  without staging it. `grep -c '^msgid ' po/glimpse.pot` is still the number that tells the truth
+  when the count looks wrong.
 - **`var/` is not extracted.** Its examples carry `_()` markers so they read like the real thing,
   but they never ship.
 - **A new language is three edits:** `po/LINGUAS`, a new `po/<lang>.po`, and one asset line in
@@ -423,6 +429,54 @@ and `scripts/i18n-coverage.py` carry the full account, which is why those two wa
 rather than chased. `just fmt` shifts line numbers and so makes `po/glimpse.pot` stale —
 `just check-strings` reports it and names the recipe; that is normal. There is no `dpkg-deb` or
 `rpm` on Arch, so `bsdtar` is how built packages are confirmed to carry the `.mo`.
+
+**StatusNotifierItem in the wild, September 2026.** Four items on a live session bus — vicinae,
+Slack (Electron), walz (libayatana-appindicator), Telegram (Qt) — introspected and probed.
+
+An item implements a *subset* of `org.kde.StatusNotifierItem`, and a typed zbus getter is the wrong
+way to read one. zbus 5.19.0's `get_property` (`proxy/mod.rs:783`) reads the cache, misses, then
+issues a real `Get` that **errors** for a property the peer does not implement: Slack's `IconName`
+fails while its `IconPixmap` answers, and walz is the exact mirror — `IconName` holding an absolute
+path, no `IconPixmap` at all. Slack's `Introspect` returns an empty `<node></node>` while every
+property still answers, so introspection is not a discovery mechanism either. `GetAll` works on
+both, returning only what each implements. **Read an item as one explicit `GetAll` through
+`zbus::fdo::PropertiesProxy` and decode the map with defaults**, the same shape the dbusmenu layout
+already uses; build the item proxy `CacheProperties::No` so the cache does not fetch it twice.
+`Proxy::cached_property` alone is not the answer — it returns `None` for a cache merely not yet
+populated, and `get_property_cache` is `pub(crate)`, so there is no public readiness to await.
+
+Ayatana is not a second protocol and needs no branch: same interface name, same watcher, extra
+optional members. The deltas are the object path (`/org/ayatana/NotificationItem/<id>`, so split a
+registration string at the **first** `/` and never assume `/StatusNotifierItem`), `XAyatanaLabel` /
+`XAyatanaLabelGuide` / `XAyatanaNewLabel(ss)`, `XAyatanaOrderingIndex`, `XAyatanaSecondaryActivate(u)`
+taking a timestamp where `SecondaryActivate` takes `(ii)`, the `*AccessibleDesc` properties, and
+`NewIconThemePath(s)`. One of the four items speaks it, and its `XAyatanaLabel` is empty — so it is
+the only candidate source for a chip badge and nothing feeds it. Render it as `label` when non-empty
+and leave `badge` unfed rather than inventing a split.
+
+**What the epic itself measured.** A tray item is decoded from one `GetAll` and every field has a
+default, which is what makes an application's partial implementation ordinary rather than an error
+path. `Registry` holds the watcher's rules as a plain struct so they are tested without a bus. The
+name freeing is the trigger for a re-claim and there is no timer anywhere in the tray. A fresh owner
+must announce *before* it sweeps, or a client that re-registers on the announcement and is also swept
+appears twice — the canonical key is what collapses them. `just click` proved unusable for verifying
+any of the UI here (see `glimpse-cd67`); the tray menu was verified by opening it from the preview
+host instead, which is what `glimpse-fxc0.1` turned out to be about.
+
+**A `Gtk.PopoverMenu` renders here perfectly well; three things make it look as if it does not.**
+A popover's anchor rectangle is its *parent's allocation*, so a parent filling the window anchors the
+popup to the window's own edge — with a bottom gravity on a full-height window the compositor
+squeezes it to a few pixels and GTK tears it down. A compositor also dismisses a popup belonging to
+an **unfocused** window with `xdg_popup.popup_done` the moment it appears, and a preview opens on its
+own workspace, which is usually not the focused one. And `active: true` on a `Gtk.MenuButton` in a
+`.blp` does nothing at all: `Builder` applies it before the button is realized and `GtkMenuButton`
+drops it, so no `xdg_positioner` ever reaches the compositor. `WAYLAND_DEBUG=1` and the
+`set_anchor_rect` / `configure` pair tell the three apart in one run.
+
+**`Status` is two properties on two interfaces.** `org.kde.StatusNotifierItem.Status` is
+`Active`/`Passive`/`NeedsAttention` — and `Passive` is a placement instruction, the host tucks the
+item away, not a tint. `com.canonical.dbusmenu.Status` is `normal`/`notice`, on the menu object.
+Both read their quiet value on every live item, so nothing on screen separates them.
 
 ## Finishing
 

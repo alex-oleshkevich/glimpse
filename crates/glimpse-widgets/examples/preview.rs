@@ -273,6 +273,7 @@ mod fixtures {
     const EXPAND: &str = "expander";
     const ACTION: &str = "action__";
     const DEMO: &str = "demo__";
+    const OPEN: &str = "open-on-map";
 
     pub fn apply(name: &str, root: &gtk4::Widget, sheets: &[(PathBuf, gtk4::CssProvider)]) {
         match name {
@@ -304,6 +305,7 @@ mod fixtures {
         drawer_nav(root);
         expanders(root);
         actions(root);
+        opened_menus(root);
         scheme_toggle(root, sheets);
     }
 
@@ -1703,6 +1705,51 @@ mod fixtures {
                 continue;
             };
             row.connect_clicked(move |_| revealer.set_reveal_child(!revealer.reveals_child()));
+        }
+    }
+
+    /// A `Gtk.MenuButton` carrying `.open-on-map` shows its menu once the board is on screen.
+    ///
+    /// A blueprint cannot do this: `active: true` is applied by `Builder` before the button is
+    /// realized, and `GtkMenuButton` drops it, so the popup is never even created — no
+    /// `xdg_positioner` reaches the compositor. Without this a board can only show a menu if
+    /// someone clicks it, and `just click` cannot reliably reach a preview window
+    /// (`glimpse-cd67`), which is what made a real `Gtk.PopoverMenu` look broken here.
+    ///
+    /// The popup is deferred to an idle after the first frame because its anchor rectangle is the
+    /// button's *allocation*: popping up before layout anchors it to a zero-sized rectangle, and a
+    /// compositor legitimately squeezes that popup to nothing.
+    fn opened_menus(root: &gtk4::Widget) {
+        for button in collect::<gtk4::MenuButton>(root) {
+            if !button.has_css_class(OPEN) {
+                continue;
+            }
+            if button.popover().is_none() {
+                eprintln!("a .{OPEN} menu button has no menu to open");
+                continue;
+            }
+            // Opened when the window becomes *active*, not merely mapped: a compositor dismisses
+            // a popup belonging to an unfocused window with `xdg_popup.popup_done` the moment it
+            // appears, and a preview opens on its own workspace, which is usually not the focused
+            // one. Waiting for focus is what makes the menu stay up long enough to read.
+            //
+            // Hooked from `map`, because a fixture runs while the tree is still being built and
+            // the button has no root window to ask about focus yet.
+            button.connect_map(|button| {
+                let Some(window) = button.root().and_downcast::<gtk4::Window>() else {
+                    return;
+                };
+                let shown = button.clone();
+                let opened = std::cell::Cell::new(false);
+                let open = move |window: &gtk4::Window| {
+                    if !window.is_active() || opened.replace(true) || !shown.is_mapped() {
+                        return;
+                    }
+                    shown.popup();
+                };
+                open(&window);
+                window.connect_is_active_notify(move |window| open(window));
+            });
         }
     }
 

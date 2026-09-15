@@ -26,7 +26,8 @@ pub use applets::{
     Applet, Clock as ClockConfig, Common as AppletCommon, FirstDay, Kind as AppletKind,
     Mpris as MprisAppletConfig, NextEvent as NextEventConfig, NotificationIndicatorStyle,
     Notifications as NotificationsAppletConfig, Pager as PagerConfig, PagerMode, PagerScope,
-    PagerShape, Place as WeatherPlace, Timezone as ClockTimezone, Weather as WeatherAppletConfig,
+    PagerShape, Place as WeatherPlace, Timezone as ClockTimezone, Tray as TrayAppletConfig,
+    Weather as WeatherAppletConfig,
 };
 pub use backdrop::Backdrop;
 pub use calendar::{Calendar, Source as CalendarSource, SourceKind as CalendarSourceKind};

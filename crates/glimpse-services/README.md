@@ -264,11 +264,37 @@ delivers `DoNotDisturbLapsed` and clears both fields. A reader that only ever lo
 therefore sees it turn itself off. The expiry is in the subscription key, so moving it tears the old
 timer down; keying on a bare marker would lapse at the wrong instant.
 
+**tray** — glimpse *is* the `org.kde.StatusNotifierWatcher` under niri, because nothing else provides
+one. Its state is every registered item in registration order; which of them a bar shows is the
+applet's decision, and the three keys live in `[applets.tray]`. No bus is `degraded` publishing an
+empty list, never a failure to start. Items decode from one `GetAll` each.
+
+**The claim lives inside the `NameOwnerChanged` source, not in `start`.** A source is installed only
+*after* `start` returns, so claiming there races the signal that recovers a lost one, and
+`DoNotQueue` makes a failed attempt terminal. The source takes its match rule, then claims, then
+follows; cold start, a name freeing and our own loss all call the same `claim`, off the handler and
+one at a time — awaiting a name request, a `ListNames` and a probe per candidate on `&mut self` puts
+every tray event behind one hung application. `NameTaken` *by us* is success, or a second trigger
+degrades a working watcher against itself. The common case is not Plasma: it is the panel restarting
+before the old process let go.
+
+**A fresh owner sweeps, because items register once and never learn they were forgotten.** Announce
+`StatusNotifierHostRegistered` *first* — Qt and libayatana clients re-register on it — then
+`ListNames` for well-known `StatusNotifierItem-*` names, probe each and adopt it; the canonical key
+collapses both into one. An item holding only a unique name is unrecoverable, by design.
+
+**One `Watch::Item(key)` per item, and no teardown code** — a key stops appearing, its guard drops,
+its match rules go. A menu follower is keyed by item *and path*, so an item that moves its menu stops
+following the old one. Each follower takes `PropertiesChanged` **and** every `New*`; the equality
+gate makes that safe, and an item that stops answering is dropped rather than retried.
+
+**Every command is answered off the handler under a five-second deadline.** `AboutToShow` reports
+whether the layout changed and **must be awaited**; `Event` is `no_reply` and must not be.
+`ItemsPropertiesUpdated` carries no revision, so it drops the cache outright. Menus load on
+pointer-enter and name every submenu id first, because that is where a lazy application fills one in.
+
 ## Rules
 
 Services expose concrete handles; there is no daemon-owned trait, broker, registry, or string routing
 layer. The handler, boundary and config rules are in `.claude/rules/daemon.md` and are not repeated
 here.
-
-Three helpers are shared rather than per-service: `AGENT`, `say` and `transport`, the last of which
-strips the URL a `reqwest` error would otherwise print.

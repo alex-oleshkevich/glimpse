@@ -202,6 +202,10 @@ preview BLUEPRINT *ARGS:
 nested:
     niri
 
+[doc("two fake tray items on whatever bus DBUS_SESSION_BUS_ADDRESS names")]
+fake-tray:
+    cargo run -q -p glimpse-dbus --features testing --example fake-tray
+
 # ---------------------------------------------------------------- build
 
 [doc("build all, debug")]

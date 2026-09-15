@@ -233,6 +233,39 @@ known, and dismisses; right click and the close button remove it without either.
 neither activation nor action buttons. The icon cache is pruned against each new list, so
 sender-controlled keys cannot accumulate for the panel's lifetime.
 
+**tray** — the second applet supplying its own view, for the pager's reason: a click per chip over a
+list whose length changes. It renders every registered item and decides *which*, because that is a
+bar's preference — `hide` and `pin` match the item's own `Id`, which survives an application restart
+where its bus name does not. `Passive` is the item asking to be put away, so it sorts toward the
+chevron rather than vanishing; `max-visible` of `0` means no overflow, never hide-everything. A tray
+icon is the application's choice, rendered as given: the symbolic-icon rule stops at our own chips.
+This applet is why `"tray"` in the shipped right zone finally renders something.
+
+**The icon ladder is six steps and every one was a bug somewhere.** An absolute path that *exists*
+wins; one that has gone falls through, because a missing file is not a missing icon. Only an absolute
+path is a path — a themed name may contain a slash. The item's own `IconThemePath` is probed as a
+literal file (`base/name`, then `.png`, `.svg`, `.xpm`, `.ico`) before the icon theme is consulted,
+and a directory that is not there is skipped at `debug`, never `warn`: a Flatpak application names
+`/app/share/icons`, real in its sandbox and absent here. Search paths added to the process-wide
+`IconTheme` are deduped and capped at 16. Pixels are last, and only when there is no name. Nothing at
+all gets `image-missing-symbolic`, because a blank chip reads as broken.
+
+**A dbusmenu separator is an *item*; a `GMenu` separator is a section boundary.** The transform is a
+split, and leading, trailing and doubled separators must leave no empty sections. `visible: false` is
+not built at all — building it disabled still shows what the application asked to hide. A checkmark
+is a boolean-stateful `SimpleAction`, a radio group a string-stateful one with a per-item target;
+dbusmenu never says which items form a group, so a section is the group.
+
+**`com.canonical.dbusmenu.Status` is a second `Status`, on the menu object.** `notice` is the calm
+counterpart to `NeedsAttention`; both can be true and attention wins.
+
+**`a(iiay)` is ARGB32 in network byte order, which is byte order A,R,G,B — precisely GDK's
+`A8r8g8b8`.** No swizzle, no PNG round-trip. Premultiplication is unspecified by the protocol, so a
+dark halo is the symptom of guessing wrong rather than something to tune. Textures cache on a content
+hash, which makes an application rewriting its icon per message free after the first. `connect_changed`
+on the icon theme and `notify::scale-factor` are connected **once, in the applet**, not per item;
+only name-based icons need re-resolving. Notice tints with `--gl-accent-soft` and adds no token.
+
 ## Translated wording
 
 `agenda::when`, `agenda::span` and `next_event::Countdown` write the sentences a person reads — "All

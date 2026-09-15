@@ -1,3 +1,5 @@
+pub mod tray;
+
 use std::io::BufRead as _;
 use std::process::{Child, Command, Stdio};
 

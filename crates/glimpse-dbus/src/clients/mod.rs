@@ -26,6 +26,7 @@ pub mod portal_settings;
 pub mod power_profiles;
 pub mod sensor;
 pub mod status_notifier_item;
+pub mod status_notifier_watcher;
 pub mod systemd1;
 pub mod timedate1;
 pub mod udisks2;

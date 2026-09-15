@@ -121,9 +121,16 @@ pub(crate) fn set_footer_row(row: &crate::Row, label: Option<&str>) {
 }
 
 pub(crate) fn set_text(label: &gtk4::Label, value: Option<&str>) {
+    set_text_capped(label, value, TEXT_MAX_CHARS);
+}
+
+/// The same setter for a field whose own cap is not the shared one. Passing a longer string through
+/// `set_text` silently re-truncates it to `TEXT_MAX_CHARS`, which makes the caller's constant a lie
+/// no test of that constant can catch.
+pub(crate) fn set_text_capped(label: &gtk4::Label, value: Option<&str>, cap: usize) {
     use gtk4::prelude::*;
 
-    let text = truncate(value.unwrap_or_default(), TEXT_MAX_CHARS);
+    let text = truncate(value.unwrap_or_default(), cap);
     if label.text().as_str() == text {
         return;
     }
@@ -3415,6 +3422,14 @@ mod tests {
             card.title().unwrap_or_default().chars().count(),
             tooltip_card::TITLE_MAX_CHARS,
             "a hostile title is cut by characters, not bytes"
+        );
+
+        let long_body = "é".repeat(tooltip_card::BODY_MAX_CHARS + 40);
+        card.set_body(Some(long_body.as_str()));
+        assert_eq!(
+            card.body().unwrap_or_default().chars().count(),
+            tooltip_card::BODY_MAX_CHARS,
+            "the card's own cap is what applies; the shared setter's 128 would silently win"
         );
 
         card.set_body(Some("Synced\nLast sync 2 minutes ago"));

@@ -47,7 +47,7 @@ impl TooltipCard {
 
     fn set_body(&self, body: Option<String>) {
         let body = body.map(|body| super::clamp_body(&body));
-        crate::set_text(&self.body, body.as_deref());
+        crate::set_text_capped(&self.body, body.as_deref(), super::BODY_MAX_CHARS);
         self.obj().sync_visible();
     }
 

@@ -35,7 +35,7 @@ pub fn chip(records: &[NotificationRecord], dnd: bool, style: NotificationIndica
         icon: if dnd { MUTED } else { BELL },
         badge: (unread > 0 && !dnd && style == NotificationIndicatorStyle::IconCounter)
             .then(|| unread.to_string()),
-        attention: unread > 0 && !dnd && style != NotificationIndicatorStyle::IconOnly,
+        attention: unread > 0 && !dnd && style == NotificationIndicatorStyle::IconDot,
         severity: match (dnd, critical(records), style) {
             (true, _, _) => Some(Severity::Info),
             (false, true, NotificationIndicatorStyle::IconDot) => Some(Severity::Error),
@@ -270,7 +270,10 @@ mod tests {
 
         let counter = chip(&records, false, NotificationIndicatorStyle::IconCounter);
         assert_eq!(counter.badge.as_deref(), Some("2"));
-        assert!(counter.attention);
+        assert!(
+            !counter.attention,
+            "the count is the treatment; a badge suppresses the dot, so attention would render nothing"
+        );
 
         for style in [
             NotificationIndicatorStyle::IconOnly,
@@ -296,7 +299,7 @@ mod tests {
                 Some(Severity::Error),
                 true,
             ),
-            (NotificationIndicatorStyle::IconCounter, None, true),
+            (NotificationIndicatorStyle::IconCounter, None, false),
         ] {
             let shown = chip(std::slice::from_ref(&note), false, style);
             assert_eq!(shown.severity, severity);
