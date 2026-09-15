@@ -104,7 +104,7 @@ impl CalendarHandle {
     }
 }
 
-pub fn initial_state() -> CalendarEvents {
+fn initial_state() -> CalendarEvents {
     CalendarEvents {
         events: Vec::new(),
         truncated_from: None,
@@ -244,6 +244,11 @@ impl Service for Calendar {
 
     fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
         CalendarHandle(endpoint)
+    }
+
+    fn initial_state(config: &Self::Config) -> Self::State {
+        let _ = config;
+        initial_state()
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
@@ -1282,7 +1287,10 @@ END:VCALENDAR\r
             let observation = Arc::new(Observation::default());
             let cancel = CancellationToken::new();
             let (mut runtime, handle) = ServiceRuntime::<Calendar>::new(
-                initial_state(),
+                Config {
+                    poll_interval: MIN_POLL,
+                    sources,
+                },
                 Buses::unavailable("no bus in tests"),
                 cancel.clone(),
             );
@@ -1312,15 +1320,7 @@ END:VCALENDAR\r
             });
             let sender = runtime.sender();
             let handle = tokio::spawn(async move {
-                let _ = runtime
-                    .run(
-                        Config {
-                            poll_interval: MIN_POLL,
-                            sources,
-                        },
-                        (),
-                    )
-                    .await;
+                let _ = runtime.run(()).await;
             });
 
             Self {

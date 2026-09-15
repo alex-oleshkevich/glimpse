@@ -139,6 +139,14 @@ impl Service for Keyboard {
         KeyboardHandle(endpoint)
     }
 
+    fn initial_state(config: &Self::Config) -> Self::State {
+        let _ = config;
+        KeyboardLayouts {
+            layouts: Vec::new(),
+            current: None,
+        }
+    }
+
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         let follow = self.backend.clone();
         let read = self.backend.clone();

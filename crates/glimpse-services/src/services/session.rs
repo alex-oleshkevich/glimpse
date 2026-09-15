@@ -62,7 +62,7 @@ pub struct Dependencies {
     pub compositor: CompositorHandle,
 }
 
-pub fn initial_state() -> Option<SessionStatus> {
+fn initial_state() -> Option<SessionStatus> {
     None
 }
 
@@ -78,6 +78,11 @@ impl Service for Session {
 
     fn from_endpoint(endpoint: crate::ServiceEndpoint<Self>) -> Self::Handle {
         SessionHandle(endpoint)
+    }
+
+    fn initial_state(config: &Self::Config) -> Self::State {
+        let _ = config;
+        initial_state()
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
@@ -238,7 +243,7 @@ mod tests {
         let ctx = Ctx::<Session>::new(events, &cancel, state, health, Buses::unavailable("no bus"));
         let (_runtime, compositor) =
             crate::ServiceRuntime::<super::super::compositor::Compositor>::new(
-                super::super::compositor::initial_state(),
+                NoConfig,
                 Buses::unavailable("no bus"),
                 CancellationToken::new(),
             );

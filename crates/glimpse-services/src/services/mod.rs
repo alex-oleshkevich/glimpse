@@ -27,31 +27,20 @@ mod session;
 mod solar;
 mod weather;
 
-pub use calendar::{Calendar, CalendarHandle, initial_state as initial_calendar_state};
-pub use compositor::{
-    Compositor, CompositorHandle, CompositorState, initial_state as initial_compositor_state,
-};
+pub use calendar::{Calendar, CalendarHandle};
+pub use compositor::{Compositor, CompositorHandle, CompositorState};
 pub use geolocation::{Geolocation, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};
 pub use keyboard::{Dependencies as KeyboardDependencies, Keyboard, KeyboardHandle};
-pub use mpris::{Mpris, MprisHandle, initial_state as initial_mpris_state};
+pub use mpris::{Mpris, MprisHandle};
 pub use night_light::{
     Config as NightLightConfig, Dependencies as NightLightDependencies, NightLight,
-    NightLightHandle, NightLightState, initial_state as initial_night_light_state,
+    NightLightHandle, NightLightState,
 };
-pub use notifications::{
-    Notifications, NotificationsHandle, NotificationsState,
-    initial_state as initial_notifications_state,
-};
-pub use session::{
-    Dependencies as SessionDependencies, Session, SessionHandle,
-    initial_state as initial_session_state,
-};
+pub use notifications::{Notifications, NotificationsHandle, NotificationsState};
+pub use session::{Dependencies as SessionDependencies, Session, SessionHandle};
 pub use solar::{Solar, SolarDependencies, SolarHandle};
-pub use weather::{
-    Config as WeatherConfig, Weather, WeatherDependencies, WeatherHandle,
-    initial_state as initial_weather_state,
-};
+pub use weather::{Config as WeatherConfig, Weather, WeatherDependencies, WeatherHandle};
 
 pub use calendar::{CalendarEvent, CalendarEvents};
 pub use compositor::{

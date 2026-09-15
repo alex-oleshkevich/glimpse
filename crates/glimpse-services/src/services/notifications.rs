@@ -200,7 +200,7 @@ impl NotificationsHandle {
     }
 }
 
-pub fn initial_state() -> NotificationsState {
+fn initial_state() -> NotificationsState {
     NotificationsState::default()
 }
 
@@ -237,6 +237,11 @@ impl Service for Notifications {
 
     fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
         NotificationsHandle(endpoint)
+    }
+
+    fn initial_state(config: &Self::Config) -> Self::State {
+        let _ = config;
+        initial_state()
     }
 
     async fn start(
@@ -1270,23 +1275,16 @@ mod tests {
     ) {
         let cancel = CancellationToken::new();
         let (mut runtime, handle) = ServiceRuntime::<Notifications>::new(
-            initial_state(),
+            Config {
+                keep: 10,
+                suppress: Vec::new(),
+            },
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
         let state = handle.subscribe();
         let sender = runtime.sender();
-        let running = tokio::spawn(async move {
-            runtime
-                .run(
-                    Config {
-                        keep: 10,
-                        suppress: Vec::new(),
-                    },
-                    (),
-                )
-                .await
-        });
+        let running = tokio::spawn(async move { runtime.run(()).await });
         (handle, sender, state, cancel, running)
     }
 

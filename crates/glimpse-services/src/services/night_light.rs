@@ -63,7 +63,7 @@ impl NightLightState {
     }
 }
 
-pub fn initial_state(config: &Config) -> NightLightState {
+fn initial_state(config: &Config) -> NightLightState {
     NightLightState {
         schedule: config.schedule,
         overridden: false,
@@ -143,6 +143,10 @@ impl Service for NightLight {
 
     fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
         NightLightHandle(endpoint)
+    }
+
+    fn initial_state(config: &Self::Config) -> Self::State {
+        initial_state(config)
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
@@ -442,7 +446,7 @@ mod tests {
         let cancel = CancellationToken::new();
         let buses = Buses::unavailable("no bus in tests");
         let (solar_runtime, solar) =
-            ServiceRuntime::<Solar>::new(Solar::initial_state(), buses.clone(), cancel.clone());
+            ServiceRuntime::<Solar>::new(crate::NoConfig, buses.clone(), cancel.clone());
         drop(solar_runtime);
         let (health, health_rx) = watch::channel(ServiceState::Starting);
         let (published, state) = watch::channel(initial_state(&config));

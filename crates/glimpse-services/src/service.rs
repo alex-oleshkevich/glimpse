@@ -81,6 +81,8 @@ pub trait Service: Sized + Send + 'static {
 
     fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle;
 
+    fn initial_state(config: &Self::Config) -> Self::State;
+
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         Vec::new()
     }
@@ -178,12 +180,13 @@ pub struct ServiceRuntime<S: Service> {
     health: watch::Sender<ServiceState>,
     buses: Buses,
     cancel: CancellationToken,
+    config: S::Config,
 }
 
 impl<S: Service> ServiceRuntime<S> {
-    pub fn new(initial: S::State, buses: Buses, cancel: CancellationToken) -> (Self, S::Handle) {
+    pub fn new(config: S::Config, buses: Buses, cancel: CancellationToken) -> (Self, S::Handle) {
         let (inbox_sender, inbox) = mpsc::channel(INBOX_SIZE);
-        let (state, state_rx) = watch::channel(initial);
+        let (state, state_rx) = watch::channel(S::initial_state(&config));
         let (health, health_rx) = watch::channel(ServiceState::Starting);
         let handle = S::from_endpoint(ServiceEndpoint {
             state: state_rx,
@@ -198,6 +201,7 @@ impl<S: Service> ServiceRuntime<S> {
                 health,
                 buses,
                 cancel,
+                config,
             },
             handle,
         )
@@ -209,11 +213,8 @@ impl<S: Service> ServiceRuntime<S> {
         }
     }
 
-    pub async fn run(
-        &mut self,
-        config: S::Config,
-        dependencies: S::Dependencies,
-    ) -> Result<(), ServiceError> {
+    pub async fn run(&mut self, dependencies: S::Dependencies) -> Result<(), ServiceError> {
+        let config = self.config.clone();
         let ctx = Ctx::<S>::new(
             self.inbox_sender.clone(),
             &self.cancel,
@@ -369,6 +370,10 @@ mod tests {
             endpoint
         }
 
+        fn initial_state(config: &Self::Config) -> Self::State {
+            let _ = config;
+        }
+
         async fn start(
             _ctx: &Ctx<Self>,
             _config: Self::Config,
@@ -385,7 +390,7 @@ mod tests {
     #[tokio::test]
     async fn a_panicking_handler_stops_its_service() {
         let (mut runtime, handle) = ServiceRuntime::<Panicky>::new(
-            (),
+            NoConfig,
             Buses::unavailable("no bus in tests"),
             CancellationToken::new(),
         );
@@ -395,7 +400,7 @@ mod tests {
             .await
             .expect("queued");
         runtime
-            .run(NoConfig, ())
+            .run(())
             .await
             .expect("run returns rather than unwinding");
 
@@ -408,7 +413,7 @@ mod tests {
     #[tokio::test]
     async fn a_command_queued_behind_a_panicking_handler_is_settled_rather_than_left_waiting() {
         let (mut runtime, handle) = ServiceRuntime::<Panicky>::new(
-            (),
+            NoConfig,
             Buses::unavailable("no bus in tests"),
             CancellationToken::new(),
         );
@@ -421,7 +426,7 @@ mod tests {
         handle.command(reply).expect("queued");
 
         runtime
-            .run(NoConfig, ())
+            .run(())
             .await
             .expect("run returns rather than unwinding");
 
@@ -459,6 +464,11 @@ mod tests {
             endpoint
         }
 
+        fn initial_state(config: &Self::Config) -> Self::State {
+            let _ = config;
+            (0, 0)
+        }
+
         async fn start(
             _ctx: &Ctx<Self>,
             _config: Self::Config,
@@ -479,13 +489,13 @@ mod tests {
     async fn an_unchanged_configuration_never_reaches_the_handler() {
         let cancel = CancellationToken::new();
         let (mut runtime, handle) = ServiceRuntime::<Tunable>::new(
-            (0, 0),
+            Tuning(1),
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
         let sender = runtime.sender();
         let mut state = handle.subscribe();
-        let running = tokio::spawn(async move { runtime.run(Tuning(1), ()).await });
+        let running = tokio::spawn(async move { runtime.run(()).await });
 
         sender.reconfigure(Tuning(1));
         sender.reconfigure(Tuning(2));
@@ -522,6 +532,10 @@ mod tests {
             endpoint
         }
 
+        fn initial_state(config: &Self::Config) -> Self::State {
+            let _ = config;
+        }
+
         async fn start(
             _ctx: &Ctx<Self>,
             _config: Self::Config,
@@ -540,14 +554,14 @@ mod tests {
     #[tokio::test]
     async fn a_failed_start_settles_queued_command_replies() {
         let (mut runtime, handle) = ServiceRuntime::<RefusesToStart>::new(
-            (),
+            NoConfig,
             Buses::unavailable("no bus in tests"),
             CancellationToken::new(),
         );
         let (reply, answer) = tokio::sync::oneshot::channel();
         handle.command(reply).expect("queued");
 
-        assert!(runtime.run(NoConfig, ()).await.is_err());
+        assert!(runtime.run(()).await.is_err());
         assert!(answer.await.is_err());
     }
 
@@ -568,6 +582,11 @@ mod tests {
 
         fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
             endpoint
+        }
+
+        fn initial_state(config: &Self::Config) -> Self::State {
+            let _ = config;
+            0
         }
 
         fn subscriptions(&self) -> Vec<Sub<Self>> {
@@ -604,7 +623,7 @@ mod tests {
     async fn a_source_declared_by_a_handler_is_started_by_the_runtime() {
         let cancel = CancellationToken::new();
         let (mut runtime, handle) = ServiceRuntime::<Armable>::new(
-            0,
+            NoConfig,
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
@@ -614,7 +633,7 @@ mod tests {
             .await
             .expect("queued");
 
-        let running = tokio::spawn(async move { runtime.run(NoConfig, ()).await });
+        let running = tokio::spawn(async move { runtime.run(()).await });
         for _ in 0..8 {
             tokio::task::yield_now().await;
         }
@@ -644,6 +663,10 @@ mod tests {
             endpoint
         }
 
+        fn initial_state(config: &Self::Config) -> Self::State {
+            let _ = config;
+        }
+
         async fn start(
             ctx: &Ctx<Self>,
             _config: Self::Config,
@@ -662,12 +685,12 @@ mod tests {
     async fn a_service_without_a_bus_degrades_and_keeps_running() {
         let cancel = CancellationToken::new();
         let (mut runtime, handle) = ServiceRuntime::<NeedsTheBus>::new(
-            (),
+            NoConfig,
             Buses::unavailable("connect failed"),
             cancel.clone(),
         );
         let mut health = handle.health();
-        let running = tokio::spawn(async move { runtime.run(NoConfig, ()).await });
+        let running = tokio::spawn(async move { runtime.run(()).await });
 
         health.changed().await.expect("health changes");
         assert!(matches!(

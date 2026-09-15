@@ -13,11 +13,9 @@ binary that happens to be convenient.
 
 ## Why a crate with no code
 
-It lived on `glimpsed` until `glimpse-kyt0.8.9`, which was fine until `glimpsed` was scheduled for
-deletion — at which point the product's packaging was inside a crate about to be removed. Hosting it
-on the next binary instead only moves the same trap, and makes that binary's manifest carry a comment
-apologising for packaging the whole suite. A crate whose only job is packaging cannot be surprised by
-a binary being renamed, split or deleted.
+Hosting the suite's packaging on one of its binaries ties the product's manifest to a crate that may
+be renamed, split or deleted, and makes that binary's manifest carry a comment apologising for
+packaging everything else. A crate whose only job is packaging cannot be surprised by any of that.
 
 **The build is invoked as `cargo deb -p glimpse-package` and `cargo generate-rpm -p
 crates/glimpse-package`** — note the asymmetry, which is the tools' and not ours: cargo-deb takes a

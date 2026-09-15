@@ -255,9 +255,9 @@ which a test must not create on the user's session.
 wire, `when`, and `row`, which turns one `Occasion` into the `glimpse_widgets::Event` both popovers
 render — so a new field on that type is added in one place.
 
-The twelve-hour detection and the two clock formats used to live here and no longer do: they are
-`glimpse-config`'s `environment.rs`, reached as `glimpse_config::clock(twelve)`. An applet takes the
-`twelve` from `config.regional.twelve_hour()` in its own `configure`.
+Twelve-hour detection and the two clock formats live in `glimpse-config`'s `environment.rs`, reached
+as `glimpse_config::clock(twelve)`. An applet takes `twelve` from `config.regional.twelve_hour()` in
+its own `configure`.
 
 **`when` is a free function over `(now, day, event, clock)`** with one test per state, because an
 event's time is not a value but a *sentence about now* — `now · ends 10:00`, `in 12 min · 1 h`,
@@ -396,10 +396,9 @@ eight-place cap) is nothing the applet could act on, and the next tick retries.
 Rendering nothing is the deliberate answer for a place with no reading yet, and it must stay that
 way: `here` may legitimately never resolve, and a place that has simply not been fetched is missing
 for well under a tick. But a provider that holds the name, reports itself available and serves none
-of the place we asked for is a different thing, and the applet used to vanish from the bar for it —
-measured under `glimpse-kyt0.9.2` against a provider that never answered `WatchPlace`, where the
-chip disappeared while the renewal failed every five seconds. `note_unserved` runs on the tick
-rather than on the snapshot, which is what keeps the ordinary startup gap from flashing a warning.
+of the place we asked for is a different thing, and must not make the applet vanish from the bar.
+`note_unserved` runs on the tick rather than on the snapshot, which is what keeps the ordinary
+startup gap from flashing a warning.
 
 **Units come off the typed provider snapshot, never off the panel configuration.**
 `WeatherStatus.units` describes the numbers being rendered, so a units change cannot print °F over
@@ -556,17 +555,13 @@ keeps passing unchanged, which is why these functions needed no test edits.
 ## Losing the session bus kills the process, and nothing here can change that
 
 A panel whose session bus dies terminates with exit 143 (SIGTERM) and leaves **nothing at all** in
-the log. That is not this crate's doing and cannot be fixed here: an eight-line PyGObject
-`Gtk.Application` holding one window dies exactly the same way on the same private bus, measured
-under `glimpse-kyt0.9.3`. Every GTK application on the machine behaves like this.
+the log. That is not this crate's doing and cannot be fixed here — every GTK application on the
+machine behaves the same way.
 
-**Three things were measured before concluding that, because each is the obvious guess.** The
-`closed` signal on the connection `g_bus_get_sync` returns never fires — a handler connected to it
-is registered and is never called, so there is no point at which Rust code could log the reason.
-Calling `set_exit_on_close(false)` on that same connection changes nothing: the process still exits
-143, so whatever raises the signal is not that connection's `exit_on_close`. And GLib prints no
-message of its own on the way out, so the silence is not ours to break either. Do not re-derive
-this: the answer is that the process is gone before anything in `run` could speak.
+Do not re-derive this; all three obvious guesses were checked. The `closed` signal on the connection
+`g_bus_get_sync` returns never fires, so there is no point at which Rust code could log the reason.
+`set_exit_on_close(false)` on that connection changes nothing. GLib prints no message of its own on
+the way out. The process is gone before anything in `run` could speak.
 
 **`Restart=on-failure` deliberately does not cover it.** systemd's `on-failure` excludes SIGTERM, so
 the unit does not come back — which is right in both cases that reach it: a session bus that died is

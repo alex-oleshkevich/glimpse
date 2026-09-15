@@ -79,11 +79,7 @@ impl HeartbeatHandle {
     }
 }
 
-impl Heartbeat {
-    pub fn initial_state() -> HeartbeatTick {
-        HeartbeatTick { count: 0 }
-    }
-}
+impl Heartbeat {}
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Tick {
@@ -103,6 +99,11 @@ impl Service for Heartbeat {
 
     fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
         HeartbeatHandle(endpoint)
+    }
+
+    fn initial_state(config: &Self::Config) -> Self::State {
+        let _ = config;
+        HeartbeatTick { count: 0 }
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
@@ -176,12 +177,12 @@ mod tests {
     ) {
         let cancel = CancellationToken::new();
         let (mut runtime, handle) = ServiceRuntime::<Heartbeat>::new(
-            Heartbeat::initial_state(),
+            NoConfig,
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
         let task = tokio::spawn(async move {
-            let _ = runtime.run(NoConfig, ()).await;
+            let _ = runtime.run(()).await;
         });
         (handle, cancel, task)
     }

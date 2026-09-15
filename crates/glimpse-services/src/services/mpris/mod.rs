@@ -311,7 +311,7 @@ impl MprisHandle {
     }
 }
 
-pub fn initial_state() -> MprisPlayers {
+fn initial_state() -> MprisPlayers {
     MprisPlayers {
         players: Vec::new(),
     }
@@ -330,6 +330,11 @@ impl Service for Mpris {
 
     fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
         MprisHandle(endpoint)
+    }
+
+    fn initial_state(config: &Self::Config) -> Self::State {
+        let _ = config;
+        initial_state()
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {

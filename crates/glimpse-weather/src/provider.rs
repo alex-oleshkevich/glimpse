@@ -168,9 +168,7 @@ mod tests {
 
     use super::*;
     use glimpse_dbus::{Buses, weather::Weather1Proxy};
-    use glimpse_services::{
-        Geolocation, Service, ServiceRuntime, Weather, WeatherDependencies, initial_weather_state,
-    };
+    use glimpse_services::{Geolocation, Service, ServiceRuntime, Weather, WeatherDependencies};
     use tokio_util::sync::CancellationToken;
 
     #[test]
@@ -196,9 +194,8 @@ mod tests {
 
     #[test]
     fn a_snapshot_prefers_the_health_reason_over_the_empty_reading_one() {
-        let config = <Weather as Service>::Config::from(&glimpse_config::Config::default());
         let (_runtime, weather) = ServiceRuntime::<Weather>::new(
-            initial_weather_state(&config),
+            <Weather as Service>::Config::from(&glimpse_config::Config::default()),
             Buses::unavailable("no bus in tests"),
             CancellationToken::new(),
         );
@@ -262,32 +259,21 @@ mod tests {
         let cancel = CancellationToken::new();
         let buses = Buses::unavailable("no backend bus in test");
         let (mut location_runtime, location) = ServiceRuntime::<Geolocation>::new(
-            Geolocation::initial_state(),
+            <Geolocation as Service>::Config::from(&glimpse_config::Config::default()),
             buses.clone(),
             cancel.child_token(),
         );
-        let location_task = tokio::spawn(async move {
-            location_runtime
-                .run(
-                    <Geolocation as Service>::Config::from(&glimpse_config::Config::default()),
-                    (),
-                )
-                .await
-        });
-        let config = <Weather as Service>::Config::from(&glimpse_config::Config::default());
+        let location_task = tokio::spawn(async move { location_runtime.run(()).await });
         let (mut weather_runtime, weather) = ServiceRuntime::<Weather>::new(
-            initial_weather_state(&config),
+            <Weather as Service>::Config::from(&glimpse_config::Config::default()),
             buses,
             cancel.child_token(),
         );
         let weather_task = tokio::spawn(async move {
             weather_runtime
-                .run(
-                    config,
-                    WeatherDependencies {
-                        geolocation: location,
-                    },
-                )
+                .run(WeatherDependencies {
+                    geolocation: location,
+                })
                 .await
         });
         let provider = start(bus.connection().await, weather.clone())

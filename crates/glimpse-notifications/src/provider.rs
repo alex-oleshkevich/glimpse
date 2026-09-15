@@ -220,7 +220,7 @@ mod tests {
     use chrono::{TimeZone, Utc};
     use glimpse_dbus::notifications::NotificationAction;
     use glimpse_dbus::{Buses, notifications::Notifications1Proxy};
-    use glimpse_services::{Notifications, Service, ServiceRuntime, initial_notifications_state};
+    use glimpse_services::{Notifications, Service, ServiceRuntime};
     use tokio_util::sync::CancellationToken;
 
     use super::*;
@@ -228,7 +228,7 @@ mod tests {
     #[test]
     fn a_snapshot_says_the_service_is_not_serving_and_why() {
         let (_runtime, notifications) = ServiceRuntime::<Notifications>::new(
-            initial_notifications_state(),
+            <Notifications as Service>::Config::from(&glimpse_config::Config::default()),
             Buses::unavailable("no bus in tests"),
             CancellationToken::new(),
         );
@@ -286,18 +286,11 @@ mod tests {
         let bus = PrivateBus::start();
         let cancel = CancellationToken::new();
         let (mut service, notifications) = ServiceRuntime::<Notifications>::new(
-            initial_notifications_state(),
+            <Notifications as Service>::Config::from(&glimpse_config::Config::default()),
             Buses::unavailable("no backend bus in test"),
             cancel.clone(),
         );
-        let service_task = tokio::spawn(async move {
-            service
-                .run(
-                    <Notifications as Service>::Config::from(&glimpse_config::Config::default()),
-                    (),
-                )
-                .await
-        });
+        let service_task = tokio::spawn(async move { service.run(()).await });
         let provider = start(bus.connection().await, notifications.clone())
             .await
             .unwrap();

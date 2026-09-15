@@ -104,11 +104,7 @@ impl GeolocationHandle {
     }
 }
 
-impl Geolocation {
-    pub fn initial_state() -> GeolocationStatus {
-        GeolocationStatus { coordinates: None }
-    }
-}
+impl Geolocation {}
 
 /// `attempt` carries nothing but its own difference: `geolocation.refresh` has no parameter to
 /// change, and a key that does not move would leave the watch running untouched.
@@ -130,6 +126,11 @@ impl Service for Geolocation {
 
     fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
         GeolocationHandle(endpoint)
+    }
+
+    fn initial_state(config: &Self::Config) -> Self::State {
+        let _ = config;
+        GeolocationStatus { coordinates: None }
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
@@ -386,7 +387,9 @@ mod tests {
     async fn a_geoclue_event_arriving_after_a_switch_to_manual_is_ignored() {
         let cancel = CancellationToken::new();
         let (mut runtime, handle) = ServiceRuntime::<Geolocation>::new(
-            Geolocation::initial_state(),
+            Config {
+                provider: Provider::Geoclue,
+            },
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
@@ -405,14 +408,7 @@ mod tests {
             .expect("queued");
 
         let running = tokio::spawn(async move {
-            let _ = runtime
-                .run(
-                    Config {
-                        provider: Provider::Geoclue,
-                    },
-                    (),
-                )
-                .await;
+            let _ = runtime.run(()).await;
         });
         for _ in 0..8 {
             tokio::task::yield_now().await;

@@ -641,6 +641,28 @@ costs more than the document saved.
 - Remove instructions that stop being true rather than adding a caveat beside them. Two rules on the
   same topic produce worse behaviour than one.
 
+**A README states rules, not history. It must not grow every time something changes.**
+
+This is the rule that keeps being broken, and a README that records every change stops being read —
+which costs exactly what a stale one costs. Write the rule that is true now, in the present tense,
+and delete the one it replaces. Specifically, none of this belongs in a README:
+
+- **What the code used to do.** "It held the raw snapshot until `kyt0.9.8`", "three copies ran until
+  September 2026", "was deleted rather than wired". The reader needs the rule, not its ancestry. Git
+  and the bead already hold the history, and they hold it better.
+- **Bead numbers as evidence.** "Verified live in `glimpse-kyt0.9.2`" tells the next reader nothing
+  they can act on. If the finding matters, state the finding.
+- **What you tested, or chose not to test.** Test names and coverage arguments belong on the bead.
+- **A story where a clause would do.** One measured consequence earns its place — "reusing the icon
+  cap truncated a legitimate path into one that opens nothing". The narrative around it does not.
+
+Keep: what the thing is, the rule, and the one consequence that explains why the rule exists.
+Prefer cutting a paragraph to adding one. When a change makes a README longer, the question to ask
+is which existing paragraph it replaces — a rewrite that only ever appends is a symptom, not an
+update. `AGENTS.md`'s own **Known state** section is where a genuinely measured fact goes when it
+would otherwise invite rework, and it says what was counted and when precisely because a README
+should not.
+
 ## Other rules
 
 - spawn desktop windows on `glimpse` niri workspace, do not steal focus

@@ -5,7 +5,7 @@ use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_services::{
     Geolocation, Service, ServiceRuntime, ServiceSender, Weather, WeatherDependencies,
-    WeatherHandle, initial_weather_state,
+    WeatherHandle,
 };
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -45,27 +45,21 @@ impl WeatherServices {
     fn start_with_buses(document: &Config, buses: Buses) -> Self {
         let location_cancel = CancellationToken::new();
         let (location_runtime, location) = ServiceRuntime::<Geolocation>::new(
-            Geolocation::initial_state(),
+            <Geolocation as Service>::Config::from(document),
             buses.clone(),
             location_cancel.clone(),
         );
         let location_sender = location_runtime.sender();
-        let location_task = spawn_service(
-            <Geolocation as Service>::Config::from(document),
-            location_runtime,
-            (),
-        );
+        let location_task = spawn_service(location_runtime, ());
 
         let weather_cancel = CancellationToken::new();
-        let weather_config = <Weather as Service>::Config::from(document);
         let (weather_runtime, weather) = ServiceRuntime::<Weather>::new(
-            initial_weather_state(&weather_config),
+            <Weather as Service>::Config::from(document),
             buses,
             weather_cancel.clone(),
         );
         let weather_sender = weather_runtime.sender();
         let weather_task = spawn_service(
-            weather_config,
             weather_runtime,
             WeatherDependencies {
                 geolocation: location,
@@ -131,13 +125,12 @@ impl fmt::Debug for WeatherServices {
 }
 
 fn spawn_service<S: Service>(
-    config: S::Config,
     mut runtime: ServiceRuntime<S>,
     dependencies: S::Dependencies,
 ) -> JoinHandle<()> {
     tokio::spawn(async move {
         tracing::debug!(service = S::NAME, "service task starting");
-        if let Err(error) = runtime.run(config, dependencies).await {
+        if let Err(error) = runtime.run(dependencies).await {
             tracing::error!(service = S::NAME, %error, "service stopped");
         } else {
             tracing::debug!(service = S::NAME, "service task stopped");

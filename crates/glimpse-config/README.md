@@ -370,7 +370,7 @@ as `user_dir()`: one answer, in the crate that owns the question.
 
 It also holds the two patterns a resolved answer selects, reached through `clock(twelve_hour)`
 rather than by naming either directly. **`TWELVE` is `%-I:%M %p`, not `%l:%M %p`** — `%l` is
-space-padded, so every twelve-hour time used to carry a leading space into the middle of a sentence.
+space-padded, and carries a leading space into the middle of a sentence.
 `TWENTY_FOUR` is exported because two panel test modules pin rendering against it; `TWELVE` is not,
 because `clock()` is the only way to reach it.
 
@@ -430,8 +430,7 @@ the exact failure this design exists to remove. An empty struct variant refuses 
 
 Resolving is not the same as being implemented. A name that resolves to an applet no binary builds
 is an ordinary state, not a bad document, and the panel says so at `debug` rather than `warn` —
-which is why `a_name_the_panel_implements_resolves_to_a_builder`, in `glimpse-panel`, guards it, and
-why `__dynamic__` was deleted rather than kept as a reserved name.
+and `glimpse-panel` guards that. No name is reserved for "some applet, later".
 
 ## Not here
 
@@ -447,8 +446,8 @@ run.
 
 `Schedule::as_str` and `Schedule::parse` are the one spelling table for `[night-light] schedule`,
 and they live here because a mode named on a command line and a mode written in the document are
-the same vocabulary. The table had grown three more copies — in `glimpse-sunset`'s provider and in
-`glimpsectl` — before it was pulled back. A test pins each spelling to what serde actually reads,
+the same vocabulary; a provider or CLI that spells them again has made a second answer. A test pins
+each spelling to what serde actually reads,
 since the table and the `kebab-case` rename are written independently. `manual` stays a
 document-only alias: nothing prints it, so accepting it from a caller would add a spelling with no
 way back out.

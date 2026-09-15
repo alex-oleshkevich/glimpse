@@ -19,9 +19,8 @@ service is actually running on and skips an `Input::Config` equal to it — no h
 `subscriptions()` rebuild, no `Live::reconcile` diff. So `S::Config: PartialEq` buys what
 `.claude/rules/daemon.md` says it buys, in every binary rather than in one of them. Every
 process reloads the whole document and hands each service its own slice, so without the gate a
-service whose table had not moved still woke — and two services had already grown their own
-comparisons to undo that: the night light to protect its mode override, `notifications` through
-`Store::reconfigure` returning `bool`.
+service whose table had not moved still wakes — and a service that then grows its own comparison to
+undo that has put the same decision in two places.
 
 **The gate belongs on the consumer side, and that is not a detail.** Putting it on `ServiceSender`
 looks equivalent and is not: senders are cloned and handed out *before* `run` is spawned, so the
@@ -83,10 +82,6 @@ instant. A deadline already in the past is due immediately. Tearing a timer down
 event it has already emitted, so the event carries its own deadline and the handler ignores one that
 no longer matches `until` — otherwise a lapse in flight could cancel the window that replaced it.
 
-`until` was carried on the wire and stored and never acted on, so do not disturb set with an expiry
-silenced notifications for good; `glimpsectl` withheld its `--until` flag rather than promise a lapse
-the store could not deliver.
-
 ## The night light's cadence
 
 The tick is a declared source whose period is **in its own subscription key**, so the service asks to
@@ -99,9 +94,9 @@ One tick a minute is correct and looks wrong. The value is right at every instan
 15-minute transition over the default 6500→4200 span then moves in fifteen steps of about 150 K, and
 a step that size reads as a staircase rather than a fade. Ten seconds puts it near 25 K, below what
 the eye resolves, for about 180 extra wakeups a day confined to the two transition windows — the
-degraded path already probes once a minute all day for less. `a_ramp_step_is_smaller_than_the_eye_resolves`
-is the test that keeps the two constants honest about each other. Those are gamma *applies*, not bare
-wakeups: each one builds a ramp table and makes a blocking compositor roundtrip per output.
+degraded path already probes once a minute all day for less. Those are gamma *applies*, not bare
+wakeups: each one builds a ramp table and makes a blocking compositor roundtrip per output, so the
+two constants are pinned against each other by a test.
 
 A `transition-minutes` of zero never asks for the faster tick: there is no ramp to draw, and the
 temperature steps at the boundary.
@@ -509,21 +504,21 @@ A service's health is `Starting`, `Running`, `Degraded { reason }` or `Stopped {
 **`Degraded` is a running service** — it keeps publishing what it can, so its values are current and
 a consumer must not dim them. That a producer has stopped altogether reaches a consumer as
 `Sub::watch`'s closed-producer event rather than as a predicate over health: the event arrives once,
-at the moment it becomes true, where a flag has to be remembered and re-read. A flag-shaped answer
-to this question sat unused in `ServiceState` until September 2026 and was deleted rather than
-wired, because wiring it would have given consumers a second, lagging source of the same fact.
+at the moment it becomes true, where a flag has to be remembered and re-read. Do not add a
+flag-shaped answer to the same question — it gives consumers a second, lagging source of one fact.
+
+**A service says what state it starts in; nobody else gets to.**
+`Service::initial_state(&Self::Config)` is required, and `ServiceRuntime::new` takes the config
+rather than the state; `run` then takes only the dependencies. The ordering is why the config moves
+up rather than the state moving down: `new` builds the handle, and a handle answers `snapshot()`
+before `run` is called, so a deferred state would leak an `Option` into every consumer.
 
 **`ServiceState::unavailable_reason` is the one mapping from health to what a consumer is told.** It
-answers `None` while the service is serving and otherwise why it is not. Each of the three providers
-used to carry its own: sunset's and notifications' were byte-identical `availability` functions, and
-weather's was a third shape inlined in its `snapshot`, answering `Option<&str>` and folding in its
-own "no successful reading yet" case. One decision in three spellings is three places to forget when
-`ServiceState` gains a variant — and the match is total, so a new variant should make every provider
-fail to compile until it has decided what to say. It is not the flag deleted above returning by
-another route: that one was remembered state that lagged, this is computed from current health at
-the moment a snapshot is built. The strings it returns are read by consumers over D-Bus, so
-`"starting"` and `"stopped"` are contract rather than log text; weather layers its own case on top
-with `.or(...)`, which keeps the health reason winning when both apply.
+answers `None` while the service is serving and otherwise why it is not. The match is total, so a
+new `ServiceState` variant makes every provider fail to compile until it decides what to say. The
+strings are read over D-Bus, so `"starting"` and `"stopped"` are contract rather than log text; a
+provider with a case of its own layers it with `.or(...)`, which keeps the health reason winning
+when both apply.
 
 Everything reaching a handler arrives from a **source**, and every source is one `ctx` call
 returning a `SourceGuard`. Dropping the guard is the whole cancellation story.

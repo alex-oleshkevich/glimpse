@@ -182,7 +182,7 @@ pub struct WeatherDependencies {
     pub geolocation: GeolocationHandle,
 }
 
-pub fn initial_state(config: &Config) -> WeatherStatus {
+fn initial_state(config: &Config) -> WeatherStatus {
     WeatherStatus {
         units: config.units,
         places: Vec::new(),
@@ -279,6 +279,10 @@ impl Service for Weather {
 
     fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
         WeatherHandle(endpoint)
+    }
+
+    fn initial_state(config: &Self::Config) -> Self::State {
+        initial_state(config)
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
@@ -768,7 +772,7 @@ mod tests {
         let (events, inbox) = mpsc::channel(32);
         let cancel = CancellationToken::new();
         let (location_runtime, location) = ServiceRuntime::<Geolocation>::new(
-            Geolocation::initial_state(),
+            <Geolocation as Service>::Config::from(&glimpse_config::Config::default()),
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );

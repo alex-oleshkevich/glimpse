@@ -6,11 +6,10 @@ use glimpse_dbus::{
     notifications::{NotificationsProvider, NotificationsProviderHandle},
     weather::{WeatherProvider, WeatherProviderHandle},
 };
-use glimpse_services::KeyboardLayouts;
 use glimpse_services::{
     Calendar, CalendarHandle, Compositor, CompositorHandle, Heartbeat, HeartbeatHandle, Keyboard,
     KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Service, ServiceRuntime,
-    ServiceSender, initial_calendar_state, initial_compositor_state, initial_mpris_state,
+    ServiceSender,
 };
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -58,25 +57,21 @@ impl PanelServices {
         };
         let compositor_cancel = CancellationToken::new();
         let (compositor_runtime, compositor) = ServiceRuntime::<Compositor>::new(
-            initial_compositor_state(),
+            <Compositor as Service>::Config::from(document),
             buses.clone(),
             compositor_cancel.clone(),
         );
         let compositor_sender = compositor_runtime.sender();
-        let compositor_task = spawn_service(document, compositor_runtime, ());
+        let compositor_task = spawn_service(compositor_runtime, ());
 
         let keyboard_cancel = CancellationToken::new();
         let (keyboard_runtime, keyboard) = ServiceRuntime::<Keyboard>::new(
-            KeyboardLayouts {
-                layouts: Vec::new(),
-                current: None,
-            },
+            <Keyboard as Service>::Config::from(document),
             buses.clone(),
             keyboard_cancel.clone(),
         );
         let keyboard_sender = keyboard_runtime.sender();
         let keyboard_task = spawn_service(
-            document,
             keyboard_runtime,
             KeyboardDependencies {
                 compositor: compositor.clone(),
@@ -84,30 +79,30 @@ impl PanelServices {
         );
         let calendar_cancel = CancellationToken::new();
         let (calendar_runtime, calendar) = ServiceRuntime::<Calendar>::new(
-            initial_calendar_state(),
+            <Calendar as Service>::Config::from(document),
             buses.clone(),
             calendar_cancel.clone(),
         );
         let calendar_sender = calendar_runtime.sender();
-        let calendar_task = spawn_service(document, calendar_runtime, ());
+        let calendar_task = spawn_service(calendar_runtime, ());
 
         let mpris_cancel = CancellationToken::new();
         let (mpris_runtime, mpris) = ServiceRuntime::<Mpris>::new(
-            initial_mpris_state(),
+            <Mpris as Service>::Config::from(document),
             buses.clone(),
             mpris_cancel.clone(),
         );
         let mpris_sender = mpris_runtime.sender();
-        let mpris_task = spawn_service(document, mpris_runtime, ());
+        let mpris_task = spawn_service(mpris_runtime, ());
 
         let heartbeat_cancel = CancellationToken::new();
         let (heartbeat_runtime, heartbeat) = ServiceRuntime::<Heartbeat>::new(
-            Heartbeat::initial_state(),
+            <Heartbeat as Service>::Config::from(document),
             buses,
             heartbeat_cancel.clone(),
         );
         let heartbeat_sender = heartbeat_runtime.sender();
-        let heartbeat_task = spawn_service(document, heartbeat_runtime, ());
+        let heartbeat_task = spawn_service(heartbeat_runtime, ());
 
         Self {
             compositor,
@@ -210,13 +205,11 @@ impl fmt::Debug for PanelServices {
 }
 
 fn spawn_service<S: Service>(
-    document: &Config,
     mut runtime: ServiceRuntime<S>,
     dependencies: S::Dependencies,
 ) -> JoinHandle<()> {
-    let config = S::Config::from(document);
     tokio::spawn(async move {
-        if let Err(error) = runtime.run(config, dependencies).await {
+        if let Err(error) = runtime.run(dependencies).await {
             tracing::error!(service = S::NAME, %error, "service stopped");
         }
     })

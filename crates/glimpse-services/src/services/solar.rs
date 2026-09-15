@@ -77,11 +77,7 @@ impl SolarHandle {
     }
 }
 
-impl Solar {
-    pub fn initial_state() -> Option<SolarStatus> {
-        None
-    }
-}
+impl Solar {}
 
 #[derive(PartialEq, Eq, Hash)]
 pub enum Watch {
@@ -102,6 +98,11 @@ impl Service for Solar {
 
     fn from_endpoint(endpoint: ServiceEndpoint<Self>) -> Self::Handle {
         SolarHandle(endpoint)
+    }
+
+    fn initial_state(config: &Self::Config) -> Self::State {
+        let _ = config;
+        None
     }
 
     /// The tick re-evaluates a phase that only a location can produce, so without one it would wake
@@ -352,22 +353,21 @@ mod tests {
     async fn located(coordinates: Option<GeoCoordinates>) -> (Option<SolarStatus>, ServiceState) {
         let cancel = CancellationToken::new();
         let (mut location_runtime, location) = ServiceRuntime::<Geolocation>::new(
-            Geolocation::initial_state(),
+            Config {
+                provider: Provider::Manual(coordinates),
+            },
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
-        let location_config = Config {
-            provider: Provider::Manual(coordinates),
-        };
         let location_task = tokio::spawn(async move {
-            let _ = location_runtime.run(location_config, ()).await;
+            let _ = location_runtime.run(()).await;
         });
         for _ in 0..8 {
             tokio::task::yield_now().await;
         }
 
         let (mut runtime, handle) = ServiceRuntime::<Solar>::new(
-            Solar::initial_state(),
+            NoConfig,
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
@@ -375,12 +375,9 @@ mod tests {
 
         let running = tokio::spawn(async move {
             let _ = runtime
-                .run(
-                    NoConfig,
-                    SolarDependencies {
-                        geolocation: location,
-                    },
-                )
+                .run(SolarDependencies {
+                    geolocation: location,
+                })
                 .await;
         });
         for _ in 0..8 {
@@ -420,13 +417,13 @@ mod tests {
     async fn losing_the_location_invalidates_the_phase() {
         let cancel = CancellationToken::new();
         let (location_runtime, location) = ServiceRuntime::<Geolocation>::new(
-            Geolocation::initial_state(),
+            <Geolocation as Service>::Config::from(&glimpse_config::Config::default()),
             Buses::unavailable("no bus in tests"),
             cancel.clone(),
         );
         drop(location_runtime);
         let (events, _inbox) = tokio::sync::mpsc::channel(4);
-        let (state, state_rx) = tokio::sync::watch::channel(Solar::initial_state());
+        let (state, state_rx) = tokio::sync::watch::channel(Solar::initial_state(&NoConfig));
         let (health, _health_rx) = tokio::sync::watch::channel(ServiceState::Starting);
         let ctx = Ctx::<Solar>::new(
             events,

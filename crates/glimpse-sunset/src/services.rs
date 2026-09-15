@@ -3,7 +3,7 @@ use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_services::{
     Geolocation, NightLight, NightLightConfig, NightLightDependencies, Service, ServiceRuntime,
-    ServiceSender, Solar, SolarDependencies, initial_night_light_state,
+    ServiceSender, Solar, SolarDependencies,
 };
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -38,18 +38,17 @@ impl SunsetServices {
 
         let cancel = CancellationToken::new();
         let (location_runtime, location) = ServiceRuntime::<Geolocation>::new(
-            Geolocation::initial_state(),
+            <Geolocation as Service>::Config::from(document),
             buses.clone(),
             cancel.child_token(),
         );
         let (solar_runtime, solar) = ServiceRuntime::<Solar>::new(
-            Solar::initial_state(),
+            <Solar as Service>::Config::from(document),
             buses.clone(),
             cancel.child_token(),
         );
-        let config = NightLightConfig::from(document);
         let (night_runtime, night_light) = ServiceRuntime::<NightLight>::new(
-            initial_night_light_state(&config),
+            NightLightConfig::from(document),
             buses,
             cancel.child_token(),
         );
@@ -67,20 +66,14 @@ impl SunsetServices {
         let location_sender = location_runtime.sender();
         let night_sender = night_runtime.sender();
         let started = vec![
+            spawn(location_runtime, ()),
             spawn(
-                <Geolocation as Service>::Config::from(document),
-                location_runtime,
-                (),
-            ),
-            spawn(
-                <Solar as Service>::Config::from(document),
                 solar_runtime,
                 SolarDependencies {
                     geolocation: location,
                 },
             ),
             spawn(
-                config,
                 night_runtime,
                 NightLightDependencies {
                     solar,
@@ -133,12 +126,11 @@ impl Drop for SunsetServices {
 }
 
 fn spawn<S: Service>(
-    config: S::Config,
     mut runtime: ServiceRuntime<S>,
     dependencies: S::Dependencies,
 ) -> (&'static str, JoinHandle<()>) {
     let task = tokio::spawn(async move {
-        if let Err(error) = runtime.run(config, dependencies).await {
+        if let Err(error) = runtime.run(dependencies).await {
             tracing::error!(service = S::NAME, %error, "service stopped");
         }
     });

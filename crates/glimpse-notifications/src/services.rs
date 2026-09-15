@@ -4,8 +4,7 @@ use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_services::{
     Compositor, CompositorHandle, Notifications, NotificationsHandle, Service, ServiceRuntime,
-    ServiceSender, Session, SessionDependencies, SessionHandle, initial_compositor_state,
-    initial_notifications_state, initial_session_state,
+    ServiceSender, Session, SessionDependencies, SessionHandle,
 };
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -45,22 +44,21 @@ impl NotificationServices {
     fn start_with_buses(document: &Config, buses: Buses) -> Self {
         let compositor_cancel = CancellationToken::new();
         let (compositor_runtime, compositor) = ServiceRuntime::<Compositor>::new(
-            initial_compositor_state(),
+            <Compositor as Service>::Config::from(document),
             buses.clone(),
             compositor_cancel.clone(),
         );
         let compositor_sender = compositor_runtime.sender();
-        let compositor_task = spawn_service(document, compositor_runtime, ());
+        let compositor_task = spawn_service(compositor_runtime, ());
 
         let session_cancel = CancellationToken::new();
         let (session_runtime, session) = ServiceRuntime::<Session>::new(
-            initial_session_state(),
+            <Session as Service>::Config::from(document),
             buses.clone(),
             session_cancel.clone(),
         );
         let session_sender = session_runtime.sender();
         let session_task = spawn_service(
-            document,
             session_runtime,
             SessionDependencies {
                 compositor: compositor.clone(),
@@ -69,12 +67,12 @@ impl NotificationServices {
 
         let notifications_cancel = CancellationToken::new();
         let (notifications_runtime, notifications) = ServiceRuntime::<Notifications>::new(
-            initial_notifications_state(),
+            <Notifications as Service>::Config::from(document),
             buses,
             notifications_cancel.clone(),
         );
         let notifications_sender = notifications_runtime.sender();
-        let notifications_task = spawn_service(document, notifications_runtime, ());
+        let notifications_task = spawn_service(notifications_runtime, ());
 
         Self {
             notifications,
@@ -146,13 +144,11 @@ impl fmt::Debug for NotificationServices {
 }
 
 fn spawn_service<S: Service>(
-    document: &Config,
     mut runtime: ServiceRuntime<S>,
     dependencies: S::Dependencies,
 ) -> JoinHandle<()> {
-    let config = S::Config::from(document);
     tokio::spawn(async move {
-        if let Err(error) = runtime.run(config, dependencies).await {
+        if let Err(error) = runtime.run(dependencies).await {
             tracing::error!(service = S::NAME, %error, "service stopped");
         }
     })

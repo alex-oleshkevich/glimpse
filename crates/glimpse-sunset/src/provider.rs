@@ -111,7 +111,7 @@ mod tests {
     use glimpse_dbus::{Buses, night_light::NightLight1Proxy};
     use glimpse_services::{
         FakeGamma, NightLight, NightLightConfig, NightLightDependencies, Service, ServiceRuntime,
-        Solar, initial_night_light_state,
+        Solar,
     };
     use tokio_util::sync::CancellationToken;
     use zbus::proxy::CacheProperties;
@@ -136,9 +136,8 @@ mod tests {
 
     #[test]
     fn a_snapshot_says_the_service_is_not_serving_and_why() {
-        let config = NightLightConfig::from(&glimpse_config::Config::default());
         let (_runtime, night_light) = ServiceRuntime::<NightLight>::new(
-            initial_night_light_state(&config),
+            NightLightConfig::from(&glimpse_config::Config::default()),
             Buses::unavailable("no bus in tests"),
             CancellationToken::new(),
         );
@@ -157,9 +156,8 @@ mod tests {
             .await
             .expect("the first owner takes the name");
 
-        let config = NightLightConfig::from(&glimpse_config::Config::default());
         let (_runtime, night_light) = ServiceRuntime::<NightLight>::new(
-            initial_night_light_state(&config),
+            NightLightConfig::from(&glimpse_config::Config::default()),
             Buses::unavailable("no bus in tests"),
             CancellationToken::new(),
         );
@@ -232,45 +230,40 @@ mod tests {
         let cancel = CancellationToken::new();
         let buses = Buses::unavailable("no backend bus in test");
         let (mut solar_runtime, solar) = ServiceRuntime::<Solar>::new(
-            Solar::initial_state(),
+            <Solar as Service>::Config::from(&glimpse_config::Config::default()),
             buses.clone(),
             cancel.child_token(),
         );
         let solar_task = tokio::spawn(async move {
             solar_runtime
-                .run(
-                    <Solar as Service>::Config::from(&glimpse_config::Config::default()),
-                    glimpse_services::SolarDependencies {
-                        geolocation: {
-                            let (runtime, handle) =
-                                ServiceRuntime::<glimpse_services::Geolocation>::new(
-                                    glimpse_services::Geolocation::initial_state(),
-                                    Buses::unavailable("no backend bus in test"),
-                                    CancellationToken::new(),
-                                );
-                            drop(runtime);
-                            handle
-                        },
+                .run(glimpse_services::SolarDependencies {
+                    geolocation: {
+                        let (runtime, handle) =
+                            ServiceRuntime::<glimpse_services::Geolocation>::new(
+                                <glimpse_services::Geolocation as Service>::Config::from(
+                                    &glimpse_config::Config::default(),
+                                ),
+                                Buses::unavailable("no backend bus in test"),
+                                CancellationToken::new(),
+                            );
+                        drop(runtime);
+                        handle
                     },
-                )
+                })
                 .await
         });
 
-        let config = NightLightConfig::from(&glimpse_config::Config::default());
         let (mut night_runtime, night_light) = ServiceRuntime::<NightLight>::new(
-            initial_night_light_state(&config),
+            NightLightConfig::from(&glimpse_config::Config::default()),
             buses,
             cancel.child_token(),
         );
         let night_task = tokio::spawn(async move {
             night_runtime
-                .run(
-                    config,
-                    NightLightDependencies {
-                        solar,
-                        gamma: Box::new(FakeGamma::default()),
-                    },
-                )
+                .run(NightLightDependencies {
+                    solar,
+                    gamma: Box::new(FakeGamma::default()),
+                })
                 .await
         });
 
