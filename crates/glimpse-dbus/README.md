@@ -40,9 +40,12 @@ before any name is requested.
 
 **`Exported` puts the object up before it asks for the name.** A `Get` arriving between the two
 would otherwise find the name with nothing behind it, which is also why a refused name must take
-the object back down again. It owns the whole lifecycle: export, `own_name`, spawn the
-snapshot-signal task, then abort, release and remove on shutdown. It takes the change-following
-future as an argument because what counts as a change genuinely differs per provider.
+the object back down again. It owns the whole lifecycle: export, `own_name`, re-emit `snapshot`
+whenever the service's state or health moves, then release and remove on shutdown.
+
+**A provider supplies two `watch::Receiver`s and a three-line `Snapshot` impl, not a follow loop.**
+`Exported::serve` runs the loop and never interprets what it is watching, so this crate still does
+not depend on `glimpse-services`. The receivers are what a `ServiceHandle` already hands out.
 
 **Backend proxies carry no policy.** System-service modules only declare interfaces. A typed client
 for a Glimpse-owned provider may additionally own its availability state and `NameOwnerChanged`

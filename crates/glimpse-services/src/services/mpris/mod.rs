@@ -102,7 +102,7 @@ pub enum PlayerAction {
     Raise,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct MprisPlayers {
     pub players: Vec<PlayerStatus>,
 }
@@ -311,12 +311,6 @@ impl MprisHandle {
     }
 }
 
-fn initial_state() -> MprisPlayers {
-    MprisPlayers {
-        players: Vec::new(),
-    }
-}
-
 impl Service for Mpris {
     const NAME: &'static str = "mpris";
 
@@ -332,9 +326,8 @@ impl Service for Mpris {
         MprisHandle(endpoint)
     }
 
-    fn initial_state(config: &Self::Config) -> Self::State {
-        let _ = config;
-        initial_state()
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {

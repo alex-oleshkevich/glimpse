@@ -33,7 +33,7 @@ pub struct KeyboardLayout {
     pub name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct KeyboardLayouts {
     pub layouts: Vec<KeyboardLayout>,
     pub current: Option<u8>,
@@ -139,12 +139,8 @@ impl Service for Keyboard {
         KeyboardHandle(endpoint)
     }
 
-    fn initial_state(config: &Self::Config) -> Self::State {
-        let _ = config;
-        KeyboardLayouts {
-            layouts: Vec::new(),
-            current: None,
-        }
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {

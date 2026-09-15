@@ -242,10 +242,6 @@ pub struct CompositorState {
     pub privacy: Option<CompositorPrivacy>,
 }
 
-fn initial_state() -> CompositorState {
-    CompositorState::default()
-}
-
 pub struct Compositor {
     backend: Backend,
     state_publisher: Publisher<CompositorState>,
@@ -274,9 +270,8 @@ impl Service for Compositor {
         CompositorHandle(endpoint)
     }
 
-    fn initial_state(config: &Self::Config) -> Self::State {
-        let _ = config;
-        initial_state()
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {

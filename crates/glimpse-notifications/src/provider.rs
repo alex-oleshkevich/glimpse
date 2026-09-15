@@ -1,10 +1,10 @@
 use chrono::DateTime;
-use glimpse_dbus::Exported;
 use glimpse_dbus::notifications::{DoNotDisturb, NotificationRecord, NotificationUrgency};
 use glimpse_dbus::notifications::{
     DoNotDisturbWire, GLIMPSE_NOTIFICATIONS_BUS_NAME, GLIMPSE_NOTIFICATIONS_OBJECT_PATH,
     NotificationWire, NotificationsSnapshot,
 };
+use glimpse_dbus::{Exported, Snapshot};
 use glimpse_services::{CommandError, NotificationsHandle};
 use zbus::{Connection, DBusError};
 
@@ -19,6 +19,15 @@ pub enum Error {
 
 pub(crate) struct Provider {
     notifications: NotificationsHandle,
+}
+
+impl Snapshot for Provider {
+    async fn emit_snapshot_changed(
+        &self,
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+    ) -> zbus::Result<()> {
+        self.snapshot_changed(emitter).await
+    }
 }
 
 #[zbus::interface(name = "me.aresa.Glimpse.Notifications1")]
@@ -97,56 +106,17 @@ pub(crate) async fn start(
     connection: Connection,
     notifications: NotificationsHandle,
 ) -> zbus::Result<Runtime> {
-    Exported::start(
-        connection.clone(),
+    Exported::serve(
+        connection,
         GLIMPSE_NOTIFICATIONS_BUS_NAME,
         GLIMPSE_NOTIFICATIONS_OBJECT_PATH,
         Provider {
             notifications: notifications.clone(),
         },
-        follow_changes(connection, notifications),
+        notifications.subscribe(),
+        notifications.health(),
     )
     .await
-}
-
-async fn follow_changes(connection: Connection, notifications: NotificationsHandle) {
-    let mut state = notifications.subscribe();
-    let mut health = notifications.health();
-    loop {
-        tokio::select! {
-            changed = state.changed() => {
-                if changed.is_err() {
-                    return;
-                }
-                state.borrow_and_update();
-            }
-            changed = health.changed() => {
-                if changed.is_err() {
-                    return;
-                }
-                health.borrow_and_update();
-            }
-        }
-        let interface = match connection
-            .object_server()
-            .interface::<_, Provider>(GLIMPSE_NOTIFICATIONS_OBJECT_PATH)
-            .await
-        {
-            Ok(interface) => interface,
-            Err(error) => {
-                tracing::warn!(%error, "notification provider disappeared");
-                return;
-            }
-        };
-        if let Err(error) = interface
-            .get()
-            .await
-            .snapshot_changed(interface.signal_emitter())
-            .await
-        {
-            tracing::warn!(%error, "notification snapshot change failed");
-        }
-    }
 }
 
 fn snapshot(notifications: &NotificationsHandle) -> NotificationsSnapshot {
@@ -214,14 +184,14 @@ fn optional(value: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::io::BufRead;
-    use std::process::{Child, Command, Stdio};
 
     use chrono::{TimeZone, Utc};
     use glimpse_dbus::notifications::NotificationAction;
     use glimpse_dbus::{Buses, notifications::Notifications1Proxy};
     use glimpse_services::{Notifications, Service, ServiceRuntime};
     use tokio_util::sync::CancellationToken;
+
+    use glimpse_dbus::testing::PrivateBus;
 
     use super::*;
 
@@ -237,46 +207,6 @@ mod tests {
 
         assert!(!serving);
         assert_eq!(reason, "starting");
-    }
-
-    struct PrivateBus {
-        child: Child,
-        address: String,
-    }
-
-    impl PrivateBus {
-        fn start() -> Self {
-            let mut child = Command::new("dbus-daemon")
-                .args([
-                    "--session",
-                    "--nofork",
-                    "--print-address=1",
-                    "--print-pid=1",
-                ])
-                .stdout(Stdio::piped())
-                .spawn()
-                .unwrap();
-            let stdout = child.stdout.as_mut().unwrap();
-            let mut lines = std::io::BufReader::new(stdout).lines();
-            let address = lines.next().unwrap().unwrap();
-            let _pid = lines.next().unwrap().unwrap();
-            Self { child, address }
-        }
-
-        async fn connection(&self) -> Connection {
-            zbus::connection::Builder::address(self.address.as_str())
-                .unwrap()
-                .build()
-                .await
-                .unwrap()
-        }
-    }
-
-    impl Drop for PrivateBus {
-        fn drop(&mut self) {
-            let _ = self.child.kill();
-            let _ = self.child.wait();
-        }
     }
 
     const NOT_YET_DUE: i64 = 4_102_444_800_000_000;

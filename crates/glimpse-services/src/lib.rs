@@ -14,8 +14,8 @@ pub use {
     gamma::{FakeGamma, Gamma},
     publisher::Publisher,
     service::{
-        CommandError, Input, NoConfig, Service, ServiceEndpoint, ServiceError, ServiceRuntime,
-        ServiceSender, ServiceState,
+        CommandError, Input, NoConfig, Pending, Running, Service, ServiceEndpoint, ServiceError,
+        ServiceRuntime, ServiceSender, ServiceState,
     },
     services::*,
     subscription::Sub,

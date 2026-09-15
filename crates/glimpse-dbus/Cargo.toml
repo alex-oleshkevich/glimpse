@@ -5,6 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+testing = []
+
 [dependencies]
 chrono.workspace = true
 futures-util.workspace = true
@@ -12,5 +15,9 @@ glimpse-utils.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 tracing.workspace = true
 zbus.workspace = true
+
+[dev-dependencies]
+glimpse-dbus = { path = ".", features = ["testing"] }

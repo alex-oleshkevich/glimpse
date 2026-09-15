@@ -1,8 +1,8 @@
 use glimpse_config::Schedule;
-use glimpse_dbus::Exported;
 use glimpse_dbus::night_light::{
     GLIMPSE_NIGHT_LIGHT_BUS_NAME, GLIMPSE_NIGHT_LIGHT_OBJECT_PATH, NightLightSnapshot,
 };
+use glimpse_dbus::{Exported, Snapshot};
 use glimpse_services::NightLightHandle;
 use zbus::{Connection, DBusError};
 
@@ -17,6 +17,15 @@ pub enum Error {
 
 pub(crate) struct Provider {
     night_light: NightLightHandle,
+}
+
+impl Snapshot for Provider {
+    async fn emit_snapshot_changed(
+        &self,
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+    ) -> zbus::Result<()> {
+        self.snapshot_changed(emitter).await
+    }
 }
 
 #[zbus::interface(name = "me.aresa.Glimpse.NightLight1")]
@@ -45,47 +54,17 @@ pub(crate) async fn start(
     connection: Connection,
     night_light: NightLightHandle,
 ) -> zbus::Result<Runtime> {
-    Exported::start(
-        connection.clone(),
+    Exported::serve(
+        connection,
         GLIMPSE_NIGHT_LIGHT_BUS_NAME,
         GLIMPSE_NIGHT_LIGHT_OBJECT_PATH,
         Provider {
             night_light: night_light.clone(),
         },
-        follow_changes(connection, night_light),
+        night_light.subscribe(),
+        night_light.health(),
     )
     .await
-}
-
-async fn follow_changes(connection: Connection, night_light: NightLightHandle) {
-    let mut state = night_light.subscribe();
-    let mut health = night_light.health();
-    loop {
-        tokio::select! {
-            changed = state.changed() => if changed.is_err() { return },
-            changed = health.changed() => if changed.is_err() { return },
-        }
-
-        let interface = match connection
-            .object_server()
-            .interface::<_, Provider>(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH)
-            .await
-        {
-            Ok(interface) => interface,
-            Err(error) => {
-                tracing::error!(%error, "night light provider object disappeared");
-                return;
-            }
-        };
-        if let Err(error) = interface
-            .get()
-            .await
-            .snapshot_changed(interface.signal_emitter())
-            .await
-        {
-            tracing::warn!(%error, "night light snapshot change signal failed");
-        }
-    }
 }
 
 fn snapshot(night_light: &NightLightHandle) -> NightLightSnapshot {
@@ -105,8 +84,6 @@ fn snapshot(night_light: &NightLightHandle) -> NightLightSnapshot {
 
 #[cfg(test)]
 mod tests {
-    use std::io::BufRead as _;
-    use std::process::{Child, Command, Stdio};
 
     use glimpse_dbus::{Buses, night_light::NightLight1Proxy};
     use glimpse_services::{
@@ -115,6 +92,8 @@ mod tests {
     };
     use tokio_util::sync::CancellationToken;
     use zbus::proxy::CacheProperties;
+
+    use glimpse_dbus::testing::PrivateBus;
 
     use super::*;
 
@@ -182,46 +161,6 @@ mod tests {
             "a refused name must leave nothing exported: the object is put up before the name is \
              asked for, so the failure has to take it back down"
         );
-    }
-
-    struct PrivateBus {
-        child: Child,
-        address: String,
-    }
-
-    impl PrivateBus {
-        fn start() -> Self {
-            let mut child = Command::new("dbus-daemon")
-                .args([
-                    "--session",
-                    "--nofork",
-                    "--print-address=1",
-                    "--print-pid=1",
-                ])
-                .stdout(Stdio::piped())
-                .spawn()
-                .expect("dbus-daemon starts");
-            let stdout = child.stdout.as_mut().expect("a pipe");
-            let mut lines = std::io::BufReader::new(stdout).lines();
-            let address = lines.next().expect("an address").expect("readable");
-            let _pid = lines.next().expect("a pid").expect("readable");
-            Self { child, address }
-        }
-
-        async fn connection(&self) -> Connection {
-            zbus::connection::Builder::address(self.address.as_str())
-                .expect("a valid address")
-                .build()
-                .await
-                .expect("a connection")
-        }
-    }
-
-    impl Drop for PrivateBus {
-        fn drop(&mut self) {
-            let _ = self.child.kill();
-            let _ = self.child.wait();
-        }
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

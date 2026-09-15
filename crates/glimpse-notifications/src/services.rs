@@ -3,11 +3,9 @@ use std::fmt;
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_services::{
-    Compositor, CompositorHandle, Notifications, NotificationsHandle, Service, ServiceRuntime,
-    ServiceSender, Session, SessionDependencies, SessionHandle,
+    Compositor, CompositorHandle, Notifications, NotificationsHandle, Running, Session,
+    SessionDependencies, SessionHandle,
 };
-use tokio::task::JoinHandle;
-use tokio_util::sync::CancellationToken;
 
 use crate::provider;
 
@@ -15,15 +13,9 @@ pub struct NotificationServices {
     pub notifications: NotificationsHandle,
     pub compositor: CompositorHandle,
     pub session: SessionHandle,
-    notifications_sender: ServiceSender<Notifications>,
-    compositor_sender: ServiceSender<Compositor>,
-    session_sender: ServiceSender<Session>,
-    notifications_cancel: CancellationToken,
-    compositor_cancel: CancellationToken,
-    session_cancel: CancellationToken,
-    notifications_task: Option<JoinHandle<()>>,
-    compositor_task: Option<JoinHandle<()>>,
-    session_task: Option<JoinHandle<()>>,
+    notifications_service: Running<Notifications>,
+    compositor_service: Running<Compositor>,
+    session_service: Running<Session>,
     provider: Option<provider::Runtime>,
 }
 
@@ -42,96 +34,49 @@ impl NotificationServices {
     }
 
     fn start_with_buses(document: &Config, buses: Buses) -> Self {
-        let compositor_cancel = CancellationToken::new();
-        let (compositor_runtime, compositor) = ServiceRuntime::<Compositor>::new(
-            <Compositor as Service>::Config::from(document),
+        let (compositor_service, compositor) =
+            Running::<Compositor>::spawn(document, buses.clone(), ());
+        let (session_service, session) = Running::spawn(
+            document,
             buses.clone(),
-            compositor_cancel.clone(),
-        );
-        let compositor_sender = compositor_runtime.sender();
-        let compositor_task = spawn_service(compositor_runtime, ());
-
-        let session_cancel = CancellationToken::new();
-        let (session_runtime, session) = ServiceRuntime::<Session>::new(
-            <Session as Service>::Config::from(document),
-            buses.clone(),
-            session_cancel.clone(),
-        );
-        let session_sender = session_runtime.sender();
-        let session_task = spawn_service(
-            session_runtime,
             SessionDependencies {
                 compositor: compositor.clone(),
             },
         );
-
-        let notifications_cancel = CancellationToken::new();
-        let (notifications_runtime, notifications) = ServiceRuntime::<Notifications>::new(
-            <Notifications as Service>::Config::from(document),
-            buses,
-            notifications_cancel.clone(),
-        );
-        let notifications_sender = notifications_runtime.sender();
-        let notifications_task = spawn_service(notifications_runtime, ());
+        let (notifications_service, notifications) =
+            Running::<Notifications>::spawn(document, buses, ());
 
         Self {
             notifications,
             compositor,
             session,
-            notifications_sender,
-            compositor_sender,
-            session_sender,
-            notifications_cancel,
-            compositor_cancel,
-            session_cancel,
-            notifications_task: Some(notifications_task),
-            compositor_task: Some(compositor_task),
-            session_task: Some(session_task),
+            notifications_service,
+            compositor_service,
+            session_service,
             provider: None,
         }
     }
 
     pub fn reconfigure(&self, document: &Config) {
-        self.notifications_sender
-            .reconfigure(<Notifications as Service>::Config::from(document));
-        self.session_sender
-            .reconfigure(<Session as Service>::Config::from(document));
-        self.compositor_sender
-            .reconfigure(<Compositor as Service>::Config::from(document));
+        self.notifications_service.reconfigure(document);
+        self.session_service.reconfigure(document);
+        self.compositor_service.reconfigure(document);
     }
 
     pub async fn shutdown(mut self) {
-        stop(
-            Notifications::NAME,
-            &self.notifications_cancel,
-            &mut self.notifications_task,
-        )
-        .await;
+        self.cancel();
+        self.notifications_service.stop().await;
         if let Some(provider) = self.provider.take() {
             provider.shutdown().await;
         }
-        stop(Session::NAME, &self.session_cancel, &mut self.session_task).await;
-        stop(
-            Compositor::NAME,
-            &self.compositor_cancel,
-            &mut self.compositor_task,
-        )
-        .await;
+        self.session_service.stop().await;
+        self.compositor_service.stop().await;
     }
 
     fn cancel(&self) {
-        if let Some(provider) = &self.provider {
-            provider.cancel();
-        }
-        self.notifications_cancel.cancel();
-        self.session_cancel.cancel();
-        self.compositor_cancel.cancel();
-    }
-}
-
-impl Drop for NotificationServices {
-    fn drop(&mut self) {
-        self.cancel();
+        self.notifications_service.cancel();
+        self.session_service.cancel();
+        self.compositor_service.cancel();
     }
 }
 
@@ -140,30 +85,6 @@ impl fmt::Debug for NotificationServices {
         formatter
             .debug_struct("NotificationServices")
             .finish_non_exhaustive()
-    }
-}
-
-fn spawn_service<S: Service>(
-    mut runtime: ServiceRuntime<S>,
-    dependencies: S::Dependencies,
-) -> JoinHandle<()> {
-    tokio::spawn(async move {
-        if let Err(error) = runtime.run(dependencies).await {
-            tracing::error!(service = S::NAME, %error, "service stopped");
-        }
-    })
-}
-
-async fn stop(
-    service: &'static str,
-    cancel: &CancellationToken,
-    task: &mut Option<JoinHandle<()>>,
-) {
-    cancel.cancel();
-    if let Some(task) = task.take()
-        && let Err(error) = task.await
-    {
-        tracing::error!(service, %error, "service task failed");
     }
 }
 

@@ -62,10 +62,6 @@ pub struct Dependencies {
     pub compositor: CompositorHandle,
 }
 
-fn initial_state() -> Option<SessionStatus> {
-    None
-}
-
 impl Service for Session {
     const NAME: &'static str = "session";
     type Config = NoConfig;
@@ -80,9 +76,8 @@ impl Service for Session {
         SessionHandle(endpoint)
     }
 
-    fn initial_state(config: &Self::Config) -> Self::State {
-        let _ = config;
-        initial_state()
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
@@ -238,7 +233,7 @@ mod tests {
     ) {
         let cancel = CancellationToken::new();
         let (events, _inbox) = tokio::sync::mpsc::channel(4);
-        let (state, state_rx) = tokio::sync::watch::channel(initial_state());
+        let (state, state_rx) = tokio::sync::watch::channel(None);
         let (health, _health_rx) = tokio::sync::watch::channel(crate::ServiceState::Starting);
         let ctx = Ctx::<Session>::new(events, &cancel, state, health, Buses::unavailable("no bus"));
         let (_runtime, compositor) =
@@ -260,7 +255,7 @@ mod tests {
         session
             .handle(&ctx, Input::Event(Event::Privacy(Some(false))))
             .await;
-        assert_eq!(*state.borrow(), initial_state());
+        assert_eq!(*state.borrow(), None);
         session
             .handle(&ctx, Input::Event(Event::Locked(true)))
             .await;

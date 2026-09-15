@@ -641,7 +641,7 @@ costs more than the document saved.
 - Remove instructions that stop being true rather than adding a caveat beside them. Two rules on the
   same topic produce worse behaviour than one.
 
-**A README states rules, not history. It must not grow every time something changes.**
+**A crate `README.md` is capped at 300 lines. It states rules, not history.**
 
 This is the rule that keeps being broken, and a README that records every change stops being read —
 which costs exactly what a stale one costs. Write the rule that is true now, in the present tense,
@@ -657,11 +657,17 @@ and delete the one it replaces. Specifically, none of this belongs in a README:
   cap truncated a legitimate path into one that opens nothing". The narrative around it does not.
 
 Keep: what the thing is, the rule, and the one consequence that explains why the rule exists.
-Prefer cutting a paragraph to adding one. When a change makes a README longer, the question to ask
-is which existing paragraph it replaces — a rewrite that only ever appends is a symptom, not an
-update. `AGENTS.md`'s own **Known state** section is where a genuinely measured fact goes when it
-would otherwise invite rework, and it says what was counted and when precisely because a README
-should not.
+
+**The cap is not advisory.** Over 300 lines, cut until it fits — that is the whole instruction, and
+the paragraphs to cut first are the ones above. When a change makes a README longer, the question to
+ask is which existing paragraph it replaces; a rewrite that only ever appends is a symptom, not an
+update. `AGENTS.md`'s **Known state** section is where a genuinely measured fact goes when it would
+otherwise invite rework, and it says what was counted and when precisely because a README should
+not.
+
+Growth has a measured cost, not a stylistic one: `glimpse-widgets/README.md` carried two
+contradicting paragraphs about notification urgency, one of them false — `set_urgency` writes no CSS
+class and had not for some time — because both were appended and neither was deleted.
 
 ## Other rules
 
@@ -750,31 +756,3 @@ bd prime                # Refresh Beads context
 
 **Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
 <!-- END BEADS CODEX SETUP -->
-
-<!-- gortex:communities:start -->
-## Community Skills
-
-| Area | Description | Explore |
-|------|-------------|---------|
-| Src Schema 26 Dirs | 474 symbols | `analyze(operation:"communities", id:"community-25")` |
-| Glimpse Widgets Src 29 Dirs | 381 symbols | `analyze(operation:"communities", id:"community-146")` |
-| Demo Components 3 Dirs | 247 symbols | `analyze(operation:"communities", id:"community-249")` |
-| Src Calendar 8 Dirs | 196 symbols | `analyze(operation:"communities", id:"community-86")` |
-| Src Applet 16 Dirs | 172 symbols | `analyze(operation:"communities", id:"community-102")` |
-| Glimpse Ipc Src 5 Dirs | 162 symbols | `analyze(operation:"communities", id:"community-71")` |
-| Glimpse Services Src 2 Dirs | 139 symbols | `analyze(operation:"communities", id:"community-104")` |
-| Glimpse Lock Src 15 Dirs | 101 symbols | `analyze(operation:"communities", id:"community-101")` |
-| Src Commands 2 Dirs | 94 symbols | `analyze(operation:"communities", id:"community-182")` |
-| Glimpse Services Src 3 Dirs | 92 symbols | `analyze(operation:"communities", id:"community-105")` |
-| Component App Src 3 Dirs | 83 symbols | `analyze(operation:"communities", id:"community-1")` |
-| Glimpse Compositors Src 4 Dirs Event | 82 symbols | `analyze(operation:"communities", id:"community-3")` |
-| Glimpse Compositors Src 4 Dirs Workspace | 77 symbols | `analyze(operation:"communities", id:"community-112")` |
-| Glimpse Widgets Transport | 74 symbols | `analyze(operation:"communities", id:"community-131")` |
-| Src Hyprland 3 Dirs | 72 symbols | `analyze(operation:"communities", id:"community-4")` |
-| 3 Dirs Gi Repository Gtk | 66 symbols | `analyze(operation:"communities", id:"community-246")` |
-| Scripts 1 Dirs Run Counter Contract | 63 symbols | `analyze(operation:"communities", id:"community-231")` |
-| Src Applet Update | 61 symbols | `analyze(operation:"communities", id:"community-84")` |
-| Src Broker Handle | 60 symbols | `analyze(operation:"communities", id:"community-187")` |
-| Glimpse Widgets Find | 60 symbols | `analyze(operation:"communities", id:"community-128")` |
-
-<!-- gortex:communities:end -->

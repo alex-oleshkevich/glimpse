@@ -100,9 +100,8 @@ impl Service for Solar {
         SolarHandle(endpoint)
     }
 
-    fn initial_state(config: &Self::Config) -> Self::State {
-        let _ = config;
-        None
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
     }
 
     /// The tick re-evaluates a phase that only a location can produce, so without one it would wake

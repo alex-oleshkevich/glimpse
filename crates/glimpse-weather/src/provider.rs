@@ -1,9 +1,8 @@
-use glimpse_dbus::Exported;
 use glimpse_dbus::weather::WatchedPlace;
 use glimpse_dbus::weather::{
     GLIMPSE_WEATHER_BUS_NAME, GLIMPSE_WEATHER_OBJECT_PATH, WeatherSnapshot, encode_snapshot,
 };
-use glimpse_services::ServiceState;
+use glimpse_dbus::{Exported, Snapshot};
 use glimpse_services::{CommandError, WeatherHandle};
 use zbus::{Connection, DBusError};
 
@@ -19,6 +18,15 @@ pub enum Error {
 
 pub(crate) struct Provider {
     weather: WeatherHandle,
+}
+
+impl Snapshot for Provider {
+    async fn emit_snapshot_changed(
+        &self,
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+    ) -> zbus::Result<()> {
+        self.snapshot_changed(emitter).await
+    }
 }
 
 #[zbus::interface(name = "me.aresa.Glimpse.Weather1")]
@@ -78,67 +86,17 @@ impl From<CommandError> for Error {
 pub(crate) type Runtime = Exported<Provider>;
 
 pub(crate) async fn start(connection: Connection, weather: WeatherHandle) -> zbus::Result<Runtime> {
-    Exported::start(
-        connection.clone(),
+    Exported::serve(
+        connection,
         GLIMPSE_WEATHER_BUS_NAME,
         GLIMPSE_WEATHER_OBJECT_PATH,
         Provider {
             weather: weather.clone(),
         },
-        follow_changes(connection, weather),
+        weather.subscribe(),
+        weather.health(),
     )
     .await
-}
-
-async fn follow_changes(connection: Connection, weather: WeatherHandle) {
-    let mut state = weather.subscribe();
-    let mut health = weather.health();
-    let mut previous_health = health.borrow().clone();
-    loop {
-        tokio::select! {
-            changed = state.changed() => {
-                if changed.is_err() {
-                    return;
-                }
-                let state = state.borrow_and_update();
-                tracing::debug!(places = state.places.len(), "weather provider state changed");
-            }
-            changed = health.changed() => {
-                if changed.is_err() {
-                    return;
-                }
-                let current = health.borrow_and_update().clone();
-                if current != previous_health {
-                    match &current {
-                        ServiceState::Running => tracing::info!("weather service is running"),
-                        ServiceState::Starting => tracing::debug!("weather service is starting"),
-                        ServiceState::Degraded { .. } => tracing::warn!("weather service is degraded"),
-                        ServiceState::Stopped { .. } => tracing::warn!("weather service stopped"),
-                    }
-                    previous_health = current;
-                }
-            }
-        }
-        let interface = match connection
-            .object_server()
-            .interface::<_, Provider>(GLIMPSE_WEATHER_OBJECT_PATH)
-            .await
-        {
-            Ok(interface) => interface,
-            Err(error) => {
-                tracing::error!(%error, "weather provider object disappeared");
-                return;
-            }
-        };
-        if let Err(error) = interface
-            .get()
-            .await
-            .snapshot_changed(interface.signal_emitter())
-            .await
-        {
-            tracing::warn!(%error, "weather snapshot change signal failed");
-        }
-    }
 }
 
 fn snapshot(weather: &WeatherHandle) -> WeatherSnapshot {
@@ -163,8 +121,8 @@ fn kind_name(kind: u8) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use std::io::BufRead as _;
-    use std::process::{Child, Command, Stdio};
+
+    use glimpse_dbus::testing::PrivateBus;
 
     use super::*;
     use glimpse_dbus::{Buses, weather::Weather1Proxy};
@@ -211,46 +169,6 @@ mod tests {
             reason, "starting",
             "a service still starting says so; the empty-reading message is for one that has started"
         );
-    }
-
-    struct PrivateBus {
-        child: Child,
-        address: String,
-    }
-
-    impl PrivateBus {
-        fn start() -> Self {
-            let mut child = Command::new("dbus-daemon")
-                .args([
-                    "--session",
-                    "--nofork",
-                    "--print-address=1",
-                    "--print-pid=1",
-                ])
-                .stdout(Stdio::piped())
-                .spawn()
-                .unwrap();
-            let stdout = child.stdout.as_mut().unwrap();
-            let mut lines = std::io::BufReader::new(stdout).lines();
-            let address = lines.next().unwrap().unwrap();
-            let _pid = lines.next().unwrap().unwrap();
-            Self { child, address }
-        }
-
-        async fn connection(&self) -> Connection {
-            zbus::connection::Builder::address(self.address.as_str())
-                .unwrap()
-                .build()
-                .await
-                .unwrap()
-        }
-    }
-
-    impl Drop for PrivateBus {
-        fn drop(&mut self) {
-            let _ = self.child.kill();
-            let _ = self.child.wait();
-        }
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

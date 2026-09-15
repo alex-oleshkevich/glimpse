@@ -1,11 +1,9 @@
-mod support;
-
 use std::time::Duration;
 
 use futures_util::StreamExt as _;
 
 use glimpse_dbus::own_name;
-use support::PrivateBus;
+use glimpse_dbus::testing::PrivateBus;
 use zbus::fdo::{DBusProxy, RequestNameFlags};
 use zbus::names::{BusName, WellKnownName};
 

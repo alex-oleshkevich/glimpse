@@ -27,3 +27,6 @@ zbus.workspace = true
 
 [build-dependencies]
 shadow-rs.workspace = true
+
+[dev-dependencies]
+glimpse-dbus = { workspace = true, features = ["testing"] }

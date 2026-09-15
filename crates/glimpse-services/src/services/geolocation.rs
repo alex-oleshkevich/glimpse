@@ -16,7 +16,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct GeolocationStatus {
     pub coordinates: Option<GeoCoordinates>,
 }
@@ -128,9 +128,8 @@ impl Service for Geolocation {
         GeolocationHandle(endpoint)
     }
 
-    fn initial_state(config: &Self::Config) -> Self::State {
-        let _ = config;
-        GeolocationStatus { coordinates: None }
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {

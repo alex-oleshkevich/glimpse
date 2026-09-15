@@ -2,11 +2,9 @@ use glimpse_dbus::notifications::{
     DoNotDisturbWire, GLIMPSE_NOTIFICATIONS_BUS_NAME, GLIMPSE_NOTIFICATIONS_OBJECT_PATH,
     NotificationWire, NotificationsProvider, NotificationsSnapshot,
 };
-mod support;
-
+use glimpse_dbus::testing::PrivateBus;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use support::PrivateBus;
 use tokio::sync::watch;
 use zbus::Connection;
 
@@ -121,9 +119,7 @@ async fn provider_reconnects_and_roundtrips_typed_methods() {
     wait_until(&mut state, complete).await;
     handle.set_do_not_disturb(true, 7).await.unwrap();
     assert_eq!(calls.lock().unwrap().as_slice(), &[(true, 7)]);
-
-    let _ = bus.child.kill();
-    let _ = bus.child.wait();
+    bus.kill();
     wait_until(&mut state, |state| {
         state.view.is_none() && state.unavailable.is_some()
     })

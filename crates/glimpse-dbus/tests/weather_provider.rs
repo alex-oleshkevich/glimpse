@@ -1,14 +1,12 @@
-mod support;
-
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use glimpse_dbus::testing::PrivateBus;
 use glimpse_dbus::weather::WatchedPlace;
 use glimpse_dbus::weather::{
     GLIMPSE_WEATHER_BUS_NAME, GLIMPSE_WEATHER_OBJECT_PATH, PlaceWeatherWire, WeatherProvider,
     WeatherProviderState, WeatherSnapshot,
 };
-use support::PrivateBus;
 use tokio::sync::watch;
 use zbus::Connection;
 
@@ -151,9 +149,7 @@ async fn provider_connects_after_the_client_and_recovers_after_owner_loss() {
             (2, 0.0, 0.0, "Warsaw, PL".to_owned()),
         ]
     );
-
-    let _ = bus.child.kill();
-    let _ = bus.child.wait();
+    bus.kill();
     wait_until(&mut state, |state| !state.owner).await;
 
     drop(second);

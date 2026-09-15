@@ -1,6 +1,7 @@
 # glimpse-config
 
-Layered TOML configuration shared by every Glimpse process.
+Layered TOML load, drop-ins, merge, validate and watch. Owns where glimpse files live and the one
+place that asks the environment a regional question.
 
 ## What it does
 
@@ -14,440 +15,252 @@ Layered TOML configuration shared by every Glimpse process.
 | 4   | user            | `$XDG_CONFIG_HOME/glimpse/config.toml`                    |
 | 5   | user drop-ins   | `$XDG_CONFIG_HOME/glimpse/config.d/*.toml`, lexical order |
 
-`--config <PATH>` replaces layers 2 through 5 with that one file, drop-ins included: no `config.d/`
-beside it is read.
+`--config <PATH>` replaces layers 2 through 5 with that one file, drop-ins included.
+`resolved_files(config_path)` returns the same ordered list without reading any of it.
 
-`resolved_files(config_path)` returns the same ordered file list `load` reads, without reading any
-of them — what `glimpsectl config path` prints.
+**`user_dir()` is `~/.config/glimpse`, and this crate owns it.** Anything that needs a glimpse path
+asks here rather than rebuilding `dirs::config_dir().join("glimpse")`. It is the directory, not a
+file: what a caller joins onto it is that caller's business.
 
-`user_dir()` is `~/.config/glimpse`, or `None` on a platform that names no config directory. This
-crate owns where a user's glimpse files live, so anything else that needs to look one up asks here
-instead of rebuilding `dirs::config_dir().join("glimpse")` — `glimpse-compositors` finds
-`language-codes.json` that way. It is the directory, not a file: what a caller joins onto it is that
-caller's business.
-
-Only files that exist are merged. Layer 1 is not a document — a table absent from every file keeps
-the value from its `Default` impl. `data/config.default.toml` is a reference nothing reads, kept
-honest the way `cargo fmt` keeps formatting honest: `default_document()` renders it from
-`Config::default()`, `just gen-config-default` writes the result, and a test fails if the checked-in
-file and that rendering differ.
-
-Merging is per key: **tables merge, scalars replace, and arrays replace rather than append** — an
+**Merging is per key: tables merge, scalars replace, and arrays replace rather than append** — an
 appending array could never be shortened by a later layer.
 
-## The JSON Schema
-
-`data/config.schema.json` is `Config`'s shape for editor tooling — Even Better TOML and other
-`taplo`-based editors read it for completion and inline validation. Every `schema/*.rs` type derives
-`schemars::JsonSchema` alongside `Serialize`/`Deserialize`; `json_schema_document()` renders it,
-`just gen-config-schema` writes the result, and a test keeps it honest the same way as the default
-document. `Applet.settings` is described as an open object (`#[schemars(with = "...")]`), since its
-shape belongs to the applet type, not this schema.
-
-`default_document()`'s header carries a `#:schema /usr/share/glimpse/config.schema.json` directive —
-the path `just install` puts the schema at — so a config file that starts from the shipped default
-gets completion for free. One caveat: `schemars` does not surface a `#[serde(alias = ...)]` in the
-schema's enum values, so `night-light.schedule = "manual"` still parses but an editor will flag it;
-`"schedule"` is the spelling the schema expects.
+`data/config.default.toml` is a reference nothing reads, kept honest the way `cargo fmt` keeps
+formatting honest: `default_document()` renders it from `Config::default()` and a test fails if the
+checked-in file differs. `data/config.schema.json` is generated the same way, for editor tooling.
 
 ## Key naming
 
-Every key and every enum value is kebab-case. The document contains no underscores, and
-`rename_all = "kebab-case"` on each `schema/*.rs` type is what translates the snake-case Rust fields
-behind them — `pub background_dark` is `background-dark` on the page.
+Every key and every enum value is kebab-case, through `rename_all = "kebab-case"` on each
+`schema/*.rs` type. The convention comes from the stack this file sits beside — GSettings, the XDG
+portal, niri's `config.kdl`, CSS — not from Rust.
 
-The convention comes from the stack this file sits beside rather than from Rust: GSettings spells it
-`color-scheme`, the XDG portal's `org.freedesktop.appearance` namespace spells it `color-scheme` and
-`reduced-motion`, niri's own `config.kdl` spells it `focus-follows-mouse`, and CSS spells it
-`--accent-bg-color`. A user editing `config.toml` in the same session as `config.kdl` should not have
-to switch conventions between them.
+The attribute is easy to forget on a new table and forgetting it is silent, so
+`every_key_and_enum_value_is_kebab_case` walks the generated schema and fails on any underscore.
 
-The attribute is easy to forget on a new table, and forgetting it is silent — that table would ship
-snake-case keys while everything around it is kebab. `every_key_and_enum_value_is_kebab_case` walks
-the generated schema and fails on any key or enum value holding an underscore, naming the offenders,
-so the omission is a build failure rather than something review has to catch.
+`schemars` does not surface `#[serde(alias = ...)]` in the schema's enum values, so an alias parses
+but an editor flags it.
 
 ## One file, one schema
 
 Every long-lived binary reads `config.toml`, links the whole schema and validates the whole
-document. Each acts on only the tables it owns; cross-process state arrives through a typed D-Bus
-provider, while dependencies within one process are injected as typed handles.
-
-An unknown key is an error wherever it lands, and the set of top-level table names is closed —
-`deny_unknown_fields` on `Config` is what catches a misspelled `[panle]` that every reader would
-otherwise ignore. `[applets.<name>]` is no exception: its settings are written flat alongside
-`extends`, and they are checked, because `Applet` is an enum with one variant per applet rather than
-a free-form table.
+document, then acts on only the tables it owns. An unknown key is an error wherever it lands, and
+the set of top-level table names is closed — `deny_unknown_fields` on `Config` is what catches a
+misspelled `[panle]` that every reader would otherwise ignore.
 
 ## Reading a file
 
 - Symlinks are followed — a `config.toml` pointing into a dotfile repository is the ordinary case.
-- The descriptor is inspected after the open, never a path before it: between a `stat` and an `open`
-  the path can be replaced.
-- Regular files only, capped at 1 MiB. A FIFO is **not** defended against: the open is what blocks,
-  so a file symlinked at one hangs the binary.
-- `config.d/` is read one level deep, one file open at a time, at most 64 entries. Past that the
-  load fails rather than applying a prefix.
-- A missing file is an absent layer everywhere in the stack — the base file, `--config`, and a
-  drop-in whose symlink target is gone are all optional in the same way. A file that exists and is
-  wrong somehow (wrong type, too large, a syntax error) still fails the whole load.
+- **The descriptor is inspected after the open, never a path before it**: between a `stat` and an
+  `open` the path can be replaced.
+- Regular files only, capped at 1 MiB. A FIFO is **not** defended against: the open is what blocks.
+- `config.d/` is read one level deep, one file at a time, at most 64 entries.
+- **A missing file is an absent layer everywhere in the stack.** A file that exists and is wrong —
+  wrong type, too large, a syntax error — still fails the whole load.
 
-Loading is synchronous. Every binary calls `load` once during startup, before anything else is
-running; only the watching below is async, and it puts each re-read on `spawn_blocking` so a caller
-holding a stream never has to know that `load` touches the filesystem the blocking way.
+Loading is synchronous and every binary calls `load` once at startup; only watching is async, and it
+puts each re-read on `spawn_blocking`.
 
 ## Errors
 
-`load` reports every problem it found, not the first. No `ConfigError` renders any of a file's
-content: `toml::de::Error`'s own `Display` prints the offending source line as a snippet, and a
-`config.toml` aimed at an SSH key would echo it into the journal, so only the message and the span
-are taken and the position is translated in `error.rs`.
+`load` reports every problem it found, not the first. **No `ConfigError` renders any of a file's
+content**: `toml::de::Error`'s `Display` prints the offending source line, and a `config.toml` aimed
+at an SSH key would echo it into the journal, so only the message and the span are taken.
 
-A syntax error names file, line and column, and names the drop-in it is in rather than the base file
-it merges over. A schema error names the key path instead — it is found in the merged document,
-which has no lines to name.
+A syntax error names file, line and column, and names the drop-in rather than the base file it
+merges over. A schema error names the key path instead — it is found in the merged document, which
+has no lines to name.
 
-The caller decides what a failure means. At startup that is to log it and come up on
-`Config::default()`; on reload it is to drop the update and keep what is running. Neither exits.
-
-## Values a later stage could only refuse
+The caller decides what a failure means: at startup, log it and come up on `Config::default()`; on
+reload, drop the update and keep what is running. Neither exits.
 
 **A value the runtime cannot use is refused here, where the key can be named.** `[night-light]`
-`start-time` and `end-time` are checked against `%H:%M` while the document is being deserialized, so
-`start-time = "10pm"` is `expected a time written as HH:MM, got "10pm" for key
-`night-light.start-time`` and the process exits on the document rather than starting on it. They stay
-`Option<String>` — the schema keeps saying `string`, and `config show` prints the spelling the user
-wrote rather than a normalized one.
-
-They were unvalidated until the check went in, and the cost was not a missing error but a *misleading*
-one: the night light reported "a schedule needs start-time and end-time, each written as HH:MM",
-which reads as "you did not set them" when they are set and merely misspelled. That message is now
-reachable only when the keys are genuinely absent. `chrono` is inherited here for exactly this one
-parse, rather than spelling out a format the workspace already owns a parser for.
+`start-time` and `end-time` are checked against `%H:%M` during deserialization, so a misspelling
+fails on the document rather than reaching the night light, which could only report "a schedule
+needs start-time and end-time" — which reads as "you did not set them" when they are set and merely
+wrong. They stay `Option<String>`, so `config show` prints the spelling the user wrote.
 
 ## Themes
 
 A theme is a directory of stylesheets under `<root>/<name>/`. The roots are `user_dir()/themes` then
 `DATA_DIR/themes`, unless `GLIMPSE_THEMES_DIR` names one, which replaces both — an explicit override
-replaces the stack rather than joining it, the same rule `--config` follows for configuration.
+replaces the stack rather than joining it, the same rule `--config` follows.
 
-Two environment variables sit above the configuration, and both replace rather than join:
-`GLIMPSE_THEMES_DIR` chooses the root, and `GLIMPSE_THEME` chooses the name, taking precedence over
-`appearance.theme`. The name is applied in `stylesheet`, `theme_dir_for` and `watch_theme` rather
-than in `load`, so `Config` keeps reporting the document on disk — a binary told to render one theme
-does not start claiming the user configured it. An empty `GLIMPSE_THEME` means the default theme,
-exactly as an empty `appearance.theme` does.
+`GLIMPSE_THEME` chooses the name over `appearance.theme`. It is applied in `stylesheet`,
+`theme_dir_for` and `watch_theme` rather than in `load`, so `Config` keeps reporting the document on
+disk — a binary told to render one theme does not start claiming the user configured it.
 
 **Resolution picks one directory, not one file at a time.** `theme_dir_for(theme)` returns the first
-of `user/<theme>`, `data/<theme>`, `user/adwaita`, `data/adwaita` that is a directory, and every sheet
-then comes from it. `stylesheet(theme, name)` is that directory joined with the name, kept only if it
-is a regular file. Both checks are `Path::is_dir`/`Path::is_file`, which go through `metadata` rather
-than `symlink_metadata`, so a symlinked theme directory or a symlinked sheet inside a package
-resolves.
+of `user/<theme>`, `data/<theme>`, `user/adwaita`, `data/adwaita` that is a directory, and every
+sheet comes from it. The directory is the unit because CSS makes it one: GTK resolves a relative
+`@import` against the importing file's own directory, so a theme assembled from two roots cannot
+import across them. A theme is all or nothing; copy the whole directory to customise one rule.
 
-The directory is the unit because CSS makes it one. A theme may split its sheets with
-`@import url("shared.css")`, and GTK resolves a relative import against the importing file's own
-directory, never through this resolver. A theme assembled from two roots therefore cannot import
-across them: `user/nord/panel.css` looks for `user/nord/shared.css` and fails, whatever `data/nord`
-holds. Per-file resolution was tried and promised that a theme could ship one sheet and inherit the
-rest; the import makes that unreachable, so a theme is now all or nothing. Copy the whole directory
-to customise one rule.
+The shipped `adwaita` theme is three empty files — component rules and the token vocabulary live in
+`glimpse-widgets`, so a theme that redefines nothing still renders correctly.
 
-The shipped `adwaita` theme is three empty files. Component rules and the token vocabulary live in
-`glimpse-widgets/styles/glimpse.css`, compiled into every UI binary at `APPLICATION` priority, so a
-theme that redefines nothing still renders correctly and a theme that redefines one token changes
-only that.
+`user_stylesheet()` locates the user's own `styles.css`, optional and not part of any theme, which
+always loads on top.
 
-`user_stylesheet()` locates the user's own `styles.css`, which is optional, absent by default, and
-not part of any theme — it lives in `user_dir()` and always loads on top of the theme.
-
-`watch_theme(theme)` watches `user_dir()` for that `styles.css`, then every root and every
-`<root>/<theme>` beneath it, then the directory resolution actually chose. The roots are not
-decoration. `nearest_existing` walks up only as far as directories that are themselves in the
-requested set, so a watch armed on the theme directory alone reports `Unavailable` on a machine where
-the user has never created one, and a directory created later is never noticed. Passing the roots is
-what buys fall-back-and-descend, and it is the shape `watch_dirs_from` already uses for `config.d/`.
-Arming a root that does not exist costs nothing: `rearm` reports `Unavailable` only when *every* arm
-fails, so an uninstalled `DATA_DIR/themes` leaves the rest of the set working.
-
-The set is fixed at construction, so a caller changing `appearance.theme` drops the stream and builds
-another. Watching `user_dir()` for `styles.css` also means a `config.toml` write reports a theme
-change, since both live in that directory. It also emits on `SIGHUP`, even when no file or theme
-name changed, so a suite-wide reload forces every theme-aware process to refresh its providers.
+`watch_theme(theme)` watches `user_dir()`, then every root and every `<root>/<theme>`, then the
+directory resolution chose. **The roots are not decoration**: `nearest_existing` walks up only as far
+as directories in the requested set, so a watch armed on the theme directory alone reports
+`Unavailable` on a machine where the user never created one. Arming a root that does not exist costs
+nothing — `rearm` reports `Unavailable` only when *every* arm fails.
 
 ## Watching
 
-Every binary watches its own files and re-reads them itself. No process learns about a change from
-another one, so hot reload does not depend on another Glimpse process being alive and the loading
-path is the same for independent and session-grouped processes.
+Every binary watches its own files and re-reads them itself, so hot reload does not depend on another
+glimpse process being alive.
 
-`watch_dirs(config_path)` is the layer stack's *directories*, existing or not — the counterpart to
-`resolved_files`, which is its files that do. Normally four: `/etc/glimpse/`, its `config.d/`,
-`$XDG_CONFIG_HOME/glimpse/`, and its `config.d/`. `--config` replaces the whole stack with one
-file, so it replaces the whole watch set too: that file's directory, and no `config.d/`.
+`watch_dirs(config_path)` is the layer stack's *directories*, existing or not. `--config` replaces
+the whole stack with one file, so it replaces the whole watch set too.
 
-Watches go on directories, never on files. A per-file watch cannot see a drop-in that does not exist
-yet, and creating one is exactly the change that has to be noticed. A symlinked base file adds one
-more directory, the one holding its resolved target: editors write a new file and rename it over the
-old one, so a watch on the link alone goes quiet after the first save.
+**Watches go on directories, never on files.** A per-file watch cannot see a drop-in that does not
+exist yet, and creating one is exactly the change that has to be noticed. A symlinked base file adds
+the directory holding its resolved target: editors write a new file and rename it over the old one,
+so a watch on the link alone goes quiet after the first save.
 
-`watch_all(dirs)` is the primitive, and `watch(dir)` is its one-directory case. Neither is
-configuration-specific, which is what will make stylesheets a caller rather than a subsystem.
-
-- Only create, modify and remove events. Access events fire for every read in the directory, this
-  process's own included, and describe nothing that changed.
+- Only create, modify and remove events. Access events fire for every read, this process's own
+  included, and describe nothing that changed.
 - **Events are coalesced until the directory has been quiet for 250 ms**, because one editor save is
-  a write, a rename over the target, and sometimes a delete and a create. Waiting for quiet rather
-  than flushing on a fixed window also means a file being rewritten in place is read once it has
-  finished, not partway through — a burst of non-atomic writes costs one reload and no parse errors.
+  a write, a rename, and sometimes a delete and a create. Waiting for quiet also means a file
+  rewritten in place is read once it has finished — a burst of non-atomic writes costs one reload
+  and no parse errors.
 - **One inotify instance for the whole set, and no timer.** The coalescing is a `tokio` timeout
-  armed only once an event arrives, so an idle session costs nothing: measured at zero wakeups on
-  the watching thread over ten seconds. This is why `notify-debouncer-full` is not used — its worker
-  is a `loop { sleep(tick); flush }` that cannot be woken early, and the file-identity tracking it
-  offers in exchange is something nothing here reads.
-- Two directories that are both missing collapse onto the same ancestor and therefore share one
-  watch. Releasing a watch addresses it by path, so one is released only once no directory is
-  resolving to it.
-- A directory that does not exist is watched through its nearest existing ancestor **within the set
-  being watched**, and the watch descends when the missing component appears. An absent `config.d/`
-  falls back onto the `glimpse/` beside it in the set, which is the ordinary case and not an error.
-  An absent `glimpse/` falls back onto nothing: `$XDG_CONFIG_HOME` and `/etc` are written constantly
-  by software with no connection to this session, and a watch on either wakes us for every one of
-  those writes to report a file that did not change. The configuration directory being created
-  therefore needs a restart to be picked up — which is the one moment a restart costs nothing,
-  because there was nothing configured to reload. Deleting and restoring it wholesale is caught only
-  when both happen inside one debounce window, which is what `rm -rf` immediately followed by a
-  re-stow looks like; a restore that arrives seconds later needs a restart too.
+  armed only once an event arrives, so an idle session costs zero wakeups. This is why
+  `notify-debouncer-full` is not used: its worker is a `loop { sleep(tick); flush }` that cannot be
+  woken early.
+- **A directory that does not exist is watched through its nearest existing ancestor *within the set
+  being watched***, and the watch descends when the missing component appears. An absent `config.d/`
+  falls back onto the `glimpse/` beside it. An absent `glimpse/` falls back onto nothing:
+  `$XDG_CONFIG_HOME` and `/etc` are written constantly by unrelated software, and a watch on either
+  wakes us for every one of those. Creating the configuration directory therefore needs a restart —
+  the one moment a restart costs nothing, because there was nothing configured to reload.
 - **Every wanted directory is made absolute before it is armed.** `notify` resolves a relative path
-  against the working directory when it stores a watch, and reports every event under that absolute
-  root, so a relatively-named directory arms on the right inode and then matches none of its own
-  events — the watch reports nothing for the rest of its life and looks exactly like a directory
-  where nothing happens. This reached the tree: `GLIMPSE_THEMES_DIR=data/themes` armed correctly,
-  confirmed by its inode in `/proc/<pid>/fdinfo`, and never reloaded once. `std::path::absolute` is
-  what agrees with `notify`, because it is lexical and leaves symlinks alone exactly as `notify`'s
-  own `current_dir().join(path)` does.
-- **The watch re-arms when its directory is replaced.** A watch is bound to an inode rather than to
-  a name, so `rm -rf ~/.config/glimpse` followed by a fresh clone otherwise leaves one armed on a
-  directory nobody can reach: it reports nothing again, ever, and looks exactly like a directory
-  where nothing happens. The inode is compared, not just the path, and `Update::Rearmed` says
-  "read everything again" — whatever happened during the gap produced no events and cannot be
-  inferred.
-- The `Debouncer` is owned by the stream, so dropping the stream drops the watch, and a re-arm
-  places the new watch before releasing the old one — a kernel that refuses the new one would
-  otherwise cost the working watch as well as the descent.
+  against the working directory and reports every event under that absolute root, so a
+  relatively-named directory arms on the right inode and matches none of its own events — reporting
+  nothing for the rest of its life and looking exactly like a directory where nothing happens.
+  `std::path::absolute` is what agrees with `notify`, because it is lexical and leaves symlinks
+  alone exactly as `notify`'s own `current_dir().join(path)` does.
+- **The watch re-arms when its directory is replaced.** A watch is bound to an inode rather than a
+  name, so deleting and recreating a directory otherwise leaves one armed on something nobody can
+  reach. The inode is compared, not just the path, and `Update::Rearmed` says "read everything
+  again" — whatever happened during the gap produced no events and cannot be inferred.
+- A re-arm places the new watch before releasing the old one; a kernel that refuses the new one
+  would otherwise cost the working watch as well as the descent.
 
-The watch set is derived once, at construction. Re-pointing a symlinked base file at a **different**
-directory is therefore caught — the link's own directory is watched — but edits at the new target
-are not, until the process restarts. Re-stowing in place, which keeps the target directory, is
-unaffected. Re-deriving the set on every event would mean stat-ing the whole stack and rebuilding
-every watch, which is a poor trade for a case that only arises when someone moves their dotfile
-repository.
+**The watch set is derived once, at construction.** Re-pointing a symlinked base file at a different
+directory is caught, but edits at the new target are not until restart. Re-deriving on every event
+would mean stat-ing the whole stack and rebuilding every watch, for a case that arises only when
+someone moves their dotfile repository.
 
-`reread` is the step behind each trigger: load the stack off the runtime threads, and answer with
-the new document only if it parsed **and differs**. A read that failed yields the reason instead of
-logging it, because the same reason repeated is one document nobody has fixed yet — a watched
-directory goes on producing events while it stays broken, and an editor's swap and backup files land
-right beside it. So the reader keeps the last failure and reports one at `error` only when the
-message changes, dropping the repeats to `debug`. A document that *loads* clears it, whether or not
-it moved: an undone edit is a fix, and the next break is news again.
+`reread` loads the stack off the runtime threads and answers with the new document only if it parsed
+**and differs**. A read that failed yields the reason instead of logging it: a watched directory
+goes on producing events while it stays broken, and an editor's swap files land beside it, so the
+reader keeps the last failure and reports one at `error` only when the message changes. A document
+that loads clears it, whether or not it moved.
 
-`watch_config(config_path, current)` composes the three into a stream of documents, one per real
-change, and is what every binary reloads through. It merges two triggers, and neither replaces the
-other: the filesystem watch, and `SIGHUP`. An editor whose write inotify never saw still has a way
-to apply the change, and a session whose watches the kernel refused still reloads on request.
-Failing to register the signal handler is a warning rather than a failure, because the other half of
-the pair is still running. Registration happens when `watch_config` is called, so call it from
-inside a runtime.
+`watch_config(config_path, current)` merges two triggers, and neither replaces the other: the
+filesystem watch, and `SIGHUP`. An editor whose write inotify never saw still has a way to apply the
+change, and a session whose watches the kernel refused still reloads on request. `SIGHUP` is not an
+`Update` — "a human asked" is not something a directory did, so the two merge one level up.
 
-`SIGHUP` is not an `Update`. `watch_all` is a directory watch and will have callers that are not
-configuration at all, and "a human asked" is not something a directory did; the two are merged one
-level up, on a stream of bare triggers.
-
-Note what is *not* filtered: an event is anything created, modified or removed directly inside a
-watched directory, not just `*.toml`. Filtering by extension would drop the creation of `config.d/`
-itself, which is one of the changes that most needs noticing. So an unrelated write in the
-configuration directory does cost one debounced re-read — and then the equality gate absorbs it,
-which is the whole reason that gate is worth more than a content digest here.
-
-## Notifications
-
-`[notifications]` belongs to `glimpse-notifications`. `keep` and `suppress` control what the
-provider stores; `enabled`, `monitor`, `edge`, `hide-delay` and `max-items` control transient
-presentation without moving that policy into the panel.
-
-`monitor` is an optional exact connector name. The popup falls back to the focused output and then
-the compositor's first output when it is absent or unavailable. `edge` accepts `top-left`,
-`top-center`, `top-right`, `bottom-left`, `bottom-center` and `bottom-right`; its default is
-`top-right`. `hide-delay` defaults to 4 seconds and `max-items` to 6, and both reject zero.
+**Nothing is filtered by extension.** That would drop the creation of `config.d/` itself, which is
+one of the changes that most needs noticing. An unrelated write costs one debounced re-read, which
+the equality gate then absorbs.
 
 ## Applets
 
-`Applet` is one applet's whole configuration: a `Common`, holding the settings every applet
-understands, and a `Kind`, the internally-tagged enum on `extends` that carries the settings one
-applet alone understands. Both halves are part of this document's schema rather than a free-form
-table nobody validates. A misspelled setting is a load error naming the table and the key; an
-`[applets.*]` table naming an applet that does not exist is a load error listing the ones that do.
+`Applet` is one applet's whole configuration: a `Common` and a `Kind`, the internally-tagged enum on
+`extends`. Both halves are in the schema rather than a free-form table, so a misspelled setting is a
+load error naming the table and the key.
 
 **The table name supplies the tag when `extends` is absent.** `[applets.clock]` is the clock; only a
-second instance needs `extends`, as in `[applets.clock-utc] extends = "clock"`. A hand-written
-`Deserialize` on the `applets` field injects the key before handing the table to serde, which is why
-the common case stays free of a line that only restates the name.
+second instance needs `extends`. A hand-written `Deserialize` injects the key before handing the
+table to serde.
 
-**The common settings are inlined into every branch of the emitted schema, not shared by `$ref`.**
-That is why the document is large: three properties repeated across every applet. Factoring them
-into an `allOf` against one definition would break validation rather than tidy it — each branch
-carries `additionalProperties: false` from `deny_unknown_fields`, and `additionalProperties` does
-not see properties contributed by an `allOf` sibling, so every common key would be rejected as
-unknown. The repetition is what makes the schema agree with the loader.
+**The common settings are split off the table before the kind sees it.** The obvious way —
+`#[serde(flatten)]` on a `Common` field — does not compile: `flatten` collects the keys a struct did
+not claim and `deny_unknown_fields` rejects them, so serde refuses both on one type. `take_common`
+removes them from the raw table instead, and both halves keep `deny_unknown_fields` — so a
+misspelled common key is *not* taken, survives into the table the kind is denying against, and fails
+by name. The cost is a `COMMON` list that must agree with `Common`'s fields, compared against the
+struct's own schema in both directions by a test.
 
-The emitted schema mirrors that exactly. `properties` carries one entry per applet keyed by its
-name, so an editor resolves `[applets.clock]` to the clock's own schema with no discrimination step;
-`additionalProperties` carries the tagged form, where `extends` is required, for aliases. JSON Schema
-applies the second only to keys the first did not match, which is the same rule the loader follows.
+**The common settings are inlined into every schema branch, not shared by `$ref`.** Factoring them
+into an `allOf` would break validation rather than tidy it: each branch carries
+`additionalProperties: false`, and `additionalProperties` does not see properties contributed by an
+`allOf` sibling, so every common key would be rejected as unknown.
 
-### Settings every applet has
+**`settings-command` is a list, never one string.** No quoting rules, no word splitting, no shell —
+and a shell is an injection surface for something with no reason to have one. Setting a label
+without a command, or a command without a label, is a load error: one is a row that does nothing and
+the other a row nobody can see.
 
-`tooltip-format`, `settings-label` and `settings-command` are common: every applet reads them, and
-they sit in the same flat table as the kind's own settings. `[applets.clock]` carries
-`label-format` beside `tooltip-format` and nothing is nested.
+**A variant with no settings is written `Clock {}`, never `Clock`.** `deny_unknown_fields` has
+nothing to deny on a unit variant, so it silently swallows every key written under it.
 
-**They are split off the table before the kind sees it.** The obvious way to write this —
-`#[serde(flatten)]` on a `Common` field inside each variant — does not compile: `flatten` works by
-collecting the keys a struct did not claim, and `deny_unknown_fields` works by rejecting them, so
-serde refuses both on one type. Choosing between a shared setting and typo protection would have
-been the wrong trade, and it is not the one on offer: `applets::deserialize` already takes each
-table as a raw `toml::Table` to inject `extends`, so `take_common` removes the common keys there and
-`Kind` deserializes the remainder. Both halves keep `deny_unknown_fields`, and typo protection is
-better than `flatten` would have given — a misspelled common key is not taken, so it survives into
-the table the kind is denying against and fails the load by name.
-
-The cost is a list, `COMMON`, that has to agree with `Common`'s fields; a field added to one and not
-the other would reach the kind and be refused as unknown. `every_common_setting_is_taken_off_the_table`
-compares the list against the struct's own schema, in both directions.
-
-**`settings-command` is a list, never one string.** `["xdg-open", "https://example.com/"]` has no
-quoting rules to get wrong, no word splitting, and no shell — an argument containing a space is one
-element. A single string would need a shell to interpret it, and a shell is an injection surface
-for something with no reason to have one. The panel spawns it with `gio::Subprocess`; this is not
-the rule in `AGENTS.md` against shelling out, which forbids reaching `systemctl` or `nmcli` through
-a subprocess instead of their real interfaces. There is no interface to prefer for "the calendar
-application the user named".
-
-Setting a label without a command, or a command without a label, is a load error. One is a row that
-does nothing and the other is a row nobody can see.
-
-The weather applet's `place` selects what the weather service resolves. Use `at = "here"` to follow
-GeoClue, `at = "latlon"` with `latitude` and `longitude` for a fixed point (the older
-`coordinates` spelling is accepted as an alias), or
-`at = "location"` with a city and ISO country code in `City, CC` form:
-
-```toml
-[applets.weather]
-place = { at = "location", name = "Vilnius, LT" }
-```
-
-The panel sends this request to `glimpse-weather`; it does not resolve names itself. The service
-returns canonical city and country metadata with the forecast, which the panel uses when no explicit
-applet `label` is configured.
+Resolving is not the same as being implemented. A name resolving to an applet no binary builds is an
+ordinary state logged at `debug`, not a bad document. No name is reserved for "some applet, later".
 
 ## Asking the system: the `locale` convention
 
 A setting whose correct value the system already knows takes an enum with a `locale` variant, and
-`locale` is the default. It means "ask the system, do not decide here".
+`locale` is the default. `[regional]` is the only place in glimpse that asks the environment
+anything.
 
-`[regional]` is where those settings live, and it is the only place in glimpse that asks the
-environment anything. Three keys, read by two different owners:
-
-| Key           | Asks             | Resolved by                          | Live reload |
-| ------------- | ---------------- | ------------------------------------ | ----------- |
-| `language`    | `LANGUAGE`       | each UI binary, before `init_translations` | no    |
-| `hour-format` | `LC_TIME`        | each UI binary, at load              | yes         |
-| `units`       | `LC_MEASUREMENT` | `glimpse-weather`                    | yes         |
+| Key           | Asks             | Resolved by                                | Live reload |
+| ------------- | ---------------- | ------------------------------------------ | ----------- |
+| `language`    | `LANGUAGE`       | each UI binary, before `init_translations` | no          |
+| `hour-format` | `LC_TIME`        | each UI binary, at load                    | yes         |
+| `units`       | `LC_MEASUREMENT` | `glimpse-weather`                          | yes         |
 
 `environment.rs` holds both resolvers and `libc` is the only way it asks. Nothing else in the
-workspace calls `nl_langinfo`, `setlocale` or `strftime` to answer these questions — the same rule
-as `user_dir()`: one answer, in the crate that owns the question.
+workspace calls `nl_langinfo`, `setlocale` or `strftime` — the same rule as `user_dir()`.
 
-It also holds the two patterns a resolved answer selects, reached through `clock(twelve_hour)`
-rather than by naming either directly. **`TWELVE` is `%-I:%M %p`, not `%l:%M %p`** — `%l` is
-space-padded, and carries a leading space into the middle of a sentence.
-`TWENTY_FOUR` is exported because two panel test modules pin rendering against it; `TWELVE` is not,
-because `clock()` is the only way to reach it.
-
-`glimpse-widgets`' `WorldClock` keeps its own pair (`%R` and `%l:%M %p`, trimmed) and is left alone:
-that crate has no `glimpse-config` dependency and formats through `g_date_time_format` rather than
-chrono, so a shared `&'static str` would not be guaranteed to render the same. It takes a `bool`
-from the panel and derives the pattern itself.
+**`TWELVE` is `%-I:%M %p`, not `%l:%M %p`** — `%l` is space-padded and carries a leading space into
+the middle of a sentence. Both patterns are reached through `clock(twelve_hour)`.
 
 **These resolvers answer `C` — 24-hour, metric — unless `setlocale(LC_ALL, "")` has already run.**
-That call belongs to the binary: `glimpse-utils::init_translations` for a UI binary and
-`init_locale` for a non-UI process that resolves regional settings. It is deliberately not done
-here, lazily or otherwise, because `setlocale` mutates process-global state and services read the
-result from tokio worker threads; one explicit call at startup is safer than a hidden getter.
+That call belongs to the binary: `init_translations` for a UI binary, `init_locale` for a non-UI
+process that resolves regional settings. It is deliberately not done here, because `setlocale`
+mutates process-global state and services read the result from tokio worker threads.
 
-`units` is one bit, matching `UnitSystem` on the wire. `en_US` is the only locale in glibc's
-database declaring `measurement 2`, so `locale` is metric for everyone else — including `en_GB`,
-which is metric by that flag and gets km/h rather than the mph a British reader would pick. That is
-a known and accepted answer, not an oversight: splitting speed from temperature is a wire change to
-`UnitSystem` and both providers.
+`units` is one bit. `en_US` is the only locale in glibc's database declaring `measurement 2`, so
+`locale` is metric for everyone else — including `en_GB`, which gets km/h rather than mph. That is
+accepted, not an oversight: splitting speed from temperature is a wire change to `UnitSystem` and
+both providers.
 
-`language` is the one key here whose unknown value is a **warning rather than a load error**. The
-others name a closed set of behaviours; this one names a catalog that may or may not be installed,
-and `GLIMPSE_LOCALE_DIR` exists so a person can point at their own. Refusing to start over a
-missing translation would be refusing to start over cosmetics.
+**`language` is the one key whose unknown value is a warning rather than a load error.** The others
+name a closed set of behaviours; this one names a catalog that may or may not be installed.
 
-Two conditions keep that honest:
+Two conditions keep the convention honest:
 
 - **A setting only gets `locale` if the system can actually be asked.** A `locale` that falls back
   to a hardcoded value is worse than naming that value, because the user sets nothing, gets an
   answer, and cannot tell which of the two produced it.
-- **Resolution is measured per setting, not assumed.** `hour-format` resolves: under
-  `LC_TIME=en_US.UTF-8` the rendered `%X` is `03:30:00 PM` and `PM_STR` is `PM`; under `pl_PL` and
-  `ru_RU` it is `15:30:00` with an empty `PM_STR`. Two nearby answers were measured and rejected —
-  `T_FMT_AMPM` returns `%I:%M:%S %p` even under `C`, because it reports whether a locale *has* a
-  twelve-hour form rather than whether it prefers one, and `T_FMT` answers `%r` for `en_US`, which
-  contains neither `%I` nor `%p`. Only the rendered `%X` separates them.
+- **Resolution is measured per setting, not assumed.** For `hour-format`, only the rendered `%X`
+  separates the cases: `T_FMT_AMPM` returns `%I:%M:%S %p` even under `C`, because it reports whether
+  a locale *has* a twelve-hour form rather than whether it prefers one, and `T_FMT` answers `%r` for
+  `en_US`, which contains neither `%I` nor `%p`.
 
-`first-day` has **no** `locale` variant, and that is the convention working rather than an
-omission. Both ways to ask came up short when they were measured: GTK's translated
-`calendar:week_start:0` came back as the untranslated msgid, which means Sunday, under an `LC_TIME`
-whose answer is Monday; and glibc's `_NL_TIME_FIRST_WEEKDAY` is a non-portable composed constant
-that was never measured here. So it defaults to `monday` and says so.
+`first-day` has **no** `locale` variant, and that is the convention working. GTK's translated
+`calendar:week_start:0` came back as the untranslated msgid — meaning Sunday — under an `LC_TIME`
+whose answer is Monday, and `_NL_TIME_FIRST_WEEKDAY` has never been measured here. The first
+condition forbids adding a variant on the strength of an assumption; measuring it is the work that
+would justify one.
 
-Half of that reasoning has since expired and is left standing on the other half deliberately: this
-crate now depends on `libc` and composes exactly such a constant for `LC_MEASUREMENT`, so "needs a
-`libc` dependency" is no longer a cost. What still holds is that `_NL_TIME_FIRST_WEEKDAY` has not
-been measured, and the first condition above forbids adding a `locale` variant on the strength of
-an assumption. Measuring it is the work that would justify one. A silently wrong `locale` and a
-correct one are indistinguishable from the outside, which is the whole reason for the first
-condition.
-
-Two enums and this paragraph are the entire mechanism. There is no `Localized<T>`.
-
-**A variant with no settings is written `Clock {}`, never `Clock`.** `deny_unknown_fields` has
-nothing to deny on a unit variant, so a unit variant silently swallows every key written under it —
-the exact failure this design exists to remove. An empty struct variant refuses them.
-
-Resolving is not the same as being implemented. A name that resolves to an applet no binary builds
-is an ordinary state, not a bad document, and the panel says so at `debug` rather than `warn` —
-and `glimpse-panel` guards that. No name is reserved for "some applet, later".
+Two enums and this section are the entire mechanism. There is no `Localized<T>`.
 
 ## Not here
 
-Semantic validation — `HH:MM` parsing, duplicate idle timeouts — which is not written yet. A panel
-zone naming an applet that does not exist is caught by the panel at build time, not here; this crate
-owns the name→kind mapping and not the question of whether anything implements it.
-
-`[geolocation]` is the exception, and it needs none: the table is one internally tagged enum, so
-`provider = "manual"` carries `latitude` and `longitude` in the variant that selects it. A
-half-filled table is a `missing field` from serde, naming the key, before any reader sees it. Where
-a rule can be expressed in the type it belongs there rather than in a pass that has to remember to
-run.
+Semantic validation — duplicate idle timeouts, a panel zone naming an applet nothing provides — is
+not written yet. `[geolocation]` needs none: the table is one internally tagged enum, so a
+half-filled table is a `missing field` from serde before any reader sees it. Where a rule can be
+expressed in the type it belongs there rather than in a pass that has to remember to run.
 
 `Schedule::as_str` and `Schedule::parse` are the one spelling table for `[night-light] schedule`,
-and they live here because a mode named on a command line and a mode written in the document are
-the same vocabulary; a provider or CLI that spells them again has made a second answer. A test pins
-each spelling to what serde actually reads,
-since the table and the `kebab-case` rename are written independently. `manual` stays a
-document-only alias: nothing prints it, so accepting it from a caller would add a spelling with no
-way back out.
+here because a mode named on a command line and a mode written in the document are the same
+vocabulary. `manual` stays a document-only alias: nothing prints it, so accepting it from a caller
+would add a spelling with no way back out.

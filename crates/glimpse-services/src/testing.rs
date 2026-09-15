@@ -28,8 +28,8 @@ impl Service for Probe {
         endpoint
     }
 
-    fn initial_state(config: &Self::Config) -> Self::State {
-        let _ = config;
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
     }
 
     async fn start(

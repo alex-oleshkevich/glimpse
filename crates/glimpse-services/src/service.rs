@@ -173,6 +173,95 @@ impl<S: Service> ServiceSender<S> {
     }
 }
 
+pub struct Running<S: Service> {
+    sender: ServiceSender<S>,
+    cancel: CancellationToken,
+    task: Option<tokio::task::JoinHandle<()>>,
+}
+
+/// A service whose channels exist but whose task has not been spawned. `glimpse-sunset` builds
+/// every service, takes its D-Bus name and gamma control, and only then starts them, so a second
+/// copy fails on the name before it touches the outputs the running one holds.
+pub struct Pending<S: Service> {
+    runtime: ServiceRuntime<S>,
+    sender: ServiceSender<S>,
+    cancel: CancellationToken,
+}
+
+impl<S: Service> Pending<S> {
+    pub fn start(self, dependencies: S::Dependencies) -> Running<S> {
+        let Self {
+            mut runtime,
+            sender,
+            cancel,
+        } = self;
+        let task = tokio::spawn(async move {
+            tracing::debug!(service = S::NAME, "service task starting");
+            if let Err(error) = runtime.run(dependencies).await {
+                tracing::error!(service = S::NAME, %error, "service stopped");
+            } else {
+                tracing::debug!(service = S::NAME, "service task stopped");
+            }
+        });
+        Running {
+            sender,
+            cancel,
+            task: Some(task),
+        }
+    }
+}
+
+impl<S: Service> Running<S> {
+    pub fn build(document: &glimpse_config::Config, buses: Buses) -> (Pending<S>, S::Handle) {
+        let cancel = CancellationToken::new();
+        let (runtime, handle) =
+            ServiceRuntime::<S>::new(S::Config::from(document), buses, cancel.clone());
+        let sender = runtime.sender();
+        (
+            Pending {
+                runtime,
+                sender,
+                cancel,
+            },
+            handle,
+        )
+    }
+
+    pub fn spawn(
+        document: &glimpse_config::Config,
+        buses: Buses,
+        dependencies: S::Dependencies,
+    ) -> (Self, S::Handle) {
+        let (pending, handle) = Self::build(document, buses);
+        (pending.start(dependencies), handle)
+    }
+
+    pub fn reconfigure(&self, document: &glimpse_config::Config) {
+        self.sender.reconfigure(S::Config::from(document));
+    }
+
+    /// Tell the service to stop without waiting for it, so a graph can cancel every service
+    /// before it joins any of them.
+    pub fn cancel(&self) {
+        self.cancel.cancel();
+    }
+
+    pub async fn stop(&mut self) {
+        self.cancel.cancel();
+        if let Some(task) = self.task.take()
+            && let Err(error) = task.await
+        {
+            tracing::error!(service = S::NAME, %error, "service task failed");
+        }
+    }
+}
+
+impl<S: Service> Drop for Running<S> {
+    fn drop(&mut self) {
+        self.cancel.cancel();
+    }
+}
+
 pub struct ServiceRuntime<S: Service> {
     inbox_sender: mpsc::Sender<Input<S>>,
     inbox: mpsc::Receiver<Input<S>>,
@@ -180,7 +269,9 @@ pub struct ServiceRuntime<S: Service> {
     health: watch::Sender<ServiceState>,
     buses: Buses,
     cancel: CancellationToken,
-    config: S::Config,
+    /// What the service starts on. It is never updated — a reload reaches the handler as
+    /// `Input::Config`, and `run` tracks the config in force in its own local.
+    initial_config: S::Config,
 }
 
 impl<S: Service> ServiceRuntime<S> {
@@ -201,7 +292,7 @@ impl<S: Service> ServiceRuntime<S> {
                 health,
                 buses,
                 cancel,
-                config,
+                initial_config: config,
             },
             handle,
         )
@@ -214,7 +305,7 @@ impl<S: Service> ServiceRuntime<S> {
     }
 
     pub async fn run(&mut self, dependencies: S::Dependencies) -> Result<(), ServiceError> {
-        let config = self.config.clone();
+        let config = self.initial_config.clone();
         let ctx = Ctx::<S>::new(
             self.inbox_sender.clone(),
             &self.cancel,
@@ -224,7 +315,7 @@ impl<S: Service> ServiceRuntime<S> {
         );
 
         set_health(&self.health, ServiceState::Starting);
-        let mut applied = config.clone();
+        let mut applied = self.initial_config.clone();
         let mut service = match S::start(&ctx, config, dependencies).await {
             Ok(service) => service,
             Err(error) => {
@@ -370,8 +461,8 @@ mod tests {
             endpoint
         }
 
-        fn initial_state(config: &Self::Config) -> Self::State {
-            let _ = config;
+        fn initial_state(_: &Self::Config) -> Self::State {
+            Self::State::default()
         }
 
         async fn start(
@@ -464,9 +555,8 @@ mod tests {
             endpoint
         }
 
-        fn initial_state(config: &Self::Config) -> Self::State {
-            let _ = config;
-            (0, 0)
+        fn initial_state(_: &Self::Config) -> Self::State {
+            Self::State::default()
         }
 
         async fn start(
@@ -532,8 +622,8 @@ mod tests {
             endpoint
         }
 
-        fn initial_state(config: &Self::Config) -> Self::State {
-            let _ = config;
+        fn initial_state(_: &Self::Config) -> Self::State {
+            Self::State::default()
         }
 
         async fn start(
@@ -584,9 +674,8 @@ mod tests {
             endpoint
         }
 
-        fn initial_state(config: &Self::Config) -> Self::State {
-            let _ = config;
-            0
+        fn initial_state(_: &Self::Config) -> Self::State {
+            Self::State::default()
         }
 
         fn subscriptions(&self) -> Vec<Sub<Self>> {
@@ -663,8 +752,8 @@ mod tests {
             endpoint
         }
 
-        fn initial_state(config: &Self::Config) -> Self::State {
-            let _ = config;
+        fn initial_state(_: &Self::Config) -> Self::State {
+            Self::State::default()
         }
 
         async fn start(

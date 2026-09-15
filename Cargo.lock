@@ -1130,10 +1130,12 @@ version = "0.16.0"
 dependencies = [
  "chrono",
  "futures-util",
+ "glimpse-dbus",
  "glimpse-utils",
  "serde",
  "thiserror",
  "tokio",
+ "tokio-util",
  "tracing",
  "zbus",
 ]

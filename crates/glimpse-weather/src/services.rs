@@ -3,23 +3,14 @@ use std::fmt;
 use anyhow::{Context as _, Result};
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
-use glimpse_services::{
-    Geolocation, Service, ServiceRuntime, ServiceSender, Weather, WeatherDependencies,
-    WeatherHandle,
-};
-use tokio::task::JoinHandle;
-use tokio_util::sync::CancellationToken;
+use glimpse_services::{Geolocation, Running, Weather, WeatherDependencies, WeatherHandle};
 
 use crate::provider;
 
 pub struct WeatherServices {
     pub weather: WeatherHandle,
-    weather_sender: ServiceSender<Weather>,
-    weather_cancel: CancellationToken,
-    weather_task: Option<JoinHandle<()>>,
-    location_sender: ServiceSender<Geolocation>,
-    location_cancel: CancellationToken,
-    location_task: Option<JoinHandle<()>>,
+    weather_service: Running<Weather>,
+    location_service: Running<Geolocation>,
     provider: Option<provider::Runtime>,
 }
 
@@ -43,24 +34,10 @@ impl WeatherServices {
     }
 
     fn start_with_buses(document: &Config, buses: Buses) -> Self {
-        let location_cancel = CancellationToken::new();
-        let (location_runtime, location) = ServiceRuntime::<Geolocation>::new(
-            <Geolocation as Service>::Config::from(document),
-            buses.clone(),
-            location_cancel.clone(),
-        );
-        let location_sender = location_runtime.sender();
-        let location_task = spawn_service(location_runtime, ());
-
-        let weather_cancel = CancellationToken::new();
-        let (weather_runtime, weather) = ServiceRuntime::<Weather>::new(
-            <Weather as Service>::Config::from(document),
+        let (location_service, location) = Running::spawn(document, buses.clone(), ());
+        let (weather_service, weather) = Running::spawn(
+            document,
             buses,
-            weather_cancel.clone(),
-        );
-        let weather_sender = weather_runtime.sender();
-        let weather_task = spawn_service(
-            weather_runtime,
             WeatherDependencies {
                 geolocation: location,
             },
@@ -69,50 +46,31 @@ impl WeatherServices {
         tracing::info!("weather service graph started");
         Self {
             weather,
-            weather_sender,
-            weather_cancel,
-            weather_task: Some(weather_task),
-            location_sender,
-            location_cancel,
-            location_task: Some(location_task),
+            weather_service,
+            location_service,
             provider: None,
         }
     }
 
     pub fn reconfigure(&self, document: &Config) {
-        self.location_sender
-            .reconfigure(<Geolocation as Service>::Config::from(document));
-        self.weather_sender
-            .reconfigure(<Weather as Service>::Config::from(document));
+        self.location_service.reconfigure(document);
+        self.weather_service.reconfigure(document);
     }
 
     pub async fn shutdown(mut self) {
+        self.cancel();
         tracing::info!("weather provider shutting down");
         if let Some(provider) = self.provider.take() {
             provider.shutdown().await;
         }
-        stop(Weather::NAME, &self.weather_cancel, &mut self.weather_task).await;
-        stop(
-            Geolocation::NAME,
-            &self.location_cancel,
-            &mut self.location_task,
-        )
-        .await;
+        self.weather_service.stop().await;
+        self.location_service.stop().await;
         tracing::info!("weather service graph stopped");
     }
 
     fn cancel(&self) {
-        if let Some(provider) = &self.provider {
-            provider.cancel();
-        }
-        self.weather_cancel.cancel();
-        self.location_cancel.cancel();
-    }
-}
-
-impl Drop for WeatherServices {
-    fn drop(&mut self) {
-        self.cancel();
+        self.weather_service.cancel();
+        self.location_service.cancel();
     }
 }
 
@@ -121,33 +79,6 @@ impl fmt::Debug for WeatherServices {
         formatter
             .debug_struct("WeatherServices")
             .finish_non_exhaustive()
-    }
-}
-
-fn spawn_service<S: Service>(
-    mut runtime: ServiceRuntime<S>,
-    dependencies: S::Dependencies,
-) -> JoinHandle<()> {
-    tokio::spawn(async move {
-        tracing::debug!(service = S::NAME, "service task starting");
-        if let Err(error) = runtime.run(dependencies).await {
-            tracing::error!(service = S::NAME, %error, "service stopped");
-        } else {
-            tracing::debug!(service = S::NAME, "service task stopped");
-        }
-    })
-}
-
-async fn stop(
-    service: &'static str,
-    cancel: &CancellationToken,
-    task: &mut Option<JoinHandle<()>>,
-) {
-    cancel.cancel();
-    if let Some(task) = task.take()
-        && let Err(error) = task.await
-    {
-        tracing::error!(service, %error, "service task failed");
     }
 }
 

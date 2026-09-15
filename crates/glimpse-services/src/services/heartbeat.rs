@@ -16,7 +16,7 @@ pub struct HeartbeatInterval {
     pub previous_ms: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct HeartbeatTick {
     pub count: u64,
 }
@@ -101,9 +101,8 @@ impl Service for Heartbeat {
         HeartbeatHandle(endpoint)
     }
 
-    fn initial_state(config: &Self::Config) -> Self::State {
-        let _ = config;
-        HeartbeatTick { count: 0 }
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {

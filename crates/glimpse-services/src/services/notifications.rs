@@ -200,10 +200,6 @@ impl NotificationsHandle {
     }
 }
 
-fn initial_state() -> NotificationsState {
-    NotificationsState::default()
-}
-
 /// Everything the service decides about what to keep, with no publisher and no bus in it, so the
 /// bound and the replace rule are ordinary tests rather than something only a live daemon shows.
 #[derive(Debug, Default)]
@@ -239,9 +235,8 @@ impl Service for Notifications {
         NotificationsHandle(endpoint)
     }
 
-    fn initial_state(config: &Self::Config) -> Self::State {
-        let _ = config;
-        initial_state()
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
     }
 
     async fn start(

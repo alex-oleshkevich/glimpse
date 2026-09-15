@@ -47,7 +47,7 @@ pub struct CalendarEvent {
     pub color: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CalendarEvents {
     pub events: Vec<CalendarEvent>,
     pub truncated_from: Option<DateTime<Utc>>,
@@ -101,13 +101,6 @@ impl CalendarHandle {
         result.await.map_err(|_| {
             CommandError::Unavailable("calendar stopped before changing its range".to_owned())
         })?
-    }
-}
-
-fn initial_state() -> CalendarEvents {
-    CalendarEvents {
-        events: Vec::new(),
-        truncated_from: None,
     }
 }
 
@@ -246,9 +239,8 @@ impl Service for Calendar {
         CalendarHandle(endpoint)
     }
 
-    fn initial_state(config: &Self::Config) -> Self::State {
-        let _ = config;
-        initial_state()
+    fn initial_state(_: &Self::Config) -> Self::State {
+        Self::State::default()
     }
 
     fn subscriptions(&self) -> Vec<Sub<Self>> {
