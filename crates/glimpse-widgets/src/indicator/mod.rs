@@ -20,6 +20,8 @@ pub(crate) const DOT_SIZE: f32 = 7.0;
 #[derive(Debug, Default, Clone)]
 pub struct IndicatorSpec {
     pub icon: Option<gio::Icon>,
+    /// An emblem on the icon's trailing corner, for a state the icon itself does not carry.
+    pub overlay: Option<gio::Icon>,
     pub dot: Option<gtk4::gdk::RGBA>,
     pub label: Option<String>,
     pub tooltip: Option<String>,
@@ -50,6 +52,7 @@ impl Indicator {
             self.set_tooltip_text(tooltip.as_deref());
         }
         self.set_icon(spec.icon.as_ref());
+        self.set_overlay(spec.overlay.as_ref());
         self.set_dot(spec.dot);
         self.set_label(spec.label.as_deref());
         self.set_badge(spec.badge.as_deref());
@@ -67,7 +70,20 @@ impl Indicator {
             Some(icon) => imp.icon.set_from_gicon(icon),
             None => imp.icon.clear(),
         }
-        imp.icon.set_visible(icon.is_some());
+        imp.icon_slot.set_visible(icon.is_some());
+    }
+
+    pub fn set_overlay(&self, overlay: Option<&gio::Icon>) {
+        let imp = self.imp();
+        if icons_equal(imp.overlay_icon.borrow().as_ref(), overlay) {
+            return;
+        }
+        imp.overlay_icon.replace(overlay.cloned());
+        match overlay {
+            Some(overlay) => imp.overlay.set_from_gicon(overlay),
+            None => imp.overlay.clear(),
+        }
+        imp.overlay.set_visible(overlay.is_some());
     }
 
     pub fn set_dot(&self, color: Option<gtk4::gdk::RGBA>) {

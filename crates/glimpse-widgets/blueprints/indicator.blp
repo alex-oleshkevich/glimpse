@@ -19,13 +19,29 @@ template $Indicator: Gtk.Widget {
     ]
   }
 
-  Gtk.Image icon {
+  Gtk.Overlay icon_slot {
     visible: false;
     accessible-role: presentation;
 
-    styles [
-      "indicator__icon",
-    ]
+    Gtk.Image icon {
+      accessible-role: presentation;
+
+      styles [
+        "indicator__icon",
+      ]
+    }
+
+    [overlay]
+    Gtk.Image overlay {
+      halign: end;
+      valign: end;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "indicator__overlay",
+      ]
+    }
   }
 
   Gtk.Box attention_dot {

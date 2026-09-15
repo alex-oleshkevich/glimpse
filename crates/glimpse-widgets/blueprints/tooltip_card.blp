@@ -1,0 +1,61 @@
+using Gtk 4.0;
+
+template $TooltipCard: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: horizontal;
+    spacing: 10;
+  };
+
+  styles [
+    "tooltip-card",
+  ]
+
+  Gtk.Image icon {
+    valign: start;
+    visible: false;
+    accessible-role: presentation;
+
+    styles [
+      "tooltip-card__icon",
+    ]
+  }
+
+  Gtk.Box text {
+    orientation: vertical;
+    spacing: 2;
+
+    Gtk.Label title {
+      xalign: 0;
+      wrap: true;
+      max-width-chars: 32;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "tooltip-card__title",
+      ]
+    }
+
+    Gtk.Label body {
+      xalign: 0;
+      wrap: true;
+      max-width-chars: 36;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "tooltip-card__body",
+      ]
+    }
+
+    Gtk.Label status {
+      xalign: 0;
+      visible: false;
+      accessible-role: presentation;
+
+      styles [
+        "tooltip-card__status",
+      ]
+    }
+  }
+}

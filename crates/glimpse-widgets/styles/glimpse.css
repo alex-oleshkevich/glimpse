@@ -144,6 +144,11 @@
     color: inherit;
 }
 
+.indicator__overlay {
+    -gtk-icon-size: 0.8rem;
+    color: inherit;
+}
+
 .pager {
     --gl-pager-dot: 0.5rem;
     --gl-pager-wide: 1.3rem;
@@ -1078,4 +1083,50 @@ window.notification-popup {
 .player-row__toggle:hover {
     background-color: var(--gl-active);
     color: var(--gl-surface-fg);
+}
+
+.tray-strip__chevron,
+.tray-strip__chevron:checked {
+    min-width: 1.6rem;
+    min-height: 1.6rem;
+    padding: 0;
+    border-radius: 999px;
+    background-color: transparent;
+    color: var(--gl-muted);
+}
+
+.tray-strip__chevron:hover,
+.tray-strip__chevron:checked:hover {
+    background-color: var(--gl-hover);
+    color: var(--gl-panel-fg);
+}
+
+.tray-strip__chevron image {
+    transition: transform var(--gl-duration) var(--gl-ease);
+}
+
+.tray-strip__chevron--open image {
+    transform: rotate(180deg);
+}
+
+.tray-strip__chevron--marked {
+    color: inherit;
+}
+
+.tooltip-card__icon {
+    -gtk-icon-size: 1.5rem;
+}
+
+.tooltip-card__title {
+    font-weight: 600;
+}
+
+.tooltip-card__body {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
+}
+
+.tooltip-card__status {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-accent-text);
 }

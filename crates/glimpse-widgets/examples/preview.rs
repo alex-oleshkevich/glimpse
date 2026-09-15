@@ -258,9 +258,10 @@ mod fixtures {
 
     use glimpse_widgets::{
         Action, Advisory, Body, Calendar, Choice, ChoiceList, Day, Event, EventList, Fact,
-        FactList, Focus, Group, Hour, Notification, NotificationsPopover, NowPlaying, Pager,
-        Player, PlayerList, Repeat, Row, Severity, Shape, Slot, SplitRow, TransportAction, Urgency,
-        WeatherPage, WeatherPopover, WorldClock, Ymd, Zone,
+        FactList, Focus, Group, Hour, IndicatorSpec, Notification, NotificationsPopover,
+        NowPlaying, Pager, Player, PlayerList, Repeat, Row, Severity, Shape, Slot, SplitRow,
+        TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock,
+        Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -296,6 +297,8 @@ mod fixtures {
             "weather_popover" => weather_popover(root),
             "pager" => pager(root),
             "notifications" => notifications(root, notification_catalog()),
+            "tray" => tray(root),
+            "tray_states" => tray_states(root),
             _ => {}
         }
         drawer_nav(root);
@@ -1398,6 +1401,169 @@ mod fixtures {
         }
     }
 
+    fn tray_states(root: &gtk4::Widget) {
+        let chip = |key: &str, icon: &str, spec: IndicatorSpec| TrayChip {
+            key: key.to_owned(),
+            spec: IndicatorSpec {
+                icon: Some(themed_icon(icon)),
+                tooltip: Some(key.to_owned()),
+                ..spec
+            },
+        };
+
+        for strip in collect::<TrayStrip>(root) {
+            let case = strip
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DEMO).map(str::to_owned))
+                .unwrap_or_default();
+            let items = vec![
+                chip(
+                    "plain",
+                    "folder-publicshare-symbolic",
+                    IndicatorSpec::default(),
+                ),
+                chip(
+                    "label",
+                    "network-transmit-receive-symbolic",
+                    IndicatorSpec {
+                        label: Some("1.2 MB/s".to_owned()),
+                        ..Default::default()
+                    },
+                ),
+                chip(
+                    "badge",
+                    "mail-unread-symbolic",
+                    IndicatorSpec {
+                        badge: Some("12".to_owned()),
+                        ..Default::default()
+                    },
+                ),
+                chip(
+                    "attention",
+                    "chat-message-new-symbolic",
+                    IndicatorSpec {
+                        attention: true,
+                        ..Default::default()
+                    },
+                ),
+                chip(
+                    "attention and badge",
+                    "chat-message-new-symbolic",
+                    IndicatorSpec {
+                        badge: Some("99+".to_owned()),
+                        attention: true,
+                        ..Default::default()
+                    },
+                ),
+                chip(
+                    "overlay",
+                    "folder-publicshare-symbolic",
+                    IndicatorSpec {
+                        overlay: Some(themed_icon("emblem-synchronizing-symbolic")),
+                        ..Default::default()
+                    },
+                ),
+                chip(
+                    "warning",
+                    "dialog-warning-symbolic",
+                    IndicatorSpec {
+                        severity: Some(Severity::Warning),
+                        ..Default::default()
+                    },
+                ),
+                chip(
+                    "error",
+                    "dialog-error-symbolic",
+                    IndicatorSpec {
+                        severity: Some(Severity::Error),
+                        ..Default::default()
+                    },
+                ),
+                chip(
+                    "missing icon",
+                    "no-such-icon-symbolic",
+                    IndicatorSpec::default(),
+                ),
+            ];
+
+            strip.set_overflow_tooltip(Some("Show the rest"));
+            match case.as_str() {
+                "overflow" => strip.set_max_visible(4),
+                _ => strip.set_max_visible(0),
+            }
+            strip.set_items(&items);
+        }
+    }
+
+    fn tray(root: &gtk4::Widget) {
+        let group = gio::SimpleActionGroup::new();
+
+        for name in [
+            "activate",
+            "open-browser",
+            "open-folder",
+            "open-file",
+            "open-inbox",
+            "compose",
+            "mark-read",
+            "conflicts",
+            "reconnect",
+            "disconnect",
+            "settings",
+            "about",
+            "quit",
+        ] {
+            let action = gio::SimpleAction::new(name, None);
+            action.connect_activate(move |_, _| eprintln!("action: tray.{name}"));
+            group.add_action(&action);
+        }
+
+        for (name, on) in [("pause", false), ("notify", true), ("autostart", true)] {
+            let action = gio::SimpleAction::new_stateful(name, None, &on.to_variant());
+            action.connect_activate(move |action, _| {
+                let next = !action
+                    .state()
+                    .and_then(|on| on.get::<bool>())
+                    .unwrap_or(false);
+                action.set_state(&next.to_variant());
+                eprintln!("action: tray.{name} = {next}");
+            });
+            group.add_action(&action);
+        }
+
+        for (name, initial) in [("limit", "none"), ("quality", "high")] {
+            let action = gio::SimpleAction::new_stateful(
+                name,
+                Some(&String::static_variant_type()),
+                &initial.to_variant(),
+            );
+            action.connect_activate(move |action, target| {
+                let Some(target) = target else { return };
+                action.set_state(target);
+                eprintln!("action: tray.{name} = {}", target.str().unwrap_or_default());
+            });
+            group.add_action(&action);
+        }
+
+        let logout = gio::SimpleAction::new("logout", None);
+        logout.set_enabled(false);
+        group.add_action(&logout);
+
+        root.insert_action_group("tray", Some(&group));
+
+        if std::env::var_os("GLIMPSE_PREVIEW_POPUP").is_some()
+            && let Some(button) = find::<gtk4::MenuButton>(root)
+        {
+            glib::timeout_add_local(Duration::from_millis(500), move || {
+                if button.popover().is_some_and(|menu| !menu.is_visible()) {
+                    button.popup();
+                }
+                glib::ControlFlow::Continue
+            });
+        }
+    }
+
     fn pager(root: &gtk4::Widget) {
         for pager in collect::<Pager>(root) {
             let Some(case) = pager
@@ -1692,7 +1858,8 @@ fn ensure_types() {
         KeyboardPopover, Notice, NotificationCard, NotificationHeader, NotificationImageBody,
         NotificationList, NotificationStack, NotificationTextBody, NotificationsPopover,
         NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar,
-        Readout, Row, Scrubber, Section, SplitRow, Transport, WeatherPopover, WorldClock,
+        Readout, Row, Scrubber, Section, SplitRow, TooltipCard, Transport, TrayStrip,
+        WeatherPopover, WorldClock,
     };
 
     for widget in [
@@ -1732,6 +1899,8 @@ fn ensure_types() {
         Panel::static_type(),
         Indicator::static_type(),
         IndicatorGroup::static_type(),
+        TrayStrip::static_type(),
+        TooltipCard::static_type(),
         KeyboardPopover::static_type(),
         Placeholder::static_type(),
         Row::static_type(),

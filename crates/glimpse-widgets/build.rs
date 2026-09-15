@@ -31,6 +31,10 @@ fn main() {
         ),
         ("blueprints/hero.blp", "resources/widgets/hero.ui"),
         (
+            "blueprints/tooltip_card.blp",
+            "resources/widgets/tooltip_card.ui",
+        ),
+        (
             "blueprints/workspaces_popover.blp",
             "resources/widgets/workspaces_popover.ui",
         ),

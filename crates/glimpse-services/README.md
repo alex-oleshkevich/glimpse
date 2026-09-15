@@ -27,8 +27,7 @@ service and a fixed list of calls, rather than a sender, a token and a task each
 **`Running::build` exists because one binary needs the two halves apart.** `glimpse-sunset` builds
 every service, takes the D-Bus name, takes gamma control, and only then starts them, so a duplicate
 fails at the name before it touches the outputs the running instance holds. `Pending::start` is the
-second half, and `spawn` is the two called together — so the ordering is expressed in the types
-rather than in a comment, and all four roots use one mechanism.
+second half and `spawn` is the two together, so the ordering lives in the types rather than a comment.
 
 **An unchanged configuration never reaches a handler.** `ServiceRuntime::run` keeps the config in
 force and skips an `Input::Config` equal to it — no handler call, no `subscriptions()` rebuild, no
@@ -36,10 +35,9 @@ force and skips an `Input::Config` equal to it — no handler call, no `subscrip
 slice, so without the gate a service whose table had not moved still wakes, and a service that then
 grows its own comparison has put the same decision in two places.
 
-**The gate belongs on the consumer side.** On `ServiceSender` it looks equivalent and is not:
-senders are cloned and handed out *before* `run` is spawned, so the record has to be seeded against
-a reload that beat startup, and a `try_send` failing on a full inbox must not record a config that
-never arrived. `run` holds the one config in force and sees every `Input::Config` in order.
+**The gate belongs in `run`, not on `ServiceSender`.** Senders are cloned and handed out *before*
+`run` is spawned, so a sender-side record must be seeded against a reload that beat startup, and a
+`try_send` failing on a full inbox must not record a config that never arrived.
 
 A service's health is `Starting`, `Running`, `Degraded { reason }` or `Stopped { reason }`.
 **`Degraded` is a running service** — it keeps publishing what it can, so a consumer must not dim
@@ -181,8 +179,7 @@ warning, because there is no second reader; and `poll-interval` describes only t
 - **Re-expansion is a subscription**, keyed on a `generation` bumped by anything invalidating the
   list, and runs on `spawn_blocking`.
 - **Every instant arriving from a client is added to with `checked_add_signed`.** `DateTime +
-  TimeDelta` panics on overflow and `DateTime<Utc>`'s serde accepts an extended year, so one
-  `set_range` took the calendar down.
+  TimeDelta` panics on overflow and `DateTime<Utc>`'s serde accepts an extended year.
 - **An entry's length is capped**, because a surface walks the days it covers one at a time — a
   `DURATION` of `P9999Y` is three and a half million iterations in the GTK main loop per update.
 - **An entry may carry `DURATION` instead of `DTEND`, and `icalendar` does not surface it.**
@@ -269,15 +266,9 @@ timer down; keying on a bare marker would lapse at the wrong instant.
 
 ## Rules
 
-The dependency arrow points from an owning process to this crate. Services expose concrete handles;
-there is no daemon-owned trait, broker, registry, or string routing layer.
-
-Mirror services enumerate once then follow change signals. The backend is right when they disagree,
-and no decision the backend already makes gets reimplemented here.
-
-A handler that can block either awaits a command-specific operation when ordering matters or moves
-fire-and-forget work into a cancellable context task. Handlers run serially, so a slow call must not
-freeze unrelated state updates.
+Services expose concrete handles; there is no daemon-owned trait, broker, registry, or string routing
+layer. The handler, boundary and config rules are in `.claude/rules/daemon.md` and are not repeated
+here.
 
 Three helpers are shared rather than per-service: `AGENT`, `say` and `transport`, the last of which
 strips the URL a `reqwest` error would otherwise print.

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-14 23:11+0200\n"
+"POT-Creation-Date: 2026-09-15 16:18+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: crates/glimpse-notifications/src/app.rs:435
+#: crates/glimpse-notifications/src/app.rs:441
 #: crates/glimpse-panel/src/applets/notifications/render.rs:74
 msgid "now"
 msgstr ""
@@ -101,28 +101,28 @@ msgstr ""
 msgid "Stopped"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:124
+#: crates/glimpse-panel/src/applets/next_event/render.rs:125
 msgid "ends in {value} {unit}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:125
+#: crates/glimpse-panel/src/applets/next_event/render.rs:126
 msgid "in {value} {unit}"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:142
-#: crates/glimpse-panel/src/applets/next_event/render.rs:150
+#: crates/glimpse-panel/src/applets/next_event/render.rs:143
+#: crates/glimpse-panel/src/applets/next_event/render.rs:151
 msgid "min"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:143
+#: crates/glimpse-panel/src/applets/next_event/render.rs:144
 msgid "min left"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:151
+#: crates/glimpse-panel/src/applets/next_event/render.rs:152
 msgid "h"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/next_event/render.rs:152
+#: crates/glimpse-panel/src/applets/next_event/render.rs:153
 msgid "d"
 msgstr ""
 
@@ -403,7 +403,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:136
+#: crates/glimpse-widgets/src/lib.rs:140
 msgid "Play"
 msgstr ""
 
@@ -427,7 +427,7 @@ msgstr ""
 msgid "Workspaces"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:135
+#: crates/glimpse-widgets/src/lib.rs:139
 msgid "Pause"
 msgstr ""
 

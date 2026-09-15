@@ -7,7 +7,11 @@ pub struct Indicator {
     #[template_child]
     pub dot: TemplateChild<crate::dots::Dots>,
     #[template_child]
+    pub icon_slot: TemplateChild<gtk4::Overlay>,
+    #[template_child]
     pub icon: TemplateChild<gtk4::Image>,
+    #[template_child]
+    pub overlay: TemplateChild<gtk4::Image>,
     #[template_child]
     pub attention_dot: TemplateChild<gtk4::Box>,
     #[template_child]
@@ -15,6 +19,7 @@ pub struct Indicator {
     #[template_child]
     pub badge: TemplateChild<gtk4::Label>,
     pub gicon: RefCell<Option<gio::Icon>>,
+    pub overlay_icon: RefCell<Option<gio::Icon>>,
     pub color: Cell<Option<gtk4::gdk::RGBA>>,
     pub attention: Cell<bool>,
     pub severity: Cell<Option<crate::Severity>>,
