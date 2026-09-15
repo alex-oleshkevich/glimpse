@@ -1,10 +1,10 @@
+use glimpse_dbus::Exported;
 use glimpse_dbus::weather::WatchedPlace;
 use glimpse_dbus::weather::{
     GLIMPSE_WEATHER_BUS_NAME, GLIMPSE_WEATHER_OBJECT_PATH, WeatherSnapshot, encode_snapshot,
 };
 use glimpse_services::ServiceState;
 use glimpse_services::{CommandError, WeatherHandle};
-use tokio::task::JoinHandle;
 use zbus::{Connection, DBusError};
 
 #[derive(Debug, DBusError)]
@@ -17,7 +17,7 @@ pub enum Error {
     ZBus(zbus::Error),
 }
 
-struct Provider {
+pub(crate) struct Provider {
     weather: WeatherHandle,
 }
 
@@ -75,63 +75,19 @@ impl From<CommandError> for Error {
     }
 }
 
-pub struct Runtime {
-    connection: Connection,
-    changes: JoinHandle<()>,
-}
+pub(crate) type Runtime = Exported<Provider>;
 
-impl Runtime {
-    pub async fn start(connection: Connection, weather: WeatherHandle) -> zbus::Result<Self> {
-        connection
-            .object_server()
-            .at(
-                GLIMPSE_WEATHER_OBJECT_PATH,
-                Provider {
-                    weather: weather.clone(),
-                },
-            )
-            .await?;
-        if let Err(error) = glimpse_dbus::own_name(&connection, GLIMPSE_WEATHER_BUS_NAME).await {
-            let _ = connection
-                .object_server()
-                .remove::<Provider, _>(GLIMPSE_WEATHER_OBJECT_PATH)
-                .await;
-            return Err(error);
-        }
-        tracing::info!(
-            bus_name = GLIMPSE_WEATHER_BUS_NAME,
-            "weather D-Bus name acquired"
-        );
-        let changes = tokio::spawn(follow_changes(connection.clone(), weather));
-        Ok(Self {
-            connection,
-            changes,
-        })
-    }
-
-    pub fn cancel(&self) {
-        self.changes.abort();
-    }
-
-    pub async fn shutdown(self) {
-        let Self {
-            connection,
-            changes,
-        } = self;
-        changes.abort();
-        let _ = changes.await;
-        if let Err(error) = connection.release_name(GLIMPSE_WEATHER_BUS_NAME).await {
-            tracing::warn!(%error, "weather D-Bus name release failed");
-        }
-        if let Err(error) = connection
-            .object_server()
-            .remove::<Provider, _>(GLIMPSE_WEATHER_OBJECT_PATH)
-            .await
-        {
-            tracing::warn!(%error, "weather D-Bus object removal failed");
-        }
-        tracing::info!("weather D-Bus provider stopped");
-    }
+pub(crate) async fn start(connection: Connection, weather: WeatherHandle) -> zbus::Result<Runtime> {
+    Exported::start(
+        connection.clone(),
+        GLIMPSE_WEATHER_BUS_NAME,
+        GLIMPSE_WEATHER_OBJECT_PATH,
+        Provider {
+            weather: weather.clone(),
+        },
+        follow_changes(connection, weather),
+    )
+    .await
 }
 
 async fn follow_changes(connection: Connection, weather: WeatherHandle) {
@@ -190,14 +146,9 @@ fn snapshot(weather: &WeatherHandle) -> WeatherSnapshot {
     let health = weather.health();
     let health = health.borrow();
     let available = !status.places.is_empty();
-    let stale = available && !matches!(&*health, ServiceState::Running);
-    let reason = match &*health {
-        ServiceState::Starting => Some("starting"),
-        ServiceState::Running if available => None,
-        ServiceState::Running => Some("weather has no successful reading yet"),
-        ServiceState::Degraded { reason } => Some(reason.as_str()),
-        ServiceState::Stopped { reason } => reason.as_deref().or(Some("stopped")),
-    };
+    let unavailable = health.unavailable_reason();
+    let stale = available && unavailable.is_some();
+    let reason = unavailable.or((!available).then_some("weather has no successful reading yet"));
     encode_snapshot(&status, available, stale, reason)
 }
 
@@ -240,6 +191,28 @@ mod tests {
             WatchedPlace::Location {
                 name: "Warsaw, PL".to_owned(),
             }
+        );
+    }
+
+    #[test]
+    fn a_snapshot_prefers_the_health_reason_over_the_empty_reading_one() {
+        let config = <Weather as Service>::Config::from(&glimpse_config::Config::default());
+        let (_runtime, weather) = ServiceRuntime::<Weather>::new(
+            initial_weather_state(&config),
+            Buses::unavailable("no bus in tests"),
+            CancellationToken::new(),
+        );
+
+        let (available, stale, reason, ..) = snapshot(&weather);
+
+        assert!(!available);
+        assert!(
+            !stale,
+            "nothing has been read, so there is nothing to go stale"
+        );
+        assert_eq!(
+            reason, "starting",
+            "a service still starting says so; the empty-reading message is for one that has started"
         );
     }
 
@@ -317,7 +290,7 @@ mod tests {
                 )
                 .await
         });
-        let provider = Runtime::start(bus.connection().await, weather.clone())
+        let provider = start(bus.connection().await, weather.clone())
             .await
             .unwrap();
         let client = bus.connection().await;

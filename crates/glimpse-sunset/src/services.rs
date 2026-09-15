@@ -54,7 +54,7 @@ impl SunsetServices {
             cancel.child_token(),
         );
 
-        let provider = provider::Runtime::start(session, night_light)
+        let provider = provider::start(session, night_light)
             .await
             .context("another glimpse-sunset already owns the night light")?;
 

@@ -1,11 +1,11 @@
 use chrono::DateTime;
+use glimpse_dbus::Exported;
 use glimpse_dbus::notifications::{DoNotDisturb, NotificationRecord, NotificationUrgency};
 use glimpse_dbus::notifications::{
     DoNotDisturbWire, GLIMPSE_NOTIFICATIONS_BUS_NAME, GLIMPSE_NOTIFICATIONS_OBJECT_PATH,
     NotificationWire, NotificationsSnapshot,
 };
-use glimpse_services::{CommandError, NotificationsHandle, ServiceState};
-use tokio::task::JoinHandle;
+use glimpse_services::{CommandError, NotificationsHandle};
 use zbus::{Connection, DBusError};
 
 #[derive(Debug, DBusError)]
@@ -17,7 +17,7 @@ pub enum Error {
     ZBus(zbus::Error),
 }
 
-struct Provider {
+pub(crate) struct Provider {
     notifications: NotificationsHandle,
 }
 
@@ -91,60 +91,22 @@ impl From<CommandError> for Error {
     }
 }
 
-pub struct Runtime {
+pub(crate) type Runtime = Exported<Provider>;
+
+pub(crate) async fn start(
     connection: Connection,
-    changes: JoinHandle<()>,
-}
-
-impl Runtime {
-    pub async fn start(
-        connection: Connection,
-        notifications: NotificationsHandle,
-    ) -> zbus::Result<Self> {
-        connection
-            .object_server()
-            .at(
-                GLIMPSE_NOTIFICATIONS_OBJECT_PATH,
-                Provider {
-                    notifications: notifications.clone(),
-                },
-            )
-            .await?;
-        if let Err(error) =
-            glimpse_dbus::own_name(&connection, GLIMPSE_NOTIFICATIONS_BUS_NAME).await
-        {
-            let _ = connection
-                .object_server()
-                .remove::<Provider, _>(GLIMPSE_NOTIFICATIONS_OBJECT_PATH)
-                .await;
-            return Err(error);
-        }
-        let changes = tokio::spawn(follow_changes(connection.clone(), notifications));
-        Ok(Self {
-            connection,
-            changes,
-        })
-    }
-
-    pub fn cancel(&self) {
-        self.changes.abort();
-    }
-
-    pub async fn shutdown(self) {
-        let Self {
-            connection,
-            changes,
-        } = self;
-        changes.abort();
-        let _ = changes.await;
-        let _ = connection
-            .release_name(GLIMPSE_NOTIFICATIONS_BUS_NAME)
-            .await;
-        let _ = connection
-            .object_server()
-            .remove::<Provider, _>(GLIMPSE_NOTIFICATIONS_OBJECT_PATH)
-            .await;
-    }
+    notifications: NotificationsHandle,
+) -> zbus::Result<Runtime> {
+    Exported::start(
+        connection.clone(),
+        GLIMPSE_NOTIFICATIONS_BUS_NAME,
+        GLIMPSE_NOTIFICATIONS_OBJECT_PATH,
+        Provider {
+            notifications: notifications.clone(),
+        },
+        follow_changes(connection, notifications),
+    )
+    .await
 }
 
 async fn follow_changes(connection: Connection, notifications: NotificationsHandle) {
@@ -190,7 +152,7 @@ async fn follow_changes(connection: Connection, notifications: NotificationsHand
 fn snapshot(notifications: &NotificationsHandle) -> NotificationsSnapshot {
     let state = notifications.snapshot();
     let health = notifications.health();
-    let (serving, reason) = availability(&health.borrow());
+    let unavailable = health.borrow().unavailable_reason().map(str::to_owned);
     let records = state
         .list
         .map(|list| list.notifications)
@@ -199,19 +161,12 @@ fn snapshot(notifications: &NotificationsHandle) -> NotificationsSnapshot {
         .map(notification)
         .collect();
     let dnd = state.dnd.map(|dnd| dnd.dnd).unwrap_or_default();
-    (records, do_not_disturb(dnd), serving, reason)
-}
-
-fn availability(state: &ServiceState) -> (bool, String) {
-    match state {
-        ServiceState::Running => (true, String::new()),
-        ServiceState::Starting => (false, "starting".to_owned()),
-        ServiceState::Degraded { reason } => (false, reason.clone()),
-        ServiceState::Stopped { reason } => (
-            false,
-            reason.clone().unwrap_or_else(|| "stopped".to_owned()),
-        ),
-    }
+    (
+        records,
+        do_not_disturb(dnd),
+        unavailable.is_none(),
+        unavailable.unwrap_or_default(),
+    )
 }
 
 fn notification(record: NotificationRecord) -> NotificationWire {
@@ -269,6 +224,20 @@ mod tests {
     use tokio_util::sync::CancellationToken;
 
     use super::*;
+
+    #[test]
+    fn a_snapshot_says_the_service_is_not_serving_and_why() {
+        let (_runtime, notifications) = ServiceRuntime::<Notifications>::new(
+            initial_notifications_state(),
+            Buses::unavailable("no bus in tests"),
+            CancellationToken::new(),
+        );
+
+        let (_records, _dnd, serving, reason) = snapshot(&notifications);
+
+        assert!(!serving);
+        assert_eq!(reason, "starting");
+    }
 
     struct PrivateBus {
         child: Child,
@@ -329,7 +298,7 @@ mod tests {
                 )
                 .await
         });
-        let provider = Runtime::start(bus.connection().await, notifications.clone())
+        let provider = start(bus.connection().await, notifications.clone())
             .await
             .unwrap();
         let client = bus.connection().await;
@@ -428,16 +397,5 @@ mod tests {
         assert_eq!(wire.9, [("reply".to_owned(), "Reply".to_owned())]);
         assert_eq!(wire.10, -1.0);
         assert_eq!(wire.11, created.timestamp_micros());
-    }
-
-    #[test]
-    fn availability_distinguishes_serving_from_stale_state() {
-        assert_eq!(availability(&ServiceState::Running), (true, String::new()));
-        assert_eq!(
-            availability(&ServiceState::Degraded {
-                reason: "name taken".to_owned(),
-            }),
-            (false, "name taken".to_owned())
-        );
     }
 }

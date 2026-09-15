@@ -18,6 +18,17 @@ pub enum ServiceState {
     Stopped { reason: Option<String> },
 }
 
+impl ServiceState {
+    pub fn unavailable_reason(&self) -> Option<&str> {
+        match self {
+            Self::Running => None,
+            Self::Starting => Some("starting"),
+            Self::Degraded { reason } => Some(reason),
+            Self::Stopped { reason } => reason.as_deref().or(Some("stopped")),
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
     #[error("service failed to start")]
@@ -312,6 +323,34 @@ mod tests {
     use futures_util::{StreamExt, stream};
 
     use super::*;
+
+    #[test]
+    fn only_a_running_service_has_no_reason_it_is_unavailable() {
+        assert_eq!(ServiceState::Running.unavailable_reason(), None);
+        assert_eq!(
+            ServiceState::Starting.unavailable_reason(),
+            Some("starting")
+        );
+        assert_eq!(
+            ServiceState::Degraded {
+                reason: "another gamma client holds the outputs".to_owned()
+            }
+            .unavailable_reason(),
+            Some("another gamma client holds the outputs")
+        );
+        assert_eq!(
+            ServiceState::Stopped {
+                reason: Some("name taken".to_owned())
+            }
+            .unavailable_reason(),
+            Some("name taken")
+        );
+        assert_eq!(
+            ServiceState::Stopped { reason: None }.unavailable_reason(),
+            Some("stopped"),
+            "a consumer asking why nothing is served must not be told nothing"
+        );
+    }
 
     struct Panicky;
 

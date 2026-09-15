@@ -34,7 +34,7 @@ impl NotificationServices {
         let session = buses.session_bus().ok().cloned();
         let mut services = Self::start_with_buses(document, buses);
         if let Some(connection) = session {
-            match provider::Runtime::start(connection, services.notifications.clone()).await {
+            match provider::start(connection, services.notifications.clone()).await {
                 Ok(provider) => services.provider = Some(provider),
                 Err(error) => tracing::warn!(%error, "notification provider unavailable"),
             }

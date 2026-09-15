@@ -1,9 +1,9 @@
 use glimpse_config::Schedule;
+use glimpse_dbus::Exported;
 use glimpse_dbus::night_light::{
     GLIMPSE_NIGHT_LIGHT_BUS_NAME, GLIMPSE_NIGHT_LIGHT_OBJECT_PATH, NightLightSnapshot,
 };
-use glimpse_services::{NightLightHandle, ServiceState};
-use tokio::task::JoinHandle;
+use glimpse_services::NightLightHandle;
 use zbus::{Connection, DBusError};
 
 #[derive(Debug, DBusError)]
@@ -15,7 +15,7 @@ pub enum Error {
     ZBus(zbus::Error),
 }
 
-struct Provider {
+pub(crate) struct Provider {
     night_light: NightLightHandle,
 }
 
@@ -39,72 +39,22 @@ fn parse(schedule: &str) -> Result<Schedule, Error> {
         .ok_or_else(|| Error::InvalidSchedule("schedule is off, automatic or schedule".to_owned()))
 }
 
-pub struct Runtime {
+pub(crate) type Runtime = Exported<Provider>;
+
+pub(crate) async fn start(
     connection: Connection,
-    changes: JoinHandle<()>,
-}
-
-impl Runtime {
-    /// Exported first and named second, which is the order zbus asks for: a `Get` arriving between
-    /// the two would otherwise find the name but no object.
-    /// The caller runs this before touching any backend, so a second copy of this binary fails
-    /// here rather than after taking gamma control from the one already running.
-    pub async fn start(
-        connection: Connection,
-        night_light: NightLightHandle,
-    ) -> zbus::Result<Self> {
-        connection
-            .object_server()
-            .at(
-                GLIMPSE_NIGHT_LIGHT_OBJECT_PATH,
-                Provider {
-                    night_light: night_light.clone(),
-                },
-            )
-            .await?;
-
-        if let Err(error) = glimpse_dbus::own_name(&connection, GLIMPSE_NIGHT_LIGHT_BUS_NAME).await
-        {
-            let _ = connection
-                .object_server()
-                .remove::<Provider, _>(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH)
-                .await;
-            return Err(error);
-        }
-        tracing::info!(
-            bus_name = GLIMPSE_NIGHT_LIGHT_BUS_NAME,
-            "night light D-Bus name acquired"
-        );
-
-        let changes = tokio::spawn(follow_changes(connection.clone(), night_light));
-        Ok(Self {
-            connection,
-            changes,
-        })
-    }
-    pub fn cancel(&self) {
-        self.changes.abort();
-    }
-
-    pub async fn shutdown(self) {
-        let Self {
-            connection,
-            changes,
-        } = self;
-        changes.abort();
-        let _ = changes.await;
-        if let Err(error) = connection.release_name(GLIMPSE_NIGHT_LIGHT_BUS_NAME).await {
-            tracing::warn!(%error, "night light D-Bus name release failed");
-        }
-        if let Err(error) = connection
-            .object_server()
-            .remove::<Provider, _>(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH)
-            .await
-        {
-            tracing::warn!(%error, "night light D-Bus object removal failed");
-        }
-        tracing::info!("night light D-Bus provider stopped");
-    }
+    night_light: NightLightHandle,
+) -> zbus::Result<Runtime> {
+    Exported::start(
+        connection.clone(),
+        GLIMPSE_NIGHT_LIGHT_BUS_NAME,
+        GLIMPSE_NIGHT_LIGHT_OBJECT_PATH,
+        Provider {
+            night_light: night_light.clone(),
+        },
+        follow_changes(connection, night_light),
+    )
+    .await
 }
 
 async fn follow_changes(connection: Connection, night_light: NightLightHandle) {
@@ -141,27 +91,15 @@ async fn follow_changes(connection: Connection, night_light: NightLightHandle) {
 fn snapshot(night_light: &NightLightHandle) -> NightLightSnapshot {
     let state = night_light.snapshot();
     let health = night_light.health();
-    let (serving, reason) = availability(&health.borrow());
+    let unavailable = health.borrow().unavailable_reason().map(str::to_owned);
     NightLightSnapshot {
         schedule: state.schedule.as_str().to_owned(),
         overridden: state.overridden,
         temperature: state.temperature,
         target: state.target,
         active: state.active(),
-        serving,
-        reason,
-    }
-}
-
-fn availability(state: &ServiceState) -> (bool, String) {
-    match state {
-        ServiceState::Running => (true, String::new()),
-        ServiceState::Starting => (false, "starting".to_owned()),
-        ServiceState::Degraded { reason } => (false, reason.clone()),
-        ServiceState::Stopped { reason } => (
-            false,
-            reason.clone().unwrap_or_else(|| "stopped".to_owned()),
-        ),
+        serving: unavailable.is_none(),
+        reason: unavailable.unwrap_or_default(),
     }
 }
 
@@ -197,13 +135,54 @@ mod tests {
     }
 
     #[test]
-    fn availability_distinguishes_serving_from_the_reason_it_is_not() {
-        assert_eq!(availability(&ServiceState::Running), (true, String::new()));
-        assert_eq!(
-            availability(&ServiceState::Degraded {
-                reason: "another gamma client holds the outputs".to_owned()
-            }),
-            (false, "another gamma client holds the outputs".to_owned())
+    fn a_snapshot_says_the_service_is_not_serving_and_why() {
+        let config = NightLightConfig::from(&glimpse_config::Config::default());
+        let (_runtime, night_light) = ServiceRuntime::<NightLight>::new(
+            initial_night_light_state(&config),
+            Buses::unavailable("no bus in tests"),
+            CancellationToken::new(),
+        );
+
+        let published = snapshot(&night_light);
+
+        assert!(!published.serving);
+        assert_eq!(published.reason, "starting");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn a_refused_name_takes_the_exported_object_back_down() {
+        let bus = PrivateBus::start();
+        let holder = bus.connection().await;
+        glimpse_dbus::own_name(&holder, GLIMPSE_NIGHT_LIGHT_BUS_NAME)
+            .await
+            .expect("the first owner takes the name");
+
+        let config = NightLightConfig::from(&glimpse_config::Config::default());
+        let (_runtime, night_light) = ServiceRuntime::<NightLight>::new(
+            initial_night_light_state(&config),
+            Buses::unavailable("no bus in tests"),
+            CancellationToken::new(),
+        );
+
+        let connection = bus.connection().await;
+        assert!(
+            matches!(
+                start(connection.clone(), night_light).await,
+                Err(zbus::Error::NameTaken)
+            ),
+            "the name is held, so starting must fail"
+        );
+
+        assert!(
+            matches!(
+                connection
+                    .object_server()
+                    .remove::<Provider, _>(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH)
+                    .await,
+                Err(zbus::Error::InterfaceNotFound)
+            ),
+            "a refused name must leave nothing exported: the object is put up before the name is \
+             asked for, so the failure has to take it back down"
         );
     }
 
@@ -295,7 +274,7 @@ mod tests {
                 .await
         });
 
-        let provider = Runtime::start(bus.connection().await, night_light)
+        let provider = start(bus.connection().await, night_light)
             .await
             .expect("the provider starts");
         let client = bus.connection().await;

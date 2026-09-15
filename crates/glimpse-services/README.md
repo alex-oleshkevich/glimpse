@@ -513,6 +513,18 @@ at the moment it becomes true, where a flag has to be remembered and re-read. A 
 to this question sat unused in `ServiceState` until September 2026 and was deleted rather than
 wired, because wiring it would have given consumers a second, lagging source of the same fact.
 
+**`ServiceState::unavailable_reason` is the one mapping from health to what a consumer is told.** It
+answers `None` while the service is serving and otherwise why it is not. Each of the three providers
+used to carry its own: sunset's and notifications' were byte-identical `availability` functions, and
+weather's was a third shape inlined in its `snapshot`, answering `Option<&str>` and folding in its
+own "no successful reading yet" case. One decision in three spellings is three places to forget when
+`ServiceState` gains a variant — and the match is total, so a new variant should make every provider
+fail to compile until it has decided what to say. It is not the flag deleted above returning by
+another route: that one was remembered state that lagged, this is computed from current health at
+the moment a snapshot is built. The strings it returns are read by consumers over D-Bus, so
+`"starting"` and `"stopped"` are contract rather than log text; weather layers its own case on top
+with `.or(...)`, which keeps the health reason winning when both apply.
+
 Everything reaching a handler arrives from a **source**, and every source is one `ctx` call
 returning a `SourceGuard`. Dropping the guard is the whole cancellation story.
 

@@ -32,7 +32,7 @@ impl WeatherServices {
             .map_err(|reason| anyhow::anyhow!(reason.to_owned()))
             .context("weather provider needs the session bus")?;
         let mut services = Self::start_with_buses(document, buses);
-        match provider::Runtime::start(session, services.weather.clone()).await {
+        match provider::start(session, services.weather.clone()).await {
             Ok(provider) => services.provider = Some(provider),
             Err(error) => {
                 services.shutdown().await;

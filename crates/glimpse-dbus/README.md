@@ -6,6 +6,7 @@ connections they run on.
 ## Contents
 
 - `dbus.rs` — `Buses`, holding the session and system connections, and `own_name`
+- `provider.rs` — `Exported`, the name-and-object lifecycle the three providers share
 - `clients/` — one module per bus service, each a set of `#[zbus::proxy]` trait declarations
 - `clients/notifications.rs` — the notification proxy, typed handle and owned follower lifecycle
 - `clients/weather.rs` — weather wire values, typed proxy, conversions and owner follower
@@ -43,6 +44,27 @@ build if the ban ever stops resolving. The GTK binaries' own
 application-id names — `me.aresa.GlimpsePanel`, `me.aresa.GlimpseNotifications` — are registered by
 GApplication and never reach this function; that is what makes a second process with the same app id
 hand off and exit 0 before any name here is requested.
+
+**`Exported` owns the five steps between a provider and its name.** Export the interface at its
+object path, take the name through `own_name`, spawn the task that re-emits the snapshot signal,
+and on shutdown abort that task, release the name and remove the object. **The object goes up
+before the name is asked for**, because a `Get` arriving between the two would otherwise find the
+name with nothing behind it — which is also why a refused name has to take the object back down
+again, and why that rollback is the part with a test
+(`glimpse-sunset/src/provider.rs`, `a_refused_name_takes_the_exported_object_back_down`). The
+ordering itself is not directly covered: catching the window needs a race, and a flaky test is
+worth less than this sentence.
+
+Weather, notifications and night light ran three copies of this until September 2026, and the
+copies had already drifted — only sunset logged that the name was acquired, and notifications
+discarded both shutdown failures where the other two warned, so the one provider most likely to
+collide with a running dunst was also the one that said least about it. What each provider still
+owns is the *following*: the body that decides when a snapshot changed genuinely differs between
+them, so `Exported::start` takes that future as an argument rather than absorbing it.
+
+`Exported` is generic over the interface and declares none of its own, so this crate's
+no-`#[zbus::interface]` rule below still holds: the interface value is constructed by the binary
+that owns the state behind it and passed in.
 
 **Backend proxies carry no policy.** System-service modules only declare interfaces. A typed client
 for a Glimpse-owned provider may additionally own its availability state and `NameOwnerChanged`
