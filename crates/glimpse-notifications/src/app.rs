@@ -39,7 +39,7 @@ pub struct Init {
 
 #[derive(Debug)]
 pub enum Input {
-    ServicesReady(NotificationServices),
+    ServicesReady(Box<Result<NotificationServices, String>>),
     Notifications(NotificationsState),
     NotificationsHealth(ServiceState),
     Compositor(CompositorState),
@@ -209,7 +209,13 @@ impl SimpleComponent for App {
 
     fn update(&mut self, input: Self::Input, sender: ComponentSender<Self>) {
         match input {
-            Input::ServicesReady(services) => self.connect_services(services, &sender),
+            Input::ServicesReady(services) => match *services {
+                Ok(services) => self.connect_services(services, &sender),
+                Err(reason) => {
+                    tracing::error!(%reason, "cannot serve notifications; exiting");
+                    relm4::main_application().quit();
+                }
+            },
             Input::Notifications(state) => self.notifications(state, &sender),
             Input::NotificationsHealth(state) => {
                 if matches!(state, ServiceState::Stopped { .. }) {
@@ -860,9 +866,10 @@ fn invoke_and_dismiss(
 
 fn start_services(config: Config, sender: ComponentSender<App>) -> JoinHandle<()> {
     relm4::spawn(async move {
-        sender.input(Input::ServicesReady(
-            NotificationServices::start(&config).await,
-        ));
+        let started = NotificationServices::start(&config)
+            .await
+            .map_err(|error| format!("{error:#}"));
+        sender.input(Input::ServicesReady(Box::new(started)));
     })
 }
 

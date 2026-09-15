@@ -1934,11 +1934,6 @@
           "ac": {
             "listeners": [
               {
-                "on-idle": "/usr/share/glimpse/scripts/monitors off",
-                "on-resume": "/usr/share/glimpse/scripts/monitors on",
-                "timeout": 600
-              },
-              {
                 "on-idle": "loginctl lock-session",
                 "on-resume": "",
                 "timeout": 900
@@ -1952,11 +1947,6 @@
           },
           "battery": {
             "listeners": [
-              {
-                "on-idle": "/usr/share/glimpse/scripts/monitors off",
-                "on-resume": "/usr/share/glimpse/scripts/monitors on",
-                "timeout": 300
-              },
               {
                 "on-idle": "loginctl lock-session",
                 "on-resume": "",
@@ -2318,11 +2308,6 @@
             "ac": {
               "listeners": [
                 {
-                  "on-idle": "/usr/share/glimpse/scripts/monitors off",
-                  "on-resume": "/usr/share/glimpse/scripts/monitors on",
-                  "timeout": 600
-                },
-                {
                   "on-idle": "loginctl lock-session",
                   "on-resume": "",
                   "timeout": 900
@@ -2336,11 +2321,6 @@
             },
             "battery": {
               "listeners": [
-                {
-                  "on-idle": "/usr/share/glimpse/scripts/monitors off",
-                  "on-resume": "/usr/share/glimpse/scripts/monitors on",
-                  "timeout": 300
-                },
                 {
                   "on-idle": "loginctl lock-session",
                   "on-resume": "",
@@ -2858,11 +2838,6 @@
           "default": {
             "listeners": [
               {
-                "on-idle": "/usr/share/glimpse/scripts/monitors off",
-                "on-resume": "/usr/share/glimpse/scripts/monitors on",
-                "timeout": 600
-              },
-              {
                 "on-idle": "loginctl lock-session",
                 "on-resume": "",
                 "timeout": 900
@@ -2879,11 +2854,6 @@
           "$ref": "#/$defs/Profile",
           "default": {
             "listeners": [
-              {
-                "on-idle": "/usr/share/glimpse/scripts/monitors off",
-                "on-resume": "/usr/share/glimpse/scripts/monitors on",
-                "timeout": 300
-              },
               {
                 "on-idle": "loginctl lock-session",
                 "on-resume": "",

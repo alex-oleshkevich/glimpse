@@ -3,6 +3,7 @@ use gettextrs::gettext;
 use glimpse_widgets::Event;
 
 use crate::applets::agenda::{self, Occasion};
+use crate::applets::tokens;
 
 const MOST_ROWS: usize = 20;
 const TITLE: usize = 24;
@@ -191,29 +192,12 @@ fn row(now: DateTime<Local>, event: &Occasion, clock: &str) -> Event {
 }
 
 pub fn tooltip(format: &str, event: &Occasion, reading: &str) -> String {
-    let mut rendered = String::new();
-    let mut rest = format;
-
-    while let Some(open) = rest.find('{') {
-        let Some(close) = rest[open..].find('}') else {
-            break;
-        };
-        rendered.push_str(&rest[..open]);
-        match &rest[open + 1..open + close] {
-            "summary" => rendered.push_str(&event.summary),
-            "detail" => rendered.push_str(&event.detail),
-            "when" => rendered.push_str(reading),
-            unknown => {
-                rendered.push('{');
-                rendered.push_str(unknown);
-                rendered.push('}');
-            }
-        }
-        rest = &rest[open + close + 1..];
-    }
-
-    rendered.push_str(rest);
-    rendered
+    tokens::render(format, |token| match token {
+        "summary" => Some(event.summary.as_str()),
+        "detail" => Some(event.detail.as_str()),
+        "when" => Some(reading),
+        _ => None,
+    })
 }
 
 #[cfg(test)]

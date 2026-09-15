@@ -6,6 +6,7 @@ mod mpris;
 mod next_event;
 mod notifications;
 mod pager;
+mod tokens;
 pub(crate) mod weather;
 
 use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};

@@ -1,3 +1,5 @@
+use crate::applets::tokens;
+
 pub struct Facts<'a> {
     pub index: Option<u64>,
     pub id: u64,
@@ -16,20 +18,21 @@ impl Facts<'_> {
 
 pub fn render(template: &str, facts: &Facts) -> String {
     let ordinal = facts.ordinal();
+    let id = facts.id.to_string();
     let name = facts.name.unwrap_or_default();
+    let name_or_index = match name.is_empty() {
+        true => ordinal.as_str(),
+        false => name,
+    };
 
-    template
-        .replace("{workspace-name}", facts.workspace.unwrap_or_default())
-        .replace(
-            "{name-or-index}",
-            match name.is_empty() {
-                true => &ordinal,
-                false => name,
-            },
-        )
-        .replace("{index}", &ordinal)
-        .replace("{id}", &facts.id.to_string())
-        .replace("{name}", name)
+    tokens::render(template, |token| match token {
+        "workspace-name" => Some(facts.workspace.unwrap_or_default()),
+        "name-or-index" => Some(name_or_index),
+        "index" => Some(ordinal.as_str()),
+        "id" => Some(id.as_str()),
+        "name" => Some(name),
+        _ => None,
+    })
 }
 
 #[cfg(test)]
@@ -160,6 +163,22 @@ mod tests {
             "",
             "an unnamed workspace renders as nothing rather than as the word None"
         );
+    }
+
+    /// A workspace or window name is compositor-supplied text, so a token inside one must stay
+    /// text rather than become a second round of substitution.
+    #[test]
+    fn a_token_inside_a_compositor_supplied_name_is_not_substituted() {
+        let hostile = Facts {
+            index: Some(3),
+            id: 42,
+            name: Some("{id}"),
+            workspace: Some("{index}"),
+        };
+
+        assert_eq!(render("{name}", &hostile), "{id}");
+        assert_eq!(render("{workspace-name}", &hostile), "{index}");
+        assert_eq!(render("{name-or-index}", &hostile), "{id}");
     }
 
     #[test]

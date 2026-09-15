@@ -8,25 +8,13 @@ is usually "who owns this state?" — and the answer is the one process whose na
 
 ## Prior art
 
-This is the second generation of an application that already exists. Two bodies of earlier work are
-in the tree, and both are **reference only — never a source of truth.**
+`_old/` is the shipped previous implementation in Rust; `var/glimpse2` is design drafts for this
+rewrite by another agent. Both are **reference only — never a source of truth.** Read them for how a
+problem was solved or which edge cases mattered; that knowledge was paid for once already.
 
-| Where          | What it is                                                  |
-| -------------- | ----------------------------------------------------------- |
-| `_old/`        | the shipped previous implementation, in Rust                |
-| `var/glimpse2` | design documents for this rewrite, written by another agent |
-
-Read either when you want to know how a problem was solved before, what a backend actually does, or
-which edge cases turned out to matter in practice. That knowledge is the reason they are kept: it
-was paid for once already.
-
-Neither one decides anything. `_old/` is one answer among several and frequently the wrong one.
-`var/glimpse2` was written without the constraints in this file and does not know what has been
-decided since; treat it as a proposal from someone who has left the project.
-
-**Never edit either, never build them, and never copy code out of them.** This is not a port. The
-job is a smaller, simpler, cleaner application than the one in `_old/` — if a design lands at the
-same size and shape as its predecessor, that is a signal to look again, not a sign of fidelity.
+**Never edit either, never build them, never copy code out of them.** This is not a port. The job is
+a smaller, simpler application than `_old/` — a design that lands at the same size and shape as its
+predecessor is a signal to look again, not a sign of fidelity.
 
 ## Structure
 
@@ -40,107 +28,93 @@ glimpse/
 └── _old/         the previous implementation, kept for reference only
 ```
 
-| Crate                 | Role                                                                              |
-| --------------------- | --------------------------------------------------------------------------------- |
-| `glimpse-dbus`        | D-Bus proxies and the shared bus connections                                      |
-| `glimpse-config`      | layered TOML load, drop-ins, merge, validate, watch                               |
-| `glimpse-compositors` | niri and Hyprland IPC: snapshot, events, keyboard/workspace/window/output control |
-| `glimpse-services`    | service framework and every service implementation                                |
-| `glimpse-widgets`     | GObject subclasses, Blueprint templates, shared CSS                               |
-| `glimpse-utils`       | shared CLI arg structs, tracing/log setup, gettext binding and text cleaning      |
-| `glimpse-panel`       | panel and applets                                                                 |
-| `glimpse-notifications` | notification owner, typed D-Bus provider and transient popup layer surface      |
-| `glimpse-wallpaper`   | background layer surface, decode cache, transitions                               |
-| `glimpse-lock`        | `ext-session-lock-v1` surfaces, PAM                                               |
-| `glimpse-sunset`      | night-light service                                                               |
-| `glimpsectl`          | CLI and TUI                                                                       |
-| `glimpse-package`     | the suite's `.deb`/`.rpm` manifest; no code                                       |
+| Crate                   | Role                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| `glimpse-dbus`          | D-Bus proxies and the shared bus connections                                      |
+| `glimpse-config`        | layered TOML load, drop-ins, merge, validate, watch                               |
+| `glimpse-compositors`   | niri and Hyprland IPC: snapshot, events, keyboard/workspace/window/output control |
+| `glimpse-services`      | service framework and every service implementation                                |
+| `glimpse-widgets`       | GObject subclasses, Blueprint templates, shared CSS                               |
+| `glimpse-utils`         | shared CLI arg structs, tracing/log setup, gettext binding and text cleaning      |
+| `glimpse-panel`         | panel and applets                                                                 |
+| `glimpse-notifications` | notification owner, typed D-Bus provider and transient popup layer surface        |
+| `glimpse-weather`       | weather provider                                                                  |
+| `glimpse-wallpaper`     | background layer surface, decode cache, transitions                               |
+| `glimpse-lock`          | `ext-session-lock-v1` surfaces, PAM                                               |
+| `glimpse-sunset`        | night-light service                                                               |
+| `glimpsectl`            | CLI and TUI                                                                       |
+| `glimpse-package`       | the suite's `.deb`/`.rpm` manifest; no code                                       |
 
 ## Stack
 
 - Rust, edition 2024, `rust-version = "1.93"`, one workspace with `members = ["crates/*"]`
-- tokio for the daemon; one task per service, handlers run serially on `&mut self`
+- tokio; one task per service, handlers run serially on `&mut self`
 - zbus for D-Bus, both client and object-server sides
 - GTK4 + libadwaita + relm4 + gtk4-layer-shell for UI; Blueprint templates compiled by `build.rs`
-- serde and serde_json for the wire protocol — newline-delimited JSON over a Unix socket
+- serde and serde_json
 - `just` for task recipes
 
-## Conventions
+## Skills and rules
 
-Path-scoped rules load automatically when the relevant files are opened:
-`.claude/rules/daemon.md` for `glimpse-services` and the standalone providers;
-`.claude/rules/ui.md` for the GTK crates. Writing or changing a service — the `Service` trait, `Ctx`
-sources, subscriptions, topics and commands, registration, headless tests — is covered by the
-project-local `service` skill in `.claude/skills/service/`. Its panel counterpart is the `applet`
-skill, for the `Applet` trait, `Ctx` sources, pull-based indicators, the registration match, and the
-popover an applet opens on left click — the `Seat`, the `glib::WeakRef` a live one is held by, and
-the wake that re-dresses it;
-`widget` covers GObject subclasses, Blueprint templates and the three places a new template must be
-registered; and `testing` covers which tier a
-test belongs to, why GTK tests are one `#[ignore]`d function per crate, and the mutation check that
-decides whether an assertion is load-bearing. A compositor run — isolated socket, scratch config,
-a second panel that does not replace the session one — is the `live-testing` skill. General GTK4, libadwaita and relm4 craft
-is covered by the `relm4`, `gtk4-styles` and `libadwaita-styles` skills. D-Bus work — every mirror service, plus the
-the three names the providers own — is covered by the project-local `zbus` skill in `.claude/skills/zbus/`,
-which carries introspected signatures for NetworkManager, BlueZ, logind, UPower, MPRIS,
-StatusNotifierItem, dbusmenu and Notifications.
+Path-scoped rules load automatically: `.claude/rules/daemon.md` for `glimpse-services` and the
+standalone providers, `.claude/rules/ui.md` for the GTK crates.
+
+| Skill          | Covers                                                                         |
+| -------------- | ------------------------------------------------------------------------------ |
+| `service`      | the `Service` trait, `Ctx` sources, subscriptions, topics, commands, registration |
+| `applet`       | the `Applet` trait, pull-based indicators, registration match, popovers        |
+| `widget`       | GObject subclasses, Blueprint templates, the three registration points         |
+| `testing`      | which tier a test belongs to, the `#[ignore]`d GTK tests, the mutation check   |
+| `live-testing` | a compositor run: isolated socket, scratch config, a second panel              |
+| `zbus`         | every mirror service and the provider names, with introspected signatures      |
+
+General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills.
+
+## Conventions
 
 **Code**
 
 - **Write no comments unless asked.** Not doc comments, not rationale, not a note on a subtle
-  branch. Name functions, types and variables so the code reads without one, and put everything a
-  comment wanted to say in the crate's `README.md`, where it is found by someone looking for it.
-  This overrides any habit of explaining a decision in place — if a decision needs explaining, the
-  README is where it goes. Comments already in the tree stay; leave them alone unless the code
-  under them changes, and delete rather than update one that has stopped being true.
+  branch. Name things so the code reads without one, and put what a comment wanted to say in the
+  crate's `README.md`. Comments already in the tree stay; delete rather than update one that has
+  stopped being true.
 - **US English.** `color`, not `colour`, in identifiers, comments and user-facing strings.
 - Every binary fails the same way: `run(cli) -> anyhow::Result<()>` does the work and `main` turns
-  the outcome into an `ExitCode`, because `?` cannot be used in a function returning one.
-  `errors.rs` holds both halves — a private module of named code constants for that binary's exit
-  codes, and the single `exit_code(&anyhow::Error) -> ExitCode` that maps them by
-  `downcast_ref`. One mapping site is what stops a `.context(...)` added upstream from changing
-  which code a script sees. `ExitCode` is opaque, so split the `u8` out to keep it testable.
-- User-facing strings are not comments. `help = "..."` on a clap argument, an error message, a log
-  line — all fine, and stripping them breaks output.
+  the outcome into an `ExitCode`. `errors.rs` holds a private module of named exit-code constants
+  and the single `exit_code(&anyhow::Error) -> ExitCode` that maps them by `downcast_ref`. One
+  mapping site is what stops an upstream `.context(...)` from changing which code a script sees.
+  `ExitCode` is opaque, so split the `u8` out to keep it testable.
+- User-facing strings are not comments. Clap `help`, error messages and log lines all stay.
 
 **Dependencies**
 
-- Every crate dependency is inherited: `serde.workspace = true`. Add the version to
-  `[workspace.dependencies]` in the root `Cargo.toml`, never to a crate manifest.
-- No contract type derives `JsonSchema` — `schemars` is inherited only by `glimpse-config`, for the
-  config document.
+- Every crate dependency is inherited: `serde.workspace = true`. Versions go in
+  `[workspace.dependencies]` in the root `Cargo.toml`, never in a crate manifest.
+- No contract type derives `JsonSchema` — `schemars` is inherited only by `glimpse-config`.
 - **A workspace dependency nothing uses yet is unverified.** Cargo does not resolve features for an
-  entry no crate inherits, so a wrong feature name sits in the root `Cargo.toml` looking correct
-  until the first `workspace = true` that names it. `reqwest` was declared with `rustls-tls`, which
-  0.13 renamed to `rustls`; the failure surfaced as `cargo fetch` refusing to resolve, in a change
-  that had not touched that line. When you first use a declared-and-unused dependency, expect its
-  features to be a version stale.
-- Errors: `thiserror` in a library, whose caller must branch on the failure; `anyhow` in a binary,
-  where every failure ends at one message and one exit code.
+  entry no crate inherits, so a wrong feature name looks correct until the first `workspace = true`
+  that names it. Expect a declared-and-unused dependency's features to be a version stale.
+- Errors: `thiserror` in a library whose caller must branch; `anyhow` in a binary, where every
+  failure ends at one message and one exit code.
 - A binary crate is a leaf: nothing depends on one. Shared code goes in config, dbus, services,
   compositors, utils or widgets.
 - The dependency order is one-way — `glimpse-services` depends on `glimpse-dbus`, never the reverse.
-  That is what decides where a shared domain type lives: anything a provider decodes off the bus is
-  in `glimpse-dbus` beside its decoder, everything else sits beside the service that owns it.
+  Anything a provider decodes off the bus lives in `glimpse-dbus` beside its decoder; everything
+  else sits beside the service that owns it.
 
 **Naming**
 
-- Topics are `domain.name`, lower snake case, dots as separators: `audio.volume`,
-  `tray.item.{id}.menu`
+- Topics are `domain.name`, lower snake case: `audio.volume`, `tray.item.{id}.menu`
 - Commands are `domain.verb_object`: `audio.set_volume`, `tray.menu_about_to_show`
-- **Never prefix a type with `Glimpse`.** A GObject type name and the blueprint template that binds
-  to it are `Hero`, `PopoverShell`, `Panel`, `IndicatorGroup` — the crate already says whose they
-  are, and the prefix only makes every name longer than the thing it names. It survives solely where
-  a reverse-DNS identifier demands it: application IDs, D-Bus names, the gresource path.
-- **Never build a glimpse path by hand.** `glimpse-config` owns where glimpse files live and
-  exports it: `user_dir()` for `~/.config/glimpse`, `DATA_DIR` for `/usr/share/glimpse`. Writing
-  `dirs::config_dir().join("glimpse")` or `"/usr/share/glimpse/..."` in another crate makes a second
-  answer to a question that already has one — it was duplicated four ways before this rule existed.
-  A user-overridable file is looked up in `user_dir()` first, then `DATA_DIR`.
-- One config file, `config.toml`. Top-level table per owner: one table per service, named for the
-  service, for the daemon; `[panel]`, `[wallpaper]`, `[lock]` for the UI
-  binaries. A binary reads only the tables it owns. Stylesheets stay separate: `panel.css`,
-  `lock.css`.
+- **Never prefix a type with `Glimpse`.** Types are `Hero`, `PopoverShell`, `Panel`,
+  `IndicatorGroup` — the crate already says whose they are. The prefix survives only where a
+  reverse-DNS identifier demands it: application IDs, D-Bus names, the gresource path.
+- **Never build a glimpse path by hand.** `glimpse-config` owns where glimpse files live:
+  `user_dir()` for `~/.config/glimpse`, `DATA_DIR` for `/usr/share/glimpse`. A user-overridable file
+  is looked up in `user_dir()` first, then `DATA_DIR`.
+- One config file, `config.toml`, with a top-level table per owner: one per service, plus `[panel]`,
+  `[wallpaper]` and `[lock]`. A binary reads only the tables it owns. Stylesheets stay separate:
+  `panel.css`, `lock.css`.
 
 **File placement**
 
@@ -172,7 +146,8 @@ StatusNotifierItem, dbusmenu and Notifications.
 
 ## Verification
 
-`just` is the only entry point. Run `just` with no arguments to list recipes.
+`just` is the only entry point; run it with no arguments to list recipes. A recipe that is missing
+or wrong gets fixed in the `justfile` — never worked around with a raw cargo invocation.
 
 ```bash
 just verify          # fmt-check + check + lint + test — what CI runs
@@ -182,270 +157,153 @@ just test            # headless tests
 just fmt             # format in place
 just test-compositor # also runs the #[ignore] Wayland tests; needs a compositor
 just check-units     # systemd-analyze verify on the shipped units
+just check-examples  # compile every blueprint in var/widget_examples/
 ```
 
-Running a binary goes through `just run-daemon`, `just run-panel`, `just run-wallpaper`,
-`just run-locker`, `just ctl <args>`. `just nested` opens a nested niri
-window for a dev loop that does not disturb the running session.
+Binaries run through `just run-daemon`, `just run-panel`, `just run-wallpaper`, `just run-locker`
+and `just ctl <args>`. `just nested` opens a nested niri window for a dev loop that does not disturb
+the session.
 
-`just click` is a standalone niri helper. It uses `niri msg -j outputs` to resolve output-relative
-coordinates into the virtual desktop and `ydotool` to inject the click; the daemon and its socket
-are not involved:
+`just click output=DP-2 x=1200 y=540 button=left` resolves output-relative coordinates through
+`niri msg -j outputs` and injects with `ydotool`; buttons are `left`, `middle`, `right`. `ydotool`
+cannot read the pointer position, so pass `restore_x`/`restore_y` in virtual-desktop coordinates
+when the caller knows where to put it back.
 
-```bash
-just click output=DP-2 x=1200 y=540 button=left
-```
+### Never test against the live configuration
 
-The `button` values are `left`, `middle` and `right`. `ydotool` does not expose the current pointer
-position, so automatic restoration is not possible from this script; use `restore_x` and
-`restore_y` with virtual-desktop coordinates when the caller knows the position to restore:
-
-```bash
-just click output=DP-2 x=1200 y=540 button=left restore_x=640 restore_y=400
-```
-
-A recipe that is missing or wrong gets fixed in the `justfile`. Do not work around it with a raw
-cargo invocation.
-
-**Previewing a widget.** `just preview <path/to/blueprint.blp>` renders one blueprint with the **real
-widgets** and reloads it whenever the blueprint or the theme is saved. **The path is passed straight
-through to the example and resolved against the working directory** — there is no search of
-`var/widget_examples/`, so a bare `notifications.blp` looks for it in the repository root and
-fails. The failure is legible rather than silent: the compiler's error is rendered into the preview
-window in red, which is why the window opens at all. It is a cargo example in
-`glimpse-widgets`, so it links the crate: `Gtk.Builder` resolves `$PopoverShell` and `$Hero` to the
-Rust types, not to look-alikes. `Esc` closes it.
-
-Four things it must do, every one of which fails silently otherwise:
-
-- **Touch every widget type before building.** A Rust GType registers lazily, so a `$Hero` that
-  nothing has instantiated is simply an unknown class to `Builder`. `ensure_types` names them all.
-- **Take `ApplicationFlags::NON_UNIQUE`.** The application ID is on the session bus, which is shared
-  across displays — a second preview otherwise hands off to the first, which may be on another
-  monitor or in another compositor, and exits 0 with no window and no message.
-- **Read `glimpse.css` from disk, not through `Styles::install`.** That loads the sheet with
-  `include_str!`, so a preview built on it renders a _compiled-in copy_ and no edit can ever reach
-  it. The preview installs its own providers at the same priorities, which also means a deleted rule
-  actually disappears.
-- **Spell a watched path the way the file monitor spells it back.** A relative argument or a `..`
-  component compares unequal to the absolute, resolved path GIO reports, so every event is
-  discarded. `resolve` canonicalises both the blueprint and each stylesheet. This is the same defect
-  that made `glimpse-config`'s watcher silently dead, in a different library.
-
-Live reload watches each file's **directory**, not the file, and treats a rename onto the path as a
-change. An editor that saves by writing a temporary file and renaming it over the original destroys
-the inode a file monitor holds, and GIO then reports the write on a two-second timer — which is what
-a laggy reload actually is. The rename arrives as `RENAMED`, whose _first_ argument is the temporary
-path and whose `other_file` is the one you asked for, so matching only the first argument ignores
-every such save. Both paths are checked, and events are coalesced over 40ms.
-
-The window paints a checkerboard and every child stays transparent, so whatever the widget does not
-paint reads as pattern rather than as a flat background it never asked for. That is a diagnostic:
-libadwaita's `.card` is an 8% white overlay in dark mode, and against a plain window it looks solid.
-
-**Both halves of the checkerboard rule must be scoped to `window.preview`, not just the first.**
-GTK4 parents a tooltip, a popover and a drag icon _into the widget tree_, as direct children of the
-window — measured: a `Gtk.Popover` given `set_parent(window)` appears in that window's child list
-beside its `child`. So a companion `window.preview > * { background-color: transparent; }` matches
-every one of them, at `STYLE_PROVIDER_PRIORITY_USER + 2` against libadwaita's `tooltip.background`
-at `THEME`, and blanks it. The symptom is a tooltip with no background at all, in a preview whose
-checkerboard rule already looks correctly scoped. The transparency rule names the preview's own slot
-instead.
-
-`--scheme dark` (or `light`) forces the color scheme; without it the preview follows the system. The whole token vocabulary flips at once, so a widget is not checked until it has been
-seen under both.
-
-It opens floating, through a `window-rule` on `^me\.aresa\.WidgetPreview` in the niri config. A
-preview is one widget sized to itself, and tiling it into a column tells you nothing about how it
-looks. Layer-shell was tried first and rendered nothing.
-
-**`open-on-workspace "glimpse"` is only half the rule — the workspace has to be declared too.** An
-`open-on-workspace` naming a workspace that no `workspace "..."` block declares still works, but the
-workspace is created dynamically on whichever output happens to be focused, so previews scatter
-across monitors between runs and a screenshot of one may be on a display nobody is looking at. The
-declaration is what pins it:
-
-```kdl
-workspace "glimpse" {
-    open-on-output "eDP-1"
-}
-```
-
-This lives in the user's own niri configuration, not in this repository — nothing here installs it,
-and `data/` is for what ships. `niri validate` checks the file, and niri reloads it on save.
-
-Some widgets cannot be filled from a `.blp` at all, because their data is not a property — a
-calendar's events are a list of colours per day. `just preview <blp> [fixture]` runs a **named
-fixture** over the built tree, and the name defaults to the blueprint's own stem, so
-`calendar.blp` shows sample events by being opened rather than by being opened with an argument
-nobody knows about. The fixtures live in the preview example, not in the widgets.
-
-**An example may carry its own stylesheet, and its directory carries a shared one.** `just preview
-<name>.blp` loads and watches `_shared.css` beside it at `STYLE_PROVIDER_PRIORITY_USER + 1` and
-`<name>.css` at `USER + 2`, and silently loads nothing when either is absent; the checkerboard sits
-above both at `USER + 3`. This is what keeps demo-only rules — a weather range bar, a color swatch
-— out of `glimpse-widgets/styles/glimpse.css`, which is the shipped sheet and not a scratchpad.
-
-The shared sheet is what the per-example one could not be. Every popover example needs the same
-column and drawer floors, and `width-request: 400` was that floor written as a pixel literal
-`ui.md` forbids — but seventeen copies of `.column { min-width: 25rem }` is the drift a shared file
-exists to prevent, and shaping the width would mean editing seventeen files. `_shared.css` holds
-`.column`, `.drawer-page`, `.block`, `.caption`, `.slider` and `.mute`; a name that means something
-in exactly one example (`.swatch--e0563f`) stays in that example's own sheet.
-
-`var/widget_examples/` holds whole compositions — `popover_shell_full.blp` is a popover with every
-slot filled, and there is one per applet popover. It also holds a **states board per widget**,
-`<widget>_states.blp`, which shows one instance per state under a caption naming it. A states board
-is pure Blueprint whenever the state is a property or a child, which is most widgets and needs no
-fixture at all; a widget whose data arrives through a Rust struct setter — `set_slots`, `set_events`,
-`set_facts` — cannot have one until something supplies that data. An example is a top-level object, not a
-`template`: `Builder` cannot instantiate a template whose class does not exist, so a `template`
-root renders as nothing at all. `just check-examples` compiles every one of them, which the
-preview otherwise only does one at a time.
-
-**A row followed by a `Gtk.Revealer` expands it.** `fixtures::expanders` gives any row carrying
-`.expander` a click handler toggling its **next sibling**, and complains on stderr when that
-sibling is not a `Gtk.Revealer`. Matching on position rather than on a name is what keeps it out of
-the blueprint: the row and the thing it reveals are already siblings in the section's box, so there
-is nothing to keep in sync. `Row`'s rule is still that it navigates rather than expands — this is
-the exception the README names, an audio stream revealing its volume slider.
-
-**The drawer is wired for every example, not a named list.** `fixtures::apply` runs its named
-fixture and then calls `drawer_nav` unconditionally, which returns immediately when the tree holds
-no `Gtk.Revealer`. So a popover written entirely in Blueprint — a `Revealer` holding a `Gtk.Stack`,
-and rows carrying `nav__<page>` — navigates with no Rust at all. Gating it on a match arm is what
-made a new example's drawer silently inert, and it is the same defect as a `nav__` class with no
-page behind it, which `drawer_nav` now reports on stderr.
-
-**A row carrying `action__<name>` logs `action: <name>` on stderr when it fires.** `fixtures::actions`
-runs for every example, like the drawer, and gives an example a way to show a _command_ — focus this
-workspace, rename it, close that window — without a fixture per popover and without the example
-pretending the command already exists. On a `$SplitRow` it connects `activated`, so the body acts
-while `nav__` on the same row keeps the chevron opening the drawer; on anything else that is a
-`Gtk.Button` it connects `clicked`. A class on something clickable by neither is reported, because
-the alternative is a row that silently does nothing.
-
-**`$Pager` is filled by a fixture keyed on `demo__<case>`.** Its slots come from Rust, so like
-`Calendar` it cannot be filled from a `.blp` at all; `var/widget_examples/pager.blp` declares one
-pager per state and `fixtures::pager` fills each from its `demo__` class. An unrecognised case and a
-pager with no `demo__` class are both reported rather than left blank.
-
-**A widget is only declarable if it says so.** `PopoverShell` and `Hero` implement `Gtk.Buildable`,
-which is what makes `[hero]`, `[footer]` and `[slot]` land in the right internal box, and `Hero`
-exposes `title`, `subtitle` and `icon-name` as properties so a `.blp` can set them through the same
-capped setters Rust uses. Without both, a `.blp` can name the type and nothing else, and the only
-way to preview a composition is to hand-copy its structure — which is a copy, not the widget.
-
-`add_child` must ignore the widget's **own** template children. `init_template` adds them through
-the very interface being overridden, so an unguarded override routes `hero_box` into `content_box`
-and panics on an unbound `TemplateChild` before the widget exists. The guard is
-`self.content_box.try_get().is_none()`.
-
-**PyGObject cannot do this.** It cannot override an interface vfunc that the parent already
-implements — `Gtk.Widget` implements `Gtk.Buildable`, so a `do_add_child` on a Python subclass is
-accepted, never called, and children land wherever the default put them. Measured, not assumed. Any
-preview host that needs real widgets has to be Rust.
-
-**`blueprint-compiler lint` false-positives on every `$CustomType` it cannot resolve.** It reports
-`scrollable_parent` — "Scrollable widget should be placed in a scroll container" — for any extern
-type inside a container, verified with a `$Foo` that does not exist. There is no way to exclude a
-single rule (`-c`/`-r` are allowlists, and an unknown category silently lints nothing), so the
-`lint-blueprints` recipe strips ANSI colour from the report and fails only on a `warning:`/`error:`
-line that is _not_ `scrollable_parent`. **Embed our own widgets declaratively** — `$RangeBar bar {}`
-inside `forecast_day.blp`, `$Scrubber scrubber {}` inside `now_playing.blp` — and bind them as
-ordinary `TemplateChild`s. Working around the linter instead costs a compile-checked child and buys
-a runtime `expect()`; the recipe is where a broken tool gets handled.
-
-An embedded type needs **no** `ensure_type()` call: `#[template_child] TemplateChild<Scrubber>`
-names the type in Rust, and binding it registers the GType before `init_template` resolves the
-class by name. Measured both ways in a fresh process. The preview still needs its own
-`ensure_types()`, because a blueprint _example_ names `$Scrubber` with nothing in Rust touching it
-at all — that is the case where lazy registration actually bites.
-
-**`blueprint-compiler lint` also rejects a `Gtk.Adjustment` carrying anything besides `lower`,
-`upper` and `value`.** It reports `adjustment_prop_order` — "properties should be ordered as lower,
-upper, and then value" — but the order is not what it checks: measured, `lower/upper/value` passes
-and adding `step-increment` fires it regardless of position. Set the increments from Rust, and
-assert them, because nothing in the template guards them any more.
-
-**Never run a test against the live configuration.** `~/.config/glimpse/config.toml` is the user's
-own, it is edited outside this repository, and a daemon started without `--config` both reads it and
-watches it. Point every run at a scratch file instead:
+`~/.config/glimpse/config.toml` is the user's own and a binary started without `--config` both reads
+and watches it.
 
 ```bash
 glimpse-panel --config "$SCRATCH/config.toml"     # replaces the whole stack, drop-ins included
-HOME="$SCRATCH/home" glimpse-panel                # a fake home, when drop-ins are the thing under test
+HOME="$SCRATCH/home" glimpse-panel                # a fake home, when drop-ins are under test
 ```
 
-`--config` is the default choice and is enough for anything that is one document. It cannot exercise
-layering, because an explicit path replaces the stack rather than joining it — so a test that needs
-`config.d/` sets `HOME` (or `XDG_CONFIG_HOME`) to a directory built for the test and lets `user_dir()`
-resolve into it. Neither redirects the `/etc/glimpse` layer; a test that needs that layer builds it
-through `load_from`, which takes the system directory as an argument for exactly this reason.
+- `--config` is the default choice and enough for anything that is one document. It cannot exercise
+  layering, because an explicit path replaces the stack rather than joining it. A test needing
+  `config.d/` sets `HOME` (or `XDG_CONFIG_HOME`); one needing the `/etc/glimpse` layer builds it
+  through `load_from`, which takes the system directory as an argument for exactly this reason.
+- Themes redirect separately, because `theme_dir_for` resolves through `user_dir()` rather than the
+  config stack: `GLIMPSE_THEMES_DIR` replaces both roots for loading and watching, `GLIMPSE_THEME`
+  overrides the selected name.
+- **Send the log somewhere else.** `--config` watches that file's parent directory, so redirecting
+  output into it makes every line an event that reloads the configuration — with a document that
+  will not parse, a closed loop running at exactly `DEBOUNCE` that looks like a retrying watcher.
 
-**Themes are redirected separately.** `--config` does not move them, because `theme_dir_for` resolves
-through `user_dir()` rather than through the configuration stack. `GLIMPSE_THEMES_DIR` names a themes
-root and replaces both the user and the installed one, for loading and for watching alike, so a theme
-test needs neither a fake `HOME` nor a writable `/usr/share/glimpse`. `GLIMPSE_THEME` overrides the
-selected name the same way, so a run can be pointed at a theme without writing a `config.toml` at
-all.
+### Testing against a compositor
 
-**Send the log somewhere else as well.** `--config` watches that file's _parent directory_, so a run
-that redirects the daemon's output into it makes every line the daemon writes an event that makes it
-read the configuration again. With a document that will not parse, that is a closed loop running at
-exactly `DEBOUNCE` — it looks precisely like a watcher retrying, and it is not.
-
-**Testing against a compositor.** `crates/glimpse-compositors/tests/live.rs` runs against whatever
-compositor the environment names — `just test-compositor`. Point it somewhere else by setting
-`NIRI_SOCKET` or `HYPRLAND_INSTANCE_SIGNATURE` (and unsetting the other), which is how a **nested**
-compositor is tested without touching the session: spawn `niri -c <config>` or `Hyprland -c <config>`,
-find the socket it created by diffing `$XDG_RUNTIME_DIR` before and after, and export it. Neither
-compositor has a headless mode, so a nested instance always opens a window — do the mutating tests
-there rather than against the live session. A Unix socket path is capped at `SUN_LEN`, about 108
-bytes, so a daemon under test gets its socket in `$XDG_RUNTIME_DIR`, never in a scratch directory
-whose path is already long.
+`crates/glimpse-compositors/tests/live.rs` runs against whatever the environment names. Point it
+elsewhere with `NIRI_SOCKET` or `HYPRLAND_INSTANCE_SIGNATURE` (unsetting the other): spawn
+`niri -c <config>` or `Hyprland -c <config>`, diff `$XDG_RUNTIME_DIR` before and after to find the
+socket, export it. Neither compositor has a headless mode, so a nested instance always opens a
+window — do mutating tests there. A Unix socket path is capped near 108 bytes, so a daemon under
+test gets its socket in `$XDG_RUNTIME_DIR`, never in a long scratch path.
 
 **Urgency is set directly under niri and cannot be under Hyprland.** `niri msg action
-set-window-urgent --id <id>` marks a window, and `unset-window-urgent` clears it, which is what
-`scripts/urgency-test.sh` wraps — the workspace then goes urgent through the service's own
-derivation rather than because anything marked it. Hyprland has no such dispatcher: there, urgency
-only ever arrives from an `xdg_activation_v1` request it declines, so it has to come from a real
-application asking for attention. A GTK window calling `present()` does **not** produce one —
-measured: on Wayland GTK sends an activation request only when it already holds a token, so a
-window that asks for itself sends nothing at all and the compositor never hears about it.
+set-window-urgent --id <id>` marks a window and `unset-window-urgent` clears it, which is what
+`scripts/urgency-test.sh` wraps. Hyprland has no such dispatcher — urgency only arrives from an
+`xdg_activation_v1` request it declines, so it needs a real application asking for attention. A GTK
+window calling `present()` produces none: on Wayland GTK sends an activation request only when it
+already holds a token.
 
-`scripts/` still holds helpers written. Several are useful as-is —
-`mpris-fake-players.py`, `network-test-fixtures.sh`, the `privacy-test-*` probes, and
-`glimpse-lock-rescue-pam.sh`.
+### Previewing a widget
+
+`just preview <path/to/blueprint.blp> [fixture]` renders one blueprint with the **real widgets** and
+reloads on save. The path is resolved against the working directory — there is no search of
+`var/widget_examples/`, so a bare `notifications.blp` fails. Compile errors render into the window
+in red. It is a cargo example in `glimpse-widgets`, so `Builder` resolves `$PopoverShell` and
+`$Hero` to the Rust types. `Esc` closes it. `--scheme dark|light` forces the scheme; a widget is not
+checked until it has been seen under both.
+
+Four things it must do, each of which fails silently otherwise:
+
+- **Touch every widget type before building.** A Rust GType registers lazily, so a `$Hero` nothing
+  has instantiated is an unknown class to `Builder`; `ensure_types` names them all. An *embedded*
+  `TemplateChild<Scrubber>` needs no such call — binding it registers the type — but a blueprint
+  example naming `$Scrubber` with no Rust touching it does.
+- **Take `ApplicationFlags::NON_UNIQUE`.** The application ID is on the shared session bus, so a
+  second preview otherwise hands off to the first, possibly on another monitor, and exits 0 with no
+  window and no message.
+- **Read `glimpse.css` from disk, not through `Styles::install`**, which loads it with
+  `include_str!` — a preview built on that renders a compiled-in copy no edit can reach.
+- **Spell a watched path the way the file monitor spells it back.** A relative argument or a `..`
+  component compares unequal to the absolute path GIO reports, so every event is discarded;
+  `resolve` canonicalises the blueprint and each stylesheet.
+
+Live reload watches each file's **directory** and treats a rename onto the path as a change, because
+an editor that saves via a temporary file destroys the inode a file monitor holds. The rename
+arrives as `RENAMED`, whose first argument is the temporary path and whose `other_file` is the one
+you asked for — match both. Events coalesce over 40ms.
+
+The window paints a checkerboard and every child stays transparent, so whatever the widget does not
+paint reads as pattern rather than a flat background it never asked for. **Both halves of that rule
+must be scoped to `window.preview`**: GTK4 parents tooltips, popovers and drag icons as direct
+children of the window, so a bare `window.preview > * { background-color: transparent; }` blanks
+them at `USER + 2` against libadwaita's `tooltip.background`. The transparency rule names the
+preview's own slot instead.
+
+It opens floating through a `window-rule` on `^me\.aresa\.WidgetPreview` in the **user's own** niri
+config — nothing here installs it. `open-on-workspace "glimpse"` is only half the rule: without a
+matching `workspace "glimpse" { open-on-output "eDP-1" }` declaration the workspace is created on
+whichever output is focused and previews scatter between runs. Layer-shell was tried first and
+rendered nothing.
+
+**Fixtures and stylesheets.** A fixture name defaults to the blueprint's own stem, so `calendar.blp`
+shows sample events by being opened. `_shared.css` beside the example loads at `USER + 1` and
+`<name>.css` at `USER + 2`, both silently absent-tolerant; the checkerboard sits at `USER + 3`.
+`_shared.css` holds the shared floors — `.column`, `.drawer-page`, `.block`, `.caption`, `.slider`,
+`.mute` — so demo-only rules stay out of the shipped `glimpse.css`; a name meaning something in
+exactly one example stays in that example's sheet.
+
+`var/widget_examples/` holds whole compositions (one `popover_shell_full.blp` per applet popover)
+and a states board per widget, `<widget>_states.blp`, showing one instance per state under a
+caption. A states board is pure Blueprint whenever the state is a property or a child; a widget fed
+through a Rust setter cannot have one until something supplies that data. **An example is a
+top-level object, never a `template`** — `Builder` cannot instantiate a template whose class does
+not exist, so a `template` root renders as nothing.
+
+Fixtures that run for **every** example, not a named list — gating one on a match arm is what made a
+new example's drawer silently inert:
+
+- `expanders` gives any row carrying `.expander` a handler toggling its **next sibling**, and
+  complains on stderr when that sibling is not a `Gtk.Revealer`. Matching on position keeps it out
+  of the blueprint. `Row`'s rule is still that it navigates rather than expands; this is the
+  exception, an audio stream revealing its volume slider.
+- `drawer_nav` returns immediately when the tree holds no `Gtk.Revealer`, so a popover written
+  entirely in Blueprint — a `Revealer` holding a `Gtk.Stack`, rows carrying `nav__<page>` —
+  navigates with no Rust. A `nav__` class with no page behind it is reported on stderr.
+- `actions` logs `action: <name>` when a row carrying `action__<name>` fires, giving an example a
+  way to show a command without pretending it exists. On a `$SplitRow` it connects `activated` so
+  `nav__` keeps the chevron; on anything else that is a `Gtk.Button`, `clicked`. A class on
+  something clickable by neither is reported.
+- `pager` fills each `$Pager` from its `demo__<case>` class, since its slots come from Rust. An
+  unrecognised case and a missing class are both reported.
+
+**A widget is only declarable if it says so.** `PopoverShell` and `Hero` implement `Gtk.Buildable`,
+which is what lands `[hero]`, `[footer]` and `[slot]` in the right internal box, and `Hero` exposes
+`title`, `subtitle` and `icon-name` as properties so a `.blp` sets them through the same capped
+setters Rust uses. `add_child` must ignore the widget's **own** template children — `init_template`
+adds them through the very interface being overridden, so an unguarded override routes `hero_box`
+into `content_box` and panics on an unbound `TemplateChild`. The guard is
+`self.content_box.try_get().is_none()`.
+
+**PyGObject cannot host this.** It cannot override an interface vfunc the parent already implements,
+so a `do_add_child` on a Python subclass is accepted, never called. Measured. Any preview host that
+needs real widgets has to be Rust.
+
+**`blueprint-compiler lint` has two false positives.** It reports `scrollable_parent` for any extern
+`$CustomType` inside a container, and rejects a `Gtk.Adjustment` carrying anything besides `lower`,
+`upper` and `value` as `adjustment_prop_order` — the order is not what it checks; adding
+`step-increment` fires it regardless of position. There is no way to exclude a single rule, so
+`lint-blueprints` strips ANSI colour and fails only on a line that is not `scrollable_parent`.
+**Embed our own widgets declaratively** and bind them as ordinary `TemplateChild`s; set adjustment
+increments from Rust, and assert them, because nothing in the template guards them any more.
 
 ## Translations
 
-One gettext domain, `glimpse`, for all seven binaries. `glimpse-utils` owns it: `init_translations()`
-binds it, and the panel, notification popup process, lock screen and wallpaper call that once in
-`run`. The daemon, `glimpsectl` and `glimpse-sunset` do not — their output is a journal and a
-terminal, not a UI.
-
-**`glimpse-sunset` and `glimpse-weather` call `init_locale()` instead, and must keep doing so.** That is the
-`setlocale(LC_ALL, "")` half without the catalog. Without it the process locale is `C`,
-`nl_langinfo(LC_MEASUREMENT)` answers metric for everyone, and `[regional] units = "locale"` is
-silently wrong rather than absent — the worst of the three outcomes. It is not `init_translations`
-and must not become it.
-
-**`[regional] language` sets `LANGUAGE`, and moves messages only.** `LC_TIME` and `LC_MEASUREMENT`
-keep answering for themselves, so a Russian interface in Chicago still gets a twelve-hour clock and
-Fahrenheit. The visible consequence — Russian labels beside English weekday names, which
-`weather/render.rs` takes from `LC_TIME` on purpose — looks like a bug and is not. An explicit
-`LANGUAGE` in the environment wins over the document, matching `GLIMPSE_THEME`.
-
-**The config load runs before `init_translations` in all three UI binaries**, because the language
-comes out of the document. The order is `init_app_tracing` → `glimpse_config::load` →
-`init_translations` → `register_resources`. Reordering breaks the warnings, the language, or both.
-
-**A language change cannot be applied to a running process.** Measured: a GTK template resolves
-`translatable="yes"` per **instance**, not at class-init, so two widgets of one class built either
-side of a `LANGUAGE` change come out in different languages. Reacting on reload would give a
-permanently half-translated window, so `ConfigChanged` logs at `info` and waits for a restart. Both
-crate READMEs said "class-init" until this was measured; they now say per instance.
+One gettext domain, `glimpse`, for all binaries. `glimpse-utils` owns it: `init_translations()`
+binds it, and the panel, notification popup, lock screen and wallpaper call that once in `run`. The
+daemon, `glimpsectl` and `glimpse-sunset` do not — their output is a journal and a terminal.
 
 ```bash
 just extract-strings     # rewrite po/glimpse.pot from the tree
@@ -455,49 +313,46 @@ just check-strings       # part of `just verify`
 GLIMPSE_LOCALE_DIR=$PWD/target/locale LANGUAGE=ru just preview <blueprint.blp>
 ```
 
-**Mark a string where it is written.** In Blueprint, `_("Text")` on the property. In Rust,
-`gettext("Text")`, or `ngettext(singular, plural, count)` when a number decides the wording —
-Russian has three plural forms, so a hand-rolled `if count == 1` is wrong in a way English never
-shows. Interpolate with named `{placeholders}` and `.replace(…)`, never `format!` into the msgid: a
-translator must be free to reorder them, and a positional `%s` cannot be reordered.
+- **`glimpse-sunset` and `glimpse-weather` call `init_locale()` instead, and must keep doing so.**
+  That is the `setlocale(LC_ALL, "")` half without the catalog. Without it the process locale is
+  `C`, `nl_langinfo(LC_MEASUREMENT)` answers metric for everyone, and `[regional] units = "locale"`
+  is silently wrong rather than absent. It is not `init_translations` and must not become it.
+- **`[regional] language` sets `LANGUAGE` and moves messages only.** `LC_TIME` and `LC_MEASUREMENT`
+  keep answering for themselves, so a Russian interface in Chicago still gets a twelve-hour clock
+  and Fahrenheit. Russian labels beside English weekday names look like a bug and are not. An
+  explicit `LANGUAGE` in the environment wins over the document, matching `GLIMPSE_THEME`.
+- **The config load runs before `init_translations`** in all three UI binaries, because the language
+  comes out of the document: `init_app_tracing` → `glimpse_config::load` → `init_translations` →
+  `register_resources`. Reordering breaks the warnings, the language, or both.
+- **A language change cannot be applied to a running process.** A GTK template resolves
+  `translatable="yes"` per **instance**, so two widgets built either side of a `LANGUAGE` change
+  come out in different languages. `ConfigChanged` logs at `info` and waits for a restart.
+- **Mark a string where it is written.** In Blueprint, `_("Text")`; in Rust, `gettext("Text")`, or
+  `ngettext(singular, plural, count)` when a number decides the wording. Interpolate with named
+  `{placeholders}` and `.replace(…)`, never `format!` into the msgid — a positional `%s` cannot be
+  reordered by a translator.
+- **Double quotes, always.** Blueprint compiles `_('Text')` happily; xgettext's C scanner skips it.
+  `scripts/i18n-coverage.py` fails the build on it.
+- **No translatable text in a raw or multi-line Rust string.** `r#"…"#` extracts by accident and the
+  C scanner loses its place inside both, costing the rest of that file.
+- **A new file's strings are extracted only once git knows about the file.**
+  `scripts/i18n-extract.sh` builds its list with `git ls-files`, so an untracked `.rs` or `.blp` is
+  invisible to xgettext *and* to the coverage check at once. `git add -N <paths>` is enough.
+  `just check-strings` cannot catch this — it regenerates from the same list, so both sides are
+  consistently wrong. `grep -c '^msgid ' po/glimpse.pot` is the number that tells the truth; verify
+  the add took with `git ls-files | grep <newfile>`.
+- **`var/` is not extracted.** Its examples carry `_()` markers so they read like the real thing,
+  but they never ship.
+- **A new language is three edits:** `po/LINGUAS`, a new `po/<lang>.po`, and one asset line in
+  *each* of the two lists in `crates/glimpse-package/Cargo.toml`.
 
-**Double quotes, always.** Blueprint accepts `_('Text')` and compiles it happily; xgettext's C
-scanner skips a single-quoted string without a word. `scripts/i18n-coverage.py` fails the build on
-it, which is the only reason it is not a silent hole.
+## Work rules
 
-**No translatable text in a raw or multi-line Rust string.** `r#"…"#` extracts by accident and
-breaks on an embedded quote, and the C scanner loses its place inside both — which costs the *rest
-of that file*, not just the string. The coverage check catches the loss; putting the text in an
-ordinary literal avoids it.
-
-**A new file's strings are extracted only once git knows about the file.**
-`scripts/i18n-extract.sh` builds its file list with `git ls-files`, so an untracked `.rs` or `.blp`
-is invisible to xgettext *and* to `scripts/i18n-coverage.py` at the same time — which is exactly the
-"one failure neither could report" the script's own comment warns about, arriving from the other
-direction. The symptom is a green `just check-strings` and a `.pot` whose count did not move: the
-weather applet added 45 msgids and extraction reported the same 45 strings as before it existed.
-`git add -N <paths>` is enough, and does not commit anything.
-
-**`just check-strings` cannot catch that, so check the count instead.** It regenerates the `.pot`
-from the same `git ls-files` list and diffs the two, so an untracked file is missing from both sides
-and the check passes on a consistently wrong answer. `grep -c '^msgid ' po/glimpse.pot` is the
-number that tells the truth. Verify the add actually took — `git ls-files | grep <newfile>` —
-because an intent-to-add that is lost puts the count silently back where it started; that happened
-twice in the change that wrote this paragraph.
-
-**`var/` is not extracted.** Its widget examples carry `_()` markers so they read like the real
-thing, but they are demo text and never ship, so they are excluded from the file list. A marker
-there translates only when the same msgid exists in a real blueprint.
-
-**A new language is three edits, not one.** Add it to `po/LINGUAS`, create `po/<lang>.po`, and add
-one asset line to *each* of the two lists in `crates/glimpse-package/Cargo.toml`.
-`crates/glimpse-package/tests/packaging.rs` fails when the first is done and the third is not.
-
-## Work Rules
-
-- Work on one feature at a time
-- Only start the next feature after the current one passes end-to-end verification
-- Don't "also refactor" feature B while implementing feature A
+- Work on one feature at a time, and only start the next after the current one passes end-to-end
+  verification. Don't "also refactor" feature B while implementing feature A.
+- Spawn desktop windows on the `glimpse` niri workspace; do not steal focus.
+- **Do not commit or push without being asked.**
+- **Never hand work back without running the pass in Finishing.**
 
 ## Critical constraints
 
@@ -505,228 +360,105 @@ one asset line to *each* of the two lists in `crates/glimpse-package/Cargo.toml`
   abort turns one bad handler into a dead daemon and takes tray and notifications down with it.
 - **No service crate has a Wayland dependency.** Wayland objects belong to the owning UI or
   compositor crate — `glimpse-services` reaches a compositor only through `trait Gamma` and
-  `glimpse-compositors` — while pointer injection belongs in standalone tools such as
-  `scripts/click.py`.
-- **`_old/` and `var/glimpse2` are reference only.** Never edit them, never build them, never copy
-  code out of them. See Prior art.
+  `glimpse-compositors` — while pointer injection belongs in a script.
+- **`_old/` and `var/glimpse2` are reference only.** Never edit, build, or copy code out of them.
 - **Never sandbox `glimpse-lock.service`.** `NoNewPrivileges=`, `PrivateUsers=`,
   `RestrictSUIDSGID=` and anything implying them strip setuid from `unix_chkpwd`. PAM then returns
-  `AUTHINFO_UNAVAIL`, the correct password is rejected, and the session cannot be unlocked. The
-  symptom looks like a wrong password, which is what makes it expensive to diagnose.
+  `AUTHINFO_UNAVAIL` and the correct password is rejected, which looks like a wrong password and is
+  expensive to diagnose.
+- **No unit relationship may stop `glimpse-lock.service` while it holds the lock.** A stopped locker
+  is a locked session with nothing to authenticate against. `PartOf=` on anything but
+  `graphical-session.target`, `BindsTo=`, or someone else's `Conflicts=` all reach that state;
+  `Wants=`/`WantedBy=` cannot.
 - **No `unwrap()`, `expect()`, or blocking calls in a service handler.** A panic stops that service
-  and cascades `degraded` to everything that depends on it; blocking `std::fs`,
-  `Command::output()`, or a `std::sync::Mutex` held across `.await` freezes every other piece of
-  state the service owns, because handlers run serially on `&mut self`.
+  and cascades `degraded` to its dependents; blocking `std::fs`, `Command::output()`, or a
+  `std::sync::Mutex` held across `.await` freezes every other piece of state the service owns,
+  because handlers run serially on `&mut self`.
 - **Never shell out to `systemctl`, `loginctl`, `nmcli`, `bluetoothctl`, or `niri msg`.** Use D-Bus
-  or the compositor's IPC socket. Subprocesses cannot be mocked in tests, break under sandboxing,
-  and parse output that is not a stable interface.
-- **A glimpse process writes runtime state under `$XDG_RUNTIME_DIR/glimpse/` and nothing else.** Never
-  `$XDG_CONFIG_HOME`, never the user's home, never `/tmp`.
+  or the compositor's IPC socket. Subprocesses cannot be mocked, break under sandboxing, and parse
+  output that is not a stable interface.
+- **A glimpse process writes runtime state under `$XDG_RUNTIME_DIR/glimpse/` and nothing else.**
+  Never `$XDG_CONFIG_HOME`, never the user's home, never `/tmp`.
 - **Treat text from other applications as hostile.** Tray titles, notification summaries and bodies,
   MPRIS metadata and SSIDs are attacker-controlled and unbounded. Cap length, ellipsize, and
   sanitize markup before any of it reaches a label.
-- **No unit relationship may stop `glimpse-lock.service` while it holds the lock.** A stopped locker
-  is a locked session with nothing left to authenticate against, not an unlocked one. `PartOf=` on
-  anything but `graphical-session.target`, `BindsTo=`, or a `Conflicts=` from someone else's target
-  all reach that state; `Wants=`/`WantedBy=` cannot.
-- **Never hand-roll what a library already does.** Search in this order and stop at the first hit:
-  the standard library, then a crate already in `[workspace.dependencies]`, then a crate that exists
-  on crates.io. Writing it yourself is the last resort, not the default. Before adding a `fn` that
+- **Never hand-roll what a library already does.** Search the standard library, then
+  `[workspace.dependencies]`, then crates.io, and stop at the first hit. Before adding a `fn` that
   parses, formats, resolves, encodes or retries anything, read the root `Cargo.toml` — the answer is
-  often already declared and unused. `XDG_RUNTIME_DIR` resolution was written out longhand here
-  while `dirs` sat in the workspace doing exactly that.
-- **Check the lockfile before proposing a crate — the answer may already be compiled.** A direct
-  dependency's own dependencies are in `Cargo.lock` and are already built, so promoting one to
-  `[workspace.dependencies]` adds no supply-chain surface and no build time. `iso8601` was reached
-  for to parse an RFC 5545 `DURATION`, and `icalendar` already pulls it in; `grep '^name = "x"'
-  Cargo.lock` is the check, and it turns a proposal into a one-line addition.
-- **Propose a new dependency, never add one silently.** If nothing in `std` or the workspace fits,
-  name the crate, say what it replaces and how much code that saves, and wait. Adding a dependency
-  is the user's call; writing forty lines to avoid asking is not a way around that.
-- **Always the current latest version, and confirm it before it lands.** Look the version up —
-  `cargo search`, `cargo add --dry-run`, the registry — rather than recalling one. A remembered
-  version number is usually a year stale and resolves against an API that has since moved, which
-  surfaces as compile errors nobody expected from a line they did not write. Name the exact version
-  in the proposal and wait for confirmation before adding it to `[workspace.dependencies]`.
-- **Use `just`, never raw `cargo`.** Fix or add a recipe rather than working around a missing one.
-- **Never hand work back without running the pass in Finishing.** Every time, before saying
-  anything is done.
-- **Do not commit or push without being asked.**
+  often already declared and unused.
+- **Check the lockfile before proposing a crate.** A direct dependency's own dependencies are in
+  `Cargo.lock` and already built, so promoting one adds no supply-chain surface and no build time.
+  `grep '^name = "x"' Cargo.lock` turns a proposal into a one-line addition.
+- **Propose a new dependency, never add one silently**, and name the exact current version, looked
+  up rather than recalled — a remembered version is usually a year stale and resolves against an API
+  that has moved. Wait for confirmation before it lands in `[workspace.dependencies]`.
+- **Use `just`, never raw `cargo`.**
 
 ## Known state
 
-Facts measured about code that would otherwise invite rework. Each says what was counted and when,
-so a later reader can tell a finding from an opinion.
+Facts measured about code that would otherwise invite rework, with what was counted and when.
 
 **`glimpse-config/src/watch.rs`, August 2026.** 347 production lines against 391 of tests. `Watch`
 and `Arm` — arming inotify, falling back onto an ancestor when `config.d/` does not exist, re-arming
-when a directory is replaced under it — are **44%** of the production half. That bulk is one design
-decision's consequence rather than accident: four directories are watched and two of them usually do
-not exist. Every branch of it has a test, and it has not been the source of a bug.
+when a directory is replaced under it — are **44%** of the production half: four directories are
+watched and two of them usually do not exist. Every branch has a test and it has not been the source
+of a bug, so its size is not by itself a reason to rewrite it. Both defects found here were in the
+simple 18% that decides whether to reload, or in the harness testing it. Bead `glimpse-aqi5` records
+the one limitation the design knowingly accepts.
 
-What is genuinely dead, and is the cut to make in whichever change next touches the file:
+What is genuinely dead, and is the cut to make in whichever change next touches the file: `Changed`
+carries a `Vec<PathBuf>` that nothing reads. Both consumers of `Update` — `watch_config` and
+`theme.rs`'s `watch_theme` — collapse `Changed` and `Rearmed` into one arm, so the only distinction
+the tree draws is "something happened" against "the watch is dead". Those paths are still collected
+in `forward`, carried through the channel and filtered in `Watch::next` to build a value nobody
+reads.
 
-- `Changed` carries a `Vec<PathBuf>` that nothing reads. Both consumers of `Update` — `watch_config`
-  and `theme.rs`'s `watch_theme` — collapse `Changed` and `Rearmed` into one arm, so the only
-  distinction the tree draws is "something happened" against "the watch is dead". Those paths are
-  still collected in `forward`, carried through the channel and filtered in `Watch::next` to build a
-  value nobody reads.
-
-Both defects found in this file in August 2026 were in the _simple_ 18% that decides whether to
-reload and whether to complain, or in the harness testing it — not in the machinery. Its size is not
-by itself a reason to rewrite it. Bead `glimpse-aqi5` records the one limitation the design knowingly
-accepts.
-
-**Translations, September 2026.** 45 msgids: 17 from the 8 marked blueprints, 27 from 5 Rust files,
-and one ("Play") in both. Measured end to end rather than assumed — under `LANGUAGE=ru` a
-`$Transport` built from its gresource template returns Russian tooltips, and `$CalendarPopover`
-renders "Мировые часы" in a real window. Why a Rust-only catalog could not have done that is in
-`glimpse-utils/README.md`; why the package manifests spell out every language is in
-`glimpse-package/README.md`.
-
-Measurements that would otherwise invite rework:
-
-- xgettext has no Rust scanner, and the C fallback loses the rest of a line to `&'static str` and
-  its place inside a raw string. `scripts/i18n-scrub.py` and `scripts/i18n-coverage.py` each carry
-  the full account; between them nothing is lost silently, which is why those two warnings are
-  filtered out of the run instead of chased.
-- Scanning the whole tree costs **0.14s** and produces a byte-identical .pot, so extraction takes
-  every `.blp` and `.rs` with no marker filter. A filter that was ever wrong would hide a file from
-  the extractor and the coverage check at once — the one failure neither could report.
-- Removing a marker's double quotes makes `just check-strings` fail, which was checked. So did
-  dropping a language's asset line, globbing it, and adding a language to `po/LINGUAS` alone.
-- `just fmt` shifts line numbers and so makes `po/glimpse.pot` stale. `just check-strings` reports
-  it and names the recipe; that is normal, not a defect.
-- There is no `dpkg-deb` or `rpm` on Arch. `bsdtar` lists both formats, which is how the built
-  packages were confirmed to carry `/usr/share/locale/ru/LC_MESSAGES/glimpse.mo`.
+**Translations, September 2026.** 45 msgids: 17 from 8 marked blueprints, 27 from 5 Rust files, one
+("Play") in both. Measured end to end — under `LANGUAGE=ru` a `$Transport` built from its gresource
+template returns Russian tooltips. Scanning the whole tree costs **0.14s** and produces a
+byte-identical .pot, so extraction takes every `.blp` and `.rs` with no marker filter: a filter that
+was ever wrong would hide a file from the extractor and the coverage check at once. xgettext has no
+Rust scanner and the C fallback loses the rest of a line to `&'static str`; `scripts/i18n-scrub.py`
+and `scripts/i18n-coverage.py` carry the full account, which is why those two warnings are filtered
+rather than chased. `just fmt` shifts line numbers and so makes `po/glimpse.pot` stale —
+`just check-strings` reports it and names the recipe; that is normal. There is no `dpkg-deb` or
+`rpm` on Arch, so `bsdtar` is how built packages are confirmed to carry the `.mo`.
 
 ## Finishing
 
 Finishing is a pass over the work, not the moment the last edit compiles. Run it every time, before
-saying anything is done.
+saying anything is done. **Findings are work, not notes** — fix them and run the pass again. It ends
+when a full pass turns up nothing, not when the list gets short.
 
 1. **Formatter and linter clean.** `just fmt`, then `just lint`, and `just verify` when code
-   changed. Zero errors and zero warnings — clippy runs with `-D warnings`, so a warning left behind
-   is a broken build for whoever runs it next, not a cosmetic note. Silencing one with
+   changed. Zero errors and zero warnings — clippy runs with `-D warnings`. Silencing one with
    `#[allow(...)]` rather than fixing it needs a reason worth saying out loud.
 2. **Delete what nothing calls.** Dead functions, unused constants, a type kept "for later", a
-   wrapper whose body is a single call, a trait with one implementation. Anything that earns its
-   place only in an imagined future has not earned it; add it back in the change that needs it.
+   wrapper whose body is a single call, a trait with one implementation.
 3. **Cut the ceremony.** A custom error type carrying no information a message would not, a builder
    for two fields, a helper called once, a test asserting that the standard library works.
-4. **Check the docs the change invalidated.** The crate `README.md` first — a stale README is worse
+4. **Check the docs the change invalidated**, the crate `README.md` first — a stale README is worse
    than none, because it is believed.
-5. **Read it as a stranger would.** Would you put this in front of someone whose opinion you value?
-   If any part of it would need an apology, that part is the finding.
-
-**Findings are work, not notes.** Fix them and run the pass again. It ends when a full pass turns up
-nothing, not when the list gets short.
+5. **Read it as a stranger would.** If any part would need an apology, that part is the finding.
 
 ## Keep the documentation current
 
-These are not chores to batch up later. A stale document produces confidently wrong work, which
-costs more than the document saved.
+A stale document produces confidently wrong work, which costs more than the document saved.
 
-- **Update this file whenever you learn something that would change how the next agent works.** A
-  non-obvious gotcha, a command that turns out to be wrong, a convention discovered in the code, a
-  tool that does not behave as documented, a constraint that stopped being true. If you spent time
-  finding it out, write it down here.
-- **Update the crate's `README.md` in the same change that alters what the crate does.** Each one
-  states purpose, contents, and the rules specific to that crate. New module, changed rule, moved
-  responsibility — all of it lands in the README alongside the code.
+- **Update this file whenever you learn something that would change how the next agent works** — a
+  non-obvious gotcha, a command that turns out to be wrong, a constraint that stopped being true.
+- **Update the crate's `README.md` in the same change that alters what the crate does.**
 - Remove instructions that stop being true rather than adding a caveat beside them. Two rules on the
   same topic produce worse behaviour than one.
 
-**A crate `README.md` is capped at 300 lines. It states rules, not history.**
-
-This is the rule that keeps being broken, and a README that records every change stops being read —
-which costs exactly what a stale one costs. Write the rule that is true now, in the present tense,
-and delete the one it replaces. Specifically, none of this belongs in a README:
-
-- **What the code used to do.** "It held the raw snapshot until `kyt0.9.8`", "three copies ran until
-  September 2026", "was deleted rather than wired". The reader needs the rule, not its ancestry. Git
-  and the bead already hold the history, and they hold it better.
-- **Bead numbers as evidence.** "Verified live in `glimpse-kyt0.9.2`" tells the next reader nothing
-  they can act on. If the finding matters, state the finding.
-- **What you tested, or chose not to test.** Test names and coverage arguments belong on the bead.
-- **A story where a clause would do.** One measured consequence earns its place — "reusing the icon
-  cap truncated a legitimate path into one that opens nothing". The narrative around it does not.
-
-Keep: what the thing is, the rule, and the one consequence that explains why the rule exists.
-
-**The cap is not advisory.** Over 300 lines, cut until it fits — that is the whole instruction, and
-the paragraphs to cut first are the ones above. When a change makes a README longer, the question to
-ask is which existing paragraph it replaces; a rewrite that only ever appends is a symptom, not an
-update. `AGENTS.md`'s **Known state** section is where a genuinely measured fact goes when it would
-otherwise invite rework, and it says what was counted and when precisely because a README should
-not.
-
-Growth has a measured cost, not a stylistic one: `glimpse-widgets/README.md` carried two
-contradicting paragraphs about notification urgency, one of them false — `set_urgency` writes no CSS
-class and had not for some time — because both were appended and neither was deleted.
-
-## Other rules
-
-- spawn desktop windows on `glimpse` niri workspace, do not steal focus
-
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:970c3bf2 -->
-
-## Beads Issue Tracker
-
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
-
-### Quick Reference
-
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
-```
-
-### Rules
-
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
-
-**Architecture in one line:** issues live in a local Dolt DB; sync uses `refs/dolt/data` on your git remote; `.beads/issues.jsonl` is a passive export. See https://github.com/gastownhall/beads/blob/main/docs/SYNC_CONCEPTS.md for details and anti-patterns.
-
-## Agent Context Profiles
-
-The managed Beads block is task-tracking guidance, not permission to override repository, user, or orchestrator instructions.
-
-- **Conservative (default)**: Use `bd` for task tracking. Do not run git commits, git pushes, or Dolt remote sync unless explicitly asked. At handoff, report changed files, validation, and suggested next commands.
-- **Minimal**: Keep tool instruction files as pointers to `bd prime`; use the same conservative git policy unless active instructions say otherwise.
-- **Team-maintainer**: Only when the repository explicitly opts in, agents may close beads, run quality gates, commit, and push as part of session close. A current "do not commit" or "do not push" instruction still wins.
-
-## Session Completion
-
-This protocol applies when ending a Beads implementation workflow. It is subordinate to explicit user, repository, and orchestrator instructions.
-
-1. **File issues for remaining work** - Create beads for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **Handle git/sync by active profile**:
-   ```bash
-   # Conservative/minimal/default: report status and proposed commands; wait for approval.
-   git status
-
-   # Team-maintainer opt-in only, unless current instructions forbid it:
-   git pull --rebase
-   bd dolt push
-   git push
-   git status
-   ```
-5. **Hand off** - Summarize changes, validation, issue status, and any blocked sync/commit/push step
-
-**Critical rules:**
-
-- Explicit user or orchestrator instructions override this Beads block.
-- Do not commit or push without clear authority from the active profile or the current user request.
-- If a required sync or push is blocked, stop and report the exact command and error.
-
-<!-- END BEADS INTEGRATION -->
+**A crate `README.md` is capped at 300 lines, and states rules, not history.** Over the cap, cut
+until it fits. Write the rule that is true now, in the present tense, and delete the one it
+replaces. None of this belongs in a README: what the code used to do; bead numbers as evidence; what
+you tested or chose not to test; a story where a clause would do. Keep what the thing is, the rule,
+and the one consequence that explains why the rule exists. When a change makes a README longer, ask
+which existing paragraph it replaces — a rewrite that only ever appends is a symptom. A genuinely
+measured fact that would otherwise invite rework goes in **Known state** above, which says what was
+counted and when precisely because a README should not.
 
 <!-- BEGIN BEADS CODEX SETUP: generated by bd setup codex -->
 

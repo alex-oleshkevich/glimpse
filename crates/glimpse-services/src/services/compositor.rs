@@ -316,21 +316,7 @@ impl Service for Compositor {
         let backend = detect_compositor();
         tracing::debug!(compositor = backend.name(), "starting compositor service");
 
-        let service = Self {
-            state_publisher: ctx.publisher(),
-            state: None,
-            attempt: 0,
-            backend,
-        };
-
-        service.state_publisher.update(|state| {
-            state.status = Some(CompositorStatus {
-                name: service.backend.name().to_owned(),
-                capabilities: capabilities(service.backend.capabilities()),
-            });
-        });
-
-        Ok(service)
+        Ok(Self::with_backend(ctx, backend))
     }
 
     async fn handle(&mut self, ctx: &Ctx<Self>, input: Input<Self>) {
@@ -359,6 +345,24 @@ impl Service for Compositor {
 }
 
 impl Compositor {
+    fn with_backend(ctx: &Ctx<Self>, backend: Backend) -> Self {
+        let service = Self {
+            state_publisher: ctx.publisher(),
+            state: None,
+            attempt: 0,
+            backend,
+        };
+
+        service.state_publisher.update(|state| {
+            state.status = Some(CompositorStatus {
+                name: service.backend.name().to_owned(),
+                capabilities: capabilities(service.backend.capabilities()),
+            });
+        });
+
+        service
+    }
+
     fn publish(&mut self) {
         let Some(state) = self.state.as_ref() else {
             return;
@@ -660,8 +664,113 @@ fn command_error(error: &CompositorError) -> CommandError {
 #[cfg(test)]
 mod tests {
     use glimpse_compositors::Window;
+    use glimpse_dbus::Buses;
+    use tokio::sync::{mpsc, watch};
+    use tokio_util::sync::CancellationToken;
 
     use super::*;
+    use crate::service::ServiceState;
+
+    struct Harness {
+        service: Compositor,
+        ctx: Ctx<Compositor>,
+        state: watch::Receiver<CompositorState>,
+        _inbox: mpsc::Receiver<Input<Compositor>>,
+        _cancel: CancellationToken,
+    }
+
+    fn harness(backend: Backend) -> Harness {
+        let (events, inbox) = mpsc::channel(32);
+        let cancel = CancellationToken::new();
+        let (health, _health_rx) = watch::channel(ServiceState::Starting);
+        let (published, state) = watch::channel(CompositorState::default());
+        let ctx = Ctx::<Compositor>::new(
+            events,
+            &cancel,
+            published,
+            health,
+            Buses::unavailable("no bus in tests"),
+        );
+        let service = Compositor::with_backend(&ctx, backend);
+
+        Harness {
+            service,
+            ctx,
+            state,
+            _inbox: inbox,
+            _cancel: cancel,
+        }
+    }
+
+    fn snapshot_of(workspaces: Vec<Workspace>, windows: Vec<Window>) -> Snapshot {
+        Snapshot {
+            workspaces,
+            windows,
+            ..Snapshot::default()
+        }
+    }
+
+    /// The backend is read from the environment by `start`; every assertion here supplies it
+    /// instead, so the result does not depend on which compositor the test machine runs.
+    #[tokio::test]
+    async fn a_status_is_published_before_any_snapshot_arrives() {
+        let harness = harness(Backend::Unsupported);
+
+        let published = harness.state.borrow().clone();
+        assert_eq!(
+            published.status.map(|status| status.name),
+            Some(Backend::Unsupported.name().to_owned()),
+            "the bar needs a compositor name before the first snapshot resolves"
+        );
+        assert!(
+            published.workspaces.is_none(),
+            "nothing is known about workspaces until a snapshot arrives"
+        );
+    }
+
+    /// `Changed` before the first `Snapshot` has no state to apply to, and must not publish an
+    /// empty set of workspaces over the nothing that is already there.
+    #[tokio::test]
+    async fn a_change_before_the_first_snapshot_publishes_nothing() {
+        let mut harness = harness(Backend::Unsupported);
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Changed(Change::WorkspacesChanged(Vec::new()))),
+            )
+            .await;
+
+        assert!(
+            harness.state.borrow().workspaces.is_none(),
+            "a change with no snapshot behind it is dropped rather than published as empty"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_first_snapshot_publishes_and_clears_a_degraded_health() {
+        let mut harness = harness(Backend::Unsupported);
+        harness.ctx.degraded("no compositor yet".to_owned());
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Snapshot(Box::new(snapshot_of(
+                    vec![workspace(1, Some(1), "DP-2")],
+                    Vec::new(),
+                )))),
+            )
+            .await;
+
+        assert!(!harness.ctx.is_degraded(), "a snapshot clears degraded");
+        let published = harness.state.borrow().clone();
+        assert_eq!(
+            published.workspaces.map(|shown| shown.workspaces.len()),
+            Some(1)
+        );
+    }
 
     fn workspace(id: u64, idx: Option<u8>, output: &str) -> Workspace {
         Workspace {

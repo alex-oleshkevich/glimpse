@@ -19,10 +19,6 @@ impl Default for Idle {
     }
 }
 
-fn monitors(state: &str) -> String {
-    format!("{}/scripts/monitors {state}", crate::DATA_DIR)
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub struct Profiles {
@@ -49,7 +45,6 @@ impl Profile {
     fn mains() -> Self {
         Self {
             listeners: vec![
-                Listener::new(600, &monitors("off"), &monitors("on")),
                 Listener::new(900, "loginctl lock-session", ""),
                 Listener::new(3600, "systemctl suspend", ""),
             ],
@@ -59,7 +54,6 @@ impl Profile {
     fn battery() -> Self {
         Self {
             listeners: vec![
-                Listener::new(300, &monitors("off"), &monitors("on")),
                 Listener::new(900, "loginctl lock-session", ""),
                 Listener::new(1800, "systemctl suspend", ""),
             ],

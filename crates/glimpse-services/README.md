@@ -143,6 +143,10 @@ and publishes only what moved. A resync is a declared source keyed by an attempt
 arriving mid-fetch tears the in-flight read down; that is the coalescing, and it needs no
 `fetching`/`pending` bookkeeping.
 
+`start` reads the backend out of the environment, so it cannot be used from a test. It builds the
+service through `with_backend`, which takes one, and that is what a headless test calls: assertions
+about the handler's branches then do not depend on which compositor the machine happens to run.
+
 **Urgency is derived here so every client sees one answer**: a workspace is urgent when the
 compositor says so *or* when any window on it is, which is what makes Hyprland work at all. A
 focused window's urgency is cleared locally, because Hyprland's `urgent>>address` only ever arrives

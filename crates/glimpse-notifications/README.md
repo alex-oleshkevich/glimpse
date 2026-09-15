@@ -3,6 +3,13 @@
 The standalone notification owner and popup UI. It runs the existing notification, compositor and
 session services in process and exposes notification state and controls over a typed D-Bus interface.
 
+**The provider name is what this process is for.** A process that cannot take
+`me.aresa.Glimpse.Notifications` on the session bus exits instead of running on: a popup surface
+with no name serves nothing, and the service graph behind it is pure cost. The same goes for a
+missing session bus. The unit bounds the resulting restarts through `StartLimitBurst`, so a genuine
+duplicate stops rather than loops. With the default application id GTK's single-instance handoff
+already exits the second process first; this only surfaces when the ids differ.
+
 The first local notification snapshot is a baseline and never opens a popup. Later unread records
 appear newest nearest the configured edge; replacing a visible record
 updates its existing card and restarts its timer. Do not disturb, lock, privacy, disablement and

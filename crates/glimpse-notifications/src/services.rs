@@ -1,5 +1,7 @@
 use std::fmt;
 
+use anyhow::{Context as _, Result};
+
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_services::{
@@ -20,17 +22,22 @@ pub struct NotificationServices {
 }
 
 impl NotificationServices {
-    pub async fn start(document: &Config) -> Self {
+    pub async fn start(document: &Config) -> Result<Self> {
         let buses = Buses::connect().await;
-        let session = buses.session_bus().ok().cloned();
+        let session = buses
+            .session_bus()
+            .cloned()
+            .map_err(|reason| anyhow::anyhow!(reason.to_owned()))
+            .context("the notification provider needs the session bus")?;
         let mut services = Self::start_with_buses(document, buses);
-        if let Some(connection) = session {
-            match provider::start(connection, services.notifications.clone()).await {
-                Ok(provider) => services.provider = Some(provider),
-                Err(error) => tracing::warn!(%error, "notification provider unavailable"),
+        match provider::start(session, services.notifications.clone()).await {
+            Ok(provider) => services.provider = Some(provider),
+            Err(error) => {
+                services.shutdown().await;
+                return Err(error).context("cannot start the notification D-Bus provider");
             }
         }
-        services
+        Ok(services)
     }
 
     fn start_with_buses(document: &Config, buses: Buses) -> Self {

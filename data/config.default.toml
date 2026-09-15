@@ -26,11 +26,6 @@ enabled = true
 respect-inhibitors = true
 
 [[idle.profiles.ac.listeners]]
-timeout = 600
-on-idle = "/usr/share/glimpse/scripts/monitors off"
-on-resume = "/usr/share/glimpse/scripts/monitors on"
-
-[[idle.profiles.ac.listeners]]
 timeout = 900
 on-idle = "loginctl lock-session"
 on-resume = ""
@@ -39,11 +34,6 @@ on-resume = ""
 timeout = 3600
 on-idle = "systemctl suspend"
 on-resume = ""
-
-[[idle.profiles.battery.listeners]]
-timeout = 300
-on-idle = "/usr/share/glimpse/scripts/monitors off"
-on-resume = "/usr/share/glimpse/scripts/monitors on"
 
 [[idle.profiles.battery.listeners]]
 timeout = 900

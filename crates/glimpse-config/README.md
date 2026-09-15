@@ -255,6 +255,10 @@ Two enums and this section are the entire mechanism. There is no `Localized<T>`.
 
 ## Not here
 
+A default that names an external command names one the system already has — `loginctl`,
+`systemctl`. Pointing at a helper this repository would have to install is a default that is broken
+on every machine until that install lands, and `scripts/` is not installed.
+
 Semantic validation — duplicate idle timeouts, a panel zone naming an applet nothing provides — is
 not written yet. `[geolocation]` needs none: the table is one internally tagged enum, so a
 half-filled table is a `missing field` from serde before any reader sees it. Where a rule can be

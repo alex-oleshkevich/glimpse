@@ -258,3 +258,10 @@ its own widget.
 
 UI state never waits on a round trip: update the widget optimistically and let the service event
 reconcile it.
+
+**One substituter renders every `{token}` format.** `applets/tokens.rs::render` walks the template
+once, resolving each token through a closure the applet supplies; the applet decides its own token
+names and nothing else. Chained `String::replace` is the wrong shape here and was the defect it
+replaced — each replacement runs over the previous one's output, so a workspace named `{index}`
+became the workspace index. Every value these formats interpolate is compositor- or
+calendar-supplied text. The clock is not a caller: its `tooltip_format` is a strftime string.
