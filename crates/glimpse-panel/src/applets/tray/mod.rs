@@ -13,16 +13,12 @@ use std::rc::Rc;
 
 /// The slot a chip's icon occupies, before the output's scale is applied. `-gtk-icon-size` in the
 /// stylesheet is the same measurement; a mismatch shows up as a blurry pixmap, not as an error.
-const ICON_SIZE: i32 = 22;
+const ICON_SIZE: i32 = 20;
 
-use crate::applet::popover::PopoverHandle;
 use crate::applet::{Applet, Button, Ctx, Input, spawn_command};
 
 pub struct Tray {
     strip: TrayStrip,
-    /// The layout a press fetched, waiting for the runtime to ask for a popover. A menu is
-    /// fetched before it is shown, because `AboutToShow` is where an application fills one in.
-    pending: Rc<RefCell<Option<(String, MenuNode)>>>,
     /// Shared with the theme and scale callbacks, which have no `&mut self` and must re-render
     /// from the same values the applet last saw.
     settings: Rc<RefCell<TrayAppletConfig>>,
@@ -31,12 +27,10 @@ pub struct Tray {
 }
 
 impl Applet for Tray {
-    fn view(&mut self, ctx: &Ctx) -> Option<gtk4::Widget> {
+    fn view(&mut self, _ctx: &Ctx) -> Option<gtk4::Widget> {
         self.strip.connect_activated({
             let tray = self.tray.clone();
             let items = self.items.clone();
-            let pending = self.pending.clone();
-            let opener = ctx.opener();
             move |strip, key, button| {
                 let tray = tray.clone();
                 let anchor = strip.anchor();
@@ -53,14 +47,10 @@ impl Applet for Tray {
                 let wants_menu = offers_menu && (pressed == Button::Right || is_menu);
 
                 if wants_menu {
-                    let pending = pending.clone();
-                    let opener = opener.clone();
+                    let strip = strip.clone();
                     relm4::spawn_local(async move {
                         match tray.menu(key.clone()).await {
-                            Ok(node) => {
-                                pending.replace(Some((key, node)));
-                                opener.open_popover();
-                            }
+                            Ok(node) => open_menu(&strip, key, &node, tray),
                             Err(error) => {
                                 tracing::debug!(%key, %error, "the item has no menu to show");
                             }
@@ -155,28 +145,6 @@ impl Applet for Tray {
         self.strip.anchor()
     }
 
-    fn popover(&mut self, _seat: &crate::applet::popover::Seat) -> Option<Box<dyn PopoverHandle>> {
-        let (key, node) = self.pending.borrow_mut().take()?;
-        let sections = menu::sections(&node);
-        if sections.is_empty() {
-            return None;
-        }
-
-        let tray = self.tray.clone();
-        let actions = menu::actions(&sections, move |id| {
-            let tray = tray.clone();
-            let key = key.clone();
-            spawn_command("tray.menu_event", async move {
-                tray.menu_event(key, id, "clicked".to_owned()).await
-            });
-        });
-
-        let shown = gtk4::PopoverMenu::from_model(Some(&menu::model(&sections)));
-        shown.insert_action_group(menu::GROUP, Some(&actions));
-        shown.set_has_arrow(false);
-        Some(Box::new(shown))
-    }
-
     fn configure(&mut self, _ctx: &Ctx, config: &AppletConfig) {
         let AppletKind::Tray(settings) = &config.kind else {
             return;
@@ -198,7 +166,6 @@ impl Tray {
     pub fn start(tray: TrayHandle) -> Self {
         Self {
             strip: TrayStrip::new(),
-            pending: Rc::new(RefCell::new(None)),
             settings: Rc::new(RefCell::new(TrayAppletConfig::default())),
             items: Rc::new(RefCell::new(tray.snapshot().items)),
             tray,
@@ -208,6 +175,50 @@ impl Tray {
     fn render(&self) {
         paint(&self.strip, &self.items.borrow(), &self.settings.borrow());
     }
+}
+
+/// A tray menu is the application's own and stays a real `PopoverMenu`: dbusmenu nests arbitrarily
+/// deep and a `PopoverMenu` nests natively. It pops itself from the strip rather than travelling
+/// through the applet runtime, whose catcher hosts ordinary widgets — appending a `GtkNative` there
+/// parents it and never shows it.
+///
+/// The anchor is the strip rather than the chip, because `by_key` rebuilds a chip whenever the
+/// published list changes and a popover parented to one would go with it.
+fn open_menu(strip: &TrayStrip, key: String, node: &MenuNode, tray: TrayHandle) {
+    let sections = menu::sections(node);
+    if sections.is_empty() {
+        return;
+    }
+
+    let actions = menu::actions(&sections, move |id| {
+        let tray = tray.clone();
+        let key = key.clone();
+        spawn_command("tray.menu_event", async move {
+            tray.menu_event(key, id, "clicked".to_owned()).await
+        });
+    });
+
+    let shown = gtk4::PopoverMenu::from_model(Some(&menu::model(&sections)));
+    shown.insert_action_group(menu::GROUP, Some(&actions));
+    shown.set_has_arrow(false);
+    shown.set_parent(strip);
+    if let Some(chip) = strip.anchor()
+        && let Some(bounds) = chip.compute_bounds(strip)
+    {
+        shown.set_pointing_to(Some(&gtk4::gdk::Rectangle::new(
+            bounds.x() as i32,
+            bounds.y() as i32,
+            bounds.width() as i32,
+            bounds.height() as i32,
+        )));
+    }
+    // One popover is built per press, so each has to be taken down again. Unparenting from inside
+    // `closed` runs during emission, which is what the idle defers past.
+    shown.connect_closed(|shown| {
+        let shown = shown.clone();
+        gtk4::glib::idle_add_local_once(move || shown.unparent());
+    });
+    shown.popup();
 }
 
 fn paint(strip: &TrayStrip, items: &[TrayItem], settings: &TrayAppletConfig) {

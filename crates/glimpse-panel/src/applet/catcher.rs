@@ -139,6 +139,13 @@ impl Catcher {
         self.fade.reset();
         self.center.set(center);
         self.dismissed.replace(Some(Box::new(dismissed)));
+        // A `GtkNative` owns its own surface and stays invisible until it is popped up, so
+        // appending one parents it and shows nothing at all — no warning, no drawn pixel. Say so
+        // rather than presenting an empty body: an applet wanting a popup of its own pops it.
+        if child.as_ref().is::<gtk4::Native>() {
+            tracing::error!("a popover child owning its own surface cannot be hosted; ignoring it");
+            return;
+        }
         self.body.append(child.as_ref());
         self.state.set(State::Opening);
         self.slot.set_opacity(0.0);

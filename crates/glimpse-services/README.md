@@ -264,37 +264,37 @@ delivers `DoNotDisturbLapsed` and clears both fields. A reader that only ever lo
 therefore sees it turn itself off. The expiry is in the subscription key, so moving it tears the old
 timer down; keying on a bare marker would lapse at the wrong instant.
 
-**tray** — glimpse *is* the `org.kde.StatusNotifierWatcher` under niri, because nothing else provides
-one. Its state is every registered item in registration order; which of them a bar shows is the
-applet's decision, and the three keys live in `[applets.tray]`. No bus is `degraded` publishing an
-empty list, never a failure to start. Items decode from one `GetAll` each.
+**tray** — glimpse takes the `org.kde.StatusNotifierWatcher` name when it is free and registers as a
+host on whoever holds it when it is not. Its state is every item in registration order. No bus is
+`degraded` publishing an empty list, never a failure to start.
+
+**A taken name is not a broken tray.** Only one process can be the watcher, and the spec separates
+the roles because a session usually has a second shell wanting the tray. A failed claim registers
+`org.kde.StatusNotifierHost-<pid>` with the incumbent, reads its `RegisteredStatusNotifierItems` and
+follows its two registration signals; only a watcher refusing us as a host is `degraded`. Entries
+resolve to their unique owner — the spelling `NameOwnerChanged` reports — and that list is read
+whole on each signal, never reconciled entry by entry.
 
 **The claim lives inside the `NameOwnerChanged` source, not in `start`.** A source is installed only
 *after* `start` returns, so claiming there races the signal that recovers a lost one, and
-`DoNotQueue` makes a failed attempt terminal. The source takes its match rule, then claims, then
-follows; cold start, a name freeing and our own loss all call the same `claim`, off the handler and
-one at a time — awaiting a name request, a `ListNames` and a probe per candidate on `&mut self` puts
-every tray event behind one hung application. `NameTaken` *by us* is success, or a second trigger
-degrades a working watcher against itself. The common case is not Plasma: it is the panel restarting
-before the old process let go.
+`DoNotQueue` makes a failure terminal. All three triggers call the same `claim`, off the handler and
+one at a time; `NameTaken` *by us* is success.
 
 **A fresh owner sweeps, because items register once and never learn they were forgotten.** Announce
 `StatusNotifierHostRegistered` *first* — Qt and libayatana clients re-register on it — then
-`ListNames` for well-known `StatusNotifierItem-*` names, probe each and adopt it; the canonical key
-collapses both into one. An item holding only a unique name is unrecoverable, by design.
+`ListNames` for well-known `StatusNotifierItem-*` names and probe each; the canonical key collapses
+both.
 
 **One `Watch::Item(key)` per item, and no teardown code** — a key stops appearing, its guard drops,
-its match rules go. A menu follower is keyed by item *and path*, so an item that moves its menu stops
-following the old one. Each follower takes `PropertiesChanged` **and** every `New*`; the equality
-gate makes that safe, and an item that stops answering is dropped rather than retried.
+its match rules go. A menu follower is keyed by item *and path*. Each takes `PropertiesChanged` and
+every `New*`; an item that stops answering is dropped, not retried.
 
 **Every command is answered off the handler under a five-second deadline.** `AboutToShow` reports
 whether the layout changed and **must be awaited**; `Event` is `no_reply` and must not be.
 `ItemsPropertiesUpdated` carries no revision, so it drops the cache outright. Menus load on
-pointer-enter and name every submenu id first, because that is where a lazy application fills one in.
+pointer-enter, naming every submenu id first.
 
 ## Rules
 
-Services expose concrete handles; there is no daemon-owned trait, broker, registry, or string routing
-layer. The handler, boundary and config rules are in `.claude/rules/daemon.md` and are not repeated
-here.
+Concrete handles only: no daemon-owned trait, broker, registry or string routing. The handler,
+boundary and config rules live in `.claude/rules/daemon.md`.

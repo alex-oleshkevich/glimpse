@@ -1091,6 +1091,13 @@ window.notification-popup {
     color: var(--gl-surface-fg);
 }
 
+/* A tray icon is an application's own artwork, not a symbolic glyph, and reads smaller than one at
+   the same box; without this the image falls back to GTK's default while the slot stays 1.5rem.
+   Keep in step with `ICON_SIZE` in the tray applet, which decodes pixmaps to this measurement. */
+.tray-strip .indicator__icon {
+    -gtk-icon-size: 1.25rem;
+}
+
 .tray-strip__chevron,
 .tray-strip__chevron:checked {
     min-width: 1.6rem;

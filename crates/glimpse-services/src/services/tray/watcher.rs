@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use glimpse_dbus::status_notifier_item::StatusNotifierItemProxy;
 use glimpse_dbus::status_notifier_watcher::{
     DEFAULT_ITEM_PATH, Registry, StatusNotifierWatcherProxy, WATCHER_ALIAS, WATCHER_NAME,
-    WATCHER_PATH,
+    WATCHER_PATH, canonical_key, split_key,
 };
 use tokio::sync::mpsc;
 use zbus::Connection;
@@ -302,6 +302,94 @@ async fn register_host(connection: &Connection) {
         }
         Err(error) => tracing::warn!(%error, "could not reach the watcher we just claimed"),
     }
+}
+
+/// Another watcher owns the name. The spec separates watcher from host for exactly this: register
+/// with whoever holds it and read the items from there, rather than serving an empty bar until it
+/// exits. A session usually has a second shell component wanting the tray, and only one of them can
+/// be the watcher.
+pub async fn attach(ctx: &Ctx<Tray>) -> Result<Vec<String>, String> {
+    let connection = ctx.session_bus().map_err(str::to_owned)?.clone();
+    let name = format!("org.kde.StatusNotifierHost-{}", std::process::id());
+    match glimpse_dbus::own_name(&connection, &name).await {
+        // The name carries our own pid, so the only holder it can already have is us.
+        Ok(()) | Err(zbus::Error::NameTaken) => {}
+        Err(error) => return Err(error.to_string()),
+    }
+    let watcher = StatusNotifierWatcherProxy::new(&connection)
+        .await
+        .map_err(|error| error.to_string())?;
+    watcher
+        .register_status_notifier_host(&name)
+        .await
+        .map_err(|error| error.to_string())?;
+    // Which process is serving the bar is the first thing anyone asks when an icon is missing, and
+    // it costs one call to say it properly rather than "another watcher owns the name".
+    // Resolved before the macro: an `.await` inside one holds a non-`Send` `Arguments` across it,
+    // and this whole future is spawned.
+    let owner = holder(&connection, WATCHER_NAME).await;
+    tracing::info!(
+        watcher = %owner,
+        host = %name,
+        "registered as a host with the tray watcher that owns the name"
+    );
+    list_items(&connection).await
+}
+
+/// What the watcher lists, as keys this host can address. An entry names its item either by bus
+/// name or as `name/path`, and the name half may be well-known, so it is resolved to the unique
+/// owner: `NameOwnerChanged` reports that spelling and nothing else, and eviction matches on it.
+pub async fn list_items(connection: &Connection) -> Result<Vec<String>, String> {
+    let watcher = StatusNotifierWatcherProxy::new(connection)
+        .await
+        .map_err(|error| error.to_string())?;
+    let listed = watcher
+        .registered_status_notifier_items()
+        .await
+        .map_err(|error| error.to_string())?;
+    let proxy = zbus::fdo::DBusProxy::new(connection)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let mut keys: Vec<String> = Vec::with_capacity(listed.len());
+    for entry in &listed {
+        let (name, path) = split_key(entry).unwrap_or((entry, DEFAULT_ITEM_PATH));
+        let Ok(target) = zbus::names::BusName::try_from(name) else {
+            continue;
+        };
+        let Ok(owner) = proxy.get_name_owner(target).await else {
+            continue;
+        };
+        let key = canonical_key(owner.as_str(), path);
+        if !keys.contains(&key) {
+            keys.push(key);
+        }
+    }
+    Ok(keys)
+}
+
+/// The foreign watcher's own registration signals, followed only while hosting on it. Both mean
+/// "the set moved" and the list is read again rather than reconciled entry by entry — see
+/// `Registry::resync` for why a single signal cannot be applied on its own.
+pub async fn foreign_changes(
+    ctx: Ctx<Tray>,
+) -> std::pin::Pin<Box<dyn futures_util::Stream<Item = Event> + Send>> {
+    let Ok(connection) = ctx.session_bus() else {
+        return Box::pin(futures_util::stream::empty());
+    };
+    let Ok(watcher) = StatusNotifierWatcherProxy::new(connection).await else {
+        return Box::pin(futures_util::stream::empty());
+    };
+    let Ok(registered) = watcher.receive_status_notifier_item_registered().await else {
+        return Box::pin(futures_util::stream::empty());
+    };
+    let Ok(unregistered) = watcher.receive_status_notifier_item_unregistered().await else {
+        return Box::pin(futures_util::stream::empty());
+    };
+    Box::pin(futures_util::stream::select(
+        futures_util::StreamExt::map(registered, |_| Event::Resync),
+        futures_util::StreamExt::map(unregistered, |_| Event::Resync),
+    ))
 }
 
 /// Items register once, at their own startup. A panel restart empties the registry with no error

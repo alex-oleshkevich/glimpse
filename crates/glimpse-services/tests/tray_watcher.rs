@@ -97,45 +97,35 @@ async fn the_service_takes_the_watcher_name_and_registers_itself_as_a_host() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn exactly_one_of_two_services_holds_the_name_and_the_other_names_it() {
+async fn exactly_one_of_two_services_holds_the_name_and_the_other_hosts_on_it() {
     let bus = PrivateBus::start();
     let (mut first, first_handle) = tray(&bus).await;
     let (mut second, second_handle) = tray(&bus).await;
 
     // Which of the two wins is the bus's business, and the claim runs off the handler, so waiting
     // on one of them in particular would be asserting an order nothing promises. The contract is
-    // that exactly one ends up holding the name and the loser says who has it.
+    // that exactly one holds the name and *both* end up serving: the loser registers with the
+    // winner as a host rather than sitting over an empty bar until it exits.
     let settled = tokio::time::timeout(Duration::from_secs(20), async {
         loop {
-            let states = (
+            if let (ServiceState::Running, ServiceState::Running) = (
                 first_handle.health().borrow().clone(),
                 second_handle.health().borrow().clone(),
-            );
-            if let (ServiceState::Running, ServiceState::Degraded { reason })
-            | (ServiceState::Degraded { reason }, ServiceState::Running) = &states
-            {
-                return reason.clone();
+            ) {
+                return;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
     })
     .await;
 
-    let reason = settled.unwrap_or_else(|_| {
+    settled.unwrap_or_else(|_| {
         panic!(
-            "one service should hold the name and the other degrade; saw {:?} and {:?}",
+            "one holds the name and the other hosts on it, so both serve; saw {:?} and {:?}",
             *first_handle.health().borrow(),
             *second_handle.health().borrow()
         )
     });
-    assert!(
-        reason.contains(WATCHER_NAME),
-        "the loser names the contested name: {reason}"
-    );
-    assert!(
-        reason.contains("pid"),
-        "and resolves the holder, because 'another watcher owns it' costs an hour: {reason}"
-    );
 
     let probe = bus.connection().await;
     assert!(
@@ -227,21 +217,17 @@ async fn the_name_freeing_is_the_trigger_and_the_sweep_finds_what_registered_mea
         .unwrap();
 
     let (mut service, handle) = tray(&bus).await;
-    settle(&handle, |state| {
-        matches!(state, ServiceState::Degraded { .. })
-    })
-    .await;
+    settle(&handle, |state| matches!(state, ServiceState::Running)).await;
 
-    // An item that registered with the incumbent is invisible to us and has no way to know.
+    // An item holding a well-known name that never registered with *anyone*: the incumbent cannot
+    // list it, so hosting on the incumbent does not find it and only a sweep can.
     let item = FakeItem::start(bus.connection().await, Shape::Pixmap, "early")
         .await
         .unwrap();
     item.claim_well_known_name().await.unwrap();
-    item.register().await.unwrap();
 
     incumbent.stop().await.unwrap();
 
-    settle(&handle, |state| matches!(state, ServiceState::Running)).await;
     claimed(&bus).await;
     assert_eq!(
         items_settle(&handle, 1).await,
@@ -250,6 +236,38 @@ async fn the_name_freeing_is_the_trigger_and_the_sweep_finds_what_registered_mea
     );
 
     service.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_watcher_we_cannot_have_is_hosted_on_rather_than_waited_out() {
+    let bus = PrivateBus::start();
+    let incumbent = IncumbentWatcher::start(bus.connection().await)
+        .await
+        .unwrap();
+
+    // The item registers with the watcher that exists, which is the incumbent and never us.
+    let item = FakeItem::start(bus.connection().await, Shape::Pixmap, "theirs")
+        .await
+        .unwrap();
+    item.register().await.unwrap();
+
+    let (mut service, handle) = tray(&bus).await;
+
+    assert!(
+        matches!(
+            settle(&handle, |state| matches!(state, ServiceState::Running)).await,
+            ServiceState::Running
+        ),
+        "a taken name is not a broken tray: the spec separates watcher from host for this"
+    );
+    assert_eq!(
+        items_settle(&handle, 1).await,
+        [item.key()],
+        "an item registered with someone else's watcher still reaches our bar"
+    );
+
+    service.stop().await;
+    incumbent.stop().await.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -288,10 +306,7 @@ async fn announcing_before_sweeping_yields_one_entry_for_a_client_that_does_both
         .await
         .unwrap();
     let (mut service, handle) = tray(&bus).await;
-    settle(&handle, |state| {
-        matches!(state, ServiceState::Degraded { .. })
-    })
-    .await;
+    settle(&handle, |state| matches!(state, ServiceState::Running)).await;
 
     let item = FakeItem::start(bus.connection().await, Shape::Ayatana, "both")
         .await

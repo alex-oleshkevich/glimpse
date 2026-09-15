@@ -109,6 +109,21 @@ impl Registry {
         before != self.items.len()
     }
 
+    /// Take the whole set from what another watcher reports, in the order it reports them, and
+    /// answer with the keys it no longer lists. A host reading someone else's watcher cannot
+    /// reconcile signal by signal: a watcher spells an item however the application registered it,
+    /// and only a fresh read resolves that back to an owner.
+    pub fn resync(&mut self, keys: &[String]) -> Vec<String> {
+        let gone: Vec<String> = self
+            .items
+            .iter()
+            .filter(|item| !keys.contains(item))
+            .cloned()
+            .collect();
+        self.items = keys.to_vec();
+        gone
+    }
+
     pub fn items(&self) -> &[String] {
         &self.items
     }
@@ -189,6 +204,27 @@ mod tests {
             ]
         );
         assert_eq!(registry.items(), [":1.2/StatusNotifierItem"]);
+    }
+
+    #[test]
+    fn a_resync_takes_the_foreign_order_and_reports_what_left() {
+        let mut registry = Registry::default();
+        registry.register(":1.1", "/StatusNotifierItem");
+        registry.register(":1.2", "/StatusNotifierItem");
+
+        assert_eq!(
+            registry.resync(&[
+                ":1.2/StatusNotifierItem".to_owned(),
+                ":1.3/StatusNotifierItem".to_owned(),
+            ]),
+            [":1.1/StatusNotifierItem"],
+            "what the watcher no longer lists is what we drop"
+        );
+        assert_eq!(
+            registry.items(),
+            [":1.2/StatusNotifierItem", ":1.3/StatusNotifierItem"],
+            "and the order is the watcher's, not ours"
+        );
     }
 
     #[test]
