@@ -566,15 +566,11 @@ not exist. Every branch of it has a test, and it has not been the source of a bu
 
 What is genuinely dead, and is the cut to make in whichever change next touches the file:
 
-- `watch_all` is `pub` and re-exported from `lib.rs` with **no consumer outside this module's own
-  tests**. `watch` and `Update` had none either until September 2026, when the calendar service's
-  directory sources became the first: `glimpse-services/src/services/calendar.rs` maps
-  `watch(dir)` straight into a `Sub::stream`, which is what that signature turns out to be for.
-  Every binary still reloads its configuration through `watch_config`.
-- `watch_config` is therefore the only reader of `Update`, and it discards `Changed`'s
-  `Vec<PathBuf>` and treats `Changed` and `Rearmed` as one arm. The only distinction the tree draws
-  is "something happened" against "the watch is dead" — so those paths are collected in `forward`,
-  carried through the channel and filtered in `Watch::next` to build a value nobody reads.
+- `Changed` carries a `Vec<PathBuf>` that nothing reads. Both consumers of `Update` — `watch_config`
+  and `theme.rs`'s `watch_theme` — collapse `Changed` and `Rearmed` into one arm, so the only
+  distinction the tree draws is "something happened" against "the watch is dead". Those paths are
+  still collected in `forward`, carried through the channel and filtered in `Watch::next` to build a
+  value nobody reads.
 
 Both defects found in this file in August 2026 were in the _simple_ 18% that decides whether to
 reload and whether to complain, or in the harness testing it — not in the machinery. Its size is not
