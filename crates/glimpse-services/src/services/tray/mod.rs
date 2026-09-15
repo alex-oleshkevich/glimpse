@@ -35,8 +35,10 @@ pub enum Watch {
     /// never call `UnregisterStatusNotifierItem`.
     Names,
     /// The foreign watcher's own registration signals, followed only while hosting on someone
-    /// else's watcher — when the name is ours, these are signals we emit.
-    Foreign,
+    /// else's watcher — when the name is ours, these are signals we emit. The generation is in the
+    /// key so that a watcher *replaced* by another process tears the old subscription down and
+    /// registers us with the new one; the signals are bound to whoever owned the name at the time.
+    Foreign(u64),
     Item(String),
     /// The path is in the key: an item that emits `NewMenu` with a different object path must tear
     /// the old follower down, or it keeps watching a path that no longer exists.
@@ -83,6 +85,8 @@ pub enum Command {
 pub enum Event {
     /// Take the watcher name, from inside the source that carries the retry.
     Claim,
+    /// Register with the watcher that holds the name, from inside the source that follows it.
+    Attach,
     Registered(String),
     Unregistered(String),
     /// The outcome of a claim attempt, carried back from the task that did the bus work.
@@ -114,8 +118,13 @@ pub struct Tray {
     /// A claim is in flight. Its bus work runs off the handler, so without this a second trigger
     /// arriving before the outcome does would start a duplicate.
     claiming: bool,
-    /// Registered as a host on someone else's watcher, because the name was already taken.
+    /// A trigger arrived while one was in flight. The signal is the only prompt there is and the
+    /// claim it raced was answering about the *previous* owner, so dropping it strands the tray.
+    claim_again: bool,
+    /// Following someone else's watcher, because the name was already taken.
     hosting: bool,
+    /// Bumped whenever the watcher name changes hands, to restart the follower against its owner.
+    generation: u64,
     known: BTreeMap<String, TrayItem>,
     menus: HashMap<String, (u32, MenuNode)>,
     notices: HashMap<String, bool>,
@@ -230,7 +239,10 @@ impl Service for Tray {
     fn subscriptions(&self) -> Vec<Sub<Self>> {
         let mut subs = vec![Sub::stream(Watch::Names, watcher::name_changes)];
         if self.hosting {
-            subs.push(Sub::stream(Watch::Foreign, watcher::foreign_changes));
+            subs.push(Sub::stream(
+                Watch::Foreign(self.generation),
+                watcher::foreign_changes,
+            ));
         }
         for key in self.keys() {
             let owned = key.clone();
@@ -261,7 +273,9 @@ impl Service for Tray {
             registry,
             claimed: false,
             claiming: false,
+            claim_again: false,
             hosting: false,
+            generation: 0,
             known: BTreeMap::new(),
             menus: HashMap::new(),
             notices: HashMap::new(),
@@ -331,6 +345,7 @@ impl Service for Tray {
             Input::Event(Event::Claim) => self.claim(ctx),
             Input::Event(Event::Claimed(outcome)) => {
                 self.claiming = false;
+                let raced = std::mem::take(&mut self.claim_again);
                 match outcome {
                     Ok(()) => {
                         self.claimed = true;
@@ -338,33 +353,50 @@ impl Service for Tray {
                         ctx.running();
                         self.republish();
                     }
+                    // The name moved under the attempt, so this answer is about whoever held it
+                    // before. Following the watcher it named would follow a process that has left.
+                    Err(_) if raced => {
+                        tracing::debug!("the watcher name moved mid-claim; asking again");
+                        self.claim(ctx);
+                    }
                     // Not ours is not the end of it: a session usually has a second shell component
-                    // wanting the tray, and only one of them can be the watcher.
+                    // wanting the tray, and only one of them can be the watcher. Declaring the
+                    // follower is the whole action — it registers us from inside itself, after its
+                    // signal rules exist.
                     Err(reason) => {
-                        tracing::info!(%reason, "the watcher is someone else's; registering with it as a host");
-                        self.attach(ctx, reason);
+                        tracing::info!(%reason, "the watcher is someone else's; following it as a host");
+                        self.hosting = true;
                     }
                 }
             }
-            Input::Event(Event::Attached(outcome)) => match outcome {
-                Ok(keys) => {
-                    tracing::info!(
-                        items = keys.len(),
-                        "hosting on another process's tray watcher"
-                    );
-                    self.hosting = true;
-                    self.adopt(keys);
-                    ctx.running();
-                    self.republish();
+            Input::Event(Event::Attach) => self.attach(ctx),
+            Input::Event(Event::Attached(outcome)) => {
+                // The watcher may have exited while this was in flight, leaving us holding the name
+                // by the time it answers. A stale result must not speak for a tray we now serve
+                // ourselves — least of all degrade it, since nothing would clear that afterwards.
+                if self.claimed {
+                    return;
                 }
-                Err(reason) => {
-                    tracing::warn!(
-                        %reason,
-                        "could not become the tray watcher, and the one that is would not have us as a host"
-                    );
-                    ctx.degraded(reason);
+                match outcome {
+                    Ok(keys) => {
+                        tracing::info!(
+                            items = keys.len(),
+                            "hosting on another process's tray watcher"
+                        );
+                        self.hosting = true;
+                        self.adopt(keys);
+                        ctx.running();
+                        self.republish();
+                    }
+                    Err(reason) => {
+                        tracing::warn!(
+                            %reason,
+                            "could not become the tray watcher, and the one that is would not have us as a host"
+                        );
+                        ctx.degraded(reason);
+                    }
                 }
-            },
+            }
             Input::Event(Event::Resync) => {
                 tracing::debug!("the foreign watcher's item set moved; reading it again");
                 self.resync(ctx);
@@ -398,12 +430,12 @@ impl Tray {
                     self.forget_everything();
                     self.claim(ctx);
                 }
-                // A watcher appeared and it is not us. Register with it rather than sit empty —
-                // and re-register when it is replaced, since the new one knows nothing of us.
+                // A watcher appeared and it is not us. Follow it rather than sit empty, and follow
+                // it *afresh* — a new owner knows nothing of us, and the old signal rules were
+                // bound to the process that just left.
                 (false, Some(_)) => {
-                    if !self.claiming {
-                        self.attach(ctx, format!("{WATCHER_NAME} is owned by another process"));
-                    }
+                    self.hosting = true;
+                    self.generation += 1;
                 }
             }
             return;
@@ -449,9 +481,11 @@ impl Tray {
     /// every other tray event behind one non-answering application's zbus timeout.
     fn claim(&mut self, ctx: &Ctx<Self>) {
         if self.claiming {
+            self.claim_again = true;
             return;
         }
         self.claiming = true;
+        self.claim_again = false;
         let registry = self.registry.clone();
         ctx.spawn_detached(move |ctx| async move {
             let outcome = watcher::claim(&ctx, &registry).await;
@@ -467,11 +501,9 @@ impl Tray {
 
     /// Register with whoever holds the name and take their item list. Off the handler for the same
     /// reason a claim is: it is a name request, a registration and a lookup per item.
-    fn attach(&mut self, ctx: &Ctx<Self>, reason: String) {
-        ctx.spawn_detached(move |ctx| async move {
-            let outcome = watcher::attach(&ctx)
-                .await
-                .map_err(|error| format!("{reason}, and it refused us as a host: {error}"));
+    fn attach(&mut self, ctx: &Ctx<Self>) {
+        ctx.spawn_detached(|ctx| async move {
+            let outcome = watcher::attach(&ctx).await;
             let _ = ctx
                 .events()
                 .send(Input::Event(Event::Attached(outcome)))
@@ -755,6 +787,57 @@ mod tests {
         assert!(
             matches!(&*health.borrow(), crate::ServiceState::Degraded { reason } if reason.contains("no bus")),
             "the reason names why there is no bus, rather than saying the tray is broken"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_attach_that_answered_after_we_took_the_name_is_ignored() {
+        let (mut tray, ctx, _state, health) = tray().await;
+
+        // The foreign watcher exited mid-attach and we won the name it freed.
+        tray.handle(&ctx, Input::Event(Event::Claimed(Ok(()))))
+            .await;
+        assert_eq!(*health.borrow(), crate::ServiceState::Running);
+
+        tray.handle(
+            &ctx,
+            Input::Event(Event::Attached(Err("the watcher went away".to_owned()))),
+        )
+        .await;
+
+        assert_eq!(
+            *health.borrow(),
+            crate::ServiceState::Running,
+            "a stale answer must not degrade a tray that now holds the name; nothing clears that"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_watcher_changing_hands_restarts_the_follower_rather_than_reusing_it() {
+        let (mut tray, ctx, _state, _health) = tray().await;
+
+        tray.handle(
+            &ctx,
+            Input::Event(Event::Claimed(Err("owned by someone".to_owned()))),
+        )
+        .await;
+        assert!(tray.hosting, "a failed claim declares the follower");
+        let first = tray.generation;
+
+        tray.handle(
+            &ctx,
+            Input::Event(Event::NameOwnerChanged {
+                name: WATCHER_NAME.to_owned(),
+                new_owner: Some(":1.9".to_owned()),
+            }),
+        )
+        .await;
+
+        assert!(tray.hosting);
+        assert_ne!(
+            tray.generation, first,
+            "the generation is the subscription key, and a new owner knows nothing of us: the old \
+             signal rules named the process that just left"
         );
     }
 

@@ -3,7 +3,9 @@ use std::time::Duration;
 use glimpse_config::Config;
 use glimpse_dbus::Buses;
 use glimpse_dbus::status_notifier_item::TrayStatus;
-use glimpse_dbus::status_notifier_watcher::{StatusNotifierWatcherProxy, WATCHER_NAME};
+use glimpse_dbus::status_notifier_watcher::{
+    StatusNotifierWatcherProxy, WATCHER_ALIAS, WATCHER_NAME,
+};
 use glimpse_dbus::testing::PrivateBus;
 use glimpse_dbus::testing::tray::{Call, FakeItem, IncumbentWatcher, Shape};
 use glimpse_services::{Running, ServiceState, Tray, TrayHandle};
@@ -47,12 +49,18 @@ async fn settle(handle: &TrayHandle, ready: impl Fn(&ServiceState) -> bool) -> S
 /// The claim happens in the `Watch::Names` source, which the runtime starts *after* `start`
 /// returns, so health reaches `Running` before the name is ours. Wait for the name itself.
 async fn claimed(bus: &PrivateBus) {
+    owns(bus, WATCHER_NAME).await;
+}
+
+/// The alias is taken *after* the KDE name, so a test reaching for it has its own wait: the two
+/// are separate requests and owning one says nothing about the other.
+async fn owns(bus: &PrivateBus, name: &str) {
     let connection = bus.connection().await;
     let proxy = zbus::fdo::DBusProxy::new(&connection).await.unwrap();
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
             if proxy
-                .name_has_owner(WATCHER_NAME.try_into().expect("a bus name"))
+                .name_has_owner(name.try_into().expect("a bus name"))
                 .await
                 .unwrap_or(false)
             {
@@ -62,7 +70,28 @@ async fn claimed(bus: &PrivateBus) {
         }
     })
     .await
-    .expect("the tray takes the watcher name");
+    .unwrap_or_else(|_| panic!("the tray takes {name}"));
+}
+
+/// `Running` is set by the framework the moment `start` returns, so it says nothing about whether
+/// the host registration has happened. The incumbent's own flag is what does.
+async fn hosted(bus: &PrivateBus) {
+    let connection = bus.connection().await;
+    let proxy = watcher(&connection).await;
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if proxy
+                .is_status_notifier_host_registered()
+                .await
+                .unwrap_or(false)
+            {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("the tray registers as a host with the watcher that owns the name");
 }
 
 async fn watcher(connection: &Connection) -> StatusNotifierWatcherProxy<'static> {
@@ -82,12 +111,12 @@ async fn the_service_takes_the_watcher_name_and_registers_itself_as_a_host() {
     assert_eq!(state, ServiceState::Running);
     claimed(&bus).await;
 
+    // Applications fall back to XEmbed while this is false, so items would never appear. It is
+    // registered *after* the name is taken, which is why holding the name is not enough to assert.
+    hosted(&bus).await;
+
     let client = bus.connection().await;
     let proxy = watcher(&client).await;
-    assert!(
-        proxy.is_status_notifier_host_registered().await.unwrap(),
-        "applications fall back to XEmbed while this is false, so items would never appear"
-    );
     assert_eq!(
         proxy.registered_status_notifier_items().await.unwrap(),
         Vec::<String>::new()
@@ -217,7 +246,7 @@ async fn the_name_freeing_is_the_trigger_and_the_sweep_finds_what_registered_mea
         .unwrap();
 
     let (mut service, handle) = tray(&bus).await;
-    settle(&handle, |state| matches!(state, ServiceState::Running)).await;
+    hosted(&bus).await;
 
     // An item holding a well-known name that never registered with *anyone*: the incumbent cannot
     // list it, so hosting on the incumbent does not find it and only a sweep can.
@@ -252,18 +281,16 @@ async fn a_watcher_we_cannot_have_is_hosted_on_rather_than_waited_out() {
     item.register().await.unwrap();
 
     let (mut service, handle) = tray(&bus).await;
+    hosted(&bus).await;
 
-    assert!(
-        matches!(
-            settle(&handle, |state| matches!(state, ServiceState::Running)).await,
-            ServiceState::Running
-        ),
-        "a taken name is not a broken tray: the spec separates watcher from host for this"
-    );
     assert_eq!(
         items_settle(&handle, 1).await,
         [item.key()],
         "an item registered with someone else's watcher still reaches our bar"
+    );
+    assert!(
+        !matches!(&*handle.health().borrow(), ServiceState::Degraded { .. }),
+        "a taken name is not a broken tray: the spec separates watcher from host for this"
     );
 
     service.stop().await;
@@ -306,7 +333,7 @@ async fn announcing_before_sweeping_yields_one_entry_for_a_client_that_does_both
         .await
         .unwrap();
     let (mut service, handle) = tray(&bus).await;
-    settle(&handle, |state| matches!(state, ServiceState::Running)).await;
+    hosted(&bus).await;
 
     let item = FakeItem::start(bus.connection().await, Shape::Ayatana, "both")
         .await
@@ -533,6 +560,7 @@ async fn a_client_that_only_knows_the_freedesktop_spelling_finds_a_watcher() {
     let (mut service, handle) = tray(&bus).await;
     settle(&handle, |state| matches!(state, ServiceState::Running)).await;
     claimed(&bus).await;
+    owns(&bus, WATCHER_ALIAS).await;
 
     let client = bus.connection().await;
     let items: Vec<String> = client

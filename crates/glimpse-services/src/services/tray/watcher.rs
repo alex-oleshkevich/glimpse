@@ -156,6 +156,7 @@ impl WatcherAlias {
         &self,
         service: &str,
         #[zbus(header)] header: zbus::message::Header<'_>,
+        #[zbus(object_server)] server: &zbus::ObjectServer,
     ) -> zbus::fdo::Result<()> {
         let sender = header.sender().map(ToString::to_string).unwrap_or_default();
         let registered = self
@@ -164,7 +165,16 @@ impl WatcherAlias {
             .map_err(|_| zbus::fdo::Error::Failed("the tray registry is poisoned".to_owned()))?
             .register(&sender, service);
         if let Some(key) = registered {
-            let _ = self.events.try_send(Input::Event(Event::Registered(key)));
+            let _ = self
+                .events
+                .try_send(Input::Event(Event::Registered(key.clone())));
+            // The announcement belongs on the KDE interface whichever name carried the
+            // registration: every host follows that one, so a second host would otherwise never
+            // hear about an item that arrived through the alias.
+            if let Ok(reference) = server.interface::<_, Watcher>(WATCHER_PATH).await {
+                let _ = Watcher::status_notifier_item_registered(reference.signal_emitter(), &key)
+                    .await;
+            }
         }
         Ok(())
     }
@@ -368,28 +378,35 @@ pub async fn list_items(connection: &Connection) -> Result<Vec<String>, String> 
     Ok(keys)
 }
 
-/// The foreign watcher's own registration signals, followed only while hosting on it. Both mean
-/// "the set moved" and the list is read again rather than reconciled entry by entry — see
-/// `Registry::resync` for why a single signal cannot be applied on its own.
+/// The foreign watcher's own registration signals — **and the host registration, made from in
+/// here**, for the same reason the claim lives in `name_changes`. Both streams are established
+/// before `Attach` is emitted, so an item registering between the host registration and the list
+/// read is announced to a rule that already exists; reading the list first would drop that signal
+/// and the item would stay absent until an unrelated one moved.
+///
+/// Both signals mean "the set moved" and the list is read again rather than reconciled entry by
+/// entry — see `Registry::resync` for why a single one cannot be applied on its own.
 pub async fn foreign_changes(
     ctx: Ctx<Tray>,
 ) -> std::pin::Pin<Box<dyn futures_util::Stream<Item = Event> + Send>> {
+    let attach = futures_util::stream::once(async { Event::Attach });
     let Ok(connection) = ctx.session_bus() else {
-        return Box::pin(futures_util::stream::empty());
+        return Box::pin(attach);
     };
     let Ok(watcher) = StatusNotifierWatcherProxy::new(connection).await else {
-        return Box::pin(futures_util::stream::empty());
+        return Box::pin(attach);
     };
     let Ok(registered) = watcher.receive_status_notifier_item_registered().await else {
-        return Box::pin(futures_util::stream::empty());
+        return Box::pin(attach);
     };
     let Ok(unregistered) = watcher.receive_status_notifier_item_unregistered().await else {
-        return Box::pin(futures_util::stream::empty());
+        return Box::pin(attach);
     };
-    Box::pin(futures_util::stream::select(
+    let moved = futures_util::stream::select(
         futures_util::StreamExt::map(registered, |_| Event::Resync),
         futures_util::StreamExt::map(unregistered, |_| Event::Resync),
-    ))
+    );
+    Box::pin(futures_util::StreamExt::chain(attach, moved))
 }
 
 /// Items register once, at their own startup. A panel restart empties the registry with no error
