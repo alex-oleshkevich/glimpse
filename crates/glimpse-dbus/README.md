@@ -5,7 +5,7 @@ connections they run on.
 
 ## Contents
 
-- `dbus.rs` — `Buses`, holding the session and system connections
+- `dbus.rs` — `Buses`, holding the session and system connections, and `own_name`
 - `clients/` — one module per bus service, each a set of `#[zbus::proxy]` trait declarations
 - `clients/notifications.rs` — the notification proxy, typed handle and owned follower lifecycle
 - `clients/weather.rs` — weather wire values, typed proxy, conversions and owner follower
@@ -21,11 +21,28 @@ connections they run on.
 | `upower`                  | system  | UPower devices and battery state         |
 | `mpris`                   | session | MPRIS players                            |
 | `status_notifier_item`    | session | StatusNotifierItem tray entries          |
-| `glimpse_lock`            | session | the lock screen's own name               |
 | `notifications`           | session | the Glimpse notification provider        |
 | `weather`                 | session | the Glimpse weather provider             |
 
 ## Rules
+
+**Every D-Bus service name declared in this crate is taken through `own_name`.** zbus's
+`Connection::request_name` passes `BitFlags::default()`, and `RequestNameFlags` declares its default
+as `AllowReplacement | ReplaceExisting | DoNotQueue` — so a plain `request_name` both offers the name
+up to the next process that asks and takes it from whoever holds it. Measured: a second
+`glimpse-weather` replaced the first, which then ran on with no name and never reacquired it. The
+same call in the notifications service would have replaced a running dunst or mako rather than
+reporting the conflict. `own_name` requests `DoNotQueue` alone, so the first owner keeps the name for
+its lifetime and a duplicate gets `Error::NameTaken`; `crates/glimpse-dbus/tests/name_ownership.rs`
+holds it down. The flags are a single decision and live here rather than at each of the four call
+sites, because the failure is invisible until a second process exists. A rule nothing enforces is a
+rule the next call site will not know about, so the workspace `clippy.toml` disallows
+`Connection::request_name`, `Connection::request_name_with_flags` and `connection::Builder::name`
+outright; `own_name` and the test carry an `#[expect]` rather than an `#[allow]`, which fails the
+build if the ban ever stops resolving. The GTK binaries' own
+application-id names — `me.aresa.GlimpsePanel`, `me.aresa.GlimpseNotifications` — are registered by
+GApplication and never reach this function; that is what makes a second process with the same app id
+hand off and exit 0 before any name here is requested.
 
 **Backend proxies carry no policy.** System-service modules only declare interfaces. A typed client
 for a Glimpse-owned provider may additionally own its availability state and `NameOwnerChanged`

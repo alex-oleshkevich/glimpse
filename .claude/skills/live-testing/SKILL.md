@@ -50,6 +50,13 @@ Do not `cargo` two crates in parallel (file lock). Prefer already-built `target/
 id **hands off and exits 0** — log shows `loading configuration` and nothing else. Set
 `GLIMPSE_PANEL_APP_ID` to a distinct id. Do not kill the session `glimpse-panel` to make room.
 
+`glimpse-notifications` is the same, through `GLIMPSE_NOTIFICATIONS_APP_ID`. This matters when the
+thing under test is a *bus name* rather than a window: the GTK handoff fires before either name is
+requested, so two default-id processes prove nothing about name ownership. Give each a distinct app
+id and the second reaches the request, logs
+`notification provider unavailable error=name already taken on the bus`, and keeps running —
+`me.aresa.Glimpse.Notifications` and `org.freedesktop.Notifications` both stay with the first.
+
 ## Gamma control needs the session compositor
 
 **A nested niri does not offer `zwlr_gamma_control_manager_v1`.** Measured: the winit backend owns no

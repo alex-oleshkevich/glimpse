@@ -91,7 +91,7 @@ impl Runtime {
                 },
             )
             .await?;
-        if let Err(error) = connection.request_name(GLIMPSE_WEATHER_BUS_NAME).await {
+        if let Err(error) = glimpse_dbus::own_name(&connection, GLIMPSE_WEATHER_BUS_NAME).await {
             let _ = connection
                 .object_server()
                 .remove::<Provider, _>(GLIMPSE_WEATHER_OBJECT_PATH)

@@ -1,5 +1,5 @@
-use std::io::BufRead as _;
-use std::process::{Child, Command, Stdio};
+mod support;
+
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -8,6 +8,7 @@ use glimpse_dbus::weather::{
     GLIMPSE_WEATHER_BUS_NAME, GLIMPSE_WEATHER_OBJECT_PATH, PlaceWeatherWire, WeatherProvider,
     WeatherProviderState, WeatherSnapshot,
 };
+use support::PrivateBus;
 use tokio::sync::watch;
 use zbus::Connection;
 
@@ -69,46 +70,6 @@ impl TestProvider {
     fn refresh(&self) {}
 }
 
-struct PrivateBus {
-    child: Child,
-    address: String,
-}
-
-impl PrivateBus {
-    fn start() -> Self {
-        let mut child = Command::new("dbus-daemon")
-            .args([
-                "--session",
-                "--nofork",
-                "--print-address=1",
-                "--print-pid=1",
-            ])
-            .stdout(Stdio::piped())
-            .spawn()
-            .unwrap();
-        let stdout = child.stdout.as_mut().unwrap();
-        let mut lines = std::io::BufReader::new(stdout).lines();
-        let address = lines.next().unwrap().unwrap();
-        let _pid = lines.next().unwrap().unwrap();
-        Self { child, address }
-    }
-
-    async fn connection(&self) -> Connection {
-        zbus::connection::Builder::address(self.address.as_str())
-            .unwrap()
-            .build()
-            .await
-            .unwrap()
-    }
-}
-
-impl Drop for PrivateBus {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-    }
-}
-
 async fn serve(bus: &PrivateBus, calls: Calls) -> Connection {
     let connection = bus.connection().await;
     connection
@@ -116,8 +77,7 @@ async fn serve(bus: &PrivateBus, calls: Calls) -> Connection {
         .at(GLIMPSE_WEATHER_OBJECT_PATH, TestProvider { calls })
         .await
         .unwrap();
-    connection
-        .request_name(GLIMPSE_WEATHER_BUS_NAME)
+    glimpse_dbus::own_name(&connection, GLIMPSE_WEATHER_BUS_NAME)
         .await
         .unwrap();
     connection

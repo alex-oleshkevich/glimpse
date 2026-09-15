@@ -1,4 +1,4 @@
 mod clients;
 mod dbus;
 pub use clients::*;
-pub use dbus::Buses;
+pub use dbus::{Buses, own_name};

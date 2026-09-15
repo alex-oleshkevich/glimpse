@@ -16,7 +16,6 @@ pub mod accounts;
 pub mod bluez;
 pub mod dbusmenu;
 pub mod geoclue;
-pub mod glimpse_lock;
 pub mod hostname1;
 pub mod login1;
 pub mod mpris;

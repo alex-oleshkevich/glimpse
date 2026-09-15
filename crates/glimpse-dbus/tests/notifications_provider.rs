@@ -2,10 +2,11 @@ use glimpse_dbus::notifications::{
     DoNotDisturbWire, GLIMPSE_NOTIFICATIONS_BUS_NAME, GLIMPSE_NOTIFICATIONS_OBJECT_PATH,
     NotificationWire, NotificationsProvider, NotificationsSnapshot,
 };
-use std::io::BufRead;
-use std::process::{Child, Command, Stdio};
+mod support;
+
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use support::PrivateBus;
 use tokio::sync::watch;
 use zbus::Connection;
 
@@ -56,46 +57,6 @@ impl TestProvider {
     }
 }
 
-struct PrivateBus {
-    child: Child,
-    address: String,
-}
-
-impl PrivateBus {
-    fn start() -> Self {
-        let mut child = Command::new("dbus-daemon")
-            .args([
-                "--session",
-                "--nofork",
-                "--print-address=1",
-                "--print-pid=1",
-            ])
-            .stdout(Stdio::piped())
-            .spawn()
-            .unwrap();
-        let stdout = child.stdout.as_mut().unwrap();
-        let mut lines = std::io::BufReader::new(stdout).lines();
-        let address = lines.next().unwrap().unwrap();
-        let _pid = lines.next().unwrap().unwrap();
-        Self { child, address }
-    }
-
-    async fn connection(&self) -> Connection {
-        zbus::connection::Builder::address(self.address.as_str())
-            .unwrap()
-            .build()
-            .await
-            .unwrap()
-    }
-}
-
-impl Drop for PrivateBus {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-    }
-}
-
 async fn serve(bus: &PrivateBus, calls: Arc<Mutex<Vec<(bool, i64)>>>) -> Connection {
     let connection = bus.connection().await;
     connection
@@ -103,8 +64,7 @@ async fn serve(bus: &PrivateBus, calls: Arc<Mutex<Vec<(bool, i64)>>>) -> Connect
         .at(GLIMPSE_NOTIFICATIONS_OBJECT_PATH, TestProvider { calls })
         .await
         .unwrap();
-    connection
-        .request_name(GLIMPSE_NOTIFICATIONS_BUS_NAME)
+    glimpse_dbus::own_name(&connection, GLIMPSE_NOTIFICATIONS_BUS_NAME)
         .await
         .unwrap();
     connection

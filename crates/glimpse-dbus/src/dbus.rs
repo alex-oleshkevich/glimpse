@@ -1,4 +1,5 @@
 use zbus::Connection;
+use zbus::fdo::RequestNameFlags;
 
 /// The session and system buses, each carrying either a connection or the reason there is none.
 ///
@@ -36,6 +37,14 @@ impl Buses {
     pub fn system_bus(&self) -> Result<&Connection, &str> {
         self.system.as_ref().map_err(String::as_str)
     }
+}
+
+#[expect(clippy::disallowed_methods, reason = "the one sanctioned call site")]
+pub async fn own_name(connection: &Connection, name: &str) -> zbus::Result<()> {
+    connection
+        .request_name_with_flags(name, RequestNameFlags::DoNotQueue.into())
+        .await
+        .map(|_| ())
 }
 
 fn bus(kind: &'static str, connected: zbus::Result<Connection>) -> Result<Connection, String> {

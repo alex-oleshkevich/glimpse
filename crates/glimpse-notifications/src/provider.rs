@@ -110,9 +110,8 @@ impl Runtime {
                 },
             )
             .await?;
-        if let Err(error) = connection
-            .request_name(GLIMPSE_NOTIFICATIONS_BUS_NAME)
-            .await
+        if let Err(error) =
+            glimpse_dbus::own_name(&connection, GLIMPSE_NOTIFICATIONS_BUS_NAME).await
         {
             let _ = connection
                 .object_server()

@@ -1,0 +1,5 @@
+disallowed-methods = [
+    { path = "zbus::Connection::request_name", reason = "take bus names through glimpse_dbus::own_name" },
+    { path = "zbus::Connection::request_name_with_flags", reason = "take bus names through glimpse_dbus::own_name" },
+    { path = "zbus::connection::Builder::name", reason = "take bus names through glimpse_dbus::own_name" },
+]

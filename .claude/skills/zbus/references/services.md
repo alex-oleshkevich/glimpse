@@ -112,16 +112,23 @@ enum Error {
 
 ## Serving and Name Ownership
 
-Prefer the connection builder: interfaces are live the instant the connection is, so there is no
-window where the name is owned but a call would 404.
+**`Builder::name` carries the same trap as `request_name`** — `builder.rs` initializes
+`request_name_flags: BitFlags::default()`, so a builder that takes a name offers it up for
+replacement and steals it from the current owner. Undoing that needs
+`.allow_name_replacements(false).replace_existing_names(false)` on every builder, and `build()` then
+gives you no reply to branch on. Export the object first and take the name with
+`glimpse_dbus::own_name` instead — that is what all four providers do, and the ordering caveat below
+is why:
 
 ```rust
-let conn = zbus::connection::Builder::session()?
-    .name("org.kde.StatusNotifierWatcher")?
-    .serve_at("/StatusNotifierWatcher", Watcher::default())?
-    .build()
-    .await?;
+let conn = zbus::connection::Builder::session()?.build().await?;
+conn.object_server().at("/StatusNotifierWatcher", Watcher::default()).await?;
+glimpse_dbus::own_name(&conn, "org.kde.StatusNotifierWatcher").await?;
 ```
+
+The builder's own appeal is that interfaces are live the instant the connection is, so there is no
+window where the name is owned but a call would 404. Exporting before requesting closes that window
+just as well — zbus warns when you do it the other way round.
 
 `serve_at` adds `Peer`, `Introspectable` and `Properties` on your behalf. Declaring any of them
 yourself makes `build()` fail.
@@ -149,17 +156,23 @@ iface.status_notifier_item_registered(&id).await?;   // via the generated Watche
 
 ### Taking the name
 
-`Connection::request_name` implies `DoNotQueue` and fails with `Error::NameTaken` if someone else
-holds it. `request_name_with_flags` gives you the choice:
+**Never call `Connection::request_name`.** It passes `BitFlags::default()`, and zbus 5 declares
+`RequestNameFlags`'s default as `AllowReplacement | ReplaceExisting | DoNotQueue` — so it takes the
+name from whoever holds it *and* offers it to the next process that asks. Measured: a second
+`glimpse-weather` replaced the first, which kept running with no name. Take a name through
+`glimpse_dbus::own_name`, which requests `DoNotQueue` alone and normalizes the reply:
 
 ```rust
-use zbus::fdo::{RequestNameFlags, RequestNameReply};
-
-let reply = conn
-    .request_name_with_flags("org.kde.StatusNotifierWatcher", RequestNameFlags::AllowReplacement.into())
-    .await?;
-// RequestNameReply::PrimaryOwner | InQueue | Exists | AlreadyOwner
+glimpse_dbus::own_name(&conn, "org.kde.StatusNotifierWatcher").await?;   // Err(NameTaken) if held
 ```
+
+`request_name_with_flags` is the raw call underneath. It returns
+`PrimaryOwner | InQueue | AlreadyOwner`, and maps the bus's `Exists` reply to `Err(Error::NameTaken)`
+rather than an `Ok` variant — so a match on the reply still needs the `Err` arm.
+
+This is not advice you can ignore by accident: `clippy.toml` disallows all three of
+`Connection::request_name`, `Connection::request_name_with_flags` and `connection::Builder::name`,
+so `just lint` rejects them.
 
 **Create the ownership streams before requesting the name.** The crate documents this caveat
 directly: a `NameAcquired` or `NameLost` emitted between the request and the stream's creation is

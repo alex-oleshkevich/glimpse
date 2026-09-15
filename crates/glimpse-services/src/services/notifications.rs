@@ -276,7 +276,7 @@ impl Service for Notifications {
             return Ok(service);
         }
 
-        match connection.request_name(BUS_NAME).await {
+        match glimpse_dbus::own_name(&connection, BUS_NAME).await {
             Ok(()) => {
                 service.connection = Some(connection);
                 ctx.running();

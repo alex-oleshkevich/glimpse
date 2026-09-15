@@ -12,8 +12,8 @@ anyhow.workspace = true
 clap.workspace = true
 colorchoice-clap.workspace = true
 futures-util.workspace = true
-glimpse-config = { path = "../glimpse-config" }
-glimpse-utils = { path = "../glimpse-utils" }
+glimpse-config.workspace = true
+glimpse-utils.workspace = true
 glimpse-widgets.workspace = true
 gtk4.workspace = true
 gtk4-layer-shell.workspace = true

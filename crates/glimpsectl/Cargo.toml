@@ -13,9 +13,9 @@ anyhow.workspace = true
 clap.workspace = true
 colorchoice-clap.workspace = true
 chrono.workspace = true
-glimpse-config = { path = "../glimpse-config" }
-glimpse-dbus = { path = "../glimpse-dbus" }
-glimpse-utils = { path = "../glimpse-utils" }
+glimpse-config.workspace = true
+glimpse-dbus.workspace = true
+glimpse-utils.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 shadow-rs.workspace = true

@@ -66,10 +66,10 @@ and nothing else, so every handle exists before anything has a side effect; the 
 and the name requested next; only then is gamma taken and the services started. A second copy of
 this binary therefore fails without ever touching the outputs the running one holds. Two details are
 load-bearing: the object is exported *before* the name is requested, or a `Get` arriving between the
-two finds a name with no object behind it — zbus warns about exactly this; and the name is requested
-with `DoNotQueue` and without `AllowReplacement`, because plain `request_name` lets a duplicate
-silently steal the name and leave the first process applying gamma and unreachable. Both were
-measured, not feared.
+two finds a name with no object behind it — zbus warns about exactly this; and the name is taken
+through `glimpse_dbus::own_name`, which requests `DoNotQueue` alone, because plain `request_name`
+lets a duplicate silently steal the name and leave the first process applying gamma and unreachable.
+Both were measured, not feared.
 
 **Gamma control is exclusive — one client at a time.** A user already running `wlsunset`,
 `gammastep` or `hyprsunset` makes every output answer `failed`, and the service reports

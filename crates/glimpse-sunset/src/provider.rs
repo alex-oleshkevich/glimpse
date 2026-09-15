@@ -4,7 +4,6 @@ use glimpse_dbus::night_light::{
 };
 use glimpse_services::{NightLightHandle, ServiceState};
 use tokio::task::JoinHandle;
-use zbus::fdo::{RequestNameFlags, RequestNameReply};
 use zbus::{Connection, DBusError};
 
 #[derive(Debug, DBusError)]
@@ -49,10 +48,7 @@ impl Runtime {
     /// Exported first and named second, which is the order zbus asks for: a `Get` arriving between
     /// the two would otherwise find the name but no object.
     /// The caller runs this before touching any backend, so a second copy of this binary fails
-    /// here rather than after taking gamma control from the one already running. The flags are the
-    /// other half: plain `request_name` asks for `AllowReplacement`, and a duplicate then silently
-    /// steals the name, leaving the first process applying gamma and unreachable on D-Bus —
-    /// measured, not feared.
+    /// here rather than after taking gamma control from the one already running.
     pub async fn start(
         connection: Connection,
         night_light: NightLightHandle,
@@ -67,21 +63,13 @@ impl Runtime {
             )
             .await?;
 
-        let named = connection
-            .request_name_with_flags(
-                GLIMPSE_NIGHT_LIGHT_BUS_NAME,
-                RequestNameFlags::DoNotQueue.into(),
-            )
-            .await;
-        match named {
-            Ok(RequestNameReply::PrimaryOwner | RequestNameReply::AlreadyOwner) => {}
-            other => {
-                let _ = connection
-                    .object_server()
-                    .remove::<Provider, _>(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH)
-                    .await;
-                return Err(other.err().unwrap_or(zbus::Error::NameTaken));
-            }
+        if let Err(error) = glimpse_dbus::own_name(&connection, GLIMPSE_NIGHT_LIGHT_BUS_NAME).await
+        {
+            let _ = connection
+                .object_server()
+                .remove::<Provider, _>(GLIMPSE_NIGHT_LIGHT_OBJECT_PATH)
+                .await;
+            return Err(error);
         }
         tracing::info!(
             bus_name = GLIMPSE_NIGHT_LIGHT_BUS_NAME,

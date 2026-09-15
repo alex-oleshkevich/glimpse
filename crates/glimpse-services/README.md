@@ -758,9 +758,10 @@ without disturbing unread records between them.
 
 **`NameTaken` is degraded, not fatal.** dunst, mako or a Plasma session may already own the name.
 The service then keeps running with an empty store and says why on `system.services`, which is what
-makes the packaging conflict diagnosable instead of a silent absence of notifications. The name is
-requested *without* `AllowReplacement`, so nobody can take it afterwards and there is no `NameLost`
-to track for the process lifetime.
+makes the packaging conflict diagnosable instead of a silent absence of notifications. The name goes
+through `glimpse_dbus::own_name`, which requests `DoNotQueue` alone: this service never replaces the
+daemon already holding it — which a plain `request_name` did — and nobody can take it afterwards, so
+there is no `NameLost` to track for the process lifetime.
 
 **Signals are emitted from inside the handler rather than a spawn.** `NotificationClosed`,
 `ActionInvoked` and `ActivationToken` carry no reply, so emitting one is a D-Bus signal and does not
