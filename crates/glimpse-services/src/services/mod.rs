@@ -29,6 +29,7 @@ mod solar;
 mod tray;
 mod weather;
 
+pub use bluetooth::BluetoothError;
 pub use bluetooth::{
     Adapter, Answer, Bluetooth, BluetoothHandle, BluetoothState, Busy, Confirmation, Device,
     DeviceId, Failure, Prompt,
@@ -43,7 +44,7 @@ pub use night_light::{
     Config as NightLightConfig, Dependencies as NightLightDependencies, NightLight,
     NightLightHandle, NightLightState,
 };
-pub use notifications::{Notifications, NotificationsHandle, NotificationsState};
+pub use notifications::{Incoming, Notifications, NotificationsHandle, NotificationsState};
 pub use session::{Dependencies as SessionDependencies, Session, SessionHandle};
 pub use solar::{Solar, SolarDependencies, SolarHandle};
 pub use tray::{Tray, TrayHandle, TrayItems};

@@ -272,27 +272,27 @@ load on pointer-enter, naming every submenu id first.
 
 **bluetooth** — one adapter, its devices, a pairing prompt and a confirmation in one state value,
 enumerated with one `GetManagedObjects` per generation and never polled. **BlueZ's `ObjectManager`
-is at `/`, not `/org/bluez`** — the tree root answers `UnknownMethod`, and its signals come from `/`
-too, so only `PropertiesChanged` and `Disconnected` take the `/org/bluez` namespace. **One
-`PropertiesChanged` stream serves every device** — the opposite of mpris — and every decoder returns
-an all-`Option` partial the service merges. A signal arriving after a generation bump but before its
-enumeration is dropped, or the previous owner's queue edits the new snapshot.
+is at `/`, not `/org/bluez`** — the root answers `UnknownMethod` and its signals come from `/`, so
+only `PropertiesChanged` and `Disconnected` take the `/org/bluez` namespace. **One
+`PropertiesChanged` stream serves every device**, and every decoder returns an all-`Option` partial
+the service merges. A signal arriving after a generation bump but before its enumeration is dropped,
+or the previous owner's queue edits the new snapshot.
 
 **Match a device path by shape, not by prefix.** Connecting adds `dev_XX/fd0` and `sep1`…`sep6` as
-children; a prefix match invents seven phantom devices. `fd0` is the `MediaTransport1` the codec
-comes from: read, never a device, and gone the moment it disconnects.
+children; a prefix match invents seven phantom devices. `fd0` is the `MediaTransport1` the codec.
 
 **`busy` is cleared by its own command's completion, never by the property moving.** `Connect()` on
 an already-connected device returns `AlreadyConnected` with no state change, so a property-based
 clear leaves that row spinning forever; `Settled` names the `Busy` it answers, so a superseded
-command cannot clear a newer one. Four BlueZ errors are likewise not failures — `AlreadyConnected`,
-`AlreadyExists`, `InProgress` on a scan, `DoesNotExist` — and `failure.rs` maps the rest, tokens
-included.
+command cannot clear a newer one. Four BlueZ errors are not failures at all — `AlreadyConnected`,
+`AlreadyExists`, `InProgress` on a scan, `DoesNotExist` — and the rest reach the caller **typed**,
+as `BluetoothError::Failed(Failure)`: as a string the panel cannot word it, which made every
+unmapped error read `Unknown`. `failure.rs` matches the name, then the token by its **suffix**
+(BlueZ spells each reason once per transport), and `settle` logs both. **Pairing ends connected.**
 
 **A scan starts on one trigger and stops on five**, and `SetDiscoveryFilter` carries `Transport`
 alone: any filter disables the RSSI delta-threshold BlueZ otherwise imposes. **The agent is
-per-connection**, so two panels never collide. **A confirmation is a refusal carrying a
-request**, so nothing moves optimistically.
+per-connection**, so two panels never collide; **a confirmation is a refusal carrying a request**.
 
 ## Rules
 

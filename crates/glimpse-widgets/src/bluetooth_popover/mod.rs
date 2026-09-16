@@ -2,7 +2,9 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Notice, Row, Severity, SplitRow, drawer, none_if_empty, reconcile, set_footer_row};
+use crate::{
+    Notice, Row, Severity, SplitRow, SwitchRow, drawer, none_if_empty, reconcile, set_footer_row,
+};
 
 pub use imp::{Details, Entry, Line, Place};
 
@@ -87,6 +89,10 @@ impl BluetoothPopover {
             false,
             glib::closure_local!(move |popover: Self, place: String| f(&popover, &place)),
         )
+    }
+
+    pub fn set_visible_as(&self, label: Option<&str>) {
+        crate::set_text(&self.imp().visible_as, label);
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
@@ -305,18 +311,19 @@ impl BluetoothPopover {
             let Some(head) = holder.first_child() else {
                 continue;
             };
-            crate::set_css_class(&head, RECEDED, open.is_some_and(|open| open != id));
+            crate::set_css_class(&head, drawer::RECEDED, open.is_some_and(|open| open != id));
             crate::set_css_class(&head, drawer::OPEN, open == Some(id.as_str()));
         }
         for widget in [
             imp.scan.upcast_ref::<gtk4::Widget>(),
             imp.more_paired.upcast_ref(),
             imp.more_nearby.upcast_ref(),
+            imp.visible_as.upcast_ref(),
             imp.footer.upcast_ref(),
         ] {
-            crate::set_css_class(widget, RECEDED, open.is_some());
+            crate::set_css_class(widget, drawer::RECEDED, open.is_some());
         }
-        crate::set_css_class(&*imp.hero, RECEDED, open.is_some());
+        crate::set_css_class(&*imp.hero, drawer::RECEDED, open.is_some());
     }
 
     fn holders(&self) -> impl Iterator<Item = (String, gtk4::Box)> + use<> {
@@ -370,42 +377,30 @@ impl BluetoothPopover {
         let Some(on) = line.toggle else {
             return;
         };
-        let Some(switch) = row.trail().and_downcast::<gtk4::Switch>() else {
-            return;
-        };
-        if switch.is_active() == on {
-            return;
+        if let Some(toggle) = row.downcast_ref::<SwitchRow>() {
+            toggle.set_active(on);
         }
-        let imp = self.imp();
-        imp.quiet.set(true);
-        switch.set_active(on);
-        imp.quiet.set(false);
     }
 
     fn build_line(&self, id: &str, line: &Line) -> Row {
-        let row = Row::new();
         if let Some(on) = line.toggle {
-            let switch = gtk4::Switch::builder()
-                .active(on)
-                .valign(gtk4::Align::Center)
-                .build();
             let key = id.to_owned();
             let action = line.action.clone();
-            switch.connect_active_notify(glib::clone!(
+            let toggle = SwitchRow::new();
+            toggle.set_active(on);
+            toggle.connect_toggled(glib::clone!(
                 #[weak(rename_to = popover)]
                 self,
-                move |switch| {
-                    if popover.imp().quiet.get() {
-                        return;
-                    }
-                    popover.emit_by_name::<()>("toggled", &[&key, &action, &switch.is_active()]);
-                }
+                move |_, on| popover.emit_by_name::<()>("toggled", &[&key, &action, &on])
             ));
-            row.set_trail(&switch);
-            return row;
+            return toggle.upcast();
         }
 
-        row.set_activatable(true);
+        let row = Row::new();
+        row.set_activatable(line.activates);
+        if !line.activates {
+            return row;
+        }
         let key = id.to_owned();
         let action = line.action.clone();
         row.connect_clicked(glib::clone!(
@@ -418,7 +413,6 @@ impl BluetoothPopover {
 }
 
 const DETAIL: &str = "detail-card";
-const RECEDED: &str = "receded";
 const DEVICE: &str = "bluetooth-popover__device";
 const DANGER: &str = "row--danger";
 

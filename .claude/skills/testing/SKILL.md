@@ -108,12 +108,37 @@ This is also how you discover an untested call site. A function can be fully cov
 that calls it is not; deleting the call and seeing everything still pass is the only cheap way to
 learn that.
 
+## What only a human can check
+
+Some behaviour has no headless assertion: a pointer press claimed by one widget rather than another,
+a hover highlight, a dialog that maps, a compositor placing a surface, a notification appearing. The
+rule is not "test it anyway" — a test that cannot fail is worse than none, because it reads as
+coverage. The rule is to **hand the check to the person who can run it**.
+
+**A change that can only be confirmed on a live session ends with a numbered manual test list.** Each
+step says what to do, what to look for, and what would count as a failure. Report it in the reply;
+it does not go in a crate README, which AGENTS.md keeps free of what was tested.
+
+```
+1. Restart the panel and open the bluetooth popover.
+   Expect: `gdbus` shows Discoverable: true, and false within a second of closing it.
+   Fails if: the flag stays set after the popover is gone.
+2. Click the body of a switch row, then the knob itself.
+   Expect: one confirmation dialog each time.
+   Fails if: the knob produces two, or refuses to move.
+```
+
+Write the step you actually cannot automate, not the one you did not get to. "Check it looks right"
+is not a step; "the knob must flip and exactly one dialog must appear" is.
+
 ## Definition of done
 
 - Every new decision has a test, and every such test has been checked against a deliberately broken
   version of the code it covers.
 - Anything that could only be asserted with a display is on the GTK test's list, or is stated as
   uncovered — never implied to be covered.
+- Anything no test can reach at all leaves the change as a numbered manual list in the reply, with an
+  expectation and a failure condition per step.
 - `just verify` is clean: `fmt-check`, `check`, `lint` (`-D warnings`, plus units and blueprints) and
   `test`.
 - A pre-existing failure is confirmed pre-existing by reading it, not assumed from its name.

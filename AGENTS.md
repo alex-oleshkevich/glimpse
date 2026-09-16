@@ -133,6 +133,9 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
   then follow change signals. The backend is right when they disagree.
 - Never reimplement a decision the backend already makes — no auto-connect policy, no reconnect
   loops, no retry logic on top of NetworkManager.
+- The one sanctioned exception: **a settled pairing trusts and connects**, because BlueZ leaves a
+  freshly bonded device bonded and not connected, and a user who pressed *Pair* meant *use this*.
+  Nothing else may grow a policy on top of a backend without the same explicit note here.
 - Commands are thin pass-throughs to the backend.
 - A handler that can block moves its `Responder` into `ctx.spawn`. Handlers run serially, so one
   slow D-Bus call otherwise freezes the whole service.
@@ -511,6 +514,18 @@ experimental 5.87, measured against a WH-1000XM4, a Keychron K3 and a 20-second 
   against the panel's hidden `adw::ApplicationWindow` leaves it `mapped=false` with no error;
   showing the host maps it at once and niri lists a real toplevel. Any global dialog on that host
   must show the host while one is up.
+
+**`SwitchRow`'s gesture behaviour is asserted only in part, September 2026.** The headless test
+proves one emitter — the row body and a programmatic knob change each produce exactly one `toggled`.
+It cannot prove the **pointer** case: `Row` is a `Gtk.Button` and `Gtk.Switch` runs its own click
+gesture inside it, so whether a press on the knob is claimed by the switch or also reaches the
+button's `clicked` needs a mapped surface. That one is on the manual list, not the test list.
+
+**No battery is not a rendering bug, September 2026.** `render::state_of` already puts a percentage
+in a connected device's row whenever BlueZ reports one. Measured here: a *connected* WH-1000XM4
+exposes no `org.bluez.Battery1` interface at all, and `/etc/bluetooth/main.conf` ships
+`#Experimental = false`. BlueZ derives headset battery from the Apple HFP extension, which that flag
+gates. Enabling it is a system change and the user's call; there is nothing to fix in glimpse.
 
 **A `Gtk.PopoverMenu` renders here perfectly well; three things make it look as if it does not.**
 A popover's anchor rectangle is its *parent's allocation*, so a parent filling the window anchors the

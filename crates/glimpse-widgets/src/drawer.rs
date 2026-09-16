@@ -1,6 +1,7 @@
 use gtk4::prelude::*;
 
 pub const OPEN: &str = "open";
+pub const RECEDED: &str = "receded";
 
 pub fn set(drawer: &gtk4::Revealer, open: bool) {
     if drawer.reveals_child() != open {

@@ -122,6 +122,15 @@ pub trait Notifications1 {
     fn invoke_action(&self, id: u32, action_key: &str, activation_token: &str) -> zbus::Result<()>;
     fn clear_application(&self, application_id: &str) -> zbus::Result<()>;
     fn clear_all(&self) -> zbus::Result<()>;
+    fn post(
+        &self,
+        app_name: &str,
+        app_id: &str,
+        icon: &str,
+        summary: &str,
+        body: &str,
+        urgency: u32,
+    ) -> zbus::Result<u32>;
     fn set_do_not_disturb(&self, enabled: bool, until: i64) -> zbus::Result<()>;
 }
 
@@ -215,6 +224,18 @@ fn decode_urgency(urgency: u8) -> NotificationUrgency {
         2 => NotificationUrgency::Critical,
         _ => NotificationUrgency::Unknown,
     }
+}
+
+pub fn encode_urgency(urgency: NotificationUrgency) -> u8 {
+    match urgency {
+        NotificationUrgency::Low => 0,
+        NotificationUrgency::Critical => 2,
+        NotificationUrgency::Normal | NotificationUrgency::Unknown => 1,
+    }
+}
+
+pub fn urgency_from_wire(urgency: u32) -> NotificationUrgency {
+    decode_urgency(u8::try_from(urgency).unwrap_or(1))
 }
 
 #[derive(Clone)]
@@ -377,6 +398,24 @@ impl NotificationsProviderHandle {
         call(self.proxy().await?.clear_all()).await
     }
 
+    pub async fn post(
+        &self,
+        app_name: &str,
+        app_id: &str,
+        icon: &str,
+        summary: &str,
+        body: &str,
+        urgency: NotificationUrgency,
+    ) -> Result<u32, NotificationsProviderError> {
+        let urgency = u32::from(encode_urgency(urgency));
+        call(
+            self.proxy()
+                .await?
+                .post(app_name, app_id, icon, summary, body, urgency),
+        )
+        .await
+    }
+
     pub async fn set_do_not_disturb(
         &self,
         enabled: bool,
@@ -386,11 +425,11 @@ impl NotificationsProviderHandle {
     }
 }
 
-async fn call(
-    request: impl std::future::Future<Output = zbus::Result<()>>,
-) -> Result<(), NotificationsProviderError> {
+async fn call<T>(
+    request: impl std::future::Future<Output = zbus::Result<T>>,
+) -> Result<T, NotificationsProviderError> {
     match tokio::time::timeout(super::DEADLINE, request).await {
-        Ok(Ok(())) => Ok(()),
+        Ok(Ok(answer)) => Ok(answer),
         Ok(Err(zbus::Error::MethodError(name, reason, _)))
             if name.as_str() == "me.aresa.Glimpse.Notifications1.Error.InvalidAction" =>
         {

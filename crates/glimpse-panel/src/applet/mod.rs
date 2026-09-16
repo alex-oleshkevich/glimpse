@@ -3,6 +3,7 @@ pub mod popover;
 pub mod runtime;
 
 use glimpse_config::Applet as AppletConfig;
+use glimpse_dbus::notifications::{NotificationUrgency, NotificationsProviderHandle};
 use glimpse_widgets::IndicatorSpec;
 use popover::{PopoverHandle, Seat};
 use std::cell::RefCell;
@@ -91,6 +92,54 @@ where
     relm4::spawn(async move {
         if let Err(error) = future.await {
             tracing::warn!(operation, %error, "service command failed");
+        }
+    });
+}
+
+const DEFAULT_APP_ID: &str = "me.aresa.GlimpsePanel";
+
+pub fn app_id() -> String {
+    std::env::var("GLIMPSE_PANEL_APP_ID").unwrap_or_else(|_| DEFAULT_APP_ID.to_owned())
+}
+
+pub struct Report {
+    pub notifications: NotificationsProviderHandle,
+    pub app_name: String,
+    pub icon: String,
+    pub summary: String,
+}
+
+pub fn spawn_reported<F, T, E>(
+    operation: &'static str,
+    report: Report,
+    wording: impl Fn(&E) -> Option<String> + Send + 'static,
+    future: F,
+) where
+    F: Future<Output = Result<T, E>> + Send + 'static,
+    T: Send + 'static,
+    E: Display + Send + 'static,
+{
+    relm4::spawn(async move {
+        let Err(error) = future.await else {
+            return;
+        };
+        tracing::warn!(operation, %error, "service command failed");
+        let Some(body) = wording(&error) else {
+            return;
+        };
+        let posted = report
+            .notifications
+            .post(
+                &report.app_name,
+                &app_id(),
+                &report.icon,
+                &report.summary,
+                &body,
+                NotificationUrgency::Normal,
+            )
+            .await;
+        if let Err(error) = posted {
+            tracing::warn!(operation, %error, "could not report a failed command");
         }
     });
 }

@@ -34,6 +34,7 @@ pub struct Line {
     pub icon: String,
     pub toggle: Option<bool>,
     pub destructive: bool,
+    pub activates: bool,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -70,6 +71,8 @@ pub struct BluetoothPopover {
     pub nearby_rows: TemplateChild<gtk4::Box>,
     #[template_child]
     pub scan: TemplateChild<Row>,
+    #[template_child]
+    pub visible_as: TemplateChild<gtk4::Label>,
     #[template_child]
     pub footer: TemplateChild<Row>,
 

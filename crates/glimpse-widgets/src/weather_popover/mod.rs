@@ -189,10 +189,14 @@ impl WeatherPopover {
 
     fn reveal(&self, slot: Option<Slot>) {
         let imp = self.imp();
-        imp.days.reveal(match slot {
+        let day = match slot {
             Some(Slot::Day(index)) => Some(index),
             _ => None,
-        });
+        };
+        imp.days.reveal(day);
+        if day.is_none() {
+            imp.days.recede(slot.is_some());
+        }
 
         for (index, notice) in imp.notices.borrow().iter().enumerate() {
             let Some(panel) = panel_of(notice) else {
@@ -201,6 +205,22 @@ impl WeatherPopover {
             let open =
                 matches!(slot, Some(Slot::Alert(at)) if at == index) && panel.child().is_some();
             drawer::set(&panel, open);
+            crate::set_css_class(notice, drawer::OPEN, open);
+            crate::set_css_class(notice, drawer::RECEDED, slot.is_some() && !open);
+        }
+
+        self.recede(slot.is_some());
+    }
+
+    fn recede(&self, any: bool) {
+        let imp = self.imp();
+        for widget in [
+            imp.hero.upcast_ref::<gtk4::Widget>(),
+            imp.hourly.upcast_ref(),
+            imp.nowcast.upcast_ref(),
+            imp.footer.upcast_ref(),
+        ] {
+            crate::set_css_class(widget, drawer::RECEDED, any);
         }
     }
 

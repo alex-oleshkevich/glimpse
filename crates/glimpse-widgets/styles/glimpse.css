@@ -295,7 +295,9 @@
     padding: var(--gl-row-padding);
     border-radius: var(--gl-row-radius);
     font-weight: normal;
-    transition: background-color var(--gl-duration) var(--gl-ease);
+    transition:
+        background-color var(--gl-duration) var(--gl-ease),
+        opacity var(--gl-duration) var(--gl-ease);
 }
 
 .row:hover {
@@ -609,13 +611,13 @@
     padding: 0.35rem 0.8rem 0.5rem 0.8rem;
 }
 
-.bluetooth-popover .row,
-.bluetooth-popover .split-row,
-.bluetooth-popover .hero {
+.popover-shell .split-row,
+.popover-shell .hero,
+.popover-shell .section {
     transition: opacity var(--gl-duration) var(--gl-ease);
 }
 
-.bluetooth-popover .receded {
+.popover-shell .receded {
     opacity: 0.32;
 }
 
@@ -658,6 +660,12 @@
 .column > .row + .notice,
 .column > .row + .row {
     margin-top: 0.35rem;
+}
+
+.bluetooth-popover__visible-as {
+    font-size: var(--gl-text-caption, 0.8rem);
+    color: var(--gl-muted, alpha(currentColor, 0.7));
+    padding: 0.2rem 0.8rem 0.35rem 0.8rem;
 }
 
 .weather-popover__alerts,
@@ -711,7 +719,9 @@
     border-radius: var(--gl-notice-radius);
     background-color: var(--gl-hover);
     font-weight: normal;
-    transition: background-color var(--gl-duration) var(--gl-ease);
+    transition:
+        background-color var(--gl-duration) var(--gl-ease),
+        opacity var(--gl-duration) var(--gl-ease);
 }
 
 .notice:hover {

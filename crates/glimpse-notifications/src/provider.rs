@@ -5,7 +5,7 @@ use glimpse_dbus::notifications::{
     NotificationWire, NotificationsSnapshot,
 };
 use glimpse_dbus::{Exported, Snapshot};
-use glimpse_services::{CommandError, NotificationsHandle};
+use glimpse_services::{CommandError, Incoming, NotificationsHandle};
 use zbus::{Connection, DBusError};
 
 #[derive(Debug, DBusError)]
@@ -73,6 +73,38 @@ impl Provider {
 
     async fn clear_all(&self) -> Result<(), Error> {
         self.notifications.clear_all().await.map_err(Error::from)
+    }
+
+    async fn post(
+        &self,
+        app_name: String,
+        app_id: String,
+        icon: String,
+        summary: String,
+        body: String,
+        urgency: u32,
+    ) -> Result<u32, Error> {
+        if summary.is_empty() {
+            return Err(Error::InvalidAction(
+                "a notification needs a summary".to_owned(),
+            ));
+        }
+        self.notifications
+            .post(Incoming {
+                app_name,
+                app_id,
+                app_pid: None,
+                icon: (!icon.is_empty()).then_some(icon),
+                image: None,
+                summary,
+                body,
+                actions: Vec::new(),
+                urgency: glimpse_dbus::notifications::urgency_from_wire(urgency),
+                progress: None,
+                resident: false,
+            })
+            .await
+            .map_err(Error::from)
     }
 
     async fn set_do_not_disturb(&self, enabled: bool, until: i64) -> Result<(), Error> {
@@ -276,6 +308,15 @@ mod tests {
       <arg name="application_id" type="s" direction="in"/>
     </method>
     <method name="ClearAll">
+    </method>
+    <method name="Post">
+      <arg name="app_name" type="s" direction="in"/>
+      <arg name="app_id" type="s" direction="in"/>
+      <arg name="icon" type="s" direction="in"/>
+      <arg name="summary" type="s" direction="in"/>
+      <arg name="body" type="s" direction="in"/>
+      <arg name="urgency" type="u" direction="in"/>
+      <arg type="u" direction="out"/>
     </method>
     <method name="SetDoNotDisturb">
       <arg name="enabled" type="b" direction="in"/>

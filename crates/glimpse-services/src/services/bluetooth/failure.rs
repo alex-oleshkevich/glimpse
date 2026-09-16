@@ -10,6 +10,7 @@ pub enum Action {
     CancelPairing,
     Scan,
     Power,
+    Discoverable,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,6 +27,7 @@ pub enum Failure {
     NotReady,
     Dropped,
     BondBroken,
+    LocalSetup,
     Unknown,
 }
 
@@ -53,18 +55,32 @@ pub fn classify(action: Action, error: &zbus::Error) -> Result<(), Failure> {
         "AuthenticationTimeout" => Failure::PairingTimeout,
         "AuthenticationCanceled" => Failure::PairingCanceled,
         "ProfileUnavailable" | "NotAvailable" | "NotSupported" => Failure::NoService,
+        "ConnectionAttemptFailed" | "ConnectFailed" => match from_token(token) {
+            Failure::Unknown => Failure::Unreachable,
+            told => told,
+        },
         _ => from_token(token),
     })
 }
 
 fn from_token(token: &str) -> Failure {
-    match token {
-        "br-connection-page-timeout" | "le-connection-timeout" => Failure::Unreachable,
-        "br-connection-profile-unavailable" => Failure::NoService,
-        "br-connection-refused" => Failure::Refused,
-        "br-connection-key-missing" => Failure::BondBroken,
-        "br-connection-busy" | "le-connection-busy" => Failure::Busy,
-        "br-connection-canceled" | "le-connection-canceled" => Failure::Dropped,
+    let Some(reason) = token
+        .strip_prefix("br-connection-")
+        .or_else(|| token.strip_prefix("le-connection-"))
+    else {
+        return Failure::Unknown;
+    };
+
+    match reason {
+        "page-timeout" | "timeout" | "sync-timeout" => Failure::Unreachable,
+        "profile-unavailable" | "not-supported" | "not-suported" => Failure::NoService,
+        "refused" => Failure::Refused,
+        "key-missing" => Failure::BondBroken,
+        "busy" | "too-many-connections" => Failure::Busy,
+        "canceled" | "aborted-by-remote" => Failure::Dropped,
+        "adapter-not-powered" => Failure::NotReady,
+        "create-socket" | "bad-socket" | "memory-allocation" | "invalid-source"
+        | "invalid-argument" | "invalid-arguments" => Failure::LocalSetup,
         _ => Failure::Unknown,
     }
 }
@@ -81,6 +97,28 @@ pub fn dropped(reason: DisconnectReason) -> Option<Failure> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_failed_attempt_reads_its_token_first_and_falls_back_to_out_of_range() {
+        assert_eq!(
+            classify(Action::Pair, &method("ConnectionAttemptFailed", None)),
+            Err(Failure::Unreachable),
+            "BlueZ raises this with no token when it never reached the device, and \
+             `Unknown` told the viewer nothing at all"
+        );
+        assert_eq!(
+            classify(
+                Action::Connect,
+                &method("ConnectionAttemptFailed", Some("br-connection-refused")),
+            ),
+            Err(Failure::Refused),
+            "a token that names the reason still outranks the fallback"
+        );
+        assert_eq!(
+            classify(Action::Connect, &method("ConnectFailed", None)),
+            Err(Failure::Unreachable)
+        );
+    }
 
     fn method(name: &str, detail: Option<&str>) -> zbus::Error {
         zbus::Error::MethodError(

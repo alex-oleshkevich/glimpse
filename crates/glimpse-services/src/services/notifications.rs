@@ -36,9 +36,11 @@ const IMAGE_PATH_MAX_CHARS: usize = 4096;
 const ACTIVATION_TOKEN_MAX_CHARS: usize = 512;
 
 /// `NotificationClosed` reasons, as the specification numbers them.
+const NAMED: &str = "name:";
 const CLOSED_BY_SENDER: u32 = 3;
 const CLOSED_BY_READER: u32 = 2;
 
+#[derive(Debug)]
 pub struct Incoming {
     pub app_name: String,
     pub app_id: String,
@@ -91,6 +93,10 @@ pub enum Command {
         dnd: DoNotDisturb,
         reply: oneshot::Sender<Result<(), CommandError>>,
     },
+    Post {
+        incoming: Box<Incoming>,
+        reply: oneshot::Sender<Result<u32, CommandError>>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -118,6 +124,7 @@ pub struct Notifications {
     store: Store,
     dnd: DoNotDisturb,
     connection: Option<Connection>,
+    ids: Option<Ids>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -140,6 +147,17 @@ impl NotificationsHandle {
 
     pub fn health(&self) -> tokio::sync::watch::Receiver<crate::ServiceState> {
         self.0.health()
+    }
+
+    pub async fn post(&self, incoming: Incoming) -> Result<u32, CommandError> {
+        let (reply, result) = oneshot::channel();
+        self.0.command(Command::Post {
+            incoming: Box::new(incoming),
+            reply,
+        })?;
+        result
+            .await
+            .map_err(|_| CommandError::Unavailable("notifications did not answer".to_owned()))?
     }
 
     async fn call(
@@ -249,6 +267,7 @@ impl Service for Notifications {
             store: Store::with_suppression(config.keep, &config.suppress),
             dnd: DoNotDisturb::default(),
             connection: None,
+            ids: None,
         };
         service.publish();
 
@@ -260,9 +279,10 @@ impl Service for Notifications {
             }
         };
 
+        let ids = Ids::default();
         let served = Served {
             events: ctx.events(),
-            next: 1,
+            next: ids.clone(),
             dbus: match DBusProxy::new(&connection).await {
                 Ok(dbus) => Some(dbus),
                 Err(error) => {
@@ -279,6 +299,7 @@ impl Service for Notifications {
         match glimpse_dbus::own_name(&connection, BUS_NAME).await {
             Ok(()) => {
                 service.connection = Some(connection);
+                service.ids = Some(ids);
                 ctx.running();
             }
             Err(zbus::Error::NameTaken) => ctx.degraded(format!(
@@ -292,11 +313,7 @@ impl Service for Notifications {
 
     async fn handle(&mut self, _ctx: &Ctx<Self>, input: Input<Self>) {
         match input {
-            Input::Event(Event::Posted { id, incoming }) => {
-                if self.store.post(id, *incoming) {
-                    self.publish();
-                }
-            }
+            Input::Event(Event::Posted { id, incoming }) => self.posted(id, *incoming),
             Input::Event(Event::Retracted { id }) => self.remove(id, CLOSED_BY_SENDER).await,
             Input::Event(Event::DoNotDisturbLapsed(until)) => {
                 if self.dnd.until == Some(until) {
@@ -304,6 +321,18 @@ impl Service for Notifications {
                     self.announce_dnd();
                 }
             }
+            Input::Command(Command::Post { incoming, reply }) => match self.ids.as_ref() {
+                Some(ids) => {
+                    let id = ids.allocate(0);
+                    self.posted(id, *incoming);
+                    let _ = reply.send(Ok(id));
+                }
+                None => {
+                    let _ = reply.send(Err(CommandError::Unavailable(
+                        "the notification server is not exported".to_owned(),
+                    )));
+                }
+            },
             Input::Command(Command::Dismiss { id, reply }) => {
                 if self.store.dismiss(id) {
                     self.publish();
@@ -547,12 +576,21 @@ fn application_name(declared: &str, app_id: &str) -> String {
 fn application_id(
     desktop_entry: Option<String>,
     process_desktop_entry: Option<String>,
+    app_name: &str,
     sender: Option<String>,
     id: u32,
 ) -> String {
     desktop_entry
         .filter(|app_id| !app_id.is_empty())
         .or(process_desktop_entry)
+        .or_else(|| {
+            Some(glimpse_utils::text::clean(
+                app_name,
+                APP_NAME_MAX_CHARS - NAMED.len(),
+            ))
+                .filter(|name| !name.is_empty())
+                .map(|name| format!("{NAMED}{name}"))
+        })
         .or(sender)
         .unwrap_or_else(|| format!("notification-{id}"))
 }
@@ -599,6 +637,12 @@ impl Notifications {
             state.list = Some(list);
             state.dnd = Some(NotificationsDnd { dnd: self.dnd });
         });
+    }
+
+    fn posted(&mut self, id: u32, incoming: Incoming) {
+        if self.store.post(id, incoming) {
+            self.publish();
+        }
     }
 
     async fn closed(&self, id: u32, reason: u32) {
@@ -703,7 +747,7 @@ fn record(id: u32, incoming: Incoming) -> NotificationRecord {
 /// the service's, which is what lets the store be tested without a bus.
 struct Served {
     events: mpsc::Sender<Input<Notifications>>,
-    next: u32,
+    next: Ids,
     dbus: Option<DBusProxy<'static>>,
 }
 
@@ -734,12 +778,13 @@ impl Served {
         _expire_timeout: i32,
         #[zbus(header)] header: zbus::message::Header<'_>,
     ) -> u32 {
-        let id = allocate(&mut self.next, replaces_id);
+        let id = self.next.allocate(replaces_id);
         let app_pid = self.sender_pid(&header).await;
 
         let app_id = application_id(
             hint_str(&hints, "desktop-entry"),
             process_desktop_entry(app_pid),
+            &app_name,
             header.sender().map(ToString::to_string),
             id,
         );
@@ -815,14 +860,32 @@ impl Served {
 
 /// Zero means "new" on the wire, so the counter steps over it when it wraps rather than handing
 /// it out. A sender naming a replacement gets that id back and spends none.
-fn allocate(next: &mut u32, replaces: u32) -> u32 {
-    match replaces {
-        0 => {
-            let id = *next;
-            *next = next.wrapping_add(1).max(1);
-            id
+#[derive(Debug, Clone)]
+struct Ids(std::sync::Arc<std::sync::atomic::AtomicU32>);
+
+impl Default for Ids {
+    fn default() -> Self {
+        Self(std::sync::Arc::new(std::sync::atomic::AtomicU32::new(1)))
+    }
+}
+
+impl Ids {
+    fn allocate(&self, replaces: u32) -> u32 {
+        use std::sync::atomic::Ordering;
+        if replaces != 0 {
+            return replaces;
         }
-        replaces => replaces,
+        let mut current = self.0.load(Ordering::Relaxed);
+        loop {
+            let next = current.wrapping_add(1).max(1);
+            match self
+                .0
+                .compare_exchange_weak(current, next, Ordering::Relaxed, Ordering::Relaxed)
+            {
+                Ok(_) => return current,
+                Err(seen) => current = seen,
+            }
+        }
     }
 }
 
@@ -1288,6 +1351,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn posting_without_an_exported_server_is_refused_rather_than_given_a_private_id() {
+        let (handle, _sender, _state, cancel, running) = dnd_service().await;
+
+        let refused = handle.post(incoming("glimpse", "Bluetooth")).await;
+        cancel.cancel();
+        running.await.expect("joined").expect("stopped");
+
+        assert!(
+            matches!(refused, Err(CommandError::Unavailable(_))),
+            "ids come from the exported server's counter, so with no server there is no id to \
+             hand out and inventing one would collide with the next Notify"
+        );
+    }
+
+    #[tokio::test]
     async fn do_not_disturb_with_an_expiry_lapses_without_anyone_turning_it_off() {
         let (handle, _sender, mut state, cancel, running) = dnd_service().await;
 
@@ -1444,7 +1522,7 @@ mod tests {
         );
         assert_eq!(
             declared.app_id, "org.telegram.desktop",
-            "grouping keys on the sender's identity, not on the name it chose"
+            "a sender with a desktop identity is keyed on it, never on the name it chose"
         );
     }
 
@@ -1453,12 +1531,14 @@ mod tests {
         let first = application_id(
             None,
             Some("walz".to_owned()),
+            "walz",
             Some(":1.195415".to_owned()),
             1,
         );
         let second = application_id(
             None,
             Some("walz".to_owned()),
+            "walz",
             Some(":1.197442".to_owned()),
             2,
         );
@@ -1469,10 +1549,47 @@ mod tests {
             application_id(
                 Some("org.example.Chat".to_owned()),
                 Some("walz".to_owned()),
+                "walz",
                 Some(":1.197442".to_owned()),
                 3,
             ),
             "org.example.Chat"
+        );
+    }
+
+    #[test]
+    fn a_sender_that_exits_between_notifications_still_groups_by_the_name_it_calls_itself() {
+        let shot =
+            |sender: &str, id| application_id(None, None, "niri", Some(sender.to_owned()), id);
+
+        assert_eq!(
+            shot(":1.333903", 1),
+            shot(":1.334too", 2),
+            "a screenshot script opens a new connection per notification, and a unique bus name \
+             would put every one of them in a group of its own"
+        );
+        assert_eq!(shot(":1.333903", 1), "name:niri");
+        assert_ne!(
+            application_id(
+                None,
+                None,
+                "org.telegram.desktop",
+                Some(":1.9".to_owned()),
+                8
+            ),
+            application_id(
+                Some("org.telegram.desktop".to_owned()),
+                None,
+                "whatever",
+                Some(":1.10".to_owned()),
+                9,
+            ),
+            "a sender with no identity of its own cannot join a group by claiming its name"
+        );
+        assert_eq!(
+            application_id(None, None, "", Some(":1.42".to_owned()), 7),
+            ":1.42",
+            "a sender that names itself nothing still has to land somewhere"
         );
     }
 
@@ -1611,13 +1728,13 @@ mod tests {
 
     #[test]
     fn ids_are_handed_out_in_order_and_a_sender_naming_one_gets_it_back() {
-        let mut next = 1;
+        let next = Ids::default();
 
-        assert_eq!(allocate(&mut next, 0), 1);
-        assert_eq!(allocate(&mut next, 0), 2);
-        assert_eq!(allocate(&mut next, 7), 7);
+        assert_eq!(next.allocate(0), 1);
+        assert_eq!(next.allocate(0), 2);
+        assert_eq!(next.allocate(7), 7);
         assert_eq!(
-            allocate(&mut next, 0),
+            next.allocate(0),
             3,
             "naming a replacement does not spend an id"
         );
@@ -1627,9 +1744,11 @@ mod tests {
     /// fresh notification.
     #[test]
     fn the_id_counter_steps_over_zero_when_it_wraps() {
-        let mut next = u32::MAX;
+        let next = Ids(std::sync::Arc::new(std::sync::atomic::AtomicU32::new(
+            u32::MAX,
+        )));
 
-        assert_eq!(allocate(&mut next, 0), u32::MAX);
-        assert_eq!(allocate(&mut next, 0), 1);
+        assert_eq!(next.allocate(0), u32::MAX);
+        assert_eq!(next.allocate(0), 1);
     }
 }

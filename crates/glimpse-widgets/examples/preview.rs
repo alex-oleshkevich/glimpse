@@ -2087,7 +2087,7 @@ fn ensure_types() {
         KeyboardPopover, Notice, NotificationCard, NotificationHeader, NotificationImageBody,
         NotificationList, NotificationStack, NotificationTextBody, NotificationsPopover,
         NowPlaying, Pager, Panel, Placeholder, PlayerList, PlayerRow, PopoverShell, RangeBar,
-        Readout, Row, Scrubber, Section, SplitRow, TooltipCard, Transport, TrayStrip,
+        Readout, Row, Scrubber, Section, SplitRow, SwitchRow, TooltipCard, Transport, TrayStrip,
         WeatherPopover, WorldClock,
     };
 
@@ -2121,6 +2121,7 @@ fn ensure_types() {
         Section::static_type(),
         WeatherPopover::static_type(),
         SplitRow::static_type(),
+        SwitchRow::static_type(),
         WorldClock::static_type(),
         Hero::static_type(),
         PopoverShell::static_type(),

@@ -161,6 +161,15 @@ impl ForecastList {
             crate::drawer::set(&panel, open);
             if let Some(row) = crate::drawer::head::<ForecastDay>(holder) {
                 crate::set_css_class(&row, crate::drawer::OPEN, open);
+                crate::set_css_class(&row, crate::drawer::RECEDED, index.is_some() && !open);
+            }
+        }
+    }
+
+    pub fn recede(&self, dim: bool) {
+        for holder in self.imp().holders.borrow().iter() {
+            if let Some(row) = crate::drawer::head::<ForecastDay>(holder) {
+                crate::set_css_class(&row, crate::drawer::RECEDED, dim);
             }
         }
     }

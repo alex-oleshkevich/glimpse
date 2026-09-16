@@ -10,6 +10,21 @@ missing session bus. The unit bounds the resulting restarts through `StartLimitB
 duplicate stops rather than loops. With the default application id GTK's single-instance handoff
 already exits the second process first; this only surfaces when the ids differ.
 
+**`Post` is how glimpse raises its own notification**, and it is the only way in besides
+`org.freedesktop.Notifications.Notify`. A posted record takes its id from the **same counter** the
+fdo server allocates from, reached through the exported object rather than a second counter, or two
+id spaces would eventually hand out the same number for different records; with no server exported
+there is no id to give and the command is refused rather than inventing one. Everything after that
+is shared — the same capping, suppression and do-not-disturb gate a notification arriving over fdo
+meets.
+
+**Grouping keys on the strongest identity a sender has**: its `desktop-entry` hint, else a desktop
+file matching its executable, else **the name it calls itself**, else its bus name. The last two are
+the trade: a unique bus name is per-*connection*, so a sender that exits between notifications — a
+screenshot script, `notify-send` — would open a fresh group every time and never stack. Falling back
+to `app_name` costs the guarantee that two identity-less senders are told apart; one that carries a
+desktop identity is still keyed on it and cannot be joined by a sender merely claiming its name.
+
 The first local notification snapshot is a baseline and never opens a popup. Later unread records
 appear newest nearest the configured edge; replacing a visible record
 updates its existing card and restarts its timer. Do not disturb, lock, privacy, disablement and

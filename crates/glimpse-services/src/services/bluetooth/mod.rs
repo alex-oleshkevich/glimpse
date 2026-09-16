@@ -46,6 +46,7 @@ pub struct Adapter {
     pub alias: String,
     pub power: Power,
     pub discovering: bool,
+    pub discoverable: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -168,11 +169,32 @@ pub enum Watch {
     ScanDeadline(u64),
 }
 
-type Reply = oneshot::Sender<Result<(), CommandError>>;
+type Reply = oneshot::Sender<Result<(), BluetoothError>>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum BluetoothError {
+    #[error("bluetooth refused the command: {0:?}")]
+    Failed(Failure),
+    #[error(transparent)]
+    Service(#[from] CommandError),
+}
+
+impl BluetoothError {
+    pub fn failure(&self) -> Option<Failure> {
+        match self {
+            Self::Failed(failure) => Some(*failure),
+            Self::Service(_) => None,
+        }
+    }
+}
 
 pub enum Command {
     SetPowered {
         powered: bool,
+        reply: Reply,
+    },
+    SetDiscoverable {
+        on: bool,
         reply: Reply,
     },
     StartScan {
@@ -291,32 +313,37 @@ impl BluetoothHandle {
         self.0.health()
     }
 
-    pub async fn set_powered(&self, powered: bool) -> Result<(), CommandError> {
+    pub async fn set_powered(&self, powered: bool) -> Result<(), BluetoothError> {
         self.call(|reply| Command::SetPowered { powered, reply })
             .await
     }
 
-    pub async fn start_scan(&self) -> Result<(), CommandError> {
+    pub async fn start_scan(&self) -> Result<(), BluetoothError> {
         self.call(|reply| Command::StartScan { reply }).await
     }
 
-    pub async fn stop_scan(&self) -> Result<(), CommandError> {
+    pub async fn set_discoverable(&self, on: bool) -> Result<(), BluetoothError> {
+        self.call(|reply| Command::SetDiscoverable { on, reply })
+            .await
+    }
+
+    pub async fn stop_scan(&self) -> Result<(), BluetoothError> {
         self.call(|reply| Command::StopScan { reply }).await
     }
 
-    pub async fn connect(&self, id: DeviceId) -> Result<(), CommandError> {
+    pub async fn connect(&self, id: DeviceId) -> Result<(), BluetoothError> {
         self.call(|reply| Command::Connect { id, reply }).await
     }
 
-    pub async fn disconnect(&self, id: DeviceId) -> Result<(), CommandError> {
+    pub async fn disconnect(&self, id: DeviceId) -> Result<(), BluetoothError> {
         self.call(|reply| Command::Disconnect { id, reply }).await
     }
 
-    pub async fn pair(&self, id: DeviceId) -> Result<(), CommandError> {
+    pub async fn pair(&self, id: DeviceId) -> Result<(), BluetoothError> {
         self.call(|reply| Command::Pair { id, reply }).await
     }
 
-    pub async fn cancel_pairing(&self, id: DeviceId) -> Result<(), CommandError> {
+    pub async fn cancel_pairing(&self, id: DeviceId) -> Result<(), BluetoothError> {
         self.call(|reply| Command::CancelPairing { id, reply })
             .await
     }
@@ -326,7 +353,7 @@ impl BluetoothHandle {
         id: DeviceId,
         trusted: bool,
         confirmed: bool,
-    ) -> Result<(), CommandError> {
+    ) -> Result<(), BluetoothError> {
         self.call(|reply| Command::SetTrusted {
             id,
             trusted,
@@ -336,7 +363,7 @@ impl BluetoothHandle {
         .await
     }
 
-    pub async fn forget(&self, id: DeviceId, confirmed: bool) -> Result<(), CommandError> {
+    pub async fn forget(&self, id: DeviceId, confirmed: bool) -> Result<(), BluetoothError> {
         self.call(|reply| Command::Forget {
             id,
             confirmed,
@@ -345,29 +372,23 @@ impl BluetoothHandle {
         .await
     }
 
-    pub async fn dismiss_confirmation(&self) -> Result<(), CommandError> {
+    pub async fn dismiss_confirmation(&self) -> Result<(), BluetoothError> {
         self.call(|reply| Command::DismissConfirmation { reply })
             .await
     }
 
-    pub async fn answer_pairing(&self, answer: Answer) -> Result<(), CommandError> {
+    pub async fn answer_pairing(&self, answer: Answer) -> Result<(), BluetoothError> {
         self.call(|reply| Command::AnswerPairing { answer, reply })
             .await
     }
 
-    async fn call(&self, command: impl FnOnce(Reply) -> Command) -> Result<(), CommandError> {
+    async fn call(&self, command: impl FnOnce(Reply) -> Command) -> Result<(), BluetoothError> {
         let (reply, result) = oneshot::channel();
         self.0.command(command(reply))?;
-        result.await.map_err(|_| stopped())?
+        result.await.map_err(|_| {
+            CommandError::Unavailable("bluetooth stopped before completing the command".to_owned())
+        })?
     }
-}
-
-fn stopped() -> CommandError {
-    CommandError::Unavailable("bluetooth stopped before completing the command".to_owned())
-}
-
-fn refused(failure: Failure) -> CommandError {
-    CommandError::Unavailable(format!("{failure:?}"))
 }
 
 fn settle(action: Action, outcome: zbus::Result<()>) -> Result<(), Failure> {
@@ -534,14 +555,16 @@ impl Service for Bluetooth {
                 self.publish();
             }
             Input::Event(Event::Settled { id, busy, failure }) => {
+                let mut answered = false;
                 if let Some(record) = self.devices.get_mut(id.as_str())
                     && record.busy == Some(busy)
                 {
                     record.busy = None;
                     record.failure = failure;
+                    answered = true;
                 }
-                if busy == Busy::Pairing && failure.is_none() {
-                    self.trust_after_pairing(ctx, &id);
+                if answered && busy == Busy::Pairing && failure.is_none() {
+                    self.trust_then_connect(ctx, &id);
                 }
                 self.publish();
             }
@@ -606,7 +629,7 @@ impl Bluetooth {
                     record.failure = Some(Failure::NoAgent);
                 }
                 self.publish();
-                let _ = reply.send(Err(refused(Failure::NoAgent)));
+                let _ = reply.send(Err(BluetoothError::Failed(Failure::NoAgent)));
             }
             command => {
                 if matches!(command, Command::Forget { .. } | Command::SetTrusted { .. }) {
@@ -628,9 +651,13 @@ impl Bluetooth {
 
         match command {
             Command::SetPowered { powered, reply } => {
-                ctx.spawn_detached(move |_ctx| async move {
-                    let outcome = call::set_powered(&connection, &adapter, powered).await;
-                    let _ = reply.send(settle(Action::Power, outcome).map_err(refused));
+                detached(ctx, Action::Power, reply, async move {
+                    call::set_powered(&connection, &adapter, powered).await
+                });
+            }
+            Command::SetDiscoverable { on, reply } => {
+                detached(ctx, Action::Discoverable, reply, async move {
+                    call::set_discoverable(&connection, &adapter, on).await
                 });
             }
             Command::StartScan { reply } => {
@@ -646,7 +673,7 @@ impl Bluetooth {
                             .send(Input::Event(Event::ScanExpired(generation)))
                             .await;
                     }
-                    let _ = reply.send(outcome.map_err(refused));
+                    let _ = reply.send(outcome.map_err(BluetoothError::Failed));
                 });
             }
             Command::StopScan { reply } => {
@@ -713,7 +740,8 @@ impl Bluetooth {
             Command::AnswerPairing { reply, .. } | Command::DismissConfirmation { reply } => {
                 let _ = reply.send(Err(CommandError::Internal(
                     "that command is answered locally and never reaches the bus".to_owned(),
-                )));
+                )
+                .into()));
             }
         }
     }
@@ -722,7 +750,8 @@ impl Bluetooth {
         let Some((prompt, sender)) = self.prompt.take() else {
             let _ = reply.send(Err(CommandError::Unavailable(
                 "nothing is waiting for an answer".to_owned(),
-            )));
+            )
+            .into()));
             return;
         };
         self.publish();
@@ -738,7 +767,9 @@ impl Bluetooth {
         }
 
         let Ok(connection) = ctx.system_bus().cloned() else {
-            let _ = reply.send(Err(CommandError::Unavailable("no system bus".to_owned())));
+            let _ = reply.send(Err(
+                CommandError::Unavailable("no system bus".to_owned()).into()
+            ));
             return;
         };
         let path = prompt.device().as_str().to_owned();
@@ -759,13 +790,15 @@ impl Bluetooth {
         let Some(record) = self.devices.get_mut(id.as_str()) else {
             let _ = reply.send(Err(CommandError::InvalidArgument(
                 "there is no such device".to_owned(),
-            )));
+            )
+            .into()));
             return;
         };
         if record.busy.is_some() {
             let _ = reply.send(Err(CommandError::Unavailable(
                 "that device is already busy".to_owned(),
-            )));
+            )
+            .into()));
             return;
         }
         record.busy = Some(busy);
@@ -781,7 +814,7 @@ impl Bluetooth {
                     failure: outcome.err(),
                 }))
                 .await;
-            let _ = reply.send(outcome.map_err(refused));
+            let _ = reply.send(outcome.map_err(BluetoothError::Failed));
         });
     }
 
@@ -808,14 +841,32 @@ impl Bluetooth {
         });
     }
 
-    fn trust_after_pairing(&self, ctx: &Ctx<Self>, id: &DeviceId) {
+    fn trust_then_connect(&self, ctx: &Ctx<Self>, id: &DeviceId) {
         let Ok(connection) = ctx.system_bus().cloned() else {
             return;
         };
         let path = id.as_str().to_owned();
+        let device = id.clone();
+        let events = ctx.events();
         ctx.spawn_detached(move |_ctx| async move {
             if let Err(error) = call::set_trusted(&connection, &path, true).await {
                 tracing::warn!(%error, device = %path, "paired but not trusted; it will not reconnect on its own");
+            }
+
+            let (reply, outcome) = oneshot::channel();
+            let connect = Command::Connect {
+                id: device.clone(),
+                reply,
+            };
+            if events.send(Input::Command(connect)).await.is_err() {
+                return;
+            }
+            if let Ok(Err(error)) = outcome.await {
+                tracing::warn!(
+                    %error,
+                    device = %device.as_str(),
+                    "paired but could not connect; the device row carries the reason"
+                );
             }
         });
     }
@@ -961,6 +1012,7 @@ impl Bluetooth {
             alias: properties.alias.clone().unwrap_or_default(),
             power: power(properties),
             discovering: properties.discovering.unwrap_or_default(),
+            discoverable: properties.discoverable.unwrap_or_default(),
         };
 
         let mut devices: Vec<Device> = self
@@ -1030,14 +1082,16 @@ fn detached(
     work: impl Future<Output = zbus::Result<()>> + Send + 'static,
 ) {
     ctx.spawn_detached(move |_ctx| async move {
-        let _ = reply.send(settle(action, work.await).map_err(refused));
+        let _ = reply.send(settle(action, work.await).map_err(BluetoothError::Failed));
     });
 }
 
 fn reject(command: Command, reason: &str) {
-    let refused = Err(CommandError::Unavailable(reason.to_owned()));
+    let refused: Result<(), BluetoothError> =
+        Err(CommandError::Unavailable(reason.to_owned()).into());
     match command {
         Command::SetPowered { reply, .. }
+        | Command::SetDiscoverable { reply, .. }
         | Command::StartScan { reply }
         | Command::StopScan { reply }
         | Command::Connect { reply, .. }
@@ -1441,7 +1495,7 @@ mod tests {
 
         assert!(matches!(
             result.await,
-            Ok(Err(CommandError::Unavailable(_)))
+            Ok(Err(BluetoothError::Service(CommandError::Unavailable(_))))
         ));
     }
 
@@ -1673,6 +1727,77 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn only_a_pairing_this_service_was_waiting_on_trusts_and_connects() {
+        let (mut service, ctx, _state, _health) = bluetooth().await;
+        enumerated(&mut service, &ctx, session()).await;
+
+        let settled = |busy| {
+            Input::Event(Event::Settled {
+                id: DeviceId(HEADSET.to_owned()),
+                busy,
+                failure: None,
+            })
+        };
+
+        service.devices.get_mut(HEADSET).expect("the headset").busy = Some(Busy::Connecting);
+        service.handle(&ctx, settled(Busy::Pairing)).await;
+        assert!(
+            service.devices.get(HEADSET).expect("the headset").busy == Some(Busy::Connecting),
+            "a pairing that answers a record the service is no longer waiting on must change \
+             nothing — not the busy state it did not set, and not trust"
+        );
+
+        service.devices.get_mut(HEADSET).expect("the headset").busy = Some(Busy::Pairing);
+        service.handle(&ctx, settled(Busy::Pairing)).await;
+        assert_eq!(
+            service.devices.get(HEADSET).expect("the headset").busy,
+            None,
+            "the pairing it was waiting on settles the record"
+        );
+    }
+
+    #[tokio::test]
+    async fn making_the_adapter_discoverable_reaches_the_bus_rather_than_the_state() {
+        let (mut service, ctx, state, _health) = bluetooth().await;
+        enumerated(&mut service, &ctx, session()).await;
+
+        assert!(
+            !state
+                .borrow()
+                .adapter
+                .as_ref()
+                .expect("an adapter")
+                .discoverable,
+            "the adapter publishes what BlueZ says, and the fixture says it is not discoverable"
+        );
+
+        let (reply, outcome) = oneshot::channel();
+        service
+            .handle(
+                &ctx,
+                Input::Command(Command::SetDiscoverable { on: true, reply }),
+            )
+            .await;
+
+        assert!(
+            matches!(
+                outcome.await,
+                Ok(Err(BluetoothError::Service(CommandError::Unavailable(_))))
+            ),
+            "with no bus the command is refused rather than pretending the adapter changed"
+        );
+        assert!(
+            !state
+                .borrow()
+                .adapter
+                .as_ref()
+                .expect("an adapter")
+                .discoverable,
+            "and nothing moves optimistically"
+        );
+    }
+
+    #[tokio::test]
     async fn a_successful_command_clears_the_failure_the_last_one_left() {
         let (mut service, ctx, state, _health) = bluetooth().await;
         enumerated(&mut service, &ctx, session()).await;
@@ -1735,7 +1860,7 @@ mod tests {
             .await;
 
         assert_eq!(state.borrow().pairing, None);
-        assert_eq!(outcome.await, Ok(Ok(())));
+        assert!(matches!(outcome.await, Ok(Ok(()))));
         assert_eq!(reply.await, Ok(Answer::Confirm));
     }
 
@@ -1756,7 +1881,7 @@ mod tests {
 
         assert!(matches!(
             outcome.await,
-            Ok(Err(CommandError::Unavailable(_)))
+            Ok(Err(BluetoothError::Service(CommandError::Unavailable(_))))
         ));
     }
 
@@ -1808,7 +1933,13 @@ mod tests {
             )
             .await;
 
-        assert_eq!(outcome.await, Ok(Err(refused(Failure::NoAgent))));
+        assert!(
+            matches!(
+                outcome.await,
+                Ok(Err(BluetoothError::Failed(Failure::NoAgent)))
+            ),
+            "a pairing with no agent is refused as a typed failure the applet can word"
+        );
         assert_eq!(
             state
                 .borrow()
@@ -1822,7 +1953,7 @@ mod tests {
         service: &mut Bluetooth,
         ctx: &Ctx<Bluetooth>,
         build: impl FnOnce(Reply) -> Command,
-    ) -> Result<(), CommandError> {
+    ) -> Result<(), BluetoothError> {
         let (reply, outcome) = oneshot::channel();
         service.handle(ctx, Input::Command(build(reply))).await;
         outcome.await.expect("the command was answered")
@@ -1840,7 +1971,7 @@ mod tests {
         })
         .await;
 
-        assert_eq!(outcome, Ok(()));
+        assert!(outcome.is_ok());
         assert_eq!(
             state.borrow().confirm,
             Some(Confirmation::Forget {
@@ -1927,7 +2058,10 @@ mod tests {
             "refusing is the safe direction"
         );
         assert!(
-            matches!(outcome, Err(CommandError::Unavailable(_))),
+            matches!(
+                outcome,
+                Err(BluetoothError::Service(CommandError::Unavailable(_)))
+            ),
             "it went to the backend, which is unreachable in tests"
         );
     }
@@ -1973,7 +2107,7 @@ mod tests {
         })
         .await;
 
-        assert_eq!(outcome, Ok(()));
+        assert!(outcome.is_ok());
         assert_eq!(state.borrow().confirm, None);
         assert_eq!(state.borrow().devices.len(), 2, "nothing was forgotten");
     }
@@ -1998,7 +2132,10 @@ mod tests {
 
         assert_eq!(state.borrow().confirm, None);
         assert!(
-            matches!(outcome, Err(CommandError::Unavailable(_))),
+            matches!(
+                outcome,
+                Err(BluetoothError::Service(CommandError::Unavailable(_)))
+            ),
             "it went to the backend, which is unreachable in tests"
         );
     }

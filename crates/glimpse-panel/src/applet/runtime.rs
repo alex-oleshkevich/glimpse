@@ -760,7 +760,10 @@ mod tests {
             (),
         );
 
-        let mut applet = BluetoothApplet::start(bluetooth.clone());
+        let notifications =
+            glimpse_dbus::notifications::NotificationsProvider::unavailable("no bus in tests")
+                .handle();
+        let mut applet = BluetoothApplet::start(bluetooth.clone(), notifications);
         let (host, _receiver) = relm4::channel();
         let shown = applet
             .popover(&Seat::new(host))

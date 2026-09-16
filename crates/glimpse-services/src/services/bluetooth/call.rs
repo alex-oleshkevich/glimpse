@@ -26,9 +26,12 @@ pub async fn set_powered(connection: &Connection, path: &str, powered: bool) -> 
     adapter(connection, path).await?.set_powered(powered).await
 }
 
+pub async fn set_discoverable(connection: &Connection, path: &str, on: bool) -> Result<()> {
+    adapter(connection, path).await?.set_discoverable(on).await
+}
+
 pub fn filter() -> HashMap<&'static str, Value<'static>> {
-    HashMap::from([("Transport", Value::from("auto"))]
-    )
+    HashMap::from([("Transport", Value::from("auto"))])
 }
 
 pub async fn start_scan(connection: &Connection, path: &str) -> Result<()> {

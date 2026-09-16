@@ -121,9 +121,10 @@ pub fn build(
         }
         AppletKind::Bluetooth(_) => {
             let bluetooth = bluetooth.clone();
+            let notifications = notifications.clone();
             Some(Box::new(move |ctx| {
                 ctx.watch(bluetooth.subscribe());
-                Box::new(bluetooth::Bluetooth::start(bluetooth))
+                Box::new(bluetooth::Bluetooth::start(bluetooth, notifications))
             }))
         }
         AppletKind::Audio {}

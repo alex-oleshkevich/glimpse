@@ -1,0 +1,16 @@
+using Gtk 4.0;
+
+template $SwitchRow: $Row {
+  styles [
+    "switch-row",
+  ]
+
+  [trail]
+  Gtk.Switch knob {
+    valign: center;
+
+    styles [
+      "switch-row__knob",
+    ]
+  }
+}

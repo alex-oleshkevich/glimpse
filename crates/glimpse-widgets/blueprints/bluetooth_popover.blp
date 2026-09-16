@@ -29,7 +29,6 @@ template $BluetoothPopover: Gtk.Widget {
 
       $Section connected {
         visible: false;
-        title: _("Connected");
 
         Gtk.Box connected_rows {
           orientation: vertical;
@@ -77,6 +76,17 @@ template $BluetoothPopover: Gtk.Widget {
       $Row scan {
         lead-icon: "list-add-symbolic";
         activatable: true;
+      }
+
+      Gtk.Label visible_as {
+        visible: false;
+        xalign: 0;
+        wrap: true;
+        max-width-chars: 30;
+
+        styles [
+          "bluetooth-popover__visible-as",
+        ]
       }
     }
 

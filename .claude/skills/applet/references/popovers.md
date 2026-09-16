@@ -114,6 +114,16 @@ Pick one. They compose badly — a drawer beside an inline expansion moves on bo
 | More than fits | a `Gtk.Revealer drawer` **beside** the column, `transition-type: slide_right`, holding a vertical `Gtk.Separator` and a `.drawer-page` | `CalendarPopover`, `WorkspacesPopover` |
 | Empty has variants | a `Gtk.Stack` in `$Section`'s `[placeholder]` slot, one `$Placeholder` per page | `CalendarPopover` `nothing` / `truncated` |
 
+- **An open detail dims everything it is read against. This is not optional.** The moment anything
+  unfolds, every *other* item in the list and every piece of surrounding chrome — hero, footer,
+  overflow rows, captions, and any list the open item is not in — takes `drawer::RECEDED`; the open
+  one takes `drawer::OPEN` and keeps full weight. A popover that expands without receding reads as a
+  list that grew rather than one item opened, and the viewer cannot tell which row the card belongs
+  to. Derive it from **what is revealed**, never from remembered state, or two panels open at once
+  fight over the dimming. Section headers and separators stay lit: they are the frame, not content.
+  The trap is a list that has nothing open in it — `ForecastList::reveal(None)` *clears* receding, so
+  a popover whose open item lives elsewhere must dim that list explicitly (`ForecastList::recede`),
+  or an alert's card is read against a fully lit week.
 - **The overflow row is a `$Row` with `view-more-symbolic`**, inside the section it belongs to, and
   it toggles — `crate::drawer::toggle`, never `set_reveal_child` at a call site. A list that stops
   overflowing must close its drawer rather than leave it open on nothing.
@@ -160,9 +170,16 @@ The domain lists drop into a `$Section` in place of loose rows, and each owns it
 - **Declare what is fixed, build what is computed.** A list whose children come from the data is a
   named empty `Gtk.Box` in the `.blp` that Rust reconciles into; `$Section connected` holding
   `Gtk.Box connected_rows` is the shape. Do not build the section from Rust to save the box.
-- **Reach for `$Row` before anything else.** `$SplitRow` only when a row needs a second, separately
-  activatable target; `$Notice` only for a condition the viewer must act on; `$Placeholder` only for
-  an empty list, never as a "no value yet" filler on the bar.
+- **Reach for `$Row` before anything else.** `$SwitchRow` when the row carries a switch; `$SplitRow`
+  only when a row needs a second, separately activatable target; `$Notice` only for a condition the
+  viewer must act on; `$Placeholder` only for an empty list, never as a "no value yet" filler.
+- **A row highlights only if clicking its body does something**, and the two ways of honouring that
+  are not interchangeable. A pure readout takes `set_activatable(false)`, which drops `can-target`
+  and so makes the row unreachable by pointer, focus and tooltip alike. A row carrying a **control**
+  must never use it — `can-target` is inherited by the whole subtree, so the control would stop
+  responding too. Put the behaviour in a widget instead: `$SwitchRow`'s body flips its own knob, and
+  the knob's notify is the single emitter, so neither can double the other. A shared rule about a
+  *class* of rows belongs in `glimpse-widgets`, never re-implemented per applet.
 - **`$ChoiceList` has no caller.** It is exported and tested and nothing builds one; do not take its
   existence as a pattern to follow.
 
@@ -281,8 +298,20 @@ fn popover(&mut self, seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
 
 **Every open builds a new widget.** Nothing is cached and nothing is reused. State that must survive
 an open/close cycle belongs to the applet — `Clock::range`, `NextEvent::chosen` — not to the widget.
-`Clock` resets `self.range = None` on open for exactly this reason: the fresh calendar shows today,
-so the range it asked for last time no longer describes what is on screen.
+
+**A fresh widget is not a fresh popover, and the framework cannot make it one.** The widget is new;
+the applet's fields are not, and `popover()` re-dresses the new widget from them, so anything that
+*selects or expands* something comes back. Reset it explicitly at the top of `popover()`: `Clock`
+sets `self.range = None` and `open_on(today)`, `Bluetooth` clears `selected` and `expanded`. The
+symptom when you forget is a popover that opens with a device already unfolded, under a row the user
+did not press this time.
+
+**A prompt-driven flow ends when it succeeds; it does not open a detail view.** Pressing *Pair*
+collapses the selection before the command goes out, so the pairing dialog is not sitting on top of a
+menu the user will find still open underneath it — and the device moves section as it pairs, which
+would otherwise re-open that menu somewhere new. Finish the job too: pairing ends **connected**, not
+merely bonded, which the service does by dispatching a `Connect` once the pair settles without
+failure.
 
 `Seat` is not `Ctx`. It hands out two things and nothing else: `seat.caller()` for commands and
 `seat.opener()` for wakes. Both are `Clone + 'static`, which is what lets a signal closure capture
@@ -336,6 +365,38 @@ Commands from a popover go through `seat.caller()`, which is the same fire-and-f
 `Caller::call::<C>` as `ctx.call` — the reply is discarded and the topic reconciles. `WorkspacesPopover`
 sends `FocusWorkspace` and `FocusWindow` this way, and emits **ids** rather than capturing widgets,
 because a row is rebuilt whenever the list changes.
+
+## Dialogs and prompts
+
+**A prompt is not popover content.** It outlives the popover that started it — a pairing survives the
+popover being dismissed, and must — so prompts belong to `App`, never to an applet. `App` holds a
+`Dialogs { pairing, confirm }`, each slot pairing the dialog with **its `SignalHandlerId`**.
+
+**The host is the component root, and it is invisible.** `App`'s `view!` is an
+`adw::ApplicationWindow` declared `set_visible: false`. Panels are not its children; it exists only
+to give `adw::Dialog` something to present on.
+
+**Make the host visible before `present`, and hide it when the last dialog goes.** `present()` on a
+never-mapped window **queues the dialog and shows nothing** — no error, no warning, no drawn pixel.
+Raise the host immediately before presenting, and lower it once both slots are empty.
+
+**Close every popover first.** The catcher is a layer surface above every toplevel *and* the dialog
+is modal within the application, so leaving a popover up makes the whole screen unclickable — see the
+pitfall below. `App` broadcasts `panel::Input::ClosePopover` to each panel before either show.
+
+**One dialog serves every variant of a prompt.** BlueZ can escalate a pairing mid-flow — confirm,
+then passkey — so the existing dialog is *re-dressed* rather than rebuilt, and its `answered` signal
+is connected exactly once at build. That is the same connect-at-build, dress-on-every-event rule a
+popover follows, for the same reason.
+
+**`force_close` fires the close response.** Tearing a dialog down would therefore answer the prompt —
+cancelling a pairing the user never saw. Block the stored handler around the close; that is what the
+handler id is kept for.
+
+**A failed command is reported, not swallowed.** A command's reply carries a typed failure the applet
+turns into wording (`spawn_reported`), so the viewer gets a notification rather than a `warn!` line
+they will never read. Only failures answering something the viewer asked for: a device dropping on
+its own belongs on its row, not in a notification.
 
 ## The footer
 

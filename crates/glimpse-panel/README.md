@@ -249,22 +249,22 @@ counterpart to `NeedsAttention`; both can be true and attention wins.
 dark halo is the symptom of guessing wrong rather than something to tune. Textures cache on a content
 hash, which makes an application rewriting its icon per message free after the first. `connect_changed`
 on the icon theme and `notify::scale-factor` are connected **once, in the applet**, not per item;
-only name-based icons need re-resolving. Notice tints with `--gl-accent-soft` and adds no token.
+only name-based icons need re-resolving.
 
 **bluetooth** — the chip is the adapter's power state and **nothing else**: an icon, never a device
 name or a count, because the bar is icons and what is connected belongs to the tooltip. No adapter
-renders **nothing**, because a machine with no radio must not carry a dead chip. There is no
-degraded rendering: a stopped service leaves the last chip on the bar, as everywhere else here.
+renders **nothing**, because a machine with no radio must not carry a dead chip.
 
 - **Selection, scanning and the two expanded flags are `Rc` cells the popover's closures write and
   `Input::Woken` reads back.** A signal closure has no `&mut self`, so `opener.wake()` is how a
-  popover changes applet state, and every open starts from a collapsed list.
-- **`forget` and trusting a device close the popover before sending the command.** Both raise an
-  app-level dialog, and presenting one over a live popover leaves focus with the popover, whose
-  layer surface takes no keyboard input at all.
-- **The dialogs belong to `App`, not to the applet.** A prompt outlives the popover that started it
-  and presents on the hidden `adw::ApplicationWindow`, which `App` must make **visible** while one
-  is up: a dialog presented on a never-mapped window is queued and never shown.
+  popover changes applet state, and every open clears the selection and both expanded flags.
+- **Dialogs belong to `App`, and it closes every popover before presenting one.** A prompt outlives
+  the popover that started it; the catcher sits above every toplevel and the dialog is modal in-app,
+  so a popover left up makes both unclickable, and the hidden host must be **visible** before
+  `present` or the dialog is queued and never shown.
+- **A failed command is notified**: `tell` words a typed `BluetoothError` through `render::wording`.
+- **Discoverable follows the popover** — set on open, cleared on unmap, re-asked on every wake, since
+  BlueZ refuses it while the adapter is off and one try at open is lost on whoever switches it on.
 
 ## Translated wording
 

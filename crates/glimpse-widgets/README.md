@@ -26,8 +26,8 @@ Binding registers the GType before `init_template` resolves the class by name, o
   `Section` marked empty reports no title for one it holds. A runtime-built label handed to
   `set_text` must therefore start `visible: false`, since `set_text` derives visibility from the
   text and returns early when unchanged: a visible empty label never hides.
-- **`activatable: false` drops `can-target`, and a non-target passes the pointer to nothing** — not
-  children, not tooltips. A row whose trail is a control stays activatable.
+- **A row highlights only if its body acts.** `activatable: false` drops `can-target`, so neither the
+  row, its children, nor a tooltip is reachable — a row holding a control uses `SwitchRow` instead.
 - **Both labels cap their natural width**, because `ellipsize` lowers only a label's *minimum*.
 - **Untrusted text is capped and set as plain text**, with no markup setter anywhere: tray titles,
   MPRIS metadata, SSIDs and device names come from other applications and are unbounded.
@@ -55,8 +55,6 @@ slot over a list whose length changes.
 - **`PagerItem` deliberately has no `dispose`.** *Naming* a `Gtk.Button` template's root child makes
   `dispose_template()` unparent it twice; `Row` and `Notice` escape it by wrapping contents in an
   **unnamed** box, and a `gtk4::Widget` subclass owns no child and always needs the call.
-- **Hover must not outrank the state it sits on.** `.pager-item:hover` out-specifies
-  `--here` and `--urgent`, so both hover rules exclude them with `:not()`.
 
 `TrayStrip` is the second. It renders one `Indicator` per `TrayChip` and exists because a tray item
 is its own remote object, which an `IndicatorGroup` cannot express — that group is one clickable
@@ -123,6 +121,8 @@ string, and loses its icon and its title/body split the moment it is flattened i
 - **Sizes are rule-scoped tokens** declared in `.row` itself; `:root` stays the shared vocabulary.
 - **`.row--danger` must colour `.row__icon`, not just the row.** The icon node sets its own
   `--gl-muted`, so tinting the row alone leaves the trash glyph grey beside red text.
+- **`SwitchRow` is the toggle row.** Its body flips the knob and the knob's `notify::active` is the
+  only emitter, so the row and the switch can never double each other.
 
 `Placeholder` stands where content would be; its `error` flag only recolours the icon. `SplitRow`
 is a `Row` and a trailing button divided by a hairline.

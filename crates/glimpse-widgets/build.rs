@@ -110,6 +110,10 @@ fn main() {
         ("blueprints/scrubber.blp", "resources/widgets/scrubber.ui"),
         ("blueprints/section.blp", "resources/widgets/section.ui"),
         ("blueprints/split_row.blp", "resources/widgets/split_row.ui"),
+        (
+            "blueprints/switch_row.blp",
+            "resources/widgets/switch_row.ui",
+        ),
         ("blueprints/transport.blp", "resources/widgets/transport.ui"),
         (
             "blueprints/weather_popover.blp",

@@ -24,15 +24,30 @@ pub fn chip(state: &BluetoothState) -> Option<&'static str> {
     ))
 }
 
+pub fn visible_as(state: &BluetoothState) -> Option<String> {
+    let adapter = state
+        .adapter
+        .as_ref()
+        .filter(|adapter| adapter.discoverable)?;
+    Some(gettext("Visible to other devices as {name}").replace("{name}", &cap(&adapter.alias)))
+}
+
 pub fn tooltip(state: &BluetoothState, format: Option<&str>) -> Option<String> {
     let adapter = state.adapter.as_ref()?;
-    let connected: Vec<String> = state.connected().map(|device| cap(&device.name)).collect();
-    let status = status(adapter.power, adapter.discovering, &connected);
+    let status = status(
+        adapter.power,
+        adapter.discovering,
+        state.connected().count(),
+    );
     let Some(format) = format else {
         return Some(status);
     };
 
-    let devices = connected.join(", ");
+    let devices = state
+        .connected()
+        .map(|device| cap(&device.name))
+        .collect::<Vec<_>>()
+        .join(", ");
     let alias = cap(&adapter.alias);
     Some(crate::applets::tokens::render(
         format,
@@ -45,7 +60,7 @@ pub fn tooltip(state: &BluetoothState, format: Option<&str>) -> Option<String> {
     ))
 }
 
-fn status(power: Power, discovering: bool, connected: &[String]) -> String {
+fn status(power: Power, discovering: bool, connected: usize) -> String {
     match power {
         Power::Blocked => gettext("Bluetooth is blocked"),
         Power::Off => gettext("Bluetooth is off"),
@@ -53,14 +68,13 @@ fn status(power: Power, discovering: bool, connected: &[String]) -> String {
         Power::Disabling => gettext("Turning Bluetooth off"),
         Power::On if discovering => gettext("Looking for devices"),
         Power::On => match connected {
-            [] => gettext("No device connected"),
-            [only] => only.clone(),
-            many => ngettext(
+            0 => gettext("No devices connected"),
+            count => ngettext(
                 "{count} device connected",
                 "{count} devices connected",
-                many.len() as u32,
+                count as u32,
             )
-            .replace("{count}", &many.len().to_string()),
+            .replace("{count}", &count.to_string()),
         },
     }
 }
@@ -91,13 +105,13 @@ pub fn cap(name: &str) -> String {
 pub fn hero(state: &BluetoothState) -> Hero {
     let adapter = state.adapter.as_ref();
     let power = adapter.map_or(Power::Off, |adapter| adapter.power);
-    let connected: Vec<String> = state.connected().map(|device| cap(&device.name)).collect();
+    let connected = state.connected().count();
     let discovering = adapter.is_some_and(|adapter| adapter.discovering);
 
     Hero {
         title: gettext("Bluetooth"),
-        subtitle: status(power, discovering, &connected),
-        icon: icon_for(power, discovering, !connected.is_empty()).to_owned(),
+        subtitle: status(power, discovering, connected),
+        icon: icon_for(power, discovering, connected > 0).to_owned(),
         on: matches!(power, Power::On | Power::Enabling),
         settable: power != Power::Blocked,
     }
@@ -210,16 +224,13 @@ pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
     let mut lines = Vec::new();
 
     if device.known() {
-        lines.push(line(
-            if device.connected {
-                ("disconnect", gettext("Disconnect"))
-            } else {
-                ("connect", gettext("Connect"))
-            },
-            String::new(),
-        ));
+        lines.push(acts(if device.connected {
+            ("disconnect", gettext("Disconnect"))
+        } else {
+            ("connect", gettext("Connect"))
+        }));
     } else {
-        lines.push(line(("pair", gettext("Pair this device")), String::new()));
+        lines.push(acts(("pair", gettext("Pair this device"))));
     }
 
     if let Some(level) = device.battery {
@@ -235,10 +246,8 @@ pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
         lines.push(Line {
             action: "trust".to_owned(),
             title: gettext("Connect automatically"),
-            value: String::new(),
-            icon: String::new(),
             toggle: Some(device.trusted),
-            destructive: false,
+            ..Default::default()
         });
     }
     lines.push(line(
@@ -264,10 +273,10 @@ pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
         lines.push(Line {
             action: "forget".to_owned(),
             title: gettext("Forget this device"),
-            value: String::new(),
             icon: "user-trash-symbolic".to_owned(),
-            toggle: None,
             destructive: true,
+            activates: true,
+            ..Default::default()
         });
     }
 
@@ -286,6 +295,14 @@ fn line((action, title): (&str, String), value: String) -> Line {
         icon: String::new(),
         toggle: None,
         destructive: false,
+        activates: false,
+    }
+}
+
+fn acts((action, title): (&str, String)) -> Line {
+    Line {
+        activates: true,
+        ..line((action, title), String::new())
     }
 }
 
@@ -305,6 +322,9 @@ pub fn wording(failure: Failure) -> String {
         Failure::NotReady => gettext("Bluetooth is switched off."),
         Failure::Dropped => gettext("The device disconnected."),
         Failure::BondBroken => gettext("The pairing with this device is no longer valid."),
+        Failure::LocalSetup => gettext(
+            "This computer could not open a connection to the device. Try again, or switch Bluetooth off and on.",
+        ),
         Failure::Unknown => gettext("Bluetooth could not complete that."),
     }
 }
@@ -401,6 +421,7 @@ mod tests {
                 alias: "glimpse".to_owned(),
                 power,
                 discovering,
+                discoverable: false,
             }),
             devices,
             scanning: discovering,
@@ -436,9 +457,10 @@ mod tests {
     fn the_bar_carries_an_icon_and_never_a_device_name() {
         let one = state(Power::On, false, vec![device("Buds", true)]);
         assert_eq!(chip(&one).unwrap(), ACTIVE);
-        assert!(
-            tooltip(&one, None).is_some_and(|tooltip| tooltip.contains("Buds")),
-            "the name a connection has belongs to the tooltip, not to the bar"
+        assert_eq!(
+            tooltip(&one, None).as_deref(),
+            Some("1 device connected"),
+            "the bar counts what is connected and never names it"
         );
 
         let many = state(
@@ -447,6 +469,29 @@ mod tests {
             vec![device("Buds", true), device("Mouse", true)],
         );
         assert_eq!(chip(&many).unwrap(), ACTIVE);
+        assert_eq!(tooltip(&many, None).as_deref(), Some("2 devices connected"));
+        assert_eq!(
+            tooltip(&state(Power::On, false, vec![]), None).as_deref(),
+            Some("No devices connected")
+        );
+    }
+
+    #[test]
+    fn the_caption_names_the_adapter_only_while_it_is_visible() {
+        let mut shown = state(Power::On, false, vec![]);
+        assert_eq!(
+            visible_as(&shown),
+            None,
+            "an adapter nobody can see says nothing about being seen"
+        );
+
+        if let Some(adapter) = shown.adapter.as_mut() {
+            adapter.discoverable = true;
+        }
+        assert_eq!(
+            visible_as(&shown).as_deref(),
+            Some("Visible to other devices as glimpse")
+        );
     }
 
     #[test]
@@ -465,8 +510,11 @@ mod tests {
     #[test]
     fn a_hostile_name_is_capped_before_it_reaches_a_tooltip() {
         let name = "Наушники ".repeat(20);
-        let shown =
-            tooltip(&state(Power::On, false, vec![device(&name, true)]), None).expect("a tooltip");
+        let shown = tooltip(
+            &state(Power::On, false, vec![device(&name, true)]),
+            Some("{devices}"),
+        )
+        .expect("a tooltip");
 
         assert_eq!(shown.chars().count(), NAME_CAP + 1);
         assert!(
@@ -655,7 +703,7 @@ mod tests {
             tooltip(&state, Some("{adapter}: {devices}")).as_deref(),
             Some("glimpse: Buds")
         );
-        assert_eq!(tooltip(&state, None).as_deref(), Some("Buds"));
+        assert_eq!(tooltip(&state, None).as_deref(), Some("1 device connected"));
     }
 
     #[test]

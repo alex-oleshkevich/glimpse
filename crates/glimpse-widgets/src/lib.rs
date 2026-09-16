@@ -36,6 +36,7 @@ pub(crate) mod row;
 mod scrubber;
 mod section;
 mod split_row;
+mod switch_row;
 mod theme;
 mod tooltip_card;
 mod transport;
@@ -84,6 +85,7 @@ pub use row::Row;
 pub use scrubber::{Scrubber, clock};
 pub use section::Section;
 pub use split_row::SplitRow;
+pub use switch_row::SwitchRow;
 pub use theme::Styles;
 pub use tooltip_card::TooltipCard;
 pub use transport::{Repeat, Transport, TransportAction};
@@ -1858,6 +1860,39 @@ mod tests {
              light up under a hover that leads nowhere"
         );
 
+        let toggle = SwitchRow::new();
+        let flips = Rc::new(RefCell::new(Vec::new()));
+        toggle.connect_toggled({
+            let flips = Rc::clone(&flips);
+            move |_, on| flips.borrow_mut().push(on)
+        });
+
+        toggle
+            .upcast_ref::<Row>()
+            .set_title(Some("Connect automatically"));
+        let knob = child_named::<gtk4::Switch>(&toggle, "switch-row__knob");
+        toggle.set_active(true);
+        assert!(toggle.active() && knob.is_active());
+        assert!(
+            flips.borrow().is_empty(),
+            "showing the state the caller already knows about must not report it back"
+        );
+
+        toggle.emit_clicked();
+        assert_eq!(
+            *flips.borrow(),
+            [false],
+            "the row body is the target too, and it reports exactly one flip"
+        );
+        assert!(!toggle.active(), "the knob follows the row it belongs to");
+
+        knob.set_active(true);
+        assert_eq!(
+            *flips.borrow(),
+            [false, true],
+            "the knob and the row body share one emitter, so neither doubles the other"
+        );
+
         let section = Section::new();
         let header = child_named::<gtk4::Box>(&section, "section__header");
         let section_count = child_named::<gtk4::Label>(&section, "section__count");
@@ -3259,6 +3294,11 @@ mod tests {
             children_of::<ForecastDay>(&weather.imp().days.get()).is_empty(),
             "every day travels with its own panel, so the list's children are holders"
         );
+        assert!(
+            weather.imp().hero.has_css_class("receded")
+                && weather.imp().hourly.has_css_class("receded"),
+            "an open detail is read against a quiet card, so everything else recedes"
+        );
         weather.open("day1");
         assert_eq!(
             weather.is_open().as_deref(),
@@ -3282,6 +3322,10 @@ mod tests {
             weather.is_open(),
             None,
             "a detail must not stand open on a page that has gone away"
+        );
+        assert!(
+            !weather.imp().hero.has_css_class("receded"),
+            "and the card it was read against comes back up with it"
         );
 
         let advisory = |title: &str, page: Option<&str>, severity| Advisory {
@@ -3652,6 +3696,7 @@ mod tests {
                 BluetoothLine {
                     action: "disconnect".to_owned(),
                     title: "Disconnect".to_owned(),
+                    activates: true,
                     ..Default::default()
                 },
                 BluetoothLine {
@@ -3661,10 +3706,17 @@ mod tests {
                     ..Default::default()
                 },
                 BluetoothLine {
+                    action: "address".to_owned(),
+                    title: "Address".to_owned(),
+                    value: "F8:4E:17:BC:EE:D5".to_owned(),
+                    ..Default::default()
+                },
+                BluetoothLine {
                     action: "forget".to_owned(),
                     title: "Forget this device".to_owned(),
                     icon: "user-trash-symbolic".to_owned(),
                     destructive: true,
+                    activates: true,
                     ..Default::default()
                 },
             ],
@@ -3684,10 +3736,34 @@ mod tests {
         );
 
         let lines = panel_rows("a");
-        assert_eq!(lines.len(), 3);
+        assert_eq!(lines.len(), 4);
         assert!(
-            lines[2].has_css_class("row--danger") && !lines[0].has_css_class("row--danger"),
+            lines[3].has_css_class("row--danger") && !lines[0].has_css_class("row--danger"),
             "only the line that destroys the bond is dressed as one"
+        );
+        assert!(
+            lines[1].clone().downcast::<SwitchRow>().is_ok(),
+            "a line carrying a toggle is a SwitchRow, not a row with a switch dropped in it"
+        );
+        assert!(
+            lines[0].activatable() && lines[3].activatable(),
+            "a line that acts keeps the pointer"
+        );
+        let toggled = Rc::new(RefCell::new(Vec::new()));
+        popover.connect_toggled({
+            let toggled = Rc::clone(&toggled);
+            move |_, id, action, on| toggled.borrow_mut().push(format!("{id}/{action}/{on}"))
+        });
+        lines[1].emit_clicked();
+        lines[1].emit_clicked();
+        assert_eq!(
+            *toggled.borrow(),
+            ["a/trust/true", "a/trust/false"],
+            "a toggle line acts through its own row body, exactly once per press and both ways"
+        );
+        assert!(
+            !lines[2].activatable(),
+            "a line that only states something must not light up under a hover leading nowhere"
         );
         lines[0].emit_by_name::<()>("clicked", &[]);
         assert_eq!(*acted.borrow(), ["a/disconnect"]);
@@ -3704,6 +3780,7 @@ mod tests {
                 BluetoothLine {
                     action: "disconnect".to_owned(),
                     title: "Disconnect".to_owned(),
+                    activates: true,
                     ..Default::default()
                 },
                 BluetoothLine {
@@ -3742,6 +3819,7 @@ mod tests {
                 BluetoothLine {
                     action: "disconnect".to_owned(),
                     title: "Disconnect".to_owned(),
+                    activates: true,
                     ..Default::default()
                 },
                 BluetoothLine {
