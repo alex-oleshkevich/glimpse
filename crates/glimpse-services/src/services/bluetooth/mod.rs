@@ -112,7 +112,6 @@ impl Prompt {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Confirmation {
     Forget { device: DeviceId, connected: bool },
-    Trust { device: DeviceId },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -222,7 +221,6 @@ pub enum Command {
     SetTrusted {
         id: DeviceId,
         trusted: bool,
-        confirmed: bool,
         reply: Reply,
     },
     Forget {
@@ -348,19 +346,9 @@ impl BluetoothHandle {
             .await
     }
 
-    pub async fn set_trusted(
-        &self,
-        id: DeviceId,
-        trusted: bool,
-        confirmed: bool,
-    ) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::SetTrusted {
-            id,
-            trusted,
-            confirmed,
-            reply,
-        })
-        .await
+    pub async fn set_trusted(&self, id: DeviceId, trusted: bool) -> Result<(), BluetoothError> {
+        self.call(|reply| Command::SetTrusted { id, trusted, reply })
+            .await
     }
 
     pub async fn forget(&self, id: DeviceId, confirmed: bool) -> Result<(), BluetoothError> {
@@ -611,16 +599,6 @@ impl Bluetooth {
                     device: id,
                     connected,
                 });
-                self.publish();
-                let _ = reply.send(Ok(()));
-            }
-            Command::SetTrusted {
-                id,
-                trusted: true,
-                confirmed: false,
-                reply,
-            } => {
-                self.confirm = Some(Confirmation::Trust { device: id });
                 self.publish();
                 let _ = reply.send(Ok(()));
             }
@@ -2018,51 +1996,6 @@ mod tests {
                 device: DeviceId(HEADSET.to_owned()),
                 connected: false,
             })
-        );
-    }
-
-    #[tokio::test]
-    async fn trust_confirms_when_switched_on_and_not_when_switched_off() {
-        let (mut service, ctx, state, _health) = bluetooth().await;
-        enumerated(&mut service, &ctx, session()).await;
-
-        let _ = command(&mut service, &ctx, |reply| Command::SetTrusted {
-            id: DeviceId(HEADSET.to_owned()),
-            trusted: true,
-            confirmed: false,
-            reply,
-        })
-        .await;
-        assert_eq!(
-            state.borrow().confirm,
-            Some(Confirmation::Trust {
-                device: DeviceId(HEADSET.to_owned())
-            })
-        );
-
-        let _ = command(&mut service, &ctx, |reply| Command::DismissConfirmation {
-            reply,
-        })
-        .await;
-        let outcome = command(&mut service, &ctx, |reply| Command::SetTrusted {
-            id: DeviceId(HEADSET.to_owned()),
-            trusted: false,
-            confirmed: false,
-            reply,
-        })
-        .await;
-
-        assert_eq!(
-            state.borrow().confirm,
-            None,
-            "refusing is the safe direction"
-        );
-        assert!(
-            matches!(
-                outcome,
-                Err(BluetoothError::Service(CommandError::Unavailable(_)))
-            ),
-            "it went to the backend, which is unreachable in tests"
         );
     }
 

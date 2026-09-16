@@ -166,21 +166,17 @@ impl Applet for Bluetooth {
         shown.connect_toggled({
             let bluetooth = self.bluetooth.clone();
             let notifications = self.notifications.clone();
-            let opener = seat.opener();
             move |_, id, action, on| {
                 if action != "trust" {
                     return;
                 }
                 let id = DeviceId::new(id);
                 let bluetooth = bluetooth.clone();
-                if on {
-                    opener.close_popover();
-                }
                 tell(
                     &notifications,
                     "bluetooth.set_trusted",
                     gettext("Could not change that setting"),
-                    async move { bluetooth.set_trusted(id, on, !on).await },
+                    async move { bluetooth.set_trusted(id, on).await },
                 );
             }
         });

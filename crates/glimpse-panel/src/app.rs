@@ -238,9 +238,6 @@ impl App {
                     (true, Confirmation::Forget { device, .. }) => {
                         handle.forget(device, true).await
                     }
-                    (true, Confirmation::Trust { device }) => {
-                        handle.set_trusted(device, true, true).await
-                    }
                     (false, _) => handle.dismiss_confirmation().await,
                 };
             });
@@ -317,14 +314,6 @@ fn wording(
             gettext("Forget"),
             adw::ResponseAppearance::Destructive,
         ),
-        Confirmation::Trust { .. } => (
-            gettext("Let {device} connect on its own?").replace("{device}", name),
-            gettext(
-                "It will connect whenever it is switched on and nearby, and will use the microphone and other services without asking again.",
-            ),
-            gettext("Allow"),
-            adw::ResponseAppearance::Suggested,
-        ),
     }
 }
 
@@ -357,7 +346,6 @@ fn spawn_bluetooth_watch(
                     confirm: next.1.map(|confirmation| {
                         let name = named(match &confirmation {
                             Confirmation::Forget { device, .. } => device,
-                            Confirmation::Trust { device } => device,
                         });
                         (confirmation, name)
                     }),

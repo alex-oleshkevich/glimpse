@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-16 13:57+0200\n"
+"POT-Creation-Date: 2026-09-16 14:34+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -32,43 +32,28 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:308
+#: crates/glimpse-panel/src/app.rs:305
 msgid "Forget {device}?"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:311
+#: crates/glimpse-panel/src/app.rs:308
 msgid ""
 "It will be disconnected, and this computer will stop connecting to it. To "
 "use it again you will have to pair it, with the device in pairing mode."
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:314
+#: crates/glimpse-panel/src/app.rs:311
 msgid ""
 "This computer will stop connecting to it, and it will not connect on its "
 "own. To use it again you will have to pair it, with the device in pairing "
 "mode."
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:317
+#: crates/glimpse-panel/src/app.rs:314
 msgid "Forget"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:321
-msgid "Let {device} connect on its own?"
-msgstr ""
-
-#: crates/glimpse-panel/src/app.rs:323
-msgid ""
-"It will connect whenever it is switched on and nearby, and will use the "
-"microphone and other services without asking again."
-msgstr ""
-
-#: crates/glimpse-panel/src/app.rs:325
-#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:64
-msgid "Allow"
-msgstr ""
-
-#: crates/glimpse-panel/src/app.rs:350
+#: crates/glimpse-panel/src/app.rs:339
 msgid "this device"
 msgstr ""
 
@@ -156,22 +141,18 @@ msgstr ""
 msgid "Could not remove the device"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:182
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:178
 msgid "Could not change that setting"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:197
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:193
 msgid "Could not look for devices"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:277
+#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:273
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:112
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:18
 msgid "Bluetooth"
-msgstr ""
-
-#: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:287
-msgid "Bluetooth is not answering right now."
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:32
@@ -223,7 +204,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:204
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:598
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:597
 msgid "Connecting…"
 msgstr ""
 
@@ -349,90 +330,90 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:326
 msgid ""
 "This computer could not open a connection to the device. Try again, or "
-"switch              Bluetooth off and on."
+"switch Bluetooth off and on."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:329
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:328
 msgid "Bluetooth could not complete that."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:352
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:351
 msgid "Headset"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:353
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:352
 msgid "Headphones"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:354
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:353
 msgid "Speaker"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:355
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:354
 msgid "Keyboard"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:356
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:355
 msgid "Mouse"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:357
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:356
 msgid "Gamepad"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:358
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:357
 msgid "Tablet"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:359
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:358
 msgid "Phone"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:360
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:359
 msgid "Computer"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:361
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:360
 msgid "Display"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:362
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:361
 msgid "Printer"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:363
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:362
 msgid "Device"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:377
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:376
 msgid "Vendor codec"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:383
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:382
 msgid "Audio"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:384
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:383
 msgid "Calls"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:385
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:384
 msgid "Remote control"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:386
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:385
 msgid "Input"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:387
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:386
 msgid "Network"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:388
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:387
 msgid "File transfer"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/bluetooth/render.rs:389
+#: crates/glimpse-panel/src/applets/bluetooth/render.rs:388
 msgid "Contacts"
 msgstr ""
 
@@ -814,6 +795,10 @@ msgstr ""
 
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:63
 msgid "Deny"
+msgstr ""
+
+#: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:64
+msgid "Allow"
 msgstr ""
 
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/mod.rs:75

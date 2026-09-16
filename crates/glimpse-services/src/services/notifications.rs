@@ -588,8 +588,8 @@ fn application_id(
                 app_name,
                 APP_NAME_MAX_CHARS - NAMED.len(),
             ))
-                .filter(|name| !name.is_empty())
-                .map(|name| format!("{NAMED}{name}"))
+            .filter(|name| !name.is_empty())
+            .map(|name| format!("{NAMED}{name}"))
         })
         .or(sender)
         .unwrap_or_else(|| format!("notification-{id}"))

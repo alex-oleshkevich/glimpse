@@ -793,16 +793,6 @@ mod tests {
             "a forget row must reach the service as an unconfirmed forget, not as a forget"
         );
 
-        let arguments: [&dyn gtk4::glib::value::ToValue; 3] =
-            [&DEVICE.to_owned(), &"trust".to_owned(), &true];
-        popover.emit_by_name::<()>("toggled", &arguments);
-        assert!(
-            settled(Confirmation::Trust {
-                device: DeviceId::new(DEVICE),
-            }),
-            "turning the trust switch on must ask first"
-        );
-
         drop(guard);
         runtime.block_on(service.stop());
     }
