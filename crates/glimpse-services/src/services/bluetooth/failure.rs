@@ -31,6 +31,8 @@ pub enum Failure {
     Unknown,
 }
 
+const NO_DISCOVERY: &str = "No discovery started";
+
 pub fn classify(action: Action, error: &zbus::Error) -> Result<(), Failure> {
     let zbus::Error::MethodError(name, detail, _) = error else {
         return Err(Failure::Unknown);
@@ -44,6 +46,7 @@ pub fn classify(action: Action, error: &zbus::Error) -> Result<(), Failure> {
         | (Action::Pair, "AlreadyExists")
         | (Action::Scan, "InProgress")
         | (Action::Forget, "DoesNotExist") => return Ok(()),
+        (Action::Scan, "Failed") if token == NO_DISCOVERY => return Ok(()),
         _ => {}
     }
 
@@ -133,7 +136,7 @@ mod tests {
     }
 
     #[test]
-    fn the_four_non_failures_are_not_failures() {
+    fn the_five_non_failures_are_not_failures() {
         assert_eq!(
             classify(Action::Connect, &method("AlreadyConnected", None)),
             Ok(())
@@ -146,6 +149,19 @@ mod tests {
         assert_eq!(
             classify(Action::Forget, &method("DoesNotExist", None)),
             Ok(())
+        );
+        assert_eq!(
+            classify(Action::Scan, &method("Failed", Some(NO_DISCOVERY))),
+            Ok(()),
+            "the deadline stops the scan first, and the popover closing stops it again"
+        );
+    }
+
+    #[test]
+    fn a_failed_scan_that_names_no_stopped_discovery_is_still_a_failure() {
+        assert_eq!(
+            classify(Action::Scan, &method("Failed", Some("br-connection-busy"))),
+            Err(Failure::Busy)
         );
     }
 

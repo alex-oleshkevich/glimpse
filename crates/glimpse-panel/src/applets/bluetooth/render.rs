@@ -395,8 +395,6 @@ pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
         lines.push(Line {
             action: "forget".to_owned(),
             title: gettext("Forget this device"),
-            icon: "user-trash-symbolic".to_owned(),
-            destructive: true,
             activates: true,
             busy: matches!(device.busy, Some(Busy::Forgetting)),
             ..Default::default()
@@ -414,9 +412,7 @@ fn line((action, title): (&str, String), value: String) -> Line {
         action: action.to_owned(),
         title,
         value,
-        icon: String::new(),
         toggle: None,
-        destructive: false,
         activates: false,
         busy: false,
     }
@@ -435,7 +431,9 @@ pub fn wording(failure: Failure) -> String {
         Failure::Refused => gettext("The device refused the connection."),
         Failure::NoService => gettext("The device offers nothing this computer can connect to."),
         Failure::WrongKey => gettext("The PIN or passkey did not match."),
-        Failure::PairingRejected => gettext("The device rejected the pairing."),
+        Failure::PairingRejected => {
+            gettext("The device rejected the pairing. Put it in pairing mode and try again.")
+        }
         Failure::PairingTimeout => gettext("The pairing timed out."),
         Failure::PairingCanceled => gettext("The pairing was cancelled."),
         Failure::NoAgent => gettext(

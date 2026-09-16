@@ -523,6 +523,15 @@ experimental 5.87, measured against a WH-1000XM4, a Keychron K3 and a 20-second 
   against the panel's hidden `adw::ApplicationWindow` leaves it `mapped=false` with no error;
   showing the host maps it at once and niri lists a real toplevel. Any global dialog on that host
   must show the host while one is up.
+- **A forgotten device that is merely switched on is connectable, not pairable.** Removing the bond
+  leaves the remote holding its own, so powering it on puts it back under *Nearby* offering *Pair
+  this device*, and `Pair()` answers `org.bluez.Error.AuthenticationRejected` — the remote refuses
+  because it is not in pairing mode. Measured on a WH-1000XM4. Nothing in glimpse can fix it; the
+  wording is all that is ours, and it names the button on the device.
+- **`StopDiscovery` answers `Failed: No discovery started` whenever the deadline got there first.**
+  The scan timeout stops discovery and clears the service's own bookkeeping, and the popover's
+  `unmap` then stops unconditionally, by design. The second stop is routine, so `classify` reads it
+  as done rather than as a refusal.
 
 **`SwitchRow`'s gesture behaviour is asserted only in part, September 2026.** The headless test
 proves one emitter — the row body and a programmatic knob change each produce exactly one `toggled`.

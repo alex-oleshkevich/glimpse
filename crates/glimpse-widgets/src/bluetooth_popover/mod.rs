@@ -58,7 +58,11 @@ impl BluetoothPopover {
     pub fn set_scanning(&self, scanning: bool) {
         let imp = self.imp();
         imp.search.set_active(scanning);
+        if imp.nearby.get_visible() == scanning {
+            return;
+        }
         imp.nearby.set_visible(scanning);
+        self.render_details();
     }
 
     pub fn set_details(&self, details: Option<&Details>) {
@@ -302,21 +306,23 @@ impl BluetoothPopover {
 
     fn render_details(&self) {
         let details = self.imp().details.borrow().clone();
-        let open = details.as_ref().map(|details| details.id.as_str());
+        let wanted = details.as_ref().map(|details| details.id.as_str());
+        let open = self
+            .listed()
+            .into_iter()
+            .find(|(id, _)| wanted == Some(id.as_str()));
 
         for (id, holder) in self.holders() {
             if let Some(panel) = drawer::panel(&holder) {
-                drawer::set(&panel, open == Some(id.as_str()));
+                drawer::set(&panel, open.as_ref().is_some_and(|(open, _)| *open == id));
             }
         }
 
-        if let Some(details) = details.as_ref()
-            && let Some(holder) = self.holders().find(|(id, _)| *id == details.id)
-        {
-            self.fill(&holder.1, details);
+        if let (Some(details), Some((_, holder))) = (details.as_ref(), open.as_ref()) {
+            self.fill(holder, details);
         }
 
-        self.recede(open);
+        self.recede(open.as_ref().map(|(id, _)| id.as_str()));
     }
 
     /// The panel is built the first time its device is opened: a list of fourteen devices would
@@ -369,6 +375,21 @@ impl BluetoothPopover {
         crate::set_css_class(&*imp.hero, drawer::RECEDED, open.is_some());
     }
 
+    fn listed(&self) -> Vec<(String, gtk4::Box)> {
+        let imp = self.imp();
+        let mut listed = Vec::new();
+        for (section, held) in [
+            (&imp.connected, &imp.connected_held),
+            (&imp.paired, &imp.paired_held),
+            (&imp.nearby, &imp.nearby_held),
+        ] {
+            if section.get_visible() && !section.empty() {
+                listed.extend(held.borrow().iter().cloned());
+            }
+        }
+        listed
+    }
+
     fn holders(&self) -> impl Iterator<Item = (String, gtk4::Box)> + use<> {
         let imp = self.imp();
         let mut all = imp.connected_held.borrow().clone();
@@ -414,9 +435,7 @@ impl BluetoothPopover {
     fn dress_line(&self, row: &Row, line: &Line) {
         row.set_title(none_if_empty(&line.title));
         row.set_value(none_if_empty(&line.value));
-        row.set_lead_icon(none_if_empty(&line.icon));
         row.set_busy(line.busy);
-        crate::set_css_class(row, DANGER, line.destructive);
 
         let Some(on) = line.toggle else {
             return;
@@ -458,7 +477,6 @@ impl BluetoothPopover {
 
 const DETAIL: &str = "detail-card";
 const DEVICE: &str = "bluetooth-popover__device";
-const DANGER: &str = "row--danger";
 
 fn set_button(button: &gtk4::Button, label: &str) {
     button.set_visible(!label.is_empty());

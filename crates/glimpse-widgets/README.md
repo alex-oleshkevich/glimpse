@@ -119,8 +119,6 @@ string, and loses its icon and its title/body split the moment it is flattened i
 - **Sizes are rule-scoped tokens** declared in `.row` itself; `:root` stays the shared vocabulary.
 - **`.row` must reset `font-weight`.** libadwaita styles bare `button` bold and weight inherits, so
   every row would render bold — and the grammar distinguishes a selected row by weight.
-- **`.row--danger` must colour `.row__icon`, not just the row.** The icon node sets its own
-  `--gl-muted`, so tinting the row alone leaves the trash glyph grey beside red text.
 - **`SwitchRow` is the toggle row.** Its body flips the knob and the knob's `notify::active` is the
   only emitter, so the row and the switch can never double each other.
 
@@ -229,10 +227,12 @@ Per-popover rules that are traps rather than taste:
 **A detail unfolds in place, never beside the list.** `crate::drawer` builds the holder — a row with
 its own `Gtk.Revealer` under it — and `BluetoothPopover` and `ForecastList` both reconcile into one,
 so a card grows down instead of sideways off an output edge. The open row takes `.open`, the card
-`.detail-card`; bluetooth recedes the rest, and a capped list ends in an overflow row.
+`.detail-card`, and a capped list ends in an overflow row. **What recedes follows the row the list
+shows, not the id asked for**: a hidden section takes its card and its dimming with it.
 **A pairing prompt is a `Gtk.Stack` page, not a dialog.** `BluetoothPopover`'s `pages` swaps the
-device column for the question, hero and footer insensitive, `hhomogeneous` on so the card takes
-the wider page once. `PairingDialog` keeps the two prompts needing an entry; its `answered` signal
+device column for the question, hero and footer insensitive, `hhomogeneous` on so the card takes the
+wider page once and **no `interpolate-size`**, which under-allocates the taller page mid-fade and
+warns once a frame. `PairingDialog` keeps the two prompts needing an entry; its `answered` signal
 carries `(response, value, numeric)`, since a value alone turns a numeric PIN into a passkey. It
 focuses its entry on `map` and clears it only on a kind change: BlueZ re-asks as a name resolves.
 

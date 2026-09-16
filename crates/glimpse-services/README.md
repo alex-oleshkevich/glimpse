@@ -284,11 +284,11 @@ children; a prefix match invents seven phantom devices. `fd0` is the `MediaTrans
 **`busy` is cleared by its own command's completion, never by the property moving.** `Connect()` on
 an already-connected device returns `AlreadyConnected` with no state change, so a property-based
 clear leaves that row spinning forever; `Settled` names the `Busy` it answers, so a superseded
-command cannot clear a newer one. Four BlueZ errors are not failures at all — `AlreadyConnected`,
-`AlreadyExists`, `InProgress` on a scan, `DoesNotExist` — and the rest reach the caller **typed**,
-as `BluetoothError::Failed(Failure)`: as a string the panel cannot word it. `failure.rs` matches the
-name, then the token by its **suffix** (BlueZ spells each reason once per transport), and `settle`
-logs both. **Pairing ends connected.**
+command cannot clear a newer one. Five BlueZ errors are not failures at all — `AlreadyConnected`,
+`AlreadyExists`, `InProgress` on a scan, `DoesNotExist`, a stop's `Failed: No discovery started` —
+and the rest reach the caller **typed**, as `BluetoothError::Failed(Failure)`: as a string the panel
+cannot word it. `failure.rs` matches the name, then the token by its **suffix** (BlueZ spells each
+reason once per transport), and `settle` logs both. **Pairing ends connected.**
 
 **A scan starts two ways and stops on six** — `Hold::Timed` takes `scan_timeout`, `Hold::Held` none,
 and a bluez restart clears it, the session having died with the daemon. `SetDiscoveryFilter` carries

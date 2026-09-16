@@ -1580,11 +1580,6 @@ mod tests {
             vec!["a".to_owned(), "a".to_owned()],
             "a section reports the group it stands for rather than where it sits"
         );
-        assert!(
-            !popover_imp.clear.has_css_class("row--danger"),
-            "clear all keeps the normal footer treatment"
-        );
-
         let toggles = Rc::new(RefCell::new(Vec::new()));
         popover.connect_dnd_toggled({
             let toggles = Rc::clone(&toggles);
@@ -3706,8 +3701,6 @@ mod tests {
                 BluetoothLine {
                     action: "forget".to_owned(),
                     title: "Forget this device".to_owned(),
-                    icon: "user-trash-symbolic".to_owned(),
-                    destructive: true,
                     activates: true,
                     ..Default::default()
                 },
@@ -3728,10 +3721,6 @@ mod tests {
 
         let lines = panel_rows("a");
         assert_eq!(lines.len(), 4);
-        assert!(
-            lines[3].has_css_class("row--danger") && !lines[0].has_css_class("row--danger"),
-            "only the line that destroys the bond is dressed as one"
-        );
         assert!(
             lines[1].clone().downcast::<SwitchRow>().is_ok(),
             "a line carrying a toggle is a SwitchRow, not a row with a switch dropped in it"
@@ -3791,10 +3780,6 @@ mod tests {
             switch.is_active(),
             "a reused row must follow the backend, not the last click"
         );
-        assert!(
-            !panel_rows("a")[2].has_css_class("row--danger"),
-            "a row reused for an ordinary line must not keep the danger it was dressed with"
-        );
         assert_eq!(
             *acted.borrow(),
             ["a/disconnect"],
@@ -3829,6 +3814,38 @@ mod tests {
             ["b/disconnect"],
             "a row whose action key repeats across devices must not act on the one no longer shown"
         );
+
+        popover.set_scanning(true);
+        popover.set_entries(&[
+            entry("a", BluetoothPlace::Connected),
+            entry("b", BluetoothPlace::Paired),
+            entry("n", BluetoothPlace::Nearby),
+        ]);
+        popover.set_details(Some(&BluetoothDetails {
+            id: "n".to_owned(),
+            lines: vec![BluetoothLine {
+                action: "pair".to_owned(),
+                title: "Pair this device".to_owned(),
+                activates: true,
+                ..Default::default()
+            }],
+        }));
+        assert!(
+            panel("n").reveals_child() && popover.imp().hero.has_css_class("receded"),
+            "a nearby device opens like any other"
+        );
+        popover.set_scanning(false);
+        assert!(
+            !popover.imp().hero.has_css_class("receded")
+                && !head("a").has_css_class("receded")
+                && !panel("n").reveals_child(),
+            "the scan ending takes the nearby card away, so nothing may stay dimmed against it"
+        );
+        popover.set_details(None);
+        popover.set_entries(&[
+            entry("a", BluetoothPlace::Connected),
+            entry("b", BluetoothPlace::Paired),
+        ]);
 
         let width =
             |popover: &BluetoothPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;

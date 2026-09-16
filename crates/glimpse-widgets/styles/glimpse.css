@@ -357,11 +357,6 @@
     font-weight: 600;
 }
 
-.row--danger .row__title,
-.row--danger .row__icon {
-    color: var(--gl-danger-text);
-}
-
 .keyboard-popover {
     --gl-popover-min-width: 8rem;
 }

@@ -32,9 +32,7 @@ pub struct Line {
     pub action: String,
     pub title: String,
     pub value: String,
-    pub icon: String,
     pub toggle: Option<bool>,
-    pub destructive: bool,
     pub activates: bool,
     pub busy: bool,
 }
