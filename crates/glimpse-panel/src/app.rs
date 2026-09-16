@@ -1,5 +1,5 @@
 use adw::gdk::{self, prelude::*};
-use adw::prelude::{AdwDialogExt, AlertDialogExt};
+use adw::prelude::AdwDialogExt;
 use futures_util::StreamExt;
 use gettextrs::gettext;
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
@@ -8,14 +8,15 @@ use std::{collections::HashMap, path::PathBuf};
 use glimpse_config::{
     Config, PANEL_STYLESHEET, stylesheet, user_stylesheet, watch_config, watch_theme,
 };
-use glimpse_services::{Answer, BluetoothHandle, Confirmation, DeviceId, Prompt};
-use glimpse_widgets::{PairingAnswer, PairingDialog, Styles};
+use glimpse_services::{Answer, BluetoothHandle, Prompt};
+use glimpse_widgets::{PairingAnswer, PairingDialog, PairingEntry as Entry, Styles};
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
 };
 use tokio::task::JoinHandle;
 
 use crate::{
+    applets::bluetooth::render,
     components::{self, panel},
     services::PanelServices,
 };
@@ -28,10 +29,7 @@ pub struct AppInit {
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant, clippy::enum_variant_names)]
 pub enum AppInput {
-    BluetoothPrompts {
-        pairing: Option<(Prompt, String)>,
-        confirm: Option<(Confirmation, String)>,
-    },
+    BluetoothPrompt(Option<(Prompt, String)>),
     ConfigChanged(Config),
     MonitorsChanged,
     ServicesReady(PanelServices),
@@ -47,14 +45,7 @@ pub struct App {
     services_start: JoinHandle<()>,
     host: adw::ApplicationWindow,
     bluetooth_watch: Option<JoinHandle<()>>,
-    dialogs: Dialogs,
-    asked: Option<Confirmation>,
-}
-
-#[derive(Default)]
-struct Dialogs {
     pairing: Option<(PairingDialog, glib::SignalHandlerId)>,
-    confirm: Option<(adw::AlertDialog, glib::SignalHandlerId)>,
 }
 
 #[relm4::component(pub)]
@@ -93,8 +84,7 @@ impl SimpleComponent for App {
             services_start,
             host: root.clone(),
             bluetooth_watch: None,
-            dialogs: Dialogs::default(),
-            asked: None,
+            pairing: None,
         };
         model.reload_styles();
 
@@ -132,16 +122,14 @@ impl SimpleComponent for App {
                 ));
                 self.services = Some(services);
             }
-            AppInput::BluetoothPrompts { pairing, confirm } => {
+            AppInput::BluetoothPrompt(pairing) => {
                 if let Some(services) = &self.services {
-                    if pairing.is_some() || confirm.is_some() {
+                    if pairing.is_some() {
                         self.close_popovers();
                     }
                     let bluetooth = services.bluetooth.clone();
                     self.show_pairing(pairing, &bluetooth);
-                    self.show_confirmation(confirm, &bluetooth);
-                    let up = self.dialogs.pairing.is_some() || self.dialogs.confirm.is_some();
-                    if !up && self.host.is_visible() {
+                    if self.pairing.is_none() && self.host.is_visible() {
                         self.host.set_visible(false);
                     }
                 }
@@ -172,11 +160,21 @@ impl App {
 
     fn show_pairing(&mut self, pairing: Option<(Prompt, String)>, bluetooth: &BluetoothHandle) {
         let Some((prompt, name)) = pairing else {
-            close(self.dialogs.pairing.take());
+            close(self.pairing.take());
             return;
         };
 
-        let dialog = match &self.dialogs.pairing {
+        let entry = match prompt {
+            Prompt::RequestPin(_) => Entry::Pin,
+            Prompt::RequestPasskey(_) => Entry::Passkey,
+            other => {
+                tracing::error!(?other, "a prompt the popover renders reached the dialog");
+                close(self.pairing.take());
+                return;
+            }
+        };
+
+        let dialog = match &self.pairing {
             Some((dialog, _)) => dialog.clone(),
             None => {
                 let dialog = PairingDialog::new();
@@ -190,67 +188,12 @@ impl App {
                 });
                 self.host.set_visible(true);
                 dialog.present(Some(&self.host));
-                self.dialogs.pairing = Some((dialog.clone(), answered));
+                self.pairing = Some((dialog.clone(), answered));
                 dialog
             }
         };
 
-        match prompt {
-            Prompt::Confirm { passkey, .. } => dialog.show_confirm(&name, passkey),
-            Prompt::Authorize(_) => dialog.show_authorize(&name),
-            Prompt::RequestPin(_) => dialog.show_request_pin(&name),
-            Prompt::RequestPasskey(_) => dialog.show_request_passkey(&name),
-            Prompt::DisplayPin { pin, .. } => dialog.show_display_pin(&name, &pin),
-            Prompt::DisplayPasskey {
-                passkey, entered, ..
-            } => dialog.show_display_passkey(&name, passkey, entered),
-        }
-    }
-
-    fn show_confirmation(
-        &mut self,
-        confirm: Option<(Confirmation, String)>,
-        bluetooth: &BluetoothHandle,
-    ) {
-        if self.shown_confirmation() == confirm.as_ref().map(|(confirmation, _)| confirmation) {
-            return;
-        }
-        close(self.dialogs.confirm.take());
-        let Some((confirmation, name)) = confirm else {
-            return;
-        };
-
-        let (heading, body, label, appearance) = wording(&confirmation, &name);
-        let dialog = adw::AlertDialog::new(Some(&heading), Some(&body));
-        dialog.add_response(CANCEL, &gettext("Cancel"));
-        dialog.add_response(CONFIRM, &label);
-        dialog.set_response_appearance(CONFIRM, appearance);
-        dialog.set_close_response(CANCEL);
-
-        let handle = bluetooth.clone();
-        let asked = confirmation.clone();
-        let responded = dialog.connect_response(None, move |_, response| {
-            let handle = handle.clone();
-            let asked = asked.clone();
-            let accepted = response == CONFIRM;
-            relm4::spawn(async move {
-                let _ = match (accepted, asked) {
-                    (true, Confirmation::Forget { device, .. }) => {
-                        handle.forget(device, true).await
-                    }
-                    (false, _) => handle.dismiss_confirmation().await,
-                };
-            });
-        });
-
-        self.host.set_visible(true);
-        dialog.present(Some(&self.host));
-        self.dialogs.confirm = Some((dialog, responded));
-        self.asked = Some(confirmation);
-    }
-
-    fn shown_confirmation(&self) -> Option<&Confirmation> {
-        self.dialogs.confirm.as_ref().and(self.asked.as_ref())
+        dialog.ask(&name, entry);
     }
 
     fn reload_styles(&self) {
@@ -284,36 +227,11 @@ fn spawn_services(config: Config, sender: ComponentSender<App>) -> JoinHandle<()
     })
 }
 
-const CANCEL: &str = "cancel";
-const CONFIRM: &str = "confirm";
-
 fn answered(answer: PairingAnswer) -> Answer {
     match answer {
-        PairingAnswer::Confirm => Answer::Confirm,
         PairingAnswer::Deny => Answer::Deny,
         PairingAnswer::Pin(pin) => Answer::Pin(pin),
         PairingAnswer::Passkey(passkey) => Answer::Passkey(passkey),
-    }
-}
-
-fn wording(
-    confirmation: &Confirmation,
-    name: &str,
-) -> (String, String, String, adw::ResponseAppearance) {
-    match confirmation {
-        Confirmation::Forget { connected, .. } => (
-            gettext("Forget {device}?").replace("{device}", name),
-            match connected {
-                true => gettext(
-                    "It will be disconnected, and this computer will stop connecting to it. To use it again you will have to pair it, with the device in pairing mode.",
-                ),
-                false => gettext(
-                    "This computer will stop connecting to it, and it will not connect on its own. To use it again you will have to pair it, with the device in pairing mode.",
-                ),
-            },
-            gettext("Forget"),
-            adw::ResponseAppearance::Destructive,
-        ),
     }
 }
 
@@ -323,33 +241,26 @@ fn spawn_bluetooth_watch(
 ) -> JoinHandle<()> {
     relm4::spawn(async move {
         let mut states = bluetooth.subscribe();
-        let mut last = (None, None);
+        let mut last = None;
         loop {
             let next = {
                 let state = states.borrow_and_update();
-                (state.pairing.clone(), state.confirm.clone())
+                state
+                    .pairing
+                    .as_ref()
+                    .filter(|prompt| render::needs_typing(prompt))
+                    .cloned()
             };
             if next != last {
                 last = next.clone();
                 let state = states.borrow().clone();
-                let named = |id: &DeviceId| {
-                    state
-                        .name(id)
+                sender.input(AppInput::BluetoothPrompt(next.map(|prompt| {
+                    let name = state
+                        .name(prompt.device())
                         .filter(|name| !name.is_empty())
-                        .map_or_else(|| gettext("this device"), ToOwned::to_owned)
-                };
-                sender.input(AppInput::BluetoothPrompts {
-                    pairing: next.0.map(|prompt| {
-                        let name = named(prompt.device());
-                        (prompt, name)
-                    }),
-                    confirm: next.1.map(|confirmation| {
-                        let name = named(match &confirmation {
-                            Confirmation::Forget { device, .. } => device,
-                        });
-                        (confirmation, name)
-                    }),
-                });
+                        .map_or_else(|| gettext("this device"), render::cap);
+                    (prompt, name)
+                })));
             }
             if states.changed().await.is_err() {
                 break;

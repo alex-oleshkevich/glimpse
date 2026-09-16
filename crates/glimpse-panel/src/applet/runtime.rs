@@ -29,7 +29,6 @@ pub struct AppletInit {
 pub enum HostInput {
     Configured(AppletConfig),
     PopoverRequested,
-    PopoverClosed,
     PopoverDismissed,
     Oriented(gtk4::Orientation),
     Pressed { button: u32 },
@@ -118,11 +117,6 @@ impl Component for AppletRuntime {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
         match message {
             HostInput::PopoverRequested => self.show_popover(&sender),
-            HostInput::PopoverClosed => {
-                if self.owns() {
-                    self.catcher.close();
-                }
-            }
             HostInput::PopoverDismissed => {
                 if !self.owns() {
                     self.shown = None;

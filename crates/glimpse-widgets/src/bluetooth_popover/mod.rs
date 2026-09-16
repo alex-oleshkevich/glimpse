@@ -4,10 +4,15 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{Row, SplitRow, SwitchRow, drawer, none_if_empty, reconcile, set_footer_row};
 
-pub use imp::{Details, Entry, Line, Place};
+pub use imp::{Ask, Details, Entry, Line, Place};
 
 const SCAN_ICON: &str = "list-add-symbolic";
 const STOP_ICON: &str = "process-stop-symbolic";
+const DEVICES_PAGE: &str = "devices";
+const PROMPT_PAGE: &str = "prompt";
+const BARE: &str = "prompt__actions--bare";
+const SUGGESTED: &str = "suggested-action";
+const DESTRUCTIVE: &str = "destructive-action";
 
 glib::wrapper! {
     pub struct BluetoothPopover(ObjectSubclass<imp::BluetoothPopover>)
@@ -73,6 +78,23 @@ impl BluetoothPopover {
         }
         imp.details.replace(details.cloned());
         self.render_details();
+    }
+
+    pub fn set_prompt(&self, ask: Option<&Ask>) {
+        let imp = self.imp();
+        if imp.prompt.borrow().as_ref() == ask {
+            return;
+        }
+        imp.prompt.replace(ask.cloned());
+        self.render_prompt();
+    }
+
+    pub fn connect_answered<F: Fn(&Self, bool) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "answered",
+            false,
+            glib::closure_local!(move |popover: Self, accepted: bool| f(&popover, accepted)),
+        )
     }
 
     pub fn set_overflow(&self, paired: Option<&str>, nearby: Option<&str>) {
@@ -177,6 +199,31 @@ impl BluetoothPopover {
             .iter()
             .find(|entry| entry.id == id)
             .map(|entry| entry.place)
+    }
+
+    fn render_prompt(&self) {
+        let imp = self.imp();
+        let prompt = imp.prompt.borrow();
+        let Some(ask) = prompt.as_ref() else {
+            imp.pages.set_visible_child_name(DEVICES_PAGE);
+            imp.hero.set_sensitive(true);
+            imp.footer.set_sensitive(true);
+            return;
+        };
+
+        crate::set_text(&imp.prompt_device, none_if_empty(&ask.device));
+        crate::set_text(&imp.prompt_ask, none_if_empty(&ask.question));
+        crate::set_text(&imp.prompt_code, none_if_empty(&ask.code));
+        crate::set_text(&imp.prompt_progress, none_if_empty(&ask.progress));
+        set_button(&imp.prompt_cancel, &ask.cancel);
+        set_button(&imp.prompt_accept, &ask.accept);
+        crate::set_css_class(&*imp.prompt_accept, SUGGESTED, !ask.destructive);
+        crate::set_css_class(&*imp.prompt_accept, DESTRUCTIVE, ask.destructive);
+        crate::set_css_class(&*imp.prompt_actions, BARE, ask.code.is_empty());
+
+        imp.pages.set_visible_child_name(PROMPT_PAGE);
+        imp.hero.set_sensitive(false);
+        imp.footer.set_sensitive(false);
     }
 
     fn render_entries(&self) {
@@ -352,6 +399,7 @@ impl BluetoothPopover {
         row.set_title(none_if_empty(&line.title));
         row.set_value(none_if_empty(&line.value));
         row.set_lead_icon(none_if_empty(&line.icon));
+        row.set_busy(line.busy);
         crate::set_css_class(row, DANGER, line.destructive);
 
         let Some(on) = line.toggle else {
@@ -396,10 +444,19 @@ const DETAIL: &str = "detail-card";
 const DEVICE: &str = "bluetooth-popover__device";
 const DANGER: &str = "row--danger";
 
+fn set_button(button: &gtk4::Button, label: &str) {
+    button.set_visible(!label.is_empty());
+    if label.is_empty() || button.label().is_some_and(|current| current == label) {
+        return;
+    }
+    button.set_label(label);
+}
+
 fn dress_row(row: &Row, entry: &Entry) {
     row.set_title(none_if_empty(&entry.title));
     row.set_subtitle(none_if_empty(&entry.subtitle));
     row.set_lead_icon(none_if_empty(&entry.icon));
     row.set_value(none_if_empty(&entry.value));
+    row.set_busy(entry.busy);
     row.set_selected(entry.selected);
 }

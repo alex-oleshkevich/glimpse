@@ -2,34 +2,10 @@ using Gtk 4.0;
 using Adw 1;
 
 template $PairingDialog: Adw.AlertDialog {
-  extra-child: Gtk.Box {
-    orientation: vertical;
-    spacing: 6;
+  extra-child: Gtk.Entry entry {
+    visible: false;
+    activates-default: true;
     margin-top: 6;
     margin-bottom: 6;
-
-    Gtk.Label code {
-      visible: false;
-      accessible-role: presentation;
-
-      styles [
-        "title-1",
-        "numeric",
-      ]
-    }
-
-    Gtk.Label progress {
-      visible: false;
-      accessible-role: presentation;
-
-      styles [
-        "caption",
-      ]
-    }
-
-    Gtk.Entry entry {
-      visible: false;
-      activates-default: true;
-    }
   };
 }

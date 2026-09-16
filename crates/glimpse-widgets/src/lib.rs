@@ -48,10 +48,12 @@ mod workspaces_popover;
 mod world_clock;
 
 pub use artwork::artwork;
-pub use bluetooth_pairing_dialog::{PairingAnswer, PairingDialog};
+pub use bluetooth_pairing_dialog::{
+    Entry as PairingEntry, PASSKEY_MAX, PairingAnswer, PairingDialog,
+};
 pub use bluetooth_popover::{
-    BluetoothPopover, Details as BluetoothDetails, Entry as BluetoothEntry, Line as BluetoothLine,
-    Place as BluetoothPlace,
+    Ask as BluetoothAsk, BluetoothPopover, Details as BluetoothDetails, Entry as BluetoothEntry,
+    Line as BluetoothLine, Place as BluetoothPlace,
 };
 pub use calendar::{Calendar, Ymd};
 pub use calendar_popover::CalendarPopover;
@@ -3590,6 +3592,7 @@ mod tests {
             place,
             value: String::new(),
             selected: false,
+            busy: false,
         };
         popover.set_entries(&[
             entry("a", BluetoothPlace::Connected),
@@ -3649,21 +3652,7 @@ mod tests {
                 .child()
                 .and_downcast::<gtk4::Box>()
                 .expect("an opened panel has a page");
-            children_of::<Row>(
-                &page
-                    .last_child()
-                    .and_downcast::<gtk4::Box>()
-                    .expect("the page ends in its rows"),
-            )
-        };
-        let notice = |id: &str| -> Notice {
-            panel(id)
-                .child()
-                .and_downcast::<gtk4::Box>()
-                .expect("an opened panel has a page")
-                .first_child()
-                .and_downcast::<Notice>()
-                .expect("the page starts with its notice")
+            children_of::<Row>(&page)
         };
         let head = |id: &str| -> gtk4::Widget {
             let imp = popover.imp();
@@ -3724,7 +3713,6 @@ mod tests {
             panel("a").reveals_child(),
             "the detail belongs under the device it describes, not beside the list"
         );
-        assert!(notice("a").get_visible());
         assert!(
             !head("a").has_css_class("receded"),
             "the device that was opened is the one thing that must not recede"
@@ -3803,7 +3791,6 @@ mod tests {
             !panel_rows("a")[2].has_css_class("row--danger"),
             "a row reused for an ordinary line must not keep the danger it was dressed with"
         );
-        assert!(!notice("a").get_visible());
         assert_eq!(
             *acted.borrow(),
             ["a/disconnect"],
@@ -3881,6 +3868,71 @@ mod tests {
                 "a row's value has to stop asking for room at some point, or opening a device \
                  resizes the card under the pointer that opened it"
             );
+
+            probe.set_details(None);
+            let answers = Rc::new(RefCell::new(Vec::new()));
+            probe.connect_answered({
+                let answers = Rc::clone(&answers);
+                move |_, accepted| answers.borrow_mut().push(accepted)
+            });
+
+            probe.set_prompt(Some(&BluetoothAsk {
+                device: "Pixel 9 Pro".to_owned(),
+                question: "Is this the code shown on the device?".to_owned(),
+                code: "419 274".to_owned(),
+                progress: String::new(),
+                accept: "Confirm".to_owned(),
+                cancel: "Cancel".to_owned(),
+                destructive: false,
+            }));
+            assert_eq!(
+                width(&probe),
+                floor,
+                "a prompt taking over the card must not resize the surface it took over"
+            );
+            assert_eq!(
+                probe.imp().pages.visible_child_name().as_deref(),
+                Some("prompt")
+            );
+            assert!(
+                !probe.imp().hero.get_sensitive() && !probe.imp().footer.get_sensitive(),
+                "a prompt owns the surface, so nothing behind it stays pressable"
+            );
+            assert!(probe.imp().prompt_accept.get_visible());
+            assert!(probe.imp().prompt_code.get_visible());
+
+            probe.imp().prompt_accept.emit_by_name::<()>("clicked", &[]);
+            probe.imp().prompt_cancel.emit_by_name::<()>("clicked", &[]);
+            assert_eq!(*answers.borrow(), [true, false]);
+
+            probe.set_prompt(Some(&BluetoothAsk {
+                device: "UE BOOM 3".to_owned(),
+                question: "This device wants to pair with this computer.".to_owned(),
+                code: String::new(),
+                progress: String::new(),
+                accept: String::new(),
+                cancel: "Deny".to_owned(),
+                destructive: false,
+            }));
+            assert!(
+                !probe.imp().prompt_accept.get_visible(),
+                "a prompt with nothing to accept offers only the way out"
+            );
+            assert!(!probe.imp().prompt_code.get_visible());
+            assert!(
+                probe
+                    .imp()
+                    .prompt_actions
+                    .has_css_class("prompt__actions--bare")
+            );
+
+            probe.set_prompt(None);
+            assert_eq!(
+                probe.imp().pages.visible_child_name().as_deref(),
+                Some("devices"),
+                "an answered prompt hands the card back to the device list"
+            );
+            assert!(probe.imp().hero.get_sensitive() && probe.imp().footer.get_sensitive());
         }
         popover.set_details(None);
         let closed = width(&popover);
@@ -3930,30 +3982,20 @@ mod tests {
             move |_, answer| answers.borrow_mut().push(answer)
         });
 
-        dialog.show_confirm("Bose QuietComfort 45", 418_209);
-        assert_eq!(dialog.imp().code.text(), "418 209");
-        assert!(dialog.has_response("confirm") && dialog.has_response("cancel"));
-        assert_eq!(dialog.close_response(), "cancel");
-        assert!(
-            !dialog.imp().entry.get_visible(),
-            "a confirmation takes no typing"
-        );
-
         let rewrites = Rc::new(Cell::new(0u32));
         dialog.connect_heading_notify({
             let rewrites = Rc::clone(&rewrites);
             move |_| rewrites.set(rewrites.get() + 1)
         });
-        dialog.show_confirm("Bose QuietComfort 45", 418_209);
+
+        dialog.ask("Keychron K3", PairingEntry::Pin);
+        assert_eq!(rewrites.get(), 1);
+        dialog.ask("Keychron K3", PairingEntry::Pin);
         assert_eq!(
             rewrites.get(),
-            0,
+            1,
             "an unchanged heading must not be written again"
         );
-        dialog.show_authorize("Bose QuietComfort 45");
-        assert_eq!(rewrites.get(), 1, "a different prompt does write it");
-
-        dialog.show_request_pin("Keychron K3");
         assert!(dialog.imp().entry.get_visible());
         assert!(
             !dialog.is_response_enabled("ok"),
@@ -3969,7 +4011,8 @@ mod tests {
         );
         assert!(dialog.imp().entry.has_css_class("error"));
 
-        dialog.show_request_passkey("Bose QuietComfort 45");
+        dialog.ask("Bose QuietComfort 45", PairingEntry::Passkey);
+        assert_eq!(rewrites.get(), 2, "a different prompt does write it");
         dialog.imp().entry.set_max_length(0);
         dialog.imp().entry.set_text("1000000");
         assert!(
@@ -3978,18 +4021,12 @@ mod tests {
         );
         dialog.imp().entry.set_text("123456");
         assert!(dialog.is_response_enabled("ok"));
+        assert_eq!(dialog.close_response(), "cancel");
 
         dialog.emit_by_name::<()>("response", &[&"ok".to_owned()]);
         assert_eq!(*answers.borrow(), [PairingAnswer::Passkey(123_456)]);
 
         answers.borrow_mut().clear();
-        dialog.show_display_passkey("Keychron K3", 18_402, 3);
-        assert_eq!(dialog.imp().code.text(), "018 402");
-        assert!(dialog.imp().progress.get_visible());
-        assert!(
-            !dialog.has_response("ok") && !dialog.has_response("confirm"),
-            "a display-only prompt offers nothing but Cancel"
-        );
         dialog.emit_by_name::<()>("response", &[&dialog.close_response().to_string()]);
         assert_eq!(
             *answers.borrow(),

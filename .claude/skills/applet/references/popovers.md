@@ -103,7 +103,7 @@ template $XPopover: Gtk.Widget {
 The outer `Gtk.Widget` + `BinLayout` is not decoration: subclassing `Gtk.Widget` keeps `append` and
 `remove` out of the public API, so the only way to change the contents is the widget's own reconcile.
 
-## The four ways content varies
+## The five ways content varies
 
 Pick one. They compose badly — a drawer beside an inline expansion moves on both axes at once.
 
@@ -113,6 +113,7 @@ Pick one. They compose badly — a drawer beside an inline expansion moves on bo
 | A row has detail | a holder `Gtk.Box` per item: the `$Row` head, then its own `Gtk.Revealer` — `crate::drawer::holder` builds it | `BluetoothPopover` devices, `ForecastList` days |
 | More than fits | a `Gtk.Revealer drawer` **beside** the column, `transition-type: slide_right`, holding a vertical `Gtk.Separator` and a `.drawer-page` | `CalendarPopover`, `WorkspacesPopover` |
 | Empty has variants | a `Gtk.Stack` in `$Section`'s `[placeholder]` slot, one `$Placeholder` per page | `CalendarPopover` `nothing` / `truncated` |
+| One question owns the card | a `Gtk.Stack` **around** the `.column`, `vhomogeneous: false`, the other page carrying the question | `BluetoothPopover` pairing prompts |
 
 - **An open detail dims everything it is read against. This is not optional.** The moment anything
   unfolds, every *other* item in the list and every piece of surrounding chrome — hero, footer,
@@ -128,8 +129,8 @@ Pick one. They compose badly — a drawer beside an inline expansion moves on bo
   it toggles — `crate::drawer::toggle`, never `set_reveal_child` at a call site. A list that stops
   overflowing must close its drawer rather than leave it open on nothing.
 - **Detail unfolds downwards, overflow slides sideways.** Height is the free axis; width is not. A
-  drawer is only safe because its width is known before it opens, which is why the fourth row of the
-  table is a `Gtk.Stack` and not a second revealer.
+  drawer is only safe because its width is known before it opens, which is why neither stack in the
+  table is a second revealer.
 - **Build the panel on first open, not at construction.** Fourteen devices would otherwise carry
   fourteen row boxes nobody asked to see.
 
@@ -310,12 +311,21 @@ sets `self.range = None` and `open_on(today)`, `Bluetooth` clears `selected` and
 symptom when you forget is a popover that opens with a device already unfolded, under a row the user
 did not press this time.
 
-**A prompt-driven flow ends when it succeeds; it does not open a detail view.** Pressing *Pair*
-collapses the selection before the command goes out, so the pairing dialog is not sitting on top of a
-menu the user will find still open underneath it — and the device moves section as it pairs, which
-would otherwise re-open that menu somewhere new. Finish the job too: pairing ends **connected**, not
-merely bonded, which the service does by dispatching a `Connect` once the pair settles without
-failure.
+**An open detail survives its own action and closes only when that action succeeds.** Pressing a row
+inside a detail leaves the detail standing: it is the only place progress can be shown, and a
+failure needs its context. The applet records the device it acted on, waits until it has *seen* that
+device busy, and treats the return to not-busy as the answer — closing the detail when the command
+carried no failure and leaving it open when it did, with `spawn_reported`'s notification saying why.
+Reading the settle this way is only sound because the service clears `busy` and writes `failure` in
+the same step, so there is no window where a stale failure is read as this command's. Finish the job
+too: pairing ends **connected**, not merely bonded, which the service does by dispatching a
+`Connect` once the pair settles without failure.
+
+**Work in flight is a spinner and never a word.** `Row` owns a `busy` property; the device row spins
+where its trailing value would have been, and the action row that started the work spins too. A
+label saying "Connecting…" beside a spinner that already says it is read twice, and once the detail
+stopped collapsing on click the two sat directly above each other. The render types carry `busy` so
+the decision stays in `render.rs` and the widget only draws it.
 
 `Seat` is not `Ctx`. It hands out two things and nothing else: `seat.caller()` for commands and
 `seat.opener()` for wakes. Both are `Clone + 'static`, which is what lets a signal closure capture
@@ -372,9 +382,29 @@ because a row is rebuilt whenever the list changes.
 
 ## Dialogs and prompts
 
-**A prompt is not popover content.** It outlives the popover that started it — a pairing survives the
-popover being dismissed, and must — so prompts belong to `App`, never to an applet. `App` holds a
-`Dialogs { pairing, confirm }`, each slot pairing the dialog with **its `SignalHandlerId`**.
+**A pairing prompt is a page in the popover, not a sheet over it.** `BluetoothPopover` holds a
+`Gtk.Stack pages` whose two pages are the device column and the prompt. A prompt swaps the column
+out and leaves the hero and the footer insensitive, so the surface carries one question and nothing
+else to press. A view over a popover is not a shape this shell has; a stack also needs no dismissal
+guard on `Catcher`.
+
+**The two prompts that need typing keep the dialog.** The catcher is `KeyboardMode::None`, so
+`RequestPin` and `RequestPasskey` cannot be answered in a popover at all. `needs_typing` in `app.rs`
+makes the split inside the watch rather than at the dialog, so a prompt the popover renders never
+reaches `App` — and therefore never trips `close_popovers` on its way past, which would close the
+surface it is about to be drawn on.
+
+**A prompt arriving with no popover open opens one.** That is `Opener::open_popover`'s caller,
+guarded by the **device id**: BlueZ escalates a pairing mid-flow, confirm then passkey, and a guard
+on "a prompt exists" would re-open a popover the viewer had just dismissed. Dismissing does not
+answer the prompt — the chip stays in its acquiring state and pressing it re-opens onto the page.
+BlueZ's own agent timeout is the backstop.
+
+**A confirmation is the same page.** `Confirmation::Forget` renders through the same `Ask` with a
+destructive accept, so `App` no longer owns a confirmation dialog at all — one page serves both
+questions and the applet routes the single `answered` signal by what `render::asked` says is on it.
+
+**`App` owns the one dialog that is left**, pairing it with **its `SignalHandlerId`**.
 
 **The host is the component root, and it is invisible.** `App`'s `view!` is an
 `adw::ApplicationWindow` declared `set_visible: false`. Panels are not its children; it exists only
@@ -388,10 +418,9 @@ Raise the host immediately before presenting, and lower it once both slots are e
 is modal within the application, so leaving a popover up makes the whole screen unclickable — see the
 pitfall below. `App` broadcasts `panel::Input::ClosePopover` to each panel before either show.
 
-**One dialog serves every variant of a prompt.** BlueZ can escalate a pairing mid-flow — confirm,
-then passkey — so the existing dialog is *re-dressed* rather than rebuilt, and its `answered` signal
-is connected exactly once at build. That is the same connect-at-build, dress-on-every-event rule a
-popover follows, for the same reason.
+**One dialog serves every variant it is given.** The existing dialog is *re-dressed* rather than
+rebuilt, and its `answered` signal is connected exactly once at build. That is the same
+connect-at-build, dress-on-every-event rule a popover follows, for the same reason.
 
 **`force_close` fires the close response.** Tearing a dialog down would therefore answer the prompt —
 cancelling a pairing the user never saw. Block the stored handler around the close; that is what the
@@ -458,10 +487,13 @@ The card is as wide as the widest label's **natural** request. `ellipsize: end` 
 caps the request while still letting the label fill a wider allocation.
 
 Measured on `BluetoothPopover`: an uncapped hero subtitle took the card from 428px to 461, and a
-long `Services` value to 438. With `Hero`'s title and subtitle at 24 and `Row`'s value at 18, seven
-content scenarios — bare, long name, opened, long hero, long value, scanning — all measure
-428. Assert it: `measure(Horizontal, -1).1` before and after opening a device is one line, and it is
-the only thing standing between a stable card and one that resizes while it is being read.
+long `Services` value to 438. With `Hero`'s title and subtitle at 24 and `Row`'s value at 18, eight
+content scenarios — bare, long name, opened, long hero, long value, scanning, and either prompt page
+— all measure 428. Assert it: `measure(Horizontal, -1).1` before and after opening a device is one
+line, and it is the only thing standing between a stable card and one that resizes while it is being
+read. A `Gtk.Stack` swapping a page is the same question and answers it the same way: `hhomogeneous`
+is left at its default, so the card takes the wider of the two pages once rather than resizing when
+one replaces the other.
 
 ## Deciding a popover's shape
 

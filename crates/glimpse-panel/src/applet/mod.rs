@@ -163,10 +163,6 @@ impl Opener {
     pub fn wake(&self) {
         let _ = self.0.send(runtime::HostInput::Woken);
     }
-
-    pub fn close_popover(&self) {
-        let _ = self.0.send(runtime::HostInput::PopoverClosed);
-    }
 }
 
 impl Ctx {

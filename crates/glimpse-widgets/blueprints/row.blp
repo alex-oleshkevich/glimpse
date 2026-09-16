@@ -85,6 +85,16 @@ template $Row: Gtk.Button {
       ]
     }
 
+    Gtk.Spinner spinner {
+      visible: false;
+      valign: center;
+      accessible-role: presentation;
+
+      styles [
+        "row__spinner",
+      ]
+    }
+
     Gtk.Box trail {
       orientation: horizontal;
       valign: center;

@@ -24,6 +24,7 @@ pub struct Entry {
     pub place: Place,
     pub value: String,
     pub selected: bool,
+    pub busy: bool,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -35,12 +36,24 @@ pub struct Line {
     pub toggle: Option<bool>,
     pub destructive: bool,
     pub activates: bool,
+    pub busy: bool,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Details {
     pub id: String,
     pub lines: Vec<Line>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Ask {
+    pub device: String,
+    pub question: String,
+    pub code: String,
+    pub progress: String,
+    pub accept: String,
+    pub cancel: String,
+    pub destructive: bool,
 }
 
 #[derive(Debug, Default, CompositeTemplate)]
@@ -52,6 +65,22 @@ pub struct BluetoothPopover {
     pub hero: TemplateChild<Hero>,
     #[template_child]
     pub power: TemplateChild<gtk4::Switch>,
+    #[template_child]
+    pub pages: TemplateChild<gtk4::Stack>,
+    #[template_child]
+    pub prompt_device: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub prompt_ask: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub prompt_code: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub prompt_progress: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub prompt_actions: TemplateChild<gtk4::Box>,
+    #[template_child]
+    pub prompt_cancel: TemplateChild<gtk4::Button>,
+    #[template_child]
+    pub prompt_accept: TemplateChild<gtk4::Button>,
     #[template_child]
     pub connected: TemplateChild<Section>,
     #[template_child]
@@ -77,6 +106,7 @@ pub struct BluetoothPopover {
 
     pub entries: RefCell<Vec<Entry>>,
     pub details: RefCell<Option<Details>>,
+    pub prompt: RefCell<Option<Ask>>,
     pub connected_held: RefCell<Vec<(String, gtk4::Box)>>,
     pub paired_held: RefCell<Vec<(String, gtk4::Box)>>,
     pub nearby_held: RefCell<Vec<(String, gtk4::Box)>>,
@@ -131,6 +161,9 @@ impl ObjectImpl for BluetoothPopover {
                 glib::subclass::Signal::builder("expanded")
                     .param_types([String::static_type()])
                     .build(),
+                glib::subclass::Signal::builder("answered")
+                    .param_types([bool::static_type()])
+                    .build(),
                 glib::subclass::Signal::builder("footer-activated").build(),
             ]
         })
@@ -172,6 +205,16 @@ impl ObjectImpl for BluetoothPopover {
             #[weak]
             popover,
             move |_| popover.emit_by_name::<()>("footer-activated", &[])
+        ));
+        self.prompt_cancel.connect_clicked(glib::clone!(
+            #[weak]
+            popover,
+            move |_| popover.emit_by_name::<()>("answered", &[&false])
+        ));
+        self.prompt_accept.connect_clicked(glib::clone!(
+            #[weak]
+            popover,
+            move |_| popover.emit_by_name::<()>("answered", &[&true])
         ));
     }
 

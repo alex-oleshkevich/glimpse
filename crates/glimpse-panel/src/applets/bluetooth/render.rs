@@ -1,9 +1,9 @@
 use gettextrs::{gettext, ngettext};
 use glimpse_dbus::bluez::{Codec, DeviceIcon, Power, Profile};
-use glimpse_services::{BluetoothState, Busy, Device, DeviceId, Failure};
+use glimpse_services::{BluetoothState, Busy, Confirmation, Device, DeviceId, Failure, Prompt};
 use glimpse_widgets::{
-    BluetoothDetails as Details, BluetoothEntry as Entry, BluetoothLine as Line,
-    BluetoothPlace as Place,
+    BluetoothAsk as Ask, BluetoothDetails as Details, BluetoothEntry as Entry,
+    BluetoothLine as Line, BluetoothPlace as Place, PASSKEY_MAX,
 };
 
 pub const ACTIVE: &str = "bluetooth-active-symbolic";
@@ -117,6 +117,115 @@ pub fn hero(state: &BluetoothState) -> Hero {
     }
 }
 
+pub fn needs_typing(prompt: &Prompt) -> bool {
+    matches!(prompt, Prompt::RequestPin(_) | Prompt::RequestPasskey(_))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Asked {
+    Pairing(DeviceId),
+    Forget(DeviceId),
+}
+
+pub fn asked(state: &BluetoothState) -> Option<Asked> {
+    if let Some(prompt) = state
+        .pairing
+        .as_ref()
+        .filter(|prompt| !needs_typing(prompt))
+    {
+        return Some(Asked::Pairing(prompt.device().clone()));
+    }
+    let Confirmation::Forget { device, .. } = state.confirm.as_ref()?;
+    Some(Asked::Forget(device.clone()))
+}
+
+pub fn prompt(state: &BluetoothState) -> Option<Ask> {
+    match asked(state)? {
+        Asked::Pairing(_) => pairing(state),
+        Asked::Forget(_) => confirmation(state),
+    }
+}
+
+fn confirmation(state: &BluetoothState) -> Option<Ask> {
+    let Confirmation::Forget { device, connected } = state.confirm.as_ref()?;
+    Some(Ask {
+        device: named(state, device),
+        question: match connected {
+            true => gettext(
+                "It will be disconnected, and this computer will stop connecting to it. To use it again you will have to pair it, with the device in pairing mode.",
+            ),
+            false => gettext(
+                "This computer will stop connecting to it, and it will not connect on its own. To use it again you will have to pair it, with the device in pairing mode.",
+            ),
+        },
+        code: String::new(),
+        progress: String::new(),
+        accept: gettext("Forget"),
+        destructive: true,
+        cancel: gettext("Cancel"),
+    })
+}
+
+fn named(state: &BluetoothState, device: &DeviceId) -> String {
+    state
+        .name(device)
+        .filter(|name| !name.is_empty())
+        .map_or_else(|| gettext("Unknown device"), cap)
+}
+
+fn pairing(state: &BluetoothState) -> Option<Ask> {
+    let prompt = state.pairing.as_ref()?;
+    let device = named(state, prompt.device());
+
+    Some(match prompt {
+        Prompt::Confirm { passkey, .. } => Ask {
+            device,
+            question: gettext("Is this the code shown on the device?"),
+            code: digits(*passkey),
+            progress: String::new(),
+            accept: gettext("Confirm"),
+            destructive: false,
+            cancel: gettext("Cancel"),
+        },
+        Prompt::Authorize(_) => Ask {
+            device,
+            question: gettext("This device wants to pair with this computer."),
+            code: String::new(),
+            progress: String::new(),
+            accept: gettext("Allow"),
+            destructive: false,
+            cancel: gettext("Deny"),
+        },
+        Prompt::DisplayPin { pin, .. } => Ask {
+            device,
+            question: gettext("Type this PIN on the device. It will not ask again."),
+            code: cap(pin),
+            progress: String::new(),
+            accept: String::new(),
+            destructive: false,
+            cancel: gettext("Cancel"),
+        },
+        Prompt::DisplayPasskey {
+            passkey, entered, ..
+        } => Ask {
+            device,
+            question: gettext("Type this passkey on the device."),
+            code: digits(*passkey),
+            progress: gettext("{entered} of 6 entered")
+                .replace("{entered}", &(*entered).min(6).to_string()),
+            accept: String::new(),
+            destructive: false,
+            cancel: gettext("Cancel"),
+        },
+        Prompt::RequestPin(_) | Prompt::RequestPasskey(_) => return None,
+    })
+}
+
+fn digits(passkey: u32) -> String {
+    let padded = format!("{:06}", passkey.min(PASSKEY_MAX));
+    format!("{} {}", &padded[..3], &padded[3..])
+}
+
 fn icon_for(power: Power, discovering: bool, any_connected: bool) -> &'static str {
     match power {
         Power::Blocked => BLOCKED,
@@ -196,16 +305,13 @@ fn entry(device: &Device, place: Place, selected: bool) -> Entry {
         place,
         value: state_of(device),
         selected,
+        busy: device.busy.is_some(),
     }
 }
 
 fn state_of(device: &Device) -> String {
-    match device.busy {
-        Some(Busy::Connecting) => return gettext("Connecting…"),
-        Some(Busy::Disconnecting) => return gettext("Disconnecting…"),
-        Some(Busy::Pairing) => return gettext("Pairing…"),
-        Some(Busy::Forgetting) => return gettext("Removing…"),
-        None => {}
+    if device.busy.is_some() {
+        return String::new();
     }
     if device.connected {
         return device
@@ -224,13 +330,17 @@ pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
     let mut lines = Vec::new();
 
     if device.known() {
-        lines.push(acts(if device.connected {
+        let mut act = acts(if device.connected {
             ("disconnect", gettext("Disconnect"))
         } else {
             ("connect", gettext("Connect"))
-        }));
+        });
+        act.busy = matches!(device.busy, Some(Busy::Connecting | Busy::Disconnecting));
+        lines.push(act);
     } else {
-        lines.push(acts(("pair", gettext("Pair this device"))));
+        let mut pair = acts(("pair", gettext("Pair this device")));
+        pair.busy = matches!(device.busy, Some(Busy::Pairing));
+        lines.push(pair);
     }
 
     if let Some(level) = device.battery {
@@ -276,6 +386,7 @@ pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
             icon: "user-trash-symbolic".to_owned(),
             destructive: true,
             activates: true,
+            busy: matches!(device.busy, Some(Busy::Forgetting)),
             ..Default::default()
         });
     }
@@ -295,6 +406,7 @@ fn line((action, title): (&str, String), value: String) -> Line {
         toggle: None,
         destructive: false,
         activates: false,
+        busy: false,
     }
 }
 
@@ -585,15 +697,50 @@ mod tests {
     }
 
     #[test]
-    fn a_busy_device_says_so_instead_of_its_battery() {
-        let mut busy = device("Buds", false);
-        busy.busy = Some(Busy::Connecting);
-        busy.battery = Some(80);
-        let state = state(Power::On, false, vec![busy]);
+    fn a_busy_device_spins_rather_than_spelling_out_what_it_is_doing() {
+        for doing in [
+            Busy::Connecting,
+            Busy::Disconnecting,
+            Busy::Pairing,
+            Busy::Forgetting,
+        ] {
+            let mut busy = device("Buds", false);
+            busy.busy = Some(doing);
+            busy.battery = Some(80);
+            let state = state(Power::On, false, vec![busy]);
 
-        let listing = entries(&state, None, 6, 8);
+            let row = &entries(&state, None, 6, 8).entries[0];
 
-        assert_eq!(listing.entries[0].value, gettext("Connecting…"));
+            assert!(row.busy, "{doing:?} must reach the row as a spinner");
+            assert!(
+                row.value.is_empty(),
+                "{doing:?} left a word beside the spinner that says the same thing"
+            );
+        }
+    }
+
+    #[test]
+    fn the_action_row_that_started_the_work_is_the_one_that_spins() {
+        let mut pairing = device("Buds", false);
+        pairing.paired = false;
+        pairing.bonded = false;
+        pairing.trusted = false;
+        pairing.busy = Some(Busy::Pairing);
+        let id = pairing.id.clone();
+        let state = state(Power::On, false, vec![pairing]);
+
+        let lines = details(&state, &id).expect("the device").lines;
+        let spinning: Vec<&str> = lines
+            .iter()
+            .filter(|line| line.busy)
+            .map(|line| line.action.as_str())
+            .collect();
+
+        assert_eq!(
+            spinning,
+            ["pair"],
+            "progress belongs to the row that was pressed and to no other"
+        );
     }
 
     #[test]
@@ -710,5 +857,124 @@ mod tests {
             Some("{adapter}"),
             "a device name is remote-supplied and must never be read as a template"
         );
+    }
+
+    fn asking(prompt: Prompt) -> BluetoothState {
+        let mut state = state(Power::On, false, vec![device("Pixel", false)]);
+        state.pairing = Some(prompt);
+        state
+    }
+
+    fn pixel() -> DeviceId {
+        device("Pixel", false).id
+    }
+
+    #[test]
+    fn one_rule_decides_which_prompts_become_a_page() {
+        let every = [
+            Prompt::Confirm {
+                device: pixel(),
+                passkey: 0,
+            },
+            Prompt::Authorize(pixel()),
+            Prompt::RequestPin(pixel()),
+            Prompt::RequestPasskey(pixel()),
+            Prompt::DisplayPin {
+                device: pixel(),
+                pin: "0000".to_owned(),
+            },
+            Prompt::DisplayPasskey {
+                device: pixel(),
+                passkey: 0,
+                entered: 0,
+            },
+        ];
+
+        for one in every {
+            let typed = needs_typing(&one);
+            let named = format!("{one:?}");
+            assert_eq!(
+                prompt(&asking(one)).is_none(),
+                typed,
+                "the watch and the page disagree about who answers {named}"
+            );
+        }
+
+        assert!(prompt(&state(Power::On, false, vec![])).is_none());
+    }
+
+    #[test]
+    fn a_question_offers_an_answer_and_a_display_offers_only_a_way_out() {
+        let confirm = prompt(&asking(Prompt::Confirm {
+            device: pixel(),
+            passkey: 418_209,
+        }))
+        .unwrap();
+        assert_eq!(confirm.device, "Pixel");
+        assert_eq!(confirm.code, "418 209");
+        assert!(!confirm.accept.is_empty(), "a question can be answered yes");
+
+        let authorize = prompt(&asking(Prompt::Authorize(pixel()))).unwrap();
+        assert!(authorize.code.is_empty());
+        assert!(!authorize.accept.is_empty());
+
+        let pin = prompt(&asking(Prompt::DisplayPin {
+            device: pixel(),
+            pin: "0000".to_owned(),
+        }))
+        .unwrap();
+        assert_eq!(pin.code, "0000");
+        assert!(
+            pin.accept.is_empty(),
+            "nothing on this computer can confirm what was typed on the device"
+        );
+        assert!(!pin.cancel.is_empty());
+    }
+
+    #[test]
+    fn a_passkey_is_six_zero_padded_digits_and_its_progress_stops_at_six() {
+        let shown = |passkey, entered| {
+            prompt(&asking(Prompt::DisplayPasskey {
+                device: pixel(),
+                passkey,
+                entered,
+            }))
+            .unwrap()
+        };
+
+        assert_eq!(shown(18_402, 3).code, "018 402");
+        assert_eq!(shown(u32::MAX, 0).code, "999 999");
+        assert_eq!(shown(418_209, 3).progress, "3 of 6 entered");
+        assert_eq!(
+            shown(418_209, 9).progress,
+            "6 of 6 entered",
+            "a remote count past the passkey length is clamped, never rendered"
+        );
+    }
+
+    #[test]
+    fn an_unnamed_device_is_still_named_on_the_page() {
+        let mut state = asking(Prompt::Authorize(DeviceId::new(
+            "/org/bluez/hci0/dev_ghost",
+        )));
+        state.devices.clear();
+
+        assert_eq!(prompt(&state).unwrap().device, "Unknown device");
+    }
+
+    #[test]
+    fn a_hostile_device_name_is_capped_before_it_reaches_the_page() {
+        let long = "Наушники ".repeat(20);
+        let mut state = asking(Prompt::Authorize(pixel()));
+        state.devices[0].name = long.clone();
+
+        let shown = prompt(&state).unwrap();
+
+        assert_eq!(
+            shown.device.chars().count(),
+            NAME_CAP + 1,
+            "a remote name reaches the page capped, plus the one character marking the cut"
+        );
+        assert!(shown.device.ends_with('…'));
     }
 }

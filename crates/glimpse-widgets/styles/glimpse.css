@@ -37,6 +37,7 @@
     --gl-text-caption: 0.85rem;
     --gl-text-body: 1rem;
     --gl-text-title: 1.2rem;
+    --gl-text-display: 2.4rem;
 
     --gl-radius: 0.95rem;
     --gl-duration: 150ms;
@@ -663,9 +664,58 @@
 }
 
 .bluetooth-popover__visible-as {
-    font-size: var(--gl-text-caption, 0.8rem);
+    font-size: var(--gl-text-caption, 0.85rem);
     color: var(--gl-muted, alpha(currentColor, 0.7));
     padding: 0.2rem 0.8rem 0.35rem 0.8rem;
+}
+
+.prompt {
+    padding: 0.6rem 0.8rem 0.2rem 0.8rem;
+}
+
+.prompt > * {
+    margin-bottom: 0.1rem;
+}
+
+.prompt__device {
+    font-size: var(--gl-text-title, 1.2rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.prompt__ask {
+    font-size: var(--gl-text-caption, 0.85rem);
+    color: var(--gl-muted, alpha(currentColor, 0.7));
+}
+
+.prompt__code {
+    font-size: var(--gl-text-display, 2.4rem);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    font-variant-numeric: tabular-nums;
+    margin-top: 0.55rem;
+    margin-bottom: 0.25rem;
+}
+
+.prompt__progress {
+    font-size: var(--gl-text-caption, 0.85rem);
+    color: var(--gl-dim, alpha(currentColor, 0.4));
+    font-variant-numeric: tabular-nums;
+}
+
+.prompt__actions {
+    margin-top: 0.85rem;
+    margin-bottom: 0.35rem;
+}
+
+.prompt__actions--bare {
+    margin-top: 1.4rem;
+}
+
+.prompt__actions button {
+    min-height: 2.4rem;
+    border-radius: 0.7rem;
+    font-weight: 600;
 }
 
 .weather-popover__alerts,

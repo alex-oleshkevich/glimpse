@@ -1,4 +1,4 @@
 mod indicator;
-mod render;
+pub(crate) mod render;
 
 pub use indicator::Bluetooth;

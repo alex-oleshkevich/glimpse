@@ -19,74 +19,153 @@ template $BluetoothPopover: Gtk.Widget {
       }
     }
 
-    Gtk.Box column {
-      orientation: vertical;
-      hexpand: true;
+    Gtk.Stack pages {
+      transition-type: crossfade;
+      interpolate-size: true;
+      vhomogeneous: false;
 
-      styles [
-        "column",
-      ]
+      Gtk.StackPage {
+        name: "devices";
 
-      $Section connected {
-        visible: false;
-
-        Gtk.Box connected_rows {
+        child: Gtk.Box column {
           orientation: vertical;
-        }
-      }
+          hexpand: true;
 
-      $Section paired {
-        visible: false;
-        title: _("Paired");
+          styles [
+            "column",
+          ]
 
-        Gtk.Box {
-          orientation: vertical;
-
-          Gtk.Box paired_rows {
-            orientation: vertical;
-          }
-
-          $Row more_paired {
+          $Section connected {
             visible: false;
-            activatable: true;
-            lead-icon: "view-more-symbolic";
-          }
-        }
-      }
 
-      $Section nearby {
-        visible: false;
-        title: _("Nearby");
-
-        Gtk.Box {
-          orientation: vertical;
-
-          Gtk.Box nearby_rows {
-            orientation: vertical;
+            Gtk.Box connected_rows {
+              orientation: vertical;
+            }
           }
 
-          $Row more_nearby {
+          $Section paired {
             visible: false;
-            activatable: true;
-            lead-icon: "view-more-symbolic";
+            title: _("Paired");
+
+            Gtk.Box {
+              orientation: vertical;
+
+              Gtk.Box paired_rows {
+                orientation: vertical;
+              }
+
+              $Row more_paired {
+                visible: false;
+                activatable: true;
+                lead-icon: "view-more-symbolic";
+              }
+            }
           }
-        }
+
+          $Section nearby {
+            visible: false;
+            title: _("Nearby");
+
+            Gtk.Box {
+              orientation: vertical;
+
+              Gtk.Box nearby_rows {
+                orientation: vertical;
+              }
+
+              $Row more_nearby {
+                visible: false;
+                activatable: true;
+                lead-icon: "view-more-symbolic";
+              }
+            }
+          }
+
+          $Row scan {
+            lead-icon: "list-add-symbolic";
+            activatable: true;
+          }
+
+          Gtk.Label visible_as {
+            visible: false;
+            xalign: 0;
+            wrap: true;
+            max-width-chars: 30;
+
+            styles [
+              "bluetooth-popover__visible-as",
+            ]
+          }
+        };
       }
 
-      $Row scan {
-        lead-icon: "list-add-symbolic";
-        activatable: true;
-      }
+      Gtk.StackPage {
+        name: "prompt";
 
-      Gtk.Label visible_as {
-        visible: false;
-        xalign: 0;
-        wrap: true;
-        max-width-chars: 30;
+        child: Gtk.Box prompt_page {
+          orientation: vertical;
+          hexpand: true;
 
-        styles [
-          "bluetooth-popover__visible-as",
-        ]
+          styles [
+            "column",
+            "prompt",
+          ]
+
+          Gtk.Label prompt_device {
+            wrap: true;
+            justify: center;
+            max-width-chars: 24;
+
+            styles [
+              "prompt__device",
+            ]
+          }
+
+          Gtk.Label prompt_ask {
+            wrap: true;
+            justify: center;
+            max-width-chars: 30;
+
+            styles [
+              "prompt__ask",
+            ]
+          }
+
+          Gtk.Label prompt_code {
+            visible: false;
+
+            styles [
+              "prompt__code",
+            ]
+          }
+
+          Gtk.Label prompt_progress {
+            visible: false;
+
+            styles [
+              "prompt__progress",
+            ]
+          }
+
+          Gtk.Box prompt_actions {
+            orientation: horizontal;
+            homogeneous: true;
+            spacing: 8;
+
+            styles [
+              "prompt__actions",
+            ]
+
+            Gtk.Button prompt_cancel {
+              label: _("Cancel");
+            }
+
+            Gtk.Button prompt_accept {
+              visible: false;
+              label: _("Confirm");
+            }
+          }
+        };
       }
     }
 

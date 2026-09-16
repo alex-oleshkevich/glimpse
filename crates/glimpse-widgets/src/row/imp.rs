@@ -24,6 +24,8 @@ pub struct Row {
     #[template_child]
     pub value: TemplateChild<gtk4::Label>,
     #[template_child]
+    pub spinner: TemplateChild<gtk4::Spinner>,
+    #[template_child]
     pub trail: TemplateChild<gtk4::Box>,
 
     #[property(name = "title", get = Self::title, set = Self::set_title, nullable)]
@@ -40,6 +42,8 @@ pub struct Row {
     selected: PhantomData<bool>,
     #[property(name = "activatable", get = Self::activatable, set = Self::set_activatable)]
     activatable: PhantomData<bool>,
+    #[property(name = "busy", get = Self::busy, set = Self::set_busy)]
+    busy: PhantomData<bool>,
 }
 
 impl Row {
@@ -76,6 +80,18 @@ impl Row {
         }
         self.icon.set_icon_name(name.as_deref());
         self.icon.set_visible(name.is_some());
+    }
+
+    fn busy(&self) -> bool {
+        self.spinner.get_visible()
+    }
+
+    fn set_busy(&self, busy: bool) {
+        if self.busy() == busy {
+            return;
+        }
+        self.spinner.set_visible(busy);
+        self.spinner.set_spinning(busy);
     }
 
     fn value(&self) -> Option<String> {

@@ -230,10 +230,10 @@ Per-popover rules that are traps rather than taste:
 its own `Gtk.Revealer` under it — and `BluetoothPopover` and `ForecastList` both reconcile into one,
 so a card grows down instead of sideways off an output edge. The open row takes `.open`, the card
 `.detail-card`; bluetooth recedes the rest, and a capped list ends in an overflow row.
-**`PairingDialog` rebuilds its responses per prompt**: `Adw.AlertDialog` can add and remove a
-response but not hide one, and the six agent prompts offer four button sets. Its
-`answered` signal carries `(response, value, numeric)` — inferring the entry from the value turns a
-numeric PIN into a passkey, and validating here stops a PIN or passkey BlueZ would refuse.
+**A pairing prompt is a `Gtk.Stack` page, not a dialog.** `BluetoothPopover`'s `pages` swaps the
+device column for the question, hero and footer insensitive, `hhomogeneous` on so the card takes
+the wider page once. `PairingDialog` keeps the two prompts needing an entry; its `answered` signal
+carries `(response, value, numeric)`, since a value alone turns a numeric PIN into a passkey.
 
 ## ForecastStrip, ForecastList and the media widgets
 
@@ -283,7 +283,7 @@ and `theme::tests` lints the vocabulary. The rules it enforces are in `.claude/r
 
 ### Tokens and the type scale
 
-Thirty-seven `--gl-` tokens in `:root`, in three tiers, and a rule may only read the tier below it:
+Thirty-eight `--gl-` tokens in `:root`, in three tiers, and a rule may only read the tier below it:
 libadwaita's tokens → `--gl-*` → component rules. **Adding a token means updating the count asserted
 in `theme::tests` and the number above, together.**
 
