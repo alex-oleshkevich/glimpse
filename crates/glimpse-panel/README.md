@@ -98,10 +98,10 @@ first case: a click *per slot* over a list whose length changes.
 cached. An open popover still follows events: the applet keeps a `glib::WeakRef` and pushes every
 render into it — weak, because a strong reference would hold the tree alive past dismissal.
 
-**An applet on the runtime's `IndicatorGroup` gets its popover opened for it.** `HostInput::Pressed`
-delivers the press and then calls `show_popover` when the button was left. `Opener::open_popover` is
-for what no press reaches: the pager wires its click inside `view()`, and bluetooth raises a pairing
-prompt that arrived while nothing was open.
+**An applet on the runtime's `IndicatorGroup` gets its popover opened for it.** One owning its view
+asks by name: `Opener::toggle_popover` is that press (the pager's click), `open_popover` only
+*raises* — it opens one closed or still fading shut and leaves an open one alone, so a question
+arriving inside the 150ms fade is still shown. Bluetooth raises a pairing prompt nothing was open for.
 
 ### It is not a `Gtk.Popover`
 
@@ -114,21 +114,18 @@ dismissal, one popover at a time and an exit animation, and costs hand-rolled pl
 arrow.
 
 One catcher per panel, shared by every applet on it, so **one popover at a time is structural**.
-`KeyboardMode::None`, so nothing is taken from the focused window — the cost is that `Escape`
-dismisses nothing.
+`KeyboardMode::None`, so nothing is taken from the focused window and `Escape` dismisses nothing.
 
 **`open` takes the dismissal callback**, so only the applet owning the current popover hears about
-it and an applet removed by a config change leaves no closure, and no `Sender`, behind. The runtime
-asks `Catcher::holds` before acting, because a replaced applet still holds its handle until the
-queued `PopoverDismissed` reaches it, and a press in that window would close someone else's popover.
+it, and one removed by a config change leaves no closure and no `Sender` behind. The runtime asks
+`Catcher::holds` first: a replaced applet holds its handle until `PopoverDismissed` is delivered.
 
 ### Placement
 
 `Applet::anchor` names a widget inside the view; the runtime turns it into a centre coordinate.
 `placement()` is the whole arithmetic and is a free function so it can be asserted without a
 display. Four properties, one test each: the arrow's centre is the pressed item's centre; the body
-never leaves the output; the body keeps a gutter from the output edge; the arrow never sits on the
-body's rounded corner.
+stays on the output, keeping a gutter from its edge; the arrow never sits on a rounded corner.
 
 - **The gutter yields to the arrow, and that ordering is the design.** A popover near the edge
   cannot both keep a gutter and put its arrow over the item, so the gutter shrinks to whatever still
@@ -258,10 +255,13 @@ renders **nothing**, because a machine with no radio must not carry a dead chip.
   `Input::Woken` reads back.** A signal closure has no `&mut self`, so `opener.wake()` is how a
   popover changes applet state, and every open clears the selection and both expanded flags.
 - **A pairing prompt is a page in the popover; `raised` keys its auto-open on the device id**, since
-  BlueZ escalates a pairing mid-flow and a boolean would re-open a popover just dismissed.
-- **Only the two prompts needing an entry reach `App`**, narrowed by `render::typed` in the watch, so one
-  the popover draws never trips `close_popovers`. Those that do close every popover first — the catcher
-  is above every toplevel, the dialog modal in-app — and need the host **visible**, or `present` draws none.
+  BlueZ escalates a pairing mid-flow and a boolean would re-open a popover just dismissed. It never
+  consults the live widget — raising is the runtime's job, and the fade made that guess wrong.
+- **The chip takes `attention` while a question waits**, and the tooltip says so: a popover
+  dismissed on one is otherwise the only thing that knew it was asked.
+- **Only the two prompts needing an entry reach `App`**, narrowed by `render::typed` in the watch, so
+  one the popover draws never trips `close_popovers`. Those that do close every popover first, then
+  title, size and **show** the host before `present`, or the dialog is queued and never drawn.
 - **A failed command is notified**: `tell` words a typed `BluetoothError` through `render::wording`.
 - **Discoverable follows the popover** — set on open, cleared on unmap, re-asked on every wake, since
   BlueZ refuses it while the adapter is off and one try at open is lost on whoever switches it on.

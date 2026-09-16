@@ -40,6 +40,22 @@ impl Agent {
         }
     }
 
+    async fn authorized(&self, device: DeviceId) -> bool {
+        let (answer, reply) = oneshot::channel();
+        if self
+            .events
+            .send(Input::Event(Event::AuthorizeService {
+                device,
+                reply: answer,
+            }))
+            .await
+            .is_err()
+        {
+            return false;
+        }
+        reply.await.unwrap_or(false)
+    }
+
     async fn show(&self, prompt: Prompt) {
         let _ = self
             .events
@@ -137,12 +153,15 @@ impl Agent {
 
     async fn authorize_service(
         &self,
-        _device: ObjectPath<'_>,
+        device: ObjectPath<'_>,
         _uuid: String,
     ) -> Result<(), AgentError> {
-        Err(AgentError::Rejected(
-            "glimpse authorizes services through Trusted".to_owned(),
-        ))
+        match self.authorized(DeviceId(device.to_string())).await {
+            true => Ok(()),
+            false => Err(AgentError::Rejected(
+                "glimpse authorizes services for bonded devices only".to_owned(),
+            )),
+        }
     }
 
     async fn cancel(&self) {
@@ -285,20 +304,53 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn authorize_service_is_refused_without_asking_anyone() {
+    fn asked(inbox: &mut mpsc::Receiver<Input<Bluetooth>>) -> oneshot::Sender<bool> {
+        match inbox.try_recv() {
+            Ok(Input::Event(Event::AuthorizeService { reply, .. })) => reply,
+            _ => panic!("the agent did not ask about the service"),
+        }
+    }
+
+    async fn authorizing(answer: Option<bool>) -> Result<(), AgentError> {
         let (agent, mut inbox) = agent();
-        let device = ObjectPath::try_from(DEVICE).expect("a path");
+        let asking = tokio::spawn(async move {
+            let device = ObjectPath::try_from(DEVICE).expect("a path");
+            agent
+                .authorize_service(device, "0000110b-0000-1000-8000-00805f9b34fb".to_owned())
+                .await
+        });
+        for _ in 0..8 {
+            tokio::task::yield_now().await;
+        }
+        let reply = asked(&mut inbox);
+        match answer {
+            Some(answer) => {
+                let _ = reply.send(answer);
+            }
+            None => drop(reply),
+        }
+        asking.await.expect("the task ran")
+    }
 
-        let outcome = agent
-            .authorize_service(device, "0000110b-0000-1000-8000-00805f9b34fb".to_owned())
-            .await;
+    #[tokio::test]
+    async fn a_service_of_a_bonded_device_is_authorized() {
+        assert!(authorizing(Some(true)).await.is_ok());
+    }
 
-        assert!(matches!(outcome, Err(AgentError::Rejected(_))));
-        assert!(
-            inbox.try_recv().is_err(),
-            "every profile connection of an untrusted device would raise one of these"
-        );
+    #[tokio::test]
+    async fn a_service_of_an_unbonded_device_is_refused() {
+        assert!(matches!(
+            authorizing(Some(false)).await,
+            Err(AgentError::Rejected(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn a_service_nobody_answers_is_refused_rather_than_hanging() {
+        assert!(matches!(
+            authorizing(None).await,
+            Err(AgentError::Rejected(_))
+        ));
     }
 
     #[tokio::test]

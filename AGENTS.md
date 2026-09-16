@@ -136,6 +136,10 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
 - The one sanctioned exception: **a settled pairing trusts and connects**, because BlueZ leaves a
   freshly bonded device bonded and not connected, and a user who pressed *Pair* meant *use this*.
   Nothing else may grow a policy on top of a backend without the same explicit note here.
+- The second, for the same reason: **an incoming service from a bonded device is authorized**.
+  `Agent1.AuthorizeService` is BlueZ delegating rather than deciding, and it asks only about an
+  *untrusted* device — so a blanket refusal strands every pairing made before glimpse, with no UI
+  anywhere to explain it. The bond is the whole test; nothing else is consulted.
 - Commands are thin pass-throughs to the backend.
 - A handler that can block moves its `Responder` into `ctx.spawn`. Handlers run serially, so one
   slow D-Bus call otherwise freezes the whole service.

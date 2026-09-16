@@ -34,7 +34,7 @@ impl Applet for Pager {
 
         self.strip.connect_pressed({
             let ctx = ctx.opener();
-            move |_| ctx.open_popover()
+            move |_| ctx.toggle_popover()
         });
 
         self.strip.connect_stepped({

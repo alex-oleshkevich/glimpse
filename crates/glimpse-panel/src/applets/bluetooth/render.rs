@@ -152,6 +152,10 @@ pub fn asked(state: &BluetoothState) -> Option<Asked> {
     Some(Asked::Forget(device.clone()))
 }
 
+pub fn waiting(state: &BluetoothState) -> Option<String> {
+    asked(state).map(|_| gettext("Bluetooth is waiting for an answer"))
+}
+
 pub fn prompt(state: &BluetoothState) -> Option<Ask> {
     pairing(state).or_else(|| confirmation(state))
 }
@@ -917,6 +921,50 @@ mod tests {
         }
 
         assert!(prompt(&state(Power::On, false, vec![])).is_none());
+    }
+
+    #[test]
+    fn the_chip_says_a_question_is_waiting_for_exactly_the_prompts_it_has_to_show() {
+        assert_eq!(waiting(&state(Power::On, false, vec![])), None);
+
+        for one in [
+            Prompt::Confirm {
+                device: pixel(),
+                passkey: 0,
+            },
+            Prompt::Authorize(pixel()),
+            Prompt::DisplayPin {
+                device: pixel(),
+                pin: "0000".to_owned(),
+            },
+            Prompt::DisplayPasskey {
+                device: pixel(),
+                passkey: 0,
+                entered: 0,
+            },
+        ] {
+            let named = format!("{one:?}");
+            assert!(
+                waiting(&asking(one)).is_some(),
+                "closing the popover on {named} leaves the bar the only way back to it"
+            );
+        }
+
+        for one in [Prompt::RequestPin(pixel()), Prompt::RequestPasskey(pixel())] {
+            let named = format!("{one:?}");
+            assert_eq!(
+                waiting(&asking(one)),
+                None,
+                "{named} raises a dialog of its own, so the chip has nothing to add"
+            );
+        }
+
+        let mut forgetting = state(Power::On, false, vec![device("Pixel", false)]);
+        forgetting.confirm = Some(Confirmation::Forget {
+            device: pixel(),
+            connected: false,
+        });
+        assert!(waiting(&forgetting).is_some());
     }
 
     #[test]

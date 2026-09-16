@@ -265,6 +265,10 @@ pub enum Event {
     },
     Prompt(Prompt, Option<oneshot::Sender<Answer>>),
     PromptGone,
+    AuthorizeService {
+        device: DeviceId,
+        reply: oneshot::Sender<bool>,
+    },
     AgentReleased,
     AgentRegistered(bool),
     ScanExpired(u64),
@@ -516,12 +520,24 @@ impl Service for Bluetooth {
                 self.publish();
             }
             Input::Event(Event::Prompt(prompt, answer)) => {
-                self.prompt = Some((prompt, answer));
+                if let Some((held, Some(_))) = self.prompt.replace((prompt, answer)) {
+                    tracing::warn!(
+                        prompt = ?held,
+                        "a pairing question was replaced before it was answered"
+                    );
+                }
                 self.publish();
             }
             Input::Event(Event::PromptGone) => {
                 self.prompt = None;
                 self.publish();
+            }
+            Input::Event(Event::AuthorizeService { device, reply }) => {
+                let bonded = self
+                    .devices
+                    .get(device.as_str())
+                    .is_some_and(|record| record.properties.bonded == Some(true));
+                let _ = reply.send(bonded);
             }
             Input::Event(Event::InterfacesAdded { path, interfaces }) if self.adopted => {
                 self.add(&path, interfaces);
@@ -1863,6 +1879,35 @@ mod tests {
         assert_eq!(state.borrow().pairing, None);
         assert!(matches!(outcome.await, Ok(Ok(()))));
         assert_eq!(reply.await, Ok(Answer::Confirm));
+    }
+
+    #[tokio::test]
+    async fn an_incoming_service_is_authorized_by_the_bond_and_by_nothing_else() {
+        let (mut service, ctx, _state, _health) = bluetooth().await;
+        enumerated(&mut service, &ctx, session()).await;
+
+        for (path, allowed) in [
+            (HEADSET, true),
+            (NEARBY, false),
+            ("/org/bluez/hci0/dev_0", false),
+        ] {
+            let (reply, answer) = oneshot::channel();
+            service
+                .handle(
+                    &ctx,
+                    Input::Event(Event::AuthorizeService {
+                        device: DeviceId(path.to_owned()),
+                        reply,
+                    }),
+                )
+                .await;
+
+            assert_eq!(
+                answer.await,
+                Ok(allowed),
+                "bluez asks this for an untrusted device, so refusing every one of them strands                  a pairing the user already made"
+            );
+        }
     }
 
     #[tokio::test]

@@ -411,7 +411,7 @@ impl Bluetooth {
             return;
         }
         self.raised = asking;
-        if self.raised.is_some() && self.shown.upgrade().is_none() {
+        if self.raised.is_some() {
             ctx.opener().open_popover();
         }
     }
@@ -477,9 +477,12 @@ impl Bluetooth {
     }
 
     fn indicator(&self) -> Option<IndicatorSpec> {
+        let waiting = render::waiting(&self.state);
         Some(IndicatorSpec {
             icon: Some(themed(render::chip(&self.state)?)),
-            tooltip: render::tooltip(&self.state, self.tooltip_format.as_deref()),
+            attention: waiting.is_some(),
+            tooltip: waiting
+                .or_else(|| render::tooltip(&self.state, self.tooltip_format.as_deref())),
             ..Default::default()
         })
     }

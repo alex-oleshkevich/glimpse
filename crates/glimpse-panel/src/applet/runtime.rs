@@ -29,6 +29,7 @@ pub struct AppletInit {
 pub enum HostInput {
     Configured(AppletConfig),
     PopoverRequested,
+    PopoverToggled,
     PopoverDismissed,
     Oriented(gtk4::Orientation),
     Pressed { button: u32 },
@@ -116,7 +117,8 @@ impl Component for AppletRuntime {
 
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
         match message {
-            HostInput::PopoverRequested => self.show_popover(&sender),
+            HostInput::PopoverRequested => self.raise_popover(&sender),
+            HostInput::PopoverToggled => self.toggle_popover(&sender),
             HostInput::PopoverDismissed => {
                 if !self.owns() {
                     self.shown = None;
@@ -131,7 +133,7 @@ impl Component for AppletRuntime {
                 let button = Button::from_code(button);
                 self.deliver(Some(&Input::Pointer(Pointer::Press(button))));
                 if button == Button::Left {
-                    self.show_popover(&sender);
+                    self.toggle_popover(&sender);
                 }
             }
             HostInput::Scrolled { dx, dy } => {
@@ -168,11 +170,25 @@ impl AppletRuntime {
             .is_some_and(|shown| self.catcher.holds(&shown.widget()))
     }
 
-    fn show_popover(&mut self, sender: &ComponentSender<Self>) {
-        if self.owns() {
+    fn up(&self) -> bool {
+        self.owns() && !self.catcher.closing()
+    }
+
+    fn toggle_popover(&mut self, sender: &ComponentSender<Self>) {
+        if self.up() {
             return self.catcher.close();
         }
+        self.show_popover(sender);
+    }
 
+    fn raise_popover(&mut self, sender: &ComponentSender<Self>) {
+        if self.up() {
+            return;
+        }
+        self.show_popover(sender);
+    }
+
+    fn show_popover(&mut self, sender: &ComponentSender<Self>) {
         let seat = self.seat.clone();
         let outcome = self
             .applet
@@ -429,6 +445,20 @@ mod tests {
 
         fn indicators(&self) -> Vec<IndicatorSpec> {
             SHOWN.with(|shown| shown.borrow().iter().map(|label| spec(label)).collect())
+        }
+    }
+
+    struct Raiser;
+
+    impl Applet for Raiser {
+        fn handle(&mut self, _ctx: &Ctx, _input: &Input) {}
+
+        fn indicators(&self) -> Vec<IndicatorSpec> {
+            vec![spec("raiser")]
+        }
+
+        fn popover(&mut self, _seat: &Seat) -> Option<Box<dyn PopoverHandle>> {
+            Some(Box::new(gtk4::Label::new(Some("popover"))))
         }
     }
 
@@ -728,7 +758,59 @@ mod tests {
              widget; only the group empties itself"
         );
 
+        a_raise_opens_a_popover_and_never_closes_one();
         a_bluetooth_popover_signal_reaches_the_service();
+    }
+
+    /// `PopoverRequested` is how an applet raises a question the user has to answer, so it must
+    /// open and only open. A press toggles; a raise that toggled would dismiss the very question
+    /// it was asked to show, and one swallowed by the close fade would never show it at all.
+    fn a_raise_opens_a_popover_and_never_closes_one() {
+        let catcher = Catcher::new(None, glimpse_config::Position::Top);
+        let handle = AppletHandle::launch(
+            "raiser".to_owned(),
+            None,
+            Box::new(|_| Box::new(Raiser)),
+            config("%H"),
+            Rc::clone(&catcher),
+        );
+        settle();
+
+        let send = |input| {
+            let _ = handle._controller.sender().send(input);
+            settle();
+        };
+        let raise = || send(HostInput::PopoverRequested);
+
+        raise();
+        assert!(!catcher.closing(), "a raise opens the popover");
+
+        raise();
+        assert!(
+            !catcher.closing(),
+            "a second raise leaves it open rather than toggling it shut"
+        );
+
+        catcher.close();
+        assert!(
+            catcher.closing(),
+            "the fade holds the child until it finishes"
+        );
+        raise();
+        assert!(
+            !catcher.closing(),
+            "a raise arriving during the close fade reopens rather than being swallowed"
+        );
+
+        send(HostInput::PopoverToggled);
+        assert!(
+            catcher.closing(),
+            "an applet owning its view has no press to ride on and asks for the toggle by name"
+        );
+
+        raise();
+        press(&group(&handle), 1);
+        assert!(catcher.closing(), "a press still toggles");
     }
 
     /// The one link the widget's own tests and the service's own tests leave between them: the

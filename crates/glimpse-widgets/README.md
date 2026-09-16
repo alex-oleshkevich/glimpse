@@ -22,10 +22,9 @@ Binding registers the GType before `init_template` resolves the class by name, o
 - **Every setter compares before it writes**; `gio::Icon` compares with `Icon::equal`.
 - **`css_classes` on a builder replaces the list, and `has-frame: false` *is* the `flat` class**, so
   a chain setting both paints a button behind a frameless icon. Add classes after `build()`.
-- **`get_visible()`, not `is_visible()`** — the second walks ancestors, so a `Row` inside a
-  `Section` marked empty reports no title for one it holds. A runtime-built label handed to
-  `set_text` must therefore start `visible: false`, since `set_text` derives visibility from the
-  text and returns early when unchanged: a visible empty label never hides.
+- **`get_visible()`, not `is_visible()`** — the second walks ancestors, so a `Row` inside a `Section`
+  marked empty reports no title for one it holds. A runtime-built label handed to `set_text` starts
+  `visible: false`, since `set_text` returns early when unchanged: a visible empty label never hides.
 - **A row highlights only if its body acts.** `activatable: false` drops `can-target`, so neither the
   row, its children, nor a tooltip is reachable — a row holding a control uses `SwitchRow` instead.
 - **Both labels cap their natural width**, because `ellipsize` lowers only a label's *minimum*.
@@ -233,7 +232,8 @@ so a card grows down instead of sideways off an output edge. The open row takes 
 **A pairing prompt is a `Gtk.Stack` page, not a dialog.** `BluetoothPopover`'s `pages` swaps the
 device column for the question, hero and footer insensitive, `hhomogeneous` on so the card takes
 the wider page once. `PairingDialog` keeps the two prompts needing an entry; its `answered` signal
-carries `(response, value, numeric)`, since a value alone turns a numeric PIN into a passkey.
+carries `(response, value, numeric)`, since a value alone turns a numeric PIN into a passkey. It
+focuses its entry on `map` and clears it only on a kind change: BlueZ re-asks as a name resolves.
 
 ## ForecastStrip, ForecastList and the media widgets
 

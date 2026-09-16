@@ -203,6 +203,10 @@ impl Catcher {
         self.body.first_child().as_ref() == Some(widget.as_ref())
     }
 
+    pub fn closing(&self) -> bool {
+        matches!(self.state.get(), State::Closed | State::Closing)
+    }
+
     pub fn horizontal(&self) -> bool {
         horizontal(self.side.get())
     }

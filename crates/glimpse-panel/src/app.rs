@@ -60,6 +60,7 @@ impl SimpleComponent for App {
             set_decorated: false,
             set_deletable: false,
             set_resizable: false,
+            set_default_size: (420, 260),
         }
     }
 
@@ -176,6 +177,7 @@ impl App {
                         let _ = handle.answer_pairing(answer).await;
                     });
                 });
+                self.host.set_title(Some(&gettext("Bluetooth pairing")));
                 self.host.set_visible(true);
                 dialog.present(Some(&self.host));
                 self.pairing = Some((dialog.clone(), answered));

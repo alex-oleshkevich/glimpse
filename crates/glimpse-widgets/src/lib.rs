@@ -4021,6 +4021,12 @@ mod tests {
         );
         dialog.imp().entry.set_text("0000");
         assert!(dialog.is_response_enabled("ok"));
+        dialog.ask("Keychron K3 Keyboard", PairingEntry::Pin);
+        assert_eq!(
+            dialog.imp().entry.text(),
+            "0000",
+            "bluez resolving the device name re-asks, and must not wipe a half-typed PIN"
+        );
         dialog.imp().entry.set_max_length(0);
         dialog.imp().entry.set_text(&"a".repeat(PIN_MAX + 1));
         assert!(

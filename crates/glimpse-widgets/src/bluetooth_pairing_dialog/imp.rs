@@ -68,6 +68,11 @@ impl ObjectImpl for PairingDialog {
             dialog.imp().revalidate();
         });
 
+        let entry = self.entry.get();
+        self.obj().connect_map(move |_| {
+            entry.grab_focus();
+        });
+
         let dialog = self.obj().clone();
         self.obj().connect_response(None, move |_, response| {
             let kind = dialog.imp().entry_kind.get();
@@ -98,8 +103,9 @@ impl AdwAlertDialogImpl for PairingDialog {}
 
 impl PairingDialog {
     pub fn show_entry(&self, kind: Entry) {
-        self.entry_kind.set(kind);
-        self.entry.set_text("");
+        if self.entry_kind.replace(kind) != kind {
+            self.entry.set_text("");
+        }
         match kind {
             Entry::Pin => {
                 self.entry.set_max_length(PIN_MAX as i32);

@@ -169,6 +169,10 @@ impl Opener {
         let _ = self.0.send(runtime::HostInput::PopoverRequested);
     }
 
+    pub fn toggle_popover(&self) {
+        let _ = self.0.send(runtime::HostInput::PopoverToggled);
+    }
+
     pub fn wake(&self) {
         let _ = self.0.send(runtime::HostInput::Woken);
     }
