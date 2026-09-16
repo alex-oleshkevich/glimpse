@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
 
 pub type IconPixmap = Vec<(i32, i32, Vec<u8>)>;
@@ -170,19 +168,7 @@ pub struct TrayItem {
     pub notice: bool,
 }
 
-type Properties = HashMap<String, OwnedValue>;
-
-fn text(properties: &Properties, key: &str, cap: usize) -> Option<String> {
-    super::optional_clean(<&str>::try_from(properties.get(key)?).ok()?.to_owned(), cap)
-}
-
-fn flag(properties: &Properties, key: &str) -> Option<bool> {
-    bool::try_from(properties.get(key)?).ok()
-}
-
-fn number(properties: &Properties, key: &str) -> Option<u32> {
-    u32::try_from(properties.get(key)?).ok()
-}
+use super::{Properties, flag, number, text};
 
 /// A buffer whose length disagrees with its dimensions is dropped: every consumer indexes it as
 /// `width * height * 4`, so a short one would be read past its end. One copy of that guard.

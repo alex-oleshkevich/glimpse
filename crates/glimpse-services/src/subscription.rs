@@ -23,6 +23,10 @@ pub struct Sub<S: Service> {
 type Start<S> = Box<dyn FnOnce(&Ctx<S>) -> SourceGuard + Send>;
 
 impl<S: Service> Sub<S> {
+    pub fn key(&self) -> &S::SubKey {
+        &self.key
+    }
+
     pub fn stream<F, Fut, St>(key: S::SubKey, source: F) -> Self
     where
         F: FnOnce(Ctx<S>) -> Fut + Send + 'static,

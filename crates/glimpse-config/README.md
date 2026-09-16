@@ -80,6 +80,13 @@ fails on the document rather than reaching the night light, which could only rep
 needs start-time and end-time" — which reads as "you did not set them" when they are set and merely
 wrong. They stay `Option<String>`, so `config show` prints the spelling the user wrote.
 
+**`[bluetooth]` carries what only the user can decide, and nothing the backend already knows.**
+`scan-timeout` is the seconds a scan runs before stopping on its own, because a discovery session
+outlives the popover that opened it; `0` disables the timeout and leaves the scan to the popover.
+`hide-unnamed` drops nearby devices advertising no name — a scan measured 17 devices in 20 seconds,
+most of them beacons whose only identity was their own address. The applet's own table bounds the
+two lists, `devices` and `nearby`, because nothing in the panel scrolls.
+
 ## Themes
 
 A theme is a directory of stylesheets under `<root>/<name>/`. The roots are `user_dir()/themes` then

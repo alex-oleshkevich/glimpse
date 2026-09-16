@@ -104,8 +104,9 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
 
 **Naming**
 
-- Topics are `domain.name`, lower snake case: `audio.volume`, `mpris.players`
-- Commands are `domain.verb_object`: `audio.set_volume`, `tray.menu_event`
+- Commands are `domain.verb_object`: `audio.set_volume`, `tray.menu_event`. This is the label
+  passed to `spawn_command`; there are no topic names, because state reaches an applet as one typed
+  `watch::Receiver` rather than as a named payload.
 - **Never prefix a type with `Glimpse`.** Types are `Hero`, `PopoverShell`, `Panel`,
   `IndicatorGroup` — the crate already says whose they are. The prefix survives only where a
   reverse-DNS identifier demands it: application IDs, D-Bus names, the gresource path.
@@ -462,6 +463,54 @@ must announce *before* it sweeps, or a client that re-registers on the announcem
 appears twice — the canonical key is what collapses them. `just click` proved unusable for verifying
 any of the UI here (see `glimpse-cd67`); the tray menu was verified by opening it from the preview
 host instead, which is what `glimpse-fxc0.1` turned out to be about.
+
+**BlueZ on this machine, September 2026.** One adapter, `PowerState` present on a stock non-
+experimental 5.87, measured against a WH-1000XM4, a Keychron K3 and a 20-second scan.
+
+- **No battery is the common case for audio devices.** A *connected* WH-1000XM4 carried no
+  `Battery1` interface at all — BlueZ derives headset battery from the Apple HFP extension, which
+  sits behind `Experimental = true`. `Battery1` is an interface-presence question, arriving through
+  `InterfacesAdded` on a device path that already exists and leaving the same way, so both must be
+  handled on an existing device rather than only at creation.
+- **A discovery session belongs to the D-Bus connection that started it.** `busctl StartDiscovery`
+  returns success and starts nothing, because busctl exits; `Discovering` is never an
+  acknowledgement of our own command, only the adapter's state. Through a client holding its
+  connection open, 17 devices arrived in 20 seconds.
+- **`ObjectManager` is at `/`, not at `/org/bluez`.** `GetManagedObjects` on the tree root answers
+  `org.freedesktop.DBus.Error.UnknownMethod`, and `InterfacesAdded`/`InterfacesRemoved` are emitted
+  from `/` as well — so a `path_namespace` of `/org/bluez` matches neither. It matches
+  `PropertiesChanged` and `Disconnected`, which do come from below it. Every headless test passed
+  with the wrong path; only a live run found it.
+- **`br-connection-key-missing` means the remote forgot the bond**, not that it refused — seen on a
+  paired phone that had been reset. It is `Failure::BondBroken`, and re-pairing is the fix.
+- **`Introspect` over-reports** — `Adapter1.ExperimentalFeatures` is advertised, omitted from
+  `GetAll`, and refused by `Get`. This is the opposite direction from Slack's empty `<node></node>`
+  in the tray research, and the same conclusion: one `GetAll`, decoded with defaults.
+- **`Device1` splits systematically between bonded and discovered**, not per vendor. `RSSI`,
+  `TxPower` and `ManufacturerData` are absent on a bonded device and present on a discovered one;
+  `Name`, `Class`, `Icon` and `Modalias` are the reverse. `Alias` is always answered, synthesized as
+  the dashed MAC, which is why the display name is `Alias` with no fallback chain.
+- **`PowerState` is documented `[experimental]` and answers anyway**, and its `off-blocked` gives
+  rfkill state with no `/dev/rfkill` dependency. Decode it with a default so an older BlueZ falls
+  back to `Powered` and simply never enters the blocked state.
+- **Connecting adds `dev_XX/fd0` and `sep1`…`sep6` as child objects.** Match a device path by shape —
+  exactly one `dev_*` segment below the adapter — or a prefix match invents seven phantom devices per
+  connection. `fd0` is the `MediaTransport1`: its `Codec` is `0xFF` for LDAC and the first six bytes
+  of `Configuration` are the company/codec tuple (`2d 01 00 00 aa 00` → Sony/LDAC). The codec *name*
+  is obtainable; the bitrate is a PipeWire quality tier BlueZ never sees. `MediaEndpoint1.Vendor` is
+  documented but useless here — six endpoints exist per connection and nothing links one to the
+  transport in use, so the transport's own `Configuration` is the only reliable route.
+- **`Device1.Disconnected(reason, message)` exists in 5.87** and gives the drop reason for free.
+  `Local` and `Suspend` are not failures; the `message` is bluetoothd's own English and is logged,
+  never shown.
+- **The agent is per-D-Bus-connection**, so two panels each register their own and never collide.
+  `RequestDefaultAgent` is a system-wide singleton and is never needed.
+- **`busctl --system monitor` needs root** (`BecomeMonitor` → access denied). `gdbus monitor --system
+  --dest org.bluez` uses match rules and works unprivileged.
+- **A dialog presented on a never-mapped window is queued, not shown.** `adw::AlertDialog::present()`
+  against the panel's hidden `adw::ApplicationWindow` leaves it `mapped=false` with no error;
+  showing the host maps it at once and niri lists a real toplevel. Any global dialog on that host
+  must show the host while one is up.
 
 **A `Gtk.PopoverMenu` renders here perfectly well; three things make it look as if it does not.**
 A popover's anchor rectangle is its *parent's allocation*, so a parent filling the window anchors the

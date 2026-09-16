@@ -59,7 +59,7 @@ pub enum Kind {
     /// Charge level and time remaining, with the power profile in its popover.
     Battery {},
     /// Adapter state and paired devices.
-    Bluetooth {},
+    Bluetooth(Bluetooth),
     /// Display backlight level.
     Brightness {},
     /// Clipboard history.
@@ -182,6 +182,25 @@ pub struct Clock {
     /// The other zones the popover lists under its world clock. Empty hides the section.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub timezones: Vec<Timezone>,
+}
+
+/// The bluetooth applet.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Bluetooth {
+    /// How many paired devices the popover lists before the rest go behind a drawer.
+    pub devices: usize,
+    /// How many nearby devices the popover lists while scanning.
+    pub nearby: usize,
+}
+
+impl Default for Bluetooth {
+    fn default() -> Self {
+        Self {
+            devices: 6,
+            nearby: 8,
+        }
+    }
 }
 
 /// One zone in the clock popover's world clock.
@@ -670,6 +689,23 @@ mod tests {
             COMMON.len(),
             declared.len(),
             "the splitter removes a key no common setting declares"
+        );
+    }
+
+    #[test]
+    fn bluetooth_still_resolves_from_a_bare_name_and_reads_its_own_settings() {
+        let bare = super::Applet::from_name("bluetooth").expect("a known applet name");
+        assert_eq!(bare.kind, Kind::Bluetooth(super::Bluetooth::default()));
+
+        let configured: crate::Config =
+            toml::from_str("[applets.bt]\nextends = \"bluetooth\"\ndevices = 4\n")
+                .expect("the table loads");
+        assert_eq!(
+            configured.applets["bt"].kind,
+            Kind::Bluetooth(super::Bluetooth {
+                devices: 4,
+                nearby: 8,
+            })
         );
     }
 

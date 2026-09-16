@@ -1,0 +1,88 @@
+using Gtk 4.0;
+
+template $BluetoothPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "bluetooth-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "bluetooth-symbolic";
+
+      [slot]
+      Gtk.Switch power {
+        valign: center;
+        tooltip-text: _("Bluetooth");
+      }
+    }
+
+    Gtk.Box column {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Section connected {
+        visible: false;
+        title: _("Connected");
+
+        Gtk.Box connected_rows {
+          orientation: vertical;
+        }
+      }
+
+      $Section paired {
+        visible: false;
+        title: _("Paired");
+
+        Gtk.Box {
+          orientation: vertical;
+
+          Gtk.Box paired_rows {
+            orientation: vertical;
+          }
+
+          $Row more_paired {
+            visible: false;
+            activatable: true;
+            lead-icon: "view-more-symbolic";
+          }
+        }
+      }
+
+      $Section nearby {
+        visible: false;
+        title: _("Nearby");
+
+        Gtk.Box {
+          orientation: vertical;
+
+          Gtk.Box nearby_rows {
+            orientation: vertical;
+          }
+
+          $Row more_nearby {
+            visible: false;
+            activatable: true;
+            lead-icon: "view-more-symbolic";
+          }
+        }
+      }
+
+      $Row scan {
+        lead-icon: "list-add-symbolic";
+        activatable: true;
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

@@ -85,9 +85,9 @@ impl Applet for Thing {
 }
 ```
 
-`topics()` is a declaration: the runtime subscribes after `start`, so `start` is pure construction.
-Name topics through `T::NAME` rather than string literals — nothing checks that a declared topic and
-the `payload::<T>` decoding it agree, so sharing the symbol is the only link there is.
+The watch is declared in the registration closure, not by the applet: `ctx.watch(handle.subscribe())`
+runs before `start`'s value is boxed, so `start` is pure construction and holds no guard. Every
+change arrives as `Input::Woken` and the applet reads `handle.snapshot()` itself.
 
 `Input::Pointer(_)` as a final arm is deliberate — middle click, right click and horizontal scroll
 all land there, and an applet that wants none of them says so once. Pointer input names no

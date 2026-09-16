@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time::Duration;
 
+use adw::prelude::AdwDialogExt;
 use clap::{Parser, ValueEnum};
 use gtk4::prelude::*;
 use gtk4::{gdk, gio, glib};
@@ -128,10 +129,10 @@ fn activate(
         .margin_end(24)
         .build();
 
-    let window = gtk4::ApplicationWindow::builder()
+    let window = adw::ApplicationWindow::builder()
         .application(app)
         .title(blueprint.file_name().unwrap_or_default().to_string_lossy())
-        .child(&slot)
+        .content(&slot)
         .css_classes(["preview"])
         .build();
 
@@ -253,12 +254,13 @@ fn watch(
 /// events are a colour list per day. A named fixture puts sample data in after the build, so a
 /// states sheet stays a blueprint rather than becoming a second program.
 mod fixtures {
+    use adw::prelude::AdwDialogExt;
     use gtk4::gdk;
     use gtk4::prelude::*;
 
     use glimpse_widgets::{
         Action, Advisory, Body, Calendar, Choice, ChoiceList, Day, Event, EventList, Fact,
-        FactList, Focus, Group, Hour, IndicatorSpec, Notification, NotificationsPopover,
+        FactList, Focus, Group, Hero, Hour, IndicatorSpec, Notification, NotificationsPopover,
         NowPlaying, Pager, Player, PlayerList, Repeat, Row, Severity, Shape, Slot, SplitRow,
         TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock,
         Ymd, Zone,
@@ -271,11 +273,21 @@ mod fixtures {
 
     const NAV: &str = "nav__";
     const EXPAND: &str = "expander";
+    const DIM_HOST: &str = "dim-host";
+    const DIMMED: &str = "dimmed";
+    const OPENED: &str = "open";
     const ACTION: &str = "action__";
     const DEMO: &str = "demo__";
     const OPEN: &str = "open-on-map";
+    const DIALOG: &str = "dialog__";
+    const AFTER: &str = "after__";
 
-    pub fn apply(name: &str, root: &gtk4::Widget, sheets: &[(PathBuf, gtk4::CssProvider)]) {
+    pub fn apply(
+        name: &str,
+        root: &gtk4::Widget,
+        sheets: &[(PathBuf, gtk4::CssProvider)],
+        builder: &gtk4::Builder,
+    ) {
         match name {
             "calendar" => {
                 if let Some(calendar) = find::<Calendar>(root) {
@@ -306,7 +318,124 @@ mod fixtures {
         expanders(root);
         actions(root);
         opened_menus(root);
+        dialogs(root, builder);
+        after(root);
         scheme_toggle(root, sheets);
+    }
+
+    fn dialogs(root: &gtk4::Widget, builder: &gtk4::Builder) {
+        for widget in collect::<gtk4::Widget>(root) {
+            let Some(id) = widget
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(DIALOG).map(str::to_owned))
+            else {
+                continue;
+            };
+            let Some(dialog) = builder.object::<adw::Dialog>(&id) else {
+                eprintln!("{DIALOG}{id} names no AdwDialog in this file; that control is dead");
+                continue;
+            };
+            let Some(button) = widget.downcast_ref::<gtk4::Button>() else {
+                eprintln!(
+                    "{DIALOG}{id} is on a {}, which nothing can click",
+                    widget.type_()
+                );
+                continue;
+            };
+            if button.has_css_class(OPEN) {
+                let shown = dialog.clone();
+                button.connect_map(move |button| shown.present(Some(button)));
+            }
+            button.connect_clicked(move |button| dialog.present(Some(button)));
+        }
+    }
+
+    fn after(root: &gtk4::Widget) {
+        let Some((_, stack)) = page_stack(root) else {
+            if collect::<gtk4::Widget>(root)
+                .iter()
+                .any(|widget| widget.css_classes().iter().any(|c| c.starts_with(AFTER)))
+            {
+                eprintln!("no Gtk.Revealer holds a Gtk.Stack; every {AFTER} page is dead");
+            }
+            return;
+        };
+
+        let mut rules: Vec<(String, u64, String)> = Vec::new();
+        let mut child = stack.first_child();
+        while let Some(page) = child {
+            child = page.next_sibling();
+            let Some(rule) = page
+                .css_classes()
+                .iter()
+                .find_map(|class| class.as_str().strip_prefix(AFTER).map(str::to_owned))
+            else {
+                continue;
+            };
+            let Some((delay, target)) = rule.split_once("__") else {
+                eprintln!("{AFTER}{rule} is not <ms>__<page>; that page never advances");
+                continue;
+            };
+            let Ok(delay) = delay.parse::<u64>() else {
+                eprintln!("{AFTER}{rule} does not begin with a number of milliseconds");
+                continue;
+            };
+            if stack.child_by_name(target).is_none() {
+                eprintln!("{AFTER}{rule} names no page in the stack; that page never advances");
+                continue;
+            }
+            let Some(name) = stack.page(&page).name() else {
+                eprintln!("{AFTER}{rule} is on a stack page with no name; it can never be shown");
+                continue;
+            };
+            rules.push((name.into(), delay, target.to_owned()));
+        }
+
+        if rules.is_empty() {
+            return;
+        }
+
+        let pending: Rc<RefCell<Option<glib::SourceId>>> = Rc::new(RefCell::new(None));
+        let rules = Rc::new(rules);
+        let arm = {
+            let pending = pending.clone();
+            let rules = rules.clone();
+            move |stack: &gtk4::Stack| {
+                if let Some(armed) = pending.borrow_mut().take() {
+                    armed.remove();
+                }
+                if !stack.is_mapped() {
+                    return;
+                }
+                let Some(showing) = stack.visible_child_name() else {
+                    return;
+                };
+                let Some((_, delay, target)) =
+                    rules.iter().find(|(name, _, _)| name == showing.as_str())
+                else {
+                    return;
+                };
+                let stack = stack.clone();
+                let target = target.clone();
+                let fired = pending.clone();
+                let armed =
+                    glib::timeout_add_local_once(Duration::from_millis(*delay), move || {
+                        fired.borrow_mut().take();
+                        stack.set_visible_child_name(&target);
+                    });
+                *pending.borrow_mut() = Some(armed);
+            }
+        };
+
+        let on_map = arm.clone();
+        stack.connect_map(move |stack| on_map(stack));
+        stack.connect_unmap(move |_| {
+            if let Some(armed) = pending.borrow_mut().take() {
+                armed.remove();
+            }
+        });
+        stack.connect_visible_child_name_notify(move |stack| arm(stack));
     }
 
     fn scheme_toggle(root: &gtk4::Widget, sheets: &[(PathBuf, gtk4::CssProvider)]) {
@@ -1704,7 +1833,60 @@ mod fixtures {
                 eprintln!("a .{EXPAND} row has no Gtk.Revealer after it; it expands nothing");
                 continue;
             };
-            row.connect_clicked(move |_| revealer.set_reveal_child(!revealer.reveals_child()));
+            row.connect_clicked(move |row| {
+                revealer.set_reveal_child(!revealer.reveals_child());
+                if let Some(host) = dim_host(row.upcast_ref()) {
+                    recede(&host);
+                }
+            });
+        }
+    }
+
+    /// The nearest ancestor that asked for its rows to recede behind an open expander.
+    ///
+    /// Opt-in, because `.expander` also reveals an audio stream's volume slider, and dimming a
+    /// whole popover around a slider would be wrong.
+    fn dim_host(widget: &gtk4::Widget) -> Option<gtk4::Widget> {
+        let mut node = widget.parent();
+        while let Some(current) = node {
+            if current.has_css_class(DIM_HOST) {
+                return Some(current);
+            }
+            node = current.parent();
+        }
+        None
+    }
+
+    /// Everything outside an open detail dims, the row that opened it does not.
+    ///
+    /// Derived from what is revealed rather than remembered, so two expanders open at once leave
+    /// both details lit and closing one does not undim the other's neighbours.
+    fn recede(host: &gtk4::Widget) {
+        let open: Vec<gtk4::Revealer> = collect::<gtk4::Revealer>(host)
+            .into_iter()
+            .filter(|revealer| revealer.reveals_child())
+            .collect();
+
+        for widget in collect::<gtk4::Widget>(host) {
+            if !(widget.is::<Row>() || widget.is::<SplitRow>() || widget.is::<Hero>()) {
+                continue;
+            }
+            let inside = open
+                .iter()
+                .any(|revealer| widget.is_ancestor(revealer.upcast_ref::<gtk4::Widget>()));
+            let opener = widget
+                .next_sibling()
+                .and_downcast::<gtk4::Revealer>()
+                .is_some_and(|revealer| revealer.reveals_child());
+
+            match !open.is_empty() && !inside && !opener {
+                true => widget.add_css_class(DIMMED),
+                false => widget.remove_css_class(DIMMED),
+            }
+            match opener {
+                true => widget.add_css_class(OPENED),
+                false => widget.remove_css_class(OPENED),
+            }
         }
     }
 
@@ -1980,20 +2162,39 @@ fn build(
         return;
     }
 
-    let widget = builder
+    if let Some(showing) = unsafe { slot.steal_data::<adw::Dialog>("preview-dialog") } {
+        showing.close();
+    }
+
+    let parentless: Vec<gtk4::Widget> = builder
         .objects()
         .into_iter()
         .filter_map(|object| object.downcast::<gtk4::Widget>().ok())
-        .find(|widget| widget.parent().is_none());
+        .filter(|widget| widget.parent().is_none())
+        .collect();
 
-    match widget {
-        Some(widget) => {
+    let root = parentless
+        .iter()
+        .find(|widget| !widget.is::<adw::Dialog>())
+        .or_else(|| parentless.first())
+        .cloned();
+
+    match root {
+        Some(root) => {
             if let Some(fixture) = fixture {
-                fixtures::apply(fixture, &widget, sheets);
+                fixtures::apply(fixture, &root, sheets, &builder);
             }
-            widget.set_halign(gtk4::Align::Center);
-            widget.set_valign(gtk4::Align::Center);
-            slot.append(&widget);
+            match root.downcast::<adw::Dialog>() {
+                Ok(dialog) => {
+                    dialog.present(Some(slot));
+                    unsafe { slot.set_data("preview-dialog", dialog) };
+                }
+                Err(widget) => {
+                    widget.set_halign(gtk4::Align::Center);
+                    widget.set_valign(gtk4::Align::Center);
+                    slot.append(&widget);
+                }
+            }
         }
         None => slot.append(&error_label(
             "nothing in this file builds a widget; an example is a top-level object, not a template",

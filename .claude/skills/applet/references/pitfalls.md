@@ -8,11 +8,12 @@ nothing — is in `references/popovers.md` instead.
 ## The applet renders nothing and the log says nothing
 
 `indicators()` returned an empty `Vec` and the group hid itself, which is correct behaviour for "no
-value yet". Run with `--log debug`: `applet=<name> topic=… event` says data arrived,
-`applet=<name> indicators=0 rendered` says the applet chose to show nothing.
+value yet". Run with `--log debug`: `applet=<name> indicators=0 rendered` says the applet chose to
+show nothing.
 
-If neither line appears, either the subscription never delivered — see the next entry — or the topic
-was never declared: `applet=<name> topics=0 started` says `topics()` returned nothing.
+If that line never appears, the applet is not being woken: either the registration closure never
+called `ctx.watch(handle.subscribe())` — `applet=<name> watching typed state` is the line that says
+it did — or `handle` has no `Input::Woken` arm, so every change is swallowed.
 
 ## The applet never populates when its provider is not running
 

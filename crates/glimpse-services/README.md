@@ -2,98 +2,90 @@
 
 The service framework and every service implementation.
 
-A service is one Tokio task owning typed state and typed commands. The runtime owns the select loop;
-handlers run serially on `&mut self`, while cloneable handles expose snapshots, watch receivers,
-health, and command methods to in-process consumers.
+A service is one Tokio task owning typed state and typed commands. The runtime owns the select loop
+and handlers run serially on `&mut self`, while cloneable handles expose snapshots, watch receivers,
+health and command methods to in-process consumers.
 
 ## Contents
 
 - `service.rs`, `context.rs`, `subscription.rs`, `publisher.rs` — the typed runtime, endpoint,
-  watch-backed state, dependency sources, health, and command plumbing
-- `services/` — one module per service; `weather/` is a directory because it carries two providers
+  watch-backed state, dependency sources, health and command plumbing; `services/` is one module per
+  service
 
 ## The framework
 
-**A service says what state it starts in; nobody else gets to.**
-`Service::initial_state(&Self::Config)` is required, and `ServiceRuntime::new` takes the config
-rather than the state; `run` then takes only the dependencies. The ordering is why the config moves
-up rather than the state moving down: `new` builds the handle, and a handle answers `snapshot()`
-before `run` is called, so a deferred state would leak an `Option` into every consumer.
+**A service says what state it starts in; nobody else gets to.** `Service::initial_state` is
+required and `ServiceRuntime::new` takes the config rather than the state, because `new` builds the
+handle and a handle answers `snapshot()` before `run` is called — a deferred state would leak an
+`Option` into every consumer.
 
 **`Running<S>` is one owned service — spawn, reconfigure, stop.** A composition root holds one per
 service and a fixed list of calls, rather than a sender, a token and a task each. A dropped
 `Running` cancels its service, so no root writes its own `Drop`.
 
 **`Running::build` exists because one binary needs the two halves apart.** `glimpse-sunset` builds
-every service, takes the D-Bus name, takes gamma control, and only then starts them, so a duplicate
+every service, takes the D-Bus name and gamma control, and only then starts them, so a duplicate
 fails at the name before it touches the outputs the running instance holds. `Pending::start` is the
-second half and `spawn` is the two together, so the ordering lives in the types rather than a comment.
+second half and `spawn` the two together, so the ordering lives in the types.
 
 **An unchanged configuration never reaches a handler.** `ServiceRuntime::run` keeps the config in
 force and skips an `Input::Config` equal to it — no handler call, no `subscriptions()` rebuild, no
-`Live::reconcile` diff. Every process reloads the whole document and hands each service its own
-slice, so without the gate a service whose table had not moved still wakes, and a service that then
-grows its own comparison has put the same decision in two places.
+`Live::reconcile` diff. Every process reloads the whole document and hands each service its slice,
+so without the gate a service whose table had not moved still wakes.
 
 **The gate belongs in `run`, not on `ServiceSender`.** Senders are cloned and handed out *before*
 `run` is spawned, so a sender-side record must be seeded against a reload that beat startup, and a
 `try_send` failing on a full inbox must not record a config that never arrived.
 
-A service's health is `Starting`, `Running`, `Degraded { reason }` or `Stopped { reason }`.
-**`Degraded` is a running service** — it keeps publishing what it can, so a consumer must not dim
-its values. That a producer has stopped altogether reaches a consumer as `Sub::watch`'s
-closed-producer event rather than as a predicate over health. Do not add a flag-shaped answer to the
-same question: it gives consumers a second, lagging source of one fact.
+Health is `Starting`, `Running`, `Degraded { reason }` or `Stopped { reason }`. **`Degraded` is a
+running service** — it keeps publishing what it can, so a consumer must not dim its values. A
+producer stopping altogether reaches a consumer as `Sub::watch`'s closed-producer event, not as a
+predicate over health; a flag would be a second, lagging source of one fact.
 
 **`ServiceState::unavailable_reason` is the one mapping from health to what a consumer is told.** It
-answers `None` while serving and otherwise why not. The match is total, so a new variant makes every
-provider fail to compile until it decides what to say. The strings are read over D-Bus, so
-`"starting"` and `"stopped"` are contract rather than log text; a provider with a case of its own
-layers it with `.or(...)`, which keeps the health reason winning when both apply.
+answers `None` while serving and otherwise why not, totally, so a new variant makes every provider
+fail to compile until it decides what to say. The strings are read over D-Bus, so `"starting"` and
+`"stopped"` are contract rather than log text; a provider layers its own case with `.or(...)`.
 
 Commands are ordinary Rust variants with typed arguments and command-specific oneshot senders. A
-handle method offers the command through `ServiceEndpoint::command` and awaits its typed result;
-full or closed inboxes return `CommandError::Unavailable`.
+handle method offers one through `ServiceEndpoint::command` and awaits its typed result; a full or
+closed inbox returns `CommandError::Unavailable`.
 
 ### Sources
 
 Everything reaching a handler arrives from a source, and every source is one `ctx` call returning a
-`SourceGuard`. Dropping the guard is the whole cancellation story.
+`SourceGuard`; dropping it is the whole cancellation story.
 
 | Source | Produces | For |
-| -------------------- | ---------------- | --------------------------------------------------- |
-| `ctx.spawn`          | one event        | one unit of async work whose result is an event     |
-| `ctx.spawn_detached` | nothing          | work with no result to report                       |
-| `ctx.interval`       | an event a tick  | polling, clocks; `at_interval` picks the first tick |
-| `ctx.stream`         | many events      | a backend signal stream, a watch, a subscription    |
-| `Sub::watch`         | many events      | another service's typed state                       |
+| -------------------- | --------------- | --------------------------------------------------- |
+| `ctx.spawn`          | one event       | one unit of async work whose result is an event     |
+| `ctx.spawn_detached` | nothing         | work with no result to report                       |
+| `ctx.interval`       | an event a tick | polling, clocks; `at_interval` picks the first tick |
+| `ctx.stream`         | many events     | a backend signal stream, a watch, a subscription    |
+| `Sub::watch`         | many events     | another service's typed state                       |
 
 `SourceGuard` is `#[must_use]`: `ctx.spawn(...)` written as a statement drops the guard at the
-semicolon and aborts the task before it runs. **`spawn_detached` is the one `Ctx` task handing back
-no guard**, because it is not a source — a handler returns before the work is done, and an
-abort-on-drop guard would cancel the very call it just deferred. Shutdown still stops it through the
-cancellation token every spawned task selects against.
+semicolon and aborts the task before it runs. **`spawn_detached` is the one `Ctx` task handing back no
+guard**, because it is not a source — a handler returns before the work is done, and an abort-on-drop
+guard would cancel the call it just deferred. Shutdown still stops it through the cancellation token.
 
 A panic inside a source is caught, logged and turned into `degraded`. A source is where a backend's
-data gets parsed, which makes it both the likeliest place to panic and the least visible — uncaught,
-the task stops and the service goes on believing it still has a source.
-
-`Sub::watch` reads a dependency's current value before waiting for changes, so a consumer gets a
-complete initial snapshot without a race, then maps a closed producer to an explicit unavailable
-event.
+data gets parsed, which makes it the likeliest place to panic and the least visible — uncaught, the
+task stops and the service goes on believing it still has a source. `Sub::watch` reads a
+dependency's current value before waiting for changes, so a consumer gets a complete initial
+snapshot without a race, then maps a closed producer to an explicit unavailable event.
 
 ### Subscriptions
 
 A source that should live as long as the service says so is **declared**, not started.
 `subscriptions` returns what ought to be running and the runtime diffs it against what is, after
-`start` and after every input. The `SubKey` is what restarts a source: put in it everything whose
-change should tear the old one down, and nothing whose change should not.
+`start` and after every input. The `SubKey` restarts a source: put in it everything whose change
+should tear the old one down, and nothing whose change should not.
 
 **`Sub::deadline` waits on the wall clock, not on elapsed time.** A tokio timer runs on
 `CLOCK_MONOTONIC`, which does not advance while the machine is suspended, so one sleep of the whole
-interval fires late by however long the lid was shut; an NTP step does the same. The wait is capped
-and the remaining time re-derived from `Utc::now()` each pass. This is the framework's mechanism
-rather than any one service's, so the next deadline need not rediscover it.
+interval fires late by however long the lid was shut, and an NTP step does the same. The wait is
+capped and the remaining time re-derived from `Utc::now()` each pass.
 
 **Tearing a timer down does not unqueue an event it has already emitted**, so an event carries its
 own deadline and the handler ignores one that no longer matches.
@@ -101,37 +93,33 @@ own deadline and the handler ignores one that no longer matches.
 ## The services
 
 **geolocation** — two providers behind one state. `manual` publishes the configured pair, `geoclue`
-follows GeoClue's `Location`. The GeoClue watch is subscribed **before** `Start`, because the first
-fix can arrive before that call returns. Accuracy is `CITY`: nothing downstream is sharper.
-Authorization is a shipped file, `data/geoclue/conf.d/glimpse.conf`, whose section name and
-`DESKTOP_ID` must agree. A missing fix or refused request leaves the service `degraded` publishing
-`None`.
+follows GeoClue's `Location`, subscribed **before** `Start` because the first fix can arrive before
+that call returns. Accuracy is `CITY`. Authorization is a shipped file,
+`data/geoclue/conf.d/glimpse.conf`, whose section name and `DESKTOP_ID` must agree. A missing fix or
+refused request leaves the service `degraded` publishing `None`.
 
-**solar** — `phase` and `next_change`, no color temperature (that is the night light's to decide).
-`next_change` is always still ahead, so after sunset it names tomorrow's sunrise and a consumer needs
-no midnight special case. Above the polar circles a date has neither event, so the phase falls back
-to the sign of the solar declination against the latitude and `next_change` is `None`. Without a
-location it publishes nothing and degrades — `Day` is not a safe guess at three in the morning.
+**solar** — `phase` and `next_change`, no color temperature (the night light's to decide).
+`next_change` is always still ahead, so a consumer needs no midnight special case. Above the polar
+circles a date has neither event: the phase falls back to the sign of the solar declination against
+the latitude and `next_change` is `None`. Without a location it publishes nothing and degrades —
+`Day` is not a safe guess at three in the morning.
 
 **night light** — the tick's period is **in its own subscription key**, so crossing into a
-transition window tears the slow timer down and builds the fast one; the ramp position is computed
-from the clock either way, and the cadence decides only how often it is sampled. One tick a minute
-is correct and looks wrong: a 15-minute transition then moves in steps of about 150 K, which reads
-as a staircase. Those are gamma *applies* — a ramp table and a blocking compositor roundtrip per
-output — so the two constants are pinned against each other by a test. A `transition-minutes` of
-zero never asks for the faster tick.
+transition window tears the slow timer down and builds the fast one; the ramp position comes from
+the clock either way and the cadence only decides how often it is sampled. One tick a minute is
+correct and looks wrong — a 15-minute transition moves in steps of about 150 K — but each tick is a
+gamma *apply*, so the two constants are pinned against each other by a test. A `transition-minutes`
+of zero never asks for the faster tick.
 
-Every reader of the schedule goes through `effective()`, which is `forced.unwrap_or(config.schedule)`
-— that is what makes `SetSchedule` complete rather than cosmetic, because `subscriptions` reads the
-same answer everything else does. `forced` is not persisted and is cleared only when
-`[night-light]` itself changes.
+Every reader of the schedule goes through `effective()` — `forced.unwrap_or(config.schedule)` — which
+makes `SetSchedule` complete rather than cosmetic. `forced` is not persisted and clears only when
+`[night-light]` changes.
 
 **gamma** — `trait Gamma` is declared here and implemented in `glimpse-sunset`, because this crate
 is linked into the panel and every provider and none may gain a Wayland dependency. It is
-**synchronous**: the one real implementation blocks and says so with `block_in_place`, and a
-synchronous signature is dyn-compatible, which is what lets `NightLight` take `Box<dyn Gamma>`
-rather than be generic. `FakeGamma` sits beside the declaration rather than behind `#[cfg(test)]`,
-because `glimpse-sunset`'s tests are a separate compilation unit.
+**synchronous**: the real implementation blocks and says so with `block_in_place`, and a synchronous
+signature is dyn-compatible, which lets `NightLight` take `Box<dyn Gamma>`. `FakeGamma` sits beside
+the declaration, not behind `#[cfg(test)]` — `glimpse-sunset`'s tests are a separate unit.
 
 **compositor** — mirrors `glimpse-compositors` into one aggregate state and passes eight typed
 commands. There is no separate focus state: a focus change mutates the `focused` flag inside the
@@ -157,51 +145,43 @@ the lowest id, because the list is edited in place and taking the first match wo
 different one at different moments. A pid with no window is `InvalidArgs`, which does not invite a
 retry.
 
-**Commands are awaited inline rather than spawned**, in both the compositor and keyboard services:
-awaiting keeps a command and the events it causes in order.
+**Commands are awaited inline rather than spawned** in the compositor and keyboard services, which
+keeps a command and the events it causes in order.
 
-**keyboard** — owns compositor layouts so a layout switch does not resync workspaces and windows;
-the compositor service drops the layout events for that reason. `[keyboard] remember` is honoured
-here, in-memory for the process, and a window with no memory inherits the current layout.
+**keyboard** — owns compositor layouts so a layout switch does not resync workspaces and windows.
+`[keyboard] remember` is honoured here, in-memory, and a window with no memory inherits the current
+layout.
 
 **calendar** — every occurrence from every source as one sorted state value. **Whether a source is
 watched or fetched follows the uri, not the kind**: a local path is watched, `http(s)` is polled,
-and a `file://` holding a one-line feed URL is both — which is why the rule cannot be read off the
-configuration alone and `resolve` answers it by reading the file.
+and a `file://` holding a one-line feed URL is both, which is why `resolve` reads the file.
 
-Three consequences follow from a watched source having no timer: the stream opens with a read, or
-it would publish nothing until the first edit; `Update::Unavailable` is a failure rather than a
-warning, because there is no second reader; and `poll-interval` describes only the network.
+A watched source has no timer: the stream opens with a read, `Update::Unavailable` is a failure
+rather than a warning, and `poll-interval` describes only the network.
 
 - **Fetching and expanding are two steps, and only the first touches the world**, so `set_range`
-  changes what is published without a request. Parsing at fetch keeps an unparseable document a
-  reported failure rather than a source that silently expands to nothing.
-- **Re-expansion is a subscription**, keyed on a `generation` bumped by anything invalidating the
-  list, and runs on `spawn_blocking`.
-- **Every instant arriving from a client is added to with `checked_add_signed`.** `DateTime +
-  TimeDelta` panics on overflow and `DateTime<Utc>`'s serde accepts an extended year.
-- **An entry's length is capped**, because a surface walks the days it covers one at a time — a
-  `DURATION` of `P9999Y` is three and a half million iterations in the GTK main loop per update.
-- **An entry may carry `DURATION` instead of `DTEND`, and `icalendar` does not surface it.**
-  `get_end()` returns `None`, which reads as a zero-length event; several CalDAV exporters write
-  them. `DTEND` still wins where both appear.
+  changes what is published without a request, and an unparseable document is a reported failure
+  rather than a source that expands to nothing. **Re-expansion is a subscription**, keyed on a
+  `generation` and run on `spawn_blocking`.
+- **Every instant from a client is added to with `checked_add_signed`** — `DateTime + TimeDelta`
+  panics on overflow — and **an entry's length is capped**, because a surface walks the days it
+  covers one at a time and a `DURATION` of `P9999Y` is millions of GTK main-loop iterations.
+- **An entry may carry `DURATION` instead of `DTEND` and `icalendar` does not surface it** —
+  `get_end()` returns `None`, reading as a zero-length event. `DTEND` wins where both appear.
 - **Truncation is reported, not silent**, and the cap belongs to the merged payload: capping each
-  source would publish more than the cap, capping only the first would drop a whole calendar.
-- **`webcal://` is rewritten before the url is parsed.** `Url::set_scheme` refuses a non-special to
-  special change, so it is a case-insensitive string swap through `str::get`.
-- **A dead watch never overwrites a failed read** — only the read says the path is wrong, and
-  `Unwatched` arrives second, so it fills in with `entry().or_insert()`.
-- **Text off a feed is cleaned against bidi, not only against control characters.**
-  `char::is_control` is Cc alone, so the overrides `U+202A..=U+202E` and isolates `U+2066..=U+2069`
-  pass it — and Pango honours both, which lets a summary reorder the row it lands in.
-- **A failure reason never contains the uri.** A provider's iCalendar URL is a bearer token.
+  source would publish more than the cap. **`webcal://` is rewritten before the url is parsed**, as
+  a case-insensitive string swap — `Url::set_scheme` refuses a non-special to special change.
+- **A dead watch never overwrites a failed read** — `Unwatched` arrives second and fills in with
+  `entry().or_insert()`. **A failure reason never contains the uri**: an iCalendar URL is a token.
+- **Text off a feed is cleaned against bidi, not only control characters.** `char::is_control` is Cc
+  alone, so `U+202A..=U+202E` and `U+2066..=U+2069` pass it, and Pango honours both.
 - **The poll interval has a floor of sixty seconds**, because `Duration::from_secs(0)` panics
-  `tokio::time::interval`. The duplicate-id filter sits beside the clamp: two sources sharing an id
-  share a subscription key, so the second never runs while silently overwriting the first's events.
+  `tokio::time::interval`. The duplicate-id filter sits beside it: two sources sharing an id share a
+  subscription key, so the second never runs while overwriting the first's events.
 
-**weather** — one state entry per place being watched. **Places are not configured; they are
-leased**: a consumer calls the typed watch method and the registration is honoured for thirty
-minutes unless asked for again. There is deliberately no `forget`; not renewing is how you stop.
+**weather** — one state entry per place watched. **Places are not configured; they are leased**: a
+consumer calls the typed watch method and the registration is honoured for thirty minutes unless
+asked for again. There is no `forget`; not renewing is how you stop.
 
 - **With nothing leased, nothing happens.** A fresh install issues no outbound request and the
   user's coordinates never leave the machine until a consumer asks. That is structural rather than a
@@ -264,35 +244,55 @@ delivers `DoNotDisturbLapsed` and clears both fields. A reader that only ever lo
 therefore sees it turn itself off. The expiry is in the subscription key, so moving it tears the old
 timer down; keying on a bare marker would lapse at the wrong instant.
 
-**tray** — glimpse takes the `org.kde.StatusNotifierWatcher` name when it is free and registers as a
-host on whoever holds it when it is not. Its state is every item in registration order. No bus is
-`degraded` publishing an empty list, never a failure to start.
+**tray** — glimpse takes `org.kde.StatusNotifierWatcher` when it is free and hosts on whoever holds
+it when it is not. Its state is every item in registration order; no bus is `degraded` publishing an
+empty list, never a failure to start.
 
-**A taken name is not a broken tray.** Only one process can be the watcher, and the spec separates
-the roles because a session usually has a second shell wanting the tray. A failed claim registers
-`org.kde.StatusNotifierHost-<pid>` with the incumbent, reads its `RegisteredStatusNotifierItems` and
-follows its two registration signals; only a watcher refusing us as a host is `degraded`. Entries
-resolve to their unique owner — the spelling `NameOwnerChanged` reports — and that list is read
-whole on each signal, never reconciled entry by entry.
+**A taken name is not a broken tray.** A failed claim registers `org.kde.StatusNotifierHost-<pid>`
+with the incumbent, reads its `RegisteredStatusNotifierItems` and follows its two registration
+signals; only a watcher refusing us as a host is `degraded`. Entries resolve to their unique owner —
+the spelling `NameOwnerChanged` reports — and that list is read whole on each signal, never
+reconciled entry by entry.
 
 **The claim lives inside the `NameOwnerChanged` source, not in `start`.** A source is installed only
-*after* `start` returns, so claiming there races the signal that recovers a lost one, and
-`DoNotQueue` makes a failure terminal. All three triggers call the same `claim`, off the handler and
-one at a time; `NameTaken` *by us* is success.
+*after* `start` returns, so claiming there races the signal that recovers a lost one. All three
+triggers call the same `claim`, off the handler and one at a time; `NameTaken` *by us* is success.
 
 **A fresh owner sweeps, because items register once and never learn they were forgotten.** Announce
-`StatusNotifierHostRegistered` *first* — Qt and libayatana clients re-register on it — then
-`ListNames` for well-known `StatusNotifierItem-*` names and probe each; the canonical key collapses
-both.
+`StatusNotifierHostRegistered` *first* — Qt and libayatana clients re-register on it — then sweep
+`ListNames`; the canonical key collapses the two arrivals.
 
 **One `Watch::Item(key)` per item, and no teardown code** — a key stops appearing, its guard drops,
-its match rules go. A menu follower is keyed by item *and path*. Each takes `PropertiesChanged` and
-every `New*`; an item that stops answering is dropped, not retried.
+its match rules go. A menu follower is keyed by item *and path*, and an item that stops answering is
+dropped, not retried.
 
 **Every command is answered off the handler under a five-second deadline.** `AboutToShow` reports
-whether the layout changed and **must be awaited**; `Event` is `no_reply` and must not be.
-`ItemsPropertiesUpdated` carries no revision, so it drops the cache outright. Menus load on
-pointer-enter, naming every submenu id first.
+whether the layout changed and **must be awaited**; `Event` is `no_reply` and must not be. Menus
+load on pointer-enter, naming every submenu id first.
+
+**bluetooth** — one adapter, its devices, a pairing prompt and a confirmation in one state value,
+enumerated with one `GetManagedObjects` per generation and never polled. **BlueZ's `ObjectManager`
+is at `/`, not `/org/bluez`** — the tree root answers `UnknownMethod`, and its signals come from `/`
+too, so only `PropertiesChanged` and `Disconnected` take the `/org/bluez` namespace. **One
+`PropertiesChanged` stream serves every device** — the opposite of mpris — and every decoder returns
+an all-`Option` partial the service merges. A signal arriving after a generation bump but before its
+enumeration is dropped, or the previous owner's queue edits the new snapshot.
+
+**Match a device path by shape, not by prefix.** Connecting adds `dev_XX/fd0` and `sep1`…`sep6` as
+children; a prefix match invents seven phantom devices. `fd0` is the `MediaTransport1` the codec
+comes from: read, never a device, and gone the moment it disconnects.
+
+**`busy` is cleared by its own command's completion, never by the property moving.** `Connect()` on
+an already-connected device returns `AlreadyConnected` with no state change, so a property-based
+clear leaves that row spinning forever; `Settled` names the `Busy` it answers, so a superseded
+command cannot clear a newer one. Four BlueZ errors are likewise not failures — `AlreadyConnected`,
+`AlreadyExists`, `InProgress` on a scan, `DoesNotExist` — and `failure.rs` maps the rest, tokens
+included.
+
+**A scan starts on one trigger and stops on five**, and `SetDiscoveryFilter` carries `Transport`
+alone: any filter disables the RSSI delta-threshold BlueZ otherwise imposes. **The agent is
+per-connection**, so two panels never collide. **A confirmation is a refusal carrying a
+request**, so nothing moves optimistically.
 
 ## Rules
 

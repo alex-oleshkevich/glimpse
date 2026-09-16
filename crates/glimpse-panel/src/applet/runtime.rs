@@ -733,5 +733,74 @@ mod tests {
             "a panicking applet gives its space back whether the group or the applet owned the \
              widget; only the group empties itself"
         );
+
+        a_bluetooth_popover_signal_reaches_the_service();
+    }
+
+    /// The one link the widget's own tests and the service's own tests leave between them: the
+    /// closures `Bluetooth::popover` connects. Both assertions use a confirmation, because that is
+    /// the only command whose whole effect is local — no bus is needed to see it land.
+    fn a_bluetooth_popover_signal_reaches_the_service() {
+        use crate::applet::popover::Seat;
+        use crate::applets::bluetooth::Bluetooth as BluetoothApplet;
+        use glimpse_dbus::Buses;
+        use glimpse_services::{Confirmation, DeviceId, Running};
+        use glimpse_widgets::BluetoothPopover;
+
+        const DEVICE: &str = "/org/bluez/hci0/dev_F8_4E_17_BC_EE_D5";
+
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime");
+        let guard = runtime.enter();
+        let (mut service, bluetooth) = Running::<glimpse_services::Bluetooth>::spawn(
+            &glimpse_config::Config::default(),
+            Buses::unavailable("no bus in tests"),
+            (),
+        );
+
+        let mut applet = BluetoothApplet::start(bluetooth.clone());
+        let (host, _receiver) = relm4::channel();
+        let shown = applet
+            .popover(&Seat::new(host))
+            .expect("the applet opens a popover");
+        let popover = shown
+            .widget()
+            .downcast::<BluetoothPopover>()
+            .expect("the bluetooth applet's popover is its own widget");
+
+        let settled = |wanted: Confirmation| {
+            for _ in 0..200 {
+                if bluetooth.snapshot().confirm.as_ref() == Some(&wanted) {
+                    return true;
+                }
+                settle();
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            false
+        };
+
+        popover.emit_by_name::<()>("acted", &[&DEVICE.to_owned(), &"forget".to_owned()]);
+        assert!(
+            settled(Confirmation::Forget {
+                device: DeviceId::new(DEVICE),
+                connected: false,
+            }),
+            "a forget row must reach the service as an unconfirmed forget, not as a forget"
+        );
+
+        let arguments: [&dyn gtk4::glib::value::ToValue; 3] =
+            [&DEVICE.to_owned(), &"trust".to_owned(), &true];
+        popover.emit_by_name::<()>("toggled", &arguments);
+        assert!(
+            settled(Confirmation::Trust {
+                device: DeviceId::new(DEVICE),
+            }),
+            "turning the trust switch on must ask first"
+        );
+
+        drop(guard);
+        runtime.block_on(service.stop());
     }
 }

@@ -354,6 +354,11 @@
     font-weight: 600;
 }
 
+.row--danger .row__title,
+.row--danger .row__icon {
+    color: var(--gl-danger-text);
+}
+
 .keyboard-popover {
     --gl-popover-min-width: 8rem;
 }
@@ -563,6 +568,57 @@
     color: var(--gl-dim);
 }
 
+.bluetooth-popover .popover-shell {
+    border-radius: 1.5rem;
+    padding: 1.1rem;
+}
+
+.bluetooth-popover .hero__title {
+    font-size: var(--gl-text-title);
+    font-weight: 700;
+}
+
+.bluetooth-popover__device {
+    border-radius: 0.75rem;
+    min-height: 3.2rem;
+}
+
+.bluetooth-popover__device .split-row__detail image {
+    transition: transform var(--gl-duration) var(--gl-ease);
+}
+
+.bluetooth-popover__device.open .split-row__detail image {
+    transform: rotate(90deg);
+}
+
+.detail-card {
+    background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.09);
+    border: 1px solid var(--gl-border);
+    border-radius: 1.5rem;
+    margin: 0.75rem 0 0.25rem 0;
+    padding: 0.4rem;
+}
+
+.detail-card .row {
+    border-radius: 0.75rem;
+}
+
+.detail-card__description {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
+    padding: 0.35rem 0.8rem 0.5rem 0.8rem;
+}
+
+.bluetooth-popover .row,
+.bluetooth-popover .split-row,
+.bluetooth-popover .hero {
+    transition: opacity var(--gl-duration) var(--gl-ease);
+}
+
+.bluetooth-popover .receded {
+    opacity: 0.32;
+}
+
 .split-row {
     --gl-split-radius: 0.7rem;
     --gl-split-detail: 2.6rem;
@@ -605,17 +661,16 @@
 }
 
 .weather-popover__alerts,
-.weather-popover__alerts > .notice + .notice {
+.weather-popover__alerts > box + box {
     margin-top: 0.35rem;
+}
+
+.forecast-day.open {
+    background-color: var(--gl-hover);
 }
 
 .drawer-page {
     min-width: 19rem;
-}
-
-.drawer-page__description {
-    font-size: var(--gl-text-caption);
-    color: var(--gl-muted);
 }
 
 .workspace-row--urgent .row__title {

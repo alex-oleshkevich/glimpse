@@ -152,25 +152,33 @@ impl Catcher {
         self.window.present();
 
         // A layer surface has no size and is not mapped until the compositor configures it, so
-        // an idle right after present() has nothing to centre against and animates nothing.
+        // an idle right after present() has nothing to centre against and animates nothing. The
+        // callback outlives the first placement because a drawer opening inside the body changes
+        // what there is to place, and a body that grew against a fixed margin leaves the output.
         let catcher = Rc::downgrade(self);
+        let placed = Cell::new((0, 0));
         self.slot.add_tick_callback(move |slot, _| {
             let Some(catcher) = catcher.upgrade() else {
                 return glib::ControlFlow::Break;
             };
-            if catcher.state.get() != State::Opening
-                || catcher.fade.state() == adw::AnimationState::Playing
-            {
+            if matches!(catcher.state.get(), State::Closed | State::Closing) {
                 return glib::ControlFlow::Break;
             }
             if catcher.room() == 0 || slot.width() == 0 {
                 return glib::ControlFlow::Continue;
             }
-            catcher.settle();
-            catcher.fade.set_value_from(0.0);
-            catcher.fade.set_value_to(1.0);
-            catcher.fade.play();
-            glib::ControlFlow::Break
+            let measured = catcher.measured();
+            if placed.replace(measured) != measured {
+                catcher.settle();
+            }
+            if catcher.state.get() == State::Opening
+                && catcher.fade.state() != adw::AnimationState::Playing
+            {
+                catcher.fade.set_value_from(0.0);
+                catcher.fade.set_value_to(1.0);
+                catcher.fade.play();
+            }
+            glib::ControlFlow::Continue
         });
     }
 
@@ -253,21 +261,25 @@ impl Catcher {
     }
 
     fn room(&self) -> i32 {
+        self.measured().1
+    }
+
+    fn measured(&self) -> (i32, i32) {
         match self.horizontal() {
-            true => self.window.width(),
-            false => self.window.height(),
+            true => (self.body.width(), self.window.width()),
+            false => (self.body.height(), self.window.height()),
         }
     }
 
     fn settle(&self) {
-        let room = self.room();
+        let (extent, room) = self.measured();
         if room == 0 {
             return;
         }
 
-        let (extent, arrow) = match self.horizontal() {
-            true => (self.body.width(), self.arrow.width()),
-            false => (self.body.height(), self.arrow.height()),
+        let arrow = match self.horizontal() {
+            true => self.arrow.width(),
+            false => self.arrow.height(),
         };
         let (start, offset) = placement(self.center.get(), extent, room, arrow);
         match self.horizontal() {

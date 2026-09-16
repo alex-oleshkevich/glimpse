@@ -50,9 +50,10 @@ whenever the service's state or health moves, then release and remove on shutdow
 `Exported::serve` runs the loop and never interprets what it is watching, so this crate still does
 not depend on `glimpse-services`. The receivers are what a `ServiceHandle` already hands out.
 
-**Backend proxies carry no policy.** System-service modules only declare interfaces. A typed client
-for a Glimpse-owned provider may additionally own its availability state and `NameOwnerChanged`
-follower so every consuming process gets the same lifecycle behavior.
+**Backend proxies carry no policy.** A system-service module declares interfaces and decodes what
+they answer; what to do about an answer belongs to the service. A typed client for a Glimpse-owned
+provider may additionally own its availability state and `NameOwnerChanged` follower so every
+consuming process gets the same lifecycle behavior.
 
 **Both connections are opened once and shared.** `Buses` is `Clone` and holds session and system
 together, because a service that needs one usually needs the other, and two connections in one
@@ -92,6 +93,17 @@ misses, then issues a real `Get` that errors — so reading an item property by 
 trip and a failure for every member it never implemented. `decode_item` takes the map and gives
 every field a default, which is also why `XAyatana*` needs no branch: extensions are just more keys.
 `Menu` is an `o` and no `&str` extraction reads one.
+
+**Every BlueZ decoder returns an all-`Option` partial.** `GetManagedObjects`, `InterfacesAdded` and
+`PropertiesChanged` carry the identical `a{sv}` shape, and the last of the three carries a *subset* —
+so one decoder feeds all three only if absent means "unchanged" rather than "default". The service
+merges the partial onto what it already holds; an invalidated name is simply a key that is not there.
+
+**The BlueZ display name is `Alias`, with no fallback chain.** `Name` is absent on a discovered
+device and `Alias` never is — BlueZ synthesizes the dashed MAC. `is_synthesized_name` answers
+whether it did, so a caller can render that case differently without re-deriving the comparison.
+`PowerState` is decoded to `Option<Power>` because a BlueZ older than 5.87 omits it, and
+`Power::from_powered` is the fallback that collapses the blocked state rather than inventing one.
 
 **`AttentionMovieName` is decoded and rendered nowhere.** Keeping it in the model is what stops it
 being dropped silently; nothing in glimpse animates a tray icon.

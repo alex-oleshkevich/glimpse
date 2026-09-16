@@ -7,8 +7,9 @@ use glimpse_dbus::{
     weather::{WeatherProvider, WeatherProviderHandle},
 };
 use glimpse_services::{
-    Calendar, CalendarHandle, Compositor, CompositorHandle, Heartbeat, HeartbeatHandle, Keyboard,
-    KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Running, Tray, TrayHandle,
+    Bluetooth, BluetoothHandle, Calendar, CalendarHandle, Compositor, CompositorHandle, Heartbeat,
+    HeartbeatHandle, Keyboard, KeyboardDependencies, KeyboardHandle, Mpris, MprisHandle, Running,
+    Tray, TrayHandle,
 };
 
 pub struct PanelServices {
@@ -18,12 +19,14 @@ pub struct PanelServices {
     pub mpris: MprisHandle,
     pub heartbeat: HeartbeatHandle,
     pub tray: TrayHandle,
+    pub bluetooth: BluetoothHandle,
     compositor_service: Running<Compositor>,
     keyboard_service: Running<Keyboard>,
     calendar_service: Running<Calendar>,
     mpris_service: Running<Mpris>,
     heartbeat_service: Running<Heartbeat>,
     tray_service: Running<Tray>,
+    bluetooth_service: Running<Bluetooth>,
     notifications: NotificationsProvider,
     weather: WeatherProvider,
 }
@@ -57,7 +60,8 @@ impl PanelServices {
         let (mpris_service, mpris) = Running::<Mpris>::spawn(document, buses.clone(), ());
         let (heartbeat_service, heartbeat) =
             Running::<Heartbeat>::spawn(document, buses.clone(), ());
-        let (tray_service, tray) = Running::<Tray>::spawn(document, buses, ());
+        let (tray_service, tray) = Running::<Tray>::spawn(document, buses.clone(), ());
+        let (bluetooth_service, bluetooth) = Running::<Bluetooth>::spawn(document, buses, ());
 
         Self {
             compositor,
@@ -66,12 +70,14 @@ impl PanelServices {
             mpris,
             heartbeat,
             tray,
+            bluetooth,
             compositor_service,
             keyboard_service,
             calendar_service,
             mpris_service,
             heartbeat_service,
             tray_service,
+            bluetooth_service,
             notifications,
             weather,
         }
@@ -81,6 +87,7 @@ impl PanelServices {
         self.cancel();
         self.weather.shutdown().await;
         self.notifications.shutdown().await;
+        self.bluetooth_service.stop().await;
         self.tray_service.stop().await;
         self.heartbeat_service.stop().await;
         self.mpris_service.stop().await;
@@ -96,6 +103,7 @@ impl PanelServices {
         self.mpris_service.reconfigure(document);
         self.heartbeat_service.reconfigure(document);
         self.tray_service.reconfigure(document);
+        self.bluetooth_service.reconfigure(document);
     }
 
     pub fn notifications(&self) -> NotificationsProviderHandle {
@@ -107,6 +115,7 @@ impl PanelServices {
     }
 
     fn cancel(&self) {
+        self.bluetooth_service.cancel();
         self.tray_service.cancel();
         self.heartbeat_service.cancel();
         self.mpris_service.cancel();

@@ -1,4 +1,6 @@
 mod artwork;
+mod bluetooth_pairing_dialog;
+mod bluetooth_popover;
 mod calendar;
 mod calendar_popover;
 mod choice_list;
@@ -45,6 +47,11 @@ mod workspaces_popover;
 mod world_clock;
 
 pub use artwork::artwork;
+pub use bluetooth_pairing_dialog::{PairingAnswer, PairingDialog};
+pub use bluetooth_popover::{
+    BluetoothPopover, Details as BluetoothDetails, Entry as BluetoothEntry, Line as BluetoothLine,
+    Place as BluetoothPlace,
+};
 pub use calendar::{Calendar, Ymd};
 pub use calendar_popover::CalendarPopover;
 pub use choice_list::{Choice, ChoiceList};
@@ -180,6 +187,8 @@ pub fn register_resources() -> Result<(), glib::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bluetooth_pairing_dialog::PIN_MAX;
+    use adw::prelude::AlertDialogExt;
     use gtk4::gdk;
     use gtk4::prelude::*;
     use gtk4::subclass::prelude::*;
@@ -1775,7 +1784,11 @@ mod tests {
             let chosen = Rc::clone(&chosen);
             move |_, index| chosen.borrow_mut().push(index)
         });
-        children_of::<Row>(&forecast)[1].emit_clicked();
+        assert!(
+            children_of::<Row>(&forecast).is_empty(),
+            "a day is parented with the panel that unfolds under it, not directly"
+        );
+        forecast.imp().rows.borrow()[1].emit_clicked();
         assert_eq!(*chosen.borrow(), [1u32]);
 
         let ends = |class: &str| {
@@ -3161,7 +3174,24 @@ mod tests {
         );
 
         let weather = WeatherPopover::new();
-        let weather_drawer = weather.imp().drawer.get();
+
+        let day_panel = |index: usize| -> Option<gtk4::Revealer> {
+            weather
+                .imp()
+                .days
+                .imp()
+                .holders
+                .borrow()
+                .get(index)
+                .and_then(|holder| holder.last_child())
+                .and_downcast::<gtk4::Revealer>()
+        };
+        let alert_notices = |weather: &WeatherPopover| -> Vec<Notice> {
+            children_of::<gtk4::Box>(&weather.imp().alerts.get())
+                .iter()
+                .filter_map(|holder| holder.first_child().and_downcast::<Notice>())
+                .collect()
+        };
 
         let page = |key: &str, title: &str| WeatherPage {
             key: key.to_owned(),
@@ -3194,27 +3224,56 @@ mod tests {
         }]);
         assert!(weather.imp().daily.get_visible() && weather.imp().daily_rule.get_visible());
 
-        assert!(!weather_drawer.reveals_child());
+        assert_eq!(weather.is_open(), None);
         weather.open("day0");
-        assert!(
-            !weather_drawer.reveals_child(),
-            "a page nothing built cannot be opened"
+        assert_eq!(
+            weather.is_open(),
+            None,
+            "a detail nothing built cannot be opened"
         );
 
+        weather.set_days(&[
+            Day {
+                label: "Tomorrow".to_owned(),
+                icon_name: "weather-clear-symbolic".to_owned(),
+                precipitation: None,
+                low: 11.0,
+                high: 18.0,
+            },
+            Day {
+                label: "Wednesday".to_owned(),
+                icon_name: "weather-clear-symbolic".to_owned(),
+                precipitation: None,
+                low: 12.0,
+                high: 19.0,
+            },
+        ]);
         weather.set_pages(&[page("day0", "Tomorrow"), page("day1", "Wednesday")]);
         weather.open("day0");
         assert_eq!(weather.is_open().as_deref(), Some("day0"));
+        assert!(
+            day_panel(0).is_some_and(|panel| panel.is_ancestor(&weather.imp().days.get())),
+            "a day's detail unfolds inside the list it belongs to, not beside the column"
+        );
+        assert!(
+            children_of::<ForecastDay>(&weather.imp().days.get()).is_empty(),
+            "every day travels with its own panel, so the list's children are holders"
+        );
         weather.open("day1");
         assert_eq!(
             weather.is_open().as_deref(),
             Some("day1"),
-            "another page switches rather than closing"
+            "another day switches rather than closing"
+        );
+        assert!(
+            day_panel(0).is_some_and(|panel| !panel.reveals_child()),
+            "opening one day closes the one that was open"
         );
         weather.open("day1");
         assert_eq!(
             weather.is_open(),
             None,
-            "the control that opened the drawer is the one that closes it"
+            "the control that opened the detail is the one that closes it"
         );
 
         weather.open("day1");
@@ -3222,7 +3281,7 @@ mod tests {
         assert_eq!(
             weather.is_open(),
             None,
-            "a drawer must not stand open on a page that has gone away"
+            "a detail must not stand open on a page that has gone away"
         );
 
         let advisory = |title: &str, page: Option<&str>, severity| Advisory {
@@ -3233,7 +3292,7 @@ mod tests {
             page: page.map(str::to_owned),
         };
 
-        assert!(children_of::<Notice>(&weather.imp().alerts.get()).is_empty());
+        assert!(alert_notices(&weather).is_empty());
         assert!(
             !weather.imp().alerts.get_visible(),
             "an empty alert box would still cost the space between it and the nowcast"
@@ -3244,7 +3303,7 @@ mod tests {
             advisory("Wind advisory", None, Severity::Warning),
         ]);
 
-        let raised = children_of::<Notice>(&weather.imp().alerts.get());
+        let raised = alert_notices(&weather);
         assert_eq!(raised.len(), 2);
         assert!(raised[0].has_css_class("notice--error"));
         assert!(
@@ -3262,14 +3321,28 @@ mod tests {
             "one handler, not one per reconcile: a second click closes rather than reopening"
         );
 
+        let ordered = WeatherPopover::new();
+        ordered.set_alerts(&[advisory(
+            "Thunderstorm warning",
+            Some("alert0"),
+            Severity::Error,
+        )]);
+        ordered.set_pages(&[page("alert0", "Storm")]);
+        ordered.open("alert0");
+        assert_eq!(
+            ordered.is_open().as_deref(),
+            Some("alert0"),
+            "a notice and its page arrive through different setters, and neither order may lose it"
+        );
+
         weather.set_alerts(&[advisory("Wind advisory", None, Severity::Warning)]);
         assert_eq!(
-            children_of::<Notice>(&weather.imp().alerts.get()).len(),
+            alert_notices(&weather).len(),
             1,
             "a cleared alert is unparented rather than left behind empty"
         );
         weather.set_alerts(&[]);
-        assert!(children_of::<Notice>(&weather.imp().alerts.get()).is_empty());
+        assert!(alert_notices(&weather).is_empty());
         assert!(!weather.imp().alerts.get_visible());
 
         weather.set_nowcast(None);
@@ -3452,6 +3525,403 @@ mod tests {
         assert!(
             !card.imp().text.get_visible(),
             "an icon-only card reserves no text column"
+        );
+
+        let popover = BluetoothPopover::new();
+        popover.set_adapter(
+            "Bluetooth",
+            "No device connected",
+            "bluetooth-symbolic",
+            true,
+            true,
+        );
+        assert!(popover.imp().power.is_active());
+        assert!(!popover.imp().connected.get_visible());
+
+        let entry = |id: &str, place: BluetoothPlace| BluetoothEntry {
+            id: id.to_owned(),
+            title: id.to_owned(),
+            subtitle: "Headset".to_owned(),
+            icon: "audio-headset-symbolic".to_owned(),
+            place,
+            value: String::new(),
+            selected: false,
+        };
+        popover.set_entries(&[
+            entry("a", BluetoothPlace::Connected),
+            entry("b", BluetoothPlace::Paired),
+            entry("c", BluetoothPlace::Paired),
+        ]);
+        assert!(popover.imp().connected.get_visible());
+        assert_eq!(popover.imp().paired_held.borrow().len(), 2);
+        assert!(
+            !popover.imp().nearby.get_visible(),
+            "nearby is a scan, not a resting state"
+        );
+
+        let first = popover
+            .imp()
+            .connected_held
+            .borrow()
+            .first()
+            .cloned()
+            .expect("a connected row")
+            .1;
+        popover.set_entries(&[
+            entry("a", BluetoothPlace::Connected),
+            entry("b", BluetoothPlace::Paired),
+        ]);
+        assert_eq!(
+            popover
+                .imp()
+                .connected_held
+                .borrow()
+                .first()
+                .map(|(_, holder)| holder.clone()),
+            Some(first),
+            "a key that stays keeps its widget, and its panel with it"
+        );
+
+        let acted = Rc::new(RefCell::new(Vec::new()));
+        popover.connect_acted({
+            let acted = Rc::clone(&acted);
+            move |_, id, action| acted.borrow_mut().push(format!("{id}/{action}"))
+        });
+
+        let panel = |id: &str| -> gtk4::Revealer {
+            let imp = popover.imp();
+            for held in [&imp.connected_held, &imp.paired_held, &imp.nearby_held] {
+                if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
+                    return holder
+                        .last_child()
+                        .and_downcast::<gtk4::Revealer>()
+                        .expect("a device row carries its own panel");
+                }
+            }
+            panic!("no row is holding {id}");
+        };
+        let panel_rows = |id: &str| -> Vec<Row> {
+            let page = panel(id)
+                .child()
+                .and_downcast::<gtk4::Box>()
+                .expect("an opened panel has a page");
+            children_of::<Row>(
+                &page
+                    .last_child()
+                    .and_downcast::<gtk4::Box>()
+                    .expect("the page ends in its rows"),
+            )
+        };
+        let notice = |id: &str| -> Notice {
+            panel(id)
+                .child()
+                .and_downcast::<gtk4::Box>()
+                .expect("an opened panel has a page")
+                .first_child()
+                .and_downcast::<Notice>()
+                .expect("the page starts with its notice")
+        };
+        let head = |id: &str| -> gtk4::Widget {
+            let imp = popover.imp();
+            for held in [&imp.connected_held, &imp.paired_held, &imp.nearby_held] {
+                if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
+                    return holder.first_child().expect("a holder leads with its row");
+                }
+            }
+            panic!("no row is holding {id}");
+        };
+
+        assert!(
+            popover
+                .imp()
+                .paired_held
+                .borrow()
+                .iter()
+                .all(|(_, holder)| {
+                    holder
+                        .last_child()
+                        .and_downcast::<gtk4::Revealer>()
+                        .is_some_and(|panel| !panel.reveals_child())
+                }),
+            "a device reveals nothing until it is selected"
+        );
+        popover.set_details(Some(&BluetoothDetails {
+            id: "a".to_owned(),
+            notice: "The device is switched off or out of range.".to_owned(),
+            lines: vec![
+                BluetoothLine {
+                    action: "disconnect".to_owned(),
+                    title: "Disconnect".to_owned(),
+                    ..Default::default()
+                },
+                BluetoothLine {
+                    action: "trust".to_owned(),
+                    title: "Connect automatically".to_owned(),
+                    toggle: Some(false),
+                    ..Default::default()
+                },
+                BluetoothLine {
+                    action: "forget".to_owned(),
+                    title: "Forget this device".to_owned(),
+                    icon: "user-trash-symbolic".to_owned(),
+                    destructive: true,
+                    ..Default::default()
+                },
+            ],
+        }));
+        assert!(
+            panel("a").reveals_child(),
+            "the detail belongs under the device it describes, not beside the list"
+        );
+        assert!(notice("a").get_visible());
+        assert!(
+            !head("a").has_css_class("receded"),
+            "the device that was opened is the one thing that must not recede"
+        );
+        assert!(
+            head("b").has_css_class("receded") && popover.imp().hero.has_css_class("receded"),
+            "everything the panel is read against recedes while it is open"
+        );
+
+        let lines = panel_rows("a");
+        assert_eq!(lines.len(), 3);
+        assert!(
+            lines[2].has_css_class("row--danger") && !lines[0].has_css_class("row--danger"),
+            "only the line that destroys the bond is dressed as one"
+        );
+        lines[0].emit_by_name::<()>("clicked", &[]);
+        assert_eq!(*acted.borrow(), ["a/disconnect"]);
+
+        let switch = lines[1]
+            .trail()
+            .and_downcast::<gtk4::Switch>()
+            .expect("a toggle row carries a switch");
+        assert!(!switch.is_active());
+        popover.set_details(Some(&BluetoothDetails {
+            id: "a".to_owned(),
+            notice: String::new(),
+            lines: vec![
+                BluetoothLine {
+                    action: "disconnect".to_owned(),
+                    title: "Disconnect".to_owned(),
+                    ..Default::default()
+                },
+                BluetoothLine {
+                    action: "trust".to_owned(),
+                    title: "Connect automatically".to_owned(),
+                    toggle: Some(true),
+                    ..Default::default()
+                },
+                BluetoothLine {
+                    action: "address".to_owned(),
+                    title: "Address".to_owned(),
+                    value: "F8:4E:17:BC:EE:D5".to_owned(),
+                    ..Default::default()
+                },
+            ],
+        }));
+        assert!(
+            switch.is_active(),
+            "a reused row must follow the backend, not the last click"
+        );
+        assert!(
+            !panel_rows("a")[2].has_css_class("row--danger"),
+            "a row reused for an ordinary line must not keep the danger it was dressed with"
+        );
+        assert!(!notice("a").get_visible());
+        assert_eq!(
+            *acted.borrow(),
+            ["a/disconnect"],
+            "redressing the switch is not the user toggling it"
+        );
+
+        popover.set_details(Some(&BluetoothDetails {
+            id: "b".to_owned(),
+            notice: String::new(),
+            lines: vec![
+                BluetoothLine {
+                    action: "disconnect".to_owned(),
+                    title: "Disconnect".to_owned(),
+                    ..Default::default()
+                },
+                BluetoothLine {
+                    action: "trust".to_owned(),
+                    title: "Connect automatically".to_owned(),
+                    toggle: Some(false),
+                    ..Default::default()
+                },
+            ],
+        }));
+        assert!(
+            !panel("a").reveals_child() && panel("b").reveals_child(),
+            "opening one device closes the one that was open"
+        );
+        acted.borrow_mut().clear();
+        panel_rows("b")[0].emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            *acted.borrow(),
+            ["b/disconnect"],
+            "a row whose action key repeats across devices must not act on the one no longer shown"
+        );
+
+        let width =
+            |popover: &BluetoothPopover| popover.measure(gtk4::Orientation::Horizontal, -1).1;
+        {
+            let probe = BluetoothPopover::new();
+            probe.set_adapter(
+                "Bluetooth",
+                "No device connected",
+                "bluetooth-symbolic",
+                true,
+                true,
+            );
+            probe.set_entries(&[entry("a", BluetoothPlace::Connected)]);
+            let floor = width(&probe);
+
+            probe.set_adapter(
+                "Bluetooth",
+                "Connected to Bose QuietComfort Ultra and 2 others",
+                "bluetooth-active-symbolic",
+                true,
+                true,
+            );
+            assert_eq!(
+                width(&probe),
+                floor,
+                "a hero subtitle that grows with the device list widened the whole card"
+            );
+
+            probe.set_details(Some(&BluetoothDetails {
+                id: "a".to_owned(),
+                notice: String::new(),
+                lines: vec![BluetoothLine {
+                    action: "services".to_owned(),
+                    title: "Services".to_owned(),
+                    value: "Audio, Calls, Remote control, Network, File transfer".to_owned(),
+                    ..Default::default()
+                }],
+            }));
+            assert_eq!(
+                width(&probe),
+                floor,
+                "a row's value has to stop asking for room at some point, or opening a device \
+                 resizes the card under the pointer that opened it"
+            );
+        }
+        popover.set_details(None);
+        let closed = width(&popover);
+        popover.set_details(Some(&BluetoothDetails {
+            id: "a".to_owned(),
+            notice: String::new(),
+            lines: vec![BluetoothLine {
+                action: "address".to_owned(),
+                title: "Address".to_owned(),
+                value: "F8:4E:17:BC:EE:D5".to_owned(),
+                ..Default::default()
+            }],
+        }));
+        assert_eq!(
+            width(&popover),
+            closed,
+            "a card that widens when a device opens moves every row under the pointer that opened it"
+        );
+
+        popover.set_details(None);
+        assert!(!panel("a").reveals_child() && !panel("b").reveals_child());
+        assert!(
+            !head("a").has_css_class("receded") && !popover.imp().hero.has_css_class("receded"),
+            "closing the panel gives the card back"
+        );
+
+        assert_eq!(
+            popover.imp().scan.lead_icon().as_deref(),
+            Some("list-add-symbolic")
+        );
+        popover.set_scanning(true, "Stop searching");
+        assert_eq!(
+            popover.imp().scan.lead_icon().as_deref(),
+            Some("process-stop-symbolic"),
+            "a row offering to stop a scan must not wear the icon for starting one"
+        );
+        assert!(popover.imp().nearby.get_visible());
+        popover.set_scanning(false, "Add a device");
+        assert_eq!(
+            popover.imp().scan.lead_icon().as_deref(),
+            Some("list-add-symbolic")
+        );
+
+        let dialog = PairingDialog::new();
+        let answers = Rc::new(RefCell::new(Vec::new()));
+        dialog.connect_answered({
+            let answers = Rc::clone(&answers);
+            move |_, answer| answers.borrow_mut().push(answer)
+        });
+
+        dialog.show_confirm("Bose QuietComfort 45", 418_209);
+        assert_eq!(dialog.imp().code.text(), "418 209");
+        assert!(dialog.has_response("confirm") && dialog.has_response("cancel"));
+        assert_eq!(dialog.close_response(), "cancel");
+        assert!(
+            !dialog.imp().entry.get_visible(),
+            "a confirmation takes no typing"
+        );
+
+        let rewrites = Rc::new(Cell::new(0u32));
+        dialog.connect_heading_notify({
+            let rewrites = Rc::clone(&rewrites);
+            move |_| rewrites.set(rewrites.get() + 1)
+        });
+        dialog.show_confirm("Bose QuietComfort 45", 418_209);
+        assert_eq!(
+            rewrites.get(),
+            0,
+            "an unchanged heading must not be written again"
+        );
+        dialog.show_authorize("Bose QuietComfort 45");
+        assert_eq!(rewrites.get(), 1, "a different prompt does write it");
+
+        dialog.show_request_pin("Keychron K3");
+        assert!(dialog.imp().entry.get_visible());
+        assert!(
+            !dialog.is_response_enabled("ok"),
+            "an empty PIN cannot be sent"
+        );
+        dialog.imp().entry.set_text("0000");
+        assert!(dialog.is_response_enabled("ok"));
+        dialog.imp().entry.set_max_length(0);
+        dialog.imp().entry.set_text(&"a".repeat(PIN_MAX + 1));
+        assert!(
+            !dialog.is_response_enabled("ok"),
+            "seventeen characters is one past what BlueZ takes"
+        );
+        assert!(dialog.imp().entry.has_css_class("error"));
+
+        dialog.show_request_passkey("Bose QuietComfort 45");
+        dialog.imp().entry.set_max_length(0);
+        dialog.imp().entry.set_text("1000000");
+        assert!(
+            !dialog.is_response_enabled("ok"),
+            "a passkey above 999999 cannot be sent"
+        );
+        dialog.imp().entry.set_text("123456");
+        assert!(dialog.is_response_enabled("ok"));
+
+        dialog.emit_by_name::<()>("response", &[&"ok".to_owned()]);
+        assert_eq!(*answers.borrow(), [PairingAnswer::Passkey(123_456)]);
+
+        answers.borrow_mut().clear();
+        dialog.show_display_passkey("Keychron K3", 18_402, 3);
+        assert_eq!(dialog.imp().code.text(), "018 402");
+        assert!(dialog.imp().progress.get_visible());
+        assert!(
+            !dialog.has_response("ok") && !dialog.has_response("confirm"),
+            "a display-only prompt offers nothing but Cancel"
+        );
+        dialog.emit_by_name::<()>("response", &[&dialog.close_response().to_string()]);
+        assert_eq!(
+            *answers.borrow(),
+            [PairingAnswer::Deny],
+            "Esc closes with the close response, which is a refusal"
         );
     }
 

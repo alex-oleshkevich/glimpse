@@ -41,6 +41,10 @@ impl Row {
         fill(&self.imp().trail, widget);
     }
 
+    pub fn trail(&self) -> Option<gtk4::Widget> {
+        self.imp().trail.first_child()
+    }
+
     pub fn clear_trail(&self) {
         empty(&self.imp().trail);
     }

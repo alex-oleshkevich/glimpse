@@ -84,17 +84,13 @@ misses it, and `%%S` is a literal percent so `contains("%S")` matches a non-spec
 `view()` returning `Some` replaces the group and `indicators()` is never called. The pager is the
 first case: a click *per slot* over a list whose length changes.
 
-- **The root is a `gtk4::Box` carrying the `applet` class**, not the group — relm4's `init_root()`
-  takes no arguments, so the root cannot depend on an applet built later in `init()`.
-- **An applet that supplies a view receives no `Input::Pointer`.** The widget owns its pointer,
-  which is what lets the pager give each slot its own button and scroll axes.
+- **The root is a `gtk4::Box`, not the group** — `init_root()` takes no arguments.
+- **An applet supplying a view receives no `Input::Pointer`** — the widget owns its pointer.
 - **Orientation is handed to the applet, not applied behind its back.** Reaching into the view's own
   `BoxLayout` turns the widget sideways without telling it, so it cannot restyle for the new axis —
-  on the pager a vertical bar stretched every dot across the column, because the rule lengthening
-  the active one is keyed on `min-width`.
-- **Signals are wired in `view`, called once**, before the first `configure`. A GTK callback
-  outlives any `&Ctx`, so applets capture a cloneable typed handle; settings a callback needs at
-  click time live behind an `Rc<Cell<_>>` the applet updates in `configure`.
+  on the pager a vertical bar stretched every dot, the active-dot rule being keyed on `min-width`.
+- **Signals are wired in `view`, called once.** A GTK callback outlives any `&Ctx`, so applets
+  capture a typed handle and put what a callback needs at click time behind an `Rc` cell.
 
 ## The popover
 
@@ -135,27 +131,23 @@ display. Four properties, one test each: the arrow's centre is the pressed item'
 never leaves the output; the body keeps a gutter from the output edge; the arrow never sits on the
 body's rounded corner.
 
-- **The gutter yields to the arrow, and that ordering is the design.** A popover anchored near the
-  edge cannot both keep a gutter and put its arrow over the item; the gutter shrinks to whatever
-  still lets the arrow reach. One CSS length drives the arrow's size, its inset and the body's
-  gutter, read back from the measured arrow — none is written in Rust.
-- **Placement waits for the window, not for the slot.** A hidden layer surface has no room until the
-  compositor configures it again, and closing hides the window while the slot keeps its previous
-  allocation — so `room()` reads zero on every reopen while `center` stays correct, which is why
-  this looked like an anchoring bug and was not one. `settle` returns without touching a margin
-  while room is zero.
-- **A layer surface has no size and is not mapped until the compositor configures it.** An idle
-  right after `present()` measures `width=0`. `open` waits on a tick callback for a real allocation,
-  settles, then plays. This one fact caused three separate bug reports before it was found.
+- **The gutter yields to the arrow, and that ordering is the design.** A popover near the edge
+  cannot both keep a gutter and put its arrow over the item, so the gutter shrinks to whatever still
+  lets the arrow reach. One CSS length drives arrow size, inset and gutter; none is written in Rust.
+- **Placement waits for the window, not for the slot.** A layer surface has no size until the
+  compositor configures it, so an idle after `present()` measures `width=0`, and a reopen reads
+  `room()` as zero while the slot keeps its old allocation — which looked like an anchoring bug.
+  `settle` touches no margin while room is zero; `open` waits on a tick callback for a real
+  allocation, settles, then plays. **The callback then stays**, re-settling whenever the body's
+  measurement changes — a drawer opening inside a popover otherwise grows against the margin
+  computed for the narrow body and walks the detail page off the output edge.
 - **The catcher takes `set_exclusive_zone(0)` and lets the compositor place it** — no margin, no
   measurement of the bar. Margining by `config.size` assumes two false things: `set_thickness` is a
-  **minimum**, so a bar whose applets need more room is taller; and the panel is not necessarily at
-  the top, because anything else holding an exclusive zone pushes it down. No arithmetic over
-  `config.size` can fix it, because the missing number is the sum of every *other* exclusive zone.
-- **A position change closes an open popover.** The anchor is a coordinate on one axis, and
-  re-placing a `Top` popover's x as a `Left` popover's y puts it somewhere arbitrary. Every panel
-  position is a different layout — orientation, arrow side, arrow direction and placement axis all
-  derive from `Position`.
+  **minimum**, so a bar whose applets need more room is taller, and anything else holding an
+  exclusive zone pushes the panel down. The missing number is the sum of every *other* zone.
+- **A position change closes an open popover.** The anchor is a coordinate on one axis, so
+  re-placing a `Top` popover's x as a `Left` popover's y puts it somewhere arbitrary; orientation,
+  arrow side and placement axis all derive from `Position`.
 
 ### The animation is `AdwTimedAnimation`, not a CSS transition
 
@@ -180,24 +172,20 @@ Twelve-hour detection and the two clock formats live in `glimpse-config`, reache
 
 - **The popover is always local time, even on a clock with a `timezone`.** That setting moves the
   bar label; a calendar is not somewhere else.
-- **The applet asks the calendar service for the months it is showing**, and several panels share
-  one service range so the last to ask wins — the command carries no client identity.
+- **Several panels share one calendar range, so the last to ask wins** — no client identity.
 - **A day past `truncated_from` says so instead of looking empty.**
 - **The next-event window is why the applet is usually absent.** Anything further out than `within`
-  leaves nothing on the bar. An all-day entry is demoted and by default excluded, because ordering
-  by start alone would let a week of them bury the meeting in ten minutes. A multi-day entry is
-  counted from the day the reader is on.
-- **It does not send `calendar.set_range`** — two applets asking for different windows would
-  overwrite each other. It always follows the locale for its clock.
+  leaves nothing on the bar. An all-day entry is demoted and excluded by default, or a week of them
+  would bury the meeting in ten minutes; a multi-day entry counts from the day the reader is on.
+- **It does not send `calendar.set_range`** — the clock owns the month being shown.
 
 **weather** — several places is several applets, through `extends`. The lease renews on a minute's
 tick against the provider's thirty-minute lease.
 
 - **A fixed place still missing a whole tick after the provider took the name gets a warning chip.**
-  Rendering nothing is the deliberate answer for a place with no reading yet and must stay that way;
-  a provider that holds the name, reports itself available and serves none of the place we asked for
-  is a different thing. `note_unserved` runs on the tick rather than on the snapshot, which keeps
-  the ordinary startup gap from flashing a warning.
+  Rendering nothing stays the answer for a place with no reading yet; a provider that holds the
+  name, reports itself available and serves none of what we asked for is a different thing.
+  `note_unserved` runs on the tick, which keeps the startup gap from flashing a warning.
 - **Units come off the typed provider snapshot, never off the panel configuration**, so a units
   change cannot print °F over a Celsius reading while the updated snapshot is in flight.
 - **The list starts at tomorrow and the strip at the next hour** — today and the hour standing are
@@ -213,13 +201,10 @@ tick against the provider's thirty-minute lease.
   msgid. **The cap counts characters**, because track titles are chosen by whatever is playing.
 - **A label that renders to nothing leaves an icon-only chip, not an absent applet.**
 - **The optimistic value goes into `self.players`, not beside it**, so `dress` has one source.
-- **The scrubber and the footer read `aimed`**, a shared cell holding the current player's id, and
-  row signals carry the player's id rather than an index.
-- **`show-others = false` hides the section rather than emptying it** — an empty `Section` shows its
-  placeholder, which would answer a question nobody asked.
-- **An icon is a name the theme actually has.** `DesktopEntry` first, then the bus-name suffix whole
-  and a segment at a time; each candidate is checked with `IconTheme::has_icon`, because an
-  unresolvable name renders as a broken-image glyph.
+- **`aimed` is a shared cell holding the current player's id**, which row signals carry too.
+- **`show-others = false` hides the section**, because an empty `Section` shows its placeholder.
+- **An icon is a name the theme actually has**, checked with `IconTheme::has_icon`: `DesktopEntry`
+  first, then the bus-name suffix whole and a segment at a time.
 
 **keyboard** — the chip is the current layout's code, hidden under two layouts. The compositor owns
 the list; this applet only renders it and sends the switch command.
@@ -265,6 +250,21 @@ dark halo is the symptom of guessing wrong rather than something to tune. Textur
 hash, which makes an application rewriting its icon per message free after the first. `connect_changed`
 on the icon theme and `notify::scale-factor` are connected **once, in the applet**, not per item;
 only name-based icons need re-resolving. Notice tints with `--gl-accent-soft` and adds no token.
+
+**bluetooth** — the chip is the adapter's power state and **nothing else**: an icon, never a device
+name or a count, because the bar is icons and what is connected belongs to the tooltip. No adapter
+renders **nothing**, because a machine with no radio must not carry a dead chip. There is no
+degraded rendering: a stopped service leaves the last chip on the bar, as everywhere else here.
+
+- **Selection, scanning and the two expanded flags are `Rc` cells the popover's closures write and
+  `Input::Woken` reads back.** A signal closure has no `&mut self`, so `opener.wake()` is how a
+  popover changes applet state, and every open starts from a collapsed list.
+- **`forget` and trusting a device close the popover before sending the command.** Both raise an
+  app-level dialog, and presenting one over a live popover leaves focus with the popover, whose
+  layer surface takes no keyboard input at all.
+- **The dialogs belong to `App`, not to the applet.** A prompt outlives the popover that started it
+  and presents on the hidden `adw::ApplicationWindow`, which `App` must make **visible** while one
+  is up: a dialog presented on a never-mapped window is queued and never shown.
 
 ## Translated wording
 

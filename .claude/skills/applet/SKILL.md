@@ -25,11 +25,7 @@ pub struct Heartbeat {
 }
 
 impl Applet for Heartbeat {
-    fn topics(&self) -> &'static [&'static str] {
-        &[HeartbeatTick::NAME]           // declared, not subscribed; the runtime does that
-    }
-
-    fn start() -> Self {
+    fn start() -> Self {                 // called from the registration match, not the vtable
         Self { count: None, period_ms: DEFAULT_PERIOD_MS, icon: gio::ThemedIcon::new(ICON).upcast() }
     }
 
@@ -48,10 +44,9 @@ known. `configure`, `view`, `orient` and `anchor` are the remaining defaulted me
 
 ```rust
 pub enum Input {
-    Changed(SomeState),
     Pointer(Pointer),
     Tick,
-    Woken,                                               // a popover asked to be re-dressed
+    Woken,          // the watched state moved, or a popover asked to be re-dressed
 }
 
 pub enum Pointer { Press(Button), Scroll(Direction) }
@@ -92,17 +87,17 @@ in a widget calls the socket or D-Bus, no `glib::timeout_add` to refresh from da
 `Controller` that is not stored is dropped, data changes must not shift layout, and hostile text is
 capped before it reaches a label. They are not repeated here. What follows is what none of that says.
 
-1. **Topics are declared, not subscribed.** `topics()` returns the names an applet wants; the
-   runtime subscribes after `start` and `Ctx` owns the guards, so an applet holds none and `start`
-   has no side effects. This mirrors `glimpse-services`, where `Live<S>` holds the guards and no service holds one
-   (`grep SourceGuard crates/glimpse-services/src/services/` is empty). Blanket teardown is `Ctx`
-   dropping with the runtime; a panicking applet is torn down by `ctx.shutdown()`, the same answer
-   `ServiceRuntime::run` gives in its panic arm.
+1. **State arrives as one typed watch, and `Input::Woken` is the whole notification.** The
+   registration closure calls `ctx.watch(handle.subscribe())`; every change becomes `Input::Woken`,
+   and the applet reads `handle.snapshot()` from its own arm. The payload is not carried, so there
+   is nothing to decode and nothing to name. `Ctx` owns the watch guard, so an applet holds none and
+   `start` has no side effects. Blanket teardown is `Ctx` dropping with the runtime; a panicking
+   applet is torn down by `ctx.shutdown()`, the same answer `ServiceRuntime::run` gives in its panic
+   arm.
 
-2. **A declared topic and the `payload::<T>` that decodes it are two halves of one fact.** Nothing
-   checks that they agree — declare `HeartbeatTick::NAME` and decode `SolarStatus` and it compiles,
-   then silently never matches. Name the topic through `T::NAME`, never as a string literal, so the
-   two halves at least share a symbol.
+2. **An applet that does not match `Input::Woken` never updates.** It is also what a popover sends
+   through `opener.wake()`, so the same arm serves both and there is one refresh path rather than
+   two.
 
 3. **`indicators()` is a pull and must be cheap and total.** The runtime calls it after every
    `handle` and hands the result to `group.set_items`, which compares before writing. Build nothing
@@ -120,7 +115,13 @@ capped before it reaches a label. They are not repeated here. What follows is wh
    group. No further input reaches it. Unwinding past a `&mut self` mid-mutation leaves state nobody
    can reason about — the same reason `ServiceRuntime` stops a service rather than continuing.
 
-7. **Prefer a symbolic icon.** Name the `-symbolic` variant explicitly —
+7. **An indicator is an icon, and only an icon.** A device name, a count, a status word — none of
+   them belong on the bar; they belong in the tooltip. The exceptions are applets whose value *is*
+   the content and which were asked for as such: the clock's time, the weather's reading, the
+   keyboard's layout badge, mpris's configured `label_format`. Anything else wanting a label needs
+   the user to ask for it first.
+
+8. **Prefer a symbolic icon.** Name the `-symbolic` variant explicitly —
    `audio-volume-high-symbolic`, not `audio-volume-high`. A symbolic icon is recoloured by the CSS
    `color` property, so it follows `@theme_fg_color` from `.indicator` and every theme and accent
    after it; a full-colour icon ignores all of that and reads as a foreign object on the bar,
@@ -131,7 +132,21 @@ capped before it reaches a label. They are not repeated here. What follows is wh
    pixmap is theirs to choose, and it is rendered as given. `gdk::Texture` implements `gio::Icon`,
    which is why one `Option<gio::Icon>` covers a themed name, a file path and a raw pixmap.
 
-8. **`ctx.interval(period)` is the only timer, and it aligns to the wall clock.** It delivers
+   **An icon the state decides moves with the text it belongs to.** The scan row's plus becomes a
+   stop while scanning, set from Rust beside the label, because a blueprint can only declare the
+   resting look. **An icon never takes a background and never takes the accent.** A chip behind a
+   glyph shrinks it and makes a row read as a button; GNOME's Quick Settings does that because its
+   menu is detached from the tile that opened it, and ours is not. An icon name the theme does not
+   have is invisible, so check it — `find /usr/share/icons/Adwaita -name 'bluetooth*'` — before
+   shipping a hardcoded one; `IconTheme::has_icon` only guards the names chosen at runtime.
+
+   **A row that expands says so.** Its chevron rotates over `--gl-duration` / `--gl-ease` — the icon
+   has to be directional, because a rotated symmetrical glyph reads as nothing — the open row keeps
+   full opacity while everything it is read against recedes, and the receding is opt-in, since the
+   same expander also reveals an audio stream's volume slider, where dimming the popover around it
+   would be wrong.
+
+9. **`ctx.interval(period)` is the only timer, and it aligns to the wall clock.** It delivers
    `Input::Tick`. The wait is the time since the epoch modulo the period, so a minute-long period
    fires at `:00` rather than wherever the panel happened to start — a `%H:%M` clock changing up to
    a minute late reads as broken, not as late. Calling it again **replaces** the timer rather than
@@ -139,18 +154,18 @@ capped before it reaches a label. They are not repeated here. What follows is wh
    every configuration change. A zero period is refused and logged. Never reach for
    `glib::timeout_add` instead: `.claude/rules/ui.md` reserves that for animation.
 
-9. **`ctx.call` is fire-and-forget and its reply is discarded.** Topics reconcile, and UI state never
+10. **`ctx.call` is fire-and-forget and its reply is discarded.** Topics reconcile, and UI state never
    waits on a round trip. An applet that tracks a value it only ever *sets* can drift from the
    daemon; that is the accepted cost, and the case that will justify `ctx.ask` when one appears.
 
-10. **The runtime owns left click, and `popover()` is how an applet answers it.** `HostInput::Pressed`
+11. **The runtime owns left click, and `popover()` is how an applet answers it.** `HostInput::Pressed`
     delivers the press to `handle` and then toggles the popover — opening it calls `popover(&seat)`,
     pressing again closes what is open. An applet that *also* acts on
     `Pointer::Press(Button::Left)` fires that action every time its popover opens. There is one
     `Catcher` per bar, so one popover is open at a time per monitor and it receives no keyboard
     input at all.
 
-11. **A live popover is held as a `glib::WeakRef` and dressed from the same method that builds the
+12. **A live popover is held as a `glib::WeakRef` and dressed from the same method that builds the
     chips.** Every open builds a fresh widget; the strong references are the catcher's child and the
     runtime's handle, both dropped on dismissal, so `upgrade()` returning `None` *is* the closed
     state and no `is_open` flag exists to fall out of step. One `refresh()` sets
@@ -158,7 +173,7 @@ capped before it reaches a label. They are not repeated here. What follows is wh
     the chip above it. Never hold a strong reference: the widget then outlives its dismissal and the
     next open builds a second one.
 
-12. **A popover talks back by waking, not by calling.** A signal closure has no `&mut self`, so it
+13. **A popover talks back by waking, not by calling.** A signal closure has no `&mut self`, so it
     captures `seat.opener()` and calls `wake()`, which arrives as `Input::Woken` and ends in
     `refresh`. `handle` must match `Input::Woken` — an applet matching only `Topic` and `Tick`
     swallows it and the popover never updates. Commands go through `seat.caller()`, which is
@@ -191,10 +206,14 @@ capped before it reaches a label. They are not repeated here. What follows is wh
   is reported to the panel.
 - **An applet is not told about orientation, position or its monitor.** The panel sets orientation on
   the group directly. `Placement` returns with the first applet that needs the connector name.
-- **Nothing in the panel scrolls, and nothing caps a popover's height.** `PopoverShell` does not, the
-  catcher does not, and there is no `ScrolledWindow` in the crate. A popover stays on the screen
+- **Nothing in the panel scrolls, and nothing caps a popover's height.** `PopoverShell` does not and
+  the catcher does not; the crate's one `Gtk.ScrolledWindow` propagates its natural height and so
+  does not either. A popover stays on the screen
   because the applet bounds what it hands over — `upcoming`, `days` and `hours` are counts in the
-  config, and the remainder goes behind a drawer.
+  config, and the remainder goes behind a drawer. The catcher *does* re-place a popover whose
+  measurement changes while it is open, so an applet never re-derives placement — but that
+  re-placement is motion under the pointer, which is why content grows downwards and why a card's
+  width is pinned by `max-width-chars` rather than left to the widest string.
 - **No popover state survives a close.** Each open builds a new widget, so anything that must persist
   — the month a calendar was left on, the entry the bar had chosen — is the applet's field, not the
   widget's.

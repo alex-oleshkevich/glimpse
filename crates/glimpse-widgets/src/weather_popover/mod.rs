@@ -2,7 +2,10 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{Day, Fact, FactList, Hour, Notice, Section, Severity};
+use crate::{Day, Fact, FactList, Hour, Notice, Section, Severity, drawer};
+
+const DETAIL: &str = "detail-card";
+const DESCRIPTION: &str = "detail-card__description";
 
 pub fn day_page(index: u32) -> String {
     format!("day{index}")
@@ -12,8 +15,6 @@ pub fn alert_page(index: usize) -> String {
     format!("alert{index}")
 }
 
-/// One `Notice`, wherever it came from. `page` is the drawer page it opens; `None` is a notice
-/// that only states something, which is what decides whether it takes a click at all.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Advisory {
     pub severity: Severity,
@@ -23,8 +24,6 @@ pub struct Advisory {
     pub page: Option<String>,
 }
 
-/// One page of the drawer. The details row and every day and alert build the same widget and
-/// differ only in what they put in it.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Page {
     pub key: String,
@@ -101,6 +100,7 @@ impl WeatherPopover {
                 .collect(),
         );
 
+        let before = notices.len();
         for (index, advisory) in alerts.iter().enumerate() {
             if notices.len() == index {
                 notices.push(self.build_notice(index));
@@ -108,9 +108,17 @@ impl WeatherPopover {
             dress(&notices[index], advisory);
         }
         for notice in notices.split_off(alerts.len()) {
-            imp.alerts.remove(&notice);
+            if let Some(holder) = notice.parent().and_downcast::<gtk4::Box>() {
+                imp.alerts.remove(&holder);
+            }
         }
         imp.alerts.set_visible(!alerts.is_empty());
+
+        let grew = notices.len() > before;
+        drop(notices);
+        if grew {
+            self.fill_alerts();
+        }
     }
 
     pub fn set_pages(&self, pages: &[Page]) {
@@ -120,40 +128,80 @@ impl WeatherPopover {
         }
         imp.built.replace(pages.to_vec());
 
-        let open = imp.pages.visible_child_name().map(|name| name.to_string());
-        while let Some(child) = imp.pages.first_child() {
-            imp.pages.remove(&child);
-        }
+        let mut days: Vec<Option<gtk4::Widget>> = Vec::new();
         for page in pages {
-            imp.pages.add_named(&build(page), Some(page.key.as_str()));
+            let Some(Slot::Day(index)) = locate(&page.key) else {
+                continue;
+            };
+            if days.len() <= index {
+                days.resize(index + 1, None);
+            }
+            days[index] = Some(build(page));
         }
+        imp.days.set_details(&days);
+        self.fill_alerts();
 
-        match open.filter(|key| pages.iter().any(|page| &page.key == key)) {
-            Some(key) => imp.pages.set_visible_child_name(&key),
-            None => crate::drawer::set(&imp.drawer, false),
+        if !self
+            .is_open()
+            .is_some_and(|key| pages.iter().any(|page| page.key == key))
+        {
+            self.reveal(None);
         }
     }
 
-    /// A second activation of the page already showing closes the drawer, which is the only way
-    /// back for whoever opened it.
+    /// A second activation of the detail already showing closes it, which is the only way back for
+    /// whoever opened it.
     pub fn open(&self, key: &str) {
-        let imp = self.imp();
-        if imp.pages.child_by_name(key).is_none() {
+        let Some(slot) = locate(key) else {
             return;
+        };
+        match self.is_open().as_deref() == Some(key) {
+            true => self.reveal(None),
+            false => self.reveal(Some(slot)),
         }
-        if imp.pages.visible_child_name().as_deref() == Some(key) {
-            return crate::drawer::toggle(&imp.drawer);
-        }
-        imp.pages.set_visible_child_name(key);
-        crate::drawer::set(&imp.drawer, true);
     }
 
     pub fn is_open(&self) -> Option<String> {
         let imp = self.imp();
-        imp.drawer
-            .reveals_child()
-            .then(|| imp.pages.visible_child_name().map(|name| name.to_string()))
-            .flatten()
+        if let Some(index) = imp.days.revealed() {
+            return Some(day_page(index as u32));
+        }
+        imp.notices
+            .borrow()
+            .iter()
+            .position(|notice| panel_of(notice).is_some_and(|panel| panel.reveals_child()))
+            .map(alert_page)
+    }
+
+    fn fill_alerts(&self) {
+        let imp = self.imp();
+        let pages = imp.built.borrow();
+        for (index, notice) in imp.notices.borrow().iter().enumerate() {
+            let Some(panel) = panel_of(notice) else {
+                continue;
+            };
+            let page = pages
+                .iter()
+                .find(|page| matches!(locate(&page.key), Some(Slot::Alert(at)) if at == index));
+            panel.set_child(page.map(build).as_ref());
+        }
+    }
+
+    fn reveal(&self, slot: Option<Slot>) {
+        let imp = self.imp();
+        imp.days.reveal(match slot {
+            Some(Slot::Day(index)) => Some(index),
+            _ => None,
+        });
+
+        for (index, notice) in imp.notices.borrow().iter().enumerate() {
+            let Some(panel) = panel_of(notice) else {
+                continue;
+            };
+            let open =
+                matches!(slot, Some(Slot::Alert(at)) if at == index) && panel.child().is_some();
+            drawer::set(&panel, open);
+        }
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
@@ -185,7 +233,7 @@ impl WeatherPopover {
                 }
             }
         ));
-        self.imp().alerts.append(&notice);
+        self.imp().alerts.append(&drawer::holder(&notice));
         notice
     }
 }
@@ -205,22 +253,43 @@ fn show(section: &Section, rule: &gtk4::Separator, visible: bool) {
 }
 
 fn build(page: &Page) -> gtk4::Widget {
-    let section = Section::new();
-    section.set_title(Some(page.title.as_str()));
+    let card = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
+    card.add_css_class(DETAIL);
+    card.update_property(&[gtk4::accessible::Property::Label(page.title.as_str())]);
 
-    let body = gtk4::Box::new(gtk4::Orientation::Vertical, 8);
     if let Some(description) = &page.description {
         let label = gtk4::Label::new(Some(description.as_str()));
         label.set_wrap(true);
         label.set_xalign(0.0);
-        label.add_css_class("drawer-page__description");
-        body.append(&label);
+        label.add_css_class(DESCRIPTION);
+        card.append(&label);
     }
 
     let facts = FactList::new();
     facts.set_facts(&page.facts);
-    body.append(&facts);
+    card.append(&facts);
+    card.upcast()
+}
 
-    section.set_content(Some(&body));
-    section.upcast()
+fn panel_of(notice: &Notice) -> Option<gtk4::Revealer> {
+    notice
+        .parent()
+        .and_downcast::<gtk4::Box>()
+        .as_ref()
+        .and_then(drawer::panel)
+}
+
+#[derive(Clone, Copy)]
+enum Slot {
+    Day(usize),
+    Alert(usize),
+}
+
+fn locate(key: &str) -> Option<Slot> {
+    if let Some(index) = key.strip_prefix("day") {
+        return index.parse().ok().map(Slot::Day);
+    }
+    key.strip_prefix("alert")
+        .and_then(|index| index.parse().ok())
+        .map(Slot::Alert)
 }

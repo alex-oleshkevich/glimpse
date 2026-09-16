@@ -14,6 +14,14 @@ fn compile_blueprints(pairs: &[(&str, &str)]) {
 
 fn main() {
     compile_blueprints(&[
+        (
+            "blueprints/bluetooth_pairing_dialog.blp",
+            "resources/widgets/bluetooth_pairing_dialog.ui",
+        ),
+        (
+            "blueprints/bluetooth_popover.blp",
+            "resources/widgets/bluetooth_popover.ui",
+        ),
         ("blueprints/calendar.blp", "resources/widgets/calendar.ui"),
         (
             "blueprints/calendar_popover.blp",

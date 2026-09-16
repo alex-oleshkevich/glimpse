@@ -1,12 +1,15 @@
 use adw::gdk::{self, prelude::*};
+use adw::prelude::{AdwDialogExt, AlertDialogExt};
 use futures_util::StreamExt;
+use gettextrs::gettext;
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use std::{collections::HashMap, path::PathBuf};
 
 use glimpse_config::{
     Config, PANEL_STYLESHEET, stylesheet, user_stylesheet, watch_config, watch_theme,
 };
-use glimpse_widgets::Styles;
+use glimpse_services::{Answer, BluetoothHandle, Confirmation, DeviceId, Prompt};
+use glimpse_widgets::{PairingAnswer, PairingDialog, Styles};
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
 };
@@ -25,6 +28,10 @@ pub struct AppInit {
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant, clippy::enum_variant_names)]
 pub enum AppInput {
+    BluetoothPrompts {
+        pairing: Option<(Prompt, String)>,
+        confirm: Option<(Confirmation, String)>,
+    },
     ConfigChanged(Config),
     MonitorsChanged,
     ServicesReady(PanelServices),
@@ -38,6 +45,16 @@ pub struct App {
     styles: Styles,
     services: Option<PanelServices>,
     services_start: JoinHandle<()>,
+    host: adw::ApplicationWindow,
+    bluetooth_watch: Option<JoinHandle<()>>,
+    dialogs: Dialogs,
+    asked: Option<Confirmation>,
+}
+
+#[derive(Default)]
+struct Dialogs {
+    pairing: Option<(PairingDialog, glib::SignalHandlerId)>,
+    confirm: Option<(adw::AlertDialog, glib::SignalHandlerId)>,
 }
 
 #[relm4::component(pub)]
@@ -74,6 +91,10 @@ impl SimpleComponent for App {
             styles,
             services: None,
             services_start,
+            host: root.clone(),
+            bluetooth_watch: None,
+            dialogs: Dialogs::default(),
+            asked: None,
         };
         model.reload_styles();
 
@@ -105,7 +126,26 @@ impl SimpleComponent for App {
             AppInput::MonitorsChanged => {}
             AppInput::ServicesReady(services) => {
                 services.reconfigure(&self.config);
+                self.bluetooth_watch = Some(spawn_bluetooth_watch(
+                    services.bluetooth.clone(),
+                    sender.clone(),
+                ));
                 self.services = Some(services);
+            }
+            AppInput::BluetoothPrompts { pairing, confirm } => {
+                if let Some(services) = &self.services {
+                    if pairing.is_some() || confirm.is_some() {
+                        self.close_popovers();
+                    }
+                    let bluetooth = services.bluetooth.clone();
+                    self.show_pairing(pairing, &bluetooth);
+                    self.show_confirmation(confirm, &bluetooth);
+                    let up = self.dialogs.pairing.is_some() || self.dialogs.confirm.is_some();
+                    if !up && self.host.is_visible() {
+                        self.host.set_visible(false);
+                    }
+                }
+                return;
             }
             AppInput::ThemeChanged => self.reload_styles(),
         }
@@ -114,6 +154,9 @@ impl SimpleComponent for App {
 
     fn shutdown(&mut self, _widgets: &mut Self::Widgets, _output: relm4::Sender<Self::Output>) {
         self.services_start.abort();
+        if let Some(watch) = self.bluetooth_watch.take() {
+            watch.abort();
+        }
         if let Some(services) = self.services.take() {
             relm4::spawn(services.shutdown());
         }
@@ -121,11 +164,112 @@ impl SimpleComponent for App {
 }
 
 impl App {
+    fn close_popovers(&self) {
+        for state in &self.panels {
+            state.controller.emit(panel::Input::ClosePopover);
+        }
+    }
+
+    fn show_pairing(&mut self, pairing: Option<(Prompt, String)>, bluetooth: &BluetoothHandle) {
+        let Some((prompt, name)) = pairing else {
+            close(self.dialogs.pairing.take());
+            return;
+        };
+
+        let dialog = match &self.dialogs.pairing {
+            Some((dialog, _)) => dialog.clone(),
+            None => {
+                let dialog = PairingDialog::new();
+                let handle = bluetooth.clone();
+                let answered = dialog.connect_answered(move |_, answer| {
+                    let handle = handle.clone();
+                    let answer = answered(answer);
+                    relm4::spawn(async move {
+                        let _ = handle.answer_pairing(answer).await;
+                    });
+                });
+                self.host.set_visible(true);
+                dialog.present(Some(&self.host));
+                self.dialogs.pairing = Some((dialog.clone(), answered));
+                dialog
+            }
+        };
+
+        match prompt {
+            Prompt::Confirm { passkey, .. } => dialog.show_confirm(&name, passkey),
+            Prompt::Authorize(_) => dialog.show_authorize(&name),
+            Prompt::RequestPin(_) => dialog.show_request_pin(&name),
+            Prompt::RequestPasskey(_) => dialog.show_request_passkey(&name),
+            Prompt::DisplayPin { pin, .. } => dialog.show_display_pin(&name, &pin),
+            Prompt::DisplayPasskey {
+                passkey, entered, ..
+            } => dialog.show_display_passkey(&name, passkey, entered),
+        }
+    }
+
+    fn show_confirmation(
+        &mut self,
+        confirm: Option<(Confirmation, String)>,
+        bluetooth: &BluetoothHandle,
+    ) {
+        if self.shown_confirmation() == confirm.as_ref().map(|(confirmation, _)| confirmation) {
+            return;
+        }
+        close(self.dialogs.confirm.take());
+        let Some((confirmation, name)) = confirm else {
+            return;
+        };
+
+        let (heading, body, label, appearance) = wording(&confirmation, &name);
+        let dialog = adw::AlertDialog::new(Some(&heading), Some(&body));
+        dialog.add_response(CANCEL, &gettext("Cancel"));
+        dialog.add_response(CONFIRM, &label);
+        dialog.set_response_appearance(CONFIRM, appearance);
+        dialog.set_close_response(CANCEL);
+
+        let handle = bluetooth.clone();
+        let asked = confirmation.clone();
+        let responded = dialog.connect_response(None, move |_, response| {
+            let handle = handle.clone();
+            let asked = asked.clone();
+            let accepted = response == CONFIRM;
+            relm4::spawn(async move {
+                let _ = match (accepted, asked) {
+                    (true, Confirmation::Forget { device, .. }) => {
+                        handle.forget(device, true).await
+                    }
+                    (true, Confirmation::Trust { device }) => {
+                        handle.set_trusted(device, true, true).await
+                    }
+                    (false, _) => handle.dismiss_confirmation().await,
+                };
+            });
+        });
+
+        self.host.set_visible(true);
+        dialog.present(Some(&self.host));
+        self.dialogs.confirm = Some((dialog, responded));
+        self.asked = Some(confirmation);
+    }
+
+    fn shown_confirmation(&self) -> Option<&Confirmation> {
+        self.dialogs.confirm.as_ref().and(self.asked.as_ref())
+    }
+
     fn reload_styles(&self) {
         let theme = stylesheet(&self.config.appearance.theme, PANEL_STYLESHEET);
         self.styles
             .load(theme.as_deref(), user_stylesheet().as_deref());
     }
+}
+
+fn close<D: IsA<adw::Dialog>>(open: Option<(D, glib::SignalHandlerId)>) {
+    let Some((dialog, handler)) = open else {
+        return;
+    };
+    dialog.block_signal(&handler);
+    dialog.as_ref().force_close();
+    dialog.unblock_signal(&handler);
 }
 
 fn color_scheme(scheme: glimpse_config::ColorScheme) -> adw::ColorScheme {
@@ -140,6 +284,89 @@ fn spawn_services(config: Config, sender: ComponentSender<App>) -> JoinHandle<()
     relm4::spawn(async move {
         let services = PanelServices::start(&config).await;
         sender.input(AppInput::ServicesReady(services));
+    })
+}
+
+const CANCEL: &str = "cancel";
+const CONFIRM: &str = "confirm";
+
+fn answered(answer: PairingAnswer) -> Answer {
+    match answer {
+        PairingAnswer::Confirm => Answer::Confirm,
+        PairingAnswer::Deny => Answer::Deny,
+        PairingAnswer::Pin(pin) => Answer::Pin(pin),
+        PairingAnswer::Passkey(passkey) => Answer::Passkey(passkey),
+    }
+}
+
+fn wording(
+    confirmation: &Confirmation,
+    name: &str,
+) -> (String, String, String, adw::ResponseAppearance) {
+    match confirmation {
+        Confirmation::Forget { connected, .. } => (
+            gettext("Forget {device}?").replace("{device}", name),
+            match connected {
+                true => gettext(
+                    "It will be disconnected, and this computer will stop connecting to it. To use it again you will have to pair it, with the device in pairing mode.",
+                ),
+                false => gettext(
+                    "This computer will stop connecting to it, and it will not connect on its own. To use it again you will have to pair it, with the device in pairing mode.",
+                ),
+            },
+            gettext("Forget"),
+            adw::ResponseAppearance::Destructive,
+        ),
+        Confirmation::Trust { .. } => (
+            gettext("Let {device} connect on its own?").replace("{device}", name),
+            gettext(
+                "It will connect whenever it is switched on and nearby, and will use the microphone and other services without asking again.",
+            ),
+            gettext("Allow"),
+            adw::ResponseAppearance::Suggested,
+        ),
+    }
+}
+
+fn spawn_bluetooth_watch(
+    bluetooth: BluetoothHandle,
+    sender: ComponentSender<App>,
+) -> JoinHandle<()> {
+    relm4::spawn(async move {
+        let mut states = bluetooth.subscribe();
+        let mut last = (None, None);
+        loop {
+            let next = {
+                let state = states.borrow_and_update();
+                (state.pairing.clone(), state.confirm.clone())
+            };
+            if next != last {
+                last = next.clone();
+                let state = states.borrow().clone();
+                let named = |id: &DeviceId| {
+                    state
+                        .name(id)
+                        .filter(|name| !name.is_empty())
+                        .map_or_else(|| gettext("this device"), ToOwned::to_owned)
+                };
+                sender.input(AppInput::BluetoothPrompts {
+                    pairing: next.0.map(|prompt| {
+                        let name = named(prompt.device());
+                        (prompt, name)
+                    }),
+                    confirm: next.1.map(|confirmation| {
+                        let name = named(match &confirmation {
+                            Confirmation::Forget { device, .. } => device,
+                            Confirmation::Trust { device } => device,
+                        });
+                        (confirmation, name)
+                    }),
+                });
+            }
+            if states.changed().await.is_err() {
+                break;
+            }
+        }
     })
 }
 
@@ -232,6 +459,7 @@ fn reconcile_panels(
                 mpris: services.mpris.clone(),
                 heartbeat: services.heartbeat.clone(),
                 tray: services.tray.clone(),
+                bluetooth: services.bluetooth.clone(),
                 notifications: services.notifications(),
                 weather: services.weather(),
             };

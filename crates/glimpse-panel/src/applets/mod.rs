@@ -1,4 +1,5 @@
 mod agenda;
+pub(crate) mod bluetooth;
 mod clock;
 mod heartbeat;
 mod keyboard;
@@ -13,7 +14,8 @@ pub(crate) mod weather;
 use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
 use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};
 use glimpse_services::{
-    CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, TrayHandle,
+    BluetoothHandle, CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle,
+    MprisHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -45,6 +47,7 @@ pub fn build(
     mpris: &MprisHandle,
     heartbeat: &HeartbeatHandle,
     tray: &TrayHandle,
+    bluetooth: &BluetoothHandle,
     notifications: &NotificationsProviderHandle,
     weather: &WeatherProviderHandle,
 ) -> Option<Builder> {
@@ -116,10 +119,16 @@ pub fn build(
                 ))
             }))
         }
+        AppletKind::Bluetooth(_) => {
+            let bluetooth = bluetooth.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(bluetooth.subscribe());
+                Box::new(bluetooth::Bluetooth::start(bluetooth))
+            }))
+        }
         AppletKind::Audio {}
         | AppletKind::Battery {}
         | AppletKind::Brightness {}
-        | AppletKind::Bluetooth {}
         | AppletKind::Display {}
         | AppletKind::Clipboard {}
         | AppletKind::Command {}

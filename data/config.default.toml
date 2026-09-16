@@ -16,6 +16,10 @@ units = "locale"
 [geolocation]
 provider = "geoclue"
 
+[bluetooth]
+scan-timeout = 30
+hide-unnamed = true
+
 [night-light]
 schedule = "automatic"
 temperature = 4200

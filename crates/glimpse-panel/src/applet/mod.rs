@@ -115,10 +115,6 @@ impl Opener {
         let _ = self.0.send(runtime::HostInput::Woken);
     }
 
-    #[allow(
-        dead_code,
-        reason = "an applet's half of dismissal; no applet dismisses its own yet"
-    )]
     pub fn close_popover(&self) {
         let _ = self.0.send(runtime::HostInput::PopoverClosed);
     }

@@ -10,29 +10,27 @@ panel, the notification popup process and the lock screen.
 - `resources/widgets/` — generated `.ui`, bundled into `glimpse-widgets.gresource`
 
 Adding a template is three edits: the `build.rs` pair, the `gresource.xml` entry, the module in
-`lib.rs`. Resource prefix `/me/aresa/GlimpseShell`. `build.rs` only compiles; `just lint` runs
+`lib.rs`. Resource prefix `/me/aresa/GlimpseShell`; `build.rs` only compiles, and `just lint` runs
 `blueprint-compiler lint` separately.
 
 **Every type a template names must be bound as a `TemplateChild`, even one Rust never reads.**
-Binding registers the GType before `init_template` resolves the class by name; without it `Builder`
-reports `Invalid object type` and the constructor panics.
+Binding registers the GType before `init_template` resolves the class by name, or `Builder` reports
+`Invalid object type` and the constructor panics.
 
 ## Recurring rules
 
-- **Every setter compares before it writes**, so a caller can re-apply a whole spec each update
-  without any of it reaching GTK. `gio::Icon` compares with `Icon::equal`.
-- **`css_classes` on a builder replaces the list, and `has-frame: false` *is* the `flat` class** — a
-  chain setting both paints the theme's button behind a frameless icon. Add classes after `build()`.
+- **Every setter compares before it writes**; `gio::Icon` compares with `Icon::equal`.
+- **`css_classes` on a builder replaces the list, and `has-frame: false` *is* the `flat` class**, so
+  a chain setting both paints a button behind a frameless icon. Add classes after `build()`.
 - **`get_visible()`, not `is_visible()`** — the second walks ancestors, so a `Row` inside a
-  `Section` marked empty reports no title for a title it holds.
+  `Section` marked empty reports no title for one it holds. A runtime-built label handed to
+  `set_text` must therefore start `visible: false`, since `set_text` derives visibility from the
+  text and returns early when unchanged: a visible empty label never hides.
 - **`activatable: false` drops `can-target`, and a non-target passes the pointer to nothing** — not
-  its children, not the tooltip machinery. A row whose trail is a control stays activatable.
-- **Both labels cap their natural width.** `ellipsize` lowers a label's *minimum* and leaves its
-  natural width at the full string, so an overlong SSID widens the popover instead of ellipsizing.
-- **Untrusted text is capped and set as plain text.** No markup setter anywhere. Tray titles, MPRIS
-  metadata and SSIDs are unbounded and come from other applications.
-- **A runtime-built label handed to `set_text` must start `visible: false`.** `set_text` derives
-  visibility from the text and returns early when unchanged, so a visible empty label never hides.
+  children, not tooltips. A row whose trail is a control stays activatable.
+- **Both labels cap their natural width**, because `ellipsize` lowers only a label's *minimum*.
+- **Untrusted text is capped and set as plain text**, with no markup setter anywhere: tray titles,
+  MPRIS metadata, SSIDs and device names come from other applications and are unbounded.
 
 ## Indicator, IndicatorGroup and Pager
 
@@ -75,9 +73,9 @@ thing whose `pressed` names no chip.
   opens into the bar rather than off the screen. A right-zone applet wants `Edge::Start`, a
   left-zone one `Edge::End`, and the slide direction *and* the chevron's `pan-*-symbolic` follow
   that pair — **and the strip's `halign` has to be that same zone edge**, or the strip grows from
-  its anchor and shoves the chips already on the bar aside. Closed the chevron points back over the
-  drawer and `--open` rotates it 180° on a transition. **The icon has to be directional** — a
-  rotated symmetrical glyph reads as nothing at all.
+  its anchor and shoves the chips already on the bar aside. Closed, the chevron points back over the
+  drawer and `--open` rotates it 180°; **the icon has to be directional**, since a rotated
+  symmetrical glyph reads as nothing.
 - **The strip does not author text.** `set_overflow_tooltip` takes the wording; the widget joins
   what it is given for the accessible name and invents none of it.
 
@@ -105,10 +103,7 @@ string, and loses its icon and its title/body split the moment it is flattened i
 - **Weekdays are numbered as `glib::DateTime` numbers them**, Monday 1 through Sunday 7. The letters
   come from January 2024, whose 1st was a Monday, so `%a` gives the locale's own abbreviations.
 
-## Row and SplitRow
-
-`Placeholder` stands where content would be: icon, heading, description, and an `error` flag that
-only recolours the icon.
+## Row, SplitRow and Placeholder
 
 ```
 [ check ] [ lead ] [ title    ]  ←space→  [ trail ]
@@ -126,8 +121,11 @@ only recolours the icon.
 - **`.row` must reset `font-weight`.** libadwaita styles bare `button` bold and weight inherits, so
   every row would render bold — and the grammar distinguishes a selected row by weight.
 - **Sizes are rule-scoped tokens** declared in `.row` itself; `:root` stays the shared vocabulary.
+- **`.row--danger` must colour `.row__icon`, not just the row.** The icon node sets its own
+  `--gl-muted`, so tinting the row alone leaves the trash glyph grey beside red text.
 
-`SplitRow` is a `Row` and a trailing button divided by a hairline.
+`Placeholder` stands where content would be; its `error` flag only recolours the icon. `SplitRow`
+is a `Row` and a trailing button divided by a hairline.
 
 - **It wraps a `Row`, it does not subclass one**, or the button lands inside the row's box where
   `Row` would have to know about it. The hairline is a `Gtk.Separator`, because the pixel lint
@@ -201,70 +199,73 @@ hover, focus and any pending press. The key can therefore be captured when the r
 
 ## Popovers
 
-`PopoverShell` is the frame every applet popover sits in: optional hero, one content child, optional
-footer, a separator between each pair.
+`PopoverShell` frames every applet popover: optional hero, one content child, optional footer, a
+separator between each pair.
 
-- **A section and its hairline show and hide together** — hiding the section alone leaves a line
-  floating against nothing. The shell watches `notify::visible` on what is appended.
+- **A section and its hairline show and hide together**, the shell watching `notify::visible` on
+  what is appended; hiding the section alone leaves a line floating against nothing.
 - **`add_child` must ignore the widget's own template children**, guarded by `try_get().is_none()`:
   `init_template` adds them through `Gtk.Buildable` itself, so an unguarded override routes
-  `hero_box` into `content_box` and panics before the widget exists.
-- **The shell paints its own surface and draws no shadow** — inside a `Gtk.Popover` the `contents`
-  node already draws one, and two rounded surfaces of different radii show it at every corner.
-- **The shell does not scroll.** Capping height belongs to whatever knows the anchor's work area,
-  and keeping it out is what lets the shell be built in a test with no display.
+  `hero_box` into `content_box` and panics.
+- **The shell paints its own surface, draws no shadow and does not scroll.** A `Gtk.Popover`'s
+  `contents` node already draws a shadow, and two radii show it at every corner; capping height
+  belongs to whatever knows the anchor's work area, and keeping it out lets the shell be built in a
+  test with no display.
 
 Per-popover rules that are traps rather than taste:
 
-- **A notice's click handler is connected once, at build, and reads its page key back by position.**
-  Connecting it while dressing stacks a handler per reconcile, and the drawer then opens and
-  immediately closes on the second click.
-- **Setting do-not-disturb never reports it back** — `set_dnd` raises `echoing` while driving the
-  inverse into the switch, and the handler returns early on it. The hero icon is set above that
-  guard: it stops a programmatic set being *reported*, not being *drawn*.
-- **`.column` carries the width floor, not `.popover-shell`.** `Row` ellipsizes, dropping a label's
-  minimum toward zero, so an unfloored column lets the drawer take its width *out of* the list.
-- **One `Workspace` carries more than the list renders.** A window title changes on every keystroke,
-  so `same_rows` compares only what the list draws — otherwise the row under the pointer is
-  destroyed several times a second.
-- **Wording that a person reads lives in the template, not in Rust.** Nothing in this tree
-  translates a Rust string. Where a slot must hold two wordings, a `Gtk.Stack` of two `$Placeholder`
-  pages is the shape; `NextEventPopover` instead captures its template title at `constructed` and
-  restores it, and a GTK-test assertion pins that ordering.
+- **A click handler is connected at build, never while dressing**, which stacks one per reconcile.
+- **A switch driven from state never reports it back** — `set_dnd` and the bluetooth power switch
+  raise a guard flag while writing and the handler returns early on it. Anything drawn from the same
+  value is set *above* the guard: it stops a set being reported, not drawn.
+- **`.column` carries the width floor, not `.popover-shell`**, and `same_rows` compares only what
+  the list draws — a title changes on every keystroke.
+- **Static wording lives in the template; wording the data decides lives in Rust.** A fixed label is
+  `_("…")` in the `.blp` — a slot holding two is a `Gtk.Stack` of `$Placeholder` pages, while
+  `NextEventPopover` captures its template title at `constructed` and restores it. A plural is
+  `ngettext` with named `{placeholders}`, which `format!` cannot reorder; an icon the same state
+  decides is set beside the text, which is why the scan row stops wearing a plus while scanning.
+
+**A detail unfolds in place, never beside the list.** `crate::drawer` builds the holder — a row with
+its own `Gtk.Revealer` under it — and `BluetoothPopover` and `ForecastList` both reconcile into one,
+so a card grows down instead of sideways off an output edge. The open row takes `.open`, the card
+`.detail-card`; bluetooth recedes the rest, and a capped list ends in an overflow row.
+**`PairingDialog` rebuilds its responses per prompt**: `Adw.AlertDialog` can add and remove a
+response but not hide one, and the six agent prompts offer four button sets. Its
+`answered` signal carries `(response, value, numeric)` — inferring the entry from the value turns a
+numeric PIN into a passkey, and validating here stops a PIN or passkey BlueZ would refuse.
 
 ## ForecastStrip, ForecastList and the media widgets
 
-- **`ForecastDay` subclasses `Row`**: `Row` must be `IsSubclassable`, the subclass's `[trail]` must
-  route through `Row`'s own `Buildable`, and `Row`'s setters must be inherent so a subclass reaches
-  them via `upcast_ref::<Row>()`.
+- **`ForecastDay` subclasses `Row`**: `Row` is `IsSubclassable`, its own `Buildable` routes the
+  subclass's `[trail]`, and its setters are inherent so a subclass reaches them by `upcast_ref`.
+- **`ForecastList`'s children are holders, not rows.** Each day is parented with the revealer that
+  unfolds under it, so reach a row through `rows`, never through the list's own children.
 - **Row's lead icon is `lead-icon`, not `icon-name`.** `Gtk.Button` already owns an `icon-name` that
   replaces the button's child, so a subclass calling `set_icon_name` resolves the *parent's* setter
   and destroys the row's template. `Hero`, `Notice` and `Placeholder` extend `Gtk.Widget` and keep
   `icon-name`.
-
 - **`set_position` is ignored while the pointer is down**, or a player reporting once a second yanks
   the slider out from under a drag. The hold uses a capture-phase `EventControllerLegacy`, because a
   `GestureClick` there is *cancelled* the moment `Gtk.Range` claims the sequence. A drag emits one
   `seek`, at the end — one D-Bus call per motion event is not a design.
 - **The step and page increments are set in Rust**, because `blueprint-compiler lint` rejects a
   `Gtk.Adjustment` carrying anything besides `lower`, `upper` and `value`. They are the arrow-key
-  distances, so losing them silently kills keyboard seeking.
+  distances, so losing them kills keyboard seeking silently.
 - **Artwork is a `Gtk.Image`**, the only one that can be told how big to be: `Gtk.Picture` reports
-  the paintable's own natural width, so a cover would set the popover's width.
-- **`Gtk.Image` centres a paintable at its own aspect ratio**, so cover art arrives already square;
-  a 16:9 thumbnail otherwise letterboxes and the corners read as broken.
+  the paintable's natural width, so a cover would set the popover's. It also centres a paintable at
+  its own aspect ratio, so cover art arrives already square or the corners read as broken.
 - **`Pixbuf::file_info` reads dimensions out of the header without decoding**, so an oversized
-  `mpris:artUrl` is refused before anything expands it in memory. Scaling is by the shorter side and
-  only ever downward; the crop is taken from the middle. `cover()` is pure arithmetic.
-- **A widget built before `Styles::install()` never picks any of it up.** Order matters, rooting
-  does not.
+  `mpris:artUrl` is refused before anything expands it in memory. Scaling is by the shorter side,
+  only downward, cropped from the middle; `cover()` is pure arithmetic.
+- **A widget built before `Styles::install()` picks up none of it.** Order matters, rooting does not.
 
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them on the display **once**
 and gives every provider libadwaita's concrete effective scheme — GTK treats a provider's `default`
-as light, so passing an automatic request through would disagree with a dark application.
-Installing twice stacks every rule; `load()` replaces content in place.
+as light, so an automatic request passed through would disagree with a dark application. Installing
+twice stacks every rule; `load()` replaces content in place.
 
 | Priority | Source | Holds |
 | --- | --- | --- |
@@ -273,13 +274,12 @@ Installing twice stacks every rule; `load()` replaces content in place.
 | `USER + 1` | the user's own `styles.css` | the last word |
 
 The built-in is compiled in rather than installed, because `load()` points the theme provider at
-**one** path: a component rule living in a theme is a rule the first second theme deletes. The
-shipped `adwaita` theme is therefore empty, and that is the test.
+**one** path: a component rule living in a theme is one the first second theme deletes. The shipped
+`adwaita` theme is therefore empty, and that is the test.
 
 **`parsing-error` does not see a bad token** — a `var()` naming nothing renders transparent with only
 a `Gtk-WARNING` on stderr. Hence the two guards: every `var()` in the built-in carries a fallback,
-and `theme::tests` lints the vocabulary. The `px`/`rem`, elevation and colour-source rules it
-enforces are in `.claude/rules/ui.md` and are not repeated here.
+and `theme::tests` lints the vocabulary. The rules it enforces are in `.claude/rules/ui.md`.
 
 ### Tokens and the type scale
 

@@ -2,7 +2,8 @@ use adw::gdk;
 use glimpse_config::{Applet as AppletConfig, Position, Regional};
 use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};
 use glimpse_services::{
-    CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle, MprisHandle, TrayHandle,
+    BluetoothHandle, CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle,
+    MprisHandle, TrayHandle,
 };
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use relm4::{
@@ -65,6 +66,7 @@ pub struct Config {
     pub mpris: MprisHandle,
     pub heartbeat: HeartbeatHandle,
     pub tray: TrayHandle,
+    pub bluetooth: BluetoothHandle,
     pub notifications: NotificationsProviderHandle,
     pub weather: WeatherProviderHandle,
 }
@@ -79,13 +81,21 @@ impl Config {
     }
 }
 
+#[allow(
+    clippy::large_enum_variant,
+    reason = "Configure carries the whole panel config, and both variants are sent rarely; boxing               it would allocate on every reconfigure to satisfy a size heuristic"
+)]
 pub enum Input {
     Configure(Config),
+    ClosePopover,
 }
 
 impl fmt::Debug for Input {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("Configure(..)")
+        formatter.write_str(match self {
+            Input::Configure(_) => "Configure(..)",
+            Input::ClosePopover => "ClosePopover",
+        })
     }
 }
 
@@ -131,6 +141,7 @@ impl SimpleComponent for Panel {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             Input::Configure(config) => self.apply(&config),
+            Input::ClosePopover => self.catcher.close(),
         }
     }
 }
@@ -243,6 +254,7 @@ impl Panel {
                                     &config.mpris,
                                     &config.heartbeat,
                                     &config.tray,
+                                    &config.bluetooth,
                                     &config.notifications,
                                     &config.weather,
                                 ) else {

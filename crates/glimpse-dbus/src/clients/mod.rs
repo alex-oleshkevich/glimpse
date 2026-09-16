@@ -1,6 +1,23 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
+use zbus::zvariant::OwnedValue;
 
 pub const DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
+
+pub(crate) type Properties = HashMap<String, OwnedValue>;
+
+pub(crate) fn text(properties: &Properties, key: &str, cap: usize) -> Option<String> {
+    optional_clean(<&str>::try_from(properties.get(key)?).ok()?.to_owned(), cap)
+}
+
+pub(crate) fn flag(properties: &Properties, key: &str) -> Option<bool> {
+    bool::try_from(properties.get(key)?).ok()
+}
+
+pub(crate) fn number(properties: &Properties, key: &str) -> Option<u32> {
+    u32::try_from(properties.get(key)?).ok()
+}
 
 pub(crate) fn optional_clean(value: String, limit: usize) -> Option<String> {
     let value = glimpse_utils::clean(&value, limit);

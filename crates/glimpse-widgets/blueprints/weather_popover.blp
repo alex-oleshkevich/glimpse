@@ -20,68 +20,40 @@ template $WeatherPopover: Gtk.Widget {
     }
 
     Gtk.Box {
-      orientation: horizontal;
+      orientation: vertical;
+      hexpand: true;
 
-      Gtk.Box {
-        orientation: vertical;
-        hexpand: true;
+      styles [
+        "column",
+      ]
 
-        styles [
-          "column",
-        ]
-
-        $Section hourly {
-          $ForecastStrip hours {}
-        }
-
-        Gtk.Separator hourly_rule {
-          orientation: horizontal;
-        }
-
-        $Section daily {
-          $ForecastList days {}
-        }
-
-        Gtk.Separator daily_rule {
-          orientation: horizontal;
-        }
-
-        $Notice nowcast {
-          visible: false;
-        }
-
-        Gtk.Box alerts {
-          orientation: vertical;
-          visible: false;
-
-          styles [
-            "weather-popover__alerts",
-          ]
-        }
+      $Section hourly {
+        $ForecastStrip hours {}
       }
 
-      Gtk.Revealer drawer {
-        transition-type: slide_right;
-        reveal-child: false;
+      Gtk.Separator hourly_rule {
+        orientation: horizontal;
+      }
 
-        Gtk.Box {
-          orientation: horizontal;
+      $Section daily {
+        $ForecastList days {}
+      }
 
-          Gtk.Separator {
-            orientation: vertical;
-            margin-start: 8;
-            margin-end: 8;
-          }
+      Gtk.Separator daily_rule {
+        orientation: horizontal;
+      }
 
-          Gtk.Stack pages {
-            transition-type: crossfade;
-            interpolate-size: true;
+      $Notice nowcast {
+        visible: false;
+      }
 
-            styles [
-              "drawer-page",
-            ]
-          }
-        }
+      Gtk.Box alerts {
+        orientation: vertical;
+        visible: false;
+
+        styles [
+          "weather-popover__alerts",
+        ]
       }
     }
 

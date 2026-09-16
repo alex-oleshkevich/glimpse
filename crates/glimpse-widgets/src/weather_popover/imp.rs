@@ -34,10 +34,6 @@ pub struct WeatherPopover {
     #[template_child]
     pub alerts: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub drawer: TemplateChild<gtk4::Revealer>,
-    #[template_child]
-    pub pages: TemplateChild<gtk4::Stack>,
-    #[template_child]
     pub footer: TemplateChild<Row>,
 
     pub notices: RefCell<Vec<Notice>>,

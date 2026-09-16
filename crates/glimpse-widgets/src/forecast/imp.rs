@@ -47,6 +47,7 @@ impl WidgetImpl for ForecastStrip {}
 pub struct ForecastList {
     pub days: RefCell<Vec<Day>>,
     pub rows: RefCell<Vec<ForecastDay>>,
+    pub holders: RefCell<Vec<gtk4::Box>>,
     pub unit: RefCell<String>,
 }
 
@@ -85,8 +86,9 @@ impl ObjectImpl for ForecastList {
     }
 
     fn dispose(&self) {
-        for row in self.rows.borrow_mut().drain(..) {
-            row.unparent();
+        self.rows.borrow_mut().clear();
+        for holder in self.holders.borrow_mut().drain(..) {
+            holder.unparent();
         }
     }
 }

@@ -15,6 +15,7 @@ pub(crate) fn transport(error: reqwest::Error) -> String {
     }
 }
 
+mod bluetooth;
 mod calendar;
 mod compositor;
 mod geolocation;
@@ -28,6 +29,10 @@ mod solar;
 mod tray;
 mod weather;
 
+pub use bluetooth::{
+    Adapter, Answer, Bluetooth, BluetoothHandle, BluetoothState, Busy, Confirmation, Device,
+    DeviceId, Failure, Prompt,
+};
 pub use calendar::{Calendar, CalendarHandle};
 pub use compositor::{Compositor, CompositorHandle, CompositorState};
 pub use geolocation::{Geolocation, GeolocationHandle};

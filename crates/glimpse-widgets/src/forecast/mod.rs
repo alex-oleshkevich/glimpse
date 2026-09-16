@@ -144,6 +144,33 @@ impl ForecastList {
         )
     }
 
+    pub fn set_details(&self, details: &[Option<gtk4::Widget>]) {
+        for (index, holder) in self.imp().holders.borrow().iter().enumerate() {
+            if let Some(panel) = crate::drawer::panel(holder) {
+                panel.set_child(details.get(index).and_then(Option::as_ref));
+            }
+        }
+    }
+
+    pub fn reveal(&self, index: Option<usize>) {
+        for (at, holder) in self.imp().holders.borrow().iter().enumerate() {
+            let Some(panel) = crate::drawer::panel(holder) else {
+                continue;
+            };
+            let open = index == Some(at) && panel.child().is_some();
+            crate::drawer::set(&panel, open);
+            if let Some(row) = crate::drawer::head::<ForecastDay>(holder) {
+                crate::set_css_class(&row, crate::drawer::OPEN, open);
+            }
+        }
+    }
+
+    pub fn revealed(&self) -> Option<usize> {
+        self.imp().holders.borrow().iter().position(|holder| {
+            crate::drawer::panel(holder).is_some_and(|panel| panel.reveals_child())
+        })
+    }
+
     fn render(&self) {
         let imp = self.imp();
         let (minimum, maximum) = self.scale();
@@ -151,10 +178,14 @@ impl ForecastList {
         let unit = imp.unit.borrow();
         let mut rows = imp.rows.borrow_mut();
 
+        let mut holders = imp.holders.borrow_mut();
+
         for (index, day) in days.iter().enumerate() {
             if rows.len() == index {
                 let row = self.build_row(index as u32);
-                row.insert_after(self, rows.last());
+                let holder = crate::drawer::holder(&row);
+                holder.insert_after(self, holders.last());
+                holders.push(holder);
                 rows.push(row);
             }
             let row = &rows[index];
@@ -172,8 +203,9 @@ impl ForecastList {
             row.bar().set_scale(minimum, maximum);
             row.bar().set_range(day.low, day.high);
         }
-        for row in rows.split_off(days.len()) {
-            row.unparent();
+        rows.truncate(days.len());
+        for holder in holders.split_off(days.len()) {
+            holder.unparent();
         }
     }
 
