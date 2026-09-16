@@ -251,20 +251,21 @@ only name-based icons need re-resolving.
 name or a count, because the bar is icons and what is connected belongs to the tooltip. No adapter
 renders **nothing**, because a machine with no radio must not carry a dead chip.
 
-- **Selection, scanning and the two expanded flags are `Rc` cells the popover's closures write and
-  `Input::Woken` reads back.** A signal closure has no `&mut self`, so `opener.wake()` is how a
-  popover changes applet state, and every open clears the selection and both expanded flags.
-- **A pairing prompt is a page in the popover; `raised` keys its auto-open on the device id**, since
-  BlueZ escalates a pairing mid-flow and a boolean would re-open a popover just dismissed. It never
-  consults the live widget — raising is the runtime's job, and the fade made that guess wrong.
-- **The chip takes `attention` while a question waits**, and the tooltip says so: a popover
-  dismissed on one is otherwise the only thing that knew it was asked.
-- **Only the two prompts needing an entry reach `App`**, narrowed by `render::typed` in the watch, so
-  one the popover draws never trips `close_popovers`. Those that do close every popover first, then
-  title, size and **show** the host before `present`, or the dialog is queued and never drawn.
-- **A failed command is notified**: `tell` words a typed `BluetoothError` through `render::wording`.
-- **Discoverable follows the popover** — set on open, cleared on unmap, re-asked on every wake, since
-  BlueZ refuses it while the adapter is off and one try at open is lost on whoever switches it on.
+- **Selection and the two expanded flags are `Rc` cells the popover's closures write and
+  `Input::Woken` reads back**, since a signal closure has no `&mut self`. `unmap` stops a scan
+  unconditionally: any gate on published state loses a held one started in the last round trip.
+- **A pairing prompt is a page; `raised` keys its auto-open on the device id**, since BlueZ
+  escalates mid-flow and a boolean would re-open one just dismissed. Raising is the runtime's job,
+  so it never consults the live widget.
+- **The chip and its tooltip take `attention` while a question waits**, or a dismissed popover was
+  the only thing that knew it was asked.
+- **Only the two prompts needing an entry reach `App`**, narrowed by `render::typed` in the watch,
+  so one the popover draws never trips `close_popovers`. Those that do close every popover first,
+  then title, size and **show** the host before `present`.
+- **Two switch rows own discovery and visibility**, set on open, cleared on unmap, **never
+  re-asserted between** — a wake that re-asked fights the timeout that just lapsed. Both go
+  insensitive while the radio is off, and `chip`/`hero`/`tooltip` read `state.held()`, so a scan the
+  popover started never lights the bar.
 
 ## Translated wording
 
@@ -294,7 +295,6 @@ reconcile it.
 
 **One substituter renders every `{token}` format.** `applets/tokens.rs::render` walks the template
 once, resolving each token through a closure the applet supplies; the applet decides its own token
-names and nothing else. Chained `String::replace` is the wrong shape here and was the defect it
-replaced — each replacement runs over the previous one's output, so a workspace named `{index}`
-became the workspace index. Every value these formats interpolate is compositor- or
-calendar-supplied text. The clock is not a caller: its `tooltip_format` is a strftime string.
+names. Chained `String::replace` is the wrong shape — each replacement runs over the previous one's
+output. Every value interpolated is compositor- or calendar-supplied text; the clock's
+`tooltip_format` is strftime, not this.

@@ -663,12 +663,6 @@
     margin-top: 0.35rem;
 }
 
-.bluetooth-popover__visible-as {
-    font-size: var(--gl-text-caption, 0.85rem);
-    color: var(--gl-muted, alpha(currentColor, 0.65));
-    padding: 0.2rem 0.8rem 0.35rem 0.8rem;
-}
-
 .prompt {
     padding: 0.6rem 0.8rem 0.2rem 0.8rem;
 }

@@ -3574,6 +3574,10 @@ mod tests {
         );
 
         let popover = BluetoothPopover::new();
+        assert!(
+            popover.imp().nearby.property::<bool>("empty"),
+            "a section with no rows starts empty, or the first scan draws a heading over nothing"
+        );
         popover.set_adapter(
             "Bluetooth",
             "No device connected",
@@ -3976,22 +3980,52 @@ mod tests {
             "closing the panel gives the card back"
         );
 
-        assert_eq!(
-            popover.imp().scan.lead_icon().as_deref(),
-            Some("list-add-symbolic")
-        );
-        popover.set_scanning(true, "Stop searching");
-        assert_eq!(
-            popover.imp().scan.lead_icon().as_deref(),
-            Some("process-stop-symbolic"),
-            "a row offering to stop a scan must not wear the icon for starting one"
-        );
+        let flips = Rc::new(RefCell::new(Vec::new()));
+        popover.connect_scanning({
+            let flips = Rc::clone(&flips);
+            move |_, on| flips.borrow_mut().push(("search", on))
+        });
+        popover.connect_discoverable({
+            let flips = Rc::clone(&flips);
+            move |_, on| flips.borrow_mut().push(("discoverable", on))
+        });
+
+        assert!(!popover.imp().search.active());
+        popover.set_scanning(true);
+        assert!(popover.imp().search.active());
         assert!(popover.imp().nearby.get_visible());
-        popover.set_scanning(false, "Add a device");
-        assert_eq!(
-            popover.imp().scan.lead_icon().as_deref(),
-            Some("list-add-symbolic")
+        assert!(
+            popover.imp().nearby.property::<bool>("empty"),
+            "a scan with nothing found yet shows the placeholder, not a header over nothing"
         );
+        popover.set_scanning(false);
+        assert!(!popover.imp().search.active());
+
+        popover.set_discoverable(true);
+        assert!(popover.imp().discoverable.active());
+        popover.set_discoverable(false);
+        assert!(
+            flips.borrow().is_empty(),
+            "reconciling a switch from the adapter must not look like the user flipping it, or \
+             every published state would fire a command back at bluez"
+        );
+
+        popover.set_discoverable(true);
+        flips.borrow_mut().clear();
+        popover.imp().search.emit_clicked();
+        popover.imp().discoverable.emit_clicked();
+        assert_eq!(
+            *flips.borrow(),
+            [("search", true), ("discoverable", false)],
+            "a press moves the knob, and the knob's notify is the one emitter"
+        );
+        assert!(popover.imp().search.active() && !popover.imp().discoverable.active());
+
+        popover.set_controls_sensitive(false);
+        assert!(
+            !popover.imp().search.get_sensitive() && !popover.imp().discoverable.get_sensitive()
+        );
+        popover.set_controls_sensitive(true);
 
         let dialog = PairingDialog::new();
         let answers = Rc::new(RefCell::new(Vec::new()));

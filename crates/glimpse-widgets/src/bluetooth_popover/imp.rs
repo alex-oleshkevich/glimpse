@@ -5,7 +5,7 @@ use gtk4::{
     AccessibleRole, CompositeTemplate, TemplateChild, glib, prelude::*, subclass::prelude::*,
 };
 
-use crate::{Hero, PopoverShell, Row, Section};
+use crate::{Hero, Placeholder, PopoverShell, Row, Section, SwitchRow};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Place {
@@ -99,9 +99,11 @@ pub struct BluetoothPopover {
     #[template_child]
     pub nearby_rows: TemplateChild<gtk4::Box>,
     #[template_child]
-    pub scan: TemplateChild<Row>,
+    pub looking: TemplateChild<Placeholder>,
     #[template_child]
-    pub visible_as: TemplateChild<gtk4::Label>,
+    pub search: TemplateChild<SwitchRow>,
+    #[template_child]
+    pub discoverable: TemplateChild<SwitchRow>,
     #[template_child]
     pub footer: TemplateChild<Row>,
 
@@ -112,7 +114,6 @@ pub struct BluetoothPopover {
     pub paired_held: RefCell<Vec<(String, gtk4::Box)>>,
     pub nearby_held: RefCell<Vec<(String, gtk4::Box)>>,
     pub lines: RefCell<Vec<(String, Row)>>,
-    pub scanning: std::cell::Cell<bool>,
     pub quiet: std::cell::Cell<bool>,
 }
 
@@ -159,6 +160,9 @@ impl ObjectImpl for BluetoothPopover {
                 glib::subclass::Signal::builder("scanning")
                     .param_types([bool::static_type()])
                     .build(),
+                glib::subclass::Signal::builder("discoverable")
+                    .param_types([bool::static_type()])
+                    .build(),
                 glib::subclass::Signal::builder("expanded")
                     .param_types([String::static_type()])
                     .build(),
@@ -184,13 +188,15 @@ impl ObjectImpl for BluetoothPopover {
                 popover.emit_by_name::<()>("powered", &[&switch.is_active()]);
             }
         ));
-        self.scan.connect_clicked(glib::clone!(
+        self.search.connect_toggled(glib::clone!(
             #[weak]
             popover,
-            move |_| {
-                let wanted = !popover.imp().scanning.get();
-                popover.emit_by_name::<()>("scanning", &[&wanted]);
-            }
+            move |_, on| popover.emit_by_name::<()>("scanning", &[&on])
+        ));
+        self.discoverable.connect_toggled(glib::clone!(
+            #[weak]
+            popover,
+            move |_, on| popover.emit_by_name::<()>("discoverable", &[&on])
         ));
         self.more_paired.connect_clicked(glib::clone!(
             #[weak]

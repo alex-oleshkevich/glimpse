@@ -3,9 +3,8 @@ use std::rc::Rc;
 
 use gettextrs::gettext;
 use glimpse_config::{Applet as AppletConfig, AppletKind};
-use glimpse_dbus::bluez::Power;
 use glimpse_dbus::notifications::NotificationsProviderHandle;
-use glimpse_services::{Answer, BluetoothError, BluetoothHandle, BluetoothState, DeviceId};
+use glimpse_services::{Answer, BluetoothError, BluetoothHandle, BluetoothState, DeviceId, Hold};
 
 use glimpse_widgets::{BluetoothPopover, IndicatorSpec};
 use gtk4::gio;
@@ -30,7 +29,6 @@ pub struct Bluetooth {
     devices: usize,
     nearby: usize,
     selected: Rc<RefCell<Option<DeviceId>>>,
-    scanning: Rc<Cell<bool>>,
     expanded: Rc<Cell<(bool, bool)>>,
     asked: Rc<RefCell<Option<Asked>>>,
     raised: Option<Asked>,
@@ -60,8 +58,6 @@ impl Applet for Bluetooth {
         match input {
             Input::Woken => {
                 self.state = self.bluetooth.snapshot();
-                self.scanning.set(self.state.scanning);
-                self.reconcile_discoverable();
                 self.raise(ctx);
             }
             Input::Tick | Input::Pointer(_) => return,
@@ -250,20 +246,35 @@ impl Applet for Bluetooth {
             let notifications = self.notifications.clone();
             move |_, wanted| {
                 let bluetooth = bluetooth.clone();
-                match wanted {
-                    true => tell(
-                        &notifications,
-                        "bluetooth.start_scan",
-                        gettext("Could not look for devices"),
-                        async move { bluetooth.start_scan().await },
-                    ),
-                    false => {
-                        spawn_command(
-                            "bluetooth.stop_scan",
-                            async move { bluetooth.stop_scan().await },
-                        )
-                    }
-                }
+                let operation = match wanted {
+                    true => "bluetooth.start_scan",
+                    false => "bluetooth.stop_scan",
+                };
+                tell(
+                    &notifications,
+                    operation,
+                    gettext("Could not look for devices"),
+                    async move {
+                        match wanted {
+                            true => bluetooth.start_scan(Hold::Held).await,
+                            false => bluetooth.stop_scan().await,
+                        }
+                    },
+                );
+            }
+        });
+
+        shown.connect_discoverable({
+            let bluetooth = self.bluetooth.clone();
+            let notifications = self.notifications.clone();
+            move |_, wanted| {
+                let bluetooth = bluetooth.clone();
+                tell(
+                    &notifications,
+                    "bluetooth.set_discoverable",
+                    gettext("Could not change visibility"),
+                    async move { bluetooth.set_discoverable(wanted).await },
+                );
             }
         });
 
@@ -281,19 +292,30 @@ impl Applet for Bluetooth {
             }
         });
 
+        let powered = render::powered(&self.state);
+        let prompting = self.raised.is_some();
         shown.connect_map({
             let bluetooth = self.bluetooth.clone();
             move |_| {
-                let bluetooth = bluetooth.clone();
+                if !powered {
+                    return;
+                }
+                let visible = bluetooth.clone();
+                let scan = bluetooth.clone();
                 spawn_command("bluetooth.set_discoverable", async move {
-                    bluetooth.set_discoverable(true).await
+                    visible.set_discoverable(true).await
+                });
+                if prompting {
+                    return;
+                }
+                spawn_command("bluetooth.start_scan", async move {
+                    scan.start_scan(Hold::Timed).await
                 });
             }
         });
 
         shown.connect_unmap({
             let bluetooth = self.bluetooth.clone();
-            let scanning = Rc::clone(&self.scanning);
             let asked = Rc::clone(&self.asked);
             move |_| {
                 if matches!(*asked.borrow(), Some(Asked::Forget(_))) {
@@ -306,9 +328,6 @@ impl Applet for Bluetooth {
                 spawn_command("bluetooth.set_discoverable", async move {
                     stop.set_discoverable(false).await
                 });
-                if !scanning.replace(false) {
-                    return;
-                }
                 let bluetooth = bluetooth.clone();
                 spawn_command(
                     "bluetooth.stop_scan",
@@ -388,7 +407,6 @@ impl Bluetooth {
     pub fn start(bluetooth: BluetoothHandle, notifications: NotificationsProviderHandle) -> Self {
         let state = bluetooth.snapshot();
         Self {
-            scanning: Rc::new(Cell::new(state.scanning)),
             state,
             bluetooth,
             notifications,
@@ -416,20 +434,6 @@ impl Bluetooth {
         }
     }
 
-    fn reconcile_discoverable(&self) {
-        let wanted = self.shown.upgrade().is_some_and(|shown| shown.is_mapped());
-        let Some(adapter) = self.state.adapter.as_ref() else {
-            return;
-        };
-        if adapter.discoverable == wanted || (wanted && adapter.power != Power::On) {
-            return;
-        }
-        let bluetooth = self.bluetooth.clone();
-        spawn_command("bluetooth.set_discoverable", async move {
-            bluetooth.set_discoverable(wanted).await
-        });
-    }
-
     fn refresh(&mut self) {
         self.spec = self.indicator().into_iter().collect();
         if let Some(shown) = self.shown.upgrade() {
@@ -446,10 +450,10 @@ impl Bluetooth {
             hero.on,
             hero.settable,
         );
-        shown.set_visible_as(render::visible_as(&self.state).as_deref());
+        shown.set_controls_sensitive(hero.controls);
+        shown.set_discoverable(hero.discoverable);
         shown.set_footer(self.footer.as_ref().map(|(label, _)| label.as_str()));
-        let scanning = self.scanning.get();
-        shown.set_scanning(scanning, &render::scan_label(scanning));
+        shown.set_scanning(self.state.scanning());
 
         let selected = self.selected.borrow();
         let selected = selected

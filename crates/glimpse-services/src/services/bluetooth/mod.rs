@@ -45,7 +45,6 @@ impl DeviceId {
 pub struct Adapter {
     pub alias: String,
     pub power: Power,
-    pub discovering: bool,
     pub discoverable: bool,
 }
 
@@ -114,13 +113,29 @@ pub enum Confirmation {
     Forget { device: DeviceId, connected: bool },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Hold {
+    Timed,
+    Held,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BluetoothState {
     pub adapter: Option<Adapter>,
     pub devices: Vec<Device>,
-    pub scanning: bool,
+    pub scan: Option<Hold>,
     pub pairing: Option<Prompt>,
     pub confirm: Option<Confirmation>,
+}
+
+impl BluetoothState {
+    pub fn scanning(&self) -> bool {
+        self.scan.is_some()
+    }
+
+    pub fn held(&self) -> bool {
+        self.scan == Some(Hold::Held)
+    }
 }
 
 impl Device {
@@ -197,6 +212,7 @@ pub enum Command {
         reply: Reply,
     },
     StartScan {
+        hold: Hold,
         reply: Reply,
     },
     StopScan {
@@ -288,7 +304,7 @@ pub struct Bluetooth {
     config: Config,
     generation: u64,
     adopted: bool,
-    scan: Option<u64>,
+    scan: Option<(u64, Hold)>,
     scans: u64,
     deadline: Option<chrono::DateTime<chrono::Utc>>,
     agent: bool,
@@ -320,8 +336,8 @@ impl BluetoothHandle {
             .await
     }
 
-    pub async fn start_scan(&self) -> Result<(), BluetoothError> {
-        self.call(|reply| Command::StartScan { reply }).await
+    pub async fn start_scan(&self, hold: Hold) -> Result<(), BluetoothError> {
+        self.call(|reply| Command::StartScan { hold, reply }).await
     }
 
     pub async fn set_discoverable(&self, on: bool) -> Result<(), BluetoothError> {
@@ -431,7 +447,7 @@ impl Service for Bluetooth {
             Sub::stream(Watch::Properties(self.generation), source::properties),
             Sub::stream(Watch::Disconnects(self.generation), source::disconnects),
         ];
-        if let (Some(scan), Some(at)) = (self.scan, self.deadline) {
+        if let (Some((scan, _)), Some(at)) = (self.scan, self.deadline) {
             subs.push(Sub::deadline(
                 Watch::ScanDeadline(scan),
                 at,
@@ -498,12 +514,17 @@ impl Service for Bluetooth {
                     self.generation = self.generation.wrapping_add(1);
                     self.adopted = false;
                     self.agent = false;
+                    self.scan = None;
+                    self.deadline = None;
+                    self.publish();
                     self.reregister(ctx);
                 }
                 None => {
                     self.agent = false;
                     self.prompt = None;
                     self.confirm = None;
+                    self.scan = None;
+                    self.deadline = None;
                     self.publish();
                     ctx.degraded("org.bluez left the bus");
                 }
@@ -580,7 +601,7 @@ impl Service for Bluetooth {
                 self.publish();
             }
             Input::Event(Event::ScanExpired(generation)) => {
-                if self.scan == Some(generation) {
+                if self.scan.is_some_and(|(running, _)| running == generation) {
                     self.halt(ctx);
                 }
             }
@@ -655,8 +676,8 @@ impl Bluetooth {
                     call::set_discoverable(&connection, &adapter, on).await
                 });
             }
-            Command::StartScan { reply } => {
-                self.begin_scan();
+            Command::StartScan { hold, reply } => {
+                self.begin_scan(hold);
                 let generation = self.scans;
                 self.publish();
                 ctx.spawn_detached(move |ctx| async move {
@@ -888,13 +909,16 @@ impl Bluetooth {
         });
     }
 
-    fn begin_scan(&mut self) {
+    fn begin_scan(&mut self, hold: Hold) {
         self.scans = self.scans.wrapping_add(1);
-        self.scan = Some(self.scans);
-        self.deadline = self.config.scan_timeout.and_then(|timeout| {
-            let timeout = chrono::TimeDelta::from_std(timeout).ok()?;
-            chrono::Utc::now().checked_add_signed(timeout)
-        });
+        self.scan = Some((self.scans, hold));
+        self.deadline = match hold {
+            Hold::Held => None,
+            Hold::Timed => self.config.scan_timeout.and_then(|timeout| {
+                let timeout = chrono::TimeDelta::from_std(timeout).ok()?;
+                chrono::Utc::now().checked_add_signed(timeout)
+            }),
+        };
     }
 
     fn halt(&mut self, ctx: &Ctx<Self>) {
@@ -1028,7 +1052,6 @@ impl Bluetooth {
         let adapter = Adapter {
             alias: properties.alias.clone().unwrap_or_default(),
             power: power(properties),
-            discovering: properties.discovering.unwrap_or_default(),
             discoverable: properties.discoverable.unwrap_or_default(),
         };
 
@@ -1048,7 +1071,7 @@ impl Bluetooth {
         self.state.set(BluetoothState {
             adapter: Some(adapter),
             devices,
-            scanning: self.scan.is_some(),
+            scan: self.scan.map(|(_, hold)| hold),
             pairing,
             confirm,
         });
@@ -1109,7 +1132,7 @@ fn reject(command: Command, reason: &str) {
     match command {
         Command::SetPowered { reply, .. }
         | Command::SetDiscoverable { reply, .. }
-        | Command::StartScan { reply }
+        | Command::StartScan { reply, .. }
         | Command::StopScan { reply }
         | Command::Connect { reply, .. }
         | Command::Disconnect { reply, .. }
@@ -1165,7 +1188,6 @@ fn merge_adapter(held: &mut AdapterProperties, from: AdapterProperties) {
     keep(&mut held.alias, from.alias);
     keep(&mut held.powered, from.powered);
     keep(&mut held.power_state, from.power_state);
-    keep(&mut held.discovering, from.discovering);
 }
 
 fn merge_device(held: &mut DeviceProperties, from: DeviceProperties) {
@@ -1528,7 +1550,7 @@ mod tests {
             "nothing may start a scan on its own"
         );
 
-        service.begin_scan();
+        service.begin_scan(Hold::Timed);
         assert!(
             service
                 .subscriptions()
@@ -1555,44 +1577,95 @@ mod tests {
     async fn the_published_scanning_flag_is_ours_and_not_the_adapters() {
         let (mut service, ctx, state, _health) = bluetooth().await;
         enumerated(&mut service, &ctx, session()).await;
-        assert!(!state.borrow().scanning);
+        assert!(!state.borrow().scanning());
 
-        service.begin_scan();
+        service.begin_scan(Hold::Timed);
         service.publish();
-        assert!(state.borrow().scanning);
+        assert!(state.borrow().scanning());
 
         service
             .handle(&ctx, Input::Event(Event::ScanExpired(1)))
             .await;
         service.publish();
         assert!(
-            !state.borrow().scanning,
+            !state.borrow().scanning(),
             "the deadline stopping the scan must reach the popover"
         );
+    }
+
+    #[tokio::test]
+    async fn a_held_scan_carries_no_deadline_and_a_timed_one_does() {
+        let (mut service, ctx, state, _health) = bluetooth().await;
+        enumerated(&mut service, &ctx, session()).await;
+
+        service.begin_scan(Hold::Timed);
+        service.publish();
+        assert!(service.deadline.is_some());
+        assert!(
+            !state.borrow().held(),
+            "the bar must not light for a scan the popover started"
+        );
+
+        service.begin_scan(Hold::Held);
+        service.publish();
+        assert_eq!(
+            service.deadline, None,
+            "a scan the user switched on runs until they switch it off"
+        );
+        assert!(state.borrow().held());
+
+        assert!(
+            !service
+                .subscriptions()
+                .iter()
+                .any(|sub| matches!(sub.key(), Watch::ScanDeadline(_))),
+            "a held scan must declare no deadline source at all"
+        );
+    }
+
+    #[tokio::test]
+    async fn bluez_going_away_clears_a_scan_that_cannot_have_survived_it() {
+        for owner in [Some("a".to_owned()), None] {
+            let (mut service, ctx, state, _health) = bluetooth().await;
+            enumerated(&mut service, &ctx, session()).await;
+            service.begin_scan(Hold::Held);
+            service.publish();
+            assert!(state.borrow().scanning());
+
+            service
+                .handle(&ctx, Input::Event(Event::NameOwner(owner.clone())))
+                .await;
+
+            assert!(
+                !state.borrow().scanning(),
+                "the session died with the daemon, and a held scan has no deadline to retire it"
+            );
+            assert_eq!(service.deadline, None);
+        }
     }
 
     #[tokio::test]
     async fn an_expired_deadline_from_a_previous_scan_does_not_stop_the_current_one() {
         let (mut service, ctx, _state, _health) = bluetooth().await;
         enumerated(&mut service, &ctx, session()).await;
-        service.begin_scan();
-        service.begin_scan();
+        service.begin_scan(Hold::Timed);
+        service.begin_scan(Hold::Timed);
 
         service
             .handle(&ctx, Input::Event(Event::ScanExpired(1)))
             .await;
 
-        assert_eq!(service.scan, Some(2));
+        assert_eq!(service.scan, Some((2, Hold::Timed)));
     }
 
     #[tokio::test]
     async fn a_zero_timeout_declares_no_deadline_at_all() {
         let (mut service, ctx, _state, _health) = bluetooth().await;
         service.config.scan_timeout = None;
-        service.begin_scan();
+        service.begin_scan(Hold::Timed);
         let _ = &ctx;
 
-        assert_eq!(service.scan, Some(1), "the scan still runs");
+        assert_eq!(service.scan, Some((1, Hold::Timed)), "the scan still runs");
         assert!(
             !service
                 .subscriptions()

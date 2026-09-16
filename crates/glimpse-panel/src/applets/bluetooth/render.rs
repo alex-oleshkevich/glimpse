@@ -19,26 +19,14 @@ pub fn chip(state: &BluetoothState) -> Option<&'static str> {
     let adapter = state.adapter.as_ref()?;
     Some(icon_for(
         adapter.power,
-        adapter.discovering,
+        state.held(),
         state.connected().next().is_some(),
     ))
 }
 
-pub fn visible_as(state: &BluetoothState) -> Option<String> {
-    let adapter = state
-        .adapter
-        .as_ref()
-        .filter(|adapter| adapter.discoverable)?;
-    Some(gettext("Visible to other devices as {name}").replace("{name}", &cap(&adapter.alias)))
-}
-
 pub fn tooltip(state: &BluetoothState, format: Option<&str>) -> Option<String> {
     let adapter = state.adapter.as_ref()?;
-    let status = status(
-        adapter.power,
-        adapter.discovering,
-        state.connected().count(),
-    );
+    let status = status(adapter.power, state.held(), state.connected().count());
     let Some(format) = format else {
         return Some(status);
     };
@@ -79,13 +67,6 @@ fn status(power: Power, discovering: bool, connected: usize) -> String {
     }
 }
 
-pub fn scan_label(scanning: bool) -> String {
-    match scanning {
-        true => gettext("Stop searching"),
-        false => gettext("Add a device"),
-    }
-}
-
 fn services(profiles: &[Profile]) -> String {
     let shown: Vec<String> = profiles
         .iter()
@@ -106,14 +87,16 @@ pub fn hero(state: &BluetoothState) -> Hero {
     let adapter = state.adapter.as_ref();
     let power = adapter.map_or(Power::Off, |adapter| adapter.power);
     let connected = state.connected().count();
-    let discovering = adapter.is_some_and(|adapter| adapter.discovering);
+    let searching = state.scanning();
 
     Hero {
         title: gettext("Bluetooth"),
-        subtitle: status(power, discovering, connected),
-        icon: icon_for(power, discovering, connected > 0).to_owned(),
+        subtitle: status(power, searching, connected),
+        icon: icon_for(power, searching, connected > 0).to_owned(),
         on: matches!(power, Power::On | Power::Enabling),
         settable: power != Power::Blocked,
+        controls: powered(state),
+        discoverable: adapter.is_some_and(|adapter| adapter.discoverable),
     }
 }
 
@@ -150,6 +133,13 @@ pub fn asked(state: &BluetoothState) -> Option<Asked> {
     }
     let Confirmation::Forget { device, .. } = state.confirm.as_ref()?;
     Some(Asked::Forget(device.clone()))
+}
+
+pub fn powered(state: &BluetoothState) -> bool {
+    state
+        .adapter
+        .as_ref()
+        .is_some_and(|adapter| adapter.power == Power::On)
 }
 
 pub fn waiting(state: &BluetoothState) -> Option<String> {
@@ -261,6 +251,8 @@ pub struct Hero {
     pub title: String,
     pub subtitle: String,
     pub icon: String,
+    pub controls: bool,
+    pub discoverable: bool,
     pub on: bool,
     pub settable: bool,
 }
@@ -546,16 +538,15 @@ mod tests {
         }
     }
 
-    fn state(power: Power, discovering: bool, devices: Vec<Device>) -> BluetoothState {
+    fn state(power: Power, scanning: bool, devices: Vec<Device>) -> BluetoothState {
         BluetoothState {
             adapter: Some(Adapter {
                 alias: "glimpse".to_owned(),
                 power,
-                discovering,
                 discoverable: false,
             }),
             devices,
-            scanning: discovering,
+            scan: scanning.then_some(glimpse_services::Hold::Held),
             pairing: None,
             confirm: None,
         }
@@ -604,24 +595,6 @@ mod tests {
         assert_eq!(
             tooltip(&state(Power::On, false, vec![]), None).as_deref(),
             Some("No devices connected")
-        );
-    }
-
-    #[test]
-    fn the_caption_names_the_adapter_only_while_it_is_visible() {
-        let mut shown = state(Power::On, false, vec![]);
-        assert_eq!(
-            visible_as(&shown),
-            None,
-            "an adapter nobody can see says nothing about being seen"
-        );
-
-        if let Some(adapter) = shown.adapter.as_mut() {
-            adapter.discoverable = true;
-        }
-        assert_eq!(
-            visible_as(&shown).as_deref(),
-            Some("Visible to other devices as glimpse")
         );
     }
 

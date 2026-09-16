@@ -32,7 +32,7 @@ mod weather;
 pub use bluetooth::BluetoothError;
 pub use bluetooth::{
     Adapter, Answer, Bluetooth, BluetoothHandle, BluetoothState, Busy, Confirmation, Device,
-    DeviceId, Failure, Prompt,
+    DeviceId, Failure, Hold, Prompt,
 };
 pub use calendar::{Calendar, CalendarHandle};
 pub use compositor::{Compositor, CompositorHandle, CompositorState};

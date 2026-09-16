@@ -64,7 +64,15 @@ template $BluetoothPopover: Gtk.Widget {
 
           $Section nearby {
             visible: false;
+            empty: true;
             title: _("Nearby");
+
+            [placeholder]
+            $Placeholder looking {
+              icon-name: "bluetooth-symbolic";
+              title: _("Looking for devices");
+              description: _("Put the device in pairing mode to make it show up here.");
+            }
 
             Gtk.Box {
               orientation: vertical;
@@ -81,20 +89,12 @@ template $BluetoothPopover: Gtk.Widget {
             }
           }
 
-          $Row scan {
-            lead-icon: "list-add-symbolic";
-            activatable: true;
+          $SwitchRow search {
+            title: _("Search for devices");
           }
 
-          Gtk.Label visible_as {
-            visible: false;
-            xalign: 0;
-            wrap: true;
-            max-width-chars: 30;
-
-            styles [
-              "bluetooth-popover__visible-as",
-            ]
+          $SwitchRow discoverable {
+            title: _("Visible to other devices");
           }
         };
       }

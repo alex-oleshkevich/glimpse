@@ -6,8 +6,6 @@ use crate::{Row, SplitRow, SwitchRow, drawer, none_if_empty, reconcile, set_foot
 
 pub use imp::{Ask, Details, Entry, Line, Place};
 
-const SCAN_ICON: &str = "list-add-symbolic";
-const STOP_ICON: &str = "process-stop-symbolic";
 const DEVICES_PAGE: &str = "devices";
 const PROMPT_PAGE: &str = "prompt";
 const BARE: &str = "prompt__actions--bare";
@@ -57,17 +55,9 @@ impl BluetoothPopover {
         self.render_details();
     }
 
-    pub fn set_scanning(&self, scanning: bool, label: &str) {
+    pub fn set_scanning(&self, scanning: bool) {
         let imp = self.imp();
-        imp.scan.set_title(none_if_empty(label));
-        imp.scan.set_lead_icon(Some(match scanning {
-            true => STOP_ICON,
-            false => SCAN_ICON,
-        }));
-        if imp.scanning.get() == scanning {
-            return;
-        }
-        imp.scanning.set(scanning);
+        imp.search.set_active(scanning);
         imp.nearby.set_visible(scanning);
     }
 
@@ -113,8 +103,25 @@ impl BluetoothPopover {
         )
     }
 
-    pub fn set_visible_as(&self, label: Option<&str>) {
-        crate::set_text(&self.imp().visible_as, label);
+    pub fn set_discoverable(&self, on: bool) {
+        self.imp().discoverable.set_active(on);
+    }
+
+    pub fn set_controls_sensitive(&self, on: bool) {
+        let imp = self.imp();
+        imp.search.set_sensitive(on);
+        imp.discoverable.set_sensitive(on);
+    }
+
+    pub fn connect_discoverable<F: Fn(&Self, bool) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "discoverable",
+            false,
+            glib::closure_local!(move |popover: Self, on: bool| f(&popover, on)),
+        )
     }
 
     pub fn set_footer(&self, label: Option<&str>) {
@@ -289,7 +296,8 @@ impl BluetoothPopover {
                 }
             },
         );
-        imp.nearby.set_visible(imp.scanning.get());
+        imp.nearby.set_visible(imp.search.active());
+        imp.nearby.set_empty(nearby.is_empty());
     }
 
     fn render_details(&self) {
@@ -350,10 +358,10 @@ impl BluetoothPopover {
             crate::set_css_class(&head, drawer::OPEN, open == Some(id.as_str()));
         }
         for widget in [
-            imp.scan.upcast_ref::<gtk4::Widget>(),
+            imp.search.upcast_ref::<gtk4::Widget>(),
+            imp.discoverable.upcast_ref(),
             imp.more_paired.upcast_ref(),
             imp.more_nearby.upcast_ref(),
-            imp.visible_as.upcast_ref(),
             imp.footer.upcast_ref(),
         ] {
             crate::set_css_class(widget, drawer::RECEDED, open.is_some());

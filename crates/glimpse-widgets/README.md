@@ -221,9 +221,10 @@ Per-popover rules that are traps rather than taste:
   the list draws — a title changes on every keystroke.
 - **Static wording lives in the template; wording the data decides lives in Rust.** A fixed label is
   `_("…")` in the `.blp` — a slot holding two is a `Gtk.Stack` of `$Placeholder` pages, while
-  `NextEventPopover` captures its template title at `constructed` and restores it. A plural is
-  `ngettext` with named `{placeholders}`, which `format!` cannot reorder; an icon the same state
-  decides is set beside the text, which is why the scan row stops wearing a plus while scanning.
+  `NextEventPopover` captures its template title at `constructed` and restores it; a plural is
+  `ngettext` with named `{placeholders}`, which `format!` cannot reorder.
+- **A switch reconciled from a backend goes through `SwitchRow::set_active`**, which compares and
+  silences the knob, so a published state never fires `toggled` back as a command.
 
 **A detail unfolds in place, never beside the list.** `crate::drawer` builds the holder — a row with
 its own `Gtk.Revealer` under it — and `BluetoothPopover` and `ForecastList` both reconcile into one,
@@ -292,9 +293,8 @@ lower in light than dark** — `alpha()` composites against the surface, which i
 in each scheme. This matches `.dimmed` in every Adwaita application; **do not compensate for it.**
 
 **Thickness is `[[panels]] size`, not CSS.** `Panel::set_thickness` calls `set_size_request`, also a
-minimum, so GTK takes the larger and a stylesheet floor silently overrides a smaller configured size.
+minimum, so GTK takes the larger and a CSS floor silently overrides a smaller configured size.
 
 ## Rules
 
-A widget moves here as soon as a second binary needs it. Preventing copy-paste between the panel and
-the lock screen is the entire reason this crate exists.
+A widget moves here as soon as a second binary needs it: no copy-paste between panel and lock.

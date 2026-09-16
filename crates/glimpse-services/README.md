@@ -286,15 +286,15 @@ an already-connected device returns `AlreadyConnected` with no state change, so 
 clear leaves that row spinning forever; `Settled` names the `Busy` it answers, so a superseded
 command cannot clear a newer one. Four BlueZ errors are not failures at all — `AlreadyConnected`,
 `AlreadyExists`, `InProgress` on a scan, `DoesNotExist` — and the rest reach the caller **typed**,
-as `BluetoothError::Failed(Failure)`: as a string the panel cannot word it, which made every
-unmapped error read `Unknown`. `failure.rs` matches the name, then the token by its **suffix**
-(BlueZ spells each reason once per transport), and `settle` logs both. **Pairing ends connected.**
+as `BluetoothError::Failed(Failure)`: as a string the panel cannot word it. `failure.rs` matches the
+name, then the token by its **suffix** (BlueZ spells each reason once per transport), and `settle`
+logs both. **Pairing ends connected.**
 
-**A scan starts on one trigger and stops on five**, and `SetDiscoveryFilter` carries `Transport`
-alone: any filter disables the RSSI delta-threshold BlueZ otherwise imposes. **The agent is
-per-connection**, so two panels never collide; **a confirmation is a refusal carrying a request**.
+**A scan starts two ways and stops on six** — `Hold::Timed` takes `scan_timeout`, `Hold::Held` none,
+and a bluez restart clears it, the session having died with the daemon. `SetDiscoveryFilter` carries
+`Transport` alone: any filter disables the RSSI delta-threshold. **The agent is per-connection**;
+**a confirmation is a refusal carrying a request**.
 
 ## Rules
 
-Concrete handles only: no daemon-owned trait, broker, registry or string routing. The handler,
-boundary and config rules live in `.claude/rules/daemon.md`.
+Concrete handles only — no broker, registry or string routing; see `.claude/rules/daemon.md`.
