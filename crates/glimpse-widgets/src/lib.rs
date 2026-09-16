@@ -3691,7 +3691,6 @@ mod tests {
         );
         popover.set_details(Some(&BluetoothDetails {
             id: "a".to_owned(),
-            notice: "The device is switched off or out of range.".to_owned(),
             lines: vec![
                 BluetoothLine {
                     action: "disconnect".to_owned(),
@@ -3775,7 +3774,6 @@ mod tests {
         assert!(!switch.is_active());
         popover.set_details(Some(&BluetoothDetails {
             id: "a".to_owned(),
-            notice: String::new(),
             lines: vec![
                 BluetoothLine {
                     action: "disconnect".to_owned(),
@@ -3814,7 +3812,6 @@ mod tests {
 
         popover.set_details(Some(&BluetoothDetails {
             id: "b".to_owned(),
-            notice: String::new(),
             lines: vec![
                 BluetoothLine {
                     action: "disconnect".to_owned(),
@@ -3871,7 +3868,6 @@ mod tests {
 
             probe.set_details(Some(&BluetoothDetails {
                 id: "a".to_owned(),
-                notice: String::new(),
                 lines: vec![BluetoothLine {
                     action: "services".to_owned(),
                     title: "Services".to_owned(),
@@ -3890,7 +3886,6 @@ mod tests {
         let closed = width(&popover);
         popover.set_details(Some(&BluetoothDetails {
             id: "a".to_owned(),
-            notice: String::new(),
             lines: vec![BluetoothLine {
                 action: "address".to_owned(),
                 title: "Address".to_owned(),

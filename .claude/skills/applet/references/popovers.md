@@ -131,7 +131,7 @@ Pick one. They compose badly — a drawer beside an inline expansion moves on bo
   drawer is only safe because its width is known before it opens, which is why the fourth row of the
   table is a `Gtk.Stack` and not a second revealer.
 - **Build the panel on first open, not at construction.** Fourteen devices would otherwise carry
-  fourteen `$Notice`s and fourteen row boxes nobody asked to see.
+  fourteen row boxes nobody asked to see.
 
 ## Typical widget composition
 
@@ -171,8 +171,12 @@ The domain lists drop into a `$Section` in place of loose rows, and each owns it
   named empty `Gtk.Box` in the `.blp` that Rust reconciles into; `$Section connected` holding
   `Gtk.Box connected_rows` is the shape. Do not build the section from Rust to save the box.
 - **Reach for `$Row` before anything else.** `$SwitchRow` when the row carries a switch; `$SplitRow`
-  only when a row needs a second, separately activatable target; `$Notice` only for a condition the
-  viewer must act on; `$Placeholder` only for an empty list, never as a "no value yet" filler.
+  only when a row needs a second, separately activatable target; `$Placeholder` only for an empty
+  list, never as a "no value yet" filler.
+- **`$Notice` never reports a failed command.** That is a notification's job, and `spawn_reported`
+  already posts one — a banner beside the row repeats it and is still there on the next open. Use
+  `$Notice` only for standing content the viewer must act on, such as a weather advisory, or for the
+  one condition a notification cannot carry: the notification provider itself being down.
 - **A row highlights only if clicking its body does something**, and the two ways of honouring that
   are not interchangeable. A pure readout takes `set_activatable(false)`, which drops `can-target`
   and so makes the row unreachable by pointer, focus and tooltip alike. A row carrying a **control**
@@ -455,7 +459,7 @@ caps the request while still letting the label fill a wider allocation.
 
 Measured on `BluetoothPopover`: an uncapped hero subtitle took the card from 428px to 461, and a
 long `Services` value to 438. With `Hero`'s title and subtitle at 24 and `Row`'s value at 18, seven
-content scenarios — bare, long name, opened, notice, long hero, long value, scanning — all measure
+content scenarios — bare, long name, opened, long hero, long value, scanning — all measure
 428. Assert it: `measure(Horizontal, -1).1` before and after opening a device is one line, and it is
 the only thing standing between a stable card and one that resizes while it is being read.
 

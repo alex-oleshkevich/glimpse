@@ -282,7 +282,6 @@ pub fn details(state: &BluetoothState, id: &DeviceId) -> Option<Details> {
 
     Some(Details {
         id: device.id.as_str().to_owned(),
-        notice: device.failure.map(wording).unwrap_or_default(),
         lines,
     })
 }
@@ -674,16 +673,12 @@ mod tests {
     }
 
     #[test]
-    fn a_failure_reaches_the_page_as_a_sentence_and_never_as_a_token() {
-        let mut broken = device("Buds", false);
-        broken.failure = Some(Failure::Unreachable);
-        let id = broken.id.clone();
-        let state = state(Power::On, false, vec![broken]);
+    fn a_failure_reaches_the_user_as_a_sentence_and_never_as_a_token() {
+        let told = wording(Failure::Unreachable);
 
-        let notice = details(&state, &id).expect("the device").notice;
-
-        assert!(!notice.is_empty());
-        assert!(!notice.contains("br-connection"));
+        assert!(!told.is_empty());
+        assert!(!told.contains("br-connection"));
+        assert!(told.ends_with('.'));
     }
 
     #[test]

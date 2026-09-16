@@ -2,9 +2,7 @@ mod imp;
 
 use gtk4::{glib, prelude::*, subclass::prelude::*};
 
-use crate::{
-    Notice, Row, Severity, SplitRow, SwitchRow, drawer, none_if_empty, reconcile, set_footer_row,
-};
+use crate::{Row, SplitRow, SwitchRow, drawer, none_if_empty, reconcile, set_footer_row};
 
 pub use imp::{Details, Entry, Line, Place};
 
@@ -259,37 +257,19 @@ impl BluetoothPopover {
     }
 
     /// The panel is built the first time its device is opened: a list of fourteen devices would
-    /// otherwise carry fourteen notices and fourteen row boxes that nothing has asked to see.
+    /// otherwise carry fourteen row boxes that nothing has asked to see.
     fn fill(&self, holder: &gtk4::Box, details: &Details) {
         let Some(panel) = drawer::panel(holder) else {
             return;
         };
-        let (notice, rows) = match panel.child().and_downcast::<gtk4::Box>() {
-            Some(page) => (
-                page.first_child().and_downcast::<Notice>(),
-                page.last_child().and_downcast::<gtk4::Box>(),
-            ),
+        let rows = match panel.child().and_downcast::<gtk4::Box>() {
+            Some(rows) => rows,
             None => {
-                let page = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-                page.add_css_class(DETAIL);
-                let notice = Notice::new();
-                notice.set_severity(Severity::Error);
-                notice.set_visible(false);
                 let rows = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
-                page.append(&notice);
-                page.append(&rows);
-                panel.set_child(Some(&page));
-                (Some(notice), Some(rows))
+                rows.add_css_class(DETAIL);
+                panel.set_child(Some(&rows));
+                rows
             }
-        };
-
-        if let Some(notice) = notice {
-            notice.set_title(none_if_empty(&details.notice));
-            notice.set_visible(!details.notice.is_empty());
-        }
-
-        let Some(rows) = rows else {
-            return;
         };
         let id = details.id.clone();
         let key = id.clone();

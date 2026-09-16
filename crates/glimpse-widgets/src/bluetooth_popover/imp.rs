@@ -40,7 +40,6 @@ pub struct Line {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Details {
     pub id: String,
-    pub notice: String,
     pub lines: Vec<Line>,
 }
 

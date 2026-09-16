@@ -146,6 +146,11 @@ General craft lives in the `relm4`, `gtk4-styles` and `libadwaita-styles` skills
   backend directly, and holds no state that outlives its own widget.
 - UI state never waits on a round trip. Update the widget optimistically and let the topic event
   reconcile it.
+- **A failed command is reported by a notification and never by a banner in the popover.** A popover
+  is open for seconds and the failure outlives it; `spawn_reported` already posts one, so a `$Notice`
+  beside the row says the same thing twice and leaves a stale sentence behind on the next open. The
+  one banner that is allowed is a condition notifications themselves cannot carry — the notification
+  provider being down.
 - A widget moves to `glimpse-widgets` as soon as a second binary needs it.
 
 ## Verification
