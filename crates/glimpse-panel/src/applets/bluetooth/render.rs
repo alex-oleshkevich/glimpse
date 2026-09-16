@@ -268,7 +268,9 @@ pub fn entries(
     selected: Option<&DeviceId>,
     devices: usize,
     nearby: usize,
+    expanded: (bool, bool),
 ) -> Listing {
+    let (all_paired, all_nearby) = expanded;
     let mut built = Vec::new();
     let chosen = |device: &Device| selected.is_some_and(|id| id == &device.id);
 
@@ -281,7 +283,7 @@ pub fn entries(
         .iter()
         .filter(|device| !device.connected && device.known())
         .collect();
-    for device in paired.iter().take(devices) {
+    for device in paired.iter().take(shown(devices, all_paired)) {
         built.push(entry(device, Place::Paired, chosen(device)));
     }
 
@@ -290,21 +292,33 @@ pub fn entries(
         .iter()
         .filter(|device| !device.connected && !device.known())
         .collect();
-    for device in found.iter().take(nearby) {
+    for device in found.iter().take(shown(nearby, all_nearby)) {
         built.push(entry(device, Place::Nearby, chosen(device)));
     }
 
     Listing {
         entries: built,
-        more_paired: more(paired.len().saturating_sub(devices)),
-        more_nearby: more(found.len().saturating_sub(nearby)),
+        more_paired: more(paired.len(), devices, all_paired),
+        more_nearby: more(found.len(), nearby, all_nearby),
     }
 }
 
-fn more(hidden: usize) -> Option<String> {
-    (hidden > 0).then(|| {
-        ngettext("{count} more device", "{count} more devices", hidden as u32)
-            .replace("{count}", &hidden.to_string())
+fn shown(cap: usize, expanded: bool) -> usize {
+    match expanded {
+        true => usize::MAX,
+        false => cap,
+    }
+}
+
+fn more(total: usize, cap: usize, expanded: bool) -> Option<String> {
+    let hidden = total.saturating_sub(cap);
+    if hidden == 0 {
+        return None;
+    }
+    Some(match expanded {
+        true => gettext("Show fewer"),
+        false => ngettext("{count} more device", "{count} more devices", hidden as u32)
+            .replace("{count}", &hidden.to_string()),
     })
 }
 
@@ -333,6 +347,9 @@ fn state_of(device: &Device) -> String {
     }
     if device.blocked {
         return gettext("Blocked");
+    }
+    if device.failure == Some(Failure::BondBroken) {
+        return gettext("Pairing lost");
     }
     String::new()
 }
@@ -661,14 +678,8 @@ mod tests {
         }
         let state = state(Power::On, true, devices);
 
-        let listing = entries(&state, None, 6, 8);
-        let counted = |place: Place| {
-            listing
-                .entries
-                .iter()
-                .filter(|entry| entry.place == place)
-                .count()
-        };
+        let listing = entries(&state, None, 6, 8, (false, false));
+        let counted = |place: Place| counted_in(&listing, place);
 
         assert_eq!(counted(Place::Connected), 1);
         assert_eq!(
@@ -679,11 +690,34 @@ mod tests {
         assert_eq!(counted(Place::Nearby), 8);
         assert!(listing.more_paired.is_some());
         assert!(listing.more_nearby.is_some());
-        assert!(
-            entries(&state, None, usize::MAX, usize::MAX)
-                .more_paired
-                .is_none(),
-            "an expanded list has nothing left to reach"
+        let opened = entries(&state, None, 6, 8, (true, true));
+        assert_eq!(counted_in(&opened, Place::Paired), 10);
+        assert_eq!(
+            opened.more_paired.as_deref(),
+            Some("Show fewer"),
+            "an expanded list keeps the row that collapses it, or the popover only grows"
+        );
+    }
+
+    fn counted_in(listing: &Listing, place: Place) -> usize {
+        listing
+            .entries
+            .iter()
+            .filter(|entry| entry.place == place)
+            .count()
+    }
+
+    #[test]
+    fn a_device_that_lost_its_bond_says_so_where_a_battery_would_be() {
+        let mut dropped = device("Pixel", false);
+        dropped.failure = Some(Failure::BondBroken);
+        let state = state(Power::On, false, vec![dropped]);
+
+        let row = &entries(&state, None, 6, 8, (false, false)).entries[0];
+
+        assert_eq!(
+            row.value, "Pairing lost",
+            "a bond the remote forgot leaves Connect failing forever with nothing saying why"
         );
     }
 
@@ -700,7 +734,7 @@ mod tests {
             busy.battery = Some(80);
             let state = state(Power::On, false, vec![busy]);
 
-            let row = &entries(&state, None, 6, 8).entries[0];
+            let row = &entries(&state, None, 6, 8, (false, false)).entries[0];
 
             assert!(row.busy, "{doing:?} must reach the row as a spinner");
             assert!(

@@ -1188,6 +1188,7 @@ fn merge_adapter(held: &mut AdapterProperties, from: AdapterProperties) {
     keep(&mut held.alias, from.alias);
     keep(&mut held.powered, from.powered);
     keep(&mut held.power_state, from.power_state);
+    keep(&mut held.discoverable, from.discoverable);
 }
 
 fn merge_device(held: &mut DeviceProperties, from: DeviceProperties) {
@@ -1884,6 +1885,34 @@ mod tests {
                 .expect("an adapter")
                 .discoverable,
             "and nothing moves optimistically"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_adapter_going_discoverable_reaches_the_published_state() {
+        let (mut service, ctx, state, _health) = bluetooth().await;
+        enumerated(&mut service, &ctx, session()).await;
+
+        service
+            .handle(
+                &ctx,
+                Input::Event(Event::PropertiesChanged {
+                    path: ADAPTER.to_owned(),
+                    interface: bluez::ADAPTER1.to_owned(),
+                    changed: properties(vec![("Discoverable", true.into())]),
+                    invalidated: Vec::new(),
+                }),
+            )
+            .await;
+
+        assert!(
+            state
+                .borrow()
+                .adapter
+                .as_ref()
+                .expect("an adapter")
+                .discoverable,
+            "a merge that drops the flag leaves the switch claiming the machine is invisible"
         );
     }
 

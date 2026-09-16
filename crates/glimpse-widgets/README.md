@@ -228,13 +228,13 @@ Per-popover rules that are traps rather than taste:
 its own `Gtk.Revealer` under it — and `BluetoothPopover` and `ForecastList` both reconcile into one,
 so a card grows down instead of sideways off an output edge. The open row takes `.open`, the card
 `.detail-card`, and a capped list ends in an overflow row. **What recedes follows the row the list
-shows, not the id asked for**: a hidden section takes its card and its dimming with it.
+shows, not the id asked for**: a hidden section takes card and dimming with it.
 **A pairing prompt is a `Gtk.Stack` page, not a dialog.** `BluetoothPopover`'s `pages` swaps the
 device column for the question, hero and footer insensitive, `hhomogeneous` on so the card takes the
-wider page once and **no `interpolate-size`**, which under-allocates the taller page mid-fade and
-warns once a frame. `PairingDialog` keeps the two prompts needing an entry; its `answered` signal
+wider page once. `PairingDialog` keeps the two prompts needing an entry; its `answered` signal
 carries `(response, value, numeric)`, since a value alone turns a numeric PIN into a passkey. It
-focuses its entry on `map` and clears it only on a kind change: BlueZ re-asks as a name resolves.
+focuses its entry on `map` and clears it when the **device** changes, not the name, so a credential
+cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a half-typed one.
 
 ## ForecastStrip, ForecastList and the media widgets
 

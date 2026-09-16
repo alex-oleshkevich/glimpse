@@ -29,7 +29,7 @@ pub struct AppInit {
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant, clippy::enum_variant_names)]
 pub enum AppInput {
-    BluetoothPrompt(Option<(Entry, String)>),
+    BluetoothPrompt(Option<(Entry, String, String)>),
     ConfigChanged(Config),
     MonitorsChanged,
     ServicesReady(PanelServices),
@@ -159,8 +159,12 @@ impl App {
         }
     }
 
-    fn show_pairing(&mut self, pairing: Option<(Entry, String)>, bluetooth: &BluetoothHandle) {
-        let Some((entry, name)) = pairing else {
+    fn show_pairing(
+        &mut self,
+        pairing: Option<(Entry, String, String)>,
+        bluetooth: &BluetoothHandle,
+    ) {
+        let Some((entry, device, name)) = pairing else {
             close(self.pairing.take());
             return;
         };
@@ -185,7 +189,7 @@ impl App {
             }
         };
 
-        dialog.ask(&name, entry);
+        dialog.ask(&device, &name, entry);
     }
 
     fn reload_styles(&self) {
@@ -242,7 +246,7 @@ fn spawn_bluetooth_watch(
                         .name(prompt.device())
                         .filter(|name| !name.is_empty())
                         .map_or_else(|| gettext("this device"), cap);
-                    typed(prompt).map(|entry| (entry, name))
+                    typed(prompt).map(|entry| (entry, prompt.device().as_str().to_owned(), name))
                 })
             };
             if next != last {

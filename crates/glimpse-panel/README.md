@@ -248,17 +248,20 @@ on the icon theme and `notify::scale-factor` are connected **once, in the applet
 only name-based icons need re-resolving.
 
 **bluetooth** — the chip is the adapter's power state and **nothing else**: an icon, never a device
-name or a count, because the bar is icons and what is connected belongs to the tooltip. No adapter
-renders **nothing**, because a machine with no radio must not carry a dead chip.
+name or a count; what is connected belongs to the tooltip. No adapter renders **nothing**, so a
+machine with no radio carries no dead chip.
 
 - **Selection and the two expanded flags are `Rc` cells the popover's closures write and
   `Input::Woken` reads back**, since a signal closure has no `&mut self`. `unmap` stops a scan
   unconditionally: any gate on published state loses a held one started in the last round trip.
+  **An overflow row toggles to *Show fewer***: nothing scrolls, so one that only expands pushes the
+  switches off the output.
 - **A pairing prompt is a page; `raised` keys its auto-open on the device id**, since BlueZ
-  escalates mid-flow and a boolean would re-open one just dismissed. Raising is the runtime's job,
-  so it never consults the live widget.
+  escalates mid-flow and a boolean would re-open one just dismissed. The dialog clears its entry on
+  a change of **device** rather than of name, because BlueZ re-asks as a name resolves.
 - **The chip and its tooltip take `attention` while a question waits**, or a dismissed popover was
-  the only thing that knew it was asked.
+  the only thing that knew it was asked. **`BondBroken` is stated on the row, not notified**: the
+  bond is gone, so *Connect* fails until the device is paired again.
 - **Only the two prompts needing an entry reach `App`**, narrowed by `render::typed` in the watch,
   so one the popover draws never trips `close_popovers`. Those that do close every popover first,
   then title, size and **show** the host before `present`.
@@ -266,11 +269,6 @@ renders **nothing**, because a machine with no radio must not carry a dead chip.
   re-asserted between** — a wake that re-asked fights the timeout that just lapsed. Both go
   insensitive while the radio is off, and `chip`/`hero`/`tooltip` read `state.held()`, so a scan the
   popover started never lights the bar.
-
-## Translated wording
-
-`agenda::when`, `agenda::span` and `next_event::Countdown` write the sentences a person reads — "All
-day", "now · ends in 12 min", "in 3 h" — so each is a `gettext` call with named placeholders.
 
 ## Losing the session bus kills the process, and nothing here can change that
 

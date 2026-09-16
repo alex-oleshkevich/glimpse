@@ -284,8 +284,8 @@ impl Applet for Bluetooth {
             move |_, place| {
                 let (paired, nearby) = expanded.get();
                 match place {
-                    "paired" => expanded.set((true, nearby)),
-                    "nearby" => expanded.set((paired, true)),
+                    "paired" => expanded.set((!paired, nearby)),
+                    "nearby" => expanded.set((paired, !nearby)),
                     _ => return,
                 }
                 opener.wake();
@@ -459,12 +459,12 @@ impl Bluetooth {
         let selected = selected
             .as_ref()
             .filter(|id| self.state.device(id).is_some());
-        let (paired_all, nearby_all) = self.expanded.get();
         let listing = render::entries(
             &self.state,
             selected,
-            if paired_all { usize::MAX } else { self.devices },
-            if nearby_all { usize::MAX } else { self.nearby },
+            self.devices,
+            self.nearby,
+            self.expanded.get(),
         );
         shown.set_entries(&listing.entries);
         shown.set_overflow(

@@ -555,6 +555,14 @@ own workspace, which is usually not the focused one. And `active: true` on a `Gt
 drops it, so no `xdg_positioner` ever reaches the compositor. `WAYLAND_DEBUG=1` and the
 `set_anchor_rect` / `configure` pair tell the three apart in one run.
 
+**A `Gtk.Stack` with `interpolate-size` under-allocates its taller page, September 2026.** The
+bluetooth popover's two pages measure 136px and 384px tall; interpolating between them makes the
+stack report a height below the taller page's minimum and then allocate it that height, and
+`gtk_widget_measure` warns on every frame — *"Trying to measure GtkBox for height of 136, but it
+needs at least 384"*. `vhomogeneous: false` does not help, because the interpolation is the thing
+allocating. A crossfade with no size interpolation is the fix; the height snaps, which is also what
+a popover the compositor re-places on each measurement change wants.
+
 **`Status` is two properties on two interfaces.** `org.kde.StatusNotifierItem.Status` is
 `Active`/`Passive`/`NeedsAttention` — and `Passive` is a placement instruction, the host tucks the
 item away, not a tint. `com.canonical.dbusmenu.Status` is `normal`/`notice`, on the menu object.

@@ -1,7 +1,7 @@
 use adw::{prelude::*, subclass::prelude::*};
 use gettextrs::gettext;
 use gtk4::{CompositeTemplate, TemplateChild, glib, glib::subclass::Signal};
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::sync::OnceLock;
 
 use crate::set_css_class;
@@ -28,6 +28,7 @@ pub struct PairingDialog {
     pub entry: TemplateChild<gtk4::Entry>,
 
     pub entry_kind: Cell<Entry>,
+    pub asked: RefCell<String>,
 }
 
 #[glib::object_subclass]

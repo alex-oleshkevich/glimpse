@@ -33,16 +33,19 @@ impl PairingDialog {
         glib::Object::new()
     }
 
-    pub fn ask(&self, device: &str, kind: Entry) {
+    pub fn ask(&self, device: &str, name: &str, kind: Entry) {
+        if self.imp().asked.replace(device.to_owned()) != device {
+            self.imp().entry.set_text("");
+        }
         let (heading, body) = match kind {
             Entry::Pin => (
                 gettext("Enter the PIN"),
                 gettext("Type the PIN shown on {device}, then press OK.")
-                    .replace("{device}", &capped(device)),
+                    .replace("{device}", &capped(name)),
             ),
             Entry::Passkey => (
                 gettext("Enter the passkey"),
-                gettext("Type the passkey shown on {device}.").replace("{device}", &capped(device)),
+                gettext("Type the passkey shown on {device}.").replace("{device}", &capped(name)),
             ),
         };
         if self.heading().as_deref() != Some(heading.as_str()) {
