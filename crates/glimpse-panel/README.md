@@ -259,7 +259,7 @@ renders **nothing**, because a machine with no radio must not carry a dead chip.
   popover changes applet state, and every open clears the selection and both expanded flags.
 - **A pairing prompt is a page in the popover; `raised` keys its auto-open on the device id**, since
   BlueZ escalates a pairing mid-flow and a boolean would re-open a popover just dismissed.
-- **Only the two prompts needing an entry reach `App`**, split by `needs_typing` in the watch, so one
+- **Only the two prompts needing an entry reach `App`**, narrowed by `render::typed` in the watch, so one
   the popover draws never trips `close_popovers`. Those that do close every popover first — the catcher
   is above every toplevel, the dialog modal in-app — and need the host **visible**, or `present` draws none.
 - **A failed command is notified**: `tell` words a typed `BluetoothError` through `render::wording`.

@@ -539,6 +539,7 @@ impl Service for Bluetooth {
             }) if self.adopted => {
                 self.change(&path, &interface, &changed);
                 self.invalidate(&path, &interface, &invalidated);
+                self.bonded(ctx, &path);
                 self.settle_scan(ctx);
                 self.publish();
             }
@@ -817,6 +818,28 @@ impl Bluetooth {
                 .send(Input::Event(Event::AgentRegistered(registered.is_ok())))
                 .await;
         });
+    }
+
+    fn bonded(&mut self, ctx: &Ctx<Self>, path: &str) {
+        let shown = self
+            .prompt
+            .as_ref()
+            .is_some_and(|(prompt, answer)| answer.is_none() && prompt.device().as_str() == path);
+        if !shown {
+            return;
+        }
+        let Some(record) = self.devices.get(path) else {
+            return;
+        };
+        if record.properties.bonded != Some(true) {
+            return;
+        }
+        let trusted = record.properties.trusted == Some(true);
+
+        self.prompt = None;
+        if !trusted {
+            self.trust_then_connect(ctx, &DeviceId(path.to_owned()));
+        }
     }
 
     fn trust_then_connect(&self, ctx: &Ctx<Self>, id: &DeviceId) {
@@ -1891,6 +1914,84 @@ mod tests {
         assert!(
             canceled.await.is_err(),
             "the superseded call must not be left parked forever"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_bond_clears_the_prompt_that_only_told_the_user_what_to_type() {
+        let (mut service, ctx, state, _health) = bluetooth().await;
+        enumerated(&mut service, &ctx, session()).await;
+        service
+            .handle(
+                &ctx,
+                Input::Event(Event::Prompt(
+                    Prompt::DisplayPasskey {
+                        device: DeviceId(NEARBY.to_owned()),
+                        passkey: 418_209,
+                        entered: 3,
+                    },
+                    None,
+                )),
+            )
+            .await;
+        assert!(state.borrow().pairing.is_some());
+
+        service
+            .handle(
+                &ctx,
+                Input::Event(Event::PropertiesChanged {
+                    path: NEARBY.to_owned(),
+                    interface: bluez::DEVICE1.to_owned(),
+                    changed: properties(vec![("Bonded", true.into()), ("Paired", true.into())]),
+                    invalidated: Vec::new(),
+                }),
+            )
+            .await;
+
+        assert_eq!(
+            state.borrow().pairing,
+            None,
+            "bluez never cancels a display-only prompt, so the bond is what retires it"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_prompt_waiting_on_an_answer_is_not_retired_by_the_bond() {
+        let (mut service, ctx, state, _health) = bluetooth().await;
+        enumerated(&mut service, &ctx, session()).await;
+        let (answer, mut still_open) = oneshot::channel();
+        service
+            .handle(
+                &ctx,
+                Input::Event(Event::Prompt(
+                    Prompt::Confirm {
+                        device: DeviceId(NEARBY.to_owned()),
+                        passkey: 418_209,
+                    },
+                    Some(answer),
+                )),
+            )
+            .await;
+
+        service
+            .handle(
+                &ctx,
+                Input::Event(Event::PropertiesChanged {
+                    path: NEARBY.to_owned(),
+                    interface: bluez::DEVICE1.to_owned(),
+                    changed: properties(vec![("Bonded", true.into()), ("Paired", true.into())]),
+                    invalidated: Vec::new(),
+                }),
+            )
+            .await;
+
+        assert!(state.borrow().pairing.is_some());
+        assert!(
+            matches!(
+                still_open.try_recv(),
+                Err(oneshot::error::TryRecvError::Empty)
+            ),
+            "dropping the sender would answer a question bluez is still waiting on"
         );
     }
 

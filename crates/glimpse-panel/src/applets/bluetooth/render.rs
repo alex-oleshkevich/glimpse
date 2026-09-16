@@ -3,7 +3,7 @@ use glimpse_dbus::bluez::{Codec, DeviceIcon, Power, Profile};
 use glimpse_services::{BluetoothState, Busy, Confirmation, Device, DeviceId, Failure, Prompt};
 use glimpse_widgets::{
     BluetoothAsk as Ask, BluetoothDetails as Details, BluetoothEntry as Entry,
-    BluetoothLine as Line, BluetoothPlace as Place, PASSKEY_MAX,
+    BluetoothLine as Line, BluetoothPlace as Place, PASSKEY_MAX, PIN_MAX, PairingEntry,
 };
 
 pub const ACTIVE: &str = "bluetooth-active-symbolic";
@@ -117,8 +117,12 @@ pub fn hero(state: &BluetoothState) -> Hero {
     }
 }
 
-pub fn needs_typing(prompt: &Prompt) -> bool {
-    matches!(prompt, Prompt::RequestPin(_) | Prompt::RequestPasskey(_))
+pub fn typed(prompt: &Prompt) -> Option<PairingEntry> {
+    match prompt {
+        Prompt::RequestPin(_) => Some(PairingEntry::Pin),
+        Prompt::RequestPasskey(_) => Some(PairingEntry::Passkey),
+        _ => None,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -127,11 +131,20 @@ pub enum Asked {
     Forget(DeviceId),
 }
 
+impl Asked {
+    fn key(&self) -> String {
+        match self {
+            Self::Pairing(device) => format!("pair:{}", device.as_str()),
+            Self::Forget(device) => format!("forget:{}", device.as_str()),
+        }
+    }
+}
+
 pub fn asked(state: &BluetoothState) -> Option<Asked> {
     if let Some(prompt) = state
         .pairing
         .as_ref()
-        .filter(|prompt| !needs_typing(prompt))
+        .filter(|prompt| typed(prompt).is_none())
     {
         return Some(Asked::Pairing(prompt.device().clone()));
     }
@@ -140,15 +153,13 @@ pub fn asked(state: &BluetoothState) -> Option<Asked> {
 }
 
 pub fn prompt(state: &BluetoothState) -> Option<Ask> {
-    match asked(state)? {
-        Asked::Pairing(_) => pairing(state),
-        Asked::Forget(_) => confirmation(state),
-    }
+    pairing(state).or_else(|| confirmation(state))
 }
 
 fn confirmation(state: &BluetoothState) -> Option<Ask> {
     let Confirmation::Forget { device, connected } = state.confirm.as_ref()?;
     Some(Ask {
+        key: Asked::Forget(device.clone()).key(),
         device: named(state, device),
         question: match connected {
             true => gettext(
@@ -175,10 +186,12 @@ fn named(state: &BluetoothState, device: &DeviceId) -> String {
 
 fn pairing(state: &BluetoothState) -> Option<Ask> {
     let prompt = state.pairing.as_ref()?;
+    let key = Asked::Pairing(prompt.device().clone()).key();
     let device = named(state, prompt.device());
 
     Some(match prompt {
         Prompt::Confirm { passkey, .. } => Ask {
+            key: key.clone(),
             device,
             question: gettext("Is this the code shown on the device?"),
             code: digits(*passkey),
@@ -188,6 +201,7 @@ fn pairing(state: &BluetoothState) -> Option<Ask> {
             cancel: gettext("Cancel"),
         },
         Prompt::Authorize(_) => Ask {
+            key: key.clone(),
             device,
             question: gettext("This device wants to pair with this computer."),
             code: String::new(),
@@ -197,9 +211,10 @@ fn pairing(state: &BluetoothState) -> Option<Ask> {
             cancel: gettext("Deny"),
         },
         Prompt::DisplayPin { pin, .. } => Ask {
+            key: key.clone(),
             device,
             question: gettext("Type this PIN on the device. It will not ask again."),
-            code: cap(pin),
+            code: glimpse_utils::clean(pin, PIN_MAX),
             progress: String::new(),
             accept: String::new(),
             destructive: false,
@@ -208,6 +223,7 @@ fn pairing(state: &BluetoothState) -> Option<Ask> {
         Prompt::DisplayPasskey {
             passkey, entered, ..
         } => Ask {
+            key: key.clone(),
             device,
             question: gettext("Type this passkey on the device."),
             code: digits(*passkey),
@@ -891,11 +907,11 @@ mod tests {
         ];
 
         for one in every {
-            let typed = needs_typing(&one);
+            let is_typed = typed(&one).is_some();
             let named = format!("{one:?}");
             assert_eq!(
                 prompt(&asking(one)).is_none(),
-                typed,
+                is_typed,
                 "the watch and the page disagree about who answers {named}"
             );
         }

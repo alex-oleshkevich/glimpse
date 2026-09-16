@@ -97,19 +97,8 @@ impl AdwDialogImpl for PairingDialog {}
 impl AdwAlertDialogImpl for PairingDialog {}
 
 impl PairingDialog {
-    pub fn present_prompt(&self, heading: &str, body: &str) {
-        let dialog = self.obj();
-        if dialog.heading().as_deref() != Some(heading) {
-            dialog.set_heading(Some(heading));
-        }
-        if dialog.body() != body {
-            dialog.set_body(body);
-        }
-    }
-
     pub fn show_entry(&self, kind: Entry) {
         self.entry_kind.set(kind);
-        self.entry.set_visible(true);
         self.entry.set_text("");
         match kind {
             Entry::Pin => {

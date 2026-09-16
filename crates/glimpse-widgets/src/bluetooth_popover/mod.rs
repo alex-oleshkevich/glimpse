@@ -11,8 +11,8 @@ const STOP_ICON: &str = "process-stop-symbolic";
 const DEVICES_PAGE: &str = "devices";
 const PROMPT_PAGE: &str = "prompt";
 const BARE: &str = "prompt__actions--bare";
-const SUGGESTED: &str = "suggested-action";
-const DESTRUCTIVE: &str = "destructive-action";
+const ACCEPT: &str = "prompt__accept";
+const DESTRUCTIVE: &str = "prompt__accept--danger";
 
 glib::wrapper! {
     pub struct BluetoothPopover(ObjectSubclass<imp::BluetoothPopover>)
@@ -85,8 +85,10 @@ impl BluetoothPopover {
         if imp.prompt.borrow().as_ref() == ask {
             return;
         }
+        let held = imp.prompt.borrow().as_ref().map(|held| held.key.clone());
+        let switched = held.as_deref() != ask.map(|next| next.key.as_str());
         imp.prompt.replace(ask.cloned());
-        self.render_prompt();
+        self.render_prompt(switched);
     }
 
     pub fn connect_answered<F: Fn(&Self, bool) + 'static>(&self, f: F) -> glib::SignalHandlerId {
@@ -201,8 +203,14 @@ impl BluetoothPopover {
             .map(|entry| entry.place)
     }
 
-    fn render_prompt(&self) {
+    fn render_prompt(&self, switched: bool) {
         let imp = self.imp();
+        if switched {
+            for button in [&imp.prompt_cancel, &imp.prompt_accept] {
+                button.set_sensitive(false);
+                button.set_sensitive(true);
+            }
+        }
         let prompt = imp.prompt.borrow();
         let Some(ask) = prompt.as_ref() else {
             imp.pages.set_visible_child_name(DEVICES_PAGE);
@@ -217,7 +225,7 @@ impl BluetoothPopover {
         crate::set_text(&imp.prompt_progress, none_if_empty(&ask.progress));
         set_button(&imp.prompt_cancel, &ask.cancel);
         set_button(&imp.prompt_accept, &ask.accept);
-        crate::set_css_class(&*imp.prompt_accept, SUGGESTED, !ask.destructive);
+        crate::set_css_class(&*imp.prompt_accept, ACCEPT, true);
         crate::set_css_class(&*imp.prompt_accept, DESTRUCTIVE, ask.destructive);
         crate::set_css_class(&*imp.prompt_actions, BARE, ask.code.is_empty());
 

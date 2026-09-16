@@ -47,6 +47,7 @@ pub struct Details {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Ask {
+    pub key: String,
     pub device: String,
     pub question: String,
     pub code: String,

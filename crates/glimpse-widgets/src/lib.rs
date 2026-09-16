@@ -49,7 +49,7 @@ mod world_clock;
 
 pub use artwork::artwork;
 pub use bluetooth_pairing_dialog::{
-    Entry as PairingEntry, PASSKEY_MAX, PairingAnswer, PairingDialog,
+    Entry as PairingEntry, PASSKEY_MAX, PIN_MAX, PairingAnswer, PairingDialog,
 };
 pub use bluetooth_popover::{
     Ask as BluetoothAsk, BluetoothPopover, Details as BluetoothDetails, Entry as BluetoothEntry,
@@ -3877,6 +3877,7 @@ mod tests {
             });
 
             probe.set_prompt(Some(&BluetoothAsk {
+                key: "pair:/org/bluez/hci0/dev_a".to_owned(),
                 device: "Pixel 9 Pro".to_owned(),
                 question: "Is this the code shown on the device?".to_owned(),
                 code: "419 274".to_owned(),
@@ -3901,11 +3902,28 @@ mod tests {
             assert!(probe.imp().prompt_accept.get_visible());
             assert!(probe.imp().prompt_code.get_visible());
 
+            probe.set_prompt(Some(&BluetoothAsk {
+                key: "pair:/org/bluez/hci0/dev_long".to_owned(),
+                device: "HP OfficeJet 8025".to_owned(),
+                question: "Type this PIN on the device.".to_owned(),
+                code: "0".repeat(32),
+                progress: String::new(),
+                accept: String::new(),
+                cancel: "Cancel".to_owned(),
+                destructive: false,
+            }));
+            assert_eq!(
+                width(&probe),
+                floor,
+                "a code the peer chose must not be able to widen the card"
+            );
+
             probe.imp().prompt_accept.emit_by_name::<()>("clicked", &[]);
             probe.imp().prompt_cancel.emit_by_name::<()>("clicked", &[]);
             assert_eq!(*answers.borrow(), [true, false]);
 
             probe.set_prompt(Some(&BluetoothAsk {
+                key: "pair:/org/bluez/hci0/dev_b".to_owned(),
                 device: "UE BOOM 3".to_owned(),
                 question: "This device wants to pair with this computer.".to_owned(),
                 code: String::new(),

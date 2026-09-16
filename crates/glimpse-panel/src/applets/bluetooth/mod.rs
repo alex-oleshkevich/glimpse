@@ -1,4 +1,5 @@
 mod indicator;
-pub(crate) mod render;
+mod render;
 
 pub use indicator::Bluetooth;
+pub(crate) use render::{cap, typed};

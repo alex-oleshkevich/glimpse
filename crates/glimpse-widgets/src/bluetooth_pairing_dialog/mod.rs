@@ -45,7 +45,12 @@ impl PairingDialog {
                 gettext("Type the passkey shown on {device}.").replace("{device}", &capped(device)),
             ),
         };
-        self.imp().present_prompt(&heading, &body);
+        if self.heading().as_deref() != Some(heading.as_str()) {
+            self.set_heading(Some(&heading));
+        }
+        if self.body() != body {
+            self.set_body(&body);
+        }
         self.imp().entry.set_placeholder_text(Some(&match kind {
             Entry::Pin => gettext("1 to 16 letters or digits"),
             Entry::Passkey => gettext("Up to 999999"),

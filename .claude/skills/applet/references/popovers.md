@@ -244,8 +244,8 @@ applet's is open, and `catcher.close()` if something is. Left click is therefore
 does not implement and must not duplicate: an applet that also acts on
 `Input::Pointer(Pointer::Press(Button::Left))` fires its action every time the popover opens.
 
-`Opener::open_popover` and `Opener::close_popover` exist so an applet can drive that itself. Neither
-has a caller yet; both are `#[allow(dead_code)]` with the reason on them.
+`Opener::open_popover` is how an applet drives that itself: the pager wires its click inside
+`view()`, and bluetooth raises a pairing question that arrived while nothing was open.
 
 Dismissal is a click anywhere outside the popover body, caught by a `GestureClick` on the catcher
 window. It reaches the runtime as `HostInput::PopoverDismissed`, which drops the runtime's handle.
@@ -313,13 +313,13 @@ did not press this time.
 
 **An open detail survives its own action and closes only when that action succeeds.** Pressing a row
 inside a detail leaves the detail standing: it is the only place progress can be shown, and a
-failure needs its context. The applet records the device it acted on, waits until it has *seen* that
-device busy, and treats the return to not-busy as the answer — closing the detail when the command
-carried no failure and leaving it open when it did, with `spawn_reported`'s notification saying why.
-Reading the settle this way is only sound because the service clears `busy` and writes `failure` in
-the same step, so there is no window where a stale failure is read as this command's. Finish the job
-too: pairing ends **connected**, not merely bonded, which the service does by dispatching a
-`Connect` once the pair settles without failure.
+failure needs its context. **The command's own reply is the answer** — `relm4::spawn_local` awaits
+it on the main context, so the `Ok` arm can clear the applet's `selected` directly and the `Err` arm
+reports through the same wording a notification would. Do not infer completion from a busy edge
+instead: a command refused before it starts never sets `busy` at all, and a `watch` coalesces, so the
+busy window can pass between two wakes and be missed entirely. Finish the job too: pairing ends
+**connected**, not merely bonded, which the service does by trusting and connecting once the bond
+appears.
 
 **Work in flight is a spinner and never a word.** `Row` owns a `busy` property; the device row spins
 where its trailing value would have been, and the action row that started the work spins too. A
@@ -389,9 +389,10 @@ else to press. A view over a popover is not a shape this shell has; a stack also
 guard on `Catcher`.
 
 **The two prompts that need typing keep the dialog.** The catcher is `KeyboardMode::None`, so
-`RequestPin` and `RequestPasskey` cannot be answered in a popover at all. `needs_typing` in `app.rs`
-makes the split inside the watch rather than at the dialog, so a prompt the popover renders never
-reaches `App` — and therefore never trips `close_popovers` on its way past, which would close the
+`RequestPin` and `RequestPasskey` cannot be answered in a popover at all. `render::typed` makes the
+split inside the watch and **narrows the type while it is there**, handing `App` a `PairingEntry`
+rather than a `Prompt` — so the dialog has no case to refuse and a prompt the popover renders never
+reaches `App`, and therefore never trips `close_popovers` on its way past, which would close the
 surface it is about to be drawn on.
 
 **A prompt arriving with no popover open opens one.** That is `Opener::open_popover`'s caller,
@@ -403,6 +404,11 @@ BlueZ's own agent timeout is the backstop.
 **A confirmation is the same page.** `Confirmation::Forget` renders through the same `Ask` with a
 destructive accept, so `App` no longer owns a confirmation dialog at all — one page serves both
 questions and the applet routes the single `answered` signal by what `render::asked` says is on it.
+Two consequences follow. **A dismissed popover must answer a confirmation**, because that state is
+glimpse's own and nothing outside will ever retire it — unlike a pairing prompt, which BlueZ cancels.
+And because one card serves two questions, `Ask` carries a **key**; when it changes the buttons are
+bounced insensitive for an instant, which cancels any press already in flight so a click meant for
+one question cannot answer the other.
 
 **`App` owns the one dialog that is left**, pairing it with **its `SignalHandlerId`**.
 
@@ -486,14 +492,16 @@ The card is as wide as the widest label's **natural** request. `ellipsize: end` 
 `clean(name, 24)` still asks for twenty-four characters. `max-width-chars` is the only lever that
 caps the request while still letting the label fill a wider allocation.
 
-Measured on `BluetoothPopover`: an uncapped hero subtitle took the card from 428px to 461, and a
-long `Services` value to 438. With `Hero`'s title and subtitle at 24 and `Row`'s value at 18, eight
-content scenarios — bare, long name, opened, long hero, long value, scanning, and either prompt page
-— all measure 428. Assert it: `measure(Horizontal, -1).1` before and after opening a device is one
-line, and it is the only thing standing between a stable card and one that resizes while it is being
-read. A `Gtk.Stack` swapping a page is the same question and answers it the same way: `hhomogeneous`
-is left at its default, so the card takes the wider of the two pages once rather than resizing when
-one replaces the other.
+Measured on `BluetoothPopover`, September 2026: the card sits at **450px** and every content
+scenario must land on it — bare, long name, opened, long hero, long value, scanning, and each prompt
+page. An uncapped hero subtitle, a long `Services` value or a peer-supplied code each widened it;
+`Hero`'s title and subtitle cap at 24, `Row`'s value at 18, and `prompt_code` at 16, which is what
+holds it. A 32-character code measured **912** before that last cap existed — twice the card — and
+the assertion is what caught it. Assert it: `measure(Horizontal, -1).1` against a floor taken from
+the same probe is one line, and it is the only thing standing between a stable card and one that
+resizes while it is being read. A `Gtk.Stack` swapping a page answers the same question the same
+way: `hhomogeneous` is left at its default, so the card takes the wider of the two pages once rather
+than resizing when one replaces the other.
 
 ## Deciding a popover's shape
 

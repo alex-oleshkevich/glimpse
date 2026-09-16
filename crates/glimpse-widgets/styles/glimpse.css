@@ -665,7 +665,7 @@
 
 .bluetooth-popover__visible-as {
     font-size: var(--gl-text-caption, 0.85rem);
-    color: var(--gl-muted, alpha(currentColor, 0.7));
+    color: var(--gl-muted, alpha(currentColor, 0.65));
     padding: 0.2rem 0.8rem 0.35rem 0.8rem;
 }
 
@@ -685,7 +685,7 @@
 
 .prompt__ask {
     font-size: var(--gl-text-caption, 0.85rem);
-    color: var(--gl-muted, alpha(currentColor, 0.7));
+    color: var(--gl-muted);
 }
 
 .prompt__code {
@@ -699,7 +699,7 @@
 
 .prompt__progress {
     font-size: var(--gl-text-caption, 0.85rem);
-    color: var(--gl-dim, alpha(currentColor, 0.4));
+    color: var(--gl-dim, alpha(currentColor, 0.38));
     font-variant-numeric: tabular-nums;
 }
 
@@ -716,6 +716,22 @@
     min-height: 2.4rem;
     border-radius: 0.7rem;
     font-weight: 600;
+}
+
+.prompt__accept {
+    background-color: var(--gl-accent);
+    color: var(--gl-accent-fg);
+}
+
+.prompt__accept--danger {
+    background-color: var(--gl-danger-soft);
+    color: var(--gl-danger-text);
+}
+
+.row__spinner {
+    min-width: 1rem;
+    min-height: 1rem;
+    color: var(--gl-muted);
 }
 
 .weather-popover__alerts,

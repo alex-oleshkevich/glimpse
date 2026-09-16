@@ -133,6 +133,8 @@ template $BluetoothPopover: Gtk.Widget {
 
           Gtk.Label prompt_code {
             visible: false;
+            ellipsize: end;
+            max-width-chars: 16;
 
             styles [
               "prompt__code",

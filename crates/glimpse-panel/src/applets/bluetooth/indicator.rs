@@ -14,7 +14,9 @@ use gtk4::prelude::*;
 use render::Asked;
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Input, Report, spawn_command, spawn_reported};
+use crate::applet::{
+    Applet, Ctx, Input, Opener, Report, report_failure, spawn_command, spawn_reported,
+};
 
 use super::render;
 
@@ -31,7 +33,6 @@ pub struct Bluetooth {
     scanning: Rc<Cell<bool>>,
     expanded: Rc<Cell<(bool, bool)>>,
     asked: Rc<RefCell<Option<Asked>>>,
-    acting: Rc<RefCell<Option<(DeviceId, bool)>>>,
     raised: Option<Asked>,
     shown: glib::WeakRef<BluetoothPopover>,
 }
@@ -61,7 +62,6 @@ impl Applet for Bluetooth {
                 self.state = self.bluetooth.snapshot();
                 self.scanning.set(self.state.scanning);
                 self.reconcile_discoverable();
-                self.settle();
                 self.raise(ctx);
             }
             Input::Tick | Input::Pointer(_) => return,
@@ -93,20 +93,29 @@ impl Applet for Bluetooth {
         shown.connect_activated({
             let bluetooth = self.bluetooth.clone();
             let notifications = self.notifications.clone();
+            let selected = Rc::clone(&self.selected);
+            let opener = seat.opener();
             move |_, id, connected| {
                 let id = DeviceId::new(id);
+                let key = id.clone();
                 let bluetooth = bluetooth.clone();
                 match connected {
-                    true => tell(
+                    true => act(
                         &notifications,
                         "bluetooth.disconnect_device",
                         gettext("Could not disconnect"),
+                        &selected,
+                        &opener,
+                        key,
                         async move { bluetooth.disconnect(id).await },
                     ),
-                    false => tell(
+                    false => act(
                         &notifications,
                         "bluetooth.connect_device",
                         gettext("Could not connect"),
+                        &selected,
+                        &opener,
+                        key,
                         async move { bluetooth.connect(id).await },
                     ),
                 }
@@ -128,31 +137,45 @@ impl Applet for Bluetooth {
         shown.connect_acted({
             let bluetooth = self.bluetooth.clone();
             let opener = seat.opener();
-            let acting = Rc::clone(&self.acting);
+            let selected = Rc::clone(&self.selected);
             let notifications = self.notifications.clone();
             move |_, id, action| {
                 let id = DeviceId::new(id);
                 let bluetooth = bluetooth.clone();
                 match action {
-                    "connect" => tell(
-                        &notifications,
-                        "bluetooth.connect_device",
-                        gettext("Could not connect"),
-                        async move { bluetooth.connect(id).await },
-                    ),
-                    "disconnect" => tell(
-                        &notifications,
-                        "bluetooth.disconnect_device",
-                        gettext("Could not disconnect"),
-                        async move { bluetooth.disconnect(id).await },
-                    ),
+                    "connect" => {
+                        let key = id.clone();
+                        act(
+                            &notifications,
+                            "bluetooth.connect_device",
+                            gettext("Could not connect"),
+                            &selected,
+                            &opener,
+                            key,
+                            async move { bluetooth.connect(id).await },
+                        );
+                    }
+                    "disconnect" => {
+                        let key = id.clone();
+                        act(
+                            &notifications,
+                            "bluetooth.disconnect_device",
+                            gettext("Could not disconnect"),
+                            &selected,
+                            &opener,
+                            key,
+                            async move { bluetooth.disconnect(id).await },
+                        );
+                    }
                     "pair" => {
-                        acting.replace(Some((id.clone(), false)));
-                        opener.wake();
-                        tell(
+                        let key = id.clone();
+                        act(
                             &notifications,
                             "bluetooth.pair_device",
                             gettext("Could not pair"),
+                            &selected,
+                            &opener,
+                            key,
                             async move { bluetooth.pair(id).await },
                         );
                     }
@@ -271,7 +294,14 @@ impl Applet for Bluetooth {
         shown.connect_unmap({
             let bluetooth = self.bluetooth.clone();
             let scanning = Rc::clone(&self.scanning);
+            let asked = Rc::clone(&self.asked);
             move |_| {
+                if matches!(*asked.borrow(), Some(Asked::Forget(_))) {
+                    let bluetooth = bluetooth.clone();
+                    spawn_command("bluetooth.dismiss_confirmation", async move {
+                        bluetooth.dismiss_confirmation().await
+                    });
+                }
                 let stop = bluetooth.clone();
                 spawn_command("bluetooth.set_discoverable", async move {
                     stop.set_discoverable(false).await
@@ -318,6 +348,38 @@ fn tell<F, T>(
     spawn_reported(operation, report, wording, future);
 }
 
+#[allow(clippy::too_many_arguments)]
+fn act(
+    notifications: &NotificationsProviderHandle,
+    operation: &'static str,
+    summary: String,
+    selected: &Rc<RefCell<Option<DeviceId>>>,
+    opener: &Opener,
+    id: DeviceId,
+    future: impl std::future::Future<Output = Result<(), BluetoothError>> + 'static,
+) {
+    let report = Report {
+        notifications: notifications.clone(),
+        app_name: gettext("Bluetooth"),
+        icon: render::IDLE.to_owned(),
+        summary,
+    };
+    let selected = Rc::clone(selected);
+    let opener = opener.clone();
+    relm4::spawn_local(async move {
+        match future.await {
+            Ok(()) => {
+                let mine = selected.borrow().as_ref() == Some(&id);
+                if mine {
+                    selected.replace(None);
+                }
+            }
+            Err(error) => report_failure(operation, report, wording(&error), error).await,
+        }
+        opener.wake();
+    });
+}
+
 fn wording(error: &BluetoothError) -> Option<String> {
     error.failure().map(render::wording)
 }
@@ -338,7 +400,6 @@ impl Bluetooth {
             selected: Rc::new(RefCell::new(None)),
             expanded: Rc::new(Cell::new((false, false))),
             asked: Rc::new(RefCell::new(None)),
-            acting: Rc::new(RefCell::new(None)),
             raised: None,
             shown: glib::WeakRef::new(),
         }
@@ -352,30 +413,6 @@ impl Bluetooth {
         self.raised = asking;
         if self.raised.is_some() && self.shown.upgrade().is_none() {
             ctx.opener().open_popover();
-        }
-    }
-
-    fn settle(&self) {
-        let mut acting = self.acting.borrow_mut();
-        let Some((id, seen)) = acting.as_mut() else {
-            return;
-        };
-        let Some(device) = self.state.device(id) else {
-            acting.take();
-            return;
-        };
-        if device.busy.is_some() {
-            *seen = true;
-            return;
-        }
-        if !*seen {
-            return;
-        }
-        let settled = device.failure.is_none().then(|| id.clone());
-        acting.take();
-        drop(acting);
-        if settled.is_some() && *self.selected.borrow() == settled {
-            self.selected.replace(None);
         }
     }
 

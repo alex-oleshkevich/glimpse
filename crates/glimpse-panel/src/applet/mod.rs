@@ -123,25 +123,34 @@ pub fn spawn_reported<F, T, E>(
         let Err(error) = future.await else {
             return;
         };
-        tracing::warn!(operation, %error, "service command failed");
-        let Some(body) = wording(&error) else {
-            return;
-        };
-        let posted = report
-            .notifications
-            .post(
-                &report.app_name,
-                &app_id(),
-                &report.icon,
-                &report.summary,
-                &body,
-                NotificationUrgency::Normal,
-            )
-            .await;
-        if let Err(error) = posted {
-            tracing::warn!(operation, %error, "could not report a failed command");
-        }
+        report_failure(operation, report, wording(&error), error).await;
     });
+}
+
+pub async fn report_failure<E: Display>(
+    operation: &'static str,
+    report: Report,
+    body: Option<String>,
+    error: E,
+) {
+    tracing::warn!(operation, %error, "service command failed");
+    let Some(body) = body else {
+        return;
+    };
+    let posted = report
+        .notifications
+        .post(
+            &report.app_name,
+            &app_id(),
+            &report.icon,
+            &report.summary,
+            &body,
+            NotificationUrgency::Normal,
+        )
+        .await;
+    if let Err(error) = posted {
+        tracing::warn!(operation, %error, "could not report a failed command");
+    }
 }
 
 pub struct Ctx {

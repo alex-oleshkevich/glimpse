@@ -104,7 +104,7 @@ string, and loses its icon and its title/body split the moment it is flattened i
 ## Row, SplitRow and Placeholder
 
 ```
-[ check ] [ lead ] [ title    ]  ←space→  [ trail ]
+[ check ] [ lead ] [ title    ]  ←space→  [ value ] [ spinner ] [ trail ]
                    [ subtitle ]
 ```
 
@@ -116,20 +116,20 @@ string, and loses its icon and its title/body split the moment it is flattened i
   *and* a chevron.
 - **`selectable` and `selected` are separate**, so a selectable row reserves the check column before
   anything is selected and selecting one shifts no label in the list.
+- **`busy` spins where the value sits**; a word like "Connecting…" beside it says it twice.
+- **Sizes are rule-scoped tokens** declared in `.row` itself; `:root` stays the shared vocabulary.
 - **`.row` must reset `font-weight`.** libadwaita styles bare `button` bold and weight inherits, so
   every row would render bold — and the grammar distinguishes a selected row by weight.
-- **Sizes are rule-scoped tokens** declared in `.row` itself; `:root` stays the shared vocabulary.
 - **`.row--danger` must colour `.row__icon`, not just the row.** The icon node sets its own
   `--gl-muted`, so tinting the row alone leaves the trash glyph grey beside red text.
 - **`SwitchRow` is the toggle row.** Its body flips the knob and the knob's `notify::active` is the
   only emitter, so the row and the switch can never double each other.
 
-`Placeholder` stands where content would be; its `error` flag only recolours the icon. `SplitRow`
-is a `Row` and a trailing button divided by a hairline.
+`Placeholder` stands where content would be; its `error` flag only recolours the icon.
 
-- **It wraps a `Row`, it does not subclass one**, or the button lands inside the row's box where
-  `Row` would have to know about it. The hairline is a `Gtk.Separator`, because the pixel lint
-  allows `border:` but not `border-left:`.
+- **`SplitRow` wraps a `Row` rather than subclassing one**, or its trailing button lands inside the
+  row's box where `Row` would have to know about it. Its hairline is a `Gtk.Separator`: the pixel
+  lint allows `border:` but not `border-left:`.
 
 ## Section, EventList and WorldClock
 

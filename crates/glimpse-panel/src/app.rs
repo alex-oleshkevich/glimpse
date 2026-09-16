@@ -8,7 +8,7 @@ use std::{collections::HashMap, path::PathBuf};
 use glimpse_config::{
     Config, PANEL_STYLESHEET, stylesheet, user_stylesheet, watch_config, watch_theme,
 };
-use glimpse_services::{Answer, BluetoothHandle, Prompt};
+use glimpse_services::{Answer, BluetoothHandle};
 use glimpse_widgets::{PairingAnswer, PairingDialog, PairingEntry as Entry, Styles};
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
@@ -16,7 +16,7 @@ use relm4::{
 use tokio::task::JoinHandle;
 
 use crate::{
-    applets::bluetooth::render,
+    applets::bluetooth::{cap, typed},
     components::{self, panel},
     services::PanelServices,
 };
@@ -29,7 +29,7 @@ pub struct AppInit {
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant, clippy::enum_variant_names)]
 pub enum AppInput {
-    BluetoothPrompt(Option<(Prompt, String)>),
+    BluetoothPrompt(Option<(Entry, String)>),
     ConfigChanged(Config),
     MonitorsChanged,
     ServicesReady(PanelServices),
@@ -158,20 +158,10 @@ impl App {
         }
     }
 
-    fn show_pairing(&mut self, pairing: Option<(Prompt, String)>, bluetooth: &BluetoothHandle) {
-        let Some((prompt, name)) = pairing else {
+    fn show_pairing(&mut self, pairing: Option<(Entry, String)>, bluetooth: &BluetoothHandle) {
+        let Some((entry, name)) = pairing else {
             close(self.pairing.take());
             return;
-        };
-
-        let entry = match prompt {
-            Prompt::RequestPin(_) => Entry::Pin,
-            Prompt::RequestPasskey(_) => Entry::Passkey,
-            other => {
-                tracing::error!(?other, "a prompt the popover renders reached the dialog");
-                close(self.pairing.take());
-                return;
-            }
         };
 
         let dialog = match &self.pairing {
@@ -245,22 +235,17 @@ fn spawn_bluetooth_watch(
         loop {
             let next = {
                 let state = states.borrow_and_update();
-                state
-                    .pairing
-                    .as_ref()
-                    .filter(|prompt| render::needs_typing(prompt))
-                    .cloned()
-            };
-            if next != last {
-                last = next.clone();
-                let state = states.borrow().clone();
-                sender.input(AppInput::BluetoothPrompt(next.map(|prompt| {
+                state.pairing.as_ref().and_then(|prompt| {
                     let name = state
                         .name(prompt.device())
                         .filter(|name| !name.is_empty())
-                        .map_or_else(|| gettext("this device"), render::cap);
-                    (prompt, name)
-                })));
+                        .map_or_else(|| gettext("this device"), cap);
+                    typed(prompt).map(|entry| (entry, name))
+                })
+            };
+            if next != last {
+                last = next.clone();
+                sender.input(AppInput::BluetoothPrompt(next));
             }
             if states.changed().await.is_err() {
                 break;
