@@ -15,7 +15,7 @@ permissions:
 env:
   BUILD_DEPS: >-
     libgtk-4-dev libadwaita-1-dev libgtk4-layer-shell-dev libheif-dev
-    libpam0g-dev libglib2.0-dev libclang-dev pkg-config blueprint-compiler
+    libpam0g-dev libglib2.0-dev libclang-dev libpulse-dev pkg-config blueprint-compiler
 
 jobs:
   verify:

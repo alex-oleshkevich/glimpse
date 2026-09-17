@@ -27,6 +27,7 @@ depends = [
   "libheif1",
   "libpam0g",
   "geoclue-2.0",
+  "libpulse0",
 ]
 assets = [
   ["target/release/glimpsectl", "usr/bin/", "755"],
@@ -90,6 +91,7 @@ gtk4-layer-shell = "*"
 libheif = "*"
 pam-libs = "*"
 geoclue2 = "*"
+pulseaudio-libs = "*"
 
 [dev-dependencies]
 toml.workspace = true
