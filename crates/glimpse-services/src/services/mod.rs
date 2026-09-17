@@ -15,6 +15,7 @@ pub(crate) fn transport(error: reqwest::Error) -> String {
     }
 }
 
+mod audio;
 mod bluetooth;
 mod calendar;
 mod compositor;
@@ -30,6 +31,11 @@ mod solar;
 mod tray;
 mod weather;
 
+pub use audio::{
+    App as AudioApp, AppId as AudioAppId, AudioError, AudioState, Device as AudioDevice,
+    DeviceId as AudioDeviceId, Direction as AudioDirection, NAME_CAP as AUDIO_NAME_CAP,
+    Role as AudioRole, StreamRef as AudioStreamRef,
+};
 pub use bluetooth::BluetoothError;
 pub use bluetooth::{
     Adapter, Answer, Bluetooth, BluetoothHandle, BluetoothState, Busy, Confirmation, Device,
