@@ -22,6 +22,14 @@ fn main() {
             "blueprints/bluetooth_popover.blp",
             "resources/widgets/bluetooth_popover.ui",
         ),
+        (
+            "blueprints/network_popover.blp",
+            "resources/widgets/network_popover.ui",
+        ),
+        (
+            "blueprints/network_secret_dialog.blp",
+            "resources/widgets/network_secret_dialog.ui",
+        ),
         ("blueprints/calendar.blp", "resources/widgets/calendar.ui"),
         (
             "blueprints/calendar_popover.blp",

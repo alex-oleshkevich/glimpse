@@ -14,6 +14,8 @@ mod indicator;
 mod indicator_group;
 mod keyboard_popover;
 mod mpris_popover;
+mod network_popover;
+mod network_secret_dialog;
 mod next_event_popover;
 mod notice;
 mod notification_card;
@@ -66,6 +68,11 @@ pub use indicator::{Indicator, IndicatorSpec};
 pub use indicator_group::IndicatorGroup;
 pub use keyboard_popover::{KeyboardPopover, Layout as KeyboardLayout};
 pub use mpris_popover::MprisPopover;
+pub use network_popover::{
+    Ask as NetworkAsk, Details as NetworkDetails, Entered as NetworkEntered, Entry as NetworkEntry,
+    Line as NetworkLine, NetworkPopover, Place as NetworkPlace,
+};
+pub use network_secret_dialog::{SecretAnswer, SecretDialog};
 pub use next_event_popover::NextEventPopover;
 pub use notice::{Notice, Severity};
 pub use notification_card::{Action, NotificationCard, Urgency};
@@ -4126,6 +4133,328 @@ mod tests {
             [PairingAnswer::Deny],
             "Esc closes with the close response, which is a refusal"
         );
+
+        let network = NetworkPopover::new();
+        network.set_radio(
+            "Wi-Fi",
+            "Skylink",
+            "network-wireless-signal-good-symbolic",
+            true,
+            true,
+        );
+
+        let entries = vec![
+            NetworkEntry {
+                id: "/ap/1".to_owned(),
+                title: "Skylink".to_owned(),
+                subtitle: "WPA2 \u{b7} 5 GHz".to_owned(),
+                icon: "network-wireless-signal-good-symbolic".to_owned(),
+                place: NetworkPlace::Networks,
+                secured: true,
+                selected: true,
+                busy: false,
+            },
+            NetworkEntry {
+                id: "/s/1".to_owned(),
+                title: "Skylink 2G".to_owned(),
+                place: NetworkPlace::Known,
+                ..Default::default()
+            },
+        ];
+        network.set_entries(&entries);
+        assert_eq!(
+            all_named(&network, "network-popover__row").len(),
+            2,
+            "one row per entry, split across their sections"
+        );
+
+        let held = all_named(&network, "network-popover__row");
+        let mut renamed = entries.clone();
+        renamed[0].title = "Skylink 5G".to_owned();
+        network.set_entries(&renamed);
+        let again = all_named(&network, "network-popover__row");
+        assert!(
+            held[0] == again[0],
+            "a row whose content changed is updated in place, not replaced"
+        );
+        assert_eq!(
+            again[0]
+                .clone()
+                .downcast::<SplitRow>()
+                .expect("a split row")
+                .row()
+                .title()
+                .map(|title| title.to_string()),
+            Some("Skylink 5G".to_owned()),
+            "and it actually took the new title"
+        );
+
+        let net_panel = |id: &str| -> gtk4::Revealer {
+            let imp = network.imp();
+            for held in [
+                &imp.network_held,
+                &imp.known_held,
+                &imp.wired_held,
+                &imp.vpn_held,
+            ] {
+                if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
+                    return holder
+                        .last_child()
+                        .and_downcast::<gtk4::Revealer>()
+                        .expect("a network row carries its own panel");
+                }
+            }
+            panic!("no row is holding {id}");
+        };
+        let net_head = |id: &str| -> gtk4::Widget {
+            let imp = network.imp();
+            for held in [
+                &imp.network_held,
+                &imp.known_held,
+                &imp.wired_held,
+                &imp.vpn_held,
+            ] {
+                if let Some((_, holder)) = held.borrow().iter().find(|(key, _)| key == id) {
+                    return holder.first_child().expect("a holder leads with its row");
+                }
+            }
+            panic!("no row is holding {id}");
+        };
+        let net_rows = |id: &str| -> Vec<Row> {
+            let page = net_panel(id)
+                .child()
+                .and_downcast::<gtk4::Box>()
+                .expect("an opened panel has a page");
+            children_of::<Row>(&page)
+        };
+
+        assert!(
+            net_head("/ap/1")
+                .downcast::<SplitRow>()
+                .expect("a split row")
+                .row()
+                .trail()
+                .is_some_and(|lock| lock.get_visible()),
+            "a secured network says so with a padlock"
+        );
+        assert!(
+            net_head("/s/1")
+                .downcast::<SplitRow>()
+                .expect("a split row")
+                .row()
+                .trail()
+                .is_some_and(|lock| !lock.get_visible()),
+            "and an unsecured one hides the same padlock rather than growing a second widget"
+        );
+
+        assert!(
+            !net_panel("/ap/1").reveals_child(),
+            "a network reveals nothing until it is selected"
+        );
+
+        let lines = vec![
+            NetworkLine {
+                action: "connect".to_owned(),
+                title: "Connect".to_owned(),
+                activates: true,
+                ..Default::default()
+            },
+            NetworkLine {
+                action: "autoconnect".to_owned(),
+                title: "Connect automatically".to_owned(),
+                toggle: Some(false),
+                ..Default::default()
+            },
+            NetworkLine {
+                action: "forget".to_owned(),
+                title: "Forget this network".to_owned(),
+                activates: true,
+                ..Default::default()
+            },
+        ];
+        network.set_details(Some(&NetworkDetails {
+            id: "/ap/1".to_owned(),
+            lines: lines.clone(),
+        }));
+        assert!(
+            net_panel("/ap/1").reveals_child(),
+            "the detail belongs under the network it describes, not beside the list"
+        );
+        assert!(
+            !net_head("/ap/1").has_css_class("receded")
+                && net_head("/s/1").has_css_class("receded")
+                && network.imp().hero.has_css_class("receded"),
+            "everything the panel is read against recedes while it is open"
+        );
+        let opened = net_rows("/ap/1");
+        assert_eq!(opened.len(), 3);
+        assert!(
+            opened[1].clone().downcast::<SwitchRow>().is_ok(),
+            "a line carrying a toggle is a SwitchRow, not a row with a switch dropped in it"
+        );
+
+        let acted = Rc::new(RefCell::new(Vec::new()));
+        network.connect_acted({
+            let acted = Rc::clone(&acted);
+            move |_, id, action| acted.borrow_mut().push(format!("{id}/{action}"))
+        });
+        network.set_details(Some(&NetworkDetails {
+            id: "/s/1".to_owned(),
+            lines,
+        }));
+        assert!(
+            !net_panel("/ap/1").reveals_child() && net_panel("/s/1").reveals_child(),
+            "opening one network closes the one that was open"
+        );
+        net_rows("/s/1")[2].emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            *acted.borrow(),
+            ["/s/1/forget"],
+            "a row whose action key repeats across networks must not forget the one no longer shown"
+        );
+
+        network.set_details(None);
+        assert!(
+            !net_panel("/s/1").reveals_child()
+                && !net_head("/ap/1").has_css_class("receded")
+                && !network.imp().hero.has_css_class("receded"),
+            "closing the card takes the dimming with it"
+        );
+
+        network.set_entries(&[]);
+        assert!(
+            !network.imp().networks.get_visible(),
+            "with no networks and no scan there is nothing to head"
+        );
+        network.set_scanning(true);
+        assert!(
+            network.imp().networks.get_visible() && network.imp().networks.empty(),
+            "a scan that has found nothing yet is the whole reason the placeholder exists; a \
+             hidden section shows it to nobody"
+        );
+        network.set_scanning(false);
+        network.set_entries(&entries);
+
+        let answers = Rc::new(RefCell::new(Vec::new()));
+        network.connect_answered({
+            let answers = Rc::clone(&answers);
+            move |_, accepted, entered| answers.borrow_mut().push((accepted, entered.to_owned()))
+        });
+
+        assert!(
+            !network.prompting() && network.imp().hero.is_sensitive(),
+            "nothing is being asked, so the list is the page"
+        );
+        network.set_prompt(Some(&NetworkAsk {
+            key: "hidden".to_owned(),
+            network: "Hidden network".to_owned(),
+            question: "Type the name the network broadcasts nothing about.".to_owned(),
+            entered: NetworkEntered::Name,
+            accept: "Continue".to_owned(),
+        }));
+        assert!(
+            network.prompting()
+                && network.imp().prompt_name.get_visible()
+                && !network.imp().prompt_secret.get_visible(),
+            "a network with no name to show asks for one, not for a password"
+        );
+        assert!(
+            !network.imp().hero.is_sensitive(),
+            "the Wi-Fi switch is not a way out of a question that is being asked"
+        );
+        assert!(
+            !network.can_submit(),
+            "an empty box cannot be submitted, here as in the dialog"
+        );
+
+        network.type_in("Skylink Guest");
+        assert!(network.can_submit());
+        network
+            .imp()
+            .prompt_accept
+            .emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            *answers.borrow(),
+            [(true, "Skylink Guest".to_owned())],
+            "the name reaches the applet, which asks for the password next"
+        );
+
+        network.set_prompt(Some(&NetworkAsk {
+            key: "secret:Skylink Guest".to_owned(),
+            network: "Skylink Guest".to_owned(),
+            question: "The network needs a password before this computer can join it.".to_owned(),
+            entered: NetworkEntered::Secret,
+            accept: "Connect".to_owned(),
+        }));
+        assert!(
+            network.imp().prompt_secret.get_visible() && !network.imp().prompt_name.get_visible(),
+            "the second ask is a password box, with the peek icon a name box must not have"
+        );
+        assert!(
+            !network.can_submit(),
+            "a new question starts empty; carrying the name over would submit it as a password"
+        );
+
+        network.type_in("wrongpassword");
+        assert!(network.can_submit());
+        network.set_prompt(Some(&NetworkAsk {
+            key: "802-11-wireless-security:Skylink Guest".to_owned(),
+            network: "Skylink Guest".to_owned(),
+            question: "Skylink Guest refused that password. Check it and try again.".to_owned(),
+            entered: NetworkEntered::Secret,
+            accept: "Try again".to_owned(),
+        }));
+        assert!(
+            !network.can_submit(),
+            "a retry clears the password that was refused; leaving it invites sending it again"
+        );
+
+        network.type_in("hunter2hunter2");
+        answers.borrow_mut().clear();
+        network
+            .imp()
+            .prompt_cancel
+            .emit_by_name::<()>("clicked", &[]);
+        assert_eq!(
+            *answers.borrow(),
+            [(false, String::new())],
+            "cancelling discards what was typed rather than sending it"
+        );
+
+        network.set_prompt(None);
+        assert!(
+            !network.prompting()
+                && network.imp().hero.is_sensitive()
+                && network.imp().pages.visible_child_name().as_deref() == Some("networks"),
+            "the question answered, the list comes back"
+        );
+
+        let secret = SecretDialog::new();
+        secret.ask("psk:Skylink", "Skylink", false);
+        let first = secret.heading().map(|one| one.to_string());
+        assert!(
+            !secret.body().is_empty(),
+            "the first ask explains why it is asking"
+        );
+
+        secret.type_in("the-wrong-one");
+        secret.ask("psk:Skylink", "Skylink", true);
+        assert!(
+            secret.is_blank(),
+            "a retry clears the rejected password; leaving it invites retyping the same thing"
+        );
+        assert_ne!(
+            secret.heading().map(|one| one.to_string()),
+            first,
+            "a retry must not look like the first ask, or the same password is typed again"
+        );
+        assert!(
+            secret.heading().is_some_and(|one| !one.is_empty()),
+            "the retry says the last password was refused"
+        );
+
+        network.set_overflow(Some("3 more networks"));
+        network.set_overflow(None);
     }
 
     fn texture(width: i32, height: i32) -> gdk::Texture {

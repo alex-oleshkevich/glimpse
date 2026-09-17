@@ -20,6 +20,11 @@ provider = "geoclue"
 scan-timeout = 30
 hide-unnamed = true
 
+[network]
+scan-timeout = 30
+hide-unnamed = true
+show-vpn = true
+
 [night-light]
 schedule = "automatic"
 temperature = 4200

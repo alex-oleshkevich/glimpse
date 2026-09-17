@@ -589,6 +589,29 @@
     transform: rotate(90deg);
 }
 
+.network-popover .popover-shell {
+    border-radius: 1.5rem;
+    padding: 1.1rem;
+}
+
+.network-popover .hero__title {
+    font-size: var(--gl-text-title);
+    font-weight: 700;
+}
+
+.network-popover__row {
+    border-radius: 0.75rem;
+    min-height: 3.2rem;
+}
+
+.network-popover__row .split-row__detail image {
+    transition: transform var(--gl-duration) var(--gl-ease);
+}
+
+.network-popover__row.open .split-row__detail image {
+    transform: rotate(90deg);
+}
+
 .detail-card {
     background-color: mix(var(--gl-surface), var(--gl-surface-fg), 0.09);
     border: 1px solid var(--gl-border);

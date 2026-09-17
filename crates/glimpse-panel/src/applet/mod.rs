@@ -176,6 +176,10 @@ impl Opener {
     pub fn wake(&self) {
         let _ = self.0.send(runtime::HostInput::Woken);
     }
+
+    pub fn typing(&self, typing: bool) {
+        let _ = self.0.send(runtime::HostInput::Typing(typing));
+    }
 }
 
 impl Ctx {

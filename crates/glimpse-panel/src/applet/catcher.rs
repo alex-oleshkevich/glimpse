@@ -136,6 +136,7 @@ impl Catcher {
         dismissed: impl Fn() + 'static,
     ) {
         self.release();
+        self.set_typing(false);
         self.fade.reset();
         self.center.set(center);
         self.dismissed.replace(Some(Box::new(dismissed)));
@@ -183,6 +184,7 @@ impl Catcher {
     }
 
     pub fn close(&self) {
+        self.set_typing(false);
         if matches!(self.state.get(), State::Closed | State::Closing) {
             return;
         }
@@ -192,6 +194,16 @@ impl Catcher {
         self.fade.set_value_from(from);
         self.fade.set_value_to(0.0);
         self.fade.play();
+    }
+
+    pub fn set_typing(&self, typing: bool) {
+        let wanted = match typing {
+            true => KeyboardMode::OnDemand,
+            false => KeyboardMode::None,
+        };
+        if self.window.keyboard_mode() != wanted {
+            self.window.set_keyboard_mode(wanted);
+        }
     }
 
     pub fn place(&self, center: i32) {

@@ -22,6 +22,7 @@ mod geolocation;
 mod heartbeat;
 mod keyboard;
 mod mpris;
+mod network;
 mod night_light;
 mod notifications;
 mod session;
@@ -40,6 +41,11 @@ pub use geolocation::{Geolocation, GeolocationHandle};
 pub use heartbeat::{Heartbeat, HeartbeatHandle};
 pub use keyboard::{Dependencies as KeyboardDependencies, Keyboard, KeyboardHandle};
 pub use mpris::{Mpris, MprisHandle};
+pub use network::{
+    Access, Answer as SecretAnswer, Busy as NetworkBusy, Failure as NetworkFailure, Network,
+    NetworkError, NetworkHandle, NetworkId, NetworkState, Radio, Request as SecretRequest, Saved,
+    Secret as NetworkSecret, Vpn, Wired,
+};
 pub use night_light::{
     Config as NightLightConfig, Dependencies as NightLightDependencies, NightLight,
     NightLightHandle, NightLightState,

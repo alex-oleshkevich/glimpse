@@ -41,6 +41,25 @@ the build fails if the ban ever stops resolving. GTK application-id names go thr
 and never reach here — that is why a second process with the same app id hands off and exits 0
 before any name is requested.
 
+**NetworkManager's `ObjectManager` is at `/org/freedesktop`.** Not `/`, where BlueZ puts its own and
+where NM answers `UnknownMethod`, and not `/org/freedesktop/NetworkManager`, which answers
+`UnknownInterface`. A `path_namespace` copied from `bluez` matches nothing.
+
+**Two NetworkManager values do not decode the way their names suggest.** `Device.StateReason` is
+`(uu)` whose element 0 repeats `State` — take element 1. `Connection.Active` has **no**
+`StateReason` property at all, so its reason exists only on the `StateChanged` signal and a client
+that wants one caches `path -> reason` and evicts on state 4. Neither proxy here declares those
+signals: both interfaces name a member `StateChanged`, and zbus generates the signal types at module
+scope, so declaring both is a redefinition error. The service reads them with a `MatchRule` instead.
+
+**`autoconnect` is absent from a profile whenever it is true.** `decode_profile` defaults it to
+`true` for that reason; reading it as `Option<bool>` and treating `None` as false inverts every
+profile that has never had it switched off.
+
+**`Ssid` is `ay` and promises nothing.** It need not be valid UTF-8 and need not be non-empty — one
+access point on the test network beacons zero bytes. `decode_ssid` is lossy, caps by characters, and
+returns `None` for an empty name so an unnamed network is a state rather than a blank row.
+
 **`Exported` puts the object up before it asks for the name.** A `Get` arriving between the two
 would otherwise find the name with nothing behind it, which is also why a refused name must take
 the object back down again. It owns the whole lifecycle: export, `own_name`, re-emit `snapshot`

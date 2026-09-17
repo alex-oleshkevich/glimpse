@@ -3,6 +3,8 @@
     <gresource prefix="/me/aresa/GlimpseShell">
         <file>widgets/bluetooth_pairing_dialog.ui</file>
         <file>widgets/bluetooth_popover.ui</file>
+        <file>widgets/network_popover.ui</file>
+        <file>widgets/network_secret_dialog.ui</file>
         <file>widgets/calendar.ui</file>
         <file>widgets/calendar_popover.ui</file>
         <file>widgets/clock_row.ui</file>

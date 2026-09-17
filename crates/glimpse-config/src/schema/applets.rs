@@ -82,7 +82,7 @@ pub enum Kind {
     /// The currently playing track, with transport controls in its popover.
     Mpris(Mpris),
     /// Connection state, with the available networks in its popover.
-    Network {},
+    Network(Network),
     /// The next entry from the configured calendars.
     NextEvent(NextEvent),
     /// Unread notifications, with their history in its popover.
@@ -151,6 +151,32 @@ pub struct Mpris {
     pub show_others: bool,
     /// Whether the popover shows album art.
     pub show_art: bool,
+}
+
+/// The network applet's own settings. Where the networks are scanned and listed is `[network]`;
+/// this is only what the chip on the bar does.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct Network {
+    /// How many networks the popover lists before the rest go behind a "more networks" row. `0`
+    /// lists every network in range.
+    pub visible_networks: usize,
+    /// Whether an active VPN gets a chip of its own beside the network chip. An indicator is an
+    /// icon, and two states overlaid on one glyph are illegible at bar size.
+    pub vpn_chip: bool,
+    /// Whether a metered connection is named in the tooltip. It is always marked on the row inside
+    /// the popover; this is only about the bar.
+    pub metered_in_tooltip: bool,
+}
+
+impl Default for Network {
+    fn default() -> Self {
+        Self {
+            visible_networks: 8,
+            vpn_chip: true,
+            metered_in_tooltip: true,
+        }
+    }
 }
 
 impl Default for Mpris {

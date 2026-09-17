@@ -34,15 +34,15 @@ Binding registers the GType before `init_template` resolves the class by name, o
 ## Indicator, IndicatorGroup and Pager
 
 The icon is one `Option<gio::Icon>`; `gdk::Texture` implements it, so a themed name, a file and a
-tray pixmap all arrive through one setter. Sniffing a string for a leading slash guesses wrong on a
+tray pixmap all arrive through one setter — sniffing a string for a leading slash guesses wrong on a
 themed name containing one. `IndicatorSpec` holds a `gio::Icon` and so is not `Send`.
 
 - **The icon sits in a `Gtk.Overlay`, and `overlay` is an emblem on its trailing corner** — the
   Windows-taskbar idiom, for a state the application's own icon does not carry. The *slot* follows
   the base icon's presence, so an indicator with neither reserves no space.
 - **A badge hides the attention dot, and must not cancel attention itself.** Two marks for one fact
-  is noise, so the dot yields; `indicator--attention` stays and is what colours the chip. Assert it
-  from a clean spec — `set_attention` returns early on an unchanged flag.
+  is noise, so the dot yields while `indicator--attention` stays and colours the chip. Assert it from
+  a clean spec — `set_attention` returns early on an unchanged flag.
 
 `Pager` is a strip of `PagerItem`, the one indicator that is not an `IndicatorGroup`: a click per
 slot over a list whose length changes.
@@ -52,8 +52,8 @@ slot over a list whose length changes.
 - **One token drives both dimensions of the labels shape.** GTK4's `min-width`/`min-height` bound
   the *content* box and padding is added outside it, so padding belongs on `.pager-item__label`.
 - **`PagerItem` deliberately has no `dispose`.** *Naming* a `Gtk.Button` template's root child makes
-  `dispose_template()` unparent it twice; `Row` and `Notice` escape it by wrapping contents in an
-  **unnamed** box, and a `gtk4::Widget` subclass owns no child and always needs the call.
+  `dispose_template()` unparent it twice; `Row` and `Notice` escape by wrapping contents in an
+  **unnamed** box, and a `gtk4::Widget` subclass owns no child and needs the call.
 
 `TrayStrip` is the second. It renders one `Indicator` per `TrayChip` and exists because a tray item
 is its own remote object, which an `IndicatorGroup` cannot express — that group is one clickable
@@ -68,11 +68,10 @@ thing whose `pressed` names no chip.
   applet never learns it happened. It hides when nothing is hidden, and closes the drawer on the way.
 - **The chevron is pinned to one edge and the hidden chips grow away from it**, so the overflow
   opens into the bar rather than off the screen. A right-zone applet wants `Edge::Start`, a
-  left-zone one `Edge::End`, and the slide direction *and* the chevron's `pan-*-symbolic` follow
-  that pair — **and the strip's `halign` has to be that same zone edge**, or the strip grows from
-  its anchor and shoves the chips already on the bar aside. Closed, the chevron points back over the
-  drawer and `--open` rotates it 180°; **the icon has to be directional**, since a rotated
-  symmetrical glyph reads as nothing.
+  left-zone one `Edge::End`, and the slide direction *and* the chevron's `pan-*-symbolic` follow that
+  pair — **as must the strip's `halign`**, or the strip grows from its anchor and shoves the chips
+  already on the bar aside. Closed, the chevron points back over the drawer and `--open` rotates it
+  180°; **the icon has to be directional**, a rotated symmetrical glyph reading as nothing.
 - **The strip does not author text.** `set_overflow_tooltip` takes the wording; the widget joins
   what it is given for the accessible name and invents none of it.
 
@@ -85,8 +84,8 @@ string, and loses its icon and its title/body split the moment it is flattened i
   an empty box. An icon alone is still a tooltip; a card with only an icon reserves no text column.
 - **Caps are the widget's, because the text is another application's**: 128 characters of title,
   512 and six lines of body. A sync log would otherwise grow the tooltip past the screen.
-- Title, body, status and `icon-name` are GObject properties, which is what lets its states board be
-  pure Blueprint.
+- Title, body, status and `icon-name` are GObject properties, which is what lets its states board
+  be pure Blueprint.
 
 ## Calendar
 
@@ -97,7 +96,7 @@ string, and loses its icon and its title/body split the moment it is flattened i
 - **Dots are drawn, not styled**, and `measure` reports the same height with or without events.
 - **`select` compares before it writes, and that guard is load-bearing** — it emits `day-selected`,
   so a handler that reacts by selecting overflows the stack without it.
-- **Weekdays are numbered as `glib::DateTime` numbers them**, Monday 1 through Sunday 7. The letters
+- **Weekdays are numbered as `glib::DateTime` numbers them**, Monday 1 through Sunday 7; the letters
   come from January 2024, whose 1st was a Monday, so `%a` gives the locale's own abbreviations.
 
 ## Row, SplitRow and Placeholder
@@ -108,11 +107,11 @@ string, and loses its icon and its title/body split the moment it is flattened i
 ```
 
 - **It navigates, it does not expand.** A popover's height is capped by the work area, so expanding
-  row 15 of 20 grows it past the fold and hides the thing just revealed. Expanding is right only when
-  the revealed content is one or two rows *and* the list cannot grow.
+  row 15 of 20 hides the thing just revealed. Expand only one or two rows, and only from a list that
+  cannot grow.
 - **`icon-name` and `value` are properties; `lead` and `trail` stay slots.** Without properties a
-  `.blp` can name the type and nothing else, and being separate widgets lets a row carry a value
-  *and* a chevron.
+  `.blp` names the type and nothing else, and separate widgets let a row carry a value *and* a
+  chevron.
 - **`selectable` and `selected` are separate**, so a selectable row reserves the check column before
   anything is selected and selecting one shifts no label in the list.
 - **`busy` spins where the value sits**; a word like "Connecting…" beside it says it twice.
@@ -121,9 +120,7 @@ string, and loses its icon and its title/body split the moment it is flattened i
   every row would render bold — and the grammar distinguishes a selected row by weight.
 - **`SwitchRow` is the toggle row.** Its body flips the knob and the knob's `notify::active` is the
   only emitter, so the row and the switch can never double each other.
-
-`Placeholder` stands where content would be; its `error` flag only recolours the icon.
-
+- **`Placeholder` stands where content would be**; its `error` flag only recolours the icon.
 - **`SplitRow` wraps a `Row` rather than subclassing one**, or its trailing button lands inside the
   row's box where `Row` would have to know about it. Its hairline is a `Gtk.Separator`: the pixel
   lint allows `border:` but not `border-left:`.
@@ -134,16 +131,16 @@ string, and loses its icon and its title/body split the moment it is flattened i
   reserves its height under a four-row agenda.
 - **`when` arrives formatted; a `Zone` does not.** Derive in the widget when formatting destroys the
   derivation — `"00:47"` has thrown away that it is tomorrow there.
-- **`EventList` defaults to inert, but the overflow row is exempt** — the flag would make it inert in
-  exactly the case that puts it on screen.
-- **`EventList` answers the tooltip, not the row.** GTK finds tooltips by picking and a
-  non-activatable row is skipped, so the list maps the pointer's `y` onto row allocations.
-- **`Zone::note` and `Zone::icon_name` travel together**, or a sun sits above "light rain". The icon
-  carries no colour. A second line appears only when the date differs, compared in that instant's
-  own timezone — pass a local `DateTime`, not a UTC one.
-- **A zone that does not resolve reads `—`.** `g_time_zone_new_identifier` returns NULL where the
-  older `g_time_zone_new` silently returns UTC — hence the `v2_68` feature.
-- **Times use `tabular-nums`**: proportional digits give up to 17px of animated jitter.
+- **`EventList` defaults to inert, the overflow row exempt** — the flag would otherwise make it inert
+  in exactly the case that puts it on screen.
+- **`EventList` answers the tooltip, not the row**: GTK picks tooltips and skips a non-activatable
+  row, so the list maps the pointer's `y` onto row allocations. **Times use `tabular-nums`**, since
+  proportional digits give up to 17px of animated jitter.
+- **`Zone::note` and `Zone::icon_name` travel together**, or a sun sits above "light rain", and the
+  icon carries no colour. A second line appears only when the date differs in that instant's own
+  timezone — pass a local `DateTime`.
+- **A zone that does not resolve reads `—`**: `g_time_zone_new_identifier` returns NULL where the
+  older `g_time_zone_new` silently returns UTC, hence the `v2_68` feature.
 
 ## NotificationCard, NotificationHeader and the body widgets
 
@@ -202,33 +199,37 @@ separator between each pair.
 - **A section and its hairline show and hide together**, the shell watching `notify::visible` on
   what is appended; hiding the section alone leaves a line floating against nothing.
 - **`add_child` must ignore the widget's own template children**, guarded by `try_get().is_none()`:
-  `init_template` adds them through `Gtk.Buildable` itself, so an unguarded override routes
-  `hero_box` into `content_box` and panics.
+  `init_template` adds them through `Gtk.Buildable`, so an unguarded override routes `hero_box` into
+  `content_box` and panics.
 - **The shell paints its own surface, draws no shadow and does not scroll.** A `Gtk.Popover`'s
-  `contents` node already draws a shadow, and two radii show it at every corner; capping height
-  belongs to whatever knows the anchor's work area, and keeping it out lets the shell be built in a
-  test with no display.
+  `contents` node draws one already, two radii show at every corner, and capping height belongs to
+  whatever knows the anchor's work area.
 
 Per-popover rules that are traps rather than taste:
 
-- **A click handler is connected at build, never while dressing**, which stacks one per reconcile.
 - **A switch driven from state never reports it back** — `set_dnd` and the bluetooth power switch
-  raise a guard flag while writing and the handler returns early on it. Anything drawn from the same
-  value is set *above* the guard: it stops a set being reported, not drawn.
+  raise a guard flag while writing, and `SwitchRow::set_active` compares and silences its own knob.
+  Anything drawn from the same value is set *above* the guard: it stops a set being reported, not
+  drawn.
 - **`.column` carries the width floor, not `.popover-shell`**, and `same_rows` compares only what
   the list draws — a title changes on every keystroke.
 - **Static wording lives in the template; wording the data decides lives in Rust.** A fixed label is
-  `_("…")` in the `.blp` — a slot holding two is a `Gtk.Stack` of `$Placeholder` pages, while
-  `NextEventPopover` captures its template title at `constructed` and restores it; a plural is
+  `_("…")` in the `.blp`, a slot holding two a `Gtk.Stack` of `$Placeholder` pages; a plural is
   `ngettext` with named `{placeholders}`, which `format!` cannot reorder.
-- **A switch reconciled from a backend goes through `SwitchRow::set_active`**, which compares and
-  silences the knob, so a published state never fires `toggled` back as a command.
+- **A `NetworkPopover` row is a `$SplitRow`**: the body activates it, the chevron unfolds its card,
+  and a line keyed by network *and* action cannot act on the one no longer shown.
+- **A network is asked for a password on a page of its own popover, not in a window beside it.**
+  `NetworkPopover::set_prompt` swaps the list for the ask, makes the hero insensitive so the Wi-Fi
+  switch is not a way out of a question, and **clears the box whenever the key changes** — a retry
+  that kept the refused password invites sending it again. **An empty box cannot be submitted and a
+  short one can**: refusing below the WPA minimum puts a WEP network out of reach; 64 is the cap, a
+  raw PSK written as hex. `SecretDialog` asks the same on the host, where no popover is open. **The
+  Wi-Fi switch goes insensitive under a hardware block**, which reads as refused, not merely off.
 
 **A detail unfolds in place, never beside the list.** `crate::drawer` builds the holder — a row with
-its own `Gtk.Revealer` under it — and `BluetoothPopover` and `ForecastList` both reconcile into one,
-so a card grows down instead of sideways off an output edge. The open row takes `.open`, the card
-`.detail-card`, and a capped list ends in an overflow row. **What recedes follows the row the list
-shows, not the id asked for**: a hidden section takes card and dimming with it.
+its own `Gtk.Revealer` under it — so a card grows down instead of sideways off an output edge. The
+open row takes `.open`, the card `.detail-card`, and a capped list ends in an overflow row. **What
+recedes follows the row the list shows, not the id asked for**: a hidden section takes the card.
 **A pairing prompt is a `Gtk.Stack` page, not a dialog.** `BluetoothPopover`'s `pages` swaps the
 device column for the question, hero and footer insensitive, `hhomogeneous` on so the card takes the
 wider page once. `PairingDialog` keeps the two prompts needing an entry; its `answered` signal
@@ -247,9 +248,8 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
   and destroys the row's template. `Hero`, `Notice` and `Placeholder` extend `Gtk.Widget` and keep
   `icon-name`.
 - **`set_position` is ignored while the pointer is down**, or a player reporting once a second yanks
-  the slider out from under a drag. The hold uses a capture-phase `EventControllerLegacy`, because a
-  `GestureClick` there is *cancelled* the moment `Gtk.Range` claims the sequence. A drag emits one
-  `seek`, at the end — one D-Bus call per motion event is not a design.
+  the slider out from under a drag. The hold is a capture-phase `EventControllerLegacy`, a
+  `GestureClick` being *cancelled* once `Gtk.Range` claims the sequence. A drag emits one `seek`.
 - **The step and page increments are set in Rust**, because `blueprint-compiler lint` rejects a
   `Gtk.Adjustment` carrying anything besides `lower`, `upper` and `value`. They are the arrow-key
   distances, so losing them kills keyboard seeking silently.
@@ -275,12 +275,12 @@ twice stacks every rule; `load()` replaces content in place.
 | `USER + 1` | the user's own `styles.css` | the last word |
 
 The built-in is compiled in rather than installed, because `load()` points the theme provider at
-**one** path: a component rule living in a theme is one the first second theme deletes. The shipped
+**one** path: a component rule in a theme is one the first second theme deletes. The shipped
 `adwaita` theme is therefore empty, and that is the test.
 
 **`parsing-error` does not see a bad token** — a `var()` naming nothing renders transparent with only
-a `Gtk-WARNING` on stderr. Hence the two guards: every `var()` in the built-in carries a fallback,
-and `theme::tests` lints the vocabulary. The rules it enforces are in `.claude/rules/ui.md`.
+a `Gtk-WARNING` on stderr. Hence two guards: every `var()` in the built-in carries a fallback, and
+`theme::tests` lints the vocabulary, whose rules are in `.claude/rules/ui.md`.
 
 ### Tokens and the type scale
 

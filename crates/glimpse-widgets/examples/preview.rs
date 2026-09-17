@@ -260,10 +260,10 @@ mod fixtures {
 
     use glimpse_widgets::{
         Action, Advisory, Body, Calendar, Choice, ChoiceList, Day, Event, EventList, Fact,
-        FactList, Focus, Group, Hero, Hour, IndicatorSpec, Notification, NotificationsPopover,
-        NowPlaying, Pager, Player, PlayerList, Repeat, Row, Severity, Shape, Slot, SplitRow,
-        TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover, WorldClock,
-        Ymd, Zone,
+        FactList, Focus, Group, Hero, Hour, Indicator, IndicatorSpec, Notification,
+        NotificationsPopover, NowPlaying, Pager, Player, PlayerList, Repeat, Row, Severity, Shape,
+        Slot, SplitRow, TransportAction, TrayChip, TrayStrip, Urgency, WeatherPage, WeatherPopover,
+        WorldClock, Ymd, Zone,
     };
     use gtk4::glib;
     use std::cell::{Cell, RefCell};
@@ -281,6 +281,12 @@ mod fixtures {
     const OPEN: &str = "open-on-map";
     const DIALOG: &str = "dialog__";
     const AFTER: &str = "after__";
+    const BUSY: &str = "busy";
+    const ICON: &str = "icon__";
+    const OVERLAY: &str = "overlay__";
+    const SEVERITY: &str = "severity__";
+    const ATTENTION: &str = "state__attention";
+    const NOTICE: &str = "state__notice";
 
     pub fn apply(
         name: &str,
@@ -308,7 +314,6 @@ mod fixtures {
             "mpris" => mpris(root),
             "next_event" => next_event(root),
             "weather_popover" => weather_popover(root),
-            "pager" => pager(root),
             "notifications" => notifications(root, notification_catalog()),
             "tray" => tray(root),
             "tray_states" => tray_states(root),
@@ -320,6 +325,9 @@ mod fixtures {
         opened_menus(root);
         dialogs(root, builder);
         after(root);
+        pager(root);
+        busy(root);
+        indicators(root);
         scheme_toggle(root, sheets);
     }
 
@@ -1529,6 +1537,67 @@ mod fixtures {
                     widget.type_().name()
                 );
             }
+        }
+    }
+
+    fn busy(root: &gtk4::Widget) {
+        for widget in collect::<gtk4::Widget>(root) {
+            if !widget.has_css_class(BUSY) {
+                continue;
+            }
+            match widget.downcast_ref::<SplitRow>() {
+                Some(split) => split.row().set_busy(true),
+                None => eprintln!(
+                    ".{BUSY} sits on a {}; a $Row takes busy and a Gtk.Spinner takes spinning \
+                     straight from the blueprint",
+                    widget.type_().name()
+                ),
+            }
+        }
+    }
+
+    fn indicators(root: &gtk4::Widget) {
+        for indicator in collect::<Indicator>(root) {
+            let classes = indicator.css_classes();
+            let named = |prefix: &str| {
+                classes
+                    .iter()
+                    .find_map(|class| class.as_str().strip_prefix(prefix).map(str::to_owned))
+            };
+            let flagged = |flag: &str| classes.iter().any(|class| class.as_str() == flag);
+
+            let icon = named(ICON);
+            let overlay = named(OVERLAY);
+            let severity = named(SEVERITY);
+            let attention = flagged(ATTENTION);
+            let notice = flagged(NOTICE);
+
+            if icon.is_none() && overlay.is_none() && severity.is_none() && !attention && !notice {
+                continue;
+            }
+
+            match icon {
+                Some(icon) => indicator.set_icon(Some(&themed_icon(&icon))),
+                None if overlay.is_none() && !attention && !notice => {
+                    eprintln!("an $Indicator carries no {ICON} class and nothing else to draw")
+                }
+                None => {}
+            }
+
+            if let Some(overlay) = overlay {
+                indicator.set_overlay(Some(&themed_icon(&overlay)));
+            }
+
+            match severity.as_deref() {
+                Some("info") => indicator.set_severity(Some(Severity::Info)),
+                Some("warning") => indicator.set_severity(Some(Severity::Warning)),
+                Some("error") => indicator.set_severity(Some(Severity::Error)),
+                Some(other) => eprintln!("{SEVERITY}{other} is not a severity"),
+                None => {}
+            }
+
+            indicator.set_attention(attention);
+            indicator.set_notice(notice);
         }
     }
 

@@ -517,6 +517,11 @@
               "type": "string",
               "const": "network"
             },
+            "metered-in-tooltip": {
+              "description": "Whether a metered connection is named in the tooltip. It is always marked on the row inside\nthe popover; this is only about the bar.",
+              "type": "boolean",
+              "default": true
+            },
             "settings-command": {
               "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
               "type": "array",
@@ -537,6 +542,18 @@
                 "string",
                 "null"
               ]
+            },
+            "visible-networks": {
+              "description": "How many networks the popover lists before the rest go behind a \"more networks\" row. `0`\nlists every network in range.",
+              "type": "integer",
+              "format": "uint",
+              "default": 8,
+              "minimum": 0
+            },
+            "vpn-chip": {
+              "description": "Whether an active VPN gets a chip of its own beside the network chip. An indicator is an\nicon, and two states overlaid on one glyph are illegible at bar size.",
+              "type": "boolean",
+              "default": true
             }
           },
           "additionalProperties": false,
@@ -1504,6 +1521,11 @@
                 "type": "string",
                 "const": "network"
               },
+              "metered-in-tooltip": {
+                "description": "Whether a metered connection is named in the tooltip. It is always marked on the row inside\nthe popover; this is only about the bar.",
+                "type": "boolean",
+                "default": true
+              },
               "settings-command": {
                 "description": "The program that row runs, as a command and its arguments:\n`[\"xdg-open\", \"https://calendar.google.com/\"]`. It is a list rather than one string because\nthere is no shell between here and the program — an argument containing a space is one\nelement, and nothing has to be quoted, escaped or protected from word splitting.",
                 "type": "array",
@@ -1524,6 +1546,18 @@
                   "string",
                   "null"
                 ]
+              },
+              "visible-networks": {
+                "description": "How many networks the popover lists before the rest go behind a \"more networks\" row. `0`\nlists every network in range.",
+                "type": "integer",
+                "format": "uint",
+                "default": 8,
+                "minimum": 0
+              },
+              "vpn-chip": {
+                "description": "Whether an active VPN gets a chip of its own beside the network chip. An indicator is an\nicon, and two states overlaid on one glyph are illegible at bar size.",
+                "type": "boolean",
+                "default": true
               }
             },
             "additionalProperties": false,
@@ -2088,6 +2122,14 @@
         "fetch-art": true
       }
     },
+    "network": {
+      "$ref": "#/$defs/Network",
+      "default": {
+        "hide-unnamed": true,
+        "scan-timeout": 30,
+        "show-vpn": true
+      }
+    },
     "night-light": {
       "$ref": "#/$defs/NightLight",
       "default": {
@@ -2598,6 +2640,29 @@
           "items": {
             "type": "string"
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Network": {
+      "type": "object",
+      "properties": {
+        "hide-unnamed": {
+          "description": "Whether to hide networks that broadcast no name. They cannot be joined by tapping them —\na hidden network is reached by typing its name in — so a row for one is unactionable.",
+          "type": "boolean",
+          "default": true
+        },
+        "scan-timeout": {
+          "description": "How many seconds a scan for nearby networks runs before stopping on its own. Scanning\ninterrupts traffic on the same radio, so it is never left running. `0` disables the timeout\nand leaves the scan running until the popover closes.",
+          "type": "integer",
+          "format": "uint64",
+          "default": 30,
+          "minimum": 0
+        },
+        "show-vpn": {
+          "description": "Whether to show the VPN section. It hides itself when no VPN profile is saved, so this is\nfor hiding one you have but do not want on the list.",
+          "type": "boolean",
+          "default": true
         }
       },
       "additionalProperties": false

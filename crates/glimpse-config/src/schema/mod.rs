@@ -9,6 +9,7 @@ mod keyboard;
 mod lock;
 mod monitors;
 mod mpris;
+mod network;
 mod night_light;
 mod notifications;
 mod panels;
@@ -39,6 +40,7 @@ pub use keyboard::{Keyboard, Remember};
 pub use lock::{Button as LockButton, Clock as LockClock, Controls as LockControls, Lock};
 pub use monitors::Monitors;
 pub use mpris::Mpris as MprisConfig;
+pub use network::Network as NetworkSettings;
 pub use night_light::{CLOCK, NightLight, Schedule, parse_clock};
 pub use notifications::{NotificationEdge, Notifications};
 pub use panels::{Margin, Panel, Position};
@@ -55,6 +57,7 @@ pub struct Config {
     pub monitors: Monitors,
     pub geolocation: Geolocation,
     pub bluetooth: Bluetooth,
+    pub network: NetworkSettings,
     pub night_light: NightLight,
     pub idle: Idle,
     pub power: Power,
@@ -80,6 +83,7 @@ impl Default for Config {
             monitors: Monitors::default(),
             geolocation: Geolocation::default(),
             bluetooth: Bluetooth::default(),
+            network: NetworkSettings::default(),
             night_light: NightLight::default(),
             idle: Idle::default(),
             power: Power::default(),

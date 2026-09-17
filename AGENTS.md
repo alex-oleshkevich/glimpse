@@ -168,9 +168,11 @@ just check           # type-check, fast
 just lint            # rust, systemd units and blueprints, warnings are errors
 just test            # headless tests
 just fmt             # format in place
+just fmt-blueprints  # format blueprints; pass paths, or every one by default
 just test-compositor # also runs the #[ignore] Wayland tests; needs a compositor
 just check-units     # systemd-analyze verify on the shipped units
 just check-examples  # compile every blueprint in var/widget_examples/
+just net-guard arm   # restore connectivity automatically if a network test strands the machine
 ```
 
 Binaries run through `just run-daemon`, `just run-panel`, `just run-wallpaper`, `just run-locker`
@@ -291,6 +293,18 @@ new example's drawer silently inert:
   something clickable by neither is reported.
 - `pager` fills each `$Pager` from its `demo__<case>` class, since its slots come from Rust. An
   unrecognised case and a missing class are both reported.
+- `busy` spins anything carrying the `busy` class. A `$SplitRow` spins through its inner `$Row`,
+  because `SplitRow` exposes no `busy` property of its own and its `row` is a template child a
+  blueprint cannot reach; a `$Row` can equally say `busy: true` in the blueprint and needs no class.
+  Anything else carrying the class is reported, since it has no spinner to turn on.
+- `indicators` configures each `$Indicator` from `icon__<name>`, `overlay__<name>`,
+  `severity__<info|warning|error>`, `state__attention` and `state__notice` — `Indicator` has
+  **no GObject properties at all**, so a states board cannot otherwise set one from Blueprint. An
+  indicator carrying **none** of those classes is left completely alone: `TrayStrip` builds its own
+  chips, and a fixture that wrote to every `Indicator` it found would wipe them. The two flags are
+  namespaced because bare `attention` and `notice` are already styling hooks elsewhere — on a
+  `Gtk.Image` in `workspaces.blp` and on the `Notice` template — and either landing on an
+  `$Indicator` would otherwise be read as state.
 
 **A widget is only declarable if it says so.** `PopoverShell` and `Hero` implement `Gtk.Buildable`,
 which is what lands `[hero]`, `[footer]` and `[slot]` in the right internal box, and `Hero` exposes
@@ -567,6 +581,113 @@ a popover the compositor re-places on each measurement change wants.
 `Active`/`Passive`/`NeedsAttention` — and `Passive` is a placement instruction, the host tucks the
 item away, not a tint. `com.canonical.dbusmenu.Status` is `normal`/`notice`, on the menu object.
 Both read their quiet value on every live item, so nothing on screen separates them.
+
+
+**NetworkManager 1.58.1 on this machine, September 2026.** Introspected and probed live; the full
+account is `var/network/research.md`.
+
+- **`ObjectManager` is at `/org/freedesktop`** — not `/` (where BlueZ puts it) and not
+  `/org/freedesktop/NetworkManager`, both of which answer `UnknownMethod`/`UnknownInterface`. A
+  `path_namespace` copied from the bluetooth source matches nothing.
+- **`Devices` and `AllDevices` return the identical list**, `Managed=false` veths included, so
+  filtering cannot be delegated to the choice of property. **9 devices, one user-facing**: `wlp99s0`
+  (type 2). The rest are `docker0` and two `br-*` (13), two `veth*` (20, unmanaged), `p2p-dev-wlp99s0`
+  (30), `lo` (32) and a Bluetooth NAP (5) whose **`Interface` is a MAC address, not a netdev name**.
+  There is **no ethernet device and no modem**.
+- **5 active connections, 4 of them Docker plumbing and `lo`.** A popover listing
+  `ActiveConnections` naively shows all five.
+- **`Device.StateReason` is `(uu)`**; element 0 repeats `State`, element 1 is the reason.
+  **`Connection.Active` has no `StateReason` property at all** — `GetAll` returns thirteen members
+  and none of them is it. The reason arrives only on `StateChanged(state, reason)`, so a client must
+  cache `path → reason` and **evict on state 4**, or a recycled path serves a stale one.
+- **What actually churns is `Bitrate`, not statistics.** Thirty idle seconds produced two
+  `AccessPoint.Strength` changes and one `Device.Bitrate`. `Device.Statistics` is present on the
+  wireless device but `RefreshRateMs` is **0**, so `RxBytes`/`TxBytes` emit nothing until some client
+  sets the rate — it is writable by anyone on the bus, so the relevance allowlist still excludes it.
+  `Strength` cannot be excluded because it is needed. Banding it in the model would suppress most
+  republishes, but the tooltip shows the exact percentage, so the **raw** value is what the state
+  carries and the band is derived at render. Measured cost of that choice: **12 republishes in 75
+  seconds** on an idle connected machine, each one a `Vec<IndicatorSpec>` rebuild whose widget
+  setters all compare before writing. That is the price of an honest tooltip, and it is small.
+- **14 access points, 11 distinct SSIDs.** Three SSIDs carry two BSSIDs each, so no dedup means three
+  duplicate rows. Dedup picks the strongest **whole AP**, never merged fields: `RubinowyKlon1`
+  advertises `Flags` 3 on its stronger BSSID and `Flags` 1 on the weaker, so a merge invents a
+  security level. **The connected AP is not the strongest** — `Skylink` at 70 is chosen over a
+  94 — which makes the connected row a placement decision rather than a sort key.
+- **One AP beacons a zero-byte SSID.** `Ssid` is `ay` and need not be valid UTF-8 or non-empty.
+- **WPA3/SAE (0x400) is on this network and enterprise 802.1X (0x200) is not**, so only the
+  enterprise badge is unverifiable here — `KHARKIV` and two unnamed APs advertise SAE. The common
+  case is `RsnFlags` 392 (`0x188` = `KEY_MGMT_PSK | GROUP_CCMP | PAIR_CCMP`); one router runs mixed
+  WPA1+WPA2 (`WpaFlags` 324, `RsnFlags` 332).
+- **A VPN is testable here after all, and needs neither root nor a peer.** `nmcli connection add type
+  wireguard con-name <name> ifname <iface>` plus a generated `wireguard.private-key` is a profile
+  NetworkManager activates on its own — the interface comes up, `Vpn` rows and the second chip render,
+  and both are ordinary polkit operations for an active session. Nothing presents as **ethernet**
+  (`DeviceType` 1) without hardware: a veth is 20, a dummy 22, a tun/tap 16, and all three are
+  filtered by design.
+- **7 saved connections, 2 of them user-facing Wi-Fi**; four are generated bridge/loopback profiles
+  and one is a Bluetooth PAN, and **none of them is a VPN** — make one, per the bullet above.
+  **`autoconnect` is absent from a profile when it is true** — reading `Option<bool>` and
+  treating `None` as false inverts both Wi-Fi profiles.
+- **A saved Wi-Fi profile carries `key-mgmt` and no `psk`.** Secrets come only from `GetSecrets` or
+  an agent. `seen-bssids` ties a profile to an AP cheaply; `VersionId` is a change token.
+- **`RegisterWithCapabilities(su)` exists on `AgentManager`** beside plain `Register(s)`.
+  `_old/glimpse-shell/src/agents/network.rs:254` called the plain one and so never received VPN
+  secret hints.
+- **`gdbus` prints `y` values in hex** (`<byte 0x45>`). A research script parsing `\d+` reads every
+  signal strength as 0. Nothing about the wire; everything about the tool.
+
+**What the network epic itself measured.** Every reason code was checked against
+`/usr/include/libnm/nm-dbus-interface.h` rather than carried over, and two that `_old` had wrong are
+the ones to get right: device reason **39 is `USER_REQUESTED`**, not a dependency failure, so a
+deliberate disconnect must not be reported; and `NMActiveConnectionStateReason`'s
+**`USER_DISCONNECTED` is 2**, while 3 is `DEVICE_DISCONNECTED`. A reason the classifier does not
+recognise is a failure, never `Ok` — it is asked only after something has already failed.
+**`NM_SECRET_AGENT_GET_SECRETS_FLAG_REQUEST_NEW` (0x2) implies interaction is allowed**, stated in
+the header beside the constant, so testing `ALLOW_INTERACTION` alone drops every wrong-password
+retry in silence.
+
+**`nmcli` is its own secret agent and will not delegate, September 2026.** `nmcli connection up` on
+a profile with no stored secret answers *"password is required"* and refuses to ask without
+`--ask` — it never reaches another registered agent, so it cannot drive a glimpse secret prompt. Ask
+NetworkManager directly instead: `gdbus call --system --dest org.freedesktop.NetworkManager
+--object-path /org/freedesktop/NetworkManager --method
+org.freedesktop.NetworkManager.ActivateConnection <profile> <device> /`. A profile whose stored
+password is wrong is the cheapest way to reach the `REQUEST_NEW` retry: NM tries the stored one,
+fails, and asks again with the retry flag set.
+
+**A layer-shell popover can be typed into, but only if it asks, September 2026.** The popover catcher
+takes `KeyboardMode::None`, which is why the first secret prompt was a window on the host instead of a
+page in the popover. `KeyboardMode::OnDemand` while a prompt is up — and `None` again on close and on
+every open — gives the entry a focus ring under niri and costs the popover nothing when no entry is
+there. **`ydotool` still cannot drive it**: with the entry focused and `ydotoold` running, `ydotool
+type` exits 0 and delivers nothing, the same as its clicks. Keystrokes reaching a real entry stay on
+the manual list.
+
+**Disconnecting a network is not a stable test state, September 2026.** `nmcli connection down` on
+an autoconnecting profile is undone by NetworkManager itself within seconds, so a test built on it
+measures the race rather than the code; and after a radio cycle NM reconnects to the **strongest**
+saved profile, which is not necessarily the one it was on. `scripts/net-guard.sh` — `just net-guard
+baseline|arm|status|restore|disarm` — is the safety net: it guards **connectivity**, not one
+profile, runs detached under `systemd-run --user` so it survives the shell that armed it, and gives
+three ten-second grace periods before restoring. Arm it before any disruptive network test.
+
+**A states board does not fit one screen, and `niri msg` under-reports a floating window's width,
+September 2026.** `bluetooth_states.blp` renders 483x2250 and `network_states.blp` 498x2495, against
+an eDP-1 of 1440 and a DP-2 of 1728 logical pixels. **A single `grim` cannot capture a whole board**
+and the part below the fold is not merely cropped — it is never composited, so it captures as blank.
+Review a board by opening the preview, and verify the lower states by rendering a temporary copy that
+holds only them. Separately, `window_size` from `niri msg -j windows` is **narrower than the window
+actually paints** for these floating previews — cropping to it silently cuts the right-hand column,
+which is where `$Section`'s `count` sits. A count that looks missing is almost always this and not the
+blueprint; pad the region before concluding anything.
+
+**`network-error-symbolic` is not colour-neutral, September 2026.** Of the network glyphs Adwaita
+ships, it is the only one carrying `class="error"` and a baked `fill="#e01b24"`;
+`network-offline-symbolic`, `network-wireless-offline-symbolic`, `network-no-route-symbolic` and
+`network-wireless-no-route-symbolic` are all plain `#2e3436` and recolour with the CSS `color`
+property as a symbolic icon should. **An indicator takes no colour**, so a state that must not be
+tinted uses one of the neutral four — the `-symbolic` suffix alone does not promise it.
 
 ## Finishing
 

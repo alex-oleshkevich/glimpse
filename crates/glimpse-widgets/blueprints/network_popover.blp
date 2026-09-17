@@ -1,0 +1,170 @@
+using Gtk 4.0;
+
+template $NetworkPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "network-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "network-wireless-symbolic";
+
+      [slot]
+      Gtk.Switch wifi {
+        valign: center;
+        tooltip-text: _("Wi-Fi");
+      }
+    }
+
+    Gtk.Stack pages {
+      transition-type: crossfade;
+      vhomogeneous: false;
+
+      Gtk.StackPage {
+        name: "networks";
+
+        child: Gtk.Box column {
+          orientation: vertical;
+          hexpand: true;
+
+          styles [
+            "column",
+          ]
+
+          $Section networks {
+            visible: false;
+
+            Gtk.Box {
+              orientation: vertical;
+
+              Gtk.Box network_rows {
+                orientation: vertical;
+              }
+
+              $Row more {
+                visible: false;
+                activatable: true;
+                lead-icon: "view-more-symbolic";
+              }
+            }
+
+            [placeholder]
+            $Placeholder looking {
+              icon-name: "network-wireless-acquiring-symbolic";
+              title: _("Looking for networks…");
+            }
+          }
+
+          $Section known {
+            visible: false;
+            title: _("Known networks");
+
+            Gtk.Box known_rows {
+              orientation: vertical;
+            }
+          }
+
+          $Section wired {
+            visible: false;
+            title: _("Wired");
+
+            Gtk.Box wired_rows {
+              orientation: vertical;
+            }
+          }
+
+          $Section vpn {
+            visible: false;
+            title: _("VPN");
+
+            Gtk.Box vpn_rows {
+              orientation: vertical;
+            }
+          }
+
+          $Row hidden {
+            visible: false;
+            activatable: true;
+            title: _("Connect to a hidden network…");
+            lead-icon: "network-wireless-encrypted-symbolic";
+          }
+        };
+      }
+
+      Gtk.StackPage {
+        name: "prompt";
+
+        child: Gtk.Box prompt_page {
+          orientation: vertical;
+          hexpand: true;
+
+          styles [
+            "column",
+            "prompt",
+          ]
+
+          Gtk.Label prompt_network {
+            wrap: true;
+            justify: center;
+            max-width-chars: 24;
+
+            styles [
+              "prompt__device",
+            ]
+          }
+
+          Gtk.Label prompt_ask {
+            wrap: true;
+            justify: center;
+            max-width-chars: 30;
+
+            styles [
+              "prompt__ask",
+            ]
+          }
+
+          Gtk.PasswordEntry prompt_secret {
+            show-peek-icon: true;
+            activates-default: true;
+          }
+
+          Gtk.Entry prompt_name {
+            visible: false;
+            input-purpose: free_form;
+          }
+
+          Gtk.Box prompt_actions {
+            orientation: horizontal;
+            homogeneous: true;
+            spacing: 8;
+
+            styles [
+              "prompt__actions",
+              "prompt__actions--bare",
+            ]
+
+            Gtk.Button prompt_cancel {
+              label: _("Cancel");
+            }
+
+            Gtk.Button prompt_accept {
+              label: _("Connect");
+
+              styles [
+                "prompt__accept",
+              ]
+            }
+          }
+        };
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}

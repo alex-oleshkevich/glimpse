@@ -4,6 +4,7 @@ mod clock;
 mod heartbeat;
 mod keyboard;
 mod mpris;
+mod network;
 mod next_event;
 mod notifications;
 mod pager;
@@ -15,7 +16,7 @@ use glimpse_config::{Applet as AppletConfig, AppletKind, Regional};
 use glimpse_dbus::{notifications::NotificationsProviderHandle, weather::WeatherProviderHandle};
 use glimpse_services::{
     BluetoothHandle, CalendarHandle, CompositorHandle, HeartbeatHandle, KeyboardHandle,
-    MprisHandle, TrayHandle,
+    MprisHandle, NetworkHandle, TrayHandle,
 };
 use std::collections::BTreeMap;
 
@@ -48,6 +49,7 @@ pub fn build(
     heartbeat: &HeartbeatHandle,
     tray: &TrayHandle,
     bluetooth: &BluetoothHandle,
+    network: &NetworkHandle,
     notifications: &NotificationsProviderHandle,
     weather: &WeatherProviderHandle,
 ) -> Option<Builder> {
@@ -127,6 +129,14 @@ pub fn build(
                 Box::new(bluetooth::Bluetooth::start(bluetooth, notifications))
             }))
         }
+        AppletKind::Network(_) => {
+            let network = network.clone();
+            let notifications = notifications.clone();
+            Some(Box::new(move |ctx| {
+                ctx.watch(network.subscribe());
+                Box::new(network::Network::start(network, notifications))
+            }))
+        }
         AppletKind::Audio {}
         | AppletKind::Battery {}
         | AppletKind::Brightness {}
@@ -135,7 +145,6 @@ pub fn build(
         | AppletKind::Command {}
         | AppletKind::Exec {}
         | AppletKind::Idle {}
-        | AppletKind::Network {}
         | AppletKind::Privacy {}
         | AppletKind::Printing {}
         | AppletKind::Removable {}

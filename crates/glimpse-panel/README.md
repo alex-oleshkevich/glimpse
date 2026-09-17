@@ -58,25 +58,23 @@ There is deliberately no staleness, no `degraded`, no timer and no applet `Outpu
 `ctx.interval(period)` is the only timer an applet gets, delivering `Input::Tick`.
 
 **A tick lands on the boundary**, not on whenever the panel started: `until_boundary` takes the time
-since the epoch modulo the period. Without it a `%H:%M` clock changes up to a minute late, which
-reads as broken rather than late. Exactly on a boundary the wait is a whole period, so nothing
-renders twice.
+since the epoch modulo the period, without which a `%H:%M` clock changes up to a minute late. Exactly
+on a boundary the wait is a whole period, so nothing renders twice.
 
-**A missed tick is skipped, not burst.** tokio's default `Burst` would deliver 3600 ticks in one
-pass of the main loop after an hour's suspend. `Skip` is also the only behaviour that keeps the
-phase; `Delay` restarts the schedule from wherever the stall ended.
+**A missed tick is skipped, not burst.** tokio's default `Burst` delivers 3600 ticks in one pass of
+the main loop after an hour's suspend, and `Skip` is the only behaviour keeping the phase — `Delay`
+restarts from wherever the stall ended.
 
 **Calling it again replaces the timer**, which is what makes it safe to ask for from `configure`. A
 period of zero is refused and logged.
 
 **The clock derives its period; it is not configured.** `%H:%M` ticks once a minute and `%H:%M:%S`
-once a second, decided by scanning for a specifier faster than a minute. A setting would be a second
-way to say what the format already says, and the two could disagree. The scan reads specifiers
-rather than substrings, which matters twice: `%-S` carries a padding modifier so `contains("%S")`
-misses it, and `%%S` is a literal percent so `contains("%S")` matches a non-specifier.
+once a second, decided by scanning for a specifier faster than a minute; a setting would be a second
+way to say what the format already says. The scan reads specifiers, not substrings: `%-S` carries a
+padding modifier that `contains("%S")` misses, and `%%S` is a literal percent that it matches.
 
 **A format string that cannot render must not panic.** chrono's `Display` for `DelayedFormat`
-*returns an error* for an unknown specifier and `to_string()` turns that into a panic — which, under
+*returns an error* for an unknown specifier and `to_string()` turns that into a panic that, under
 `catch_unwind`, stops the applet for the session. It renders through `write!` and returns `None`.
 
 ## An applet may supply its own widget
@@ -84,19 +82,19 @@ misses it, and `%%S` is a literal percent so `contains("%S")` matches a non-spec
 `view()` returning `Some` replaces the group and `indicators()` is never called. The pager is the
 first case: a click *per slot* over a list whose length changes.
 
-- **The root is a `gtk4::Box`, not the group** — `init_root()` takes no arguments.
-- **An applet supplying a view receives no `Input::Pointer`** — the widget owns its pointer.
+- **The root is a `gtk4::Box`, not the group**, `init_root()` taking no arguments; and **an applet
+  supplying a view receives no `Input::Pointer`**, the widget owning its own.
 - **Orientation is handed to the applet, not applied behind its back.** Reaching into the view's own
-  `BoxLayout` turns the widget sideways without telling it, so it cannot restyle for the new axis —
-  on the pager a vertical bar stretched every dot, the active-dot rule being keyed on `min-width`.
+  `BoxLayout` turns the widget sideways without telling it, so it cannot restyle for the new axis:
+  on the pager a vertical bar stretched every dot, the active-dot rule keying on `min-width`.
 - **Signals are wired in `view`, called once.** A GTK callback outlives any `&Ctx`, so applets
   capture a typed handle and put what a callback needs at click time behind an `Rc` cell.
 
 ## The popover
 
-`Applet::popover(&Seat)` builds the tree on open and the runtime drops it on close. Nothing is
+`Applet::popover(&Seat)` builds the tree on open and the runtime drops it on close; nothing is
 cached. An open popover still follows events: the applet keeps a `glib::WeakRef` and pushes every
-render into it — weak, because a strong reference would hold the tree alive past dismissal.
+render into it, weak because a strong reference would hold the tree alive past dismissal.
 
 **An applet on the runtime's `IndicatorGroup` gets its popover opened for it.** One owning its view
 asks by name: `Opener::toggle_popover` is that press (the pager's click), `open_popover` only
@@ -123,41 +121,36 @@ it, and one removed by a config change leaves no closure and no `Sender` behind.
 ### Placement
 
 `Applet::anchor` names a widget inside the view; the runtime turns it into a centre coordinate.
-`placement()` is the whole arithmetic and is a free function so it can be asserted without a
-display. Four properties, one test each: the arrow's centre is the pressed item's centre; the body
-stays on the output, keeping a gutter from its edge; the arrow never sits on a rounded corner.
+`placement()` is the whole arithmetic and is a free function, asserted without a display: the
+arrow's centre is the pressed item's centre, the body stays on the output keeping a gutter from its
+edge, and the arrow never sits on a rounded corner.
 
-- **The gutter yields to the arrow, and that ordering is the design.** A popover near the edge
-  cannot both keep a gutter and put its arrow over the item, so the gutter shrinks to whatever still
-  lets the arrow reach. One CSS length drives arrow size, inset and gutter; none is written in Rust.
+- **The gutter yields to the arrow.** A popover near the edge cannot both keep a gutter and put its
+  arrow over the item, so the gutter shrinks. One CSS length drives arrow size, inset and gutter.
 - **Placement waits for the window, not for the slot.** A layer surface has no size until the
   compositor configures it, so an idle after `present()` measures `width=0`, and a reopen reads
   `room()` as zero while the slot keeps its old allocation — which looked like an anchoring bug.
   `settle` touches no margin while room is zero; `open` waits on a tick callback for a real
   allocation, settles, then plays. **The callback then stays**, re-settling whenever the body's
-  measurement changes — a drawer opening inside a popover otherwise grows against the margin
-  computed for the narrow body and walks the detail page off the output edge.
+  measurement changes — a drawer opening inside one otherwise walks the detail page off the edge.
 - **The catcher takes `set_exclusive_zone(0)` and lets the compositor place it** — no margin, no
   measurement of the bar. Margining by `config.size` assumes two false things: `set_thickness` is a
-  **minimum**, so a bar whose applets need more room is taller, and anything else holding an
-  exclusive zone pushes the panel down. The missing number is the sum of every *other* zone.
-- **A position change closes an open popover.** The anchor is a coordinate on one axis, so
-  re-placing a `Top` popover's x as a `Left` popover's y puts it somewhere arbitrary; orientation,
-  arrow side and placement axis all derive from `Position`.
+  **minimum**, and anything else holding an exclusive zone pushes the panel down.
+- **A position change closes an open popover.** The anchor is one axis's coordinate, so re-placing a
+  `Top` popover's x as a `Left` popover's y is arbitrary; orientation and axis come from `Position`.
 
 ### The animation is `AdwTimedAnimation`, not a CSS transition
 
 `opacity` on the slot, driven by `adw::TimedAnimation`; a CSS `transition: opacity` on the same node
-did not animate. Two properties are the reason not to go back: `done` is an exact clock, so no
-duplicated duration constant; and an unmapped widget or `gtk-enable-animations: false` makes
-`play()` skip to the end and emit `done` synchronously, which lets the state machine be one path.
+did not animate. `done` is an exact clock, so no duration constant is duplicated, and an unmapped
+widget or `gtk-enable-animations: false` skips `play()` to the end and emits `done` synchronously,
+which lets the state machine be one path.
 
-**The shadow is in `px`, and it has to be.** `box-shadow` with `rem` lengths renders **nothing** in
-GTK4 and fails silently.
+**The shadow is in `px`**: `box-shadow` with `rem` lengths renders **nothing** in GTK4, silently.
 
 **The arrow is a `Gtk.DrawingArea`, not a rotated box.** GTK4 has no triangle, and a square with
-`transform: rotate(45deg)` overflows its allocation into the bar. Size and colour still come from
-CSS, and the fill reads `gtk_widget_get_color`.
+`transform: rotate(45deg)` overflows its allocation into the bar. Size and color come from CSS and
+the fill reads `gtk_widget_get_color`.
 
 ## The applets
 
@@ -216,36 +209,31 @@ sender-controlled keys cannot accumulate for the panel's lifetime.
 
 **tray** — the second applet supplying its own view, for the pager's reason: a click per chip over a
 list whose length changes. It renders every registered item and decides *which*, because that is a
-bar's preference — `hide` and `pin` match the item's own `Id`, which survives an application restart
-where its bus name does not. `Passive` is the item asking to be put away, so it sorts toward the
-chevron rather than vanishing; `max-visible` of `0` means no overflow, never hide-everything. A tray
-icon is the application's choice, rendered as given: the symbolic-icon rule stops at our own chips.
-This applet is why `"tray"` in the shipped right zone finally renders something.
+bar's preference — `hide` and `pin` match the item's own `Id`, which survives a restart where its bus
+name does not. `Passive` sorts toward the chevron rather than vanishing; `max-visible` of `0` means
+no overflow, never hide-everything. A tray icon is rendered as the application gave it.
 
 **The icon ladder is six steps and every one was a bug somewhere.** An absolute path that *exists*
 wins; one that has gone falls through, because a missing file is not a missing icon. Only an absolute
 path is a path — a themed name may contain a slash. The item's own `IconThemePath` is probed as a
 literal file (`base/name`, then `.png`, `.svg`, `.xpm`, `.ico`) before the icon theme is consulted,
 and a directory that is not there is skipped at `debug`, never `warn`: a Flatpak application names
-`/app/share/icons`, real in its sandbox and absent here. Search paths added to the process-wide
-`IconTheme` are deduped and capped at 16. Pixels are last, and only when there is no name. Nothing at
-all gets `image-missing-symbolic`, because a blank chip reads as broken.
+`/app/share/icons`, real in its sandbox and absent here. Paths added to the process-wide `IconTheme`
+are deduped and capped at 16. Pixels are last; nothing at all gets `image-missing-symbolic`.
 
 **A dbusmenu separator is an *item*; a `GMenu` separator is a section boundary.** The transform is a
 split, and leading, trailing and doubled separators must leave no empty sections. `visible: false` is
 not built at all — building it disabled still shows what the application asked to hide. A checkmark
-is a boolean-stateful `SimpleAction`, a radio group a string-stateful one with a per-item target;
-dbusmenu never says which items form a group, so a section is the group.
+is a boolean-stateful `SimpleAction`, a radio group a string-stateful one; a section is the group.
 
-**`com.canonical.dbusmenu.Status` is a second `Status`, on the menu object.** `notice` is the calm
-counterpart to `NeedsAttention`; both can be true and attention wins.
+**`com.canonical.dbusmenu.Status` is a second `Status`, on the menu object** — `notice` is the calm
+counterpart to `NeedsAttention`, both can be true, and attention wins.
 
 **`a(iiay)` is ARGB32 in network byte order, which is byte order A,R,G,B — precisely GDK's
 `A8r8g8b8`.** No swizzle, no PNG round-trip. Premultiplication is unspecified by the protocol, so a
 dark halo is the symptom of guessing wrong rather than something to tune. Textures cache on a content
-hash, which makes an application rewriting its icon per message free after the first. `connect_changed`
-on the icon theme and `notify::scale-factor` are connected **once, in the applet**, not per item;
-only name-based icons need re-resolving.
+hash, so an application rewriting its icon per message is free after the first. `connect_changed` on
+the icon theme and `notify::scale-factor` are connected **once, in the applet**, not per item.
 
 **bluetooth** — the chip is the adapter's power state and **nothing else**: an icon, never a device
 name or a count; what is connected belongs to the tooltip. No adapter renders **nothing**, so a
@@ -262,13 +250,27 @@ machine with no radio carries no dead chip.
 - **The chip and its tooltip take `attention` while a question waits**, or a dismissed popover was
   the only thing that knew it was asked. **`BondBroken` is stated on the row, not notified**: the
   bond is gone, so *Connect* fails until the device is paired again.
-- **Only the two prompts needing an entry reach `App`**, narrowed by `render::typed` in the watch,
-  so one the popover draws never trips `close_popovers`. Those that do close every popover first,
-  then title, size and **show** the host before `present`.
+- **Only the two prompts needing an entry reach `App`**, narrowed by `render::typed`, so one the
+  popover draws never trips `close_popovers`. Those that do close every popover, then title, size
+  and **show** the host before `present`.
 - **Two switch rows own discovery and visibility**, set on open, cleared on unmap, **never
   re-asserted between** — a wake that re-asked fights the timeout that just lapsed. Both go
-  insensitive while the radio is off, and `chip`/`hero`/`tooltip` read `state.held()`, so a scan the
-  popover started never lights the bar.
+  insensitive while the radio is off, and `chip` reads `state.held()`, so a popover's own scan never
+  lights the bar.
+
+**network** — the chip is the connection's own icon and **nothing else**: no SSID and no percentage,
+both of which belong to the tooltip. No managed device renders nothing at all, so a radioless
+machine carries no dead chip.
+
+- **A VPN is a second chip, never an overlay.** Two overlays do not compose, and a VPN over a
+  metered connection is ordinary; metered stays in the tooltip, where a word can say it.
+- **The password is asked for before the join, on a page of the popover.** NetworkManager drops the
+  working connection the moment activation is requested, so a network that would then ask is asked
+  first and its answer travels with the profile. A request NetworkManager raises itself opens the
+  popover; `App`'s dialog is for a configuration with no applet to answer one.
+- **Strength is banded at render from the raw value**, which the tooltip prints exactly, and **the
+  connected network is placed first whatever its strength** — the one in use is often not the
+  strongest in range. A failed command is a notification, never a banner, and nothing takes a color.
 
 ## Losing the session bus kills the process, and nothing here can change that
 

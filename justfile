@@ -71,6 +71,17 @@ fmt-crate CRATE:
 fmt-check:
     cargo fmt --all --check
 
+[doc("format blueprints in place; pass paths, or all of them by default")]
+fmt-blueprints *PATHS:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    paths=({{ PATHS }})
+    if [ "${#paths[@]}" -eq 0 ]; then
+        shopt -s nullglob
+        paths=(crates/*/blueprints/*.blp var/widget_examples/*.blp)
+    fi
+    blueprint-compiler format -f "${paths[@]}"
+
 [doc("regenerate data/config.default.toml from Config::default()")]
 gen-config-default:
     cargo run -q -p glimpse-config --example gen_config_default > data/config.default.toml
@@ -189,6 +200,10 @@ run-weather *ARGS:
 [doc("run the CLI")]
 ctl *ARGS:
     cargo run -q -p glimpsectl -- "$@"
+
+[doc("network test safety net: baseline | restore | arm [s] | disarm | status")]
+net-guard *ARGS:
+    scripts/net-guard.sh {{ ARGS }}
 
 [doc("click a point on a niri output with ydotool")]
 click *ARGS:

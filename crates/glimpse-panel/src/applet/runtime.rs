@@ -34,6 +34,7 @@ pub enum HostInput {
     Oriented(gtk4::Orientation),
     Pressed { button: u32 },
     Woken,
+    Typing(bool),
     Scrolled { dx: f64, dy: f64 },
     Ticked,
 }
@@ -129,6 +130,11 @@ impl Component for AppletRuntime {
             HostInput::Oriented(orientation) => self.orient(orientation),
             HostInput::Ticked => self.deliver(Some(&Input::Tick)),
             HostInput::Woken => self.deliver(Some(&Input::Woken)),
+            HostInput::Typing(typing) => {
+                if self.owns() {
+                    self.catcher.set_typing(typing);
+                }
+            }
             HostInput::Pressed { button } => {
                 let button = Button::from_code(button);
                 self.deliver(Some(&Input::Pointer(Pointer::Press(button))));
