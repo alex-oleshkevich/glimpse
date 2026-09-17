@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "adversarial-review": {
+      "source": "../../skills/adversarial-review",
+      "sourceType": "local",
+      "computedHash": "39b9df25ef5b7db9c8c3bc260c55f0f454478d327e48074e6b6740589772a87d"
+    },
     "arch-btw": {
       "source": "iuliandita/skills",
       "sourceType": "github",
@@ -36,6 +41,11 @@
       "sourceType": "github",
       "skillPath": ".claude/skills/developing-gtk-apps/SKILL.md",
       "computedHash": "594d8410a4601bb7550fb7d39188a932356b5d3a21f6ccffdec9831be0d8768d"
+    },
+    "epic-orchestrator": {
+      "source": "../../skills/epic-orchestrator",
+      "sourceType": "local",
+      "computedHash": "fe408dd29e7c296c6a56f8e09eb9f6a6d0c09a4e4f3b8301e0bec34358f53042"
     },
     "flamegraphs": {
       "source": "mohitmishra786/low-level-dev-skills",
@@ -120,6 +130,11 @@
       "sourceType": "github",
       "skillPath": "skills/rust/rustc-basics/SKILL.md",
       "computedHash": "4adaaf43e27841c15ccb529d17c537e575e5238af0e11886aa7ef7c9f4800b03"
+    },
+    "spec-precision": {
+      "source": "../../skills/spec-precision",
+      "sourceType": "local",
+      "computedHash": "860161b61064433ec4f4fe345ce3d153767c08a549bf36fa9dcd2df8b394835f"
     },
     "tokio-patterns": {
       "source": "geoffjay/claude-plugins",
