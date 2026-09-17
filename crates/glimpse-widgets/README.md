@@ -247,12 +247,10 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
   replaces the button's child, so a subclass calling `set_icon_name` resolves the *parent's* setter
   and destroys the row's template. `Hero`, `Notice` and `Placeholder` extend `Gtk.Widget` and keep
   `icon-name`.
-- **`set_position` is ignored while the pointer is down**, or a player reporting once a second yanks
-  the slider out from under a drag. The hold is a capture-phase `EventControllerLegacy`, a
-  `GestureClick` being *cancelled* once `Gtk.Range` claims the sequence. A drag emits one `seek`.
-- **The step and page increments are set in Rust**, because `blueprint-compiler lint` rejects a
-  `Gtk.Adjustment` carrying anything besides `lower`, `upper` and `value`. They are the arrow-key
-  distances, so losing them kills keyboard seeking silently.
+- **`set_position` is ignored while the pointer is down, and its increments are set in Rust** — the
+  same capture-phase `held` guard and `Adjustment` setup `Fader` reuses (below). `blueprint-compiler
+  lint` rejects an `Adjustment` carrying anything but `lower`, `upper` and `value`, so nothing in the
+  template can guard them, and losing them kills keyboard seeking silently.
 - **Artwork is a `Gtk.Image`**, the only one that can be told how big to be: `Gtk.Picture` reports
   the paintable's natural width, so a cover would set the popover's. It also centres a paintable at
   its own aspect ratio, so cover art arrives already square or the corners read as broken.
@@ -260,6 +258,16 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
   `mpris:artUrl` is refused before anything expands it in memory. Scaling is by the shorter side,
   only downward, cropped from the middle; `cover()` is pure arithmetic.
 - **A widget built before `Styles::install()` picks up none of it.** Order matters, rooting does not.
+
+## Fader
+
+- **Lifts `Scrubber`'s drag guard wholesale**: the same `held: Cell<Option<f64>>`, capture-phase
+  `EventControllerLegacy` and `connect_unmap` reset, so an incoming state update cannot fight a drag
+  in progress.
+- **`set_muted` raises `quiet` around `ToggleButton::set_active`**, exactly as `SwitchRow::set_active`
+  does, or rendering an already-muted device's state fires `toggled` on its own.
+- **The step and page increments are set in Rust**, because `blueprint-compiler lint` rejects an
+  `Adjustment` carrying anything besides `lower`, `upper` and `value`.
 
 ## Stylesheets
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-17 13:40+0200\n"
+"POT-Creation-Date: 2026-09-17 15:46+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1012,6 +1012,10 @@ msgstr ""
 msgid "World clock"
 msgstr ""
 
+#: crates/glimpse-widgets/blueprints/fader.blp:16
+msgid "Mute"
+msgstr ""
+
 #: crates/glimpse-widgets/blueprints/mpris_popover.blp:17
 msgid "Other players"
 msgstr ""
@@ -1079,7 +1083,7 @@ msgstr ""
 
 #: crates/glimpse-widgets/blueprints/player_row.blp:13
 #: crates/glimpse-widgets/blueprints/transport.blp:42
-#: crates/glimpse-widgets/src/lib.rs:165
+#: crates/glimpse-widgets/src/lib.rs:167
 msgid "Play"
 msgstr ""
 
@@ -1131,7 +1135,7 @@ msgstr ""
 msgid "Up to 999999"
 msgstr ""
 
-#: crates/glimpse-widgets/src/lib.rs:164
+#: crates/glimpse-widgets/src/lib.rs:166
 msgid "Pause"
 msgstr ""
 

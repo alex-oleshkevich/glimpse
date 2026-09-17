@@ -8,6 +8,7 @@ mod dots;
 pub mod drawer;
 mod event_list;
 mod fact_list;
+mod fader;
 mod forecast;
 mod hero;
 mod indicator;
@@ -62,6 +63,7 @@ pub use calendar_popover::CalendarPopover;
 pub use choice_list::{Choice, ChoiceList};
 pub use event_list::{Event, EventList, EventRow};
 pub use fact_list::{Fact, FactList};
+pub use fader::Fader;
 pub use forecast::{Day, ForecastDay, ForecastHour, ForecastList, ForecastStrip, Hour};
 pub use hero::Hero;
 pub use indicator::{Indicator, IndicatorSpec};
@@ -2306,6 +2308,107 @@ mod tests {
             !remaining.get_visible(),
             "and nothing remains of a length nobody knows"
         );
+
+        let fader = Fader::new();
+        let mute = child_named::<gtk4::ToggleButton>(&fader, "fader__mute");
+        let track = child_named::<gtk4::Scale>(&fader, "fader__track");
+        let value_label = child_named::<gtk4::Label>(&fader, "fader__value");
+
+        assert_eq!(value_label.text(), "0%");
+
+        fader.set_value(62.0);
+        assert_eq!(fader.value(), 62.0);
+        assert_eq!(value_label.text(), "62%");
+
+        fader.set_value(150.0);
+        assert_eq!(
+            fader.value(),
+            100.0,
+            "a device already above 100% is pinned at the top of the fader's own range rather \
+             than pretending the extra headroom exists"
+        );
+
+        let redraws = Rc::new(Cell::new(0u32));
+        track.connect_value_changed({
+            let redraws = Rc::clone(&redraws);
+            move |_| redraws.set(redraws.get() + 1)
+        });
+        fader.set_value(100.0);
+        assert_eq!(redraws.get(), 0, "an unchanged value is not reapplied");
+
+        assert_eq!(
+            (
+                track.adjustment().step_increment(),
+                track.adjustment().page_increment()
+            ),
+            (5.0, 20.0),
+            "the increments are set from Rust because blueprint-compiler's adjustment rule \
+             rejects an adjustment carrying anything besides lower, upper and value"
+        );
+
+        let changed = Rc::new(RefCell::new(Vec::new()));
+        fader.connect_changed({
+            let changed = Rc::clone(&changed);
+            move |_, value| changed.borrow_mut().push(value)
+        });
+        fader.set_value(38.0);
+        assert!(
+            changed.borrow().is_empty(),
+            "a programmatic set_value renders the new position without reporting it back, or a \
+             state update arriving from the backend would look exactly like a drag"
+        );
+
+        fader.imp().held.set(Some(38.0));
+        fader.set_value(80.0);
+        assert_eq!(
+            fader.value(),
+            38.0,
+            "a value arriving mid-drag loses to the drag in progress"
+        );
+        fader.imp().held.set(None);
+        fader.set_value(80.0);
+        assert_eq!(fader.value(), 80.0);
+
+        let toggles = Rc::new(RefCell::new(Vec::new()));
+        fader.connect_toggled({
+            let toggles = Rc::clone(&toggles);
+            move |_, muted| toggles.borrow_mut().push(muted)
+        });
+
+        fader.set_muted(true);
+        assert!(mute.is_active() && fader.muted());
+        assert!(
+            toggles.borrow().is_empty(),
+            "showing a muted state the caller already knows about must not report it back"
+        );
+
+        fader.set_muted(true);
+        assert!(
+            toggles.borrow().is_empty(),
+            "an unchanged muted flag is not reapplied"
+        );
+
+        mute.set_active(false);
+        assert_eq!(
+            *toggles.borrow(),
+            [false],
+            "a click on the mute button is the one thing that reports back"
+        );
+
+        assert_eq!(fader.icon_name(), None);
+        let icon_changes = Rc::new(Cell::new(0u32));
+        mute.connect_icon_name_notify({
+            let icon_changes = Rc::clone(&icon_changes);
+            move |_| icon_changes.set(icon_changes.get() + 1)
+        });
+        fader.set_icon_name(Some("audio-volume-high-symbolic".to_owned()));
+        assert_eq!(
+            fader.icon_name().as_deref(),
+            Some("audio-volume-high-symbolic")
+        );
+        assert_eq!(icon_changes.get(), 1);
+        fader.set_icon_name(Some("audio-volume-high-symbolic".to_owned()));
+        assert_eq!(icon_changes.get(), 1, "an equal icon name is not reapplied");
 
         let transport = Transport::new();
         let buttons = children_of::<gtk4::Button>(&transport);

@@ -1291,3 +1291,58 @@ window.notification-popup {
     font-size: var(--gl-text-caption);
     color: var(--gl-accent-text);
 }
+
+.fader__mute {
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0;
+    border-radius: 999px;
+    color: var(--gl-surface-fg);
+}
+
+.fader__mute:hover {
+    background-color: var(--gl-hover);
+}
+
+.fader__mute:checked {
+    color: var(--gl-dim);
+}
+
+.fader__track {
+    padding: 0;
+    min-height: 0.9rem;
+}
+
+.fader__track trough {
+    min-height: 0.25rem;
+    background-color: var(--gl-faint);
+    border-radius: 999px;
+}
+
+.fader__track highlight {
+    min-height: 0.25rem;
+    background-color: var(--gl-surface-fg);
+    border-radius: 999px;
+}
+
+.fader__track slider {
+    min-width: 0.75rem;
+    min-height: 0.75rem;
+    margin: -0.35rem;
+    background-color: var(--gl-surface-fg);
+    border-radius: 999px;
+}
+
+.fader__track:disabled slider {
+    background-color: transparent;
+}
+
+.fader__track:disabled highlight {
+    background-color: var(--gl-muted);
+}
+
+.fader__value {
+    font-size: var(--gl-text-caption);
+    color: var(--gl-muted);
+    font-variant-numeric: tabular-nums;
+}

@@ -45,6 +45,7 @@ fn main() {
             "blueprints/forecast_hour.blp",
             "resources/widgets/forecast_hour.ui",
         ),
+        ("blueprints/fader.blp", "resources/widgets/fader.ui"),
         ("blueprints/hero.blp", "resources/widgets/hero.ui"),
         (
             "blueprints/tooltip_card.blp",

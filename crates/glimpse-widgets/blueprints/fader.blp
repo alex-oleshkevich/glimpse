@@ -1,0 +1,51 @@
+using Gtk 4.0;
+
+template $Fader: Gtk.Widget {
+  layout-manager: BoxLayout {
+    orientation: horizontal;
+    spacing: 10;
+  };
+
+  styles [
+    "fader",
+  ]
+
+  Gtk.ToggleButton mute {
+    has-frame: false;
+    valign: center;
+    tooltip-text: _("Mute");
+
+    styles [
+      "fader__mute",
+    ]
+  }
+
+  Gtk.Scale track {
+    orientation: horizontal;
+    draw-value: false;
+    hexpand: true;
+    valign: center;
+
+    adjustment: Gtk.Adjustment {
+      lower: 0;
+      upper: 100;
+      value: 0;
+    };
+
+    styles [
+      "fader__track",
+    ]
+  }
+
+  Gtk.Label value_label {
+    single-line-mode: true;
+    width-chars: 4;
+    xalign: 1;
+    valign: center;
+    accessible-role: presentation;
+
+    styles [
+      "fader__value",
+    ]
+  }
+}
