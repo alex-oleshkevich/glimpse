@@ -689,6 +689,37 @@ ships, it is the only one carrying `class="error"` and a baked `fill="#e01b24"`;
 property as a symbolic icon should. **An indicator takes no colour**, so a state that must not be
 tinted uses one of the neutral four — the `-symbolic` suffix alone does not promise it.
 
+**Audio on this machine, September 2026.** Of three applications playing on a live session, only
+one advertised `application.icon_name`. **`application.name` arrives wrapped as `PipeWire ALSA
+[zed-editor]` for an ALSA-compat client**, and **`application.process.binary` is
+`WebKitWebProcess` for a WebKit-hosted application** — so the binary is not a usable display name
+and neither field alone identifies the app; an icon ladder that tries several sources is mandatory
+rather than polish.
+
+`SourceOutputInfo` is field-for-field symmetric with `SinkInputInfo` — `corked`, volume, mute,
+`has_volume`, `volume_writable` and `proplist` all mirror — and `move_source_output_by_index`,
+`set_source_output_volume` and `set_source_output_mute` all exist beside their sink-input
+counterparts, so capture cost almost nothing beyond playback: one shared mapping, one `Direction`
+match at each call site. **`SourceInfo.monitor_of_sink` identifies a monitor structurally**;
+matching `.monitor` on the device name is a guess this field already answers.
+
+**libpulse-binding 2.30.1 has an inverted null test in `Operation::from_raw`**, so `saved_cb` is
+`None` for every real callback and a bare `cancel()` frees nothing. `cancel()` is guarded by
+`get_state() == OperationState::Running`, taken under the mainloop lock — a fix upstream turns an
+unguarded `cancel()` into a heap double free, and the workspace pin (`libpulse-binding = "2.30.1"`)
+is a caret requirement, so a routine dependency update could pull the fix out from under the guard
+with no warning of its own.
+
+Adwaita's `audio-volume-*` and `microphone-*` symbolics are all plain `#2e3436` with no baked
+accent, unlike `network-error-symbolic` above. But **`.indicator--notice` paints an accent pill
+behind the icon, so it cannot mark a quiet state such as muted, and `.indicator--info` does not
+exist at all** — a muted or unavailable device needs a signal other than either indicator class.
+
+**GLib caches its desktop-file search path at the first `DesktopAppInfo` use and never re-reads
+`XDG_DATA_HOME` afterward**, so a hermetic per-test override is unsafe in a shared test process —
+whichever test touches `DesktopAppInfo` first decides the path for every test that runs after it
+in the same process.
+
 ## Finishing
 
 Finishing is a pass over the work, not the moment the last edit compiles. Run it every time, before
