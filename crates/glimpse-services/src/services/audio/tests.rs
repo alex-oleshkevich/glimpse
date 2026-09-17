@@ -1,5 +1,5 @@
 use glimpse_dbus::Buses;
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
 use tokio_util::sync::CancellationToken;
 
 use super::*;
@@ -253,6 +253,251 @@ async fn set_app_volume_scales_each_stream_against_the_group_max() {
         vec![(1, 10), (2, 40)],
         "two streams at 20% and 80% set to 40% become 10% and 40%, not 40% and 40%"
     );
+}
+
+async fn ready(service: &mut Audio, ctx: &Ctx<Audio>) -> mpsc::Receiver<pulse::Request> {
+    let (tx, rx) = mpsc::channel(1);
+    service
+        .handle(
+            ctx,
+            Input::Event(pulse::Event::Ready(pulse::Client::new(tx))),
+        )
+        .await;
+    rx
+}
+
+#[tokio::test]
+async fn ready_stores_the_client_and_a_subsequent_command_is_not_unavailable() {
+    let (mut service, ctx, _state, health) = harness().await;
+    let mut rx = ready(&mut service, &ctx).await;
+
+    assert!(service.client.is_some());
+    assert!(matches!(&*health.borrow(), ServiceState::Running));
+
+    service.current = AudioState {
+        outputs: vec![device("headset", 1, true)],
+        inputs: Vec::new(),
+        apps: Vec::new(),
+    };
+
+    let (reply, result) = oneshot::channel();
+    service
+        .handle(
+            &ctx,
+            Input::Command(Command::SetDeviceVolume {
+                dir: Direction::Output,
+                id: DeviceId::new("headset"),
+                percent: 50,
+                reply,
+            }),
+        )
+        .await;
+
+    let request = rx.recv().await.expect("the client forwards the command");
+    let pulse::Request::SetDeviceVolume {
+        reply: req_reply, ..
+    } = request
+    else {
+        panic!("expected a SetDeviceVolume request");
+    };
+    let _ = req_reply.send(Ok(()));
+
+    assert!(!matches!(result.await, Ok(Err(AudioError::Unavailable))));
+}
+
+#[tokio::test]
+async fn set_app_volume_sends_the_scaled_fan_out_as_one_set_stream_volume_request() {
+    let (mut service, ctx, _state, _health) = harness().await;
+    let mut rx = ready(&mut service, &ctx).await;
+    service.current = AudioState {
+        outputs: Vec::new(),
+        inputs: Vec::new(),
+        apps: vec![app("firefox", vec![(1, 20), (2, 80)])],
+    };
+
+    let (reply, result) = oneshot::channel();
+    service
+        .handle(
+            &ctx,
+            Input::Command(Command::SetAppVolume {
+                dir: Direction::Output,
+                app: AppId::new("firefox"),
+                percent: 40,
+                reply,
+            }),
+        )
+        .await;
+
+    let request = rx.recv().await.expect("the client forwards the command");
+    let pulse::Request::SetStreamVolume {
+        dir,
+        streams,
+        reply: req_reply,
+    } = request
+    else {
+        panic!("expected a SetStreamVolume request");
+    };
+    assert_eq!(dir, Direction::Output);
+    assert_eq!(streams, vec![(1, 10), (2, 40)]);
+    let _ = req_reply.send(Ok(()));
+    let _ = result.await;
+}
+
+#[tokio::test]
+async fn set_device_muted_dispatches_a_set_device_muted_request() {
+    let (mut service, ctx, _state, _health) = harness().await;
+    let mut rx = ready(&mut service, &ctx).await;
+    service.current = AudioState {
+        outputs: vec![device("headset", 1, true)],
+        inputs: Vec::new(),
+        apps: Vec::new(),
+    };
+
+    let (reply, result) = oneshot::channel();
+    service
+        .handle(
+            &ctx,
+            Input::Command(Command::SetDeviceMuted {
+                dir: Direction::Output,
+                id: DeviceId::new("headset"),
+                muted: true,
+                reply,
+            }),
+        )
+        .await;
+
+    let request = rx.recv().await.expect("the client forwards the command");
+    let pulse::Request::SetDeviceMuted {
+        dir,
+        index,
+        muted,
+        reply: req_reply,
+    } = request
+    else {
+        panic!("expected a SetDeviceMuted request");
+    };
+    assert_eq!(dir, Direction::Output);
+    assert_eq!(index, 1);
+    assert!(muted);
+    let _ = req_reply.send(Ok(()));
+    let _ = result.await;
+}
+
+#[tokio::test]
+async fn set_default_dispatches_a_set_default_request() {
+    let (mut service, ctx, _state, _health) = harness().await;
+    let mut rx = ready(&mut service, &ctx).await;
+    service.current = AudioState {
+        outputs: vec![device("headset", 1, true)],
+        inputs: Vec::new(),
+        apps: Vec::new(),
+    };
+
+    let (reply, result) = oneshot::channel();
+    service
+        .handle(
+            &ctx,
+            Input::Command(Command::SetDefault {
+                dir: Direction::Output,
+                id: DeviceId::new("headset"),
+                reply,
+            }),
+        )
+        .await;
+
+    let request = rx.recv().await.expect("the client forwards the command");
+    let pulse::Request::SetDefault {
+        dir,
+        name,
+        reply: req_reply,
+    } = request
+    else {
+        panic!("expected a SetDefault request");
+    };
+    assert_eq!(dir, Direction::Output);
+    assert_eq!(name, "headset");
+    let _ = req_reply.send(Ok(()));
+    let _ = result.await;
+}
+
+#[tokio::test]
+async fn set_app_muted_dispatches_a_set_stream_muted_request_for_every_stream() {
+    let (mut service, ctx, _state, _health) = harness().await;
+    let mut rx = ready(&mut service, &ctx).await;
+    service.current = AudioState {
+        outputs: Vec::new(),
+        inputs: Vec::new(),
+        apps: vec![app("firefox", vec![(1, 20), (2, 80)])],
+    };
+
+    let (reply, result) = oneshot::channel();
+    service
+        .handle(
+            &ctx,
+            Input::Command(Command::SetAppMuted {
+                dir: Direction::Output,
+                app: AppId::new("firefox"),
+                muted: true,
+                reply,
+            }),
+        )
+        .await;
+
+    let request = rx.recv().await.expect("the client forwards the command");
+    let pulse::Request::SetStreamMuted {
+        dir,
+        streams,
+        muted,
+        reply: req_reply,
+    } = request
+    else {
+        panic!("expected a SetStreamMuted request");
+    };
+    assert_eq!(dir, Direction::Output);
+    assert_eq!(streams, vec![1, 2]);
+    assert!(muted);
+    let _ = req_reply.send(Ok(()));
+    let _ = result.await;
+}
+
+#[tokio::test]
+async fn move_app_dispatches_a_move_streams_request_to_the_target_device() {
+    let (mut service, ctx, _state, _health) = harness().await;
+    let mut rx = ready(&mut service, &ctx).await;
+    service.current = AudioState {
+        outputs: vec![device("hdmi", 3, false)],
+        inputs: Vec::new(),
+        apps: vec![app("firefox", vec![(1, 20), (2, 80)])],
+    };
+
+    let (reply, result) = oneshot::channel();
+    service
+        .handle(
+            &ctx,
+            Input::Command(Command::MoveApp {
+                dir: Direction::Output,
+                app: AppId::new("firefox"),
+                to: DeviceId::new("hdmi"),
+                reply,
+            }),
+        )
+        .await;
+
+    let request = rx.recv().await.expect("the client forwards the command");
+    let pulse::Request::MoveStreams {
+        dir,
+        streams,
+        target,
+        reply: req_reply,
+    } = request
+    else {
+        panic!("expected a MoveStreams request");
+    };
+    assert_eq!(dir, Direction::Output);
+    assert_eq!(streams, vec![1, 2]);
+    assert_eq!(target, 3);
+    let _ = req_reply.send(Ok(()));
+    let _ = result.await;
 }
 
 #[tokio::test]
