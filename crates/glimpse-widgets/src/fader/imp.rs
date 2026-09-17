@@ -3,7 +3,7 @@ use std::cell::Cell;
 use std::marker::PhantomData;
 use std::sync::OnceLock;
 
-use super::{CHANGED, TOGGLED};
+use super::{CHANGED, MOVED, TOGGLED};
 
 const STEP: f64 = 5.0;
 const PAGE: f64 = 20.0;
@@ -114,6 +114,9 @@ impl ObjectImpl for Fader {
                 glib::subclass::Signal::builder(TOGGLED)
                     .param_types([bool::static_type()])
                     .build(),
+                glib::subclass::Signal::builder(MOVED)
+                    .param_types([f64::static_type()])
+                    .build(),
             ]
         })
     }
@@ -125,6 +128,13 @@ impl ObjectImpl for Fader {
         let adjustment = self.track.adjustment();
         adjustment.set_step_increment(STEP);
         adjustment.set_page_increment(PAGE);
+        adjustment.connect_value_changed(glib::clone!(
+            #[weak]
+            obj,
+            move |adjustment| {
+                obj.emit_by_name::<()>(MOVED, &[&adjustment.value()]);
+            }
+        ));
 
         let pointer = gtk4::EventControllerLegacy::new();
         pointer.set_propagation_phase(gtk4::PropagationPhase::Capture);

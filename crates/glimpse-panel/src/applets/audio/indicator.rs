@@ -96,6 +96,14 @@ impl Applet for Audio {
             }
         });
 
+        shown.connect_level_moved({
+            move |popover: &AudioPopover, dir: &str, value: f64| {
+                if dir == "output" {
+                    popover.set_readout(Some(&render::output_status(value.round() as u32, false)));
+                }
+            }
+        });
+
         shown.connect_level_toggled({
             let audio = self.audio.clone();
             let notifications = self.notifications.clone();
@@ -383,7 +391,7 @@ fn device_entry(device: &AudioDevice, dir: AudioDirection) -> AudioEntry {
         id: device.id.as_str().to_owned(),
         title: render::cap(&device.name, AUDIO_NAME_CAP),
         icon: Some(render::device_icon(device, dir).to_owned()),
-        value: Some(render::output_status(device.volume, device.muted)),
+        value: None,
         selected: device.default,
     }
 }
@@ -405,7 +413,7 @@ fn device_entries(
 
 fn app_level_text(app: &AudioApp) -> Option<String> {
     let role = app.playback.as_ref().or(app.capture.as_ref())?;
-    Some(render::output_status(role.volume, role.muted))
+    role.muted.then(|| render::output_status(0, true))
 }
 
 fn app_entry(app: &AudioApp, selected: Option<&AudioAppId>) -> AudioEntry {

@@ -104,6 +104,9 @@ impl ObjectImpl for AudioPopover {
                 glib::subclass::Signal::builder("level-changed")
                     .param_types([String::static_type(), f64::static_type()])
                     .build(),
+                glib::subclass::Signal::builder("level-moved")
+                    .param_types([String::static_type(), f64::static_type()])
+                    .build(),
                 glib::subclass::Signal::builder("level-toggled")
                     .param_types([String::static_type(), bool::static_type()])
                     .build(),
@@ -153,6 +156,13 @@ impl ObjectImpl for AudioPopover {
             popover,
             move |_, value| {
                 popover.emit_by_name::<()>("level-changed", &[&"output".to_owned(), &value])
+            }
+        ));
+        self.output.connect_moved(glib::clone!(
+            #[weak]
+            popover,
+            move |_, value| {
+                popover.emit_by_name::<()>("level-moved", &[&"output".to_owned(), &value])
             }
         ));
         self.output.connect_toggled(glib::clone!(

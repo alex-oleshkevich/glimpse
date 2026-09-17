@@ -112,6 +112,19 @@ impl AudioPopover {
         )
     }
 
+    pub fn connect_level_moved<F: Fn(&Self, &str, f64) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            "level-moved",
+            false,
+            glib::closure_local!(move |popover: Self, dir: String, value: f64| f(
+                &popover, &dir, value
+            )),
+        )
+    }
+
     pub fn connect_level_toggled<F: Fn(&Self, &str, bool) + 'static>(
         &self,
         f: F,

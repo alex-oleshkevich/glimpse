@@ -49,14 +49,14 @@ template $AudioPopover: Gtk.Widget {
         }
       }
 
-      $Fader input {}
-
       $Section inputs {
         visible: false;
         title: _("Input");
 
         Gtk.Box {
           orientation: vertical;
+
+          $Fader input {}
 
           Gtk.Box input_rows {
             orientation: vertical;

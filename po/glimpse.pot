@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-17 17:38+0200\n"
+"POT-Creation-Date: 2026-09-17 17:52+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -98,91 +98,91 @@ msgid "{days} d {hours} h"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:93
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:164
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:172
 msgid "Could not change the volume"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:115
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:182
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:123
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:190
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:201
 #: crates/glimpse-panel/src/applets/network/indicator.rs:512
 msgid "Could not change that setting"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:133
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:141
 msgid "Could not switch device"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:204
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:212
 msgid "Could not move the application"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:252
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:271
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:260
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:279
 #: crates/glimpse-widgets/blueprints/audio_popover.blp:14
 msgid "Sound"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:293
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:301
 msgid "The audio server refused that."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:294
 #: crates/glimpse-panel/src/applets/audio/indicator.rs:302
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:310
 msgid "The audio server is unavailable."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:301
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:309
 msgid "That was not a valid value."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:303
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:311
 msgid "That is not supported."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:304
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:312
 msgid "That could not be completed."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:305
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:313
 #: crates/glimpse-panel/src/applets/network/render.rs:155
 msgid "That did not work."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:326
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:334
 #: crates/glimpse-widgets/blueprints/audio_popover.blp:35
 msgid "Output"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:327
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:335
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:523
-#: crates/glimpse-widgets/blueprints/audio_popover.blp:56
+#: crates/glimpse-widgets/blueprints/audio_popover.blp:54
 msgid "Input"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:351
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:363
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:375
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:619
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:359
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:371
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:383
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:627
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:319
 #: crates/glimpse-panel/src/applets/network/render.rs:290
 #: crates/glimpse-panel/src/applets/network/render.rs:789
 msgid "Show fewer"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:352
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:360
 msgid "{count} more output"
 msgid_plural "{count} more outputs"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:364
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:372
 msgid "{count} more input"
 msgid_plural "{count} more inputs"
 msgstr[0] ""
 msgstr[1] ""
 
-#: crates/glimpse-panel/src/applets/audio/indicator.rs:376
+#: crates/glimpse-panel/src/applets/audio/indicator.rs:384
 msgid "{count} more app"
 msgid_plural "{count} more apps"
 msgstr[0] ""
