@@ -295,6 +295,11 @@ disconnects, and **a wired row activates by device**, NetworkManager choosing th
 reads its state under the active path**, **an address comes from the device's `IP4Config`**, **a
 radio write publishes once taken** and **busy is cleared by `Settled`**.
 
+**audio** — the libpulse bridge (`services/audio/pulse.rs`) owns one OS thread: lock, create the
+`Operation`, unlock, await the oneshot its callback completes off the lock, since a Pulse callback
+runs under that lock. **A PA name is never capped**, only displayed — it is a `Device`'s key and
+the literal `set_default_sink`/`set_default_source` argument.
+
 ## Rules
 
 Concrete handles only — no broker, registry or string routing; see `.claude/rules/daemon.md`.

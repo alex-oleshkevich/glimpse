@@ -17,6 +17,7 @@ glimpse-dbus.workspace = true
 glimpse-utils.workspace = true
 icalendar.workspace = true
 iso8601.workspace = true
+libpulse-binding.workspace = true
 regex.workspace = true
 reqwest.workspace = true
 reverse_geocoder.workspace = true
