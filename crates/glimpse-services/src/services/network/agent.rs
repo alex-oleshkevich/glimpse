@@ -13,6 +13,8 @@ use super::{Event, Network};
 pub const PATH: &str = "/org/freedesktop/NetworkManager/SecretAgent";
 
 const WIRELESS_SECURITY: &str = "802-11-wireless-security";
+const NO_STORE: &str =
+    "glimpse holds no secret store; a secret it collects is written into the profile";
 const VPN: &str = "vpn";
 
 type Secrets = HashMap<String, HashMap<String, OwnedValue>>;
@@ -20,6 +22,7 @@ type Secrets = HashMap<String, HashMap<String, OwnedValue>>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Request {
     pub name: String,
+    pub path: String,
     pub setting: String,
     pub retry: bool,
 }
@@ -126,7 +129,7 @@ impl Agent {
     async fn get_secrets(
         &self,
         connection: Secrets,
-        _path: ObjectPath<'_>,
+        path: ObjectPath<'_>,
         setting_name: String,
         hints: Vec<String>,
         flags: u32,
@@ -141,6 +144,7 @@ impl Agent {
 
         let request = Request {
             name: named(&connection).unwrap_or_default(),
+            path: path.to_string(),
             setting: setting_name.clone(),
             retry: is_retry(flags),
         };
@@ -152,12 +156,15 @@ impl Agent {
 
     async fn cancel_get_secrets(
         &self,
-        _path: ObjectPath<'_>,
-        _setting_name: String,
+        path: ObjectPath<'_>,
+        setting_name: String,
     ) -> Result<(), AgentError> {
         let _ = self
             .events
-            .send(Input::Event(Event::SecretsCancelled))
+            .send(Input::Event(Event::SecretsCancelled {
+                path: path.to_string(),
+                setting: setting_name,
+            }))
             .await;
         Ok(())
     }
@@ -167,7 +174,7 @@ impl Agent {
         _connection: Secrets,
         _path: ObjectPath<'_>,
     ) -> Result<(), AgentError> {
-        Ok(())
+        Err(AgentError::InternalError(NO_STORE.to_owned()))
     }
 
     async fn delete_secrets(
@@ -175,7 +182,7 @@ impl Agent {
         _connection: Secrets,
         _path: ObjectPath<'_>,
     ) -> Result<(), AgentError> {
-        Ok(())
+        Err(AgentError::InternalError(NO_STORE.to_owned()))
     }
 }
 

@@ -58,7 +58,10 @@ profile that has never had it switched off.
 
 **`Ssid` is `ay` and promises nothing.** It need not be valid UTF-8 and need not be non-empty — one
 access point on the test network beacons zero bytes. `decode_ssid` is lossy, caps by characters, and
-returns `None` for an empty name so an unnamed network is a state rather than a blank row.
+returns `None` for an empty name so an unnamed network is a state rather than a blank row. That
+display string is not a name to join by: `AccessPointProperties` carries `raw_ssid` beside it,
+capped at the 32 octets a beacon can hold, and activation passes those bytes. Re-encoding the lossy
+text joins a different network, or none.
 
 **`Exported` puts the object up before it asks for the name.** A `Get` arriving between the two
 would otherwise find the name with nothing behind it, which is also why a refused name must take

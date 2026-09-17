@@ -114,6 +114,23 @@ pub fn joinable(security: nm::Security) -> bool {
     !security.is_enterprise()
 }
 
+/// Whether a saved profile can join this access point. Two profiles may carry the same SSID with
+/// different security, and activating the wrong one fails without ever asking for a password.
+/// A WPA3 access point in transition mode answers a `wpa-psk` profile, which is why it takes both.
+pub fn fits(profile: &nm::Profile, point: &nm::AccessPointProperties) -> bool {
+    let saved = profile.key_mgmt.as_deref();
+    match point.security() {
+        nm::Security::Open => saved.is_none(),
+        nm::Security::Owe => saved == Some("owe"),
+        nm::Security::Wep => saved == Some("none"),
+        nm::Security::Wpa | nm::Security::Wpa2 => saved == Some("wpa-psk"),
+        nm::Security::Wpa3 => saved == Some("sae") || saved == Some("wpa-psk"),
+        nm::Security::Enterprise => {
+            saved == Some("wpa-eap") || saved == Some("wpa-eap-suite-b-192")
+        }
+    }
+}
+
 pub async fn add_and_activate(
     connection: &Connection,
     ssid: &[u8],
@@ -233,6 +250,56 @@ mod tests {
     fn an_open_network_carries_no_security_setting_at_all() {
         let settings = wifi_settings(b"Kaffeehaus", nm::Security::Open, false, None);
         assert!(!settings.contains_key("802-11-wireless-security"));
+    }
+
+    fn point(security: nm::Security) -> nm::AccessPointProperties {
+        let (flags, wpa, rsn) = match security {
+            nm::Security::Open => (0, 0, 0),
+            nm::Security::Wep => (1, 0, 0),
+            nm::Security::Wpa => (1, 324, 0),
+            nm::Security::Wpa2 => (1, 0, 392),
+            nm::Security::Wpa3 => (1, 0, 0x400),
+            nm::Security::Owe => (1, 0, 0x800),
+            nm::Security::Enterprise => (1, 0, 0x200),
+        };
+        nm::AccessPointProperties {
+            flags,
+            wpa_flags: wpa,
+            rsn_flags: rsn,
+            ..Default::default()
+        }
+    }
+
+    fn saved(key_mgmt: Option<&str>) -> nm::Profile {
+        nm::Profile {
+            key_mgmt: key_mgmt.map(str::to_owned),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_profile_only_answers_for_an_access_point_its_key_management_can_join() {
+        assert!(fits(&saved(Some("wpa-psk")), &point(nm::Security::Wpa2)));
+        assert!(
+            !fits(&saved(None), &point(nm::Security::Wpa2)),
+            "an open profile sharing the name of a secured network would join without a password \
+             and fail"
+        );
+        assert!(!fits(&saved(Some("wpa-psk")), &point(nm::Security::Open)));
+        assert!(fits(&saved(None), &point(nm::Security::Open)));
+        assert!(fits(&saved(Some("owe")), &point(nm::Security::Owe)));
+        assert!(fits(&saved(Some("none")), &point(nm::Security::Wep)));
+        assert!(fits(
+            &saved(Some("wpa-eap")),
+            &point(nm::Security::Enterprise)
+        ));
+    }
+
+    #[test]
+    fn a_wpa3_access_point_answers_a_wpa2_profile_because_transition_mode_advertises_both() {
+        assert!(fits(&saved(Some("sae")), &point(nm::Security::Wpa3)));
+        assert!(fits(&saved(Some("wpa-psk")), &point(nm::Security::Wpa3)));
+        assert!(!fits(&saved(Some("owe")), &point(nm::Security::Wpa3)));
     }
 
     #[test]

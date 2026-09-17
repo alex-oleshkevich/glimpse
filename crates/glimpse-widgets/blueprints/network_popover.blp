@@ -126,6 +126,10 @@ template $NetworkPopover: Gtk.Widget {
             ]
           }
 
+          Gtk.DropDown prompt_security {
+            visible: false;
+          }
+
           Gtk.PasswordEntry prompt_secret {
             show-peek-icon: true;
             activates-default: true;

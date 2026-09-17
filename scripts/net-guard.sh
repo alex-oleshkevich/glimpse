@@ -42,10 +42,14 @@ wifi_uuid_up() {
         | awk -F: '$2 == "802-11-wireless" { print $1; exit }'
 }
 
+# Only "full" is the Internet this guards. "limited" and "portal" are exactly the states a
+# disruptive test strands the machine in, so counting them as healthy would never restore anything.
+# "unknown" means NetworkManager's connectivity check is off and nothing here can measure: stay out
+# of the way rather than restore on a reading that does not exist.
 online() {
     local state
     state=$(nmcli -t -f CONNECTIVITY general status 2>/dev/null)
-    [ "$state" = "full" ] || [ "$state" = "limited" ] || [ "$state" = "portal" ]
+    [ "$state" = "full" ] || [ "$state" = "unknown" ]
 }
 
 cmd_baseline() {

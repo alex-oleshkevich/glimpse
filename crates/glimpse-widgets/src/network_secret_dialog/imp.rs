@@ -1,4 +1,6 @@
 use adw::{prelude::*, subclass::prelude::*};
+
+use crate::network_popover::{Entered, accepts};
 use gettextrs::gettext;
 use gtk4::{CompositeTemplate, TemplateChild, glib, glib::subclass::Signal};
 use std::cell::RefCell;
@@ -8,7 +10,6 @@ pub const CANCEL: &str = "cancel";
 pub const CONNECT: &str = "connect";
 
 pub const NAME_MAX: usize = 48;
-pub const SECRET_MAX: usize = 64;
 
 #[derive(Debug, Default, CompositeTemplate)]
 #[template(resource = "/me/aresa/GlimpseShell/widgets/network_secret_dialog.ui")]
@@ -17,10 +18,7 @@ pub struct SecretDialog {
     pub entry: TemplateChild<gtk4::PasswordEntry>,
 
     pub asked: RefCell<String>,
-}
-
-pub fn accepts(secret: &str) -> bool {
-    !secret.is_empty() && secret.chars().count() <= SECRET_MAX
+    pub entered: std::cell::Cell<Entered>,
 }
 
 #[glib::object_subclass]
@@ -60,9 +58,11 @@ impl ObjectImpl for SecretDialog {
         object.set_default_response(Some(CONNECT));
         object.set_close_response(CANCEL);
 
-        let dialog = object.clone();
-        self.entry
-            .connect_changed(move |_| dialog.imp().revalidate());
+        self.entry.connect_changed(glib::clone!(
+            #[weak]
+            object,
+            move |_| object.imp().revalidate()
+        ));
 
         object.connect_response(None, move |dialog, response| {
             let secret = match response == CONNECT {
@@ -79,7 +79,7 @@ impl ObjectImpl for SecretDialog {
 impl SecretDialog {
     pub fn revalidate(&self) {
         self.obj()
-            .set_response_enabled(CONNECT, accepts(&self.entry.text()));
+            .set_response_enabled(CONNECT, accepts(&self.entry.text(), self.entered.get()));
     }
 }
 

@@ -42,6 +42,7 @@ pub struct Line {
 pub enum Entered {
     #[default]
     Secret,
+    Passphrase,
     Name,
 }
 
@@ -52,6 +53,8 @@ pub struct Ask {
     pub question: String,
     pub entered: Entered,
     pub accept: String,
+    pub choices: Vec<String>,
+    pub open_choice: Option<u32>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -97,6 +100,9 @@ pub struct NetworkPopover {
     pub prompt_network: TemplateChild<gtk4::Label>,
     #[template_child]
     pub prompt_ask: TemplateChild<gtk4::Label>,
+    #[template_child]
+    pub prompt_security: TemplateChild<gtk4::DropDown>,
+
     #[template_child]
     pub prompt_secret: TemplateChild<gtk4::PasswordEntry>,
     #[template_child]
@@ -198,6 +204,12 @@ impl ObjectImpl for NetworkPopover {
             move |_| object.emit_by_name::<()>("hidden-network", &[])
         ));
 
+        self.prompt_security.connect_selected_notify(glib::clone!(
+            #[weak]
+            object,
+            move |_| object.imp().revalidate()
+        ));
+
         for entry in [
             self.prompt_secret.upcast_ref::<gtk4::Widget>(),
             self.prompt_name.upcast_ref(),
@@ -244,15 +256,49 @@ impl NetworkPopover {
         }
     }
 
+    pub fn open_chosen(&self) -> bool {
+        self.prompt
+            .borrow()
+            .as_ref()
+            .and_then(|ask| ask.open_choice)
+            .is_some_and(|open| open == self.prompt_security.selected())
+    }
+
     pub fn revalidate(&self) {
-        self.prompt_accept.set_sensitive(accepts(&self.typed()));
+        let kind = self
+            .prompt
+            .borrow()
+            .as_ref()
+            .map(|ask| ask.entered)
+            .unwrap_or_default();
+        let open = self.open_chosen();
+        self.prompt_secret
+            .set_visible(kind != Entered::Name && !open);
+        self.prompt_accept
+            .set_sensitive(open || accepts(&self.typed(), kind));
     }
 }
 
-pub const ENTRY_MAX: usize = 64;
+pub const ENTRY_MAX: usize = 256;
+pub const SSID_OCTETS: usize = 32;
+pub const PASSPHRASE_MIN: usize = 8;
+pub const PASSPHRASE_MAX: usize = 63;
+pub const PASSPHRASE_HEX: usize = 64;
 
-pub fn accepts(entered: &str) -> bool {
-    !entered.is_empty() && entered.chars().count() <= ENTRY_MAX
+/// What NetworkManager will accept, checked before it is asked rather than after it refuses.
+/// A WPA key is a passphrase of 8 to 63 characters or the 64 hex digits of the key itself; an SSID
+/// is at most 32 octets; everything else — a VPN token, a WEP key — is only bounded.
+pub fn accepts(entered: &str, kind: Entered) -> bool {
+    let characters = entered.chars().count();
+    match kind {
+        Entered::Name => !entered.is_empty() && entered.len() <= SSID_OCTETS,
+        Entered::Passphrase => {
+            (PASSPHRASE_MIN..=PASSPHRASE_MAX).contains(&characters)
+                || (characters == PASSPHRASE_HEX
+                    && entered.chars().all(|one| one.is_ascii_hexdigit()))
+        }
+        Entered::Secret => !entered.is_empty() && characters <= ENTRY_MAX,
+    }
 }
 
 impl WidgetImpl for NetworkPopover {}

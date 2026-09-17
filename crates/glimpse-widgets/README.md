@@ -220,12 +220,12 @@ Per-popover rules that are traps rather than taste:
   and a line keyed by network *and* action cannot act on the one no longer shown.
 - **A network is asked for a password on a page of its own popover, not in a window beside it.**
   `NetworkPopover::set_prompt` swaps the list for the ask, makes the hero insensitive so the Wi-Fi
-  switch is not a way out of a question, and **clears the box whenever the key changes** — a retry
-  that kept the refused password invites sending it again. **An empty box cannot be submitted and a
-  short one can**: refusing below the WPA minimum puts a WEP network out of reach; 64 is the cap, a
-  raw PSK written as hex. `SecretDialog` asks the same on the host, where no popover is open. **The
-  Wi-Fi switch goes insensitive under a hardware block**, which reads as refused, not merely off.
-
+  switch is not a way out of a question, and **clears the box whenever the key changes**. **What a
+  box accepts is decided by what is asked** — a passphrase is 8 to 63 characters or 64 hex digits,
+  an SSID at most 32 octets, a VPN token only bounded — since one rule for all three rejects a valid
+  token and accepts a password NetworkManager refuses. **A hidden network chooses its own security**
+  and *None* takes the box away. `SecretDialog` asks the same on the host. **The Wi-Fi switch goes
+  insensitive under a hardware block**, which reads as refused, not merely off.
 **A detail unfolds in place, never beside the list.** `crate::drawer` builds the holder — a row with
 its own `Gtk.Revealer` under it — so a card grows down instead of sideways off an output edge. The
 open row takes `.open`, the card `.detail-card`, and a capped list ends in an overflow row. **What

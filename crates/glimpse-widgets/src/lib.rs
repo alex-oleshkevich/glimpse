@@ -4351,6 +4351,8 @@ mod tests {
             question: "Type the name the network broadcasts nothing about.".to_owned(),
             entered: NetworkEntered::Name,
             accept: "Continue".to_owned(),
+            choices: Vec::new(),
+            open_choice: None,
         }));
         assert!(
             network.prompting()
@@ -4385,6 +4387,8 @@ mod tests {
             question: "The network needs a password before this computer can join it.".to_owned(),
             entered: NetworkEntered::Secret,
             accept: "Connect".to_owned(),
+            choices: Vec::new(),
+            open_choice: None,
         }));
         assert!(
             network.imp().prompt_secret.get_visible() && !network.imp().prompt_name.get_visible(),
@@ -4403,11 +4407,42 @@ mod tests {
             question: "Skylink Guest refused that password. Check it and try again.".to_owned(),
             entered: NetworkEntered::Secret,
             accept: "Try again".to_owned(),
+            choices: Vec::new(),
+            open_choice: None,
         }));
         assert!(
             !network.can_submit(),
             "a retry clears the password that was refused; leaving it invites sending it again"
         );
+
+        network.set_prompt(Some(&NetworkAsk {
+            key: "hidden-secret:Skylink Guest".to_owned(),
+            network: "Skylink Guest".to_owned(),
+            question: "Choose how the network is secured, then type its password.".to_owned(),
+            entered: NetworkEntered::Secret,
+            accept: "Connect".to_owned(),
+            choices: vec![
+                "None".to_owned(),
+                "WEP".to_owned(),
+                "WPA & WPA2 Personal".to_owned(),
+                "WPA3 Personal".to_owned(),
+            ],
+            open_choice: Some(0),
+        }));
+        assert!(
+            network.imp().prompt_security.get_visible(),
+            "a hidden network has no beacon to read its security off, so the user picks it"
+        );
+        assert!(
+            !network.imp().prompt_secret.get_visible() && network.can_submit(),
+            "an open network takes no password, and demanding one makes it unjoinable"
+        );
+        network.imp().prompt_security.set_selected(2);
+        assert!(
+            network.imp().prompt_secret.get_visible() && !network.can_submit(),
+            "choosing WPA brings the password box back, empty and unsubmittable"
+        );
+        assert_eq!(network.chosen(), 2);
 
         network.type_in("hunter2hunter2");
         answers.borrow_mut().clear();
@@ -4430,7 +4465,7 @@ mod tests {
         );
 
         let secret = SecretDialog::new();
-        secret.ask("psk:Skylink", "Skylink", false);
+        secret.ask("psk:Skylink", "Skylink", false, NetworkEntered::Passphrase);
         let first = secret.heading().map(|one| one.to_string());
         assert!(
             !secret.body().is_empty(),
@@ -4438,7 +4473,7 @@ mod tests {
         );
 
         secret.type_in("the-wrong-one");
-        secret.ask("psk:Skylink", "Skylink", true);
+        secret.ask("psk:Skylink", "Skylink", true, NetworkEntered::Passphrase);
         assert!(
             secret.is_blank(),
             "a retry clears the rejected password; leaving it invites retyping the same thing"

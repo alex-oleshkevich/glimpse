@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: glimpse 0.16.0\n"
 "Report-Msgid-Bugs-To: https://github.com/alex-oleshkevich/glimpse/issues\n"
-"POT-Creation-Date: 2026-09-17 09:16+0200\n"
+"POT-Creation-Date: 2026-09-17 12:42+0200\n"
 "PO-Revision-Date: 2026-09-07 16:47+0200\n"
 "Last-Translator: Alex Oleshkevich <alex.oleshkevich@gmail.com>\n"
 "Language-Team: Russian\n"
@@ -24,15 +24,15 @@ msgstr ""
 msgid "now"
 msgstr "сейчас"
 
-#: crates/glimpse-panel/src/app.rs:215
+#: crates/glimpse-panel/src/app.rs:224
 msgid "Bluetooth pairing"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:253
+#: crates/glimpse-panel/src/app.rs:268
 msgid "Network password"
 msgstr ""
 
-#: crates/glimpse-panel/src/app.rs:366
+#: crates/glimpse-panel/src/app.rs:380
 msgid "this device"
 msgstr ""
 
@@ -104,18 +104,18 @@ msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:102
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:159
-#: crates/glimpse-panel/src/applets/network/indicator.rs:327
-#: crates/glimpse-panel/src/applets/network/indicator.rs:403
+#: crates/glimpse-panel/src/applets/network/indicator.rs:387
+#: crates/glimpse-panel/src/applets/network/indicator.rs:463
 msgid "Could not disconnect"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:111
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:147
-#: crates/glimpse-panel/src/applets/network/indicator.rs:350
-#: crates/glimpse-panel/src/applets/network/indicator.rs:356
-#: crates/glimpse-panel/src/applets/network/indicator.rs:396
-#: crates/glimpse-panel/src/applets/network/indicator.rs:476
-#: crates/glimpse-panel/src/applets/network/indicator.rs:489
+#: crates/glimpse-panel/src/applets/network/indicator.rs:410
+#: crates/glimpse-panel/src/applets/network/indicator.rs:416
+#: crates/glimpse-panel/src/applets/network/indicator.rs:456
+#: crates/glimpse-panel/src/applets/network/indicator.rs:542
+#: crates/glimpse-panel/src/applets/network/indicator.rs:551
 msgid "Could not connect"
 msgstr ""
 
@@ -133,7 +133,7 @@ msgid "Could not remove the device"
 msgstr "{count} рабочий стол"
 
 #: crates/glimpse-panel/src/applets/bluetooth/indicator.rs:201
-#: crates/glimpse-panel/src/applets/network/indicator.rs:442
+#: crates/glimpse-panel/src/applets/network/indicator.rs:502
 msgid "Could not change that setting"
 msgstr ""
 
@@ -213,9 +213,9 @@ msgstr ""
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:215
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:228
 #: crates/glimpse-widgets/blueprints/bluetooth_popover.blp:161
-#: crates/glimpse-widgets/blueprints/network_popover.blp:150
+#: crates/glimpse-widgets/blueprints/network_popover.blp:154
 #: crates/glimpse-widgets/src/bluetooth_pairing_dialog/imp.rs:88
-#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:57
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:55
 msgid "Cancel"
 msgstr ""
 
@@ -257,8 +257,8 @@ msgid "{entered} of 6 entered"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:319
-#: crates/glimpse-panel/src/applets/network/render.rs:286
-#: crates/glimpse-panel/src/applets/network/render.rs:615
+#: crates/glimpse-panel/src/applets/network/render.rs:290
+#: crates/glimpse-panel/src/applets/network/render.rs:648
 #, fuzzy
 #| msgid "Show the whole year"
 msgid "Show fewer"
@@ -288,19 +288,20 @@ msgid "Pairing lost"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:363
-#: crates/glimpse-panel/src/applets/network/render.rs:302
-#: crates/glimpse-panel/src/applets/network/render.rs:379
+#: crates/glimpse-panel/src/applets/network/render.rs:306
+#: crates/glimpse-panel/src/applets/network/render.rs:383
 msgid "Disconnect"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:365
-#: crates/glimpse-panel/src/applets/network/indicator.rs:208
-#: crates/glimpse-panel/src/applets/network/indicator.rs:223
-#: crates/glimpse-panel/src/applets/network/render.rs:309
-#: crates/glimpse-panel/src/applets/network/render.rs:380
-#: crates/glimpse-widgets/blueprints/network_popover.blp:154
-#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:58
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:61
+#: crates/glimpse-panel/src/applets/network/indicator.rs:255
+#: crates/glimpse-panel/src/applets/network/indicator.rs:264
+#: crates/glimpse-panel/src/applets/network/indicator.rs:283
+#: crates/glimpse-panel/src/applets/network/render.rs:313
+#: crates/glimpse-panel/src/applets/network/render.rs:384
+#: crates/glimpse-widgets/blueprints/network_popover.blp:158
+#: crates/glimpse-widgets/src/network_secret_dialog/imp.rs:56
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:63
 msgid "Connect"
 msgstr ""
 
@@ -317,8 +318,8 @@ msgid "Codec"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:387
-#: crates/glimpse-panel/src/applets/network/render.rs:331
-#: crates/glimpse-panel/src/applets/network/render.rs:355
+#: crates/glimpse-panel/src/applets/network/render.rs:335
+#: crates/glimpse-panel/src/applets/network/render.rs:359
 msgid "Connect automatically"
 msgstr ""
 
@@ -335,7 +336,7 @@ msgid "Will not survive a restart"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:403
-#: crates/glimpse-panel/src/applets/network/render.rs:323
+#: crates/glimpse-panel/src/applets/network/render.rs:327
 msgid "Signal"
 msgstr ""
 
@@ -476,7 +477,7 @@ msgid "Input"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/bluetooth/render.rs:524
-#: crates/glimpse-panel/src/applets/network/indicator.rs:79
+#: crates/glimpse-panel/src/applets/network/indicator.rs:111
 msgid "Network"
 msgstr ""
 
@@ -508,67 +509,94 @@ msgstr "Пауза"
 msgid "Stopped"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:166
+#: crates/glimpse-panel/src/applets/network/indicator.rs:44
+msgid "None"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:45
+msgid "WEP"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:46
+msgid "WPA & WPA2 Personal"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:47
+msgid "WPA3 Personal"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:198
 #: crates/glimpse-widgets/blueprints/network_popover.blp:18
 msgid "Wi-Fi"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:198
+#: crates/glimpse-panel/src/applets/network/indicator.rs:243
 msgid "Hidden network"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:199
+#: crates/glimpse-panel/src/applets/network/indicator.rs:244
 msgid "Type the name the network broadcasts nothing about."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:201
+#: crates/glimpse-panel/src/applets/network/indicator.rs:246
 msgid "Continue"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:206
-#: crates/glimpse-panel/src/applets/network/indicator.rs:217
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:47
+#: crates/glimpse-panel/src/applets/network/indicator.rs:253
+msgid "Choose how the network is secured, then type its password."
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:262
+#: crates/glimpse-panel/src/applets/network/indicator.rs:277
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:49
 msgid "The network needs a password before this computer can join it."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:214
+#: crates/glimpse-panel/src/applets/network/indicator.rs:274
 msgid "{network} refused that password. Check it and try again."
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:222
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:60
+#: crates/glimpse-panel/src/applets/network/indicator.rs:282
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:62
 msgid "Try again"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:248
+#: crates/glimpse-panel/src/applets/network/indicator.rs:308
 msgid "VPN is connected"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:299
+#: crates/glimpse-panel/src/applets/network/indicator.rs:359
 msgid "Could not switch Wi-Fi"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:321
-#: crates/glimpse-panel/src/applets/network/indicator.rs:421
+#: crates/glimpse-panel/src/applets/network/indicator.rs:381
+#: crates/glimpse-panel/src/applets/network/indicator.rs:481
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not disconnect the VPN"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:344
-#: crates/glimpse-panel/src/applets/network/indicator.rs:415
+#: crates/glimpse-panel/src/applets/network/indicator.rs:404
+#: crates/glimpse-panel/src/applets/network/indicator.rs:475
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not connect the VPN"
 msgstr "{count} рабочий стол"
 
-#: crates/glimpse-panel/src/applets/network/indicator.rs:409
+#: crates/glimpse-panel/src/applets/network/indicator.rs:469
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
 msgid "Could not forget that network"
+msgstr "{count} рабочий стол"
+
+#: crates/glimpse-panel/src/applets/network/indicator.rs:563
+#, fuzzy
+#| msgid "{count} workspace"
+#| msgid_plural "{count} workspaces"
+msgid "Could not send that password"
 msgstr "{count} рабочий стол"
 
 #: crates/glimpse-panel/src/applets/network/render.rs:76
@@ -609,9 +637,9 @@ msgid "Not connected"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:114
-#: crates/glimpse-panel/src/applets/network/render.rs:538
-#: crates/glimpse-panel/src/applets/network/render.rs:546
-#: crates/glimpse-panel/src/applets/network/render.rs:556
+#: crates/glimpse-panel/src/applets/network/render.rs:542
+#: crates/glimpse-panel/src/applets/network/render.rs:550
+#: crates/glimpse-panel/src/applets/network/render.rs:589
 msgid "Metered connection"
 msgstr ""
 
@@ -676,24 +704,32 @@ msgid "Open, encrypted"
 msgstr ""
 
 #: crates/glimpse-panel/src/applets/network/render.rs:194
-#: crates/glimpse-panel/src/applets/network/render.rs:244
+#: crates/glimpse-panel/src/applets/network/render.rs:247
+#: crates/glimpse-panel/src/applets/network/render.rs:248
 msgid "Connected"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:229
+#: crates/glimpse-panel/src/applets/network/render.rs:196
+#: crates/glimpse-panel/src/applets/network/render.rs:247
+#: crates/glimpse-panel/src/applets/network/render.rs:566
+#: crates/glimpse-panel/src/applets/network/render.rs:578
+msgid "Metered"
+msgstr ""
+
+#: crates/glimpse-panel/src/applets/network/render.rs:232
 msgid "Saved network"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:230
+#: crates/glimpse-panel/src/applets/network/render.rs:233
 msgid "Not in range"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:245
+#: crates/glimpse-panel/src/applets/network/render.rs:249
 msgid "Cable unplugged"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:288
-#: crates/glimpse-panel/src/applets/network/render.rs:606
+#: crates/glimpse-panel/src/applets/network/render.rs:292
+#: crates/glimpse-panel/src/applets/network/render.rs:639
 #, fuzzy
 #| msgid "{count} workspace"
 #| msgid_plural "{count} workspaces"
@@ -703,12 +739,12 @@ msgstr[0] "{count} рабочий стол"
 msgstr[1] "{count} рабочих стола"
 msgstr[2] "{count} рабочих столов"
 
-#: crates/glimpse-panel/src/applets/network/render.rs:317
+#: crates/glimpse-panel/src/applets/network/render.rs:321
 msgid "Security"
 msgstr ""
 
-#: crates/glimpse-panel/src/applets/network/render.rs:337
-#: crates/glimpse-panel/src/applets/network/render.rs:361
+#: crates/glimpse-panel/src/applets/network/render.rs:341
+#: crates/glimpse-panel/src/applets/network/render.rs:365
 msgid "Forget this network"
 msgstr ""
 
@@ -1124,15 +1160,15 @@ msgstr ""
 msgid "Pause"
 msgstr "Пауза"
 
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:41
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:43
 msgid "That password did not work"
 msgstr ""
 
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:42
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:44
 msgid "{network} refused it. Check it and try again."
 msgstr ""
 
-#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:46
+#: crates/glimpse-widgets/src/network_secret_dialog/mod.rs:48
 msgid "Enter the password for {network}"
 msgstr ""
 

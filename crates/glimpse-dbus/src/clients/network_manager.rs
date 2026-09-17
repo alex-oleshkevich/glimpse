@@ -22,6 +22,7 @@ pub const VPN1: &str = "org.freedesktop.NetworkManager.VPN.Connection";
 pub const SETTINGS_CONNECTION1: &str = "org.freedesktop.NetworkManager.Settings.Connection";
 
 const SSID: usize = 64;
+const SSID_OCTETS: usize = 32;
 const ID: usize = 64;
 const INTERFACE: usize = 32;
 
@@ -344,6 +345,7 @@ pub struct WiredProperties {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AccessPointProperties {
     pub ssid: Option<String>,
+    pub raw_ssid: Vec<u8>,
     pub bssid: Option<String>,
     pub strength: u8,
     pub frequency: u32,
@@ -419,9 +421,19 @@ pub fn decode_ssid(raw: &[u8]) -> Option<String> {
     optional_clean(String::from_utf8_lossy(raw).into_owned(), SSID)
 }
 
+fn raw_ssid(properties: &Properties, key: &str) -> Vec<u8> {
+    properties
+        .get(key)
+        .and_then(|value| Vec::<u8>::try_from(value.clone()).ok())
+        .map(|mut raw| {
+            raw.truncate(SSID_OCTETS);
+            raw
+        })
+        .unwrap_or_default()
+}
+
 fn ssid(properties: &Properties, key: &str) -> Option<String> {
-    let raw = Vec::<u8>::try_from(properties.get(key)?.clone()).ok()?;
-    decode_ssid(&raw)
+    decode_ssid(&raw_ssid(properties, key))
 }
 
 pub fn decode_manager(properties: &Properties) -> ManagerProperties {
@@ -477,6 +489,7 @@ pub fn decode_wired(properties: &Properties) -> WiredProperties {
 pub fn decode_access_point(properties: &Properties) -> AccessPointProperties {
     AccessPointProperties {
         ssid: ssid(properties, "Ssid"),
+        raw_ssid: raw_ssid(properties, "Ssid"),
         bssid: plain(properties, "HwAddress", INTERFACE),
         strength: properties
             .get("Strength")
@@ -812,6 +825,31 @@ mod tests {
         assert_eq!(Band::from_frequency(5560), Band::Five);
         assert_eq!(Band::from_frequency(6155), Band::Six);
         assert_eq!(Band::from_frequency(0), Band::Unknown);
+    }
+
+    #[test]
+    fn a_name_that_is_not_utf8_keeps_the_bytes_it_beacons() {
+        let decoded = decode_access_point(&properties(vec![(
+            "Ssid",
+            owned(&[0xffu8, 0xfe, 0x78][..]),
+        )]));
+
+        assert_eq!(
+            decoded.raw_ssid,
+            vec![0xffu8, 0xfe, 0x78],
+            "activation joins by these bytes; re-encoding the lossy text joins a different network"
+        );
+        assert_ne!(
+            decoded.ssid.unwrap_or_default().into_bytes(),
+            decoded.raw_ssid
+        );
+    }
+
+    #[test]
+    fn a_name_longer_than_a_beacon_can_carry_is_cut_to_the_octets_that_fit() {
+        let decoded = decode_access_point(&properties(vec![("Ssid", owned(&b"K".repeat(64)[..]))]));
+
+        assert_eq!(decoded.raw_ssid.len(), SSID_OCTETS);
     }
 
     #[test]

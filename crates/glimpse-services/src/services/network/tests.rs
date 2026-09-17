@@ -443,6 +443,147 @@ pub(super) mod service {
         );
     }
 
+    fn activated(path: &str, settings: &str, device: &str) -> nm::ActiveProperties {
+        nm::ActiveProperties {
+            id: Some(format!("active {path}")),
+            state: nm::ActiveState::Activated,
+            devices: vec![device.to_owned()],
+            connection: Some(settings.to_owned()),
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn a_failure_is_filed_under_the_name_the_beacon_row_looks_it_up_by() {
+        let mut harness = harness().await;
+        enumerate(&mut harness, measured_objects()).await;
+        let path = "/org/freedesktop/NetworkManager/ActiveConnection/16";
+        let settings = "/org/freedesktop/NetworkManager/Settings/5";
+
+        let mut named = nm::Profile {
+            ssid: Some("Skylink".to_owned()),
+            ..nm::Profile::default()
+        };
+        named.id = Some("Home Wi-Fi".to_owned());
+        harness.service.profiles.insert(settings.to_owned(), named);
+        harness
+            .service
+            .actives
+            .insert(path.to_owned(), activated(path, settings, "/d/1"));
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::ActiveStateChanged {
+                    path: path.to_owned(),
+                    state: nm::ActiveState::Deactivated,
+                    reason: 10,
+                }),
+            )
+            .await;
+
+        assert!(
+            harness.service.failures.contains_key("Skylink"),
+            "a profile named for anything but its SSID would file the failure where no row reads it"
+        );
+        assert!(!harness.service.failures.contains_key("Home Wi-Fi"));
+    }
+
+    #[tokio::test]
+    async fn a_neutral_reason_at_teardown_falls_back_to_the_one_that_arrived_before_it() {
+        let mut harness = harness().await;
+        enumerate(&mut harness, measured_objects()).await;
+        let path = "/org/freedesktop/NetworkManager/ActiveConnection/16";
+        let settings = "/org/freedesktop/NetworkManager/Settings/5";
+
+        harness.service.profiles.insert(
+            settings.to_owned(),
+            nm::Profile {
+                ssid: Some("Skylink".to_owned()),
+                ..nm::Profile::default()
+            },
+        );
+        harness
+            .service
+            .actives
+            .insert(path.to_owned(), activated(path, settings, "/d/1"));
+
+        for (state, reason) in [
+            (nm::ActiveState::Activating, 10u32),
+            (nm::ActiveState::Deactivated, 1),
+        ] {
+            harness
+                .service
+                .handle(
+                    &harness.ctx,
+                    Input::Event(Event::ActiveStateChanged {
+                        path: path.to_owned(),
+                        state,
+                        reason,
+                    }),
+                )
+                .await;
+        }
+
+        assert!(
+            harness.service.failures.contains_key("Skylink"),
+            "NetworkManager carries the useful reason before state 4 and a neutral one with it; \
+             without the cache the failure is dropped on the floor"
+        );
+    }
+
+    #[tokio::test]
+    async fn commands_go_through_the_adapter_that_is_carrying_the_connection() {
+        let mut harness = harness().await;
+        enumerate(&mut harness, measured_objects()).await;
+        harness.service.devices.clear();
+
+        let idle = "/org/freedesktop/NetworkManager/Devices/1";
+        let carrying = "/org/freedesktop/NetworkManager/Devices/9";
+        for (path, state) in [
+            (idle, nm::DeviceState::Disconnected),
+            (carrying, nm::DeviceState::Activated),
+        ] {
+            let mut record = DeviceRecord {
+                properties: device(2, true),
+                ..Default::default()
+            };
+            record.properties.state = state;
+            harness.service.devices.insert(path.to_owned(), record);
+        }
+
+        assert_eq!(
+            harness
+                .service
+                .wireless_device()
+                .map(|(path, _)| path.clone()),
+            Some(carrying.to_owned()),
+            "the lowest object path is not the adapter the user is on"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_active_connection_answers_for_the_device_it_runs_on() {
+        let mut harness = harness().await;
+        enumerate(&mut harness, measured_objects()).await;
+        let path = "/org/freedesktop/NetworkManager/ActiveConnection/16";
+        let device = "/org/freedesktop/NetworkManager/Devices/7";
+
+        harness
+            .service
+            .actives
+            .insert(path.to_owned(), activated(path, "/s/1", device));
+
+        assert_eq!(
+            harness
+                .service
+                .active_for(&NetworkId::new(device.to_owned())),
+            Some(path.to_owned()),
+            "a wired row carries a device path, and disconnecting it must find the connection"
+        );
+    }
+
     #[tokio::test]
     async fn a_recycled_active_connection_path_never_serves_a_stale_reason() {
         let mut harness = harness().await;
@@ -539,6 +680,7 @@ mod secrets {
 
         let ask = |name: &str| Request {
             name: name.to_owned(),
+            path: "/org/freedesktop/NetworkManager/Settings/1".to_owned(),
             setting: "802-11-wireless-security".to_owned(),
             retry: false,
         };
@@ -588,6 +730,7 @@ mod secrets {
                 Input::Event(Event::Secrets(
                     Request {
                         name: "Skylink".to_owned(),
+                        path: "/org/freedesktop/NetworkManager/Settings/1".to_owned(),
                         setting: "802-11-wireless-security".to_owned(),
                         retry: true,
                     },
@@ -617,6 +760,57 @@ mod secrets {
     }
 
     #[tokio::test]
+    async fn a_cancellation_naming_another_request_leaves_the_open_prompt_alone() {
+        let mut harness = harness().await;
+        let (sender, reply) = tokio::sync::oneshot::channel();
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::Secrets(
+                    Request {
+                        name: "Skylink".to_owned(),
+                        path: "/org/freedesktop/NetworkManager/Settings/1".to_owned(),
+                        setting: "802-11-wireless-security".to_owned(),
+                        retry: false,
+                    },
+                    sender,
+                )),
+            )
+            .await;
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::SecretsCancelled {
+                    path: "/org/freedesktop/NetworkManager/Settings/9".to_owned(),
+                    setting: "802-11-wireless-security".to_owned(),
+                }),
+            )
+            .await;
+        assert!(
+            harness.service.secret.is_some(),
+            "a late cancellation for a request already answered would otherwise refuse the one \
+             the user is looking at"
+        );
+
+        harness
+            .service
+            .handle(
+                &harness.ctx,
+                Input::Event(Event::SecretsCancelled {
+                    path: "/org/freedesktop/NetworkManager/Settings/1".to_owned(),
+                    setting: "802-11-wireless-security".to_owned(),
+                }),
+            )
+            .await;
+        assert!(harness.service.secret.is_none());
+        assert!(matches!(reply.await, Ok(Answer::Refused)));
+    }
+
+    #[tokio::test]
     async fn networkmanager_leaving_the_bus_refuses_an_open_prompt() {
         let mut harness = harness().await;
         let (sender, reply) = tokio::sync::oneshot::channel();
@@ -628,6 +822,7 @@ mod secrets {
                 Input::Event(Event::Secrets(
                     Request {
                         name: "Skylink".to_owned(),
+                        path: "/org/freedesktop/NetworkManager/Settings/1".to_owned(),
                         setting: "802-11-wireless-security".to_owned(),
                         retry: false,
                     },
@@ -852,10 +1047,74 @@ mod profiles {
         assert_eq!(
             harness
                 .service
-                .profile_for(Some("Skylink"))
+                .profile_matching(Some("Skylink"), None)
                 .map(|id| id.as_str().to_owned()),
             Some("/org/freedesktop/NetworkManager/Settings/9".to_owned()),
             "the newer timestamp is the one the user last actually used"
+        );
+    }
+
+    fn beacon(ssid: &str, rsn: u32, bssid: &str) -> nm::AccessPointProperties {
+        nm::AccessPointProperties {
+            ssid: Some(ssid.to_owned()),
+            raw_ssid: ssid.as_bytes().to_vec(),
+            bssid: Some(bssid.to_owned()),
+            flags: 1,
+            rsn_flags: rsn,
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn a_profile_that_cannot_join_the_beacon_is_never_offered_for_it() {
+        let mut harness = harness().await;
+        enumerate(&mut harness, measured_objects()).await;
+
+        let mut open = profile("CorpNet", 900);
+        open.key_mgmt = None;
+        let mut secured = profile("CorpNet", 100);
+        secured.key_mgmt = Some("wpa-psk".to_owned());
+        harness.service.profiles.insert("/s/open".to_owned(), open);
+        harness
+            .service
+            .profiles
+            .insert("/s/secured".to_owned(), secured);
+
+        let point = beacon("CorpNet", 392, "00:11:22:33:44:55");
+        assert_eq!(
+            harness
+                .service
+                .profile_matching(Some("CorpNet"), Some(&point))
+                .map(|id| id.as_str().to_owned()),
+            Some("/s/secured".to_owned()),
+            "the newer open profile cannot join a WPA2 beacon, so choosing it by timestamp alone \
+             fails the join without ever asking for a password"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_profile_that_has_seen_this_beacon_outranks_a_newer_one_that_has_not() {
+        let mut harness = harness().await;
+        enumerate(&mut harness, measured_objects()).await;
+
+        let mut seen = profile("Skylink", 100);
+        seen.key_mgmt = Some("wpa-psk".to_owned());
+        seen.seen_bssids = vec!["00:11:22:33:44:55".to_owned()];
+        let mut newer = profile("Skylink", 900);
+        newer.key_mgmt = Some("wpa-psk".to_owned());
+        harness.service.profiles.insert("/s/seen".to_owned(), seen);
+        harness
+            .service
+            .profiles
+            .insert("/s/newer".to_owned(), newer);
+
+        let point = beacon("Skylink", 392, "00:11:22:33:44:55");
+        assert_eq!(
+            harness
+                .service
+                .profile_matching(Some("Skylink"), Some(&point))
+                .map(|id| id.as_str().to_owned()),
+            Some("/s/seen".to_owned())
         );
     }
 
@@ -871,10 +1130,10 @@ mod profiles {
                 .insert(path.to_owned(), profile("Skylink", 0));
         }
 
-        let first = harness.service.profile_for(Some("Skylink"));
+        let first = harness.service.profile_matching(Some("Skylink"), None);
         for _ in 0..5 {
             assert_eq!(
-                harness.service.profile_for(Some("Skylink")),
+                harness.service.profile_matching(Some("Skylink"), None),
                 first,
                 "an unchanged set must answer the same way every time"
             );
@@ -977,9 +1236,14 @@ mod profiles {
             .profiles
             .insert("/s/1".to_owned(), profile("Skylink", 10));
 
-        assert_eq!(harness.service.profile_for(Some("PLAY internet")), None);
         assert_eq!(
-            harness.service.profile_for(None),
+            harness
+                .service
+                .profile_matching(Some("PLAY internet"), None),
+            None
+        );
+        assert_eq!(
+            harness.service.profile_matching(None, None),
             None,
             "an unnamed network cannot match a profile by name"
         );

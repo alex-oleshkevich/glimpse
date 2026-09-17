@@ -185,13 +185,16 @@ pub fn name_of(network: &Access) -> String {
         .unwrap_or_else(|| gettext("Unnamed network"))
 }
 
-fn describe(network: &Access) -> String {
+fn describe(network: &Access, metered: bool) -> String {
     let mut parts = vec![security(network.security)];
     if let Some(band) = band(network.band) {
         parts.push(band);
     }
     if network.active {
         parts.insert(0, gettext("Connected"));
+        if metered {
+            parts.push(gettext("Metered"));
+        }
     }
     parts.join(" · ")
 }
@@ -211,7 +214,7 @@ pub fn entries(
         rows.push(Entry {
             id: network.id.as_str().to_owned(),
             title: name_of(network),
-            subtitle: describe(network),
+            subtitle: describe(network, state.metered.marked()),
             icon: band_icon(network.strength).to_owned(),
             place: Place::Networks,
             secured: network.security.needs_a_secret(),
@@ -240,9 +243,10 @@ pub fn entries(
         rows.push(Entry {
             id: wired.id.as_str().to_owned(),
             title: cap(&wired.name),
-            subtitle: match wired.carrier {
-                true => gettext("Connected"),
-                false => gettext("Cable unplugged"),
+            subtitle: match (wired.carrier, wired.active && state.metered.marked()) {
+                (true, true) => [gettext("Connected"), gettext("Metered")].join(" · "),
+                (true, false) => gettext("Connected"),
+                (false, _) => gettext("Cable unplugged"),
             },
             icon: match wired.carrier {
                 true => "network-wired-symbolic".to_owned(),
@@ -544,6 +548,35 @@ mod tests {
 
         let off = tooltip(&state, None, false).expect("a tooltip");
         assert!(!off.contains(&gettext("Metered connection")));
+    }
+
+    #[test]
+    fn the_popover_marks_a_metered_connection_whatever_the_tooltip_is_told_to_do() {
+        let state = NetworkState {
+            metered: nm::Metered::GuessYes,
+            ..connected(70)
+        };
+
+        let (rows, _) = entries(&state, 0, true);
+        let row = rows
+            .iter()
+            .find(|row| row.selected)
+            .expect("the connected row");
+        assert!(
+            row.subtitle.contains(&gettext("Metered")),
+            "the tooltip setting is about the bar; the row inside the popover says so regardless"
+        );
+
+        let unmetered = NetworkState {
+            metered: nm::Metered::GuessNo,
+            ..connected(70)
+        };
+        let (rows, _) = entries(&unmetered, 0, true);
+        assert!(
+            !rows
+                .iter()
+                .any(|row| row.subtitle.contains(&gettext("Metered")))
+        );
     }
 
     #[test]

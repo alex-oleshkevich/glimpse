@@ -262,12 +262,12 @@ machine with no radio carries no dead chip.
 both of which belong to the tooltip. No managed device renders nothing at all, so a radioless
 machine carries no dead chip.
 
-- **A VPN is a second chip, never an overlay.** Two overlays do not compose, and a VPN over a
-  metered connection is ordinary; metered stays in the tooltip, where a word can say it.
+- **A VPN is a second chip, never an overlay.** Two overlays do not compose. **Metered is marked on
+  the connected row**; the tooltip naming it is configuration and the chip never carries it.
 - **The password is asked for before the join, on a page of the popover.** NetworkManager drops the
-  working connection the moment activation is requested, so a network that would then ask is asked
-  first and its answer travels with the profile. A request NetworkManager raises itself opens the
-  popover; `App`'s dialog is for a configuration with no applet to answer one.
+  working connection the moment activation is requested, so it is asked first and the answer travels
+  with the profile. **A request NetworkManager raises survives the popover being shut**; one the
+  user began does not. `App`'s dialog serves a panel with no applet.
 - **Strength is banded at render from the raw value**, which the tooltip prints exactly, and **the
   connected network is placed first whatever its strength** — the one in use is often not the
   strongest in range. A failed command is a notification, never a banner, and nothing takes a color.

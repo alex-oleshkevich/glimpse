@@ -32,6 +32,38 @@ enum Asking {
     Agent(SecretRequest),
 }
 
+const HIDDEN_SECURITY: [nm::Security; 4] = [
+    nm::Security::Open,
+    nm::Security::Wep,
+    nm::Security::Wpa2,
+    nm::Security::Wpa3,
+];
+
+fn hidden_choices() -> Vec<String> {
+    vec![
+        gettext("None"),
+        gettext("WEP"),
+        gettext("WPA & WPA2 Personal"),
+        gettext("WPA3 Personal"),
+    ]
+}
+
+/// What a secret asked for under this setting name is allowed to look like. A VPN plugin's token
+/// obeys no Wi-Fi rule, so only a wireless secret is held to the passphrase lengths.
+pub fn entered_for(setting: &str) -> NetworkEntered {
+    match setting {
+        "802-11-wireless-security" => NetworkEntered::Passphrase,
+        _ => NetworkEntered::Secret,
+    }
+}
+
+/// Whether a prompt outlives the popover that was showing it. NetworkManager is waiting on the one
+/// it raised itself and will not ask twice; a question the user started is theirs to abandon, and
+/// keeping it resumes a stale password page for whatever network was selected last.
+fn survives_reopen(held: Option<&Asking>) -> bool {
+    matches!(held, Some(Asking::Agent(_)))
+}
+
 fn agent_key(request: &SecretRequest) -> String {
     format!("{}:{}", request.setting, request.name)
 }
@@ -190,6 +222,19 @@ impl Network {
         }
     }
 
+    fn joining_entry(&self, id: &NetworkId) -> NetworkEntered {
+        let point = self
+            .state
+            .networks
+            .iter()
+            .find(|network| &network.id == id)
+            .map(|network| network.security);
+        match point {
+            Some(nm::Security::Wep) => NetworkEntered::Secret,
+            _ => NetworkEntered::Passphrase,
+        }
+    }
+
     fn ask(&self) -> Option<NetworkAsk> {
         let asking = self.asking.borrow().clone();
         match asking? {
@@ -199,16 +244,31 @@ impl Network {
                 question: gettext("Type the name the network broadcasts nothing about."),
                 entered: NetworkEntered::Name,
                 accept: gettext("Continue"),
+                choices: Vec::new(),
+                open_choice: None,
             }),
-            Asking::Joining { name, .. } | Asking::Hidden { ssid: name } => Some(NetworkAsk {
+            Asking::Hidden { ssid } => Some(NetworkAsk {
+                key: format!("hidden-secret:{ssid}"),
+                network: render::cap(&ssid),
+                question: gettext("Choose how the network is secured, then type its password."),
+                entered: NetworkEntered::Secret,
+                accept: gettext("Connect"),
+                choices: hidden_choices(),
+                open_choice: Some(0),
+            }),
+            Asking::Joining { id, name } => Some(NetworkAsk {
                 key: format!("secret:{name}"),
                 network: render::cap(&name),
                 question: gettext("The network needs a password before this computer can join it."),
-                entered: NetworkEntered::Secret,
+                entered: self.joining_entry(&id),
                 accept: gettext("Connect"),
+                choices: Vec::new(),
+                open_choice: None,
             }),
             Asking::Agent(request) => Some(NetworkAsk {
                 key: agent_key(&request),
+                choices: Vec::new(),
+                open_choice: None,
                 network: render::cap(&request.name),
                 question: match request.retry {
                     true => gettext("{network} refused that password. Check it and try again.")
@@ -217,7 +277,7 @@ impl Network {
                         gettext("The network needs a password before this computer can join it.")
                     }
                 },
-                entered: NetworkEntered::Secret,
+                entered: entered_for(&request.setting),
                 accept: match request.retry {
                     true => gettext("Try again"),
                     false => gettext("Connect"),
@@ -459,7 +519,8 @@ impl Applet for Network {
             let notifications = self.notifications.clone();
             let asking = Rc::clone(&self.asking);
             let opener = seat.opener();
-            move |_, accepted, entered| {
+            move |shown, accepted, entered| {
+                let chosen = shown.chosen();
                 let held = asking.replace(None);
                 let network = network.clone();
                 match (held, accepted) {
@@ -469,16 +530,17 @@ impl Applet for Network {
                         }));
                     }
                     (Some(Asking::Hidden { ssid }), true) => {
-                        let secret = NetworkSecret::new(entered.to_owned());
+                        let security = HIDDEN_SECURITY
+                            .get(chosen as usize)
+                            .copied()
+                            .unwrap_or(nm::Security::Wpa2);
+                        let secret = (security != nm::Security::Open)
+                            .then(|| NetworkSecret::new(entered.to_owned()));
                         tell(
                             &notifications,
                             "network.connect_hidden",
                             gettext("Could not connect"),
-                            async move {
-                                network
-                                    .connect_hidden(ssid, nm::Security::Wpa2, Some(secret))
-                                    .await
-                            },
+                            async move { network.connect_hidden(ssid, security, secret).await },
                         );
                     }
                     (Some(Asking::Joining { id, .. }), true) => {
@@ -495,9 +557,12 @@ impl Applet for Network {
                             true => SecretAnswer::Secret(NetworkSecret::new(entered.to_owned())),
                             false => SecretAnswer::Refused,
                         };
-                        relm4::spawn(async move {
-                            let _ = network.answer_secret(answer).await;
-                        });
+                        tell(
+                            &notifications,
+                            "network.answer_secret",
+                            gettext("Could not send that password"),
+                            async move { network.answer_secret(answer).await },
+                        );
                     }
                     _ => {}
                 }
@@ -525,6 +590,9 @@ impl Applet for Network {
 
         self.expanded.set(false);
         self.selected.replace(None);
+        if !survives_reopen(self.asking.borrow().as_ref()) {
+            self.asking.replace(None);
+        }
         self.shown.set(Some(&shown));
         self.dress(&shown);
 
@@ -555,6 +623,45 @@ impl Applet for Network {
 mod tests {
     use super::*;
     use glimpse_services::Radio;
+
+    #[test]
+    fn only_the_question_networkmanager_is_waiting_on_survives_the_popover_closing() {
+        assert!(survives_reopen(Some(&Asking::Agent(SecretRequest {
+            name: "Skylink".to_owned(),
+            path: "/s/1".to_owned(),
+            setting: "802-11-wireless-security".to_owned(),
+            retry: false,
+        }))));
+        assert!(!survives_reopen(Some(&Asking::Name)));
+        assert!(!survives_reopen(Some(&Asking::Hidden {
+            ssid: "Skylink".to_owned()
+        })));
+        assert!(!survives_reopen(Some(&Asking::Joining {
+            id: NetworkId::new("/ap/1".to_owned()),
+            name: "Skylink".to_owned(),
+        })));
+        assert!(!survives_reopen(None));
+    }
+
+    #[test]
+    fn a_vpn_token_is_not_held_to_a_wifi_passphrase_length() {
+        assert_eq!(
+            entered_for("802-11-wireless-security"),
+            NetworkEntered::Passphrase
+        );
+        assert_eq!(entered_for("vpn"), NetworkEntered::Secret);
+    }
+
+    #[test]
+    fn every_security_the_hidden_page_offers_has_a_label_and_the_first_is_the_open_one() {
+        assert_eq!(hidden_choices().len(), HIDDEN_SECURITY.len());
+        assert_eq!(
+            HIDDEN_SECURITY[0],
+            nm::Security::Open,
+            "open_choice names index 0, which is what suppresses the password box"
+        );
+        assert!(!HIDDEN_SECURITY.contains(&nm::Security::Enterprise));
+    }
 
     fn state(strength: u8) -> NetworkState {
         NetworkState {

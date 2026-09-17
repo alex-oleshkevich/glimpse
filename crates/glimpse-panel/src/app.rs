@@ -11,7 +11,8 @@ use glimpse_config::{
 };
 use glimpse_services::{Answer, BluetoothHandle, NetworkHandle};
 use glimpse_widgets::{
-    PairingAnswer, PairingDialog, PairingEntry as Entry, SecretAnswer, SecretDialog, Styles,
+    NetworkEntered, PairingAnswer, PairingDialog, PairingEntry as Entry, SecretAnswer,
+    SecretDialog, Styles,
 };
 use relm4::{
     Component, ComponentController, ComponentParts, ComponentSender, Controller, SimpleComponent,
@@ -24,6 +25,14 @@ use crate::{
     services::PanelServices,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SecretPrompt {
+    key: String,
+    name: String,
+    retry: bool,
+    entered: NetworkEntered,
+}
+
 pub struct AppInit {
     pub config: Config,
     pub config_path: Option<PathBuf>,
@@ -33,7 +42,7 @@ pub struct AppInit {
 #[allow(clippy::large_enum_variant, clippy::enum_variant_names)]
 pub enum AppInput {
     BluetoothPrompt(Option<(Entry, String, String)>),
-    NetworkSecret(Option<(String, String, bool)>),
+    NetworkSecret(Option<SecretPrompt>),
     ConfigChanged(Config),
     MonitorsChanged,
     ServicesReady(PanelServices),
@@ -227,8 +236,14 @@ impl App {
     /// its widget, and NetworkManager can ask for a secret at any moment — including while the
     /// popover is shut. A dialog on a never-mapped window is queued rather than shown, so the host
     /// is made visible while one is up.
-    fn show_secret(&mut self, request: Option<(String, String, bool)>, network: &NetworkHandle) {
-        let Some((key, name, retry)) = request else {
+    fn show_secret(&mut self, request: Option<SecretPrompt>, network: &NetworkHandle) {
+        let Some(SecretPrompt {
+            key,
+            name,
+            retry,
+            entered,
+        }) = request
+        else {
             close_secret(self.secret.take());
             return;
         };
@@ -258,7 +273,7 @@ impl App {
             }
         };
 
-        dialog.ask(&key, &name, retry);
+        dialog.ask(&key, &name, retry, entered);
     }
 
     fn reload_styles(&self) {
@@ -330,12 +345,11 @@ fn spawn_network_watch(network: NetworkHandle, sender: ComponentSender<App>) -> 
         loop {
             let next = {
                 let state = states.borrow_and_update();
-                state.secret.as_ref().map(|request| {
-                    (
-                        format!("{}:{}", request.setting, request.name),
-                        request.name.clone(),
-                        request.retry,
-                    )
+                state.secret.as_ref().map(|request| SecretPrompt {
+                    key: format!("{}:{}", request.setting, request.name),
+                    name: request.name.clone(),
+                    retry: request.retry,
+                    entered: crate::applets::network::entered_for(&request.setting),
                 })
             };
             if next != last {

@@ -273,27 +273,27 @@ and a bluez restart clears it, the session having died with the daemon. `SetDisc
 **network** — devices, access points, saved profiles, active connections and the secret prompt in
 one state value, enumerated once per generation. **Only a device a user can act on reaches the
 model** — `Managed` and a user-facing `DeviceType`, since `Devices` and `AllDevices` return one list
-with the bridges and veths in it. **An allowlist decides what wakes the service**: `Bitrate` churns,
-and `Device.Statistics` is writable by anyone. **Access points dedup by SSID to the strongest whole
-one**, never merging fields, which invents a security level neither advertises — but **the connected
-beacon wins**, or the bar reports no connection while NetworkManager has one.
-
-**A state reason is cached and evicted at `Activated`**, or a recycled path serves a stale one;
-`Connection.Active` has none. **A reason `failure.rs` does not recognise is `Unknown`, never `Ok`.**
+with the bridges and veths in it. **An allowlist decides what wakes the service.** **Access points
+dedup by SSID to the strongest whole one**, never merging fields, but **the connected beacon wins**.
+**A state reason is cached, read at teardown and evicted with the connection**, because the useful
+one arrives before state 4 and a neutral one with it; **a failure is filed under the SSID** a beacon
+row reads, and **a reason `failure.rs` does not recognise is `Unknown`, never `Ok`**.
 
 **NetworkManager stores every secret and glimpse stores none.** A password typed before a join
-travels in the profile `AddAndActivateConnection2` creates: NetworkManager drops the working
-connection the moment activation is requested, so asking afterwards costs it. The agent answers the
-rest **in the shape each setting expects** — `vpn.secrets` is `a{ss}` keyed by the hint, a WEP key
-is `wep-key0` — and **`REQUEST_NEW` implies interaction is allowed**, so reading `ALLOW_INTERACTION`
-alone drops every retry. Only `802-11-wireless-security` and `vpn` are serviced, and **one prompt is
-open at a time**.
+travels in the profile `AddAndActivateConnection2` creates, because NetworkManager drops the working
+connection the moment activation is requested. The agent answers the rest **in the shape each
+setting expects** — `vpn.secrets` is `a{ss}` keyed by the hint, a WEP key is `wep-key0` — and
+**`REQUEST_NEW` implies interaction is allowed**, so `ALLOW_INTERACTION` alone drops every retry.
+Only `802-11-wireless-security` and `vpn` are serviced, **one prompt is open at a time**, **a
+cancellation names its connection and setting**, and **`SaveSecrets` and `DeleteSecrets` are
+refused**: NetworkManager then offers them to an agent that has a store.
 
-**A saved network activates its existing profile**, chosen by `timestamp` then lowest path where
-several share an SSID. **A profile setting names the profile, not the access point**, and **carries
-the `key-mgmt` its network advertises** — `owe` needs the setting and no secret, **802.1X is refused
-rather than written as a PSK profile**, and **a radio write is published only once taken**. **A VPN
-activates with no device and no specific object**; **busy is cleared by `Settled`**.
+**A saved profile answers for a beacon only when its `key-mgmt` can join it**, then by a seen BSSID,
+then `timestamp`, then lowest path: the wrong one fails without asking for a password. `owe` needs
+no secret and **802.1X is refused rather than written as a PSK profile**. **Commands go through the
+adapter carrying the connection**, and **an active connection answers for its devices** so a wired
+row disconnects. **A VPN reads its state under the active path**; **a radio write publishes once
+taken** and **busy is cleared by `Settled`**.
 
 ## Rules
 

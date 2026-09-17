@@ -4,7 +4,7 @@ use gtk4::{glib, prelude::*, subclass::prelude::*};
 
 use crate::{Row, SplitRow, SwitchRow, drawer, none_if_empty, reconcile, set_footer_row};
 
-pub use imp::{Ask, Details, Entered, Entry, Line, Place};
+pub use imp::{Ask, Details, Entered, Entry, Line, Place, accepts};
 
 const NETWORK: &str = "network-popover__row";
 const DETAIL: &str = "detail-card";
@@ -108,6 +108,10 @@ impl NetworkPopover {
         self.imp().prompt.borrow().is_some()
     }
 
+    pub fn chosen(&self) -> u32 {
+        self.imp().prompt_security.selected()
+    }
+
     pub fn connect_answered<F: Fn(&Self, bool, &str) + 'static>(
         &self,
         f: F,
@@ -141,7 +145,13 @@ impl NetworkPopover {
             true => imp.typed(),
             false => String::new(),
         };
-        if accepted && !imp::accepts(&entered) {
+        let kind = imp
+            .prompt
+            .borrow()
+            .as_ref()
+            .map(|ask| ask.entered)
+            .unwrap_or_default();
+        if accepted && !imp.open_chosen() && !imp::accepts(&entered, kind) {
             return;
         }
         self.emit_by_name::<()>("answered", &[&accepted, &entered]);
@@ -166,7 +176,13 @@ impl NetworkPopover {
         crate::set_text(&imp.prompt_ask, none_if_empty(&ask.question));
         let naming = ask.entered == Entered::Name;
         imp.prompt_name.set_visible(naming);
-        imp.prompt_secret.set_visible(!naming);
+        imp.prompt_security.set_visible(!ask.choices.is_empty());
+        if switched && !ask.choices.is_empty() {
+            let labels: Vec<&str> = ask.choices.iter().map(String::as_str).collect();
+            imp.prompt_security
+                .set_model(Some(&gtk4::StringList::new(&labels)));
+            imp.prompt_security.set_selected(0);
+        }
         if imp
             .prompt_accept
             .label()

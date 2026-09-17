@@ -5,6 +5,7 @@ use gettextrs::gettext;
 use gtk4::glib;
 use gtk4::glib::subclass::prelude::*;
 
+use crate::network_popover::{Entered, accepts};
 use imp::{CONNECT, NAME_MAX};
 
 glib::wrapper! {
@@ -30,10 +31,11 @@ impl SecretDialog {
         glib::Object::new()
     }
 
-    pub fn ask(&self, key: &str, network: &str, retry: bool) {
+    pub fn ask(&self, key: &str, network: &str, retry: bool, entered: Entered) {
         if self.imp().asked.replace(key.to_owned()) != key || retry {
             self.imp().entry.set_text("");
         }
+        self.imp().entered.set(entered);
 
         let name = capped(network);
         let (heading, body) = match retry {
@@ -82,14 +84,15 @@ impl SecretDialog {
             "answered",
             false,
             glib::closure_local!(move |dialog: &Self, response: String, secret: String| {
-                handler(dialog, answer(&response, &secret));
+                let entered = dialog.imp().entered.get();
+                handler(dialog, answer(&response, &secret, entered));
             }),
         )
     }
 }
 
-fn answer(response: &str, secret: &str) -> SecretAnswer {
-    match response == CONNECT && imp::accepts(secret) {
+fn answer(response: &str, secret: &str, entered: Entered) -> SecretAnswer {
+    match response == CONNECT && accepts(secret, entered) {
         true => SecretAnswer::Secret(secret.to_owned()),
         false => SecretAnswer::Refused,
     }
@@ -102,24 +105,27 @@ fn capped(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use imp::{CANCEL, SECRET_MAX, accepts};
+    use imp::CANCEL;
 
     #[test]
-    fn an_empty_box_cannot_be_submitted_but_a_short_one_can() {
-        assert!(!accepts(""));
+    fn a_wireless_secret_is_held_to_the_passphrase_lengths_and_a_vpn_token_is_not() {
+        assert!(!accepts("short", Entered::Passphrase));
+        assert!(accepts("hunter2hunter2", Entered::Passphrase));
         assert!(
-            accepts("abc"),
-            "a WEP key or a short passphrase is still a real secret"
+            accepts(&"a".repeat(100), Entered::Secret),
+            "a VPN plugin's token obeys no Wi-Fi length"
         );
-        assert!(accepts(&"a".repeat(SECRET_MAX)));
-        assert!(!accepts(&"a".repeat(SECRET_MAX + 1)));
+        assert!(!accepts("", Entered::Secret));
     }
 
     #[test]
     fn cancelling_is_a_refusal_and_never_an_empty_password() {
-        assert_eq!(answer(CANCEL, ""), SecretAnswer::Refused);
         assert_eq!(
-            answer(CANCEL, "hunter2hunter2"),
+            answer(CANCEL, "", Entered::Passphrase),
+            SecretAnswer::Refused
+        );
+        assert_eq!(
+            answer(CANCEL, "hunter2hunter2", Entered::Passphrase),
             SecretAnswer::Refused,
             "a typed secret is discarded when the user says no"
         );
@@ -128,11 +134,11 @@ mod tests {
     #[test]
     fn connecting_returns_what_was_typed() {
         assert_eq!(
-            answer(CONNECT, "hunter2hunter2"),
+            answer(CONNECT, "hunter2hunter2", Entered::Passphrase),
             SecretAnswer::Secret("hunter2hunter2".to_owned())
         );
         assert_eq!(
-            answer(CONNECT, ""),
+            answer(CONNECT, "", Entered::Passphrase),
             SecretAnswer::Refused,
             "an empty secret must never reach NetworkManager"
         );

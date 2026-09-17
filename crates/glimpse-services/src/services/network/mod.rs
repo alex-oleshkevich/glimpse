@@ -323,7 +323,10 @@ pub enum Event {
     },
     ScanExpired(u64),
     Secrets(Request, oneshot::Sender<Answer>),
-    SecretsCancelled,
+    SecretsCancelled {
+        path: String,
+        setting: String,
+    },
     AgentRegistered(bool),
     ActiveStateChanged {
         path: String,
@@ -632,11 +635,15 @@ impl Service for Network {
                 self.secret = Some((request, answer));
                 self.publish();
             }
-            Input::Event(Event::SecretsCancelled) => {
-                if let Some((_, answer)) = self.secret.take() {
+            Input::Event(Event::SecretsCancelled { path, setting }) => {
+                let open = self
+                    .secret
+                    .as_ref()
+                    .is_some_and(|(open, _)| open.path == path && open.setting == setting);
+                if open && let Some((_, answer)) = self.secret.take() {
                     let _ = answer.send(Answer::Refused);
+                    self.publish();
                 }
-                self.publish();
             }
             Input::Event(Event::NameOwner(owner)) => match owner {
                 Some(_) => {
@@ -698,10 +705,16 @@ impl Service for Network {
                 state,
                 reason,
             }) => {
-                let name = self.actives.get(&path).and_then(|active| active.id.clone());
+                let name = self.active_ssid(&path);
                 match state {
                     nm::ActiveState::Deactivated => {
-                        if let (Some(name), Err(failure)) = (name, failure::from_active(reason)) {
+                        let carried = failure::from_active(reason).err().or_else(|| {
+                            self.reasons
+                                .get(&path)
+                                .copied()
+                                .and_then(|earlier| failure::from_active(earlier).err())
+                        });
+                        if let (Some(name), Some(failure)) = (name, carried) {
                             self.failures.insert(name, failure);
                         }
                         self.reasons.remove(&path);
@@ -870,6 +883,7 @@ impl Network {
                 nm::ACTIVE1 => {
                     self.actives.remove(path);
                     self.reasons.remove(path);
+                    self.vpn_states.remove(path);
                 }
                 _ => {}
             }
@@ -956,6 +970,7 @@ impl Network {
                     }
                     if changed.contains_key("Ssid") {
                         point.ssid = merged.ssid;
+                        point.raw_ssid = merged.raw_ssid;
                     }
                 }
             }
@@ -987,9 +1002,14 @@ impl Network {
     }
 
     fn wireless_device(&self) -> Option<(&String, &DeviceRecord)> {
-        self.devices.iter().find(|(_, record)| {
-            wanted(&record.properties) && record.properties.kind == nm::DeviceKind::Wifi
-        })
+        let wireless = || {
+            self.devices.iter().filter(|(_, record)| {
+                wanted(&record.properties) && record.properties.kind == nm::DeviceKind::Wifi
+            })
+        };
+        wireless()
+            .find(|(_, record)| record.properties.state == nm::DeviceState::Activated)
+            .or_else(|| wireless().next())
     }
 
     fn build(&self) -> NetworkState {
@@ -1020,7 +1040,7 @@ impl Network {
                 band: point.band(),
                 security: point.security(),
                 active: active_point.as_deref() == Some(path.as_str()),
-                saved: self.profile_for(point.ssid.as_deref()),
+                saved: self.profile_matching(point.ssid.as_deref(), Some(point)),
                 busy: self.busy.get(path).copied(),
                 failure: point
                     .ssid
@@ -1059,11 +1079,10 @@ impl Network {
             .map(|(path, profile)| {
                 let active = self
                     .actives
-                    .values()
-                    .find(|active| active.connection.as_deref() == Some(path.as_str()));
-                let state = self
-                    .vpn_states
-                    .get(path)
+                    .iter()
+                    .find(|(_, active)| active.connection.as_deref() == Some(path.as_str()));
+                let state = active
+                    .and_then(|(active, _)| self.vpn_states.get(active))
                     .copied()
                     .unwrap_or(nm::VpnState::Unknown);
                 Vpn {
@@ -1072,7 +1091,8 @@ impl Network {
                     kind: profile.kind.clone().unwrap_or_default(),
                     state,
                     active: state == nm::VpnState::Activated
-                        || active.is_some_and(|active| active.state == nm::ActiveState::Activated),
+                        || active
+                            .is_some_and(|(_, active)| active.state == nm::ActiveState::Activated),
                     failure: failure::from_vpn(state).err(),
                     busy: self.busy.get(path).copied(),
                 }
@@ -1124,22 +1144,44 @@ impl Network {
             .and_then(|point| point.ssid.clone())
     }
 
+    fn active_ssid(&self, path: &str) -> Option<String> {
+        let active = self.actives.get(path)?;
+        let settings = active.connection.as_deref()?;
+        self.profiles.get(settings)?.ssid.clone()
+    }
+
     fn profile_of(&self, id: &NetworkId) -> Option<String> {
         let key = id.as_str();
         if self.profiles.contains_key(key) {
             return Some(key.to_owned());
         }
         let point = self.access_points.get(key)?;
-        self.profile_for(point.ssid.as_deref())
+        self.profile_matching(point.ssid.as_deref(), Some(point))
             .map(|one| one.as_str().to_owned())
     }
 
-    fn profile_for(&self, ssid: Option<&str>) -> Option<NetworkId> {
+    fn profile_matching(
+        &self,
+        ssid: Option<&str>,
+        point: Option<&nm::AccessPointProperties>,
+    ) -> Option<NetworkId> {
         let ssid = ssid?;
         self.profiles
             .iter()
             .filter(|(_, profile)| profile.ssid.as_deref() == Some(ssid))
-            .max_by_key(|(path, profile)| (profile.timestamp, std::cmp::Reverse((*path).clone())))
+            .filter(|(_, profile)| point.is_none_or(|point| call::fits(profile, point)))
+            .max_by_key(|(path, profile)| {
+                (
+                    point.is_some_and(|point| {
+                        point
+                            .bssid
+                            .as_deref()
+                            .is_some_and(|bssid| profile.seen_bssids.iter().any(|one| one == bssid))
+                    }),
+                    profile.timestamp,
+                    std::cmp::Reverse((*path).clone()),
+                )
+            })
             .map(|(path, _)| NetworkId::new(path.clone()))
     }
 
@@ -1209,7 +1251,7 @@ impl Network {
                     return;
                 };
                 let saved = self
-                    .profile_for(point.ssid.as_deref())
+                    .profile_matching(point.ssid.as_deref(), Some(&point))
                     .map(|one| one.as_str().to_owned());
                 if saved.is_none() && !call::joinable(point.security()) {
                     let _ = reply.send(Err(NetworkError::Failed(Failure::ConfigFailed)));
@@ -1221,7 +1263,7 @@ impl Network {
                 }
                 self.mark(id.as_str(), Busy::Connecting);
                 self.publish();
-                let raw = point.ssid.clone().unwrap_or_default().into_bytes();
+                let raw = point.raw_ssid.clone();
                 let security = point.security();
                 let key = id.as_str().to_owned();
                 self.dispatch(ctx, Some(key), reply, move |connection| async move {
@@ -1412,6 +1454,7 @@ impl Network {
             .find(|(_, active)| {
                 active.connection.as_deref() == Some(id.as_str())
                     || active.specific_object.as_deref() == Some(id.as_str())
+                    || active.devices.iter().any(|device| device == id.as_str())
             })
             .map(|(path, _)| path.clone())
     }

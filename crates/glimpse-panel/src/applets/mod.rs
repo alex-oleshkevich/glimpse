@@ -4,7 +4,7 @@ mod clock;
 mod heartbeat;
 mod keyboard;
 mod mpris;
-mod network;
+pub mod network;
 mod next_event;
 mod notifications;
 mod pager;
