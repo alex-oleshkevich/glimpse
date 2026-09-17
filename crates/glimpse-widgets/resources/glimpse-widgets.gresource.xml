@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <gresources>
     <gresource prefix="/me/aresa/GlimpseShell">
+        <file>widgets/audio_popover.ui</file>
         <file>widgets/bluetooth_pairing_dialog.ui</file>
         <file>widgets/bluetooth_popover.ui</file>
         <file>widgets/network_popover.ui</file>

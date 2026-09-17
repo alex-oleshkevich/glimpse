@@ -269,6 +269,21 @@ cannot reach the next device; BlueZ re-asking as a name resolves must not wipe a
 - **The step and page increments are set in Rust**, because `blueprint-compiler lint` rejects an
   `Adjustment` carrying anything besides `lower`, `upper` and `value`.
 
+## AudioPopover
+
+- **No `Gtk.Stack`.** Bluetooth and network each have a prompt page; sound has none, so the column
+  is the whole content.
+- **The output master fader carries `.accent`, added in Rust** (`fader.add_css_class("accent")`),
+  because `Fader` exposes no accent property. `.fader.accent .fader__track` is the only rule that
+  reads it; the input fader stays plain.
+- **A card holds one block per role the application has**, output before input, each its own
+  `Fader` plus the selectable device rows for that direction; a role with `adjustable: false` still
+  renders, insensitive, rather than being hidden. `recede` dims both master faders along with the
+  device and application rows, since a card open under them reads against the whole popover.
+- **Outputs, inputs and applications each end in their own overflow row** (`more_outputs`,
+  `more_inputs`, `more_apps`), on the same footing as `more_paired`/`more_nearby`: the widget only
+  shows and labels the row, and leaves whether the fuller list stays open to whoever is asking.
+
 ## Stylesheets
 
 `Styles` owns the CSS providers for one process. `install()` registers them on the display **once**

@@ -632,7 +632,8 @@
 
 .popover-shell .split-row,
 .popover-shell .hero,
-.popover-shell .section {
+.popover-shell .section,
+.popover-shell .fader {
     transition: opacity var(--gl-duration) var(--gl-ease);
 }
 
@@ -1345,4 +1346,43 @@ window.notification-popup {
     font-size: var(--gl-text-caption);
     color: var(--gl-muted);
     font-variant-numeric: tabular-nums;
+}
+
+.fader.accent .fader__track highlight {
+    background-color: var(--gl-accent);
+}
+
+.fader.accent .fader__track slider {
+    background-color: var(--gl-knob);
+}
+
+.audio-popover .popover-shell {
+    border-radius: 1.5rem;
+    padding: 1.1rem;
+}
+
+.audio-popover .hero__title {
+    font-size: var(--gl-text-title);
+    font-weight: 700;
+}
+
+.audio-popover .column > .fader {
+    margin: 0.3rem 0.65rem 0.5rem 0.65rem;
+}
+
+.audio-popover__device {
+    border-radius: 0.75rem;
+    min-height: 3.2rem;
+}
+
+.audio-popover__app.open {
+    background-color: var(--gl-hover);
+}
+
+.audio-popover__block + .audio-popover__block {
+    margin-top: 0.6rem;
+}
+
+.audio-popover__block .section__title {
+    padding: 0.3rem 0 0.3rem 0.05rem;
 }

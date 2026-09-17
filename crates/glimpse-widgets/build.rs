@@ -15,6 +15,10 @@ fn compile_blueprints(pairs: &[(&str, &str)]) {
 fn main() {
     compile_blueprints(&[
         (
+            "blueprints/audio_popover.blp",
+            "resources/widgets/audio_popover.ui",
+        ),
+        (
             "blueprints/bluetooth_pairing_dialog.blp",
             "resources/widgets/bluetooth_pairing_dialog.ui",
         ),

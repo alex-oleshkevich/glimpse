@@ -1,0 +1,104 @@
+using Gtk 4.0;
+
+template $AudioPopover: Gtk.Widget {
+  layout-manager: BinLayout {};
+
+  styles [
+    "audio-popover",
+  ]
+
+  $PopoverShell shell {
+    [hero]
+    $Hero hero {
+      icon-name: "audio-volume-high-symbolic";
+      title: _("Sound");
+
+      [slot]
+      $Readout readout {
+        valign: center;
+        visible: false;
+      }
+    }
+
+    Gtk.Box column {
+      orientation: vertical;
+      hexpand: true;
+
+      styles [
+        "column",
+      ]
+
+      $Fader output {}
+
+      $Section outputs {
+        visible: false;
+        title: _("Output");
+
+        Gtk.Box {
+          orientation: vertical;
+
+          Gtk.Box output_rows {
+            orientation: vertical;
+          }
+
+          $Row more_outputs {
+            visible: false;
+            activatable: true;
+            lead-icon: "view-more-symbolic";
+          }
+        }
+      }
+
+      $Fader input {}
+
+      $Section inputs {
+        visible: false;
+        title: _("Input");
+
+        Gtk.Box {
+          orientation: vertical;
+
+          Gtk.Box input_rows {
+            orientation: vertical;
+          }
+
+          $Row more_inputs {
+            visible: false;
+            activatable: true;
+            lead-icon: "view-more-symbolic";
+          }
+        }
+      }
+
+      $Section apps {
+        empty: true;
+        title: _("Applications");
+
+        [placeholder]
+        $Placeholder quiet {
+          icon-name: "audio-volume-muted-symbolic";
+          title: _("Nothing is playing");
+        }
+
+        Gtk.Box {
+          orientation: vertical;
+
+          Gtk.Box app_rows {
+            orientation: vertical;
+          }
+
+          $Row more_apps {
+            visible: false;
+            activatable: true;
+            lead-icon: "view-more-symbolic";
+          }
+        }
+      }
+    }
+
+    [footer]
+    $Row footer {
+      visible: false;
+    }
+  }
+}
