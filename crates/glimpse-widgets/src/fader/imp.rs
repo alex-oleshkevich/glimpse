@@ -16,8 +16,6 @@ pub struct Fader {
     pub mute: TemplateChild<gtk4::ToggleButton>,
     #[template_child]
     pub track: TemplateChild<gtk4::Scale>,
-    #[template_child]
-    pub value_label: TemplateChild<gtk4::Label>,
 
     pub(crate) held: Cell<Option<f64>>,
     pub(crate) quiet: Cell<bool>,
@@ -71,14 +69,6 @@ impl Fader {
             return;
         }
         self.mute.set_icon_name(name.as_deref().unwrap_or_default());
-    }
-
-    fn sync_value_label(&self) {
-        let text = format!("{}%", self.value().round() as i64);
-        if self.value_label.text().as_str() == text {
-            return;
-        }
-        self.value_label.set_text(&text);
     }
 
     fn emit_changed(&self) {
@@ -160,12 +150,6 @@ impl ObjectImpl for Fader {
 
         obj.connect_unmap(|fader| fader.imp().held.set(None));
 
-        self.track.connect_value_changed(glib::clone!(
-            #[weak]
-            obj,
-            move |_| obj.imp().sync_value_label()
-        ));
-
         self.track.connect_change_value(glib::clone!(
             #[weak]
             obj,
@@ -193,8 +177,6 @@ impl ObjectImpl for Fader {
                 obj.emit_by_name::<()>(TOGGLED, &[&mute.is_active()]);
             }
         ));
-
-        self.sync_value_label();
     }
 
     fn dispose(&self) {

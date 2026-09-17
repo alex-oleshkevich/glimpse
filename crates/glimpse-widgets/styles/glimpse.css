@@ -1342,12 +1342,6 @@ window.notification-popup {
     background-color: var(--gl-muted);
 }
 
-.fader__value {
-    font-size: var(--gl-text-caption);
-    color: var(--gl-muted);
-    font-variant-numeric: tabular-nums;
-}
-
 .fader.accent .fader__track highlight {
     background-color: var(--gl-accent);
 }

@@ -2316,13 +2316,8 @@ mod tests {
         let fader = Fader::new();
         let mute = child_named::<gtk4::ToggleButton>(&fader, "fader__mute");
         let track = child_named::<gtk4::Scale>(&fader, "fader__track");
-        let value_label = child_named::<gtk4::Label>(&fader, "fader__value");
-
-        assert_eq!(value_label.text(), "0%");
-
         fader.set_value(62.0);
         assert_eq!(fader.value(), 62.0);
-        assert_eq!(value_label.text(), "62%");
 
         fader.set_value(150.0);
         assert_eq!(

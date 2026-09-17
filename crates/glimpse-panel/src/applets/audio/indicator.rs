@@ -14,7 +14,9 @@ use gtk4::glib;
 use gtk4::prelude::*;
 
 use crate::applet::popover::{PopoverHandle, Seat, run};
-use crate::applet::{Applet, Ctx, Input, Opener, Report, report_failure, spawn_reported};
+use crate::applet::{
+    Applet, Ctx, Direction, Input, Opener, Pointer, Report, report_failure, spawn_reported,
+};
 
 use super::render;
 
@@ -22,6 +24,7 @@ const ICON: &str = "audio-volume-high-symbolic";
 const OUTPUTS_SHOWN: usize = 4;
 const INPUTS_SHOWN: usize = 4;
 const APPS_SHOWN: usize = 6;
+const SCROLL_STEP: i32 = 5;
 
 pub struct Audio {
     state: AudioState,
@@ -60,6 +63,10 @@ impl Applet for Audio {
                 if held.as_ref().is_some_and(|id| self.state.app(id).is_none()) {
                     *held = None;
                 }
+            }
+            Input::Pointer(Pointer::Scroll(direction)) => {
+                self.nudge(*direction);
+                return;
             }
             Input::Tick | Input::Pointer(_) => return,
         }
@@ -482,6 +489,32 @@ fn details(state: &AudioState, id: &AudioAppId) -> Option<AudioDetails> {
 }
 
 impl Audio {
+    fn nudge(&self, direction: Direction) {
+        let Some(device) = self.state.default_output() else {
+            return;
+        };
+        let step = match direction {
+            Direction::Up | Direction::Right => SCROLL_STEP,
+            Direction::Down | Direction::Left => -SCROLL_STEP,
+        };
+        let target = (device.volume as i32 + step).clamp(0, 100) as u32;
+        if target == device.volume {
+            return;
+        }
+        let audio = self.audio.clone();
+        let id = device.id.clone();
+        tell(
+            &self.notifications,
+            "audio.set_volume",
+            gettext("Could not change the volume"),
+            async move {
+                audio
+                    .set_device_volume(AudioDirection::Output, id, target)
+                    .await
+            },
+        );
+    }
+
     pub fn start(audio: AudioHandle, notifications: NotificationsProviderHandle) -> Self {
         let state = audio.snapshot();
         Self {
