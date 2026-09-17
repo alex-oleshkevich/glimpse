@@ -300,6 +300,14 @@ radio write publishes once taken** and **busy is cleared by `Settled`**.
 runs under that lock. **A PA name is never capped**, only displayed — it is a `Device`'s key and
 the literal `set_default_sink`/`set_default_source` argument.
 
+**The service never calls `pulse::connect()` from `start`** — the connection is
+`Sub::stream(Watch::Pulse(generation), …)`, so a `Gone` bumps the generation and the runtime swaps
+in a fresh source; bumping only the receiver would leave the dead bridge thread in place and audio
+deaf until a restart. A command resolves its `DeviceId`/`AppId` against the service's own last
+snapshot, never the backend, and an id that has just disappeared is `Refused`, not a panic.
+`set_app_volume` fans out through `Role::scaled` rather than one absolute write, so a group's
+streams keep their relative mix.
+
 ## Rules
 
 Concrete handles only — no broker, registry or string routing; see `.claude/rules/daemon.md`.
