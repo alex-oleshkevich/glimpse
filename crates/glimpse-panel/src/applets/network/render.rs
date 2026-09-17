@@ -328,6 +328,14 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
             value: format!("{}%", network.strength),
             ..Default::default()
         });
+        if let Some(address) = &network.address {
+            lines.push(Line {
+                action: "address".to_owned(),
+                title: gettext("IP address"),
+                value: address.clone(),
+                ..Default::default()
+            });
+        }
         if let Some(saved) = &network.saved {
             let profile = state.known.iter().find(|one| &one.id == saved);
             lines.push(Line {
@@ -371,22 +379,67 @@ pub fn details(state: &NetworkState, id: &str) -> Option<Details> {
         });
     }
 
-    if let Some(vpn) = state.vpn.iter().find(|one| one.id.as_str() == id) {
+    if let Some(wired) = state.wired.iter().find(|one| one.id.as_str() == id) {
+        let mut lines = vec![Line {
+            action: match wired.active {
+                true => "disconnect".to_owned(),
+                false => "connect".to_owned(),
+            },
+            title: match wired.active {
+                true => gettext("Disconnect"),
+                false => gettext("Connect"),
+            },
+            activates: wired.carrier,
+            busy: wired.busy.is_some(),
+            ..Default::default()
+        }];
+        if let Some(speed) = wired.speed.filter(|speed| *speed > 0) {
+            lines.push(Line {
+                action: "speed".to_owned(),
+                title: gettext("Speed"),
+                value: gettext("{speed} Mb/s").replace("{speed}", &speed.to_string()),
+                ..Default::default()
+            });
+        }
+        if let Some(address) = &wired.address {
+            lines.push(Line {
+                action: "address".to_owned(),
+                title: gettext("IP address"),
+                value: address.clone(),
+                ..Default::default()
+            });
+        }
         return Some(Details {
             id: id.to_owned(),
-            lines: vec![Line {
-                action: match vpn.active {
-                    true => "disconnect-vpn".to_owned(),
-                    false => "connect-vpn".to_owned(),
-                },
-                title: match vpn.active {
-                    true => gettext("Disconnect"),
-                    false => gettext("Connect"),
-                },
-                activates: true,
-                busy: vpn.busy.is_some(),
+            lines,
+        });
+    }
+
+    if let Some(vpn) = state.vpn.iter().find(|one| one.id.as_str() == id) {
+        let mut lines = vec![Line {
+            action: match vpn.active {
+                true => "disconnect-vpn".to_owned(),
+                false => "connect-vpn".to_owned(),
+            },
+            title: match vpn.active {
+                true => gettext("Disconnect"),
+                false => gettext("Connect"),
+            },
+            activates: true,
+            busy: vpn.busy.is_some(),
+            ..Default::default()
+        }];
+        if let Some(address) = &vpn.address {
+            lines.push(Line {
+                action: "address".to_owned(),
+                title: gettext("IP address"),
+                value: address.clone(),
                 ..Default::default()
-            }],
+            });
+        }
+        return Some(Details {
+            id: id.to_owned(),
+            lines,
         });
     }
     None
@@ -407,6 +460,7 @@ mod tests {
             security: nm::Security::Wpa2,
             active,
             saved: None,
+            address: None,
             busy: None,
             failure: None,
         }
@@ -514,6 +568,7 @@ mod tests {
             name: "Mullvad".to_owned(),
             kind: "wireguard".to_owned(),
             state: nm::VpnState::Activated,
+            address: None,
             active: true,
             failure: None,
             busy: None,
@@ -548,6 +603,92 @@ mod tests {
 
         let off = tooltip(&state, None, false).expect("a tooltip");
         assert!(!off.contains(&gettext("Metered connection")));
+    }
+
+    #[test]
+    fn the_connected_network_shows_its_address_and_a_beacon_in_range_has_none() {
+        let mut state = connected(70);
+        state.networks[0].address = Some("192.168.50.27/24".to_owned());
+        let mut other = access("Neighbour", 40, false);
+        other.id = NetworkId::new("/ap/2");
+        state.networks.push(other);
+        let id = state.networks[0].id.as_str().to_owned();
+
+        let card = details(&state, &id).expect("a detail card");
+        let address = card
+            .lines
+            .iter()
+            .find(|line| line.action == "address")
+            .expect("an address line");
+        assert_eq!(address.value, "192.168.50.27/24");
+
+        let other = state.networks[1].id.as_str().to_owned();
+        let card = details(&state, &other).expect("a detail card");
+        assert!(!card.lines.iter().any(|line| line.action == "address"));
+    }
+
+    #[test]
+    fn a_vpn_names_its_own_address_and_an_inactive_one_has_none() {
+        let mut state = connected(70);
+        state.vpn = vec![glimpse_services::Vpn {
+            id: NetworkId::new("/s/vpn"),
+            name: "Glimpse Test VPN".to_owned(),
+            kind: "wireguard".to_owned(),
+            state: nm::VpnState::Activated,
+            address: Some("10.64.0.2/32".to_owned()),
+            active: true,
+            failure: None,
+            busy: None,
+        }];
+
+        let card = details(&state, "/s/vpn").expect("a detail card");
+        let actions: Vec<&str> = card.lines.iter().map(|line| line.action.as_str()).collect();
+        assert_eq!(actions, ["disconnect-vpn", "address"]);
+
+        state.vpn[0].active = false;
+        state.vpn[0].address = None;
+        let card = details(&state, "/s/vpn").expect("a detail card");
+        assert_eq!(
+            card.lines
+                .iter()
+                .map(|line| line.action.as_str())
+                .collect::<Vec<_>>(),
+            ["connect-vpn"],
+            "an address the tunnel does not have is absent, not blank"
+        );
+    }
+
+    #[test]
+    fn a_wired_row_has_a_card_that_connects_disconnects_and_names_its_address() {
+        let mut state = connected(70);
+        state.wired = vec![glimpse_services::Wired {
+            id: NetworkId::new("/org/freedesktop/NetworkManager/Devices/459"),
+            name: "enp104s0f4u1i1".to_owned(),
+            carrier: true,
+            speed: Some(425),
+            active: true,
+            address: Some("10.0.0.5/24".to_owned()),
+            busy: None,
+        }];
+
+        let card = details(&state, "/org/freedesktop/NetworkManager/Devices/459")
+            .expect("a wired row must unfold a card like every other row");
+        let actions: Vec<&str> = card.lines.iter().map(|line| line.action.as_str()).collect();
+        assert_eq!(actions, ["disconnect", "speed", "address"]);
+
+        state.wired[0].active = false;
+        state.wired[0].address = None;
+        let card =
+            details(&state, "/org/freedesktop/NetworkManager/Devices/459").expect("a detail card");
+        assert_eq!(card.lines[0].action, "connect");
+
+        state.wired[0].carrier = false;
+        let card =
+            details(&state, "/org/freedesktop/NetworkManager/Devices/459").expect("a detail card");
+        assert!(
+            !card.lines[0].activates,
+            "an unplugged cable has nothing to connect to"
+        );
     }
 
     #[test]

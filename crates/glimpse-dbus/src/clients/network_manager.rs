@@ -19,6 +19,7 @@ pub const P2P1: &str = "org.freedesktop.NetworkManager.Device.WifiP2P";
 pub const ACCESS_POINT1: &str = "org.freedesktop.NetworkManager.AccessPoint";
 pub const ACTIVE1: &str = "org.freedesktop.NetworkManager.Connection.Active";
 pub const VPN1: &str = "org.freedesktop.NetworkManager.VPN.Connection";
+pub const IP4CONFIG1: &str = "org.freedesktop.NetworkManager.IP4Config";
 pub const SETTINGS_CONNECTION1: &str = "org.freedesktop.NetworkManager.Settings.Connection";
 
 const SSID: usize = 64;
@@ -327,6 +328,12 @@ pub struct DeviceProperties {
     pub managed: Option<bool>,
     pub metered: Metered,
     pub active: Option<String>,
+    pub ip4: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Ip4ConfigProperties {
+    pub addresses: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -375,6 +382,7 @@ pub struct ActiveProperties {
     pub devices: Vec<String>,
     pub connection: Option<String>,
     pub specific_object: Option<String>,
+    pub ip4: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -466,6 +474,30 @@ pub fn decode_device(properties: &Properties) -> DeviceProperties {
         managed: flag(properties, "Managed"),
         metered: Metered::from_code(code(properties, "Metered")),
         active: path(properties, "ActiveConnection"),
+        ip4: path(properties, "Ip4Config"),
+    }
+}
+
+/// `AddressData` is `aa{sv}` of `address` and `prefix`. It is the documented shape; `Addresses`
+/// beside it is the deprecated packed-integer one and is byte-order dependent.
+pub fn decode_ip4_config(properties: &Properties) -> Ip4ConfigProperties {
+    let Some(value) = properties.get("AddressData") else {
+        return Ip4ConfigProperties::default();
+    };
+    let Ok(entries) = Vec::<HashMap<String, OwnedValue>>::try_from(value.clone()) else {
+        return Ip4ConfigProperties::default();
+    };
+    Ip4ConfigProperties {
+        addresses: entries
+            .iter()
+            .filter_map(|entry| {
+                let address = <&str>::try_from(entry.get("address")?).ok()?;
+                let prefix = entry
+                    .get("prefix")
+                    .and_then(|one| u32::try_from(one).ok())?;
+                optional_clean(format!("{address}/{prefix}"), INTERFACE)
+            })
+            .collect(),
     }
 }
 
@@ -514,6 +546,7 @@ pub fn decode_active(properties: &Properties) -> ActiveProperties {
         devices: paths(properties, "Devices"),
         connection: path(properties, "Connection"),
         specific_object: path(properties, "SpecificObject"),
+        ip4: path(properties, "Ip4Config"),
     }
 }
 
@@ -825,6 +858,24 @@ mod tests {
         assert_eq!(Band::from_frequency(5560), Band::Five);
         assert_eq!(Band::from_frequency(6155), Band::Six);
         assert_eq!(Band::from_frequency(0), Band::Unknown);
+    }
+
+    #[test]
+    fn an_address_comes_from_address_data_and_carries_its_prefix() {
+        let mut entry: HashMap<String, OwnedValue> = HashMap::new();
+        entry.insert("address".to_owned(), owned("192.168.50.27"));
+        entry.insert("prefix".to_owned(), owned(24u32));
+        let decoded = decode_ip4_config(&properties(vec![(
+            "AddressData",
+            owned(vec![entry].as_slice()),
+        )]));
+
+        assert_eq!(decoded.addresses, vec!["192.168.50.27/24".to_owned()]);
+    }
+
+    #[test]
+    fn a_config_with_no_address_data_decodes_to_nothing_rather_than_failing() {
+        assert!(decode_ip4_config(&properties(vec![])).addresses.is_empty());
     }
 
     #[test]

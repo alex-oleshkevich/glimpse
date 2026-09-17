@@ -28,6 +28,8 @@ pub(crate) type Objects = BTreeMap<String, Interfaces>;
 pub(crate) type Profiles = BTreeMap<String, nm::Profile>;
 
 const WATCHED: &[&str] = &[
+    "AddressData",
+    "Ip4Config",
     "ActiveAccessPoint",
     "ActiveConnection",
     "AccessPoints",
@@ -107,6 +109,7 @@ pub struct Access {
     pub security: nm::Security,
     pub active: bool,
     pub saved: Option<NetworkId>,
+    pub address: Option<String>,
     pub busy: Option<Busy>,
     pub failure: Option<Failure>,
 }
@@ -140,6 +143,7 @@ pub struct Wired {
     pub carrier: bool,
     pub speed: Option<u32>,
     pub active: bool,
+    pub address: Option<String>,
     pub busy: Option<Busy>,
 }
 
@@ -150,6 +154,7 @@ pub struct Vpn {
     pub kind: String,
     pub state: nm::VpnState,
     pub active: bool,
+    pub address: Option<String>,
     pub failure: Option<Failure>,
     pub busy: Option<Busy>,
 }
@@ -272,6 +277,10 @@ pub enum Command {
         id: NetworkId,
         reply: Reply,
     },
+    ConnectDevice {
+        id: NetworkId,
+        reply: Reply,
+    },
     Disconnect {
         id: NetworkId,
         reply: Reply,
@@ -363,6 +372,7 @@ pub struct Network {
     settings: std::collections::BTreeSet<String>,
     failures: BTreeMap<String, Failure>,
     vpn_states: BTreeMap<String, nm::VpnState>,
+    ip4: BTreeMap<String, nm::Ip4ConfigProperties>,
     scan: Option<u64>,
     scans: u64,
     deadline: Option<chrono::DateTime<chrono::Utc>>,
@@ -430,6 +440,11 @@ impl NetworkHandle {
 
     pub async fn connect_profile(&self, id: NetworkId) -> Result<(), NetworkError> {
         self.call(|reply| Command::ConnectProfile { id, reply })
+            .await
+    }
+
+    pub async fn connect_device(&self, id: NetworkId) -> Result<(), NetworkError> {
+        self.call(|reply| Command::ConnectDevice { id, reply })
             .await
     }
 
@@ -575,6 +590,7 @@ impl Service for Network {
             settings: std::collections::BTreeSet::new(),
             failures: BTreeMap::new(),
             vpn_states: BTreeMap::new(),
+            ip4: BTreeMap::new(),
             scan: None,
             scans: 0,
             deadline: None,
@@ -777,6 +793,7 @@ impl Network {
         self.settings.clear();
         self.failures.clear();
         self.vpn_states.clear();
+        self.ip4.clear();
     }
 
     fn reregister(&self, ctx: &Ctx<Self>) {
@@ -863,6 +880,10 @@ impl Network {
                     self.actives
                         .insert(path.to_owned(), nm::decode_active(properties));
                 }
+                nm::IP4CONFIG1 => {
+                    self.ip4
+                        .insert(path.to_owned(), nm::decode_ip4_config(properties));
+                }
                 nm::SETTINGS_CONNECTION1 => {
                     self.settings.insert(path.to_owned());
                 }
@@ -884,6 +905,9 @@ impl Network {
                     self.actives.remove(path);
                     self.reasons.remove(path);
                     self.vpn_states.remove(path);
+                }
+                nm::IP4CONFIG1 => {
+                    self.ip4.remove(path);
                 }
                 _ => {}
             }
@@ -932,6 +956,9 @@ impl Network {
                     if changed.contains_key("Managed") {
                         device.properties.managed = merged.managed;
                     }
+                    if changed.contains_key("Ip4Config") {
+                        device.properties.ip4 = merged.ip4;
+                    }
                     if changed.contains_key("Metered") {
                         device.properties.metered = merged.metered;
                     }
@@ -974,6 +1001,12 @@ impl Network {
                     }
                 }
             }
+            nm::IP4CONFIG1 => {
+                if changed.contains_key("AddressData") {
+                    self.ip4
+                        .insert(path.to_owned(), nm::decode_ip4_config(changed));
+                }
+            }
             nm::VPN1 => {
                 if let Some(state) = changed.get("VpnState").and_then(|v| u32::try_from(v).ok()) {
                     self.vpn_states
@@ -983,6 +1016,9 @@ impl Network {
             nm::ACTIVE1 => {
                 if let Some(active) = self.actives.get_mut(path) {
                     let merged = nm::decode_active(changed);
+                    if changed.contains_key("Ip4Config") {
+                        active.ip4 = merged.ip4;
+                    }
                     if changed.contains_key("State") {
                         active.state = merged.state;
                     }
@@ -1026,6 +1062,9 @@ impl Network {
             .wireless_device()
             .map(|(_, record)| record.wireless.access_points.clone())
             .unwrap_or_default();
+        let wireless_address = self
+            .wireless_device()
+            .and_then(|(path, _)| self.address_of(path));
 
         let networks = strongest(visible.iter().filter_map(|path| {
             let point = self.access_points.get(path)?;
@@ -1041,6 +1080,10 @@ impl Network {
                 security: point.security(),
                 active: active_point.as_deref() == Some(path.as_str()),
                 saved: self.profile_matching(point.ssid.as_deref(), Some(point)),
+                address: match active_point.as_deref() == Some(path.as_str()) {
+                    true => wireless_address.clone(),
+                    false => None,
+                },
                 busy: self.busy.get(path).copied(),
                 failure: point
                     .ssid
@@ -1065,6 +1108,7 @@ impl Network {
                 carrier: record.wired.carrier.unwrap_or(false),
                 speed: record.wired.speed,
                 active: record.properties.state == nm::DeviceState::Activated,
+                address: self.address_of(path),
                 busy: self.busy.get(path).copied(),
             })
             .collect();
@@ -1093,6 +1137,7 @@ impl Network {
                     active: state == nm::VpnState::Activated
                         || active
                             .is_some_and(|(_, active)| active.state == nm::ActiveState::Activated),
+                    address: self.address_at(active.and_then(|(_, active)| active.ip4.as_deref())),
                     failure: failure::from_vpn(state).err(),
                     busy: self.busy.get(path).copied(),
                 }
@@ -1142,6 +1187,14 @@ impl Network {
             .as_ref()
             .and_then(|path| self.access_points.get(path))
             .and_then(|point| point.ssid.clone())
+    }
+
+    fn address_at(&self, config: Option<&str>) -> Option<String> {
+        self.ip4.get(config?)?.addresses.first().cloned()
+    }
+
+    fn address_of(&self, device: &str) -> Option<String> {
+        self.address_at(self.devices.get(device)?.properties.ip4.as_deref())
     }
 
     fn active_ssid(&self, path: &str) -> Option<String> {
@@ -1327,6 +1380,22 @@ impl Network {
                     settle(
                         Action::Connect,
                         call::activate(&connection, &saved, &device, "/").await,
+                    )
+                });
+            }
+            Command::ConnectDevice { id, reply } => {
+                if !self.devices.contains_key(id.as_str()) {
+                    let _ = reply.send(Err(NetworkError::Failed(Failure::NotFound)));
+                    return;
+                }
+                let device = id.as_str().to_owned();
+                self.mark(id.as_str(), Busy::Connecting);
+                self.publish();
+                let key = id.as_str().to_owned();
+                self.dispatch(ctx, Some(key), reply, move |connection| async move {
+                    settle(
+                        Action::Connect,
+                        call::activate_device(&connection, &device).await,
                     )
                 });
             }

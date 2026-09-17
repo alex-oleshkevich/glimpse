@@ -689,6 +689,11 @@
     margin-bottom: 0.1rem;
 }
 
+.prompt__security {
+    margin-top: 0.35rem;
+    margin-bottom: 0.5rem;
+}
+
 .prompt__device {
     font-size: var(--gl-text-title, 1.2rem);
     font-weight: 600;

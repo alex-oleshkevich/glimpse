@@ -30,6 +30,7 @@ fn access(ssid: &str, strength: u8, flags: u32, active: bool) -> Access {
         security: nm::Security::read(flags, 0, 392),
         active,
         saved: None,
+        address: None,
         busy: None,
         failure: None,
     }

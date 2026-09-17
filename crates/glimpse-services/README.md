@@ -278,7 +278,6 @@ dedup by SSID to the strongest whole one**, never merging fields, but **the conn
 **A state reason is cached, read at teardown and evicted with the connection**, because the useful
 one arrives before state 4 and a neutral one with it; **a failure is filed under the SSID** a beacon
 row reads, and **a reason `failure.rs` does not recognise is `Unknown`, never `Ok`**.
-
 **NetworkManager stores every secret and glimpse stores none.** A password typed before a join
 travels in the profile `AddAndActivateConnection2` creates, because NetworkManager drops the working
 connection the moment activation is requested. The agent answers the rest **in the shape each
@@ -290,10 +289,11 @@ refused**: NetworkManager then offers them to an agent that has a store.
 
 **A saved profile answers for a beacon only when its `key-mgmt` can join it**, then by a seen BSSID,
 then `timestamp`, then lowest path: the wrong one fails without asking for a password. `owe` needs
-no secret and **802.1X is refused rather than written as a PSK profile**. **Commands go through the
-adapter carrying the connection**, and **an active connection answers for its devices** so a wired
-row disconnects. **A VPN reads its state under the active path**; **a radio write publishes once
-taken** and **busy is cleared by `Settled`**.
+no secret and **802.1X is refused rather than a PSK profile**. **Commands go through the adapter
+carrying the connection**, **an active connection answers for its devices** so a wired row
+disconnects, and **a wired row activates by device**, NetworkManager choosing the profile. **A VPN
+reads its state under the active path**, **an address comes from the device's `IP4Config`**, **a
+radio write publishes once taken** and **busy is cleared by `Settled`**.
 
 ## Rules
 

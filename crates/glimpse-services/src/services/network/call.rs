@@ -199,6 +199,16 @@ pub async fn set_autoconnect(
     proxy.update2(settings, 0, HashMap::new()).await.map(|_| ())
 }
 
+/// Bring a device up on whichever saved profile NetworkManager judges best, which is what a wired
+/// row needs: it is a device, not a profile, and one may not have been written for it yet.
+pub async fn activate_device(connection: &Connection, device: &str) -> zbus::Result<()> {
+    manager(connection)
+        .await?
+        .activate_connection(&path(ROOT)?, &path(device)?, &path(ROOT)?)
+        .await
+        .map(|_| ())
+}
+
 pub async fn activate_vpn(connection: &Connection, saved: &str) -> zbus::Result<()> {
     manager(connection)
         .await?

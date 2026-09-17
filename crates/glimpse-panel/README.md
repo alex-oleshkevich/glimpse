@@ -259,18 +259,18 @@ machine with no radio carries no dead chip.
   lights the bar.
 
 **network** — the chip is the connection's own icon and **nothing else**: no SSID and no percentage,
-both of which belong to the tooltip. No managed device renders nothing at all, so a radioless
-machine carries no dead chip.
+both of which belong to the tooltip. No managed device renders nothing.
 
-- **A VPN is a second chip, never an overlay.** Two overlays do not compose. **Metered is marked on
-  the connected row**; the tooltip naming it is configuration and the chip never carries it.
-- **The password is asked for before the join, on a page of the popover.** NetworkManager drops the
-  working connection the moment activation is requested, so it is asked first and the answer travels
-  with the profile. **A request NetworkManager raises survives the popover being shut**; one the
-  user began does not. `App`'s dialog serves a panel with no applet.
+- **A VPN is a second chip, never an overlay**, since two overlays do not compose. **Metered is
+  marked on the connected row**; the tooltip naming it is configuration and the chip never has it.
+- **The password is asked for before the join, on a page of the popover**, because NetworkManager
+  drops the working connection the moment activation is requested. **A request NetworkManager raises
+  survives the popover being shut**; one the user began does not.
 - **Strength is banded at render from the raw value**, which the tooltip prints exactly, and **the
-  connected network is placed first whatever its strength** — the one in use is often not the
-  strongest in range. A failed command is a notification, never a banner, and nothing takes a color.
+  connected network is placed first whatever its strength**. A failed command is a notification.
+- **A wired row is a device, not a profile**, so it routes to `connect_device`; sent to
+  `connect_access_point` it is silently not found. Its card names speed and address, and **an
+  unplugged cable activates nothing**.
 
 ## Losing the session bus kills the process, and nothing here can change that
 

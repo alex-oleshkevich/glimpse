@@ -75,11 +75,15 @@ enum Route {
     AccessPoint,
     Profile,
     Vpn,
+    Wired,
 }
 
 fn route(state: &NetworkState, id: &NetworkId) -> Route {
     if state.vpn.iter().any(|one| &one.id == id) {
         return Route::Vpn;
+    }
+    if state.wired.iter().any(|one| &one.id == id) {
+        return Route::Wired;
     }
     match state.known.iter().any(|one| &one.id == id) {
         true => Route::Profile,
@@ -410,6 +414,12 @@ impl Applet for Network {
                         gettext("Could not connect"),
                         async move { network.connect_profile(id).await },
                     ),
+                    Route::Wired => tell(
+                        &notifications,
+                        "network.connect_device",
+                        gettext("Could not connect"),
+                        async move { network.connect_device(id).await },
+                    ),
                     Route::AccessPoint => tell(
                         &notifications,
                         "network.connect_access_point",
@@ -625,6 +635,28 @@ mod tests {
     use glimpse_services::Radio;
 
     #[test]
+    fn a_wired_row_routes_to_its_device_and_never_to_an_access_point() {
+        let mut state = NetworkState::default();
+        let wired = NetworkId::new("/org/freedesktop/NetworkManager/Devices/459");
+        state.wired = vec![glimpse_services::Wired {
+            id: wired.clone(),
+            name: "enp104s0f4u1i1".to_owned(),
+            carrier: true,
+            speed: Some(425),
+            active: false,
+            address: None,
+            busy: None,
+        }];
+
+        assert_eq!(
+            route(&state, &wired),
+            Route::Wired,
+            "a wired row carries a device path, which connect_access_point cannot find"
+        );
+        assert_eq!(route(&state, &NetworkId::new("/ap/1")), Route::AccessPoint);
+    }
+
+    #[test]
     fn only_the_question_networkmanager_is_waiting_on_survives_the_popover_closing() {
         assert!(survives_reopen(Some(&Asking::Agent(SecretRequest {
             name: "Skylink".to_owned(),
@@ -691,6 +723,7 @@ mod tests {
                 security: nm::Security::Wpa2,
                 active: true,
                 saved: None,
+                address: None,
                 busy: None,
                 failure: None,
             }];
@@ -722,6 +755,7 @@ mod tests {
             name: "Mullvad".to_owned(),
             kind: "wireguard".to_owned(),
             state: nm::VpnState::Disconnected,
+            address: None,
             active: false,
             failure: None,
             busy: None,
@@ -794,6 +828,7 @@ mod tests {
             name: "Mullvad".to_owned(),
             kind: "wireguard".to_owned(),
             state: nm::VpnState::Activated,
+            address: None,
             active: true,
             failure: None,
             busy: None,
